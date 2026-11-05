@@ -161,15 +161,52 @@ fn validate_context_bundle(bundle: &Value) -> Result<(), String> {
             }
         }
         for (fact_id, fact) in &fact_map {
-            let subject = string(fact, "subject_party_ref")?;
-            let subject_role = string(fact, "subject_role")?;
-            let roles = party_roles
-                .get(subject)
-                .ok_or_else(|| format!("{context_id}: fact {fact_id} has unknown subject {subject}"))?;
-            if !roles.contains(subject_role) {
+            let subject_kind = string(fact, "subject_kind")?;
+            let subject_ref = string(fact, "subject_ref")?;
+            if subject_kind == "party" {
+                let subject_role = string(fact, "subject_party_role")?;
+                let roles = party_roles.get(subject_ref).ok_or_else(|| {
+                    format!("{context_id}: fact {fact_id} has unknown party subject {subject_ref}")
+                })?;
+                if !roles.contains(subject_role) {
+                    return Err(format!(
+                        "{context_id}: fact {fact_id} subject role {subject_role} is not bound to {subject_ref}"
+                    ));
+                }
+            } else if fact.get("subject_party_role").is_some() {
                 return Err(format!(
-                    "{context_id}: fact {fact_id} subject role {subject_role} is not bound to {subject}"
+                    "{context_id}: non-party fact {fact_id} must not declare subject_party_role"
                 ));
+            }
+
+            if subject_kind == "transaction"
+                && subject_ref != string(context, "transaction_ref")?
+            {
+                return Err(format!(
+                    "{context_id}: transaction fact {fact_id} references a different transaction"
+                ));
+            }
+
+            let jurisdiction_role = string(fact, "jurisdiction_role")?;
+            if jurisdiction_role == "place_of_supply" && subject_kind != "transaction" {
+                return Err(format!(
+                    "{context_id}: place_of_supply fact {fact_id} must be transaction-scoped"
+                ));
+            }
+
+            if let Some(bindings) = fact.get("party_role_bindings").and_then(Value::as_array) {
+                for binding in bindings {
+                    let party_ref = string(binding, "party_ref")?;
+                    let transaction_role = string(binding, "transaction_role")?;
+                    let roles = party_roles.get(party_ref).ok_or_else(|| {
+                        format!("{context_id}: fact {fact_id} binds unknown party {party_ref}")
+                    })?;
+                    if !roles.contains(transaction_role) {
+                        return Err(format!(
+                            "{context_id}: fact {fact_id} binds {party_ref} to undeclared transaction role {transaction_role}"
+                        ));
+                    }
+                }
             }
 
             if let Some(scope_ref) = fact.get("scope_ref").and_then(Value::as_str) {
@@ -339,6 +376,33 @@ mod tests {
         assert_eq!(fact(b, "establishment_location")["scope_ref"], json!("SYN-SCOPE-B"));
         assert_eq!(fact(a, "ship_from")["scope_ref"], json!("SYN-SCOPE-B"));
         assert_eq!(fact(b, "ship_from")["scope_ref"], json!("SYN-SCOPE-A"));
+    }
+
+    #[test]
+    fn place_of_supply_is_a_transaction_subject_not_a_party_attribute() {
+        let (_, candidates, _, _) = fixtures();
+        let ctx = context(&candidates, "CTX-ROLE-A");
+        let place = fact(ctx, "place_of_supply");
+        assert_eq!(place["subject_kind"], "transaction");
+        assert_eq!(place["subject_ref"], ctx["transaction_ref"]);
+        assert!(place.get("subject_party_role").is_none());
+    }
+
+    #[test]
+    fn multiple_establishments_remain_distinct_subjects_of_the_same_party() {
+        let (_, candidates, _, _) = fixtures();
+        let ctx = context(&candidates, "CTX-ROLE-A");
+        let establishments = array(ctx, "jurisdiction_facts")
+            .unwrap()
+            .iter()
+            .filter(|item| item["jurisdiction_role"] == "establishment_location")
+            .collect::<Vec<_>>();
+        assert_eq!(establishments.len(), 2);
+        assert_ne!(establishments[0]["subject_ref"], establishments[1]["subject_ref"]);
+        assert!(establishments.iter().all(|item| {
+            item["subject_kind"] == "establishment"
+                && item["party_role_bindings"][0]["party_ref"] == "SYN-PARTY-SELLER"
+        }));
     }
 
     #[test]
