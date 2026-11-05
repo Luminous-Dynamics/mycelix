@@ -232,7 +232,7 @@ pub async fn get_scientific_claim_as_known_at(
             Some(received_at) => json!({
                 "event_id": event.envelope.event_id,
                 "sequence": event.envelope.sequence,
-                "status": receipt_statuses[included_count],
+                "status": receipt_statuses[included_count].as_str(),
                 "reason": "authority receipt is later than the requested known_at cutoff",
                 "received_at": received_at,
             }),
