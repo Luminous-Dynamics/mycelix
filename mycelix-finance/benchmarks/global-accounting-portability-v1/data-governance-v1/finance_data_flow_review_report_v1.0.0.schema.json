@@ -1,0 +1,97 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/finance-data-flow-review-report-v1.0.0.json",
+  "title": "Mycelix Finance Data-Flow Review Report v1.0.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "report_id",
+    "schema_version",
+    "evaluator_id",
+    "claim_ceiling",
+    "source_bundle_sha256",
+    "results"
+  ],
+  "properties": {
+    "report_id": {
+      "const": "MYCELIX-FINANCE-DATA-FLOW-REVIEW-REPORT-V1"
+    },
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "evaluator_id": {
+      "const": "MYCELIX-FINANCE-DATA-FLOW-REVIEW-V1"
+    },
+    "claim_ceiling": {
+      "const": "synthetic_review_triage_only_not_transfer_authorization_or_compliance"
+    },
+    "source_bundle_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "results": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "context_id",
+          "review_disposition",
+          "primary_reason_code",
+          "triggered_reason_codes"
+        ],
+        "properties": {
+          "context_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "review_disposition": {
+            "enum": [
+              "needs_review",
+              "indeterminate",
+              "no_trigger_detected"
+            ]
+          },
+          "primary_reason_code": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "foreign_support_access_without_transfer_qualification",
+              "foreign_processor_transfer_unqualified",
+              "onward_transfer_destination_unqualified",
+              "onward_transfer_mechanism_scope_incomplete",
+              "uk_regime_profile_not_qualified",
+              "accounting_profile_cannot_authorise_data_transfer",
+              "legal_hold_blocks_deletion",
+              "secondary_purpose_unreviewed",
+              "support_access_location_unknown",
+              "actor_role_or_authority_conflict",
+              null
+            ]
+          },
+          "triggered_reason_codes": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "enum": [
+                "foreign_support_access_without_transfer_qualification",
+                "foreign_processor_transfer_unqualified",
+                "onward_transfer_destination_unqualified",
+                "onward_transfer_mechanism_scope_incomplete",
+                "uk_regime_profile_not_qualified",
+                "accounting_profile_cannot_authorise_data_transfer",
+                "legal_hold_blocks_deletion",
+                "secondary_purpose_unreviewed",
+                "support_access_location_unknown",
+                "actor_role_or_authority_conflict"
+              ]
+            }
+          }
+        }
+      }
+    }
+  }
+}
