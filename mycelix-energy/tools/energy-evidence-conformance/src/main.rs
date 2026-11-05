@@ -1,4 +1,4 @@
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 use std::env;
 use std::error::Error;
@@ -84,7 +84,20 @@ fn utc_timestamp_key(value: &str) -> Option<(i64, u32)> {
     }
 
     let leap = year % 4 == 0 && (year % 100 != 0 || year % 400 == 0);
-    let month_days = [31, if leap { 29 } else { 28 }, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+    let month_days = [
+        31,
+        if leap { 29 } else { 28 },
+        31,
+        30,
+        31,
+        30,
+        31,
+        31,
+        30,
+        31,
+        30,
+        31,
+    ];
     let max_day = *month_days.get((month - 1) as usize)?;
     if day < 1 || day > max_day {
         return None;
@@ -136,19 +149,32 @@ fn target_binding_matches(reference: &Value, context: &Value) -> bool {
 
 fn evaluate_reference(reference: &Value, context: &Value) -> (&'static str, &'static str) {
     if string_at(reference, "evidence_class") == Some("unassessed_legacy_locator") {
-        return ("unassessed_legacy_locator", "legacy locator has no canonical authority or receipt");
+        return (
+            "unassessed_legacy_locator",
+            "legacy locator has no canonical authority or receipt",
+        );
     }
 
     match string_at(reference, "lifecycle.state") {
-        Some("superseded") => return ("historical_only", "record is retained but no longer current"),
-        Some("retracted") | Some("expired") => return ("blocked", "record is retracted or expired"),
+        Some("superseded") => {
+            return (
+                "historical_only",
+                "record is retained but no longer current",
+            );
+        }
+        Some("retracted") | Some("expired") => {
+            return ("blocked", "record is retracted or expired");
+        }
         Some("disputed") => return ("indeterminate", "record is disputed"),
         Some("current") => {}
         _ => return ("indeterminate", "lifecycle state is missing or unsupported"),
     }
 
     if !target_binding_matches(reference, context) {
-        return ("blocked", "project, site, subject, boundary or point-of-connection mismatch");
+        return (
+            "blocked",
+            "project, site, subject, boundary or point-of-connection mismatch",
+        );
     }
 
     let proposition_id = match string_at(reference, "claim_binding.proposition_id") {
@@ -166,47 +192,103 @@ fn evaluate_reference(reference: &Value, context: &Value) -> (&'static str, &'st
     .and_then(Value::as_array)
     {
         Some(roles) => roles,
-        None => return ("indeterminate", "no jurisdiction/claim authority profile is available"),
+        None => {
+            return (
+                "indeterminate",
+                "no jurisdiction/claim authority profile is available",
+            );
+        }
     };
-    if !required_roles.iter().any(|role| role.as_str() == Some(issuer_role)) {
-        return ("blocked", "issuer role is not authorized for this proposition type");
+    if !required_roles
+        .iter()
+        .any(|role| role.as_str() == Some(issuer_role))
+    {
+        return (
+            "blocked",
+            "issuer role is not authorized for this proposition type",
+        );
     }
 
-    let receipt_time = match string_at(reference, "canonical_desci_reference.append_receipt.received_at") {
+    let receipt_time = match string_at(
+        reference,
+        "canonical_desci_reference.append_receipt.received_at",
+    ) {
         Some(value) => value,
-        None => return ("indeterminate", "canonical append receipt time is unavailable"),
+        None => {
+            return (
+                "indeterminate",
+                "canonical append receipt time is unavailable",
+            );
+        }
     };
     let frontier = match string_at(context, "historical_decision_frontier") {
         Some(value) => value,
-        None => return ("indeterminate", "historical decision frontier is unavailable"),
+        None => {
+            return (
+                "indeterminate",
+                "historical decision frontier is unavailable",
+            );
+        }
     };
     match compare_utc(receipt_time, frontier) {
         Some(std::cmp::Ordering::Greater) => {
-            return ("blocked_for_historical_frontier", "canonical server receipt is after the decision frontier");
+            return (
+                "blocked_for_historical_frontier",
+                "canonical server receipt is after the decision frontier",
+            );
         }
         Some(_) => {}
-        None => return ("indeterminate", "UTC receipt/frontier timestamp cannot be compared"),
+        None => {
+            return (
+                "indeterminate",
+                "UTC receipt/frontier timestamp cannot be compared",
+            );
+        }
     }
     if string_at(reference, "temporal_scope.known_at") != Some(receipt_time) {
-        return ("blocked", "known_at is not anchored to canonical server receipt time");
+        return (
+            "blocked",
+            "known_at is not anchored to canonical server receipt time",
+        );
     }
 
-    if string_at(reference, "canonical_desci_reference.evidence_attached_event_id")
-        != string_at(reference, "canonical_desci_reference.append_receipt.event_id")
-        || string_at(reference, "canonical_desci_reference.stream_id")
-            != string_at(reference, "canonical_desci_reference.append_receipt.stream_id")
+    if string_at(
+        reference,
+        "canonical_desci_reference.evidence_attached_event_id",
+    ) != string_at(
+        reference,
+        "canonical_desci_reference.append_receipt.event_id",
+    ) || string_at(reference, "canonical_desci_reference.stream_id")
+        != string_at(
+            reference,
+            "canonical_desci_reference.append_receipt.stream_id",
+        )
         || integer_at(reference, "canonical_desci_reference.stream_sequence")
-            != integer_at(reference, "canonical_desci_reference.append_receipt.sequence")
-        || string_at(reference, "canonical_desci_reference.evidence_attached_event_hash")
-            != string_at(reference, "canonical_desci_reference.append_receipt.event_hash")
+            != integer_at(
+                reference,
+                "canonical_desci_reference.append_receipt.sequence",
+            )
+        || string_at(
+            reference,
+            "canonical_desci_reference.evidence_attached_event_hash",
+        ) != string_at(
+            reference,
+            "canonical_desci_reference.append_receipt.event_hash",
+        )
     {
-        return ("blocked", "canonical event and append receipt identities disagree");
+        return (
+            "blocked",
+            "canonical event and append receipt identities disagree",
+        );
     }
 
     if string_at(reference, "canonical_desci_reference.artifact_content_hash")
         != string_at(reference, "provenance.artifact_bytes_hash")
     {
-        return ("blocked", "artifact content digest and provenance digest disagree");
+        return (
+            "blocked",
+            "artifact content digest and provenance digest disagree",
+        );
     }
 
     if string_at(reference, "verification_receipt.result") != Some("verified")
@@ -215,7 +297,10 @@ fn evaluate_reference(reference: &Value, context: &Value) -> (&'static str, &'st
         || string_at(reference, "verification_receipt.scope_status") != Some("matches")
         || string_at(reference, "verification_receipt.temporal_status") != Some("valid")
     {
-        return ("blocked", "verification receipt does not satisfy required signature/authority/scope/time checks");
+        return (
+            "blocked",
+            "verification receipt does not satisfy required signature/authority/scope/time checks",
+        );
     }
 
     if string_at(reference, "access_policy.access_decision") != Some("permitted") {
@@ -223,7 +308,12 @@ fn evaluate_reference(reference: &Value, context: &Value) -> (&'static str, &'st
     }
     match string_at(reference, "access_policy.availability") {
         Some("public") | Some("controlled") | Some("embargoed") => {}
-        _ => return ("indeterminate", "artifact availability is unknown or unavailable"),
+        _ => {
+            return (
+                "indeterminate",
+                "artifact availability is unknown or unavailable",
+            );
+        }
     }
 
     (
@@ -263,12 +353,18 @@ fn run() -> Result<(), Box<dyn Error>> {
 
     let (base_disposition, base_reason) = evaluate_reference(canonical, context);
     if base_disposition != "eligible_for_policy_evaluation" {
-        return Err(format!("canonical example did not qualify: {base_disposition}: {base_reason}").into());
+        return Err(format!(
+            "canonical example did not qualify: {base_disposition}: {base_reason}"
+        )
+        .into());
     }
 
     let (legacy_disposition, legacy_reason) = evaluate_reference(legacy, context);
     if legacy_disposition != "unassessed_legacy_locator" {
-        return Err(format!("legacy example disposition incorrect: {legacy_disposition}: {legacy_reason}").into());
+        return Err(format!(
+            "legacy example disposition incorrect: {legacy_disposition}: {legacy_reason}"
+        )
+        .into());
     }
 
     let mutations = fixtures
@@ -299,8 +395,7 @@ fn run() -> Result<(), Box<dyn Error>> {
             .ok_or_else(|| format!("mutation expected disposition missing: {case_id}"))?;
 
         let mut mutated = canonical.clone();
-        set_path(&mut mutated, path, replacement)
-            .map_err(|error| format!("{case_id}: {error}"))?;
+        set_path(&mut mutated, path, replacement).map_err(|error| format!("{case_id}: {error}"))?;
         let (actual, reason) = evaluate_reference(&mutated, context);
         let passed = actual == expected;
         results.push(json!({
@@ -319,7 +414,11 @@ fn run() -> Result<(), Box<dyn Error>> {
     }
 
     if seen.len() != 6 {
-        return Err(format!("expected exactly 6 declared mutations, found {}", seen.len()).into());
+        return Err(format!(
+            "expected exactly 6 declared mutations, found {}",
+            seen.len()
+        )
+        .into());
     }
 
     let output = json!({
@@ -411,12 +510,7 @@ mod tests {
             let expected = mutation["expected_disposition"]
                 .as_str()
                 .expect("expected disposition");
-            assert_eq!(
-                actual,
-                expected,
-                "mutation case {}",
-                mutation["case_id"]
-            );
+            assert_eq!(actual, expected, "mutation case {}", mutation["case_id"]);
         }
     }
 
