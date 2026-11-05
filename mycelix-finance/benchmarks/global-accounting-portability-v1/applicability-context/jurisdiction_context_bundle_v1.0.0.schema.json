@@ -356,7 +356,8 @@
           "type": "array",
           "items": {
             "$ref": "#/$defs/partyRoleBinding"
-          }
+          },
+          "uniqueItems": true
         }
       },
       "allOf": [
