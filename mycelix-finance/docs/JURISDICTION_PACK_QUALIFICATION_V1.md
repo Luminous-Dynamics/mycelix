@@ -128,4 +128,6 @@ No duplicate currency registry, ledger, rule engine, invoice validator, taxonomy
 
 ## 10. Claim ceiling
 
+Schema hardening: a qualified pack is invalid unless every source record is archived with a non-null SHA-256, positive byte length, acquisition time, content type and archive reference; all profile candidates are qualified; at least one interpretation is approved for declared scope; at least one test is run_qualified and reviewed; and at least one pack-level approval is recorded. Synthetic packs are schema-prohibited from using the qualified maturity state.
+
 Passing synthetic dossier tests establishes only source metadata, schema and lifecycle behavior. It does not prove a legal proposition, tax treatment, accounting-framework adoption, regulator filing acceptance, e-invoice compliance, audit readiness or correctness in any real country. Real packs require primary-source byte archives, local professional review and exact-scope test evidence.
