@@ -84,7 +84,7 @@
           "type": "string"
         },
         "sha256": {
-          "$ref": "#/$defs/minor"
+          "$ref": "#/$defs/sha256"
         },
         "locator": {
           "type": "string"
@@ -164,7 +164,8 @@
         "questions",
         "source_bindings",
         "journal_entries",
-        "unresolved"
+        "unresolved",
+        "statement_reconstruction"
       ],
       "properties": {
         "task_id": {
@@ -200,6 +201,61 @@
           "type": "array",
           "items": {
             "type": "string"
+          }
+        },
+        "statement_reconstruction": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/statement"
+          }
+        }
+      }
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "statementLine": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "line_id",
+        "amount_minor"
+      ],
+      "properties": {
+        "line_id": {
+          "type": "string"
+        },
+        "amount_minor": {
+          "$ref": "#/$defs/minor"
+        }
+      }
+    },
+    "statement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "entity_id",
+        "period",
+        "currency",
+        "lines"
+      ],
+      "properties": {
+        "entity_id": {
+          "type": "string"
+        },
+        "period": {
+          "type": "string",
+          "format": "date"
+        },
+        "currency": {
+          "type": "string"
+        },
+        "lines": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/statementLine"
           }
         }
       }
