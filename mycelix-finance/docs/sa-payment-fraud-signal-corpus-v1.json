@@ -2237,7 +2237,7 @@
         "subject_binding_receipt_ref": "SYN-SUBJECT-BINDING-018"
       },
       "expected_admission": "reject",
-      "expected_reason_code": "official_status_missing_authority_evidence",
+      "expected_reason_code": "assertion_status_not_permitted_by_profile",
       "expected_action_class": "none"
     },
     {
