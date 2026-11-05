@@ -314,9 +314,13 @@ fn assess_case(case: &Value) -> AppResult<Assessment> {
     ];
     let mut states = results.iter().map(|(state, _)| state.clone()).collect::<Vec<_>>();
     states.sort();
-    let state = precedence.iter().find(|candidate| states.iter().any(|state| state.as_str() == *candidate))
-        .copied()
-        .unwrap_or("addressed_with_qualified_evidence");
+    let mut state = "addressed_with_qualified_evidence";
+    for candidate in precedence {
+        if states.iter().any(|found| found.as_str() == candidate) {
+            state = candidate;
+            break;
+        }
+    }
     let mut all_reasons = BTreeSet::new();
     for (_, reasons) in results { all_reasons.extend(reasons); }
     Ok(Assessment { state: state.to_owned(), reasons: all_reasons })
