@@ -657,7 +657,7 @@ mod tests {
         assert!(errors.is_empty(), "{errors:?}");
         assert_eq!(array_at(&corpus, "source_register").unwrap().len(), 8);
         assert_eq!(array_at(&corpus, "profiles").unwrap().len(), 6);
-        assert_eq!(array_at(&corpus, "scenarios").unwrap().len(), 32);
+        assert_eq!(array_at(&corpus, "scenarios").unwrap().len(), 34);
     }
 
     #[test]
