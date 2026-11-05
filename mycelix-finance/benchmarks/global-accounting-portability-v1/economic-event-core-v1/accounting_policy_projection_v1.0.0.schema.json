@@ -1,0 +1,371 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/mycelix-accounting-policy-projection-v1.0.0.json",
+  "title": "Mycelix Accounting Policy Projection Contract v1.0.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "projection_id",
+    "schema_version",
+    "claim_ceiling",
+    "graph_binding",
+    "policy_binding",
+    "projector_binding",
+    "entity_ref",
+    "period",
+    "functional_currency",
+    "presentation_currency",
+    "projection_state",
+    "event_decisions",
+    "journal_entries",
+    "unresolved_items"
+  ],
+  "properties": {
+    "projection_id": {
+      "type": "string",
+      "pattern": "^[A-Z0-9-]{3,120}$"
+    },
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "claim_ceiling": {
+      "const": "policy_specific_projection_output_requires_independent_review_not_universal_accounting_truth"
+    },
+    "graph_binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "graph_case_id",
+        "graph_sha256"
+      ],
+      "properties": {
+        "graph_case_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "graph_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      }
+    },
+    "policy_binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "policy_profile_ref",
+        "policy_version",
+        "policy_sha256",
+        "framework_id"
+      ],
+      "properties": {
+        "policy_profile_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "policy_version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "policy_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "framework_id": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "projector_binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "projector_id",
+        "projector_version",
+        "projector_sha256",
+        "run_receipt_ref"
+      ],
+      "properties": {
+        "projector_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "projector_version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "projector_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "run_receipt_ref": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "entity_ref": {
+      "type": "string",
+      "minLength": 1
+    },
+    "period": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "start",
+        "end"
+      ],
+      "properties": {
+        "start": {
+          "type": "string",
+          "format": "date"
+        },
+        "end": {
+          "type": "string",
+          "format": "date"
+        }
+      }
+    },
+    "functional_currency": {
+      "type": "string",
+      "pattern": "^[A-Z]{3}$"
+    },
+    "presentation_currency": {
+      "type": "string",
+      "pattern": "^[A-Z]{3}$"
+    },
+    "projection_state": {
+      "enum": [
+        "complete_for_review",
+        "needs_review",
+        "indeterminate",
+        "not_projected"
+      ]
+    },
+    "event_decisions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "policy_decision_ref",
+          "event_ref",
+          "decision_state",
+          "treatment_rule_ref",
+          "recognized_amount_minor",
+          "currency",
+          "period_ref",
+          "source_assertion_refs",
+          "assumption_refs"
+        ],
+        "properties": {
+          "policy_decision_ref": {
+            "type": "string",
+            "minLength": 1
+          },
+          "event_ref": {
+            "type": "string",
+            "minLength": 1
+          },
+          "decision_state": {
+            "enum": [
+              "recognized",
+              "not_recognized",
+              "deferred",
+              "excluded",
+              "needs_review",
+              "indeterminate"
+            ]
+          },
+          "treatment_rule_ref": {
+            "type": "string",
+            "minLength": 1
+          },
+          "recognized_amount_minor": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "currency": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[A-Z]{3}$"
+          },
+          "period_ref": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^20[0-9]{2}-(0[1-9]|1[0-2])$"
+          },
+          "source_assertion_refs": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "string"
+            }
+          },
+          "assumption_refs": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "journal_entries": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "journal_entry_ref",
+          "entry_kind",
+          "lines"
+        ],
+        "properties": {
+          "journal_entry_ref": {
+            "type": "string",
+            "minLength": 1
+          },
+          "entry_kind": {
+            "enum": [
+              "recognition",
+              "measurement",
+              "settlement",
+              "reversal",
+              "reclassification",
+              "other"
+            ]
+          },
+          "lines": {
+            "type": "array",
+            "minItems": 2,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "line_ref",
+                "account_ref",
+                "side",
+                "amount_minor",
+                "currency",
+                "entity_ref",
+                "period_ref",
+                "event_refs",
+                "source_assertion_refs",
+                "policy_decision_ref"
+              ],
+              "properties": {
+                "line_ref": {
+                  "type": "string",
+                  "pattern": "^[A-Z0-9-]{3,120}$"
+                },
+                "account_ref": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "side": {
+                  "enum": [
+                    "debit",
+                    "credit"
+                  ]
+                },
+                "amount_minor": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "currency": {
+                  "type": "string",
+                  "pattern": "^[A-Z]{3}$"
+                },
+                "entity_ref": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "period_ref": {
+                  "type": "string",
+                  "pattern": "^20[0-9]{2}-(0[1-9]|1[0-2])$"
+                },
+                "event_refs": {
+                  "type": "array",
+                  "minItems": 1,
+                  "uniqueItems": true,
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "source_assertion_refs": {
+                  "type": "array",
+                  "minItems": 1,
+                  "uniqueItems": true,
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "policy_decision_ref": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "unresolved_items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "item_ref",
+          "reason_code",
+          "description",
+          "event_refs",
+          "source_assertion_refs",
+          "blocking"
+        ],
+        "properties": {
+          "item_ref": {
+            "type": "string",
+            "minLength": 1
+          },
+          "reason_code": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": {
+            "type": "string",
+            "minLength": 5
+          },
+          "event_refs": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "string"
+            }
+          },
+          "source_assertion_refs": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "string"
+            }
+          },
+          "blocking": {
+            "type": "boolean"
+          }
+        }
+      }
+    }
+  }
+}
