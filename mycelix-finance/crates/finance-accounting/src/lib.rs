@@ -1247,7 +1247,7 @@ mod tests {
     }
 
     #[test]
-    fn posting_permutation_preserves_identity_but_semantic_change_does_not() {
+    fn posting_permutation_preserves_identity_but_period_change_does_not() {
         let ledger = ledger_profile();
         let policy = policy(&ledger);
         let first = qualify_journal_entry(&ledger, &policy, draft("permutation", 100, None))
@@ -1258,11 +1258,11 @@ mod tests {
             qualify_journal_entry(&ledger, &policy, permuted_draft).expect("permuted journal");
         assert_eq!(first.journal_id(), permuted.journal_id());
         let mut changed = draft("permutation", 100, None);
-        changed.postings[0].semantic_role = reference("role:different-economic-meaning");
+        changed.reporting_period = reference("period:2026-12");
         assert_ne!(
             first.journal_id(),
             qualify_journal_entry(&ledger, &policy, changed)
-                .expect("balanced but semantically different journal")
+                .expect("same balanced projection in a different reporting period")
                 .journal_id()
         );
     }
@@ -1342,9 +1342,9 @@ mod tests {
         assert_eq!(book.entries().len(), 1);
 
         let mut conflicting = draft("idempotent", 100, None);
-        conflicting.postings[0].semantic_role = reference("role:altered");
+        conflicting.reporting_period = reference("period:2026-12");
         let conflicting = qualify_journal_entry(&ledger, &policy, conflicting)
-            .expect("balanced but conflicting projection");
+            .expect("same source projected under a different reporting period");
         assert_eq!(
             book.append(conflicting),
             Err(AccountingError::SourceProjectionConflict)
@@ -1583,10 +1583,31 @@ mod tests {
         let mut book = JournalBook::new(&ledger).expect("book");
         book.append(original).expect("append original");
 
+        // Build a second, ledger-compatible policy that maps the two semantic
+        // roles to the opposite accounts. The reversal is valid under that policy,
+        // but it cannot reverse the original entry's account/role identities.
+        let mut alternate_policy = policy.clone();
+        let cash_role = alternate_policy
+            .posting_rules
+            .get_mut(&reference("role:settlement-cash"))
+            .expect("cash role");
+        cash_role.account_id = reference("account:settlement-clearing");
+        cash_role.normal_side = PostingSide::Credit;
+        let clearing_role = alternate_policy
+            .posting_rules
+            .get_mut(&reference("role:settlement-clearing"))
+            .expect("clearing role");
+        clearing_role.account_id = reference("account:cash");
+        clearing_role.normal_side = PostingSide::Debit;
+
         let mut wrong_semantic = draft("wrong-semantic-reversal", 10, Some(original_id));
-        wrong_semantic.postings[0].semantic_role = reference("role:unrelated");
-        let wrong_semantic = qualify_journal_entry(&ledger, &policy, wrong_semantic)
-            .expect("balanced but semantically unrelated reversal");
+        wrong_semantic.postings[0] =
+            posting("account:settlement-clearing", PostingSide::Debit, 10);
+        wrong_semantic.postings[0].semantic_role = reference("role:settlement-cash");
+        wrong_semantic.postings[1] = posting("account:cash", PostingSide::Credit, 10);
+        wrong_semantic.postings[1].semantic_role = reference("role:settlement-clearing");
+        let wrong_semantic = qualify_journal_entry(&ledger, &alternate_policy, wrong_semantic)
+            .expect("valid under alternate policy but incompatible with original posting identities");
         assert_eq!(
             book.append(wrong_semantic),
             Err(AccountingError::ReversalPostingMismatch)
