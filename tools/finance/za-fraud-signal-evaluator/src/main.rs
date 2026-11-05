@@ -536,7 +536,7 @@ fn run_self_tests(corpus: &Value, schema: &Value) -> Result<usize, String> {
         corpus,
         schema,
         |value| {
-            value["scenarios"][18]["signal"]["recipient_uses"][0]["recipient_id"] = json!("BANK-C");
+            value["scenarios"][7]["signal"]["recipient_uses"][0]["recipient_id"] = json!("BANK-C");
         },
     )?;
     count += 1;
