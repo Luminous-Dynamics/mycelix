@@ -101,16 +101,25 @@ pub fn verify_value(input: &Value) -> Value {
     let subject_entity = subject["reporting_entity_ref"].as_str().unwrap_or_default();
     let subject_period = subject["reporting_period"].as_str().unwrap_or_default();
     let subject_procedure = subject["procedure_ref"].as_str().unwrap_or_default();
-    let subject_authority_frontier = subject["authority_frontier_digest"].as_str().unwrap_or_default();
+    let subject_authority_frontier = subject["authority_frontier_digest"]
+        .as_str()
+        .unwrap_or_default();
     let subject_pairs = sorted_strings(&subject["assertion_pair_ids"]);
 
-    for event in input["review_events"].as_array().cloned().unwrap_or_default() {
+    for event in input["review_events"]
+        .as_array()
+        .cloned()
+        .unwrap_or_default()
+    {
         let event_id = event["event_id"].as_str().unwrap_or_default().to_owned();
         if !seen_event_ids.insert(event_id.clone()) {
             blockers.insert(format!("duplicate_event_id:{event_id}"));
             continue;
         }
-        let principal = event["principal_ref"].as_str().unwrap_or_default().to_owned();
+        let principal = event["principal_ref"]
+            .as_str()
+            .unwrap_or_default()
+            .to_owned();
         let role = event["role"].as_str().unwrap_or_default().to_owned();
         let decision = event["decision"].as_str().unwrap_or_default();
 
@@ -154,7 +163,9 @@ pub fn verify_value(input: &Value) -> Value {
                 | ("approver", "approved_with_limitation")
         );
         if !compatible {
-            blockers.insert(format!("role_decision_mismatch:{role}:{decision}:{principal}"));
+            blockers.insert(format!(
+                "role_decision_mismatch:{role}:{decision}:{principal}"
+            ));
             continue;
         }
         if decision == "approved_with_limitation" {
@@ -164,20 +175,32 @@ pub fn verify_value(input: &Value) -> Value {
         accepted_events.insert(event_id);
     }
 
-    for constraint in policy["separation_constraints"].as_array().cloned().unwrap_or_default() {
+    for constraint in policy["separation_constraints"]
+        .as_array()
+        .cloned()
+        .unwrap_or_default()
+    {
         let left = constraint["left_role"].as_str().unwrap_or_default();
         let right = constraint["right_role"].as_str().unwrap_or_default();
         let left_principals = counts.get(left).cloned().unwrap_or_default();
         let right_principals = counts.get(right).cloned().unwrap_or_default();
         for principal in left_principals.intersection(&right_principals) {
-            blockers.insert(format!("role_separation_violation:{left}:{right}:{principal}"));
+            blockers.insert(format!(
+                "role_separation_violation:{left}:{right}:{principal}"
+            ));
         }
     }
 
     let mut missing_roles = Vec::<Value>::new();
-    for requirement in policy["required_role_counts"].as_array().cloned().unwrap_or_default() {
+    for requirement in policy["required_role_counts"]
+        .as_array()
+        .cloned()
+        .unwrap_or_default()
+    {
         let role = requirement["role"].as_str().unwrap_or_default();
-        let minimum = requirement["minimum_unique_principals"].as_u64().unwrap_or(1) as usize;
+        let minimum = requirement["minimum_unique_principals"]
+            .as_u64()
+            .unwrap_or(1) as usize;
         let actual = counts.get(role).map(BTreeSet::len).unwrap_or(0);
         if actual < minimum {
             missing_roles.push(json!({
@@ -494,7 +517,10 @@ mod tests {
         let mut record = base_record();
         let mut duplicate = record["review_events"][1].clone();
         duplicate["principal_ref"] = json!("principal:second-approver");
-        record["review_events"].as_array_mut().unwrap().push(duplicate);
+        record["review_events"]
+            .as_array_mut()
+            .unwrap()
+            .push(duplicate);
         assert_eq!(disposition(&record), "blocked_by_review_contract");
     }
 
@@ -543,5 +569,4 @@ mod tests {
             "structurally_ready_pending_external_authority"
         );
     }
-
 }
