@@ -254,6 +254,66 @@
           "terminal_state": "human_judgment_required"
         }
       ]
+    },
+    {
+      "case_id": "FAP-019",
+      "expected_terminal_state": "insufficient_evidence",
+      "reason_codes": [
+        "pair_1_addressed_pair_2_population_incomplete"
+      ],
+      "blocks_unqualified_signoff": true,
+      "expected_pair_states": [
+        {
+          "pair_id": "pair-1",
+          "terminal_state": "addressed_with_qualified_evidence"
+        },
+        {
+          "pair_id": "pair-2",
+          "terminal_state": "insufficient_evidence"
+        }
+      ]
+    },
+    {
+      "case_id": "FAP-020",
+      "expected_terminal_state": "insufficient_evidence",
+      "reason_codes": [
+        "performed_procedure_purpose_mismatch"
+      ],
+      "blocks_unqualified_signoff": true,
+      "expected_pair_states": [
+        {
+          "pair_id": "pair-1",
+          "terminal_state": "insufficient_evidence"
+        }
+      ]
+    },
+    {
+      "case_id": "FAP-021",
+      "expected_terminal_state": "insufficient_evidence",
+      "reason_codes": [
+        "evidence_reporting_entity_mismatch"
+      ],
+      "blocks_unqualified_signoff": true,
+      "expected_pair_states": [
+        {
+          "pair_id": "pair-1",
+          "terminal_state": "insufficient_evidence"
+        }
+      ]
+    },
+    {
+      "case_id": "FAP-022",
+      "expected_terminal_state": "exception_requires_resolution",
+      "reason_codes": [
+        "analytical_difference_above_threshold"
+      ],
+      "blocks_unqualified_signoff": true,
+      "expected_pair_states": [
+        {
+          "pair_id": "pair-1",
+          "terminal_state": "exception_requires_resolution"
+        }
+      ]
     }
   ]
 }
