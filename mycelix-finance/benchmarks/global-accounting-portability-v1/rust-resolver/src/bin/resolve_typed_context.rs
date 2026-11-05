@@ -460,6 +460,28 @@ fn evaluate_requirement(
     }
 
     let disposition;
+    if !unknown_scope.is_empty() && !eligible.is_empty() {
+        visible_review = true;
+        reasons.insert("competing_unknown_fact_present".to_owned());
+    }
+    if !eligible.is_empty() {
+        let eligible_ids = eligible.iter()
+            .map(|fact| string(fact, "fact_id").map(str::to_owned))
+            .collect::<Result<BTreeSet<_>, _>>()?;
+        for candidate in &same_subject_role {
+            let conflicts = candidate.get("conflicts_with_fact_refs")
+                .and_then(Value::as_array)
+                .is_some_and(|refs| refs.iter().any(|reference| {
+                    reference.as_str().is_some_and(|id| eligible_ids.contains(id))
+                }));
+            if conflicts {
+                visible_review = true;
+                reasons.insert("competing_conflicting_fact_present".to_owned());
+                candidate_ids.insert(string(candidate, "fact_id")?.to_owned());
+            }
+        }
+    }
+
     if eligible.len() > 1 {
         disposition = "needs_review";
         reasons.insert("multiple_exact_facts_ambiguous".to_owned());
@@ -542,10 +564,19 @@ fn resolve(
     let frontier_insufficient = knowledge_at > context_frontier;
     let valid_outside_period = valid_at < context_period_start || valid_at > context_period_end;
 
+    let requirements = array(request, "requirements")?;
+    let mut requirement_ids = BTreeSet::new();
+    for requirement in requirements {
+        let requirement_id = string(requirement, "requirement_id")?;
+        if !requirement_ids.insert(requirement_id.to_owned()) {
+            return Err(format!("duplicate requirement_id: {requirement_id}"));
+        }
+    }
+
     let mut results = Vec::new();
     let mut overall_reasons = BTreeSet::new();
     let mut counts = BTreeMap::<String, usize>::new();
-    for requirement in array(request, "requirements")? {
+    for requirement in requirements {
         let mut result = evaluate_requirement(context, requirement, valid_at, knowledge_at)?;
         if frontier_insufficient {
             result.disposition = "indeterminate".to_owned();
@@ -607,10 +638,10 @@ mod tests {
     fn fixtures() -> (Vec<u8>, Vec<u8>, Value, Value, Value, Value) {
         let context_bytes = include_bytes!("../../../applicability-context/fixtures/jurisdiction_context_candidates_v1.0.0.json").to_vec();
         let context_schema_bytes = include_bytes!("../../../applicability-context/jurisdiction_context_bundle_v1.0.0.schema.json").to_vec();
-        let request_schema: Value = serde_json::from_str(include_str!("../typed-context-v1/typed_context_request_v1.0.0.schema.json")).unwrap();
-        let report_schema: Value = serde_json::from_str(include_str!("../typed-context-v1/typed_context_report_v1.0.0.schema.json")).unwrap();
-        let request_bundle: Value = serde_json::from_str(include_str!("../typed-context-v1/fixtures/typed_context_requests_v1.0.0.json")).unwrap();
-        let oracle: Value = serde_json::from_str(include_str!("../typed-context-v1/fixtures/typed_context_oracle_v1.0.0.json")).unwrap();
+        let request_schema: Value = serde_json::from_str(include_str!("../../typed-context-v1/typed_context_request_v1.0.0.schema.json")).unwrap();
+        let report_schema: Value = serde_json::from_str(include_str!("../../typed-context-v1/typed_context_report_v1.0.0.schema.json")).unwrap();
+        let request_bundle: Value = serde_json::from_str(include_str!("../../typed-context-v1/fixtures/typed_context_requests_v1.0.0.json")).unwrap();
+        let oracle: Value = serde_json::from_str(include_str!("../../typed-context-v1/fixtures/typed_context_oracle_v1.0.0.json")).unwrap();
         (context_bytes, context_schema_bytes, request_schema, report_schema, request_bundle, oracle)
     }
 
@@ -795,6 +826,42 @@ mod tests {
         let first = resolve(&bundle, &bundle_bytes, &schema, &schema_bytes, request).unwrap();
         let second = resolve(&bundle, &bundle_bytes, &schema, &schema_bytes, request).unwrap();
         assert_eq!(serde_json::to_vec(&first).unwrap(), serde_json::to_vec(&second).unwrap());
+    }
+
+    #[test]
+    fn duplicate_requirement_ids_are_rejected() {
+        let (bundle_bytes, schema_bytes, _, _, requests, _) = fixtures();
+        let bundle: Value = serde_json::from_slice(&bundle_bytes).unwrap();
+        let schema: Value = serde_json::from_slice(&schema_bytes).unwrap();
+        let mut request = request_for(&requests, "TCTX-ROLE-A-COMPLETE").clone();
+        request["requirements"][1]["requirement_id"] =
+            request["requirements"][0]["requirement_id"].clone();
+        let error = resolve(&bundle, &bundle_bytes, &schema, &schema_bytes, &request).unwrap_err();
+        assert!(error.contains("duplicate requirement_id"));
+    }
+
+    #[test]
+    fn explicit_conflict_link_to_an_otherwise_matching_fact_requires_review() {
+        let (bundle_bytes, schema_bytes, _, _, requests, _) = fixtures();
+        let mut bundle: Value = serde_json::from_slice(&bundle_bytes).unwrap();
+        let context = bundle["contexts"].as_array_mut().unwrap()
+            .iter_mut().find(|context| context["context_id"] == "CTX-ROLE-A").unwrap();
+        let facts = context["jurisdiction_facts"].as_array_mut().unwrap();
+        let target = facts.iter_mut().find(|fact| fact["fact_id"] == "CTX-ROLE-A-SELLER-REGISTRATION").unwrap();
+        target["conflicts_with_fact_refs"] = json!(["CTX-ROLE-A-SELLER-REGISTRATION-CONFLICT"]);
+        let mut conflict = target.clone();
+        conflict["fact_id"] = json!("CTX-ROLE-A-SELLER-REGISTRATION-CONFLICT");
+        conflict["scope_ref"] = json!("SYN-SCOPE-B");
+        conflict["conflicts_with_fact_refs"] = json!(["CTX-ROLE-A-SELLER-REGISTRATION"]);
+        facts.push(conflict);
+
+        let changed_bytes = serde_json::to_vec(&bundle).unwrap();
+        let schema: Value = serde_json::from_slice(&schema_bytes).unwrap();
+        let mut request = request_for(&requests, "TCTX-ROLE-A-COMPLETE").clone();
+        request["context_bundle_sha256"] = json!(sha256_hex(&changed_bytes));
+        let report = resolve(&bundle, &changed_bytes, &schema, &schema_bytes, &request).unwrap();
+        assert_eq!(report["disposition"], "needs_review");
+        assert!(report["blocking_reasons"].to_string().contains("competing_conflicting_fact_present"));
     }
 
     #[test]
