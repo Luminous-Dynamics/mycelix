@@ -20,3 +20,5 @@ This crate does not perform production signature verification, identify real peo
 ## Claim ceiling
 
 A passing corpus shows that this exact evaluator rejects the seeded synthetic cases. It does not demonstrate fraud-detection accuracy, POPIA or FSR Act compliance, a live NPU service, SARB endorsement, a valid real-world data-sharing agreement or a safe adverse-action system.
+
+The current v1.1 hardening also enforces profile-specific issuer ID and assertion-status allowlists, canonical UTC event-time ordering, profile-bounded signal freshness, and an explicit appeal disposition/decision reference. It distinguishes freshness from retention: a signal may remain retained for audit after it is no longer usable for current review. The 42-case synthetic corpus includes positive and negative official-determination scope cases. These profile limits are test fixtures, not production thresholds or legal determinations.
