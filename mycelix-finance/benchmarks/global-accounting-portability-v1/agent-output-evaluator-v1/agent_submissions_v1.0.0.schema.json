@@ -358,7 +358,9 @@
             "future",
             "superseded",
             "missing",
-            "integrity_failed"
+            "integrity_failed",
+            "integrity_unverified",
+            "outside_period"
           ]
         },
         "terminal_state": {
