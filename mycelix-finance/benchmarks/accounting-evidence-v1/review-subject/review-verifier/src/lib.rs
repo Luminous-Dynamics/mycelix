@@ -647,9 +647,15 @@ mod tests {
     fn exact_replay_of_the_same_review_event_is_idempotent() {
         let mut record = base_record();
         let duplicate = record["review_events"][0].clone();
-        record["review_events"].as_array_mut().unwrap().push(duplicate);
+        record["review_events"]
+            .as_array_mut()
+            .unwrap()
+            .push(duplicate);
         let report = verify_value(&record);
-        assert_eq!(report["disposition"], "structurally_ready_pending_external_authority");
+        assert_eq!(
+            report["disposition"],
+            "structurally_ready_pending_external_authority"
+        );
         assert_eq!(report["accepted_event_ids"].as_array().unwrap().len(), 2);
     }
 
@@ -658,10 +664,17 @@ mod tests {
         let mut record = base_record();
         let mut conflicting = record["review_events"][0].clone();
         conflicting["principal_ref"] = json!("principal:substituted");
-        record["review_events"].as_array_mut().unwrap().push(conflicting);
+        record["review_events"]
+            .as_array_mut()
+            .unwrap()
+            .push(conflicting);
         let report = verify_value(&record);
         assert_eq!(report["disposition"], "blocked_by_review_contract");
-        assert!(report["blocking_reasons"].to_string().contains("conflicting_event_id_reuse"));
+        assert!(
+            report["blocking_reasons"]
+                .to_string()
+                .contains("conflicting_event_id_reuse")
+        );
     }
 
     #[test]
@@ -671,7 +684,10 @@ mod tests {
         record["review_events"][0]["agent_build_digest"] = json!("a".repeat(64));
         let report = verify_value(&record);
         assert_eq!(report["disposition"], "blocked_by_non_human_role");
-        assert_eq!(report["non_human_role_principal_refs"][0], "principal:reviewer");
+        assert_eq!(
+            report["non_human_role_principal_refs"][0],
+            "principal:reviewer"
+        );
         assert_eq!(report["human_review_sufficiency_verified"], false);
         assert_eq!(report["can_approve_close"], false);
     }
@@ -684,8 +700,14 @@ mod tests {
         record["review_policy"]["non_human_eligible_roles"] = json!(["reviewer"]);
         rebind_subject_and_policy(&mut record);
         let report = verify_value(&record);
-        assert_eq!(report["disposition"], "structurally_ready_pending_external_authority");
-        assert_eq!(report["non_human_role_principal_refs"][0], "principal:reviewer");
+        assert_eq!(
+            report["disposition"],
+            "structurally_ready_pending_external_authority"
+        );
+        assert_eq!(
+            report["non_human_role_principal_refs"][0],
+            "principal:reviewer"
+        );
         assert_eq!(report["external_authority_verified"], false);
     }
 }
