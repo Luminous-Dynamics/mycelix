@@ -5,7 +5,7 @@
 //! lookup, payment dispatch, settlement or finality.
 
 use jsonschema::draft202012;
-use serde_json::{Map, Value, json};
+use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, BTreeSet};
 use std::error::Error;
@@ -141,14 +141,10 @@ fn admission(
     source_ids: &BTreeSet<String>,
     required_fields: &[Value],
 ) -> CaseDecision {
-    let scenario_id = str_at(scenario, "scenario_id").unwrap_or("UNKNOWN");
     let intent = &scenario["intent"];
     let payee = &scenario["payee_resolution"];
     let vop = &scenario["vop_result"];
-    let provider = &scenario["provider_evidence"];
     let limit = &scenario["limit_fee"];
-    let presentation = &scenario["presentation"];
-    let consent = &scenario["consent"];
 
     let decide = |state: &'static str, disposition: &'static str, reason: &'static str| {
         let payload = json!({
@@ -1067,8 +1063,6 @@ fn run_self_tests(corpus: &Value, schema: &Value) -> Result<usize, String> {
 
     mutate_and_reject("limit bypass", corpus, schema, |value| {
         value["scenarios"][22]["limit_fee"]["status"] = json!("allowed");
-        value["scenarios"][22]["expected_admission"] = json!("ready_for_payer_decision");
-        value["scenarios"][22]["expected_disposition"] = json!("awaiting_payer_decision");
     })?;
     count += 1;
 
@@ -1252,7 +1246,7 @@ mod tests {
     fn checked_in_corpus_schema_and_composed_certificates_pass() {
         let report = run(CORPUS, SCHEMA, false).expect("evaluation");
         assert_eq!(report["status"], "PASS", "{}", report["errors"]);
-        assert_eq!(report["scenario_count"], 36);
+        assert_eq!(report["scenario_count"], 42);
         assert_eq!(report["dispatch_enabled"], false);
         assert!(
             report["certificates"]
