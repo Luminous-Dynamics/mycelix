@@ -491,7 +491,7 @@ fn run_self_tests(corpus: &Value, schema: &Value) -> Result<usize, String> {
     )?;
     count += 1;
     mutate_and_reject("raw personal data in envelope", corpus, schema, |value| {
-        value["scenarios"][10]["signal"]["raw_personal_data_present"] = json!(true);
+        value["scenarios"][7]["signal"]["raw_personal_data_present"] = json!(true);
     })?;
     count += 1;
     mutate_and_reject(
