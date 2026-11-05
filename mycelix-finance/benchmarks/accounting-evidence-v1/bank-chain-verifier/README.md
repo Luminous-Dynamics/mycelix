@@ -1,6 +1,6 @@
 # FIN-BANK-CHAIN standalone Rust verifier
 
-This isolated package validates the public synthetic statement-chain v1.0.3 input and oracle schemas, reconstructs exact booked-balance arithmetic, checks statement-chain identity/period continuity, detects conflicts and compares its dispositions with the published reference oracle.
+This isolated package validates the public synthetic statement-chain v1.0.4 input and oracle schemas, reconstructs exact booked-balance arithmetic, checks statement-chain identity/period continuity, detects conflicts and compares its dispositions with the published reference oracle.
 
 ## Run
 
