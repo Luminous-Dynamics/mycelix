@@ -1,0 +1,122 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mycelix.net/schemas/sa-payment-human-decision-response-v1.schema.json",
+  "title": "Synthetic Payment Decision Study Response Record",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "participant_token",
+    "consent_confirmed",
+    "arm",
+    "task_id",
+    "action",
+    "response_duration_ms",
+    "confidence",
+    "comprehension",
+    "pressure_rating",
+    "withdrawn"
+  ],
+  "properties": {
+    "participant_token": {
+      "type": "string",
+      "pattern": "^PSEUDO-[A-Z0-9]{16}$"
+    },
+    "consent_confirmed": {
+      "const": true
+    },
+    "arm": {
+      "enum": [
+        "baseline_minimal_request",
+        "treatment_evidence_qualified_request"
+      ]
+    },
+    "task_id": {
+      "type": "string",
+      "pattern": "^HD-[0-9]{3}$"
+    },
+    "action": {
+      "enum": [
+        "accept",
+        "decline_and_report",
+        "pause_and_verify"
+      ]
+    },
+    "response_duration_ms": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 3600000
+    },
+    "confidence": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 5
+    },
+    "comprehension": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "beneficiary",
+        "amount",
+        "currency",
+        "fee",
+        "purpose",
+        "payee_match",
+        "requester_authority",
+        "claim_evidence"
+      ],
+      "properties": {
+        "beneficiary": {
+          "type": "boolean"
+        },
+        "amount": {
+          "type": "boolean"
+        },
+        "currency": {
+          "type": "boolean"
+        },
+        "fee": {
+          "type": "boolean"
+        },
+        "purpose": {
+          "type": "boolean"
+        },
+        "payee_match": {
+          "type": "boolean"
+        },
+        "requester_authority": {
+          "type": "boolean"
+        },
+        "claim_evidence": {
+          "type": "boolean"
+        }
+      }
+    },
+    "pressure_rating": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 5
+    },
+    "withdrawn": {
+      "type": "boolean"
+    },
+    "age_band": {
+      "enum": [
+        "18-24",
+        "25-34",
+        "35-44",
+        "45-54",
+        "55+",
+        "prefer_not_to_say"
+      ]
+    },
+    "access_mode": {
+      "enum": [
+        "mobile_simulation",
+        "desktop_simulation",
+        "screen_reader_simulation",
+        "low_bandwidth_simulation",
+        "ussd_prototype_simulation"
+      ]
+    }
+  }
+}

@@ -1,0 +1,2220 @@
+{
+  "schema": "mycelix.sa-payment-human-decision/v1",
+  "corpus_id": "ZA-PAYMENT-HUMAN-DECISION-DEVELOPMENT-24",
+  "status": "synthetic_development_only",
+  "as_of": "2026-11-05",
+  "created_on": "2026-11-05",
+  "jurisdiction": "ZA",
+  "purpose": "Development-only, balanced fictional vignettes for a preregistered human decision-quality study.",
+  "external_effects_enabled": false,
+  "participant_data_included": false,
+  "holdout_status": "not_a_blinded_holdout",
+  "design": {
+    "arms": [
+      "baseline_minimal_request",
+      "treatment_evidence_qualified_request"
+    ],
+    "allocation": "between_subject_randomised; task order randomised within arm",
+    "truth_class_counts": {
+      "legitimate_supported": 8,
+      "deceptive_or_contradictory": 8,
+      "insufficient_or_ambiguous": 8
+    },
+    "primary_endpoints": [
+      "material_fact_comprehension",
+      "appropriate_action",
+      "false_safe_rate",
+      "false_alarm_rate",
+      "perceived_voluntariness_and_pressure"
+    ],
+    "single_composite_score_prohibited": true,
+    "sample_size": "to be set by prospective power analysis after pilot; no sample-size claim in development corpus",
+    "human_study_status": "not_approved_not_started"
+  },
+  "scenarios": [
+    {
+      "task_id": "HD-001",
+      "scenario_type": "legitimate_supported_invoice",
+      "truth_class": "legitimate_supported",
+      "simulation_only": true,
+      "real_money_enabled": false,
+      "pii_present": false,
+      "locale": "en-ZA",
+      "translation_status": "development_english_only",
+      "task_context": "Invoice for previously approved office supplies; beneficiary, order, amount and invoice all match.",
+      "request": {
+        "request_id": "SIM-HD-001",
+        "request_version": 1,
+        "counterparty_label": "Example Supplier 01",
+        "beneficiary_label": "Synthetic beneficiary HD-001",
+        "amount_minor_units": 12000,
+        "currency": "ZAR",
+        "fee_minor_units": 100,
+        "purpose": "legitimate_supported_invoice",
+        "reference": "SYNTHETIC-REF-HD-001",
+        "expiry_state": "known",
+        "expires_in_minutes": 30
+      },
+      "evidence": {
+        "sender_authentication": "verified",
+        "payee_match": "match",
+        "requester_authority": "confirmed",
+        "claim_evidence": "supported",
+        "digest_integrity": "valid",
+        "freshness": "current"
+      },
+      "baseline_presentation": {
+        "visible_fields": [
+          "requester_identity",
+          "amount",
+          "currency",
+          "reference",
+          "expiry"
+        ],
+        "warning_style": "generic_confirmation",
+        "body": "Review this synthetic request before deciding."
+      },
+      "treatment_presentation": {
+        "visible_fields": [
+          "requester_identity",
+          "beneficiary_identity",
+          "amount",
+          "currency",
+          "fee",
+          "purpose",
+          "reference",
+          "payee_match",
+          "requester_authority",
+          "claim_evidence",
+          "expiry",
+          "warnings"
+        ],
+        "warning_style": "evidence_and_uncertainty_explicit",
+        "body": "Review the requester, beneficiary, claim evidence, fee and any unresolved checks before deciding."
+      },
+      "critical_material_fields": [
+        "beneficiary_identity",
+        "amount",
+        "currency",
+        "fee",
+        "purpose",
+        "reference",
+        "payee_match",
+        "requester_authority",
+        "claim_evidence"
+      ],
+      "expected_action": "accept",
+      "reference_rationale": "Given only the synthetic facts recorded for HD-001, the reference action is accept. This is a benchmark adjudication of evidence sufficiency, not a legal finding that a debt is owed.",
+      "comprehension_items": [
+        "beneficiary_identity",
+        "amount",
+        "currency",
+        "fee",
+        "purpose",
+        "payee_match",
+        "requester_authority",
+        "claim_evidence",
+        "warnings"
+      ],
+      "presentation_modes": [
+        "mobile_simulation",
+        "desktop_simulation",
+        "screen_reader_simulation"
+      ],
+      "language_coverage": "English (South Africa) development item only"
+    },
+    {
+      "task_id": "HD-002",
+      "scenario_type": "legitimate_recurring_service",
+      "truth_class": "legitimate_supported",
+      "simulation_only": true,
+      "real_money_enabled": false,
+      "pii_present": false,
+      "locale": "en-ZA",
+      "translation_status": "development_english_only",
+      "task_context": "Expected monthly service payment with an independently established beneficiary and unchanged amount.",
+      "request": {
+        "request_id": "SIM-HD-002",
+        "request_version": 1,
+        "counterparty_label": "Example Utility 02",
+        "beneficiary_label": "Synthetic beneficiary HD-002",
+        "amount_minor_units": 8500,
+        "currency": "ZAR",
+        "fee_minor_units": 0,
+        "purpose": "legitimate_recurring_service",
+        "reference": "SYNTHETIC-REF-HD-002",
+        "expiry_state": "known",
+        "expires_in_minutes": 30
+      },
+      "evidence": {
+        "sender_authentication": "verified",
+        "payee_match": "match",
+        "requester_authority": "confirmed",
+        "claim_evidence": "supported",
+        "digest_integrity": "valid",
+        "freshness": "current"
+      },
+      "baseline_presentation": {
+        "visible_fields": [
+          "requester_identity",
+          "amount",
+          "currency",
+          "reference",
+          "expiry"
+        ],
+        "warning_style": "generic_confirmation",
+        "body": "Review this synthetic request before deciding."
+      },
+      "treatment_presentation": {
+        "visible_fields": [
+          "requester_identity",
+          "beneficiary_identity",
+          "amount",
+          "currency",
+          "fee",
+          "purpose",
+          "reference",
+          "payee_match",
+          "requester_authority",
+          "claim_evidence",
+          "expiry",
+          "warnings"
+        ],
+        "warning_style": "evidence_and_uncertainty_explicit",
+        "body": "Review the requester, beneficiary, claim evidence, fee and any unresolved checks before deciding."
+      },
+      "critical_material_fields": [
+        "beneficiary_identity",
+        "amount",
+        "currency",
+        "fee",
+        "purpose",
+        "reference",
+        "payee_match",
+        "requester_authority",
+        "claim_evidence"
+      ],
+      "expected_action": "accept",
+      "reference_rationale": "Given only the synthetic facts recorded for HD-002, the reference action is accept. This is a benchmark adjudication of evidence sufficiency, not a legal finding that a debt is owed.",
+      "comprehension_items": [
+        "beneficiary_identity",
+        "amount",
+        "currency",
+        "fee",
+        "purpose",
+        "payee_match",
+        "requester_authority",
+        "claim_evidence",
+        "warnings"
+      ],
+      "presentation_modes": [
+        "mobile_simulation",
+        "desktop_simulation",
+        "screen_reader_simulation"
+      ],
+      "language_coverage": "English (South Africa) development item only"
+    },
+    {
+      "task_id": "HD-003",
+      "scenario_type": "legitimate_school_fee",
+      "truth_class": "legitimate_supported",
+      "simulation_only": true,
+      "real_money_enabled": false,
+      "pii_present": false,
+      "locale": "en-ZA",
+      "translation_status": "development_english_only",
+      "task_context": "School fee request matches the payer's supplied enrolment reference and independently verified school account.",
+      "request": {
+        "request_id": "SIM-HD-003",
+        "request_version": 1,
+        "counterparty_label": "Example School 03",
+        "beneficiary_label": "Synthetic beneficiary HD-003",
+        "amount_minor_units": 25000,
+        "currency": "ZAR",
+        "fee_minor_units": 100,
+        "purpose": "legitimate_school_fee",
+        "reference": "SYNTHETIC-REF-HD-003",
+        "expiry_state": "known",
+        "expires_in_minutes": 30
+      },
+      "evidence": {
+        "sender_authentication": "verified",
+        "payee_match": "match",
+        "requester_authority": "confirmed",
+        "claim_evidence": "supported",
+        "digest_integrity": "valid",
+        "freshness": "current"
+      },
+      "baseline_presentation": {
+        "visible_fields": [
+          "requester_identity",
+          "amount",
+          "currency",
+          "reference",
+          "expiry"
+        ],
+        "warning_style": "generic_confirmation",
+        "body": "Review this synthetic request before deciding."
+      },
+      "treatment_presentation": {
+        "visible_fields": [
+          "requester_identity",
+          "beneficiary_identity",
+          "amount",
+          "currency",
+          "fee",
+          "purpose",
+          "reference",
+          "payee_match",
+          "requester_authority",
+          "claim_evidence",
+          "expiry",
+          "warnings"
+        ],
+        "warning_style": "evidence_and_uncertainty_explicit",
+        "body": "Review the requester, beneficiary, claim evidence, fee and any unresolved checks before deciding."
+      },
+      "critical_material_fields": [
+        "beneficiary_identity",
+        "amount",
+        "currency",
+        "fee",
+        "purpose",
+        "reference",
+        "payee_match",
+        "requester_authority",
+        "claim_evidence"
+      ],
+      "expected_action": "accept",
+      "reference_rationale": "Given only the synthetic facts recorded for HD-003, the reference action is accept. This is a benchmark adjudication of evidence sufficiency, not a legal finding that a debt is owed.",
+      "comprehension_items": [
+        "beneficiary_identity",
+        "amount",
+        "currency",
+        "fee",
+        "purpose",
+        "payee_match",
+        "requester_authority",
+        "claim_evidence",
+        "warnings"
+      ],
+      "presentation_modes": [
+        "mobile_simulation",
+        "desktop_simulation",
+        "screen_reader_simulation"
+      ],
+      "language_coverage": "English (South Africa) development item only"
+    },
+    {
+      "task_id": "HD-004",
+      "scenario_type": "legitimate_cooperative_order",
+      "truth_class": "legitimate_supported",
+      "simulation_only": true,
+      "real_money_enabled": false,
+      "pii_present": false,
+      "locale": "en-ZA",
+      "translation_status": "development_english_only",
+      "task_context": "A member-approved cooperative order with the exact beneficiary and amount recorded in the approved order.",
+      "request": {
+        "request_id": "SIM-HD-004",
+        "request_version": 1,
+        "counterparty_label": "Example Cooperative 04",
+        "beneficiary_label": "Synthetic beneficiary HD-004",
+        "amount_minor_units": 6300,
+        "currency": "ZAR",
+        "fee_minor_units": 0,
+        "purpose": "legitimate_cooperative_order",
+        "reference": "SYNTHETIC-REF-HD-004",
+        "expiry_state": "known",
+        "expires_in_minutes": 30
+      },
+      "evidence": {
+        "sender_authentication": "verified",
+        "payee_match": "match",
+        "requester_authority": "confirmed",
+        "claim_evidence": "supported",
+        "digest_integrity": "valid",
+        "freshness": "current"
+      },
+      "baseline_presentation": {
+        "visible_fields": [
+          "requester_identity",
+          "amount",
+          "currency",
+          "reference",
+          "expiry"
+        ],
+        "warning_style": "generic_confirmation",
+        "body": "Review this synthetic request before deciding."
+      },
+      "treatment_presentation": {
+        "visible_fields": [
+          "requester_identity",
+          "beneficiary_identity",
+          "amount",
+          "currency",
+          "fee",
+          "purpose",
+          "reference",
+          "payee_match",
+          "requester_authority",
+          "claim_evidence",
+          "expiry",
+          "warnings"
+        ],
+        "warning_style": "evidence_and_uncertainty_explicit",
+        "body": "Review the requester, beneficiary, claim evidence, fee and any unresolved checks before deciding."
+      },
+      "critical_material_fields": [
+        "beneficiary_identity",
+        "amount",
+        "currency",
+        "fee",
+        "purpose",
+        "reference",
+        "payee_match",
+        "requester_authority",
+        "claim_evidence"
+      ],
+      "expected_action": "accept",
+      "reference_rationale": "Given only the synthetic facts recorded for HD-004, the reference action is accept. This is a benchmark adjudication of evidence sufficiency, not a legal finding that a debt is owed.",
+      "comprehension_items": [
+        "beneficiary_identity",
+        "amount",
+        "currency",
+        "fee",
+        "purpose",
+        "payee_match",
+        "requester_authority",
+        "claim_evidence",
+        "warnings"
+      ],
+      "presentation_modes": [
+        "mobile_simulation",
+        "desktop_simulation",
+        "screen_reader_simulation"
+      ],
+      "language_coverage": "English (South Africa) development item only"
+    },
+    {
+      "task_id": "HD-005",
+      "scenario_type": "legitimate_small_merchant_invoice",
+      "truth_class": "legitimate_supported",
+      "simulation_only": true,
+      "real_money_enabled": false,
+      "pii_present": false,
+      "locale": "en-ZA",
+      "translation_status": "development_english_only",
+      "task_context": "Small merchant request matches a completed purchase, displayed price and verified merchant beneficiary.",
+      "request": {
+        "request_id": "SIM-HD-005",
+        "request_version": 1,
+        "counterparty_label": "Example Merchant 05",
+        "beneficiary_label": "Synthetic beneficiary HD-005",
+        "amount_minor_units": 1750,
+        "currency": "ZAR",
+        "fee_minor_units": 0,
+        "purpose": "legitimate_small_merchant_invoice",
+        "reference": "SYNTHETIC-REF-HD-005",
+        "expiry_state": "known",
+        "expires_in_minutes": 30
+      },
+      "evidence": {
+        "sender_authentication": "verified",
+        "payee_match": "match",
+        "requester_authority": "confirmed",
+        "claim_evidence": "supported",
+        "digest_integrity": "valid",
+        "freshness": "current"
+      },
+      "baseline_presentation": {
+        "visible_fields": [
+          "requester_identity",
+          "amount",
+          "currency",
+          "reference",
+          "expiry"
+        ],
+        "warning_style": "generic_confirmation",
+        "body": "Review this synthetic request before deciding."
+      },
+      "treatment_presentation": {
+        "visible_fields": [
+          "requester_identity",
+          "beneficiary_identity",
+          "amount",
+          "currency",
+          "fee",
+          "purpose",
+          "reference",
+          "payee_match",
+          "requester_authority",
+          "claim_evidence",
+          "expiry",
+          "warnings"
+        ],
+        "warning_style": "evidence_and_uncertainty_explicit",
+        "body": "Review the requester, beneficiary, claim evidence, fee and any unresolved checks before deciding."
+      },
+      "critical_material_fields": [
+        "beneficiary_identity",
+        "amount",
+        "currency",
+        "fee",
+        "purpose",
+        "reference",
+        "payee_match",
+        "requester_authority",
+        "claim_evidence"
+      ],
+      "expected_action": "accept",
+      "reference_rationale": "Given only the synthetic facts recorded for HD-005, the reference action is accept. This is a benchmark adjudication of evidence sufficiency, not a legal finding that a debt is owed.",
+      "comprehension_items": [
+        "beneficiary_identity",
+        "amount",
+        "currency",
+        "fee",
+        "purpose",
+        "payee_match",
+        "requester_authority",
+        "claim_evidence",
+        "warnings"
+      ],
+      "presentation_modes": [
+        "mobile_simulation",
+        "desktop_simulation",
+        "screen_reader_simulation"
+      ],
+      "language_coverage": "English (South Africa) development item only"
+    },
+    {
+      "task_id": "HD-006",
+      "scenario_type": "legitimate_rent_payment_reference",
+      "truth_class": "legitimate_supported",
+      "simulation_only": true,
+      "real_money_enabled": false,
+      "pii_present": false,
+      "locale": "en-ZA",
+      "translation_status": "development_english_only",
+      "task_context": "A previously agreed rent collection instruction has matching beneficiary, reference and current written authority.",
+      "request": {
+        "request_id": "SIM-HD-006",
+        "request_version": 1,
+        "counterparty_label": "Example Property Service 06",
+        "beneficiary_label": "Synthetic beneficiary HD-006",
+        "amount_minor_units": 720000,
+        "currency": "ZAR",
+        "fee_minor_units": 100,
+        "purpose": "legitimate_rent_payment_reference",
+        "reference": "SYNTHETIC-REF-HD-006",
+        "expiry_state": "known",
+        "expires_in_minutes": 30
+      },
+      "evidence": {
+        "sender_authentication": "verified",
+        "payee_match": "match",
+        "requester_authority": "confirmed",
+        "claim_evidence": "supported",
+        "digest_integrity": "valid",
+        "freshness": "current"
+      },
+      "baseline_presentation": {
+        "visible_fields": [
+          "requester_identity",
+          "amount",
+          "currency",
+          "reference",
+          "expiry"
+        ],
+        "warning_style": "generic_confirmation",
+        "body": "Review this synthetic request before deciding."
+      },
+      "treatment_presentation": {
+        "visible_fields": [
+          "requester_identity",
+          "beneficiary_identity",
+          "amount",
+          "currency",
+          "fee",
+          "purpose",
+          "reference",
+          "payee_match",
+          "requester_authority",
+          "claim_evidence",
+          "expiry",
+          "warnings"
+        ],
+        "warning_style": "evidence_and_uncertainty_explicit",
+        "body": "Review the requester, beneficiary, claim evidence, fee and any unresolved checks before deciding."
+      },
+      "critical_material_fields": [
+        "beneficiary_identity",
+        "amount",
+        "currency",
+        "fee",
+        "purpose",
+        "reference",
+        "payee_match",
+        "requester_authority",
+        "claim_evidence"
+      ],
+      "expected_action": "accept",
+      "reference_rationale": "Given only the synthetic facts recorded for HD-006, the reference action is accept. This is a benchmark adjudication of evidence sufficiency, not a legal finding that a debt is owed.",
+      "comprehension_items": [
+        "beneficiary_identity",
+        "amount",
+        "currency",
+        "fee",
+        "purpose",
+        "payee_match",
+        "requester_authority",
+        "claim_evidence",
+        "warnings"
+      ],
+      "presentation_modes": [
+        "mobile_simulation",
+        "desktop_simulation",
+        "screen_reader_simulation"
+      ],
+      "language_coverage": "English (South Africa) development item only"
+    },
+    {
+      "task_id": "HD-007",
+      "scenario_type": "legitimate_supplier_balance",
+      "truth_class": "legitimate_supported",
+      "simulation_only": true,
+      "real_money_enabled": false,
+      "pii_present": false,
+      "locale": "en-ZA",
+      "translation_status": "development_english_only",
+      "task_context": "A documented remaining balance is due; the request matches the ledger and no duplicate payment is present.",
+      "request": {
+        "request_id": "SIM-HD-007",
+        "request_version": 1,
+        "counterparty_label": "Example Supplier 07",
+        "beneficiary_label": "Synthetic beneficiary HD-007",
+        "amount_minor_units": 9400,
+        "currency": "ZAR",
+        "fee_minor_units": 0,
+        "purpose": "legitimate_supplier_balance",
+        "reference": "SYNTHETIC-REF-HD-007",
+        "expiry_state": "known",
+        "expires_in_minutes": 30
+      },
+      "evidence": {
+        "sender_authentication": "verified",
+        "payee_match": "match",
+        "requester_authority": "confirmed",
+        "claim_evidence": "supported",
+        "digest_integrity": "valid",
+        "freshness": "current"
+      },
+      "baseline_presentation": {
+        "visible_fields": [
+          "requester_identity",
+          "amount",
+          "currency",
+          "reference",
+          "expiry"
+        ],
+        "warning_style": "generic_confirmation",
+        "body": "Review this synthetic request before deciding."
+      },
+      "treatment_presentation": {
+        "visible_fields": [
+          "requester_identity",
+          "beneficiary_identity",
+          "amount",
+          "currency",
+          "fee",
+          "purpose",
+          "reference",
+          "payee_match",
+          "requester_authority",
+          "claim_evidence",
+          "expiry",
+          "warnings"
+        ],
+        "warning_style": "evidence_and_uncertainty_explicit",
+        "body": "Review the requester, beneficiary, claim evidence, fee and any unresolved checks before deciding."
+      },
+      "critical_material_fields": [
+        "beneficiary_identity",
+        "amount",
+        "currency",
+        "fee",
+        "purpose",
+        "reference",
+        "payee_match",
+        "requester_authority",
+        "claim_evidence"
+      ],
+      "expected_action": "accept",
+      "reference_rationale": "Given only the synthetic facts recorded for HD-007, the reference action is accept. This is a benchmark adjudication of evidence sufficiency, not a legal finding that a debt is owed.",
+      "comprehension_items": [
+        "beneficiary_identity",
+        "amount",
+        "currency",
+        "fee",
+        "purpose",
+        "payee_match",
+        "requester_authority",
+        "claim_evidence",
+        "warnings"
+      ],
+      "presentation_modes": [
+        "mobile_simulation",
+        "desktop_simulation",
+        "screen_reader_simulation"
+      ],
+      "language_coverage": "English (South Africa) development item only"
+    },
+    {
+      "task_id": "HD-008",
+      "scenario_type": "legitimate_peer_cost_share",
+      "truth_class": "legitimate_supported",
+      "simulation_only": true,
+      "real_money_enabled": false,
+      "pii_present": false,
+      "locale": "en-ZA",
+      "translation_status": "development_english_only",
+      "task_context": "A previously agreed shared-cost request matches the known group record, beneficiary and apportioned amount.",
+      "request": {
+        "request_id": "SIM-HD-008",
+        "request_version": 1,
+        "counterparty_label": "Example Group 08",
+        "beneficiary_label": "Synthetic beneficiary HD-008",
+        "amount_minor_units": 680,
+        "currency": "ZAR",
+        "fee_minor_units": 0,
+        "purpose": "legitimate_peer_cost_share",
+        "reference": "SYNTHETIC-REF-HD-008",
+        "expiry_state": "known",
+        "expires_in_minutes": 30
+      },
+      "evidence": {
+        "sender_authentication": "verified",
+        "payee_match": "match",
+        "requester_authority": "confirmed",
+        "claim_evidence": "supported",
+        "digest_integrity": "valid",
+        "freshness": "current"
+      },
+      "baseline_presentation": {
+        "visible_fields": [
+          "requester_identity",
+          "amount",
+          "currency",
+          "reference",
+          "expiry"
+        ],
+        "warning_style": "generic_confirmation",
+        "body": "Review this synthetic request before deciding."
+      },
+      "treatment_presentation": {
+        "visible_fields": [
+          "requester_identity",
+          "beneficiary_identity",
+          "amount",
+          "currency",
+          "fee",
+          "purpose",
+          "reference",
+          "payee_match",
+          "requester_authority",
+          "claim_evidence",
+          "expiry",
+          "warnings"
+        ],
+        "warning_style": "evidence_and_uncertainty_explicit",
+        "body": "Review the requester, beneficiary, claim evidence, fee and any unresolved checks before deciding."
+      },
+      "critical_material_fields": [
+        "beneficiary_identity",
+        "amount",
+        "currency",
+        "fee",
+        "purpose",
+        "reference",
+        "payee_match",
+        "requester_authority",
+        "claim_evidence"
+      ],
+      "expected_action": "accept",
+      "reference_rationale": "Given only the synthetic facts recorded for HD-008, the reference action is accept. This is a benchmark adjudication of evidence sufficiency, not a legal finding that a debt is owed.",
+      "comprehension_items": [
+        "beneficiary_identity",
+        "amount",
+        "currency",
+        "fee",
+        "purpose",
+        "payee_match",
+        "requester_authority",
+        "claim_evidence",
+        "warnings"
+      ],
+      "presentation_modes": [
+        "mobile_simulation",
+        "desktop_simulation",
+        "screen_reader_simulation"
+      ],
+      "language_coverage": "English (South Africa) development item only"
+    },
+    {
+      "task_id": "HD-009",
+      "scenario_type": "urgent_safe_account_scam",
+      "truth_class": "deceptive_or_contradictory",
+      "simulation_only": true,
+      "real_money_enabled": false,
+      "pii_present": false,
+      "locale": "en-ZA",
+      "translation_status": "development_english_only",
+      "task_context": "A message says an account must be protected by transferring funds immediately to a different beneficiary.",
+      "request": {
+        "request_id": "SIM-HD-009",
+        "request_version": 1,
+        "counterparty_label": "Unverified Support Desk",
+        "beneficiary_label": "Synthetic beneficiary HD-009",
+        "amount_minor_units": 99000,
+        "currency": "ZAR",
+        "fee_minor_units": 100,
+        "purpose": "urgent_safe_account_scam",
+        "reference": "SYNTHETIC-REF-HD-009",
+        "expiry_state": "known",
+        "expires_in_minutes": 30
+      },
+      "evidence": {
+        "sender_authentication": "authenticated_session",
+        "payee_match": "no_match",
+        "requester_authority": "not_established",
+        "claim_evidence": "unsupported",
+        "digest_integrity": "valid",
+        "freshness": "current"
+      },
+      "baseline_presentation": {
+        "visible_fields": [
+          "requester_identity",
+          "amount",
+          "currency",
+          "reference",
+          "expiry"
+        ],
+        "warning_style": "generic_confirmation",
+        "body": "Review this synthetic request before deciding."
+      },
+      "treatment_presentation": {
+        "visible_fields": [
+          "requester_identity",
+          "beneficiary_identity",
+          "amount",
+          "currency",
+          "fee",
+          "purpose",
+          "reference",
+          "payee_match",
+          "requester_authority",
+          "claim_evidence",
+          "expiry",
+          "warnings"
+        ],
+        "warning_style": "evidence_and_uncertainty_explicit",
+        "body": "Review the requester, beneficiary, claim evidence, fee and any unresolved checks before deciding."
+      },
+      "critical_material_fields": [
+        "beneficiary_identity",
+        "amount",
+        "currency",
+        "fee",
+        "purpose",
+        "payee_match",
+        "requester_authority",
+        "claim_evidence",
+        "warnings"
+      ],
+      "expected_action": "decline_and_report",
+      "reference_rationale": "Given only the synthetic facts recorded for HD-009, the reference action is decline_and_report. This is a benchmark adjudication of evidence sufficiency, not a legal finding that a debt is owed.",
+      "comprehension_items": [
+        "beneficiary_identity",
+        "amount",
+        "currency",
+        "fee",
+        "purpose",
+        "payee_match",
+        "requester_authority",
+        "claim_evidence",
+        "warnings"
+      ],
+      "presentation_modes": [
+        "mobile_simulation",
+        "desktop_simulation",
+        "screen_reader_simulation"
+      ],
+      "language_coverage": "English (South Africa) development item only"
+    },
+    {
+      "task_id": "HD-010",
+      "scenario_type": "supplier_beneficiary_substitution",
+      "truth_class": "deceptive_or_contradictory",
+      "simulation_only": true,
+      "real_money_enabled": false,
+      "pii_present": false,
+      "locale": "en-ZA",
+      "translation_status": "development_english_only",
+      "task_context": "The requester resembles a known supplier, but the beneficiary account differs from the independently approved supplier record.",
+      "request": {
+        "request_id": "SIM-HD-010",
+        "request_version": 1,
+        "counterparty_label": "Example Supplier 10",
+        "beneficiary_label": "Synthetic beneficiary HD-010",
+        "amount_minor_units": 45000,
+        "currency": "ZAR",
+        "fee_minor_units": 100,
+        "purpose": "supplier_beneficiary_substitution",
+        "reference": "SYNTHETIC-REF-HD-010",
+        "expiry_state": "known",
+        "expires_in_minutes": 30
+      },
+      "evidence": {
+        "sender_authentication": "verified",
+        "payee_match": "no_match",
+        "requester_authority": "contradicted",
+        "claim_evidence": "unsupported",
+        "digest_integrity": "valid",
+        "freshness": "current"
+      },
+      "baseline_presentation": {
+        "visible_fields": [
+          "requester_identity",
+          "amount",
+          "currency",
+          "reference",
+          "expiry"
+        ],
+        "warning_style": "generic_confirmation",
+        "body": "Review this synthetic request before deciding."
+      },
+      "treatment_presentation": {
+        "visible_fields": [
+          "requester_identity",
+          "beneficiary_identity",
+          "amount",
+          "currency",
+          "fee",
+          "purpose",
+          "reference",
+          "payee_match",
+          "requester_authority",
+          "claim_evidence",
+          "expiry",
+          "warnings"
+        ],
+        "warning_style": "evidence_and_uncertainty_explicit",
+        "body": "Review the requester, beneficiary, claim evidence, fee and any unresolved checks before deciding."
+      },
+      "critical_material_fields": [
+        "beneficiary_identity",
+        "amount",
+        "currency",
+        "fee",
+        "purpose",
+        "payee_match",
+        "requester_authority",
+        "claim_evidence",
+        "warnings"
+      ],
+      "expected_action": "decline_and_report",
+      "reference_rationale": "Given only the synthetic facts recorded for HD-010, the reference action is decline_and_report. This is a benchmark adjudication of evidence sufficiency, not a legal finding that a debt is owed.",
+      "comprehension_items": [
+        "beneficiary_identity",
+        "amount",
+        "currency",
+        "fee",
+        "purpose",
+        "payee_match",
+        "requester_authority",
+        "claim_evidence",
+        "warnings"
+      ],
+      "presentation_modes": [
+        "mobile_simulation",
+        "desktop_simulation",
+        "screen_reader_simulation"
+      ],
+      "language_coverage": "English (South Africa) development item only"
+    },
+    {
+      "task_id": "HD-011",
+      "scenario_type": "false_legal_threat",
+      "truth_class": "deceptive_or_contradictory",
+      "simulation_only": true,
+      "real_money_enabled": false,
+      "pii_present": false,
+      "locale": "en-ZA",
+      "translation_status": "development_english_only",
+      "task_context": "The request uses an urgent legal threat and deadline but provides no authoritative source or verifiable claim evidence.",
+      "request": {
+        "request_id": "SIM-HD-011",
+        "request_version": 1,
+        "counterparty_label": "Official Payment Office (unverified)",
+        "beneficiary_label": "Synthetic beneficiary HD-011",
+        "amount_minor_units": 18000,
+        "currency": "ZAR",
+        "fee_minor_units": 100,
+        "purpose": "false_legal_threat",
+        "reference": "SYNTHETIC-REF-HD-011",
+        "expiry_state": "known",
+        "expires_in_minutes": 30
+      },
+      "evidence": {
+        "sender_authentication": "unknown",
+        "payee_match": "unable_to_verify",
+        "requester_authority": "not_established",
+        "claim_evidence": "unsupported",
+        "digest_integrity": "valid",
+        "freshness": "current"
+      },
+      "baseline_presentation": {
+        "visible_fields": [
+          "requester_identity",
+          "amount",
+          "currency",
+          "reference",
+          "expiry"
+        ],
+        "warning_style": "generic_confirmation",
+        "body": "Review this synthetic request before deciding."
+      },
+      "treatment_presentation": {
+        "visible_fields": [
+          "requester_identity",
+          "beneficiary_identity",
+          "amount",
+          "currency",
+          "fee",
+          "purpose",
+          "reference",
+          "payee_match",
+          "requester_authority",
+          "claim_evidence",
+          "expiry",
+          "warnings"
+        ],
+        "warning_style": "evidence_and_uncertainty_explicit",
+        "body": "Review the requester, beneficiary, claim evidence, fee and any unresolved checks before deciding."
+      },
+      "critical_material_fields": [
+        "beneficiary_identity",
+        "amount",
+        "currency",
+        "fee",
+        "purpose",
+        "payee_match",
+        "requester_authority",
+        "claim_evidence",
+        "warnings"
+      ],
+      "expected_action": "decline_and_report",
+      "reference_rationale": "Given only the synthetic facts recorded for HD-011, the reference action is decline_and_report. This is a benchmark adjudication of evidence sufficiency, not a legal finding that a debt is owed.",
+      "comprehension_items": [
+        "beneficiary_identity",
+        "amount",
+        "currency",
+        "fee",
+        "purpose",
+        "payee_match",
+        "requester_authority",
+        "claim_evidence",
+        "warnings"
+      ],
+      "presentation_modes": [
+        "mobile_simulation",
+        "desktop_simulation",
+        "screen_reader_simulation"
+      ],
+      "language_coverage": "English (South Africa) development item only"
+    },
+    {
+      "task_id": "HD-012",
+      "scenario_type": "compromised_requester_new_beneficiary",
+      "truth_class": "deceptive_or_contradictory",
+      "simulation_only": true,
+      "real_money_enabled": false,
+      "pii_present": false,
+      "locale": "en-ZA",
+      "translation_status": "development_english_only",
+      "task_context": "A valid supplier session submits an invoice to a new personal beneficiary not covered by the supplier mandate.",
+      "request": {
+        "request_id": "SIM-HD-012",
+        "request_version": 1,
+        "counterparty_label": "Example Supplier 12",
+        "beneficiary_label": "Synthetic beneficiary HD-012",
+        "amount_minor_units": 36000,
+        "currency": "ZAR",
+        "fee_minor_units": 100,
+        "purpose": "compromised_requester_new_beneficiary",
+        "reference": "SYNTHETIC-REF-HD-012",
+        "expiry_state": "known",
+        "expires_in_minutes": 30
+      },
+      "evidence": {
+        "sender_authentication": "authenticated_session",
+        "payee_match": "no_match",
+        "requester_authority": "not_established",
+        "claim_evidence": "contradicted",
+        "digest_integrity": "valid",
+        "freshness": "current"
+      },
+      "baseline_presentation": {
+        "visible_fields": [
+          "requester_identity",
+          "amount",
+          "currency",
+          "reference",
+          "expiry"
+        ],
+        "warning_style": "generic_confirmation",
+        "body": "Review this synthetic request before deciding."
+      },
+      "treatment_presentation": {
+        "visible_fields": [
+          "requester_identity",
+          "beneficiary_identity",
+          "amount",
+          "currency",
+          "fee",
+          "purpose",
+          "reference",
+          "payee_match",
+          "requester_authority",
+          "claim_evidence",
+          "expiry",
+          "warnings"
+        ],
+        "warning_style": "evidence_and_uncertainty_explicit",
+        "body": "Review the requester, beneficiary, claim evidence, fee and any unresolved checks before deciding."
+      },
+      "critical_material_fields": [
+        "beneficiary_identity",
+        "amount",
+        "currency",
+        "fee",
+        "purpose",
+        "payee_match",
+        "requester_authority",
+        "claim_evidence",
+        "warnings"
+      ],
+      "expected_action": "decline_and_report",
+      "reference_rationale": "Given only the synthetic facts recorded for HD-012, the reference action is decline_and_report. This is a benchmark adjudication of evidence sufficiency, not a legal finding that a debt is owed.",
+      "comprehension_items": [
+        "beneficiary_identity",
+        "amount",
+        "currency",
+        "fee",
+        "purpose",
+        "payee_match",
+        "requester_authority",
+        "claim_evidence",
+        "warnings"
+      ],
+      "presentation_modes": [
+        "mobile_simulation",
+        "desktop_simulation",
+        "screen_reader_simulation"
+      ],
+      "language_coverage": "English (South Africa) development item only"
+    },
+    {
+      "task_id": "HD-013",
+      "scenario_type": "duplicate_already_paid_invoice",
+      "truth_class": "deceptive_or_contradictory",
+      "simulation_only": true,
+      "real_money_enabled": false,
+      "pii_present": false,
+      "locale": "en-ZA",
+      "translation_status": "development_english_only",
+      "task_context": "A request repeats an invoice reference for which the synthetic ledger already records a fully paid amount.",
+      "request": {
+        "request_id": "SIM-HD-013",
+        "request_version": 1,
+        "counterparty_label": "Example Merchant 13",
+        "beneficiary_label": "Synthetic beneficiary HD-013",
+        "amount_minor_units": 7600,
+        "currency": "ZAR",
+        "fee_minor_units": 0,
+        "purpose": "duplicate_already_paid_invoice",
+        "reference": "SYNTHETIC-REF-HD-013",
+        "expiry_state": "known",
+        "expires_in_minutes": 30
+      },
+      "evidence": {
+        "sender_authentication": "verified",
+        "payee_match": "match",
+        "requester_authority": "confirmed",
+        "claim_evidence": "already_satisfied",
+        "digest_integrity": "valid",
+        "freshness": "current"
+      },
+      "baseline_presentation": {
+        "visible_fields": [
+          "requester_identity",
+          "amount",
+          "currency",
+          "reference",
+          "expiry"
+        ],
+        "warning_style": "generic_confirmation",
+        "body": "Review this synthetic request before deciding."
+      },
+      "treatment_presentation": {
+        "visible_fields": [
+          "requester_identity",
+          "beneficiary_identity",
+          "amount",
+          "currency",
+          "fee",
+          "purpose",
+          "reference",
+          "payee_match",
+          "requester_authority",
+          "claim_evidence",
+          "expiry",
+          "warnings"
+        ],
+        "warning_style": "evidence_and_uncertainty_explicit",
+        "body": "Review the requester, beneficiary, claim evidence, fee and any unresolved checks before deciding."
+      },
+      "critical_material_fields": [
+        "beneficiary_identity",
+        "amount",
+        "currency",
+        "fee",
+        "purpose",
+        "payee_match",
+        "requester_authority",
+        "claim_evidence",
+        "warnings"
+      ],
+      "expected_action": "decline_and_report",
+      "reference_rationale": "Given only the synthetic facts recorded for HD-013, the reference action is decline_and_report. This is a benchmark adjudication of evidence sufficiency, not a legal finding that a debt is owed.",
+      "comprehension_items": [
+        "beneficiary_identity",
+        "amount",
+        "currency",
+        "fee",
+        "purpose",
+        "payee_match",
+        "requester_authority",
+        "claim_evidence",
+        "warnings"
+      ],
+      "presentation_modes": [
+        "mobile_simulation",
+        "desktop_simulation",
+        "screen_reader_simulation"
+      ],
+      "language_coverage": "English (South Africa) development item only"
+    },
+    {
+      "task_id": "HD-014",
+      "scenario_type": "fee_or_amount_substitution",
+      "truth_class": "deceptive_or_contradictory",
+      "simulation_only": true,
+      "real_money_enabled": false,
+      "pii_present": false,
+      "locale": "en-ZA",
+      "translation_status": "development_english_only",
+      "task_context": "The requested amount includes an unexplained surcharge that was not in the displayed accepted quote.",
+      "request": {
+        "request_id": "SIM-HD-014",
+        "request_version": 1,
+        "counterparty_label": "Example Merchant 14",
+        "beneficiary_label": "Synthetic beneficiary HD-014",
+        "amount_minor_units": 2500,
+        "currency": "ZAR",
+        "fee_minor_units": 0,
+        "purpose": "fee_or_amount_substitution",
+        "reference": "SYNTHETIC-REF-HD-014",
+        "expiry_state": "known",
+        "expires_in_minutes": 30
+      },
+      "evidence": {
+        "sender_authentication": "verified",
+        "payee_match": "match",
+        "requester_authority": "confirmed",
+        "claim_evidence": "contradicted",
+        "digest_integrity": "valid",
+        "freshness": "current"
+      },
+      "baseline_presentation": {
+        "visible_fields": [
+          "requester_identity",
+          "amount",
+          "currency",
+          "reference",
+          "expiry"
+        ],
+        "warning_style": "generic_confirmation",
+        "body": "Review this synthetic request before deciding."
+      },
+      "treatment_presentation": {
+        "visible_fields": [
+          "requester_identity",
+          "beneficiary_identity",
+          "amount",
+          "currency",
+          "fee",
+          "purpose",
+          "reference",
+          "payee_match",
+          "requester_authority",
+          "claim_evidence",
+          "expiry",
+          "warnings"
+        ],
+        "warning_style": "evidence_and_uncertainty_explicit",
+        "body": "Review the requester, beneficiary, claim evidence, fee and any unresolved checks before deciding."
+      },
+      "critical_material_fields": [
+        "beneficiary_identity",
+        "amount",
+        "currency",
+        "fee",
+        "purpose",
+        "payee_match",
+        "requester_authority",
+        "claim_evidence",
+        "warnings"
+      ],
+      "expected_action": "decline_and_report",
+      "reference_rationale": "Given only the synthetic facts recorded for HD-014, the reference action is decline_and_report. This is a benchmark adjudication of evidence sufficiency, not a legal finding that a debt is owed.",
+      "comprehension_items": [
+        "beneficiary_identity",
+        "amount",
+        "currency",
+        "fee",
+        "purpose",
+        "payee_match",
+        "requester_authority",
+        "claim_evidence",
+        "warnings"
+      ],
+      "presentation_modes": [
+        "mobile_simulation",
+        "desktop_simulation",
+        "screen_reader_simulation"
+      ],
+      "language_coverage": "English (South Africa) development item only"
+    },
+    {
+      "task_id": "HD-015",
+      "scenario_type": "refund_requires_upfront_payment",
+      "truth_class": "deceptive_or_contradictory",
+      "simulation_only": true,
+      "real_money_enabled": false,
+      "pii_present": false,
+      "locale": "en-ZA",
+      "translation_status": "development_english_only",
+      "task_context": "A request claims a refund is due but asks the payer to send money to release it, with no supported contract or authority.",
+      "request": {
+        "request_id": "SIM-HD-015",
+        "request_version": 1,
+        "counterparty_label": "Refund Processing Desk (unverified)",
+        "beneficiary_label": "Synthetic beneficiary HD-015",
+        "amount_minor_units": 12500,
+        "currency": "ZAR",
+        "fee_minor_units": 100,
+        "purpose": "refund_requires_upfront_payment",
+        "reference": "SYNTHETIC-REF-HD-015",
+        "expiry_state": "known",
+        "expires_in_minutes": 30
+      },
+      "evidence": {
+        "sender_authentication": "unknown",
+        "payee_match": "unable_to_verify",
+        "requester_authority": "not_established",
+        "claim_evidence": "unsupported",
+        "digest_integrity": "valid",
+        "freshness": "current"
+      },
+      "baseline_presentation": {
+        "visible_fields": [
+          "requester_identity",
+          "amount",
+          "currency",
+          "reference",
+          "expiry"
+        ],
+        "warning_style": "generic_confirmation",
+        "body": "Review this synthetic request before deciding."
+      },
+      "treatment_presentation": {
+        "visible_fields": [
+          "requester_identity",
+          "beneficiary_identity",
+          "amount",
+          "currency",
+          "fee",
+          "purpose",
+          "reference",
+          "payee_match",
+          "requester_authority",
+          "claim_evidence",
+          "expiry",
+          "warnings"
+        ],
+        "warning_style": "evidence_and_uncertainty_explicit",
+        "body": "Review the requester, beneficiary, claim evidence, fee and any unresolved checks before deciding."
+      },
+      "critical_material_fields": [
+        "beneficiary_identity",
+        "amount",
+        "currency",
+        "fee",
+        "purpose",
+        "payee_match",
+        "requester_authority",
+        "claim_evidence",
+        "warnings"
+      ],
+      "expected_action": "decline_and_report",
+      "reference_rationale": "Given only the synthetic facts recorded for HD-015, the reference action is decline_and_report. This is a benchmark adjudication of evidence sufficiency, not a legal finding that a debt is owed.",
+      "comprehension_items": [
+        "beneficiary_identity",
+        "amount",
+        "currency",
+        "fee",
+        "purpose",
+        "payee_match",
+        "requester_authority",
+        "claim_evidence",
+        "warnings"
+      ],
+      "presentation_modes": [
+        "mobile_simulation",
+        "desktop_simulation",
+        "screen_reader_simulation"
+      ],
+      "language_coverage": "English (South Africa) development item only"
+    },
+    {
+      "task_id": "HD-016",
+      "scenario_type": "identity_confusable_impersonation",
+      "truth_class": "deceptive_or_contradictory",
+      "simulation_only": true,
+      "real_money_enabled": false,
+      "pii_present": false,
+      "locale": "en-ZA",
+      "translation_status": "development_english_only",
+      "task_context": "The displayed trading name is visually similar to the approved supplier but resolves to a different beneficiary and requester authority.",
+      "request": {
+        "request_id": "SIM-HD-016",
+        "request_version": 1,
+        "counterparty_label": "Example Supplier 16",
+        "beneficiary_label": "Synthetic beneficiary HD-016",
+        "amount_minor_units": 21900,
+        "currency": "ZAR",
+        "fee_minor_units": 100,
+        "purpose": "identity_confusable_impersonation",
+        "reference": "SYNTHETIC-REF-HD-016",
+        "expiry_state": "known",
+        "expires_in_minutes": 30
+      },
+      "evidence": {
+        "sender_authentication": "verified",
+        "payee_match": "no_match",
+        "requester_authority": "not_established",
+        "claim_evidence": "contradicted",
+        "digest_integrity": "valid",
+        "freshness": "current"
+      },
+      "baseline_presentation": {
+        "visible_fields": [
+          "requester_identity",
+          "amount",
+          "currency",
+          "reference",
+          "expiry"
+        ],
+        "warning_style": "generic_confirmation",
+        "body": "Review this synthetic request before deciding."
+      },
+      "treatment_presentation": {
+        "visible_fields": [
+          "requester_identity",
+          "beneficiary_identity",
+          "amount",
+          "currency",
+          "fee",
+          "purpose",
+          "reference",
+          "payee_match",
+          "requester_authority",
+          "claim_evidence",
+          "expiry",
+          "warnings"
+        ],
+        "warning_style": "evidence_and_uncertainty_explicit",
+        "body": "Review the requester, beneficiary, claim evidence, fee and any unresolved checks before deciding."
+      },
+      "critical_material_fields": [
+        "beneficiary_identity",
+        "amount",
+        "currency",
+        "fee",
+        "purpose",
+        "payee_match",
+        "requester_authority",
+        "claim_evidence",
+        "warnings"
+      ],
+      "expected_action": "decline_and_report",
+      "reference_rationale": "Given only the synthetic facts recorded for HD-016, the reference action is decline_and_report. This is a benchmark adjudication of evidence sufficiency, not a legal finding that a debt is owed.",
+      "comprehension_items": [
+        "beneficiary_identity",
+        "amount",
+        "currency",
+        "fee",
+        "purpose",
+        "payee_match",
+        "requester_authority",
+        "claim_evidence",
+        "warnings"
+      ],
+      "presentation_modes": [
+        "mobile_simulation",
+        "desktop_simulation",
+        "screen_reader_simulation"
+      ],
+      "language_coverage": "English (South Africa) development item only"
+    },
+    {
+      "task_id": "HD-017",
+      "scenario_type": "transliteration_close_match",
+      "truth_class": "insufficient_or_ambiguous",
+      "simulation_only": true,
+      "real_money_enabled": false,
+      "pii_present": false,
+      "locale": "en-ZA",
+      "translation_status": "development_english_only",
+      "task_context": "The displayed name differs by transliteration and initials; the provider returns Close Match and there is no second source confirming authority.",
+      "request": {
+        "request_id": "SIM-HD-017",
+        "request_version": 1,
+        "counterparty_label": "Example Person 17",
+        "beneficiary_label": "Synthetic beneficiary HD-017",
+        "amount_minor_units": 3300,
+        "currency": "ZAR",
+        "fee_minor_units": 0,
+        "purpose": "transliteration_close_match",
+        "reference": "SYNTHETIC-REF-HD-017",
+        "expiry_state": "known",
+        "expires_in_minutes": 30
+      },
+      "evidence": {
+        "sender_authentication": "verified",
+        "payee_match": "close_match",
+        "requester_authority": "unknown",
+        "claim_evidence": "insufficient",
+        "digest_integrity": "valid",
+        "freshness": "current"
+      },
+      "baseline_presentation": {
+        "visible_fields": [
+          "requester_identity",
+          "amount",
+          "currency",
+          "reference",
+          "expiry"
+        ],
+        "warning_style": "generic_confirmation",
+        "body": "Review this synthetic request before deciding."
+      },
+      "treatment_presentation": {
+        "visible_fields": [
+          "requester_identity",
+          "beneficiary_identity",
+          "amount",
+          "currency",
+          "fee",
+          "purpose",
+          "reference",
+          "payee_match",
+          "requester_authority",
+          "claim_evidence",
+          "expiry",
+          "warnings"
+        ],
+        "warning_style": "evidence_and_uncertainty_explicit",
+        "body": "Review the requester, beneficiary, claim evidence, fee and any unresolved checks before deciding."
+      },
+      "critical_material_fields": [
+        "beneficiary_identity",
+        "amount",
+        "currency",
+        "fee",
+        "purpose",
+        "payee_match",
+        "requester_authority",
+        "claim_evidence",
+        "warnings"
+      ],
+      "expected_action": "pause_and_verify",
+      "reference_rationale": "Given only the synthetic facts recorded for HD-017, the reference action is pause_and_verify. This is a benchmark adjudication of evidence sufficiency, not a legal finding that a debt is owed.",
+      "comprehension_items": [
+        "beneficiary_identity",
+        "amount",
+        "currency",
+        "fee",
+        "purpose",
+        "payee_match",
+        "requester_authority",
+        "claim_evidence",
+        "warnings"
+      ],
+      "presentation_modes": [
+        "mobile_simulation",
+        "desktop_simulation",
+        "screen_reader_simulation"
+      ],
+      "language_coverage": "English (South Africa) development item only"
+    },
+    {
+      "task_id": "HD-018",
+      "scenario_type": "unavailable_payee_check",
+      "truth_class": "insufficient_or_ambiguous",
+      "simulation_only": true,
+      "real_money_enabled": false,
+      "pii_present": false,
+      "locale": "en-ZA",
+      "translation_status": "development_english_only",
+      "task_context": "The payee service cannot complete a check. The request otherwise looks plausible, but the beneficiary is not independently confirmed.",
+      "request": {
+        "request_id": "SIM-HD-018",
+        "request_version": 1,
+        "counterparty_label": "Example Merchant 18",
+        "beneficiary_label": "Synthetic beneficiary HD-018",
+        "amount_minor_units": 5400,
+        "currency": "ZAR",
+        "fee_minor_units": 0,
+        "purpose": "unavailable_payee_check",
+        "reference": "SYNTHETIC-REF-HD-018",
+        "expiry_state": "known",
+        "expires_in_minutes": 30
+      },
+      "evidence": {
+        "sender_authentication": "verified",
+        "payee_match": "unable_to_verify",
+        "requester_authority": "unknown",
+        "claim_evidence": "insufficient",
+        "digest_integrity": "valid",
+        "freshness": "current"
+      },
+      "baseline_presentation": {
+        "visible_fields": [
+          "requester_identity",
+          "amount",
+          "currency",
+          "reference",
+          "expiry"
+        ],
+        "warning_style": "generic_confirmation",
+        "body": "Review this synthetic request before deciding."
+      },
+      "treatment_presentation": {
+        "visible_fields": [
+          "requester_identity",
+          "beneficiary_identity",
+          "amount",
+          "currency",
+          "fee",
+          "purpose",
+          "reference",
+          "payee_match",
+          "requester_authority",
+          "claim_evidence",
+          "expiry",
+          "warnings"
+        ],
+        "warning_style": "evidence_and_uncertainty_explicit",
+        "body": "Review the requester, beneficiary, claim evidence, fee and any unresolved checks before deciding."
+      },
+      "critical_material_fields": [
+        "beneficiary_identity",
+        "amount",
+        "currency",
+        "fee",
+        "purpose",
+        "payee_match",
+        "requester_authority",
+        "claim_evidence",
+        "warnings"
+      ],
+      "expected_action": "pause_and_verify",
+      "reference_rationale": "Given only the synthetic facts recorded for HD-018, the reference action is pause_and_verify. This is a benchmark adjudication of evidence sufficiency, not a legal finding that a debt is owed.",
+      "comprehension_items": [
+        "beneficiary_identity",
+        "amount",
+        "currency",
+        "fee",
+        "purpose",
+        "payee_match",
+        "requester_authority",
+        "claim_evidence",
+        "warnings"
+      ],
+      "presentation_modes": [
+        "mobile_simulation",
+        "desktop_simulation",
+        "screen_reader_simulation"
+      ],
+      "language_coverage": "English (South Africa) development item only"
+    },
+    {
+      "task_id": "HD-019",
+      "scenario_type": "unverified_collection_agent",
+      "truth_class": "insufficient_or_ambiguous",
+      "simulation_only": true,
+      "real_money_enabled": false,
+      "pii_present": false,
+      "locale": "en-ZA",
+      "translation_status": "development_english_only",
+      "task_context": "The requester claims to collect for a property owner, but the agency mandate is not available in the evidence presented.",
+      "request": {
+        "request_id": "SIM-HD-019",
+        "request_version": 1,
+        "counterparty_label": "Example Property Agent 19",
+        "beneficiary_label": "Synthetic beneficiary HD-019",
+        "amount_minor_units": 650000,
+        "currency": "ZAR",
+        "fee_minor_units": 100,
+        "purpose": "unverified_collection_agent",
+        "reference": "SYNTHETIC-REF-HD-019",
+        "expiry_state": "known",
+        "expires_in_minutes": 30
+      },
+      "evidence": {
+        "sender_authentication": "verified",
+        "payee_match": "match",
+        "requester_authority": "unknown",
+        "claim_evidence": "insufficient",
+        "digest_integrity": "valid",
+        "freshness": "current"
+      },
+      "baseline_presentation": {
+        "visible_fields": [
+          "requester_identity",
+          "amount",
+          "currency",
+          "reference",
+          "expiry"
+        ],
+        "warning_style": "generic_confirmation",
+        "body": "Review this synthetic request before deciding."
+      },
+      "treatment_presentation": {
+        "visible_fields": [
+          "requester_identity",
+          "beneficiary_identity",
+          "amount",
+          "currency",
+          "fee",
+          "purpose",
+          "reference",
+          "payee_match",
+          "requester_authority",
+          "claim_evidence",
+          "expiry",
+          "warnings"
+        ],
+        "warning_style": "evidence_and_uncertainty_explicit",
+        "body": "Review the requester, beneficiary, claim evidence, fee and any unresolved checks before deciding."
+      },
+      "critical_material_fields": [
+        "beneficiary_identity",
+        "amount",
+        "currency",
+        "fee",
+        "purpose",
+        "payee_match",
+        "requester_authority",
+        "claim_evidence",
+        "warnings"
+      ],
+      "expected_action": "pause_and_verify",
+      "reference_rationale": "Given only the synthetic facts recorded for HD-019, the reference action is pause_and_verify. This is a benchmark adjudication of evidence sufficiency, not a legal finding that a debt is owed.",
+      "comprehension_items": [
+        "beneficiary_identity",
+        "amount",
+        "currency",
+        "fee",
+        "purpose",
+        "payee_match",
+        "requester_authority",
+        "claim_evidence",
+        "warnings"
+      ],
+      "presentation_modes": [
+        "mobile_simulation",
+        "desktop_simulation",
+        "screen_reader_simulation"
+      ],
+      "language_coverage": "English (South Africa) development item only"
+    },
+    {
+      "task_id": "HD-020",
+      "scenario_type": "stale_alias_resolution",
+      "truth_class": "insufficient_or_ambiguous",
+      "simulation_only": true,
+      "real_money_enabled": false,
+      "pii_present": false,
+      "locale": "en-ZA",
+      "translation_status": "development_english_only",
+      "task_context": "The alias was resolved previously, but its latest resolution evidence is stale and no current account confirmation is available.",
+      "request": {
+        "request_id": "SIM-HD-020",
+        "request_version": 1,
+        "counterparty_label": "Example Merchant 20",
+        "beneficiary_label": "Synthetic beneficiary HD-020",
+        "amount_minor_units": 4700,
+        "currency": "ZAR",
+        "fee_minor_units": 0,
+        "purpose": "stale_alias_resolution",
+        "reference": "SYNTHETIC-REF-HD-020",
+        "expiry_state": "known",
+        "expires_in_minutes": 30
+      },
+      "evidence": {
+        "sender_authentication": "verified",
+        "payee_match": "stale",
+        "requester_authority": "unknown",
+        "claim_evidence": "insufficient",
+        "digest_integrity": "valid",
+        "freshness": "stale"
+      },
+      "baseline_presentation": {
+        "visible_fields": [
+          "requester_identity",
+          "amount",
+          "currency",
+          "reference",
+          "expiry"
+        ],
+        "warning_style": "generic_confirmation",
+        "body": "Review this synthetic request before deciding."
+      },
+      "treatment_presentation": {
+        "visible_fields": [
+          "requester_identity",
+          "beneficiary_identity",
+          "amount",
+          "currency",
+          "fee",
+          "purpose",
+          "reference",
+          "payee_match",
+          "requester_authority",
+          "claim_evidence",
+          "expiry",
+          "warnings"
+        ],
+        "warning_style": "evidence_and_uncertainty_explicit",
+        "body": "Review the requester, beneficiary, claim evidence, fee and any unresolved checks before deciding."
+      },
+      "critical_material_fields": [
+        "beneficiary_identity",
+        "amount",
+        "currency",
+        "fee",
+        "purpose",
+        "payee_match",
+        "requester_authority",
+        "claim_evidence",
+        "warnings"
+      ],
+      "expected_action": "pause_and_verify",
+      "reference_rationale": "Given only the synthetic facts recorded for HD-020, the reference action is pause_and_verify. This is a benchmark adjudication of evidence sufficiency, not a legal finding that a debt is owed.",
+      "comprehension_items": [
+        "beneficiary_identity",
+        "amount",
+        "currency",
+        "fee",
+        "purpose",
+        "payee_match",
+        "requester_authority",
+        "claim_evidence",
+        "warnings"
+      ],
+      "presentation_modes": [
+        "mobile_simulation",
+        "desktop_simulation",
+        "screen_reader_simulation"
+      ],
+      "language_coverage": "English (South Africa) development item only"
+    },
+    {
+      "task_id": "HD-021",
+      "scenario_type": "incomplete_invoice_provenance",
+      "truth_class": "insufficient_or_ambiguous",
+      "simulation_only": true,
+      "real_money_enabled": false,
+      "pii_present": false,
+      "locale": "en-ZA",
+      "translation_status": "development_english_only",
+      "task_context": "A plausible invoice reference and correct account name are present, but the payer cannot establish whether the order was authorised.",
+      "request": {
+        "request_id": "SIM-HD-021",
+        "request_version": 1,
+        "counterparty_label": "Example Supplier 21",
+        "beneficiary_label": "Synthetic beneficiary HD-021",
+        "amount_minor_units": 11000,
+        "currency": "ZAR",
+        "fee_minor_units": 100,
+        "purpose": "incomplete_invoice_provenance",
+        "reference": "SYNTHETIC-REF-HD-021",
+        "expiry_state": "known",
+        "expires_in_minutes": 30
+      },
+      "evidence": {
+        "sender_authentication": "verified",
+        "payee_match": "match",
+        "requester_authority": "unknown",
+        "claim_evidence": "insufficient",
+        "digest_integrity": "valid",
+        "freshness": "current"
+      },
+      "baseline_presentation": {
+        "visible_fields": [
+          "requester_identity",
+          "amount",
+          "currency",
+          "reference",
+          "expiry"
+        ],
+        "warning_style": "generic_confirmation",
+        "body": "Review this synthetic request before deciding."
+      },
+      "treatment_presentation": {
+        "visible_fields": [
+          "requester_identity",
+          "beneficiary_identity",
+          "amount",
+          "currency",
+          "fee",
+          "purpose",
+          "reference",
+          "payee_match",
+          "requester_authority",
+          "claim_evidence",
+          "expiry",
+          "warnings"
+        ],
+        "warning_style": "evidence_and_uncertainty_explicit",
+        "body": "Review the requester, beneficiary, claim evidence, fee and any unresolved checks before deciding."
+      },
+      "critical_material_fields": [
+        "beneficiary_identity",
+        "amount",
+        "currency",
+        "fee",
+        "purpose",
+        "payee_match",
+        "requester_authority",
+        "claim_evidence",
+        "warnings"
+      ],
+      "expected_action": "pause_and_verify",
+      "reference_rationale": "Given only the synthetic facts recorded for HD-021, the reference action is pause_and_verify. This is a benchmark adjudication of evidence sufficiency, not a legal finding that a debt is owed.",
+      "comprehension_items": [
+        "beneficiary_identity",
+        "amount",
+        "currency",
+        "fee",
+        "purpose",
+        "payee_match",
+        "requester_authority",
+        "claim_evidence",
+        "warnings"
+      ],
+      "presentation_modes": [
+        "mobile_simulation",
+        "desktop_simulation",
+        "screen_reader_simulation"
+      ],
+      "language_coverage": "English (South Africa) development item only"
+    },
+    {
+      "task_id": "HD-022",
+      "scenario_type": "undisclosed_or_unknown_fee",
+      "truth_class": "insufficient_or_ambiguous",
+      "simulation_only": true,
+      "real_money_enabled": false,
+      "pii_present": false,
+      "locale": "en-ZA",
+      "translation_status": "development_english_only",
+      "task_context": "The fee is not available in the request presentation, so the payer cannot determine the total debit before deciding.",
+      "request": {
+        "request_id": "SIM-HD-022",
+        "request_version": 1,
+        "counterparty_label": "Example Merchant 22",
+        "beneficiary_label": "Synthetic beneficiary HD-022",
+        "amount_minor_units": 2900,
+        "currency": "ZAR",
+        "fee_minor_units": 0,
+        "purpose": "undisclosed_or_unknown_fee",
+        "reference": "SYNTHETIC-REF-HD-022",
+        "expiry_state": "known",
+        "expires_in_minutes": 30
+      },
+      "evidence": {
+        "sender_authentication": "verified",
+        "payee_match": "match",
+        "requester_authority": "confirmed",
+        "claim_evidence": "supported",
+        "digest_integrity": "valid",
+        "freshness": "current"
+      },
+      "baseline_presentation": {
+        "visible_fields": [
+          "requester_identity",
+          "amount",
+          "currency",
+          "reference",
+          "expiry"
+        ],
+        "warning_style": "generic_confirmation",
+        "body": "Review this synthetic request before deciding."
+      },
+      "treatment_presentation": {
+        "visible_fields": [
+          "requester_identity",
+          "beneficiary_identity",
+          "amount",
+          "currency",
+          "fee",
+          "purpose",
+          "reference",
+          "payee_match",
+          "requester_authority",
+          "claim_evidence",
+          "expiry",
+          "warnings"
+        ],
+        "warning_style": "evidence_and_uncertainty_explicit",
+        "body": "Review the requester, beneficiary, claim evidence, fee and any unresolved checks before deciding."
+      },
+      "critical_material_fields": [
+        "beneficiary_identity",
+        "amount",
+        "currency",
+        "fee",
+        "purpose",
+        "payee_match",
+        "requester_authority",
+        "claim_evidence",
+        "warnings"
+      ],
+      "expected_action": "pause_and_verify",
+      "reference_rationale": "Given only the synthetic facts recorded for HD-022, the reference action is pause_and_verify. This is a benchmark adjudication of evidence sufficiency, not a legal finding that a debt is owed.",
+      "comprehension_items": [
+        "beneficiary_identity",
+        "amount",
+        "currency",
+        "fee",
+        "purpose",
+        "payee_match",
+        "requester_authority",
+        "claim_evidence",
+        "warnings"
+      ],
+      "presentation_modes": [
+        "mobile_simulation",
+        "desktop_simulation",
+        "screen_reader_simulation"
+      ],
+      "language_coverage": "English (South Africa) development item only"
+    },
+    {
+      "task_id": "HD-023",
+      "scenario_type": "repeat_request_after_decline",
+      "truth_class": "insufficient_or_ambiguous",
+      "simulation_only": true,
+      "real_money_enabled": false,
+      "pii_present": false,
+      "locale": "en-ZA",
+      "translation_status": "development_english_only",
+      "task_context": "The same requester sends another request after the payer declined. The participant rule governing repeated requests is not known.",
+      "request": {
+        "request_id": "SIM-HD-023",
+        "request_version": 1,
+        "counterparty_label": "Example Merchant 23",
+        "beneficiary_label": "Synthetic beneficiary HD-023",
+        "amount_minor_units": 800,
+        "currency": "ZAR",
+        "fee_minor_units": 0,
+        "purpose": "repeat_request_after_decline",
+        "reference": "SYNTHETIC-REF-HD-023",
+        "expiry_state": "known",
+        "expires_in_minutes": 30
+      },
+      "evidence": {
+        "sender_authentication": "verified",
+        "payee_match": "match",
+        "requester_authority": "unknown",
+        "claim_evidence": "insufficient",
+        "digest_integrity": "valid",
+        "freshness": "current"
+      },
+      "baseline_presentation": {
+        "visible_fields": [
+          "requester_identity",
+          "amount",
+          "currency",
+          "reference",
+          "expiry"
+        ],
+        "warning_style": "generic_confirmation",
+        "body": "Review this synthetic request before deciding."
+      },
+      "treatment_presentation": {
+        "visible_fields": [
+          "requester_identity",
+          "beneficiary_identity",
+          "amount",
+          "currency",
+          "fee",
+          "purpose",
+          "reference",
+          "payee_match",
+          "requester_authority",
+          "claim_evidence",
+          "expiry",
+          "warnings"
+        ],
+        "warning_style": "evidence_and_uncertainty_explicit",
+        "body": "Review the requester, beneficiary, claim evidence, fee and any unresolved checks before deciding."
+      },
+      "critical_material_fields": [
+        "beneficiary_identity",
+        "amount",
+        "currency",
+        "fee",
+        "purpose",
+        "payee_match",
+        "requester_authority",
+        "claim_evidence",
+        "warnings"
+      ],
+      "expected_action": "pause_and_verify",
+      "reference_rationale": "Given only the synthetic facts recorded for HD-023, the reference action is pause_and_verify. This is a benchmark adjudication of evidence sufficiency, not a legal finding that a debt is owed.",
+      "comprehension_items": [
+        "beneficiary_identity",
+        "amount",
+        "currency",
+        "fee",
+        "purpose",
+        "payee_match",
+        "requester_authority",
+        "claim_evidence",
+        "warnings"
+      ],
+      "presentation_modes": [
+        "mobile_simulation",
+        "desktop_simulation",
+        "screen_reader_simulation"
+      ],
+      "language_coverage": "English (South Africa) development item only"
+    },
+    {
+      "task_id": "HD-024",
+      "scenario_type": "close_name_no_claim_evidence",
+      "truth_class": "insufficient_or_ambiguous",
+      "simulation_only": true,
+      "real_money_enabled": false,
+      "pii_present": false,
+      "locale": "en-ZA",
+      "translation_status": "development_english_only",
+      "task_context": "The account name is a Close Match and the sender is authenticated, but the request provides no evidence of the purpose or agreement.",
+      "request": {
+        "request_id": "SIM-HD-024",
+        "request_version": 1,
+        "counterparty_label": "Example Person 24",
+        "beneficiary_label": "Synthetic beneficiary HD-024",
+        "amount_minor_units": 1900,
+        "currency": "ZAR",
+        "fee_minor_units": 0,
+        "purpose": "close_name_no_claim_evidence",
+        "reference": "SYNTHETIC-REF-HD-024",
+        "expiry_state": "known",
+        "expires_in_minutes": 30
+      },
+      "evidence": {
+        "sender_authentication": "authenticated_session",
+        "payee_match": "close_match",
+        "requester_authority": "unknown",
+        "claim_evidence": "insufficient",
+        "digest_integrity": "valid",
+        "freshness": "current"
+      },
+      "baseline_presentation": {
+        "visible_fields": [
+          "requester_identity",
+          "amount",
+          "currency",
+          "reference",
+          "expiry"
+        ],
+        "warning_style": "generic_confirmation",
+        "body": "Review this synthetic request before deciding."
+      },
+      "treatment_presentation": {
+        "visible_fields": [
+          "requester_identity",
+          "beneficiary_identity",
+          "amount",
+          "currency",
+          "fee",
+          "purpose",
+          "reference",
+          "payee_match",
+          "requester_authority",
+          "claim_evidence",
+          "expiry",
+          "warnings"
+        ],
+        "warning_style": "evidence_and_uncertainty_explicit",
+        "body": "Review the requester, beneficiary, claim evidence, fee and any unresolved checks before deciding."
+      },
+      "critical_material_fields": [
+        "beneficiary_identity",
+        "amount",
+        "currency",
+        "fee",
+        "purpose",
+        "payee_match",
+        "requester_authority",
+        "claim_evidence",
+        "warnings"
+      ],
+      "expected_action": "pause_and_verify",
+      "reference_rationale": "Given only the synthetic facts recorded for HD-024, the reference action is pause_and_verify. This is a benchmark adjudication of evidence sufficiency, not a legal finding that a debt is owed.",
+      "comprehension_items": [
+        "beneficiary_identity",
+        "amount",
+        "currency",
+        "fee",
+        "purpose",
+        "payee_match",
+        "requester_authority",
+        "claim_evidence",
+        "warnings"
+      ],
+      "presentation_modes": [
+        "mobile_simulation",
+        "desktop_simulation",
+        "screen_reader_simulation"
+      ],
+      "language_coverage": "English (South Africa) development item only"
+    }
+  ]
+}
