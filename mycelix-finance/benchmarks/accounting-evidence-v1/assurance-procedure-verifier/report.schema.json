@@ -92,7 +92,8 @@
           "expected_terminal_state",
           "passed",
           "blocks_unqualified_signoff",
-          "reason_codes"
+          "reason_codes",
+          "expected_blocks_unqualified_signoff"
         ],
         "properties": {
           "case_id": {
@@ -132,6 +133,9 @@
             "items": {
               "type": "string"
             }
+          },
+          "expected_blocks_unqualified_signoff": {
+            "type": "boolean"
           }
         }
       }
