@@ -154,6 +154,7 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
     let mut token_scopes: BTreeMap<String, (String, String, String)> = BTreeMap::new();
 
     for (index, scenario) in scenarios.iter().enumerate() {
+        let case_error_start = errors.len();
         let label = format!("scenarios[{index}]");
         let Some(signal) = scenario.get("signal") else {
             errors.push(format!("{label}: signal missing"));
@@ -229,7 +230,15 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
         // FSR Act s251 is not admitted as a blanket statutory basis for a private participant.
         let fsr_251_private_misuse = basis_reference == "FSR_ACT_S251"
             && !matches!(issuer_role, "SARB" | "financial_sector_regulator");
+        let raw_personal_data = signal
+            .get("raw_personal_data_present")
+            .and_then(Value::as_bool)
+            != Some(false);
+        let missing_evidence_commitment =
+            str_at(evidence, "evidence_commitment").is_none_or(str::is_empty);
         let mut disposition = if fsr_251_private_misuse
+            || raw_personal_data
+            || missing_evidence_commitment
             || authority_state == "denied"
             || authority_state == "expired"
             || role_state == "denied"
@@ -394,7 +403,9 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
                 errors.push(format!(
                     "{label}/{id}: non-current signal cannot support a new recipient use"
                 ));
-                disposition = "reject";
+                if !disposition.starts_with("quarantine_") {
+                    disposition = "reject";
+                }
             }
         }
 
@@ -402,6 +413,21 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
             errors.push(format!(
                 "{label}/{id}: expected disposition {expected} differs from evaluator {disposition}"
             ));
+        } else if matches!(
+            expected,
+            "reject"
+                | "quarantine_unknown_authority"
+                | "quarantine_revoked_key_current_use"
+                | "quarantine_expired"
+                | "quarantine_disputed"
+                | "quarantine_withdrawn"
+                | "quarantine_corrected"
+                | "quarantine_propagation_incomplete"
+        ) {
+            // A seeded adverse case is a valid corpus fixture when the evaluator
+            // derives exactly the expected rejection/quarantine disposition.
+            // Discard only diagnostics emitted while evaluating this one case.
+            errors.truncate(case_error_start);
         }
     }
     errors
