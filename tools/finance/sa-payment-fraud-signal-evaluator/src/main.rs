@@ -263,7 +263,10 @@ fn required_disposition(signal: &Value, evaluation_at: &str) -> Option<&'static 
                 str_at(contribution, "evidence_commitment") == Some(commitment)
                     && str_at(contribution, "source_participant") == Some(source_participant)
                     && str_at(contribution, "origin_case_commitment") == Some(origin_commitment)
-                    && contribution.get("independent_claim").and_then(Value::as_bool) == Some(true)
+                    && contribution
+                        .get("independent_claim")
+                        .and_then(Value::as_bool)
+                        == Some(true)
             });
         if !evidence_bound {
             return Some("reject_confirmation_without_independent_evidence");
