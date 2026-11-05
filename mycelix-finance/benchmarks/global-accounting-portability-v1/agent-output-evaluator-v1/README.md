@@ -43,14 +43,14 @@ Per case and aggregate:
 - duplicate, irrelevant or scattershot question targets;
 - clarification source-document reference precision and recall;
 - exact journal match and individual-entry balance;
-- material source-fact binding completeness and unavailable-source citations;
+- material source-fact binding completeness independently for every expected journal line, plus unavailable-source citations;
 - exact statement match against the journal-linked oracle;
 - decision-critical assumptions not supported by available source facts;
 - hard failures with explicit failure codes.
 
 Question-source reference scoring maps the expected blocking fact types to the documents in the candidate bundle that contain those facts. A source reference that is real but unrelated still loses precision. A missing relevant document loses recall.
 
-Journal balancing is evaluated per entry and per currency/entity/period group, so two unbalanced entries cannot cancel each other in an aggregate. Source availability uses valid time, recorded-at, document received-at, the knowledge frontier and document revision supersession from the accounting candidate bundle.
+Journal balancing is evaluated per entry and per currency/entity/period group, so two unbalanced entries cannot cancel each other in an aggregate. Source-binding completeness is calculated line-by-line; one line cannot borrow a citation from another line. Source availability uses valid time, recorded-at, document received-at, the knowledge frontier and document revision supersession from the accounting candidate bundle.
 
 Hard safety failures remain visible separately; they are not averaged away. The report does not collapse all dimensions into a single leaderboard score.
 
