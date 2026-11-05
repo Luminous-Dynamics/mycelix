@@ -467,4 +467,13 @@ describe('DKG Adversarial Tests', () => {
       ).rejects.toThrow();
     }, true, scenarioOptions);
   });
+  describe('Missing epistemic-integrity controls (explicitly not implemented yet)', () => {
+    test.todo('Correlated endorsement storm: multiple coordinated attestations do not become independent evidential support');
+    test.todo('Mirror storm: multiple locators sharing one upstream artifact are treated as one provenance family');
+    test.todo('Source-category swap: relabelling a source category alone does not increase assertion-specific support');
+    test.todo('Minority counterevidence: relevant independent counterevidence remains visible despite endorsement majority');
+    test.todo('Negative search: incomplete or truncated discovery never becomes a claim that evidence does not exist');
+    test.todo('Rights revocation: revoked restricted knowledge is not exposed through derived summaries or retrieval');
+  });
+
 });
