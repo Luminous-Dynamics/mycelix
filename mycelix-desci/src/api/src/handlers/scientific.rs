@@ -509,10 +509,10 @@ mod as_known_at_projection_tests {
     use chrono::{Duration, TimeZone, Utc};
     use ed25519_dalek::SigningKey;
     use mycelix_desci_core::{
-        ActorId, AtomicClaim, AuthorizedActorKey, ClaimId, ContentHash, OrganizationId,
+        ActorId, AtomicClaim, AuthorizedActorKey, ContentHash, OrganizationId,
         ResearchObject, ResearchObjectId, ResearchObjectType, ScientificAction,
-        ScientificAuthorityReceipt, ScientificEventEnvelope, ScientificEventPayload,
-        ScientificRole, SignedScientificAuthorityReceipt, SignedScientificEvent,
+        ScientificAuthorityReceipt, ScientificEventEnvelope, ScientificRole,
+        SignedScientificAuthorityReceipt, SignedScientificEvent,
     };
     use std::collections::BTreeSet;
 
