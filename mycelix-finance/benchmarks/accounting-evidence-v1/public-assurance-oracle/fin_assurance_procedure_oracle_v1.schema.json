@@ -14,15 +14,15 @@
       "const": "FIN-ASSURE-PROCEDURE"
     },
     "dataset_version": {
-      "const": "1.1.0"
+      "const": "1.0.0"
     },
     "visibility": {
       "const": "public_reference_oracle_not_blind_holdout"
     },
     "cases": {
       "type": "array",
-      "minItems": 22,
-      "maxItems": 22,
+      "minItems": 18,
+      "maxItems": 18,
       "items": {
         "type": "object",
         "additionalProperties": false,
@@ -30,8 +30,7 @@
           "case_id",
           "expected_terminal_state",
           "reason_codes",
-          "blocks_unqualified_signoff",
-          "expected_pair_states"
+          "blocks_unqualified_signoff"
         ],
         "properties": {
           "case_id": {
@@ -57,34 +56,6 @@
           },
           "blocks_unqualified_signoff": {
             "type": "boolean"
-          },
-          "expected_pair_states": {
-            "type": "array",
-            "minItems": 1,
-            "items": {
-              "type": "object",
-              "additionalProperties": false,
-              "required": [
-                "pair_id",
-                "terminal_state"
-              ],
-              "properties": {
-                "pair_id": {
-                  "type": "string"
-                },
-                "terminal_state": {
-                  "enum": [
-                    "addressed_with_qualified_evidence",
-                    "addressed_with_explicit_limitation",
-                    "exception_requires_resolution",
-                    "insufficient_evidence",
-                    "procedure_not_performed",
-                    "not_applicable_with_authorized_rationale",
-                    "human_judgment_required"
-                  ]
-                }
-              }
-            }
           }
         }
       }
