@@ -1,17 +1,185 @@
 {
- "oracle_id":"MYCELIX-PLATFORM-ADAPTER-ORACLE-S0",
- "schema_version":"1.0.0",
- "claim_ceiling":"public_mapping_conformance_expectations_not_vendor_certification",
- "expectations":[
-  {"case_id":"OT-ACCESS-PRINCIPAL-GAP","expected_adapter_state":"indeterminate","expected_active_relationship_refs":["REL-OT-TRANSFER-1"],"expected_unmapped_source_paths":["relationships.accessPrincipals"],"expected_incomplete_capabilities":["actor_access_principals"],"expected_access_principal_refs":[],"expected_upstream_origin_refs":[],"expected_reason_codes":["actor_access_principal_not_represented"],"expected_no_effects":true},
-  {"case_id":"OT-DIRECTION-SUBPROCESSOR","expected_adapter_state":"mapping_complete","expected_active_relationship_refs":["REL-OT-SUBPROCESSOR-1"],"expected_unmapped_source_paths":[],"expected_incomplete_capabilities":[],"expected_access_principal_refs":["OBJ-PERSON-1"],"expected_upstream_origin_refs":[],"expected_reason_codes":["no_unresolved_mapping_loss"],"expected_no_effects":true},
-  {"case_id":"BIGID-CLASSIFICATION-NOT-AUTHORITY","expected_adapter_state":"indeterminate","expected_active_relationship_refs":[],"expected_unmapped_source_paths":[],"expected_incomplete_capabilities":["data_transfer_relationships"],"expected_access_principal_refs":[],"expected_upstream_origin_refs":[],"expected_reason_codes":["classification_is_not_transfer_authority"],"expected_no_effects":true},
-  {"case_id":"PURVIEW-LINEAGE-PARTIAL","expected_adapter_state":"mapping_partial","expected_active_relationship_refs":["REL-PURVIEW-LINEAGE-1"],"expected_unmapped_source_paths":["lineage.columnMapping"],"expected_incomplete_capabilities":["data_lineage","pagination_completeness"],"expected_access_principal_refs":[],"expected_upstream_origin_refs":[],"expected_reason_codes":["source_lineage_partial_or_truncated"],"expected_no_effects":true},
-  {"case_id":"BLACKLINE-RECON-NO-POSTING","expected_adapter_state":"evidence_only_read_only","expected_active_relationship_refs":["REL-BL-RECON-1"],"expected_unmapped_source_paths":[],"expected_incomplete_capabilities":["journal_posting"],"expected_access_principal_refs":[],"expected_upstream_origin_refs":["ORIGIN-ERP-LEDGER-1"],"expected_reason_codes":["journal_posting_capability_not_authorised_by_adapter"],"expected_no_effects":true},
-  {"case_id":"WORKIVA-DISCLOSURE-LINK","expected_adapter_state":"mapping_complete","expected_active_relationship_refs":["REL-WK-PUBLISH-1"],"expected_unmapped_source_paths":[],"expected_incomplete_capabilities":[],"expected_access_principal_refs":[],"expected_upstream_origin_refs":["ORIGIN-ERP-LEDGER-1"],"expected_reason_codes":["no_unresolved_mapping_loss"],"expected_no_effects":true},
-  {"case_id":"TEMP-FUTURE-FACT","expected_adapter_state":"indeterminate","expected_active_relationship_refs":[],"expected_unmapped_source_paths":[],"expected_incomplete_capabilities":[],"expected_access_principal_refs":[],"expected_upstream_origin_refs":[],"expected_reason_codes":["future_recorded_relationship_excluded"],"expected_no_effects":true},
-  {"case_id":"PAGINATION-TRUNCATED","expected_adapter_state":"mapping_partial","expected_active_relationship_refs":["REL-PAG-1"],"expected_unmapped_source_paths":[],"expected_incomplete_capabilities":["pagination_completeness"],"expected_access_principal_refs":[],"expected_upstream_origin_refs":[],"expected_reason_codes":["export_pagination_incomplete"],"expected_no_effects":true},
-  {"case_id":"MIRRORED-EVIDENCE-SAME-ORIGIN","expected_adapter_state":"duplicate_origin_review","expected_active_relationship_refs":["REL-MIRROR-1","REL-MIRROR-2"],"expected_unmapped_source_paths":[],"expected_incomplete_capabilities":[],"expected_access_principal_refs":[],"expected_upstream_origin_refs":["ORIGIN-ERP-LEDGER-9"],"expected_reason_codes":["correlated_origin_not_independent"],"expected_no_effects":true},
-  {"case_id":"NAMESPACE-SCOPED-IDENTITY","expected_adapter_state":"identity_scope_preserved","expected_active_relationship_refs":[],"expected_unmapped_source_paths":[],"expected_incomplete_capabilities":[],"expected_access_principal_refs":[],"expected_upstream_origin_refs":[],"expected_reason_codes":["same_external_id_different_namespace"],"expected_no_effects":true}
- ]
+  "oracle_id": "MYCELIX-PLATFORM-ADAPTER-ORACLE-S0",
+  "schema_version": "1.0.0",
+  "claim_ceiling": "public_mapping_conformance_expectations_not_vendor_certification",
+  "expectations": [
+    {
+      "case_id": "OT-ACCESS-PRINCIPAL-GAP",
+      "expected_adapter_state": "indeterminate",
+      "expected_active_relationship_refs": [
+        "REL-OT-TRANSFER-1"
+      ],
+      "expected_unmapped_source_paths": [
+        "relationships.accessPrincipals"
+      ],
+      "expected_incomplete_capabilities": [
+        "actor_access_principals"
+      ],
+      "expected_access_principal_refs": [],
+      "expected_upstream_origin_refs": [
+        "ORIGIN-CRM-1"
+      ],
+      "expected_reason_codes": [
+        "actor_access_principal_not_represented"
+      ],
+      "expected_no_effects": true
+    },
+    {
+      "case_id": "OT-DIRECTION-SUBPROCESSOR",
+      "expected_adapter_state": "mapping_complete",
+      "expected_active_relationship_refs": [
+        "REL-OT-SUBPROCESSOR-1"
+      ],
+      "expected_unmapped_source_paths": [],
+      "expected_incomplete_capabilities": [],
+      "expected_access_principal_refs": [
+        "OBJ-PERSON-1"
+      ],
+      "expected_upstream_origin_refs": [
+        "ORIGIN-CRM-2"
+      ],
+      "expected_reason_codes": [
+        "no_unresolved_mapping_loss"
+      ],
+      "expected_no_effects": true
+    },
+    {
+      "case_id": "BIGID-CLASSIFICATION-NOT-AUTHORITY",
+      "expected_adapter_state": "indeterminate",
+      "expected_active_relationship_refs": [],
+      "expected_unmapped_source_paths": [],
+      "expected_incomplete_capabilities": [
+        "data_transfer_relationships"
+      ],
+      "expected_access_principal_refs": [],
+      "expected_upstream_origin_refs": [],
+      "expected_reason_codes": [
+        "classification_is_not_transfer_authority"
+      ],
+      "expected_no_effects": true
+    },
+    {
+      "case_id": "PURVIEW-LINEAGE-PARTIAL",
+      "expected_adapter_state": "mapping_partial",
+      "expected_active_relationship_refs": [
+        "REL-PURVIEW-LINEAGE-1"
+      ],
+      "expected_unmapped_source_paths": [
+        "lineage.columnMapping"
+      ],
+      "expected_incomplete_capabilities": [
+        "data_lineage",
+        "pagination_completeness"
+      ],
+      "expected_access_principal_refs": [],
+      "expected_upstream_origin_refs": [
+        "ORIGIN-PIPELINE-1"
+      ],
+      "expected_reason_codes": [
+        "source_lineage_partial_or_truncated"
+      ],
+      "expected_no_effects": true
+    },
+    {
+      "case_id": "BLACKLINE-RECON-NO-POSTING",
+      "expected_adapter_state": "evidence_only_read_only",
+      "expected_active_relationship_refs": [
+        "REL-BL-RECON-1"
+      ],
+      "expected_unmapped_source_paths": [],
+      "expected_incomplete_capabilities": [
+        "journal_posting"
+      ],
+      "expected_access_principal_refs": [],
+      "expected_upstream_origin_refs": [
+        "ORIGIN-ERP-LEDGER-1"
+      ],
+      "expected_reason_codes": [
+        "journal_posting_capability_not_authorised_by_adapter"
+      ],
+      "expected_no_effects": true
+    },
+    {
+      "case_id": "WORKIVA-DISCLOSURE-LINK",
+      "expected_adapter_state": "mapping_complete",
+      "expected_active_relationship_refs": [
+        "REL-WK-PUBLISH-1"
+      ],
+      "expected_unmapped_source_paths": [],
+      "expected_incomplete_capabilities": [],
+      "expected_access_principal_refs": [],
+      "expected_upstream_origin_refs": [
+        "ORIGIN-ERP-LEDGER-1"
+      ],
+      "expected_reason_codes": [
+        "no_unresolved_mapping_loss"
+      ],
+      "expected_no_effects": true
+    },
+    {
+      "case_id": "TEMP-FUTURE-FACT",
+      "expected_adapter_state": "indeterminate",
+      "expected_active_relationship_refs": [],
+      "expected_unmapped_source_paths": [],
+      "expected_incomplete_capabilities": [],
+      "expected_access_principal_refs": [],
+      "expected_upstream_origin_refs": [
+        "ORIGIN-FUTURE-1"
+      ],
+      "expected_reason_codes": [
+        "future_recorded_relationship_excluded"
+      ],
+      "expected_no_effects": true
+    },
+    {
+      "case_id": "PAGINATION-TRUNCATED",
+      "expected_adapter_state": "mapping_partial",
+      "expected_active_relationship_refs": [
+        "REL-PAG-1"
+      ],
+      "expected_unmapped_source_paths": [],
+      "expected_incomplete_capabilities": [
+        "pagination_completeness"
+      ],
+      "expected_access_principal_refs": [],
+      "expected_upstream_origin_refs": [
+        "ORIGIN-PIPELINE-2"
+      ],
+      "expected_reason_codes": [
+        "export_pagination_incomplete"
+      ],
+      "expected_no_effects": true
+    },
+    {
+      "case_id": "MIRRORED-EVIDENCE-SAME-ORIGIN",
+      "expected_adapter_state": "duplicate_origin_review",
+      "expected_active_relationship_refs": [
+        "REL-MIRROR-1",
+        "REL-MIRROR-2"
+      ],
+      "expected_unmapped_source_paths": [],
+      "expected_incomplete_capabilities": [],
+      "expected_access_principal_refs": [],
+      "expected_upstream_origin_refs": [
+        "ORIGIN-ERP-LEDGER-9"
+      ],
+      "expected_reason_codes": [
+        "correlated_origin_not_independent"
+      ],
+      "expected_no_effects": true
+    },
+    {
+      "case_id": "NAMESPACE-SCOPED-IDENTITY",
+      "expected_adapter_state": "identity_scope_preserved",
+      "expected_active_relationship_refs": [],
+      "expected_unmapped_source_paths": [],
+      "expected_incomplete_capabilities": [],
+      "expected_access_principal_refs": [],
+      "expected_upstream_origin_refs": [],
+      "expected_reason_codes": [
+        "same_external_id_different_namespace"
+      ],
+      "expected_no_effects": true
+    }
+  ]
 }
