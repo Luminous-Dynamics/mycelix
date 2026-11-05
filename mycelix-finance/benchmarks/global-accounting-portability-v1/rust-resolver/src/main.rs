@@ -716,6 +716,8 @@ mod tests {
         serde_json::from_str(input).expect("request JSON")
     }
 
+    // Test mutations must refresh the exact selected-profile binding; otherwise
+    // the digest guard correctly rejects the registry before temporal rules run.
     fn refresh_profile_binding(registry: &mut Value, profile_id: &str) {
         let profile = registry["profile_references"]
             .as_array()
