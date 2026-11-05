@@ -498,7 +498,7 @@ fn verify_case(task_id: &str, task: &Value, expected: &Value, response: &Value) 
                     && text(row, "evidence_id") == Some(evidence_id)
             });
             match binding {
-                Some(binding) => selected.push(*binding),
+                Some(binding) => selected.push(binding),
                 None => {
                     positive_disposition_guard = false;
                     reasons.push(format!(
