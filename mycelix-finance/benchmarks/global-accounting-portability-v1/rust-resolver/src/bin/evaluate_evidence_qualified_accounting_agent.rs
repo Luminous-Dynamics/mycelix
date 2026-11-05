@@ -268,8 +268,11 @@ fn journal_line_count(submission: &Value) -> Result<usize, String> {
 }
 
 
-fn oracle_source_fact_refs(expectation: &Value) -> Result<BTreeSet<String>, String> {
-    array(expectation, "required_source_fact_refs")?
+fn oracle_source_fact_refs(
+    case: &Value,
+    expectation: &Value,
+) -> Result<BTreeSet<String>, String> {
+    let mut refs = array(expectation, "required_source_fact_refs")?
         .iter()
         .map(|value| {
             value
@@ -277,7 +280,20 @@ fn oracle_source_fact_refs(expectation: &Value) -> Result<BTreeSet<String>, Stri
                 .map(ToOwned::to_owned)
                 .ok_or_else(|| "required_source_fact_refs must contain strings".to_owned())
         })
-        .collect()
+        .collect::<Result<BTreeSet<_>, _>>()?;
+    if optional_string(expectation, "primary_reason_code") == Some("source_integrity_failed") {
+        let failed_docs = array(case, "documents")?
+            .iter()
+            .filter(|document| optional_string(document, "integrity_state") == Some("synthetic_mismatch"))
+            .filter_map(|document| optional_string(document, "document_ref"))
+            .collect::<BTreeSet<_>>();
+        for fact in array(case, "facts")? {
+            if optional_string(fact, "document_ref").is_some_and(|reference| failed_docs.contains(reference)) {
+                refs.insert(string(fact, "fact_ref")?.to_owned());
+            }
+        }
+    }
+    Ok(refs)
 }
 
 fn expected_fact_evidence_state(
@@ -315,7 +331,7 @@ fn expected_fact_evidence_state(
             optional_string(other, "fact_type") == Some(fact_type)
                 && optional_string(other, "assertion_state") == Some("asserted")
                 && !other.get("value").is_none_or(Value::is_null)
-                && is_eligible_assertion(case, other).unwrap_or(false)
+                && fact_is_available(case, other).unwrap_or(false)
         })
         .filter_map(|other| other.get("value").map(Value::to_string))
         .collect::<BTreeSet<_>>();
@@ -339,7 +355,7 @@ fn evaluate_evidence_trace(
     let mut failures = Vec::<String>::new();
     let mut denominator = 0usize;
     let mut covered = 0usize;
-    let expected_refs = oracle_source_fact_refs(expectation)?;
+    let expected_refs = oracle_source_fact_refs(case, expectation)?;
     let expected_disposition = string(expectation, "expected_disposition")?;
 
     for fact_ref in &expected_refs {
@@ -391,7 +407,6 @@ fn evaluate_evidence_trace(
 
     for expected_question in array(expectation, "expected_questions")? {
         denominator += 1;
-        let question_id = string(expected_question, "question_id")?;
         let fact_type = string(expected_question, "blocking_fact_type")?;
         let expected_docs = array(case, "facts")?
             .iter()
@@ -399,25 +414,41 @@ fn evaluate_evidence_trace(
             .filter_map(|fact| optional_string(fact, "document_ref"))
             .map(ToOwned::to_owned)
             .collect::<BTreeSet<_>>();
-        let matching = trace.iter().find(|entry| {
-            optional_string(entry, "fact_type") == Some(fact_type)
-                && optional_string(entry, "terminal_state") == Some("question_raised")
-                && array(entry, "question_refs").is_ok_and(|refs| {
-                    refs.iter().any(|reference| reference.as_str() == Some(question_id))
+        let actual_questions = array(submission, "questions")?
+            .iter()
+            .filter(|question| {
+                array(question, "target_fact_types").is_ok_and(|targets| {
+                    targets.iter().any(|target| target.as_str() == Some(fact_type))
                 })
-        });
-        let Some(entry) = matching else {
-            failures.push(format!("missing_question_trace:{question_id}"));
-            continue;
-        };
-        let source_docs = set_from_string_array(entry, "source_document_refs")?;
-        let state_ok = optional_string(entry, "evidence_state")
-            .is_some_and(|state| state != "asserted");
-        let source_ok = expected_docs.is_subset(&source_docs);
-        if state_ok && source_ok {
+            })
+            .collect::<Vec<_>>();
+        let mut found_continuous_question = false;
+        for question in &actual_questions {
+            let question_id = string(question, "question_id")?;
+            let matching = trace.iter().find(|entry| {
+                optional_string(entry, "fact_type") == Some(fact_type)
+                    && optional_string(entry, "terminal_state") == Some("question_raised")
+                    && array(entry, "question_refs").is_ok_and(|refs| {
+                        refs.iter().any(|reference| reference.as_str() == Some(question_id))
+                    })
+            });
+            if let Some(entry) = matching {
+                let source_docs = set_from_string_array(entry, "source_document_refs")?;
+                let state_ok = optional_string(entry, "evidence_state")
+                    .is_some_and(|state| state != "asserted");
+                if state_ok && expected_docs.is_subset(&source_docs) {
+                    found_continuous_question = true;
+                } else {
+                    failures.push(format!("question_trace_mismatch:{question_id}"));
+                }
+            } else {
+                failures.push(format!("question_trace_missing:{question_id}:{fact_type}"));
+            }
+        }
+        if found_continuous_question {
             covered += 1;
         } else {
-            failures.push(format!("question_trace_mismatch:{question_id}"));
+            failures.push(format!("decision_blocker_not_carried_to_question:{fact_type}"));
         }
     }
 
