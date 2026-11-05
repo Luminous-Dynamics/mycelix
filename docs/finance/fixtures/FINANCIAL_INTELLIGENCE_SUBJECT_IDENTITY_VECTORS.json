@@ -1,0 +1,198 @@
+{
+  "schema": "mycelix.finance.intelligence.subject-identity-vector.v1",
+  "purpose": "Machine-readable known-answer vectors for FIN-001R financial subject identity lifecycle.",
+  "principles": [
+    "ticker/symbol/provider identifiers are aliases, not canonical identity",
+    "issuer, instrument, listing, venue, share class, and contract remain distinct subjects",
+    "identity history is append-only and temporally qualified",
+    "corporate actions and reorganizations do not rewrite historical subject references",
+    "ambiguous resolution remains unresolved rather than being silently merged"
+  ],
+  "canonical_envelope": [
+    "schema",
+    "vector_id",
+    "frontier",
+    "inputs",
+    "expected_semantics"
+  ],
+  "vectors": [
+    {
+      "vector_id": "FIN-001R-001",
+      "name": "ticker-reuse",
+      "frontier": "2026-01-01T00:00:00Z",
+      "inputs": {
+        "symbol": "XYZ",
+        "issuer_a": "ISSUER-A",
+        "issuer_a_valid_to": "2025-06-30T23:59:59Z",
+        "issuer_b": "ISSUER-B",
+        "issuer_b_valid_from": "2025-07-01T00:00:00Z"
+      },
+      "expected_semantics": {
+        "issuer_a_distinct_from_issuer_b": true,
+        "symbol_is_canonical_identity": false,
+        "historical_observations_retain_original_subject": true
+      }
+    },
+    {
+      "vector_id": "FIN-001R-002",
+      "name": "dual-listing",
+      "frontier": "2026-01-01T00:00:00Z",
+      "inputs": {
+        "issuer": "ISSUER-A",
+        "instrument": "INSTRUMENT-A",
+        "listing_1": {"venue": "VENUE-1", "symbol": "AAA"},
+        "listing_2": {"venue": "VENUE-2", "symbol": "AAB"}
+      },
+      "expected_semantics": {
+        "issuer_same": true,
+        "listings_distinct": true,
+        "venue_is_part_of_listing_context": true,
+        "symbol_equality_or_difference_does_not_define_issuer_identity": true
+      }
+    },
+    {
+      "vector_id": "FIN-001R-003",
+      "name": "share-class-collision",
+      "frontier": "2026-01-01T00:00:00Z",
+      "inputs": {
+        "issuer": "ISSUER-A",
+        "class_a": "CLASS-A",
+        "class_b": "CLASS-B",
+        "symbol_a": "AAA",
+        "symbol_b": "AAB"
+      },
+      "expected_semantics": {
+        "issuer_same": true,
+        "share_classes_distinct": true,
+        "instruments_not_merged_without_explicit_relation": true
+      }
+    },
+    {
+      "vector_id": "FIN-001R-004",
+      "name": "merger-lineage",
+      "frontier": "2026-01-01T00:00:00Z",
+      "inputs": {
+        "predecessor": "ISSUER-A",
+        "successor": "ISSUER-B",
+        "effective_at": "2025-09-01T00:00:00Z",
+        "relation": "reorganization_successor"
+      },
+      "expected_semantics": {
+        "predecessor_identity_preserved": true,
+        "successor_identity_preserved": true,
+        "historical_records_rewritten": false,
+        "explicit_lineage_relation_required": true
+      }
+    },
+    {
+      "vector_id": "FIN-001R-005",
+      "name": "delist-and-relist",
+      "frontier": "2026-01-01T00:00:00Z",
+      "inputs": {
+        "instrument": "INSTRUMENT-A",
+        "listing_a": {"venue": "VENUE-1", "valid_to": "2025-05-01T00:00:00Z"},
+        "listing_b": {"venue": "VENUE-2", "valid_from": "2025-08-01T00:00:00Z"}
+      },
+      "expected_semantics": {
+        "listing_intervals_distinct": true,
+        "venue_transition_preserved": true,
+        "instrument_identity_not_replaced_by_listing_symbol": true
+      }
+    },
+    {
+      "vector_id": "FIN-001R-006",
+      "name": "corporate-action-identity",
+      "frontier": "2026-01-01T00:00:00Z",
+      "inputs": {
+        "instrument": "INSTRUMENT-A",
+        "action": "split",
+        "effective_at": "2025-10-01T00:00:00Z"
+      },
+      "expected_semantics": {
+        "pre_action_observations_preserved": true,
+        "action_is_explicit_event": true,
+        "adjusted_views_require_action_lineage": true,
+        "historical_raw_identity_rewritten": false
+      }
+    },
+    {
+      "vector_id": "FIN-001R-007",
+      "name": "provider-identifier-collision",
+      "frontier": "2026-01-01T00:00:00Z",
+      "inputs": {
+        "provider": "P1",
+        "provider_id": "12345",
+        "subject_a": "ISSUER-A",
+        "subject_b": "ISSUER-B",
+        "identifier_reused_at": "2025-07-01T00:00:00Z"
+      },
+      "expected_semantics": {
+        "provider_identifier_not_global_identity": true,
+        "temporal_namespace_required": true,
+        "subjects_not_merged": true
+      }
+    },
+    {
+      "vector_id": "FIN-001R-008",
+      "name": "ambiguous-resolution",
+      "frontier": "2026-01-01T00:00:00Z",
+      "inputs": {
+        "display_name": "Acme Holdings",
+        "candidate_subjects": ["ISSUER-A", "ISSUER-B"],
+        "qualifying_evidence": []
+      },
+      "expected_semantics": {
+        "canonical_merge_allowed": false,
+        "resolution_status": "ambiguous",
+        "unknown_or_ambiguous_must_remain_explicit": true
+      }
+    },
+    {
+      "vector_id": "FIN-001R-009",
+      "name": "identifier-change",
+      "frontier": "2026-01-01T00:00:00Z",
+      "inputs": {
+        "subject": "ISSUER-A",
+        "old_symbol": "OLD",
+        "new_symbol": "NEW",
+        "change_at": "2025-11-01T00:00:00Z"
+      },
+      "expected_semantics": {
+        "subject_identity_continuous": true,
+        "alias_history_preserved": true,
+        "old_observations_keep_old_alias_context": true
+      }
+    },
+    {
+      "vector_id": "FIN-001R-010",
+      "name": "historical-frontier-identity",
+      "frontier": "2025-06-01T00:00:00Z",
+      "inputs": {
+        "identifier_mapping_available_at": "2025-07-01T00:00:00Z",
+        "observation_at": "2025-05-15T00:00:00Z",
+        "later_mapping_points_to": "ISSUER-B"
+      },
+      "expected_semantics": {
+        "later_mapping_not_used_backward": true,
+        "historical_resolution_cannot_use_future_mapping": true,
+        "frontier_constraint_preserved": true
+      }
+    }
+  ],
+  "required_identity_components": [
+    "subject_id",
+    "subject_kind",
+    "validity_interval",
+    "identifier_aliases",
+    "lineage_relations",
+    "information_frontier"
+  ],
+  "noncanonical_identifiers": [
+    "ticker",
+    "symbol",
+    "display_name",
+    "url",
+    "provider_local_identifier"
+  ],
+  "qualification_rule": "A conforming implementation must never use an alias alone to establish canonical financial subject identity, must preserve temporal identity history, and must leave ambiguous resolution explicit."
+}
