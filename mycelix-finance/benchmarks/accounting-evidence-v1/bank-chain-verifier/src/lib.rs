@@ -275,24 +275,94 @@ fn assess_case(case: &Value) -> AppResult<Assessment> {
         }
     }
 
+    let mut exact_replay_artifacts = BTreeSet::<String>::new();
+    for relation in relations {
+        if string(relation, "relation_type") != Some("exact_replay") {
+            continue;
+        }
+        let from = string(relation, "from_artifact_id").unwrap_or_default();
+        let to = string(relation, "to_artifact_id").unwrap_or_default();
+        let source = artifact_by_id.get(from).copied();
+        let replay = artifact_by_id.get(to).copied();
+        let exact_identity = match (source, replay) {
+            (Some(source), Some(replay)) => {
+                string(source, "message_id") == string(replay, "message_id")
+                    && string(source, "fixture_digest_token")
+                        == string(replay, "fixture_digest_token")
+                    && string(source, "account_token") == string(replay, "account_token")
+                    && string(source, "message_definition")
+                        == string(replay, "message_definition")
+                    && string(source, "profile_ref") == string(replay, "profile_ref")
+            }
+            _ => false,
+        };
+        if exact_identity {
+            exact_replay_artifacts.insert(to.to_owned());
+            reasons.insert("exact_replay_statement_suppressed".to_owned());
+        } else {
+            findings.insert("revision_conflict".to_owned());
+            reasons.insert("invalid_exact_replay_relation".to_owned());
+        }
+    }
+
     let mut superseded_artifacts = BTreeSet::<String>::new();
     let mut has_explicit_revision = false;
     for relation in relations {
         let relation_type = string(relation, "relation_type").unwrap_or_default();
-        if relation_type == "replaces" || relation_type == "corrects" {
-            let from = string(relation, "from_artifact_id").unwrap_or_default();
-            let to = string(relation, "to_artifact_id").unwrap_or_default();
-            if artifact_by_id.contains_key(from) && artifact_by_id.contains_key(to) {
-                superseded_artifacts.insert(to.to_owned());
-                has_explicit_revision = true;
+        if relation_type != "replaces" && relation_type != "corrects" {
+            continue;
+        }
+        let from = string(relation, "from_artifact_id").unwrap_or_default();
+        let to = string(relation, "to_artifact_id").unwrap_or_default();
+        let source_artifact = artifact_by_id.get(from).copied();
+        let target_artifact = artifact_by_id.get(to).copied();
+        let artifact_identity_matches = match (source_artifact, target_artifact) {
+            (Some(source), Some(target)) => {
+                string(source, "account_token") == string(target, "account_token")
+                    && string(source, "profile_ref") == string(target, "profile_ref")
+                    && string(source, "message_definition") == Some("camt.053.001.14")
+                    && string(target, "message_definition") == Some("camt.053.001.14")
             }
+            _ => false,
+        };
+        let source_statements = statements
+            .iter()
+            .filter(|statement| string(statement, "artifact_id") == Some(from))
+            .collect::<Vec<_>>();
+        let target_statements = statements
+            .iter()
+            .filter(|statement| string(statement, "artifact_id") == Some(to))
+            .collect::<Vec<_>>();
+        let statement_identity_matches = !source_statements.is_empty()
+            && source_statements.iter().all(|source| {
+                target_statements.iter().any(|target| {
+                    string(source, "account_token") == string(target, "account_token")
+                        && string(source, "entity_token") == string(target, "entity_token")
+                        && string(source, "denomination_profile_ref")
+                            == string(target, "denomination_profile_ref")
+                        && string(source, "cutoff_profile_ref")
+                            == string(target, "cutoff_profile_ref")
+                        && string(source, "period_id") == string(target, "period_id")
+                        && string(source, "start_at") == string(target, "start_at")
+                        && string(source, "end_at") == string(target, "end_at")
+                })
+            });
+        if artifact_identity_matches && statement_identity_matches {
+            superseded_artifacts.insert(to.to_owned());
+            has_explicit_revision = true;
+            reasons.insert("explicit_revision_relation_preserved".to_owned());
+        } else {
+            findings.insert("revision_conflict".to_owned());
+            reasons.insert("invalid_cross_account_or_scope_revision_relation".to_owned());
         }
     }
     let active_statements = statements
         .iter()
         .filter(|statement| {
             string(statement, "artifact_id")
-                .map(|id| !superseded_artifacts.contains(id))
+                .map(|id| {
+                    !superseded_artifacts.contains(id) && !exact_replay_artifacts.contains(id)
+                })
                 .unwrap_or(false)
         })
         .collect::<Vec<_>>();
@@ -625,10 +695,10 @@ mod tests {
     #[test]
     fn all_public_reference_cases_match_the_oracle() {
         let candidate = fixture(include_str!(
-            "../../bank_statement_chain_candidates_v1.0.1.json"
+            "../../bank_statement_chain_candidates_v1.0.2.json"
         ));
         let oracle = fixture(include_str!(
-            "../../public-reference-oracle/bank_statement_chain_oracle_v1.0.1.json"
+            "../../public-reference-oracle/bank_statement_chain_oracle_v1.0.2.json"
         ));
         let expected = oracle["cases"].as_array().expect("oracle cases");
         for case in candidate["cases"].as_array().expect("candidate cases") {
@@ -651,7 +721,7 @@ mod tests {
     #[test]
     fn exact_replay_does_not_increase_economic_observation_count() {
         let candidate = fixture(include_str!(
-            "../../bank_statement_chain_candidates_v1.0.1.json"
+            "../../bank_statement_chain_candidates_v1.0.2.json"
         ));
         let cases = candidate["cases"].as_array().expect("candidate cases");
         let case = cases
@@ -666,7 +736,7 @@ mod tests {
     #[test]
     fn missing_period_is_never_complete() {
         let candidate = fixture(include_str!(
-            "../../bank_statement_chain_candidates_v1.0.1.json"
+            "../../bank_statement_chain_candidates_v1.0.2.json"
         ));
         let cases = candidate["cases"].as_array().expect("candidate cases");
         let case = cases
@@ -682,7 +752,7 @@ mod tests {
     #[test]
     fn one_minor_unit_balance_mutation_is_detected() {
         let candidate = fixture(include_str!(
-            "../../bank_statement_chain_candidates_v1.0.1.json"
+            "../../bank_statement_chain_candidates_v1.0.2.json"
         ));
         let cases = candidate["cases"].as_array().expect("candidate cases");
         let case = cases
@@ -696,9 +766,34 @@ mod tests {
     }
 
     #[test]
+    fn exact_replayed_statement_record_is_suppressed() {
+        let candidate = fixture(include_str!(
+            "../../bank_statement_chain_candidates_v1.0.2.json"
+        ));
+        let cases = candidate["cases"].as_array().expect("candidate cases");
+        let case = cases.iter().find(|case| case["case_id"] == "BSC-029").expect("BSC-029");
+        let assessment = assess_case(case).expect("assessment");
+        assert_eq!(assessment.disposition, "complete_contiguous");
+        assert_eq!(assessment.economic_observation_count, 2);
+        assert!(assessment.reason_codes.contains("exact_replay_statement_suppressed"));
+    }
+
+    #[test]
+    fn cross_account_replacement_cannot_supersede_original_statement() {
+        let candidate = fixture(include_str!(
+            "../../bank_statement_chain_candidates_v1.0.2.json"
+        ));
+        let cases = candidate["cases"].as_array().expect("candidate cases");
+        let case = cases.iter().find(|case| case["case_id"] == "BSC-030").expect("BSC-030");
+        let assessment = assess_case(case).expect("assessment");
+        assert_eq!(assessment.disposition, "revision_conflict");
+        assert!(assessment.reason_codes.contains("invalid_cross_account_or_scope_revision_relation"));
+    }
+
+    #[test]
     fn arrival_order_does_not_change_chain_disposition_or_event_count() {
         let candidate = fixture(include_str!(
-            "../../bank_statement_chain_candidates_v1.0.1.json"
+            "../../bank_statement_chain_candidates_v1.0.2.json"
         ));
         let cases = candidate["cases"].as_array().expect("candidate cases");
         let baseline = cases
@@ -721,7 +816,7 @@ mod tests {
     #[test]
     fn period_boundary_and_sequence_gaps_fail_closed() {
         let candidate = fixture(include_str!(
-            "../../bank_statement_chain_candidates_v1.0.1.json"
+            "../../bank_statement_chain_candidates_v1.0.2.json"
         ));
         let cases = candidate["cases"].as_array().expect("candidate cases");
         for id in ["BSC-027", "BSC-028"] {
