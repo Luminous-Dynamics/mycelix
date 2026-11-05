@@ -54,7 +54,7 @@ jobs:
           cargo run --manifest-path tools/pulse-multiconductor-audit/Cargo.toml --locked -- \
             --input tools/pulse-multiconductor-audit/examples/safe-history.json \
             --output "$RUNNER_TEMP/pulse-multiconductor-report.json"
-          jq -e '.status == "PASS" and .evidence_class == "synthetic" and (.claim_ceiling | contains("STRUCTURAL_PARTIAL_ORDER_ONLY"))' \
+          jq -e '.schema_version == 2 and .status == "PASS" and .evidence_class == "synthetic" and (.claim_ceiling | contains("STRUCTURAL_PARTIAL_ORDER_ONLY"))' \
             "$RUNNER_TEMP/pulse-multiconductor-report.json"
 
       - name: Record exact verifier receipt
