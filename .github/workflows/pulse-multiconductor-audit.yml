@@ -7,12 +7,12 @@ on:
     paths:
       - ".github/workflows/pulse-multiconductor-audit.yml"
       - "tools/pulse-multiconductor-audit/**"
-      - "mycelix-workspace/mycelix-pulse/docs/security/pulse-multiconductor-history-v1.schema.json"
+      - "mycelix-workspace/mycelix-pulse/docs/security/pulse-multiconductor-history-v2.schema.json"
   pull_request:
     paths:
       - ".github/workflows/pulse-multiconductor-audit.yml"
       - "tools/pulse-multiconductor-audit/**"
-      - "mycelix-workspace/mycelix-pulse/docs/security/pulse-multiconductor-history-v1.schema.json"
+      - "mycelix-workspace/mycelix-pulse/docs/security/pulse-multiconductor-history-v2.schema.json"
   workflow_dispatch:
 
 permissions:
@@ -68,7 +68,7 @@ jobs:
             cargo --version
             sha256sum tools/pulse-multiconductor-audit/Cargo.lock
             sha256sum tools/pulse-multiconductor-audit/examples/safe-history.json
-            sha256sum mycelix-workspace/mycelix-pulse/docs/security/pulse-multiconductor-history-v1.schema.json
+            sha256sum mycelix-workspace/mycelix-pulse/docs/security/pulse-multiconductor-history-v2.schema.json
             sha256sum "$RUNNER_TEMP/pulse-multiconductor-report.json"
           } > "$RUNNER_TEMP/pulse-multiconductor-receipt.txt"
 
