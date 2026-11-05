@@ -772,7 +772,32 @@
       "journal_entries": [],
       "statement_lines": [],
       "assumptions": [],
-      "evidence_trace": []
+      "evidence_trace": [
+        {
+          "trace_ref": "TRACE-F-009-AMOUNT",
+          "fact_type": "invoice_total_minor",
+          "fact_ref": "F-009-AMOUNT",
+          "evidence_state": "integrity_failed",
+          "terminal_state": "abstained",
+          "source_document_refs": [
+            "DOC-009-INV"
+          ],
+          "question_refs": [],
+          "journal_line_refs": []
+        },
+        {
+          "trace_ref": "TRACE-F-009-ENTITY",
+          "fact_type": "reporting_entity_ref",
+          "fact_ref": "F-009-ENTITY",
+          "evidence_state": "integrity_failed",
+          "terminal_state": "abstained",
+          "source_document_refs": [
+            "DOC-009-INV"
+          ],
+          "question_refs": [],
+          "journal_line_refs": []
+        }
+      ]
     },
     {
       "case_id": "ACCT-010-CONTRADICTORY-AMOUNT",
