@@ -528,7 +528,7 @@ fn run_self_tests(corpus: &Value, schema: &Value) -> Result<usize, String> {
     )?;
     count += 1;
     mutate_and_reject("recipient purpose changed", corpus, schema, |value| {
-        value["scenarios"][17]["signal"]["recipient_uses"][0]["purpose"] = json!("marketing");
+        value["scenarios"][7]["signal"]["recipient_uses"][0]["purpose"] = json!("marketing");
     })?;
     count += 1;
     mutate_and_reject(
