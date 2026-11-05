@@ -692,7 +692,7 @@
         },
         "recipient_subject_ref": {
           "type": "string",
-          "pattern": "^pairwise:[A-Z0-9-]+:SUBJECT-[0-9]{3}$"
+          "minLength": 1
         },
         "requested_purpose": {
           "type": "string",
