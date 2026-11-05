@@ -18,7 +18,7 @@ const RESPONSE_SCHEMA_DEFAULT: &str = "../response.schema.v1.1.0.json";
 
 fn main() {
     if let Err(error) = run_cli() {
-        eprintln!("fin-trust-s0-verifier: {error}");
+        eprintln!("fin-trust-s1-verifier: {error}");
         std::process::exit(2);
     }
 }
