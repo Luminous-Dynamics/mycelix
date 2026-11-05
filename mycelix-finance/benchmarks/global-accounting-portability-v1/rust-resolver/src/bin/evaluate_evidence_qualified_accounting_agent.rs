@@ -213,6 +213,36 @@ fn journal_is_balanced(submission: &Value) -> Result<bool, String> {
     Ok(true)
 }
 
+
+fn expected_question_source_refs(
+    case: &Value,
+    expectation: &Value,
+) -> Result<BTreeSet<String>, String> {
+    let target_types = expected_question_types(expectation)?;
+    let mut refs = BTreeSet::new();
+    for fact in array(case, "facts")? {
+        if target_types.contains(string(fact, "fact_type")?) {
+            refs.insert(string(fact, "document_ref")?.to_owned());
+        }
+    }
+    Ok(refs)
+}
+
+fn actual_question_source_refs(submission: &Value) -> Result<Vec<String>, String> {
+    let mut refs = Vec::new();
+    for question in array(submission, "questions")? {
+        for reference in array(question, "evidence_document_refs")? {
+            refs.push(
+                reference
+                    .as_str()
+                    .ok_or("question evidence_document_refs must contain strings")?
+                    .to_owned(),
+            );
+        }
+    }
+    Ok(refs)
+}
+
 fn expected_source_fact_refs(expectation: &Value) -> Result<BTreeSet<String>, String> {
     let mut refs = BTreeSet::new();
     for entry in array(expectation, "expected_journal_entries")? {
@@ -298,6 +328,17 @@ fn evaluate_case(
     } else {
         2.0 * question_precision * question_recall / (question_precision + question_recall)
     };
+    let expected_question_docs = expected_question_source_refs(case, expectation)?;
+    let actual_question_docs = actual_question_source_refs(submission)?;
+    let actual_question_doc_set = actual_question_docs.iter().cloned().collect::<BTreeSet<_>>();
+    let question_source_reference_precision = ratio(
+        expected_question_docs.intersection(&actual_question_doc_set).count(),
+        actual_question_docs.len(),
+    );
+    let question_source_reference_recall = ratio(
+        expected_question_docs.intersection(&actual_question_doc_set).count(),
+        expected_question_docs.len(),
+    );
 
     let expected_journal = array(expectation, "expected_journal_entries")?;
     let actual_journal = array(submission, "journal_entries")?;
@@ -353,6 +394,9 @@ fn evaluate_case(
     if source_binding_completeness < 1.0 {
         hard_failures.push("material_source_binding_incomplete".to_owned());
     }
+    if question_source_reference_precision < 1.0 || question_source_reference_recall < 1.0 {
+        hard_failures.push("clarification_question_source_reference_mismatch".to_owned());
+    }
     if !statement_exact && expected_disposition == "deliver" {
         hard_failures.push("statement_reconstruction_mismatch".to_owned());
     }
@@ -373,6 +417,8 @@ fn evaluate_case(
         "question_target_precision": question_precision,
         "question_target_recall": question_recall,
         "question_target_f1": question_f1,
+        "question_source_reference_precision": question_source_reference_precision,
+        "question_source_reference_recall": question_source_reference_recall,
         "question_count": array(submission, "questions")?.len(),
         "redundant_question_count": redundant_question_count,
         "journal_exact": journal_exact,
@@ -448,6 +494,16 @@ fn build_report(
         .map(|result| result["question_target_recall"].as_f64().unwrap_or(0.0))
         .sum::<f64>()
         / count as f64;
+    let question_source_precision = case_results
+        .iter()
+        .map(|result| result["question_source_reference_precision"].as_f64().unwrap_or(0.0))
+        .sum::<f64>()
+        / count as f64;
+    let question_source_recall = case_results
+        .iter()
+        .map(|result| result["question_source_reference_recall"].as_f64().unwrap_or(0.0))
+        .sum::<f64>()
+        / count as f64;
     let journal_exact = case_results
         .iter()
         .filter(|result| result["journal_exact"].as_bool() == Some(true))
@@ -485,6 +541,8 @@ fn build_report(
             "false_deliver_count": false_deliver_count,
             "question_target_precision": question_precision,
             "question_target_recall": question_recall,
+            "question_source_reference_precision": question_source_precision,
+            "question_source_reference_recall": question_source_recall,
             "journal_exact_match_rate": ratio(journal_exact, count),
             "statement_exact_match_rate": ratio(statement_exact, count),
             "source_binding_completeness": source_binding,
@@ -640,6 +698,30 @@ mod tests {
         assert!(evaluated["source_binding_completeness"].as_f64().unwrap() < 1.0);
         assert!(array(evaluated, "hard_failures").unwrap().iter()
             .any(|failure| failure.as_str() == Some("material_source_binding_incomplete")));
+    }
+
+
+    #[test]
+    fn gold_control_questions_cite_the_relevant_source_documents() {
+        let (candidates, oracle, submissions) = fixtures();
+        let result = report(&candidates, &oracle, &submissions);
+        for case in array(&result, "case_results").unwrap() {
+            assert_eq!(case["question_source_reference_precision"], 1.0);
+            assert_eq!(case["question_source_reference_recall"], 1.0);
+        }
+    }
+
+    #[test]
+    fn unrelated_question_source_reference_is_penalized() {
+        let (candidates, oracle, mut submissions) = fixtures();
+        let row = submissions["submissions"].as_array_mut().unwrap().iter_mut()
+            .find(|submission| optional_string(submission, "case_id") == Some("ACCT-002-MISSING-SERVICE-START")).unwrap();
+        row["questions"][0]["evidence_document_refs"] = json!(["DOC-001-INV"]);
+        let result = report(&candidates, &oracle, &submissions);
+        let evaluated = case_result(&result, "ACCT-002-MISSING-SERVICE-START");
+        assert_eq!(evaluated["question_source_reference_precision"], 0.0);
+        assert!(array(evaluated, "hard_failures").unwrap().iter()
+            .any(|failure| failure.as_str() == Some("clarification_question_source_reference_mismatch")));
     }
 
     #[test]
