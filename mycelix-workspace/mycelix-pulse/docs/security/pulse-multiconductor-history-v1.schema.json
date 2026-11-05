@@ -784,7 +784,8 @@
                   "observed_action_hash",
                   "required_epoch",
                   "observed_epoch",
-                  "descends_from_required"
+                  "descends_from_required",
+                  "author_conductor_id"
                 ],
                 "properties": {
                   "action_hash": {
@@ -850,8 +851,37 @@
                   },
                   "descends_from_required": {
                     "type": "boolean"
+                  },
+                  "author_conductor_id": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128
+                  },
+                  "validator_event_id": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128
                   }
-                }
+                },
+                "allOf": [
+                  {
+                    "if": {
+                      "properties": {
+                        "decision": {
+                          "const": "trusted"
+                        }
+                      },
+                      "required": [
+                        "decision"
+                      ]
+                    },
+                    "then": {
+                      "required": [
+                        "validator_event_id"
+                      ]
+                    }
+                  }
+                ]
               }
             }
           },
