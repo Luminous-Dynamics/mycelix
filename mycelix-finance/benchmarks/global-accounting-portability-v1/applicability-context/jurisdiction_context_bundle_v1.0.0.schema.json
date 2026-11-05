@@ -230,8 +230,8 @@
       "additionalProperties": false,
       "required": [
         "fact_id",
-        "subject_party_ref",
-        "subject_role",
+        "subject_kind",
+        "subject_ref",
         "jurisdiction_role",
         "assertion_state",
         "origin",
@@ -245,13 +245,6 @@
         "fact_id": {
           "type": "string",
           "pattern": "^[A-Z0-9-]{3,100}$"
-        },
-        "subject_party_ref": {
-          "type": "string",
-          "minLength": 1
-        },
-        "subject_role": {
-          "$ref": "#/$defs/partyRole"
         },
         "jurisdiction_role": {
           "enum": [
@@ -339,9 +332,124 @@
             "type": "string",
             "minLength": 1
           }
+        },
+        "subject_kind": {
+          "enum": [
+            "party",
+            "transaction",
+            "establishment",
+            "shipment",
+            "invoice",
+            "service_delivery",
+            "goods_consignment",
+            "other"
+          ]
+        },
+        "subject_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "subject_party_role": {
+          "$ref": "#/$defs/partyRole"
+        },
+        "party_role_bindings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/partyRoleBinding"
+          }
         }
       },
       "allOf": [
+        {
+          "if": {
+            "properties": {
+              "subject_kind": {
+                "const": "party"
+              }
+            },
+            "required": [
+              "subject_kind"
+            ]
+          },
+          "then": {
+            "required": [
+              "subject_party_role"
+            ]
+          },
+          "else": {
+            "not": {
+              "required": [
+                "subject_party_role"
+              ]
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "subject_kind": {
+                "const": "establishment"
+              }
+            },
+            "required": [
+              "subject_kind"
+            ]
+          },
+          "then": {
+            "properties": {
+              "party_role_bindings": {
+                "minItems": 1
+              }
+            },
+            "required": [
+              "party_role_bindings"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "jurisdiction_role": {
+                "enum": [
+                  "ship_from",
+                  "ship_to"
+                ]
+              }
+            },
+            "required": [
+              "jurisdiction_role"
+            ]
+          },
+          "then": {
+            "properties": {
+              "party_role_bindings": {
+                "minItems": 1
+              }
+            },
+            "required": [
+              "party_role_bindings"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "jurisdiction_role": {
+                "const": "place_of_supply"
+              }
+            },
+            "required": [
+              "jurisdiction_role"
+            ]
+          },
+          "then": {
+            "properties": {
+              "subject_kind": {
+                "const": "transaction"
+              }
+            }
+          }
+        },
         {
           "if": {
             "properties": {
@@ -510,6 +618,23 @@
           }
         }
       ]
+    },
+    "partyRoleBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "party_ref",
+        "transaction_role"
+      ],
+      "properties": {
+        "party_ref": {
+          "type": "string",
+          "pattern": "^[A-Z0-9-]{3,100}$"
+        },
+        "transaction_role": {
+          "$ref": "#/$defs/partyRole"
+        }
+      }
     }
   }
 }
