@@ -243,22 +243,6 @@ fn actual_question_source_refs(submission: &Value) -> Result<Vec<String>, String
     Ok(refs)
 }
 
-fn expected_source_fact_refs(expectation: &Value) -> Result<BTreeSet<String>, String> {
-    let mut refs = BTreeSet::new();
-    for entry in array(expectation, "expected_journal_entries")? {
-        for line in array(entry, "lines")? {
-            for fact in array(line, "source_fact_refs")? {
-                refs.insert(
-                    fact.as_str()
-                        .ok_or("expected source fact ref must be a string")?
-                        .to_owned(),
-                );
-            }
-        }
-    }
-    Ok(refs)
-}
-
 fn actual_source_fact_refs(submission: &Value) -> Result<Vec<String>, String> {
     let mut refs = Vec::new();
     for entry in array(submission, "journal_entries")? {
@@ -348,7 +332,6 @@ fn evaluate_case(
     let actual_statement = array(submission, "statement_lines")?;
     let statement_exact = expected_statement == actual_statement;
 
-    let expected_source_refs = expected_source_fact_refs(expectation)?;
     let actual_source_refs = actual_source_fact_refs(submission)?;
     let mut expected_line_count = 0usize;
     let mut completely_bound_line_count = 0usize;
@@ -357,10 +340,18 @@ fn evaluate_case(
             expected_line_count += 1;
             let expected_line_ref = string(expected_line, "line_ref")?;
             let expected_refs = set_from_string_array(expected_line, "source_fact_refs")?;
-            let actual_line = array(submission, "journal_entries")?
-                .iter()
-                .flat_map(|entry| array(entry, "lines").unwrap_or(&[]).iter())
-                .find(|line| optional_string(line, "line_ref") == Some(expected_line_ref));
+            let mut actual_line = None;
+            for actual_entry in array(submission, "journal_entries")? {
+                for line in array(actual_entry, "lines")? {
+                    if optional_string(line, "line_ref") == Some(expected_line_ref) {
+                        actual_line = Some(line);
+                        break;
+                    }
+                }
+                if actual_line.is_some() {
+                    break;
+                }
+            }
             if let Some(actual_line) = actual_line {
                 let actual_refs = set_from_string_array(actual_line, "source_fact_refs")?;
                 if actual_refs == expected_refs
