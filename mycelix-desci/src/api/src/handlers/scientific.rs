@@ -113,6 +113,14 @@ pub async fn get_scientific_claim_as_known_at(
         return Err(ApiError::not_found("canonical scientific claim"));
     }
 
+    // Validate the entire current event stream before deriving any historical
+    // prefix. A cutoff must not hide corruption in later committed history.
+    ClaimProjection::rebuild(&stream).map_err(|_| {
+        ApiError::internal_error(
+            "canonical event stream failed signature, sequence, hash-chain, or projection validation",
+        )
+    })?;
+
     let mut events_by_id = HashMap::with_capacity(stream.len());
     for (index, event) in stream.iter().enumerate() {
         if event.envelope.stream_id != claim_id || event.envelope.sequence != index as u64 {
@@ -135,6 +143,12 @@ pub async fn get_scientific_claim_as_known_at(
         .stream_receipts(claim_id)
         .await?;
     let mut receipts_by_event_id = HashMap::with_capacity(receipts.len());
+
+    if !valid_committed_receipt_chain(&stream, &receipts) {
+        return Err(ApiError::internal_error(
+            "committed authority receipts do not form a contiguous, event-bound, time-monotonic receipt chain",
+        ));
+    }
 
     for signed_receipt in &receipts {
         let receipt = &signed_receipt.receipt;
@@ -186,7 +200,7 @@ pub async fn get_scientific_claim_as_known_at(
             }
             (None, other) => {
                 receipt_times.push(None);
-                receipt_statuses.push(format!("{other:?}"));
+                receipt_statuses.push(authority_status_label(other).to_string());
             }
         }
     }
@@ -266,6 +280,76 @@ pub async fn get_scientific_claim_as_known_at(
         "last_included": last_included,
         "blocked_event": blocked_event,
     })))
+}
+
+fn authority_status_label(status: AuthorityAttestationStatus) -> &'static str {
+    match status {
+        AuthorityAttestationStatus::ReceiptAttested => "receipt_attested",
+        AuthorityAttestationStatus::PendingReconciliation => "pending_reconciliation",
+        AuthorityAttestationStatus::LegacyUnattested => "legacy_unattested",
+        AuthorityAttestationStatus::UnsafeUnattested => "unsafe_unattested",
+        AuthorityAttestationStatus::Unknown => "unknown",
+    }
+}
+
+/// Validate that the store returned one contiguous receipt chain, optionally
+/// beginning after an explicitly anchored legacy event prefix.
+fn valid_committed_receipt_chain(
+    stream: &[mycelix_desci_core::SignedScientificEvent],
+    receipts: &[mycelix_desci_core::SignedScientificAuthorityReceipt],
+) -> bool {
+    let mut previous: Option<&mycelix_desci_core::SignedScientificAuthorityReceipt> = None;
+    for signed in receipts {
+        let receipt = &signed.receipt;
+        let Ok(sequence) = usize::try_from(receipt.sequence) else {
+            return false;
+        };
+        let Some(event) = stream.get(sequence) else {
+            return false;
+        };
+        if event.envelope.sequence != receipt.sequence
+            || event.envelope.event_id != receipt.event_id
+            || event.envelope.stream_id != receipt.stream_id
+            || event.event_hash().ok() != Some(receipt.event_hash)
+        {
+            return false;
+        }
+
+        match previous {
+            None if receipt.sequence == 0 => {
+                if receipt.previous_receipt_hash.is_some()
+                    || receipt.legacy_cutover_anchor.is_some()
+                {
+                    return false;
+                }
+            }
+            None => {
+                if receipt.previous_receipt_hash.is_some()
+                    || receipt.legacy_cutover_anchor != event.envelope.previous_hash
+                    || receipt.legacy_cutover_anchor.is_none()
+                {
+                    return false;
+                }
+            }
+            Some(previous) => {
+                let Some(expected_sequence) = previous.receipt.sequence.checked_add(1) else {
+                    return false;
+                };
+                let Ok(previous_hash) = previous.receipt_hash() else {
+                    return false;
+                };
+                if receipt.sequence != expected_sequence
+                    || receipt.previous_receipt_hash != Some(previous_hash)
+                    || receipt.legacy_cutover_anchor.is_some()
+                    || receipt.received_at < previous.receipt.received_at
+                {
+                    return false;
+                }
+            }
+        }
+        previous = Some(signed);
+    }
+    true
 }
 
 fn transaction_time_prefix_len(
@@ -430,6 +514,31 @@ mod as_known_at_projection_tests {
         let times = vec![Some(instant(2)), Some(instant(1))];
         assert_eq!(transaction_time_prefix_len(&times, &instant(1)), 0);
         assert!(!receipt_times_are_monotonic(&times));
+    }
+
+
+    #[test]
+    fn authority_status_labels_are_stable_api_values() {
+        assert_eq!(
+            authority_status_label(AuthorityAttestationStatus::ReceiptAttested),
+            "receipt_attested"
+        );
+        assert_eq!(
+            authority_status_label(AuthorityAttestationStatus::PendingReconciliation),
+            "pending_reconciliation"
+        );
+        assert_eq!(
+            authority_status_label(AuthorityAttestationStatus::LegacyUnattested),
+            "legacy_unattested"
+        );
+        assert_eq!(
+            authority_status_label(AuthorityAttestationStatus::UnsafeUnattested),
+            "unsafe_unattested"
+        );
+        assert_eq!(
+            authority_status_label(AuthorityAttestationStatus::Unknown),
+            "unknown"
+        );
     }
 
     #[test]
