@@ -27,7 +27,7 @@ It does not qualify a profile intersection, decide tax nexus or place of supply,
 - `fixtures/typed_context_oracle_v1.0.0.json`
 - `src/bin/resolve_typed_context.rs`
 
-The public oracle is deliberately visible for deterministic reference tests. It is not a hidden benchmark result. #5799 owns evaluator isolation, blinded candidate execution and canonical run manifests.
+The public oracle is deliberately visible for deterministic reference tests. The Rust unit suite validates its Draft 2020-12 schema and checks all seven expected dispositions/reason codes against resolver outputs. It is not a hidden benchmark result. #5799 owns evaluator isolation, blinded candidate execution and canonical run manifests.
 
 ## Run
 
@@ -57,4 +57,4 @@ Passing the public fixture establishes only typed fact matching under the exact 
 
 ## Validation status
 
-The schemas, fixtures and Rust binary are draft authoring artifacts. No compile, `cargo test`, rustfmt, Clippy or CI result is claimed until the exact head is executed and recorded.
+The schemas, fixtures and Rust binary are draft authoring artifacts. The current public candidate/oracle pairs have been fetched back and semantically audited; all seven synthetic expectations align with a separate logic simulation. This is not a Rust execution result. No compile, `cargo test`, rustfmt, Clippy or CI result is claimed until the exact head is executed and recorded.
