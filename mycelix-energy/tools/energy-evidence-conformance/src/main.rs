@@ -91,7 +91,7 @@ fn utc_timestamp_key(value: &str) -> Option<(i64, u32)> {
     }
 
     // Howard Hinnant's civil-date conversion; output is days since 1970-01-01.
-    let adjusted_year = year - i64::from(month <= 2);
+    let adjusted_year = year - if month <= 2 { 1 } else { 0 };
     let era = adjusted_year.div_euclid(400);
     let year_of_era = adjusted_year - era * 400;
     let adjusted_month = month + if month > 2 { -3 } else { 9 };
@@ -103,10 +103,10 @@ fn utc_timestamp_key(value: &str) -> Option<(i64, u32)> {
     let nanos = match fraction {
         None => 0,
         Some(raw) => {
-            if raw.is_empty() || !raw.bytes().all(|byte| byte.is_ascii_digit()) {
+            if raw.is_empty() || raw.len() > 9 || !raw.bytes().all(|byte| byte.is_ascii_digit()) {
                 return None;
             }
-            let significant = &raw[..raw.len().min(9)];
+            let significant = raw;
             let parsed = significant.parse::<u32>().ok()?;
             parsed * 10_u32.pow((9 - significant.len()) as u32)
         }
