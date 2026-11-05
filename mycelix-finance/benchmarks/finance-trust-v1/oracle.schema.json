@@ -1,0 +1,129 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/fin-trust-oracle-v1.0.0.json",
+  "title": "FIN-TRUST evaluator oracle v1.0.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "benchmark_id",
+    "dataset_version",
+    "visibility",
+    "cases"
+  ],
+  "properties": {
+    "benchmark_id": {
+      "const": "FIN-TRUST-BENCH"
+    },
+    "dataset_version": {
+      "const": "1.0.0"
+    },
+    "visibility": {
+      "const": "evaluator_only_public_s0_not_blind"
+    },
+    "cases": {
+      "type": "array",
+      "minItems": 10,
+      "maxItems": 10,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "task_id",
+          "disposition",
+          "required_question_ids",
+          "forbidden_question_ids",
+          "required_source_ids",
+          "required_binding_requirements",
+          "expected_journal_entries",
+          "unresolved_ids",
+          "must_not_claim_complete"
+        ],
+        "properties": {
+          "task_id": {
+            "type": "string"
+          },
+          "disposition": {
+            "enum": [
+              "deliver",
+              "clarify",
+              "abstain",
+              "escalate"
+            ]
+          },
+          "required_question_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "forbidden_question_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "required_source_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "required_binding_requirements": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "expected_journal_entries": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "entry_id",
+                "entity_id",
+                "period",
+                "currency",
+                "policy_id",
+                "debit_minor",
+                "credit_minor"
+              ],
+              "properties": {
+                "entry_id": {
+                  "type": "string"
+                },
+                "entity_id": {
+                  "type": "string"
+                },
+                "period": {
+                  "type": "string"
+                },
+                "currency": {
+                  "type": "string"
+                },
+                "policy_id": {
+                  "type": "string"
+                },
+                "debit_minor": {
+                  "type": "string"
+                },
+                "credit_minor": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "unresolved_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "must_not_claim_complete": {
+            "type": "boolean"
+          }
+        }
+      }
+    }
+  }
+}
