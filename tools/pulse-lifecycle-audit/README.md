@@ -46,15 +46,17 @@ The schema at mycelix-workspace/mycelix-pulse/docs/security/pulse-lifecycle-trac
 - a host allow cannot follow revocation, use the wrong grantee/function, precede an assigned private claim, or rely on a projection;
 - a domain allow requires a host allow; a durable domain effect requires both host and domain allow;
 - each logical operation ID has at most one durable effect, even across multiple attempts;
-- checkpoint-constrained stale reads return UNKNOWN;
+- checkpoint-constrained stale reads return UNKNOWN; unconstrained reads older than a known revocation are explicitly STALE_ADVISORY or UNKNOWN;
 - projections are never used as host authority;
 - a signal never authorizes an operation, and an unverified/advisory signal never mutates trusted state;
-- a not-committed caller outcome cannot contradict an observed durable effect;
+- caller outcomes reconcile per exact logical operation ID plus attempt ID; a not-committed/rejected attempt cannot contradict an effect from that same attempt, and a different retry attempt is not conflated;
+- every projection read references an exact issued grant; a view older than a revocation already present in the trace cannot be labeled trusted-active/trusted-revoked, and an unconstrained stale view must be explicitly STALE_ADVISORY or UNKNOWN;
+- remote signal event types are bounded identifiers, and unknown/empty/oversized identifiers are incomplete evidence;
 - missing or misclassified evidence becomes INCOMPLETE, not PASS.
 
 ## Evidence semantics and limits
 
-A runtime trace must export a monotonically increasing **conductor authority-order index** at the point where grant issue, revoke and host decision are linearized. Wall-clock timestamps and source-chain order are not substitutes for this value. If Holochain does not expose the required event boundary, instrument a test build or mark the trace incomplete; do not infer order.
+A runtime trace must export a monotonically increasing **conductor authority-order index** at the point where grant issue, revoke and host decision are linearized. A trace bundle is currently treated as one ordered conductor history; do not merge raw authority indexes from independent conductors into one bundle without an explicit per-conductor identity and cross-conductor causal join. Wall-clock timestamps and source-chain order are not substitutes for this value. If Holochain does not expose the required event boundary, instrument a test build or mark the trace incomplete; do not infer order.
 
 Every event names an evidence source and a receipt reference. Coordinator assertions cannot stand in for conductor host decisions. The verifier does not itself authenticate receipt signatures, inspect a conductor database, verify a DHT validation receipt, or prove that the exporter is honest. Its report therefore has the fixed claim ceiling STRUCTURAL_ONLY.
 
