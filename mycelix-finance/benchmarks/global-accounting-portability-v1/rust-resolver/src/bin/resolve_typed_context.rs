@@ -834,8 +834,8 @@ mod tests {
         let bundle: Value = serde_json::from_slice(&bundle_bytes).unwrap();
         let schema: Value = serde_json::from_slice(&schema_bytes).unwrap();
         let mut request = request_for(&requests, "TCTX-ROLE-A-COMPLETE").clone();
-        request["requirements"][1]["requirement_id"] =
-            request["requirements"][0]["requirement_id"].clone();
+        let first_id = request["requirements"][0]["requirement_id"].clone();
+        request["requirements"][1]["requirement_id"] = first_id;
         let error = resolve(&bundle, &bundle_bytes, &schema, &schema_bytes, &request).unwrap_err();
         assert!(error.contains("duplicate requirement_id"));
     }
