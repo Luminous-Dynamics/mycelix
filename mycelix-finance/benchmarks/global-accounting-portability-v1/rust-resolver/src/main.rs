@@ -184,6 +184,8 @@ fn validate_registry_semantics(registry: &Value) -> AppResult<()> {
             return Err(format!("intersection {id} is approved before it was recorded"));
         }
         let evidence_refs = string_array(intersection, "evidence_refs")?.into_iter().collect::<BTreeSet<_>>();
+        let reviewer_refs = string_array(intersection, "reviewer_refs")?.into_iter().collect::<BTreeSet<_>>();
+        let intersection_approved_at = string_field(intersection, "approved_at")?;
         for qualification in array_of_objects(intersection, "early_application_qualifications")? {
             let profile_id = string_field(qualification, "profile_id")?;
             let profile = profiles.get(profile_id).ok_or_else(|| format!("early-application qualification {id} references unknown profile {profile_id}"))?;
@@ -193,6 +195,13 @@ fn validate_registry_semantics(registry: &Value) -> AppResult<()> {
             let evidence_ref = string_field(qualification, "evidence_ref")?;
             if !evidence_refs.contains(evidence_ref) {
                 return Err(format!("early-application qualification {id} evidence reference is not bound by the intersection: {evidence_ref}"));
+            }
+            let reviewer_ref = string_field(qualification, "reviewer_ref")?;
+            if !reviewer_refs.contains(reviewer_ref) {
+                return Err(format!("early-application qualification {id} reviewer is not bound by the intersection: {reviewer_ref}"));
+            }
+            if string_field(qualification, "approved_at")? > intersection_approved_at {
+                return Err(format!("early-application qualification {id} is approved after the parent intersection"));
             }
         }
         if string_field(intersection, "status")? == "qualified_for_declared_scope" {
@@ -573,6 +582,71 @@ mod tests {
         let report = checked_resolve(&registry, &request);
         assert_eq!(report["disposition"], "unsupported_profile");
         assert!(report["blocking_reasons"].to_string().contains("outside_intersection_validity"));
+    }
+
+
+    #[test]
+    fn unknown_profile_id_is_unsupported() {
+        let registry = registry();
+        let mut request = request("qualified");
+        request["selected_profile_ids"].as_array_mut().unwrap().push(json!("UNKNOWN-PROFILE"));
+        let report = checked_resolve(&registry, &request);
+        assert_eq!(report["disposition"], "unsupported_profile");
+        assert!(report["unsupported_profile_ids"].to_string().contains("UNKNOWN-PROFILE"));
+    }
+
+    #[test]
+    fn partial_dimension_coverage_never_claims_full_qualification() {
+        let mut registry = registry();
+        registry["qualification_intersections"][0]["supported_dimensions"]
+            .as_array_mut().unwrap().retain(|dimension| dimension != "timezone_database");
+        let report = checked_resolve(&registry, &request("qualified"));
+        assert_eq!(report["disposition"], "partial_or_profile_scoped");
+        assert_eq!(report["claim_ceiling"], "no_qualification_claim");
+        assert!(report["blocking_reasons"].to_string().contains("does_not_cover_all_required_dimensions"));
+    }
+
+    #[test]
+    fn multiple_exact_intersections_require_review_instead_of_arbitrary_selection() {
+        let mut registry = registry();
+        let mut duplicate = registry["qualification_intersections"][0].clone();
+        duplicate["intersection_id"] = json!("SYNTH-PORTABILITY-INTERSECTION-002");
+        registry["qualification_intersections"].as_array_mut().unwrap().push(duplicate);
+        let report = checked_resolve(&registry, &request("qualified"));
+        assert_eq!(report["disposition"], "needs_review");
+        assert_eq!(report["matched_intersection_id"], Value::Null);
+    }
+
+    #[test]
+    fn jurisdiction_mismatch_does_not_fall_back_to_a_country_default() {
+        let registry = registry();
+        let mut request = request("qualified");
+        request["jurisdiction_scopes"] = json!(["SYNTH-JUR-B"]);
+        let report = checked_resolve(&registry, &request);
+        assert_eq!(report["disposition"], "unsupported_profile");
+        assert_eq!(report["matched_intersection_id"], Value::Null);
+    }
+
+    #[test]
+    fn intended_use_must_be_explicitly_allowed_by_the_intersection() {
+        let registry = registry();
+        let mut request = request("qualified");
+        request["intended_use"] = json!("tax_calculation");
+        let report = checked_resolve(&registry, &request);
+        assert_eq!(report["disposition"], "unsupported_profile");
+        assert!(report["blocking_reasons"].to_string().contains("intended_use_not_authorized"));
+    }
+
+    #[test]
+    fn early_application_is_rejected_when_profile_does_not_allow_it() {
+        let mut registry = registry();
+        let profile = registry["profile_references"].as_array_mut().unwrap()
+            .iter_mut().find(|item| item["profile_id"] == "SYN-FRAMEWORK-A").unwrap();
+        profile["valid_from"] = json!("2027-01-01");
+        profile["early_application_allowed"] = json!(false);
+        let report = checked_resolve(&registry, &request("qualified"));
+        assert_eq!(report["disposition"], "unsupported_profile");
+        assert!(report["blocking_reasons"].to_string().contains("profile_not_effective_for_reporting_period"));
     }
 
     #[test]
