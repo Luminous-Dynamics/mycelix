@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/fin-acc-assertion-purpose-oracle-v1.json",
+  "title": "FIN-ACC assertion-purpose public reference oracle v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "benchmark_id",
+    "dataset_version",
+    "visibility",
+    "cases"
+  ],
+  "properties": {
+    "benchmark_id": {
+      "const": "FIN-ACC-ASSERTION-PURPOSE"
+    },
+    "dataset_version": {
+      "const": "1.0.0"
+    },
+    "visibility": {
+      "const": "public_reference_oracle_not_blind_evaluation"
+    },
+    "cases": {
+      "type": "array",
+      "minItems": 20,
+      "maxItems": 20,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "case_id",
+          "expected_disposition",
+          "reason_codes"
+        ],
+        "properties": {
+          "case_id": {
+            "type": "string",
+            "pattern": "^AEP-[0-9]{3}$"
+          },
+          "expected_disposition": {
+            "enum": [
+              "supported_within_declared_scope",
+              "contradicted",
+              "insufficient_evidence",
+              "indeterminate",
+              "not_applicable_with_rationale",
+              "needs_authorized_review"
+            ]
+          },
+          "reason_codes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    }
+  }
+}
