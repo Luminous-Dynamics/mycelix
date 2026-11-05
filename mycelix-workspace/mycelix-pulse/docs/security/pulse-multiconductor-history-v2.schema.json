@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://luminousdynamics.io/schemas/pulse-multiconductor-history-v2.schema.json",
   "title": "Pulse multi-conductor causal evidence history v2",
-  "description": "Strict partial-order history with exact conductor integrity-WASM lineage, authored payload digests and validator-backed verified-record signals.",
+  "description": "Strict partial-order history with exact conductor integrity-WASM lineage, authored payload digests and validator-backed verified-record signals. A CellId is agent-specific (DNA hash plus AgentPubKey); different conductors in the same DNA network are expected to report different cell_id values.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -72,7 +72,8 @@
           "cell_id": {
             "type": "string",
             "minLength": 1,
-            "maxLength": 128
+            "maxLength": 128,
+            "description": "This conductor's agent-specific Holochain CellId. CellIds normally differ between agents even when their dna_hash is identical."
           },
           "role": {
             "enum": [
@@ -832,11 +833,13 @@
                   },
                   "required_cell_id": {
                     "type": "string",
-                    "minLength": 1
+                    "minLength": 1,
+                    "description": "CellId of the authoring conductor/cell that created the required action."
                   },
                   "observed_cell_id": {
                     "type": "string",
-                    "minLength": 1
+                    "minLength": 1,
+                    "description": "CellId of the observer's own cell. It is agent-specific and need not equal required_cell_id; the DNA network identity must match."
                   },
                   "required_author": {
                     "type": "string",
