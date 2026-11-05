@@ -228,6 +228,24 @@
       "path": "access_policy.access_decision",
       "replacement": "denied",
       "expected_disposition": "blocked"
+    },
+    {
+      "case_id": "not-yet-valid",
+      "path": "temporal_scope.valid_from",
+      "replacement": "2026-08-01T00:00:00Z",
+      "expected_disposition": "blocked_not_valid_at_decision"
+    },
+    {
+      "case_id": "expired-at-decision",
+      "path": "temporal_scope.valid_until",
+      "replacement": "2026-06-30T23:59:59Z",
+      "expected_disposition": "blocked_not_valid_at_decision"
+    },
+    {
+      "case_id": "artifact-unavailable",
+      "path": "canonical_desci_reference.artifact_availability",
+      "replacement": "unavailable",
+      "expected_disposition": "indeterminate"
     }
   ],
   "semantic_context": {
@@ -246,5 +264,16 @@
         "system_operator"
       ]
     }
+  },
+  "source_family_group_example": {
+    "reference_ids": [
+      "operator-source-original",
+      "consultant-copy-001"
+    ],
+    "source_family_ids": [
+      "operator-grid-doc-family-001",
+      "operator-grid-doc-family-001"
+    ],
+    "expected_disposition": "eligible_but_not_independent_corroboration"
   }
 }
