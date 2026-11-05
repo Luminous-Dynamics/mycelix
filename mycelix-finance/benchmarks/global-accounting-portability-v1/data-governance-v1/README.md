@@ -20,7 +20,7 @@ The package models data flows and actors explicitly. It does not make a legal tr
 ## Semantics
 
 - Responsible party/controller, operator/processor, subprocessor, recipient, onward recipient and support provider are distinct actor roles.
-- Actor identity, role list and home-scope metadata are effective-dated and carry a UTC `recorded_at` timestamp. Actor scope/role metadata recorded after `knowledge_at` is excluded; metadata not valid for the context period cannot silently supply a controller scope.
+- Actor identity, role list and home-scope metadata are effective-dated and carry a canonical whole-second UTC `recorded_at` timestamp (`YYYY-MM-DDTHH:MM:SSZ`); offsets and fractional seconds are rejected. Actor scope/role metadata recorded after `knowledge_at` is excluded; metadata not valid for the context period cannot silently supply a controller scope.
 - Collection, primary storage, active processing, backup/DR, support access, recipient and onward-recipient locations are separate observations.
 - A data asset has a synthetic subject class, data categories and field-class references, never real personal records.
 - A purpose is separately identified and effective-dated; a later purpose must not be presumed covered by an earlier purpose.
@@ -68,4 +68,4 @@ All actors, jurisdiction scopes, data assets, fields, purposes, mechanism refere
 
 ## Validation status
 
-The schema, fixtures, Rust validator and review evaluator are authored draft artifacts. Ten validator tests and twelve evaluator tests are authored, but have not yet been executed. No independent full Draft 2020-12 runtime pass, Cargo compile, `cargo test`, rustfmt, Clippy, CI or professional legal/privacy review is claimed. A prior semantic simulation of the original ten public oracle dispositions was performed outside Rust; it is not Rust execution, an independent implementation or schema validation.
+The schema, fixtures, Rust validator and review evaluator are authored draft artifacts. Ten validator tests and fourteen evaluator tests are authored, but have not yet been executed. No independent full Draft 2020-12 runtime pass, Cargo compile, `cargo test`, rustfmt, Clippy, CI or professional legal/privacy review is claimed. A prior semantic simulation of the original ten public oracle dispositions was performed outside Rust; it is not Rust execution, an independent implementation or schema validation.
