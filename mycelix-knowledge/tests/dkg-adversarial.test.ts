@@ -2,13 +2,13 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 /**
- * DKG Adversarial Tests
+ * DKG Adversarial and Robustness Tests
  *
- * Tests the Truth Engine's resilience against:
- * - Sybil attacks (many agents claiming falsehoods)
- * - Challenge warfare (cascading challenges/counter-challenges)
- * - Spam floods (rapid claim submission)
- * - Invalid inputs (malformed data)
+ * These are focused integration scenarios for the current pre-alpha DKG:
+ * - Multiple claim submissions (not a Sybil-resistance proof)
+ * - Endorsement/challenge score sensitivity (not a truth-detection proof)
+ * - Claim-volume smoke testing (not a general anti-spam guarantee)
+ * - Invalid input rejection (selected malformed inputs only)
  */
 
 import { describe, test, expect, jest } from '@jest/globals';
@@ -72,10 +72,10 @@ interface AgentReputation {
 describe('DKG Adversarial Tests', () => {
   jest.setTimeout(1200000);
 
-  test('Sybil resistance: reputation-weighted confidence beats raw claim count', async () => {
+  test('separate competing claims: endorsed Blue fixture ranks above unendorsed Green fixtures', async () => {
     await runScenario(async (scenario: Scenario) => {
-      // 5 sybil agents + 2 honest agents = 7 total
-      const [sybil1, sybil2, sybil3, sybil4, sybil5, alice, bob] =
+      // Five separate claimants + two additional agents = seven total.
+      const [claimant1, claimant2, claimant3, claimant4, claimant5, alice, bob] =
         await scenario.addPlayersWithApps([
           { appBundleSource: { type: 'path', value: knowledgeHappPath } },
           { appBundleSource: { type: 'path', value: knowledgeHappPath } },
@@ -89,9 +89,9 @@ describe('DKG Adversarial Tests', () => {
       await scenario.shareAllAgents();
       const dnaHash = alice.cells[0].cell_id[0];
 
-      // All 5 sybils claim "Sky is Green"
-      const sybilAgents = [sybil1, sybil2, sybil3, sybil4, sybil5];
-      const sybilClaims: ActionHash[] = [];
+      // Each claimant submits a separate Green claim; this is not a shared-claim attestation storm.
+      const claimantAgents = [sybil1, sybil2, sybil3, sybil4, sybil5];
+      const greenClaims: ActionHash[] = [];
 
       for (const sybil of sybilAgents) {
         const claim: ActionHash = await sybil.cells[0].callZome({
@@ -108,7 +108,7 @@ describe('DKG Adversarial Tests', () => {
         sybilClaims.push(claim);
       }
 
-      // Alice submits truth
+      // Alice submits a competing Blue claim.
       const aliceClaim: ActionHash = await alice.cells[0].callZome({
         zome_name: 'dkg',
         fn_name: 'submit_claim',
@@ -126,7 +126,7 @@ describe('DKG Adversarial Tests', () => {
         dnaHash,
       );
 
-      // Bob endorses Alice's claim with evidence
+      // Bob records an endorsement with free-text evidence (not independently checked).
       await bob.cells[0].callZome({
         zome_name: 'dkg',
         fn_name: 'attest_claim',
@@ -137,7 +137,7 @@ describe('DKG Adversarial Tests', () => {
         } as AttestClaimInput,
       });
 
-      // Alice endorses her own claim (self-attestation)
+      // Alice also self-attests; the test records current behavior, not independent corroboration.
       await alice.cells[0].callZome({
         zome_name: 'dkg',
         fn_name: 'attest_claim',
@@ -153,7 +153,7 @@ describe('DKG Adversarial Tests', () => {
         dnaHash,
       );
 
-      // Query truth - endorsed claim should have higher confidence
+      // Query all claims; compare the Blue fixture with each separate Green claim.
       const claims: WeightedClaim[] = await bob.cells[0].callZome({
         zome_name: 'dkg',
         fn_name: 'get_claims',
@@ -166,25 +166,25 @@ describe('DKG Adversarial Tests', () => {
       expect(blueClaims.length).toBeGreaterThanOrEqual(1);
       expect(greenClaims.length).toBeGreaterThanOrEqual(1);
 
-      // The endorsed Blue claim should have higher confidence than any individual Green claim
+      // The endorsed Blue fixture should have higher heuristic confidence than each unendorsed Green fixture; this is not a Sybil-resistance assertion.
       const maxBlueConfidence = Math.max(...blueClaims.map((c) => c.confidence));
       const maxGreenConfidence = Math.max(
         ...greenClaims.map((c) => c.confidence),
       );
 
       console.log(
-        `Sybil test: Blue confidence=${maxBlueConfidence.toFixed(4)}, Green max confidence=${maxGreenConfidence.toFixed(4)}`,
+        `Separate-claim endorsement test: Blue confidence=${maxBlueConfidence.toFixed(4)}, Green max confidence=${maxGreenConfidence.toFixed(4)}`,
       );
       console.log(
         `Green claims count: ${greenClaims.length}, Blue endorsements: ${blueClaims[0]?.endorsements}`,
       );
 
-      // Reputation-weighted confidence should favor the endorsed claim
+      // Current heuristic ordering assertion only; it does not establish truth or adversarial robustness.
       expect(maxBlueConfidence).toBeGreaterThan(maxGreenConfidence);
     }, true, scenarioOptions);
   });
 
-  test('Challenge warfare: confidence degrades with challenges', async () => {
+  test('challenge-count sensitivity: successive challenges are non-increasing in the legacy score', async () => {
     await runScenario(async (scenario: Scenario) => {
       const [alice, bob, charlie] = await scenario.addPlayersWithApps([
         { appBundleSource: { type: 'path', value: knowledgeHappPath } },
