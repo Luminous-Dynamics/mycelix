@@ -606,6 +606,22 @@
         }
       ],
       "expected_no_posting": true
+    },
+    {
+      "case_id": "ACCT-020-UNLINKED-INVOICE-REVISIONS",
+      "expected_disposition": "escalate",
+      "primary_reason_code": "source_revision_lineage_missing",
+      "required_source_fact_refs": [
+        "F-020-AMOUNT-R1",
+        "F-020-AMOUNT-R2",
+        "F-020-ENTITY",
+        "F-020-START",
+        "F-020-END"
+      ],
+      "expected_questions": [],
+      "expected_journal_entries": [],
+      "expected_statement_lines": [],
+      "expected_no_posting": true
     }
   ]
 }
