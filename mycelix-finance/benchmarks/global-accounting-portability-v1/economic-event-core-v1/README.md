@@ -13,12 +13,13 @@ The core separates:
 3. **EconomicEvent** — typed economic occurrence (service delivery, obligation, invoice issuance, credit, settlement, prepayment, accrual, reversal, FX remeasurement, etc.), entity, counterparty, occurred-at, recorded-at, amount and currency.
 4. **EventRelation** — explicit supports, contradicts, supersedes, settles, reverses, allocates, corrects, causally-depends-on and duplicate-of edges.
 
-The event graph is not a journal. It is a stable semantic layer from which separately versioned accounting-policy projections can be produced. It does not encode GAAP/IFRS recognition rules in the event types.
+The event graph is not a journal. It is a stable semantic layer from which separately versioned accounting-policy projections can be produced. It does not encode GAAP/IFRS recognition rules in the event types. The policy-projection schema is a separate output contract: multiple frameworks can consume the same frozen graph digest, while each projection binds its own policy profile/version/digest, projector version/digest, per-event decision, rule reference, assumptions and journal lines. The schema does not provide the rules or establish that any projection is correct.
 
 ## S0 files and coverage
 
 - `economic_event_graph_v1.0.0.schema.json`: closed Draft 2020-12 graph schema.
 - `economic_event_validation_report_v1.0.0.schema.json`: structural/temporal validation report schema.
+- `accounting_policy_projection_v1.0.0.schema.json`: separate contract for policy-specific outputs bound to an immutable event-graph digest, policy digest and projector digest.
 - `fixtures/economic_event_graph_candidates_v1.0.0.json`: eight synthetic graph cases.
 - `../rust-resolver/src/bin/validate_economic_event_graph_s0.rs`: Rust validator and report generator.
 
@@ -75,7 +76,7 @@ Eleven Rust tests are authored but **not executed**. No Cargo compile/test, rust
 - #5855 owns read-only vendor platform interchange.
 - #5799 owns canonical benchmark run manifests/receipts and matched evaluation arms.
 
-The economic-event graph should eventually consume normalized, provenance-preserving facts from those packages. It must not redefine their source identity, data-flow permission, run receipts or benchmark oracles. Multi-framework accounting outputs belong in distinct policy-projection artifacts that reference the same frozen event graph, policy digest and assumptions. Those projection artifacts are a later workstream, not part of S0.
+The economic-event graph should eventually consume normalized, provenance-preserving facts from those packages. It must not redefine their source identity, data-flow permission, run receipts or benchmark oracles. Multi-framework accounting outputs belong in distinct policy-projection artifacts that reference the same frozen event graph and separately pinned policy/projector digests. The v1.0.0 projection contract is now authored, but no GAAP/IFRS projection engine or policy rules are implemented in S0.
 
 ## Proposed benchmarks and targets
 
