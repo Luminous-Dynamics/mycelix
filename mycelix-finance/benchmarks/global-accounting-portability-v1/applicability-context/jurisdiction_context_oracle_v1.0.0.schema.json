@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/global-jurisdiction-context-oracle-v1.0.0.json",
+  "title": "Mycelix Global Jurisdiction Context Public Reference Oracle v1.0.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "oracle_id",
+    "candidate_bundle_id",
+    "visibility",
+    "assertions"
+  ],
+  "properties": {
+    "oracle_id": {
+      "const": "MYCELIX-GLOBAL-JURISDICTION-CONTEXT-ORACLE-V1"
+    },
+    "candidate_bundle_id": {
+      "const": "MYCELIX-GLOBAL-JURISDICTION-CONTEXT-SYNTHETIC-V1"
+    },
+    "visibility": {
+      "const": "public_reference_oracle_not_hidden_evaluation"
+    },
+    "assertions": {
+      "type": "array",
+      "minItems": 4,
+      "items": {
+        "$ref": "#/$defs/assertion"
+      }
+    }
+  },
+  "$defs": {
+    "assertion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "assertion_id",
+        "context_ids",
+        "expected_behavior",
+        "reason_code"
+      ],
+      "properties": {
+        "assertion_id": {
+          "type": "string",
+          "pattern": "^[A-Z0-9-]{3,100}$"
+        },
+        "context_ids": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "expected_behavior": {
+          "enum": [
+            "typed_contexts_not_equivalent",
+            "indeterminate_no_place_of_supply",
+            "needs_review_conflicting_registration",
+            "subjects_remain_distinct_across_namespaces"
+          ]
+        },
+        "reason_code": {
+          "type": "string",
+          "pattern": "^[a-z0-9_]{3,100}$"
+        }
+      }
+    }
+  }
+}
