@@ -290,7 +290,7 @@
           "BEN-SYNTH-02"
         ],
         "budget_currency": "ZAR",
-        "max_single_cost_minor_units": 500000,
+        "max_single_cost_minor_units": 250000,
         "max_total_budget_minor_units": 1000000,
         "max_fee_minor_units": 5000,
         "max_transactions_per_period": 5,
@@ -5062,7 +5062,8 @@
           "invoice_payment"
         ],
         "permitted_currencies": [
-          "ZAR"
+          "ZAR",
+          "USD"
         ],
         "allowed_beneficiaries": [
           "BEN-SYNTH-01",
@@ -5118,6 +5119,7 @@
             "max_total_budget_minor_units": 600000,
             "max_fee_minor_units": 2500,
             "permitted_currencies": [
+              "ZAR",
               "USD"
             ],
             "permitted_actions": [
@@ -5152,19 +5154,19 @@
           "purpose": "office_supplies",
           "beneficiary_id": "BEN-SYNTH-01",
           "amount_minor_units": 10000,
-          "currency": "ZAR",
-          "budget_amount_minor_units": 10000,
+          "currency": "USD",
+          "budget_amount_minor_units": 15000,
           "budget_currency": "ZAR",
           "requester_fee_minor_units": 0,
           "other_fee_minor_units": 0,
           "fx_cost_minor_units": 0,
           "fees_known": true,
           "fx_quote": {
-            "state": "not_required",
-            "source_id": null,
-            "quoted_at": null,
-            "expires_at": null,
-            "quote_reference": null
+            "state": "verified",
+            "source_id": "FX-REF-SYNTH",
+            "quoted_at": "2026-11-05T08:59:00Z",
+            "expires_at": "2026-11-05T09:05:00Z",
+            "quote_reference": "FX-Q-031"
           },
           "new_beneficiary": false,
           "issued_at": "2026-11-05T09:00:00Z",
