@@ -252,13 +252,11 @@ fn audit(history:&History,input_sha256:String)->Report {
     if history.conductors.len()<2 { finding(&mut findings,"MULTICONDUCTOR_HISTORY_REQUIRED","incomplete",None,"at least two conductors are required"); }
 
     let mut conductors:BTreeMap<String,&Conductor>=BTreeMap::new();
-    let mut agent_refs=BTreeSet::new();
     for c in &history.conductors {
         let valid=!c.conductor_id.trim().is_empty()&&!c.agent_key_ref.trim().is_empty()&&!c.conductor_build.trim().is_empty()&&!c.dna_hash.trim().is_empty()&&!c.cell_id.trim().is_empty()
             && matches!(c.role.as_str(),"grant_owner"|"caller"|"validator"|"observer"|"peer");
         if !valid { finding(&mut findings,"CONDUCTOR_IDENTITY_INCOMPLETE","incomplete",None,"conductor identity, build, DNA, cell and supported role are required"); }
         if conductors.insert(c.conductor_id.clone(),c).is_some() { finding(&mut findings,"DUPLICATE_CONDUCTOR_ID","violation",None,"conductor_id must be unique"); }
-        if !agent_refs.insert(c.agent_key_ref.clone()) { finding(&mut findings,"DUPLICATE_AGENT_KEY_REFERENCE","incomplete",None,"agent key references must be distinct in this profile"); }
     }
 
     let mut event_map:BTreeMap<String,&Event>=BTreeMap::new();
@@ -417,6 +415,7 @@ fn audit(history:&History,input_sha256:String)->Report {
         let Some(g)=candidates.first() else { finding(&mut findings,"CLAIM_WITHOUT_MATCHING_GRANT","incomplete",Some(&e.event_id),"claim does not match issued grant ActionHash and grantee"); continue; };
         if !g.assigned { finding(&mut findings,"CLAIM_FOR_UNASSIGNED_GRANT","violation",Some(&e.event_id),"private cap claim only applies to Assigned grant"); }
         if conductors.get(&e.conductor_id).is_none_or(|c|c.agent_key_ref!=recipient) { finding(&mut findings,"CLAIM_RECIPIENT_CONDUCTOR_MISMATCH","violation",Some(&e.event_id),"claim must be accepted on recipient conductor"); }
+        if e.source != "source_chain" { finding(&mut findings,"CLAIM_WRONG_EVIDENCE_SOURCE","incomplete",Some(&e.event_id),"claim acceptance must be evidenced by recipient source-chain state"); }
         let issue_id=grant_events.iter().find(|x|str_value(&x.data,"grant_action_hash")==Some(g.action_hash.as_str())).map(|x|x.event_id.as_str()).unwrap_or("");
         if !direct_relation(&history.causal_edges,issue_id,&e.event_id,"source_action_dependency") { finding(&mut findings,"GRANT_TO_CLAIM_CAUSAL_EDGE_MISSING","incomplete",Some(&e.event_id),"grant issue and private claim require an evidence-backed causal edge"); }
         if !accepted_claims.insert((g.conductor_id.clone(),g.action_hash.clone(),recipient.to_string())) { finding(&mut findings,"DUPLICATE_CAPABILITY_CLAIM","violation",Some(&e.event_id),"same assigned grant accepted more than one claim"); }
@@ -476,6 +475,8 @@ fn audit(history:&History,input_sha256:String)->Report {
         if authored_event.conductor_id!=author_conductor||authored_event.conductor_id==e.conductor_id||receiver!=e.conductor_id { finding(&mut findings,"VALIDATION_CONDUCTOR_BINDING_MISMATCH","violation",Some(&e.event_id),"author/receiving conductor IDs do not match event provenance"); }
         if conductors.get(&e.conductor_id).is_none_or(|c|c.role!="validator") { finding(&mut findings,"VALIDATION_NON_VALIDATOR_CONDUCTOR","incomplete",Some(&e.event_id),"validation disposition must come from validator role"); }
         if e.source!="validator" { finding(&mut findings,"VALIDATION_WRONG_EVIDENCE_SOURCE","incomplete",Some(&e.event_id),"validation must be reported by validator plane"); }
+        if authored_event.source != "source_chain" { finding(&mut findings,"ACTION_AUTHOR_WRONG_EVIDENCE_SOURCE","incomplete",Some(&authored_event.event_id),"action authoring must come from source-chain evidence"); }
+        if conductors.get(&authored_event.conductor_id).is_none_or(|c| c.role != "caller" && c.role != "peer") { finding(&mut findings,"ACTION_AUTHOR_CONDUCTOR_ROLE_MISMATCH","incomplete",Some(&authored_event.event_id),"action should originate from caller or peer conductor"); }
         if !direct_relation(&history.causal_edges,&authored_event.event_id,&e.event_id,"validator_receipt") { finding(&mut findings,"VALIDATOR_RECEIPT_CAUSAL_EDGE_MISSING","incomplete",Some(&e.event_id),"authored action and validation require explicit validator_receipt edge"); }
     }
 
@@ -484,6 +485,7 @@ fn audit(history:&History,input_sha256:String)->Report {
         let decision=str_value(d,"decision").unwrap_or_default();
         let state=str_value(d,"projection_state").unwrap_or_default();
         if e.source!="observer"||conductors.get(&e.conductor_id).is_none_or(|c|c.role!="observer") { finding(&mut findings,"PROJECTION_WRONG_OBSERVER","incomplete",Some(&e.event_id),"projection must be reported by observer role"); }
+        if conductors.get(&e.conductor_id).is_some_and(|c| c.dna_hash != str_value(d,"observed_dna_hash").unwrap_or_default()) { finding(&mut findings,"OBSERVER_DNA_MISMATCH","violation",Some(&e.event_id),"observer DNA differs from observed projection DNA"); }
         let exact=str_value(d,"required_dna_hash")==str_value(d,"observed_dna_hash")
             &&str_value(d,"required_cell_id")==str_value(d,"observed_cell_id")
             &&str_value(d,"required_author")==str_value(d,"observed_author")
@@ -509,6 +511,8 @@ fn audit(history:&History,input_sha256:String)->Report {
             None=>finding(&mut findings,"OUTCOME_WITHOUT_HOST_CALL","incomplete",Some(&e.event_id),"caller outcome has no host-call attempt"),
             Some(call)=>{
                 if !path_exists(&adjacency,&call.event_id,&e.event_id) { finding(&mut findings,"OUTCOME_NOT_CAUSAL_AFTER_CALL","incomplete",Some(&e.event_id),"caller outcome must causally follow the host call"); }
+                let caller = call_events.iter().find(|c| str_value(&c.data,"operation_id") == Some(op.as_str()) && u64_value(&c.data,"attempt_id") == Some(attempt)).and_then(|c| str_value(&c.data,"caller"));
+                if conductors.get(&e.conductor_id).is_none_or(|c| Some(c.agent_key_ref.as_str()) != caller) { finding(&mut findings,"OUTCOME_WRONG_CALLER_CONDUCTOR","incomplete",Some(&e.event_id),"caller outcome should be observed on caller conductor"); }
                 if outcome=="committed"&&!effect { finding(&mut findings,"COMMITTED_WITHOUT_EFFECT","incomplete",Some(&e.event_id),"committed outcome has no durable effect"); }
                 if matches!(outcome,"not_committed"|"rejected")&&effect { finding(&mut findings,"REJECTED_OUTCOME_WITH_EFFECT","violation",Some(&e.event_id),"rejected outcome contradicts durable effect"); }
             }
