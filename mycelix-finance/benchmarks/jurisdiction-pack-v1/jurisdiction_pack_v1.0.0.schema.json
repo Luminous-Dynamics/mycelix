@@ -17,7 +17,8 @@
     "interpretation_records",
     "test_evidence",
     "change_control",
-    "limitations"
+    "limitations",
+    "qualification_decisions"
   ],
   "properties": {
     "pack_id": {
@@ -94,6 +95,12 @@
         "type": "string",
         "minLength": 3
       }
+    },
+    "qualification_decisions": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/reviewDecision"
+      }
     }
   },
   "allOf": [
@@ -139,10 +146,50 @@
             }
           },
           "interpretation_records": {
-            "minItems": 1
+            "minItems": 1,
+            "contains": {
+              "properties": {
+                "decision_status": {
+                  "const": "approved_for_declared_scope"
+                }
+              }
+            },
+            "minContains": 1
           },
           "test_evidence": {
-            "minItems": 1
+            "minItems": 1,
+            "contains": {
+              "properties": {
+                "actual_execution_state": {
+                  "const": "run_qualified"
+                },
+                "review_state": {
+                  "const": "reviewed"
+                }
+              }
+            },
+            "minContains": 1
+          },
+          "profile_candidates": {
+            "minItems": 1,
+            "items": {
+              "properties": {
+                "maturity_status": {
+                  "const": "qualified_for_declared_scope"
+                }
+              }
+            }
+          },
+          "qualification_decisions": {
+            "minItems": 1,
+            "contains": {
+              "properties": {
+                "decision": {
+                  "const": "approve"
+                }
+              }
+            },
+            "minContains": 1
           }
         }
       }
@@ -418,7 +465,47 @@
             "minLength": 3
           }
         }
-      }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "snapshot_state": {
+                "const": "archived"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "snapshot": {
+                "properties": {
+                  "sha256": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{64}$"
+                  },
+                  "byte_length": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "acquired_at": {
+                    "type": "string",
+                    "format": "date-time",
+                    "pattern": "Z$"
+                  },
+                  "content_type": {
+                    "type": "string",
+                    "minLength": 3
+                  },
+                  "archive_ref": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
     },
     "authorityMetadata": {
       "type": "object",
