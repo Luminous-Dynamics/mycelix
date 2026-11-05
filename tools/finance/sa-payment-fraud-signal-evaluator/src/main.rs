@@ -399,7 +399,9 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
                 !reference.as_str().is_some_and(|value| source_ids.contains(value))
             })
         {
-            errors.push(format!("scenarios[{i}]: unresolved or missing assertion source references"));
+            errors.push(format!(
+                "scenarios[{i}]: unresolved or missing assertion source references"
+            ));
         }
         let (actual_admission, actual_reason) = decision(signal, query, profile);
         let expected_admission = str_at(scenario, "expected_admission").unwrap_or("");
@@ -475,7 +477,8 @@ fn run_self_tests(corpus: &Value, schema: &Value) -> Result<usize, String> {
     count += 1;
 
     mutate_and_reject("private platform uses section 251", corpus, schema, |v| {
-        v["scenarios"][0]["signal"]["sharing"]["lawful_basis_code"] = json!("FSR_ACT_251_REGULATOR_SCOPE");
+        v["scenarios"][0]["signal"]["sharing"]["lawful_basis_code"] =
+            json!("FSR_ACT_251_REGULATOR_SCOPE");
     })?;
     count += 1;
 
@@ -491,7 +494,8 @@ fn run_self_tests(corpus: &Value, schema: &Value) -> Result<usize, String> {
     count += 1;
 
     mutate_and_reject("retention expired", corpus, schema, |v| {
-        v["scenarios"][0]["signal"]["sharing"]["retention_expires_at"] = json!("2026-11-04T00:00:00Z");
+        v["scenarios"][0]["signal"]["sharing"]["retention_expires_at"] =
+            json!("2026-11-04T00:00:00Z");
     })?;
     count += 1;
 
@@ -520,11 +524,17 @@ fn run_self_tests(corpus: &Value, schema: &Value) -> Result<usize, String> {
     })?;
     count += 1;
 
-    mutate_and_reject("model output promoted to official determination", corpus, schema, |v| {
-        v["scenarios"][0]["signal"]["assertion"]["status"] = json!("official_determination");
-        v["scenarios"][0]["signal"]["assertion"]["evidence_class"] = json!("model_derived_indicator");
-        v["scenarios"][0]["signal"]["assertion"]["determining_authority_ref"] = json!("MODEL");
-    })?;
+    mutate_and_reject(
+        "model output promoted to official determination",
+        corpus,
+        schema,
+        |v| {
+            v["scenarios"][0]["signal"]["assertion"]["status"] = json!("official_determination");
+            v["scenarios"][0]["signal"]["assertion"]["evidence_class"] =
+                json!("model_derived_indicator");
+            v["scenarios"][0]["signal"]["assertion"]["determining_authority_ref"] = json!("MODEL");
+        },
+    )?;
     count += 1;
 
     mutate_and_reject("correction not propagated", corpus, schema, |v| {
@@ -544,13 +554,18 @@ fn run_self_tests(corpus: &Value, schema: &Value) -> Result<usize, String> {
     })?;
     count += 1;
 
-    mutate_and_reject("special personal information without review", corpus, schema, |v| {
-        v["scenarios"][0]["signal"]["subject"]["data_classification"] =
-            json!("special_personal_alleged_offence");
-        v["scenarios"][0]["signal"]["subject"]["subject_type"] = json!("natural_person");
-        v["scenarios"][0]["signal"]["sharing"]["special_info_review_status"] = json!("pending");
-        v["scenarios"][0]["signal"]["sharing"]["special_info_review_ref"] = Value::Null;
-    })?;
+    mutate_and_reject(
+        "special personal information without review",
+        corpus,
+        schema,
+        |v| {
+            v["scenarios"][0]["signal"]["subject"]["data_classification"] =
+                json!("special_personal_alleged_offence");
+            v["scenarios"][0]["signal"]["subject"]["subject_type"] = json!("natural_person");
+            v["scenarios"][0]["signal"]["sharing"]["special_info_review_status"] = json!("pending");
+            v["scenarios"][0]["signal"]["sharing"]["special_info_review_ref"] = Value::Null;
+        },
+    )?;
     count += 1;
 
     mutate_and_reject("high confidence without method", corpus, schema, |v| {
@@ -570,16 +585,20 @@ fn run_self_tests(corpus: &Value, schema: &Value) -> Result<usize, String> {
     })?;
     count += 1;
 
-    mutate_and_reject("pairwise subject token bound to another recipient", corpus, schema, |v| {
-        v["scenarios"][0]["query"]["recipient_subject_ref"] =
-            json!("pairwise:BANK-C:SUBJECT-001");
-    })?;
+    mutate_and_reject(
+        "pairwise subject token bound to another recipient",
+        corpus,
+        schema,
+        |v| {
+            v["scenarios"][0]["query"]["recipient_subject_ref"] =
+                json!("pairwise:BANK-C:SUBJECT-001");
+        },
+    )?;
     count += 1;
 
     mutate_and_reject("correction receipt identity missing", corpus, schema, |v| {
         v["scenarios"][0]["signal"]["lifecycle"]["previous_recipient_count"] = json!(1);
-        v["scenarios"][0]["signal"]["lifecycle"]["previous_recipient_ids"] =
-            json!(["BANK-C"]);
+        v["scenarios"][0]["signal"]["lifecycle"]["previous_recipient_ids"] = json!(["BANK-C"]);
     })?;
     count += 1;
 
@@ -596,26 +615,35 @@ fn main() -> Result<(), Box<dyn Error>> {
         match arg.as_str() {
             "--corpus" => {
                 let path = PathBuf::from(args.next().ok_or_else(|| {
-                    std::io::Error::new(std::io::ErrorKind::InvalidInput, "--corpus requires a path")
+                    std::io::Error::new(
+                        std::io::ErrorKind::InvalidInput,
+                        "--corpus requires a path",
+                    )
                 })?);
                 corpus_text = fs::read_to_string(path)?;
             }
             "--schema" => {
                 let path = PathBuf::from(args.next().ok_or_else(|| {
-                    std::io::Error::new(std::io::ErrorKind::InvalidInput, "--schema requires a path")
+                    std::io::Error::new(
+                        std::io::ErrorKind::InvalidInput,
+                        "--schema requires a path",
+                    )
                 })?);
                 schema_text = fs::read_to_string(path)?;
             }
             "--self-test" => self_test = true,
             "--help" | "-h" => {
-                println!("sa-payment-fraud-signal-evaluator [--corpus PATH] [--schema PATH] [--self-test]");
+                println!(
+                    "sa-payment-fraud-signal-evaluator [--corpus PATH] [--schema PATH] [--self-test]"
+                );
                 return Ok(());
             }
             other => {
                 return Err(std::io::Error::new(
                     std::io::ErrorKind::InvalidInput,
                     format!("unknown argument: {other}"),
-                ).into());
+                )
+                .into());
             }
         }
     }
@@ -652,8 +680,7 @@ mod tests {
 
     #[test]
     fn checked_in_schema_and_corpus_validate() {
-        let (errors, corpus, _) =
-            evaluate(CORPUS_DEFAULT, SCHEMA_DEFAULT).expect("evaluation");
+        let (errors, corpus, _) = evaluate(CORPUS_DEFAULT, SCHEMA_DEFAULT).expect("evaluation");
         assert!(errors.is_empty(), "{errors:?}");
         assert_eq!(array_at(&corpus, "source_register").unwrap().len(), 8);
         assert_eq!(array_at(&corpus, "profiles").unwrap().len(), 6);
@@ -671,10 +698,7 @@ mod tests {
     fn official_determination_is_not_inferred_from_a_signature() {
         let corpus: Value = serde_json::from_str(CORPUS_DEFAULT).expect("corpus");
         let signal = &corpus["scenarios"][0]["signal"];
-        assert_eq!(
-            str_at(&signal["assertion"], "status"),
-            Some("suspected")
-        );
+        assert_eq!(str_at(&signal["assertion"], "status"), Some("suspected"));
         assert_eq!(
             str_at(&signal["assertion"], "evidence_class"),
             Some("direct_participant_observation")
