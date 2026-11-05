@@ -138,6 +138,12 @@ fn decision(signal: &Value, query: &Value, profile: &Value) -> (&'static str, &'
     {
         return ("reject", "pairwise_subject_scope_mismatch");
     }
+    match str_at(query, "subject_binding_state") {
+        Some("mismatch") => return ("reject", "subject_binding_mismatch"),
+        Some("unknown") => return ("quarantine", "subject_binding_unknown"),
+        Some("verified") if str_at(query, "subject_binding_receipt_ref").is_some() => {}
+        _ => return ("quarantine", "subject_binding_unknown"),
+    }
 
     if basis == "FSR_ACT_251_REGULATOR_SCOPE"
         && profile_state != "synthetic_statutory_scope_fixture_only"
@@ -607,6 +613,17 @@ fn run_self_tests(corpus: &Value, schema: &Value) -> Result<usize, String> {
     })?;
     count += 1;
 
+    mutate_and_reject("subject binding unknown", corpus, schema, |v| {
+        v["scenarios"][0]["query"]["subject_binding_state"] = json!("unknown");
+        v["scenarios"][0]["query"]["subject_binding_receipt_ref"] = Value::Null;
+    })?;
+    count += 1;
+
+    mutate_and_reject("subject binding mismatch", corpus, schema, |v| {
+        v["scenarios"][0]["query"]["subject_binding_state"] = json!("mismatch");
+    })?;
+    count += 1;
+
     Ok(count)
 }
 
@@ -689,14 +706,14 @@ mod tests {
         assert!(errors.is_empty(), "{errors:?}");
         assert_eq!(array_at(&corpus, "source_register").unwrap().len(), 8);
         assert_eq!(array_at(&corpus, "profiles").unwrap().len(), 6);
-        assert_eq!(array_at(&corpus, "scenarios").unwrap().len(), 34);
+        assert_eq!(array_at(&corpus, "scenarios").unwrap().len(), 36);
     }
 
     #[test]
     fn deterministic_negative_mutations_reject_unsafe_admission() {
         let corpus: Value = serde_json::from_str(CORPUS_DEFAULT).expect("corpus");
         let schema: Value = serde_json::from_str(SCHEMA_DEFAULT).expect("schema");
-        assert_eq!(run_self_tests(&corpus, &schema).expect("self tests"), 20);
+        assert_eq!(run_self_tests(&corpus, &schema).expect("self tests"), 22);
     }
 
     #[test]
