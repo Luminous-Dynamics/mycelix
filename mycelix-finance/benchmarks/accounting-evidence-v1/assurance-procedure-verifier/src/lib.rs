@@ -463,45 +463,114 @@ pub fn sha256_hex(bytes: &[u8]) -> String { hex::encode(Sha256::digest(bytes)) }
 mod tests {
     use super::*;
     use serde_json::Value;
-    fn parse(source: &str) -> Value { serde_json::from_str(source).expect("valid fixture JSON") }
+
+    fn parse(source: &str) -> Value {
+        serde_json::from_str(source).expect("valid fixture JSON")
+    }
+
+    fn case_by_id<'a>(candidate: &'a Value, id: &str) -> &'a Value {
+        candidate["cases"]
+            .as_array()
+            .expect("cases")
+            .iter()
+            .find(|row| row["case_id"] == id)
+            .expect("case exists")
+    }
 
     #[test]
-    fn all_public_reference_cases_match_the_oracle() {
-        let candidate = parse(include_str!("../../fin_assurance_procedure_candidates_v1.0.0.json"));
-        let oracle = parse(include_str!("../../public-assurance-oracle/fin_assurance_procedure_oracle_v1.0.0.json"));
+    fn all_public_reference_cases_match_case_and_pair_oracles() {
+        let candidate = parse(include_str!("../../fin_assurance_procedure_candidates_v1.1.0.json"));
+        let oracle = parse(include_str!("../../public-assurance-oracle/fin_assurance_procedure_oracle_v1.1.0.json"));
         for case in candidate["cases"].as_array().expect("cases") {
             let id = case["case_id"].as_str().expect("case ID");
-            let expected = oracle["cases"].as_array().expect("oracle cases").iter()
-                .find(|row| row["case_id"] == id).expect("oracle row")["expected_terminal_state"].as_str().expect("state");
-            assert_eq!(assess_case(case).expect("assessment").state, expected, "{id}");
+            let reference = oracle["cases"]
+                .as_array()
+                .expect("oracle cases")
+                .iter()
+                .find(|row| row["case_id"] == id)
+                .expect("oracle row");
+            let assessment = assess_case(case).expect("assessment");
+            assert_eq!(assessment.state, reference["expected_terminal_state"], "{id}");
+            let expected_pairs = reference["expected_pair_states"].as_array().expect("pair oracle");
+            assert_eq!(assessment.pair_results.len(), expected_pairs.len(), "{id} pair count");
+            for pair in &assessment.pair_results {
+                let expected = expected_pairs
+                    .iter()
+                    .find(|row| row["pair_id"] == pair.pair_id)
+                    .expect("pair oracle row");
+                assert_eq!(pair.state, expected["terminal_state"], "{id}/{}", pair.pair_id);
+            }
         }
     }
 
     #[test]
     fn wrong_denominator_is_not_hidden_by_matching_output() {
-        let candidate = parse(include_str!("../../fin_assurance_procedure_candidates_v1.0.0.json"));
-        let case = candidate["cases"].as_array().expect("cases").iter().find(|row| row["case_id"] == "FAP-007").expect("case");
+        let candidate = parse(include_str!("../../fin_assurance_procedure_candidates_v1.1.0.json"));
+        let case = case_by_id(&candidate, "FAP-007");
         assert_eq!(assess_case(case).expect("assessment").state, "exception_requires_resolution");
     }
 
     #[test]
     fn same_upstream_origin_is_not_independent_corroboration() {
-        let candidate = parse(include_str!("../../fin_assurance_procedure_candidates_v1.0.0.json"));
-        let case = candidate["cases"].as_array().expect("cases").iter().find(|row| row["case_id"] == "FAP-010").expect("case");
+        let candidate = parse(include_str!("../../fin_assurance_procedure_candidates_v1.1.0.json"));
+        let case = case_by_id(&candidate, "FAP-010");
         assert_eq!(assess_case(case).expect("assessment").state, "insufficient_evidence");
     }
 
     #[test]
     fn non_applicability_requires_authorized_scoped_rationale() {
-        let candidate = parse(include_str!("../../fin_assurance_procedure_candidates_v1.0.0.json"));
-        let case = candidate["cases"].as_array().expect("cases").iter().find(|row| row["case_id"] == "FAP-016").expect("case");
-        assert_eq!(assess_case(case).expect("assessment").state, "not_applicable_with_authorized_rationale");
+        let candidate = parse(include_str!("../../fin_assurance_procedure_candidates_v1.1.0.json"));
+        let case = case_by_id(&candidate, "FAP-016");
+        assert_eq!(
+            assess_case(case).expect("assessment").state,
+            "not_applicable_with_authorized_rationale"
+        );
     }
 
     #[test]
     fn a_late_source_stales_prior_workpaper() {
-        let candidate = parse(include_str!("../../fin_assurance_procedure_candidates_v1.0.0.json"));
-        let case = candidate["cases"].as_array().expect("cases").iter().find(|row| row["case_id"] == "FAP-017").expect("case");
+        let candidate = parse(include_str!("../../fin_assurance_procedure_candidates_v1.1.0.json"));
+        let case = case_by_id(&candidate, "FAP-017");
         assert_eq!(assess_case(case).expect("assessment").state, "exception_requires_resolution");
+    }
+
+    #[test]
+    fn multi_pair_case_preserves_each_pair_disposition() {
+        let candidate = parse(include_str!("../../fin_assurance_procedure_candidates_v1.1.0.json"));
+        let assessment = assess_case(case_by_id(&candidate, "FAP-019")).expect("assessment");
+        assert_eq!(assessment.state, "insufficient_evidence");
+        assert_eq!(assessment.pair_results.len(), 2);
+        assert_eq!(
+            assessment.pair_results.iter().find(|row| row.pair_id == "pair-1").unwrap().state,
+            "addressed_with_qualified_evidence"
+        );
+        assert_eq!(
+            assessment.pair_results.iter().find(|row| row.pair_id == "pair-2").unwrap().state,
+            "insufficient_evidence"
+        );
+    }
+
+    #[test]
+    fn procedure_purpose_must_match_required_pair_purpose() {
+        let candidate = parse(include_str!("../../fin_assurance_procedure_candidates_v1.1.0.json"));
+        let assessment = assess_case(case_by_id(&candidate, "FAP-020")).expect("assessment");
+        assert_eq!(assessment.state, "insufficient_evidence");
+        assert!(assessment.reasons.contains("performed_procedure_purpose_mismatch"));
+    }
+
+    #[test]
+    fn evidence_must_be_bound_to_the_reporting_entity() {
+        let candidate = parse(include_str!("../../fin_assurance_procedure_candidates_v1.1.0.json"));
+        let assessment = assess_case(case_by_id(&candidate, "FAP-021")).expect("assessment");
+        assert_eq!(assessment.state, "insufficient_evidence");
+        assert!(assessment.reasons.contains("evidence_reporting_entity_mismatch"));
+    }
+
+    #[test]
+    fn analytical_differences_above_threshold_remain_open() {
+        let candidate = parse(include_str!("../../fin_assurance_procedure_candidates_v1.1.0.json"));
+        let assessment = assess_case(case_by_id(&candidate, "FAP-022")).expect("assessment");
+        assert_eq!(assessment.state, "exception_requires_resolution");
+        assert!(assessment.reasons.contains("analytical_difference_above_threshold"));
     }
 }
