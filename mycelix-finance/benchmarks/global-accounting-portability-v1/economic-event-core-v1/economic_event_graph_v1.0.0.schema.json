@@ -36,12 +36,12 @@
     "utcSecond": {
       "type": "string",
       "format": "date-time",
-      "pattern": "^\\\\d{4}-\\\\d{2}-\\\\d{2}T\\\\d{2}:\\\\d{2}:\\\\d{2}Z$"
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
     },
     "date": {
       "type": "string",
       "format": "date",
-      "pattern": "^\\\\d{4}-\\\\d{2}-\\\\d{2}$"
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
     },
     "sourceObject": {
       "type": "object",
