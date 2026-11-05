@@ -32,6 +32,9 @@ EXPECTED_MUTATIONS = {
     "event-hash-substitution": "blocked",
     "superseded": "historical_only",
     "public-embargo-leak": "blocked",
+    "not-yet-valid": "blocked_not_valid_at_decision",
+    "expired-at-decision": "blocked_not_valid_at_decision",
+    "artifact-unavailable": "indeterminate",
 }
 
 
@@ -217,7 +220,7 @@ def main() -> None:
         fail("Rust semantic receipt fixture digest does not match the checked-out fixtures")
     if semantic_receipt.get("result") != "pass":
         fail("Rust semantic evaluator did not pass")
-    if semantic_receipt.get("scope") != "declared_fixture_semantics_only":
+    if semantic_receipt.get("scope") != "declared_fixture_semantics_and_source_family_census":
         fail("Rust semantic receipt has an unexpected claim scope")
 
     semantic_results = semantic_receipt.get("mutation_results")
@@ -246,14 +249,50 @@ def main() -> None:
     if semantic_receipt.get("legacy_example", {}).get("actual_disposition") != "unassessed_legacy_locator":
         fail("Rust semantic receipt did not preserve the legacy example as unassessed")
 
+    source_family = semantic_receipt.get("source_family_result")
+    if not isinstance(source_family, dict):
+        fail("Rust semantic receipt must contain source_family_result")
+    if source_family.get("expected_disposition") != EXPECTED_CASES["copied-source-family-007"]:
+        fail("source-family expected disposition drift")
+    if source_family.get("actual_disposition") != EXPECTED_CASES["copied-source-family-007"]:
+        fail("copied source family was incorrectly counted as independent corroboration")
+    if source_family.get("independent_family_count") != 1 or source_family.get("reference_count") != 2:
+        fail("source-family receipt counts do not match the duplicate-family fixture")
+
+    summary_results = semantic_receipt.get("summary_case_results")
+    if not isinstance(summary_results, list):
+        fail("Rust semantic receipt must execute the complete summary case corpus")
+    summary_map = {}
+    for result in summary_results:
+        if not isinstance(result, dict):
+            fail("Rust summary case result must be an object")
+        case_id = result.get("case_id")
+        expected = result.get("expected_disposition")
+        actual = result.get("actual_disposition")
+        passed = result.get("passed")
+        if not isinstance(case_id, str) or case_id in summary_map:
+            fail(f"missing or duplicate summary case_id: {case_id}")
+        if expected != EXPECTED_CASES.get(case_id):
+            fail(f"Rust summary expected disposition drift for case: {case_id}")
+        if actual != expected or passed is not True:
+            fail(f"Rust summary case did not pass: {case_id}")
+        summary_map[case_id] = actual
+    if summary_map != EXPECTED_CASES:
+        fail("Rust semantic receipt does not cover all expected summary cases")
+    if semantic_receipt.get("summary_cases_not_semantically_executed") != 0:
+        fail("Rust evaluator reports unexecuted summary cases")
+
     receipt_out = {
-        "receipt_version": "2",
+        "receipt_version": "3",
         "source_commit": source_commit,
-        "scope": "schema_meta_and_declared_fixture_semantics",
+        "scope": "schema_meta_and_full_declared_fixture_semantics_and_source_family_census",
         "semantic_evaluator": semantic_receipt.get("evaluator"),
         "semantic_scope": semantic_receipt.get("scope"),
         "semantic_result": semantic_receipt.get("result"),
         "semantic_mutation_count": len(semantic_results),
+        "semantic_summary_case_count": len(summary_results),
+        "semantic_source_family_disposition": source_family.get("actual_disposition"),
+        "semantic_unexecuted_summary_cases": 0,
         "schema_draft": "2020-12",
         "schema_sha256": sha256(schema_bytes),
         "fixtures_sha256": sha256(fixture_bytes),
