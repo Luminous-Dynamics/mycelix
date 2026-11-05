@@ -22,7 +22,8 @@
           "messages.send"
         ],
         "idempotency_key": "grant-request-001",
-        "authority_index": 1
+        "authority_index": 1,
+        "request_digest_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
       }
     },
     {
