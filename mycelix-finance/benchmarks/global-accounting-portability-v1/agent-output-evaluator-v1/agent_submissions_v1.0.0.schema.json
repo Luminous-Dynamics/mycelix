@@ -258,7 +258,8 @@
         "questions",
         "journal_entries",
         "statement_lines",
-        "assumptions"
+        "assumptions",
+        "evidence_trace"
       ],
       "properties": {
         "case_id": {
@@ -308,6 +309,86 @@
           "type": "array",
           "items": {
             "$ref": "#/$defs/assumption"
+          }
+        },
+        "evidence_trace": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/evidenceTrace"
+          }
+        }
+      }
+    },
+    "evidenceTrace": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "trace_ref",
+        "fact_type",
+        "fact_ref",
+        "evidence_state",
+        "terminal_state",
+        "source_document_refs",
+        "question_refs",
+        "journal_line_refs"
+      ],
+      "properties": {
+        "trace_ref": {
+          "type": "string",
+          "pattern": "^[A-Z0-9-]{3,120}$"
+        },
+        "fact_type": {
+          "type": "string",
+          "minLength": 3
+        },
+        "fact_ref": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "evidence_state": {
+          "enum": [
+            "asserted",
+            "contradicting",
+            "unknown",
+            "disputed",
+            "invalidated",
+            "future",
+            "superseded",
+            "missing",
+            "integrity_failed"
+          ]
+        },
+        "terminal_state": {
+          "enum": [
+            "carried_to_journal",
+            "carried_to_question",
+            "carried_to_review",
+            "abstained",
+            "question_raised",
+            "excluded"
+          ]
+        },
+        "source_document_refs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        },
+        "question_refs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        },
+        "journal_line_refs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
           }
         }
       }
