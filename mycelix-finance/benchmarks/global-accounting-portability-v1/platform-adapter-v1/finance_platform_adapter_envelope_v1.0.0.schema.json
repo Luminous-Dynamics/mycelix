@@ -30,7 +30,7 @@
     "requested_knowledge_at": {
       "type": "string",
       "format": "date-time",
-      "pattern": "Z$"
+      "pattern": "^\\\\d{4}-\\\\d{2}-\\\\d{2}T\\\\d{2}:\\\\d{2}:\\\\d{2}Z$"
     },
     "source_snapshot": {
       "$ref": "#/$defs/sourceSnapshot"
@@ -106,7 +106,7 @@
         "observed_at": {
           "type": "string",
           "format": "date-time",
-          "pattern": "Z$"
+          "pattern": "^\\\\d{4}-\\\\d{2}-\\\\d{2}T\\\\d{2}:\\\\d{2}:\\\\d{2}Z$"
         },
         "capture_state": {
           "enum": [
@@ -226,7 +226,7 @@
         "observed_at": {
           "type": "string",
           "format": "date-time",
-          "pattern": "Z$"
+          "pattern": "^\\\\d{4}-\\\\d{2}-\\\\d{2}T\\\\d{2}:\\\\d{2}:\\\\d{2}Z$"
         }
       }
     },
@@ -379,7 +379,7 @@
         "recorded_at": {
           "type": "string",
           "format": "date-time",
-          "pattern": "Z$"
+          "pattern": "^\\\\d{4}-\\\\d{2}-\\\\d{2}T\\\\d{2}:\\\\d{2}:\\\\d{2}Z$"
         }
       }
     },
@@ -429,7 +429,7 @@
         "recorded_at": {
           "type": "string",
           "format": "date-time",
-          "pattern": "Z$"
+          "pattern": "^\\\\d{4}-\\\\d{2}-\\\\d{2}T\\\\d{2}:\\\\d{2}:\\\\d{2}Z$"
         }
       },
       "allOf": [
