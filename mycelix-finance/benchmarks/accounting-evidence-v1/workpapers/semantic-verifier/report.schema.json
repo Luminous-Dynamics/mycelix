@@ -149,7 +149,7 @@
       }
     },
     "authority_escalation_detected": {
-      "const": false
+      "type": "boolean"
     },
     "can_post_journals": {
       "const": false
