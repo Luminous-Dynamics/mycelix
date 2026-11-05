@@ -44,20 +44,30 @@ fn compare(case_id: &str, name: &str, actual: BTreeSet<String>, expected: &Value
 }
 
 
+fn source_snapshot_known(case: &Value) -> Result<bool, String> {
+    let frontier = s(case, "requested_knowledge_at")?;
+    let source = case.get("source_snapshot").ok_or("missing source snapshot")?;
+    Ok(s(source, "observed_at")? <= frontier)
+}
+
 fn has_capability(case: &Value, capability_id: &str, status: &str) -> Result<bool, String> {
+    if !source_snapshot_known(case)? { return Ok(false); }
+    let frontier = s(case, "requested_knowledge_at")?;
     Ok(arr(case, "capability_coverage")?.iter().any(|item| {
         item.get("capability_id").and_then(Value::as_str) == Some(capability_id)
             && item.get("status").and_then(Value::as_str) == Some(status)
+            && item.get("observed_at").and_then(Value::as_str).is_some_and(|at| at <= frontier)
     }))
 }
 
 fn unmapped_paths(case: &Value) -> Result<BTreeSet<String>, String> {
     let mut paths = BTreeSet::new();
+    if !source_snapshot_known(case)? { return Ok(paths); }
+    let frontier = s(case, "requested_knowledge_at")?;
     for mapping in arr(case, "field_mappings")? {
-        if matches!(
-            mapping.get("mapping_status").and_then(Value::as_str),
-            Some("unmapped" | "unsupported" | "ambiguous")
-        ) {
+        let known = mapping.get("recorded_at").and_then(Value::as_str).is_some_and(|at| at <= frontier);
+        if known && matches!(mapping.get("mapping_status").and_then(Value::as_str),
+            Some("unmapped" | "unsupported" | "ambiguous")) {
             paths.insert(s(mapping, "source_path")?.to_owned());
         }
     }
@@ -66,43 +76,98 @@ fn unmapped_paths(case: &Value) -> Result<BTreeSet<String>, String> {
 
 fn incomplete_capabilities(case: &Value) -> Result<BTreeSet<String>, String> {
     let mut capabilities = BTreeSet::new();
+    if !source_snapshot_known(case)? { return Ok(capabilities); }
+    let frontier = s(case, "requested_knowledge_at")?;
     for item in arr(case, "capability_coverage")? {
-        if s(item, "status")? != "supported" {
+        let known = item.get("observed_at").and_then(Value::as_str).is_some_and(|at| at <= frontier);
+        if known && s(item, "status")? != "supported" {
             capabilities.insert(s(item, "capability_id")?.to_owned());
         }
     }
     Ok(capabilities)
 }
 
-fn future_relationship(case: &Value) -> Result<bool, String> {
+fn relationship_visible(case: &Value, relationship: &Value) -> Result<bool, String> {
+    if !source_snapshot_known(case)? { return Ok(false); }
     let frontier = s(case, "requested_knowledge_at")?;
-    Ok(arr(case, "relationships")?.iter().any(|relationship| {
-        relationship.get("recorded_at").and_then(Value::as_str)
-            .is_some_and(|recorded| recorded > frontier)
-    }))
+    let source = case.get("source_snapshot").ok_or("missing source snapshot")?;
+    let observed_day = s(source, "observed_at")?.split('T').next().ok_or("invalid observed_at")?;
+    let recorded_at = s(relationship, "recorded_at")?;
+    let valid_from = s(relationship, "valid_from")?;
+    let valid_to = relationship.get("valid_to").and_then(Value::as_str);
+    Ok(recorded_at <= frontier && valid_from <= observed_day
+        && valid_to.is_none_or(|end| end >= observed_day))
+}
+
+fn active_relationship_refs(case: &Value) -> Result<BTreeSet<String>, String> {
+    let mut refs = BTreeSet::new();
+    for relationship in arr(case, "relationships")? {
+        if relationship_visible(case, relationship)? {
+            refs.insert(s(relationship, "relationship_ref")?.to_owned());
+        }
+    }
+    Ok(refs)
+}
+
+fn future_evidence(case: &Value) -> Result<bool, String> {
+    let frontier = s(case, "requested_knowledge_at")?;
+    let source = case.get("source_snapshot").ok_or("missing source snapshot")?;
+    if s(source, "observed_at")? > frontier { return Ok(true); }
+    for capability in arr(case, "capability_coverage")? {
+        if s(capability, "observed_at")? > frontier { return Ok(true); }
+    }
+    for mapping in arr(case, "field_mappings")? {
+        if s(mapping, "recorded_at")? > frontier { return Ok(true); }
+    }
+    for relationship in arr(case, "relationships")? {
+        if s(relationship, "recorded_at")? > frontier { return Ok(true); }
+    }
+    Ok(false)
+}
+
+fn access_principal_refs(case: &Value) -> Result<BTreeSet<String>, String> {
+    let mut refs = BTreeSet::new();
+    for relationship in arr(case, "relationships")? {
+        if relationship_visible(case, relationship)? {
+            for reference in arr(relationship, "access_principal_refs")? {
+                refs.insert(reference.as_str().ok_or("principal not string")?.to_owned());
+            }
+        }
+    }
+    Ok(refs)
+}
+
+fn upstream_origin_refs(case: &Value) -> Result<BTreeSet<String>, String> {
+    let mut refs = BTreeSet::new();
+    for relationship in arr(case, "relationships")? {
+        if relationship_visible(case, relationship)? {
+            for reference in arr(relationship, "upstream_origin_refs")? {
+                refs.insert(reference.as_str().ok_or("origin not string")?.to_owned());
+            }
+        }
+    }
+    Ok(refs)
 }
 
 fn duplicate_upstream_origin(case: &Value) -> Result<bool, String> {
     let mut counts = BTreeMap::<String, usize>::new();
     for relationship in arr(case, "relationships")? {
+        if !relationship_visible(case, relationship)? { continue; }
         let origins = arr(relationship, "upstream_origin_refs")?
             .iter().filter_map(Value::as_str).collect::<BTreeSet<_>>();
-        for origin in origins {
-            *counts.entry(origin.to_owned()).or_default() += 1;
-        }
+        for origin in origins { *counts.entry(origin.to_owned()).or_default() += 1; }
     }
     Ok(counts.values().any(|count| *count > 1))
 }
 
 fn namespace_collision(case: &Value) -> Result<bool, String> {
+    if !source_snapshot_known(case)? { return Ok(false); }
     let mut namespaces = BTreeMap::<String, String>::new();
     for object in arr(case, "objects")? {
         let external_id = s(object, "external_object_id")?;
         let namespace = s(object, "object_namespace")?;
         if let Some(previous) = namespaces.get(external_id) {
-            if previous != namespace {
-                return Ok(true);
-            }
+            if previous != namespace { return Ok(true); }
         } else {
             namespaces.insert(external_id.to_owned(), namespace.to_owned());
         }
@@ -113,44 +178,34 @@ fn namespace_collision(case: &Value) -> Result<bool, String> {
 fn reason_codes(case: &Value) -> Result<BTreeSet<String>, String> {
     let mut reasons = BTreeSet::new();
     let unmapped = unmapped_paths(case)?;
-    let future = future_relationship(case)?;
+    let future = future_evidence(case)?;
     let duplicate_origin = duplicate_upstream_origin(case)?;
     let collision = namespace_collision(case)?;
 
+    if future { reasons.insert("evidence_after_knowledge_frontier".to_owned()); }
     if has_capability(case, "actor_access_principals", "unsupported")? && !unmapped.is_empty() {
         reasons.insert("actor_access_principal_not_represented".to_owned());
     }
     if has_capability(case, "personal_data_classification", "supported")?
         && (has_capability(case, "data_transfer_relationships", "unknown")?
-            || has_capability(case, "data_transfer_relationships", "unsupported")?)
-    {
+            || has_capability(case, "data_transfer_relationships", "unsupported")?) {
         reasons.insert("classification_is_not_transfer_authority".to_owned());
     }
     if has_capability(case, "data_lineage", "partial")?
-        || has_capability(case, "data_lineage", "unsupported")?
-    {
+        || has_capability(case, "data_lineage", "unsupported")? {
         reasons.insert("source_lineage_partial_or_truncated".to_owned());
     }
     if has_capability(case, "journal_posting", "unsupported")? {
         reasons.insert("journal_posting_capability_not_authorised_by_adapter".to_owned());
     }
-    if future {
-        reasons.insert("future_recorded_relationship_excluded".to_owned());
-    }
     if s(case.get("source_snapshot").ok_or("missing source snapshot")?, "capture_state")? == "truncated" {
         reasons.insert("export_pagination_incomplete".to_owned());
     }
-    if duplicate_origin {
-        reasons.insert("correlated_origin_not_independent".to_owned());
-    }
-    if collision {
-        reasons.insert("same_external_id_different_namespace".to_owned());
-    }
-    if unmapped.is_empty()
-        && incomplete_capabilities(case)?.is_empty()
+    if duplicate_origin { reasons.insert("correlated_origin_not_independent".to_owned()); }
+    if collision { reasons.insert("same_external_id_different_namespace".to_owned()); }
+    if unmapped.is_empty() && incomplete_capabilities(case)?.is_empty()
         && s(case.get("source_snapshot").ok_or("missing source snapshot")?, "capture_state")? == "complete"
-        && !future && !duplicate_origin && !collision
-    {
+        && !future && !duplicate_origin && !collision {
         reasons.insert("no_unresolved_mapping_loss".to_owned());
     }
     Ok(reasons)
@@ -159,7 +214,7 @@ fn reason_codes(case: &Value) -> Result<BTreeSet<String>, String> {
 fn adapter_state(case: &Value) -> Result<&'static str, String> {
     let reasons = reason_codes(case)?;
     let source = case.get("source_snapshot").ok_or("missing source snapshot")?;
-    if reasons.contains("future_recorded_relationship_excluded")
+    if reasons.contains("evidence_after_knowledge_frontier")
         || reasons.contains("actor_access_principal_not_represented")
         || reasons.contains("classification_is_not_transfer_authority")
     {
