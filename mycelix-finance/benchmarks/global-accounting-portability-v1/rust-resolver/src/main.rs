@@ -442,7 +442,7 @@ fn resolve(registry: &Value, request: &Value) -> AppResult<Value> {
     let mut matched_intersection_id: Option<String> = None;
     let mut scope_kind = "none".to_owned();
     let mut claim_ceiling = "no_qualification_claim".to_owned();
-    let mut disposition = "unsupported_profile";
+    let mut disposition;
 
     if invalid_reporting_period || !missing_dimensions.is_empty() {
         disposition = "indeterminate";
@@ -714,6 +714,26 @@ mod tests {
             _ => panic!("unknown fixture"),
         };
         serde_json::from_str(input).expect("request JSON")
+    }
+
+    fn refresh_profile_binding(registry: &mut Value, profile_id: &str) {
+        let profile = registry["profile_references"]
+            .as_array()
+            .expect("profile references")
+            .iter()
+            .find(|item| item["profile_id"] == profile_id)
+            .expect("profile exists")
+            .clone();
+        let version = profile["version"].as_str().expect("profile version").to_owned();
+        let digest = profile_sha256(&profile).expect("profile digest");
+        let binding = registry["qualification_intersections"][0]["profile_bindings"]
+            .as_array_mut()
+            .expect("profile bindings")
+            .iter_mut()
+            .find(|item| item["profile_id"] == profile_id)
+            .expect("profile binding exists");
+        binding["version"] = json!(version);
+        binding["profile_sha256"] = json!(digest);
     }
 
     fn checked_resolve(registry: &Value, request: &Value) -> Value {
@@ -1032,6 +1052,7 @@ mod tests {
             .unwrap();
         profile["valid_from"] = json!("2027-01-01");
         profile["early_application_allowed"] = json!(false);
+        refresh_profile_binding(&mut registry, "SYN-FRAMEWORK-A");
         let report = checked_resolve(&registry, &request("qualified"));
         assert_eq!(report["disposition"], "unsupported_profile");
         assert!(
@@ -1116,6 +1137,7 @@ mod tests {
             .unwrap();
         profile["valid_from"] = json!("2027-01-01");
         profile["early_application_allowed"] = json!(true);
+        refresh_profile_binding(&mut registry, "SYN-FRAMEWORK-A");
 
         let request = request("qualified");
         let without_evidence = checked_resolve(&registry, &request);
@@ -1153,6 +1175,7 @@ mod tests {
             .unwrap();
         profile["valid_from"] = json!("2027-01-01");
         profile["early_application_allowed"] = json!(true);
+        refresh_profile_binding(&mut registry, "SYN-FRAMEWORK-A");
         let intersection = &mut registry["qualification_intersections"][0];
         intersection["evidence_refs"]
             .as_array_mut()
