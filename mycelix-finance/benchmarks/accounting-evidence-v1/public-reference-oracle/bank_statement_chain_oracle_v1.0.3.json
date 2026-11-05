@@ -246,7 +246,8 @@
       "expected_disposition": "revision_conflict",
       "reason_codes": [
         "invalid_cross_account_or_scope_revision_relation",
-        "competing_statement_versions_without_relation"
+        "competing_statement_versions_without_relation",
+        "event_reference_is_account_scoped"
       ],
       "economic_observation_count": 3
     },
