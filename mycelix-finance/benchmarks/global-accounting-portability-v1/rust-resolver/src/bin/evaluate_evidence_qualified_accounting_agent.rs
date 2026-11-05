@@ -405,6 +405,7 @@ fn evaluate_evidence_trace(
         }
     }
 
+    let mut decision_to_question_continuity = true;
     for expected_question in array(expectation, "expected_questions")? {
         denominator += 1;
         let fact_type = string(expected_question, "blocking_fact_type")?;
@@ -448,6 +449,7 @@ fn evaluate_evidence_trace(
         if found_continuous_question {
             covered += 1;
         } else {
+            decision_to_question_continuity = false;
             failures.push(format!("decision_blocker_not_carried_to_question:{fact_type}"));
         }
     }
@@ -473,7 +475,6 @@ fn evaluate_evidence_trace(
         }
     }
 
-    let mut decision_to_question_continuity = true;
     for question in array(submission, "questions")? {
         let question_id = string(question, "question_id")?;
         for target in array(question, "target_fact_types")? {
@@ -974,6 +975,15 @@ mod tests {
         assert!(evaluated["evidence_trace_coverage"].as_f64().unwrap() < 1.0);
         assert!(array(evaluated, "continuity_failures").unwrap().iter()
             .any(|failure| failure.as_str().is_some_and(|s| s.contains("fact_trace_mismatch"))));
+    }
+
+    #[test]
+    fn integrity_failure_is_carried_into_abstention_trace() {
+        let (candidates, oracle, submissions) = fixtures();
+        let result = report(&candidates, &oracle, &submissions);
+        let evaluated = case_result(&result, "ACCT-009-SOURCE-INTEGRITY-MISMATCH");
+        assert_eq!(evaluated["evidence_trace_coverage"], 1.0);
+        assert_eq!(evaluated["continuity_failures"], json!([]));
     }
 
     #[test]
