@@ -245,10 +245,10 @@ fn validate_registry_semantics(registry: &Value) -> AppResult<()> {
             ));
         }
         let valid_from = string_field(intersection, "valid_from")?;
-        if let Some(valid_to) = intersection.get("valid_to").and_then(Value::as_str) {
-            if valid_to < valid_from {
-                return Err(format!("intersection {id} has valid_to before valid_from"));
-            }
+        if let Some(valid_to) = intersection.get("valid_to").and_then(Value::as_str)
+            && valid_to < valid_from
+        {
+            return Err(format!("intersection {id} has valid_to before valid_from"));
         }
         let recorded_at = string_field(intersection, "recorded_at")?;
         let approved_at = string_field(intersection, "approved_at")?;
@@ -486,7 +486,7 @@ fn resolve(registry: &Value, request: &Value) -> AppResult<Value> {
                     "qualified_for_declared_scope"
                 })
         });
-        let period_in_scope = period_start >= valid_from.to_owned()
+        let period_in_scope = period_start.as_str() >= valid_from
             && valid_to
                 .map(|end| period_end.as_str() <= end)
                 .unwrap_or(true);
@@ -497,10 +497,10 @@ fn resolve(registry: &Value, request: &Value) -> AppResult<Value> {
         let mut profile_effective = true;
         let mut early_application_unknown = false;
         for profile_id in &selected_profile_ids {
-            if let Some(profile) = profiles.get(profile_id) {
-                if let Some(profile_valid_from) = profile.get("valid_from").and_then(Value::as_str)
-                {
-                    if period_start.as_str() < profile_valid_from {
+            if let Some(profile) = profiles.get(profile_id)
+                && let Some(profile_valid_from) = profile.get("valid_from").and_then(Value::as_str)
+                && period_start.as_str() < profile_valid_from
+            {
                         let permits_early = profile
                             .get("early_application_allowed")
                             .and_then(Value::as_bool)
@@ -523,9 +523,6 @@ fn resolve(registry: &Value, request: &Value) -> AppResult<Value> {
                                     "profile_not_effective_for_reporting_period:{profile_id}"
                                 ));
                             }
-                        }
-                    }
-                }
             }
         }
 
@@ -798,7 +795,7 @@ mod tests {
                 .to_string()
                 .contains("no_exact_qualified_intersection")
         );
-        assert!(report["unsupported_profile_ids"].as_array().unwrap().len() >= 1);
+        assert!(!report["unsupported_profile_ids"].as_array().unwrap().is_empty());
     }
 
     #[test]
