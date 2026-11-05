@@ -1436,7 +1436,7 @@ mod tests {
             .remove("validator_build");
         let report = verify(
             &serde_json::to_vec(&value).unwrap(),
-            include_bytes!("../../WORKPAPER_DAG_V0.1.schema.json")
+            include_bytes!("../../WORKPAPER_DAG_V0.1.schema.json"),
         );
         assert!(
             errors(&report).contains(
@@ -1444,5 +1444,4 @@ mod tests {
             )
         );
     }
-
 }
