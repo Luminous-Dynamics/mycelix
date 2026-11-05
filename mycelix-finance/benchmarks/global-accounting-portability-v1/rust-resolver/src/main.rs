@@ -183,6 +183,18 @@ fn validate_registry_semantics(registry: &Value) -> AppResult<()> {
         if approved_at < recorded_at {
             return Err(format!("intersection {id} is approved before it was recorded"));
         }
+        let evidence_refs = string_array(intersection, "evidence_refs")?.into_iter().collect::<BTreeSet<_>>();
+        for qualification in array_of_objects(intersection, "early_application_qualifications")? {
+            let profile_id = string_field(qualification, "profile_id")?;
+            let profile = profiles.get(profile_id).ok_or_else(|| format!("early-application qualification {id} references unknown profile {profile_id}"))?;
+            if profile.get("early_application_allowed").and_then(Value::as_bool) != Some(true) {
+                return Err(format!("early-application qualification {id} references a profile that does not permit early application: {profile_id}"));
+            }
+            let evidence_ref = string_field(qualification, "evidence_ref")?;
+            if !evidence_refs.contains(evidence_ref) {
+                return Err(format!("early-application qualification {id} evidence reference is not bound by the intersection: {evidence_ref}"));
+            }
+        }
         if string_field(intersection, "status")? == "qualified_for_declared_scope" {
             let reviewers = string_array(intersection, "reviewer_refs")?;
             let evidence = string_array(intersection, "evidence_refs")?;
@@ -314,6 +326,34 @@ fn resolve(registry: &Value, request: &Value) -> AppResult<Value> {
         let period_in_scope = period_start >= valid_from.to_owned()
             && valid_to.map(|end| period_end.as_str() <= end).unwrap_or(true);
         let known_and_approved = knowledge_at.as_str() >= recorded_at && knowledge_at.as_str() >= approved_at;
+        let early_qualifications = array_of_objects(intersection, "early_application_qualifications")?;
+        let mut profile_effective = true;
+        let mut early_application_unknown = false;
+        for profile_id in &selected_profile_ids {
+            if let Some(profile) = profiles.get(profile_id) {
+                if let Some(profile_valid_from) = profile.get("valid_from").and_then(Value::as_str) {
+                    if period_start.as_str() < profile_valid_from {
+                        let permits_early = profile.get("early_application_allowed").and_then(Value::as_bool) == Some(true);
+                        let qualification = early_qualifications.iter().find(|item| {
+                            item.get("profile_id").and_then(Value::as_str) == Some(profile_id.as_str())
+                        });
+                        match (permits_early, qualification) {
+                            (true, Some(item)) => {
+                                let approved_at = string_field(item, "approved_at")?;
+                                if knowledge_at.as_str() < approved_at {
+                                    early_application_unknown = true;
+                                    blockers.insert(format!("early_application_not_approved_at_knowledge_frontier:{profile_id}"));
+                                }
+                            }
+                            _ => {
+                                profile_effective = false;
+                                blockers.insert(format!("profile_not_effective_for_reporting_period:{profile_id}"));
+                            }
+                        }
+                    }
+                }
+            }
+        }
 
         match status {
             "candidate" | "review_required" => {
@@ -334,9 +374,12 @@ fn resolve(registry: &Value, request: &Value) -> AppResult<Value> {
                 } else if !period_in_scope {
                     disposition = "unsupported_profile";
                     blockers.insert("reporting_period_outside_intersection_validity".to_owned());
-                } else if !known_and_approved {
+                } else if !profile_effective {
+                    disposition = "unsupported_profile";
+                    blockers.insert("selected_profile_not_effective_for_reporting_period".to_owned());
+                } else if early_application_unknown || !known_and_approved {
                     disposition = "indeterminate";
-                    blockers.insert("intersection_not_yet_known_or_approved_at_frontier".to_owned());
+                    blockers.insert("intersection_or_early_application_not_yet_known_or_approved_at_frontier".to_owned());
                 } else if !allowed_uses.iter().any(|use_id| use_id == &intended_use) {
                     disposition = "unsupported_profile";
                     blockers.insert("intended_use_not_authorized_by_intersection".to_owned());
@@ -561,6 +604,55 @@ mod tests {
         let duplicate = registry["qualification_intersections"][0].clone();
         registry["qualification_intersections"].as_array_mut().unwrap().push(duplicate);
         assert!(validate_registry_semantics(&registry).is_err());
+    }
+
+
+    #[test]
+    fn future_effective_profile_requires_explicit_early_application_evidence() {
+        let mut registry = registry();
+        let profile = registry["profile_references"].as_array_mut().unwrap()
+            .iter_mut().find(|item| item["profile_id"] == "SYN-FRAMEWORK-A").unwrap();
+        profile["valid_from"] = json!("2027-01-01");
+        profile["early_application_allowed"] = json!(true);
+
+        let request = request("qualified");
+        let without_evidence = checked_resolve(&registry, &request);
+        assert_eq!(without_evidence["disposition"], "unsupported_profile");
+        assert!(without_evidence["blocking_reasons"].to_string().contains("profile_not_effective_for_reporting_period"));
+
+        let intersection = &mut registry["qualification_intersections"][0];
+        intersection["evidence_refs"].as_array_mut().unwrap().push(json!("SYN-EARLY-APPLICATION-APPROVAL"));
+        intersection["early_application_qualifications"] = json!([{
+            "profile_id": "SYN-FRAMEWORK-A",
+            "evidence_ref": "SYN-EARLY-APPLICATION-APPROVAL",
+            "reviewer_ref": "SYNTHETIC-FIXTURE-MAINTAINER",
+            "approved_at": "2026-11-05T01:25:00Z"
+        }]);
+        let with_evidence = checked_resolve(&registry, &request);
+        assert_eq!(with_evidence["disposition"], "qualified_for_declared_scope");
+        assert_eq!(with_evidence["claim_ceiling"], "synthetic_fixture_only");
+    }
+
+    #[test]
+    fn future_early_application_approval_is_not_visible_before_its_frontier() {
+        let mut registry = registry();
+        let profile = registry["profile_references"].as_array_mut().unwrap()
+            .iter_mut().find(|item| item["profile_id"] == "SYN-FRAMEWORK-A").unwrap();
+        profile["valid_from"] = json!("2027-01-01");
+        profile["early_application_allowed"] = json!(true);
+        let intersection = &mut registry["qualification_intersections"][0];
+        intersection["evidence_refs"].as_array_mut().unwrap().push(json!("SYN-EARLY-APPLICATION-APPROVAL"));
+        intersection["early_application_qualifications"] = json!([{
+            "profile_id": "SYN-FRAMEWORK-A",
+            "evidence_ref": "SYN-EARLY-APPLICATION-APPROVAL",
+            "reviewer_ref": "SYNTHETIC-FIXTURE-MAINTAINER",
+            "approved_at": "2026-11-05T01:25:00Z"
+        }]);
+        let mut request = request("qualified");
+        request["knowledge_at"] = json!("2026-11-05T01:00:00Z");
+        let report = checked_resolve(&registry, &request);
+        assert_eq!(report["disposition"], "indeterminate");
+        assert!(report["blocking_reasons"].to_string().contains("early_application_not_approved_at_knowledge_frontier"));
     }
 
     #[test]
