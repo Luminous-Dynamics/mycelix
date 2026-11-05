@@ -490,7 +490,7 @@ mod tests {
                 .find(|row| row["case_id"] == id)
                 .expect("oracle row");
             let assessment = assess_case(case).expect("assessment");
-            assert_eq!(assessment.state, reference["expected_terminal_state"], "{id}");
+            assert_eq!(assessment.state, reference["expected_terminal_state"].as_str().expect("expected state"), "{id}");
             let expected_pairs = reference["expected_pair_states"].as_array().expect("pair oracle");
             assert_eq!(assessment.pair_results.len(), expected_pairs.len(), "{id} pair count");
             for pair in &assessment.pair_results {
@@ -498,7 +498,7 @@ mod tests {
                     .iter()
                     .find(|row| row["pair_id"] == pair.pair_id)
                     .expect("pair oracle row");
-                assert_eq!(pair.state, expected["terminal_state"], "{id}/{}", pair.pair_id);
+                assert_eq!(pair.state, expected["terminal_state"].as_str().expect("pair state"), "{id}/{}", pair.pair_id);
             }
         }
     }
