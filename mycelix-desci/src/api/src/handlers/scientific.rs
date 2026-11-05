@@ -171,7 +171,7 @@ pub async fn get_scientific_claim_as_known_at(
             .await?;
         match (receipts_by_event_id.get(&event.envelope.event_id), status) {
             (Some(signed_receipt), AuthorityAttestationStatus::ReceiptAttested) => {
-                receipt_times.push(Some(signed_receipt.receipt.received_at));
+                receipt_times.push(Some(signed_receipt.receipt.received_at.clone()));
                 receipt_statuses.push("receipt_attested".to_string());
             }
             (None, AuthorityAttestationStatus::ReceiptAttested) => {
@@ -209,19 +209,22 @@ pub async fn get_scientific_claim_as_known_at(
     };
     let assessment = projection.as_ref().map(ClaimProjection::assessment);
 
-    let last_included = included_count.checked_sub(1).map(|index| {
-        let event = &stream[index];
-        let signed_receipt = receipts_by_event_id
-            .get(&event.envelope.event_id)
-            .expect("included event has a committed receipt");
-        json!({
-            "sequence": event.envelope.sequence,
-            "event_id": event.envelope.event_id,
-            "event_hash": event.event_hash(),
-            "receipt_hash": signed_receipt.receipt_hash(),
-            "received_at": signed_receipt.receipt.received_at,
-        })
-    });
+    let last_included = match included_count.checked_sub(1) {
+        Some(index) => {
+            let event = &stream[index];
+            let signed_receipt = receipts_by_event_id
+                .get(&event.envelope.event_id)
+                .expect("included event has a committed receipt");
+            Some(json!({
+                "sequence": event.envelope.sequence,
+                "event_id": event.envelope.event_id,
+                "event_hash": event.event_hash()?,
+                "receipt_hash": signed_receipt.receipt_hash()?,
+                "received_at": signed_receipt.receipt.received_at,
+            }))
+        }
+        None => None,
+    };
 
     let blocked_event = if included_count < stream.len() {
         let event = &stream[included_count];
