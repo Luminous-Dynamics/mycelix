@@ -113,11 +113,13 @@ CommitHostRevocation ==
     /\ requiredAuthor' = canonicalAuthor
     /\ requiredAction' = revokeAction
     /\ requiredEpoch' = canonicalEpoch + 1
+    /\ readDecision' =
+        IF readDecision = "TRUSTED_ACTIVE" THEN "STALE" ELSE readDecision
     /\ UNCHANGED
         << canonicalDnaId, canonicalAuthor,
            projectionDna, projectionAuthor, projectionAction,
            projectionEpoch, projectionRevoked,
-           projectionDescendsFromRequired, readDecision,
+           projectionDescendsFromRequired,
            lastReadObservedEpoch, lastReadRequiredEpoch,
            lastReadDnaMatches, lastReadAuthorMatches,
            lastReadAncestryProof, lastReadHostActive,
@@ -132,20 +134,23 @@ ObserveForeignHistoryAtSameEpoch ==
     /\ projectionEpoch' = requiredEpoch
     /\ projectionRevoked' = FALSE
     /\ projectionDescendsFromRequired' = FALSE
+    /\ readDecision' =
+        IF readDecision \in {"TRUSTED_ACTIVE", "TRUSTED_REVOKED"}
+        THEN "CONFLICTING" ELSE readDecision
     /\ UNCHANGED
         << hostActive, canonicalDnaId, canonicalAuthor,
            canonicalAction, canonicalEpoch, canonicalRevoked,
            requiredDna, requiredAuthor, requiredAction, requiredEpoch,
-           readDecision, lastReadObservedEpoch, lastReadRequiredEpoch,
+           lastReadObservedEpoch, lastReadRequiredEpoch,
            lastReadDnaMatches, lastReadAuthorMatches,
            lastReadAncestryProof, lastReadHostActive,
            lastReadCanonicalRevoked, lastReadProjectionRevoked >>
 
 ConvergeCanonicalProjection ==
-    /\ projectionEpoch < canonicalEpoch
-       \/ projectionDna # canonicalDnaId
-       \/ projectionAuthor # canonicalAuthor
-       \/ ~projectionDescendsFromRequired
+    /\ (projectionEpoch < canonicalEpoch
+        \/ projectionDna # canonicalDnaId
+        \/ projectionAuthor # canonicalAuthor
+        \/ ~projectionDescendsFromRequired)
     /\ projectionDna' = canonicalDnaId
     /\ projectionAuthor' = canonicalAuthor
     /\ projectionAction' = canonicalAction
@@ -215,7 +220,7 @@ TypeOK ==
     /\ projectionEpoch \in Nat
     /\ projectionRevoked \in BOOLEAN
     /\ projectionDescendsFromRequired \in BOOLEAN
-    /\ readDecision \in {"none", "UNKNOWN", "TRUSTED_ACTIVE", "TRUSTED_REVOKED"}
+    /\ readDecision \in {"none", "UNKNOWN", "STALE", "CONFLICTING", "TRUSTED_ACTIVE", "TRUSTED_REVOKED"}
     /\ lastReadObservedEpoch \in Nat
     /\ lastReadRequiredEpoch \in Nat
     /\ lastReadDnaMatches \in BOOLEAN
