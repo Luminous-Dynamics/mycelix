@@ -59,7 +59,9 @@
         "statement_exact_match_rate",
         "source_binding_completeness",
         "decision_critical_assumption_count",
-        "hard_failure_count"
+        "hard_failure_count",
+        "question_source_reference_precision",
+        "question_source_reference_recall"
       ],
       "properties": {
         "case_count": {
@@ -107,6 +109,16 @@
         "hard_failure_count": {
           "type": "integer",
           "minimum": 0
+        },
+        "question_source_reference_precision": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "question_source_reference_recall": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
         }
       }
     },
@@ -136,7 +148,9 @@
         "statement_exact",
         "unsafe_delivery",
         "decision_critical_assumption_count",
-        "hard_failures"
+        "hard_failures",
+        "question_source_reference_precision",
+        "question_source_reference_recall"
       ],
       "properties": {
         "case_id": {
@@ -197,6 +211,16 @@
           "items": {
             "type": "string"
           }
+        },
+        "question_source_reference_precision": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "question_source_reference_recall": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
         }
       }
     }
