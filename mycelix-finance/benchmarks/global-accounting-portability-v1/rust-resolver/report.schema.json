@@ -143,7 +143,9 @@
       "required": [
         "profile_id",
         "dimension",
-        "status"
+        "status",
+        "version",
+        "profile_sha256"
       ],
       "properties": {
         "profile_id": {
@@ -154,6 +156,13 @@
         },
         "status": {
           "type": "string"
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "profile_sha256": {
+          "$ref": "#/$defs/sha256"
         }
       }
     },
