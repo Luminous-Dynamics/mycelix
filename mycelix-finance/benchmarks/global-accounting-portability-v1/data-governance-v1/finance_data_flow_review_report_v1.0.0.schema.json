@@ -69,7 +69,8 @@
               "secondary_purpose_unreviewed",
               "support_access_location_unknown",
               "actor_role_or_authority_conflict",
-              null
+              null,
+              "required_fact_after_knowledge_frontier"
             ]
           },
           "triggered_reason_codes": {
@@ -86,7 +87,8 @@
                 "legal_hold_blocks_deletion",
                 "secondary_purpose_unreviewed",
                 "support_access_location_unknown",
-                "actor_role_or_authority_conflict"
+                "actor_role_or_authority_conflict",
+                "required_fact_after_knowledge_frontier"
               ]
             }
           }
