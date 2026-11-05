@@ -83,8 +83,10 @@ The validator:
 - validates candidate and oracle Draft 2020-12 schemas;
 - checks unique document, fact, journal-entry, line and statement identities;
 - checks tenant/source document identity and duplicate-link rules while preserving same IDs in different namespaces;
+- models document revision supersession explicitly: a revision supersedes an earlier revision only after the newer document is received, so historical replay before receipt retains the earlier revision;
 - resolves every fact to a source document;
 - enforces valid-time overlap with the accounting period and excludes facts/documents recorded or received after `knowledge_at`;
+- excludes facts from earlier document revisions once a superseding revision is known at the requested frontier, while preserving earlier facts for historical replay before that frontier;
 - derives deterministic disposition/reason and compares every oracle row;
 - refuses to use a future-received parent invoice to resolve a credit note;
 - verifies each journal entry independently, so unbalanced entries cannot cancel one another in aggregate;
