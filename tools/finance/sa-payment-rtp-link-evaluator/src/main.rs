@@ -227,20 +227,20 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
         let mut transfer_request_ids: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
         let mut request_transaction_ids: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
         for event in &events {
-            if stage(event) == "credit_transfer_sent" {
-                if let (Some(tx), Some(original)) = (
+            if stage(event) == "credit_transfer_sent"
+                && let (Some(tx), Some(original)) = (
                     str_at(event, "transaction_id"),
                     str_at(event, "original_request_id"),
-                ) {
-                    transfer_request_ids
-                        .entry(tx.to_owned())
-                        .or_default()
-                        .insert(original.to_owned());
-                    request_transaction_ids
-                        .entry(original.to_owned())
-                        .or_default()
-                        .insert(tx.to_owned());
-                }
+                )
+            {
+                transfer_request_ids
+                    .entry(tx.to_owned())
+                    .or_default()
+                    .insert(original.to_owned());
+                request_transaction_ids
+                    .entry(original.to_owned())
+                    .or_default()
+                    .insert(tx.to_owned());
             }
         }
         let ambiguous_transfer_mapping = transfer_request_ids.values().any(|ids| ids.len() > 1)
@@ -284,20 +284,19 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
                 }
             }
 
-            if event_stage == "request_delivered" {
-                if !request_created
+            if event_stage == "request_delivered"
+                && (!request_created
                     || actor != "payer_rtp_service_provider"
                     || participant != payer_participant
                     || str_at(event, "message_type") != Some("pain.013.001.12")
                     || !same_link(event, request, None)
                     || auth != "valid"
-                    || !has_evidence(event, "inter_provider_delivery_receipt")
-                {
-                    errors.push(format!(
-                        "{path}: request delivery lacks payer-side provider and request linkage"
-                    ));
-                    quarantined = true;
-                }
+                    || !has_evidence(event, "inter_provider_delivery_receipt"))
+            {
+                errors.push(format!(
+                    "{path}: request delivery lacks payer-side provider and request linkage"
+                ));
+                quarantined = true;
             }
 
             if event_stage == "request_response" {
