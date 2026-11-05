@@ -1,0 +1,272 @@
+{
+  "registry_id": "MYCELIX-GLOBAL-ACCOUNTING-PROFILE-REFERENCE",
+  "registry_version": "1.0.0",
+  "generated_on": "2026-11-04",
+  "claim_scope": "reference_inventory_and_maturity_matrix_only_not_global_compliance_or_qualified_country_coverage",
+  "profile_references": [
+    {
+      "profile_id": "GLOBAL-ECONOMIC-EVIDENCE-CORE",
+      "dimension": "portable_core",
+      "version": "v1-design",
+      "status": "candidate",
+      "authority_class": "project_design",
+      "source_url": "https://github.com/Luminous-Dynamics/mycelix/issues/5811",
+      "valid_from": null,
+      "notes": "Project design only; not a released implementation or accounting standard."
+    },
+    {
+      "profile_id": "IFRS-JURISDICTION-ADOPTION-PROFILES",
+      "dimension": "jurisdiction_adoption_reference",
+      "version": "live-directory",
+      "status": "research_only",
+      "authority_class": "standard_setter",
+      "source_url": "https://www.ifrs.org/use-around-the-world/use-of-ifrs-standards-by-jurisdiction/",
+      "valid_from": null,
+      "notes": "IFRS Foundation adoption directory; each jurisdiction must be separately pinned and scoped."
+    },
+    {
+      "profile_id": "IFRS-FULL-STANDARDS",
+      "dimension": "accounting_framework",
+      "version": "edition-must-be-pinned",
+      "status": "research_only",
+      "authority_class": "standard_setter",
+      "source_url": "https://www.ifrs.org/issued-standards/list-of-standards/",
+      "valid_from": null,
+      "notes": "Reference family only; no local adoption, endorsement or entity eligibility decision is encoded."
+    },
+    {
+      "profile_id": "IFRS-SMES-2015",
+      "dimension": "accounting_framework",
+      "version": "2015-edition",
+      "status": "research_only",
+      "authority_class": "standard_setter",
+      "source_url": "https://www.ifrs.org/issued-standards/ifrs-for-smes/",
+      "valid_from": "2017-01-01",
+      "notes": "Prior edition; applicability depends on jurisdiction and entity eligibility."
+    },
+    {
+      "profile_id": "IFRS-SMES-2025",
+      "dimension": "accounting_framework",
+      "version": "third-edition-issued-2025-02",
+      "status": "research_only",
+      "authority_class": "standard_setter",
+      "source_url": "https://www.ifrs.org/issued-standards/ifrs-for-smes/",
+      "valid_from": "2027-01-01",
+      "notes": "Effective for annual periods beginning on/after 2027-01-01; early application is permitted; no local/entity eligibility is inferred."
+    },
+    {
+      "profile_id": "US-GAAP-FASB-ASC",
+      "dimension": "accounting_framework",
+      "version": "edition-must-be-pinned",
+      "status": "research_only",
+      "authority_class": "standard_setter",
+      "source_url": "https://asc.fasb.org/",
+      "valid_from": null,
+      "notes": "Reference family only; no access, implementation or authoritative mapping claim is made."
+    },
+    {
+      "profile_id": "PEPPOL-BIS-BILLING-3",
+      "dimension": "e_invoice_interoperability",
+      "version": "3.0.21",
+      "status": "reference_only",
+      "authority_class": "network_governance",
+      "source_url": "https://docs.peppol.eu/poacc/billing/3.0/bis/",
+      "valid_from": null,
+      "notes": "CIUS of EN 16931; base validation and country-qualified rules remain distinct."
+    },
+    {
+      "profile_id": "EN-16931",
+      "dimension": "e_invoice_semantics",
+      "version": "2017-base-pinned-by-deployment",
+      "status": "reference_only",
+      "authority_class": "standards_body",
+      "source_url": "https://docs.peppol.eu/poacc/billing/3.0/bis/",
+      "valid_from": null,
+      "notes": "Each implementation must pin exact edition, amendments and validation rules."
+    },
+    {
+      "profile_id": "XBRL-REPORTING-TAXONOMIES",
+      "dimension": "digital_reporting_taxonomy",
+      "version": "taxonomy-release-must-be-pinned",
+      "status": "reference_only",
+      "authority_class": "standards_body",
+      "source_url": "https://www.xbrl.org/the-standard/what/key-concepts-in-xbrl/taxonomies/",
+      "valid_from": null,
+      "notes": "Taxonomies encode reporting concepts; they are not a ledger or accounting policy engine."
+    },
+    {
+      "profile_id": "OECD-DCTR-DESIGN-REFERENCE",
+      "dimension": "digital_tax_reporting_reference",
+      "version": "2026-policy-design-report",
+      "status": "reference_only",
+      "authority_class": "international_organization",
+      "source_url": "https://www.oecd.org/en/publications/digital-continuous-transactional-reporting-for-value-added-tax_34c88c39-en.html",
+      "valid_from": null,
+      "notes": "Design reference only; national implementations differ and are sovereign decisions."
+    },
+    {
+      "profile_id": "SYNTHETIC-JURISDICTION-PACKS",
+      "dimension": "jurisdiction_profile",
+      "version": "v1-fixtures",
+      "status": "synthetic_only",
+      "authority_class": "synthetic_test_fixture",
+      "source_url": "https://github.com/Luminous-Dynamics/mycelix/issues/5811",
+      "valid_from": null,
+      "notes": "Not real jurisdictions, not legal rules and prohibited from production use."
+    },
+    {
+      "profile_id": "UNICODE-CLDR-49",
+      "dimension": "locale_data",
+      "version": "49 (2026-10-21)",
+      "status": "reference_only",
+      "authority_class": "standards_body",
+      "source_url": "https://unicode.org/reports/tr35/",
+      "valid_from": null,
+      "notes": "Locale, numbering-system, calendar, timezone and currency formatting data; pin the exact release and implementation data."
+    },
+    {
+      "profile_id": "IANA-TZDB-2026F",
+      "dimension": "timezone_database",
+      "version": "2026f (2026-10-27)",
+      "status": "reference_only",
+      "authority_class": "data_maintainer",
+      "source_url": "https://www.iana.org/time-zones",
+      "valid_from": null,
+      "notes": "Time-zone history and rules change with political decisions; pin release to reproduce event-time conversion."
+    }
+  ],
+  "coverage_matrix": [
+    {
+      "coverage_id": "CORE-PORTABLE-EVIDENCE-V1",
+      "jurisdiction_scope": "jurisdiction_neutral_only",
+      "framework_scope": "no_accounting_policy_execution",
+      "dimensions": [
+        "portable_core",
+        "exact_amounts",
+        "identity_namespaces",
+        "evidence_lineage",
+        "temporal_frontiers"
+      ],
+      "status": "candidate",
+      "evidence_refs": [
+        "GLOBAL-ECONOMIC-EVIDENCE-CORE"
+      ],
+      "limitations": [
+        "design_only",
+        "not_implemented_or_test_qualified",
+        "no_tax_or_accounting_policy_execution"
+      ]
+    },
+    {
+      "coverage_id": "IFRS-FAMILY-REFERENCE-ONLY",
+      "jurisdiction_scope": "multi_jurisdiction_reference_only",
+      "framework_scope": "IFRS-full-and-SMEs-reference-families",
+      "dimensions": [
+        "accounting_framework",
+        "jurisdiction_adoption_reference"
+      ],
+      "status": "research_only",
+      "evidence_refs": [
+        "IFRS-JURISDICTION-ADOPTION-PROFILES",
+        "IFRS-FULL-STANDARDS",
+        "IFRS-SMES-2015",
+        "IFRS-SMES-2025"
+      ],
+      "limitations": [
+        "no_local_endorsement_or_adoption_decisions",
+        "no_entity_eligibility",
+        "no_approved_rules_or_conversion",
+        "standard_text_licensing_review_required"
+      ]
+    },
+    {
+      "coverage_id": "EINVOICE-INTEROP-REFERENCE",
+      "jurisdiction_scope": "network_and_semantic_reference_only",
+      "framework_scope": "EN16931-and-Peppol-BIS-Billing-3",
+      "dimensions": [
+        "e_invoice_interoperability",
+        "e_invoice_semantics"
+      ],
+      "status": "research_only",
+      "evidence_refs": [
+        "PEPPOL-BIS-BILLING-3",
+        "EN-16931"
+      ],
+      "limitations": [
+        "no_country_CIUS_profile_qualified",
+        "no_tax_or_fiscalization_authority",
+        "no_source_authenticity_or_settlement_claim"
+      ]
+    },
+    {
+      "coverage_id": "DIGITAL-REPORTING-REFERENCE",
+      "jurisdiction_scope": "taxonomy_reference_only",
+      "framework_scope": "XBRL-and-OECD-DCTR-reference",
+      "dimensions": [
+        "digital_reporting_taxonomy",
+        "digital_tax_reporting_reference"
+      ],
+      "status": "research_only",
+      "evidence_refs": [
+        "XBRL-REPORTING-TAXONOMIES",
+        "OECD-DCTR-DESIGN-REFERENCE"
+      ],
+      "limitations": [
+        "no_local_taxonomy_mapping_qualified",
+        "no_tax_filing_or_compliance_claim"
+      ]
+    },
+    {
+      "coverage_id": "SOUTH-AFRICA-INITIAL-RESEARCH",
+      "jurisdiction_scope": "ZA",
+      "framework_scope": "not_yet_approved_accounting_tax_and_einvoice_intersection",
+      "dimensions": [
+        "jurisdiction_profile",
+        "tax_profile",
+        "source_registry"
+      ],
+      "status": "review_required",
+      "evidence_refs": [
+        "SYNTHETIC-JURISDICTION-PACKS"
+      ],
+      "limitations": [
+        "issue_5785_registry_is_research_candidate",
+        "no_executable_tax_rule_approved",
+        "VAT_threshold_chronology_requires_primary_instrument_review"
+      ]
+    },
+    {
+      "coverage_id": "REAL-WORLD-QUALIFIED-COVERAGE-BASELINE",
+      "jurisdiction_scope": "all_real_jurisdictions",
+      "framework_scope": "all",
+      "dimensions": [
+        "all"
+      ],
+      "status": "not_in_scope",
+      "evidence_refs": [],
+      "limitations": [
+        "no_real_jurisdiction_framework_tax_or_reporting_intersection_is_claimed_qualified"
+      ]
+    },
+    {
+      "coverage_id": "LOCALISATION-AND-TIME-REFERENCE",
+      "jurisdiction_scope": "global_locale_and_timezone_reference_only",
+      "framework_scope": "CLDR-and-IANA-tzdb",
+      "dimensions": [
+        "locale_data",
+        "timezone_database"
+      ],
+      "status": "research_only",
+      "evidence_refs": [
+        "UNICODE-CLDR-49",
+        "IANA-TZDB-2026F"
+      ],
+      "limitations": [
+        "no_locale_parser_qualified",
+        "no_timezone_evaluator_qualified",
+        "release_and_runtime_data_must_be_pinned",
+        "data_updates_do_not_authorize_source_rewriting"
+      ]
+    }
+  ]
+}
