@@ -50,7 +50,7 @@ The finance platform adapter envelope schema captures:
 
 Never silently convert unsupported, unscanned, inaccessible, truncated or unknown to supported, complete, local or absent. A missing access principal is not evidence that no person or service account had access. A capability can vary by source scope. Preserve source revision and namespace in object identity; an external ID is not globally unique.
 
-All timestamps use normalized RFC 3339 UTC strings for deterministic lexical ordering in this draft. Implementations must reject timezone-normalization ambiguity before relying on lexical comparison. Relationship valid-time and source recorded-at/knowledge time remain separate.
+All timestamps use normalized RFC 3339 UTC strings ending in Z for deterministic lexical ordering in this draft. Implementations must reject timezone-normalization ambiguity before relying on lexical comparison. The requested knowledge frontier applies to the source snapshot, capability observations, field-mapping observations and relationship recorded-at timestamps. Future observations are not visible in an earlier replay and force an indeterminate disposition. Access-principal and upstream-origin references are emitted only from relationships visible at the requested frontier. Relationship valid-time and recorded-at/knowledge time remain separate.
 
 ## S0 fixture matrix
 
