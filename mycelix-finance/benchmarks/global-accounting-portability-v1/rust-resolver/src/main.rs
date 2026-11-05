@@ -211,8 +211,15 @@ fn validate_registry_semantics(registry: &Value) -> AppResult<()> {
         let evidence_refs = string_array(intersection, "evidence_refs")?.into_iter().collect::<BTreeSet<_>>();
         let reviewer_refs = string_array(intersection, "reviewer_refs")?.into_iter().collect::<BTreeSet<_>>();
         let intersection_approved_at = string_field(intersection, "approved_at")?;
+        let mut early_application_profiles = BTreeSet::<String>::new();
         for qualification in array_of_objects(intersection, "early_application_qualifications")? {
             let profile_id = string_field(qualification, "profile_id")?;
+            if !refs.iter().any(|selected| selected == profile_id) {
+                return Err(format!("early-application qualification {id} references a profile outside profile_refs: {profile_id}"));
+            }
+            if !early_application_profiles.insert(profile_id.to_owned()) {
+                return Err(format!("intersection {id} has duplicate early-application qualification for profile: {profile_id}"));
+            }
             let profile = profiles.get(profile_id).ok_or_else(|| format!("early-application qualification {id} references unknown profile {profile_id}"))?;
             if profile.get("early_application_allowed").and_then(Value::as_bool) != Some(true) {
                 return Err(format!("early-application qualification {id} references a profile that does not permit early application: {profile_id}"));
@@ -621,6 +628,36 @@ mod tests {
 
 
 
+
+
+    #[test]
+    fn duplicate_early_application_qualifications_fail_closed() {
+        let mut registry = registry();
+        let intersection = &mut registry["qualification_intersections"][0];
+        intersection["evidence_refs"].as_array_mut().unwrap().push(json!("SYN-EARLY-APPLICATION-APPROVAL"));
+        let qualification = json!({
+            "profile_id": "SYN-FRAMEWORK-A",
+            "evidence_ref": "SYN-EARLY-APPLICATION-APPROVAL",
+            "reviewer_ref": "SYNTHETIC-FIXTURE-MAINTAINER",
+            "approved_at": "2026-11-05T01:25:00Z"
+        });
+        intersection["early_application_qualifications"] = json!([qualification.clone(), qualification]);
+        assert!(validate_registry_semantics(&registry).is_err());
+    }
+
+    #[test]
+    fn early_application_qualification_for_unselected_profile_fails_closed() {
+        let mut registry = registry();
+        let intersection = &mut registry["qualification_intersections"][0];
+        intersection["evidence_refs"].as_array_mut().unwrap().push(json!("SYN-EARLY-APPLICATION-APPROVAL"));
+        intersection["early_application_qualifications"] = json!([{
+            "profile_id": "IFRS-SMES-2025",
+            "evidence_ref": "SYN-EARLY-APPLICATION-APPROVAL",
+            "reviewer_ref": "SYNTHETIC-FIXTURE-MAINTAINER",
+            "approved_at": "2026-11-05T01:25:00Z"
+        }]);
+        assert!(validate_registry_semantics(&registry).is_err());
+    }
 
     #[test]
     fn profile_digest_is_independent_of_json_object_key_order() {
