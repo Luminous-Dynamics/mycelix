@@ -706,7 +706,9 @@
         "recipient_subject_ref",
         "requested_purpose",
         "requested_action",
-        "evaluated_at"
+        "evaluated_at",
+        "subject_binding_state",
+        "subject_binding_receipt_ref"
       ],
       "properties": {
         "recipient_id": {
@@ -742,6 +744,20 @@
         "evaluated_at": {
           "type": "string",
           "format": "date-time"
+        },
+        "subject_binding_state": {
+          "enum": [
+            "verified",
+            "unknown",
+            "mismatch"
+          ]
+        },
+        "subject_binding_receipt_ref": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1
         }
       }
     },
