@@ -703,7 +703,9 @@ fn validate_numeric_values(nodes: &BTreeMap<String, Value>, errors: &mut BTreeSe
                     errors.insert(format!("noncanonical_exact_rational:{id}"));
                 }
             }
-            _ => errors.insert(format!("unsupported_numeric_encoding:{id}")),
+            _ => {
+                errors.insert(format!("unsupported_numeric_encoding:{id}"));
+            }
         }
     }
 }
