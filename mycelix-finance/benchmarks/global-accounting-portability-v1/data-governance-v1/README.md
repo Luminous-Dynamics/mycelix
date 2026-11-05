@@ -20,6 +20,7 @@ The package models data flows and actors explicitly. It does not make a legal tr
 ## Semantics
 
 - Responsible party/controller, operator/processor, subprocessor, recipient, onward recipient and support provider are distinct actor roles.
+- Actor identity, role list and home-scope metadata are effective-dated and carry a UTC `recorded_at` timestamp. Actor scope/role metadata recorded after `knowledge_at` is excluded; metadata not valid for the context period cannot silently supply a controller scope.
 - Collection, primary storage, active processing, backup/DR, support access, recipient and onward-recipient locations are separate observations.
 - A data asset has a synthetic subject class, data categories and field-class references, never real personal records.
 - A purpose is separately identified and effective-dated; a later purpose must not be presumed covered by an earlier purpose.
@@ -53,13 +54,13 @@ cargo clippy --locked --all-targets -- -D warnings
 
 The validator checks Draft 2020-12 schemas, exact actor/asset/purpose/profile/mechanism/flow references, location-scope references, actor-role conflict links, retention/legal-hold invariants and the synthetic claim ceiling.
 
-The evaluator uses a fixed reason precedence to derive review dispositions, emits every triggered reason code, pins the exact candidate-bundle bytes with SHA-256, validates its report schema, and compares primary dispositions/reasons against every public oracle row. It enforces both valid-time overlap and `recorded_at <= knowledge_at`; assertions recorded after a requested knowledge frontier are excluded and force an `indeterminate` disposition. It emits only `needs_review`, `indeterminate` or `no_trigger_detected`. The last disposition is not a compliance or transfer qualification.
+The evaluator uses a fixed reason precedence to derive review dispositions, emits every triggered reason code, pins the exact candidate-bundle bytes with SHA-256, validates its report schema, and compares primary dispositions/reasons against every public oracle row. It enforces both valid-time overlap and `recorded_at <= knowledge_at` for actor metadata, role claims, purposes, profiles, mechanisms, flows, locations and retention assertions; future actor metadata cannot determine controller/responsible-party scope. Out-of-period actor scope metadata produces a separate review reason. It emits only `needs_review`, `indeterminate` or `no_trigger_detected`. The last disposition is not a compliance or transfer qualification.
 
 ## Decision semantics and adversarial controls
 
-Reason precedence is stable: actor/authority conflict; active legal hold; used unreviewed/disputed purpose; unknown support-access location; assertion recorded after the knowledge frontier; unqualified UK regime profile; incomplete onward-destination mechanism coverage; unqualified onward destination; accounting-only profile; foreign support access; foreign processor location. The priority selects the primary reason; all detected reason codes remain in the report.
+Reason precedence is stable: actor/authority conflict; active legal hold; used unreviewed/disputed purpose; unknown support-access location; assertion recorded after the knowledge frontier; actor scope not valid for the context period; unqualified UK regime profile; incomplete onward-destination mechanism coverage; unqualified onward destination; accounting-only profile; foreign support access; foreign processor location. The priority selects the primary reason; all detected reason codes remain in the report.
 
-Unknown support location, a future-recorded material fact and an accounting-only profile are indeterminate, not assumed local or treated as legal violations. The evaluator test suite includes a local-only negative control, an unassessed mechanism case, multiple onward destinations, EU/UK regime separation, active legal hold, disputed actor roles and a future-recorded support-location mutation. A fixture mechanism can satisfy only the synthetic closed-world check by using `synthetic_approved_fixture_only` plus evidence/reviewer references; that string is never a production legal approval.
+Unknown support location, a future-recorded material fact, actor metadata recorded after the frontier, and an accounting-only profile are indeterminate, not assumed local or treated as legal violations. Actor metadata that is not valid for the assessed period requires review. The evaluator tests include a local-only negative control, an unassessed mechanism case, multiple onward destinations, EU/UK regime separation, active legal hold, disputed actor roles, a future-recorded support-location mutation, future actor-scope metadata, and an out-of-period actor scope.
 
 ## Synthetic claim ceiling
 
@@ -67,4 +68,4 @@ All actors, jurisdiction scopes, data assets, fields, purposes, mechanism refere
 
 ## Validation status
 
-The schema, fixtures, Rust validator and review evaluator are authored draft artifacts. Ten validator tests and ten evaluator tests are authored, but have not yet been executed. No independent full Draft 2020-12 runtime pass, Cargo compile, `cargo test`, rustfmt, Clippy, CI or professional legal/privacy review is claimed. A semantic simulation of the evaluator's expected primary dispositions was performed outside Rust and matched all ten public oracle rows; it is not Rust execution, an independent implementation or schema validation.
+The schema, fixtures, Rust validator and review evaluator are authored draft artifacts. Ten validator tests and twelve evaluator tests are authored, but have not yet been executed. No independent full Draft 2020-12 runtime pass, Cargo compile, `cargo test`, rustfmt, Clippy, CI or professional legal/privacy review is claimed. A prior semantic simulation of the original ten public oracle dispositions was performed outside Rust; it is not Rust execution, an independent implementation or schema validation.
