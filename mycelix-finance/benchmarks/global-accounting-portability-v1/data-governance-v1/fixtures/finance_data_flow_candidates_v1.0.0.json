@@ -57,7 +57,10 @@
           ],
           "home_scope_ref": "SYN-DG-SA",
           "identity_namespace": "urn:mycelix:synthetic-identity:v1",
-          "identity_ref": "SYN-ID-SYN-ACTOR-SA-RESPONSIBLE"
+          "identity_ref": "SYN-ID-SYN-ACTOR-SA-RESPONSIBLE",
+          "valid_from": "2020-01-01",
+          "valid_to": null,
+          "recorded_at": "2025-01-01T00:00:00Z"
         },
         {
           "actor_ref": "SYN-ACTOR-PROCESSOR",
@@ -68,7 +71,10 @@
           ],
           "home_scope_ref": "SYN-DG-SA",
           "identity_namespace": "urn:mycelix:synthetic-identity:v1",
-          "identity_ref": "SYN-ID-SYN-ACTOR-PROCESSOR"
+          "identity_ref": "SYN-ID-SYN-ACTOR-PROCESSOR",
+          "valid_from": "2020-01-01",
+          "valid_to": null,
+          "recorded_at": "2025-01-01T00:00:00Z"
         },
         {
           "actor_ref": "SYN-ACTOR-FOREIGN-SUPPORT",
@@ -78,7 +84,10 @@
           ],
           "home_scope_ref": "SYN-DG-FOREIGN-X",
           "identity_namespace": "urn:mycelix:synthetic-identity:v1",
-          "identity_ref": "SYN-ID-SYN-ACTOR-FOREIGN-SUPPORT"
+          "identity_ref": "SYN-ID-SYN-ACTOR-FOREIGN-SUPPORT",
+          "valid_from": "2020-01-01",
+          "valid_to": null,
+          "recorded_at": "2025-01-01T00:00:00Z"
         },
         {
           "actor_ref": "SYN-ACTOR-RECIPIENT",
@@ -88,7 +97,10 @@
           ],
           "home_scope_ref": "SYN-DG-FOREIGN-Y",
           "identity_namespace": "urn:mycelix:synthetic-identity:v1",
-          "identity_ref": "SYN-ID-SYN-ACTOR-RECIPIENT"
+          "identity_ref": "SYN-ID-SYN-ACTOR-RECIPIENT",
+          "valid_from": "2020-01-01",
+          "valid_to": null,
+          "recorded_at": "2025-01-01T00:00:00Z"
         }
       ],
       "data_assets": [
@@ -390,7 +402,10 @@
           ],
           "home_scope_ref": "SYN-DG-SA",
           "identity_namespace": "urn:mycelix:synthetic-identity:v1",
-          "identity_ref": "SYN-ID-SYN-ACTOR-SA-RESPONSIBLE"
+          "identity_ref": "SYN-ID-SYN-ACTOR-SA-RESPONSIBLE",
+          "valid_from": "2020-01-01",
+          "valid_to": null,
+          "recorded_at": "2025-01-01T00:00:00Z"
         },
         {
           "actor_ref": "SYN-ACTOR-PROCESSOR",
@@ -401,7 +416,10 @@
           ],
           "home_scope_ref": "SYN-DG-SA",
           "identity_namespace": "urn:mycelix:synthetic-identity:v1",
-          "identity_ref": "SYN-ID-SYN-ACTOR-PROCESSOR"
+          "identity_ref": "SYN-ID-SYN-ACTOR-PROCESSOR",
+          "valid_from": "2020-01-01",
+          "valid_to": null,
+          "recorded_at": "2025-01-01T00:00:00Z"
         },
         {
           "actor_ref": "SYN-ACTOR-FOREIGN-SUPPORT",
@@ -411,7 +429,10 @@
           ],
           "home_scope_ref": "SYN-DG-FOREIGN-X",
           "identity_namespace": "urn:mycelix:synthetic-identity:v1",
-          "identity_ref": "SYN-ID-SYN-ACTOR-FOREIGN-SUPPORT"
+          "identity_ref": "SYN-ID-SYN-ACTOR-FOREIGN-SUPPORT",
+          "valid_from": "2020-01-01",
+          "valid_to": null,
+          "recorded_at": "2025-01-01T00:00:00Z"
         },
         {
           "actor_ref": "SYN-ACTOR-RECIPIENT",
@@ -421,7 +442,10 @@
           ],
           "home_scope_ref": "SYN-DG-FOREIGN-Y",
           "identity_namespace": "urn:mycelix:synthetic-identity:v1",
-          "identity_ref": "SYN-ID-SYN-ACTOR-RECIPIENT"
+          "identity_ref": "SYN-ID-SYN-ACTOR-RECIPIENT",
+          "valid_from": "2020-01-01",
+          "valid_to": null,
+          "recorded_at": "2025-01-01T00:00:00Z"
         }
       ],
       "data_assets": [
@@ -662,7 +686,10 @@
           ],
           "home_scope_ref": "SYN-DG-SA",
           "identity_namespace": "urn:mycelix:synthetic-identity:v1",
-          "identity_ref": "SYN-ID-SYN-ACTOR-SA-RESPONSIBLE"
+          "identity_ref": "SYN-ID-SYN-ACTOR-SA-RESPONSIBLE",
+          "valid_from": "2020-01-01",
+          "valid_to": null,
+          "recorded_at": "2025-01-01T00:00:00Z"
         },
         {
           "actor_ref": "SYN-ACTOR-PROCESSOR",
@@ -673,7 +700,10 @@
           ],
           "home_scope_ref": "SYN-DG-SA",
           "identity_namespace": "urn:mycelix:synthetic-identity:v1",
-          "identity_ref": "SYN-ID-SYN-ACTOR-PROCESSOR"
+          "identity_ref": "SYN-ID-SYN-ACTOR-PROCESSOR",
+          "valid_from": "2020-01-01",
+          "valid_to": null,
+          "recorded_at": "2025-01-01T00:00:00Z"
         },
         {
           "actor_ref": "SYN-ACTOR-FOREIGN-SUPPORT",
@@ -683,7 +713,10 @@
           ],
           "home_scope_ref": "SYN-DG-FOREIGN-X",
           "identity_namespace": "urn:mycelix:synthetic-identity:v1",
-          "identity_ref": "SYN-ID-SYN-ACTOR-FOREIGN-SUPPORT"
+          "identity_ref": "SYN-ID-SYN-ACTOR-FOREIGN-SUPPORT",
+          "valid_from": "2020-01-01",
+          "valid_to": null,
+          "recorded_at": "2025-01-01T00:00:00Z"
         },
         {
           "actor_ref": "SYN-ACTOR-RECIPIENT",
@@ -693,7 +726,10 @@
           ],
           "home_scope_ref": "SYN-DG-FOREIGN-Y",
           "identity_namespace": "urn:mycelix:synthetic-identity:v1",
-          "identity_ref": "SYN-ID-SYN-ACTOR-RECIPIENT"
+          "identity_ref": "SYN-ID-SYN-ACTOR-RECIPIENT",
+          "valid_from": "2020-01-01",
+          "valid_to": null,
+          "recorded_at": "2025-01-01T00:00:00Z"
         }
       ],
       "data_assets": [
@@ -1021,7 +1057,10 @@
           ],
           "home_scope_ref": "SYN-DG-EU",
           "identity_namespace": "urn:mycelix:synthetic-identity:v1",
-          "identity_ref": "SYN-ID-SYN-ACTOR-EU-CONTROLLER"
+          "identity_ref": "SYN-ID-SYN-ACTOR-EU-CONTROLLER",
+          "valid_from": "2020-01-01",
+          "valid_to": null,
+          "recorded_at": "2025-01-01T00:00:00Z"
         },
         {
           "actor_ref": "SYN-ACTOR-FOREIGN-SUPPORT",
@@ -1031,7 +1070,10 @@
           ],
           "home_scope_ref": "SYN-DG-FOREIGN-X",
           "identity_namespace": "urn:mycelix:synthetic-identity:v1",
-          "identity_ref": "SYN-ID-SYN-ACTOR-FOREIGN-SUPPORT"
+          "identity_ref": "SYN-ID-SYN-ACTOR-FOREIGN-SUPPORT",
+          "valid_from": "2020-01-01",
+          "valid_to": null,
+          "recorded_at": "2025-01-01T00:00:00Z"
         },
         {
           "actor_ref": "SYN-ACTOR-RECIPIENT",
@@ -1041,7 +1083,10 @@
           ],
           "home_scope_ref": "SYN-DG-FOREIGN-Y",
           "identity_namespace": "urn:mycelix:synthetic-identity:v1",
-          "identity_ref": "SYN-ID-SYN-ACTOR-RECIPIENT"
+          "identity_ref": "SYN-ID-SYN-ACTOR-RECIPIENT",
+          "valid_from": "2020-01-01",
+          "valid_to": null,
+          "recorded_at": "2025-01-01T00:00:00Z"
         }
       ],
       "data_assets": [
@@ -1282,7 +1327,10 @@
           ],
           "home_scope_ref": "SYN-DG-UK",
           "identity_namespace": "urn:mycelix:synthetic-identity:v1",
-          "identity_ref": "SYN-ID-SYN-ACTOR-UK-CONTROLLER"
+          "identity_ref": "SYN-ID-SYN-ACTOR-UK-CONTROLLER",
+          "valid_from": "2020-01-01",
+          "valid_to": null,
+          "recorded_at": "2025-01-01T00:00:00Z"
         },
         {
           "actor_ref": "SYN-ACTOR-FOREIGN-SUPPORT",
@@ -1292,7 +1340,10 @@
           ],
           "home_scope_ref": "SYN-DG-FOREIGN-X",
           "identity_namespace": "urn:mycelix:synthetic-identity:v1",
-          "identity_ref": "SYN-ID-SYN-ACTOR-FOREIGN-SUPPORT"
+          "identity_ref": "SYN-ID-SYN-ACTOR-FOREIGN-SUPPORT",
+          "valid_from": "2020-01-01",
+          "valid_to": null,
+          "recorded_at": "2025-01-01T00:00:00Z"
         },
         {
           "actor_ref": "SYN-ACTOR-RECIPIENT",
@@ -1302,7 +1353,10 @@
           ],
           "home_scope_ref": "SYN-DG-FOREIGN-Y",
           "identity_namespace": "urn:mycelix:synthetic-identity:v1",
-          "identity_ref": "SYN-ID-SYN-ACTOR-RECIPIENT"
+          "identity_ref": "SYN-ID-SYN-ACTOR-RECIPIENT",
+          "valid_from": "2020-01-01",
+          "valid_to": null,
+          "recorded_at": "2025-01-01T00:00:00Z"
         }
       ],
       "data_assets": [
@@ -1512,7 +1566,10 @@
           ],
           "home_scope_ref": "SYN-DG-SA",
           "identity_namespace": "urn:mycelix:synthetic-identity:v1",
-          "identity_ref": "SYN-ID-SYN-ACTOR-SA-RESPONSIBLE"
+          "identity_ref": "SYN-ID-SYN-ACTOR-SA-RESPONSIBLE",
+          "valid_from": "2020-01-01",
+          "valid_to": null,
+          "recorded_at": "2025-01-01T00:00:00Z"
         },
         {
           "actor_ref": "SYN-ACTOR-PROCESSOR",
@@ -1523,7 +1580,10 @@
           ],
           "home_scope_ref": "SYN-DG-SA",
           "identity_namespace": "urn:mycelix:synthetic-identity:v1",
-          "identity_ref": "SYN-ID-SYN-ACTOR-PROCESSOR"
+          "identity_ref": "SYN-ID-SYN-ACTOR-PROCESSOR",
+          "valid_from": "2020-01-01",
+          "valid_to": null,
+          "recorded_at": "2025-01-01T00:00:00Z"
         },
         {
           "actor_ref": "SYN-ACTOR-FOREIGN-SUPPORT",
@@ -1533,7 +1593,10 @@
           ],
           "home_scope_ref": "SYN-DG-FOREIGN-X",
           "identity_namespace": "urn:mycelix:synthetic-identity:v1",
-          "identity_ref": "SYN-ID-SYN-ACTOR-FOREIGN-SUPPORT"
+          "identity_ref": "SYN-ID-SYN-ACTOR-FOREIGN-SUPPORT",
+          "valid_from": "2020-01-01",
+          "valid_to": null,
+          "recorded_at": "2025-01-01T00:00:00Z"
         },
         {
           "actor_ref": "SYN-ACTOR-RECIPIENT",
@@ -1543,7 +1606,10 @@
           ],
           "home_scope_ref": "SYN-DG-FOREIGN-Y",
           "identity_namespace": "urn:mycelix:synthetic-identity:v1",
-          "identity_ref": "SYN-ID-SYN-ACTOR-RECIPIENT"
+          "identity_ref": "SYN-ID-SYN-ACTOR-RECIPIENT",
+          "valid_from": "2020-01-01",
+          "valid_to": null,
+          "recorded_at": "2025-01-01T00:00:00Z"
         }
       ],
       "data_assets": [
@@ -1782,7 +1848,10 @@
           ],
           "home_scope_ref": "SYN-DG-SA",
           "identity_namespace": "urn:mycelix:synthetic-identity:v1",
-          "identity_ref": "SYN-ID-SYN-ACTOR-SA-RESPONSIBLE"
+          "identity_ref": "SYN-ID-SYN-ACTOR-SA-RESPONSIBLE",
+          "valid_from": "2020-01-01",
+          "valid_to": null,
+          "recorded_at": "2025-01-01T00:00:00Z"
         },
         {
           "actor_ref": "SYN-ACTOR-PROCESSOR",
@@ -1793,7 +1862,10 @@
           ],
           "home_scope_ref": "SYN-DG-SA",
           "identity_namespace": "urn:mycelix:synthetic-identity:v1",
-          "identity_ref": "SYN-ID-SYN-ACTOR-PROCESSOR"
+          "identity_ref": "SYN-ID-SYN-ACTOR-PROCESSOR",
+          "valid_from": "2020-01-01",
+          "valid_to": null,
+          "recorded_at": "2025-01-01T00:00:00Z"
         },
         {
           "actor_ref": "SYN-ACTOR-FOREIGN-SUPPORT",
@@ -1803,7 +1875,10 @@
           ],
           "home_scope_ref": "SYN-DG-FOREIGN-X",
           "identity_namespace": "urn:mycelix:synthetic-identity:v1",
-          "identity_ref": "SYN-ID-SYN-ACTOR-FOREIGN-SUPPORT"
+          "identity_ref": "SYN-ID-SYN-ACTOR-FOREIGN-SUPPORT",
+          "valid_from": "2020-01-01",
+          "valid_to": null,
+          "recorded_at": "2025-01-01T00:00:00Z"
         },
         {
           "actor_ref": "SYN-ACTOR-RECIPIENT",
@@ -1813,7 +1888,10 @@
           ],
           "home_scope_ref": "SYN-DG-FOREIGN-Y",
           "identity_namespace": "urn:mycelix:synthetic-identity:v1",
-          "identity_ref": "SYN-ID-SYN-ACTOR-RECIPIENT"
+          "identity_ref": "SYN-ID-SYN-ACTOR-RECIPIENT",
+          "valid_from": "2020-01-01",
+          "valid_to": null,
+          "recorded_at": "2025-01-01T00:00:00Z"
         }
       ],
       "data_assets": [
@@ -2054,7 +2132,10 @@
           ],
           "home_scope_ref": "SYN-DG-SA",
           "identity_namespace": "urn:mycelix:synthetic-identity:v1",
-          "identity_ref": "SYN-ID-SYN-ACTOR-SA-RESPONSIBLE"
+          "identity_ref": "SYN-ID-SYN-ACTOR-SA-RESPONSIBLE",
+          "valid_from": "2020-01-01",
+          "valid_to": null,
+          "recorded_at": "2025-01-01T00:00:00Z"
         },
         {
           "actor_ref": "SYN-ACTOR-PROCESSOR",
@@ -2065,7 +2146,10 @@
           ],
           "home_scope_ref": "SYN-DG-SA",
           "identity_namespace": "urn:mycelix:synthetic-identity:v1",
-          "identity_ref": "SYN-ID-SYN-ACTOR-PROCESSOR"
+          "identity_ref": "SYN-ID-SYN-ACTOR-PROCESSOR",
+          "valid_from": "2020-01-01",
+          "valid_to": null,
+          "recorded_at": "2025-01-01T00:00:00Z"
         },
         {
           "actor_ref": "SYN-ACTOR-FOREIGN-SUPPORT",
@@ -2075,7 +2159,10 @@
           ],
           "home_scope_ref": "SYN-DG-FOREIGN-X",
           "identity_namespace": "urn:mycelix:synthetic-identity:v1",
-          "identity_ref": "SYN-ID-SYN-ACTOR-FOREIGN-SUPPORT"
+          "identity_ref": "SYN-ID-SYN-ACTOR-FOREIGN-SUPPORT",
+          "valid_from": "2020-01-01",
+          "valid_to": null,
+          "recorded_at": "2025-01-01T00:00:00Z"
         },
         {
           "actor_ref": "SYN-ACTOR-RECIPIENT",
@@ -2085,7 +2172,10 @@
           ],
           "home_scope_ref": "SYN-DG-FOREIGN-Y",
           "identity_namespace": "urn:mycelix:synthetic-identity:v1",
-          "identity_ref": "SYN-ID-SYN-ACTOR-RECIPIENT"
+          "identity_ref": "SYN-ID-SYN-ACTOR-RECIPIENT",
+          "valid_from": "2020-01-01",
+          "valid_to": null,
+          "recorded_at": "2025-01-01T00:00:00Z"
         }
       ],
       "data_assets": [
@@ -2324,7 +2414,10 @@
           ],
           "home_scope_ref": "SYN-DG-SA",
           "identity_namespace": "urn:mycelix:synthetic-identity:v1",
-          "identity_ref": "SYN-ID-SYN-ACTOR-SA-RESPONSIBLE"
+          "identity_ref": "SYN-ID-SYN-ACTOR-SA-RESPONSIBLE",
+          "valid_from": "2020-01-01",
+          "valid_to": null,
+          "recorded_at": "2025-01-01T00:00:00Z"
         },
         {
           "actor_ref": "SYN-ACTOR-PROCESSOR",
@@ -2335,7 +2428,10 @@
           ],
           "home_scope_ref": "SYN-DG-SA",
           "identity_namespace": "urn:mycelix:synthetic-identity:v1",
-          "identity_ref": "SYN-ID-SYN-ACTOR-PROCESSOR"
+          "identity_ref": "SYN-ID-SYN-ACTOR-PROCESSOR",
+          "valid_from": "2020-01-01",
+          "valid_to": null,
+          "recorded_at": "2025-01-01T00:00:00Z"
         },
         {
           "actor_ref": "SYN-ACTOR-FOREIGN-SUPPORT",
@@ -2345,7 +2441,10 @@
           ],
           "home_scope_ref": "SYN-DG-FOREIGN-X",
           "identity_namespace": "urn:mycelix:synthetic-identity:v1",
-          "identity_ref": "SYN-ID-SYN-ACTOR-FOREIGN-SUPPORT"
+          "identity_ref": "SYN-ID-SYN-ACTOR-FOREIGN-SUPPORT",
+          "valid_from": "2020-01-01",
+          "valid_to": null,
+          "recorded_at": "2025-01-01T00:00:00Z"
         },
         {
           "actor_ref": "SYN-ACTOR-RECIPIENT",
@@ -2355,7 +2454,10 @@
           ],
           "home_scope_ref": "SYN-DG-FOREIGN-Y",
           "identity_namespace": "urn:mycelix:synthetic-identity:v1",
-          "identity_ref": "SYN-ID-SYN-ACTOR-RECIPIENT"
+          "identity_ref": "SYN-ID-SYN-ACTOR-RECIPIENT",
+          "valid_from": "2020-01-01",
+          "valid_to": null,
+          "recorded_at": "2025-01-01T00:00:00Z"
         }
       ],
       "data_assets": [
@@ -2651,7 +2753,10 @@
           ],
           "home_scope_ref": "SYN-DG-SA",
           "identity_namespace": "urn:mycelix:synthetic-identity:v1",
-          "identity_ref": "SYN-ID-SYN-ACTOR-SA-RESPONSIBLE"
+          "identity_ref": "SYN-ID-SYN-ACTOR-SA-RESPONSIBLE",
+          "valid_from": "2020-01-01",
+          "valid_to": null,
+          "recorded_at": "2025-01-01T00:00:00Z"
         },
         {
           "actor_ref": "SYN-ACTOR-PROCESSOR",
@@ -2662,7 +2767,10 @@
           ],
           "home_scope_ref": "SYN-DG-SA",
           "identity_namespace": "urn:mycelix:synthetic-identity:v1",
-          "identity_ref": "SYN-ID-SYN-ACTOR-PROCESSOR"
+          "identity_ref": "SYN-ID-SYN-ACTOR-PROCESSOR",
+          "valid_from": "2020-01-01",
+          "valid_to": null,
+          "recorded_at": "2025-01-01T00:00:00Z"
         },
         {
           "actor_ref": "SYN-ACTOR-FOREIGN-SUPPORT",
@@ -2672,7 +2780,10 @@
           ],
           "home_scope_ref": "SYN-DG-FOREIGN-X",
           "identity_namespace": "urn:mycelix:synthetic-identity:v1",
-          "identity_ref": "SYN-ID-SYN-ACTOR-FOREIGN-SUPPORT"
+          "identity_ref": "SYN-ID-SYN-ACTOR-FOREIGN-SUPPORT",
+          "valid_from": "2020-01-01",
+          "valid_to": null,
+          "recorded_at": "2025-01-01T00:00:00Z"
         },
         {
           "actor_ref": "SYN-ACTOR-RECIPIENT",
@@ -2682,7 +2793,10 @@
           ],
           "home_scope_ref": "SYN-DG-FOREIGN-Y",
           "identity_namespace": "urn:mycelix:synthetic-identity:v1",
-          "identity_ref": "SYN-ID-SYN-ACTOR-RECIPIENT"
+          "identity_ref": "SYN-ID-SYN-ACTOR-RECIPIENT",
+          "valid_from": "2020-01-01",
+          "valid_to": null,
+          "recorded_at": "2025-01-01T00:00:00Z"
         }
       ],
       "data_assets": [
