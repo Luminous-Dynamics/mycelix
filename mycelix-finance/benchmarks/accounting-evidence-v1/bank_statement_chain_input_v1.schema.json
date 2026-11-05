@@ -113,7 +113,7 @@
       "required": [
         "artifact_id",
         "receipt_id",
-        "payload_sha256",
+        "fixture_digest_token",
         "digest_kind",
         "message_id",
         "message_definition",
@@ -131,9 +131,6 @@
         "receipt_id": {
           "type": "string",
           "minLength": 1
-        },
-        "payload_sha256": {
-          "$ref": "#/$defs/digest"
         },
         "digest_kind": {
           "const": "synthetic_fixture_commitment_not_raw_xml_hash"
@@ -165,6 +162,9 @@
         },
         "sender_authenticated": {
           "type": "boolean"
+        },
+        "fixture_digest_token": {
+          "$ref": "#/$defs/digest"
         }
       }
     },
