@@ -1,0 +1,316 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/evidence-qualified-accounting-agent-submissions-v1.0.0.json",
+  "title": "Mycelix Evidence-Qualified Accounting Agent Submissions v1.0.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "bundle_id",
+    "schema_version",
+    "claim_ceiling",
+    "submission_kind",
+    "submissions"
+  ],
+  "properties": {
+    "bundle_id": {
+      "const": "MYCELIX-EQA-S0-AGENT-SUBMISSIONS"
+    },
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "claim_ceiling": {
+      "const": "synthetic_gold_control_harness_self_test_not_model_performance"
+    },
+    "submission_kind": {
+      "const": "synthetic_gold_control"
+    },
+    "submissions": {
+      "type": "array",
+      "minItems": 20,
+      "items": {
+        "$ref": "#/$defs/submission"
+      }
+    }
+  },
+  "$defs": {
+    "question": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "question_id",
+        "question_text",
+        "target_fact_types",
+        "evidence_document_refs",
+        "minimum_answer_shape"
+      ],
+      "properties": {
+        "question_id": {
+          "type": "string",
+          "pattern": "^[A-Z0-9-]{3,100}$"
+        },
+        "question_text": {
+          "type": "string",
+          "minLength": 10
+        },
+        "target_fact_types": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 3
+          }
+        },
+        "evidence_document_refs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        },
+        "minimum_answer_shape": {
+          "type": "string",
+          "minLength": 3
+        }
+      }
+    },
+    "assumption": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "assumption_ref",
+        "assumption_text",
+        "related_fact_type",
+        "source_fact_refs",
+        "decision_critical",
+        "epistemic_status"
+      ],
+      "properties": {
+        "assumption_ref": {
+          "type": "string",
+          "pattern": "^[A-Z0-9-]{3,100}$"
+        },
+        "assumption_text": {
+          "type": "string",
+          "minLength": 5
+        },
+        "related_fact_type": {
+          "type": "string",
+          "minLength": 3
+        },
+        "source_fact_refs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        },
+        "decision_critical": {
+          "type": "boolean"
+        },
+        "epistemic_status": {
+          "enum": [
+            "supported",
+            "assumed",
+            "unknown",
+            "disputed"
+          ]
+        }
+      }
+    },
+    "journalEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "entry_ref",
+        "lines"
+      ],
+      "properties": {
+        "entry_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "lines": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "line_ref",
+              "account_ref",
+              "side",
+              "amount_minor",
+              "currency",
+              "entity_ref",
+              "period_ref",
+              "source_fact_refs"
+            ],
+            "properties": {
+              "line_ref": {
+                "type": "string",
+                "pattern": "^[A-Z0-9-]{3,100}$"
+              },
+              "account_ref": {
+                "type": "string",
+                "minLength": 1
+              },
+              "side": {
+                "enum": [
+                  "debit",
+                  "credit"
+                ]
+              },
+              "amount_minor": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "currency": {
+                "type": "string",
+                "pattern": "^[A-Z]{3}$"
+              },
+              "entity_ref": {
+                "type": "string",
+                "minLength": 1
+              },
+              "period_ref": {
+                "type": "string",
+                "pattern": "^20[0-9]{2}-(0[1-9]|1[0-2])$"
+              },
+              "source_fact_refs": {
+                "type": "array",
+                "uniqueItems": true,
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "statementLine": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "statement_line_ref",
+        "statement_type",
+        "account_ref",
+        "amount_minor",
+        "currency",
+        "entity_ref",
+        "period_ref",
+        "source_journal_entry_refs",
+        "normal_balance"
+      ],
+      "properties": {
+        "statement_line_ref": {
+          "type": "string",
+          "pattern": "^[A-Z0-9-]{3,100}$"
+        },
+        "statement_type": {
+          "enum": [
+            "income_statement",
+            "balance_sheet"
+          ]
+        },
+        "account_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "amount_minor": {
+          "type": "integer"
+        },
+        "currency": {
+          "type": "string",
+          "pattern": "^[A-Z]{3}$"
+        },
+        "entity_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "period_ref": {
+          "type": "string",
+          "pattern": "^20[0-9]{2}-(0[1-9]|1[0-2])$"
+        },
+        "source_journal_entry_refs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        },
+        "normal_balance": {
+          "enum": [
+            "debit",
+            "credit"
+          ]
+        }
+      }
+    },
+    "submission": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "case_id",
+        "disposition",
+        "primary_reason_code",
+        "reason_codes",
+        "questions",
+        "journal_entries",
+        "statement_lines",
+        "assumptions"
+      ],
+      "properties": {
+        "case_id": {
+          "type": "string",
+          "pattern": "^[A-Z0-9-]{3,100}$"
+        },
+        "disposition": {
+          "enum": [
+            "deliver",
+            "clarify",
+            "abstain",
+            "escalate"
+          ]
+        },
+        "primary_reason_code": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "reason_codes": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        },
+        "questions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/question"
+          }
+        },
+        "journal_entries": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/journalEntry"
+          }
+        },
+        "statement_lines": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/statementLine"
+          }
+        },
+        "assumptions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/assumption"
+          }
+        }
+      }
+    }
+  }
+}
