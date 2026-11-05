@@ -81,7 +81,8 @@
       "event_id": "review-event:reviewer-1",
       "role": "reviewer",
       "principal_ref": "principal:synthetic-preparer-01",
-      "decision": "reviewed"
+      "decision": "reviewed",
+      "actor_kind": "human"
     },
     {
       "subject_digest": "60828559f3223b3f864c7d221bf41a8b37b54d2faddd08c5822c81ccd7c0c6d4",
@@ -100,7 +101,8 @@
       "event_id": "review-event:approver-1",
       "role": "approver",
       "principal_ref": "principal:approver",
-      "decision": "approved"
+      "decision": "approved",
+      "actor_kind": "human"
     }
   ]
 }
