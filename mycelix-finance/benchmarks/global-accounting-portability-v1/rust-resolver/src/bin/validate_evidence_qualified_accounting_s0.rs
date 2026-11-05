@@ -997,6 +997,29 @@ mod tests {
         assert_eq!(derive_expectation(case).unwrap(), ("deliver", "no_blocker_detected"));
     }
 
+
+    #[test]
+    fn fractional_knowledge_timestamp_is_rejected() {
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../evidence-qualified-accounting-v1");
+        let schema: Value = read_json(root.join("evidence_qualified_accounting_task_bundle_v1.0.0.schema.json")).unwrap();
+        let (mut candidates, _) = fixtures();
+        let case = candidates["cases"].as_array_mut().unwrap().iter_mut()
+            .find(|case| optional_string(case, "case_id") == Some("ACCT-001-COMPLETE-INVOICE")).unwrap();
+        case["knowledge_at"] = Value::String("2026-11-05T10:30:00.500Z".to_owned());
+        assert!(validate_instance("candidate task bundle", &schema, &candidates).is_err());
+    }
+
+    #[test]
+    fn offset_knowledge_timestamp_is_rejected() {
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../evidence-qualified-accounting-v1");
+        let schema: Value = read_json(root.join("evidence_qualified_accounting_task_bundle_v1.0.0.schema.json")).unwrap();
+        let (mut candidates, _) = fixtures();
+        let case = candidates["cases"].as_array_mut().unwrap().iter_mut()
+            .find(|case| optional_string(case, "case_id") == Some("ACCT-001-COMPLETE-INVOICE")).unwrap();
+        case["knowledge_at"] = Value::String("2026-11-05T12:30:00+02:00".to_owned());
+        assert!(validate_instance("candidate task bundle", &schema, &candidates).is_err());
+    }
+
     #[test]
     fn complete_invoice_and_duplicate_invoice_each_create_one_balanced_entry() {
         let (candidates, oracle) = fixtures();
