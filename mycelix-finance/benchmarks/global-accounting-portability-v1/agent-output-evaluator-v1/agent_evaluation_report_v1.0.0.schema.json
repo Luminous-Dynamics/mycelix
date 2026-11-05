@@ -61,7 +61,11 @@
         "decision_critical_assumption_count",
         "hard_failure_count",
         "question_source_reference_precision",
-        "question_source_reference_recall"
+        "question_source_reference_recall",
+        "evidence_trace_coverage",
+        "evidence_to_journal_continuity",
+        "decision_to_question_continuity",
+        "continuity_failure_count"
       ],
       "properties": {
         "case_count": {
@@ -119,6 +123,25 @@
           "type": "number",
           "minimum": 0,
           "maximum": 1
+        },
+        "evidence_trace_coverage": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "evidence_to_journal_continuity": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "decision_to_question_continuity": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "continuity_failure_count": {
+          "type": "integer",
+          "minimum": 0
         }
       }
     },
@@ -150,7 +173,11 @@
         "decision_critical_assumption_count",
         "hard_failures",
         "question_source_reference_precision",
-        "question_source_reference_recall"
+        "question_source_reference_recall",
+        "evidence_trace_coverage",
+        "evidence_to_journal_continuity",
+        "decision_to_question_continuity",
+        "continuity_failures"
       ],
       "properties": {
         "case_id": {
@@ -221,6 +248,24 @@
           "type": "number",
           "minimum": 0,
           "maximum": 1
+        },
+        "evidence_trace_coverage": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "evidence_to_journal_continuity": {
+          "type": "boolean"
+        },
+        "decision_to_question_continuity": {
+          "type": "boolean"
+        },
+        "continuity_failures": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
         }
       }
     }
