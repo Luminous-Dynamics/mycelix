@@ -27,6 +27,22 @@ async fn as_known_at_requires_an_explicit_timestamp() {
 }
 
 #[tokio::test]
+async fn as_known_at_rejects_an_invalid_timestamp() {
+    let server = TestServer::start()
+        .await
+        .expect("test server should start");
+    let claim_id = Uuid::new_v4();
+
+    let response = server
+        .get(&format!(
+            "/scientific/claims/{claim_id}/as-known-at?known_at=not-a-timestamp"
+        ))
+        .await;
+
+    assert_eq!(response.status(), reqwest::StatusCode::BAD_REQUEST);
+}
+
+#[tokio::test]
 async fn as_known_at_returns_not_found_for_an_unknown_claim() {
     let server = TestServer::start()
         .await
