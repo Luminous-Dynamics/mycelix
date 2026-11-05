@@ -154,10 +154,35 @@ fn validate_registry_semantics(registry: &Value) -> AppResult<()> {
         }
         let refs = sorted_unique(string_array(intersection, "profile_refs")?, "intersection profile_refs")?;
         let dimensions = sorted_unique(string_array(intersection, "supported_dimensions")?, "intersection supported_dimensions")?;
+        let binding_rows = array_of_objects(intersection, "profile_bindings")?;
+        let mut bindings = BTreeMap::<String, Value>::new();
+        for binding in binding_rows {
+            let profile_id = string_field(binding, "profile_id")?.to_owned();
+            if bindings.insert(profile_id.clone(), binding.clone()).is_some() {
+                return Err(format!("intersection {id} has duplicate profile binding: {profile_id}"));
+            }
+        }
+        if bindings.len() != refs.len() {
+            return Err(format!("intersection {id} profile binding count does not match profile_refs"));
+        }
         let mut actual_dimensions = BTreeSet::new();
-        for profile_id in refs {
-            let profile = profiles.get(&profile_id).ok_or_else(|| format!("intersection {id} references unknown profile {profile_id}"))?;
+        for profile_id in &refs {
+            let profile = profiles.get(profile_id).ok_or_else(|| format!("intersection {id} references unknown profile {profile_id}"))?;
+            let binding = bindings.get(profile_id).ok_or_else(|| format!("intersection {id} has no content binding for profile {profile_id}"))?;
+            let expected_version = string_field(profile, "version")?;
+            let bound_version = string_field(binding, "version")?;
+            if bound_version != expected_version {
+                return Err(format!("intersection {id} profile version binding mismatch: {profile_id}"));
+            }
+            let expected_digest = profile_sha256(profile)?;
+            let bound_digest = string_field(binding, "profile_sha256")?;
+            if bound_digest != expected_digest {
+                return Err(format!("intersection {id} profile content digest mismatch: {profile_id}"));
+            }
             actual_dimensions.insert(string_field(profile, "dimension")?.to_owned());
+        }
+        if bindings.keys().any(|profile_id| !refs.contains(profile_id)) {
+            return Err(format!("intersection {id} has a profile binding outside profile_refs"));
         }
         for dimension in dimensions {
             if !actual_dimensions.contains(&dimension) {
@@ -254,6 +279,8 @@ fn resolve(registry: &Value, request: &Value) -> AppResult<Value> {
                 resolved_dimensions.insert(dimension.clone());
                 selected_profiles.push(json!({
                     "profile_id": profile_id,
+                    "version": profile.get("version").and_then(Value::as_str).unwrap_or("unknown"),
+                    "profile_sha256": profile_sha256(profile)?,
                     "dimension": dimension,
                     "status": status
                 }));
@@ -437,6 +464,14 @@ fn sha256_hex(bytes: &[u8]) -> String {
     hex::encode(Sha256::digest(bytes))
 }
 
+fn profile_sha256(profile: &Value) -> AppResult<String> {
+    // serde_json::Value uses sorted object keys when preserve_order is disabled.
+    // Compact UTF-8 serialization is therefore the profile-binding canonicalization.
+    let bytes = serde_json::to_vec(profile)
+        .map_err(|error| format!("could not serialize profile for digest: {error}"))?;
+    Ok(sha256_hex(&bytes))
+}
+
 fn resolver_source_digest() -> String {
     let mut hasher = Sha256::new();
     for (path, bytes) in [
@@ -584,6 +619,33 @@ mod tests {
         assert!(report["blocking_reasons"].to_string().contains("outside_intersection_validity"));
     }
 
+
+
+    #[test]
+    fn profile_content_mutation_invalidates_approved_intersection() {
+        let mut registry = registry();
+        let profile = registry["profile_references"].as_array_mut().unwrap()
+            .iter_mut().find(|item| item["profile_id"] == "SYN-FRAMEWORK-A").unwrap();
+        profile["notes"] = json!("mutated content under unchanged profile ID and version");
+        assert!(validate_registry_semantics(&registry).is_err());
+    }
+
+    #[test]
+    fn profile_version_mutation_invalidates_approved_intersection() {
+        let mut registry = registry();
+        let profile = registry["profile_references"].as_array_mut().unwrap()
+            .iter_mut().find(|item| item["profile_id"] == "SYN-FRAMEWORK-A").unwrap();
+        profile["version"] = json!("synthetic-framework-a-revised");
+        assert!(validate_registry_semantics(&registry).is_err());
+    }
+
+    #[test]
+    fn missing_profile_content_binding_fails_closed() {
+        let mut registry = registry();
+        registry["qualification_intersections"][0]["profile_bindings"]
+            .as_array_mut().unwrap().pop();
+        assert!(validate_registry_semantics(&registry).is_err());
+    }
 
     #[test]
     fn unknown_profile_id_is_unsupported() {
