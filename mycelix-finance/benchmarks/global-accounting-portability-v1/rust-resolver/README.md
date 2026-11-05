@@ -6,7 +6,7 @@ Standalone Rust resolver for the catalogue and exact qualification-intersection 
 
 This crate selects an explicitly recorded profile intersection for a declared jurisdiction/entity/period/use. It does not execute tax or accounting rules, convert currencies, validate invoices, map XBRL facts, authenticate sources, create journals or issue a benchmark run receipt.
 
-An individual profile's existence or status never implies that a combination is qualified. Qualification requires an exact intersection record matching the following fields, with every selected profile bound to its exact version and SHA-256 of canonical profile bytes:
+An individual profile's existence or status never implies that a combination is qualified. Qualification requires an exact intersection record matching the following fields, with every selected profile bound to its exact version and SHA-256 of canonical profile bytes (recursively sort object keys by UTF-8 byte order, preserve array order, compact JSON with no whitespace, emit UTF-8 bytes):
 - jurisdiction-scope set;
 - entity scope;
 - selected profile-ID set;
