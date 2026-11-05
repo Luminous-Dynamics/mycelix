@@ -151,7 +151,9 @@
         "EPC_VOP_NO_MATCH_GUIDANCE_2026",
         "BIS_PAYMENT_PREVALIDATION_2025"
       ],
-      "limit_fee_source_ref": "SYNTHETIC_PARTICIPANT_TEST_PROFILE_V1"
+      "limit_fee_source_ref": "SYNTHETIC_PARTICIPANT_TEST_PROFILE_V1",
+      "payee_resolution_freshness_seconds": 300,
+      "limit_fee_freshness_seconds": 600
     },
     {
       "profile_id": "UK-FPS-COP-2026-V1",
@@ -175,7 +177,9 @@
         "UK_PSR_COP_2026",
         "BIS_PAYMENT_PREVALIDATION_2025"
       ],
-      "limit_fee_source_ref": "SYNTHETIC_PARTICIPANT_TEST_PROFILE_V1"
+      "limit_fee_source_ref": "SYNTHETIC_PARTICIPANT_TEST_PROFILE_V1",
+      "payee_resolution_freshness_seconds": 300,
+      "limit_fee_freshness_seconds": 600
     },
     {
       "profile_id": "ZA-NPU-PROPOSAL-ONLY-V1",
@@ -199,7 +203,9 @@
         "SARB_PEM_POSITION_2025",
         "SARB_QR_PLUS_12_2026"
       ],
-      "limit_fee_source_ref": "SYNTHETIC_PARTICIPANT_TEST_PROFILE_V1"
+      "limit_fee_source_ref": "SYNTHETIC_PARTICIPANT_TEST_PROFILE_V1",
+      "payee_resolution_freshness_seconds": 300,
+      "limit_fee_freshness_seconds": 600
     },
     {
       "profile_id": "ZA-PAYSHAP-UNQUALIFIED-V1",
@@ -222,7 +228,9 @@
       "source_refs": [
         "SARB_PEM_POSITION_2025"
       ],
-      "limit_fee_source_ref": "SYNTHETIC_PARTICIPANT_TEST_PROFILE_V1"
+      "limit_fee_source_ref": "SYNTHETIC_PARTICIPANT_TEST_PROFILE_V1",
+      "payee_resolution_freshness_seconds": 300,
+      "limit_fee_freshness_seconds": 600
     },
     {
       "profile_id": "SADC-CROSS-BORDER-UNQUALIFIED-V1",
@@ -245,7 +253,9 @@
       "source_refs": [
         "BIS_PAYMENT_PREVALIDATION_2025"
       ],
-      "limit_fee_source_ref": "SYNTHETIC_PARTICIPANT_TEST_PROFILE_V1"
+      "limit_fee_source_ref": "SYNTHETIC_PARTICIPANT_TEST_PROFILE_V1",
+      "payee_resolution_freshness_seconds": 300,
+      "limit_fee_freshness_seconds": 600
     }
   ],
   "required_presentation_fields": [
@@ -330,7 +340,9 @@
         "intent_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "profile_id": "EU-EPC-VOP-1.1-V1",
         "source_ref": "EPC_VOP_RULEBOOK_V11_2026",
-        "evidence_ref": "PROVIDER-JWS-PPV-001"
+        "evidence_ref": "PROVIDER-JWS-PPV-001",
+        "issued_at": "2026-11-05T09:01:30Z",
+        "expires_at": "2026-11-05T09:04:30Z"
       },
       "limit_fee": {
         "status": "allowed",
@@ -342,7 +354,9 @@
         "fee_payer": "payer",
         "fee_disclosed": true,
         "source_ref": "SYNTHETIC_PARTICIPANT_TEST_PROFILE_V1",
-        "evidence_ref": "LIMIT-FEE-PPV-001"
+        "evidence_ref": "LIMIT-FEE-PPV-001",
+        "observed_at": "2026-11-05T09:01:00Z",
+        "expires_at": "2026-11-05T09:10:00Z"
       },
       "presentation": {
         "fields_shown": [
@@ -404,7 +418,8 @@
       },
       "expected_admission": "ready_for_payer_decision",
       "expected_disposition": "awaiting_payer_decision",
-      "dispatch_allowed": false
+      "dispatch_allowed": false,
+      "evaluation_time": "2026-11-05T09:03:00Z"
     },
     {
       "scenario_id": "PPV-002",
@@ -472,7 +487,9 @@
         "intent_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "profile_id": "EU-EPC-VOP-1.1-V1",
         "source_ref": "EPC_VOP_RULEBOOK_V11_2026",
-        "evidence_ref": "PROVIDER-JWS-PPV-002"
+        "evidence_ref": "PROVIDER-JWS-PPV-002",
+        "issued_at": "2026-11-05T09:01:30Z",
+        "expires_at": "2026-11-05T09:04:30Z"
       },
       "limit_fee": {
         "status": "allowed",
@@ -484,7 +501,9 @@
         "fee_payer": "payer",
         "fee_disclosed": true,
         "source_ref": "SYNTHETIC_PARTICIPANT_TEST_PROFILE_V1",
-        "evidence_ref": "LIMIT-FEE-PPV-002"
+        "evidence_ref": "LIMIT-FEE-PPV-002",
+        "observed_at": "2026-11-05T09:01:00Z",
+        "expires_at": "2026-11-05T09:10:00Z"
       },
       "presentation": {
         "fields_shown": [
@@ -546,7 +565,8 @@
       },
       "expected_admission": "ready_with_warning",
       "expected_disposition": "awaiting_payer_decision",
-      "dispatch_allowed": false
+      "dispatch_allowed": false,
+      "evaluation_time": "2026-11-05T09:03:00Z"
     },
     {
       "scenario_id": "PPV-003",
@@ -614,7 +634,9 @@
         "intent_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "profile_id": "EU-EPC-VOP-1.1-V1",
         "source_ref": "EPC_VOP_RULEBOOK_V11_2026",
-        "evidence_ref": "PROVIDER-JWS-PPV-003"
+        "evidence_ref": "PROVIDER-JWS-PPV-003",
+        "issued_at": "2026-11-05T09:01:30Z",
+        "expires_at": "2026-11-05T09:04:30Z"
       },
       "limit_fee": {
         "status": "allowed",
@@ -626,7 +648,9 @@
         "fee_payer": "payer",
         "fee_disclosed": true,
         "source_ref": "SYNTHETIC_PARTICIPANT_TEST_PROFILE_V1",
-        "evidence_ref": "LIMIT-FEE-PPV-003"
+        "evidence_ref": "LIMIT-FEE-PPV-003",
+        "observed_at": "2026-11-05T09:01:00Z",
+        "expires_at": "2026-11-05T09:10:00Z"
       },
       "presentation": {
         "fields_shown": [
@@ -688,7 +712,8 @@
       },
       "expected_admission": "ready_with_warning",
       "expected_disposition": "payer_declined",
-      "dispatch_allowed": false
+      "dispatch_allowed": false,
+      "evaluation_time": "2026-11-05T09:03:00Z"
     },
     {
       "scenario_id": "PPV-004",
@@ -756,7 +781,9 @@
         "intent_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "profile_id": "EU-EPC-VOP-1.1-V1",
         "source_ref": "EPC_VOP_RULEBOOK_V11_2026",
-        "evidence_ref": "PROVIDER-JWS-PPV-004"
+        "evidence_ref": "PROVIDER-JWS-PPV-004",
+        "issued_at": "2026-11-05T09:01:30Z",
+        "expires_at": "2026-11-05T09:04:30Z"
       },
       "limit_fee": {
         "status": "allowed",
@@ -768,7 +795,9 @@
         "fee_payer": "payer",
         "fee_disclosed": true,
         "source_ref": "SYNTHETIC_PARTICIPANT_TEST_PROFILE_V1",
-        "evidence_ref": "LIMIT-FEE-PPV-004"
+        "evidence_ref": "LIMIT-FEE-PPV-004",
+        "observed_at": "2026-11-05T09:01:00Z",
+        "expires_at": "2026-11-05T09:10:00Z"
       },
       "presentation": {
         "fields_shown": [
@@ -830,7 +859,8 @@
       },
       "expected_admission": "ready_with_warning",
       "expected_disposition": "prevalidated_for_psp_review",
-      "dispatch_allowed": false
+      "dispatch_allowed": false,
+      "evaluation_time": "2026-11-05T09:03:00Z"
     },
     {
       "scenario_id": "PPV-005",
@@ -898,7 +928,9 @@
         "intent_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "profile_id": "EU-EPC-VOP-1.1-V1",
         "source_ref": "EPC_VOP_RULEBOOK_V11_2026",
-        "evidence_ref": "PROVIDER-JWS-PPV-005"
+        "evidence_ref": "PROVIDER-JWS-PPV-005",
+        "issued_at": "2026-11-05T09:01:30Z",
+        "expires_at": "2026-11-05T09:04:30Z"
       },
       "limit_fee": {
         "status": "allowed",
@@ -910,7 +942,9 @@
         "fee_payer": "payer",
         "fee_disclosed": true,
         "source_ref": "SYNTHETIC_PARTICIPANT_TEST_PROFILE_V1",
-        "evidence_ref": "LIMIT-FEE-PPV-005"
+        "evidence_ref": "LIMIT-FEE-PPV-005",
+        "observed_at": "2026-11-05T09:01:00Z",
+        "expires_at": "2026-11-05T09:10:00Z"
       },
       "presentation": {
         "fields_shown": [
@@ -972,7 +1006,8 @@
       },
       "expected_admission": "ready_with_warning",
       "expected_disposition": "prevalidated_for_psp_review",
-      "dispatch_allowed": false
+      "dispatch_allowed": false,
+      "evaluation_time": "2026-11-05T09:03:00Z"
     },
     {
       "scenario_id": "PPV-006",
@@ -1040,7 +1075,9 @@
         "intent_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "profile_id": "EU-EPC-VOP-1.1-V1",
         "source_ref": "EPC_VOP_RULEBOOK_V11_2026",
-        "evidence_ref": "PROVIDER-JWS-PPV-006"
+        "evidence_ref": "PROVIDER-JWS-PPV-006",
+        "issued_at": "2026-11-05T09:01:30Z",
+        "expires_at": "2026-11-05T09:04:30Z"
       },
       "limit_fee": {
         "status": "allowed",
@@ -1052,7 +1089,9 @@
         "fee_payer": "payer",
         "fee_disclosed": true,
         "source_ref": "SYNTHETIC_PARTICIPANT_TEST_PROFILE_V1",
-        "evidence_ref": "LIMIT-FEE-PPV-006"
+        "evidence_ref": "LIMIT-FEE-PPV-006",
+        "observed_at": "2026-11-05T09:01:00Z",
+        "expires_at": "2026-11-05T09:10:00Z"
       },
       "presentation": {
         "fields_shown": [
@@ -1109,7 +1148,8 @@
       },
       "expected_admission": "rejected_evidence",
       "expected_disposition": "rejected_evidence",
-      "dispatch_allowed": false
+      "dispatch_allowed": false,
+      "evaluation_time": "2026-11-05T09:03:00Z"
     },
     {
       "scenario_id": "PPV-007",
@@ -1177,7 +1217,9 @@
         "intent_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "profile_id": "EU-EPC-VOP-1.1-V1",
         "source_ref": "EPC_VOP_RULEBOOK_V11_2026",
-        "evidence_ref": "PROVIDER-JWS-PPV-007"
+        "evidence_ref": "PROVIDER-JWS-PPV-007",
+        "issued_at": "2026-11-05T09:01:30Z",
+        "expires_at": "2026-11-05T09:04:30Z"
       },
       "limit_fee": {
         "status": "allowed",
@@ -1189,7 +1231,9 @@
         "fee_payer": "payer",
         "fee_disclosed": true,
         "source_ref": "SYNTHETIC_PARTICIPANT_TEST_PROFILE_V1",
-        "evidence_ref": "LIMIT-FEE-PPV-007"
+        "evidence_ref": "LIMIT-FEE-PPV-007",
+        "observed_at": "2026-11-05T09:01:00Z",
+        "expires_at": "2026-11-05T09:10:00Z"
       },
       "presentation": {
         "fields_shown": [
@@ -1251,7 +1295,8 @@
       },
       "expected_admission": "rejected_evidence",
       "expected_disposition": "rejected_evidence",
-      "dispatch_allowed": false
+      "dispatch_allowed": false,
+      "evaluation_time": "2026-11-05T09:03:00Z"
     },
     {
       "scenario_id": "PPV-008",
@@ -1319,7 +1364,9 @@
         "intent_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "profile_id": "EU-EPC-VOP-1.1-V1",
         "source_ref": "EPC_VOP_RULEBOOK_V11_2026",
-        "evidence_ref": "PROVIDER-JWS-PPV-008"
+        "evidence_ref": "PROVIDER-JWS-PPV-008",
+        "issued_at": "2026-11-05T09:01:30Z",
+        "expires_at": "2026-11-05T09:04:30Z"
       },
       "limit_fee": {
         "status": "allowed",
@@ -1331,7 +1378,9 @@
         "fee_payer": "payer",
         "fee_disclosed": true,
         "source_ref": "SYNTHETIC_PARTICIPANT_TEST_PROFILE_V1",
-        "evidence_ref": "LIMIT-FEE-PPV-008"
+        "evidence_ref": "LIMIT-FEE-PPV-008",
+        "observed_at": "2026-11-05T09:01:00Z",
+        "expires_at": "2026-11-05T09:10:00Z"
       },
       "presentation": {
         "fields_shown": [
@@ -1393,7 +1442,8 @@
       },
       "expected_admission": "rejected_evidence",
       "expected_disposition": "rejected_evidence",
-      "dispatch_allowed": false
+      "dispatch_allowed": false,
+      "evaluation_time": "2026-11-05T09:03:00Z"
     },
     {
       "scenario_id": "PPV-009",
@@ -1461,7 +1511,9 @@
         "intent_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "profile_id": "EU-EPC-VOP-1.1-V1",
         "source_ref": "EPC_VOP_RULEBOOK_V11_2026",
-        "evidence_ref": "PROVIDER-JWS-PPV-009"
+        "evidence_ref": "PROVIDER-JWS-PPV-009",
+        "issued_at": "2026-11-05T09:01:30Z",
+        "expires_at": "2026-11-05T09:04:30Z"
       },
       "limit_fee": {
         "status": "allowed",
@@ -1473,7 +1525,9 @@
         "fee_payer": "payer",
         "fee_disclosed": true,
         "source_ref": "SYNTHETIC_PARTICIPANT_TEST_PROFILE_V1",
-        "evidence_ref": "LIMIT-FEE-PPV-009"
+        "evidence_ref": "LIMIT-FEE-PPV-009",
+        "observed_at": "2026-11-05T09:01:00Z",
+        "expires_at": "2026-11-05T09:10:00Z"
       },
       "presentation": {
         "fields_shown": [
@@ -1535,7 +1589,8 @@
       },
       "expected_admission": "rejected_evidence",
       "expected_disposition": "rejected_evidence",
-      "dispatch_allowed": false
+      "dispatch_allowed": false,
+      "evaluation_time": "2026-11-05T09:03:00Z"
     },
     {
       "scenario_id": "PPV-010",
@@ -1603,7 +1658,9 @@
         "intent_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "profile_id": "EU-EPC-VOP-1.1-V1",
         "source_ref": "EPC_VOP_RULEBOOK_V11_2026",
-        "evidence_ref": "PROVIDER-JWS-PPV-010"
+        "evidence_ref": "PROVIDER-JWS-PPV-010",
+        "issued_at": "2026-11-05T09:01:30Z",
+        "expires_at": "2026-11-05T09:04:30Z"
       },
       "limit_fee": {
         "status": "allowed",
@@ -1615,7 +1672,9 @@
         "fee_payer": "payer",
         "fee_disclosed": true,
         "source_ref": "SYNTHETIC_PARTICIPANT_TEST_PROFILE_V1",
-        "evidence_ref": "LIMIT-FEE-PPV-010"
+        "evidence_ref": "LIMIT-FEE-PPV-010",
+        "observed_at": "2026-11-05T09:01:00Z",
+        "expires_at": "2026-11-05T09:10:00Z"
       },
       "presentation": {
         "fields_shown": [
@@ -1677,7 +1736,8 @@
       },
       "expected_admission": "quarantined_unknown",
       "expected_disposition": "quarantined_unknown",
-      "dispatch_allowed": false
+      "dispatch_allowed": false,
+      "evaluation_time": "2026-11-05T09:03:00Z"
     },
     {
       "scenario_id": "PPV-011",
@@ -1745,7 +1805,9 @@
         "intent_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "profile_id": "EU-EPC-VOP-1.1-V1",
         "source_ref": "EPC_VOP_RULEBOOK_V11_2026",
-        "evidence_ref": "PROVIDER-JWS-PPV-011"
+        "evidence_ref": "PROVIDER-JWS-PPV-011",
+        "issued_at": "2026-11-05T09:01:30Z",
+        "expires_at": "2026-11-05T09:04:30Z"
       },
       "limit_fee": {
         "status": "allowed",
@@ -1757,7 +1819,9 @@
         "fee_payer": "payer",
         "fee_disclosed": true,
         "source_ref": "SYNTHETIC_PARTICIPANT_TEST_PROFILE_V1",
-        "evidence_ref": "LIMIT-FEE-PPV-011"
+        "evidence_ref": "LIMIT-FEE-PPV-011",
+        "observed_at": "2026-11-05T09:01:00Z",
+        "expires_at": "2026-11-05T09:10:00Z"
       },
       "presentation": {
         "fields_shown": [
@@ -1819,7 +1883,8 @@
       },
       "expected_admission": "quarantined_unknown",
       "expected_disposition": "quarantined_unknown",
-      "dispatch_allowed": false
+      "dispatch_allowed": false,
+      "evaluation_time": "2026-11-05T09:03:00Z"
     },
     {
       "scenario_id": "PPV-012",
@@ -1887,7 +1952,9 @@
         "intent_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "profile_id": "EU-EPC-VOP-1.1-V1",
         "source_ref": "EPC_VOP_RULEBOOK_V11_2026",
-        "evidence_ref": "PROVIDER-JWS-PPV-012"
+        "evidence_ref": "PROVIDER-JWS-PPV-012",
+        "issued_at": "2026-11-05T09:01:30Z",
+        "expires_at": "2026-11-05T09:04:30Z"
       },
       "limit_fee": {
         "status": "allowed",
@@ -1899,7 +1966,9 @@
         "fee_payer": "payer",
         "fee_disclosed": true,
         "source_ref": "SYNTHETIC_PARTICIPANT_TEST_PROFILE_V1",
-        "evidence_ref": "LIMIT-FEE-PPV-012"
+        "evidence_ref": "LIMIT-FEE-PPV-012",
+        "observed_at": "2026-11-05T09:01:00Z",
+        "expires_at": "2026-11-05T09:10:00Z"
       },
       "presentation": {
         "fields_shown": [
@@ -1961,7 +2030,8 @@
       },
       "expected_admission": "rejected_evidence",
       "expected_disposition": "rejected_evidence",
-      "dispatch_allowed": false
+      "dispatch_allowed": false,
+      "evaluation_time": "2026-11-05T09:03:00Z"
     },
     {
       "scenario_id": "PPV-013",
@@ -2029,7 +2099,9 @@
         "intent_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "profile_id": "EU-EPC-VOP-1.1-V1",
         "source_ref": "EPC_VOP_RULEBOOK_V11_2026",
-        "evidence_ref": "PROVIDER-JWS-PPV-013"
+        "evidence_ref": "PROVIDER-JWS-PPV-013",
+        "issued_at": "2026-11-05T09:01:30Z",
+        "expires_at": "2026-11-05T09:04:30Z"
       },
       "limit_fee": {
         "status": "allowed",
@@ -2041,7 +2113,9 @@
         "fee_payer": "payer",
         "fee_disclosed": true,
         "source_ref": "SYNTHETIC_PARTICIPANT_TEST_PROFILE_V1",
-        "evidence_ref": "LIMIT-FEE-PPV-013"
+        "evidence_ref": "LIMIT-FEE-PPV-013",
+        "observed_at": "2026-11-05T09:01:00Z",
+        "expires_at": "2026-11-05T09:10:00Z"
       },
       "presentation": {
         "fields_shown": [
@@ -2103,7 +2177,8 @@
       },
       "expected_admission": "rejected_evidence",
       "expected_disposition": "rejected_evidence",
-      "dispatch_allowed": false
+      "dispatch_allowed": false,
+      "evaluation_time": "2026-11-05T09:03:00Z"
     },
     {
       "scenario_id": "PPV-014",
@@ -2171,7 +2246,9 @@
         "intent_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "profile_id": "EU-EPC-VOP-1.1-V1",
         "source_ref": "EPC_VOP_RULEBOOK_V11_2026",
-        "evidence_ref": "PROVIDER-JWS-PPV-014"
+        "evidence_ref": "PROVIDER-JWS-PPV-014",
+        "issued_at": "2026-11-05T09:01:30Z",
+        "expires_at": "2026-11-05T09:04:30Z"
       },
       "limit_fee": {
         "status": "allowed",
@@ -2183,7 +2260,9 @@
         "fee_payer": "payer",
         "fee_disclosed": true,
         "source_ref": "SYNTHETIC_PARTICIPANT_TEST_PROFILE_V1",
-        "evidence_ref": "LIMIT-FEE-PPV-014"
+        "evidence_ref": "LIMIT-FEE-PPV-014",
+        "observed_at": "2026-11-05T09:01:00Z",
+        "expires_at": "2026-11-05T09:10:00Z"
       },
       "presentation": {
         "fields_shown": [
@@ -2245,7 +2324,8 @@
       },
       "expected_admission": "quarantined_unknown",
       "expected_disposition": "quarantined_unknown",
-      "dispatch_allowed": false
+      "dispatch_allowed": false,
+      "evaluation_time": "2026-11-05T09:03:00Z"
     },
     {
       "scenario_id": "PPV-015",
@@ -2313,7 +2393,9 @@
         "intent_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "profile_id": "EU-EPC-VOP-1.1-V1",
         "source_ref": "EPC_VOP_RULEBOOK_V11_2026",
-        "evidence_ref": "PROVIDER-JWS-PPV-015"
+        "evidence_ref": "PROVIDER-JWS-PPV-015",
+        "issued_at": "2026-11-05T09:01:30Z",
+        "expires_at": "2026-11-05T09:04:30Z"
       },
       "limit_fee": {
         "status": "allowed",
@@ -2325,7 +2407,9 @@
         "fee_payer": "payer",
         "fee_disclosed": true,
         "source_ref": "SYNTHETIC_PARTICIPANT_TEST_PROFILE_V1",
-        "evidence_ref": "LIMIT-FEE-PPV-015"
+        "evidence_ref": "LIMIT-FEE-PPV-015",
+        "observed_at": "2026-11-05T09:01:00Z",
+        "expires_at": "2026-11-05T09:10:00Z"
       },
       "presentation": {
         "fields_shown": [
@@ -2387,7 +2471,8 @@
       },
       "expected_admission": "rejected_evidence",
       "expected_disposition": "rejected_evidence",
-      "dispatch_allowed": false
+      "dispatch_allowed": false,
+      "evaluation_time": "2026-11-05T09:03:00Z"
     },
     {
       "scenario_id": "PPV-016",
@@ -2455,7 +2540,9 @@
         "intent_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "profile_id": "EU-EPC-VOP-1.1-V1",
         "source_ref": "EPC_VOP_RULEBOOK_V11_2026",
-        "evidence_ref": "PROVIDER-JWS-PPV-016"
+        "evidence_ref": "PROVIDER-JWS-PPV-016",
+        "issued_at": "2026-11-05T09:01:30Z",
+        "expires_at": "2026-11-05T09:04:30Z"
       },
       "limit_fee": {
         "status": "allowed",
@@ -2467,7 +2554,9 @@
         "fee_payer": "payer",
         "fee_disclosed": true,
         "source_ref": "SYNTHETIC_PARTICIPANT_TEST_PROFILE_V1",
-        "evidence_ref": "LIMIT-FEE-PPV-016"
+        "evidence_ref": "LIMIT-FEE-PPV-016",
+        "observed_at": "2026-11-05T09:01:00Z",
+        "expires_at": "2026-11-05T09:10:00Z"
       },
       "presentation": {
         "fields_shown": [
@@ -2534,7 +2623,8 @@
         "amount_minor_units": 2000,
         "currency": "EUR",
         "intent_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
-      }
+      },
+      "evaluation_time": "2026-11-05T09:03:00Z"
     },
     {
       "scenario_id": "PPV-017",
@@ -2602,7 +2692,9 @@
         "intent_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "profile_id": "EU-EPC-VOP-1.1-V1",
         "source_ref": "EPC_VOP_RULEBOOK_V11_2026",
-        "evidence_ref": "PROVIDER-JWS-PPV-017"
+        "evidence_ref": "PROVIDER-JWS-PPV-017",
+        "issued_at": "2026-11-05T09:01:30Z",
+        "expires_at": "2026-11-05T09:04:30Z"
       },
       "limit_fee": {
         "status": "allowed",
@@ -2614,7 +2706,9 @@
         "fee_payer": "payer",
         "fee_disclosed": true,
         "source_ref": "SYNTHETIC_PARTICIPANT_TEST_PROFILE_V1",
-        "evidence_ref": "LIMIT-FEE-PPV-017"
+        "evidence_ref": "LIMIT-FEE-PPV-017",
+        "observed_at": "2026-11-05T09:01:00Z",
+        "expires_at": "2026-11-05T09:10:00Z"
       },
       "presentation": {
         "fields_shown": [
@@ -2676,7 +2770,8 @@
       },
       "expected_admission": "needs_payer_reconfirmation",
       "expected_disposition": "needs_payer_reconfirmation",
-      "dispatch_allowed": false
+      "dispatch_allowed": false,
+      "evaluation_time": "2026-11-05T09:03:00Z"
     },
     {
       "scenario_id": "PPV-018",
@@ -2744,7 +2839,9 @@
         "intent_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "profile_id": "EU-EPC-VOP-1.1-V1",
         "source_ref": "EPC_VOP_RULEBOOK_V11_2026",
-        "evidence_ref": "PROVIDER-JWS-PPV-018"
+        "evidence_ref": "PROVIDER-JWS-PPV-018",
+        "issued_at": "2026-11-05T09:01:30Z",
+        "expires_at": "2026-11-05T09:04:30Z"
       },
       "limit_fee": {
         "status": "allowed",
@@ -2756,7 +2853,9 @@
         "fee_payer": "payer",
         "fee_disclosed": true,
         "source_ref": "SYNTHETIC_PARTICIPANT_TEST_PROFILE_V1",
-        "evidence_ref": "LIMIT-FEE-PPV-018"
+        "evidence_ref": "LIMIT-FEE-PPV-018",
+        "observed_at": "2026-11-05T09:01:00Z",
+        "expires_at": "2026-11-05T09:10:00Z"
       },
       "presentation": {
         "fields_shown": [
@@ -2818,7 +2917,8 @@
       },
       "expected_admission": "needs_payer_reconfirmation",
       "expected_disposition": "needs_payer_reconfirmation",
-      "dispatch_allowed": false
+      "dispatch_allowed": false,
+      "evaluation_time": "2026-11-05T09:03:00Z"
     },
     {
       "scenario_id": "PPV-019",
@@ -2886,7 +2986,9 @@
         "intent_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "profile_id": "EU-EPC-VOP-1.1-V1",
         "source_ref": "EPC_VOP_RULEBOOK_V11_2026",
-        "evidence_ref": "PROVIDER-JWS-PPV-019"
+        "evidence_ref": "PROVIDER-JWS-PPV-019",
+        "issued_at": "2026-11-05T09:01:30Z",
+        "expires_at": "2026-11-05T09:04:30Z"
       },
       "limit_fee": {
         "status": "allowed",
@@ -2898,7 +3000,9 @@
         "fee_payer": "payer",
         "fee_disclosed": true,
         "source_ref": "SYNTHETIC_PARTICIPANT_TEST_PROFILE_V1",
-        "evidence_ref": "LIMIT-FEE-PPV-019"
+        "evidence_ref": "LIMIT-FEE-PPV-019",
+        "observed_at": "2026-11-05T09:01:00Z",
+        "expires_at": "2026-11-05T09:10:00Z"
       },
       "presentation": {
         "fields_shown": [
@@ -2960,7 +3064,8 @@
       },
       "expected_admission": "needs_payer_reconfirmation",
       "expected_disposition": "needs_payer_reconfirmation",
-      "dispatch_allowed": false
+      "dispatch_allowed": false,
+      "evaluation_time": "2026-11-05T09:03:00Z"
     },
     {
       "scenario_id": "PPV-020",
@@ -3028,7 +3133,9 @@
         "intent_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "profile_id": "EU-EPC-VOP-1.1-V1",
         "source_ref": "EPC_VOP_RULEBOOK_V11_2026",
-        "evidence_ref": "PROVIDER-JWS-PPV-020"
+        "evidence_ref": "PROVIDER-JWS-PPV-020",
+        "issued_at": "2026-11-05T09:01:30Z",
+        "expires_at": "2026-11-05T09:04:30Z"
       },
       "limit_fee": {
         "status": "allowed",
@@ -3040,7 +3147,9 @@
         "fee_payer": "payer",
         "fee_disclosed": true,
         "source_ref": "SYNTHETIC_PARTICIPANT_TEST_PROFILE_V1",
-        "evidence_ref": "LIMIT-FEE-PPV-020"
+        "evidence_ref": "LIMIT-FEE-PPV-020",
+        "observed_at": "2026-11-05T09:01:00Z",
+        "expires_at": "2026-11-05T09:10:00Z"
       },
       "presentation": {
         "fields_shown": [
@@ -3102,7 +3211,8 @@
       },
       "expected_admission": "needs_payer_reconfirmation",
       "expected_disposition": "needs_payer_reconfirmation",
-      "dispatch_allowed": false
+      "dispatch_allowed": false,
+      "evaluation_time": "2026-11-05T09:03:00Z"
     },
     {
       "scenario_id": "PPV-021",
@@ -3149,8 +3259,8 @@
         "profile_id": "ZA-PAYSHAP-UNQUALIFIED-V1",
         "subject_commitment": "subject:beneficiary-001",
         "intent_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-        "observed_at": "2026-11-05T09:01:30Z",
-        "expires_at": "2026-11-05T09:04:30Z",
+        "observed_at": null,
+        "expires_at": null,
         "source_ref": "SARB_PEM_POSITION_2025",
         "evidence_ref": null
       },
@@ -3165,7 +3275,9 @@
         "fee_payer": "payer",
         "fee_disclosed": true,
         "source_ref": "SYNTHETIC_PARTICIPANT_TEST_PROFILE_V1",
-        "evidence_ref": "LIMIT-FEE-PPV-021"
+        "evidence_ref": "LIMIT-FEE-PPV-021",
+        "observed_at": "2026-11-05T09:01:00Z",
+        "expires_at": "2026-11-05T09:10:00Z"
       },
       "presentation": {
         "fields_shown": [
@@ -3227,7 +3339,8 @@
       },
       "expected_admission": "quarantined_unknown",
       "expected_disposition": "quarantined_unknown",
-      "dispatch_allowed": false
+      "dispatch_allowed": false,
+      "evaluation_time": "2026-11-05T09:03:00Z"
     },
     {
       "scenario_id": "PPV-022",
@@ -3295,7 +3408,9 @@
         "intent_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "profile_id": "EU-EPC-VOP-1.1-V1",
         "source_ref": "EPC_VOP_RULEBOOK_V11_2026",
-        "evidence_ref": "PROVIDER-JWS-PPV-022"
+        "evidence_ref": "PROVIDER-JWS-PPV-022",
+        "issued_at": "2026-11-05T09:01:30Z",
+        "expires_at": "2026-11-05T09:04:30Z"
       },
       "limit_fee": {
         "status": "allowed",
@@ -3307,7 +3422,9 @@
         "fee_payer": "payer",
         "fee_disclosed": true,
         "source_ref": "SYNTHETIC_PARTICIPANT_TEST_PROFILE_V1",
-        "evidence_ref": "LIMIT-FEE-PPV-022"
+        "evidence_ref": "LIMIT-FEE-PPV-022",
+        "observed_at": "2026-11-05T09:01:00Z",
+        "expires_at": "2026-11-05T09:10:00Z"
       },
       "presentation": {
         "fields_shown": [
@@ -3370,7 +3487,8 @@
       "expected_admission": "quarantined_unknown",
       "expected_disposition": "quarantined_unknown",
       "dispatch_allowed": false,
-      "profile_expired_override": true
+      "profile_expired_override": true,
+      "evaluation_time": "2026-11-05T09:03:00Z"
     },
     {
       "scenario_id": "PPV-023",
@@ -3438,7 +3556,9 @@
         "intent_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "profile_id": "EU-EPC-VOP-1.1-V1",
         "source_ref": "EPC_VOP_RULEBOOK_V11_2026",
-        "evidence_ref": "PROVIDER-JWS-PPV-023"
+        "evidence_ref": "PROVIDER-JWS-PPV-023",
+        "issued_at": "2026-11-05T09:01:30Z",
+        "expires_at": "2026-11-05T09:04:30Z"
       },
       "limit_fee": {
         "status": "denied",
@@ -3450,7 +3570,9 @@
         "fee_payer": "payer",
         "fee_disclosed": true,
         "source_ref": "SYNTHETIC_PARTICIPANT_TEST_PROFILE_V1",
-        "evidence_ref": "LIMIT-FEE-PPV-023"
+        "evidence_ref": "LIMIT-FEE-PPV-023",
+        "observed_at": "2026-11-05T09:01:00Z",
+        "expires_at": "2026-11-05T09:10:00Z"
       },
       "presentation": {
         "fields_shown": [
@@ -3512,7 +3634,8 @@
       },
       "expected_admission": "ineligible_under_profile",
       "expected_disposition": "ineligible_under_profile",
-      "dispatch_allowed": false
+      "dispatch_allowed": false,
+      "evaluation_time": "2026-11-05T09:03:00Z"
     },
     {
       "scenario_id": "PPV-024",
@@ -3580,7 +3703,9 @@
         "intent_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "profile_id": "EU-EPC-VOP-1.1-V1",
         "source_ref": "EPC_VOP_RULEBOOK_V11_2026",
-        "evidence_ref": "PROVIDER-JWS-PPV-024"
+        "evidence_ref": "PROVIDER-JWS-PPV-024",
+        "issued_at": "2026-11-05T09:01:30Z",
+        "expires_at": "2026-11-05T09:04:30Z"
       },
       "limit_fee": {
         "status": "allowed",
@@ -3592,7 +3717,9 @@
         "fee_payer": "payer",
         "fee_disclosed": false,
         "source_ref": "SYNTHETIC_PARTICIPANT_TEST_PROFILE_V1",
-        "evidence_ref": "LIMIT-FEE-PPV-024"
+        "evidence_ref": "LIMIT-FEE-PPV-024",
+        "observed_at": "2026-11-05T09:01:00Z",
+        "expires_at": "2026-11-05T09:10:00Z"
       },
       "presentation": {
         "fields_shown": [
@@ -3654,7 +3781,8 @@
       },
       "expected_admission": "rejected_evidence",
       "expected_disposition": "rejected_evidence",
-      "dispatch_allowed": false
+      "dispatch_allowed": false,
+      "evaluation_time": "2026-11-05T09:03:00Z"
     },
     {
       "scenario_id": "PPV-025",
@@ -3722,7 +3850,9 @@
         "intent_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "profile_id": "EU-EPC-VOP-1.1-V1",
         "source_ref": "EPC_VOP_RULEBOOK_V11_2026",
-        "evidence_ref": "PROVIDER-JWS-PPV-025"
+        "evidence_ref": "PROVIDER-JWS-PPV-025",
+        "issued_at": "2026-11-05T09:01:30Z",
+        "expires_at": "2026-11-05T09:04:30Z"
       },
       "limit_fee": {
         "status": "allowed",
@@ -3734,7 +3864,9 @@
         "fee_payer": "payer",
         "fee_disclosed": true,
         "source_ref": "SYNTHETIC_PARTICIPANT_TEST_PROFILE_V1",
-        "evidence_ref": "LIMIT-FEE-PPV-025"
+        "evidence_ref": "LIMIT-FEE-PPV-025",
+        "observed_at": "2026-11-05T09:01:00Z",
+        "expires_at": "2026-11-05T09:10:00Z"
       },
       "presentation": {
         "fields_shown": [
@@ -3796,7 +3928,8 @@
       },
       "expected_admission": "rejected_evidence",
       "expected_disposition": "rejected_evidence",
-      "dispatch_allowed": false
+      "dispatch_allowed": false,
+      "evaluation_time": "2026-11-05T09:03:00Z"
     },
     {
       "scenario_id": "PPV-026",
@@ -3864,7 +3997,9 @@
         "intent_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "profile_id": "EU-EPC-VOP-1.1-V1",
         "source_ref": "EPC_VOP_RULEBOOK_V11_2026",
-        "evidence_ref": "PROVIDER-JWS-PPV-026"
+        "evidence_ref": "PROVIDER-JWS-PPV-026",
+        "issued_at": "2026-11-05T09:01:30Z",
+        "expires_at": "2026-11-05T09:04:30Z"
       },
       "limit_fee": {
         "status": "allowed",
@@ -3876,7 +4011,9 @@
         "fee_payer": "payer",
         "fee_disclosed": true,
         "source_ref": "SYNTHETIC_PARTICIPANT_TEST_PROFILE_V1",
-        "evidence_ref": "LIMIT-FEE-PPV-026"
+        "evidence_ref": "LIMIT-FEE-PPV-026",
+        "observed_at": "2026-11-05T09:01:00Z",
+        "expires_at": "2026-11-05T09:10:00Z"
       },
       "presentation": {
         "fields_shown": [
@@ -3938,7 +4075,8 @@
       },
       "expected_admission": "ready_for_payer_decision",
       "expected_disposition": "awaiting_payer_decision",
-      "dispatch_allowed": false
+      "dispatch_allowed": false,
+      "evaluation_time": "2026-11-05T09:03:00Z"
     },
     {
       "scenario_id": "PPV-027",
@@ -4006,7 +4144,9 @@
         "intent_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "profile_id": "EU-EPC-VOP-1.1-V1",
         "source_ref": "EPC_VOP_RULEBOOK_V11_2026",
-        "evidence_ref": "PROVIDER-JWS-PPV-027"
+        "evidence_ref": "PROVIDER-JWS-PPV-027",
+        "issued_at": "2026-11-05T09:01:30Z",
+        "expires_at": "2026-11-05T09:04:30Z"
       },
       "limit_fee": {
         "status": "allowed",
@@ -4018,7 +4158,9 @@
         "fee_payer": "payer",
         "fee_disclosed": true,
         "source_ref": "SYNTHETIC_PARTICIPANT_TEST_PROFILE_V1",
-        "evidence_ref": "LIMIT-FEE-PPV-027"
+        "evidence_ref": "LIMIT-FEE-PPV-027",
+        "observed_at": "2026-11-05T09:01:00Z",
+        "expires_at": "2026-11-05T09:10:00Z"
       },
       "presentation": {
         "fields_shown": [
@@ -4080,7 +4222,8 @@
       },
       "expected_admission": "ready_for_payer_decision",
       "expected_disposition": "payer_declined",
-      "dispatch_allowed": false
+      "dispatch_allowed": false,
+      "evaluation_time": "2026-11-05T09:03:00Z"
     },
     {
       "scenario_id": "PPV-028",
@@ -4148,7 +4291,9 @@
         "intent_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "profile_id": "EU-EPC-VOP-1.1-V1",
         "source_ref": "EPC_VOP_RULEBOOK_V11_2026",
-        "evidence_ref": "PROVIDER-JWS-PPV-028"
+        "evidence_ref": "PROVIDER-JWS-PPV-028",
+        "issued_at": "2026-11-05T09:01:30Z",
+        "expires_at": "2026-11-05T09:04:30Z"
       },
       "limit_fee": {
         "status": "allowed",
@@ -4160,7 +4305,9 @@
         "fee_payer": "payer",
         "fee_disclosed": true,
         "source_ref": "SYNTHETIC_PARTICIPANT_TEST_PROFILE_V1",
-        "evidence_ref": "LIMIT-FEE-PPV-028"
+        "evidence_ref": "LIMIT-FEE-PPV-028",
+        "observed_at": "2026-11-05T09:01:00Z",
+        "expires_at": "2026-11-05T09:10:00Z"
       },
       "presentation": {
         "fields_shown": [
@@ -4222,7 +4369,8 @@
       },
       "expected_admission": "ready_for_payer_decision",
       "expected_disposition": "awaiting_payer_response",
-      "dispatch_allowed": false
+      "dispatch_allowed": false,
+      "evaluation_time": "2026-11-05T09:03:00Z"
     },
     {
       "scenario_id": "PPV-029",
@@ -4269,8 +4417,8 @@
         "profile_id": "ZA-NPU-PROPOSAL-ONLY-V1",
         "subject_commitment": "subject:beneficiary-001",
         "intent_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-        "observed_at": "2026-11-05T09:01:30Z",
-        "expires_at": "2026-11-05T09:04:30Z",
+        "observed_at": null,
+        "expires_at": null,
         "source_ref": "SARB_PEM_POSITION_2025",
         "evidence_ref": null
       },
@@ -4285,7 +4433,9 @@
         "fee_payer": "payer",
         "fee_disclosed": true,
         "source_ref": "SYNTHETIC_PARTICIPANT_TEST_PROFILE_V1",
-        "evidence_ref": "LIMIT-FEE-PPV-029"
+        "evidence_ref": "LIMIT-FEE-PPV-029",
+        "observed_at": "2026-11-05T09:01:00Z",
+        "expires_at": "2026-11-05T09:10:00Z"
       },
       "presentation": {
         "fields_shown": [
@@ -4347,7 +4497,8 @@
       },
       "expected_admission": "ready_with_warning",
       "expected_disposition": "awaiting_payer_decision",
-      "dispatch_allowed": false
+      "dispatch_allowed": false,
+      "evaluation_time": "2026-11-05T09:03:00Z"
     },
     {
       "scenario_id": "PPV-030",
@@ -4415,7 +4566,9 @@
         "intent_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "profile_id": "EU-EPC-VOP-1.1-V1",
         "source_ref": "EPC_VOP_RULEBOOK_V11_2026",
-        "evidence_ref": "PROVIDER-JWS-PPV-030"
+        "evidence_ref": "PROVIDER-JWS-PPV-030",
+        "issued_at": "2026-11-05T09:01:30Z",
+        "expires_at": "2026-11-05T09:04:30Z"
       },
       "limit_fee": {
         "status": "allowed",
@@ -4427,7 +4580,9 @@
         "fee_payer": "payer",
         "fee_disclosed": true,
         "source_ref": "SYNTHETIC_PARTICIPANT_TEST_PROFILE_V1",
-        "evidence_ref": "LIMIT-FEE-PPV-030"
+        "evidence_ref": "LIMIT-FEE-PPV-030",
+        "observed_at": "2026-11-05T09:01:00Z",
+        "expires_at": "2026-11-05T09:10:00Z"
       },
       "presentation": {
         "fields_shown": [
@@ -4494,7 +4649,8 @@
         "state": "stale",
         "used_for_admission": false,
         "source_ref": "BIS_PAYMENT_PREVALIDATION_2025"
-      }
+      },
+      "evaluation_time": "2026-11-05T09:03:00Z"
     },
     {
       "scenario_id": "PPV-031",
@@ -4562,7 +4718,9 @@
         "intent_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "profile_id": "EU-EPC-VOP-1.1-V1",
         "source_ref": "EPC_VOP_RULEBOOK_V11_2026",
-        "evidence_ref": "PROVIDER-JWS-PPV-031"
+        "evidence_ref": "PROVIDER-JWS-PPV-031",
+        "issued_at": "2026-11-05T09:01:30Z",
+        "expires_at": "2026-11-05T09:04:30Z"
       },
       "limit_fee": {
         "status": "allowed",
@@ -4574,7 +4732,9 @@
         "fee_payer": "payer",
         "fee_disclosed": true,
         "source_ref": "SYNTHETIC_PARTICIPANT_TEST_PROFILE_V1",
-        "evidence_ref": "LIMIT-FEE-PPV-031"
+        "evidence_ref": "LIMIT-FEE-PPV-031",
+        "observed_at": "2026-11-05T09:01:00Z",
+        "expires_at": "2026-11-05T09:10:00Z"
       },
       "presentation": {
         "fields_shown": [
@@ -4641,7 +4801,8 @@
         "state": "stale",
         "used_for_admission": true,
         "source_ref": "BIS_PAYMENT_PREVALIDATION_2025"
-      }
+      },
+      "evaluation_time": "2026-11-05T09:03:00Z"
     },
     {
       "scenario_id": "PPV-032",
@@ -4688,8 +4849,8 @@
         "profile_id": "SADC-CROSS-BORDER-UNQUALIFIED-V1",
         "subject_commitment": "subject:beneficiary-001",
         "intent_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-        "observed_at": "2026-11-05T09:01:30Z",
-        "expires_at": "2026-11-05T09:04:30Z",
+        "observed_at": null,
+        "expires_at": null,
         "source_ref": "BIS_PAYMENT_PREVALIDATION_2025",
         "evidence_ref": null
       },
@@ -4704,7 +4865,9 @@
         "fee_payer": "payer",
         "fee_disclosed": true,
         "source_ref": "SYNTHETIC_PARTICIPANT_TEST_PROFILE_V1",
-        "evidence_ref": "LIMIT-FEE-PPV-032"
+        "evidence_ref": "LIMIT-FEE-PPV-032",
+        "observed_at": "2026-11-05T09:01:00Z",
+        "expires_at": "2026-11-05T09:10:00Z"
       },
       "presentation": {
         "fields_shown": [
@@ -4766,7 +4929,8 @@
       },
       "expected_admission": "quarantined_unknown",
       "expected_disposition": "quarantined_unknown",
-      "dispatch_allowed": false
+      "dispatch_allowed": false,
+      "evaluation_time": "2026-11-05T09:03:00Z"
     },
     {
       "scenario_id": "PPV-033",
@@ -4834,7 +4998,9 @@
         "intent_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "profile_id": "UK-FPS-COP-2026-V1",
         "source_ref": "UK_PSR_COP_2026",
-        "evidence_ref": "PROVIDER-JWS-PPV-033"
+        "evidence_ref": "PROVIDER-JWS-PPV-033",
+        "issued_at": "2026-11-05T09:01:30Z",
+        "expires_at": "2026-11-05T09:04:30Z"
       },
       "limit_fee": {
         "status": "allowed",
@@ -4846,7 +5012,9 @@
         "fee_payer": "payer",
         "fee_disclosed": true,
         "source_ref": "SYNTHETIC_PARTICIPANT_TEST_PROFILE_V1",
-        "evidence_ref": "LIMIT-FEE-PPV-033"
+        "evidence_ref": "LIMIT-FEE-PPV-033",
+        "observed_at": "2026-11-05T09:01:00Z",
+        "expires_at": "2026-11-05T09:10:00Z"
       },
       "presentation": {
         "fields_shown": [
@@ -4908,7 +5076,8 @@
       },
       "expected_admission": "quarantined_unknown",
       "expected_disposition": "quarantined_unknown",
-      "dispatch_allowed": false
+      "dispatch_allowed": false,
+      "evaluation_time": "2026-11-05T09:03:00Z"
     },
     {
       "scenario_id": "PPV-034",
@@ -4976,7 +5145,9 @@
         "intent_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "profile_id": "EU-EPC-VOP-1.1-V1",
         "source_ref": "EPC_VOP_RULEBOOK_V11_2026",
-        "evidence_ref": "PROVIDER-JWS-PPV-034"
+        "evidence_ref": "PROVIDER-JWS-PPV-034",
+        "issued_at": "2026-11-05T09:01:30Z",
+        "expires_at": "2026-11-05T09:04:30Z"
       },
       "limit_fee": {
         "status": "allowed",
@@ -4988,7 +5159,9 @@
         "fee_payer": "payer",
         "fee_disclosed": true,
         "source_ref": "SYNTHETIC_PARTICIPANT_TEST_PROFILE_V1",
-        "evidence_ref": "LIMIT-FEE-PPV-034"
+        "evidence_ref": "LIMIT-FEE-PPV-034",
+        "observed_at": "2026-11-05T09:01:00Z",
+        "expires_at": "2026-11-05T09:10:00Z"
       },
       "presentation": {
         "fields_shown": [
@@ -5050,7 +5223,8 @@
       },
       "expected_admission": "needs_payer_reconfirmation",
       "expected_disposition": "needs_payer_reconfirmation",
-      "dispatch_allowed": false
+      "dispatch_allowed": false,
+      "evaluation_time": "2026-11-05T09:03:00Z"
     },
     {
       "scenario_id": "PPV-035",
@@ -5118,7 +5292,9 @@
         "intent_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "profile_id": "EU-EPC-VOP-1.1-V1",
         "source_ref": "EPC_VOP_RULEBOOK_V11_2026",
-        "evidence_ref": "PROVIDER-JWS-PPV-035"
+        "evidence_ref": "PROVIDER-JWS-PPV-035",
+        "issued_at": "2026-11-05T09:01:30Z",
+        "expires_at": "2026-11-05T09:04:30Z"
       },
       "limit_fee": {
         "status": "allowed",
@@ -5130,7 +5306,9 @@
         "fee_payer": "payer",
         "fee_disclosed": true,
         "source_ref": "SYNTHETIC_PARTICIPANT_TEST_PROFILE_V1",
-        "evidence_ref": "LIMIT-FEE-PPV-035"
+        "evidence_ref": "LIMIT-FEE-PPV-035",
+        "observed_at": "2026-11-05T09:01:00Z",
+        "expires_at": "2026-11-05T09:10:00Z"
       },
       "presentation": {
         "fields_shown": [
@@ -5191,7 +5369,8 @@
       },
       "expected_admission": "rejected_evidence",
       "expected_disposition": "rejected_evidence",
-      "dispatch_allowed": false
+      "dispatch_allowed": false,
+      "evaluation_time": "2026-11-05T09:03:00Z"
     },
     {
       "scenario_id": "PPV-036",
@@ -5259,7 +5438,9 @@
         "intent_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "profile_id": "ZA-NPU-PROPOSAL-ONLY-V1",
         "source_ref": "SARB_PEM_POSITION_2025",
-        "evidence_ref": "FAKE-VOP"
+        "evidence_ref": "FAKE-VOP",
+        "issued_at": "2026-11-05T09:01:30Z",
+        "expires_at": "2026-11-05T09:04:30Z"
       },
       "limit_fee": {
         "status": "allowed",
@@ -5271,7 +5452,9 @@
         "fee_payer": "payer",
         "fee_disclosed": true,
         "source_ref": "SYNTHETIC_PARTICIPANT_TEST_PROFILE_V1",
-        "evidence_ref": "LIMIT-FEE-PPV-036"
+        "evidence_ref": "LIMIT-FEE-PPV-036",
+        "observed_at": "2026-11-05T09:01:00Z",
+        "expires_at": "2026-11-05T09:10:00Z"
       },
       "presentation": {
         "fields_shown": [
@@ -5333,7 +5516,890 @@
       },
       "expected_admission": "rejected_evidence",
       "expected_disposition": "rejected_evidence",
-      "dispatch_allowed": false
+      "dispatch_allowed": false,
+      "evaluation_time": "2026-11-05T09:03:00Z"
+    },
+    {
+      "scenario_id": "PPV-037",
+      "scenario_type": "provider_signed_response_expiry_passed_but_fresh_label",
+      "profile_id": "EU-EPC-VOP-1.1-V1",
+      "intent": {
+        "profile_id": "EU-EPC-VOP-1.1-V1",
+        "intent_ref": "INTENT-PPV-001",
+        "intent_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "digest_state": "verified_by_upstream_intent_contract",
+        "digest_evidence_ref": "INTENT-PROOF-PPV-001",
+        "jurisdiction": "EU-SEPA",
+        "payer_participant": "PAYER-PSP-EU-001",
+        "payee_participant": "PAYEE-PSP-EU-001",
+        "beneficiary_subject_commitment": "subject:beneficiary-001",
+        "payer_subject_commitment": "subject:payer-001",
+        "amount_minor_units": 1000,
+        "currency": "EUR",
+        "instrument": "credit_transfer",
+        "purpose": "invoice_payment",
+        "reference": "INV-SYNTH-001",
+        "rail": "SCT_or_SCT_INST",
+        "channel": "mobile_app",
+        "issued_at": "2026-11-05T09:00:00Z",
+        "expires_at": "2026-11-05T09:10:00Z"
+      },
+      "payee_resolution": {
+        "status": "resolved",
+        "provider": "PAYEE-PSP-EU-001",
+        "participant": "PAYEE-PSP-EU-001",
+        "profile_id": "EU-EPC-VOP-1.1-V1",
+        "subject_commitment": "subject:beneficiary-001",
+        "intent_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "observed_at": "2026-11-05T09:01:00Z",
+        "expires_at": "2026-11-05T09:05:00Z",
+        "provider_authentication_state": "authenticated_fixture",
+        "freshness_state": "fresh",
+        "source_ref": "EPC_VOP_RULEBOOK_V11_2026",
+        "evidence_ref": "PAYEE-RESOLUTION-PPV-001"
+      },
+      "vop_result": {
+        "status": "match",
+        "scheme": "EPC_VOP",
+        "profile_id": "EU-EPC-VOP-1.1-V1",
+        "subject_commitment": "subject:beneficiary-001",
+        "intent_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "observed_at": "2026-11-05T09:01:30Z",
+        "expires_at": "2026-11-05T09:04:30Z",
+        "source_ref": "EPC_VOP_RULEBOOK_V11_2026",
+        "evidence_ref": "VOP-RESULT-PPV-001"
+      },
+      "provider_evidence": {
+        "verification_state": "verified_fixture",
+        "issuer": "PAYEE-PSP-EU-001",
+        "audience": "PAYER-PSP-EU-001",
+        "response_type": "payee-verification-result",
+        "key_id": "TEST-KEY-01",
+        "algorithm": "ES256",
+        "algorithm_policy_state": "allowed",
+        "key_trust_state": "authorised_current",
+        "key_source_state": "profile_allowlisted",
+        "freshness_state": "fresh",
+        "replay_state": "not_replayed",
+        "subject_commitment": "subject:beneficiary-001",
+        "intent_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "profile_id": "EU-EPC-VOP-1.1-V1",
+        "source_ref": "EPC_VOP_RULEBOOK_V11_2026",
+        "evidence_ref": "PROVIDER-JWS-PPV-001",
+        "issued_at": "2026-11-05T09:01:30Z",
+        "expires_at": "2026-11-05T09:02:59Z"
+      },
+      "limit_fee": {
+        "status": "allowed",
+        "profile_id": "EU-EPC-VOP-1.1-V1",
+        "participant": "PAYER-PSP-EU-001",
+        "amount_minor_units": 1000,
+        "currency": "EUR",
+        "fee_minor_units": 5,
+        "fee_payer": "payer",
+        "fee_disclosed": true,
+        "source_ref": "SYNTHETIC_PARTICIPANT_TEST_PROFILE_V1",
+        "evidence_ref": "LIMIT-FEE-PPV-001",
+        "observed_at": "2026-11-05T09:01:00Z",
+        "expires_at": "2026-11-05T09:10:00Z"
+      },
+      "presentation": {
+        "fields_shown": [
+          "beneficiary",
+          "amount",
+          "currency",
+          "instrument",
+          "purpose",
+          "reference",
+          "fee",
+          "participant",
+          "rail",
+          "channel",
+          "expiry",
+          "verification_result",
+          "warnings"
+        ],
+        "warnings_shown": [
+          "Verify the exact recipient and payment details before authorising."
+        ],
+        "signed_payload": "sha256:1eba2b14f8445dfd8ab6cc9d1e57ef0e132d84d597b9fe44380c23119a878b86",
+        "presented_at": "2026-11-05T09:01:45Z",
+        "payload": {
+          "profile_id": "EU-EPC-VOP-1.1-V1",
+          "intent_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "beneficiary_subject_commitment": "subject:beneficiary-001",
+          "amount_minor_units": 1000,
+          "currency": "EUR",
+          "instrument": "credit_transfer",
+          "purpose": "invoice_payment",
+          "reference": "INV-SYNTH-001",
+          "fee_minor_units": 5,
+          "fee_payer": "payer",
+          "participant": "PAYER-PSP-EU-001",
+          "rail": "SCT_or_SCT_INST",
+          "channel": "mobile_app",
+          "expiry_at": "2026-11-05T09:10:00Z",
+          "verification_result": "match",
+          "warnings": [
+            "Verify the exact recipient and payment details before authorising."
+          ]
+        }
+      },
+      "evidence_refs": [
+        "INTENT-PROOF-PPV-001",
+        "PAYEE-RESOLUTION-PPV-001",
+        "PROVIDER-JWS-PPV-001",
+        "LIMIT-FEE-PPV-001"
+      ],
+      "evidence_set_digest": "sha256:1dec4e85f1e4046ed4e97b76ff5c3363391eca3e48fa08535f6c3e3e53e2ad68",
+      "consent": {
+        "decision": "not_yet_decided",
+        "authority_state": "not_applicable",
+        "intent_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "presentation_digest": "sha256:1eba2b14f8445dfd8ab6cc9d1e57ef0e132d84d597b9fe44380c23119a878b86",
+        "evidence_set_digest": null,
+        "observed_at": null,
+        "nonce": null
+      },
+      "expected_admission": "quarantined_unknown",
+      "expected_disposition": "quarantined_unknown",
+      "dispatch_allowed": false,
+      "evaluation_time": "2026-11-05T09:03:00Z"
+    },
+    {
+      "scenario_id": "PPV-038",
+      "scenario_type": "vop_result_expiry_passed",
+      "profile_id": "EU-EPC-VOP-1.1-V1",
+      "intent": {
+        "profile_id": "EU-EPC-VOP-1.1-V1",
+        "intent_ref": "INTENT-PPV-001",
+        "intent_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "digest_state": "verified_by_upstream_intent_contract",
+        "digest_evidence_ref": "INTENT-PROOF-PPV-001",
+        "jurisdiction": "EU-SEPA",
+        "payer_participant": "PAYER-PSP-EU-001",
+        "payee_participant": "PAYEE-PSP-EU-001",
+        "beneficiary_subject_commitment": "subject:beneficiary-001",
+        "payer_subject_commitment": "subject:payer-001",
+        "amount_minor_units": 1000,
+        "currency": "EUR",
+        "instrument": "credit_transfer",
+        "purpose": "invoice_payment",
+        "reference": "INV-SYNTH-001",
+        "rail": "SCT_or_SCT_INST",
+        "channel": "mobile_app",
+        "issued_at": "2026-11-05T09:00:00Z",
+        "expires_at": "2026-11-05T09:10:00Z"
+      },
+      "payee_resolution": {
+        "status": "resolved",
+        "provider": "PAYEE-PSP-EU-001",
+        "participant": "PAYEE-PSP-EU-001",
+        "profile_id": "EU-EPC-VOP-1.1-V1",
+        "subject_commitment": "subject:beneficiary-001",
+        "intent_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "observed_at": "2026-11-05T09:01:00Z",
+        "expires_at": "2026-11-05T09:05:00Z",
+        "provider_authentication_state": "authenticated_fixture",
+        "freshness_state": "fresh",
+        "source_ref": "EPC_VOP_RULEBOOK_V11_2026",
+        "evidence_ref": "PAYEE-RESOLUTION-PPV-001"
+      },
+      "vop_result": {
+        "status": "match",
+        "scheme": "EPC_VOP",
+        "profile_id": "EU-EPC-VOP-1.1-V1",
+        "subject_commitment": "subject:beneficiary-001",
+        "intent_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "observed_at": "2026-11-05T09:01:30Z",
+        "expires_at": "2026-11-05T09:02:59Z",
+        "source_ref": "EPC_VOP_RULEBOOK_V11_2026",
+        "evidence_ref": "VOP-RESULT-PPV-001"
+      },
+      "provider_evidence": {
+        "verification_state": "verified_fixture",
+        "issuer": "PAYEE-PSP-EU-001",
+        "audience": "PAYER-PSP-EU-001",
+        "response_type": "payee-verification-result",
+        "key_id": "TEST-KEY-01",
+        "algorithm": "ES256",
+        "algorithm_policy_state": "allowed",
+        "key_trust_state": "authorised_current",
+        "key_source_state": "profile_allowlisted",
+        "freshness_state": "fresh",
+        "replay_state": "not_replayed",
+        "subject_commitment": "subject:beneficiary-001",
+        "intent_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "profile_id": "EU-EPC-VOP-1.1-V1",
+        "source_ref": "EPC_VOP_RULEBOOK_V11_2026",
+        "evidence_ref": "PROVIDER-JWS-PPV-001",
+        "issued_at": "2026-11-05T09:01:30Z",
+        "expires_at": "2026-11-05T09:04:30Z"
+      },
+      "limit_fee": {
+        "status": "allowed",
+        "profile_id": "EU-EPC-VOP-1.1-V1",
+        "participant": "PAYER-PSP-EU-001",
+        "amount_minor_units": 1000,
+        "currency": "EUR",
+        "fee_minor_units": 5,
+        "fee_payer": "payer",
+        "fee_disclosed": true,
+        "source_ref": "SYNTHETIC_PARTICIPANT_TEST_PROFILE_V1",
+        "evidence_ref": "LIMIT-FEE-PPV-001",
+        "observed_at": "2026-11-05T09:01:00Z",
+        "expires_at": "2026-11-05T09:10:00Z"
+      },
+      "presentation": {
+        "fields_shown": [
+          "beneficiary",
+          "amount",
+          "currency",
+          "instrument",
+          "purpose",
+          "reference",
+          "fee",
+          "participant",
+          "rail",
+          "channel",
+          "expiry",
+          "verification_result",
+          "warnings"
+        ],
+        "warnings_shown": [
+          "Verify the exact recipient and payment details before authorising."
+        ],
+        "signed_payload": "sha256:1eba2b14f8445dfd8ab6cc9d1e57ef0e132d84d597b9fe44380c23119a878b86",
+        "presented_at": "2026-11-05T09:01:45Z",
+        "payload": {
+          "profile_id": "EU-EPC-VOP-1.1-V1",
+          "intent_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "beneficiary_subject_commitment": "subject:beneficiary-001",
+          "amount_minor_units": 1000,
+          "currency": "EUR",
+          "instrument": "credit_transfer",
+          "purpose": "invoice_payment",
+          "reference": "INV-SYNTH-001",
+          "fee_minor_units": 5,
+          "fee_payer": "payer",
+          "participant": "PAYER-PSP-EU-001",
+          "rail": "SCT_or_SCT_INST",
+          "channel": "mobile_app",
+          "expiry_at": "2026-11-05T09:10:00Z",
+          "verification_result": "match",
+          "warnings": [
+            "Verify the exact recipient and payment details before authorising."
+          ]
+        }
+      },
+      "evidence_refs": [
+        "INTENT-PROOF-PPV-001",
+        "PAYEE-RESOLUTION-PPV-001",
+        "PROVIDER-JWS-PPV-001",
+        "LIMIT-FEE-PPV-001"
+      ],
+      "evidence_set_digest": "sha256:1dec4e85f1e4046ed4e97b76ff5c3363391eca3e48fa08535f6c3e3e53e2ad68",
+      "consent": {
+        "decision": "not_yet_decided",
+        "authority_state": "not_applicable",
+        "intent_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "presentation_digest": "sha256:1eba2b14f8445dfd8ab6cc9d1e57ef0e132d84d597b9fe44380c23119a878b86",
+        "evidence_set_digest": null,
+        "observed_at": null,
+        "nonce": null
+      },
+      "expected_admission": "quarantined_unknown",
+      "expected_disposition": "quarantined_unknown",
+      "dispatch_allowed": false,
+      "evaluation_time": "2026-11-05T09:03:00Z"
+    },
+    {
+      "scenario_id": "PPV-039",
+      "scenario_type": "payee_resolution_expiry_passed",
+      "profile_id": "EU-EPC-VOP-1.1-V1",
+      "intent": {
+        "profile_id": "EU-EPC-VOP-1.1-V1",
+        "intent_ref": "INTENT-PPV-001",
+        "intent_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "digest_state": "verified_by_upstream_intent_contract",
+        "digest_evidence_ref": "INTENT-PROOF-PPV-001",
+        "jurisdiction": "EU-SEPA",
+        "payer_participant": "PAYER-PSP-EU-001",
+        "payee_participant": "PAYEE-PSP-EU-001",
+        "beneficiary_subject_commitment": "subject:beneficiary-001",
+        "payer_subject_commitment": "subject:payer-001",
+        "amount_minor_units": 1000,
+        "currency": "EUR",
+        "instrument": "credit_transfer",
+        "purpose": "invoice_payment",
+        "reference": "INV-SYNTH-001",
+        "rail": "SCT_or_SCT_INST",
+        "channel": "mobile_app",
+        "issued_at": "2026-11-05T09:00:00Z",
+        "expires_at": "2026-11-05T09:10:00Z"
+      },
+      "payee_resolution": {
+        "status": "resolved",
+        "provider": "PAYEE-PSP-EU-001",
+        "participant": "PAYEE-PSP-EU-001",
+        "profile_id": "EU-EPC-VOP-1.1-V1",
+        "subject_commitment": "subject:beneficiary-001",
+        "intent_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "observed_at": "2026-11-05T09:01:00Z",
+        "expires_at": "2026-11-05T09:02:59Z",
+        "provider_authentication_state": "authenticated_fixture",
+        "freshness_state": "fresh",
+        "source_ref": "EPC_VOP_RULEBOOK_V11_2026",
+        "evidence_ref": "PAYEE-RESOLUTION-PPV-001"
+      },
+      "vop_result": {
+        "status": "match",
+        "scheme": "EPC_VOP",
+        "profile_id": "EU-EPC-VOP-1.1-V1",
+        "subject_commitment": "subject:beneficiary-001",
+        "intent_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "observed_at": "2026-11-05T09:01:30Z",
+        "expires_at": "2026-11-05T09:04:30Z",
+        "source_ref": "EPC_VOP_RULEBOOK_V11_2026",
+        "evidence_ref": "VOP-RESULT-PPV-001"
+      },
+      "provider_evidence": {
+        "verification_state": "verified_fixture",
+        "issuer": "PAYEE-PSP-EU-001",
+        "audience": "PAYER-PSP-EU-001",
+        "response_type": "payee-verification-result",
+        "key_id": "TEST-KEY-01",
+        "algorithm": "ES256",
+        "algorithm_policy_state": "allowed",
+        "key_trust_state": "authorised_current",
+        "key_source_state": "profile_allowlisted",
+        "freshness_state": "fresh",
+        "replay_state": "not_replayed",
+        "subject_commitment": "subject:beneficiary-001",
+        "intent_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "profile_id": "EU-EPC-VOP-1.1-V1",
+        "source_ref": "EPC_VOP_RULEBOOK_V11_2026",
+        "evidence_ref": "PROVIDER-JWS-PPV-001",
+        "issued_at": "2026-11-05T09:01:30Z",
+        "expires_at": "2026-11-05T09:04:30Z"
+      },
+      "limit_fee": {
+        "status": "allowed",
+        "profile_id": "EU-EPC-VOP-1.1-V1",
+        "participant": "PAYER-PSP-EU-001",
+        "amount_minor_units": 1000,
+        "currency": "EUR",
+        "fee_minor_units": 5,
+        "fee_payer": "payer",
+        "fee_disclosed": true,
+        "source_ref": "SYNTHETIC_PARTICIPANT_TEST_PROFILE_V1",
+        "evidence_ref": "LIMIT-FEE-PPV-001",
+        "observed_at": "2026-11-05T09:01:00Z",
+        "expires_at": "2026-11-05T09:10:00Z"
+      },
+      "presentation": {
+        "fields_shown": [
+          "beneficiary",
+          "amount",
+          "currency",
+          "instrument",
+          "purpose",
+          "reference",
+          "fee",
+          "participant",
+          "rail",
+          "channel",
+          "expiry",
+          "verification_result",
+          "warnings"
+        ],
+        "warnings_shown": [
+          "Verify the exact recipient and payment details before authorising."
+        ],
+        "signed_payload": "sha256:1eba2b14f8445dfd8ab6cc9d1e57ef0e132d84d597b9fe44380c23119a878b86",
+        "presented_at": "2026-11-05T09:01:45Z",
+        "payload": {
+          "profile_id": "EU-EPC-VOP-1.1-V1",
+          "intent_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "beneficiary_subject_commitment": "subject:beneficiary-001",
+          "amount_minor_units": 1000,
+          "currency": "EUR",
+          "instrument": "credit_transfer",
+          "purpose": "invoice_payment",
+          "reference": "INV-SYNTH-001",
+          "fee_minor_units": 5,
+          "fee_payer": "payer",
+          "participant": "PAYER-PSP-EU-001",
+          "rail": "SCT_or_SCT_INST",
+          "channel": "mobile_app",
+          "expiry_at": "2026-11-05T09:10:00Z",
+          "verification_result": "match",
+          "warnings": [
+            "Verify the exact recipient and payment details before authorising."
+          ]
+        }
+      },
+      "evidence_refs": [
+        "INTENT-PROOF-PPV-001",
+        "PAYEE-RESOLUTION-PPV-001",
+        "PROVIDER-JWS-PPV-001",
+        "LIMIT-FEE-PPV-001"
+      ],
+      "evidence_set_digest": "sha256:1dec4e85f1e4046ed4e97b76ff5c3363391eca3e48fa08535f6c3e3e53e2ad68",
+      "consent": {
+        "decision": "not_yet_decided",
+        "authority_state": "not_applicable",
+        "intent_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "presentation_digest": "sha256:1eba2b14f8445dfd8ab6cc9d1e57ef0e132d84d597b9fe44380c23119a878b86",
+        "evidence_set_digest": null,
+        "observed_at": null,
+        "nonce": null
+      },
+      "expected_admission": "quarantined_unknown",
+      "expected_disposition": "quarantined_unknown",
+      "dispatch_allowed": false,
+      "evaluation_time": "2026-11-05T09:03:00Z"
+    },
+    {
+      "scenario_id": "PPV-040",
+      "scenario_type": "provider_response_future_dated_but_fresh_label",
+      "profile_id": "EU-EPC-VOP-1.1-V1",
+      "intent": {
+        "profile_id": "EU-EPC-VOP-1.1-V1",
+        "intent_ref": "INTENT-PPV-001",
+        "intent_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "digest_state": "verified_by_upstream_intent_contract",
+        "digest_evidence_ref": "INTENT-PROOF-PPV-001",
+        "jurisdiction": "EU-SEPA",
+        "payer_participant": "PAYER-PSP-EU-001",
+        "payee_participant": "PAYEE-PSP-EU-001",
+        "beneficiary_subject_commitment": "subject:beneficiary-001",
+        "payer_subject_commitment": "subject:payer-001",
+        "amount_minor_units": 1000,
+        "currency": "EUR",
+        "instrument": "credit_transfer",
+        "purpose": "invoice_payment",
+        "reference": "INV-SYNTH-001",
+        "rail": "SCT_or_SCT_INST",
+        "channel": "mobile_app",
+        "issued_at": "2026-11-05T09:00:00Z",
+        "expires_at": "2026-11-05T09:10:00Z"
+      },
+      "payee_resolution": {
+        "status": "resolved",
+        "provider": "PAYEE-PSP-EU-001",
+        "participant": "PAYEE-PSP-EU-001",
+        "profile_id": "EU-EPC-VOP-1.1-V1",
+        "subject_commitment": "subject:beneficiary-001",
+        "intent_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "observed_at": "2026-11-05T09:01:00Z",
+        "expires_at": "2026-11-05T09:05:00Z",
+        "provider_authentication_state": "authenticated_fixture",
+        "freshness_state": "fresh",
+        "source_ref": "EPC_VOP_RULEBOOK_V11_2026",
+        "evidence_ref": "PAYEE-RESOLUTION-PPV-001"
+      },
+      "vop_result": {
+        "status": "match",
+        "scheme": "EPC_VOP",
+        "profile_id": "EU-EPC-VOP-1.1-V1",
+        "subject_commitment": "subject:beneficiary-001",
+        "intent_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "observed_at": "2026-11-05T09:01:30Z",
+        "expires_at": "2026-11-05T09:04:30Z",
+        "source_ref": "EPC_VOP_RULEBOOK_V11_2026",
+        "evidence_ref": "VOP-RESULT-PPV-001"
+      },
+      "provider_evidence": {
+        "verification_state": "verified_fixture",
+        "issuer": "PAYEE-PSP-EU-001",
+        "audience": "PAYER-PSP-EU-001",
+        "response_type": "payee-verification-result",
+        "key_id": "TEST-KEY-01",
+        "algorithm": "ES256",
+        "algorithm_policy_state": "allowed",
+        "key_trust_state": "authorised_current",
+        "key_source_state": "profile_allowlisted",
+        "freshness_state": "fresh",
+        "replay_state": "not_replayed",
+        "subject_commitment": "subject:beneficiary-001",
+        "intent_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "profile_id": "EU-EPC-VOP-1.1-V1",
+        "source_ref": "EPC_VOP_RULEBOOK_V11_2026",
+        "evidence_ref": "PROVIDER-JWS-PPV-001",
+        "issued_at": "2026-11-05T09:03:01Z",
+        "expires_at": "2026-11-05T09:04:30Z"
+      },
+      "limit_fee": {
+        "status": "allowed",
+        "profile_id": "EU-EPC-VOP-1.1-V1",
+        "participant": "PAYER-PSP-EU-001",
+        "amount_minor_units": 1000,
+        "currency": "EUR",
+        "fee_minor_units": 5,
+        "fee_payer": "payer",
+        "fee_disclosed": true,
+        "source_ref": "SYNTHETIC_PARTICIPANT_TEST_PROFILE_V1",
+        "evidence_ref": "LIMIT-FEE-PPV-001",
+        "observed_at": "2026-11-05T09:01:00Z",
+        "expires_at": "2026-11-05T09:10:00Z"
+      },
+      "presentation": {
+        "fields_shown": [
+          "beneficiary",
+          "amount",
+          "currency",
+          "instrument",
+          "purpose",
+          "reference",
+          "fee",
+          "participant",
+          "rail",
+          "channel",
+          "expiry",
+          "verification_result",
+          "warnings"
+        ],
+        "warnings_shown": [
+          "Verify the exact recipient and payment details before authorising."
+        ],
+        "signed_payload": "sha256:1eba2b14f8445dfd8ab6cc9d1e57ef0e132d84d597b9fe44380c23119a878b86",
+        "presented_at": "2026-11-05T09:01:45Z",
+        "payload": {
+          "profile_id": "EU-EPC-VOP-1.1-V1",
+          "intent_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "beneficiary_subject_commitment": "subject:beneficiary-001",
+          "amount_minor_units": 1000,
+          "currency": "EUR",
+          "instrument": "credit_transfer",
+          "purpose": "invoice_payment",
+          "reference": "INV-SYNTH-001",
+          "fee_minor_units": 5,
+          "fee_payer": "payer",
+          "participant": "PAYER-PSP-EU-001",
+          "rail": "SCT_or_SCT_INST",
+          "channel": "mobile_app",
+          "expiry_at": "2026-11-05T09:10:00Z",
+          "verification_result": "match",
+          "warnings": [
+            "Verify the exact recipient and payment details before authorising."
+          ]
+        }
+      },
+      "evidence_refs": [
+        "INTENT-PROOF-PPV-001",
+        "PAYEE-RESOLUTION-PPV-001",
+        "PROVIDER-JWS-PPV-001",
+        "LIMIT-FEE-PPV-001"
+      ],
+      "evidence_set_digest": "sha256:1dec4e85f1e4046ed4e97b76ff5c3363391eca3e48fa08535f6c3e3e53e2ad68",
+      "consent": {
+        "decision": "not_yet_decided",
+        "authority_state": "not_applicable",
+        "intent_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "presentation_digest": "sha256:1eba2b14f8445dfd8ab6cc9d1e57ef0e132d84d597b9fe44380c23119a878b86",
+        "evidence_set_digest": null,
+        "observed_at": null,
+        "nonce": null
+      },
+      "expected_admission": "quarantined_unknown",
+      "expected_disposition": "quarantined_unknown",
+      "dispatch_allowed": false,
+      "evaluation_time": "2026-11-05T09:03:00Z"
+    },
+    {
+      "scenario_id": "PPV-041",
+      "scenario_type": "consent_after_certificate_evaluation",
+      "profile_id": "EU-EPC-VOP-1.1-V1",
+      "intent": {
+        "profile_id": "EU-EPC-VOP-1.1-V1",
+        "intent_ref": "INTENT-PPV-001",
+        "intent_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "digest_state": "verified_by_upstream_intent_contract",
+        "digest_evidence_ref": "INTENT-PROOF-PPV-001",
+        "jurisdiction": "EU-SEPA",
+        "payer_participant": "PAYER-PSP-EU-001",
+        "payee_participant": "PAYEE-PSP-EU-001",
+        "beneficiary_subject_commitment": "subject:beneficiary-001",
+        "payer_subject_commitment": "subject:payer-001",
+        "amount_minor_units": 1000,
+        "currency": "EUR",
+        "instrument": "credit_transfer",
+        "purpose": "invoice_payment",
+        "reference": "INV-SYNTH-001",
+        "rail": "SCT_or_SCT_INST",
+        "channel": "mobile_app",
+        "issued_at": "2026-11-05T09:00:00Z",
+        "expires_at": "2026-11-05T09:10:00Z"
+      },
+      "payee_resolution": {
+        "status": "resolved",
+        "provider": "PAYEE-PSP-EU-001",
+        "participant": "PAYEE-PSP-EU-001",
+        "profile_id": "EU-EPC-VOP-1.1-V1",
+        "subject_commitment": "subject:beneficiary-001",
+        "intent_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "observed_at": "2026-11-05T09:01:00Z",
+        "expires_at": "2026-11-05T09:05:00Z",
+        "provider_authentication_state": "authenticated_fixture",
+        "freshness_state": "fresh",
+        "source_ref": "EPC_VOP_RULEBOOK_V11_2026",
+        "evidence_ref": "PAYEE-RESOLUTION-PPV-001"
+      },
+      "vop_result": {
+        "status": "match",
+        "scheme": "EPC_VOP",
+        "profile_id": "EU-EPC-VOP-1.1-V1",
+        "subject_commitment": "subject:beneficiary-001",
+        "intent_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "observed_at": "2026-11-05T09:01:30Z",
+        "expires_at": "2026-11-05T09:04:30Z",
+        "source_ref": "EPC_VOP_RULEBOOK_V11_2026",
+        "evidence_ref": "VOP-RESULT-PPV-001"
+      },
+      "provider_evidence": {
+        "verification_state": "verified_fixture",
+        "issuer": "PAYEE-PSP-EU-001",
+        "audience": "PAYER-PSP-EU-001",
+        "response_type": "payee-verification-result",
+        "key_id": "TEST-KEY-01",
+        "algorithm": "ES256",
+        "algorithm_policy_state": "allowed",
+        "key_trust_state": "authorised_current",
+        "key_source_state": "profile_allowlisted",
+        "freshness_state": "fresh",
+        "replay_state": "not_replayed",
+        "subject_commitment": "subject:beneficiary-001",
+        "intent_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "profile_id": "EU-EPC-VOP-1.1-V1",
+        "source_ref": "EPC_VOP_RULEBOOK_V11_2026",
+        "evidence_ref": "PROVIDER-JWS-PPV-001",
+        "issued_at": "2026-11-05T09:01:30Z",
+        "expires_at": "2026-11-05T09:04:30Z"
+      },
+      "limit_fee": {
+        "status": "allowed",
+        "profile_id": "EU-EPC-VOP-1.1-V1",
+        "participant": "PAYER-PSP-EU-001",
+        "amount_minor_units": 1000,
+        "currency": "EUR",
+        "fee_minor_units": 5,
+        "fee_payer": "payer",
+        "fee_disclosed": true,
+        "source_ref": "SYNTHETIC_PARTICIPANT_TEST_PROFILE_V1",
+        "evidence_ref": "LIMIT-FEE-PPV-001",
+        "observed_at": "2026-11-05T09:01:00Z",
+        "expires_at": "2026-11-05T09:10:00Z"
+      },
+      "presentation": {
+        "fields_shown": [
+          "beneficiary",
+          "amount",
+          "currency",
+          "instrument",
+          "purpose",
+          "reference",
+          "fee",
+          "participant",
+          "rail",
+          "channel",
+          "expiry",
+          "verification_result",
+          "warnings"
+        ],
+        "warnings_shown": [
+          "Verify the exact recipient and payment details before authorising."
+        ],
+        "signed_payload": "sha256:1eba2b14f8445dfd8ab6cc9d1e57ef0e132d84d597b9fe44380c23119a878b86",
+        "presented_at": "2026-11-05T09:01:45Z",
+        "payload": {
+          "profile_id": "EU-EPC-VOP-1.1-V1",
+          "intent_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "beneficiary_subject_commitment": "subject:beneficiary-001",
+          "amount_minor_units": 1000,
+          "currency": "EUR",
+          "instrument": "credit_transfer",
+          "purpose": "invoice_payment",
+          "reference": "INV-SYNTH-001",
+          "fee_minor_units": 5,
+          "fee_payer": "payer",
+          "participant": "PAYER-PSP-EU-001",
+          "rail": "SCT_or_SCT_INST",
+          "channel": "mobile_app",
+          "expiry_at": "2026-11-05T09:10:00Z",
+          "verification_result": "match",
+          "warnings": [
+            "Verify the exact recipient and payment details before authorising."
+          ]
+        }
+      },
+      "evidence_refs": [
+        "INTENT-PROOF-PPV-001",
+        "PAYEE-RESOLUTION-PPV-001",
+        "PROVIDER-JWS-PPV-001",
+        "LIMIT-FEE-PPV-001"
+      ],
+      "evidence_set_digest": "sha256:1dec4e85f1e4046ed4e97b76ff5c3363391eca3e48fa08535f6c3e3e53e2ad68",
+      "consent": {
+        "decision": "accepted",
+        "authority_state": "valid_fixture",
+        "intent_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "presentation_digest": "sha256:1eba2b14f8445dfd8ab6cc9d1e57ef0e132d84d597b9fe44380c23119a878b86",
+        "evidence_set_digest": "sha256:1dec4e85f1e4046ed4e97b76ff5c3363391eca3e48fa08535f6c3e3e53e2ad68",
+        "observed_at": "2026-11-05T09:03:01Z",
+        "nonce": "NONCE-041"
+      },
+      "expected_admission": "needs_payer_reconfirmation",
+      "expected_disposition": "needs_payer_reconfirmation",
+      "dispatch_allowed": false,
+      "evaluation_time": "2026-11-05T09:03:00Z"
+    },
+    {
+      "scenario_id": "PPV-042",
+      "scenario_type": "fee_limit_evidence_older_than_profile_window",
+      "profile_id": "EU-EPC-VOP-1.1-V1",
+      "intent": {
+        "profile_id": "EU-EPC-VOP-1.1-V1",
+        "intent_ref": "INTENT-PPV-001",
+        "intent_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "digest_state": "verified_by_upstream_intent_contract",
+        "digest_evidence_ref": "INTENT-PROOF-PPV-001",
+        "jurisdiction": "EU-SEPA",
+        "payer_participant": "PAYER-PSP-EU-001",
+        "payee_participant": "PAYEE-PSP-EU-001",
+        "beneficiary_subject_commitment": "subject:beneficiary-001",
+        "payer_subject_commitment": "subject:payer-001",
+        "amount_minor_units": 1000,
+        "currency": "EUR",
+        "instrument": "credit_transfer",
+        "purpose": "invoice_payment",
+        "reference": "INV-SYNTH-001",
+        "rail": "SCT_or_SCT_INST",
+        "channel": "mobile_app",
+        "issued_at": "2026-11-05T09:00:00Z",
+        "expires_at": "2026-11-05T09:10:00Z"
+      },
+      "payee_resolution": {
+        "status": "resolved",
+        "provider": "PAYEE-PSP-EU-001",
+        "participant": "PAYEE-PSP-EU-001",
+        "profile_id": "EU-EPC-VOP-1.1-V1",
+        "subject_commitment": "subject:beneficiary-001",
+        "intent_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "observed_at": "2026-11-05T09:01:00Z",
+        "expires_at": "2026-11-05T09:05:00Z",
+        "provider_authentication_state": "authenticated_fixture",
+        "freshness_state": "fresh",
+        "source_ref": "EPC_VOP_RULEBOOK_V11_2026",
+        "evidence_ref": "PAYEE-RESOLUTION-PPV-001"
+      },
+      "vop_result": {
+        "status": "match",
+        "scheme": "EPC_VOP",
+        "profile_id": "EU-EPC-VOP-1.1-V1",
+        "subject_commitment": "subject:beneficiary-001",
+        "intent_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "observed_at": "2026-11-05T09:01:30Z",
+        "expires_at": "2026-11-05T09:04:30Z",
+        "source_ref": "EPC_VOP_RULEBOOK_V11_2026",
+        "evidence_ref": "VOP-RESULT-PPV-001"
+      },
+      "provider_evidence": {
+        "verification_state": "verified_fixture",
+        "issuer": "PAYEE-PSP-EU-001",
+        "audience": "PAYER-PSP-EU-001",
+        "response_type": "payee-verification-result",
+        "key_id": "TEST-KEY-01",
+        "algorithm": "ES256",
+        "algorithm_policy_state": "allowed",
+        "key_trust_state": "authorised_current",
+        "key_source_state": "profile_allowlisted",
+        "freshness_state": "fresh",
+        "replay_state": "not_replayed",
+        "subject_commitment": "subject:beneficiary-001",
+        "intent_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "profile_id": "EU-EPC-VOP-1.1-V1",
+        "source_ref": "EPC_VOP_RULEBOOK_V11_2026",
+        "evidence_ref": "PROVIDER-JWS-PPV-001",
+        "issued_at": "2026-11-05T09:01:30Z",
+        "expires_at": "2026-11-05T09:04:30Z"
+      },
+      "limit_fee": {
+        "status": "allowed",
+        "profile_id": "EU-EPC-VOP-1.1-V1",
+        "participant": "PAYER-PSP-EU-001",
+        "amount_minor_units": 1000,
+        "currency": "EUR",
+        "fee_minor_units": 5,
+        "fee_payer": "payer",
+        "fee_disclosed": true,
+        "source_ref": "SYNTHETIC_PARTICIPANT_TEST_PROFILE_V1",
+        "evidence_ref": "LIMIT-FEE-PPV-001",
+        "observed_at": "2026-11-05T08:52:59Z",
+        "expires_at": "2026-11-05T09:10:00Z"
+      },
+      "presentation": {
+        "fields_shown": [
+          "beneficiary",
+          "amount",
+          "currency",
+          "instrument",
+          "purpose",
+          "reference",
+          "fee",
+          "participant",
+          "rail",
+          "channel",
+          "expiry",
+          "verification_result",
+          "warnings"
+        ],
+        "warnings_shown": [
+          "Verify the exact recipient and payment details before authorising."
+        ],
+        "signed_payload": "sha256:1eba2b14f8445dfd8ab6cc9d1e57ef0e132d84d597b9fe44380c23119a878b86",
+        "presented_at": "2026-11-05T09:01:45Z",
+        "payload": {
+          "profile_id": "EU-EPC-VOP-1.1-V1",
+          "intent_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "beneficiary_subject_commitment": "subject:beneficiary-001",
+          "amount_minor_units": 1000,
+          "currency": "EUR",
+          "instrument": "credit_transfer",
+          "purpose": "invoice_payment",
+          "reference": "INV-SYNTH-001",
+          "fee_minor_units": 5,
+          "fee_payer": "payer",
+          "participant": "PAYER-PSP-EU-001",
+          "rail": "SCT_or_SCT_INST",
+          "channel": "mobile_app",
+          "expiry_at": "2026-11-05T09:10:00Z",
+          "verification_result": "match",
+          "warnings": [
+            "Verify the exact recipient and payment details before authorising."
+          ]
+        }
+      },
+      "evidence_refs": [
+        "INTENT-PROOF-PPV-001",
+        "PAYEE-RESOLUTION-PPV-001",
+        "PROVIDER-JWS-PPV-001",
+        "LIMIT-FEE-PPV-001"
+      ],
+      "evidence_set_digest": "sha256:1dec4e85f1e4046ed4e97b76ff5c3363391eca3e48fa08535f6c3e3e53e2ad68",
+      "consent": {
+        "decision": "not_yet_decided",
+        "authority_state": "not_applicable",
+        "intent_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "presentation_digest": "sha256:1eba2b14f8445dfd8ab6cc9d1e57ef0e132d84d597b9fe44380c23119a878b86",
+        "evidence_set_digest": null,
+        "observed_at": null,
+        "nonce": null
+      },
+      "expected_admission": "quarantined_unknown",
+      "expected_disposition": "quarantined_unknown",
+      "dispatch_allowed": false,
+      "evaluation_time": "2026-11-05T09:03:00Z"
     }
   ]
 }
