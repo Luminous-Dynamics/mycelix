@@ -280,39 +280,11 @@ fn run() -> Result<(), Box<dyn Error>> {
         let id = s(exp, "case_id")?;
         let case = cases.iter().find(|c| c.get("case_id").and_then(Value::as_str)==Some(id))
             .ok_or_else(|| format!("missing case {id}"))?;
-        let frontier = s(case, "requested_knowledge_at")?;
-        let observed = s(case.get("source_snapshot").ok_or("missing source snapshot")?, "observed_at")?;
-        let day = observed.split('T').next().ok_or("invalid observed_at")?;
-        let active = arr(case, "relationships")?.iter().filter(|r| {
-            let recorded = r.get("recorded_at").and_then(Value::as_str).unwrap_or("");
-            let start = r.get("valid_from").and_then(Value::as_str).unwrap_or("9999");
-            let end = r.get("valid_to").and_then(Value::as_str);
-            recorded <= frontier && start <= day && end.is_none_or(|x| x >= day)
-        }).map(|r| s(r, "relationship_ref").unwrap().to_owned()).collect();
-        compare(id, "active relationship refs", active, &exp["expected_active_relationship_refs"])?;
-
-        let mut paths = BTreeSet::new();
-        for m in arr(case, "field_mappings")? {
-            if matches!(m.get("mapping_status").and_then(Value::as_str), Some("unmapped"|"unsupported"|"ambiguous")) {
-                paths.insert(s(m, "source_path")?.to_owned());
-            }
-        }
-        compare(id, "unmapped source paths", paths, &exp["expected_unmapped_source_paths"])?;
-
-        let mut capabilities = BTreeSet::new();
-        for c in arr(case, "capability_coverage")? {
-            if s(c, "status")? != "supported" { capabilities.insert(s(c, "capability_id")?.to_owned()); }
-        }
-        compare(id, "incomplete capabilities", capabilities, &exp["expected_incomplete_capabilities"])?;
-
-        let mut principals = BTreeSet::new();
-        let mut origins = BTreeSet::new();
-        for r in arr(case, "relationships")? {
-            for x in arr(r, "access_principal_refs")? { principals.insert(x.as_str().ok_or("principal not string")?.to_owned()); }
-            for x in arr(r, "upstream_origin_refs")? { origins.insert(x.as_str().ok_or("origin not string")?.to_owned()); }
-        }
-        compare(id, "access principal refs", principals, &exp["expected_access_principal_refs"])?;
-        compare(id, "upstream origin refs", origins, &exp["expected_upstream_origin_refs"])?;
+        compare(id, "active relationship refs", active_relationship_refs(case)?, &exp["expected_active_relationship_refs"])?;
+        compare(id, "unmapped source paths", unmapped_paths(case)?, &exp["expected_unmapped_source_paths"])?;
+        compare(id, "incomplete capabilities", incomplete_capabilities(case)?, &exp["expected_incomplete_capabilities"])?;
+        compare(id, "access principal refs", access_principal_refs(case)?, &exp["expected_access_principal_refs"])?;
+        compare(id, "upstream origin refs", upstream_origin_refs(case)?, &exp["expected_upstream_origin_refs"])?;
         compare(id, "reason codes", reason_codes(case)?, &exp["expected_reason_codes"])?;
         let actual_state = adapter_state(case)?;
         if s(exp, "expected_adapter_state")? != actual_state {
@@ -338,11 +310,48 @@ mod tests {
         assert_eq!(arr(&o, "expectations").unwrap().len(), 10);
     }
     #[test]
-    fn future_recorded_fact_is_excluded_at_earlier_frontier() {
+    fn future_recorded_relationship_is_excluded_at_earlier_frontier() {
         let (c, _) = fixtures();
-        let case = arr(&c, "cases").unwrap().iter().find(|x| s(x, "case_id").unwrap()=="TEMP-FUTURE-FACT").unwrap();
-        let frontier = s(case, "requested_knowledge_at").unwrap();
-        assert!(arr(case, "relationships").unwrap().iter().all(|r| s(r, "recorded_at").unwrap() <= frontier));
+        let case = arr(&c, "cases").unwrap().iter()
+            .find(|x| s(x, "case_id").unwrap()=="TEMP-FUTURE-FACT").unwrap();
+        assert!(active_relationship_refs(case).unwrap().is_empty());
+        assert!(upstream_origin_refs(case).unwrap().is_empty());
+        assert_eq!(adapter_state(case).unwrap(), "indeterminate");
+        assert!(reason_codes(case).unwrap().contains("evidence_after_knowledge_frontier"));
+    }
+
+    #[test]
+    fn future_capability_observation_is_not_visible_at_earlier_frontier() {
+        let (mut c, _) = fixtures();
+        let case = arr(&mut c, "cases").unwrap().iter_mut()
+            .find(|x| s(x, "case_id").unwrap()=="BLACKLINE-RECON-NO-POSTING").unwrap();
+        let index = arr(case, "capability_coverage").unwrap().iter()
+            .position(|x| s(x, "capability_id").unwrap()=="journal_posting").unwrap();
+        case["capability_coverage"][index]["observed_at"] = Value::String("2026-11-05T10:45:00Z".to_owned());
+        assert!(!incomplete_capabilities(case).unwrap().contains("journal_posting"));
+        assert_eq!(adapter_state(case).unwrap(), "indeterminate");
+    }
+
+    #[test]
+    fn future_field_mapping_is_not_visible_at_earlier_frontier() {
+        let (mut c, _) = fixtures();
+        let case = arr(&mut c, "cases").unwrap().iter_mut()
+            .find(|x| s(x, "case_id").unwrap()=="BIGID-CLASSIFICATION-NOT-AUTHORITY").unwrap();
+        let index = arr(case, "field_mappings").unwrap().len()-1;
+        case["field_mappings"][index]["recorded_at"] = Value::String("2026-11-05T10:45:00Z".to_owned());
+        assert!(unmapped_paths(case).unwrap().is_empty());
+        assert_eq!(adapter_state(case).unwrap(), "indeterminate");
+    }
+
+    #[test]
+    fn future_source_snapshot_excludes_all_snapshot_relationships() {
+        let (mut c, _) = fixtures();
+        let case = arr(&mut c, "cases").unwrap().iter_mut()
+            .find(|x| s(x, "case_id").unwrap()=="WORKIVA-DISCLOSURE-LINK").unwrap();
+        case["source_snapshot"]["observed_at"] = Value::String("2026-11-05T10:45:00Z".to_owned());
+        assert!(active_relationship_refs(case).unwrap().is_empty());
+        assert!(upstream_origin_refs(case).unwrap().is_empty());
+        assert_eq!(adapter_state(case).unwrap(), "indeterminate");
     }
 
     #[test]
