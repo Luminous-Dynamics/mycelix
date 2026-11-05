@@ -377,9 +377,22 @@ fn extract_schema_variants(schema: &Value) -> Result<BTreeMap<String, Vec<String
 }
 
 fn signal_hub_decodes_adjacent_envelope(source: &str) -> bool {
-    source.contains("const envelope = payload as { type?: unknown; data?: unknown }")
+    // Accept only the current strict v1 decoder shape: a record envelope with
+    // an outer string discriminator, an exact type/data pair for payload
+    // variants (unit variants are handled separately), and normalization that
+    // keeps the outer discriminator authoritative. Do not key this contract to
+    // one TypeScript type-assertion spelling: Record<string, unknown> and an
+    // explicit structural type are equivalent here.
+    let record_envelope = source.contains("const envelope = payload as Record<string, unknown>")
+        || source.contains("const envelope = payload as { type?: unknown; data?: unknown }");
+    let exact_payload_shape = source.contains("hasExactKeys(envelope, ['type', 'data'])")
+        && source.contains("isSignalRecord(envelope.data)");
+    let unit_shape = source.contains("hasExactKeys(envelope, ['type'])")
+        && source.contains("envelope.data === null");
+    record_envelope
         && source.contains("typeof envelope.type !== 'string'")
-        && source.contains("envelope.data")
+        && exact_payload_shape
+        && unit_shape
         && source.contains("...data, type")
 }
 
@@ -611,19 +624,39 @@ mod tests {
 
     #[test]
     fn signal_hub_adjacent_envelope_decoder_is_required() {
-        let safe = r#"
-            const envelope = payload as { type?: unknown; data?: unknown };
+        let safe_current = r#"
+            const envelope = payload as Record<string, unknown>;
             if (typeof envelope.type !== 'string') return null;
-            if (envelope.data === undefined) return null;
+            if (!hasExactKeys(envelope, ['type', 'data']) || !isSignalRecord(envelope.data)) return null;
+            const typeOnly = hasExactKeys(envelope, ['type']);
+            const typeAndNullData = hasExactKeys(envelope, ['type', 'data']) && envelope.data === null;
             const normalized = { ...data, type };
         "#;
-        assert!(signal_hub_decodes_adjacent_envelope(safe));
+        assert!(signal_hub_decodes_adjacent_envelope(safe_current));
+
+        let safe_structural_type = r#"
+            const envelope = payload as { type?: unknown; data?: unknown };
+            if (typeof envelope.type !== 'string') return null;
+            if (!hasExactKeys(envelope, ['type', 'data']) || !isSignalRecord(envelope.data)) return null;
+            const typeOnly = hasExactKeys(envelope, ['type']);
+            const typeAndNullData = hasExactKeys(envelope, ['type', 'data']) && envelope.data === null;
+            const normalized = { ...data, type };
+        "#;
+        assert!(signal_hub_decodes_adjacent_envelope(safe_structural_type));
 
         let flat_only = r#"
             const payload = appSignal.payload as { type?: string };
             if (typeof payload.type !== 'string') return null;
         "#;
         assert!(!signal_hub_decodes_adjacent_envelope(flat_only));
+
+        let permissive_data = r#"
+            const envelope = payload as Record<string, unknown>;
+            if (typeof envelope.type !== 'string') return null;
+            const data = envelope.data as Record<string, unknown>;
+            const normalized = { ...data, type };
+        "#;
+        assert!(!signal_hub_decodes_adjacent_envelope(permissive_data));
     }
 
     #[test]
