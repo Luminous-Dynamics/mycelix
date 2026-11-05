@@ -944,4 +944,78 @@ mod tests {
         assert_eq!(report.status, Status::Incomplete);
         assert!(report.findings.iter().any(|f| f.code == "EVIDENCE_PLANE_MISMATCH"));
     }
+
+    #[test]
+    fn stale_unconstrained_projection_cannot_be_labeled_trusted_active() {
+        let mut bundle = fixture();
+        let event = bundle.events.iter_mut().find(|e| matches!(&e.kind, EventKind::ProjectionRead(_))).unwrap();
+        if let EventKind::ProjectionRead(ref mut read) = event.kind {
+            read.checkpoint_used = false;
+            read.minimum_epoch = 0;
+            read.decision = ProjectionDecision::TrustedActive;
+        }
+        let report = run(&bundle);
+        assert_eq!(report.status, Status::Fail);
+        assert!(report.findings.iter().any(|f| f.code == "STALE_PROJECTION_LABELED_TRUSTED"));
+        assert!(report.findings.iter().any(|f| f.code == "STALE_READ_NOT_MARKED_ADVISORY"));
+    }
+
+    #[test]
+    fn projection_read_must_reference_an_exact_issued_grant() {
+        let mut bundle = fixture();
+        let event = bundle.events.iter_mut().find(|e| matches!(&e.kind, EventKind::ProjectionRead(_))).unwrap();
+        if let EventKind::ProjectionRead(ref mut read) = event.kind {
+            read.grant_ref = "grant-not-in-trace".to_string();
+        }
+        let report = run(&bundle);
+        assert_eq!(report.status, Status::Incomplete);
+        assert!(report.findings.iter().any(|f| f.code == "PROJECTION_READ_WITHOUT_GRANT"));
+    }
+
+    #[test]
+    fn caller_not_committed_is_scoped_to_the_exact_attempt() {
+        let mut bundle = fixture();
+        let event = bundle.events.iter_mut().find(|e| matches!(&e.kind, EventKind::CallerOutcome(_))).unwrap();
+        if let EventKind::CallerOutcome(ref mut outcome) = event.kind {
+            outcome.attempt_id = 2;
+            outcome.outcome = CallerOutcomeKind::NotCommitted;
+        }
+        let report = run(&bundle);
+        assert_eq!(report.status, Status::Pass, "{:?}", report.findings);
+    }
+
+    #[test]
+    fn not_committed_outcome_for_effected_attempt_fails() {
+        let mut bundle = fixture();
+        let event = bundle.events.iter_mut().find(|e| matches!(&e.kind, EventKind::CallerOutcome(_))).unwrap();
+        if let EventKind::CallerOutcome(ref mut outcome) = event.kind {
+            outcome.outcome = CallerOutcomeKind::NotCommitted;
+        }
+        let report = run(&bundle);
+        assert_eq!(report.status, Status::Fail);
+        assert!(report.findings.iter().any(|f| f.code == "NOT_COMMITTED_CONTRADICTS_ATTEMPT_EFFECT"));
+    }
+
+    #[test]
+    fn unknown_caller_outcome_can_reconcile_to_committed_for_the_same_attempt() {
+        let mut bundle = fixture();
+        let event = bundle.events.iter_mut().find(|e| matches!(&e.kind, EventKind::CallerOutcome(_))).unwrap();
+        if let EventKind::CallerOutcome(ref mut outcome) = event.kind {
+            outcome.outcome = CallerOutcomeKind::Committed;
+        }
+        let report = run(&bundle);
+        assert_eq!(report.status, Status::Pass, "{:?}", report.findings);
+    }
+
+    #[test]
+    fn remote_signal_event_type_must_be_a_bounded_identifier() {
+        let mut bundle = fixture();
+        let event = bundle.events.iter_mut().find(|e| matches!(&e.kind, EventKind::RemoteSignal(_))).unwrap();
+        if let EventKind::RemoteSignal(ref mut signal) = event.kind {
+            signal.event_type = "not a valid type with spaces".to_string();
+        }
+        let report = run(&bundle);
+        assert_eq!(report.status, Status::Incomplete);
+        assert!(report.findings.iter().any(|f| f.code == "REMOTE_SIGNAL_EVENT_TYPE_INVALID"));
+    }
 }
