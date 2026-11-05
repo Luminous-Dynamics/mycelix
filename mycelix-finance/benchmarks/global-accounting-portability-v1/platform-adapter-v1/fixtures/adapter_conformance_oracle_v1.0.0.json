@@ -123,11 +123,9 @@
       "expected_unmapped_source_paths": [],
       "expected_incomplete_capabilities": [],
       "expected_access_principal_refs": [],
-      "expected_upstream_origin_refs": [
-        "ORIGIN-FUTURE-1"
-      ],
+      "expected_upstream_origin_refs": [],
       "expected_reason_codes": [
-        "future_recorded_relationship_excluded"
+        "evidence_after_knowledge_frontier"
       ],
       "expected_no_effects": true
     },
