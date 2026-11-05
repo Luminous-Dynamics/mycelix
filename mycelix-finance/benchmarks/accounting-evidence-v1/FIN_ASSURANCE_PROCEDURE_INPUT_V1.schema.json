@@ -15,15 +15,15 @@
       "const": "FIN-ASSURE-PROCEDURE"
     },
     "dataset_version": {
-      "const": "1.1.0"
+      "const": "1.0.0"
     },
     "status": {
       "const": "synthetic_procedure_coverage_fixtures_not_audit_evidence"
     },
     "cases": {
       "type": "array",
-      "minItems": 22,
-      "maxItems": 22,
+      "minItems": 18,
+      "maxItems": 18,
       "items": {
         "$ref": "#/$defs/case"
       }
@@ -48,8 +48,7 @@
         "purposes_supported",
         "reporting_period",
         "reliability_status",
-        "contradicts_required_claim",
-        "reporting_entity"
+        "contradicts_required_claim"
       ],
       "properties": {
         "evidence_id": {
@@ -77,10 +76,6 @@
         },
         "contradicts_required_claim": {
           "type": "boolean"
-        },
-        "reporting_entity": {
-          "type": "string",
-          "minLength": 1
         }
       }
     },
@@ -174,8 +169,7 @@
         "stale_workpaper",
         "requires_human_judgment",
         "authorized_na_rationale",
-        "reviewer_authorized",
-        "procedure_purpose"
+        "reviewer_authorized"
       ],
       "properties": {
         "procedure_id": {
@@ -262,10 +256,6 @@
         },
         "reviewer_authorized": {
           "type": "boolean"
-        },
-        "procedure_purpose": {
-          "type": "string",
-          "minLength": 1
         }
       }
     },
