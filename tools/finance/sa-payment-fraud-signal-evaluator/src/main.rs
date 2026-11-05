@@ -135,6 +135,12 @@ fn decision(signal: &Value, query: &Value, profile: &Value) -> (&'static str, &'
     if contains_global_subject_ref(query) {
         return ("reject", "global_subject_identifier");
     }
+    let pairwise_prefix = format!("pairwise:{recipient}:");
+    if !str_at(query, "recipient_subject_ref")
+        .is_some_and(|value| value.starts_with(&pairwise_prefix))
+    {
+        return ("reject", "pairwise_subject_scope_mismatch");
+    }
 
     if basis == "FSR_ACT_251_REGULATOR_SCOPE"
         && profile_state != "synthetic_statutory_scope_fixture_only"
@@ -180,10 +186,11 @@ fn decision(signal: &Value, query: &Value, profile: &Value) -> (&'static str, &'
         }
     }
 
-    if str_at(verification, "signature_state") == Some("invalid")
-        || str_at(verification, "key_state") == Some("revoked")
-    {
-        return ("reject", "invalid_or_revoked_issuer_credential");
+    if str_at(verification, "signature_state") == Some("invalid") {
+        return ("reject", "invalid_signature");
+    }
+    if str_at(verification, "key_state") == Some("revoked") {
+        return ("reject", "revoked_signing_key");
     }
     if str_at(verification, "signature_state") != Some("verified")
         || str_at(verification, "key_state") != Some("valid")
@@ -192,6 +199,9 @@ fn decision(signal: &Value, query: &Value, profile: &Value) -> (&'static str, &'
     }
     if str_at(verification, "payload_digest") != str_at(verification, "verified_payload_digest") {
         return ("reject", "verification_receipt_payload_mismatch");
+    }
+    if profile_state == "proposed_or_being_scoped" {
+        return ("quarantine", "proposed_programme_not_operational");
     }
     if str_at(issuer, "authority_scope_state") == Some("denied") {
         return ("reject", "issuer_authority_denied");
@@ -204,6 +214,11 @@ fn decision(signal: &Value, query: &Value, profile: &Value) -> (&'static str, &'
         && matches!(data_class, "personal" | "special_personal_alleged_offence")
     {
         return ("reject", "personal_signal_in_public_dht");
+    }
+    if str_at(sharing, "storage_scope") == Some("unknown")
+        && matches!(data_class, "personal" | "special_personal_alleged_offence")
+    {
+        return ("quarantine", "personal_storage_scope_unknown");
     }
     if data_class == "unknown" {
         return ("quarantine", "data_classification_unknown");
@@ -266,11 +281,20 @@ fn decision(signal: &Value, query: &Value, profile: &Value) -> (&'static str, &'
     let correction_status = str_at(lifecycle, "correction_status").unwrap_or("unknown");
     let previous = u64_at(lifecycle, "previous_recipient_count").unwrap_or(u64::MAX);
     let notified = u64_at(lifecycle, "notified_recipient_count").unwrap_or(0);
+    let previous_ids = array_at(lifecycle, "previous_recipient_ids");
+    let notified_ids = array_at(lifecycle, "notified_recipient_ids");
+    let previous_ids_len = previous_ids.map_or(0, Vec::len);
+    let notified_ids_len = notified_ids.map_or(0, Vec::len);
+    if previous != previous_ids_len as u64 || notified != notified_ids_len as u64 {
+        return ("quarantine", "correction_recipient_ledger_mismatch");
+    }
     if correction_status == "contested" || status == "disputed" {
         return ("quarantine", "accuracy_contested");
     }
     if matches!(correction_status, "correction_applied" | "withdrawn" | "superseded")
-        && notified < previous
+        && previous_ids.is_some_and(|ids| ids.iter().any(|id| {
+            !notified_ids.is_some_and(|delivered| delivered.contains(id))
+        }))
     {
         return ("quarantine", "correction_not_propagated");
     }
@@ -367,6 +391,16 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
             errors.push(format!("scenarios[{i}]: unresolved profile"));
             continue;
         };
+        let assertion_refs = array_at(&signal["assertion"], "source_refs")
+            .cloned()
+            .unwrap_or_default();
+        if assertion_refs.is_empty()
+            || assertion_refs.iter().any(|reference| {
+                !reference.as_str().is_some_and(|value| source_ids.contains(value))
+            })
+        {
+            errors.push(format!("scenarios[{i}]: unresolved or missing assertion source references"));
+        }
         let (actual_admission, actual_reason) = decision(signal, query, profile);
         let expected_admission = str_at(scenario, "expected_admission").unwrap_or("");
         let expected_reason = str_at(scenario, "expected_reason_code").unwrap_or("");
@@ -536,6 +570,19 @@ fn run_self_tests(corpus: &Value, schema: &Value) -> Result<usize, String> {
     })?;
     count += 1;
 
+    mutate_and_reject("pairwise subject token bound to another recipient", corpus, schema, |v| {
+        v["scenarios"][0]["query"]["recipient_subject_ref"] =
+            json!("pairwise:BANK-C:SUBJECT-001");
+    })?;
+    count += 1;
+
+    mutate_and_reject("correction receipt identity missing", corpus, schema, |v| {
+        v["scenarios"][0]["signal"]["lifecycle"]["previous_recipient_count"] = json!(1);
+        v["scenarios"][0]["signal"]["lifecycle"]["previous_recipient_ids"] =
+            json!(["BANK-C"]);
+    })?;
+    count += 1;
+
     Ok(count)
 }
 
@@ -617,7 +664,7 @@ mod tests {
     fn deterministic_negative_mutations_reject_unsafe_admission() {
         let corpus: Value = serde_json::from_str(CORPUS_DEFAULT).expect("corpus");
         let schema: Value = serde_json::from_str(SCHEMA_DEFAULT).expect("schema");
-        assert_eq!(run_self_tests(&corpus, &schema).expect("self tests"), 18);
+        assert_eq!(run_self_tests(&corpus, &schema).expect("self tests"), 20);
     }
 
     #[test]
