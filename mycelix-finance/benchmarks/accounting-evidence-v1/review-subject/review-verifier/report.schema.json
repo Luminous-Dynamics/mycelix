@@ -17,7 +17,8 @@
     "limitations",
     "external_authority_verified",
     "human_review_sufficiency_verified",
-    "can_approve_close"
+    "can_approve_close",
+    "non_human_role_principal_refs"
   ],
   "properties": {
     "report_schema": {
@@ -34,7 +35,8 @@
         "blocked_by_adverse_review",
         "blocked_by_review_contract",
         "awaiting_required_roles",
-        "structurally_ready_pending_external_authority"
+        "structurally_ready_pending_external_authority",
+        "blocked_by_non_human_role"
       ]
     },
     "subject_digest": {
@@ -144,6 +146,14 @@
     },
     "can_approve_close": {
       "const": false
+    },
+    "non_human_role_principal_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
     }
   }
 }
