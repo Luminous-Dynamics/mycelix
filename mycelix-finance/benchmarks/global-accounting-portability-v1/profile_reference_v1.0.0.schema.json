@@ -124,6 +124,9 @@
         "notes": {
           "type": "string",
           "minLength": 20
+        },
+        "early_application_allowed": {
+          "type": "boolean"
         }
       }
     },
@@ -209,7 +212,8 @@
         "reviewer_refs",
         "evidence_refs",
         "claim_ceiling",
-        "limitations"
+        "limitations",
+        "early_application_qualifications"
       ],
       "properties": {
         "intersection_id": {
@@ -292,11 +296,13 @@
         },
         "recorded_at": {
           "type": "string",
-          "format": "date-time"
+          "format": "date-time",
+          "pattern": "Z$"
         },
         "approved_at": {
           "type": "string",
-          "format": "date-time"
+          "format": "date-time",
+          "pattern": "Z$"
         },
         "reviewer_refs": {
           "type": "array",
@@ -329,6 +335,41 @@
             "type": "string",
             "minLength": 3
           }
+        },
+        "early_application_qualifications": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/earlyApplicationQualification"
+          }
+        }
+      }
+    },
+    "earlyApplicationQualification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "profile_id",
+        "evidence_ref",
+        "reviewer_ref",
+        "approved_at"
+      ],
+      "properties": {
+        "profile_id": {
+          "type": "string",
+          "pattern": "^[A-Z0-9-]+$"
+        },
+        "evidence_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "reviewer_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "approved_at": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "Z$"
         }
       }
     }
