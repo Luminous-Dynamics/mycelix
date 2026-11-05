@@ -303,13 +303,14 @@ fn assess_case(case: &Value) -> AppResult<Assessment> {
             .iter()
             .filter(|statement| string(statement, "artifact_id") == Some(to))
             .collect::<Vec<_>>();
-        let statement_projection_matches = !source_statements.is_empty()
-            && source_statements.len() == replay_statements.len()
-            && source_statements.iter().all(|source_statement| {
-                replay_statements.iter().any(|replay_statement| {
-                    same_statement_projection(source_statement, replay_statement)
-                })
-            });
+        let statement_projection_matches = replay_statements.is_empty()
+            || (!source_statements.is_empty()
+                && source_statements.len() == replay_statements.len()
+                && source_statements.iter().all(|source_statement| {
+                    replay_statements.iter().any(|replay_statement| {
+                        same_statement_projection(source_statement, replay_statement)
+                    })
+                }));
         if exact_identity && statement_projection_matches {
             exact_replay_artifacts.insert(to.to_owned());
             reasons.insert("exact_replay_statement_suppressed".to_owned());
