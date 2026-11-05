@@ -20,9 +20,9 @@ The oracle is public for reproducible contract tests. It is **not** a hidden ben
 
 ## Semantics
 
-1. A party's transaction role (for example seller or buyer) is separate from the fact's jurisdiction role (for example establishment or ship-from).
+1. A fact has a typed subject (`party`, `establishment`, `shipment`, or `transaction`) and a separate jurisdiction role. A party's transaction role (for example seller or buyer) is not the same thing as `establishment_location`, `ship_from`, `ship_to` or `place_of_supply`.
 2. A jurisdiction scope is identified by the tuple `(namespace_uri, code, scope_level, parent_scope_ref)`, not by a country label or code string alone.
-3. A fact binds one subject, one jurisdiction role and at most one scope. Conflicting claims are separate immutable facts linked by `conflicts_with_fact_refs`; they are not overwritten or resolved by array order.
+3. A fact binds one typed subject, one jurisdiction role and at most one scope. Establishments are distinct subjects owned by a party through explicit party-role bindings; shipments carry explicit ship-from/ship-to actor bindings; place of supply is a transaction-level determination, not a seller attribute. Conflicting claims are separate immutable facts linked by `conflicts_with_fact_refs`; they are not overwritten or resolved by array order.
 4. `valid_from` is inclusive and `valid_to` is exclusive. `recorded_at` is the UTC knowledge/recording time. Historical evaluation must filter by both valid time and the request's `knowledge_at` frontier.
 5. `evidence_supported` means an evidence reference is attached to the assertion. It does not claim that the source is authentic, complete, authoritative for the legal question or independently corroborated; those qualifications belong to #5798 and #5834.
 6. `source_asserted`, `human_adjudicated`, `approved_rule_derived` and `unresolved` are different origins. A derived place-of-supply fact must bind an approved rule/evaluation reference. An unknown place of supply has no scope.
@@ -34,15 +34,21 @@ The oracle is public for reproducible contract tests. It is **not** a hidden ben
 A follow-on resolver request should carry a context digest and exact typed requirements, such as:
 
 ```text
-subject_role = seller
+subject_kind = establishment
+subject_ref = SYN-SELLER-ESTABLISHMENT-01
 jurisdiction_role = establishment_location
+party_role_bindings = [{ party_ref: SYN-PARTY-SELLER, transaction_role: seller }]
 scope_ref = SYN-SCOPE-A
 minimum_assertion_state = evidence_supported
 valid_at = 2026-10-31
 known_at = 2026-11-05T09:30:00Z
 ```
 
-The v1.1 integration should begin with conjunction-only exact matching. No wildcard, nearest-parent fallback, address-to-place-of-supply inference or general-purpose policy expression language is needed. Legal applicability derivation remains with an approved policy profile under #5792; the resolver only checks whether the exact pre-qualified intersection matches.
+A place-of-supply determination instead has `subject_kind = transaction` and binds the exact approved `derivation_ref` under #5792.
+
+**Avoid circular profile resolution:** use observed party, establishment, goods-movement and service facts to construct the candidate jurisdiction set; evaluate candidate legal rules under their own source-pinned profiles; then admit the resulting reviewed determination into an exact qualification intersection. Do not feed a place-of-supply output from the very rule pack being selected back into that same selection step.
+
+The v1.1 integration should begin with conjunction-only exact matching. No wildcard, nearest-parent fallback, address-to-place-of-supply inference or general-purpose policy expression language is needed.
 
 ## Local Rust validation
 
