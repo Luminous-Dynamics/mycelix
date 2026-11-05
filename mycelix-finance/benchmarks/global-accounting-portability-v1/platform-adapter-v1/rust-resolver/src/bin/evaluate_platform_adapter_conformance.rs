@@ -297,10 +297,16 @@ fn validate_case_references(case: &Value) -> Result<(), String> {
         let status = s(mapping, "mapping_status")?;
         let canonical = mapping.get("canonical_path").and_then(Value::as_str);
         let canonical_is_null = mapping.get("canonical_path").is_some_and(Value::is_null);
+        let transformation = mapping.get("transformation_ref").and_then(Value::as_str);
+        let transformation_is_null = mapping.get("transformation_ref").is_some_and(Value::is_null);
         let loss = mapping.get("loss_code").and_then(Value::as_str);
+        let loss_is_null = mapping.get("loss_code").is_some_and(Value::is_null);
         match status {
-            "mapped_exact" | "mapped_normalized" if canonical.is_none() => {
-                return Err(format!("{case_id}: mapped field {source_path} has no canonical path"));
+            "mapped_exact" if canonical.is_none() || !transformation_is_null || !loss_is_null => {
+                return Err(format!("{case_id}: exact mapping {source_path} must have a canonical path and no transformation/loss code"));
+            }
+            "mapped_normalized" if canonical.is_none() || transformation.is_none() || !loss_is_null => {
+                return Err(format!("{case_id}: normalized mapping {source_path} requires a canonical path and transformation ref, with no loss code"));
             }
             "unmapped" | "unsupported" | "ambiguous" if !canonical_is_null || loss.is_none() => {
                 return Err(format!("{case_id}: unresolved field {source_path} must have null canonical path and a loss code"));
@@ -473,6 +479,25 @@ mod tests {
         let case = arr(&mut c, "cases").unwrap().iter_mut()
             .find(|x| s(x, "case_id").unwrap() == "OT-ACCESS-PRINCIPAL-GAP").unwrap();
         case["field_mappings"][0]["loss_code"] = Value::Null;
+        assert!(validate_case_references(case).is_err());
+    }
+
+
+    #[test]
+    fn normalized_mapping_requires_transformation_reference() {
+        let (mut c, _) = fixtures();
+        let case = arr(&mut c, "cases").unwrap().iter_mut()
+            .find(|x| s(x, "case_id").unwrap() == "BIGID-CLASSIFICATION-NOT-AUTHORITY").unwrap();
+        case["field_mappings"][0]["transformation_ref"] = Value::Null;
+        assert!(validate_case_references(case).is_err());
+    }
+
+    #[test]
+    fn successful_mapping_cannot_carry_a_loss_code() {
+        let (mut c, _) = fixtures();
+        let case = arr(&mut c, "cases").unwrap().iter_mut()
+            .find(|x| s(x, "case_id").unwrap() == "OT-DIRECTION-SUBPROCESSOR").unwrap();
+        case["field_mappings"][0]["loss_code"] = Value::String("silent_loss".to_owned());
         assert!(validate_case_references(case).is_err());
     }
 
