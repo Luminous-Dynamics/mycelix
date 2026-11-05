@@ -65,7 +65,7 @@ fn digest_domain(domain: &str, value: &Value) -> Result<String, String> {
 }
 
 fn days_from_civil(year: i64, month: i64, day: i64) -> i64 {
-    let adjusted_year = year - i64::from(month <= 2);
+    let adjusted_year = year - if month <= 2 { 1 } else { 0 };
     let era = adjusted_year.div_euclid(400);
     let year_of_era = adjusted_year - era * 400;
     let adjusted_month = month + if month > 2 { -3 } else { 9 };
@@ -189,6 +189,21 @@ fn admission(
     }
 
     let profile_id = str_at(profile, "profile_id").unwrap_or("");
+    let evaluation_time = str_at(scenario, "evaluation_time").unwrap_or("");
+    let evaluation_date = evaluation_time.get(0..10).unwrap_or("");
+    let profile_observed = str_at(profile, "observed_on").unwrap_or("");
+    let valid_from = profile.get("valid_from").and_then(Value::as_str);
+    let effective_to = profile.get("effective_to").and_then(Value::as_str);
+    if profile_observed > evaluation_date
+        || valid_from.is_some_and(|start| start > evaluation_date)
+        || effective_to.is_some_and(|end| evaluation_date > end)
+    {
+        return decide(
+            "quarantined_unknown",
+            "quarantined_unknown",
+            "participant_profile_not_valid_at_evaluation_time",
+        );
+    }
     let scenario_profile = str_at(scenario, "profile_id").unwrap_or("");
     if profile_id != scenario_profile
         || str_at(intent, "profile_id") != Some(profile_id)
@@ -664,19 +679,31 @@ where
     }
 
     let consent_decision = str_at(consent, "decision").unwrap_or("unknown");
-    if !matches!(consent_decision, "not_yet_decided")
-        && !evidence_fresh_at(
-            &consent["observed_at"],
-            &intent["expires_at"],
-            evaluation_time,
-            u64::MAX,
-        )
-    {
-        return decide(
-            "needs_payer_reconfirmation",
-            "needs_payer_reconfirmation",
-            "payer_decision_occurs_after_evaluation_or_intent_expiry",
-        );
+    if !matches!(consent_decision, "not_yet_decided") {
+        let decision_at = consent["observed_at"]
+            .as_str()
+            .and_then(parse_utc_seconds);
+        let presentation_at = presentation["presented_at"]
+            .as_str()
+            .and_then(parse_utc_seconds);
+        let evaluation_at = parse_utc_seconds(evaluation_time);
+        let intent_expiry = intent["expires_at"]
+            .as_str()
+            .and_then(parse_utc_seconds);
+        if decision_at.is_none()
+            || presentation_at.is_none()
+            || evaluation_at.is_none()
+            || intent_expiry.is_none()
+            || decision_at < presentation_at
+            || decision_at > evaluation_at
+            || decision_at >= intent_expiry
+        {
+            return decide(
+                "needs_payer_reconfirmation",
+                "needs_payer_reconfirmation",
+                "payer_decision_not_after_presentation_and_before_evaluation_or_expiry",
+            );
+        }
     }
     let disposition = match consent_decision {
         "not_yet_decided" => {
@@ -1113,6 +1140,26 @@ fn run_self_tests(corpus: &Value, schema: &Value) -> Result<usize, String> {
     )?;
     count += 1;
 
+    mutate_and_reject(
+        "payer decision predates displayed presentation",
+        corpus,
+        schema,
+        |value| {
+            value["scenarios"][2]["consent"]["observed_at"] = json!("2026-11-05T09:01:40Z");
+        },
+    )?;
+    count += 1;
+
+    mutate_and_reject(
+        "profile effective date begins after evaluation",
+        corpus,
+        schema,
+        |value| {
+            value["profiles"][0]["valid_from"] = json!("2026-11-06");
+        },
+    )?;
+    count += 1;
+
     Ok(count)
 }
 
@@ -1230,7 +1277,7 @@ mod tests {
     fn deterministic_negative_mutation_campaign_rejects_composition_failures() {
         let corpus: Value = serde_json::from_str(CORPUS).expect("corpus");
         let schema: Value = serde_json::from_str(SCHEMA).expect("schema");
-        assert_eq!(run_self_tests(&corpus, &schema).expect("mutations"), 22);
+        assert_eq!(run_self_tests(&corpus, &schema).expect("mutations"), 24);
     }
 
     #[test]
