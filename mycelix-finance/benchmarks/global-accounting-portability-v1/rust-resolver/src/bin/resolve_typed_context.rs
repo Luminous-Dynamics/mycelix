@@ -689,7 +689,7 @@ mod tests {
 
     #[test]
     fn public_oracle_schema_and_all_expected_dispositions_match() {
-        let (_, _, request_schema, _, requests, oracle) = fixtures();
+        let (_, _, _, _, requests, oracle) = fixtures();
         let oracle_schema = oracle_schema();
         validate_instance("public typed-context oracle", &oracle_schema, &oracle).unwrap();
 
@@ -703,7 +703,6 @@ mod tests {
         for expectation in expected {
             let request_id = string(expectation, "request_id").unwrap();
             assert!(seen.insert(request_id.to_owned()), "duplicate oracle request id");
-            let request = request_for(&requests, request_id);
             let report = resolve_fixture(request_id);
             assert_eq!(
                 report["disposition"],
@@ -716,7 +715,6 @@ mod tests {
                 "missing oracle reason {required_reason} for {request_id}"
             );
             validate_instance("oracle-matched report", &report_schema_for_test(), &report).unwrap();
-            let _ = (request, request_schema);
         }
     }
 
