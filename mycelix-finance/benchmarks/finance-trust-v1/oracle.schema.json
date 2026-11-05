@@ -36,7 +36,8 @@
           "required_binding_requirements",
           "expected_journal_entries",
           "unresolved_ids",
-          "must_not_claim_complete"
+          "must_not_claim_complete",
+          "expected_statement_lines"
         ],
         "properties": {
           "task_id": {
@@ -121,6 +122,26 @@
           },
           "must_not_claim_complete": {
             "type": "boolean"
+          },
+          "expected_statement_lines": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "line_id",
+                "amount_minor"
+              ],
+              "properties": {
+                "line_id": {
+                  "type": "string"
+                },
+                "amount_minor": {
+                  "type": "string",
+                  "pattern": "^(0|[1-9][0-9]*)$"
+                }
+              }
+            }
           }
         }
       }
