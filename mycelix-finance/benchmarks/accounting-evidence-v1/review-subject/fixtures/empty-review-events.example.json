@@ -21,7 +21,7 @@
     "accounting_profile_digest": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
     "accounting_policy_digest": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
     "review_policy_ref": "review-policy:material-close-v1",
-    "review_policy_digest": "0000000000000000000000000000000000000000000000000000000000000000",
+    "review_policy_digest": "095f23726406779e0058a5886103268e7aab64383158969ab74673ccac75127f",
     "knowledge_frontier_digest": "1111111111111111111111111111111111111111111111111111111111111111",
     "authority_frontier_digest": "2222222222222222222222222222222222222222222222222222222222222222",
     "prepared_by": {
