@@ -548,8 +548,8 @@ fn run_self_tests(corpus: &Value, schema: &Value) -> Result<usize, String> {
         corpus,
         schema,
         |value| {
-            value["scenarios"][27]["signal"]["subject_reference"] =
-                json!("pairwise:synthetic-subject");
+            value["scenarios"][20]["signal"]["subject_reference"] =
+                json!("phone:+27123456789");
         },
     )?;
     count += 1;
