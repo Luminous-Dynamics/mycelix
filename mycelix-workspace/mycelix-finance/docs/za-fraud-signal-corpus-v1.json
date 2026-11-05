@@ -1664,7 +1664,7 @@
           }
         ],
         "aggregate": null,
-        "expected_disposition": "reject"
+        "expected_disposition": "quarantine_withdrawn"
       }
     },
     {
