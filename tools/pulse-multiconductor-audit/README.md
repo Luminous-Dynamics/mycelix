@@ -12,7 +12,7 @@ The v2 contract distinguishes:
 - source-chain action authoring;
 - receiving-conductor validator acceptance/rejection;
 - observer projection state;
-- remote signal trust class;
+- remote signal trust class, exact source-action reference, payload digest, receiving-validator event and integrity-WASM identity;
 - caller-visible outcomes and durable domain effects.
 
 ## Run
@@ -42,7 +42,9 @@ The benchmark report separates:
 
 The Actions benchmark job runs 30 independent processes at 1k, 10k and 100k events, plus one 1M-event capacity probe. It records peak RSS per process and preserves every raw run plus a summary. The 1M sample is a capacity probe, not a percentile population. This measures the verifier on synthetic remote-signal histories; it does not establish Holochain runtime throughput, DHT convergence performance or comparative SOTA superiority.
 
-A performance optimization is accepted only if the same negative-control suite still detects foreign lineages, missing validator receipts, cycles, false-fresh projections and invalid authorization histories.
+A `verified_record` signal must resolve the exact authored action, match its canonical payload SHA-256, resolve an accepted validator event in the same DNA/cell lineage, match the receiving conductor's integrity-WASM digest, and have explicit author→validator→observer causal edges. `authenticated_peer_hint` is bound to the transport-observed sender but remains advisory; `local_only` cannot claim remote sender metadata.
+
+A performance optimization is accepted only if the same negative-control suite still detects foreign lineages, missing validator receipts, digest mismatches, forged signal claims, cycles, false-fresh projections and invalid authorization histories.
 
 ## Claim ceiling
 
