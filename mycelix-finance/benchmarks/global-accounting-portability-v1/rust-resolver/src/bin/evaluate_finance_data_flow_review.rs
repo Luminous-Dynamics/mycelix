@@ -7,12 +7,13 @@ use std::error::Error;
 use std::fs;
 use std::path::PathBuf;
 
-const REASONS: [&str; 11] = [
+const REASONS: [&str; 12] = [
     "actor_role_or_authority_conflict",
     "legal_hold_blocks_deletion",
     "secondary_purpose_unreviewed",
     "support_access_location_unknown",
     "required_fact_after_knowledge_frontier",
+    "actor_scope_not_valid_for_context_period",
     "uk_regime_profile_not_qualified",
     "onward_transfer_mechanism_scope_incomplete",
     "onward_transfer_destination_unqualified",
@@ -188,7 +189,11 @@ fn push_reason(reasons: &mut BTreeSet<String>, reason: &str) {
 
 fn controller_scopes(context: &Value) -> Result<BTreeSet<String>, String> {
     let mut scopes = BTreeSet::new();
+    let period = context.get("period").ok_or("context missing period")?;
     for actor in array(context, "actors")? {
+        if !is_known_at(actor, context)? || !is_active(actor, "valid_from", "valid_to", period) {
+            continue;
+        }
         if actor_has_role(actor, "controller") || actor_has_role(actor, "responsible_party") {
             if let Some(scope) = optional_string(actor, "home_scope_ref") {
                 scopes.insert(scope.to_owned());
@@ -275,8 +280,19 @@ fn foreign_locations<'a>(
 fn evaluate_context(context: &Value) -> Result<Value, String> {
     let context_id = string(context, "context_id")?;
     let mut reasons = BTreeSet::new();
+    let period = context.get("period").ok_or("context missing period")?;
+    for actor in array(context, "actors")? {
+        if !is_known_at(actor, context)? {
+            push_reason(&mut reasons, "required_fact_after_knowledge_frontier");
+        } else if !is_active(actor, "valid_from", "valid_to", period) {
+            push_reason(&mut reasons, "actor_scope_not_valid_for_context_period");
+        }
+    }
     let local_scopes = controller_scopes(context)?;
-    if local_scopes.len() != 1 {
+    if local_scopes.len() != 1
+        && !reasons.contains("required_fact_after_knowledge_frontier")
+        && !reasons.contains("actor_scope_not_valid_for_context_period")
+    {
         push_reason(&mut reasons, "actor_role_or_authority_conflict");
     }
     let local_scope_set = local_scopes.clone();
@@ -605,6 +621,33 @@ mod tests {
         assert_eq!(result["review_disposition"], "indeterminate");
         assert!(!array(&result, "triggered_reason_codes").unwrap().iter()
             .any(|code| code.as_str() == Some("foreign_support_access_without_transfer_qualification")));
+    }
+
+
+    #[test]
+    fn future_actor_home_scope_metadata_is_not_used_for_historical_replay() {
+        let (mut candidates, _) = fixtures();
+        let context = &mut candidates["contexts"][0];
+        let index = array(context, "actors").unwrap().iter()
+            .position(|actor| actor_has_role(actor, "controller")).unwrap();
+        context["actors"][index]["recorded_at"] = Value::String("2026-11-05T10:45:00Z".to_owned());
+        let result = evaluate_context(context).unwrap();
+        assert_eq!(result["primary_reason_code"], "required_fact_after_knowledge_frontier");
+        assert_eq!(result["review_disposition"], "indeterminate");
+        assert!(!array(&result, "triggered_reason_codes").unwrap().iter()
+            .any(|reason| reason.as_str() == Some("actor_role_or_authority_conflict")));
+    }
+
+    #[test]
+    fn actor_home_scope_not_valid_for_context_period_requires_review() {
+        let (mut candidates, _) = fixtures();
+        let context = &mut candidates["contexts"][0];
+        let index = array(context, "actors").unwrap().iter()
+            .position(|actor| actor_has_role(actor, "controller")).unwrap();
+        context["actors"][index]["valid_to"] = Value::String("2025-12-31".to_owned());
+        let result = evaluate_context(context).unwrap();
+        assert_eq!(result["primary_reason_code"], "actor_scope_not_valid_for_context_period");
+        assert_eq!(result["review_disposition"], "needs_review");
     }
 
     #[test]
