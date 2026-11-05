@@ -503,9 +503,15 @@ fn run_self_tests(corpus: &Value, schema: &Value) -> Result<usize, String> {
         },
     )?;
     count += 1;
-    mutate_and_reject("expired signal kept asserted", corpus, schema, |value| {
-        value["scenarios"][12]["signal"]["lifecycle"]["state"] = json!("asserted");
-    })?;
+    mutate_and_reject(
+        "expired signal promoted to active scoped assertion",
+        corpus,
+        schema,
+        |value| {
+            value["scenarios"][12]["signal"]["expected_disposition"] =
+                json!("admit_scoped_assertion");
+        },
+    )?;
     count += 1;
     mutate_and_reject("dispute bypassed", corpus, schema, |value| {
         value["scenarios"][13]["signal"]["lifecycle"]["state"] = json!("asserted");
