@@ -52,7 +52,8 @@
       "authority_class": "standard_setter",
       "source_url": "https://www.ifrs.org/issued-standards/ifrs-for-smes/",
       "valid_from": "2027-01-01",
-      "notes": "Effective for annual periods beginning on/after 2027-01-01; early application is permitted; no local/entity eligibility is inferred."
+      "notes": "Effective for annual periods beginning on/after 2027-01-01; early application is permitted; no local/entity eligibility is inferred.",
+      "early_application_allowed": true
     },
     {
       "profile_id": "US-GAAP-FASB-ASC",
@@ -447,7 +448,8 @@
         "no_real_jurisdiction_or_entity",
         "no_tax_or_accounting_rule",
         "no_production_or_compliance_claim"
-      ]
+      ],
+      "early_application_qualifications": []
     }
   ]
 }
