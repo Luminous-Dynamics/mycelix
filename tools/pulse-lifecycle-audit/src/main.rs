@@ -360,8 +360,9 @@ fn audit(bundle: &TraceBundle, input_sha256: String) -> AuditReport {
     let mut event_ids = BTreeSet::new();
     let mut call_states: BTreeMap<(String, u32), CallState> = BTreeMap::new();
     let mut effects_by_operation: BTreeMap<String, String> = BTreeMap::new();
+    let mut effects_by_attempt: BTreeSet<(String, u32)> = BTreeSet::new();
     let mut effect_ids = BTreeSet::new();
-    let mut not_committed = BTreeSet::new();
+    let mut caller_outcomes: BTreeMap<(String, u32), CallerOutcomeKind> = BTreeMap::new();
     let mut last_seq = 0u64;
     let mut last_authority_index = 0u64;
     let mut saw_grant = false;
@@ -624,6 +625,11 @@ fn audit(bundle: &TraceBundle, input_sha256: String) -> AuditReport {
                     finding(&mut findings, "DUPLICATE_EFFECT_ID", "violation",
                         Some(&event.event_id), "effect IDs must be globally unique");
                 }
+                let attempt_key = (effect.operation_id.clone(), effect.attempt_id);
+                if !effects_by_attempt.insert(attempt_key) {
+                    finding(&mut findings, "MULTIPLE_EFFECTS_PER_ATTEMPT", "violation",
+                        Some(&event.event_id), "one logical operation attempt may produce at most one durable effect");
+                }
                 if let Some(existing) = effects_by_operation.get(&effect.operation_id) {
                     if existing != &effect.effect_id {
                         finding(&mut findings, "MULTIPLE_EFFECTS_PER_LOGICAL_OPERATION", "violation",
@@ -655,30 +661,84 @@ fn audit(bundle: &TraceBundle, input_sha256: String) -> AuditReport {
                 if read.decision == ProjectionDecision::Unknown {
                     counts.unknown_projection_reads += 1;
                 }
+                if read.grant_ref.trim().is_empty() {
+                    finding(&mut findings, "PROJECTION_GRANT_REFERENCE_MISSING", "incomplete",
+                        Some(&event.event_id), "projection read must identify the exact grant it describes");
+                }
                 if read.used_for_authorization {
                     finding(&mut findings, "PROJECTION_READ_USED_FOR_AUTHORITY", "violation",
                         Some(&event.event_id), "application projection reads are not host authorization");
                 }
-                if read.checkpoint_used && read.observed_epoch < read.minimum_epoch &&
+                let stale_checkpoint = read.observed_epoch < read.minimum_epoch;
+                if read.checkpoint_used && stale_checkpoint &&
                     read.decision != ProjectionDecision::Unknown {
                     finding(&mut findings, "STALE_CHECKPOINT_READ_NOT_UNKNOWN", "violation",
                         Some(&event.event_id), "a checkpoint-constrained stale read must return UNKNOWN");
                 }
+
+                match grants.get(&read.grant_ref) {
+                    None => finding(&mut findings, "PROJECTION_READ_WITHOUT_GRANT", "incomplete",
+                        Some(&event.event_id), "the exact grant issuance is absent from this trace"),
+                    Some(grant) => {
+                        let read_before_issue = event.seq <= grant.issued_seq ||
+                            read.observed_epoch < grant.issued_index;
+                        let revoked_before_read = grant.revoked_seq
+                            .is_some_and(|revoked_seq| event.seq > revoked_seq);
+                        let stale_against_known_revocation = revoked_before_read &&
+                            grant.revoked_index.is_some_and(|revoked_index| read.observed_epoch < revoked_index);
+
+                        if read_before_issue &&
+                            matches!(read.decision, ProjectionDecision::TrustedActive | ProjectionDecision::TrustedRevoked) {
+                            finding(&mut findings, "PROJECTION_TRUSTED_BEFORE_GRANT_ISSUANCE", "violation",
+                                Some(&event.event_id), "a projection cannot be trusted for a grant before its issuance epoch");
+                        }
+                        if stale_against_known_revocation &&
+                            matches!(read.decision, ProjectionDecision::TrustedActive | ProjectionDecision::TrustedRevoked) {
+                            finding(&mut findings, "STALE_PROJECTION_LABELED_TRUSTED", "violation",
+                                Some(&event.event_id), "a projection older than a revocation already present in this trace cannot be labeled trusted");
+                        }
+                        if stale_against_known_revocation && !read.checkpoint_used &&
+                            !matches!(read.decision, ProjectionDecision::StaleAdvisory | ProjectionDecision::Unknown) {
+                            finding(&mut findings, "STALE_READ_NOT_MARKED_ADVISORY", "violation",
+                                Some(&event.event_id), "an unconstrained stale projection must be explicitly advisory or UNKNOWN");
+                        }
+                        if revoked_before_read &&
+                            grant.revoked_index.is_some_and(|revoked_index| read.observed_epoch >= revoked_index) &&
+                            read.projection_state == ProjectionState::Active &&
+                            read.decision != ProjectionDecision::Unknown {
+                            finding(&mut findings, "PROJECTION_CONFLICTS_WITH_REVOKED_AUTHORITY", "violation",
+                                Some(&event.event_id), "projection claims active at or after the exact revocation epoch");
+                        }
+                    }
+                }
+
                 if read.decision == ProjectionDecision::TrustedActive &&
-                    (read.projection_state != ProjectionState::Active ||
-                     (read.checkpoint_used && read.observed_epoch < read.minimum_epoch)) {
+                    (read.projection_state != ProjectionState::Active || stale_checkpoint ||
+                     read.projection_state == ProjectionState::Conflicting ||
+                     read.projection_state == ProjectionState::Unknown) {
                     finding(&mut findings, "FALSE_FRESH_ACTIVE_PROJECTION", "violation",
                         Some(&event.event_id), "trusted-active result conflicts with state or required freshness");
                 }
                 if read.decision == ProjectionDecision::TrustedRevoked &&
-                    (read.projection_state != ProjectionState::Revoked ||
-                     (read.checkpoint_used && read.observed_epoch < read.minimum_epoch)) {
+                    (read.projection_state != ProjectionState::Revoked || stale_checkpoint ||
+                     read.projection_state == ProjectionState::Conflicting ||
+                     read.projection_state == ProjectionState::Unknown) {
                     finding(&mut findings, "FALSE_FRESH_REVOKED_PROJECTION", "violation",
                         Some(&event.event_id), "trusted-revoked result conflicts with state or required freshness");
                 }
             }
             EventKind::RemoteSignal(signal) => {
                 counts.remote_signals += 1;
+                let event_type_valid = !signal.event_type.trim().is_empty()
+                    && signal.event_type.len() <= 128
+                    && signal.event_type.as_bytes()[0].is_ascii_alphabetic()
+                    && signal.event_type.bytes().all(|byte| {
+                        byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-' | b'.')
+                    });
+                if !event_type_valid {
+                    finding(&mut findings, "REMOTE_SIGNAL_EVENT_TYPE_INVALID", "incomplete",
+                        Some(&event.event_id), "remote signal event_type must be a non-empty bounded identifier");
+                }
                 if signal.authorizes_operation {
                     finding(&mut findings, "REMOTE_SIGNAL_USED_AS_AUTHORITY", "violation",
                         Some(&event.event_id), "signals are notifications, never capabilities or authorization decisions");
@@ -704,8 +764,22 @@ fn audit(bundle: &TraceBundle, input_sha256: String) -> AuditReport {
                 if outcome.outcome == CallerOutcomeKind::Unknown {
                     counts.caller_outcomes_unknown += 1;
                 }
-                if outcome.outcome == CallerOutcomeKind::NotCommitted {
-                    not_committed.insert(outcome.operation_id.clone());
+                let key = (outcome.operation_id.clone(), outcome.attempt_id);
+                match caller_outcomes.get(&key).copied() {
+                    None => {
+                        caller_outcomes.insert(key, outcome.outcome);
+                    }
+                    Some(previous) if previous == outcome.outcome => {}
+                    Some(CallerOutcomeKind::Acknowledged | CallerOutcomeKind::Unknown) => {
+                        // A later reconciliation may resolve an acknowledgement or
+                        // timeout to a definitive outcome for the same attempt.
+                        caller_outcomes.insert(key, outcome.outcome);
+                    }
+                    Some(previous) => {
+                        finding(&mut findings, "CALLER_OUTCOME_CONTRADICTION", "violation",
+                            Some(&event.event_id),
+                            format!("attempt outcome changed from {:?} to {:?}", previous, outcome.outcome));
+                    }
                 }
             }
         }
@@ -715,10 +789,15 @@ fn audit(bundle: &TraceBundle, input_sha256: String) -> AuditReport {
         finding(&mut findings, "LIFECYCLE_TRACE_INCOMPLETE", "incomplete", None,
             "trace must contain at least one grant issuance and one host call");
     }
-    for operation_id in not_committed {
-        if effects_by_operation.contains_key(&operation_id) {
-            finding(&mut findings, "NOT_COMMITTED_CONTRADICTS_EFFECT", "violation", None,
-                format!("operation {operation_id} was reported not_committed but has a durable effect"));
+    for ((operation_id, attempt_id), outcome) in caller_outcomes {
+        let has_effect = effects_by_attempt.contains(&(operation_id.clone(), attempt_id));
+        if matches!(outcome, CallerOutcomeKind::NotCommitted | CallerOutcomeKind::Rejected) && has_effect {
+            finding(&mut findings, "NOT_COMMITTED_CONTRADICTS_ATTEMPT_EFFECT", "violation", None,
+                format!("operation {operation_id} attempt {attempt_id} was reported {:?} but has a durable effect", outcome));
+        }
+        if outcome == CallerOutcomeKind::Committed && !has_effect {
+            finding(&mut findings, "COMMITTED_OUTCOME_WITHOUT_EFFECT_EVIDENCE", "incomplete", None,
+                format!("operation {operation_id} attempt {attempt_id} was reported committed without a matching durable effect receipt"));
         }
     }
 
