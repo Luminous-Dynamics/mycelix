@@ -2532,7 +2532,8 @@
           "freshness": null,
           "valid_until": null,
           "evidence_types": [
-            "provider_receipt"
+            "provider_receipt",
+            "provider_registration_receipt"
           ]
         },
         {
