@@ -344,6 +344,102 @@
               }
             }
           }
+        },
+        {
+          "if": {
+            "properties": {
+              "subject_kind": {
+                "const": "party"
+              }
+            },
+            "required": [
+              "subject_kind"
+            ]
+          },
+          "then": {
+            "properties": {
+              "party_role_bindings": {
+                "maxItems": 0
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "subject_kind": {
+                "const": "establishment"
+              }
+            },
+            "required": [
+              "subject_kind"
+            ]
+          },
+          "then": {
+            "properties": {
+              "party_role_bindings": {
+                "minItems": 1
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "subject_kind": {
+                "const": "shipment"
+              }
+            },
+            "required": [
+              "subject_kind"
+            ]
+          },
+          "then": {
+            "properties": {
+              "party_role_bindings": {
+                "minItems": 1
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "subject_kind": {
+                "const": "transaction"
+              }
+            },
+            "required": [
+              "subject_kind"
+            ]
+          },
+          "then": {
+            "properties": {
+              "party_role_bindings": {
+                "maxItems": 0
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "required_origin": {
+                "const": "approved_rule_derived"
+              }
+            },
+            "required": [
+              "required_origin"
+            ]
+          },
+          "then": {
+            "properties": {
+              "required_derivation_ref": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
         }
       ]
     }
