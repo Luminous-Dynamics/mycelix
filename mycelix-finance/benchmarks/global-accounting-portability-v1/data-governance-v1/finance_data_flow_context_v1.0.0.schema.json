@@ -32,12 +32,13 @@
   "$defs": {
     "date": {
       "type": "string",
-      "format": "date"
+      "format": "date",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
     },
     "utcSecond": {
       "type": "string",
       "format": "date-time",
-      "pattern": "^\\\\d{4}-\\\\d{2}-\\\\d{2}T\\\\d{2}:\\\\d{2}:\\\\d{2}Z$"
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
     },
     "actorRole": {
       "enum": [
@@ -255,7 +256,8 @@
             "string",
             "null"
           ],
-          "format": "date"
+          "format": "date",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
         },
         "recorded_at": {
           "$ref": "#/$defs/utcSecond"
@@ -377,7 +379,8 @@
             "string",
             "null"
           ],
-          "format": "date"
+          "format": "date",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
         },
         "recorded_at": {
           "$ref": "#/$defs/utcSecond"
@@ -448,7 +451,8 @@
             "string",
             "null"
           ],
-          "format": "date"
+          "format": "date",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
         },
         "recorded_at": {
           "$ref": "#/$defs/utcSecond"
@@ -529,7 +533,8 @@
             "string",
             "null"
           ],
-          "format": "date"
+          "format": "date",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
         },
         "recorded_at": {
           "$ref": "#/$defs/utcSecond"
@@ -587,7 +592,8 @@
             "string",
             "null"
           ],
-          "format": "date"
+          "format": "date",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
         },
         "evidence_refs": {
           "type": "array",
@@ -726,7 +732,8 @@
             "string",
             "null"
           ],
-          "format": "date"
+          "format": "date",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
         },
         "recorded_at": {
           "$ref": "#/$defs/utcSecond"
@@ -778,7 +785,8 @@
             "string",
             "null"
           ],
-          "format": "date"
+          "format": "date",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
         },
         "legal_hold_state": {
           "enum": [
@@ -814,7 +822,8 @@
             "string",
             "null"
           ],
-          "format": "date"
+          "format": "date",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
         },
         "recorded_at": {
           "$ref": "#/$defs/utcSecond"
