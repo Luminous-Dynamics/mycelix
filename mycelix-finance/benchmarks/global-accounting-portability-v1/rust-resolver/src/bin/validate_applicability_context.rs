@@ -151,6 +151,19 @@ fn validate_context_bundle(bundle: &Value) -> Result<(), String> {
                 }
             }
         }
+        for origin in scopes.keys() {
+            let mut visited = BTreeSet::<String>::new();
+            let mut current = Some(origin.as_str());
+            while let Some(scope_id) = current {
+                if !visited.insert(scope_id.to_owned()) {
+                    return Err(format!("{context_id}: jurisdiction scope hierarchy contains a cycle at {scope_id}"));
+                }
+                current = scopes
+                    .get(scope_id)
+                    .and_then(|scope| scope.get("parent_scope_ref"))
+                    .and_then(Value::as_str);
+            }
+        }
 
         let facts = array(context, "jurisdiction_facts")?;
         let mut fact_map = BTreeMap::<String, &Value>::new();
@@ -523,6 +536,14 @@ mod tests {
         assert_eq!(place["subject_kind"], "transaction");
         assert_eq!(place["subject_ref"], ctx["transaction_ref"]);
         assert!(place.get("subject_party_role").is_none());
+    }
+
+    #[test]
+    fn jurisdiction_scope_parent_graph_must_be_acyclic() {
+        let (_, mut candidates, _, _) = fixtures();
+        candidates["contexts"][0]["scope_registry"][0]["parent_scope_ref"] =
+            json!("SYN-SCOPE-A-REGION-1");
+        assert!(validate_context_bundle(&candidates).is_err());
     }
 
     #[test]
