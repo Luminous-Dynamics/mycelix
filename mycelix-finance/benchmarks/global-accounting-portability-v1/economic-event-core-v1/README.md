@@ -1,6 +1,6 @@
 # Bitemporal Economic Event Core v1.0.0 — S0
 
-This package starts [FIN-EVENT-CORE-001 / #5865](https://github.com/Luminous-Dynamics/mycelix/issues/5865). It defines a synthetic, vendor-neutral economic-event graph and a structural validator. It is not an accounting policy engine, general ledger, legal system, or authorization to post entries.
+This package starts [FIN-EVENT-CORE-001 / #5865](https://github.com/Luminous-Dynamics/mycelix/issues/5865). It defines a synthetic, vendor-neutral economic-event graph, a structural/temporal validator, and a separate accounting policy-projection contract. It is not an accounting policy engine, general ledger, legal system, or authorization to post entries.
 
 ## Paradigm: documents are assertions, not transactions
 
@@ -13,18 +13,19 @@ The core separates:
 3. **EconomicEvent** — typed economic occurrence (service delivery, obligation, invoice issuance, credit, settlement, prepayment, accrual, reversal, FX remeasurement, etc.), entity, counterparty, occurred-at, recorded-at, amount and currency.
 4. **EventRelation** — explicit supports, contradicts, supersedes, settles, reverses, allocates, corrects, causally-depends-on and duplicate-of edges.
 
-The event graph is not a journal. It is a stable semantic layer from which separately versioned accounting-policy projections can be produced. It does not encode GAAP/IFRS recognition rules in the event types. The policy-projection schema is a separate output contract: multiple frameworks can consume the same frozen graph digest, while each projection binds its own policy profile/version/digest, projector version/digest, per-event decision, rule reference, assumptions and journal lines. The schema does not provide the rules or establish that any projection is correct.
+The event graph is not a journal. It is a stable semantic layer from which separately versioned accounting-policy projections can be produced. It does not encode GAAP/IFRS recognition rules in the event types. **Evidence assertions are immutable; corrections add new evidence and relations rather than rewriting history.**
 
 ## S0 files and coverage
 
 - `economic_event_graph_v1.0.0.schema.json`: closed Draft 2020-12 graph schema.
 - `economic_event_validation_report_v1.0.0.schema.json`: structural/temporal validation report schema.
-- `accounting_policy_projection_v1.0.0.schema.json`: separate contract for policy-specific outputs bound to an immutable event-graph digest, policy digest and projector digest.
-- `fixtures/economic_event_graph_candidates_v1.0.0.json`: eight synthetic graph cases.
-- `../rust-resolver/src/bin/validate_economic_event_graph_s0.rs`: Rust validator and report generator.
+- `fixtures/economic_event_graph_candidates_v1.0.0.json`: eight synthetic graph candidates.
+- `accounting_policy_projection_v1.0.0.schema.json`: policy-specific output contract binding graph, policy and projector digests separately.
+- `accounting_policy_projection_bundle_v1.0.0.schema.json` and `fixtures/accounting_policy_projection_review_controls_v1.0.0.json`: two review-only projection examples over one immutable graph digest.
+- `../rust-resolver/src/bin/validate_economic_event_graph_s0.rs`: Rust validator/report generator.
 
-The eight cases cover:
-1. invoice issued without service-acceptance evidence;
+The eight graph cases cover:
+1. invoice issuance without service-acceptance evidence;
 2. service-delivery evidence and later invoice issuance as distinct events;
 3. settlement event linked to an invoice without a second expense-recognition event;
 4. credit note explicitly correcting its parent invoice event;
@@ -35,7 +36,7 @@ The eight cases cover:
 
 Counts: 8 cases, 16 source objects, 21 assertions, 13 economic events and 4 typed relations. All values, actors, namespaces, IDs and locators are synthetic.
 
-## Bitemporal and identity invariants
+## Bitemporal, identity and evidence-consistency invariants
 
 - Date-time strings are canonical whole-second UTC: `YYYY-MM-DDTHH:MM:SSZ`. Offsets and fractional-second timestamps are rejected.
 - Date-only valid-time values are canonical `YYYY-MM-DD`.
@@ -45,8 +46,26 @@ Counts: 8 cases, 16 source objects, 21 assertions, 13 economic events and 4 type
 - Source identity is the tuple (tenant namespace, external ID, revision, source kind); a same-ID object in another tenant remains distinct.
 - Multiple revisions of one source identity require an explicit ordered supersession chain. Unlinked revision families are surfaced.
 - Every assertion points to one source object and locator. Every event points to one or more assertions. Every relation has typed endpoints and source assertion refs.
+- Event amount/currency must equal the cited invoice, credit or payment amount assertion. Service-delivery and settlement event dates must match the cited acceptance/payment-date assertions. Where service-period boundaries are present, start must not follow end.
+- A `corrects` relation must link a `credit_issued` event to an `invoice_issued` event with a parent invoice source object in the same tenant namespace. Cross-tenant ID coincidences cannot create parentage.
 - Contradictions are preserved as edges; the validator never selects one conflicting assertion as true.
-- The validator reports future evidence, integrity mismatches, contradictions and unlinked revision families. It never resolves them into accounting conclusions.
+- The validator reports future assertions/events, unlinked revisions, contradictions and integrity mismatches. It does not resolve them into accounting conclusions.
+
+## Policy-neutral, multi-projection boundary
+
+The event graph is the shared evidence substrate; policy and projector versions are independent bindings.
+
+The policy-projection contract requires:
+- exact event graph case ID and SHA-256 digest;
+- policy profile ID/version/framework and policy SHA-256 digest;
+- projector ID/version and projector SHA-256 digest;
+- per-event decision state, treatment-rule reference, source assertions and assumptions;
+- journal lines linked to event refs, source assertions and policy decision refs;
+- unresolved items and review state.
+
+The review-control fixture has two synthetic policy profiles and two synthetic projector versions bound to the **same graph digest**. Both outputs remain `needs_review` with no journal lines because the graph contains only invoice issuance and lacks service-acceptance evidence. Their policy/projector digests differ. These are schema examples only—not GAAP, IFRS or any real framework outputs.
+
+This demonstrates the architectural boundary: a chart of accounts or policy change must not mutate the source evidence graph. Multiple policy projections can be regenerated from the same frozen graph and compared without rewriting the underlying facts.
 
 ## Local Rust validation
 
@@ -64,23 +83,20 @@ Optional arguments:
 - `--output PATH`: write the deterministic validation report to a file;
 - `--help`: show usage.
 
-The validator checks Draft 2020-12 schemas, canonical timestamps, unique identities, tenant-scoped revision chains, assertion/source references, event/typed assertion compatibility, event and relation endpoints, self-relations, temporal availability, and event-supersession cycles. The report fingerprints the exact candidate bytes with SHA-256. There is no network or ledger side effect.
+The validator checks Draft 2020-12 schemas; source identity and supersession; assertion/source provenance; valid time and knowledge time; event-to-assertion type consistency; exact event amount/currency/date agreement with cited assertions; same-tenant credit-note parent resolution; typed relation endpoints; self-relations; event supersession cycles; and deterministic input SHA-256. It reports future assertions/events, unlinked revisions, contradictions and integrity mismatches without resolving them into accounting conclusions.
 
-Eleven Rust tests are authored but **not executed**. No Cargo compile/test, rustfmt, Clippy, independent schema runtime pass or CI pass is claimed.
+Sixteen Rust tests are authored, including source/event amount mismatch, currency mismatch, acceptance/payment-date mismatch, cross-tenant credit-note parent rejection, future evidence, contradictory assertions, unlinked revisions, dangling refs and supersession cycles. Tests are authored but **not executed**. No Cargo compile/test, rustfmt, Clippy, independent Draft 2020-12 runtime pass or CI pass is claimed.
 
-## Integration boundary
+## Integration and benchmark design
 
-- #5858 owns evidence-qualified accounting tasks, expected journals/statements and the independent agent-output evaluation.
+- #5858 owns evidence-qualified accounting tasks and ledger oracles.
+- #5868 owns evaluation of agent questions, evidence traces and final deliverables.
 - #5840/#5848 own typed jurisdiction/applicability context and fact resolution.
 - #5849 owns cross-border financial data-flow review and data governance.
 - #5855 owns read-only vendor platform interchange.
 - #5799 owns canonical benchmark run manifests/receipts and matched evaluation arms.
 
-The economic-event graph should eventually consume normalized, provenance-preserving facts from those packages. It must not redefine their source identity, data-flow permission, run receipts or benchmark oracles. Multi-framework accounting outputs belong in distinct policy-projection artifacts that reference the same frozen event graph and separately pinned policy/projector digests. The v1.0.0 projection contract is now authored, but no GAAP/IFRS projection engine or policy rules are implemented in S0.
-
-## Proposed benchmarks and targets
-
-Compare direct document-to-journal generation, source-fact-to-journal generation, typed-event-graph normalization, event graph plus deterministic replay, and multi-policy projection from the same frozen graph.
+Compare document-to-journal direct generation, source-fact-to-journal generation, typed-event-graph normalization, event graph plus independent replay, and multiple policy projections from the same frozen graph. Measure event normalization precision/recall on expert-labelled cases, provenance closure, contradiction retention, false event merges, replay stability, journal invariants, reviewer effort and cost separately.
 
 Proposed hard gates:
 - 100% assertion provenance closure;
@@ -89,10 +105,11 @@ Proposed hard gates:
 - zero historical rewrites from future evidence;
 - zero unlinked revision families silently normalized;
 - 100% exact replay for frozen graph bytes and policy digests;
+- zero event/source amount or currency mismatch;
 - zero journal imbalance in any later projection verifier.
 
-S0 is eight synthetic structural cases, not an expert-adjudicated accounting benchmark. Expand to 50 adversarial synthetic graphs, then >=100 dual-reviewed S1 cases and >=250 S2 cases with hidden holdout. Event-normalization precision/recall, event identity resolution quality, reviewer effort, runtime and cost require expert-labelled real-world-style cases and matched baselines.
+S0 is eight synthetic structural cases, not an expert-adjudicated accounting benchmark. Expand to 50 adversarial synthetic graphs, then at least 100 dual-reviewed S1 cases and 250 S2 cases with a hidden holdout.
 
 ## Claim ceiling
 
-This graph establishes only a typed, bitemporal representation and reference-validation contract. It does not establish whether a service was recognized under GAAP/IFRS, whether a credit note changes revenue or expenses, whether a transfer is legally permitted, whether an entity is a real counterparty, or whether any journal entry should be posted.
+This graph establishes only a typed, bitemporal representation and reference/evidence-consistency contract. It does not establish whether a service was recognized under GAAP/IFRS, whether a credit note changes revenue or expenses, whether a transfer is legally permitted, whether an entity is a real counterparty, or whether any journal entry should be posted.
