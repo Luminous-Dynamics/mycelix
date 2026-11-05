@@ -1,0 +1,168 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/fin-acc-workpaper-dag-report-v0.1.json",
+  "title": "FIN-ACC workpaper DAG semantic verifier report v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "report_schema",
+    "benchmark_id",
+    "dag_version",
+    "status",
+    "close_disposition",
+    "claim_scope",
+    "digests",
+    "node_count",
+    "topological_order",
+    "missing_required_node_kinds",
+    "directly_stale_nodes",
+    "transitively_stale_nodes",
+    "invalidated_stale_nodes",
+    "errors",
+    "warnings",
+    "authority_escalation_detected",
+    "can_post_journals",
+    "can_approve_or_close",
+    "limitations"
+  ],
+  "properties": {
+    "report_schema": {
+      "const": "fin-acc-workpaper-dag-report.v0.1"
+    },
+    "benchmark_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "dag_version": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "status": {
+      "enum": [
+        "PASS",
+        "FAIL"
+      ]
+    },
+    "close_disposition": {
+      "enum": [
+        "not_ready",
+        "ready_with_scope_limitations",
+        "ready_for_authorized_signoff",
+        "rejected"
+      ]
+    },
+    "claim_scope": {
+      "const": "semantic_consistency_of_declared_synthetic_workpaper_dag_only"
+    },
+    "digests": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "dag_sha256",
+        "canonical_dag_sha256",
+        "schema_sha256",
+        "verifier_source_sha256"
+      ],
+      "properties": {
+        "dag_sha256": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "canonical_dag_sha256": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "schema_sha256": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "verifier_source_sha256": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      }
+    },
+    "node_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "topological_order": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "missing_required_node_kinds": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string"
+      }
+    },
+    "directly_stale_nodes": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string"
+      }
+    },
+    "transitively_stale_nodes": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string"
+      }
+    },
+    "invalidated_stale_nodes": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string"
+      }
+    },
+    "errors": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "authority_escalation_detected": {
+      "type": "boolean"
+    },
+    "can_post_journals": {
+      "const": false
+    },
+    "can_approve_or_close": {
+      "const": false
+    },
+    "limitations": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}
