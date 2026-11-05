@@ -62,11 +62,12 @@ fn run_cli() -> Result<(), Box<dyn Error>> {
 
     validate_instance("context bundle", &context_schema, &bundle)?;
     validate_context_integrity(&bundle)?;
-    validate_instance("request schema", &request_schema, &request_schema)?;
+    validate_schema("request schema", &request_schema)?;
+    validate_schema("report schema", &report_schema)?;
     let request = select_request(&request_file, request_index)?;
     validate_instance("typed context request", &request_schema, request)?;
 
-    let mut report = resolve(
+    let report = resolve(
         &bundle,
         &bundle_bytes,
         &context_schema,
@@ -110,9 +111,17 @@ fn select_request(file: &Value, index: usize) -> AppResult<&Value> {
     }
 }
 
-fn validate_instance(label: &str, schema: &Value, instance: &Value) -> AppResult<()> {
+fn validate_schema(label: &str, schema: &Value) -> AppResult<()> {
     draft202012::meta::validate(schema)
         .map_err(|error| format!("{label}: invalid Draft 2020-12 schema: {error}"))?;
+    draft202012::options()
+        .build(schema)
+        .map(|_| ())
+        .map_err(|error| format!("{label}: could not compile Draft 2020-12 schema: {error}"))
+}
+
+fn validate_instance(label: &str, schema: &Value, instance: &Value) -> AppResult<()> {
+    validate_schema(label, schema)?;
     let validator = draft202012::options()
         .should_validate_formats(true)
         .build(schema)
@@ -150,7 +159,7 @@ fn string<'a>(value: &'a Value, key: &str) -> AppResult<&'a str> {
 
 fn nullable_string<'a>(value: &'a Value, key: &str) -> AppResult<Option<&'a str>> {
     match value.get(key) {
-        Some(Value::Null) => Ok(None),
+        None | Some(Value::Null) => Ok(None),
         Some(Value::String(text)) => Ok(Some(text)),
         _ => Err(format!("missing or invalid nullable string: {key}")),
     }
@@ -297,7 +306,11 @@ fn validate_context_integrity(bundle: &Value) -> AppResult<()> {
 
 fn binding_set(value: &Value, key: &str) -> AppResult<BTreeSet<(String, String)>> {
     let mut result = BTreeSet::new();
-    for binding in array(value, key)? {
+    let Some(values) = value.get(key) else {
+        return Ok(result);
+    };
+    let values = values.as_array().ok_or_else(|| format!("{key} must be an array when present"))?;
+    for binding in values {
         let pair = (
             string(binding, "party_ref")?.to_owned(),
             string(binding, "transaction_role")?.to_owned(),
@@ -419,12 +432,14 @@ fn evaluate_requirement(
         let fact_origin = string(fact, "origin")?;
         if let Some(required_origin) = nullable_string(requirement, "required_origin")? {
             if fact_origin != required_origin {
+                visible_review = true;
                 reasons.insert("fact_origin_mismatch".to_owned());
                 continue;
             }
         }
         if let Some(required_derivation) = nullable_string(requirement, "required_derivation_ref")? {
             if fact.get("derivation_ref").and_then(Value::as_str) != Some(required_derivation) {
+                visible_review = true;
                 reasons.insert("fact_derivation_ref_mismatch".to_owned());
                 continue;
             }
@@ -448,6 +463,8 @@ fn evaluate_requirement(
     if eligible.len() > 1 {
         disposition = "needs_review";
         reasons.insert("multiple_exact_facts_ambiguous".to_owned());
+    } else if visible_review {
+        disposition = "needs_review";
     } else if eligible.len() == 1 {
         disposition = "satisfied";
         matched_ids.insert(string(eligible[0], "fact_id")?.to_owned());
@@ -626,7 +643,8 @@ mod tests {
         let context_schema = parsed_schema(&schema_bytes);
         validate_instance("context bundle", &context_schema, &bundle).unwrap();
         validate_context_integrity(&bundle).unwrap();
-        validate_instance("request schema", &request_schema, &request_schema).unwrap();
+        validate_schema("request schema", &request_schema).unwrap();
+        validate_schema("report schema", &report_schema).unwrap();
         for request in array(&requests, "requests").unwrap() {
             validate_instance("request", &request_schema, request).unwrap();
             let report = resolve(&bundle, &bundle_bytes, &context_schema, &schema_bytes, request).unwrap();
