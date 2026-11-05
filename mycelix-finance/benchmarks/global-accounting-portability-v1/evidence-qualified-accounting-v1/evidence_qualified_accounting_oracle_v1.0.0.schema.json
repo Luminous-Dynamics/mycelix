@@ -137,7 +137,8 @@
         "required_source_fact_refs",
         "expected_questions",
         "expected_journal_entries",
-        "expected_no_posting"
+        "expected_no_posting",
+        "expected_statement_lines"
       ],
       "properties": {
         "case_id": {
@@ -186,6 +187,12 @@
         },
         "expected_no_posting": {
           "const": true
+        },
+        "expected_statement_lines": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/statementLine"
+          }
         }
       },
       "allOf": [
@@ -206,6 +213,9 @@
                 "maxItems": 0
               },
               "expected_journal_entries": {
+                "minItems": 1
+              },
+              "expected_statement_lines": {
                 "minItems": 1
               }
             }
@@ -230,11 +240,67 @@
             "properties": {
               "expected_journal_entries": {
                 "maxItems": 0
+              },
+              "expected_statement_lines": {
+                "maxItems": 0
               }
             }
           }
         }
       ]
+    },
+    "statementLine": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "statement_line_ref",
+        "statement_type",
+        "account_ref",
+        "amount_minor",
+        "currency",
+        "entity_ref",
+        "period_ref",
+        "source_journal_entry_refs"
+      ],
+      "properties": {
+        "statement_line_ref": {
+          "type": "string",
+          "pattern": "^[A-Z0-9-]{3,100}$"
+        },
+        "statement_type": {
+          "enum": [
+            "income_statement",
+            "balance_sheet"
+          ]
+        },
+        "account_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "amount_minor": {
+          "type": "integer"
+        },
+        "currency": {
+          "type": "string",
+          "pattern": "^[A-Z]{3}$"
+        },
+        "entity_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "period_ref": {
+          "type": "string",
+          "pattern": "^20[0-9]{2}-(0[1-9]|1[0-2])$"
+        },
+        "source_journal_entry_refs": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        }
+      }
     }
   }
 }
