@@ -673,7 +673,6 @@ fn validate_numeric_values(nodes: &BTreeMap<String, Value>, errors: &mut BTreeSe
             continue;
         };
         let encoding = string(numeric, "encoding").unwrap_or_default();
-        let unit_ref = string(&numeric["unit_profile"], "ref_id");
         if result.get("unit_profile").is_some()
             && result
                 .get("numeric_value")
@@ -969,8 +968,8 @@ mod tests {
                 .unwrap()
                 .is_empty()
         );
-        assert_eq!(report["can_post_journals"], false);
-        assert_eq!(report["can_approve_or_close"], false);
+        assert!(!report["can_post_journals"].as_bool().unwrap());
+        assert!(!report["can_approve_or_close"].as_bool().unwrap());
     }
 
     #[test]
