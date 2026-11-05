@@ -21,14 +21,13 @@ Synthetic-only intersections require an explicit `allow_synthetic=true` request 
 From this directory, in a Rust-enabled environment:
 
 ```sh
-cargo generate-lockfile
-cargo test
+cargo test --locked
 cargo fmt -- --check
-cargo clippy --all-targets -- -D warnings
-cargo run -- --request fixtures/synthetic-qualified-request.json
+cargo clippy --locked --all-targets -- -D warnings
+cargo run --locked -- --request fixtures/synthetic-qualified-request.json
 ```
 
-The first lockfile must be generated and reviewed/committed before a later `--locked` qualification command is used. No network access is required at runtime; Cargo dependency acquisition happens before execution.
+The lockfile pins the same resolved versions of `jsonschema`, `hex`, `serde_json` and `sha2` as the sibling FIN-ACC reference verifier. Its root package entry is adapted to this standalone resolver manifest. The lockfile still requires `cargo test --locked` validation on a Rust-enabled host before it can be claimed as Cargo-verified. No network access is required at runtime; Cargo dependency acquisition happens before execution.
 
 Use explicit paths to evaluate other requests:
 
