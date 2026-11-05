@@ -471,11 +471,56 @@ fn sha256_hex(bytes: &[u8]) -> String {
     hex::encode(Sha256::digest(bytes))
 }
 
+fn append_canonical_json(value: &Value, output: &mut String) -> AppResult<()> {
+    match value {
+        Value::Null => output.push_str("null"),
+        Value::Bool(value) => output.push_str(if *value { "true" } else { "false" }),
+        Value::Number(value) => output.push_str(&value.to_string()),
+        Value::String(value) => output.push_str(
+            &serde_json::to_string(value)
+                .map_err(|error| format!("could not encode canonical JSON string: {error}"))?
+        ),
+        Value::Array(values) => {
+            output.push('[');
+            for (index, item) in values.iter().enumerate() {
+                if index > 0 {
+                    output.push(',');
+                }
+                append_canonical_json(item, output)?;
+            }
+            output.push(']');
+        }
+        Value::Object(values) => {
+            let mut keys = values.keys().collect::<Vec<_>>();
+            keys.sort_by(|left, right| left.as_bytes().cmp(right.as_bytes()));
+            output.push('{');
+            for (index, key) in keys.iter().enumerate() {
+                if index > 0 {
+                    output.push(',');
+                }
+                output.push_str(
+                    &serde_json::to_string(*key)
+                        .map_err(|error| format!("could not encode canonical JSON key: {error}"))?
+                );
+                output.push(':');
+                let child = values.get(*key)
+                    .ok_or_else(|| "canonical JSON object key disappeared".to_owned())?;
+                append_canonical_json(child, output)?;
+            }
+            output.push('}');
+        }
+    }
+    Ok(())
+}
+
+fn canonical_profile_bytes(profile: &Value) -> AppResult<Vec<u8>> {
+    let mut canonical = String::new();
+    append_canonical_json(profile, &mut canonical)?;
+    Ok(canonical.into_bytes())
+}
+
 fn profile_sha256(profile: &Value) -> AppResult<String> {
-    // serde_json::Value uses sorted object keys when preserve_order is disabled.
-    // Compact UTF-8 serialization is therefore the profile-binding canonicalization.
-    let bytes = serde_json::to_vec(profile)
-        .map_err(|error| format!("could not serialize profile for digest: {error}"))?;
+    let bytes = canonical_profile_bytes(profile)?;
     Ok(sha256_hex(&bytes))
 }
 
@@ -675,6 +720,18 @@ mod tests {
         let mut request = request("qualified");
         request["knowledge_at"] = json!("2026-11-05T02:00:00.000Z");
         assert!(validate_instance("request", &request_schema(), &request).is_err());
+    }
+
+
+    #[test]
+    fn canonical_profile_digest_preserves_array_order() {
+        let first: Value = serde_json::from_str(
+            r#"{"profile_id":"SYN-PROFILE","version":"v1","dimension":"accounting_framework","status":"synthetic_only","authority_class":"synthetic_test_fixture","source_url":"https://example.invalid/profile","valid_from":null,"notes":"synthetic","labels":["one","two"]}"#
+        ).unwrap();
+        let reversed: Value = serde_json::from_str(
+            r#"{"profile_id":"SYN-PROFILE","version":"v1","dimension":"accounting_framework","status":"synthetic_only","authority_class":"synthetic_test_fixture","source_url":"https://example.invalid/profile","valid_from":null,"notes":"synthetic","labels":["two","one"]}"#
+        ).unwrap();
+        assert_ne!(profile_sha256(&first).unwrap(), profile_sha256(&reversed).unwrap());
     }
 
     #[test]
