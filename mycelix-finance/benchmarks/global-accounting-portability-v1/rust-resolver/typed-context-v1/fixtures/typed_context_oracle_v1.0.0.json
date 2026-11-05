@@ -25,7 +25,7 @@
     {
       "request_id": "TCTX-MULTI-ESTABLISHMENT",
       "expected_disposition": "requirements_satisfied",
-      "required_reason_code": "exact_establishment_subject_match"
+      "required_reason_code": "exact_typed_fact_satisfied"
     },
     {
       "request_id": "TCTX-COUNTRY-NOT-SUBNATIONAL",
@@ -35,7 +35,7 @@
     {
       "request_id": "TCTX-KNOWLEDGE-FRONTIER",
       "expected_disposition": "indeterminate",
-      "required_reason_code": "matching_fact_not_visible_at_knowledge_frontier"
+      "required_reason_code": "matching_fact_not_visible_at_requested_frontier"
     }
   ]
 }
