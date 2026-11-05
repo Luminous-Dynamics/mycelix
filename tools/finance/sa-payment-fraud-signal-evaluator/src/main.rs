@@ -371,7 +371,7 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
             }
         }
 
-        if let Some(last_status) = last_source_status
+        if let Some(last_status) = last_source_status.as_deref()
             && last_status != str_at(signal, "source_status").unwrap_or("")
         {
             errors.push(format!(
