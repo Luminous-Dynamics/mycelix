@@ -314,7 +314,13 @@ fn assess_case(case: &Value) -> AppResult<Assessment> {
     ];
     let mut states = results.iter().map(|(state, _)| state.clone()).collect::<Vec<_>>();
     states.sort();
-    let mut state = "addressed_with_qualified_evidence";
+    let mut state = if !states.is_empty()
+        && states.iter().all(|value| value == "not_applicable_with_authorized_rationale")
+    {
+        "not_applicable_with_authorized_rationale"
+    } else {
+        "addressed_with_qualified_evidence"
+    };
     for candidate in precedence {
         if states.iter().any(|found| found.as_str() == candidate) {
             state = candidate;
