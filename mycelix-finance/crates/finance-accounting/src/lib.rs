@@ -1772,7 +1772,7 @@ mod tests {
             &policy,
             JournalEntryDraft {
                 reporting_entity: reference("entity:treasury"),
-            reporting_period: reference("period:2026-11"),
+                reporting_period: reference("period:2026-11"),
                 effective_at_unix_ms: 10_001,
                 source,
                 postings: vec![
