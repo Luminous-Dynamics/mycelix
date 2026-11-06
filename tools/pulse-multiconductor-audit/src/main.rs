@@ -468,6 +468,7 @@ fn audit(history:&History,input_sha256:String)->Report {
     }
 
     let mut edge_keys=BTreeSet::new();
+    let mut explicit_relations: BTreeMap<String, BTreeMap<String, BTreeSet<String>>> = BTreeMap::new();
     for edge in &history.causal_edges {
         if !edge_keys.insert((edge.from_event.clone(),edge.to_event.clone(),edge.relation.clone())) { finding(&mut findings,"DUPLICATE_CAUSAL_EDGE","violation",None,"duplicate causal edge"); }
         if edge.from_event==edge.to_event { finding(&mut findings,"SELF_CAUSAL_EDGE","violation",None,"causal edge cannot point to itself"); }
@@ -478,6 +479,12 @@ fn audit(history:&History,input_sha256:String)->Report {
         if edge.relation=="program_order" && (from.conductor_id!=to.conductor_id||from.local_sequence>=to.local_sequence) {
             finding(&mut findings,"PROGRAM_ORDER_CROSSES_CONDUCTORS","violation",Some(&to.event_id),"program_order is valid only within one conductor with increasing local_sequence");
         }
+        explicit_relations
+            .entry(edge.from_event.clone())
+            .or_default()
+            .entry(edge.to_event.clone())
+            .or_default()
+            .insert(edge.relation.clone());
         adjacency.entry(edge.from_event.clone()).or_default().insert(edge.to_event.clone());
     }
     if graph_has_cycle(&adjacency,&nodes) { finding(&mut findings,"CAUSAL_GRAPH_CYCLE","violation",None,"local order plus evidence-backed edges must form a DAG"); }
@@ -551,6 +558,28 @@ fn audit(history:&History,input_sha256:String)->Report {
         }
     }
 
+    // Index validator dispositions once; verified-signal and projection joins
+    // must not scan all validations for every observer event.
+    let mut validation_by_id: BTreeMap<String, &Event> = BTreeMap::new();
+    let mut validations_by_author_action:
+        BTreeMap<String, BTreeMap<String, Vec<&Event>>> = BTreeMap::new();
+    for validation in &validation_events {
+        validation_by_id
+            .entry(validation.event_id.clone())
+            .or_insert(validation);
+        if let (Some(author), Some(action_hash)) = (
+            str_value(&validation.data, "author_conductor_id"),
+            str_value(&validation.data, "action_hash"),
+        ) {
+            validations_by_author_action
+                .entry(author.to_string())
+                .or_default()
+                .entry(action_hash.to_string())
+                .or_default()
+                .push(validation);
+        }
+    }
+
     // Remote signal trust is a claim about evidence, not authority. Bind a
     // verified_record assertion to exact source-chain authorship, payload digest,
     // validator WASM and observer lineage before accepting its structural shape.
@@ -611,7 +640,7 @@ fn audit(history:&History,input_sha256:String)->Report {
                     finding(&mut findings, "VERIFIED_SIGNAL_PAYLOAD_OR_AUTHOR_MISMATCH", "violation", Some(&e.event_id), "authored source action author and canonical payload digest must match the verified record");
                 }
 
-                let Some(validator_event) = validation_events.iter().find(|v| v.event_id == validator_event_id.unwrap()) else {
+                let Some(validator_event) = validation_by_id.get(validator_event_id.unwrap()).copied() else {
                     finding(&mut findings, "VERIFIED_SIGNAL_VALIDATOR_EVENT_MISSING", "incomplete", Some(&e.event_id), "backing_validator_event_id does not identify a validation disposition");
                     continue;
                 };
@@ -630,10 +659,10 @@ fn audit(history:&History,input_sha256:String)->Report {
                         finding(&mut findings, "VERIFIED_SIGNAL_VALIDATOR_MISMATCH", "violation", Some(&e.event_id), "validator receipt must accept the exact action from the declared author and matching DNA/WASM lineage");
                     }
                 }
-                if !direct_relation(&history.causal_edges, &authored_event.event_id, &validator_event.event_id, "validator_receipt") {
+                if !has_direct_relation(&explicit_relations, &authored_event.event_id, &validator_event.event_id, "validator_receipt") {
                     finding(&mut findings, "VERIFIED_SIGNAL_AUTHOR_VALIDATOR_EDGE_MISSING", "incomplete", Some(&e.event_id), "verified record requires an explicit author-to-validator receipt edge");
                 }
-                if !direct_relation(&history.causal_edges, &validator_event.event_id, &e.event_id, "observer_confirmation") {
+                if !has_direct_relation(&explicit_relations, &validator_event.event_id, &e.event_id, "observer_confirmation") {
                     finding(&mut findings, "VERIFIED_SIGNAL_VALIDATOR_OBSERVER_EDGE_MISSING", "incomplete", Some(&e.event_id), "verified record requires an explicit validator-to-observer confirmation edge");
                 }
             }
@@ -700,7 +729,7 @@ fn audit(history:&History,input_sha256:String)->Report {
         if conductors.get(&e.conductor_id).is_none_or(|c|c.agent_key_ref!=recipient) { finding(&mut findings,"CLAIM_RECIPIENT_CONDUCTOR_MISMATCH","violation",Some(&e.event_id),"claim must be accepted on recipient conductor"); }
         if e.source != "source_chain" { finding(&mut findings,"CLAIM_WRONG_EVIDENCE_SOURCE","incomplete",Some(&e.event_id),"claim acceptance must be evidenced by recipient source-chain state"); }
         let issue_id=grant_events.iter().find(|x|str_value(&x.data,"grant_action_hash")==Some(g.action_hash.as_str())).map(|x|x.event_id.as_str()).unwrap_or("");
-        if !direct_relation(&history.causal_edges,issue_id,&e.event_id,"source_action_dependency") { finding(&mut findings,"GRANT_TO_CLAIM_CAUSAL_EDGE_MISSING","incomplete",Some(&e.event_id),"grant issue and private claim require an evidence-backed causal edge"); }
+        if !has_direct_relation(&explicit_relations,issue_id,&e.event_id,"source_action_dependency") { finding(&mut findings,"GRANT_TO_CLAIM_CAUSAL_EDGE_MISSING","incomplete",Some(&e.event_id),"grant issue and private claim require an evidence-backed causal edge"); }
         if !accepted_claims.insert((g.conductor_id.clone(),g.action_hash.clone(),recipient.to_string())) { finding(&mut findings,"DUPLICATE_CAPABILITY_CLAIM","violation",Some(&e.event_id),"same assigned grant accepted more than one claim"); }
         let actual_ref=grant_events.iter().find(|x|str_value(&x.data,"grant_action_hash")==Some(g.action_hash.as_str())).and_then(|x|str_value(&x.data,"grant_ref"));
         if str_value(d,"grant_ref")!=actual_ref { finding(&mut findings,"CLAIM_GRANT_REFERENCE_MISMATCH","violation",Some(&e.event_id),"claim grant_ref conflicts with host issuance"); }
@@ -727,11 +756,11 @@ fn audit(history:&History,input_sha256:String)->Report {
         if e.source!="conductor_host" { finding(&mut findings,"HOST_CALL_WRONG_EVIDENCE_SOURCE","incomplete",Some(&e.event_id),"host decision must come from conductor evidence"); }
         if authorized&&g.assigned {
             let claim=claim_events.iter().find(|c|str_value(&c.data,"grant_action_hash")==Some(g.action_hash.as_str())&&str_value(&c.data,"recipient")==Some(g.grantee.as_str()));
-            if let Some(claim)=claim { if !path_exists(&adjacency,&claim.event_id,&e.event_id) { finding(&mut findings,"CLAIM_NOT_CAUSAL_BEFORE_HOST_CALL","incomplete",Some(&e.event_id),"claim must causally precede assigned call"); } }
+            if let Some(claim)=claim { if !path_exists(&adjacency,&event_map,&claim.event_id,&e.event_id) { finding(&mut findings,"CLAIM_NOT_CAUSAL_BEFORE_HOST_CALL","incomplete",Some(&e.event_id),"claim must causally precede assigned call"); } }
         }
         let op=str_value(d,"operation_id").unwrap_or_default().to_string();
         let attempt=u64_value(d,"attempt_id").unwrap_or(0);
-        if calls.insert((op,attempt),Call{event_id:e.event_id.clone(),conductor_id:e.conductor_id.clone(),host_authorized:authorized,domain_allowed:domain=="allow"}).is_some() { finding(&mut findings,"DUPLICATE_CALL_ATTEMPT","violation",Some(&e.event_id),"operation/attempt pair must be unique"); }
+        if calls.insert((op,attempt),Call{event_id:e.event_id.clone(),conductor_id:e.conductor_id.clone(),caller,host_authorized:authorized,domain_allowed:domain=="allow"}).is_some() { finding(&mut findings,"DUPLICATE_CALL_ATTEMPT","violation",Some(&e.event_id),"operation/attempt pair must be unique"); }
     }
 
     let mut effects_by_operation=BTreeSet::new();
@@ -745,7 +774,7 @@ fn audit(history:&History,input_sha256:String)->Report {
         if !effects_by_attempt.insert((op.clone(),attempt)) { finding(&mut findings,"MULTIPLE_EFFECTS_PER_ATTEMPT","violation",Some(&e.event_id),"attempt has more than one durable effect"); }
         let Some(call)=calls.get(&(op.clone(),attempt)) else { finding(&mut findings,"EFFECT_WITHOUT_HOST_CALL","incomplete",Some(&e.event_id),"domain effect has no matching host call"); continue; };
         if !call.host_authorized||!call.domain_allowed { finding(&mut findings,"EFFECT_WITHOUT_AUTHORIZED_DOMAIN_CALL","violation",Some(&e.event_id),"effect requires host authorization and domain allow"); }
-        if e.conductor_id!=call.conductor_id||!path_exists(&adjacency,&call.event_id,&e.event_id) { finding(&mut findings,"EFFECT_NOT_CAUSAL_AFTER_HOST_CALL","incomplete",Some(&e.event_id),"effect must causally follow call on the same conductor"); }
+        if e.conductor_id!=call.conductor_id||!path_exists(&adjacency,&event_map,&call.event_id,&e.event_id) { finding(&mut findings,"EFFECT_NOT_CAUSAL_AFTER_HOST_CALL","incomplete",Some(&e.event_id),"effect must causally follow call on the same conductor"); }
         if !effect_bindings.insert((op,attempt)) { finding(&mut findings,"DUPLICATE_EFFECT_BINDING","violation",Some(&e.event_id),"effect bound twice to one attempt"); }
     }
 
@@ -771,7 +800,7 @@ fn audit(history:&History,input_sha256:String)->Report {
         if e.source!="validator" { finding(&mut findings,"VALIDATION_WRONG_EVIDENCE_SOURCE","incomplete",Some(&e.event_id),"validation must be reported by validator plane"); }
         if authored_event.source != "source_chain" { finding(&mut findings,"ACTION_AUTHOR_WRONG_EVIDENCE_SOURCE","incomplete",Some(&authored_event.event_id),"action authoring must come from source-chain evidence"); }
         if conductors.get(&authored_event.conductor_id).is_none_or(|c| c.role != "caller" && c.role != "peer") { finding(&mut findings,"ACTION_AUTHOR_CONDUCTOR_ROLE_MISMATCH","incomplete",Some(&authored_event.event_id),"action should originate from caller or peer conductor"); }
-        if !direct_relation(&history.causal_edges,&authored_event.event_id,&e.event_id,"validator_receipt") { finding(&mut findings,"VALIDATOR_RECEIPT_CAUSAL_EDGE_MISSING","incomplete",Some(&e.event_id),"authored action and validation require explicit validator_receipt edge"); }
+        if !has_direct_relation(&explicit_relations,&authored_event.event_id,&e.event_id,"validator_receipt") { finding(&mut findings,"VALIDATOR_RECEIPT_CAUSAL_EDGE_MISSING","incomplete",Some(&e.event_id),"authored action and validation require explicit validator_receipt edge"); }
     }
 
     for e in &projection_events {
@@ -821,7 +850,7 @@ fn audit(history:&History,input_sha256:String)->Report {
         let validator_ref=str_value(d,"validator_event_id");
         match validator_ref {
             Some(validator_id) => {
-                let Some(validator_event)=validation_events.iter().find(|v|v.event_id==validator_id) else {
+                let Some(validator_event)=validation_by_id.get(validator_id).copied() else {
                     finding(&mut findings,"PROJECTION_VALIDATOR_RECEIPT_MISSING","incomplete",Some(&e.event_id),"validator_event_id does not reference a validation disposition in this history");
                     continue;
                 };
@@ -830,7 +859,7 @@ fn audit(history:&History,input_sha256:String)->Report {
                 if validator_author!=author_conductor_id||validator_hash!=required_hash {
                     finding(&mut findings,"PROJECTION_VALIDATOR_RECEIPT_IDENTITY_MISMATCH","violation",Some(&e.event_id),"referenced validator receipt must concern the exact author conductor and ActionHash");
                 }
-                if !path_exists(&adjacency,&validator_event.event_id,&e.event_id) {
+                if !path_exists(&adjacency,&event_map,&validator_event.event_id,&e.event_id) {
                     finding(&mut findings,"VALIDATION_NOT_CAUSAL_BEFORE_PROJECTION","incomplete",Some(&e.event_id),"projection must causally follow its exact referenced validator disposition");
                 }
                 let disposition=str_value(&validator_event.data,"disposition").unwrap_or_default();
@@ -850,10 +879,11 @@ fn audit(history:&History,input_sha256:String)->Report {
         // If any validation disposition is supplied for this exact action, it must
         // have the required author-conductor identity; foreign-cell receipts cannot
         // be borrowed merely because an ActionHash string matches.
-        let matching:Vec<_>=validation_events.iter().filter(|v|
-            str_value(&v.data,"action_hash")==Some(required_hash)
-                &&str_value(&v.data,"author_conductor_id")==Some(author_conductor_id)
-        ).collect();
+        let matching = validations_by_author_action
+            .get(author_conductor_id)
+            .and_then(|by_action| by_action.get(required_hash))
+            .map(Vec::as_slice)
+            .unwrap_or(&[]);
         if matching.is_empty()&&decision=="trusted" {
             finding(&mut findings,"TRUSTED_PROJECTION_WITHOUT_VALIDATION","incomplete",Some(&e.event_id),"trusted projection lacks a matching exact-lineage validator disposition");
         }
@@ -875,8 +905,7 @@ fn audit(history:&History,input_sha256:String)->Report {
             None=>finding(&mut findings,"OUTCOME_WITHOUT_HOST_CALL","incomplete",Some(&e.event_id),"caller outcome has no host-call attempt"),
             Some(call)=>{
                 if !path_exists(&adjacency,&call.event_id,&e.event_id) { finding(&mut findings,"OUTCOME_NOT_CAUSAL_AFTER_CALL","incomplete",Some(&e.event_id),"caller outcome must causally follow the host call"); }
-                let caller = call_events.iter().find(|c| str_value(&c.data,"operation_id") == Some(op.as_str()) && u64_value(&c.data,"attempt_id") == Some(attempt)).and_then(|c| str_value(&c.data,"caller"));
-                if conductors.get(&e.conductor_id).is_none_or(|c| Some(c.agent_key_ref.as_str()) != caller) { finding(&mut findings,"OUTCOME_WRONG_CALLER_CONDUCTOR","incomplete",Some(&e.event_id),"caller outcome should be observed on caller conductor"); }
+                if conductors.get(&e.conductor_id).is_none_or(|c| c.agent_key_ref.as_str() != call.caller.as_str()) { finding(&mut findings,"OUTCOME_WRONG_CALLER_CONDUCTOR","incomplete",Some(&e.event_id),"caller outcome should be observed on caller conductor"); }
                 if outcome=="committed"&&!effect { finding(&mut findings,"COMMITTED_WITHOUT_EFFECT","incomplete",Some(&e.event_id),"committed outcome has no durable effect"); }
                 if matches!(outcome,"not_committed"|"rejected")&&effect { finding(&mut findings,"REJECTED_OUTCOME_WITH_EFFECT","violation",Some(&e.event_id),"rejected outcome contradicts durable effect"); }
             }
