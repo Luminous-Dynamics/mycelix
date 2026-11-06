@@ -56,6 +56,18 @@ jobs:
           jq -e '.status == "PASS" and .semantic_reports_equal == true and .pair_semantic_reports_equal == true and .source_semantic_reports_equal == true and .operations == 32 and .events == 98 and .pair_memoized.status == "PASS" and .pair_memoized.pair_cache_entries > 0 and .pair_memoized.audit_ns > 0 and .optimized_per_source_cache.cache_hits >= 20 and .optimized_per_source_cache.sources_cached == 1 and .reference_uncached.audit_ns > 0 and .optimized_per_source_cache.audit_ns > 0' \
             "$RUNNER_TEMP/pulse-join-smoke.json"
 
+      - name: Smoke-test adversarial DAG reachability strategies
+        run: |
+          set -euo pipefail
+          cargo run --manifest-path tools/pulse-multiconductor-audit/Cargo.toml --locked -- \
+            --benchmark-dag-shape wide_fanout \
+            --benchmark-dag-nodes 128 \
+            --benchmark-dag-conductors 3 \
+            --benchmark-dag-queries 512 \
+            --output "$RUNNER_TEMP/pulse-dag-smoke.json"
+          jq -e '.status == "PASS" and .nodes == 128 and .conductors == 3 and .queries == 512 and .pair_results_equal == true and .per_source_results_equal == true and .pair_memoized.cache_hits > 0 and .per_source_cache.cache_hits > 0' \
+            "$RUNNER_TEMP/pulse-dag-smoke.json"
+
       - name: Smoke-test borrowed versus owned parser parity
         run: |
           set -euo pipefail
