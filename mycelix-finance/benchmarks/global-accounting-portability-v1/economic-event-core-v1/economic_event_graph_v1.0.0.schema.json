@@ -223,7 +223,8 @@
             "accrual_recognized",
             "reversal_posted",
             "fx_remeasurement",
-            "other"
+            "other",
+            "assertion_conflict"
           ]
         },
         "entity_ref": {
