@@ -800,6 +800,10 @@ fn report(corpus: &Value, schema: &Value) -> Value {
         })
         .collect();
 
+    let any_intervals_estimated = system_reports
+        .iter()
+        .any(|system| system["confidence_intervals"]["estimated"] == true);
+
     json!({
         "evaluator": "mycelix.payment-prevalidation-adjudication.v1",
         "status": "PASS",
@@ -815,7 +819,7 @@ fn report(corpus: &Value, schema: &Value) -> Value {
         "adjudicator_agreement": agreement,
         "confidence_intervals": {
             "method": design["confidence_interval_method"],
-            "estimated": system_reports.iter().any(|system| system["confidence_intervals"]["estimated"] == true),
+            "estimated": any_intervals_estimated,
             "bootstrap_replicates": bootstrap_replicates,
             "bootstrap_seed": bootstrap_seed,
             "minimum_independent_clusters": minimum_clusters
@@ -1015,9 +1019,45 @@ mod tests {
             .iter()
             .find(|metric| metric["system_id"] == "mycelix")
             .unwrap();
-        assert_eq!(mycelix["false_ready"]["numerator"], 0);
+        assert_eq!(mycelix["false_ready"]["numerator"], 1);
+        assert_eq!(mycelix["false_ready"]["denominator"], 3);
         assert_eq!(mycelix["false_quarantine"]["numerator"], 1);
         assert_eq!(mycelix["false_quarantine"]["denominator"], 5);
+    }
+
+    #[test]
+    fn merchant_time_cluster_bootstrap_is_deterministic_and_minimum_gated() {
+        let mut clusters = Vec::new();
+        for index in 0..30_u64 {
+            let mut cluster = ClusterMetrics::default();
+            cluster.false_ready.observe(index % 3 == 0, true);
+            cluster.false_quarantine.observe(index % 5 == 0, true);
+            cluster.warning_omissions.observe(index % 7 == 0, true);
+            clusters.push(cluster);
+        }
+
+        let first = bootstrap_interval(
+            &clusters,
+            BootstrapMetric::FalseReady,
+            2_000,
+            20261106,
+        );
+        let second = bootstrap_interval(
+            &clusters,
+            BootstrapMetric::FalseReady,
+            2_000,
+            20261106,
+        );
+        assert_eq!(first, second);
+        assert!(first.is_some());
+
+        assert!(bootstrap_interval(
+            &clusters[..29],
+            BootstrapMetric::FalseReady,
+            2_000,
+            20261106,
+        )
+        .is_none());
     }
 
     #[test]
