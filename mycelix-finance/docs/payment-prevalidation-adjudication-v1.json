@@ -1219,7 +1219,7 @@
         },
         {
           "system_id": "mycelix",
-          "decision": "safe_to_present",
+          "decision": "quarantine",
           "assessments": {
             "subject_binding": "confirmed",
             "payee_name_comparison": "exact",
@@ -1230,11 +1230,152 @@
             "intent_integrity": "exact",
             "evidence_freshness": "verified"
           },
-          "warnings_presented": [],
+          "warnings_presented": [
+            "evidence_correction_not_applied"
+          ],
           "reason_codes": [
-            "corrected_source_evidence"
+            "stale_superseded_adjudication_retained_as_current"
           ],
           "output_digest": "sha256:8888888888888888888888888888888888888888888888888888888888888888"
+        }
+      ]
+    },
+    {
+      "case_id": "PREV-ADJ-009",
+      "partition": "held_out_test",
+      "case_snapshot_digest": "sha256:9999999999999999999999999999999999999999999999999999999999999999",
+      "merchant_entity_id": "MERCHANT-HOLD-03",
+      "participant_id": "PSP-HOLD-03",
+      "payee_identity_id": "PAYEE-HOLD-03",
+      "time_block": "TIME-HOLD-2026-W44",
+      "source_refs": [
+        "SYNTHETIC_ADJUDICATION_CASEBOOK_V1"
+      ],
+      "required_warning_codes": [
+        "stale_evidence",
+        "identity_indeterminate"
+      ],
+      "adjudication_records": [
+        {
+          "record_id": "ADJ-9-A",
+          "sequence": 1,
+          "adjudicator_id": "PANEL-TEST-C",
+          "role": "primary",
+          "status": "active",
+          "supersedes_record_id": null,
+          "correction_reason": null,
+          "blinded_to_system_outputs": true,
+          "evidence_digest": "sha256:9999999999999999999999999999999999999999999999999999999999999999",
+          "protocol_version": "PAY-PREVALIDATION-ADJUDICATION-V1",
+          "labels": {
+            "subject_binding": "indeterminate",
+            "payee_name_comparison": "indeterminate",
+            "requester_identity": "indeterminate",
+            "requester_authority": "indeterminate",
+            "claim_validity": "indeterminate",
+            "profile_eligibility": "unknown",
+            "intent_integrity": "unavailable",
+            "evidence_freshness": "expired",
+            "final_disposition": "indeterminate"
+          },
+          "rationale_codes": [
+            "provider_evidence_expired",
+            "identity_status_unresolved"
+          ],
+          "confidence": "high"
+        },
+        {
+          "record_id": "ADJ-9-B",
+          "sequence": 2,
+          "adjudicator_id": "PANEL-TEST-D",
+          "role": "primary",
+          "status": "active",
+          "supersedes_record_id": null,
+          "correction_reason": null,
+          "blinded_to_system_outputs": true,
+          "evidence_digest": "sha256:9999999999999999999999999999999999999999999999999999999999999999",
+          "protocol_version": "PAY-PREVALIDATION-ADJUDICATION-V1",
+          "labels": {
+            "subject_binding": "indeterminate",
+            "payee_name_comparison": "indeterminate",
+            "requester_identity": "indeterminate",
+            "requester_authority": "indeterminate",
+            "claim_validity": "indeterminate",
+            "profile_eligibility": "unknown",
+            "intent_integrity": "unavailable",
+            "evidence_freshness": "expired",
+            "final_disposition": "indeterminate"
+          },
+          "rationale_codes": [
+            "participant_profile_not_current",
+            "identity_status_unresolved"
+          ],
+          "confidence": "high"
+        }
+      ],
+      "system_outputs": [
+        {
+          "system_id": "incumbent",
+          "decision": "safe_to_present",
+          "assessments": {
+            "subject_binding": "confirmed",
+            "payee_name_comparison": "indeterminate",
+            "requester_identity": "verified",
+            "requester_authority": "indeterminate",
+            "claim_validity": "indeterminate",
+            "profile_eligibility": "unknown",
+            "intent_integrity": "unavailable",
+            "evidence_freshness": "verified"
+          },
+          "warnings_presented": [],
+          "reason_codes": [
+            "provider_response_accepted_without_freshness_check"
+          ],
+          "output_digest": "sha256:9999999999999999999999999999999999999999999999999999999999999999"
+        },
+        {
+          "system_id": "conventional",
+          "decision": "quarantine",
+          "assessments": {
+            "subject_binding": "indeterminate",
+            "payee_name_comparison": "indeterminate",
+            "requester_identity": "indeterminate",
+            "requester_authority": "indeterminate",
+            "claim_validity": "indeterminate",
+            "profile_eligibility": "unknown",
+            "intent_integrity": "unavailable",
+            "evidence_freshness": "expired"
+          },
+          "warnings_presented": [
+            "stale_evidence",
+            "identity_indeterminate"
+          ],
+          "reason_codes": [
+            "stale_profile_quarantined"
+          ],
+          "output_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        {
+          "system_id": "mycelix",
+          "decision": "warn_and_permit_choice",
+          "assessments": {
+            "subject_binding": "indeterminate",
+            "payee_name_comparison": "indeterminate",
+            "requester_identity": "indeterminate",
+            "requester_authority": "indeterminate",
+            "claim_validity": "indeterminate",
+            "profile_eligibility": "unknown",
+            "intent_integrity": "unavailable",
+            "evidence_freshness": "expired"
+          },
+          "warnings_presented": [
+            "stale_evidence",
+            "identity_indeterminate"
+          ],
+          "reason_codes": [
+            "uncertainty_shown_but_not_quarantined"
+          ],
+          "output_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
         }
       ]
     }
