@@ -1288,6 +1288,114 @@ mod tests {
 
 
 
+
+    #[test]
+    fn gold_control_confidence_metrics_are_perfect_but_automation_coverage_is_limited() {
+        let (candidates, oracle, submissions) = fixtures();
+        let result = report(&candidates, &oracle, &submissions);
+        assert_eq!(result["aggregate"]["case_correctness_rate"], 1.0);
+        assert_eq!(result["aggregate"]["decision_confidence_brier_score"], 0.0);
+        assert_eq!(result["aggregate"]["decision_confidence_ece"], 0.0);
+        assert_eq!(result["aggregate"]["auto_delivery_case_count"], 5);
+        assert_eq!(result["aggregate"]["auto_delivery_coverage"], 0.25);
+        assert_eq!(result["aggregate"]["review_routed_case_count"], 15);
+        for point in array(&result["aggregate"], "risk_coverage_points").unwrap() {
+            assert_eq!(point["selected_auto_delivery_count"], 5);
+            assert_eq!(point["risk"], 0.0);
+        }
+    }
+
+    #[test]
+    fn reducing_confidence_changes_routing_without_changing_correctness() {
+        let (candidates, oracle, mut submissions) = fixtures();
+        let row = submissions["submissions"].as_array_mut().unwrap().iter_mut()
+            .find(|submission| optional_string(submission, "case_id") == Some("ACCT-001-COMPLETE-INVOICE")).unwrap();
+        row["decision_confidence"] = json!(0.4);
+        let result = report(&candidates, &oracle, &submissions);
+        let evaluated = case_result(&result, "ACCT-001-COMPLETE-INVOICE");
+        assert_eq!(evaluated["case_correct"], true);
+        assert_eq!(evaluated["auto_delivery_accepted"], false);
+        assert_eq!(evaluated["confidence_brier_contribution"], 0.36);
+        assert_eq!(result["aggregate"]["auto_delivery_case_count"], 4);
+        assert_eq!(result["aggregate"]["auto_delivery_coverage"], 0.2);
+        for point in array(&result["aggregate"], "risk_coverage_points").unwrap() {
+            assert_eq!(point["selected_auto_delivery_count"], 4);
+        }
+    }
+
+    #[test]
+    fn high_confidence_unsafe_delivery_is_blocked_by_missing_outputs() {
+        let (candidates, oracle, mut submissions) = fixtures();
+        let row = submissions["submissions"].as_array_mut().unwrap().iter_mut()
+            .find(|submission| optional_string(submission, "case_id") == Some("ACCT-002-MISSING-SERVICE-START")).unwrap();
+        row["disposition"] = Value::String("deliver".to_owned());
+        row["decision_confidence"] = json!(1.0);
+        let result = report(&candidates, &oracle, &submissions);
+        let evaluated = case_result(&result, "ACCT-002-MISSING-SERVICE-START");
+        assert_eq!(evaluated["auto_delivery_candidate"], true);
+        assert_eq!(evaluated["auto_delivery_gate_pass"], false);
+        assert_eq!(evaluated["auto_delivery_accepted"], false);
+        assert_eq!(evaluated["review_routed"], true);
+    }
+
+    #[test]
+    fn overconfident_balanced_but_wrong_journal_is_visible_as_residual_automation_risk() {
+        let (candidates, oracle, mut submissions) = fixtures();
+        let row = submissions["submissions"].as_array_mut().unwrap().iter_mut()
+            .find(|submission| optional_string(submission, "case_id") == Some("ACCT-001-COMPLETE-INVOICE")).unwrap();
+        for line in row["journal_entries"][0]["lines"].as_array_mut().unwrap() {
+            line["amount_minor"] = Value::from(line["amount_minor"].as_i64().unwrap() + 1000);
+        }
+        row["statement_lines"][0]["amount_minor"] =
+            Value::from(row["statement_lines"][0]["amount_minor"].as_i64().unwrap() + 1000);
+        row["decision_confidence"] = json!(1.0);
+
+        let result = report(&candidates, &oracle, &submissions);
+        let evaluated = case_result(&result, "ACCT-001-COMPLETE-INVOICE");
+        assert_eq!(evaluated["journal_balanced"], true);
+        assert_eq!(evaluated["statement_replay_exact"], true);
+        assert_eq!(evaluated["case_correct"], false);
+        assert_eq!(evaluated["auto_delivery_gate_pass"], true);
+        assert_eq!(evaluated["auto_delivery_accepted"], true);
+        assert_eq!(result["aggregate"]["auto_delivery_material_error_count"], 1);
+        assert_eq!(result["aggregate"]["auto_delivery_material_error_rate"], 0.2);
+        for point in array(&result["aggregate"], "risk_coverage_points").unwrap() {
+            assert_eq!(point["selected_auto_delivery_count"], 5);
+            assert_eq!(point["material_error_count"], 1);
+            assert_eq!(point["risk"], 0.2);
+        }
+    }
+
+    #[test]
+    fn zero_automation_coverage_reports_null_risk_not_zero_risk() {
+        let (candidates, oracle, mut submissions) = fixtures();
+        for row in submissions["submissions"].as_array_mut().unwrap() {
+            if optional_string(row, "disposition") == Some("deliver") {
+                row["decision_confidence"] = json!(0.4);
+            }
+        }
+        let result = report(&candidates, &oracle, &submissions);
+        assert_eq!(result["aggregate"]["auto_delivery_case_count"], 0);
+        assert_eq!(result["aggregate"]["auto_delivery_coverage"], 0.0);
+        assert_eq!(result["aggregate"]["auto_delivery_material_error_rate"], Value::Null);
+        for point in array(&result["aggregate"], "risk_coverage_points").unwrap() {
+            assert_eq!(point["selected_auto_delivery_count"], 0);
+            assert_eq!(point["coverage"], 0.0);
+            assert_eq!(point["risk"], Value::Null);
+        }
+    }
+
+    #[test]
+    fn decision_confidence_outside_unit_interval_is_rejected_by_submission_schema() {
+        let (candidates, oracle, mut submissions) = fixtures();
+        let schema_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../agent-output-evaluator-v1/agent_submissions_v1.0.0.schema.json");
+        let schema = read_json(schema_path).unwrap();
+        submissions["submissions"][0]["decision_confidence"] = json!(1.01);
+        assert!(validate_instance("agent submissions", &schema, &submissions).is_err());
+        let _ = (candidates, oracle);
+    }
+
     #[test]
     fn gold_control_statements_replay_from_the_submitted_journal() {
         let (candidates, oracle, submissions) = fixtures();
