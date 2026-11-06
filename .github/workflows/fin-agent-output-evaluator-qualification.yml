@@ -1,0 +1,101 @@
+name: FIN-AGENT-EVAL exact-head qualification
+
+on:
+  push:
+    branches:
+      - research/fin-agent-output-evaluator-v1-refresh
+    paths:
+      - "mycelix-finance/benchmarks/global-accounting-portability-v1/agent-output-evaluator-v1/**"
+      - "mycelix-finance/benchmarks/global-accounting-portability-v1/rust-resolver/**"
+      - ".github/workflows/fin-agent-output-evaluator-qualification.yml"
+  pull_request:
+    branches:
+      - research/fin-trust-benchmark-v1
+    paths:
+      - "mycelix-finance/benchmarks/global-accounting-portability-v1/agent-output-evaluator-v1/**"
+      - "mycelix-finance/benchmarks/global-accounting-portability-v1/rust-resolver/**"
+      - ".github/workflows/fin-agent-output-evaluator-qualification.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fin-agent-output-evaluator-${{ github.event.pull_request.head.sha || github.sha }}
+  cancel-in-progress: true
+
+jobs:
+  qualify:
+    name: Agent output, selective close and observed trace
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      QUALIFIED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+      RESOLVER_DIR: mycelix-finance/benchmarks/global-accounting-portability-v1/rust-resolver
+    steps:
+      - name: Checkout exact qualification subject
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          ref: ${{ env.QUALIFIED_SHA }}
+          persist-credentials: false
+
+      - name: Assert exact checked-out commit
+        run: test "$(git rev-parse HEAD)" = "${{ env.QUALIFIED_SHA }}"
+
+      - name: Install pinned Rust
+        uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9
+        with:
+          toolchain: 1.96.1
+          components: rustfmt, clippy
+
+      - name: Assert toolchain
+        run: test "$(rustc +1.96.1 --version | awk '{print $2}')" = "1.96.1"
+
+      # Rustfmt is a separately tracked cleanup: the resolver branch contains
+      # inherited unformatted binaries. Do not label this lane as format-qualified.
+      - name: Locked tests for resolver and evaluator targets
+        working-directory: ${{ env.RESOLVER_DIR }}
+        run: cargo test --locked --all-targets
+
+      - name: Warnings-denied Clippy
+        working-directory: ${{ env.RESOLVER_DIR }}
+        run: cargo clippy --locked --all-targets -- -D warnings
+
+      - name: Evaluate twenty synthetic gold-control submissions
+        working-directory: ${{ env.RESOLVER_DIR }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo run --locked --bin evaluate_evidence_qualified_accounting_agent -- --output /tmp/agent-evaluation.json
+          jq -e '
+            .aggregate.case_count == 20
+            and (.aggregate.risk_coverage_points | length) == 5
+            and .aggregate.auto_delivery_material_error_rate == 0
+            and .aggregate.hard_failure_count == 0
+          ' /tmp/agent-evaluation.json
+
+      - name: Validate runner-observed synthetic event trace
+        working-directory: ${{ env.RESOLVER_DIR }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo run --locked --bin validate_runner_observed_evidence_trace -- --output /tmp/observed-trace-report.json
+          jq -e '
+            .unaccounted_fact_count == 0
+            and .source_open_count > 0
+            and .fact_observation_count == .fact_terminalization_count
+            and (.trace_sha256 | test("^[a-f0-9]{64}$"))
+          ' /tmp/observed-trace-report.json
+
+      - name: Assert exact subject and clean source
+        run: |
+          test "$(git rev-parse HEAD)" = "${{ env.QUALIFIED_SHA }}"
+          test -z "$(git status --porcelain)"
+
+      - name: Upload exact-head evaluator receipts
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: fin-agent-output-evaluator-${{ env.QUALIFIED_SHA }}
+          path: |
+            /tmp/agent-evaluation.json
+            /tmp/observed-trace-report.json
+          if-no-files-found: error
