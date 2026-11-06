@@ -222,16 +222,16 @@ fn validate_context_bundle(bundle: &Value) -> Result<(), String> {
                 }
             }
 
-            if let Some(scope_ref) = fact.get("scope_ref").and_then(Value::as_str) {
-                if !scopes.contains_key(scope_ref) {
-                    return Err(format!("{context_id}: fact {fact_id} references unknown scope {scope_ref}"));
-                }
+            if let Some(scope_ref) = fact.get("scope_ref").and_then(Value::as_str)
+                && !scopes.contains_key(scope_ref)
+            {
+                return Err(format!("{context_id}: fact {fact_id} references unknown scope {scope_ref}"));
             }
             let valid_from = string(fact, "valid_from")?;
-            if let Some(valid_to) = fact.get("valid_to").and_then(Value::as_str) {
-                if valid_to <= valid_from {
-                    return Err(format!("{context_id}: fact {fact_id} has an empty/reversed valid-time interval"));
-                }
+            if let Some(valid_to) = fact.get("valid_to").and_then(Value::as_str)
+                && valid_to <= valid_from
+            {
+                return Err(format!("{context_id}: fact {fact_id} has an empty/reversed valid-time interval"));
             }
             if string(fact, "assertion_state")? == "evidence_supported"
                 && array(fact, "source_evidence_refs")?.is_empty()
@@ -433,6 +433,7 @@ fn validate_oracle(candidates: &Value, oracle: &Value) -> Result<(), String> {
     Ok(())
 }
 
+#[cfg(test)]
 fn fact_eligible_at(fact: &Value, valid_at: &str, knowledge_at: &str) -> bool {
     let state = fact.get("assertion_state").and_then(Value::as_str);
     let origin = fact.get("origin").and_then(Value::as_str);
@@ -580,13 +581,29 @@ mod tests {
         let registrations = array(ctx, "jurisdiction_facts")
             .unwrap()
             .iter()
-            .filter(|item| item["jurisdiction_role"] == "tax_registration")
+            .filter(|item| {
+                item["jurisdiction_role"] == "tax_registration"
+                    && item["assertion_state"] == "disputed"
+            })
             .collect::<Vec<_>>();
         assert_eq!(registrations.len(), 2);
         assert!(registrations.iter().all(|item| {
-            item["assertion_state"] == "disputed"
-                && !fact_eligible_at(item, "2026-10-31", "2026-11-05T09:30:00Z")
+            !fact_eligible_at(item, "2026-10-31", "2026-11-05T09:30:00Z")
         }));
+
+        let supported_registration = array(ctx, "jurisdiction_facts")
+            .unwrap()
+            .iter()
+            .find(|item| {
+                item["jurisdiction_role"] == "tax_registration"
+                    && item["assertion_state"] == "evidence_supported"
+            })
+            .expect("supported buyer registration");
+        assert!(fact_eligible_at(
+            supported_registration,
+            "2026-10-31",
+            "2026-11-05T09:30:00Z"
+        ));
     }
 
     #[test]

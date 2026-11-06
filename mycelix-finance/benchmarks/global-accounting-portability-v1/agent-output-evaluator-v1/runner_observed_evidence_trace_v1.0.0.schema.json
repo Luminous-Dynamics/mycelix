@@ -1,0 +1,629 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/runner-observed-accounting-evidence-trace-v1.0.0.json",
+  "title": "Mycelix Runner-Observed Accounting Evidence Trace v1.0.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "trace_id",
+    "schema_version",
+    "claim_ceiling",
+    "trace_kind",
+    "canonical_receipt_schema_version",
+    "run_id",
+    "task_id",
+    "case_id",
+    "source_bundle_sha256",
+    "transcript_sha256",
+    "runner_adapter_sha256",
+    "events"
+  ],
+  "properties": {
+    "trace_id": {
+      "type": "string",
+      "pattern": "^[A-Z0-9-]{3,120}$"
+    },
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "claim_ceiling": {
+      "const": "runner_observed_tool_and_structured_output_trace_not_private_reasoning_or_model_authentication"
+    },
+    "trace_kind": {
+      "const": "runner_observed_evidence_trace"
+    },
+    "canonical_receipt_schema_version": {
+      "const": "luminous.benchmark-run-receipt.v1"
+    },
+    "run_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "task_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "case_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "source_bundle_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "transcript_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "runner_adapter_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "events": {
+      "type": "array",
+      "minItems": 2,
+      "items": {
+        "$ref": "#/$defs/event"
+      }
+    }
+  },
+  "$defs": {
+    "event": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "seq",
+        "event_id",
+        "event_kind",
+        "actor",
+        "recorded_at",
+        "step_ref",
+        "tool_call_id",
+        "source_document_ref",
+        "source_revision",
+        "source_sha256",
+        "source_locator",
+        "source_document_refs",
+        "source_observation_event_refs",
+        "fact_ref",
+        "fact_type",
+        "evidence_state",
+        "fact_value_sha256",
+        "prior_evidence_state",
+        "fact_refs",
+        "related_event_refs",
+        "terminal_state",
+        "terminal_target_refs",
+        "terminal_reason",
+        "question_ref",
+        "question_text_sha256",
+        "blocker_fact_refs",
+        "journal_line_ref",
+        "journal_line_sha256",
+        "statement_line_ref",
+        "statement_line_sha256",
+        "journal_line_refs",
+        "decision_disposition",
+        "reason_code",
+        "terminal_disposition",
+        "response_sha256"
+      ],
+      "properties": {
+        "seq": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "event_id": {
+          "type": "string",
+          "pattern": "^[A-Z0-9-]{3,120}$"
+        },
+        "event_kind": {
+          "enum": [
+            "source_opened",
+            "tool_response",
+            "fact_observed",
+            "fact_reclassified",
+            "contradiction_detected",
+            "question_emitted",
+            "fact_terminalized",
+            "journal_line_emitted",
+            "statement_line_emitted",
+            "human_override",
+            "disposition_emitted",
+            "execution_terminal"
+          ]
+        },
+        "actor": {
+          "enum": [
+            "tool_adapter",
+            "runner",
+            "candidate_agent",
+            "human_reviewer"
+          ]
+        },
+        "recorded_at": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+        },
+        "step_ref": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "tool_call_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "source_document_ref": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "source_revision": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "source_sha256": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "source_locator": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "source_document_refs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        },
+        "source_observation_event_refs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        },
+        "fact_ref": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "fact_type": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "evidence_state": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            "asserted",
+            "contradicting",
+            "unknown",
+            "disputed",
+            "invalidated",
+            "future",
+            "superseded",
+            "missing",
+            "integrity_failed",
+            "integrity_unverified",
+            "outside_period",
+            null
+          ]
+        },
+        "fact_value_sha256": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "prior_evidence_state": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            "asserted",
+            "contradicting",
+            "unknown",
+            "disputed",
+            "invalidated",
+            "future",
+            "superseded",
+            "missing",
+            "integrity_failed",
+            "integrity_unverified",
+            "outside_period",
+            null
+          ]
+        },
+        "fact_refs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        },
+        "related_event_refs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        },
+        "terminal_state": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            "carried_to_question",
+            "carried_to_journal",
+            "carried_to_review",
+            "abstained",
+            "excluded",
+            null
+          ]
+        },
+        "terminal_target_refs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        },
+        "terminal_reason": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "question_ref": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "question_text_sha256": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "blocker_fact_refs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        },
+        "journal_line_ref": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "journal_line_sha256": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "statement_line_ref": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "statement_line_sha256": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "journal_line_refs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        },
+        "decision_disposition": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            "deliver",
+            "clarify",
+            "abstain",
+            "escalate",
+            null
+          ]
+        },
+        "reason_code": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "terminal_disposition": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            "completed",
+            "abstained",
+            "needs_evidence",
+            "human_review",
+            "unsupported",
+            "timed_out",
+            "crashed",
+            "malformed",
+            "blocked",
+            null
+          ]
+        },
+        "response_sha256": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "event_kind": {
+                "const": "source_opened"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "source_document_ref",
+              "source_revision",
+              "source_sha256",
+              "source_locator",
+              "tool_call_id"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "event_kind": {
+                "const": "tool_response"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "tool_call_id",
+              "response_sha256"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "event_kind": {
+                "const": "fact_observed"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "fact_ref",
+              "fact_type",
+              "evidence_state",
+              "fact_value_sha256",
+              "source_document_refs",
+              "source_observation_event_refs"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "event_kind": {
+                "const": "fact_reclassified"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "fact_ref",
+              "prior_evidence_state",
+              "evidence_state",
+              "related_event_refs"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "event_kind": {
+                "const": "contradiction_detected"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "fact_refs": {
+                "minItems": 2
+              }
+            },
+            "required": [
+              "fact_refs",
+              "related_event_refs",
+              "reason_code"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "event_kind": {
+                "const": "question_emitted"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "blocker_fact_refs": {
+                "minItems": 1
+              },
+              "source_document_refs": {
+                "minItems": 1
+              },
+              "source_observation_event_refs": {
+                "minItems": 1
+              }
+            },
+            "required": [
+              "question_ref",
+              "question_text_sha256",
+              "blocker_fact_refs",
+              "source_document_refs",
+              "source_observation_event_refs"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "event_kind": {
+                "const": "fact_terminalized"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "fact_ref",
+              "terminal_state",
+              "terminal_reason",
+              "terminal_target_refs"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "event_kind": {
+                "const": "journal_line_emitted"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "fact_refs": {
+                "minItems": 1
+              }
+            },
+            "required": [
+              "journal_line_ref",
+              "journal_line_sha256",
+              "fact_refs"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "event_kind": {
+                "const": "statement_line_emitted"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "journal_line_refs": {
+                "minItems": 1
+              }
+            },
+            "required": [
+              "statement_line_ref",
+              "statement_line_sha256",
+              "journal_line_refs"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "event_kind": {
+                "const": "human_override"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "fact_refs": {
+                "minItems": 1
+              }
+            },
+            "required": [
+              "fact_refs",
+              "reason_code"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "event_kind": {
+                "const": "disposition_emitted"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "decision_disposition",
+              "reason_code"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "event_kind": {
+                "const": "execution_terminal"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "terminal_disposition"
+            ]
+          }
+        }
+      ]
+    }
+  }
+}
