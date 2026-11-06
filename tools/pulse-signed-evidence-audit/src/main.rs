@@ -343,6 +343,125 @@ fn verify_issuer_subject_binding(
     Ok(())
 }
 
+fn verify_statement_trace_event_binding(
+    role: &str,
+    event_id: &str,
+    details: &Value,
+    trace: &Value,
+    bundle_subject: &Subject,
+    trace_events: &BTreeMap<String, &Value>,
+) -> Result<(), String> {
+    if role == "independent_auditor" {
+        let trace_id = trace
+            .get("trace_id")
+            .and_then(Value::as_str)
+            .ok_or_else(|| "trace-level auditor statement requires trace.trace_id".to_string())?;
+        let expected_event_id = format!("trace:{trace_id}");
+        let exact_fields = [
+            "trace_id",
+            "source_commit",
+            "trace_sha256",
+            "schema_sha256",
+            "tool_build_sha256",
+        ];
+        let Some(map) = details.as_object() else {
+            return Err("independent auditor details must be an object".into());
+        };
+        if map.len() != exact_fields.len()
+            || !exact_fields.iter().all(|key| map.contains_key(*key))
+            || event_id != expected_event_id
+            || details["trace_id"].as_str() != Some(trace_id)
+            || details["source_commit"].as_str() != Some(bundle_subject.source_commit.as_str())
+            || details["trace_sha256"].as_str() != Some(bundle_subject.trace_sha256.as_str())
+            || details["schema_sha256"].as_str() != Some(bundle_subject.schema_sha256.as_str())
+            || details["tool_build_sha256"].as_str() != Some(bundle_subject.tool_build_sha256.as_str())
+        {
+            return Err("independent auditor statement must bind the exact trace ID and bundle subject digests".into());
+        }
+        return Ok(());
+    }
+
+    let event = trace_events
+        .get(event_id)
+        .ok_or_else(|| format!("attested event_id {event_id} does not exist exactly once in trace.events"))?;
+
+    let expected_source = match role {
+        "host_authority" => "conductor_host",
+        "action_author" => "source_chain",
+        "validator" => "validator",
+        "observer" => "observer",
+        "client_outcome" => "client",
+        _ => return Err(format!("unsupported event-attestation role {role}")),
+    };
+    let event_type = event.get("event_type").and_then(Value::as_str).unwrap_or_default();
+    let source = event.get("source").and_then(Value::as_str).unwrap_or_default();
+    let role_event_type_valid = match role {
+        "host_authority" => matches!(
+            event_type,
+            "host_grant_issued" | "host_grant_revoked" | "host_call"
+        ),
+        "action_author" => event_type == "action_authored",
+        "validator" => event_type == "validation_disposition",
+        "observer" => event_type == "projection_observed",
+        "client_outcome" => event_type == "caller_outcome",
+        _ => false,
+    };
+    if source != expected_source || !role_event_type_valid {
+        return Err(format!(
+            "attestation role {role} is incompatible with trace event source={source} type={event_type}"
+        ));
+    }
+
+    let required_fields = [
+        "event_type",
+        "source",
+        "conductor_id",
+        "local_sequence",
+        "evidence_ref",
+        "event_data",
+        "agent_key_ref",
+        "dna_hash",
+        "cell_id",
+        "integrity_wasm_sha256",
+    ];
+    let Some(map) = details.as_object() else {
+        return Err("signed event details must be an object".into());
+    };
+    if map.len() != required_fields.len()
+        || !required_fields.iter().all(|key| map.contains_key(*key))
+    {
+        return Err("signed event details must contain the exact closed event/lineage field set".into());
+    }
+
+    let conductor_id = event
+        .get("conductor_id")
+        .and_then(Value::as_str)
+        .ok_or_else(|| "trace event has no conductor_id".to_string())?;
+    let lineage = bundle_subject
+        .conductor_lineages
+        .iter()
+        .find(|lineage| lineage.conductor_id == conductor_id)
+        .ok_or_else(|| format!("trace event conductor {conductor_id} has no bundle subject lineage"))?;
+
+    if details["event_type"].as_str() != Some(event_type)
+        || details["source"].as_str() != Some(source)
+        || details["conductor_id"].as_str() != Some(conductor_id)
+        || details["local_sequence"] != event["local_sequence"]
+        || details["evidence_ref"] != event["evidence_ref"]
+        || details["event_data"] != event["data"]
+        || details["agent_key_ref"].as_str() != Some(lineage.agent_key_ref.as_str())
+        || details["dna_hash"].as_str() != Some(lineage.dna_hash.as_str())
+        || details["cell_id"].as_str() != Some(lineage.cell_id.as_str())
+        || details["integrity_wasm_sha256"].as_str()
+            != Some(lineage.integrity_wasm_sha256.as_str())
+    {
+        return Err(format!(
+            "signed predicate details do not exactly match trace event {event_id} and its conductor lineage"
+        ));
+    }
+    Ok(())
+}
+
 fn audit(
     bundle_bytes: &[u8],
     trace_bytes: &[u8],
@@ -356,6 +475,48 @@ fn audit(
     let policy: TrustPolicy = serde_json::from_slice(policy_bytes)?;
     let trace: Value = serde_json::from_slice(trace_bytes)?;
     let mut findings = Vec::new();
+    let mut trace_event_map: BTreeMap<String, &Value> = BTreeMap::new();
+    match trace.get("events").and_then(Value::as_array) {
+        Some(events) => {
+            for event in events {
+                let Some(event_id) = event.get("event_id").and_then(Value::as_str) else {
+                    finding(
+                        &mut findings,
+                        "TRACE_EVENT_ID_MISSING",
+                        "incomplete",
+                        None,
+                        "trace event has no string event_id",
+                    );
+                    continue;
+                };
+                if event_id.trim().is_empty() {
+                    finding(
+                        &mut findings,
+                        "TRACE_EVENT_ID_EMPTY",
+                        "incomplete",
+                        None,
+                        "trace event_id must be nonempty",
+                    );
+                }
+                if trace_event_map.insert(event_id.to_string(), event).is_some() {
+                    finding(
+                        &mut findings,
+                        "TRACE_EVENT_ID_DUPLICATE",
+                        "violation",
+                        None,
+                        format!("trace event_id {event_id} is not unique"),
+                    );
+                }
+            }
+        }
+        None => finding(
+            &mut findings,
+            "TRACE_EVENTS_MISSING",
+            "incomplete",
+            None,
+            "signed event attestations require trace.events array",
+        ),
+    }
     let mut dsse_verified = 0usize;
     let mut scitt_unverified = 0usize;
 
@@ -498,6 +659,8 @@ fn audit(
     let mut attestation_ids = BTreeSet::new();
     let mut event_ids = BTreeSet::new();
     let mut accepted_event_ids = BTreeSet::new();
+    let mut accepted_attestation_ids = BTreeSet::new();
+    let mut attestation_event_ids: BTreeMap<String, String> = BTreeMap::new();
 
     for attestation in &bundle.attestations {
         if !attestation_ids.insert(attestation.attestation_id.clone()) {
@@ -516,6 +679,21 @@ fn audit(
                 "violation",
                 Some(&attestation.attestation_id),
                 "event_id must be unique within a signed bundle",
+            );
+        }
+        attestation_event_ids.insert(
+            attestation.attestation_id.clone(),
+            attestation.event_id.clone(),
+        );
+        if !trace_event_map.contains_key(&attestation.event_id)
+            && attestation.issuer_role != "independent_auditor"
+        {
+            finding(
+                &mut findings,
+                "ATTESTATION_EVENT_NOT_IN_TRACE",
+                "violation",
+                Some(&attestation.attestation_id),
+                format!("attested event_id {} is absent from trace.events", attestation.event_id),
             );
         }
         if !matches!(
@@ -767,8 +945,26 @@ fn audit(
                     );
                     continue;
                 }
+                if let Err(message) = verify_statement_trace_event_binding(
+                    &attestation.issuer_role,
+                    &attestation.event_id,
+                    &statement.predicate.details,
+                    &trace,
+                    &bundle.subject,
+                    &trace_event_map,
+                ) {
+                    finding(
+                        &mut findings,
+                        "DSSE_TRACE_EVENT_BINDING_MISMATCH",
+                        "violation",
+                        Some(&attestation.attestation_id),
+                        message,
+                    );
+                    continue;
+                }
                 dsse_verified += 1;
                 accepted_event_ids.insert(attestation.event_id.clone());
+                accepted_attestation_ids.insert(attestation.attestation_id.clone());
             }
             Envelope::Scitt {
                 media_type,
@@ -857,13 +1053,17 @@ fn audit(
     }
 
     for edge in &bundle.causal_edges {
-        if !event_ids.contains(&edge.from_event_id) || !event_ids.contains(&edge.to_event_id) {
+        if !event_ids.contains(&edge.from_event_id)
+            || !event_ids.contains(&edge.to_event_id)
+            || !trace_event_map.contains_key(&edge.from_event_id)
+            || !trace_event_map.contains_key(&edge.to_event_id)
+        {
             finding(
                 &mut findings,
                 "CAUSAL_EDGE_ENDPOINT_MISSING",
                 "incomplete",
                 None,
-                "causal edge references an event without an attestation",
+                "causal edge endpoints must exist in the exact trace and have signed attestations",
             );
         }
         if edge.basis_attestation_ids.is_empty()
@@ -879,6 +1079,32 @@ fn audit(
                 None,
                 "causal edge must reference one or more attestation IDs in this bundle",
             );
+        } else {
+            let from_is_authenticated = edge.basis_attestation_ids.iter().any(|id| {
+                accepted_attestation_ids.contains(id)
+                    && attestation_event_ids.get(id) == Some(&edge.from_event_id)
+            });
+            let to_is_authenticated = edge.basis_attestation_ids.iter().any(|id| {
+                accepted_attestation_ids.contains(id)
+                    && attestation_event_ids.get(id) == Some(&edge.to_event_id)
+            });
+            if !from_is_authenticated || !to_is_authenticated {
+                let all_basis_authenticated = edge
+                    .basis_attestation_ids
+                    .iter()
+                    .all(|id| accepted_attestation_ids.contains(id));
+                finding(
+                    &mut findings,
+                    if all_basis_authenticated {
+                        "CAUSAL_EDGE_BASIS_EVENT_MISMATCH"
+                    } else {
+                        "CAUSAL_EDGE_BASIS_NOT_AUTHENTICATED"
+                    },
+                    if all_basis_authenticated { "violation" } else { "incomplete" },
+                    None,
+                    "causal edge basis must include DSSE-authenticated attestations for both exact endpoint events",
+                );
+            }
         }
         if edge.from_event_id == edge.to_event_id {
             finding(
@@ -929,7 +1155,6 @@ fn audit(
         "INCOMPLETE"
     };
 
-    let _ = accepted_event_ids;
     Ok(Report {
         schema_version: 1,
         status: status.to_string(),
