@@ -155,7 +155,8 @@
             "IndeterminateCommit",
             "StorageIntegrityFailure",
             "Committed",
-            "DefinitelyNotCommitted"
+            "DefinitelyNotCommitted",
+            "VerifiedExact"
           ]
         }
       }
@@ -213,7 +214,8 @@
             "persisted_entry_count",
             "source_mapping_count",
             "reversal_atomic_units",
-            "recovery_required"
+            "recovery_required",
+            "allowed_concurrent_outcomes"
           ],
           "properties": {
             "commit_classification": {
@@ -226,7 +228,7 @@
             },
             "dispositions": {
               "type": "array",
-              "minItems": 1,
+              "minItems": 0,
               "items": {
                 "$ref": "#/$defs/disposition"
               }
@@ -261,6 +263,40 @@
             },
             "recovery_required": {
               "type": "boolean"
+            },
+            "allowed_concurrent_outcomes": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "disposition_multiset",
+                  "reversal_atomic_units"
+                ],
+                "properties": {
+                  "disposition_multiset": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                      "enum": [
+                        "AppendedExact",
+                        "IdempotentReplayExact",
+                        "SourceProjectionConflict",
+                        "JournalIdentityConflict",
+                        "ReversalConflict",
+                        "IndeterminateCommit",
+                        "StorageIntegrityFailure",
+                        "Committed",
+                        "DefinitelyNotCommitted",
+                        "VerifiedExact"
+                      ]
+                    }
+                  },
+                  "reversal_atomic_units": {
+                    "$ref": "#/$defs/scenario/properties/expected/properties/reversal_atomic_units"
+                  }
+                }
+              }
             }
           }
         },
