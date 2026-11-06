@@ -43,7 +43,8 @@
         "persisted_entry_count": 1,
         "source_mapping_count": 1,
         "reversal_atomic_units": [],
-        "recovery_required": false
+        "recovery_required": false,
+        "allowed_concurrent_outcomes": []
       },
       "invariants": [
         "canonical_entry_persisted_once",
@@ -110,7 +111,8 @@
         "persisted_entry_count": 1,
         "source_mapping_count": 1,
         "reversal_atomic_units": [],
-        "recovery_required": false
+        "recovery_required": false,
+        "allowed_concurrent_outcomes": []
       },
       "invariants": [
         "no_duplicate_record",
@@ -155,7 +157,8 @@
         "persisted_entry_count": 1,
         "source_mapping_count": 1,
         "reversal_atomic_units": [],
-        "recovery_required": false
+        "recovery_required": false,
+        "allowed_concurrent_outcomes": []
       },
       "invariants": [
         "same_source_key_cannot_bind_two_commitments",
@@ -200,7 +203,8 @@
         "persisted_entry_count": 1,
         "source_mapping_count": 1,
         "reversal_atomic_units": [],
-        "recovery_required": false
+        "recovery_required": false,
+        "allowed_concurrent_outcomes": []
       },
       "invariants": [
         "journal_identity_cannot_bind_different_bytes",
@@ -257,7 +261,8 @@
         "persisted_entry_count": 0,
         "source_mapping_count": 0,
         "reversal_atomic_units": [],
-        "recovery_required": false
+        "recovery_required": false,
+        "allowed_concurrent_outcomes": []
       },
       "invariants": [
         "exact_predecessor_is_positive_evidence",
@@ -322,7 +327,7 @@
         "dispositions": [
           {
             "action_id": "A1",
-            "value": "AppendedExact"
+            "value": "IndeterminateCommit"
           },
           {
             "action_id": "R1",
@@ -336,7 +341,8 @@
         "persisted_entry_count": 1,
         "source_mapping_count": 1,
         "reversal_atomic_units": [],
-        "recovery_required": false
+        "recovery_required": false,
+        "allowed_concurrent_outcomes": []
       },
       "invariants": [
         "committed_successor_survives_lost_response",
@@ -394,7 +400,8 @@
         "persisted_entry_count": 0,
         "source_mapping_count": 0,
         "reversal_atomic_units": [],
-        "recovery_required": true
+        "recovery_required": true,
+        "allowed_concurrent_outcomes": []
       },
       "invariants": [
         "unknown_is_not_noncommit",
@@ -431,7 +438,8 @@
         "persisted_entry_count": 1,
         "source_mapping_count": 0,
         "reversal_atomic_units": [],
-        "recovery_required": true
+        "recovery_required": true,
+        "allowed_concurrent_outcomes": []
       },
       "invariants": [
         "partial_append_is_never_success",
@@ -486,20 +494,20 @@
       ],
       "expected": {
         "commit_classification": "not_applicable",
-        "dispositions": [
-          {
-            "action_id": "A1",
-            "value": "AppendedExact"
-          },
-          {
-            "action_id": "B1",
-            "value": "IdempotentReplayExact"
-          }
-        ],
+        "dispositions": [],
         "persisted_entry_count": 1,
         "source_mapping_count": 1,
         "reversal_atomic_units": [],
-        "recovery_required": false
+        "recovery_required": false,
+        "allowed_concurrent_outcomes": [
+          {
+            "disposition_multiset": [
+              "AppendedExact",
+              "IdempotentReplayExact"
+            ],
+            "reversal_atomic_units": []
+          }
+        ]
       },
       "invariants": [
         "one_linearized_append",
@@ -554,20 +562,20 @@
       ],
       "expected": {
         "commit_classification": "not_applicable",
-        "dispositions": [
-          {
-            "action_id": "A1",
-            "value": "AppendedExact"
-          },
-          {
-            "action_id": "B1",
-            "value": "SourceProjectionConflict"
-          }
-        ],
+        "dispositions": [],
         "persisted_entry_count": 1,
         "source_mapping_count": 1,
         "reversal_atomic_units": [],
-        "recovery_required": false
+        "recovery_required": false,
+        "allowed_concurrent_outcomes": [
+          {
+            "disposition_multiset": [
+              "AppendedExact",
+              "SourceProjectionConflict"
+            ],
+            "reversal_atomic_units": []
+          }
+        ]
       },
       "invariants": [
         "exactly_one_winner",
@@ -623,25 +631,37 @@
       ],
       "expected": {
         "commit_classification": "not_applicable",
-        "dispositions": [
-          {
-            "action_id": "R60",
-            "value": "AppendedExact"
-          },
-          {
-            "action_id": "R50",
-            "value": "ReversalConflict"
-          }
-        ],
+        "dispositions": [],
         "persisted_entry_count": 2,
         "source_mapping_count": 2,
-        "reversal_atomic_units": [
+        "reversal_atomic_units": [],
+        "recovery_required": false,
+        "allowed_concurrent_outcomes": [
           {
-            "original_posting_ref": "original-posting-1",
-            "atomic_units": "60"
+            "disposition_multiset": [
+              "AppendedExact",
+              "ReversalConflict"
+            ],
+            "reversal_atomic_units": [
+              {
+                "original_posting_ref": "original-posting-1",
+                "atomic_units": "60"
+              }
+            ]
+          },
+          {
+            "disposition_multiset": [
+              "AppendedExact",
+              "ReversalConflict"
+            ],
+            "reversal_atomic_units": [
+              {
+                "original_posting_ref": "original-posting-1",
+                "atomic_units": "50"
+              }
+            ]
           }
-        ],
-        "recovery_required": false
+        ]
       },
       "invariants": [
         "cumulative_reversal_never_exceeds_original",
@@ -682,13 +702,14 @@
           },
           {
             "action_id": "V1",
-            "value": "AppendedExact"
+            "value": "VerifiedExact"
           }
         ],
         "persisted_entry_count": 1,
         "source_mapping_count": 1,
         "reversal_atomic_units": [],
-        "recovery_required": false
+        "recovery_required": false,
+        "allowed_concurrent_outcomes": []
       },
       "invariants": [
         "reconstruction_matches_prior_frontier",
@@ -735,7 +756,8 @@
         "persisted_entry_count": 2,
         "source_mapping_count": 2,
         "reversal_atomic_units": [],
-        "recovery_required": false
+        "recovery_required": false,
+        "allowed_concurrent_outcomes": []
       },
       "invariants": [
         "historical_exact_replay_is_idempotent",
@@ -772,7 +794,8 @@
         "persisted_entry_count": 1,
         "source_mapping_count": 1,
         "reversal_atomic_units": [],
-        "recovery_required": true
+        "recovery_required": true,
+        "allowed_concurrent_outcomes": []
       },
       "invariants": [
         "hash_mismatch_is_not_repaired_by_guessing",
