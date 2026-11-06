@@ -1124,6 +1124,236 @@ fn benchmark_history(event_count: usize) -> Result<History, Box<dyn Error>> {
     })
 }
 
+fn benchmark_claim_fanout_history(operation_count: usize) -> Result<History, Box<dyn Error>> {
+    if operation_count < 3 || operation_count > 30_000 {
+        return Err("—benchmark-join-operations must be between 3 and 30000".into());
+    }
+
+    let conductors = vec![
+        Conductor {
+            conductor_id: "grantor-host".into(),
+            agent_key_ref: "agent-grantor".into(),
+            conductor_build: "synthetic-join-benchmark".into(),
+            dna_hash: "uhCkk-join-benchmark-dna".into(),
+            cell_id: "join-cell-grantor".into(),
+            integrity_wasm_sha256: "a".repeat(64),
+            role: "grant_owner".into(),
+        },
+        Conductor {
+            conductor_id: "caller-host".into(),
+            agent_key_ref: "agent-caller".into(),
+            conductor_build: "synthetic-join-benchmark".into(),
+            dna_hash: "uhCkk-join-benchmark-dna".into(),
+            cell_id: "join-cell-caller".into(),
+            integrity_wasm_sha256: "a".repeat(64),
+            role: "caller".into(),
+        },
+    ];
+
+    let mut events = Vec::with_capacity(2 + operation_count * 3);
+    let mut causal_edges = Vec::with_capacity(2 + operation_count);
+
+    events.push(Event {
+        event_id: "grant-issue".into(),
+        conductor_id: "grantor-host".into(),
+        local_sequence: 1,
+        source: "conductor_host".into(),
+        evidence_ref: "synthetic://join-benchmark/grant-issue".into(),
+        event_type: "host_grant_issued".into(),
+        data: serde_json::json!({
+            "grant_ref": "grant-fanout",
+            "grant_action_hash": "uhCkk-join-grant",
+            "grantor": "agent-grantor",
+            "grantee": "agent-caller",
+            "assigned": true,
+            "functions": ["messages.send"],
+            "idempotency_key": "join-benchmark-grant-1",
+            "request_digest_sha256": "d".repeat(64),
+            "host_authority_index": 1
+        }),
+    });
+    events.push(Event {
+        event_id: "claim-accepted".into(),
+        conductor_id: "caller-host".into(),
+        local_sequence: 1,
+        source: "source_chain".into(),
+        evidence_ref: "synthetic://join-benchmark/claim-accepted".into(),
+        event_type: "capability_claim_accepted".into(),
+        data: serde_json::json!({
+            "grant_ref": "grant-fanout",
+            "grant_action_hash": "uhCkk-join-grant",
+            "recipient": "agent-caller",
+            "claim_action_hash": "uhCkk-join-claim"
+        }),
+    });
+    causal_edges.push(CausalEdge {
+        from_event: "grant-issue".into(),
+        to_event: "claim-accepted".into(),
+        relation: "source_action_dependency".into(),
+        evidence_ref: "synthetic://join-benchmark/grant-to-claim".into(),
+    });
+    causal_edges.push(CausalEdge {
+        from_event: "claim-accepted".into(),
+        to_event: "host-call-000000".into(),
+        relation: "request_response".into(),
+        evidence_ref: "synthetic://join-benchmark/claim-to-first-call".into(),
+    });
+
+    for index in 0..operation_count {
+        let operation_id = format!("send-op-{index:06}");
+        let attempt_id = 1u64;
+        let call_sequence = 2 + (index as u64 * 2);
+        let effect_sequence = call_sequence + 1;
+        let caller_sequence = 2 + index as u64;
+        let call_id = format!("host-call-{index:06}");
+        let effect_id = format!("effect-{index:06}");
+        let outcome_id = format!("caller-outcome-{index:06}");
+
+        events.push(Event {
+            event_id: call_id.clone(),
+            conductor_id: "grantor-host".into(),
+            local_sequence: call_sequence,
+            source: "conductor_host".into(),
+            evidence_ref: format!("synthetic://join-benchmark/{call_id}"),
+            event_type: "host_call".into(),
+            data: serde_json::json!({
+                "operation_id": operation_id,
+                "attempt_id": attempt_id,
+                "grant_ref": "grant-fanout",
+                "grant_action_hash": "uhCkk-join-grant",
+                "caller": "agent-caller",
+                "function": "messages.send",
+                "host_authority_index": 2 + index as u64,
+                "host_decision": "authorized",
+                "host_state_at_decision": "active",
+                "domain_decision": "allow",
+                "projection_used_for_authorization": false
+            }),
+        });
+        events.push(Event {
+            event_id: effect_id.clone(),
+            conductor_id: "grantor-host".into(),
+            local_sequence: effect_sequence,
+            source: "source_chain".into(),
+            evidence_ref: format!("synthetic://join-benchmark/{effect_id}"),
+            event_type: "domain_effect".into(),
+            data: serde_json::json!({
+                "operation_id": operation_id,
+                "attempt_id": attempt_id,
+                "effect_id": effect_id,
+                "action_hash": format!("uhCkk-join-effect-{index:06}")
+            }),
+        });
+        events.push(Event {
+            event_id: outcome_id.clone(),
+            conductor_id: "caller-host".into(),
+            local_sequence: caller_sequence,
+            source: "client".into(),
+            evidence_ref: format!("synthetic://join-benchmark/{outcome_id}"),
+            event_type: "caller_outcome".into(),
+            data: serde_json::json!({
+                "operation_id": operation_id,
+                "attempt_id": attempt_id,
+                "outcome": "committed"
+            }),
+        });
+        causal_edges.push(CausalEdge {
+            from_event: effect_id,
+            to_event: outcome_id,
+            relation: "request_response".into(),
+            evidence_ref: format!("synthetic://join-benchmark/effect-to-outcome/{index:06}"),
+        });
+    }
+
+    Ok(History {
+        schema_version: 2,
+        trace_id: format!("synthetic-claim-fanout-{operation_count}"),
+        evidence_class: "synthetic".into(),
+        source_commit: "0".repeat(40),
+        conductors,
+        events,
+        causal_edges,
+    })
+}
+
+fn run_join_benchmark(operation_count: usize, output: Option<PathBuf>) -> Result<(), Box<dyn Error>> {
+    use std::time::Instant;
+
+    let build_baseline = allocation_snapshot();
+    reset_peak_to_current_live_bytes();
+    let build_started = Instant::now();
+    let history = benchmark_claim_fanout_history(operation_count)?;
+    let build_ns = build_started.elapsed().as_nanos();
+    let after_build = allocation_snapshot();
+
+    let event_count = history.events.len();
+    let spec = format!(
+        "pulse-multiconductor-claim-fanout-v1|operations={operation_count}|conductors=2|grant=assigned|calls=authorized|effects=committed"
+    );
+    let generator_commitment_sha256 = format!("{:x}", Sha256::digest(spec.as_bytes()));
+
+    let audit_live_baseline = allocation_snapshot().live_bytes;
+    reset_peak_to_current_live_bytes();
+    let audit_started = Instant::now();
+    let report = audit(&history, generator_commitment_sha256.clone());
+    let audit_ns = audit_started.elapsed().as_nanos();
+    let after_audit = allocation_snapshot();
+    let throughput = if audit_ns == 0 {
+        0.0
+    } else {
+        event_count as f64 / (audit_ns as f64 / 1_000_000_000.0)
+    };
+
+    let status = match &report.status {
+        Status::Pass => "PASS",
+        Status::Fail => "FAIL",
+        Status::Incomplete => "INCOMPLETE",
+    };
+    let output_value = serde_json::json!({
+        "benchmark_version": 1,
+        "benchmark_name": "pulse-multiconductor-claim-fanout",
+        "evidence_class": "synthetic",
+        "status": status,
+        "operations": operation_count,
+        "events": event_count,
+        "conductors": history.conductors.len(),
+        "causal_edges": history.causal_edges.len(),
+        "findings": report.findings.len(),
+        "reachability": {
+            "queries": report.counts.reachability_queries,
+            "cache_hits": report.counts.reachability_cache_hits,
+            "sources_cached": report.counts.reachability_sources_cached,
+            "cached_reachable_nodes": report.counts.reachability_cached_nodes,
+            "dfs_node_visits": report.counts.reachability_dfs_node_visits,
+            "full_source_builds": report.counts.reachability_full_source_builds,
+            "cache_limit_skips": report.counts.reachability_cache_limit_skips
+        },
+        "history_build_ns": build_ns,
+        "audit_ns": audit_ns,
+        "audit_events_per_second": throughput,
+        "allocation_metrics_version": 1,
+        "allocation_baseline_live_bytes": build_baseline.live_bytes,
+        "allocation_live_bytes_after_build": after_build.live_bytes,
+        "allocation_peak_live_bytes_during_build": after_build.peak_live_bytes,
+        "allocation_peak_added_bytes_during_build": after_build.peak_live_bytes.saturating_sub(build_baseline.live_bytes),
+        "allocation_bytes_requested_during_build": after_build.total_allocated_bytes.saturating_sub(build_baseline.total_allocated_bytes),
+        "allocation_live_bytes_before_audit": audit_live_baseline,
+        "allocation_live_bytes_after_audit": after_audit.live_bytes,
+        "allocation_peak_live_bytes_during_audit": after_audit.peak_live_bytes,
+        "allocation_peak_added_bytes_during_audit": after_audit.peak_live_bytes.saturating_sub(audit_live_baseline),
+        "allocation_bytes_requested_during_audit": after_audit.total_allocated_bytes.saturating_sub(after_build.total_allocated_bytes),
+        "generator_commitment_sha256": generator_commitment_sha256,
+        "claim_ceiling": "BENCHMARK_ONLY: synthetic assigned-grant claim fan-out and call/effect/outcome causal joins; not Holochain runtime throughput or a production workload claim"
+    });
+    write_json_output(&output_value, output)?;
+
+    if matches!(&report.status, Status::Pass) {
+        Ok(())
+    } else {
+        Err("synthetic claim-fanout fixture did not pass structural audit".into())
+    }
+}
+
 fn write_json_output(value: &Value, output: Option<PathBuf>) -> Result<(), Box<dyn Error>> {
     let json = serde_json::to_string_pretty(value)?;
     if let Some(path) = output {
