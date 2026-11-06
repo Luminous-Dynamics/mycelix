@@ -46,7 +46,8 @@
         "relation_count",
         "unlinked_revision_family_count",
         "contradiction_relation_count",
-        "integrity_mismatch_count"
+        "integrity_mismatch_count",
+        "unresolved_conflicted_event_amount_count"
       ],
       "properties": {
         "source_object_count": {
@@ -92,6 +93,10 @@
         "integrity_mismatch_count": {
           "type": "integer",
           "minimum": 0
+        },
+        "unresolved_conflicted_event_amount_count": {
+          "type": "integer",
+          "minimum": 0
         }
       }
     },
@@ -119,7 +124,8 @@
         "unlinked_revision_family_count",
         "contradiction_relation_count",
         "integrity_mismatch_count",
-        "finding_codes"
+        "finding_codes",
+        "unresolved_conflicted_event_amount_count"
       ],
       "properties": {
         "case_id": {
@@ -180,6 +186,10 @@
               "source_integrity_mismatch_present"
             ]
           }
+        },
+        "unresolved_conflicted_event_amount_count": {
+          "type": "integer",
+          "minimum": 0
         }
       }
     }
