@@ -735,9 +735,9 @@ mod tests {
     }
 
     #[test]
-    fn all_eleven_public_oracle_rows_match_deterministic_case_analysis() {
+    fn all_twenty_public_oracle_rows_match_deterministic_case_analysis() {
         let (candidates, oracle) = fixtures();
-        assert_eq!(array(&candidates, "cases").unwrap().len(), 11);
+        assert_eq!(array(&candidates, "cases").unwrap().len(), 20);
         validate_oracle(&candidates, &oracle).unwrap();
     }
 
