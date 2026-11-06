@@ -9,9 +9,9 @@ It composes with [FIN-ACC-EVAL-001 / #5799](https://github.com/Luminous-Dynamics
 - **v1.0.0** is retained as an earlier 2026-11-05 source observation without a capture time.
 - **v1.1.0** is a time-labeled capture at **2026-11-05 19:39 SAST**.
 - **v1.2.0** is a later capture at **2026-11-05 22:12 SAST**. It separates methodology, technical paper, live board, FINBALANCE and official publisher article; five sources and 46 observations.
-- **v1.3.0** is the latest capture at **2026-11-06 06:04 SAST**. Its schema and fixture are `benchmark_source_evidence_v1.3.0.schema.json` and `fixtures/accounting_benchmark_source_snapshot_v1.3.0.json`. It adds a sixth source: a recapture of Mercor's current live APEX leaderboard and methodology details. The register now has **six sources and 65 observations**.
+- **v1.3.0** was refreshed at **2026-11-06 13:59 SAST**. Its schema and fixture are `benchmark_source_evidence_v1.3.0.schema.json` and `fixtures/accounting_benchmark_source_snapshot_v1.3.0.json`. It now has **seven source records and 72 observations**, including a separate record for an alternate official APEX page rendering that may be stale or cached.
 
-None of these snapshots archived raw HTML/PDF bytes. Every source therefore has `source_bytes_archived=false` and `source_bytes_sha256=null`. A SHA-256 over the JSON fixture identifies the fixture only, never the source website's bytes.
+None of these snapshots archived raw HTML/PDF bytes. Every source therefore has `source_bytes_archived=false` and `source_bytes_sha256=null`. A SHA-256 over the JSON fixture identifies the fixture only, never the source website's bytes. The v1.3.0 schema binds each source `observed_at` to the 13:59 SAST capture; the earlier v1.3 capture constant mismatch was corrected.
 
 ## APEX: preserve cohort, attempt, harness and retry distinctions
 
@@ -46,6 +46,16 @@ Links:
 - Published paper: https://arxiv.org/abs/2607.27189
 - Official publisher article: https://www.mercor.com/blog/introducing-the-ai-productivity-index-for-accounting/
 
+### Alternate official live-page rendering captured 6 Nov 2026
+
+A fresh, search-indexed official current leaderboard rendering continues to display **100 tasks / 1,475 criteria / 71.5% highest** and describes the Loop Harness, k=4 Mean Criteria and eight-run reliability metrics. During the same research session, a query-parameter variant of the official URL rendered a different page state: **160 tasks / 2,186 criteria / 61.0% headline**, while one table row showed **61.8%**. That alternate page state may be a stale cache or legacy rendering; its own headline/table values conflict.
+
+The v1.3.0 register preserves this alternate rendering as a seventh source record with `live_page_variant_conflict`, rather than treating it as current canonical truth. The publisher has not provided a public cohort/version mapping that reconciles:
+- 100-task current indexed live page vs. 160-task paper/blog cohort;
+- 71.5% current live high score vs. 61.0%/61.8% alternate render;
+- alternate render's 61.0% headline vs. 61.8% table row.
+
+Until Mercor identifies the canonical cohort, rubric, model roster, harness and publication version, do not compare these scores or infer benchmark improvement/regression. Report each source record separately; use 160-task paper metrics only as paper-reported historical evidence.
 ## FINBALANCE: a different task family
 
 The FINBALANCE paper reports a 710-record evaluation split across eight industries, three period types and five difficulty levels, with 23 inconsistency-code labels. The best exact final balance-sheet accuracy among six evaluated LLMs is 46%. Reconstructing statements from journal entries improved four models by 26–41 percentage points. Authors report models often produced numerically plausible entries but failed to bind them to source documents and aggregate them consistently; citation-pressure prompting barely changed document-linking errors, while ledger-feedback ablations substantially improved statement outputs and exposed inconsistency-detection trade-offs.
