@@ -194,7 +194,9 @@
               "claimed_impact_omitted_dependency",
               "baseline_projection_graph_binding_mismatch",
               "baseline_projection_dependency_invalid",
-              "claimed_impact_mismatch"
+              "claimed_impact_mismatch",
+              "candidate_graph_reference_invalid",
+              "baseline_source_revision_lineage_invalid"
             ]
           }
         }
