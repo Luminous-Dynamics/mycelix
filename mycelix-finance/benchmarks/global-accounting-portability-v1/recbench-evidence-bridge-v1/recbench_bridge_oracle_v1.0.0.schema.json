@@ -33,7 +33,8 @@
           "expected_unmatched_source_refs",
           "expected_review_source_refs",
           "forbid_auto_close",
-          "reason_codes"
+          "reason_codes",
+          "expected_excluded_source_refs"
         ],
         "properties": {
           "case_id": {
@@ -95,6 +96,13 @@
             "type": "boolean"
           },
           "reason_codes": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "string"
+            }
+          },
+          "expected_excluded_source_refs": {
             "type": "array",
             "uniqueItems": true,
             "items": {
