@@ -1684,6 +1684,258 @@ fn run_dag_profile_benchmark(
     }
 }
 
+fn benchmark_verified_record_history(
+    signal_count: usize,
+    conductor_count: usize,
+) -> Result<History, Box<dyn Error>> {
+    if signal_count == 0 || signal_count > 1_000_000 {
+        return Err("--benchmark-verified-signals must be between 1 and 1000000".into());
+    }
+    if !(3..=50).contains(&conductor_count) {
+        return Err("verified-record benchmark requires 3 through 50 conductors".into());
+    }
+
+    let author_count = conductor_count - 2;
+    let dna_hash = "uhCkk-pulse-verified-record-benchmark-dna".to_string();
+    let validator_wasm = "b".repeat(64);
+    let mut conductors = Vec::with_capacity(conductor_count);
+
+    for index in 0..author_count {
+        conductors.push(Conductor {
+            conductor_id: format!("author-host-{index:02}"),
+            agent_key_ref: format!("agent-author-{index:02}"),
+            conductor_build: "synthetic-verified-record-benchmark".into(),
+            dna_hash: dna_hash.clone(),
+            cell_id: format!("verified-cell-author-{index:02}"),
+            integrity_wasm_sha256: "a".repeat(64),
+            role: if index == 0 { "grant_owner" } else { "peer" }.into(),
+        });
+    }
+    conductors.push(Conductor {
+        conductor_id: "validator-host".into(),
+        agent_key_ref: "agent-validator".into(),
+        conductor_build: "synthetic-verified-record-benchmark".into(),
+        dna_hash: dna_hash.clone(),
+        cell_id: "verified-cell-validator".into(),
+        integrity_wasm_sha256: validator_wasm.clone(),
+        role: "validator".into(),
+    });
+    conductors.push(Conductor {
+        conductor_id: "observer-host".into(),
+        agent_key_ref: "agent-observer".into(),
+        conductor_build: "synthetic-verified-record-benchmark".into(),
+        dna_hash: dna_hash.clone(),
+        cell_id: "verified-cell-observer".into(),
+        integrity_wasm_sha256: "c".repeat(64),
+        role: "observer".into(),
+    });
+
+    let mut events = Vec::with_capacity(signal_count.saturating_mul(3));
+    let mut causal_edges = Vec::with_capacity(signal_count.saturating_mul(2));
+    for index in 0..signal_count {
+        let author_index = index % author_count;
+        let author_conductor_id = format!("author-host-{author_index:02}");
+        let author_agent = format!("agent-author-{author_index:02}");
+        let author_sequence = (index / author_count) as u64 + 1;
+        let validator_sequence = index as u64 + 1;
+        let observer_sequence = index as u64 + 1;
+        let action_hash = format!("uhCkk-verified-action-{index:010}");
+        let payload = format!("pulse-verified-record-payload-v1:{index}");
+        let payload_digest = format!("{:x}", Sha256::digest(payload.as_bytes()));
+        let action_event_id = format!("action-authored-{index:010}");
+        let validator_event_id = format!("validator-accepted-{index:010}");
+        let signal_event_id = format!("verified-record-signal-{index:010}");
+
+        events.push(Event {
+            event_id: action_event_id.clone(),
+            conductor_id: author_conductor_id.clone(),
+            local_sequence: author_sequence,
+            source: "source_chain".into(),
+            evidence_ref: format!("synthetic://verified-record/action/{index}"),
+            event_type: "action_authored".into(),
+            data: serde_json::json!({
+                "action_hash": action_hash,
+                "author": author_agent,
+                "entry_type": "TrustAttestation",
+                "payload_sha256": payload_digest
+            }),
+        });
+        events.push(Event {
+            event_id: validator_event_id.clone(),
+            conductor_id: "validator-host".into(),
+            local_sequence: validator_sequence,
+            source: "validator".into(),
+            evidence_ref: format!("synthetic://verified-record/validator/{index}"),
+            event_type: "validation_disposition".into(),
+            data: serde_json::json!({
+                "action_hash": action_hash,
+                "author_conductor_id": author_conductor_id,
+                "receiving_conductor_id": "validator-host",
+                "disposition": "accepted",
+                "validator_wasm_sha256": validator_wasm,
+                "reason_code": null
+            }),
+        });
+        events.push(Event {
+            event_id: signal_event_id.clone(),
+            conductor_id: "observer-host".into(),
+            local_sequence: observer_sequence,
+            source: "observer".into(),
+            evidence_ref: format!("synthetic://verified-record/observer/{index}"),
+            event_type: "remote_signal".into(),
+            data: serde_json::json!({
+                "event_type": "TrustAttestationReceived",
+                "trust_class": "verified_record",
+                "transport_sender": author_agent,
+                "claimed_sender": author_agent,
+                "backing_action_hash": action_hash,
+                "record_author": author_agent,
+                "verified_payload_sha256": payload_digest,
+                "verifier_build": "pulse-structural-audit-benchmark-v1",
+                "backing_author_conductor_id": author_conductor_id,
+                "backing_validator_event_id": validator_event_id,
+                "trusted_state_mutation": true,
+                "authorizes_operation": false
+            }),
+        });
+        causal_edges.push(CausalEdge {
+            from_event: action_event_id,
+            to_event: validator_event_id.clone(),
+            relation: "validator_receipt".into(),
+            evidence_ref: format!("synthetic://verified-record/edge/author-validator/{index}"),
+        });
+        causal_edges.push(CausalEdge {
+            from_event: validator_event_id,
+            to_event: signal_event_id,
+            relation: "observer_confirmation".into(),
+            evidence_ref: format!("synthetic://verified-record/edge/validator-observer/{index}"),
+        });
+    }
+
+    Ok(History {
+        schema_version: 2,
+        trace_id: format!("synthetic-verified-record-history-{signal_count}-{conductor_count}"),
+        evidence_class: "synthetic".into(),
+        source_commit: "0".repeat(40),
+        conductors,
+        events,
+        causal_edges,
+    })
+}
+
+fn run_verified_record_benchmark(
+    signal_count: usize,
+    conductor_count: usize,
+    output: Option<PathBuf>,
+) -> Result<(), Box<dyn Error>> {
+    use std::time::Instant;
+
+    let build_baseline = allocation_snapshot();
+    reset_peak_to_current_live_bytes();
+    let build_started = Instant::now();
+    let history = benchmark_verified_record_history(signal_count, conductor_count)?;
+    let build_ns = build_started.elapsed().as_nanos();
+    let after_build = allocation_snapshot();
+    let event_count = history.events.len();
+
+    let generator_spec = format!(
+        "pulse-verified-record-history-v1|signals={signal_count}|conductors={conductor_count}|events_per_signal=3|edges_per_signal=2"
+    );
+    let input_sha256 = format!("{:x}", Sha256::digest(generator_spec.as_bytes()));
+
+    reset_peak_to_current_live_bytes();
+    let reference_started = Instant::now();
+    let reference_report = audit_reference(&history, input_sha256.clone());
+    let reference_ns = reference_started.elapsed().as_nanos();
+    let reference_allocations = allocation_snapshot();
+    let reference_digest = semantic_report_digest(&reference_report)?;
+    let reference_pass = matches!(&reference_report.status, Status::Pass);
+    let reference_counts = reference_report.counts.clone();
+    drop(reference_report);
+
+    reset_peak_to_current_live_bytes();
+    let pair_started = Instant::now();
+    let pair_report = audit_pair_memoized(&history, input_sha256.clone());
+    let pair_ns = pair_started.elapsed().as_nanos();
+    let pair_allocations = allocation_snapshot();
+    let pair_digest = semantic_report_digest(&pair_report)?;
+    let pair_pass = matches!(&pair_report.status, Status::Pass);
+    let pair_counts = pair_report.counts.clone();
+    drop(pair_report);
+
+    reset_peak_to_current_live_bytes();
+    let source_started = Instant::now();
+    let source_report = audit(&history, input_sha256.clone());
+    let source_ns = source_started.elapsed().as_nanos();
+    let source_allocations = allocation_snapshot();
+    let source_digest = semantic_report_digest(&source_report)?;
+    let source_pass = matches!(&source_report.status, Status::Pass);
+    let semantic_equal = reference_digest == pair_digest && reference_digest == source_digest;
+    let status = if semantic_equal && reference_pass && pair_pass && source_pass {
+        "PASS"
+    } else {
+        "FAIL"
+    };
+
+    let report = serde_json::json!({
+        "benchmark_version": 1,
+        "benchmark_name": "pulse-verified-record-structural-audit",
+        "evidence_class": "synthetic",
+        "status": status,
+        "verified_signals": signal_count,
+        "conductors": conductor_count,
+        "events": event_count,
+        "causal_edges": history.causal_edges.len(),
+        "verified_records_per_second": if source_ns == 0 { 0.0 } else { signal_count as f64 / (source_ns as f64 / 1e9) },
+        "reference_semantic_report_sha256": reference_digest,
+        "pair_semantic_report_sha256": pair_digest,
+        "per_source_semantic_report_sha256": source_digest,
+        "semantic_reports_equal": semantic_equal,
+        "counts": {
+            "authored_actions": reference_counts.actions_authored,
+            "validator_dispositions": reference_counts.validator_dispositions,
+            "verified_signals": reference_counts.remote_signals,
+            "pair_cache_hits": pair_counts.reachability_pair_cache_hits,
+            "per_source_cache_hits": source_report.counts.reachability_cache_hits
+        },
+        "uncached_dfs": {
+            "status": if reference_pass { "PASS" } else { "FAIL" },
+            "audit_ns": reference_ns,
+            "allocation_peak_live_bytes": reference_allocations.peak_live_bytes
+        },
+        "pair_memoized": {
+            "status": if pair_pass { "PASS" } else { "FAIL" },
+            "audit_ns": pair_ns,
+            "speedup_over_uncached": if pair_ns == 0 { 0.0 } else { reference_ns as f64 / pair_ns as f64 },
+            "cache_hits": pair_counts.reachability_pair_cache_hits,
+            "cache_entries": pair_counts.reachability_pair_cache_entries,
+            "allocation_peak_live_bytes": pair_allocations.peak_live_bytes
+        },
+        "per_source_cache": {
+            "status": if source_pass { "PASS" } else { "FAIL" },
+            "audit_ns": source_ns,
+            "speedup_over_uncached": if source_ns == 0 { 0.0 } else { reference_ns as f64 / source_ns as f64 },
+            "cache_hits": source_report.counts.reachability_cache_hits,
+            "sources_cached": source_report.counts.reachability_sources_cached,
+            "cached_nodes": source_report.counts.reachability_cached_nodes,
+            "allocation_peak_live_bytes": source_allocations.peak_live_bytes
+        },
+        "history_build_ns": build_ns,
+        "allocation_metrics_version": 1,
+        "allocation_baseline_live_bytes": build_baseline.live_bytes,
+        "allocation_live_bytes_after_build": after_build.live_bytes,
+        "allocation_peak_live_bytes_during_build": after_build.peak_live_bytes,
+        "generator_commitment_sha256": input_sha256,
+        "claim_ceiling": "SYNTHETIC_VERIFIED_RECORD_STRUCTURAL_AUDIT_ONLY: generated author, accepted-validator and observer records with exact ActionHash/payload/WASM/DNA lineage and evidence-backed causal edges; no real signatures, Holochain conductor, DHT integration, or event-truth claim"
+    });
+    write_json_output(&report, output)?;
+    if status == "PASS" {
+        Ok(())
+    } else {
+        Err("verified-record audit strategies differed or one returned non-PASS".into())
+    }
+}
+
 fn semantic_report_digest(report: &Report) -> Result<String, Box<dyn Error>> {
     let mut value = serde_json::to_value(report)?;
     const METRIC_FIELDS: [&str; 10] = [
