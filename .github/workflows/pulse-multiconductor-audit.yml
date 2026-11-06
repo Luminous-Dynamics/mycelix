@@ -48,6 +48,14 @@ jobs:
           jq -e '.status == "PASS" and .evidence_class == "synthetic" and .events == 1000 and (.audit_ns > 0) and .allocation_metrics_version == 1 and (.allocation_peak_live_bytes_during_build > 0) and (.allocation_peak_live_bytes_during_audit > 0)' \
             "$RUNNER_TEMP/pulse-multiconductor-benchmark-smoke.json"
 
+      - name: Smoke-test claim-fanout reachability differential
+        run: |
+          set -euo pipefail
+          cargo run --manifest-path tools/pulse-multiconductor-audit/Cargo.toml --locked -- \
+            --benchmark-join-operations 32 --output "$RUNNER_TEMP/pulse-join-smoke.json"
+          jq -e '.status == "PASS" and .semantic_reports_equal == true and .operations == 32 and .events == 98 and .optimized_per_source_cache.cache_hits >= 20 and .optimized_per_source_cache.sources_cached == 1 and .reference_uncached.audit_ns > 0 and .optimized_per_source_cache.audit_ns > 0' \
+            "$RUNNER_TEMP/pulse-join-smoke.json"
+
       - name: Smoke-test borrowed versus owned parser parity
         run: |
           set -euo pipefail
@@ -230,6 +238,96 @@ jobs:
               )
           ' "$JSONL" > "$OUT/summary.json"
           cat "$OUT/summary.json"
+
+      - name: Benchmark claim-fanout joins with uncached reference comparison
+        shell: bash
+        run: |
+          set -euo pipefail
+          BIN="$PWD/tools/pulse-multiconductor-audit/target/release/pulse-multiconductor-audit"
+          OUT="$RUNNER_TEMP/pulse-join-benchmark"
+          mkdir -p "$OUT"
+          JSONL="$OUT/results.jsonl"
+          : > "$JSONL"
+
+          run_join_batch() {
+            local operations="$1"
+            local repetitions="$2"
+            for repetition in $(seq 1 "$repetitions"); do
+              local report="$OUT/report-$operations-$repetition.json"
+              local usage="$OUT/usage-$operations-$repetition.txt"
+              /usr/bin/time -f "%M" -o "$usage" \
+                "$BIN" --benchmark-join-operations "$operations" --output "$report"
+              local rss_kib
+              rss_kib="$(tr -d '[:space:]' < "$usage")"
+              jq -c --argjson repetition "$repetition" --argjson peak_rss_kib "$rss_kib" \
+                '. + {repetition: $repetition, process_peak_rss_kib: $peak_rss_kib}' \
+                "$report" >> "$JSONL"
+              echo "completed claim-fanout operations=$operations repetition=$repetition rss_kib=$rss_kib"
+            done
+          }
+
+          run_join_batch 100 30
+          run_join_batch 1000 30
+          run_join_batch 10000 30
+          # 30k operations create 90,002 events; preserve process-level repeats
+          # because this is the largest workload within the bounded source cache.
+          run_join_batch 30000 30
+
+          jq -s '
+            group_by(.operations)
+            | map(
+                ([.[].reference_uncached.audit_ns] | sort) as $reference
+                | ([.[].optimized_per_source_cache.audit_ns] | sort) as $optimized
+                | ([.[].optimized_per_source_cache.speedup_over_uncached] | sort) as $speedups
+                | ([.[].optimized_per_source_cache.cache_hits] | sort) as $hits
+                | ([.[].optimized_per_source_cache.dfs_node_visits] | sort) as $visits
+                | {
+                    operations: .[0].operations,
+                    events: .[0].events,
+                    repetitions: length,
+                    all_semantic_reports_equal: all(.[]; .semantic_reports_equal == true),
+                    all_status_pass: all(.[]; .status == "PASS"),
+                    median_reference_audit_ns: $reference[(($reference | length) / 2 | floor)],
+                    p95_reference_audit_ns: $reference[((($reference | length) * 0.95) | ceil) - 1],
+                    median_cached_audit_ns: $optimized[(($optimized | length) / 2 | floor)],
+                    p95_cached_audit_ns: $optimized[((($optimized | length) * 0.95) | ceil) - 1],
+                    median_speedup_over_uncached: $speedups[(($speedups | length) / 2 | floor)],
+                    median_cache_hits: $hits[(($hits | length) / 2 | floor)],
+                    median_cached_dfs_node_visits: $visits[(($visits | length) / 2 | floor)],
+                    max_peak_rss_kib: ([.[].process_peak_rss_kib] | max),
+                    max_cached_reachable_nodes: ([.[].optimized_per_source_cache.cached_reachable_nodes] | max),
+                    max_reference_dfs_node_visits: ([.[].reference_uncached.dfs_node_visits] | max),
+                    claim_ceiling: .[0].claim_ceiling
+                  }
+              )
+          ' "$JSONL" > "$OUT/summary.json"
+          cat "$OUT/summary.json"
+
+      - name: Record claim-fanout benchmark receipt
+        if: always()
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/pulse-join-benchmark"
+          {
+            echo "source_sha=$(git rev-parse HEAD)"
+            echo "workflow_run=$GITHUB_RUN_ID"
+            echo "workflow_attempt=$GITHUB_RUN_ATTEMPT"
+            rustc --version
+            cargo --version
+            sha256sum tools/pulse-multiconductor-audit/Cargo.lock
+            sha256sum tools/pulse-multiconductor-audit/src/main.rs
+            sha256sum "$RUNNER_TEMP/pulse-join-benchmark/results.jsonl"
+            sha256sum "$RUNNER_TEMP/pulse-join-benchmark/summary.json"
+          } > "$RUNNER_TEMP/pulse-join-benchmark/receipt.txt"
+
+      - name: Upload claim-fanout raw runs, summary and receipt
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pulse-claim-fanout-benchmark-${{ github.sha }}
+          path: ${{ runner.temp }}/pulse-join-benchmark/
+          if-no-files-found: warn
+          retention-days: 30
 
       - name: Record parser benchmark source receipt
         if: always()
