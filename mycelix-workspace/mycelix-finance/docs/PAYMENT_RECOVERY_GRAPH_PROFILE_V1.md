@@ -61,3 +61,12 @@ Measure graph reachability precision/recall only against synthetic ground truth.
 ## Claim ceiling
 
 This v1 proves only that the reference evaluator can validate a synthetic graph, account conservation, authority-scoped holds and unique return accounting. It does not prove legal ownership of fungible funds, authority to block an account, actual recoverability, a PayShap implementation or any South African service-level target.
+
+
+## Shared-account reservation conservation (2026-11-06)
+
+A single downstream account can receive candidate flows associated with more than one recovery root. Each notification's requested amount may be individually within the local available balance while the **sum of simultaneous active holds** exceeds that balance.
+
+The v1 corpus includes RG-025: two roots converge on one downstream account with 9,000 minor units available. The valid fixture applies 6,000 and 3,000 active holds, exactly consuming the observed available amount. Its negative control raises the second hold to 4,000: each hold remains individually below 9,000, but the aggregate 10,000 must fail.
+
+The evaluator keys snapshots and reservation totals by account plus currency, requires each hold to bind the notified transaction's currency, uses checked integer addition, and counts only valid-authority `applied`/`partial` holds as active. Released and contested historical records do not consume current reserved balance. This is synthetic value-conservation qualification; actual freezing authority and prioritisation remain governed by the relevant scheme, participant and jurisdiction.
