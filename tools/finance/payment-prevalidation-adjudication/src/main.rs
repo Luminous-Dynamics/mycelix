@@ -12,8 +12,9 @@ use std::path::PathBuf;
 
 const DEFAULT_CORPUS: &str =
     include_str!("../../../../mycelix-finance/docs/payment-prevalidation-adjudication-v1.json");
-const DEFAULT_SCHEMA: &str =
-    include_str!("../../../../mycelix-finance/docs/payment-prevalidation-adjudication-v1.schema.json");
+const DEFAULT_SCHEMA: &str = include_str!(
+    "../../../../mycelix-finance/docs/payment-prevalidation-adjudication-v1.schema.json"
+);
 const SYSTEMS: [&str; 3] = ["incumbent", "conventional", "mycelix"];
 const LABEL_KEYS: [&str; 9] = [
     "subject_binding",
@@ -122,8 +123,7 @@ fn validate_study_design(corpus: &Value, errors: &mut Vec<String>) {
         != Some("cluster_bootstrap_by_merchant_and_time_block")
     {
         errors.push(
-            "study_design: confidence intervals must use the pre-registered cluster method"
-                .into(),
+            "study_design: confidence intervals must use the pre-registered cluster method".into(),
         );
     }
     if u64_value(design, "minimum_independent_clusters_for_interval").unwrap_or(0) < 30 {
@@ -163,7 +163,9 @@ fn resolve_adjudicated_labels(
         let id = string_at(record, "record_id").unwrap_or("");
         let sequence = u64_value(record, "sequence").unwrap_or(0);
         if id.is_empty() || ids.contains_key(id) {
-            errors.push(format!("{path}: missing or duplicate adjudication record id"));
+            errors.push(format!(
+                "{path}: missing or duplicate adjudication record id"
+            ));
         }
         if sequence <= previous_sequence {
             errors.push(format!(
@@ -181,9 +183,7 @@ fn resolve_adjudicated_labels(
                 "{path}: adjudication evidence digest differs from frozen case snapshot"
             ));
         }
-        if string_at(record, "protocol_version")
-            != Some("PAY-PREVALIDATION-ADJUDICATION-V1")
-        {
+        if string_at(record, "protocol_version") != Some("PAY-PREVALIDATION-ADJUDICATION-V1") {
             errors.push(format!("{path}: adjudication protocol version mismatch"));
         }
         ids.insert(id.to_owned(), record.clone());
@@ -208,9 +208,7 @@ fn resolve_adjudicated_labels(
             }
             "correction" => {
                 let Some(target_id) = supersedes else {
-                    errors.push(format!(
-                        "{path}: correction must identify its predecessor"
-                    ));
+                    errors.push(format!("{path}: correction must identify its predecessor"));
                     continue;
                 };
                 let Some(target) = ids.get(target_id) else {
@@ -220,8 +218,7 @@ fn resolve_adjudicated_labels(
                     continue;
                 };
                 if string_at(target, "status") != Some("superseded")
-                    || string_at(target, "adjudicator_id")
-                        != string_at(record, "adjudicator_id")
+                    || string_at(target, "adjudicator_id") != string_at(record, "adjudicator_id")
                     || !corrections_by_target.insert(target_id.to_owned())
                     || string_at(record, "correction_reason").is_none_or(str::is_empty)
                     || status != "active"
@@ -256,10 +253,7 @@ fn resolve_adjudicated_labels(
         .iter()
         .filter(|record| {
             string_at(record, "status") == Some("active")
-                && matches!(
-                    string_at(record, "role"),
-                    Some("primary" | "correction")
-                )
+                && matches!(string_at(record, "role"), Some("primary" | "correction"))
         })
         .collect();
     if active_primaries.len() != 2 {
@@ -316,7 +310,9 @@ fn resolve_adjudicated_labels(
     }
 
     let final_labels = if !primary_agree {
-        tie_breakers.first().map(|record| record["labels"].clone())?
+        tie_breakers
+            .first()
+            .map(|record| record["labels"].clone())?
     } else {
         left_labels.clone()
     };
@@ -378,8 +374,7 @@ fn validate_system_outputs(
 fn validate_corpus(corpus: &Value, schema: &Value) -> Vec<String> {
     let mut errors = schema_errors(schema, corpus);
     if string_at(corpus, "schema") != Some("mycelix.payment-prevalidation-adjudication/v1")
-        || string_at(corpus, "corpus_id")
-            != Some("PAYMENT-PREVALIDATION-ADJUDICATION-SYNTHETIC-V1")
+        || string_at(corpus, "corpus_id") != Some("PAYMENT-PREVALIDATION-ADJUDICATION-SYNTHETIC-V1")
         || string_at(corpus, "status") != Some("synthetic_protocol_conformance_only")
     {
         errors.push("corpus identity/status mismatch".into());
@@ -389,7 +384,9 @@ fn validate_corpus(corpus: &Value, schema: &Value) -> Vec<String> {
     }
     validate_study_design(corpus, &mut errors);
 
-    let sources = array_at(corpus, "source_register").cloned().unwrap_or_default();
+    let sources = array_at(corpus, "source_register")
+        .cloned()
+        .unwrap_or_default();
     let cases = array_at(corpus, "cases").cloned().unwrap_or_default();
     let source_ids: BTreeSet<String> = sources
         .iter()
@@ -476,9 +473,8 @@ fn report(corpus: &Value, schema: &Value) -> Value {
     let mut merchant_time_clusters = BTreeSet::<(String, String)>::new();
 
     for (index, case) in cases.iter().enumerate() {
-        let (labels, left, right) =
-            resolve_adjudicated_labels(&case, index, &mut Vec::new())
-                .expect("validated adjudication");
+        let (labels, left, right) = resolve_adjudicated_labels(&case, index, &mut Vec::new())
+            .expect("validated adjudication");
         let outputs = validate_system_outputs(&case, index, &mut Vec::new())
             .expect("validated system outputs");
         for key in LABEL_KEYS {
@@ -492,7 +488,9 @@ fn report(corpus: &Value, schema: &Value) -> Value {
             .entry(string_at(&case, "partition").unwrap_or("").to_owned())
             .or_default() += 1;
         merchant_time_clusters.insert((
-            string_at(&case, "merchant_entity_id").unwrap_or("").to_owned(),
+            string_at(&case, "merchant_entity_id")
+                .unwrap_or("")
+                .to_owned(),
             string_at(&case, "time_block").unwrap_or("").to_owned(),
         ));
         resolved.push((case, labels, outputs));
@@ -549,12 +547,16 @@ fn report(corpus: &Value, schema: &Value) -> Value {
             for key in LABEL_KEYS {
                 let actual = string_at(truth, key).unwrap_or("").to_owned();
                 if actual == "indeterminate" || actual == "unknown" {
-                    *indeterminate_truth_labels.entry(key.to_owned()).or_default() += 1;
+                    *indeterminate_truth_labels
+                        .entry(key.to_owned())
+                        .or_default() += 1;
                 }
                 let predicted = if key == "final_disposition" {
                     prediction.to_owned()
                 } else {
-                    string_at(&output["assessments"], key).unwrap_or("").to_owned()
+                    string_at(&output["assessments"], key)
+                        .unwrap_or("")
+                        .to_owned()
                 };
                 *matrices
                     .entry(key.to_owned())
@@ -610,7 +612,8 @@ fn report(corpus: &Value, schema: &Value) -> Value {
         .collect();
 
     let cluster_count = merchant_time_clusters.len();
-    let suppression_reason = if bool_at(&corpus["study_design"], "synthetic_fixture") == Some(true) {
+    let suppression_reason = if bool_at(&corpus["study_design"], "synthetic_fixture") == Some(true)
+    {
         "synthetic fixture; no population confidence intervals are estimated"
     } else if cluster_count
         < u64_value(
@@ -666,27 +669,47 @@ fn run_self_tests(corpus: &Value, schema: &Value) -> Result<usize, String> {
     }
     let mut count = 0;
 
-    mutation_rejected("circular evaluator expectation inserted as truth", corpus, schema, |v| {
-        v["cases"][0]["expected_output"] = json!("safe_to_present");
-    })?;
+    mutation_rejected(
+        "circular evaluator expectation inserted as truth",
+        corpus,
+        schema,
+        |v| {
+            v["cases"][0]["expected_output"] = json!("safe_to_present");
+        },
+    )?;
     count += 1;
 
-    mutation_rejected("adjudicator unblinded to system output", corpus, schema, |v| {
-        v["cases"][0]["adjudication_records"][0]["blinded_to_system_outputs"] = json!(false);
-    })?;
+    mutation_rejected(
+        "adjudicator unblinded to system output",
+        corpus,
+        schema,
+        |v| {
+            v["cases"][0]["adjudication_records"][0]["blinded_to_system_outputs"] = json!(false);
+        },
+    )?;
     count += 1;
 
-    mutation_rejected("merchant identity leaks into held-out split", corpus, schema, |v| {
-        v["cases"][6]["merchant_entity_id"] = v["cases"][0]["merchant_entity_id"].clone();
-    })?;
+    mutation_rejected(
+        "merchant identity leaks into held-out split",
+        corpus,
+        schema,
+        |v| {
+            v["cases"][6]["merchant_entity_id"] = v["cases"][0]["merchant_entity_id"].clone();
+        },
+    )?;
     count += 1;
 
-    mutation_rejected("indeterminate evidence label suppressed", corpus, schema, |v| {
-        v["cases"][4]["adjudication_records"][0]["labels"]
-            .as_object_mut()
-            .unwrap()
-            .remove("evidence_freshness");
-    })?;
+    mutation_rejected(
+        "indeterminate evidence label suppressed",
+        corpus,
+        schema,
+        |v| {
+            v["cases"][4]["adjudication_records"][0]["labels"]
+                .as_object_mut()
+                .unwrap()
+                .remove("evidence_freshness");
+        },
+    )?;
     count += 1;
 
     mutation_rejected("correction predecessor deleted", corpus, schema, |v| {
@@ -697,18 +720,28 @@ fn run_self_tests(corpus: &Value, schema: &Value) -> Result<usize, String> {
     })?;
     count += 1;
 
-    mutation_rejected("primary disagreement has no third adjudicator", corpus, schema, |v| {
-        v["cases"][2]["adjudication_records"]
-            .as_array_mut()
-            .unwrap()
-            .pop();
-    })?;
+    mutation_rejected(
+        "primary disagreement has no third adjudicator",
+        corpus,
+        schema,
+        |v| {
+            v["cases"][2]["adjudication_records"]
+                .as_array_mut()
+                .unwrap()
+                .pop();
+        },
+    )?;
     count += 1;
 
-    mutation_rejected("held-out partition made available for tuning", corpus, schema, |v| {
-        v["study_design"]["tuning_partitions"] =
-            json!(["development", "calibration", "held_out_test"]);
-    })?;
+    mutation_rejected(
+        "held-out partition made available for tuning",
+        corpus,
+        schema,
+        |v| {
+            v["study_design"]["tuning_partitions"] =
+                json!(["development", "calibration", "held_out_test"]);
+        },
+    )?;
     count += 1;
 
     mutation_rejected("thresholds no longer frozen", corpus, schema, |v| {
