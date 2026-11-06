@@ -1,0 +1,134 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/financial-evidence-drift-report-v1.0.0.json",
+  "title": "Mycelix Financial Evidence Drift Report v1.0.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "report_id",
+    "schema_version",
+    "claim_ceiling",
+    "request_sha256",
+    "pair_count",
+    "pair_results"
+  ],
+  "properties": {
+    "report_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "claim_ceiling": {
+      "const": "deterministic_dependency_impact_assessment_not_professional_accounting_conclusion"
+    },
+    "request_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "pair_count": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "pair_results": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/result"
+      }
+    }
+  },
+  "$defs": {
+    "result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "scenario_id",
+        "scenario_kind",
+        "request_valid",
+        "impact_class",
+        "baseline_graph_sha256",
+        "candidate_graph_sha256",
+        "changed_node_refs",
+        "impacted_node_refs",
+        "undeclared_impacted_node_refs",
+        "finding_codes"
+      ],
+      "properties": {
+        "scenario_id": {
+          "type": "string"
+        },
+        "scenario_kind": {
+          "type": "string"
+        },
+        "request_valid": {
+          "type": "boolean"
+        },
+        "impact_class": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            "no_material_impact",
+            "review_required",
+            "reproject_required",
+            "historical_replay_required",
+            "projection_invalid",
+            null
+          ]
+        },
+        "baseline_graph_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "candidate_graph_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "changed_node_refs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        },
+        "impacted_node_refs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        },
+        "undeclared_impacted_node_refs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        },
+        "finding_codes": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "source_or_assertion_changed",
+              "event_or_relation_changed",
+              "policy_profile_changed",
+              "projector_changed",
+              "knowledge_frontier_advanced",
+              "late_evidence_became_available",
+              "assertion_disputed_or_invalidated",
+              "source_integrity_failed",
+              "unlinked_source_revision",
+              "projection_reference_invalid",
+              "projection_graph_binding_stale",
+              "caller_impact_set_underreported",
+              "nonsemantic_source_metadata_changed"
+            ]
+          }
+        }
+      }
+    }
+  }
+}
