@@ -541,6 +541,7 @@ fn run() -> Result<(), Box<dyn Error>> {
     let graph_schema: Value = read_json(data_dir.join("economic_event_graph_v1.0.0.schema.json"))?;
     let bundle_schema: Value = read_json(data_dir.join("accounting_policy_projection_bundle_v1.0.0.schema.json"))?;
     let projection_schema: Value = read_json(data_dir.join("accounting_policy_projection_v1.0.0.schema.json"))?;
+    let report_schema: Value = read_json(data_dir.join("accounting_policy_projection_verification_report_v1.0.0.schema.json"))?;
     let graph_path = data_dir.join("fixtures/economic_event_graph_candidates_v1.0.0.json");
     let bundle_path = data_dir.join("fixtures/accounting_policy_projection_review_controls_v1.0.0.json");
     let graph_bytes = read_bytes(graph_path)?;
@@ -555,6 +556,7 @@ fn run() -> Result<(), Box<dyn Error>> {
 
     let graph_digest = hex::encode(Sha256::digest(&graph_bytes));
     let report = validate_bundle(&bundle, &graph, &graph_digest)?;
+    validate_instance("policy projection verification report", &report_schema, &report)?;
     let output = serde_json::to_vec_pretty(&report)?;
     match output_path {
         Some(path) => {
@@ -607,15 +609,16 @@ mod tests {
 
     #[test]
     fn recognized_decision_cannot_use_future_or_unavailable_assertions() {
-        let (graph, mut bundle, _, _, digest) = fixtures();
+        let (mut graph, mut bundle, _, _, digest) = fixtures();
+        let graph_case = graph["cases"].as_array_mut().unwrap().iter_mut()
+            .find(|case| optional_string(case, "case_id") == Some("EVT-001-INVOICE-WITHOUT-SERVICE-PROOF")).unwrap();
+        graph_case["source_objects"][0]["received_at"] = Value::String("2026-11-05T11:00:00Z".to_owned());
         let p = &mut bundle["projections"][0];
         p["projection_state"] = Value::String("complete_for_review".to_owned());
         p["event_decisions"][0]["decision_state"] = Value::String("recognized".to_owned());
-        p["event_decisions"][0]["recognized_amount_minor"] = Value::from(45000);
+        p["event_decisions"][0]["recognized_amount_minor"] = Value::from(125000);
         p["event_decisions"][0]["currency"] = Value::String("USD".to_owned());
         p["event_decisions"][0]["period_ref"] = Value::String("2026-10".to_owned());
-        p["event_decisions"][0]["event_ref"] = Value::String("EV-006-INVOICE".to_owned());
-        p["event_decisions"][0]["source_assertion_refs"] = json!(["AS-006-AMOUNT"]);
         p["unresolved_items"] = json!([]);
         assert!(validate_bundle(&bundle, &graph, &digest).is_err());
     }
