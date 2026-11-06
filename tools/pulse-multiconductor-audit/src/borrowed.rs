@@ -206,7 +206,7 @@ fn valid_sha256(value: &str) -> bool {
 }
 
 fn valid_event_shape(event: &BorrowedEvent<'_>) -> bool {
-    let data: RawObject<'_> = match serde_json::from_str(data.get()) {
+    let data: RawObject<'_> = match serde_json::from_str(event.data.get()) {
         Ok(data) => data,
         Err(_) => return false,
     };
