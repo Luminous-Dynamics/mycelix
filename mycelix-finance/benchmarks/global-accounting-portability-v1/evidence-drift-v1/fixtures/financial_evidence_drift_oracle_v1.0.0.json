@@ -1,0 +1,99 @@
+{
+  "oracle_id": "MYCELIX-FINANCIAL-EVIDENCE-DRIFT-S0-ORACLE",
+  "schema_version": "1.0.0",
+  "claim_ceiling": "synthetic_expected_impact_labels_not_production_accounting_authority",
+  "expectations": [
+    {
+      "case_id": "DRIFT-001-AMOUNT-CORRECTION",
+      "expected_classification": "reproject_required",
+      "expected_impacted_refs": [
+        "decision:DEC-1",
+        "journal_entry:JE-1",
+        "journal_line:LINE-DR",
+        "journal_line:LINE-CR"
+      ]
+    },
+    {
+      "case_id": "DRIFT-002-METADATA-ONLY",
+      "expected_classification": "no_material_impact",
+      "expected_impacted_refs": []
+    },
+    {
+      "case_id": "DRIFT-003-ASSERTION-DISPUTED",
+      "expected_classification": "review_required",
+      "expected_impacted_refs": [
+        "decision:DEC-1",
+        "journal_entry:JE-1",
+        "journal_line:LINE-DR",
+        "journal_line:LINE-CR"
+      ]
+    },
+    {
+      "case_id": "DRIFT-004-LATE-EVIDENCE",
+      "expected_classification": "historical_replay_required",
+      "expected_impacted_refs": [
+        "decision:DEC-1",
+        "decision:DEC-SERVICE",
+        "journal_entry:JE-1",
+        "journal_line:LINE-DR",
+        "journal_line:LINE-CR"
+      ]
+    },
+    {
+      "case_id": "DRIFT-005-POLICY-DIGEST-CHANGED",
+      "expected_classification": "reproject_required",
+      "expected_impacted_refs": [
+        "decision:DEC-1",
+        "journal_entry:JE-1",
+        "journal_line:LINE-DR",
+        "journal_line:LINE-CR"
+      ]
+    },
+    {
+      "case_id": "DRIFT-006-PROJECTOR-DIGEST-CHANGED",
+      "expected_classification": "reproject_required",
+      "expected_impacted_refs": [
+        "decision:DEC-1",
+        "journal_entry:JE-1",
+        "journal_line:LINE-DR",
+        "journal_line:LINE-CR"
+      ]
+    },
+    {
+      "case_id": "DRIFT-007-EVENT-RELATION-CHANGED",
+      "expected_classification": "reproject_required",
+      "expected_impacted_refs": [
+        "decision:DEC-1",
+        "journal_entry:JE-1",
+        "journal_line:LINE-DR",
+        "journal_line:LINE-CR"
+      ]
+    },
+    {
+      "case_id": "DRIFT-008-CROSS-TENANT-ID-COLLISION",
+      "expected_classification": "no_material_impact",
+      "expected_impacted_refs": []
+    },
+    {
+      "case_id": "DRIFT-009-UNLINKED-REVISION",
+      "expected_classification": "review_required",
+      "expected_impacted_refs": [
+        "decision:DEC-1",
+        "journal_entry:JE-1",
+        "journal_line:LINE-DR",
+        "journal_line:LINE-CR"
+      ]
+    },
+    {
+      "case_id": "DRIFT-010-UNDERREPORTED-IMPACT-SET",
+      "expected_classification": "reproject_required",
+      "expected_impacted_refs": [
+        "decision:DEC-1",
+        "journal_entry:JE-1",
+        "journal_line:LINE-DR",
+        "journal_line:LINE-CR"
+      ],
+      "caller_claim_expected_to_match": false
+    }
+  ]
+}
