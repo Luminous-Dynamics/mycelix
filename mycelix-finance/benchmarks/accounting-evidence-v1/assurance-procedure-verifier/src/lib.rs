@@ -337,12 +337,20 @@ fn assess_case(case: &Value) -> AppResult<Assessment> {
                         population.get("frame_complete").and_then(Value::as_bool) == Some(true);
                     if observed < expected {
                         reasons.insert("expected_population_incomplete".to_owned());
-                        pair_results.push(pair_assessment(pair_id, "insufficient_evidence", reasons));
+                        pair_results.push(pair_assessment(
+                            pair_id,
+                            "insufficient_evidence",
+                            reasons,
+                        ));
                         continue;
                     }
                     if !frame_complete {
                         reasons.insert("sample_frame_omits_class".to_owned());
-                        pair_results.push(pair_assessment(pair_id, "insufficient_evidence", reasons));
+                        pair_results.push(pair_assessment(
+                            pair_id,
+                            "insufficient_evidence",
+                            reasons,
+                        ));
                         continue;
                     }
                 }
