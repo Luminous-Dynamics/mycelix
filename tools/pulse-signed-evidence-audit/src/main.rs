@@ -521,8 +521,14 @@ fn validate_causal_relation(
     to: &Value,
     evidence_class: &str,
 ) -> RelationValidation {
-    let from_type = from.get("event_type").and_then(Value::as_str).unwrap_or_default();
-    let to_type = to.get("event_type").and_then(Value::as_str).unwrap_or_default();
+    let from_type = from
+        .get("event_type")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    let to_type = to
+        .get("event_type")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
     match relation {
         "program_order" => {
             let (Some(from_conductor), Some(to_conductor)) = (
@@ -583,7 +589,8 @@ fn validate_causal_relation(
             };
             if from_operation != to_operation || from_attempt != to_attempt {
                 return RelationValidation::Violation(
-                    "request_response endpoints must share exact operation_id and attempt_id".into(),
+                    "request_response endpoints must share exact operation_id and attempt_id"
+                        .into(),
                 );
             }
             RelationValidation::Valid
@@ -599,7 +606,8 @@ fn validate_causal_relation(
                 event_data_str(to, "grant_action_hash"),
             ) else {
                 return RelationValidation::Incomplete(
-                    "grant-to-claim dependency requires exact grant_action_hash on both events".into(),
+                    "grant-to-claim dependency requires exact grant_action_hash on both events"
+                        .into(),
                 );
             };
             if from_hash != to_hash {
@@ -625,16 +633,23 @@ fn validate_causal_relation(
                 .get("data")
                 .and_then(|data| data.get("receiving_conductor_id"))
                 .and_then(Value::as_str);
-            let source_conductor = from
-                .get("conductor_id")
-                .and_then(Value::as_str);
-            let target_conductor = to
-                .get("conductor_id")
-                .and_then(Value::as_str);
-            let (Some(action_hash), Some(validated_hash), Some(author_conductor),
-                 Some(receiving_conductor), Some(source_conductor), Some(target_conductor)) =
-                (action_hash, validated_hash, author_conductor, receiving_conductor,
-                 source_conductor, target_conductor)
+            let source_conductor = from.get("conductor_id").and_then(Value::as_str);
+            let target_conductor = to.get("conductor_id").and_then(Value::as_str);
+            let (
+                Some(action_hash),
+                Some(validated_hash),
+                Some(author_conductor),
+                Some(receiving_conductor),
+                Some(source_conductor),
+                Some(target_conductor),
+            ) = (
+                action_hash,
+                validated_hash,
+                author_conductor,
+                receiving_conductor,
+                source_conductor,
+                target_conductor,
+            )
             else {
                 return RelationValidation::Incomplete(
                     "validator_receipt requires exact action and author/receiver conductor identities".into(),
@@ -656,14 +671,21 @@ fn validate_causal_relation(
                     "observer_confirmation pair {from_type} -> {to_type} is not a validator/projection pair"
                 ));
             }
-            let (Some(validated_hash), Some(projection_hash), Some(observed_hash), Some(required_hash)) = (
+            let (
+                Some(validated_hash),
+                Some(projection_hash),
+                Some(observed_hash),
+                Some(required_hash),
+            ) = (
                 event_data_str(from, "action_hash"),
                 event_data_str(to, "action_hash"),
                 event_data_str(to, "observed_action_hash"),
                 event_data_str(to, "required_action_hash"),
-            ) else {
+            )
+            else {
                 return RelationValidation::Incomplete(
-                    "observer_confirmation requires exact validation and projection ActionHashes".into(),
+                    "observer_confirmation requires exact validation and projection ActionHashes"
+                        .into(),
                 );
             };
             if validated_hash != projection_hash
@@ -1870,8 +1892,7 @@ mod tests {
             )
             .unwrap();
         let mut first_statement: Value = serde_json::from_slice(&first_payload).unwrap();
-        first_statement["subject"][0]["digest"]["sha256"] =
-            Value::String(trace_digest.clone());
+        first_statement["subject"][0]["digest"]["sha256"] = Value::String(trace_digest.clone());
         first_statement["predicate"]["trace_sha256"] = Value::String(trace_digest.clone());
         let first_bytes = serde_json::to_vec(&first_statement).unwrap();
         let first_signature = signing_key.sign(&pae(payload_type, &first_bytes));
@@ -2083,7 +2104,10 @@ mod tests {
             validate_causal_relation("observer_confirmation", &from, &to, "runtime_capture"),
             RelationValidation::Violation(_)
         ));
-        to["data"].as_object_mut().unwrap().remove("validator_event_id");
+        to["data"]
+            .as_object_mut()
+            .unwrap()
+            .remove("validator_event_id");
         assert!(matches!(
             validate_causal_relation("observer_confirmation", &from, &to, "runtime_capture"),
             RelationValidation::Incomplete(_)
@@ -2109,8 +2133,7 @@ mod tests {
         let (bundle, trace, policy) = fixture_with_two_signed_events_and_edge();
         let report = audit(&bundle, &trace, &policy).unwrap();
         assert_eq!(
-            report.status,
-            "ROLE_AUTHENTICATED_RELATIVE_TO_SUPPLIED_POLICY",
+            report.status, "ROLE_AUTHENTICATED_RELATIVE_TO_SUPPLIED_POLICY",
             "{:?}",
             report.findings
         );
