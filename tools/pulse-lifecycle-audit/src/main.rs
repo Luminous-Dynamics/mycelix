@@ -993,6 +993,101 @@ mod tests {
     }
 
     #[test]
+    fn different_callers_may_reuse_operation_and_attempt_ids() {
+        let mut bundle = fixture();
+
+        let mut grant_b = bundle.events[0].clone();
+        grant_b.seq = 3;
+        grant_b.event_id = "grant-issue-other-caller".to_string();
+        grant_b.evidence_ref = "fixture://host/grant-other-caller".to_string();
+        if let EventKind::GrantIssued(ref mut grant) = grant_b.kind {
+            grant.grant_ref = "grant-B".to_string();
+            grant.grant_action_hash = "uhCkk-grant-B".to_string();
+            grant.grantee = "agent-other-recipient".to_string();
+            grant.idempotency_key = "grant-request-002".to_string();
+            grant.authority_index = 2;
+            grant.request_digest_sha256 = "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee".to_string();
+        }
+
+        let mut claim_b = bundle.events[1].clone();
+        claim_b.seq = 4;
+        claim_b.event_id = "claim-accept-other-caller".to_string();
+        claim_b.evidence_ref = "fixture://host/claim-other-caller".to_string();
+        if let EventKind::ClaimAccepted(ref mut claim) = claim_b.kind {
+            claim.grant_ref = "grant-B".to_string();
+            claim.grant_action_hash = "uhCkk-grant-B".to_string();
+            claim.recipient = "agent-other-recipient".to_string();
+            claim.claim_action_hash = "uhCkk-claim-B".to_string();
+        }
+
+        // Keep the same logical operation ID and attempt ID, but use a distinct
+        // authenticated caller and that caller's exact assigned grant.
+        bundle.events[2].seq = 5;
+        if let EventKind::HostCall(ref mut call) = bundle.events[2].kind {
+            call.authority_index = 3;
+        }
+        let mut call_b = bundle.events[2].clone();
+        call_b.seq = 6;
+        call_b.event_id = "host-call-other-caller".to_string();
+        call_b.evidence_ref = "fixture://host/call-other-caller".to_string();
+        if let EventKind::HostCall(ref mut call) = call_b.kind {
+            call.grant_ref = "grant-B".to_string();
+            call.grant_action_hash = "uhCkk-grant-B".to_string();
+            call.caller = "agent-other-recipient".to_string();
+            call.authority_index = 4;
+        }
+
+        bundle.events[3].seq = 7;
+        let mut effect_b = bundle.events[3].clone();
+        effect_b.seq = 8;
+        effect_b.event_id = "domain-effect-other-caller".to_string();
+        effect_b.evidence_ref = "fixture://source-chain/effect-other-caller".to_string();
+        if let EventKind::DomainEffect(ref mut effect) = effect_b.kind {
+            effect.actor = "agent-other-recipient".to_string();
+            effect.effect_id = "effect-other-caller".to_string();
+            effect.action_hash = "uhCkk-effect-other-caller".to_string();
+            // operation_id and attempt_id intentionally match caller A.
+        }
+
+        bundle.events[4].seq = 9;
+        if let EventKind::GrantRevoked(ref mut revoke) = bundle.events[4].kind {
+            revoke.authority_index = 5;
+        }
+        bundle.events[5].seq = 10;
+        if let EventKind::HostCall(ref mut call) = bundle.events[5].kind {
+            call.authority_index = 6;
+        }
+        bundle.events[6].seq = 11;
+        bundle.events[7].seq = 12;
+        bundle.events[8].seq = 13;
+        if let EventKind::CallerOutcome(ref mut outcome) = bundle.events[8].kind {
+            outcome.actor = "agent-recipient".to_string();
+        }
+
+        let mut outcome_b = bundle.events[8].clone();
+        outcome_b.seq = 14;
+        outcome_b.event_id = "caller-outcome-other-caller".to_string();
+        outcome_b.evidence_ref = "fixture://client/other-caller-committed".to_string();
+        if let EventKind::CallerOutcome(ref mut outcome) = outcome_b.kind {
+            outcome.actor = "agent-other-recipient".to_string();
+            outcome.outcome = CallerOutcomeKind::Committed;
+            // operation_id and attempt_id intentionally match caller A.
+        }
+
+        bundle.events.extend([grant_b, claim_b, call_b, effect_b, outcome_b]);
+        bundle.events.sort_by_key(|event| event.seq);
+
+        let report = run(&bundle);
+        assert_eq!(report.status, Status::Pass, "{:?}", report.findings);
+        assert!(!report.findings.iter().any(|finding|
+            finding.code == "DUPLICATE_CALL_ATTEMPT" ||
+            finding.code == "MULTIPLE_EFFECTS_PER_ATTEMPT" ||
+            finding.code == "MULTIPLE_EFFECTS_PER_LOGICAL_OPERATION" ||
+            finding.code == "CALLER_OUTCOME_CONTRADICTION" ||
+            finding.code == "NOT_COMMITTED_CONTRADICTS_ATTEMPT_EFFECT"));
+    }
+
+    #[test]
     fn duplicate_grant_retry_for_one_idempotency_key_fails() {
         let mut bundle = fixture();
         let mut duplicate = bundle.events[0].clone();
