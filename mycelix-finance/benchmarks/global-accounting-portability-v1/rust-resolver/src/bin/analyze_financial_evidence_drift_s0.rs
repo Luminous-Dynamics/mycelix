@@ -317,10 +317,13 @@ fn decision_refs_for_graph_change(
         let decision_assertions = array(decision, "source_assertion_refs")?
             .iter()
             .filter_map(Value::as_str)
-            .collect::<BTreeSet<_>>();
+            .map(ToOwned::to_owned)
+            .collect::<BTreeSet<String>>();
 
         let event_assertions = if find_ref(array(graph, "events")?, "event_ref", event_ref).is_some() {
             event_assertion_refs(graph, event_ref)?
+                .into_iter()
+                .collect::<BTreeSet<String>>()
         } else {
             BTreeSet::new()
         };
@@ -768,7 +771,7 @@ fn analyze_case(
         &affected_assertions,
         &changed_event_refs,
         &changed_relation_refs,
-        &changed_source_refs,
+        &semantic_source_refs,
         all_due_to_policy_or_projector,
         knowledge_frontier_changed,
     )?;
