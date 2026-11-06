@@ -586,7 +586,9 @@ mod tests {
     #[test]
     fn all_public_reference_cases_match_the_disposition_oracle() {
         let candidate = parse(include_str!("../../fin_journal_set_candidates_v1.0.0.json"));
-        let oracle = parse(include_str!("../../public-journal-set-oracle/fin_journal_set_oracle_v1.0.0.json"));
+        let oracle = parse(include_str!(
+            "../../public-journal-set-oracle/fin_journal_set_oracle_v1.0.0.json"
+        ));
         for case in candidate["cases"].as_array().expect("cases") {
             let id = case["case_id"].as_str().expect("case ID");
             let expected = oracle["cases"]
@@ -597,7 +599,11 @@ mod tests {
                 .expect("oracle row")["expected_disposition"]
                 .as_str()
                 .expect("expected disposition");
-            assert_eq!(assess_case(case).expect("assessment").disposition, expected, "{id}");
+            assert_eq!(
+                assess_case(case).expect("assessment").disposition,
+                expected,
+                "{id}"
+            );
         }
     }
 
@@ -605,49 +611,70 @@ mod tests {
     fn an_individually_balanced_journal_does_not_prove_population_completeness() {
         let candidate = parse(include_str!("../../fin_journal_set_candidates_v1.0.0.json"));
         let case = case_by_id(&candidate, "FJS-002");
-        assert_eq!(assess_case(case).expect("assessment").disposition, "missing_journal_projection");
+        assert_eq!(
+            assess_case(case).expect("assessment").disposition,
+            "missing_journal_projection"
+        );
     }
 
     #[test]
     fn balanced_orphan_entry_is_not_admitted() {
         let candidate = parse(include_str!("../../fin_journal_set_candidates_v1.0.0.json"));
         let case = case_by_id(&candidate, "FJS-005");
-        assert_eq!(assess_case(case).expect("assessment").disposition, "orphan_or_unauthorized_journal");
+        assert_eq!(
+            assess_case(case).expect("assessment").disposition,
+            "orphan_or_unauthorized_journal"
+        );
     }
 
     #[test]
     fn exact_journal_replay_is_idempotent() {
         let candidate = parse(include_str!("../../fin_journal_set_candidates_v1.0.0.json"));
         let case = case_by_id(&candidate, "FJS-006");
-        assert_eq!(assess_case(case).expect("assessment").disposition, "complete_exact_population_and_rollforward");
+        assert_eq!(
+            assess_case(case).expect("assessment").disposition,
+            "complete_exact_population_and_rollforward"
+        );
     }
 
     #[test]
     fn a_duplicate_economic_event_is_rejected_even_when_both_entries_balance() {
         let candidate = parse(include_str!("../../fin_journal_set_candidates_v1.0.0.json"));
         let case = case_by_id(&candidate, "FJS-004");
-        assert_eq!(assess_case(case).expect("assessment").disposition, "duplicate_economic_posting");
+        assert_eq!(
+            assess_case(case).expect("assessment").disposition,
+            "duplicate_economic_posting"
+        );
     }
 
     #[test]
     fn account_rollforward_uses_exact_minor_units() {
         let candidate = parse(include_str!("../../fin_journal_set_candidates_v1.0.0.json"));
         let case = case_by_id(&candidate, "FJS-013");
-        assert_eq!(assess_case(case).expect("assessment").disposition, "account_rollforward_conflict");
+        assert_eq!(
+            assess_case(case).expect("assessment").disposition,
+            "account_rollforward_conflict"
+        );
     }
 
     #[test]
     fn a_reversal_must_be_append_only_and_bounded_by_original_postings() {
         let candidate = parse(include_str!("../../fin_journal_set_candidates_v1.0.0.json"));
         let case = case_by_id(&candidate, "FJS-018");
-        assert_eq!(assess_case(case).expect("assessment").disposition, "orphan_or_unauthorized_journal");
+        assert_eq!(
+            assess_case(case).expect("assessment").disposition,
+            "orphan_or_unauthorized_journal"
+        );
     }
 
     #[test]
     fn source_frontier_change_stales_a_frozen_close() {
         let candidate = parse(include_str!("../../fin_journal_set_candidates_v1.0.0.json"));
         let case = case_by_id(&candidate, "FJS-022");
-        assert_eq!(assess_case(case).expect("assessment").disposition, "stale_close_frontier");
+        assert_eq!(
+            assess_case(case).expect("assessment").disposition,
+            "stale_close_frontier"
+        );
     }
 
     #[test]
