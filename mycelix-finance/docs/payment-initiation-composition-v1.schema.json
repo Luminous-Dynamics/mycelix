@@ -857,7 +857,9 @@
             "provider_outcome_unknown",
             "recipient_available",
             "settlement_observed",
-            "finality_qualified"
+            "finality_qualified",
+            "instruction_creation_attempt_rejected",
+            "recipient_availability_claim_rejected"
           ]
         },
         "actor": {
