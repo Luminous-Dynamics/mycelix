@@ -2849,8 +2849,16 @@ mod tests {
         // invalid semantic version must be rejected independently of digest and
         // signature correctness.
         let (envelope, pin) = root_policy_fixture(&changed_policy);
-        let error = verify_root_signed_trust_policy(&changed_policy, &envelope, &pin)
-            .unwrap_err();
+        let mut pin_value: Value = serde_json::from_slice(&pin).unwrap();
+        // Keep the relying-party pin syntactically valid while the signed policy
+        // itself carries the invalid version.
+        pin_value["policy_version"] = Value::String("1.0.0".into());
+        let error = verify_root_signed_trust_policy(
+            &changed_policy,
+            &envelope,
+            &serde_json::to_vec(&pin_value).unwrap(),
+        )
+        .unwrap_err();
         assert!(error.contains("identity/epoch"), "{error}");
     }
 
