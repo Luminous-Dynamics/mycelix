@@ -1152,7 +1152,7 @@
           "criterion_evaluations": [
             {
               "criterion_ref": "CR-AMOUNT",
-              "outcome": "match",
+              "outcome": "unknown",
               "left_values": [
                 "10000"
               ],
@@ -1251,7 +1251,7 @@
             }
           ],
           "allocations": [],
-          "score_bps": 8500,
+          "score_bps": 6000,
           "decision_state": "blocked",
           "alternative_hypothesis_refs": [],
           "reason_codes": [
