@@ -1,5 +1,5 @@
 use jsonschema::draft202012;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 use std::{
     collections::{BTreeMap, BTreeSet},
@@ -61,11 +61,7 @@ fn optional_string<'a>(value: &'a Value, key: &str) -> Option<&'a str> {
     value.get(key).and_then(Value::as_str)
 }
 
-fn find_by_ref<'a>(
-    values: &'a [Value],
-    field: &str,
-    reference: &str,
-) -> Option<&'a Value> {
+fn find_by_ref<'a>(values: &'a [Value], field: &str, reference: &str) -> Option<&'a Value> {
     values
         .iter()
         .find(|value| optional_string(value, field) == Some(reference))
@@ -85,10 +81,7 @@ fn expectation_by_id<'a>(oracle: &'a Value, case_id: &str) -> Result<&'a Value, 
         .ok_or_else(|| format!("missing oracle expectation {case_id}"))
 }
 
-fn submission_by_id<'a>(
-    submissions: &'a Value,
-    case_id: &str,
-) -> Result<&'a Value, String> {
+fn submission_by_id<'a>(submissions: &'a Value, case_id: &str) -> Result<&'a Value, String> {
     array(submissions, "submissions")?
         .iter()
         .find(|submission| optional_string(submission, "case_id") == Some(case_id))
@@ -100,14 +93,12 @@ fn document_by_ref<'a>(case: &'a Value, document_ref: &str) -> Result<&'a Value,
         .ok_or_else(|| format!("missing source document {document_ref}"))
 }
 
-fn document_is_superseded_at_frontier(
-    case: &Value,
-    document_ref: &str,
-) -> Result<bool, String> {
+fn document_is_superseded_at_frontier(case: &Value, document_ref: &str) -> Result<bool, String> {
     let frontier = string(case, "knowledge_at")?;
     Ok(array(case, "documents")?.iter().any(|candidate| {
         optional_string(candidate, "supersedes_document_ref") == Some(document_ref)
-            && optional_string(candidate, "received_at").is_some_and(|received| received <= frontier)
+            && optional_string(candidate, "received_at")
+                .is_some_and(|received| received <= frontier)
     }))
 }
 
@@ -117,21 +108,21 @@ fn fact_is_available(case: &Value, fact: &Value) -> Result<bool, String> {
     let document_ref = string(fact, "document_ref")?;
     let document = document_by_ref(case, document_ref)?;
     let received_at = string(document, "received_at")?;
-    let period = case.get("accounting_period").ok_or("missing accounting period")?;
+    let period = case
+        .get("accounting_period")
+        .ok_or("missing accounting period")?;
     let period_start = string(period, "start")?;
     let period_end = string(period, "end")?;
     let valid_from = string(fact, "valid_from")?;
     let valid_to = fact.get("valid_to").and_then(Value::as_str);
     let valid_time_overlaps =
         valid_from <= period_end && valid_to.is_none_or(|end| end >= period_start);
-    Ok(
-        recorded_at <= frontier
-            && received_at <= frontier
-            && valid_time_overlaps
-            && optional_string(fact, "assertion_state") == Some("asserted")
-            && !fact.get("value").is_none_or(Value::is_null)
-            && !document_is_superseded_at_frontier(case, document_ref)?,
-    )
+    Ok(recorded_at <= frontier
+        && received_at <= frontier
+        && valid_time_overlaps
+        && optional_string(fact, "assertion_state") == Some("asserted")
+        && !fact.get("value").is_none_or(Value::is_null)
+        && !document_is_superseded_at_frontier(case, document_ref)?)
 }
 
 fn available_fact_refs(case: &Value) -> Result<BTreeSet<String>, String> {
@@ -213,7 +204,6 @@ fn journal_is_balanced(submission: &Value) -> Result<bool, String> {
     Ok(true)
 }
 
-
 fn expected_question_source_refs(
     case: &Value,
     expectation: &Value,
@@ -267,11 +257,7 @@ fn journal_line_count(submission: &Value) -> Result<usize, String> {
     Ok(count)
 }
 
-
-fn oracle_source_fact_refs(
-    case: &Value,
-    expectation: &Value,
-) -> Result<BTreeSet<String>, String> {
+fn oracle_source_fact_refs(case: &Value, expectation: &Value) -> Result<BTreeSet<String>, String> {
     let mut refs = array(expectation, "required_source_fact_refs")?
         .iter()
         .map(|value| {
@@ -284,11 +270,15 @@ fn oracle_source_fact_refs(
     if optional_string(expectation, "primary_reason_code") == Some("source_integrity_failed") {
         let failed_docs = array(case, "documents")?
             .iter()
-            .filter(|document| optional_string(document, "integrity_state") == Some("synthetic_mismatch"))
+            .filter(|document| {
+                optional_string(document, "integrity_state") == Some("synthetic_mismatch")
+            })
             .filter_map(|document| optional_string(document, "document_ref"))
             .collect::<BTreeSet<_>>();
         for fact in array(case, "facts")? {
-            if optional_string(fact, "document_ref").is_some_and(|reference| failed_docs.contains(reference)) {
+            if optional_string(fact, "document_ref")
+                .is_some_and(|reference| failed_docs.contains(reference))
+            {
                 refs.insert(string(fact, "fact_ref")?.to_owned());
             }
         }
@@ -314,8 +304,10 @@ fn expected_fact_evidence_state(
         return Ok("future");
     }
     if array(case, "documents")?.iter().any(|candidate| {
-        optional_string(candidate, "supersedes_document_ref") == optional_string(fact, "document_ref")
-            && optional_string(candidate, "received_at").is_some_and(|received| received <= frontier)
+        optional_string(candidate, "supersedes_document_ref")
+            == optional_string(fact, "document_ref")
+            && optional_string(candidate, "received_at")
+                .is_some_and(|received| received <= frontier)
     }) {
         return Ok("superseded");
     }
@@ -331,7 +323,10 @@ fn expected_fact_evidence_state(
     if (reason == "contradictory_service_period_evidence"
         && matches!(fact_type, "service_period_start" | "service_period_end"))
         || (reason == "contradictory_amount_evidence"
-            && matches!(fact_type, "invoice_total_minor" | "purchase_order_total_minor"))
+            && matches!(
+                fact_type,
+                "invoice_total_minor" | "purchase_order_total_minor"
+            ))
         || (reason == "source_revision_lineage_missing" && fact_type == "invoice_total_minor")
     {
         return Ok("contradicting");
@@ -344,14 +339,21 @@ fn expected_fact_evidence_state(
             && !other.get("value").is_none_or(Value::is_null)
             && fact_is_available(case, other)?
         {
-            values.insert(other.get("value").ok_or("asserted fact missing value")?.to_string());
+            values.insert(
+                other
+                    .get("value")
+                    .ok_or("asserted fact missing value")?
+                    .to_string(),
+            );
         }
     }
     if values.len() > 1 {
         return Ok("contradicting");
     }
     if !available_refs.contains(string(fact, "fact_ref")?) {
-        let period = case.get("accounting_period").ok_or("missing accounting period")?;
+        let period = case
+            .get("accounting_period")
+            .ok_or("missing accounting period")?;
         let period_start = string(period, "start")?;
         let period_end = string(period, "end")?;
         let valid_from = string(fact, "valid_from")?;
@@ -401,7 +403,12 @@ fn expected_question_evidence_state(
     }
     let mut states = BTreeSet::new();
     for fact in &typed {
-        states.insert(expected_fact_evidence_state(case, expectation, fact, available_refs)?);
+        states.insert(expected_fact_evidence_state(
+            case,
+            expectation,
+            fact,
+            available_refs,
+        )?);
     }
     if states.contains("contradicting") {
         return Ok("contradicting");
@@ -445,7 +452,9 @@ fn evaluate_evidence_trace(
             return Err(format!("duplicate evidence trace ref {trace_ref}"));
         }
         if string(entry, "terminal_reason")?.trim().len() < 5 {
-            return Err(format!("evidence trace {trace_ref} has no meaningful terminal reason"));
+            return Err(format!(
+                "evidence trace {trace_ref} has no meaningful terminal reason"
+            ));
         }
     }
 
@@ -474,7 +483,8 @@ fn evaluate_evidence_trace(
             let mut refs = BTreeSet::new();
             for entry in array(expectation, "expected_journal_entries")? {
                 for line in array(entry, "lines")? {
-                    if array(line, "source_fact_refs")?.iter()
+                    if array(line, "source_fact_refs")?
+                        .iter()
                         .any(|reference| reference.as_str() == Some(fact_ref))
                     {
                         refs.insert(string(line, "line_ref")?.to_owned());
@@ -498,7 +508,9 @@ fn evaluate_evidence_trace(
         let terminal_reason = string(entry, "terminal_reason")?;
         let state_ok = optional_string(entry, "evidence_state") == Some(expected_state);
         let source_ok = source_docs.contains(document_ref);
-        let line_ok = expected_line_refs.iter().all(|reference| line_refs.contains(reference));
+        let line_ok = expected_line_refs
+            .iter()
+            .all(|reference| line_refs.contains(reference));
         let question_ok = expected_terminal != "carried_to_question" || !question_refs.is_empty();
         let terminal_reason_ok = !terminal_reason.trim().is_empty();
         if state_ok && source_ok && line_ok && question_ok && terminal_reason_ok {
@@ -518,12 +530,15 @@ fn evaluate_evidence_trace(
             .filter_map(|fact| optional_string(fact, "document_ref"))
             .map(ToOwned::to_owned)
             .collect::<BTreeSet<_>>();
-        let expected_state = expected_question_evidence_state(case, expectation, fact_type, available_refs)?;
+        let expected_state =
+            expected_question_evidence_state(case, expectation, fact_type, available_refs)?;
         let actual_questions = array(submission, "questions")?
             .iter()
             .filter(|question| {
                 array(question, "target_fact_types").is_ok_and(|targets| {
-                    targets.iter().any(|target| target.as_str() == Some(fact_type))
+                    targets
+                        .iter()
+                        .any(|target| target.as_str() == Some(fact_type))
                 })
             })
             .collect::<Vec<_>>();
@@ -534,13 +549,15 @@ fn evaluate_evidence_trace(
                 optional_string(entry, "fact_type") == Some(fact_type)
                     && optional_string(entry, "terminal_state") == Some("question_raised")
                     && array(entry, "question_refs").is_ok_and(|refs| {
-                        refs.iter().any(|reference| reference.as_str() == Some(question_id))
+                        refs.iter()
+                            .any(|reference| reference.as_str() == Some(question_id))
                     })
             });
             if let Some(entry) = matching {
                 let source_docs = set_from_string_array(entry, "source_document_refs")?;
                 let state_ok = optional_string(entry, "evidence_state") == Some(expected_state);
-                let terminal_reason_ok = optional_string(entry, "terminal_reason").is_some_and(|reason| reason.trim().len() >= 5);
+                let terminal_reason_ok = optional_string(entry, "terminal_reason")
+                    .is_some_and(|reason| reason.trim().len() >= 5);
                 if state_ok && terminal_reason_ok && expected_docs.is_subset(&source_docs) {
                     found_continuous_question = true;
                 } else {
@@ -554,7 +571,9 @@ fn evaluate_evidence_trace(
             covered += 1;
         } else {
             decision_to_question_continuity = false;
-            failures.push(format!("decision_blocker_not_carried_to_question:{fact_type}"));
+            failures.push(format!(
+                "decision_blocker_not_carried_to_question:{fact_type}"
+            ));
         }
     }
 
@@ -563,12 +582,15 @@ fn evaluate_evidence_trace(
         for line in array(actual_entry, "lines")? {
             let line_ref = string(line, "line_ref")?;
             for source_ref in array(line, "source_fact_refs")? {
-                let fact_ref = source_ref.as_str().ok_or("journal source ref must be a string")?;
+                let fact_ref = source_ref
+                    .as_str()
+                    .ok_or("journal source ref must be a string")?;
                 let trace_entry = trace.iter().find(|entry| {
                     optional_string(entry, "fact_ref") == Some(fact_ref)
                         && optional_string(entry, "terminal_state") == Some("carried_to_journal")
                         && array(entry, "journal_line_refs").is_ok_and(|refs| {
-                            refs.iter().any(|reference| reference.as_str() == Some(line_ref))
+                            refs.iter()
+                                .any(|reference| reference.as_str() == Some(line_ref))
                         })
                 });
                 if trace_entry.is_none() {
@@ -587,7 +609,8 @@ fn evaluate_evidence_trace(
                 optional_string(entry, "fact_type") == Some(fact_type)
                     && optional_string(entry, "terminal_state") == Some("question_raised")
                     && array(entry, "question_refs").is_ok_and(|refs| {
-                        refs.iter().any(|reference| reference.as_str() == Some(question_id))
+                        refs.iter()
+                            .any(|reference| reference.as_str() == Some(question_id))
                     })
             });
             if !found {
@@ -604,7 +627,6 @@ fn evaluate_evidence_trace(
         failures,
     ))
 }
-
 
 fn replay_statement_lines(submission: &Value) -> Result<Vec<String>, String> {
     let entries = array(submission, "journal_entries")?;
@@ -645,8 +667,9 @@ fn replay_statement_lines(submission: &Value) -> Result<Vec<String>, String> {
                 let amount = line
                     .get("amount_minor")
                     .and_then(Value::as_i64)
-                    .ok_or_else(|| format!("journal line in {entry_ref} has invalid amount_minor"))?
-                    as i128;
+                    .ok_or_else(|| {
+                        format!("journal line in {entry_ref} has invalid amount_minor")
+                    })? as i128;
                 let side = string(line, "side")?;
                 match (side, normal_balance) {
                     ("debit", "debit") | ("credit", "credit") => {
@@ -669,10 +692,14 @@ fn replay_statement_lines(submission: &Value) -> Result<Vec<String>, String> {
         }
 
         if matching_entries.is_empty() {
-            errors.push(format!("statement_has_no_matching_journal_lines:{statement_ref}"));
+            errors.push(format!(
+                "statement_has_no_matching_journal_lines:{statement_ref}"
+            ));
         }
         if cited_entries != matching_entries {
-            errors.push(format!("statement_journal_reference_set_mismatch:{statement_ref}"));
+            errors.push(format!(
+                "statement_journal_reference_set_mismatch:{statement_ref}"
+            ));
         }
 
         let submitted_minor = statement
@@ -697,10 +724,10 @@ fn evaluate_case(
     available_refs: &BTreeSet<String>,
 ) -> Result<Value, String> {
     let case_id = string(case, "case_id")?;
-    if string(expectation, "case_id")? != case_id
-        || string(submission, "case_id")? != case_id
-    {
-        return Err(format!("{case_id}: candidate/oracle/submission case IDs differ"));
+    if string(expectation, "case_id")? != case_id || string(submission, "case_id")? != case_id {
+        return Err(format!(
+            "{case_id}: candidate/oracle/submission case IDs differ"
+        ));
     }
 
     let expected_disposition = string(expectation, "expected_disposition")?;
@@ -737,13 +764,20 @@ fn evaluate_case(
     };
     let expected_question_docs = expected_question_source_refs(case, expectation)?;
     let actual_question_docs = actual_question_source_refs(submission)?;
-    let actual_question_doc_set = actual_question_docs.iter().cloned().collect::<BTreeSet<_>>();
+    let actual_question_doc_set = actual_question_docs
+        .iter()
+        .cloned()
+        .collect::<BTreeSet<_>>();
     let question_source_reference_precision = ratio(
-        expected_question_docs.intersection(&actual_question_doc_set).count(),
+        expected_question_docs
+            .intersection(&actual_question_doc_set)
+            .count(),
         actual_question_docs.len(),
     );
     let question_source_reference_recall = ratio(
-        expected_question_docs.intersection(&actual_question_doc_set).count(),
+        expected_question_docs
+            .intersection(&actual_question_doc_set)
+            .count(),
         expected_question_docs.len(),
     );
 
@@ -754,7 +788,8 @@ fn evaluate_case(
     let expected_statement = array(expectation, "expected_statement_lines")?;
     let actual_statement = array(submission, "statement_lines")?;
     let statement_exact = expected_statement == actual_statement;
-    let statement_replay_applicable = !expected_statement.is_empty() || !actual_statement.is_empty();
+    let statement_replay_applicable =
+        !expected_statement.is_empty() || !actual_statement.is_empty();
     let mut statement_replay_errors = replay_statement_lines(submission)?;
     if expected_statement.len() != actual_statement.len() {
         statement_replay_errors.push(format!(
@@ -795,7 +830,9 @@ fn evaluate_case(
             if let Some(actual_line) = actual_line {
                 let actual_refs = set_from_string_array(actual_line, "source_fact_refs")?;
                 if actual_refs == expected_refs
-                    && actual_refs.iter().all(|reference| available_refs.contains(reference))
+                    && actual_refs
+                        .iter()
+                        .all(|reference| available_refs.contains(reference))
                 {
                     completely_bound_line_count += 1;
                 }
@@ -803,7 +840,11 @@ fn evaluate_case(
         }
     }
     let source_binding_completeness = if expected_line_count == 0 {
-        if journal_line_count(submission)? == 0 { 1.0 } else { 0.0 }
+        if journal_line_count(submission)? == 0 {
+            1.0
+        } else {
+            0.0
+        }
     } else {
         ratio(completely_bound_line_count, expected_line_count)
     };
@@ -815,7 +856,10 @@ fn evaluate_case(
         }
         let status = string(assumption, "epistemic_status")?;
         let refs = set_from_string_array(assumption, "source_fact_refs")?;
-        let refs_available = !refs.is_empty() && refs.iter().all(|reference| available_refs.contains(reference));
+        let refs_available = !refs.is_empty()
+            && refs
+                .iter()
+                .all(|reference| available_refs.contains(reference));
         if status != "supported" || !refs_available {
             decision_critical_assumption_count += 1;
         }
@@ -828,7 +872,10 @@ fn evaluate_case(
     if !journal_balanced {
         hard_failures.push("unbalanced_journal_entry".to_owned());
     }
-    if actual_source_refs.iter().any(|reference| !available_refs.contains(reference)) {
+    if actual_source_refs
+        .iter()
+        .any(|reference| !available_refs.contains(reference))
+    {
         hard_failures.push("journal_cites_unavailable_source_fact".to_owned());
     }
     if source_binding_completeness < 1.0 {
@@ -880,7 +927,8 @@ fn evaluate_case(
     let requested_statement = requested_outputs.contains("income_statement")
         || requested_outputs.contains("balance_sheet")
         || requested_outputs.contains("financial_statements");
-    let requested_outputs_present = (!requested_journal || !array(submission, "journal_entries")?.is_empty())
+    let requested_outputs_present = (!requested_journal
+        || !array(submission, "journal_entries")?.is_empty())
         && (!requested_statement || !array(submission, "statement_lines")?.is_empty());
     let journal_sources_available = actual_source_refs
         .iter()
@@ -895,9 +943,8 @@ fn evaluate_case(
         && decision_critical_assumption_count == 0
         && requested_outputs_present;
     let auto_delivery_candidate = actual_disposition == "deliver";
-    let auto_delivery_accepted = auto_delivery_candidate
-        && decision_confidence >= 0.90
-        && deterministic_delivery_gates_pass;
+    let auto_delivery_accepted =
+        auto_delivery_candidate && decision_confidence >= 0.90 && deterministic_delivery_gates_pass;
     let review_routed = !auto_delivery_accepted;
 
     Ok(json!({
@@ -1001,12 +1048,20 @@ fn build_report(
         / count as f64;
     let question_source_precision = case_results
         .iter()
-        .map(|result| result["question_source_reference_precision"].as_f64().unwrap_or(0.0))
+        .map(|result| {
+            result["question_source_reference_precision"]
+                .as_f64()
+                .unwrap_or(0.0)
+        })
         .sum::<f64>()
         / count as f64;
     let question_source_recall = case_results
         .iter()
-        .map(|result| result["question_source_reference_recall"].as_f64().unwrap_or(0.0))
+        .map(|result| {
+            result["question_source_reference_recall"]
+                .as_f64()
+                .unwrap_or(0.0)
+        })
         .sum::<f64>()
         / count as f64;
     let journal_exact = case_results
@@ -1027,21 +1082,34 @@ fn build_report(
         .count();
     let statement_replay_mismatch_count = case_results
         .iter()
-        .map(|result| result["statement_replay_mismatch_count"].as_u64().unwrap_or(0))
+        .map(|result| {
+            result["statement_replay_mismatch_count"]
+                .as_u64()
+                .unwrap_or(0)
+        })
         .sum::<u64>();
     let source_binding = case_results
         .iter()
-        .map(|result| result["source_binding_completeness"].as_f64().unwrap_or(0.0))
+        .map(|result| {
+            result["source_binding_completeness"]
+                .as_f64()
+                .unwrap_or(0.0)
+        })
         .sum::<f64>()
         / count as f64;
     let assumptions = case_results
         .iter()
-        .map(|result| result["decision_critical_assumption_count"].as_u64().unwrap_or(0))
+        .map(|result| {
+            result["decision_critical_assumption_count"]
+                .as_u64()
+                .unwrap_or(0)
+        })
         .sum::<u64>() as usize;
     let evidence_trace_coverage = case_results
         .iter()
         .map(|result| result["evidence_trace_coverage"].as_f64().unwrap_or(0.0))
-        .sum::<f64>() / count as f64;
+        .sum::<f64>()
+        / count as f64;
     let evidence_to_journal_continuity = case_results
         .iter()
         .filter(|result| result["evidence_to_journal_continuity"].as_bool() == Some(true))
@@ -1052,11 +1120,19 @@ fn build_report(
         .count();
     let continuity_failure_count = case_results
         .iter()
-        .map(|result| array(result, "continuity_failures").map(|items| items.len()).unwrap_or(0))
+        .map(|result| {
+            array(result, "continuity_failures")
+                .map(|items| items.len())
+                .unwrap_or(0)
+        })
         .sum::<usize>();
     let hard_failures = case_results
         .iter()
-        .map(|result| array(result, "hard_failures").map(|items| items.len()).unwrap_or(0))
+        .map(|result| {
+            array(result, "hard_failures")
+                .map(|items| items.len())
+                .unwrap_or(0)
+        })
         .sum::<usize>();
     let case_correct_count = case_results
         .iter()
@@ -1064,8 +1140,13 @@ fn build_report(
         .count();
     let confidence_brier = case_results
         .iter()
-        .map(|result| result["confidence_brier_contribution"].as_f64().unwrap_or(1.0))
-        .sum::<f64>() / count as f64;
+        .map(|result| {
+            result["confidence_brier_contribution"]
+                .as_f64()
+                .unwrap_or(1.0)
+        })
+        .sum::<f64>()
+        / count as f64;
     let calibration_bins = (0..5)
         .map(|bin| {
             let lower = bin as f64 / 5.0;
@@ -1081,16 +1162,24 @@ fn build_report(
             let mean_confidence = if case_count == 0 {
                 Value::Null
             } else {
-                json!(selected.iter()
-                    .map(|result| result["decision_confidence"].as_f64().unwrap_or(0.0))
-                    .sum::<f64>() / case_count as f64)
+                json!(
+                    selected
+                        .iter()
+                        .map(|result| result["decision_confidence"].as_f64().unwrap_or(0.0))
+                        .sum::<f64>()
+                        / case_count as f64
+                )
             };
             let empirical_accuracy = if case_count == 0 {
                 Value::Null
             } else {
-                json!(selected.iter()
-                    .filter(|result| result["case_correct"].as_bool() == Some(true))
-                    .count() as f64 / case_count as f64)
+                json!(
+                    selected
+                        .iter()
+                        .filter(|result| result["case_correct"].as_bool() == Some(true))
+                        .count() as f64
+                        / case_count as f64
+                )
             };
             json!({
                 "lower_bound": lower,
@@ -1105,7 +1194,9 @@ fn build_report(
         .iter()
         .filter_map(|bin| {
             let n = bin["case_count"].as_u64().unwrap_or(0) as f64;
-            if n == 0.0 { return None; }
+            if n == 0.0 {
+                return None;
+            }
             let confidence = bin["mean_confidence"].as_f64()?;
             let accuracy = bin["empirical_accuracy"].as_f64()?;
             Some(n / count as f64 * (confidence - accuracy).abs())
@@ -1142,8 +1233,10 @@ fn build_report(
         .count();
     let auto_delivery_material_errors = case_results
         .iter()
-        .filter(|result| result["auto_delivery_accepted"].as_bool() == Some(true)
-            && result["case_correct"].as_bool() != Some(true))
+        .filter(|result| {
+            result["auto_delivery_accepted"].as_bool() == Some(true)
+                && result["case_correct"].as_bool() != Some(true)
+        })
         .count();
     let review_routed_count = count - auto_delivery_accepted_count;
 
@@ -1202,7 +1295,9 @@ fn run() -> Result<(), Box<dyn Error>> {
                 data_dir = PathBuf::from(args.next().ok_or("--data-dir requires a directory")?);
             }
             "--output" => {
-                report_path = Some(PathBuf::from(args.next().ok_or("--output requires a file path")?));
+                report_path = Some(PathBuf::from(
+                    args.next().ok_or("--output requires a file path")?,
+                ));
             }
             "--help" | "-h" => {
                 println!(
@@ -1219,12 +1314,19 @@ fn run() -> Result<(), Box<dyn Error>> {
     }
 
     let candidate_dir = data_dir.join("../evidence-qualified-accounting-v1");
-    let task_schema: Value = read_json(candidate_dir.join("evidence_qualified_accounting_task_bundle_v1.0.0.schema.json"))?;
-    let oracle_schema: Value = read_json(candidate_dir.join("evidence_qualified_accounting_oracle_v1.0.0.schema.json"))?;
-    let candidate_path = candidate_dir.join("fixtures/evidence_qualified_accounting_candidates_v1.0.0.json");
-    let oracle_path = candidate_dir.join("fixtures/evidence_qualified_accounting_oracle_v1.0.0.json");
-    let submission_schema: Value = read_json(data_dir.join("agent_submissions_v1.0.0.schema.json"))?;
-    let report_schema: Value = read_json(data_dir.join("agent_evaluation_report_v1.0.0.schema.json"))?;
+    let task_schema: Value = read_json(
+        candidate_dir.join("evidence_qualified_accounting_task_bundle_v1.0.0.schema.json"),
+    )?;
+    let oracle_schema: Value =
+        read_json(candidate_dir.join("evidence_qualified_accounting_oracle_v1.0.0.schema.json"))?;
+    let candidate_path =
+        candidate_dir.join("fixtures/evidence_qualified_accounting_candidates_v1.0.0.json");
+    let oracle_path =
+        candidate_dir.join("fixtures/evidence_qualified_accounting_oracle_v1.0.0.json");
+    let submission_schema: Value =
+        read_json(data_dir.join("agent_submissions_v1.0.0.schema.json"))?;
+    let report_schema: Value =
+        read_json(data_dir.join("agent_evaluation_report_v1.0.0.schema.json"))?;
     let submission_path = data_dir.join("fixtures/gold_control_agent_submissions_v1.0.0.json");
 
     let candidate_bytes = read_bytes(candidate_path)?;
@@ -1255,7 +1357,10 @@ fn run() -> Result<(), Box<dyn Error>> {
     match report_path {
         Some(path) => {
             fs::write(path, &report_bytes)?;
-            println!("Wrote deterministic agent evaluation report ({} cases).", array(&report, "case_results")?.len());
+            println!(
+                "Wrote deterministic agent evaluation report ({} cases).",
+                array(&report, "case_results")?.len()
+            );
         }
         None => println!("{}", String::from_utf8(report_bytes)?),
     }
@@ -1271,23 +1376,38 @@ mod tests {
         let candidate_dir = manifest.join("../evidence-qualified-accounting-v1");
         let evaluator_dir = manifest.join("../agent-output-evaluator-v1");
         (
-            read_json(candidate_dir.join("fixtures/evidence_qualified_accounting_candidates_v1.0.0.json")).unwrap(),
-            read_json(candidate_dir.join("fixtures/evidence_qualified_accounting_oracle_v1.0.0.json")).unwrap(),
-            read_json(evaluator_dir.join("fixtures/gold_control_agent_submissions_v1.0.0.json")).unwrap(),
+            read_json(
+                candidate_dir.join("fixtures/evidence_qualified_accounting_candidates_v1.0.0.json"),
+            )
+            .unwrap(),
+            read_json(
+                candidate_dir.join("fixtures/evidence_qualified_accounting_oracle_v1.0.0.json"),
+            )
+            .unwrap(),
+            read_json(evaluator_dir.join("fixtures/gold_control_agent_submissions_v1.0.0.json"))
+                .unwrap(),
         )
     }
 
     fn report(candidates: &Value, oracle: &Value, submissions: &Value) -> Value {
-        build_report(candidates, oracle, submissions, "a".repeat(64), "b".repeat(64), "c".repeat(64)).unwrap()
+        build_report(
+            candidates,
+            oracle,
+            submissions,
+            "a".repeat(64),
+            "b".repeat(64),
+            "c".repeat(64),
+        )
+        .unwrap()
     }
 
     fn case_result<'a>(report: &'a Value, case_id: &str) -> &'a Value {
-        array(report, "case_results").unwrap().iter()
-            .find(|result| optional_string(result, "case_id") == Some(case_id)).unwrap()
+        array(report, "case_results")
+            .unwrap()
+            .iter()
+            .find(|result| optional_string(result, "case_id") == Some(case_id))
+            .unwrap()
     }
-
-
-
 
     #[test]
     fn gold_control_confidence_metrics_are_perfect_but_automation_coverage_is_limited() {
@@ -1308,8 +1428,14 @@ mod tests {
     #[test]
     fn reducing_confidence_changes_routing_without_changing_correctness() {
         let (candidates, oracle, mut submissions) = fixtures();
-        let row = submissions["submissions"].as_array_mut().unwrap().iter_mut()
-            .find(|submission| optional_string(submission, "case_id") == Some("ACCT-001-COMPLETE-INVOICE")).unwrap();
+        let row = submissions["submissions"]
+            .as_array_mut()
+            .unwrap()
+            .iter_mut()
+            .find(|submission| {
+                optional_string(submission, "case_id") == Some("ACCT-001-COMPLETE-INVOICE")
+            })
+            .unwrap();
         row["decision_confidence"] = json!(0.4);
         let result = report(&candidates, &oracle, &submissions);
         let evaluated = case_result(&result, "ACCT-001-COMPLETE-INVOICE");
@@ -1326,8 +1452,14 @@ mod tests {
     #[test]
     fn high_confidence_unsafe_delivery_is_blocked_by_missing_outputs() {
         let (candidates, oracle, mut submissions) = fixtures();
-        let row = submissions["submissions"].as_array_mut().unwrap().iter_mut()
-            .find(|submission| optional_string(submission, "case_id") == Some("ACCT-002-MISSING-SERVICE-START")).unwrap();
+        let row = submissions["submissions"]
+            .as_array_mut()
+            .unwrap()
+            .iter_mut()
+            .find(|submission| {
+                optional_string(submission, "case_id") == Some("ACCT-002-MISSING-SERVICE-START")
+            })
+            .unwrap();
         row["disposition"] = Value::String("deliver".to_owned());
         row["decision_confidence"] = json!(1.0);
         let result = report(&candidates, &oracle, &submissions);
@@ -1341,8 +1473,14 @@ mod tests {
     #[test]
     fn overconfident_balanced_but_wrong_journal_is_visible_as_residual_automation_risk() {
         let (candidates, oracle, mut submissions) = fixtures();
-        let row = submissions["submissions"].as_array_mut().unwrap().iter_mut()
-            .find(|submission| optional_string(submission, "case_id") == Some("ACCT-001-COMPLETE-INVOICE")).unwrap();
+        let row = submissions["submissions"]
+            .as_array_mut()
+            .unwrap()
+            .iter_mut()
+            .find(|submission| {
+                optional_string(submission, "case_id") == Some("ACCT-001-COMPLETE-INVOICE")
+            })
+            .unwrap();
         for line in row["journal_entries"][0]["lines"].as_array_mut().unwrap() {
             line["amount_minor"] = Value::from(line["amount_minor"].as_i64().unwrap() + 1000);
         }
@@ -1358,7 +1496,10 @@ mod tests {
         assert_eq!(evaluated["auto_delivery_gate_pass"], true);
         assert_eq!(evaluated["auto_delivery_accepted"], true);
         assert_eq!(result["aggregate"]["auto_delivery_material_error_count"], 1);
-        assert_eq!(result["aggregate"]["auto_delivery_material_error_rate"], 0.2);
+        assert_eq!(
+            result["aggregate"]["auto_delivery_material_error_rate"],
+            0.2
+        );
         for point in array(&result["aggregate"], "risk_coverage_points").unwrap() {
             assert_eq!(point["selected_auto_delivery_count"], 5);
             assert_eq!(point["material_error_count"], 1);
@@ -1377,7 +1518,10 @@ mod tests {
         let result = report(&candidates, &oracle, &submissions);
         assert_eq!(result["aggregate"]["auto_delivery_case_count"], 0);
         assert_eq!(result["aggregate"]["auto_delivery_coverage"], 0.0);
-        assert_eq!(result["aggregate"]["auto_delivery_material_error_rate"], Value::Null);
+        assert_eq!(
+            result["aggregate"]["auto_delivery_material_error_rate"],
+            Value::Null
+        );
         for point in array(&result["aggregate"], "risk_coverage_points").unwrap() {
             assert_eq!(point["selected_auto_delivery_count"], 0);
             assert_eq!(point["coverage"], 0.0);
@@ -1402,41 +1546,74 @@ mod tests {
         let result = report(&candidates, &oracle, &submissions);
         assert_eq!(result["aggregate"]["statement_replay_exact_rate"], 1.0);
         assert_eq!(result["aggregate"]["statement_replay_mismatch_count"], 0);
-        assert_eq!(result["aggregate"]["statement_replay_applicable_case_count"], 5);
+        assert_eq!(
+            result["aggregate"]["statement_replay_applicable_case_count"],
+            5
+        );
     }
 
     #[test]
     fn statement_amount_must_replay_from_its_submitted_journal() {
         let (candidates, oracle, mut submissions) = fixtures();
-        let row = submissions["submissions"].as_array_mut().unwrap().iter_mut()
-            .find(|submission| optional_string(submission, "case_id") == Some("ACCT-001-COMPLETE-INVOICE")).unwrap();
+        let row = submissions["submissions"]
+            .as_array_mut()
+            .unwrap()
+            .iter_mut()
+            .find(|submission| {
+                optional_string(submission, "case_id") == Some("ACCT-001-COMPLETE-INVOICE")
+            })
+            .unwrap();
         row["statement_lines"][0]["amount_minor"] = Value::from(124999);
         let result = report(&candidates, &oracle, &submissions);
         let evaluated = case_result(&result, "ACCT-001-COMPLETE-INVOICE");
         assert_eq!(evaluated["journal_balanced"], true);
         assert_eq!(evaluated["statement_replay_exact"], false);
-        assert!(array(evaluated, "statement_replay_errors").unwrap().iter()
-            .any(|error| error.as_str().is_some_and(|value| value.starts_with("statement_amount_not_reconstructed"))));
+        assert!(
+            array(evaluated, "statement_replay_errors")
+                .unwrap()
+                .iter()
+                .any(|error| error
+                    .as_str()
+                    .is_some_and(|value| value.starts_with("statement_amount_not_reconstructed")))
+        );
     }
 
     #[test]
     fn statement_must_reference_all_and_only_journal_entries_that_contribute() {
         let (candidates, oracle, mut submissions) = fixtures();
-        let row = submissions["submissions"].as_array_mut().unwrap().iter_mut()
-            .find(|submission| optional_string(submission, "case_id") == Some("ACCT-001-COMPLETE-INVOICE")).unwrap();
+        let row = submissions["submissions"]
+            .as_array_mut()
+            .unwrap()
+            .iter_mut()
+            .find(|submission| {
+                optional_string(submission, "case_id") == Some("ACCT-001-COMPLETE-INVOICE")
+            })
+            .unwrap();
         row["statement_lines"][0]["source_journal_entry_refs"] = json!(["JE-NOT-USED"]);
         let result = report(&candidates, &oracle, &submissions);
         let evaluated = case_result(&result, "ACCT-001-COMPLETE-INVOICE");
         assert_eq!(evaluated["statement_replay_exact"], false);
-        assert!(array(evaluated, "statement_replay_errors").unwrap().iter()
-            .any(|error| error.as_str().is_some_and(|value| value.starts_with("statement_journal_reference_set_mismatch"))));
+        assert!(
+            array(evaluated, "statement_replay_errors")
+                .unwrap()
+                .iter()
+                .any(|error| error.as_str().is_some_and(
+                    |value| value.starts_with("statement_journal_reference_set_mismatch")
+                ))
+        );
     }
 
     #[test]
     fn journal_mutation_with_balanced_totals_still_changes_replayed_statement() {
         let (candidates, oracle, mut submissions) = fixtures();
-        let row = submissions["submissions"].as_array_mut().unwrap().iter_mut()
-            .find(|submission| optional_string(submission, "case_id") == Some("ACCT-001-COMPLETE-INVOICE")).unwrap();
+        let row = submissions["submissions"]
+            .as_array_mut()
+            .unwrap()
+            .iter_mut()
+            .find(|submission| {
+                optional_string(submission, "case_id") == Some("ACCT-001-COMPLETE-INVOICE")
+            })
+            .unwrap();
         row["journal_entries"][0]["lines"][0]["amount_minor"] = Value::from(126000);
         row["journal_entries"][0]["lines"][1]["amount_minor"] = Value::from(126000);
         let result = report(&candidates, &oracle, &submissions);
@@ -1458,56 +1635,100 @@ mod tests {
     #[test]
     fn removing_one_journal_fact_from_trace_breaks_evidence_to_journal_continuity() {
         let (candidates, oracle, mut submissions) = fixtures();
-        let row = submissions["submissions"].as_array_mut().unwrap().iter_mut()
-            .find(|submission| optional_string(submission, "case_id") == Some("ACCT-001-COMPLETE-INVOICE")).unwrap();
-        let trace = row["evidence_trace"].as_array_mut().unwrap().iter_mut()
-            .find(|trace| optional_string(trace, "fact_ref") == Some("F-001-AMOUNT")).unwrap();
+        let row = submissions["submissions"]
+            .as_array_mut()
+            .unwrap()
+            .iter_mut()
+            .find(|submission| {
+                optional_string(submission, "case_id") == Some("ACCT-001-COMPLETE-INVOICE")
+            })
+            .unwrap();
+        let trace = row["evidence_trace"]
+            .as_array_mut()
+            .unwrap()
+            .iter_mut()
+            .find(|trace| optional_string(trace, "fact_ref") == Some("F-001-AMOUNT"))
+            .unwrap();
         trace["journal_line_refs"] = json!([]);
         let result = report(&candidates, &oracle, &submissions);
         let evaluated = case_result(&result, "ACCT-001-COMPLETE-INVOICE");
         assert_eq!(evaluated["evidence_to_journal_continuity"], false);
-        assert!(array(evaluated, "hard_failures").unwrap().iter()
-            .any(|failure| failure.as_str() == Some("evidence_to_journal_continuity_broken")));
+        assert!(
+            array(evaluated, "hard_failures")
+                .unwrap()
+                .iter()
+                .any(|failure| failure.as_str() == Some("evidence_to_journal_continuity_broken"))
+        );
     }
 
     #[test]
     fn removing_blocker_question_trace_breaks_decision_to_question_continuity() {
         let (candidates, oracle, mut submissions) = fixtures();
-        let row = submissions["submissions"].as_array_mut().unwrap().iter_mut()
-            .find(|submission| optional_string(submission, "case_id") == Some("ACCT-002-MISSING-SERVICE-START")).unwrap();
-        row["evidence_trace"].as_array_mut().unwrap().retain(|trace| {
-            optional_string(trace, "terminal_state") != Some("question_raised")
-        });
+        let row = submissions["submissions"]
+            .as_array_mut()
+            .unwrap()
+            .iter_mut()
+            .find(|submission| {
+                optional_string(submission, "case_id") == Some("ACCT-002-MISSING-SERVICE-START")
+            })
+            .unwrap();
+        row["evidence_trace"]
+            .as_array_mut()
+            .unwrap()
+            .retain(|trace| optional_string(trace, "terminal_state") != Some("question_raised"));
         let result = report(&candidates, &oracle, &submissions);
         let evaluated = case_result(&result, "ACCT-002-MISSING-SERVICE-START");
         assert_eq!(evaluated["decision_to_question_continuity"], false);
-        assert!(array(evaluated, "hard_failures").unwrap().iter()
-            .any(|failure| failure.as_str() == Some("decision_to_question_continuity_broken")));
+        assert!(
+            array(evaluated, "hard_failures")
+                .unwrap()
+                .iter()
+                .any(|failure| failure.as_str() == Some("decision_to_question_continuity_broken"))
+        );
     }
-
 
     #[test]
     fn omission_of_an_unrelated_source_fact_trace_reduces_trace_coverage() {
         let (candidates, oracle, mut submissions) = fixtures();
-        let row = submissions["submissions"].as_array_mut().unwrap().iter_mut()
-            .find(|submission| optional_string(submission, "case_id") == Some("ACCT-001-COMPLETE-INVOICE")).unwrap();
-        row["evidence_trace"].as_array_mut().unwrap().retain(|trace| {
-            optional_string(trace, "fact_ref") != Some("F-001-SUPPLIER")
-        });
+        let row = submissions["submissions"]
+            .as_array_mut()
+            .unwrap()
+            .iter_mut()
+            .find(|submission| {
+                optional_string(submission, "case_id") == Some("ACCT-001-COMPLETE-INVOICE")
+            })
+            .unwrap();
+        row["evidence_trace"]
+            .as_array_mut()
+            .unwrap()
+            .retain(|trace| optional_string(trace, "fact_ref") != Some("F-001-SUPPLIER"));
         let result = report(&candidates, &oracle, &submissions);
         let evaluated = case_result(&result, "ACCT-001-COMPLETE-INVOICE");
         assert!(evaluated["evidence_trace_coverage"].as_f64().unwrap() < 1.0);
-        assert!(array(evaluated, "hard_failures").unwrap().iter()
-            .any(|failure| failure.as_str() == Some("evidence_trace_incomplete")));
+        assert!(
+            array(evaluated, "hard_failures")
+                .unwrap()
+                .iter()
+                .any(|failure| failure.as_str() == Some("evidence_trace_incomplete"))
+        );
     }
 
     #[test]
     fn superseded_revision_is_traced_as_excluded_not_silently_dropped() {
         let (candidates, oracle, submissions) = fixtures();
-        let row = array(&submissions, "submissions").unwrap().iter()
-            .find(|submission| optional_string(submission, "case_id") == Some("ACCT-019-SUPERSEDING-INVOICE-REVISION")).unwrap();
-        let trace = array(row, "evidence_trace").unwrap().iter()
-            .find(|entry| optional_string(entry, "fact_ref") == Some("F-019-AMOUNT-R1")).unwrap();
+        let row = array(&submissions, "submissions")
+            .unwrap()
+            .iter()
+            .find(|submission| {
+                optional_string(submission, "case_id")
+                    == Some("ACCT-019-SUPERSEDING-INVOICE-REVISION")
+            })
+            .unwrap();
+        let trace = array(row, "evidence_trace")
+            .unwrap()
+            .iter()
+            .find(|entry| optional_string(entry, "fact_ref") == Some("F-019-AMOUNT-R1"))
+            .unwrap();
         assert_eq!(trace["evidence_state"], "superseded");
         assert_eq!(trace["terminal_state"], "excluded");
         let result = report(&candidates, &oracle, &submissions);
@@ -1519,16 +1740,32 @@ mod tests {
     #[test]
     fn contradiction_trace_cannot_be_relabelled_as_supported_assertion() {
         let (candidates, oracle, mut submissions) = fixtures();
-        let row = submissions["submissions"].as_array_mut().unwrap().iter_mut()
-            .find(|submission| optional_string(submission, "case_id") == Some("ACCT-003-CONFLICTING-ENTITY")).unwrap();
-        let trace = row["evidence_trace"].as_array_mut().unwrap().iter_mut()
-            .find(|trace| optional_string(trace, "fact_ref") == Some("F-003-ENTITY-A")).unwrap();
+        let row = submissions["submissions"]
+            .as_array_mut()
+            .unwrap()
+            .iter_mut()
+            .find(|submission| {
+                optional_string(submission, "case_id") == Some("ACCT-003-CONFLICTING-ENTITY")
+            })
+            .unwrap();
+        let trace = row["evidence_trace"]
+            .as_array_mut()
+            .unwrap()
+            .iter_mut()
+            .find(|trace| optional_string(trace, "fact_ref") == Some("F-003-ENTITY-A"))
+            .unwrap();
         trace["evidence_state"] = Value::String("asserted".to_owned());
         let result = report(&candidates, &oracle, &submissions);
         let evaluated = case_result(&result, "ACCT-003-CONFLICTING-ENTITY");
         assert!(evaluated["evidence_trace_coverage"].as_f64().unwrap() < 1.0);
-        assert!(array(evaluated, "continuity_failures").unwrap().iter()
-            .any(|failure| failure.as_str().is_some_and(|s| s.contains("fact_trace_mismatch"))));
+        assert!(
+            array(evaluated, "continuity_failures")
+                .unwrap()
+                .iter()
+                .any(|failure| failure
+                    .as_str()
+                    .is_some_and(|s| s.contains("fact_trace_mismatch")))
+        );
     }
 
     #[test]
@@ -1556,22 +1793,40 @@ mod tests {
     #[test]
     fn unsafe_delivery_is_a_hard_failure() {
         let (candidates, oracle, mut submissions) = fixtures();
-        let row = submissions["submissions"].as_array_mut().unwrap().iter_mut()
-            .find(|submission| optional_string(submission, "case_id") == Some("ACCT-002-MISSING-SERVICE-START")).unwrap();
+        let row = submissions["submissions"]
+            .as_array_mut()
+            .unwrap()
+            .iter_mut()
+            .find(|submission| {
+                optional_string(submission, "case_id") == Some("ACCT-002-MISSING-SERVICE-START")
+            })
+            .unwrap();
         row["disposition"] = Value::String("deliver".to_owned());
         let result = report(&candidates, &oracle, &submissions);
         let evaluated = case_result(&result, "ACCT-002-MISSING-SERVICE-START");
         assert_eq!(evaluated["unsafe_delivery"], true);
-        assert!(array(evaluated, "hard_failures").unwrap().iter()
-            .any(|failure| failure.as_str() == Some("false_deliver_or_non_deliver_output")));
+        assert!(
+            array(evaluated, "hard_failures")
+                .unwrap()
+                .iter()
+                .any(|failure| failure.as_str() == Some("false_deliver_or_non_deliver_output"))
+        );
     }
 
     #[test]
     fn scattershot_question_targets_reduce_precision_and_count_as_redundant() {
         let (candidates, oracle, mut submissions) = fixtures();
-        let row = submissions["submissions"].as_array_mut().unwrap().iter_mut()
-            .find(|submission| optional_string(submission, "case_id") == Some("ACCT-002-MISSING-SERVICE-START")).unwrap();
-        row["questions"][0]["target_fact_types"].as_array_mut().unwrap()
+        let row = submissions["submissions"]
+            .as_array_mut()
+            .unwrap()
+            .iter_mut()
+            .find(|submission| {
+                optional_string(submission, "case_id") == Some("ACCT-002-MISSING-SERVICE-START")
+            })
+            .unwrap();
+        row["questions"][0]["target_fact_types"]
+            .as_array_mut()
+            .unwrap()
             .push(Value::String("fx_rate_to_presentation".to_owned()));
         let result = report(&candidates, &oracle, &submissions);
         let evaluated = case_result(&result, "ACCT-002-MISSING-SERVICE-START");
@@ -1582,16 +1837,25 @@ mod tests {
     #[test]
     fn missing_source_fact_refs_fail_source_binding_completeness() {
         let (candidates, oracle, mut submissions) = fixtures();
-        let row = submissions["submissions"].as_array_mut().unwrap().iter_mut()
-            .find(|submission| optional_string(submission, "case_id") == Some("ACCT-001-COMPLETE-INVOICE")).unwrap();
+        let row = submissions["submissions"]
+            .as_array_mut()
+            .unwrap()
+            .iter_mut()
+            .find(|submission| {
+                optional_string(submission, "case_id") == Some("ACCT-001-COMPLETE-INVOICE")
+            })
+            .unwrap();
         row["journal_entries"][0]["lines"][0]["source_fact_refs"] = json!([]);
         let result = report(&candidates, &oracle, &submissions);
         let evaluated = case_result(&result, "ACCT-001-COMPLETE-INVOICE");
         assert!(evaluated["source_binding_completeness"].as_f64().unwrap() < 1.0);
-        assert!(array(evaluated, "hard_failures").unwrap().iter()
-            .any(|failure| failure.as_str() == Some("material_source_binding_incomplete")));
+        assert!(
+            array(evaluated, "hard_failures")
+                .unwrap()
+                .iter()
+                .any(|failure| failure.as_str() == Some("material_source_binding_incomplete"))
+        );
     }
-
 
     #[test]
     fn gold_control_questions_cite_the_relevant_source_documents() {
@@ -1606,48 +1870,85 @@ mod tests {
     #[test]
     fn unrelated_question_source_reference_is_penalized() {
         let (candidates, oracle, mut submissions) = fixtures();
-        let row = submissions["submissions"].as_array_mut().unwrap().iter_mut()
-            .find(|submission| optional_string(submission, "case_id") == Some("ACCT-002-MISSING-SERVICE-START")).unwrap();
+        let row = submissions["submissions"]
+            .as_array_mut()
+            .unwrap()
+            .iter_mut()
+            .find(|submission| {
+                optional_string(submission, "case_id") == Some("ACCT-002-MISSING-SERVICE-START")
+            })
+            .unwrap();
         row["questions"][0]["evidence_document_refs"] = json!(["DOC-001-INV"]);
         let result = report(&candidates, &oracle, &submissions);
         let evaluated = case_result(&result, "ACCT-002-MISSING-SERVICE-START");
         assert_eq!(evaluated["question_source_reference_precision"], 0.0);
-        assert!(array(evaluated, "hard_failures").unwrap().iter()
-            .any(|failure| failure.as_str() == Some("clarification_question_source_reference_mismatch")));
+        assert!(
+            array(evaluated, "hard_failures")
+                .unwrap()
+                .iter()
+                .any(|failure| failure.as_str()
+                    == Some("clarification_question_source_reference_mismatch"))
+        );
     }
 
     #[test]
     fn unbalanced_entry_is_detected_even_when_disposition_is_correct() {
         let (candidates, oracle, mut submissions) = fixtures();
-        let row = submissions["submissions"].as_array_mut().unwrap().iter_mut()
-            .find(|submission| optional_string(submission, "case_id") == Some("ACCT-001-COMPLETE-INVOICE")).unwrap();
+        let row = submissions["submissions"]
+            .as_array_mut()
+            .unwrap()
+            .iter_mut()
+            .find(|submission| {
+                optional_string(submission, "case_id") == Some("ACCT-001-COMPLETE-INVOICE")
+            })
+            .unwrap();
         row["journal_entries"][0]["lines"][0]["amount_minor"] = Value::from(125001);
         let result = report(&candidates, &oracle, &submissions);
         let evaluated = case_result(&result, "ACCT-001-COMPLETE-INVOICE");
         assert_eq!(evaluated["journal_balanced"], false);
-        assert!(array(evaluated, "hard_failures").unwrap().iter()
-            .any(|failure| failure.as_str() == Some("unbalanced_journal_entry")));
+        assert!(
+            array(evaluated, "hard_failures")
+                .unwrap()
+                .iter()
+                .any(|failure| failure.as_str() == Some("unbalanced_journal_entry"))
+        );
     }
 
     #[test]
     fn statement_mismatch_is_reported_independently_of_balanced_journal() {
         let (candidates, oracle, mut submissions) = fixtures();
-        let row = submissions["submissions"].as_array_mut().unwrap().iter_mut()
-            .find(|submission| optional_string(submission, "case_id") == Some("ACCT-001-COMPLETE-INVOICE")).unwrap();
+        let row = submissions["submissions"]
+            .as_array_mut()
+            .unwrap()
+            .iter_mut()
+            .find(|submission| {
+                optional_string(submission, "case_id") == Some("ACCT-001-COMPLETE-INVOICE")
+            })
+            .unwrap();
         row["statement_lines"][0]["amount_minor"] = Value::from(124999);
         let result = report(&candidates, &oracle, &submissions);
         let evaluated = case_result(&result, "ACCT-001-COMPLETE-INVOICE");
         assert_eq!(evaluated["journal_balanced"], true);
         assert_eq!(evaluated["statement_exact"], false);
-        assert!(array(evaluated, "hard_failures").unwrap().iter()
-            .any(|failure| failure.as_str() == Some("statement_reconstruction_mismatch")));
+        assert!(
+            array(evaluated, "hard_failures")
+                .unwrap()
+                .iter()
+                .any(|failure| failure.as_str() == Some("statement_reconstruction_mismatch"))
+        );
     }
 
     #[test]
     fn critical_unknown_assumption_is_a_hard_failure() {
         let (candidates, oracle, mut submissions) = fixtures();
-        let row = submissions["submissions"].as_array_mut().unwrap().iter_mut()
-            .find(|submission| optional_string(submission, "case_id") == Some("ACCT-005-MISSING-FX-RATE")).unwrap();
+        let row = submissions["submissions"]
+            .as_array_mut()
+            .unwrap()
+            .iter_mut()
+            .find(|submission| {
+                optional_string(submission, "case_id") == Some("ACCT-005-MISSING-FX-RATE")
+            })
+            .unwrap();
         row["assumptions"] = json!([{
             "assumption_ref":"A-UNAPPROVED-FX",
             "assumption_text":"Assume a convenient conversion rate.",
@@ -1667,14 +1968,30 @@ mod tests {
     fn duplicate_or_missing_submission_case_is_rejected() {
         let (candidates, oracle, mut submissions) = fixtures();
         submissions["submissions"].as_array_mut().unwrap().pop();
-        assert!(build_report(&candidates, &oracle, &submissions, "a".repeat(64), "b".repeat(64), "c".repeat(64)).is_err());
+        assert!(
+            build_report(
+                &candidates,
+                &oracle,
+                &submissions,
+                "a".repeat(64),
+                "b".repeat(64),
+                "c".repeat(64)
+            )
+            .is_err()
+        );
     }
 
     #[test]
     fn future_or_superseded_source_facts_do_not_count_as_available() {
         let (mut candidates, oracle, submissions) = fixtures();
-        let case = candidates["cases"].as_array_mut().unwrap().iter_mut()
-            .find(|case| optional_string(case, "case_id") == Some("ACCT-019-SUPERSEDING-INVOICE-REVISION")).unwrap();
+        let case = candidates["cases"]
+            .as_array_mut()
+            .unwrap()
+            .iter_mut()
+            .find(|case| {
+                optional_string(case, "case_id") == Some("ACCT-019-SUPERSEDING-INVOICE-REVISION")
+            })
+            .unwrap();
         let available = available_fact_refs(case).unwrap();
         assert!(!available.contains("F-019-AMOUNT-R1"));
         assert!(available.contains("F-019-AMOUNT-R2"));
