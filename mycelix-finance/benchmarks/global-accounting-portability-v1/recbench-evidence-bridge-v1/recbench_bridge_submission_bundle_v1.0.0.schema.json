@@ -1,0 +1,168 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/mycelix-recbench-bridge-submission-bundle-v1.0.0.json",
+  "title": "Mycelix RecBench Bridge Submission Bundle v1.0.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "bundle_id",
+    "schema_version",
+    "claim_ceiling",
+    "submission_kind",
+    "submissions"
+  ],
+  "properties": {
+    "bundle_id": {
+      "const": "MYCELIX-RECBENCH-BRIDGE-S0-SUBMISSIONS"
+    },
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "claim_ceiling": {
+      "const": "synthetic_gold_control_harness_self_test_not_model_performance"
+    },
+    "submission_kind": {
+      "const": "synthetic_gold_control"
+    },
+    "submissions": {
+      "type": "array",
+      "minItems": 10,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "submission_id",
+          "schema_version",
+          "claim_ceiling",
+          "case_id",
+          "matches",
+          "unmatched_source_refs",
+          "decision_notes"
+        ],
+        "properties": {
+          "submission_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "schema_version": {
+            "const": "1.0.0"
+          },
+          "claim_ceiling": {
+            "const": "candidate_matching_proposals_not_posting_authority"
+          },
+          "case_id": {
+            "type": "string"
+          },
+          "matches": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "match_ref",
+                "match_kind",
+                "source_refs",
+                "matched_amount_minor",
+                "currency",
+                "match_state",
+                "confidence",
+                "evidence_assertion_refs"
+              ],
+              "properties": {
+                "match_ref": {
+                  "type": "string",
+                  "pattern": "^[A-Z0-9-]{3,120}$"
+                },
+                "match_kind": {
+                  "enum": [
+                    "ledger_to_settlement",
+                    "payout_to_bank",
+                    "deposit_unbundle",
+                    "partial_application",
+                    "reversal_pair"
+                  ]
+                },
+                "source_refs": {
+                  "type": "array",
+                  "minItems": 2,
+                  "uniqueItems": true,
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "matched_amount_minor": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "currency": {
+                  "type": "string",
+                  "pattern": "^[A-Z]{3}$"
+                },
+                "match_state": {
+                  "enum": [
+                    "auto_match_candidate",
+                    "review_required",
+                    "partial",
+                    "ambiguous",
+                    "unmatched",
+                    "reversed"
+                  ]
+                },
+                "confidence": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1
+                },
+                "evidence_assertion_refs": {
+                  "type": "array",
+                  "minItems": 1,
+                  "uniqueItems": true,
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          },
+          "unmatched_source_refs": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "string"
+            }
+          },
+          "decision_notes": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "source_ref",
+                "reason_code",
+                "terminal_state"
+              ],
+              "properties": {
+                "source_ref": {
+                  "type": "string"
+                },
+                "reason_code": {
+                  "type": "string",
+                  "minLength": 3
+                },
+                "terminal_state": {
+                  "enum": [
+                    "matched",
+                    "reviewed",
+                    "unmatched",
+                    "excluded",
+                    "reversal_linked"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
