@@ -2258,7 +2258,9 @@
       "remedy_classification": "mistaken_payee",
       "recovery_admission": "not_admitted",
       "graph_completeness": "unknown",
-      "unresolved_external_parent_ids": [],
+      "unresolved_external_parent_ids": [
+        "unobserved_fraud_flow"
+      ],
       "roots": [
         {
           "root_transaction_id": "ROOT-1",
