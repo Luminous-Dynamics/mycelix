@@ -20,6 +20,7 @@ The v2 contract distinguishes:
     cargo test --manifest-path tools/pulse-multiconductor-audit/Cargo.toml
     cargo run --manifest-path tools/pulse-multiconductor-audit/Cargo.toml -- --input tools/pulse-multiconductor-audit/examples/safe-history.json
 
+The CLI first runs the borrowed v2 closed-world preflight over the original input bytes, then materializes the owned history used by the current semantic audit. This is deliberate: the preflight rejects duplicate JSON object keys inside raw event payloads, which would otherwise be collapsed by `serde_json::Value` map materialization. The preflight also validates exact event shapes and required scalar/array types. A duplicate-key or shape error fails before the semantic report is produced. The current production auditor still materializes the owned history after this gate; the borrowed path has not yet replaced the full semantic event representation, so the memory-reduction target remains open under #5872. Differential mutation tests compare borrowed and owned event-shape decisions, and a CLI-entrypoint regression proves duplicate payload keys fail closed.
 The v2 report binds input bytes by SHA-256 and returns PASS, FAIL or INCOMPLETE. A verified-record signal must resolve an exact source-chain action, payload digest, accepted validator event, validator WASM digest, observer lineage and both causal edges. A missing causal edge or missing authority evidence is INCOMPLETE; a contradictory decision, cycle, false-fresh projection or unauthorized effect is FAIL.
 
 ## Synthetic performance benchmark
