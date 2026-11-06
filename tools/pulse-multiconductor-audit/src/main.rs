@@ -492,7 +492,7 @@ fn audit(history:&History,input_sha256:String)->Report {
     let mut grants:BTreeMap<(String,String),Grant>=BTreeMap::new();
     let mut grant_hashes=BTreeSet::new();
     let mut idempotency:BTreeMap<(String,String,String),(String,String)>=BTreeMap::new();
-    let mut grant_events=Vec::new();
+    let mut grant_issue_events_by_identity: BTreeMap<(String, String), &Event> = BTreeMap::new();
     let mut revoke_events=Vec::new();
     let mut claim_events=Vec::new();
     let mut call_events=Vec::new();
@@ -508,7 +508,7 @@ fn audit(history:&History,input_sha256:String)->Report {
         let d=&e.data;
         match e.event_type.as_str() {
             "host_grant_issued"=>{
-                counts.grants_issued+=1;grant_events.push(e);
+                counts.grants_issued+=1;
                 let grant_ref=str_value(d,"grant_ref").unwrap_or_default().to_string();
                 let action_hash=str_value(d,"grant_action_hash").unwrap_or_default().to_string();
                 let grantor=str_value(d,"grantor").unwrap_or_default().to_string();
@@ -534,8 +534,12 @@ fn audit(history:&History,input_sha256:String)->Report {
                     idempotency.insert(idem,(grant_ref.clone(),request_digest));
                 }
                 let key=(e.conductor_id.clone(),grant_ref.clone());
-                if grants.contains_key(&key) { finding(&mut findings,"GRANT_REFERENCE_REUSED","violation",Some(&e.event_id),"grant_ref reused on one host conductor"); }
-                else { grants.insert(key,Grant{conductor_id:e.conductor_id.clone(),action_hash,grantor,grantee,assigned,functions:functions.into_iter().collect(),issue_index:index,revoke_index:None}); }
+                if grants.contains_key(&key) {
+                    finding(&mut findings,"GRANT_REFERENCE_REUSED","violation",Some(&e.event_id),"grant_ref reused on one host conductor");
+                } else {
+                    grant_issue_events_by_identity.insert(key.clone(), e);
+                    grants.insert(key,Grant{conductor_id:e.conductor_id.clone(),action_hash,grantor,grantee,assigned,functions:functions.into_iter().collect(),issue_index:index,revoke_index:None});
+                }
             }
             "host_grant_revoked"=>{counts.grants_revoked+=1;revoke_events.push(e);}
             "capability_claim_accepted"=>{counts.claims_accepted+=1;claim_events.push(e);}
@@ -718,20 +722,49 @@ fn audit(history:&History,input_sha256:String)->Report {
         }
     }
 
+    let mut grants_by_action_and_grantee:
+        BTreeMap<(String, String), Vec<(String, String)>> = BTreeMap::new();
+    for (grant_key, grant) in &grants {
+        grants_by_action_and_grantee
+            .entry((grant.action_hash.clone(), grant.grantee.clone()))
+            .or_default()
+            .push(grant_key.clone());
+    }
+    let mut accepted_claim_events: BTreeMap<(String, String, String), &Event> = BTreeMap::new();
     let mut accepted_claims=BTreeSet::new();
     for e in &claim_events {
         let d=&e.data;
         let hash=str_value(d,"grant_action_hash").unwrap_or_default();
         let recipient=str_value(d,"recipient").unwrap_or_default();
-        let candidates:Vec<_>=grants.values().filter(|g|g.action_hash==hash&&g.grantee==recipient).collect();
-        let Some(g)=candidates.first() else { finding(&mut findings,"CLAIM_WITHOUT_MATCHING_GRANT","incomplete",Some(&e.event_id),"claim does not match issued grant ActionHash and grantee"); continue; };
+        let candidates = grants_by_action_and_grantee
+            .get(&(hash.to_string(), recipient.to_string()));
+        let grant_key = match candidates {
+            None => {
+                finding(&mut findings,"CLAIM_WITHOUT_MATCHING_GRANT","incomplete",Some(&e.event_id),"claim does not match issued grant ActionHash and grantee");
+                continue;
+            }
+            Some(keys) if keys.len() == 1 => &keys[0],
+            Some(_) => {
+                finding(&mut findings,"AMBIGUOUS_GRANT_ACTION_IDENTITY","incomplete",Some(&e.event_id),"claim matches multiple grant histories with the same ActionHash and grantee; do not select an arbitrary grant");
+                continue;
+            }
+        };
+        let Some(g)=grants.get(grant_key) else {
+            finding(&mut findings,"CLAIM_GRANT_INDEX_INCONSISTENT","incomplete",Some(&e.event_id),"exact grant identity index points to a missing grant");
+            continue;
+        };
         if !g.assigned { finding(&mut findings,"CLAIM_FOR_UNASSIGNED_GRANT","violation",Some(&e.event_id),"private cap claim only applies to Assigned grant"); }
         if conductors.get(&e.conductor_id).is_none_or(|c|c.agent_key_ref!=recipient) { finding(&mut findings,"CLAIM_RECIPIENT_CONDUCTOR_MISMATCH","violation",Some(&e.event_id),"claim must be accepted on recipient conductor"); }
         if e.source != "source_chain" { finding(&mut findings,"CLAIM_WRONG_EVIDENCE_SOURCE","incomplete",Some(&e.event_id),"claim acceptance must be evidenced by recipient source-chain state"); }
-        let issue_id=grant_events.iter().find(|x|str_value(&x.data,"grant_action_hash")==Some(g.action_hash.as_str())).map(|x|x.event_id.as_str()).unwrap_or("");
+        let issue_id=grant_issue_events_by_identity
+            .get(grant_key)
+            .map(|issue|issue.event_id.as_str())
+            .unwrap_or("");
         if !has_direct_relation(&explicit_relations,issue_id,&e.event_id,"source_action_dependency") { finding(&mut findings,"GRANT_TO_CLAIM_CAUSAL_EDGE_MISSING","incomplete",Some(&e.event_id),"grant issue and private claim require an evidence-backed causal edge"); }
-        if !accepted_claims.insert((g.conductor_id.clone(),g.action_hash.clone(),recipient.to_string())) { finding(&mut findings,"DUPLICATE_CAPABILITY_CLAIM","violation",Some(&e.event_id),"same assigned grant accepted more than one claim"); }
-        let actual_ref=grant_events.iter().find(|x|str_value(&x.data,"grant_action_hash")==Some(g.action_hash.as_str())).and_then(|x|str_value(&x.data,"grant_ref"));
+        let claim_identity=(g.conductor_id.clone(),g.action_hash.clone(),recipient.to_string());
+        if !accepted_claims.insert(claim_identity.clone()) { finding(&mut findings,"DUPLICATE_CAPABILITY_CLAIM","violation",Some(&e.event_id),"same assigned grant accepted more than one claim"); }
+        accepted_claim_events.insert(claim_identity,e);
+        let actual_ref=Some(grant_key.1.as_str());
         if str_value(d,"grant_ref")!=actual_ref { finding(&mut findings,"CLAIM_GRANT_REFERENCE_MISMATCH","violation",Some(&e.event_id),"claim grant_ref conflicts with host issuance"); }
     }
 
@@ -755,11 +788,16 @@ fn audit(history:&History,input_sha256:String)->Report {
         if domain=="allow"&&!authorized { finding(&mut findings,"DOMAIN_ALLOW_WITHOUT_HOST_ALLOW","violation",Some(&e.event_id),"domain allow cannot follow host denial/unknown"); }
         if e.source!="conductor_host" { finding(&mut findings,"HOST_CALL_WRONG_EVIDENCE_SOURCE","incomplete",Some(&e.event_id),"host decision must come from conductor evidence"); }
         if authorized&&g.assigned {
-            let claim=claim_events.iter().find(|c|str_value(&c.data,"grant_action_hash")==Some(g.action_hash.as_str())&&str_value(&c.data,"recipient")==Some(g.grantee.as_str()));
-            if let Some(claim)=claim { if !path_exists(&adjacency,&event_map,&claim.event_id,&e.event_id) { finding(&mut findings,"CLAIM_NOT_CAUSAL_BEFORE_HOST_CALL","incomplete",Some(&e.event_id),"claim must causally precede assigned call"); } }
+            let claim_identity=(g.conductor_id.clone(),g.action_hash.clone(),g.grantee.clone());
+            if let Some(claim)=accepted_claim_events.get(&claim_identity) {
+                if !path_exists(&adjacency,&event_map,&claim.event_id,&e.event_id) {
+                    finding(&mut findings,"CLAIM_NOT_CAUSAL_BEFORE_HOST_CALL","incomplete",Some(&e.event_id),"claim must causally precede assigned call");
+                }
+            }
         }
         let op=str_value(d,"operation_id").unwrap_or_default().to_string();
         let attempt=u64_value(d,"attempt_id").unwrap_or(0);
+        let caller=str_value(d,"caller").unwrap_or_default().to_string();
         if calls.insert((op,attempt),Call{event_id:e.event_id.clone(),conductor_id:e.conductor_id.clone(),caller,host_authorized:authorized,domain_allowed:domain=="allow"}).is_some() { finding(&mut findings,"DUPLICATE_CALL_ATTEMPT","violation",Some(&e.event_id),"operation/attempt pair must be unique"); }
     }
 
@@ -904,7 +942,7 @@ fn audit(history:&History,input_sha256:String)->Report {
         match calls.get(&(op.clone(),attempt)) {
             None=>finding(&mut findings,"OUTCOME_WITHOUT_HOST_CALL","incomplete",Some(&e.event_id),"caller outcome has no host-call attempt"),
             Some(call)=>{
-                if !path_exists(&adjacency,&call.event_id,&e.event_id) { finding(&mut findings,"OUTCOME_NOT_CAUSAL_AFTER_CALL","incomplete",Some(&e.event_id),"caller outcome must causally follow the host call"); }
+                if !path_exists(&adjacency,&event_map,&call.event_id,&e.event_id) { finding(&mut findings,"OUTCOME_NOT_CAUSAL_AFTER_CALL","incomplete",Some(&e.event_id),"caller outcome must causally follow the host call"); }
                 if conductors.get(&e.conductor_id).is_none_or(|c| c.agent_key_ref.as_str() != call.caller.as_str()) { finding(&mut findings,"OUTCOME_WRONG_CALLER_CONDUCTOR","incomplete",Some(&e.event_id),"caller outcome should be observed on caller conductor"); }
                 if outcome=="committed"&&!effect { finding(&mut findings,"COMMITTED_WITHOUT_EFFECT","incomplete",Some(&e.event_id),"committed outcome has no durable effect"); }
                 if matches!(outcome,"not_committed"|"rejected")&&effect { finding(&mut findings,"REJECTED_OUTCOME_WITH_EFFECT","violation",Some(&e.event_id),"rejected outcome contradicts durable effect"); }
