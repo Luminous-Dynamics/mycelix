@@ -81,7 +81,6 @@ fn document_is_superseded_at_frontier(case: &Value, document_ref: &str) -> Resul
 }
 
 #[cfg(test)]
-#[cfg(test)]
 fn fact_by_document_ref<'a>(case: &'a Value, document_ref: &str) -> Result<&'a Value, String> {
     array(case, "facts")?
         .iter()
