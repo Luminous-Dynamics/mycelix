@@ -436,7 +436,8 @@ fn build_report(
         "claim_ceiling": "graph_binding_provenance_and_journal_invariant_validation_not_accounting_policy_correctness",
         "graph_sha256": graph_digest,
         "projection_count": results.len(),
-        "results": results
+        "all_graph_bindings_match": true,
+        "projections": results
     }))
 }
 
