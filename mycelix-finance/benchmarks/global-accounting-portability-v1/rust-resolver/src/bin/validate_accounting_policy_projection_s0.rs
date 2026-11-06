@@ -591,6 +591,75 @@ mod tests {
         (graph, bundle, graph_schema, bundle_schema, digest)
     }
 
+
+    #[test]
+    fn recognized_decision_rejects_source_received_after_knowledge_frontier() {
+        let (mut graph, bundle, _, _, digest) = fixtures();
+        let case = graph["cases"].as_array_mut().unwrap().iter_mut()
+            .find(|case| optional_string(case, "case_id") == Some("EVT-001-INVOICE-WITHOUT-SERVICE-PROOF")).unwrap();
+        case["source_objects"][0]["received_at"] = Value::String("2026-11-05T11:00:00Z".to_owned());
+        let mut projection = bundle["projections"][0].clone();
+        projection["event_decisions"][0]["decision_state"] = Value::String("recognized".to_owned());
+        projection["event_decisions"][0]["recognized_amount_minor"] = Value::from(125000);
+        projection["event_decisions"][0]["currency"] = Value::String("USD".to_owned());
+        projection["event_decisions"][0]["period_ref"] = Value::String("2026-10".to_owned());
+        assert!(validate_projection(
+            &graph["cases"][0],
+            &projection,
+            &digest
+        ).is_err());
+    }
+
+    #[test]
+    fn recognized_decision_rejects_event_recorded_after_knowledge_frontier() {
+        let (mut graph, bundle, _, _, digest) = fixtures();
+        let case = graph["cases"].as_array_mut().unwrap().iter_mut()
+            .find(|case| optional_string(case, "case_id") == Some("EVT-001-INVOICE-WITHOUT-SERVICE-PROOF")).unwrap();
+        case["events"][0]["recorded_at"] = Value::String("2026-11-05T11:00:00Z".to_owned());
+        let mut projection = bundle["projections"][0].clone();
+        projection["event_decisions"][0]["decision_state"] = Value::String("recognized".to_owned());
+        projection["event_decisions"][0]["recognized_amount_minor"] = Value::from(125000);
+        projection["event_decisions"][0]["currency"] = Value::String("USD".to_owned());
+        projection["event_decisions"][0]["period_ref"] = Value::String("2026-10".to_owned());
+        assert!(validate_projection(
+            &graph["cases"][0],
+            &projection,
+            &digest
+        ).is_err());
+    }
+
+    #[test]
+    fn needs_review_decision_cannot_carry_recognized_measurement() {
+        let (graph, mut bundle, _, _, digest) = fixtures();
+        bundle["projections"][0]["event_decisions"][0]["recognized_amount_minor"] = Value::from(125000);
+        assert!(build_report(&graph, &digest, &bundle).is_err());
+    }
+
+    #[test]
+    fn complete_for_review_rejects_blocking_unresolved_items() {
+        let (graph, mut bundle, _, _, digest) = fixtures();
+        bundle["projections"][0]["projection_state"] = Value::String("complete_for_review".to_owned());
+        assert!(build_report(&graph, &digest, &bundle).is_err());
+    }
+
+    #[test]
+    fn complete_for_review_rejects_unapproved_decision_critical_assumptions() {
+        let (graph, mut bundle, _, _, digest) = fixtures();
+        let projection = &mut bundle["projections"][0];
+        projection["projection_state"] = Value::String("complete_for_review".to_owned());
+        projection["unresolved_items"] = json!([]);
+        projection["assumptions"] = json!([{
+            "assumption_ref":"A-CRITICAL",
+            "assumption_kind":"measurement",
+            "description":"Assume an unsupported recognition measurement.",
+            "value":125000,
+            "source_assertion_refs":["AS-001-AMOUNT"],
+            "review_state":"assumed",
+            "decision_critical":true
+        }]);
+        assert!(build_report(&graph, &digest, &bundle).is_err());
+    }
+
     #[test]
     fn two_review_only_policy_profiles_bind_to_the_same_exact_graph() {
         let (graph, bundle, graph_schema, bundle_schema, digest) = fixtures();
