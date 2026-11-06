@@ -330,13 +330,34 @@ fn expected_criterion_values(
     let left = expected_values_for_refs(run, left_refs, kind)?;
     let right = expected_values_for_refs(run, right_refs, kind)?;
     let rule_set = run.get("rule_set").ok_or("missing rule_set")?;
-    let outcome = criterion_outcome(
-        kind,
-        &left,
-        &right,
-        integer(rule_set, "amount_tolerance_minor")?,
-        integer(rule_set, "date_tolerance_days")?,
-    )?;
+    let outcome = if kind == "amount" {
+        let left_currencies = expected_values_for_refs(run, left_refs, "currency")?;
+        let right_currencies = expected_values_for_refs(run, right_refs, "currency")?;
+        let currency_values = left_currencies.iter().chain(right_currencies.iter())
+            .filter_map(Option::as_ref)
+            .collect::<BTreeSet<_>>();
+        if left_currencies.iter().chain(right_currencies.iter()).any(Option::is_none)
+            || currency_values.len() != 1
+        {
+            "unknown"
+        } else {
+            criterion_outcome(
+                kind,
+                &left,
+                &right,
+                integer(rule_set, "amount_tolerance_minor")?,
+                integer(rule_set, "date_tolerance_days")?,
+            )?
+        }
+    } else {
+        criterion_outcome(
+            kind,
+            &left,
+            &right,
+            integer(rule_set, "amount_tolerance_minor")?,
+            integer(rule_set, "date_tolerance_days")?,
+        )?
+    };
     Ok((left, right, outcome))
 }
 
@@ -1103,6 +1124,19 @@ mod tests {
         let target = output["run_results"].as_array_mut().unwrap().iter_mut()
             .find(|run| optional_string(run, "run_id") == Some("RECON-006-AMBIGUOUS-ALTERNATIVES")).unwrap();
         target["hypotheses"][0]["alternative_hypothesis_refs"] = json!([]);
+        assert!(build_report(&input, &output, output["source_bundle_sha256"].as_str().unwrap().to_owned(), "f".repeat(64)).is_err());
+    }
+
+
+    #[test]
+    fn amount_comparison_is_unknown_across_different_currencies() {
+        let (input, mut output, _, _) = fixtures();
+        let target = output["run_results"].as_array_mut().unwrap().iter_mut()
+            .find(|run| optional_string(run, "run_id") == Some("RECON-007-CURRENCY-CONFLICT")).unwrap();
+        let hypothesis = &mut target["hypotheses"][0];
+        let amount_eval = hypothesis["criterion_evaluations"].as_array_mut().unwrap()
+            .iter_mut().find(|evaluation| optional_string(evaluation, "criterion_ref") == Some("CR-AMOUNT")).unwrap();
+        amount_eval["outcome"] = Value::String("match".to_owned());
         assert!(build_report(&input, &output, output["source_bundle_sha256"].as_str().unwrap().to_owned(), "f".repeat(64)).is_err());
     }
 
