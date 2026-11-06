@@ -673,10 +673,11 @@
           "counterparty_ref": "SUPPLIER-77",
           "occurred_at": "2026-10-20T00:00:00Z",
           "recorded_at": "2026-11-05T10:00:00Z",
-          "amount_minor": 120000,
-          "currency": "USD",
+          "amount_minor": null,
+          "currency": null,
           "assertion_refs": [
-            "AS-007-AMOUNT-A"
+            "AS-007-AMOUNT-A",
+            "AS-007-AMOUNT-B"
           ]
         }
       ],
