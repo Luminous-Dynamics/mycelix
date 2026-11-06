@@ -812,6 +812,17 @@ mod tests {
     }
 
     #[test]
+    fn rejects_fact_claimed_as_journaled_when_target_line_does_not_cite_it() {
+        let (mut trace, _, _, _) = fixture();
+        for event in trace["events"].as_array_mut().unwrap() {
+            if optional_string(event, "event_kind") == Some("journal_line_emitted") {
+                event["fact_refs"].as_array_mut().unwrap().retain(|fact| fact != "F-001-SUPPLIER");
+            }
+        }
+        assert!(validate_trace(&trace).is_err());
+    }
+
+    #[test]
     fn rejects_journal_line_that_uses_an_unobserved_fact() {
         let (mut trace, _, _, _) = fixture();
         let line = trace["events"].as_array_mut().unwrap().iter_mut()
