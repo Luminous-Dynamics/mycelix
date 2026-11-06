@@ -751,6 +751,7 @@ mod tests {
         events.swap(0, 2);
         for (index, event) in events.iter_mut().enumerate() {
             event["seq"] = json!(index + 1);
+            event["recorded_at"] = json!(format!("2026-11-06T06:04:{:02}Z", index + 1));
         }
         assert!(validate_trace(&trace).is_err());
     }
@@ -776,6 +777,7 @@ mod tests {
         trace["events"].as_array_mut().unwrap().insert(1, second);
         for (index, event) in trace["events"].as_array_mut().unwrap().iter_mut().enumerate() {
             event["seq"] = json!(index + 1);
+            event["recorded_at"] = json!(format!("2026-11-06T06:04:{:02}Z", index + 1));
         }
         assert!(validate_trace(&trace).is_err());
     }
@@ -895,6 +897,7 @@ mod tests {
         });
         let receipt_bytes = serde_json::to_vec(&receipt).unwrap();
         let validation_report = json!({
+            "schema":"luminous.benchmark-receipt-validation-result.v1",
             "valid":true,
             "receipts":[{
                 "run_id":string(trace,"run_id").unwrap(),
@@ -1098,7 +1101,7 @@ mod tests {
         let mut bad_receipt = receipt.clone();
         bad_receipt["task_results"][0]["input_sha256"] = json!("e".repeat(64));
         let bad_bytes = serde_json::to_vec(&bad_receipt).unwrap();
-        let report = json!({"valid":true,"receipts":[{
+        let report = json!({"schema":"luminous.benchmark-receipt-validation-result.v1","valid":true,"receipts":[{
             "run_id":string(&bad_receipt,"run_id").unwrap(),
             "raw_file_sha256":digest(&bad_bytes)
         }]});
