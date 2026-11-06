@@ -16,7 +16,8 @@ A foreign or incomplete projection at A=2, B=0 has the same aggregate height
 required A action. It must remain UNKNOWN.
 
 CheckComponentWise = TRUE:
-  require both exact chain heads, per-chain sequence lower bounds and ancestry.
+  require per-chain sequence lower bounds and proof that each observed head
+  descends from the corresponding required checkpoint. Later descendants are valid.
 
 CheckComponentWise = FALSE:
   deliberate mutant; compare only sum(projection sequence) >= sum(required
@@ -26,8 +27,8 @@ Host grants are modeled separately from projections and checkpoints.
 *)
 
 CONSTANTS
-    a0, a1, a2,
-    b0, b1,
+    a0, a1, a2, a3,
+    b0, b1, b2,
     NoAction
 
 ActionsA == {a0, a1, a2, a3}
@@ -326,6 +327,8 @@ Next ==
 MutantNext ==
     \/ CommitRevokeA
     \/ CommitRevokeB
+    \/ CommitPostCheckpointAppendA
+    \/ CommitPostCheckpointAppendB
     \/ ObserveScalarHeightForeignProjection
     \/ ConvergeA
     \/ ConvergeB
@@ -376,8 +379,6 @@ NoFalseFreshCausalFrontier ==
           /\ ~lastCanonicalBRevoked
           /\ lastHostAActive
           /\ lastHostBActive
-          /\ lastReadAHead = requiredAHead
-          /\ lastReadBHead = requiredBHead
           /\ lastReadADescends
           /\ lastReadBDescends
     /\ readDecision = "TRUSTED_REVOKED"
@@ -392,7 +393,7 @@ CausalFrontierRequiresEveryChain ==
     readDecision \in {"TRUSTED_ACTIVE", "TRUSTED_REVOKED"}
     => /\ lastReadASeq >= requiredASeq
        /\ lastReadBSeq >= requiredBSeq
-       /\ lastReadAHead = requiredAHead
-       /\ lastReadBHead = requiredBHead
+       /\ lastReadADescends
+       /\ lastReadBDescends
 
 ====
