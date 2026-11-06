@@ -88,7 +88,7 @@ fn set_from_array(value: &Value, key: &str) -> Result<BTreeSet<String>, String> 
         .collect()
 }
 
-fn unique_refs(values: &[Value], field: &str, label: &str) -> Result<BTreeMap<String, &Value>, String> {
+fn unique_refs<'a>(values: &'a [Value], field: &str, label: &str) -> Result<BTreeMap<String, &'a Value>, String> {
     let mut refs = BTreeMap::new();
     for value in values {
         let reference = string(value, field)?.to_owned();
@@ -120,6 +120,62 @@ fn validate_graph_binding(
             "{projection_id}: event graph digest mismatch; expected {actual_graph_digest}, bundle={bundle_digest}, projection={projection_digest}"
         ));
     }
+    Ok(())
+}
+
+
+fn graph_assertion_is_available(
+    graph_case: &Value,
+    assertion: &Value,
+    projection: &Value,
+) -> Result<bool, String> {
+    let frontier = string(graph_case, "knowledge_at")?;
+    let period = graph_case.get("period").ok_or("graph case has no period")?;
+    let period_start = string(period, "start")?;
+    let period_end = string(period, "end")?;
+    let source_ref = string(assertion, "source_ref")?;
+    let source = find_by(array(graph_case, "source_objects")?, "source_ref", source_ref)
+        .ok_or_else(|| format!("assertion references missing source {source_ref}"))?;
+    let source_received = string(source, "received_at")?;
+    let superseded = array(graph_case, "source_objects")?.iter().any(|candidate| {
+        optional_string(candidate, "supersedes_source_ref") == Some(source_ref)
+            && optional_string(candidate, "received_at").is_some_and(|received| received <= frontier)
+    });
+    let valid_from = string(assertion, "valid_from")?;
+    let valid_to = assertion.get("valid_to").and_then(Value::as_str);
+    let valid_overlap = valid_from <= period_end
+        && valid_to.is_none_or(|end| end >= period_start);
+    let _ = projection;
+    Ok(source_received <= frontier
+        && string(assertion, "recorded_at")? <= frontier
+        && optional_string(source, "integrity_state") == Some("synthetic_match")
+        && !superseded
+        && valid_overlap
+        && optional_string(assertion, "epistemic_state") == Some("asserted")
+        && !assertion.get("value").is_none_or(Value::is_null))
+}
+
+fn validate_projection_period_and_entity(
+    projection: &Value,
+    graph_case: &Value,
+    decision: &Value,
+    event: &Value,
+) -> Result<(), String> {
+    let projection_id = string(projection, "projection_id")?;
+    if string(event, "entity_ref")? != string(projection, "entity_ref")? {
+        return Err(format!("{projection_id}: recognized event entity differs from projection entity"));
+    }
+    let period_ref = string(decision, "period_ref")?;
+    let period = projection.get("period").ok_or("projection has no period")?;
+    let start = string(period, "start")?;
+    let end = string(period, "end")?;
+    let month = period_ref.get(..7).ok_or("decision period_ref has invalid format")?;
+    if month < start.get(..7).ok_or("projection start date has invalid format")?
+        || month > end.get(..7).ok_or("projection end date has invalid format")?
+    {
+        return Err(format!("{projection_id}: recognized decision period {period_ref} is outside projection period"));
+    }
+    let _ = graph_case;
     Ok(())
 }
 
@@ -166,6 +222,18 @@ fn validate_event_decisions(
                 "{projection_id}: recognized decision {} requires amount, currency and period",
                 string(decision, "policy_decision_ref")?
             ));
+        }
+        if state == "recognized" {
+            for assertion_ref in &decision_assertions {
+                let assertion = assertion_by_ref(graph_case, assertion_ref)?;
+                if !graph_assertion_is_available(graph_case, assertion, projection)? {
+                    return Err(format!(
+                        "{projection_id}: recognized decision {} relies on unavailable or future assertion {assertion_ref}",
+                        string(decision, "policy_decision_ref")?
+                    ));
+                }
+            }
+            validate_projection_period_and_entity(projection, graph_case, decision, event)?;
         }
         if matches!(state, "needs_review" | "indeterminate" | "not_recognized" | "deferred" | "excluded")
             && !(amount_is_null && currency_is_null && period_is_null)
@@ -324,11 +392,23 @@ fn validate_unresolved_items(projection: &Value, graph_case: &Value) -> Result<u
                 return Err(format!("{projection_id}/{item_ref}: unknown event {reference}"));
             }
         }
+        let mut related_assertions = BTreeSet::new();
+        for event_ref in array(item, "event_refs")? {
+            let event = event_by_ref(graph_case, event_ref.as_str().ok_or("unresolved event ref must be a string")?)?;
+            for assertion_ref in array(event, "assertion_refs")? {
+                if let Some(reference) = assertion_ref.as_str() {
+                    related_assertions.insert(reference.to_owned());
+                }
+            }
+        }
         for assertion_ref in array(item, "source_assertion_refs")? {
             let reference = assertion_ref
                 .as_str()
                 .ok_or("unresolved source assertion ref must be a string")?;
             assertion_by_ref(graph_case, reference)?;
+            if !related_assertions.contains(reference) {
+                return Err(format!("{projection_id}/{item_ref}: unresolved assertion is not attached to a referenced event"));
+            }
         }
         if item.get("blocking").and_then(Value::as_bool) == Some(true) {
             blocking += 1;
@@ -522,6 +602,38 @@ mod tests {
         assert_eq!(report["projection_count"], 2);
         assert_eq!(report["distinct_policy_digest_count"], 2);
         assert_eq!(report["distinct_projector_digest_count"], 2);
+    }
+
+
+    #[test]
+    fn recognized_decision_cannot_use_future_or_unavailable_assertions() {
+        let (graph, mut bundle, _, _, digest) = fixtures();
+        let p = &mut bundle["projections"][0];
+        p["projection_state"] = Value::String("complete_for_review".to_owned());
+        p["event_decisions"][0]["decision_state"] = Value::String("recognized".to_owned());
+        p["event_decisions"][0]["recognized_amount_minor"] = Value::from(45000);
+        p["event_decisions"][0]["currency"] = Value::String("USD".to_owned());
+        p["event_decisions"][0]["period_ref"] = Value::String("2026-10".to_owned());
+        p["event_decisions"][0]["event_ref"] = Value::String("EV-006-INVOICE".to_owned());
+        p["event_decisions"][0]["source_assertion_refs"] = json!(["AS-006-AMOUNT"]);
+        p["unresolved_items"] = json!([]);
+        assert!(validate_bundle(&bundle, &graph, &digest).is_err());
+    }
+
+    #[test]
+    fn recognized_decision_entity_must_match_projection_entity() {
+        let (graph, mut bundle, _, _, digest) = fixtures();
+        let p = &mut bundle["projections"][0];
+        p["projection_state"] = Value::String("complete_for_review".to_owned());
+        p["event_decisions"][0]["decision_state"] = Value::String("recognized".to_owned());
+        p["event_decisions"][0]["recognized_amount_minor"] = Value::from(50000);
+        p["event_decisions"][0]["currency"] = Value::String("USD".to_owned());
+        p["event_decisions"][0]["period_ref"] = Value::String("2026-10".to_owned());
+        p["event_decisions"][0]["event_ref"] = Value::String("EV-005-A".to_owned());
+        p["event_decisions"][0]["source_assertion_refs"] = json!(["AS-005-AMOUNT-A"]);
+        p["unresolved_items"] = json!([]);
+        p["entity_ref"] = Value::String("ENTITY-B".to_owned());
+        assert!(validate_bundle(&bundle, &graph, &digest).is_err());
     }
 
     #[test]
