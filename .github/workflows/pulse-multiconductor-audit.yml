@@ -151,7 +151,11 @@ jobs:
                     min_audit_ns: ($times | min),
                     max_audit_ns: ($times | max),
                     median_events_per_second: $throughput[(($throughput | length) / 2 | floor)],
-                    max_peak_rss_kib: ([.[].peak_rss_kib] | max)
+                    max_peak_rss_kib: ([.[].peak_rss_kib] | max),
+                    max_build_peak_live_bytes: ([.[].allocation_peak_live_bytes_during_build] | max),
+                    max_audit_peak_live_bytes: ([.[].allocation_peak_live_bytes_during_audit] | max),
+                    max_build_requested_allocation_bytes: ([.[].allocation_bytes_requested_during_build] | max),
+                    max_audit_requested_allocation_bytes: ([.[].allocation_bytes_requested_during_audit] | max)
                   }
               )
           ' "$JSONL" > "$OUT/summary.json"
