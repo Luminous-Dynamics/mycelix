@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/financial-evidence-drift-request-v1.0.0.json",
+  "title": "Mycelix Financial Evidence Drift Request v1.0.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "bundle_id",
+    "schema_version",
+    "claim_ceiling",
+    "cases"
+  ],
+  "properties": {
+    "bundle_id": {
+      "const": "MYCELIX-FINANCIAL-EVIDENCE-DRIFT-S0"
+    },
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "claim_ceiling": {
+      "const": "deterministic_change_impact_analysis_not_accounting_or_policy_judgment"
+    },
+    "cases": {
+      "type": "array",
+      "minItems": 10,
+      "items": {
+        "$ref": "#/$defs/case"
+      }
+    }
+  },
+  "$defs": {
+    "case": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "case_id",
+        "baseline_graph_json",
+        "candidate_graph_json",
+        "baseline_projection_json",
+        "candidate_projection_json",
+        "caller_reported_affected_refs"
+      ],
+      "properties": {
+        "case_id": {
+          "type": "string",
+          "pattern": "^[A-Z0-9-]{3,120}$"
+        },
+        "baseline_graph_json": {
+          "type": "string",
+          "minLength": 50
+        },
+        "candidate_graph_json": {
+          "type": "string",
+          "minLength": 50
+        },
+        "baseline_projection_json": {
+          "type": "string",
+          "minLength": 50
+        },
+        "candidate_projection_json": {
+          "type": "string",
+          "minLength": 50
+        },
+        "caller_reported_affected_refs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 3
+          }
+        }
+      }
+    }
+  }
+}
