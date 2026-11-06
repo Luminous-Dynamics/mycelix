@@ -1,0 +1,364 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/recbench-bridge-candidates-v1.0.0.json",
+  "title": "Mycelix RecBench Bridge Candidate Bundle v1.0.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "bundle_id",
+    "schema_version",
+    "claim_ceiling",
+    "source_binding",
+    "cases"
+  ],
+  "properties": {
+    "bundle_id": {
+      "const": "MYCELIX-RECBENCH-BRIDGE-CANDIDATES-S0"
+    },
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "claim_ceiling": {
+      "const": "synthetic_recbench_bridge_controls_not_external_dataset_execution_or_model_performance"
+    },
+    "source_binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "manifest_id",
+        "tier",
+        "generator_version",
+        "seed",
+        "config_sha256"
+      ],
+      "properties": {
+        "manifest_id": {
+          "const": "MYCELIX-RECBENCH-SOURCE-MANIFEST-S0"
+        },
+        "tier": {
+          "const": "small"
+        },
+        "generator_version": {
+          "const": "0.1.0"
+        },
+        "seed": {
+          "const": 1042
+        },
+        "config_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      }
+    },
+    "cases": {
+      "type": "array",
+      "minItems": 10,
+      "items": {
+        "$ref": "#/$defs/case"
+      }
+    }
+  },
+  "$defs": {
+    "case": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "case_id",
+        "knowledge_at",
+        "period",
+        "records",
+        "fx_rates",
+        "event_relations"
+      ],
+      "properties": {
+        "case_id": {
+          "type": "string",
+          "pattern": "^[A-Z0-9-]{3,100}$"
+        },
+        "knowledge_at": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+        },
+        "period": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "start",
+            "end"
+          ],
+          "properties": {
+            "start": {
+              "type": "string",
+              "format": "date",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            },
+            "end": {
+              "type": "string",
+              "format": "date",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            }
+          }
+        },
+        "records": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "record_ref",
+              "source_table",
+              "source_namespace",
+              "external_record_id",
+              "row_locator",
+              "record_type",
+              "currency",
+              "amount_minor",
+              "flow_direction",
+              "gross_minor",
+              "fee_minor",
+              "net_minor",
+              "occurred_at",
+              "recorded_at",
+              "valid_date",
+              "processor_id",
+              "batch_ref",
+              "external_reference",
+              "source_object_ref",
+              "assertion_ref",
+              "event_ref",
+              "duplicate_of_record_ref",
+              "reversal_of_record_ref"
+            ],
+            "properties": {
+              "record_ref": {
+                "type": "string",
+                "pattern": "^[A-Z0-9-]{3,100}$"
+              },
+              "source_table": {
+                "enum": [
+                  "ledger",
+                  "settlement_lines",
+                  "payouts",
+                  "bank_statements"
+                ]
+              },
+              "source_namespace": {
+                "type": "string",
+                "minLength": 3
+              },
+              "external_record_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "row_locator": {
+                "type": "string",
+                "minLength": 3
+              },
+              "record_type": {
+                "enum": [
+                  "ledger_charge",
+                  "ledger_refund",
+                  "ledger_dispute",
+                  "processor_settlement_line",
+                  "processor_payout",
+                  "bank_deposit",
+                  "bank_debit",
+                  "processor_reversal"
+                ]
+              },
+              "currency": {
+                "type": "string",
+                "pattern": "^[A-Z]{3}$"
+              },
+              "amount_minor": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "flow_direction": {
+                "enum": [
+                  "inflow",
+                  "outflow"
+                ]
+              },
+              "gross_minor": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "minimum": 0
+              },
+              "fee_minor": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "minimum": 0
+              },
+              "net_minor": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "minimum": 0
+              },
+              "occurred_at": {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+              },
+              "recorded_at": {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+              },
+              "valid_date": {
+                "type": "string",
+                "format": "date",
+                "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+              },
+              "processor_id": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "batch_ref": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "external_reference": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "source_object_ref": {
+                "type": "string",
+                "minLength": 1
+              },
+              "assertion_ref": {
+                "type": "string",
+                "minLength": 1
+              },
+              "event_ref": {
+                "type": "string",
+                "minLength": 1
+              },
+              "duplicate_of_record_ref": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "reversal_of_record_ref": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            }
+          }
+        },
+        "fx_rates": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "fx_ref",
+              "from_record_ref",
+              "to_record_ref",
+              "from_currency",
+              "to_currency",
+              "rate_numerator",
+              "rate_denominator",
+              "effective_date",
+              "recorded_at",
+              "assertion_ref"
+            ],
+            "properties": {
+              "fx_ref": {
+                "type": "string",
+                "pattern": "^[A-Z0-9-]{3,100}$"
+              },
+              "from_record_ref": {
+                "type": "string"
+              },
+              "to_record_ref": {
+                "type": "string"
+              },
+              "from_currency": {
+                "type": "string",
+                "pattern": "^[A-Z]{3}$"
+              },
+              "to_currency": {
+                "type": "string",
+                "pattern": "^[A-Z]{3}$"
+              },
+              "rate_numerator": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "rate_denominator": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "effective_date": {
+                "type": "string",
+                "format": "date",
+                "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+              },
+              "recorded_at": {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+              },
+              "assertion_ref": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        },
+        "event_relations": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "relation_ref",
+              "relation_kind",
+              "from_event_ref",
+              "to_event_ref"
+            ],
+            "properties": {
+              "relation_ref": {
+                "type": "string",
+                "pattern": "^[A-Z0-9-]{3,100}$"
+              },
+              "relation_kind": {
+                "enum": [
+                  "settles",
+                  "reverses",
+                  "duplicate_of",
+                  "allocates",
+                  "supports"
+                ]
+              },
+              "from_event_ref": {
+                "type": "string"
+              },
+              "to_event_ref": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
