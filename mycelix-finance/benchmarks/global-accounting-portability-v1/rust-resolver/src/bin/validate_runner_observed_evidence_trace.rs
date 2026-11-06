@@ -880,6 +880,7 @@ mod tests {
         trace["events"].as_array_mut().unwrap().insert(16, event);
         for (index, event) in trace["events"].as_array_mut().unwrap().iter_mut().enumerate() {
             event["seq"] = json!(index + 1);
+            event["recorded_at"] = json!(format!("2026-11-06T06:04:{:02}Z", index + 1));
         }
         assert!(validate_trace(&trace).is_err());
     }
@@ -925,6 +926,7 @@ mod tests {
         fact["source_observation_event_refs"] = json!(["EVT-001-SOURCE-OPEN","EVT-REVISION-OPEN"]);
         for (index, event) in trace["events"].as_array_mut().unwrap().iter_mut().enumerate() {
             event["seq"] = json!(index + 1);
+            event["recorded_at"] = json!(format!("2026-11-06T06:04:{:02}Z", index + 1));
         }
         assert!(validate_trace(&trace).is_err());
     }
@@ -960,6 +962,7 @@ mod tests {
         trace["events"].as_array_mut().unwrap().insert(16, fact);
         for (index, event) in trace["events"].as_array_mut().unwrap().iter_mut().enumerate() {
             event["seq"] = json!(index + 1);
+            event["recorded_at"] = json!(format!("2026-11-06T06:04:{:02}Z", index + 1));
         }
         assert!(validate_trace(&trace).is_err());
     }
@@ -1068,7 +1071,7 @@ mod tests {
         receipt["task_results"][0]["output_sha256"] = json!([]);
         let receipt_bytes = serde_json::to_vec(&receipt).unwrap();
         let (receipt, report) = {
-            let report = json!({"valid":true,"receipts":[{
+            let report = json!({"schema":"luminous.benchmark-receipt-validation-result.v1","valid":true,"receipts":[{
                 "run_id":string(&receipt,"run_id").unwrap(),
                 "raw_file_sha256":digest(&receipt_bytes)
             }]});
