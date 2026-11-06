@@ -413,7 +413,9 @@
         "period_end",
         "framework",
         "measures",
-        "notes"
+        "notes",
+        "ifrs_subtotals",
+        "most_directly_comparable_subtotal_ref"
       ],
       "properties": {
         "case_id": {
@@ -453,6 +455,41 @@
           "items": {
             "$ref": "#/$defs/note"
           }
+        },
+        "ifrs_subtotals": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/ifrsSubtotal"
+          }
+        },
+        "most_directly_comparable_subtotal_ref": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "ifrsSubtotal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "subtotal_ref",
+        "amount_minor",
+        "paragraph_118_subtotal",
+        "presented_in_statement"
+      ],
+      "properties": {
+        "subtotal_ref": {
+          "type": "string"
+        },
+        "amount_minor": {
+          "$ref": "#/$defs/amount"
+        },
+        "paragraph_118_subtotal": {
+          "type": "boolean"
+        },
+        "presented_in_statement": {
+          "type": "boolean"
         }
       }
     }
