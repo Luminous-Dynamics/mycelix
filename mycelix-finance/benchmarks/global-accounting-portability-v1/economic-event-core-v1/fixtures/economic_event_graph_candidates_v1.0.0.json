@@ -676,8 +676,7 @@
           "amount_minor": null,
           "currency": null,
           "assertion_refs": [
-            "AS-007-AMOUNT-A",
-            "AS-007-AMOUNT-B"
+            "AS-007-AMOUNT-A"
           ]
         }
       ],
