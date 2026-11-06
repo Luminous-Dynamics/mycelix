@@ -363,13 +363,10 @@ fn projection_dependency_errors(graph: &Value, projection: &Value, case_id: &str
     for decision in array(projection, "event_decisions")? {
         let decision_ref = string(decision, "policy_decision_ref")?;
         let event_ref = string(decision, "event_ref")?;
-        let event = match find_ref(array(graph, "events")?, "event_ref", event_ref) {
-            Some(event) => event,
-            None => {
-                errors.push(format!("decision_event_missing:{decision_ref}:{event_ref}"));
-                continue;
-            }
-        };
+        if find_ref(array(graph, "events")?, "event_ref", event_ref).is_none() {
+            errors.push(format!("decision_event_missing:{decision_ref}:{event_ref}"));
+            continue;
+        }
         decision_event_refs.insert(event_ref.to_owned());
 
         let event_assertions = event_assertion_refs(graph, event_ref)?;
@@ -888,9 +885,10 @@ fn analyze_case(
         .collect::<Result<BTreeSet<_>, _>>()?;
     let caller_impact_claim_matches = caller_reported == actual_impact_refs;
     if !caller_impact_claim_matches {
-        if actual_impact_refs.is_superset(&caller_reported) {
+        if actual_impact_refs.difference(&caller_reported).next().is_some() {
             findings.insert("caller_impact_set_underreported".to_owned());
-        } else {
+        }
+        if caller_reported.difference(&actual_impact_refs).next().is_some() {
             findings.insert("caller_impact_set_overreported".to_owned());
         }
     }
@@ -967,7 +965,10 @@ fn build_report(
     for result in &results {
         let key = format!("{}_count", string(result, "classification")?);
         *totals.entry(key).or_default() += 1;
-        if result["caller_impact_claim_matches"] == false {
+        if array(result, "finding_codes")?
+            .iter()
+            .any(|finding| finding.as_str() == Some("caller_impact_set_underreported"))
+        {
             *totals.entry("underreported_impact_count".to_owned()).or_default() += 1;
         }
         for (field, total_key) in [
