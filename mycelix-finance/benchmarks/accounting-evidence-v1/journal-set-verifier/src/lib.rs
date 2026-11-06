@@ -386,7 +386,7 @@ fn assess_case(case: &Value) -> AppResult<Assessment> {
             .map(Vec::as_slice)
             .unwrap_or(&[]);
         match treatment {
-            "journal_required" if matching.len() == 0 => {
+            "journal_required" if matching.is_empty() => {
                 findings.insert("missing_journal_projection".to_owned());
                 reasons.insert(format!("required_event_without_journal:{event_ref}"));
             }
