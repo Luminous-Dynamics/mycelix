@@ -1808,6 +1808,7 @@ mod tests {
             "trust_policy": {
                 "policy_id": "pulse-test-root",
                 "policy_version": "1.0.0",
+                "policy_epoch": 1,
                 "policy_sha256": "__POLICY_DIGEST__",
                 "root_keyset_id": "test-root-set-1"
             },
@@ -1832,6 +1833,7 @@ mod tests {
         let policy = json!({
             "policy_id": "pulse-test-root",
             "policy_version": "1.0.0",
+            "policy_epoch": 1,
             "root_keyset_id": "test-root-set-1",
             "keys": [{
                 "keyid": key_id,
@@ -2642,4 +2644,156 @@ mod tests {
                 .any(|f| f.code == "CAUSAL_EDGE_SELF_REFERENCE")
         );
     }
+    fn root_policy_fixture(policy_bytes: &[u8]) -> (Vec<u8>, Vec<u8>) {
+        let policy: TrustPolicy = serde_json::from_slice(policy_bytes).unwrap();
+        let root_signing_key = SigningKey::from_bytes(&[99u8; 32]);
+        let root_public_key = root_signing_key.verifying_key();
+        let root_public_key_hex = hex(root_public_key.as_bytes());
+        let root_key_id = format!("sha256:{}", sha256_hex(root_public_key.as_bytes()));
+        let signature = root_signing_key.sign(&pae(TRUST_POLICY_PAYLOAD_TYPE, policy_bytes));
+        let envelope = json!({
+            "payload_type": TRUST_POLICY_PAYLOAD_TYPE,
+            "payload_base64": STANDARD.encode(policy_bytes),
+            "signatures": [{
+                "keyid": root_key_id,
+                "sig_base64": STANDARD.encode(signature.to_bytes())
+            }]
+        });
+        let pin = json!({
+            "schema_version": 1,
+            "root_key_id": root_key_id,
+            "root_public_key_hex": root_public_key_hex,
+            "policy_id": policy.policy_id,
+            "policy_version": policy.policy_version,
+            "policy_epoch": policy.policy_epoch,
+            "policy_sha256": sha256_hex(policy_bytes),
+            "root_keyset_id": policy.root_keyset_id
+        });
+        (
+            serde_json::to_vec(&envelope).unwrap(),
+            serde_json::to_vec(&pin).unwrap(),
+        )
+    }
+
+    #[test]
+    fn root_signature_authenticates_exact_policy_bytes_and_epoch() {
+        let (_, _, policy_bytes) = fixture();
+        let (envelope, pin) = root_policy_fixture(&policy_bytes);
+        let verified =
+            verify_root_signed_trust_policy(&policy_bytes, &envelope, &pin).unwrap();
+        let policy: TrustPolicy = serde_json::from_slice(&policy_bytes).unwrap();
+        assert_eq!(verified.policy_sha256, sha256_hex(&policy_bytes));
+        assert_eq!(verified.policy_epoch, 1);
+        assert_eq!(verified.root_key_id, format!("sha256:{}", {
+            let pin: TrustedRootPin = serde_json::from_slice(&pin).unwrap();
+            sha256_hex(&decode_hex_32(&pin.root_public_key_hex).unwrap())
+        }));
+        assert_eq!(verified.policy_epoch, policy.policy_epoch);
+    }
+
+    #[test]
+    fn root_signature_rejects_a_different_out_of_band_root() {
+        let (_, _, policy_bytes) = fixture();
+        let (envelope, pin) = root_policy_fixture(&policy_bytes);
+        let mut pin_value: Value = serde_json::from_slice(&pin).unwrap();
+        let replacement_root = SigningKey::from_bytes(&[100u8; 32]).verifying_key();
+        pin_value["root_public_key_hex"] = Value::String(hex(replacement_root.as_bytes()));
+        pin_value["root_key_id"] =
+            Value::String(format!("sha256:{}", sha256_hex(replacement_root.as_bytes())));
+        let error = verify_root_signed_trust_policy(
+            &policy_bytes,
+            &envelope,
+            &serde_json::to_vec(&pin_value).unwrap(),
+        )
+        .unwrap_err();
+        assert!(error.contains("signer does not match"), "{error}");
+    }
+
+    #[test]
+    fn root_signature_rejects_policy_digest_substitution() {
+        let (_, _, policy_bytes) = fixture();
+        let (envelope, pin) = root_policy_fixture(&policy_bytes);
+        let mut pin_value: Value = serde_json::from_slice(&pin).unwrap();
+        pin_value["policy_sha256"] = Value::String("0".repeat(64));
+        let error = verify_root_signed_trust_policy(
+            &policy_bytes,
+            &envelope,
+            &serde_json::to_vec(&pin_value).unwrap(),
+        )
+        .unwrap_err();
+        assert!(error.contains("out-of-band policy digest pin"), "{error}");
+    }
+
+    #[test]
+    fn root_signature_rejects_an_unaccepted_policy_epoch() {
+        let (_, _, policy_bytes) = fixture();
+        let (envelope, pin) = root_policy_fixture(&policy_bytes);
+        let mut pin_value: Value = serde_json::from_slice(&pin).unwrap();
+        pin_value["policy_epoch"] = Value::from(2u64);
+        let error = verify_root_signed_trust_policy(
+            &policy_bytes,
+            &envelope,
+            &serde_json::to_vec(&pin_value).unwrap(),
+        )
+        .unwrap_err();
+        assert!(error.contains("identity/epoch"), "{error}");
+    }
+
+    #[test]
+    fn root_signature_rejects_a_changed_payload_type() {
+        let (_, _, policy_bytes) = fixture();
+        let (envelope, pin) = root_policy_fixture(&policy_bytes);
+        let mut envelope_value: Value = serde_json::from_slice(&envelope).unwrap();
+        envelope_value["payload_type"] = Value::String("application/json".into());
+        let error = verify_root_signed_trust_policy(
+            &policy_bytes,
+            &serde_json::to_vec(&envelope_value).unwrap(),
+            &pin,
+        )
+        .unwrap_err();
+        assert!(error.contains("payload_type"), "{error}");
+    }
+
+    #[test]
+    fn root_signature_rejects_signed_payload_byte_mismatch() {
+        let (_, _, policy_bytes) = fixture();
+        let (envelope, pin) = root_policy_fixture(&policy_bytes);
+        let mut envelope_value: Value = serde_json::from_slice(&envelope).unwrap();
+        let changed_policy = [policy_bytes.as_slice(), b" "].concat();
+        envelope_value["payload_base64"] = Value::String(STANDARD.encode(&changed_policy));
+        let mut pin_value: Value = serde_json::from_slice(&pin).unwrap();
+        pin_value["policy_sha256"] = Value::String(sha256_hex(&changed_policy));
+        let error = verify_root_signed_trust_policy(
+            &changed_policy,
+            &serde_json::to_vec(&envelope_value).unwrap(),
+            &serde_json::to_vec(&pin_value).unwrap(),
+        )
+        .unwrap_err();
+        assert!(error.contains("byte-identical"), "{error}");
+    }
+
+    #[test]
+    fn root_authenticated_audit_upgrades_the_claim_ceiling_only_after_both_layers_pass() {
+        let (bundle, trace, policy) = fixture();
+        let (envelope, pin) = root_policy_fixture(&policy);
+        let report = audit_with_root_pin(&bundle, &trace, &policy, &envelope, &pin).unwrap();
+        assert_eq!(report.status, "ROOT_AUTHENTICATED_POLICY_SNAPSHOT");
+        assert!(report.trust_policy_root_authenticated);
+        assert_eq!(report.trust_policy_epoch, Some(1));
+        assert!(report.trust_root_key_id.is_some());
+
+        let mut changed_bundle: Value = serde_json::from_slice(&bundle).unwrap();
+        changed_bundle["subject"]["source_commit"] = Value::String("f".repeat(40));
+        let report = audit_with_root_pin(
+            &serde_json::to_vec(&changed_bundle).unwrap(),
+            &trace,
+            &policy,
+            &envelope,
+            &pin,
+        )
+        .unwrap();
+        assert_eq!(report.status, "FAIL");
+        assert!(report.trust_policy_root_authenticated);
+    }
+
 }
