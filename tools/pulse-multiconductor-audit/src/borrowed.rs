@@ -734,7 +734,7 @@ mod tests {
             };
             assert_eq!(
                 valid_event_shape(event),
-                super::valid_event_shape(&owned),
+                crate::valid_event_shape(&owned),
                 "borrowed/owned shape decision differed for {}",
                 event.event_id
             );
