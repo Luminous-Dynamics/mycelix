@@ -1303,7 +1303,7 @@
           "fx_quote": null,
           "budget_equivalent_principal_minor_units": 5000,
           "all_in_budget_minor_units": null,
-          "expected_disposition": "confirmation_required"
+          "expected_disposition": "terms_requalification_required"
         }
       ],
       "events": [
@@ -1349,7 +1349,7 @@
         {
           "event_id": "EV-PAY-AGENT-007-3",
           "sequence": 3,
-          "event_type": "human_confirmation_required",
+          "event_type": "terms_requalification_required",
           "observed_at": "2026-11-06T10:00:02.000Z",
           "actor_role": "policy_evaluator",
           "actor_ref": "policy:payment-delegation-v1",
@@ -1360,7 +1360,7 @@
           "exact_action_request_digest": "sha256:0000000000000000000000000000000000000000000000000000000000000007",
           "presentation_digest": null,
           "evidence_types": [
-            "confirmation_threshold_or_new_beneficiary"
+            "terms_requalification_reason"
           ],
           "reason_code": null,
           "return_reference": null
@@ -4657,7 +4657,7 @@
           "fx_quote": null,
           "budget_equivalent_principal_minor_units": null,
           "all_in_budget_minor_units": null,
-          "expected_disposition": "confirmation_required"
+          "expected_disposition": "terms_requalification_required"
         }
       ],
       "events": [
@@ -4703,7 +4703,7 @@
         {
           "event_id": "EV-PAY-AGENT-024-3",
           "sequence": 3,
-          "event_type": "human_confirmation_required",
+          "event_type": "terms_requalification_required",
           "observed_at": "2026-11-06T10:00:02.000Z",
           "actor_role": "policy_evaluator",
           "actor_ref": "policy:payment-delegation-v1",
@@ -4714,7 +4714,7 @@
           "exact_action_request_digest": "sha256:000000000000000000000000000000000000000000000000000000000000001a",
           "presentation_digest": null,
           "evidence_types": [
-            "confirmation_threshold_or_new_beneficiary"
+            "terms_requalification_reason"
           ],
           "reason_code": null,
           "return_reference": null
