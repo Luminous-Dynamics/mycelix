@@ -13,15 +13,20 @@ use axum::{
     extract::{Path, Query, State},
     http::StatusCode,
 };
-use mycelix_desci_core::{ClaimId, ClaimProjection, ScientificEventId, ScientificEventPayload};
+use mycelix_desci_core::{
+    AuthorityAttestationStatus, ClaimId, ClaimProjection, ScientificEventId,
+    ScientificEventPayload,
+};
 use serde_json::json;
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 use uuid::Uuid;
 
 use crate::{
     error::{ApiError, Result},
     middleware::AuthenticatedActor,
-    models::{AppendScientificEventRequest, ScientificEventPageQuery},
+    models::{
+        AppendScientificEventRequest, ScientificClaimAsKnownAtQuery, ScientificEventPageQuery,
+    },
     state::AppState,
 };
 
@@ -88,6 +93,312 @@ pub async fn get_scientific_claim(
         "projection": projection,
         "assessment": assessment,
     })))
+}
+
+/// Reconstruct the maximal contiguous claim-event prefix that had a committed
+/// server authority receipt by the requested transaction time.
+///
+/// This is deliberately not a source-valid-time or model-availability query:
+/// receipt time proves when the canonical record was committed under the
+/// authority trust model, not when a source first existed or a downstream
+/// index/model incorporated it.
+pub async fn get_scientific_claim_as_known_at(
+    State(state): State<Arc<AppState>>,
+    Path(id): Path<Uuid>,
+    Query(query): Query<ScientificClaimAsKnownAtQuery>,
+) -> Result<Json<serde_json::Value>> {
+    let claim_id = ClaimId(id);
+    let stream = state.scientific_events.stream(claim_id).await?;
+    if stream.is_empty() {
+        return Err(ApiError::not_found("canonical scientific claim"));
+    }
+
+    // Validate the entire current event stream before deriving any historical
+    // prefix. A cutoff must not hide corruption in later committed history.
+    ClaimProjection::rebuild(&stream).map_err(|_| {
+        ApiError::internal_error(
+            "canonical event stream failed signature, sequence, hash-chain, or projection validation",
+        )
+    })?;
+
+    let mut events_by_id = HashMap::with_capacity(stream.len());
+    for (index, event) in stream.iter().enumerate() {
+        if event.envelope.stream_id != claim_id || event.envelope.sequence != index as u64 {
+            return Err(ApiError::internal_error(
+                "canonical event stream has a non-contiguous sequence or mismatched stream id",
+            ));
+        }
+        if events_by_id
+            .insert(event.envelope.event_id, event)
+            .is_some()
+        {
+            return Err(ApiError::internal_error(
+                "canonical event stream contains a duplicate event id",
+            ));
+        }
+    }
+
+    let receipts = state
+        .scientific_authority_audit
+        .stream_receipts(claim_id)
+        .await?;
+    let mut receipts_by_event_id = HashMap::with_capacity(receipts.len());
+
+    if !valid_committed_receipt_chain(&stream, &receipts) {
+        return Err(ApiError::internal_error(
+            "committed authority receipts do not form a contiguous, event-bound, time-monotonic receipt chain",
+        ));
+    }
+
+    for signed_receipt in &receipts {
+        let receipt = &signed_receipt.receipt;
+        let Some(event) = events_by_id.get(&receipt.event_id) else {
+            return Err(ApiError::internal_error(
+                "authority receipt references an event absent from the claim stream",
+            ));
+        };
+        if receipt.stream_id != claim_id
+            || receipt.sequence != event.envelope.sequence
+            || receipt.event_id != event.envelope.event_id
+            || receipt.event_hash != event.event_hash()?
+        {
+            return Err(ApiError::internal_error(
+                "authority receipt does not bind the corresponding canonical event",
+            ));
+        }
+        if receipts_by_event_id
+            .insert(receipt.event_id, signed_receipt)
+            .is_some()
+        {
+            return Err(ApiError::internal_error(
+                "authority receipt chain contains a duplicate event receipt",
+            ));
+        }
+    }
+
+    let mut receipt_times = Vec::with_capacity(stream.len());
+    let mut receipt_statuses = Vec::with_capacity(stream.len());
+    for event in &stream {
+        let status = state
+            .scientific_authority_audit
+            .status(event.envelope.event_id)
+            .await?;
+        match (receipts_by_event_id.get(&event.envelope.event_id), status) {
+            (Some(signed_receipt), AuthorityAttestationStatus::ReceiptAttested) => {
+                receipt_times.push(Some(signed_receipt.receipt.received_at.clone()));
+                receipt_statuses.push("receipt_attested".to_string());
+            }
+            (None, AuthorityAttestationStatus::ReceiptAttested) => {
+                return Err(ApiError::internal_error(
+                    "event is classified receipt-attested but its committed receipt is unavailable",
+                ));
+            }
+            (Some(_), _) => {
+                return Err(ApiError::internal_error(
+                    "event has a stored authority receipt but is not classified receipt-attested",
+                ));
+            }
+            (None, other) => {
+                receipt_times.push(None);
+                receipt_statuses.push(authority_status_label(other).to_string());
+            }
+        }
+    }
+
+    // A wall-clock as-of cutoff is not reconstructable when the trusted
+    // receipt sequence moves backward in time. Preserve the evidence and
+    // fail closed rather than silently sorting by timestamp.
+    if !receipt_times_are_monotonic(&receipt_times) {
+        return Err(ApiError::internal_error(
+            "authority receipt times move backward relative to stream sequence; transaction-time projection is indeterminate",
+        ));
+    }
+
+    let included_count = transaction_time_prefix_len(&receipt_times, &query.known_at);
+    let included_events: Vec<_> = stream.iter().take(included_count).cloned().collect();
+    let projection = if included_events.is_empty() {
+        None
+    } else {
+        Some(ClaimProjection::rebuild(&included_events)?)
+    };
+    let assessment = projection.as_ref().map(ClaimProjection::assessment);
+
+    let last_included = match included_count.checked_sub(1) {
+        Some(index) => {
+            let event = &stream[index];
+            let signed_receipt = receipts_by_event_id
+                .get(&event.envelope.event_id)
+                .expect("included event has a committed receipt");
+            Some(json!({
+                "sequence": event.envelope.sequence,
+                "event_id": event.envelope.event_id,
+                "event_hash": event.event_hash()?,
+                "receipt_hash": signed_receipt.receipt_hash()?,
+                "received_at": signed_receipt.receipt.received_at,
+            }))
+        }
+        None => None,
+    };
+
+    let blocked_event = if included_count < stream.len() {
+        let event = &stream[included_count];
+        match receipt_times[included_count].as_ref() {
+            Some(received_at) => json!({
+                "event_id": event.envelope.event_id,
+                "sequence": event.envelope.sequence,
+                "status": receipt_statuses[included_count].as_str(),
+                "reason": "authority receipt is later than the requested known_at cutoff",
+                "received_at": received_at,
+            }),
+            None => json!({
+                "event_id": event.envelope.event_id,
+                "sequence": event.envelope.sequence,
+                "status": receipt_statuses[included_count].as_str(),
+                "reason": "event has no committed authority receipt; its transaction time is unknown",
+            }),
+        }
+    } else {
+        serde_json::Value::Null
+    };
+
+    Ok(Json(json!({
+        "stream_id": claim_id,
+        "as_known_at": {
+            "known_at": query.known_at,
+            "coordinate": "server_authority_receipt_received_at",
+            "semantics": "maximal contiguous event prefix with committed receipts received no later than known_at",
+            "does_not_establish": [
+                "source acquisition or first availability time",
+                "source valid time or proposition truth time",
+                "when search indexes, embeddings, caches, or models incorporated the event"
+            ],
+        },
+        "projection": projection,
+        "assessment": assessment,
+        "included_event_count": included_count,
+        "complete": included_count == stream.len(),
+        "last_included": last_included,
+        "blocked_event": blocked_event,
+    })))
+}
+
+fn authority_status_label(status: AuthorityAttestationStatus) -> &'static str {
+    match status {
+        AuthorityAttestationStatus::ReceiptAttested => "receipt_attested",
+        AuthorityAttestationStatus::PendingReconciliation => "pending_reconciliation",
+        AuthorityAttestationStatus::LegacyUnattested => "legacy_unattested",
+        AuthorityAttestationStatus::UnsafeUnattested => "unsafe_unattested",
+        AuthorityAttestationStatus::Unknown => "unknown",
+    }
+}
+
+fn receipt_sequences_are_contiguous(sequences: &[u64]) -> bool {
+    sequences.windows(2).all(|pair| {
+        pair[0]
+            .checked_add(1)
+            .is_some_and(|expected| expected == pair[1])
+    })
+}
+
+/// Validate that the store returned one contiguous receipt chain, optionally
+/// beginning after an explicitly anchored legacy event prefix.
+fn valid_committed_receipt_chain(
+    stream: &[mycelix_desci_core::SignedScientificEvent],
+    receipts: &[mycelix_desci_core::SignedScientificAuthorityReceipt],
+) -> bool {
+    let sequences = receipts
+        .iter()
+        .map(|signed| signed.receipt.sequence)
+        .collect::<Vec<_>>();
+    if !receipt_sequences_are_contiguous(&sequences) {
+        return false;
+    }
+
+    let mut previous: Option<&mycelix_desci_core::SignedScientificAuthorityReceipt> = None;
+    for signed in receipts {
+        let receipt = &signed.receipt;
+        let Ok(sequence) = usize::try_from(receipt.sequence) else {
+            return false;
+        };
+        let Some(event) = stream.get(sequence) else {
+            return false;
+        };
+        if event.envelope.sequence != receipt.sequence
+            || event.envelope.event_id != receipt.event_id
+            || event.envelope.stream_id != receipt.stream_id
+            || event.event_hash().ok() != Some(receipt.event_hash)
+            || receipt.validate_for_event(event).is_err()
+        {
+            return false;
+        }
+
+        match previous {
+            None if receipt.sequence == 0 => {
+                if receipt.previous_receipt_hash.is_some()
+                    || receipt.legacy_cutover_anchor.is_some()
+                {
+                    return false;
+                }
+            }
+            None => {
+                if receipt.previous_receipt_hash.is_some()
+                    || receipt.legacy_cutover_anchor != event.envelope.previous_hash
+                    || receipt.legacy_cutover_anchor.is_none()
+                {
+                    return false;
+                }
+            }
+            Some(previous) => {
+                let Some(expected_sequence) = previous.receipt.sequence.checked_add(1) else {
+                    return false;
+                };
+                let Ok(previous_hash) = previous.receipt_hash() else {
+                    return false;
+                };
+                if receipt.sequence != expected_sequence
+                    || receipt.previous_receipt_hash != Some(previous_hash)
+                    || receipt.legacy_cutover_anchor.is_some()
+                    || receipt.received_at < previous.receipt.received_at
+                {
+                    return false;
+                }
+            }
+        }
+        previous = Some(signed);
+    }
+    true
+}
+
+fn transaction_time_prefix_len(
+    receipt_times: &[Option<chrono::DateTime<chrono::Utc>>],
+    known_at: &chrono::DateTime<chrono::Utc>,
+) -> usize {
+    let mut included = 0;
+    for received_at in receipt_times {
+        match received_at {
+            Some(received_at) if received_at <= known_at => included += 1,
+            _ => break,
+        }
+    }
+    included
+}
+
+fn receipt_times_are_monotonic(
+    receipt_times: &[Option<chrono::DateTime<chrono::Utc>>],
+) -> bool {
+    let mut previous: Option<&chrono::DateTime<chrono::Utc>> = None;
+    for received_at in receipt_times {
+        match received_at {
+            Some(received_at) => {
+                if previous.is_some_and(|previous| received_at < previous) {
+                    return false;
+                }
+                previous = Some(received_at);
+            }
+            None => previous = None,
+        }
+    }
+    true
 }
 
 /// Page through the signed source events for one canonical claim stream.
@@ -189,4 +500,275 @@ pub async fn get_scientific_event_authority_receipt(
         "receipt_hash": receipt.receipt_hash()?,
         "authority_receipt": receipt,
     })))
+}
+
+
+#[cfg(test)]
+mod as_known_at_projection_tests {
+    use super::*;
+    use chrono::{Duration, TimeZone, Utc};
+    use ed25519_dalek::SigningKey;
+    use mycelix_desci_core::{
+        ActorId, AtomicClaim, AuthorizedActorKey, ContentHash, OrganizationId,
+        ResearchObject, ResearchObjectId, ResearchObjectType, ScientificAction,
+        ScientificAuthorityReceipt, ScientificEventEnvelope, ScientificRole,
+        SignedScientificAuthorityReceipt, SignedScientificEvent,
+    };
+    use std::collections::BTreeSet;
+
+    fn instant(minute: u32) -> chrono::DateTime<Utc> {
+        Utc.with_ymd_and_hms(2026, 11, 5, 17, minute, 0)
+            .single()
+            .expect("valid fixture time")
+    }
+
+    #[test]
+    fn transaction_cutoff_includes_only_the_receipt_time_prefix() {
+        let times = vec![Some(instant(0)), Some(instant(1)), Some(instant(2))];
+        assert_eq!(transaction_time_prefix_len(&times, &instant(1)), 2);
+    }
+
+    #[test]
+    fn missing_receipt_stops_projection_even_when_later_event_has_receipt() {
+        let times = vec![Some(instant(0)), None, Some(instant(1))];
+        assert_eq!(transaction_time_prefix_len(&times, &instant(2)), 1);
+    }
+
+    #[test]
+    fn timestamp_cutoff_cannot_skip_an_earlier_stream_sequence() {
+        let times = vec![Some(instant(2)), Some(instant(1))];
+        assert_eq!(transaction_time_prefix_len(&times, &instant(1)), 0);
+        assert!(!receipt_times_are_monotonic(&times));
+    }
+
+
+    fn sample_event_stream(
+        event_signer: &SigningKey,
+    ) -> (ActorId, Vec<SignedScientificEvent>) {
+        let actor = ActorId::new("did:example:as-of-test").expect("valid test actor");
+        let research_object_id = ResearchObjectId::new();
+        let claim_id = ClaimId::new();
+        let research_object = ResearchObject {
+            id: research_object_id,
+            title: "As-of projection test object".to_string(),
+            object_type: ResearchObjectType::Manuscript,
+            persistent_identifier: None,
+        };
+        let claim = AtomicClaim {
+            id: claim_id,
+            research_object_id,
+            statement: "The test proposition is recorded".to_string(),
+            scope: Some("synthetic integration fixture".to_string()),
+        };
+        let genesis = ScientificEventEnvelope::genesis(
+            actor.clone(),
+            instant(0),
+            ScientificEventPayload::ClaimProposed {
+                research_object,
+                claim,
+            },
+        )
+        .expect("valid genesis envelope");
+        let first = SignedScientificEvent::sign(genesis, event_signer)
+            .expect("genesis event signs");
+        let next = ScientificEventEnvelope::next(
+            &first,
+            actor.clone(),
+            instant(1),
+            ScientificEventPayload::ClaimRetracted {
+                claim_id,
+                reason: "synthetic later correction".to_string(),
+            },
+        )
+        .expect("valid second envelope");
+        let second =
+            SignedScientificEvent::sign(next, event_signer).expect("second event signs");
+        (actor, vec![first, second])
+    }
+
+    fn signed_authority_receipt(
+        event: &SignedScientificEvent,
+        received_at: chrono::DateTime<Utc>,
+        previous_receipt_hash: Option<ContentHash>,
+        legacy_cutover_anchor: Option<ContentHash>,
+        event_signer: &SigningKey,
+        service_signer: &SigningKey,
+    ) -> SignedScientificAuthorityReceipt {
+        let authorized_key = AuthorizedActorKey {
+            public_key: event_signer.verifying_key().to_bytes(),
+            valid_from: instant(0) - Duration::days(1),
+            valid_until: None,
+            revoked_at: None,
+        };
+        let receipt = ScientificAuthorityReceipt::new(
+            event,
+            received_at,
+            authorized_key,
+            BTreeSet::<OrganizationId>::new(),
+            BTreeSet::from([ScientificRole::Contributor]),
+            Some(ContentHash::digest(b"synthetic-credential-registry-revision")),
+            ScientificAction::from_payload(&event.envelope.payload),
+            "as-of-test-policy",
+            "1",
+            "authorized synthetic test event",
+            previous_receipt_hash,
+            legacy_cutover_anchor,
+        )
+        .expect("authority receipt validates against event");
+        SignedScientificAuthorityReceipt::sign(receipt, service_signer)
+            .expect("authority receipt signs")
+    }
+
+    #[test]
+    fn committed_receipt_chain_accepts_a_contiguous_genesis_sequence() {
+        let event_signer = SigningKey::from_bytes(&[7; 32]);
+        let service_signer = SigningKey::from_bytes(&[9; 32]);
+        let (_, events) = sample_event_stream(&event_signer);
+        let first = signed_authority_receipt(
+            &events[0],
+            instant(2),
+            None,
+            None,
+            &event_signer,
+            &service_signer,
+        );
+        let second = signed_authority_receipt(
+            &events[1],
+            instant(3),
+            Some(first.receipt_hash().expect("receipt hash")),
+            None,
+            &event_signer,
+            &service_signer,
+        );
+        assert!(valid_committed_receipt_chain(&events, &[first, second]));
+    }
+
+    #[test]
+    fn first_receipt_after_legacy_prefix_requires_the_exact_event_cutover_anchor() {
+        let event_signer = SigningKey::from_bytes(&[11; 32]);
+        let service_signer = SigningKey::from_bytes(&[13; 32]);
+        let (_, events) = sample_event_stream(&event_signer);
+        let preceding_event_hash = events[0].event_hash().expect("preceding event hash");
+        let first_receipt = signed_authority_receipt(
+            &events[1],
+            instant(3),
+            None,
+            Some(preceding_event_hash),
+            &event_signer,
+            &service_signer,
+        );
+        assert!(valid_committed_receipt_chain(&events, &[first_receipt.clone()]));
+
+        let mut wrong_anchor = signed_authority_receipt(
+            &events[1],
+            instant(3),
+            None,
+            Some(preceding_event_hash),
+            &event_signer,
+            &service_signer,
+        );
+        wrong_anchor.receipt.legacy_cutover_anchor =
+            Some(ContentHash::digest(b"wrong cutover anchor"));
+        assert!(!valid_committed_receipt_chain(&events, &[wrong_anchor]));
+    }
+
+    #[test]
+    fn receipt_chain_rejects_a_receipt_time_regression() {
+        let event_signer = SigningKey::from_bytes(&[17; 32]);
+        let service_signer = SigningKey::from_bytes(&[19; 32]);
+        let (_, events) = sample_event_stream(&event_signer);
+        let first = signed_authority_receipt(
+            &events[0],
+            instant(3),
+            None,
+            None,
+            &event_signer,
+            &service_signer,
+        );
+        let second = signed_authority_receipt(
+            &events[1],
+            instant(2),
+            Some(first.receipt_hash().expect("receipt hash")),
+            None,
+            &event_signer,
+            &service_signer,
+        );
+        assert!(!valid_committed_receipt_chain(&events, &[first, second]));
+    }
+
+    #[test]
+    fn receipt_sequence_gaps_and_duplicates_are_rejected() {
+        assert!(receipt_sequences_are_contiguous(&[]));
+        assert!(receipt_sequences_are_contiguous(&[7]));
+        assert!(receipt_sequences_are_contiguous(&[4, 5, 6]));
+        assert!(!receipt_sequences_are_contiguous(&[4, 6]));
+        assert!(!receipt_sequences_are_contiguous(&[4, 4]));
+        assert!(!receipt_sequences_are_contiguous(&[u64::MAX - 1, u64::MAX, 0]));
+    }
+
+    #[test]
+    fn receipt_chain_rejects_duplicate_or_skipped_sequences() {
+        let event_signer = SigningKey::from_bytes(&[23; 32]);
+        let service_signer = SigningKey::from_bytes(&[29; 32]);
+        let (_, events) = sample_event_stream(&event_signer);
+        let first = signed_authority_receipt(
+            &events[0],
+            instant(2),
+            None,
+            None,
+            &event_signer,
+            &service_signer,
+        );
+        let second = signed_authority_receipt(
+            &events[1],
+            instant(3),
+            Some(first.receipt_hash().expect("receipt hash")),
+            None,
+            &event_signer,
+            &service_signer,
+        );
+        assert!(!valid_committed_receipt_chain(
+            &events,
+            &[first.clone(), first.clone()]
+        ));
+        assert!(valid_committed_receipt_chain(&events, &[first, second]));
+    }
+
+    #[test]
+    fn authority_status_labels_are_stable_api_values() {
+        assert_eq!(
+            authority_status_label(AuthorityAttestationStatus::ReceiptAttested),
+            "receipt_attested"
+        );
+        assert_eq!(
+            authority_status_label(AuthorityAttestationStatus::PendingReconciliation),
+            "pending_reconciliation"
+        );
+        assert_eq!(
+            authority_status_label(AuthorityAttestationStatus::LegacyUnattested),
+            "legacy_unattested"
+        );
+        assert_eq!(
+            authority_status_label(AuthorityAttestationStatus::UnsafeUnattested),
+            "unsafe_unattested"
+        );
+        assert_eq!(
+            authority_status_label(AuthorityAttestationStatus::Unknown),
+            "unknown"
+        );
+    }
+
+    #[test]
+    fn equal_receipt_timestamps_remain_sequence_ordered() {
+        let times = vec![Some(instant(1)), Some(instant(1))];
+        assert_eq!(transaction_time_prefix_len(&times, &instant(1)), 2);
+        assert!(receipt_times_are_monotonic(&times));
+    }
+
+    #[test]
+    fn unattested_prefix_does_not_reset_a_complete_as_of_projection() {
+        let times = vec![None, Some(instant(1)), Some(instant(2))];
+        assert_eq!(transaction_time_prefix_len(&times, &instant(2)), 0);
+        assert!(receipt_times_are_monotonic(&times));
+    }
 }

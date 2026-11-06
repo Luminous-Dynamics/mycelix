@@ -254,6 +254,15 @@ pub struct ScientificEventPageQuery {
     pub limit: Option<usize>,
 }
 
+/// Transaction-time cutoff for reconstructing the canonical claim state that
+/// had a committed server authority receipt by the requested instant.
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ScientificClaimAsKnownAtQuery {
+    pub known_at: DateTime<Utc>,
+}
+
+
 // =============================================================================
 // Scientific Credential Registry API Models
 // =============================================================================
@@ -286,4 +295,37 @@ pub struct AppendCredentialGovernanceEventRequest {
 pub struct CredentialGovernancePageQuery {
     pub from_sequence: Option<u64>,
     pub limit: Option<usize>,
+}
+
+
+#[cfg(test)]
+mod scientific_as_known_at_model_tests {
+    use super::*;
+
+    #[test]
+    fn as_known_at_query_requires_an_explicit_utc_timestamp() {
+        let parsed: ScientificClaimAsKnownAtQuery = serde_json::from_value(serde_json::json!({
+            "known_at": "2026-11-05T17:00:00Z"
+        }))
+        .expect("explicit RFC3339 timestamp should deserialize");
+        assert_eq!(
+            parsed.known_at.to_rfc3339(),
+            "2026-11-05T17:00:00+00:00"
+        );
+    }
+
+    #[test]
+    fn as_known_at_query_rejects_missing_or_unknown_fields() {
+        assert!(serde_json::from_value::<ScientificClaimAsKnownAtQuery>(
+            serde_json::json!({})
+        )
+        .is_err());
+        assert!(serde_json::from_value::<ScientificClaimAsKnownAtQuery>(
+            serde_json::json!({
+                "known_at": "2026-11-05T17:00:00Z",
+                "use_event_occurred_at_instead": true
+            })
+        )
+        .is_err());
+    }
 }
