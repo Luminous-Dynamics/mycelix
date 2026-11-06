@@ -1,0 +1,330 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/mycelix-reconciliation-input-bundle-v1.0.0.json",
+  "title": "Mycelix Reconciliation Input Bundle v1.0.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "bundle_id",
+    "schema_version",
+    "claim_ceiling",
+    "runs"
+  ],
+  "properties": {
+    "bundle_id": {
+      "const": "MYCELIX-RECON-HYPOTHESES-S0-INPUT"
+    },
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "claim_ceiling": {
+      "const": "synthetic_reconciliation_inputs_for_hypothesis_validation_not_ledger_posting"
+    },
+    "runs": {
+      "type": "array",
+      "minItems": 8,
+      "items": {
+        "$ref": "#/$defs/run"
+      }
+    }
+  },
+  "$defs": {
+    "sourceItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_item_ref",
+        "source_side",
+        "source_system",
+        "tenant_namespace",
+        "entity_ref",
+        "account_ref",
+        "source_document_ref",
+        "source_document_sha256",
+        "external_id",
+        "amount_minor",
+        "currency",
+        "direction",
+        "transaction_date",
+        "received_at",
+        "external_reference",
+        "counterparty_ref",
+        "transaction_type"
+      ],
+      "properties": {
+        "source_item_ref": {
+          "type": "string",
+          "pattern": "^[A-Z0-9-]{3,120}$"
+        },
+        "source_side": {
+          "enum": [
+            "statement",
+            "ledger"
+          ]
+        },
+        "source_system": {
+          "type": "string",
+          "minLength": 1
+        },
+        "tenant_namespace": {
+          "type": "string",
+          "minLength": 1
+        },
+        "entity_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "account_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_document_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_document_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "external_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "amount_minor": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "currency": {
+          "type": "string",
+          "pattern": "^[A-Z]{3}$"
+        },
+        "direction": {
+          "enum": [
+            "debit",
+            "credit"
+          ]
+        },
+        "transaction_date": {
+          "type": "string",
+          "format": "date",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+        },
+        "received_at": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+        },
+        "external_reference": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "counterparty_ref": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "transaction_type": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "ruleSet": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "rule_set_ref",
+        "version",
+        "criteria",
+        "amount_tolerance_minor",
+        "date_tolerance_days",
+        "auto_match_threshold_bps",
+        "review_threshold_bps",
+        "ambiguity_margin_bps",
+        "allowed_cardinalities"
+      ],
+      "properties": {
+        "rule_set_ref": {
+          "type": "string",
+          "pattern": "^[A-Z0-9-]{3,100}$"
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "criteria": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "criterion_ref",
+              "kind",
+              "weight_bps",
+              "required_for_auto_match",
+              "mismatch_action",
+              "missing_action"
+            ],
+            "properties": {
+              "criterion_ref": {
+                "type": "string",
+                "pattern": "^[A-Z0-9-]{3,100}$"
+              },
+              "kind": {
+                "enum": [
+                  "amount",
+                  "currency",
+                  "entity",
+                  "account",
+                  "direction",
+                  "date",
+                  "reference",
+                  "counterparty",
+                  "transaction_type"
+                ]
+              },
+              "weight_bps": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 10000
+              },
+              "required_for_auto_match": {
+                "type": "boolean"
+              },
+              "mismatch_action": {
+                "enum": [
+                  "block",
+                  "review",
+                  "penalize"
+                ]
+              },
+              "missing_action": {
+                "enum": [
+                  "block",
+                  "review",
+                  "penalize"
+                ]
+              }
+            }
+          }
+        },
+        "amount_tolerance_minor": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "date_tolerance_days": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "auto_match_threshold_bps": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 10000
+        },
+        "review_threshold_bps": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 10000
+        },
+        "ambiguity_margin_bps": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 10000
+        },
+        "allowed_cardinalities": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "one_to_one",
+              "one_to_many",
+              "many_to_one",
+              "many_to_many"
+            ]
+          }
+        }
+      }
+    },
+    "run": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "run_id",
+        "scope",
+        "knowledge_at",
+        "period",
+        "rule_set",
+        "source_items"
+      ],
+      "properties": {
+        "run_id": {
+          "type": "string",
+          "pattern": "^[A-Z0-9-]{3,120}$"
+        },
+        "scope": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "tenant_namespace",
+            "entity_ref",
+            "account_ref"
+          ],
+          "properties": {
+            "tenant_namespace": {
+              "type": "string",
+              "minLength": 1
+            },
+            "entity_ref": {
+              "type": "string",
+              "minLength": 1
+            },
+            "account_ref": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "knowledge_at": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+        },
+        "period": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "start",
+            "end"
+          ],
+          "properties": {
+            "start": {
+              "type": "string",
+              "format": "date",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            },
+            "end": {
+              "type": "string",
+              "format": "date",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            }
+          }
+        },
+        "rule_set": {
+          "$ref": "#/$defs/ruleSet"
+        },
+        "source_items": {
+          "type": "array",
+          "minItems": 2,
+          "items": {
+            "$ref": "#/$defs/sourceItem"
+          }
+        }
+      }
+    }
+  }
+}
