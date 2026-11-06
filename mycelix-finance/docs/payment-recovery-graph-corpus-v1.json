@@ -623,7 +623,8 @@
           "observed_at": "2026-11-01T09:30:00Z",
           "source_evidence_refs": [
             "snapshot_A1"
-          ]
+          ],
+          "currency": "BRL"
         }
       ],
       "notifications": [],
@@ -705,7 +706,8 @@
           "observed_at": "2026-11-01T09:30:00Z",
           "source_evidence_refs": [
             "snapshot_B1"
-          ]
+          ],
+          "currency": "BRL"
         }
       ],
       "notifications": [
@@ -734,7 +736,8 @@
           "authority_state": "valid",
           "source_evidence_refs": [
             "hold_receipt_H-1"
-          ]
+          ],
+          "currency": "BRL"
         }
       ],
       "returns": [],
@@ -1022,7 +1025,8 @@
           "observed_at": "2026-11-01T09:30:00Z",
           "source_evidence_refs": [
             "snapshot_B1"
-          ]
+          ],
+          "currency": "BRL"
         }
       ],
       "notifications": [
@@ -1051,7 +1055,8 @@
           "authority_state": "valid",
           "source_evidence_refs": [
             "hold_receipt_H-1"
-          ]
+          ],
+          "currency": "BRL"
         }
       ],
       "returns": [],
@@ -1703,7 +1708,8 @@
           "observed_at": "2026-11-01T09:30:00Z",
           "source_evidence_refs": [
             "snapshot_B1"
-          ]
+          ],
+          "currency": "BRL"
         }
       ],
       "notifications": [
@@ -1732,7 +1738,8 @@
           "authority_state": "valid",
           "source_evidence_refs": [
             "hold_receipt_H-1"
-          ]
+          ],
+          "currency": "BRL"
         }
       ],
       "returns": [],
@@ -1812,7 +1819,8 @@
           "observed_at": "2026-11-01T09:30:00Z",
           "source_evidence_refs": [
             "snapshot_B1"
-          ]
+          ],
+          "currency": "BRL"
         }
       ],
       "notifications": [
@@ -2149,7 +2157,8 @@
           "observed_at": "2026-11-01T09:30:00Z",
           "source_evidence_refs": [
             "snapshot_A1"
-          ]
+          ],
+          "currency": "BRL"
         }
       ],
       "notifications": [],
@@ -2305,6 +2314,162 @@
         "hold_is_not_return",
         "unique_return_only",
         "missing_ledger_is_not_zero"
+      ]
+    },
+    {
+      "scenario_id": "RG-025",
+      "scenario_type": "aggregate_hold_conservation_across_two_roots",
+      "jurisdiction": "BR",
+      "scheme": "PIX_MED_V4_2_COMPARATOR",
+      "remedy_classification": "suspected_fraud",
+      "recovery_admission": "pix_med_fraud_graph",
+      "graph_completeness": "complete",
+      "unresolved_external_parent_ids": [],
+      "roots": [
+        {
+          "root_transaction_id": "ROOT-1",
+          "payer_account_id": "PAYER-1",
+          "recipient_account_id": "A1",
+          "recipient_psp_id": "PSP-A",
+          "amount_minor_units": 6000,
+          "currency": "BRL",
+          "observed_at": "2026-11-01T09:00:00Z",
+          "source_evidence_refs": [
+            "root_receipt_ROOT-1"
+          ]
+        },
+        {
+          "root_transaction_id": "ROOT-2",
+          "payer_account_id": "PAYER-2",
+          "recipient_account_id": "A1",
+          "recipient_psp_id": "PSP-A",
+          "amount_minor_units": 5000,
+          "currency": "BRL",
+          "observed_at": "2026-11-01T09:00:10Z",
+          "source_evidence_refs": [
+            "root_receipt_ROOT-2"
+          ]
+        }
+      ],
+      "transactions": [
+        {
+          "transaction_id": "TX-SHARED",
+          "source_account_id": "A1",
+          "destination_account_id": "B1",
+          "source_psp_id": "PSP-A",
+          "destination_psp_id": "PSP-B",
+          "amount_minor_units": 9000,
+          "currency": "BRL",
+          "observed_at": "2026-11-01T09:01:00Z",
+          "parent_transaction_ids": [
+            "ROOT-1",
+            "ROOT-2"
+          ],
+          "candidate_root_ids": [
+            "ROOT-1",
+            "ROOT-2"
+          ],
+          "relationship_claim": "candidate_flow_continuity_not_proven_fund_origin",
+          "link_evidence_refs": [
+            "ledger_edge_TX-SHARED"
+          ]
+        }
+      ],
+      "account_snapshots": [
+        {
+          "account_id": "B1",
+          "psp_id": "PSP-B",
+          "currency": "BRL",
+          "coverage_state": "partial",
+          "opening_balance_minor_units": null,
+          "root_inflows_minor_units": null,
+          "other_inflows_minor_units": null,
+          "observed_outflows_minor_units": null,
+          "other_outflows_minor_units": null,
+          "closing_balance_minor_units": null,
+          "available_balance_minor_units": 9000,
+          "observed_at": "2026-11-01T09:30:00Z",
+          "source_evidence_refs": [
+            "snapshot_B1"
+          ]
+        }
+      ],
+      "notifications": [
+        {
+          "notification_id": "N-ROOT-1",
+          "root_transaction_id": "ROOT-1",
+          "transaction_id": "TX-SHARED",
+          "target_account_id": "B1",
+          "psp_id": "PSP-B",
+          "state": "accepted",
+          "authority_state": "valid",
+          "source_evidence_refs": [
+            "notification_N-ROOT-1"
+          ]
+        },
+        {
+          "notification_id": "N-ROOT-2",
+          "root_transaction_id": "ROOT-2",
+          "transaction_id": "TX-SHARED",
+          "target_account_id": "B1",
+          "psp_id": "PSP-B",
+          "state": "accepted",
+          "authority_state": "valid",
+          "source_evidence_refs": [
+            "notification_N-ROOT-2"
+          ]
+        }
+      ],
+      "holds": [
+        {
+          "hold_id": "H-ROOT-1",
+          "notification_id": "N-ROOT-1",
+          "account_id": "B1",
+          "currency": "BRL",
+          "requested_minor_units": 6000,
+          "held_minor_units": 6000,
+          "available_balance_minor_units": 9000,
+          "hold_state": "applied",
+          "authority_state": "valid",
+          "source_evidence_refs": [
+            "hold_receipt_H-ROOT-1"
+          ]
+        },
+        {
+          "hold_id": "H-ROOT-2",
+          "notification_id": "N-ROOT-2",
+          "account_id": "B1",
+          "currency": "BRL",
+          "requested_minor_units": 5000,
+          "held_minor_units": 3000,
+          "available_balance_minor_units": 9000,
+          "hold_state": "partial",
+          "authority_state": "valid",
+          "source_evidence_refs": [
+            "hold_receipt_H-ROOT-2"
+          ]
+        }
+      ],
+      "returns": [],
+      "return_reversals": [],
+      "expected_unique_descendant_transaction_count": 1,
+      "expected_net_return_by_root": [
+        {
+          "root_transaction_id": "ROOT-1",
+          "net_returned_minor_units": 0
+        },
+        {
+          "root_transaction_id": "ROOT-2",
+          "net_returned_minor_units": 0
+        }
+      ],
+      "negative_controls": [
+        "candidate_edge_is_not_ownership",
+        "notification_is_not_return",
+        "hold_is_not_return",
+        "unique_return_only",
+        "missing_ledger_is_not_zero",
+        "shared_account_holds_cannot_double_reserve"
       ]
     }
   ]
