@@ -608,7 +608,8 @@
             "reserved",
             "returned_without_replenishment",
             "confirmation_required",
-            "rejected"
+            "rejected",
+            "terms_requalification_required"
           ]
         }
       }
@@ -756,7 +757,8 @@
             "payment_effect_confirmed",
             "payment_effect_reconciled_no_effect",
             "payment_returned",
-            "duplicate_return_callback_ignored"
+            "duplicate_return_callback_ignored",
+            "terms_requalification_required"
           ]
         },
         "observed_at": {
