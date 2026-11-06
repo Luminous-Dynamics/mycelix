@@ -1,0 +1,197 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/mycelix-economic-event-validation-report-v1.0.0.json",
+  "title": "Mycelix Economic Event Graph Validation Report v1.0.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "report_id",
+    "schema_version",
+    "claim_ceiling",
+    "candidate_sha256",
+    "case_count",
+    "totals",
+    "case_results"
+  ],
+  "properties": {
+    "report_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "claim_ceiling": {
+      "const": "structural_and_temporal_graph_validation_not_accounting_policy_or_legal_conclusion"
+    },
+    "candidate_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "case_count": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "totals": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_object_count",
+        "assertion_count",
+        "available_assertion_count",
+        "future_assertion_count",
+        "event_count",
+        "available_event_count",
+        "future_event_count",
+        "relation_count",
+        "unlinked_revision_family_count",
+        "contradiction_relation_count",
+        "integrity_mismatch_count",
+        "unresolved_conflicted_event_amount_count"
+      ],
+      "properties": {
+        "source_object_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "assertion_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "available_assertion_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "future_assertion_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "event_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "available_event_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "future_event_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "relation_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "unlinked_revision_family_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "contradiction_relation_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "integrity_mismatch_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "unresolved_conflicted_event_amount_count": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "case_results": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/caseResult"
+      }
+    }
+  },
+  "$defs": {
+    "caseResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "case_id",
+        "source_object_count",
+        "assertion_count",
+        "available_assertion_count",
+        "future_assertion_count",
+        "event_count",
+        "available_event_count",
+        "future_event_count",
+        "relation_count",
+        "unlinked_revision_family_count",
+        "contradiction_relation_count",
+        "integrity_mismatch_count",
+        "finding_codes",
+        "unresolved_conflicted_event_amount_count"
+      ],
+      "properties": {
+        "case_id": {
+          "type": "string"
+        },
+        "source_object_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "assertion_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "available_assertion_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "future_assertion_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "event_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "available_event_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "future_event_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "relation_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "unlinked_revision_family_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "contradiction_relation_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "integrity_mismatch_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "finding_codes": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "future_evidence_not_available_at_frontier",
+              "unlinked_source_revision_family",
+              "contradictory_assertions_preserved",
+              "source_integrity_mismatch_present"
+            ]
+          }
+        },
+        "unresolved_conflicted_event_amount_count": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    }
+  }
+}

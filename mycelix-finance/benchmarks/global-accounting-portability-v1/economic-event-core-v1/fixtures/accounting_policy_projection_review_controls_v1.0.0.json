@@ -1,0 +1,133 @@
+{
+  "bundle_id": "MYCELIX-POLICY-PROJECTION-REVIEW-CONTROLS-S0",
+  "schema_version": "1.0.0",
+  "claim_ceiling": "synthetic_review_only_projection_contract_examples_not_framework_accounting_outputs",
+  "graph_case_id": "EVT-001-INVOICE-WITHOUT-SERVICE-PROOF",
+  "graph_sha256": "f3f6ddeca12df82fb06bca9c7711a47b9125f3447a0e7e5f310db1f2dcab6abd",
+  "projections": [
+    {
+      "projection_id": "SYN-PROJECTION-A",
+      "schema_version": "1.0.0",
+      "claim_ceiling": "policy_specific_projection_output_requires_independent_review_not_universal_accounting_truth",
+      "graph_binding": {
+        "graph_case_id": "EVT-001-INVOICE-WITHOUT-SERVICE-PROOF",
+        "graph_sha256": "f3f6ddeca12df82fb06bca9c7711a47b9125f3447a0e7e5f310db1f2dcab6abd"
+      },
+      "policy_binding": {
+        "policy_profile_ref": "SYNTHETIC-POLICY-PROFILE-A",
+        "policy_version": "v1",
+        "policy_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "framework_id": "SYNTHETIC-FRAMEWORK-A"
+      },
+      "projector_binding": {
+        "projector_id": "SYNTHETIC-PROJECTOR-A",
+        "projector_version": "v1",
+        "projector_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "run_receipt_ref": null
+      },
+      "entity_ref": "ENTITY-ACME",
+      "period": {
+        "start": "2026-10-01",
+        "end": "2026-10-31"
+      },
+      "functional_currency": "USD",
+      "presentation_currency": "USD",
+      "projection_state": "needs_review",
+      "event_decisions": [
+        {
+          "policy_decision_ref": "SYN-PROJECTION-A-DEC-001",
+          "event_ref": "EV-001-INVOICE",
+          "decision_state": "needs_review",
+          "treatment_rule_ref": "SYNTHETIC-NO-RECOGNITION-RULE-IMPLEMENTED",
+          "recognized_amount_minor": null,
+          "currency": null,
+          "period_ref": null,
+          "source_assertion_refs": [
+            "AS-001-AMOUNT",
+            "AS-001-SUPPLIER"
+          ],
+          "assumption_refs": []
+        }
+      ],
+      "journal_entries": [],
+      "unresolved_items": [
+        {
+          "item_ref": "SYN-PROJECTION-A-BLOCK-001",
+          "reason_code": "service_delivery_not_established",
+          "description": "The source graph contains an invoice-issuance event but no service-delivery acceptance evidence; the projection contract cannot decide recognition.",
+          "event_refs": [
+            "EV-001-INVOICE"
+          ],
+          "source_assertion_refs": [
+            "AS-001-AMOUNT",
+            "AS-001-SUPPLIER"
+          ],
+          "blocking": true
+        }
+      ],
+      "assumptions": []
+    },
+    {
+      "projection_id": "SYN-PROJECTION-B",
+      "schema_version": "1.0.0",
+      "claim_ceiling": "policy_specific_projection_output_requires_independent_review_not_universal_accounting_truth",
+      "graph_binding": {
+        "graph_case_id": "EVT-001-INVOICE-WITHOUT-SERVICE-PROOF",
+        "graph_sha256": "f3f6ddeca12df82fb06bca9c7711a47b9125f3447a0e7e5f310db1f2dcab6abd"
+      },
+      "policy_binding": {
+        "policy_profile_ref": "SYNTHETIC-POLICY-PROFILE-B",
+        "policy_version": "v7",
+        "policy_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "framework_id": "SYNTHETIC-FRAMEWORK-B"
+      },
+      "projector_binding": {
+        "projector_id": "SYNTHETIC-PROJECTOR-B",
+        "projector_version": "v3",
+        "projector_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "run_receipt_ref": null
+      },
+      "entity_ref": "ENTITY-ACME",
+      "period": {
+        "start": "2026-10-01",
+        "end": "2026-10-31"
+      },
+      "functional_currency": "USD",
+      "presentation_currency": "USD",
+      "projection_state": "needs_review",
+      "event_decisions": [
+        {
+          "policy_decision_ref": "SYN-PROJECTION-B-DEC-001",
+          "event_ref": "EV-001-INVOICE",
+          "decision_state": "needs_review",
+          "treatment_rule_ref": "SYNTHETIC-NO-RECOGNITION-RULE-IMPLEMENTED",
+          "recognized_amount_minor": null,
+          "currency": null,
+          "period_ref": null,
+          "source_assertion_refs": [
+            "AS-001-AMOUNT",
+            "AS-001-SUPPLIER"
+          ],
+          "assumption_refs": []
+        }
+      ],
+      "journal_entries": [],
+      "unresolved_items": [
+        {
+          "item_ref": "SYN-PROJECTION-B-BLOCK-001",
+          "reason_code": "service_delivery_not_established",
+          "description": "The source graph contains an invoice-issuance event but no service-delivery acceptance evidence; the projection contract cannot decide recognition.",
+          "event_refs": [
+            "EV-001-INVOICE"
+          ],
+          "source_assertion_refs": [
+            "AS-001-AMOUNT",
+            "AS-001-SUPPLIER"
+          ],
+          "blocking": true
+        }
+      ],
+      "assumptions": []
+    }
+  ]
+}

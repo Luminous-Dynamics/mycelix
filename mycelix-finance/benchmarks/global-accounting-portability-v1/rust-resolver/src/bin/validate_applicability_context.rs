@@ -14,14 +14,14 @@ fn main() {
 }
 
 fn run() -> Result<(), Box<dyn Error>> {
-    let mut context_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../applicability-context");
+    let mut context_dir =
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../applicability-context");
     let mut args = env::args().skip(1);
     while let Some(arg) = args.next() {
         match arg.as_str() {
             "--context-dir" => {
-                context_dir = PathBuf::from(
-                    args.next().ok_or("--context-dir requires a directory")?,
-                );
+                context_dir =
+                    PathBuf::from(args.next().ok_or("--context-dir requires a directory")?);
             }
             "--help" | "-h" => {
                 println!(
@@ -137,14 +137,23 @@ fn validate_context_bundle(bundle: &Value) -> Result<(), String> {
                 string(scope, "namespace_uri")?,
                 string(scope, "code")?,
                 string(scope, "scope_level")?,
-                scope.get("parent_scope_ref").and_then(Value::as_str).unwrap_or(""),
+                scope
+                    .get("parent_scope_ref")
+                    .and_then(Value::as_str)
+                    .unwrap_or(""),
             );
-            insert_unique(&mut canonical_scopes, &identity, "canonical jurisdiction scope")?;
+            insert_unique(
+                &mut canonical_scopes,
+                &identity,
+                "canonical jurisdiction scope",
+            )?;
         }
         for (scope_id, scope) in &scopes {
             if let Some(parent) = scope.get("parent_scope_ref").and_then(Value::as_str) {
                 if !scopes.contains_key(parent) {
-                    return Err(format!("{context_id}: {scope_id} references missing parent scope {parent}"));
+                    return Err(format!(
+                        "{context_id}: {scope_id} references missing parent scope {parent}"
+                    ));
                 }
                 if parent == scope_id.as_str() {
                     return Err(format!("{context_id}: scope {scope_id} is its own parent"));
@@ -156,7 +165,9 @@ fn validate_context_bundle(bundle: &Value) -> Result<(), String> {
             let mut current = Some(origin.as_str());
             while let Some(scope_id) = current {
                 if !visited.insert(scope_id.to_owned()) {
-                    return Err(format!("{context_id}: jurisdiction scope hierarchy contains a cycle at {scope_id}"));
+                    return Err(format!(
+                        "{context_id}: jurisdiction scope hierarchy contains a cycle at {scope_id}"
+                    ));
                 }
                 current = scopes
                     .get(scope_id)
@@ -192,9 +203,7 @@ fn validate_context_bundle(bundle: &Value) -> Result<(), String> {
                 ));
             }
 
-            if subject_kind == "transaction"
-                && subject_ref != string(context, "transaction_ref")?
-            {
+            if subject_kind == "transaction" && subject_ref != string(context, "transaction_ref")? {
                 return Err(format!(
                     "{context_id}: transaction fact {fact_id} references a different transaction"
                 ));
@@ -224,19 +233,25 @@ fn validate_context_bundle(bundle: &Value) -> Result<(), String> {
 
             if let Some(scope_ref) = fact.get("scope_ref").and_then(Value::as_str) {
                 if !scopes.contains_key(scope_ref) {
-                    return Err(format!("{context_id}: fact {fact_id} references unknown scope {scope_ref}"));
+                    return Err(format!(
+                        "{context_id}: fact {fact_id} references unknown scope {scope_ref}"
+                    ));
                 }
             }
             let valid_from = string(fact, "valid_from")?;
             if let Some(valid_to) = fact.get("valid_to").and_then(Value::as_str) {
                 if valid_to <= valid_from {
-                    return Err(format!("{context_id}: fact {fact_id} has an empty/reversed valid-time interval"));
+                    return Err(format!(
+                        "{context_id}: fact {fact_id} has an empty/reversed valid-time interval"
+                    ));
                 }
             }
             if string(fact, "assertion_state")? == "evidence_supported"
                 && array(fact, "source_evidence_refs")?.is_empty()
             {
-                return Err(format!("{context_id}: evidence-supported fact {fact_id} has no evidence reference"));
+                return Err(format!(
+                    "{context_id}: evidence-supported fact {fact_id} has no evidence reference"
+                ));
             }
         }
 
@@ -257,7 +272,9 @@ fn validate_context_bundle(bundle: &Value) -> Result<(), String> {
                                 .get(target_id)
                                 .and_then(|other| other.get(relation))
                                 .and_then(Value::as_array)
-                                .is_some_and(|refs| refs.iter().any(|item| item.as_str() == Some(fact_id)));
+                                .is_some_and(|refs| {
+                                    refs.iter().any(|item| item.as_str() == Some(fact_id))
+                                });
                             if !reciprocal {
                                 return Err(format!(
                                     "{context_id}: conflict relation {fact_id}/{target_id} is not reciprocal"
@@ -275,9 +292,7 @@ fn validate_context_bundle(bundle: &Value) -> Result<(), String> {
 fn context_by_id<'a>(bundle: &'a Value, context_id: &str) -> Result<&'a Value, String> {
     array(bundle, "contexts")?
         .iter()
-        .find(|context| {
-            context.get("context_id").and_then(Value::as_str) == Some(context_id)
-        })
+        .find(|context| context.get("context_id").and_then(Value::as_str) == Some(context_id))
         .ok_or_else(|| format!("missing candidate context {context_id}"))
 }
 
@@ -285,7 +300,11 @@ fn scope_set_for_role(context: &Value, role: &str) -> Result<BTreeSet<String>, S
     Ok(array(context, "jurisdiction_facts")?
         .iter()
         .filter(|fact| fact.get("jurisdiction_role").and_then(Value::as_str) == Some(role))
-        .filter_map(|fact| fact.get("scope_ref").and_then(Value::as_str).map(str::to_owned))
+        .filter_map(|fact| {
+            fact.get("scope_ref")
+                .and_then(Value::as_str)
+                .map(str::to_owned)
+        })
         .collect())
 }
 
@@ -309,14 +328,18 @@ fn validate_oracle(candidates: &Value, oracle: &Value) -> Result<(), String> {
             .collect::<Result<Vec<_>, _>>()?;
         for context_id in &context_ids {
             if !candidate_ids.contains(*context_id) {
-                return Err(format!("oracle references missing candidate context {context_id}"));
+                return Err(format!(
+                    "oracle references missing candidate context {context_id}"
+                ));
             }
         }
 
         match string(assertion, "expected_behavior")? {
             "typed_contexts_not_equivalent" => {
                 if context_ids.len() != 2 {
-                    return Err(format!("{assertion_id}: role-swap assertion requires two contexts"));
+                    return Err(format!(
+                        "{assertion_id}: role-swap assertion requires two contexts"
+                    ));
                 }
                 let a = context_by_id(candidates, context_ids[0])?;
                 let b = context_by_id(candidates, context_ids[1])?;
@@ -324,12 +347,16 @@ fn validate_oracle(candidates: &Value, oracle: &Value) -> Result<(), String> {
                     Ok(array(context, "jurisdiction_facts")?
                         .iter()
                         .filter_map(|fact| {
-                            fact.get("scope_ref").and_then(Value::as_str).map(str::to_owned)
+                            fact.get("scope_ref")
+                                .and_then(Value::as_str)
+                                .map(str::to_owned)
                         })
                         .collect())
                 };
                 if all_scopes(a)? != all_scopes(b)? {
-                    return Err(format!("{assertion_id}: flattened scope sets must be equal"));
+                    return Err(format!(
+                        "{assertion_id}: flattened scope sets must be equal"
+                    ));
                 }
                 let mut typed_difference = false;
                 for role in ["establishment_location", "ship_from", "ship_to"] {
@@ -338,7 +365,9 @@ fn validate_oracle(candidates: &Value, oracle: &Value) -> Result<(), String> {
                     }
                 }
                 if !typed_difference {
-                    return Err(format!("{assertion_id}: no jurisdiction-role binding differs"));
+                    return Err(format!(
+                        "{assertion_id}: no jurisdiction-role binding differs"
+                    ));
                 }
             }
             "indeterminate_no_place_of_supply" => {
@@ -392,8 +421,7 @@ fn validate_oracle(candidates: &Value, oracle: &Value) -> Result<(), String> {
             "subjects_remain_distinct_across_namespaces" => {
                 for context_id in &context_ids {
                     let context = context_by_id(candidates, context_id)?;
-                    let mut identifiers =
-                        BTreeMap::<String, BTreeSet<(String, String)>>::new();
+                    let mut identifiers = BTreeMap::<String, BTreeSet<(String, String)>>::new();
                     for party in array(context, "parties")? {
                         let party_ref = string(party, "party_ref")?.to_owned();
                         if let Some(bindings) =
@@ -427,7 +455,11 @@ fn validate_oracle(candidates: &Value, oracle: &Value) -> Result<(), String> {
                     }
                 }
             }
-            other => return Err(format!("{assertion_id}: unsupported expected behavior {other}")),
+            other => {
+                return Err(format!(
+                    "{assertion_id}: unsupported expected behavior {other}"
+                ));
+            }
         }
     }
     Ok(())
@@ -522,8 +554,14 @@ mod tests {
         let a = context(&candidates, "CTX-ROLE-A");
         let b = context(&candidates, "CTX-ROLE-B");
         assert_eq!(fact_scope_set(a), fact_scope_set(b));
-        assert_eq!(fact(a, "establishment_location")["scope_ref"], json!("SYN-SCOPE-A"));
-        assert_eq!(fact(b, "establishment_location")["scope_ref"], json!("SYN-SCOPE-B"));
+        assert_eq!(
+            fact(a, "establishment_location")["scope_ref"],
+            json!("SYN-SCOPE-A")
+        );
+        assert_eq!(
+            fact(b, "establishment_location")["scope_ref"],
+            json!("SYN-SCOPE-B")
+        );
         assert_eq!(fact(a, "ship_from")["scope_ref"], json!("SYN-SCOPE-B"));
         assert_eq!(fact(b, "ship_from")["scope_ref"], json!("SYN-SCOPE-A"));
     }
@@ -556,7 +594,10 @@ mod tests {
             .filter(|item| item["jurisdiction_role"] == "establishment_location")
             .collect::<Vec<_>>();
         assert_eq!(establishments.len(), 2);
-        assert_ne!(establishments[0]["subject_ref"], establishments[1]["subject_ref"]);
+        assert_ne!(
+            establishments[0]["subject_ref"],
+            establishments[1]["subject_ref"]
+        );
         assert!(establishments.iter().all(|item| {
             item["subject_kind"] == "establishment"
                 && item["party_role_bindings"][0]["party_ref"] == "SYN-PARTY-SELLER"
@@ -570,7 +611,11 @@ mod tests {
         let place = fact(ctx, "place_of_supply");
         assert_eq!(place["assertion_state"], "unknown");
         assert_eq!(place["scope_ref"], Value::Null);
-        assert!(!fact_eligible_at(place, "2026-10-31", "2026-11-05T09:30:00Z"));
+        assert!(!fact_eligible_at(
+            place,
+            "2026-10-31",
+            "2026-11-05T09:30:00Z"
+        ));
     }
 
     #[test]
@@ -625,9 +670,17 @@ mod tests {
             "valid_from":"2026-01-01",
             "valid_to":null
         });
-        assert!(!fact_eligible_at(&candidate, "2026-11-05", "2026-11-05T09:30:00Z"));
+        assert!(!fact_eligible_at(
+            &candidate,
+            "2026-11-05",
+            "2026-11-05T09:30:00Z"
+        ));
         candidate["recorded_at"] = json!("2026-11-05T09:00:00Z");
-        assert!(fact_eligible_at(&candidate, "2026-11-05", "2026-11-05T09:30:00Z"));
+        assert!(fact_eligible_at(
+            &candidate,
+            "2026-11-05",
+            "2026-11-05T09:30:00Z"
+        ));
     }
 
     #[test]
@@ -641,8 +694,16 @@ mod tests {
             "valid_from":"2026-01-01",
             "valid_to":"2026-11-05"
         });
-        assert!(fact_eligible_at(&candidate, "2026-01-01", "2026-11-05T09:30:00Z"));
-        assert!(!fact_eligible_at(&candidate, "2026-11-05", "2026-11-05T09:30:00Z"));
+        assert!(fact_eligible_at(
+            &candidate,
+            "2026-01-01",
+            "2026-11-05T09:30:00Z"
+        ));
+        assert!(!fact_eligible_at(
+            &candidate,
+            "2026-11-05",
+            "2026-11-05T09:30:00Z"
+        ));
     }
 
     #[test]
@@ -657,7 +718,11 @@ mod tests {
             "valid_from":"2026-01-01",
             "valid_to":null
         });
-        assert!(!fact_eligible_at(&candidate, "2026-11-05", "2026-11-05T09:30:00Z"));
+        assert!(!fact_eligible_at(
+            &candidate,
+            "2026-11-05",
+            "2026-11-05T09:30:00Z"
+        ));
     }
 
     #[test]
@@ -670,6 +735,10 @@ mod tests {
             "valid_from":"2026-01-01",
             "valid_to":null
         });
-        assert!(!fact_eligible_at(&candidate, "2026-11-05", "2026-11-05T09:30:00Z"));
+        assert!(!fact_eligible_at(
+            &candidate,
+            "2026-11-05",
+            "2026-11-05T09:30:00Z"
+        ));
     }
 }
