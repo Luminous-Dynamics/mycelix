@@ -47,7 +47,7 @@ Files:
 - `EPI_013R_TOOL_EXECUTION_RECEIPTS_V0_1.schema.json`
 - `fixtures/EPI_013R_TOOL_EXECUTION_RECEIPTS_V0_1.json`
 
-The fixture includes 8 positive receipt cases and 12 metamorphic controls. Its compact UTF-8 SHA-256 is `fd6123f71b1c49e5bd9c9c2e6bad43914ad890c952fc1f43ad498c40140a0e37`. The schema SHA-256 is `423ef6a23a4329979c54e725c8be148282ac84bd292f5af2d6b63e646e5f07d2`. These digests identify exact authored bytes, not tool correctness.
+The fixture includes 8 positive receipt cases and 12 metamorphic controls. Its compact UTF-8 SHA-256 is `48ed00a275b8585666db8426a61e1330d44223196e50fb1017d58e0acc147d9b`. The schema SHA-256 is `423ef6a23a4329979c54e725c8be148282ac84bd292f5af2d6b63e646e5f07d2`. These digests identify exact authored bytes, not tool correctness.
 
 Positive cases cover Top-K, complete pagination, timeout degradation, exact finite local corpus, OCR transform, authenticated account-scoped access, provider-version drift and unexpected disclosure. Metamorphic controls cover page deletion, timeout injection, finite-corpus mismatch, transform-version change, profile drift, secret-byte rejection, retention uncertainty and the non-upgrading effect of signatures.
 
