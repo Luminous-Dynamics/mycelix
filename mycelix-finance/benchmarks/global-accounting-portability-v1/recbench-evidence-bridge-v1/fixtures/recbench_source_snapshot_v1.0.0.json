@@ -1,0 +1,69 @@
+{
+  "snapshot_id": "MYCELIX-RECBENCH-SOURCE-SNAPSHOT-2026-11-06T1944-SAST",
+  "schema_version": "1.0.0",
+  "captured_at": "2026-11-06T19:44:00+02:00",
+  "source_url": "https://huggingface.co/datasets/end-close/recbench",
+  "dataset_license": "CC-BY-4.0",
+  "generator_license": "Apache-2.0",
+  "dataset_version": "0.1.0",
+  "generator_version": "0.1.0",
+  "published_total_rows": 694810498,
+  "published_total_bytes": 7480000000,
+  "raw_source_bytes_archived": false,
+  "raw_source_sha256": null,
+  "tier_profiles": [
+    {
+      "tier": "small",
+      "ledger_rows": 1000000,
+      "all_table_rows_approx": 4300000,
+      "size_bytes": 67000000,
+      "generation_seconds_approx": 20,
+      "seed": 1042,
+      "hardware_note": "Publisher estimate: single-core Apple Silicon"
+    },
+    {
+      "tier": "medium",
+      "ledger_rows": 10000000,
+      "all_table_rows_approx": 43000000,
+      "size_bytes": 644000000,
+      "generation_seconds_approx": 120,
+      "seed": 1043,
+      "hardware_note": "Publisher estimate: single-core Apple Silicon"
+    },
+    {
+      "tier": "large",
+      "ledger_rows": 100100000,
+      "all_table_rows_approx": 430000000,
+      "size_bytes": 6000000000,
+      "generation_seconds_approx": 1140,
+      "seed": 1044,
+      "hardware_note": "Publisher estimate: single-core Apple Silicon"
+    }
+  ],
+  "reported_baseline": {
+    "baseline_name": "naive_exact_rules_matcher",
+    "ledger_settlement_f1": 0.996,
+    "auto_match_coverage_at_precision_9999": 0,
+    "missing_reference_recall": 0.644,
+    "deposit_unbundle_group_exact": 0,
+    "exception_recall": 0
+  },
+  "metrics": [
+    "ledger_settlement_pair_precision_recall_f1",
+    "auto_match_coverage_at_pair_precision_0_999",
+    "payout_bank_match_accuracy",
+    "deposit_unbundle_group_exact",
+    "exception_detection_precision_recall",
+    "mycelix_source_lineage_completeness",
+    "mycelix_bitemporal_replay",
+    "mycelix_false_close_rate"
+  ],
+  "notes": [
+    "Publisher metadata and dataset card captured; raw README/dataset bytes are not archived, so raw_source_sha256 is null. This snapshot identifier does not claim a digest of the external source.",
+    "The public dataset is CC BY 4.0 and generator is Apache-2.0 as reported by the publisher.",
+    "The large tier advertises approximately 100.1M ledger rows, 430M rows across tables, 6.0GB and approximately 19 minutes single-core Apple Silicon; the medium tier approximately 10M ledger rows, 43M total rows, 644MB and approximately 2 minutes; the small tier approximately 1M ledger rows, 4.3M total rows, 67MB and approximately 20 seconds.",
+    "Public canonical seeds are 1042/1043/1044 for small/medium/large; fresh private seeds are required for contamination-resistant evaluation.",
+    "RecBench reported naive exact-rules baseline values are source-reported, not independently reproduced by Mycelix.",
+    "Do not copy the multi-gigabyte dataset or label/truth files into the Mycelix repository. Materialize permitted candidate inputs externally and bind exact file hashes in canonical run receipts."
+  ]
+}
