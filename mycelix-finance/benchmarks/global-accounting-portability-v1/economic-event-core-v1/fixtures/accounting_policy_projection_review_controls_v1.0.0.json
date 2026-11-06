@@ -3,7 +3,7 @@
   "schema_version": "1.0.0",
   "claim_ceiling": "synthetic_review_only_projection_contract_examples_not_framework_accounting_outputs",
   "graph_case_id": "EVT-001-INVOICE-WITHOUT-SERVICE-PROOF",
-  "graph_sha256": "bf746e3b576e4f814bbdb29062870090ce7af556641d3eb7409b941ad7e04d30",
+  "graph_sha256": "f6c9fe1256fdcf861fbb99b21ef3fa65b9461ff4ca5d770aadac419bca454e5e",
   "projections": [
     {
       "projection_id": "SYN-PROJECTION-A",
@@ -11,7 +11,7 @@
       "claim_ceiling": "policy_specific_projection_output_requires_independent_review_not_universal_accounting_truth",
       "graph_binding": {
         "graph_case_id": "EVT-001-INVOICE-WITHOUT-SERVICE-PROOF",
-        "graph_sha256": "bf746e3b576e4f814bbdb29062870090ce7af556641d3eb7409b941ad7e04d30"
+        "graph_sha256": "f6c9fe1256fdcf861fbb99b21ef3fa65b9461ff4ca5d770aadac419bca454e5e"
       },
       "policy_binding": {
         "policy_profile_ref": "SYNTHETIC-POLICY-PROFILE-A",
@@ -72,7 +72,7 @@
       "claim_ceiling": "policy_specific_projection_output_requires_independent_review_not_universal_accounting_truth",
       "graph_binding": {
         "graph_case_id": "EVT-001-INVOICE-WITHOUT-SERVICE-PROOF",
-        "graph_sha256": "bf746e3b576e4f814bbdb29062870090ce7af556641d3eb7409b941ad7e04d30"
+        "graph_sha256": "f6c9fe1256fdcf861fbb99b21ef3fa65b9461ff4ca5d770aadac419bca454e5e"
       },
       "policy_binding": {
         "policy_profile_ref": "SYNTHETIC-POLICY-PROFILE-B",
