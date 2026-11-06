@@ -538,6 +538,107 @@ fn valid_event_shape(event: &BorrowedEvent<'_>) -> bool {
     }
 }
 
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct ParseSummary {
+    pub conductors: usize,
+    pub events: usize,
+    pub valid_events: usize,
+    pub causal_edges: usize,
+}
+
+fn valid_source(value: &str) -> bool {
+    matches!(
+        value,
+        "conductor_host"
+            | "source_chain"
+            | "validator"
+            | "observer"
+            | "remote_peer"
+            | "client"
+            | "coordinator"
+            | "synthetic"
+    )
+}
+
+fn valid_sha40(value: &str) -> bool {
+    value.len() == 40
+        && value
+            .bytes()
+            .all(|byte| byte.is_ascii_hexdigit() && !byte.is_ascii_uppercase())
+}
+
+/// Parse the closed v2 top-level shape and validate each borrowed event payload.
+/// This is deliberately a parser/shape gate only; it does not perform the
+/// semantic indexes, partial-order graph, grant lifecycle, or evidence joins.
+pub(crate) fn borrowed_parse_validate(raw: &str) -> Result<ParseSummary, String> {
+    let history: BorrowedHistory<'_> =
+        serde_json::from_str(raw).map_err(|error| error.to_string())?;
+    if history.schema_version != 2
+        || history.trace_id.trim().is_empty()
+        || !valid_sha40(history.source_commit)
+        || !matches!(history.evidence_class, "synthetic" | "runtime_capture")
+        || history.conductors.len() < 2
+    {
+        return Err("borrowed top-level v2 header is invalid".into());
+    }
+
+    for conductor in &history.conductors {
+        if conductor.conductor_id.trim().is_empty()
+            || conductor.agent_key_ref.trim().is_empty()
+            || conductor.conductor_build.trim().is_empty()
+            || conductor.dna_hash.trim().is_empty()
+            || conductor.cell_id.trim().is_empty()
+            || !valid_sha256(conductor.integrity_wasm_sha256)
+            || !matches!(
+                conductor.role,
+                "grant_owner" | "caller" | "validator" | "observer" | "peer"
+            )
+        {
+            return Err("borrowed conductor lineage is invalid".into());
+        }
+    }
+
+    let mut valid_events = 0usize;
+    for event in &history.events {
+        if event.event_id.trim().is_empty()
+            || event.conductor_id.trim().is_empty()
+            || event.local_sequence == 0
+            || event.evidence_ref.trim().is_empty()
+            || !valid_source(event.source)
+            || !history
+                .conductors
+                .iter()
+                .any(|conductor| conductor.conductor_id == event.conductor_id)
+            || (history.evidence_class == "runtime_capture" && event.source == "synthetic")
+            || !valid_event_shape(event)
+        {
+            return Err(format!(
+                "borrowed event {} failed v2 identity/source/shape validation",
+                event.event_id
+            ));
+        }
+        valid_events += 1;
+    }
+
+    for edge in &history.causal_edges {
+        if edge.from_event.trim().is_empty()
+            || edge.to_event.trim().is_empty()
+            || edge.relation.trim().is_empty()
+            || edge.evidence_ref.trim().is_empty()
+        {
+            return Err("borrowed causal edge identity is invalid".into());
+        }
+    }
+
+    Ok(ParseSummary {
+        conductors: history.conductors.len(),
+        events: history.events.len(),
+        valid_events,
+        causal_edges: history.causal_edges.len(),
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
