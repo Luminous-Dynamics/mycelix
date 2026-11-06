@@ -333,7 +333,10 @@ fn event_assertions_with_available_contradictions<'a>(
     let mut refs = array(event, "assertion_refs")?
         .iter()
         .map(|value| {
-            value.as_str().map(str::to_owned).ok_or("event assertion ref is not a string")
+            value
+                .as_str()
+                .map(str::to_owned)
+                .ok_or("event assertion ref is not a string")
         })
         .collect::<Result<BTreeSet<_>, _>>()?;
 
