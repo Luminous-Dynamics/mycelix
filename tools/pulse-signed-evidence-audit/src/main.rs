@@ -501,6 +501,211 @@ fn edge_basis_matches_authenticated_endpoints(
     from_authenticated && to_authenticated
 }
 
+enum RelationValidation {
+    Valid,
+    Incomplete(String),
+    Violation(String),
+}
+
+fn event_data_str<'a>(event: &'a Value, key: &str) -> Option<&'a str> {
+    event.get("data")?.get(key)?.as_str()
+}
+
+fn event_data_u64(event: &Value, key: &str) -> Option<u64> {
+    event.get("data")?.get(key)?.as_u64()
+}
+
+fn validate_causal_relation(
+    relation: &str,
+    from: &Value,
+    to: &Value,
+    evidence_class: &str,
+) -> RelationValidation {
+    let from_type = from.get("event_type").and_then(Value::as_str).unwrap_or_default();
+    let to_type = to.get("event_type").and_then(Value::as_str).unwrap_or_default();
+    match relation {
+        "program_order" => {
+            let (Some(from_conductor), Some(to_conductor)) = (
+                from.get("conductor_id").and_then(Value::as_str),
+                to.get("conductor_id").and_then(Value::as_str),
+            ) else {
+                return RelationValidation::Incomplete(
+                    "program_order requires both conductor identities".into(),
+                );
+            };
+            if from_conductor != to_conductor {
+                return RelationValidation::Violation(
+                    "program_order cannot cross conductor-local sequence domains".into(),
+                );
+            }
+            let (Some(from_sequence), Some(to_sequence)) = (
+                from.get("local_sequence").and_then(Value::as_u64),
+                to.get("local_sequence").and_then(Value::as_u64),
+            ) else {
+                return RelationValidation::Incomplete(
+                    "program_order requires positive local_sequence values".into(),
+                );
+            };
+            if from_sequence >= to_sequence {
+                return RelationValidation::Violation(
+                    "program_order requires strictly increasing local_sequence".into(),
+                );
+            }
+            RelationValidation::Valid
+        }
+        "request_response" => {
+            let allowed_pair = matches!(
+                (from_type, to_type),
+                ("host_call", "domain_effect")
+                    | ("host_call", "caller_outcome")
+                    | ("domain_effect", "caller_outcome")
+            );
+            if !allowed_pair {
+                return RelationValidation::Incomplete(format!(
+                    "request_response pair {from_type} -> {to_type} is not defined by Pulse causal profile v1"
+                ));
+            }
+            let (Some(from_operation), Some(to_operation)) = (
+                event_data_str(from, "operation_id"),
+                event_data_str(to, "operation_id"),
+            ) else {
+                return RelationValidation::Incomplete(
+                    "request_response requires operation_id on both events".into(),
+                );
+            };
+            let (Some(from_attempt), Some(to_attempt)) = (
+                event_data_u64(from, "attempt_id"),
+                event_data_u64(to, "attempt_id"),
+            ) else {
+                return RelationValidation::Incomplete(
+                    "request_response requires attempt_id on both events".into(),
+                );
+            };
+            if from_operation != to_operation || from_attempt != to_attempt {
+                return RelationValidation::Violation(
+                    "request_response endpoints must share exact operation_id and attempt_id".into(),
+                );
+            }
+            RelationValidation::Valid
+        }
+        "source_action_dependency" => {
+            if (from_type, to_type) != ("host_grant_issued", "capability_claim_accepted") {
+                return RelationValidation::Incomplete(format!(
+                    "source_action_dependency pair {from_type} -> {to_type} is not defined by Pulse causal profile v1"
+                ));
+            }
+            let (Some(from_hash), Some(to_hash)) = (
+                event_data_str(from, "grant_action_hash"),
+                event_data_str(to, "grant_action_hash"),
+            ) else {
+                return RelationValidation::Incomplete(
+                    "grant-to-claim dependency requires exact grant_action_hash on both events".into(),
+                );
+            };
+            if from_hash != to_hash {
+                return RelationValidation::Violation(
+                    "capability claim depends on a different grant ActionHash".into(),
+                );
+            }
+            RelationValidation::Valid
+        }
+        "validator_receipt" => {
+            if (from_type, to_type) != ("action_authored", "validation_disposition") {
+                return RelationValidation::Incomplete(format!(
+                    "validator_receipt pair {from_type} -> {to_type} is not an action/validation pair"
+                ));
+            }
+            let action_hash = event_data_str(from, "action_hash");
+            let validated_hash = event_data_str(to, "action_hash");
+            let author_conductor = to
+                .get("data")
+                .and_then(|data| data.get("author_conductor_id"))
+                .and_then(Value::as_str);
+            let receiving_conductor = to
+                .get("data")
+                .and_then(|data| data.get("receiving_conductor_id"))
+                .and_then(Value::as_str);
+            let source_conductor = from
+                .get("conductor_id")
+                .and_then(Value::as_str);
+            let target_conductor = to
+                .get("conductor_id")
+                .and_then(Value::as_str);
+            let (Some(action_hash), Some(validated_hash), Some(author_conductor),
+                 Some(receiving_conductor), Some(source_conductor), Some(target_conductor)) =
+                (action_hash, validated_hash, author_conductor, receiving_conductor,
+                 source_conductor, target_conductor)
+            else {
+                return RelationValidation::Incomplete(
+                    "validator_receipt requires exact action and author/receiver conductor identities".into(),
+                );
+            };
+            if action_hash != validated_hash
+                || source_conductor != author_conductor
+                || target_conductor != receiving_conductor
+            {
+                return RelationValidation::Violation(
+                    "validator receipt does not match the exact authored action and author/receiver conductors".into(),
+                );
+            }
+            RelationValidation::Valid
+        }
+        "observer_confirmation" => {
+            if (from_type, to_type) != ("validation_disposition", "projection_observed") {
+                return RelationValidation::Incomplete(format!(
+                    "observer_confirmation pair {from_type} -> {to_type} is not a validator/projection pair"
+                ));
+            }
+            let (Some(validated_hash), Some(projection_hash), Some(observed_hash), Some(required_hash)) = (
+                event_data_str(from, "action_hash"),
+                event_data_str(to, "action_hash"),
+                event_data_str(to, "observed_action_hash"),
+                event_data_str(to, "required_action_hash"),
+            ) else {
+                return RelationValidation::Incomplete(
+                    "observer_confirmation requires exact validation and projection ActionHashes".into(),
+                );
+            };
+            if validated_hash != projection_hash
+                || validated_hash != observed_hash
+                || validated_hash != required_hash
+            {
+                return RelationValidation::Violation(
+                    "observer projection does not identify the exact action accepted/rejected by the validator".into(),
+                );
+            }
+            let validator_event_id = to
+                .get("data")
+                .and_then(|data| data.get("validator_event_id"))
+                .and_then(Value::as_str);
+            let from_event_id = from.get("event_id").and_then(Value::as_str);
+            if validator_event_id.is_none() || from_event_id.is_none() {
+                return RelationValidation::Incomplete(
+                    "observer_confirmation requires validator_event_id linked to the exact validation event".into(),
+                );
+            }
+            if validator_event_id != from_event_id {
+                return RelationValidation::Violation(
+                    "observer projection references a different validator event".into(),
+                );
+            }
+            RelationValidation::Valid
+        }
+        "test_harness_barrier" => {
+            if evidence_class != "synthetic" {
+                RelationValidation::Violation(
+                    "test_harness_barrier is permitted only for synthetic histories".into(),
+                )
+            } else {
+                RelationValidation::Valid
+            }
+        }
+        _ => RelationValidation::Incomplete(format!(
+            "causal relation {relation} is unsupported by Pulse causal profile v1"
+        )),
+    }
+}
+
 fn audit(
     bundle_bytes: &[u8],
     trace_bytes: &[u8],
@@ -1163,6 +1368,33 @@ fn audit(
                 "causal edge cannot point to itself",
             );
         }
+        if let (Some(from_event), Some(to_event)) = (
+            trace_event_map.get(&edge.from_event_id),
+            trace_event_map.get(&edge.to_event_id),
+        ) {
+            match validate_causal_relation(
+                &edge.relation,
+                from_event,
+                to_event,
+                &bundle.evidence_class,
+            ) {
+                RelationValidation::Valid => {}
+                RelationValidation::Incomplete(message) => finding(
+                    &mut findings,
+                    "CAUSAL_EDGE_SEMANTICS_INCOMPLETE",
+                    "incomplete",
+                    None,
+                    message,
+                ),
+                RelationValidation::Violation(message) => finding(
+                    &mut findings,
+                    "CAUSAL_EDGE_SEMANTICS_MISMATCH",
+                    "violation",
+                    None,
+                    message,
+                ),
+            }
+        }
         if !matches!(
             edge.relation.as_str(),
             "program_order"
@@ -1710,7 +1942,7 @@ mod tests {
         bundle_value["causal_edges"] = json!([{
             "from_event_id": "host-grant-observation-1",
             "to_event_id": "host-call-observation-2",
-            "relation": "request_response",
+            "relation": "program_order",
             "basis_attestation_ids": ["att-host-grant-1", "att-host-call-2"]
         }]);
 
