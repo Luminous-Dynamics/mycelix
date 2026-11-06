@@ -1,9 +1,9 @@
 {
-  "snapshot_id": "MYCELIX-ACCOUNTING-EXTERNAL-BENCHMARK-SNAPSHOT-2026-11-06T0604-SAST",
+  "snapshot_id": "MYCELIX-ACCOUNTING-EXTERNAL-BENCHMARK-SNAPSHOT-2026-11-06T1359-SAST",
   "schema_version": "1.3.0",
   "captured_on": "2026-11-06",
-  "captured_at": "2026-11-06T06:04:00+02:00",
-  "supersedes_snapshot_id": "MYCELIX-ACCOUNTING-EXTERNAL-BENCHMARK-SNAPSHOT-2026-11-05T2212-SAST",
+  "captured_at": "2026-11-06T13:59:00+02:00",
+  "supersedes_snapshot_id": "MYCELIX-ACCOUNTING-EXTERNAL-BENCHMARK-SNAPSHOT-2026-11-06T0604-SAST",
   "claim_ceiling": "public_source_metadata_snapshot_not_benchmark_reproduction_or_dataset_license",
   "sources": [
     {
@@ -12,7 +12,7 @@
       "title": "Mercor APEX methodology page — accounting entry observed 2026-11-05 19:39 SAST",
       "source_role": "methodology_page",
       "canonical_url": "https://www.mercor.com/apex/methodology/",
-      "observed_at": "2026-11-06T06:04:00+02:00",
+      "observed_at": "2026-11-06T13:59:00+02:00",
       "publication_date": null,
       "source_state": "current_methodology_snapshot",
       "access": {
@@ -69,7 +69,7 @@
       "title": "APEX-Accounting research paper, arXiv:2607.27189",
       "source_role": "research_paper",
       "canonical_url": "https://arxiv.org/abs/2607.27189",
-      "observed_at": "2026-11-06T06:04:00+02:00",
+      "observed_at": "2026-11-06T13:59:00+02:00",
       "publication_date": "2026-07-29",
       "source_state": "paper_cohort_160_snapshot",
       "access": {
@@ -171,7 +171,7 @@
       "title": "Mercor APEX-Accounting live leaderboard — 2026-11-05 19:39 SAST",
       "source_role": "live_leaderboard",
       "canonical_url": "https://www.mercor.com/apex/apex-accounting-leaderboard/",
-      "observed_at": "2026-11-06T06:04:00+02:00",
+      "observed_at": "2026-11-06T13:59:00+02:00",
       "publication_date": "2026-11-05",
       "source_state": "live_page_cohort_differs_from_paper_unreconciled",
       "access": {
@@ -309,7 +309,7 @@
       "title": "FINBALANCE: A Multi-Document Accounting Reconciliation Benchmark",
       "source_role": "research_paper",
       "canonical_url": "https://aclanthology.org/2026.findings-emnlp.675/",
-      "observed_at": "2026-11-06T06:04:00+02:00",
+      "observed_at": "2026-11-06T13:59:00+02:00",
       "publication_date": null,
       "source_state": "primary_paper_snapshot",
       "access": {
@@ -393,7 +393,7 @@
       "title": "Introducing the AI Productivity Index for Accounting — official Mercor methodology article",
       "source_role": "publisher_article",
       "canonical_url": "https://www.mercor.com/blog/introducing-the-ai-productivity-index-for-accounting/",
-      "observed_at": "2026-11-06T06:04:00+02:00",
+      "observed_at": "2026-11-06T13:59:00+02:00",
       "publication_date": "2026-07-31",
       "source_state": "publisher_article_cohort_context",
       "access": {
@@ -526,12 +526,12 @@
       "notes": "This publisher article provides methodology detail absent from the leaderboard summary: 160-task original held-out cohort, >40 expert authors, median 11 years experience, 13.7 mean rubric criteria/task, 97% judge/expert agreement and a one-world/ten-task public sample. It also explains that the canonical leaderboard uses Loop Harness, while a purpose-built Ramp Harness is a separate ablation and not a test of the full Ramp Stack."
     },
     {
-      "source_id": "APEX-LIVE-LEADERBOARD-2026-11-06-0604",
+      "source_id": "APEX-LIVE-LEADERBOARD-2026-11-06-1359",
       "benchmark_id": "APEX-ACCOUNTING",
       "title": "Mercor APEX-Accounting live leaderboard — current live cohort and harness details observed 2026-11-06 06:04 SAST",
       "source_role": "live_leaderboard_refresh",
       "canonical_url": "https://www.mercor.com/apex/apex-accounting-leaderboard/",
-      "observed_at": "2026-11-06T06:04:00+02:00",
+      "observed_at": "2026-11-06T13:59:00+02:00",
       "publication_date": null,
       "source_state": "current_live_leaderboard_refresh",
       "access": {
@@ -713,9 +713,93 @@
           "display_locator": "Leaderboard description, lines 30–32",
           "evidence_status": "scope_description",
           "interpretation": "The live leaderboard says an eleventh world is open source in addition to ten held-out worlds. The publisher article describes a one-world/ten-task public sample; retain both exact source wordings rather than inferring equivalence without a release manifest."
+        },
+        {
+          "observation_id": "APEX-LIVE-1359-100-TASKS",
+          "metric_or_fact": "live_leaderboard_task_count",
+          "observed_value": 100,
+          "unit": "tasks",
+          "display_locator": "Official leaderboard current indexed header",
+          "evidence_status": "live_page_display_only",
+          "interpretation": "The current official indexed leaderboard response states 100 tasks. This remains separate from the paper's 160-task cohort."
+        },
+        {
+          "observation_id": "APEX-LIVE-1359-1475-CRITERIA",
+          "metric_or_fact": "live_leaderboard_criterion_count",
+          "observed_value": 1475,
+          "unit": "criteria",
+          "display_locator": "Official leaderboard current indexed header",
+          "evidence_status": "live_page_display_only",
+          "interpretation": "The current official indexed leaderboard response states 1,475 criteria."
+        },
+        {
+          "observation_id": "APEX-LIVE-1359-71-5",
+          "metric_or_fact": "live_leaderboard_highest_score",
+          "observed_value": 71.5,
+          "unit": "percent criteria passed",
+          "display_locator": "Official leaderboard current indexed top row",
+          "evidence_status": "live_page_display_only",
+          "interpretation": "Current indexed official response shows Gemini 4 Argon High at 71.5% ±4.8. Not independently reproduced."
         }
       ],
-      "notes": "This sixth source record is a 2026-11-06 06:04 SAST recapture of the official live leaderboard. It adds the live 100-task / 1,475-criteria cohort, 46 available model configurations, Mean Criteria k=4 versus eight-run pass curves, retry policy, token/step caps, bootstrap procedure, 7.5 file average and grader inputs. The 160-task / 2,186-criterion paper/blog cohort and its Mean Criteria@3 remain separate source records. The live page now says an eleventh world is open source; the official article says a public sample is one world/ten tasks. Do not assume those descriptions refer to the same release artifact without source manifest evidence."
+      "notes": "2026-11-06 13:59 SAST refresh of the official live leaderboard. Search-indexed official results continue to show 100 tasks / 1,475 criteria / ten worlds / 71.5% highest. The official page query-parameter rendering retrieved in the same session exposed a conflicting legacy-looking 160-task / 2,186-criteria / 61.0%-headline table. Both are retained as separate source records; neither is silently substituted for the other. See the alternate rendering record."
+    },
+    {
+      "source_id": "APEX-LIVE-ALT-RENDER-2026-11-06-1359",
+      "benchmark_id": "APEX-ACCOUNTING",
+      "title": "APEX-Accounting official leaderboard alternate query-parameter rendering (potential stale variant)",
+      "source_role": "live_leaderboard_refresh",
+      "canonical_url": "https://www.mercor.com/apex/apex-accounting-leaderboard/?trk=article-ssr-frontend-pulse_little-text-block",
+      "observed_at": "2026-11-06T13:59:00+02:00",
+      "publication_date": null,
+      "source_state": "live_page_variant_conflict",
+      "access": {
+        "metadata_access": "public",
+        "scored_split_access": "public_dev_subset_only",
+        "redistribution_status": "not_authorized_by_this_snapshot",
+        "note": "Official query-parameter URL response only. It may be stale or cached; this observation provides no task redistribution rights."
+      },
+      "source_bytes_archived": false,
+      "source_bytes_sha256": null,
+      "observations": [
+        {
+          "observation_id": "APEX-ALT-RENDER-160-TASKS",
+          "metric_or_fact": "alternate_render_task_count",
+          "observed_value": 160,
+          "unit": "tasks",
+          "display_locator": "Alternate official rendering lines 20–32",
+          "evidence_status": "alternate_live_page_render_display",
+          "interpretation": "An alternate query-parameter rendering of the official leaderboard exposed a 160-task, ten-world cohort."
+        },
+        {
+          "observation_id": "APEX-ALT-RENDER-2186-CRITERIA",
+          "metric_or_fact": "alternate_render_criteria_count",
+          "observed_value": 2186,
+          "unit": "criteria",
+          "display_locator": "Alternate official rendering header",
+          "evidence_status": "alternate_live_page_render_display",
+          "interpretation": "The alternate rendering states 2,186 criteria."
+        },
+        {
+          "observation_id": "APEX-ALT-RENDER-61-0-HEADLINE",
+          "metric_or_fact": "alternate_render_headline_score",
+          "observed_value": 61,
+          "unit": "percent criteria passed",
+          "display_locator": "Alternate official rendering header",
+          "evidence_status": "alternate_live_page_render_display",
+          "interpretation": "The alternate rendering headline shows 61.0% highest score."
+        },
+        {
+          "observation_id": "APEX-ALT-RENDER-61-8-ROW",
+          "metric_or_fact": "alternate_render_opus_score",
+          "observed_value": 61.8,
+          "unit": "percent criteria passed",
+          "display_locator": "Alternate official rendering table, Opus 5.5 Max row",
+          "evidence_status": "alternate_live_page_render_display",
+          "interpretation": "The same alternate rendering shows a 61.8% Opus row despite the 61.0% headline, an internal inconsistency."
+        }
+      ],
+      "notes": "A different official query-parameter rendering fetched in the same research session exposed 160 tasks / 2,186 criteria / 61.0% headline and a 61.8% table row. It may be a stale cached variant. This must not be treated as the current canonical live cohort until the publisher provides a cohort/harness/version mapping."
     }
   ]
 }
