@@ -1,7 +1,7 @@
 #![forbid(unsafe_code)]
 
 use jsonschema::draft202012;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -28,7 +28,11 @@ pub fn verify(
     let oracle_schema = parse_json("oracle schema", oracle_schema_bytes, &mut errors);
 
     if errors.is_empty() {
-        errors.extend(validate_instance("candidate corpus", &candidate_schema, &candidate));
+        errors.extend(validate_instance(
+            "candidate corpus",
+            &candidate_schema,
+            &candidate,
+        ));
         errors.extend(validate_instance("public oracle", &oracle_schema, &oracle));
     }
 
@@ -55,7 +59,8 @@ pub fn verify(
                     let expected = string(reference, "expected_disposition").unwrap_or("<missing>");
                     let blocks = !matches!(
                         assessment.disposition,
-                        "complete_exact_population_and_rollforward" | "complete_with_authorized_nonposting"
+                        "complete_exact_population_and_rollforward"
+                            | "complete_with_authorized_nonposting"
                     );
                     let expected_blocks = reference
                         .get("blocks_complete")
@@ -144,7 +149,10 @@ fn validate_instance(label: &str, schema: &Value, instance: &Value) -> Vec<Strin
     if let Err(error) = jsonschema::draft202012::meta::validate(schema) {
         return vec![format!("{label}: invalid Draft 2020-12 schema: {error}")];
     }
-    let validator = match draft202012::options().should_validate_formats(true).build(schema) {
+    let validator = match draft202012::options()
+        .should_validate_formats(true)
+        .build(schema)
+    {
         Ok(validator) => validator,
         Err(error) => return vec![format!("{label}: schema compilation failed: {error}")],
     };
@@ -219,9 +227,7 @@ fn assess_case(case: &Value) -> AppResult<Assessment> {
         findings.insert("source_frontier_unqualified".to_owned());
         reasons.insert("expected_population_not_qualified_complete".to_owned());
     }
-    if string(source, "expected_event_commitment")
-        != string(source, "closed_event_commitment")
-    {
+    if string(source, "expected_event_commitment") != string(source, "closed_event_commitment") {
         findings.insert("stale_close_frontier".to_owned());
         reasons.insert("source_population_frontier_changed_after_close".to_owned());
     }
@@ -241,7 +247,9 @@ fn assess_case(case: &Value) -> AppResult<Assessment> {
 
     let mut account_by_id = BTreeMap::<String, &Value>::new();
     for account in array(manifest, "account_profiles") {
-        let id = string(account, "account_ref").unwrap_or_default().to_owned();
+        let id = string(account, "account_ref")
+            .unwrap_or_default()
+            .to_owned();
         if account_by_id.insert(id.clone(), account).is_some() {
             findings.insert("unsupported_profile_or_unit".to_owned());
             reasons.insert(format!("duplicate_account_profile:{id}"));
@@ -296,8 +304,10 @@ fn assess_case(case: &Value) -> AppResult<Assessment> {
         }
         let effective_at = string(journal, "effective_at").unwrap_or_default();
         let booking_at = string(journal, "booking_at").unwrap_or_default();
-        let post_close_authorized =
-            journal.get("post_close_authorized").and_then(Value::as_bool) == Some(true);
+        let post_close_authorized = journal
+            .get("post_close_authorized")
+            .and_then(Value::as_bool)
+            == Some(true);
         let reopen_authorization = string(journal, "post_close_authorization_ref")
             .filter(|value| !value.trim().is_empty());
         let qualified_reopen = post_close_authorized && reopen_authorization.is_some();
@@ -336,10 +346,14 @@ fn assess_case(case: &Value) -> AppResult<Assessment> {
             let value = amount_field(posting, "amount_minor")?;
             match string(posting, "direction") {
                 Some("DEBIT") => {
-                    debits = debits.checked_add(value).ok_or_else(|| "debit sum overflow".to_owned())?;
+                    debits = debits
+                        .checked_add(value)
+                        .ok_or_else(|| "debit sum overflow".to_owned())?;
                 }
                 Some("CREDIT") => {
-                    credits = credits.checked_add(value).ok_or_else(|| "credit sum overflow".to_owned())?;
+                    credits = credits
+                        .checked_add(value)
+                        .ok_or_else(|| "credit sum overflow".to_owned())?;
                 }
                 _ => {
                     findings.insert("unsupported_profile_or_unit".to_owned());
@@ -356,16 +370,21 @@ fn assess_case(case: &Value) -> AppResult<Assessment> {
     for (event_ref, journals) in &journal_by_event {
         if journals.len() > 1 {
             findings.insert("duplicate_economic_posting".to_owned());
-            reasons.insert(format!("economic_event_projected_more_than_once:{event_ref}"));
+            reasons.insert(format!(
+                "economic_event_projected_more_than_once:{event_ref}"
+            ));
         }
     }
 
     for event_ref in &expected_events {
-        let event = event_by_id.get(event_ref).ok_or_else(|| {
-            format!("expected event {event_ref} has no event disposition")
-        })?;
+        let event = event_by_id
+            .get(event_ref)
+            .ok_or_else(|| format!("expected event {event_ref} has no event disposition"))?;
         let treatment = string(event, "terminal_treatment").unwrap_or_default();
-        let matching = journal_by_event.get(event_ref).map(Vec::as_slice).unwrap_or(&[]);
+        let matching = journal_by_event
+            .get(event_ref)
+            .map(Vec::as_slice)
+            .unwrap_or(&[]);
         match treatment {
             "journal_required" if matching.len() == 0 => {
                 findings.insert("missing_journal_projection".to_owned());
@@ -417,16 +436,24 @@ fn assess_case(case: &Value) -> AppResult<Assessment> {
                 let mut remaining = BTreeMap::<(String, String), i128>::new();
                 for posting in array(original, "postings") {
                     let key = (
-                        string(posting, "account_ref").unwrap_or_default().to_owned(),
+                        string(posting, "account_ref")
+                            .unwrap_or_default()
+                            .to_owned(),
                         string(posting, "direction").unwrap_or_default().to_owned(),
                     );
                     let value = amount_field(posting, "amount_minor")?;
                     *remaining.entry(key).or_default() += value;
                 }
                 for posting in array(journal, "postings") {
-                    let account = string(posting, "account_ref").unwrap_or_default().to_owned();
+                    let account = string(posting, "account_ref")
+                        .unwrap_or_default()
+                        .to_owned();
                     let direction = string(posting, "direction").unwrap_or_default();
-                    let original_direction = if direction == "DEBIT" { "CREDIT" } else { "DEBIT" };
+                    let original_direction = if direction == "DEBIT" {
+                        "CREDIT"
+                    } else {
+                        "DEBIT"
+                    };
                     let key = (account, original_direction.to_owned());
                     let value = amount_field(posting, "amount_minor")?;
                     match remaining.get_mut(&key) {
@@ -468,7 +495,9 @@ fn assess_case(case: &Value) -> AppResult<Assessment> {
     let mut reconstructed = opening_map.clone();
     for journal in &active_journals {
         for posting in array(journal, "postings") {
-            let account_ref = string(posting, "account_ref").unwrap_or_default().to_owned();
+            let account_ref = string(posting, "account_ref")
+                .unwrap_or_default()
+                .to_owned();
             let profile = account_by_id.get(&account_ref);
             let profile = match profile {
                 Some(profile) => *profile,
@@ -477,11 +506,15 @@ fn assess_case(case: &Value) -> AppResult<Assessment> {
             let normal_side = string(profile, "normal_side").unwrap_or_default();
             let direction = string(posting, "direction").unwrap_or_default();
             let value = amount_field(posting, "amount_minor")?;
-            let signed = if direction == normal_side { value } else { -value };
+            let signed = if direction == normal_side {
+                value
+            } else {
+                -value
+            };
             let current = reconstructed.entry(account_ref.clone()).or_default();
-            *current = current.checked_add(signed).ok_or_else(|| {
-                format!("account balance overflow for {account_ref}")
-            })?;
+            *current = current
+                .checked_add(signed)
+                .ok_or_else(|| format!("account balance overflow for {account_ref}"))?;
         }
     }
     let closing_map = balance_map(array(manifest, "closing_balances"))?;
@@ -504,8 +537,16 @@ fn assess_case(case: &Value) -> AppResult<Assessment> {
             }
         };
         match string(profile, "normal_side") {
-            Some("DEBIT") => debit_total = debit_total.checked_add(*value).ok_or_else(|| "trial balance debit overflow".to_owned())?,
-            Some("CREDIT") => credit_total = credit_total.checked_add(*value).ok_or_else(|| "trial balance credit overflow".to_owned())?,
+            Some("DEBIT") => {
+                debit_total = debit_total
+                    .checked_add(*value)
+                    .ok_or_else(|| "trial balance debit overflow".to_owned())?
+            }
+            Some("CREDIT") => {
+                credit_total = credit_total
+                    .checked_add(*value)
+                    .ok_or_else(|| "trial balance credit overflow".to_owned())?
+            }
             _ => {
                 findings.insert("unsupported_profile_or_unit".to_owned());
                 reasons.insert("invalid_account_normal_side".to_owned());
@@ -700,8 +741,10 @@ mod tests {
         let case = case_by_id(&candidate, "FJS-025");
         let assessment = assess_case(case).expect("assessment");
         assert_eq!(assessment.disposition, "orphan_or_unauthorized_journal");
-        assert!(assessment
-            .reasons
-            .contains("post_close_authorization_reference_missing"));
+        assert!(
+            assessment
+                .reasons
+                .contains("post_close_authorization_reference_missing")
+        );
     }
 }
