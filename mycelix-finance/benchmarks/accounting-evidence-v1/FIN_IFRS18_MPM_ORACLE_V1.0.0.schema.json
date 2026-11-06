@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/fin-ifrs18-mpm-oracle-v1.0.0.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "oracle_id",
+    "schema_version",
+    "claim_ceiling",
+    "expectations"
+  ],
+  "properties": {
+    "oracle_id": {
+      "const": "FIN-IFRS18-MPM-ORACLE-S0"
+    },
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "claim_ceiling": {
+      "const": "public_synthetic_reference_outcomes_not_professional_adjudication"
+    },
+    "expectations": {
+      "type": "array",
+      "minItems": 26,
+      "maxItems": 26,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "case_id",
+          "expected_disposition",
+          "reason_codes",
+          "blocks_reporting_acceptance"
+        ],
+        "properties": {
+          "case_id": {
+            "type": "string",
+            "pattern": "^MPM-[0-9]{3}$"
+          },
+          "expected_disposition": {
+            "enum": [
+              "complete",
+              "incomplete_disclosure",
+              "reconciliation_error",
+              "not_mpm",
+              "profile_mismatch",
+              "needs_review"
+            ]
+          },
+          "reason_codes": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string"
+            }
+          },
+          "blocks_reporting_acceptance": {
+            "type": "boolean"
+          }
+        }
+      }
+    }
+  }
+}
