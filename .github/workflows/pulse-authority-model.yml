@@ -18,6 +18,7 @@ on:
     paths:
       - ".github/workflows/pulse-authority-model.yml"
       - "mycelix-workspace/mycelix-pulse/docs/security/PulseAuthorityLifecycle*"
+      - "mycelix-workspace/mycelix-pulse/docs/security/PulseTrustRootLifecycle*"
       - "mycelix-workspace/mycelix-pulse/docs/security/PulseMailboxValidation*"
       - "mycelix-workspace/mycelix-pulse/docs/security/PulseAuthorityCheckpoint*"
       - "mycelix-workspace/mycelix-pulse/docs/security/PulseAuthorityCheckpointLineage*"
