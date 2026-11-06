@@ -3210,6 +3210,11 @@
               "account_ref": "expense",
               "amount_minor": "0",
               "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+            },
+            {
+              "account_ref": "receivable",
+              "amount_minor": "0",
+              "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
             }
           ]
         },
