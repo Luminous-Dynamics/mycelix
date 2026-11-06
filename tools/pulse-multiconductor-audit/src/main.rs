@@ -2128,6 +2128,10 @@ fn main()->Result<(),Box<dyn Error>>{
     let mut benchmark_events=None;
     let mut benchmark_parse_events=None;
     let mut benchmark_join_operations=None;
+    let mut benchmark_dag_shape: Option<String> = None;
+    let mut benchmark_dag_nodes: Option<usize> = None;
+    let mut benchmark_dag_conductors: Option<usize> = None;
+    let mut benchmark_dag_queries: Option<usize> = None;
     let mut args=env::args().skip(1);
     while let Some(arg)=args.next(){
         match arg.as_str(){
@@ -2145,21 +2149,48 @@ fn main()->Result<(),Box<dyn Error>>{
                 let value=args.next().ok_or("--benchmark-join-operations requires a count")?;
                 benchmark_join_operations=Some(value.parse::<usize>()?);
             }
+            "--benchmark-dag-shape"=>{
+                benchmark_dag_shape=Some(args.next().ok_or("--benchmark-dag-shape requires a shape")?);
+            }
+            "--benchmark-dag-nodes"=>{
+                let value=args.next().ok_or("--benchmark-dag-nodes requires a count")?;
+                benchmark_dag_nodes=Some(value.parse::<usize>()?);
+            }
+            "--benchmark-dag-conductors"=>{
+                let value=args.next().ok_or("--benchmark-dag-conductors requires a count")?;
+                benchmark_dag_conductors=Some(value.parse::<usize>()?);
+            }
+            "--benchmark-dag-queries"=>{
+                let value=args.next().ok_or("--benchmark-dag-queries requires a count")?;
+                benchmark_dag_queries=Some(value.parse::<usize>()?);
+            }
             "--help"|"-h"=>{
                 println!("pulse-multiconductor-audit --input HISTORY.json [--output REPORT.json]");
                 println!("pulse-multiconductor-audit --benchmark-events COUNT [--output BENCHMARK.json] (1..=1000000)");
                 println!("pulse-multiconductor-audit --benchmark-parse-events COUNT [--output PARSE-BENCHMARK.json] (1..=1000000)");
                 println!("pulse-multiconductor-audit --benchmark-join-operations COUNT [--output JOIN-BENCHMARK.json] (3..=30000)");
+                println!("pulse-multiconductor-audit --benchmark-dag-shape SHAPE --benchmark-dag-nodes COUNT --benchmark-dag-conductors COUNT --benchmark-dag-queries COUNT [--output DAG-BENCHMARK.json]");
+                println!("DAG shapes: long_chain, wide_fanout, wide_fanin, diamond, sparse_dag, bounded_dense_dag (bounded_dense_dag <= 512 nodes)");
                 return Ok(());
             }
             other=>return Err(format!("unknown argument: {other}").into())
         }
     }
 
+    let dag_fields = [
+        benchmark_dag_shape.is_some(),
+        benchmark_dag_nodes.is_some(),
+        benchmark_dag_conductors.is_some(),
+        benchmark_dag_queries.is_some(),
+    ];
+    if dag_fields.iter().any(|present| *present) && !dag_fields.iter().all(|present| *present) {
+        return Err("DAG benchmark requires shape, nodes, conductors and queries".into());
+    }
     let benchmark_modes = [
         benchmark_events.is_some(),
         benchmark_parse_events.is_some(),
         benchmark_join_operations.is_some(),
+        dag_fields.iter().all(|present| *present),
     ];
     if benchmark_modes.iter().filter(|mode| **mode).count() > 1 {
         return Err("benchmark modes are mutually exclusive".into());
@@ -2175,6 +2206,16 @@ fn main()->Result<(),Box<dyn Error>>{
     if let Some(count)=benchmark_join_operations {
         if input.is_some() { return Err("--input and --benchmark-join-operations are mutually exclusive".into()); }
         return run_join_benchmark(count, output);
+    }
+    if dag_fields.iter().all(|present| *present) {
+        if input.is_some() { return Err("--input and --benchmark-dag-* are mutually exclusive".into()); }
+        return run_dag_profile_benchmark(
+            benchmark_dag_shape.as_deref().unwrap(),
+            benchmark_dag_nodes.unwrap(),
+            benchmark_dag_conductors.unwrap(),
+            benchmark_dag_queries.unwrap(),
+            output,
+        );
     }
 
     let input=input.ok_or("--input is required unless a benchmark mode is used")?;
