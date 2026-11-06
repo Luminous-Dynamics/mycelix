@@ -78,8 +78,12 @@ struct BorrowedCausalEdge<'a> {
 /// prototype: it avoids allocating a BTreeMap node and a Value tree per field.
 /// Event payloads in the current schema are small closed objects.
 #[derive(Debug)]
+const MAX_EVENT_DATA_FIELDS: usize = 16;
+
+#[derive(Debug)]
 struct RawObject<'a> {
-    fields: Vec<(&'a str, &'a RawValue)>,
+    fields: [Option<(&'a str, &'a RawValue)>; MAX_EVENT_DATA_FIELDS],
+    len: usize,
 }
 
 impl<'de> Deserialize<'de> for RawObject<'de> {
@@ -100,14 +104,20 @@ impl<'de> Deserialize<'de> for RawObject<'de> {
             where
                 A: MapAccess<'de>,
             {
-                let capacity = map.size_hint().unwrap_or(8);
-                let mut fields = Vec::with_capacity(capacity);
+                let mut fields = [None; MAX_EVENT_DATA_FIELDS];
+                let mut len = 0;
                 while let Some((key, value)) =
                     map.next_entry::<&'de str, &'de RawValue>()?
                 {
-                    fields.push((key, value));
+                    if len == MAX_EVENT_DATA_FIELDS {
+                        return Err(serde::de::Error::custom(
+                            "event data exceeds the closed v2 field-count bound",
+                        ));
+                    }
+                    fields[len] = Some((key, value));
+                    len += 1;
                 }
-                Ok(RawObject { fields })
+                Ok(RawObject { fields, len })
             }
         }
 
@@ -117,8 +127,9 @@ impl<'de> Deserialize<'de> for RawObject<'de> {
 
 impl<'a> RawObject<'a> {
     fn raw(&self, key: &str) -> Option<&'a RawValue> {
-        self.fields
+        self.fields[..self.len]
             .iter()
+            .flatten()
             .find_map(|(candidate, value)| (*candidate == key).then_some(*value))
     }
 
@@ -152,11 +163,15 @@ impl<'a> RawObject<'a> {
     }
 
     fn exact_fields(&self, expected: &[&str]) -> bool {
-        self.fields.len() == expected.len()
-            && self.fields.iter().all(|(key, _)| expected.contains(key))
+        self.len == expected.len()
+            && self.fields[..self.len]
+                .iter()
+                .flatten()
+                .all(|(key, _)| expected.contains(key))
             && expected.iter().all(|expected_key| {
-                self.fields
+                self.fields[..self.len]
                     .iter()
+                    .flatten()
                     .filter(|(key, _)| key == expected_key)
                     .count()
                     == 1
@@ -164,19 +179,22 @@ impl<'a> RawObject<'a> {
     }
 
     fn exact_fields_with_optional(&self, required: &[&str], optional: &[&str]) -> bool {
-        self.fields
+        self.fields[..self.len]
             .iter()
+            .flatten()
             .all(|(key, _)| required.contains(key) || optional.contains(key))
             && required.iter().all(|required_key| {
-                self.fields
+                self.fields[..self.len]
                     .iter()
+                    .flatten()
                     .filter(|(key, _)| key == required_key)
                     .count()
                     == 1
             })
             && optional.iter().all(|optional_key| {
-                self.fields
+                self.fields[..self.len]
                     .iter()
+                    .flatten()
                     .filter(|(key, _)| key == optional_key)
                     .count()
                     <= 1
@@ -578,7 +596,7 @@ mod tests {
 
             assert!(valid_event_shape(event), "event {} did not match v2 shape", event.event_id);
             let borrowed_data: RawObject<'_> = serde_json::from_str(event.data.get()).unwrap();
-            for (key, raw) in &borrowed_data.fields {
+            for (key, raw) in borrowed_data.fields[..borrowed_data.len].iter().flatten() {
                 assert_eq!(
                     serde_json::from_str::<Value>(raw.get()).unwrap(),
                     owned_event["data"][*key],
