@@ -1833,7 +1833,7 @@
             "external_id": "INV-DRIFT-001",
             "revision": "r1",
             "source_kind": "invoice",
-            "received_at": "2026-11-05T10:00:00Z",
+            "received_at": "2026-11-05T11:00:00Z",
             "integrity_state": "synthetic_match",
             "supersedes_source_ref": null,
             "transport_metadata": {
@@ -1875,7 +1875,7 @@
             "epistemic_state": "asserted",
             "valid_from": "2026-10-01",
             "valid_to": null,
-            "recorded_at": "2026-11-05T09:00:00Z",
+            "recorded_at": "2026-11-05T11:00:00Z",
             "source_ref": "SRC-OTHER-TENANT",
             "source_locator": "page:1/row:1"
           }
