@@ -487,7 +487,7 @@ fn edge_basis_matches_authenticated_endpoints(
     let mut to_authenticated = false;
     for attestation_id in basis_attestation_ids {
         if !accepted_attestation_ids.contains(attestation_id) {
-            continue;
+            return false;
         }
         match attestation_event_ids
             .get(attestation_id)
@@ -495,7 +495,7 @@ fn edge_basis_matches_authenticated_endpoints(
         {
             Some(event_id) if event_id == from_event_id => from_authenticated = true,
             Some(event_id) if event_id == to_event_id => to_authenticated = true,
-            _ => {}
+            _ => return false,
         }
     }
     from_authenticated && to_authenticated
@@ -1541,6 +1541,14 @@ mod tests {
             "event-to",
         ));
         assert!(!edge_basis_matches_authenticated_endpoints(
+            &["att-from".into(), "att-to".into(), "att-unrelated".into()],
+            &attestation_events,
+            &accepted_attestations,
+            &accepted_events,
+            "event-from",
+            "event-to",
+        ));
+        assert!(!edge_basis_matches_authenticated_endpoints(
             &["att-from".into()],
             &attestation_events,
             &accepted_attestations,
@@ -1555,11 +1563,21 @@ mod tests {
         let attestation_events = BTreeMap::from([
             ("att-from".to_string(), "event-from".to_string()),
             ("att-to".to_string(), "event-to".to_string()),
+            ("att-extra".to_string(), "event-extra".to_string()),
         ]);
-        let accepted_attestations = BTreeSet::from(["att-from".to_string()]);
-        let accepted_events = BTreeSet::from(["event-from".to_string()]);
+        let accepted_attestations = BTreeSet::from(["att-from".to_string(), "att-to".to_string()]);
+        let accepted_events = BTreeSet::from(["event-from".to_string(), "event-to".to_string()]);
         assert!(!edge_basis_matches_authenticated_endpoints(
             &["att-from".into(), "att-to".into()],
+            &attestation_events,
+            &accepted_attestations,
+            &accepted_events,
+            "event-from",
+            "event-to",
+        ));
+
+        assert!(!edge_basis_matches_authenticated_endpoints(
+            &["att-from".into(), "att-to".into(), "att-extra".into()],
             &attestation_events,
             &accepted_attestations,
             &accepted_events,
