@@ -346,12 +346,17 @@ fn validate_link(case: &Value, link: &Value) -> Result<(), String> {
         return Err(format!("{case_id}: match contains duplicate source refs"));
     }
     let mut sides = BTreeMap::<&str, Vec<&str>>::new();
+    let mut tenant_namespaces = BTreeSet::<String>::new();
     for reference in &refs {
-        source_by_ref(case, reference)?;
-        if !source_available(case, source_by_ref(case, reference)?)? {
+        let source = source_by_ref(case, reference)?;
+        if !source_available(case, source)? {
             return Err(format!("{case_id}: expected link uses source {reference} unavailable at frontier"));
         }
+        tenant_namespaces.insert(string(source, "tenant_namespace")?.to_owned());
         sides.entry(dataset_side(case, reference)?).or_default().push(source_kind(case, reference)?);
+    }
+    if tenant_namespaces.len() != 1 {
+        return Err(format!("{case_id}: one reconciliation match cannot span tenant namespaces"));
     }
 
     let expected_amount = optional_integer(link, "amount_minor")
@@ -368,8 +373,6 @@ fn validate_link(case: &Value, link: &Value) -> Result<(), String> {
             {
                 return Err(format!("{case_id}: ledger-to-settlement link cardinality/type mismatch"));
             }
-            let ledger_amount = amount_and_currency_for_source(case, refs[sides.get("ledger").unwrap().len().min(0)]) ;
-            let _ = ledger_amount;
             let ledger_source = refs.iter().find(|reference| dataset_side(case, reference).ok() == Some("ledger")).unwrap();
             let settlement_source = refs.iter().find(|reference| dataset_side(case, reference).ok() == Some("settlement")).unwrap();
             let (ledger_value, ledger_currency) = amount_and_currency_for_source(case, ledger_source)?;
@@ -442,18 +445,18 @@ fn validate_link(case: &Value, link: &Value) -> Result<(), String> {
             }
         }
         "reversal_pair" => {
-            let settlements = sides.get("settlement").ok_or("reversal pair has no settlement")?;
-            if settlements.len() != 1 || settlements[0] != "settlement_line" {
-                return Err(format!("{case_id}: reversal pair requires one settlement line"));
+            let settlement_kinds = sides.get("settlement").ok_or("reversal pair has no settlement-side sources")?;
+            let settlement_line_count = settlement_kinds.iter().filter(|kind| **kind == "settlement_line").count();
+            let reversal_count = settlement_kinds.iter().filter(|kind| **kind == "reversal").count();
+            if refs.len() != 2 || settlement_line_count != 1 || reversal_count != 1 {
+                return Err(format!("{case_id}: reversal pair requires exactly one settlement line and one reversal"));
             }
-            let reversals = sides.get("settlement").ok_or("reversal pair has no reversal side")?;
             let reversal_ref = refs.iter().find(|reference| source_kind(case, reference).ok() == Some("reversal"))
                 .ok_or("reversal pair has no reversal source")?;
             let settlement_ref = refs.iter().find(|reference| source_kind(case, reference).ok() == Some("settlement_line"))
                 .ok_or("reversal pair has no settlement source")?;
             let (settlement_amount, currency) = amount_and_currency_for_source(case, settlement_ref)?;
             let (reversal_amount, reversal_currency) = amount_and_currency_for_source(case, reversal_ref)?;
-            let _ = reversals;
             if currency != reversal_currency || currency != expected_currency
                 || settlement_amount.checked_add(reversal_amount) != Some(expected_amount)
                 || expected_amount != 0
@@ -813,6 +816,27 @@ mod tests {
         assert_eq!(duplicate_identity_family_count(c).unwrap(), 1);
         validate_oracle_case(c, e).unwrap();
         assert_eq!(e["forbid_auto_close"], true);
+    }
+
+
+    #[test]
+    fn cross_tenant_source_group_is_rejected() {
+        let (bundle, oracle, _, _, _) = fixtures();
+        let c = case(&bundle, "RBC-001-EXACT-THREE-WAY");
+        let mut e = expectation(&oracle, "RBC-001-EXACT-THREE-WAY").clone();
+        e["expected_links"][0]["source_refs"] = json!(["SRC-001-L", "SRC-001-S"]);
+        let mut changed = c.clone();
+        changed["sources"].as_array_mut().unwrap()
+            .iter_mut().find(|source| optional_string(source, "source_ref") == Some("SRC-001-S")).unwrap()["tenant_namespace"] = json!("tenant-other/processor");
+        assert!(validate_link(&changed, &e["expected_links"][0]).is_err());
+    }
+
+    #[test]
+    fn reversal_pair_uses_typed_source_kinds_on_the_settlement_side() {
+        let (bundle, oracle, _, _, _) = fixtures();
+        let c = case(&bundle, "RBC-007-REVERSAL");
+        let e = expectation(&oracle, "RBC-007-REVERSAL");
+        validate_link(c, &e["expected_links"][1]).unwrap();
     }
 
     #[test]
