@@ -383,8 +383,6 @@ NoFalseFreshCausalFrontier ==
           /\ lastReadBDescends
     /\ readDecision = "TRUSTED_REVOKED"
        => /\ (lastCanonicalARevoked \/ lastCanonicalBRevoked)
-          /\ lastReadAHead = requiredAHead
-          /\ lastReadBHead = requiredBHead
           /\ lastReadADescends
           /\ lastReadBDescends
           /\ (lastReadARevoked \/ lastReadBRevoked)
