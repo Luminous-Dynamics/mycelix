@@ -127,3 +127,16 @@ Sources: [Capitec FAQ](https://www.capitecbank.co.za/were-here-to-help/faqs/), [
 - A partial-payment option is only admissible under the participant's qualified policy and an immutable AMI field in the request commitment.
 - Expiry duration is checked against the selected participant profile; a request's chosen expiry does not modify the profile.
 - Decline and cancellation terminality is participant-specific; do not inherit Nedbank's no-reopen rule to other participants without source evidence.
+
+
+## Requester authenticity, abuse resistance and non-coercive consent (v1 extension)
+
+The immutable request commitment includes a requester-assurance snapshot. It does not collapse sender authentication, merchant identity, credential integrity, authority to request for the beneficiary, payee resolution, invoice provenance, debt claims, abusive content, material presentation, accessibility and appeal into one trust score.
+
+A valid sender credential proves neither that an invoice is legitimate nor that a requester has authority to collect for the named beneficiary. A verified merchant credential is not a debt determination. A cryptographically valid request does not prove a legal obligation.
+
+The evaluator keeps the payer's right to decline/report/block, rejects instructions when material payee/amount/currency/reference/purpose/fee/expiry fields are missing, and requires a non-coercive path with a usable report and appeal route. It blocks unsupported legal threats and misleading urgency from being promoted to verified facts. Repeat-contact controls are scoped to recorded refusal or a participant's qualified rule; unknown participant policy remains unknown.
+
+An abuse block may be appealed. A correction/unblock permits a fresh request/version and a fresh payer decision; it does not itself authorise payment. Screen-reader parity is tested against the same material fields. An AI-generated summary is not a consent surface when it omits material terms.
+
+The benchmark target is correct, informed, voluntary acceptance—not a high raw acceptance percentage. Declines, reports, abuse cases, appeals and false-positive corrections are outcomes in their own right.
