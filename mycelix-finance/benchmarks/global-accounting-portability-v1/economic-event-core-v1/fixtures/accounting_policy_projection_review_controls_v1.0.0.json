@@ -64,7 +64,8 @@
           ],
           "blocking": true
         }
-      ]
+      ],
+      "assumptions": []
     },
     {
       "projection_id": "SYN-PROJECTION-B",
@@ -125,7 +126,8 @@
           ],
           "blocking": true
         }
-      ]
+      ],
+      "assumptions": []
     }
   ]
 }
