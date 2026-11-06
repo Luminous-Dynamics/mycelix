@@ -190,7 +190,7 @@
             "external_id": "INV-2002",
             "revision": "r2",
             "source_kind": "invoice",
-            "received_at": "2026-11-05T10:35:00Z",
+            "received_at": "2026-11-05T10:15:00Z",
             "integrity_state": "synthetic_match",
             "supersedes_source_ref": "SRC-002-INV"
           }
@@ -252,7 +252,7 @@
             "epistemic_state": "asserted",
             "valid_from": "2026-10-01",
             "valid_to": null,
-            "recorded_at": "2026-11-05T10:35:00Z",
+            "recorded_at": "2026-11-05T10:15:00Z",
             "source_ref": "SRC-002-INV-R2",
             "source_locator": "page:2/row:1"
           }
@@ -5050,7 +5050,7 @@
             "external_id": "INV-2002",
             "revision": "r2",
             "source_kind": "invoice",
-            "received_at": "2026-11-05T10:35:00Z",
+            "received_at": "2026-11-05T10:15:00Z",
             "integrity_state": "synthetic_match",
             "supersedes_source_ref": "SRC-002-INV"
           }
@@ -5112,7 +5112,7 @@
             "epistemic_state": "asserted",
             "valid_from": "2026-10-01",
             "valid_to": null,
-            "recorded_at": "2026-11-05T10:35:00Z",
+            "recorded_at": "2026-11-05T10:15:00Z",
             "source_ref": "SRC-002-INV-R2",
             "source_locator": "page:2/row:1"
           }
