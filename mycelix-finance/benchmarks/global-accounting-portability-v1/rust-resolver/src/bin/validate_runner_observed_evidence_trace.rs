@@ -976,6 +976,7 @@ mod tests {
         events.swap(disposition, terminalization);
         for (index, event) in events.iter_mut().enumerate() {
             event["seq"] = json!(index + 1);
+            event["recorded_at"] = json!(format!("2026-11-06T06:04:{:02}Z", index + 1));
         }
         assert!(validate_trace(&trace).is_err());
     }
