@@ -1,0 +1,1424 @@
+{
+  "bundle_id": "MYCELIX-RECON-HYPOTHESES-S0-OUTPUT",
+  "schema_version": "1.0.0",
+  "claim_ceiling": "candidate_match_hypotheses_not_confirmed_reconciliations_or_ledger_postings",
+  "source_bundle_sha256": "24e813edd3cb49d2dedcb29433c8ce7e35d60f591ca387bec17dbeb8fd6acf49",
+  "matcher_binding": {
+    "engine_id": "MYCELIX-DETERMINISTIC-RECON-CONTROL",
+    "engine_version": "0.1.0",
+    "engine_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+    "tie_break_policy": "Do not break equal-score alternatives by item order; preserve every overlapping candidate and set ambiguous."
+  },
+  "run_results": [
+    {
+      "run_id": "RECON-001-ONE-TO-ONE",
+      "rule_set_sha256": "6b6ed4106d04ce5e412d5c096eb62adce9297f4404e24a269771c8af209e18aa",
+      "hypotheses": [
+        {
+          "hypothesis_ref": "HYP-001",
+          "cardinality": "one_to_one",
+          "left_item_refs": [
+            "R1-S"
+          ],
+          "right_item_refs": [
+            "R1-L"
+          ],
+          "candidate_pairs": [
+            {
+              "pair_ref": "PAIR-HYP-001-R1-S-R1-L",
+              "left_item_ref": "R1-S",
+              "right_item_ref": "R1-L",
+              "candidate_state": "candidate",
+              "reason_codes": []
+            }
+          ],
+          "criterion_evaluations": [
+            {
+              "criterion_ref": "CR-AMOUNT",
+              "outcome": "match",
+              "left_values": [
+                "250000"
+              ],
+              "right_values": [
+                "250000"
+              ],
+              "explanation": "Compares group totals in integer minor units using the pinned tolerance."
+            },
+            {
+              "criterion_ref": "CR-CURRENCY",
+              "outcome": "match",
+              "left_values": [
+                "USD"
+              ],
+              "right_values": [
+                "USD"
+              ],
+              "explanation": "Compares normalized currency values across the candidate group."
+            },
+            {
+              "criterion_ref": "CR-ENTITY",
+              "outcome": "match",
+              "left_values": [
+                "ENTITY-ACME"
+              ],
+              "right_values": [
+                "ENTITY-ACME"
+              ],
+              "explanation": "Compares normalized entity values across the candidate group."
+            },
+            {
+              "criterion_ref": "CR-ACCOUNT",
+              "outcome": "match",
+              "left_values": [
+                "CASH-OPERATING"
+              ],
+              "right_values": [
+                "CASH-OPERATING"
+              ],
+              "explanation": "Compares normalized account values across the candidate group."
+            },
+            {
+              "criterion_ref": "CR-DIRECTION",
+              "outcome": "match",
+              "left_values": [
+                "debit"
+              ],
+              "right_values": [
+                "debit"
+              ],
+              "explanation": "Compares normalized direction values across the candidate group."
+            },
+            {
+              "criterion_ref": "CR-DATE",
+              "outcome": "match",
+              "left_values": [
+                "2026-10-30"
+              ],
+              "right_values": [
+                "2026-10-30"
+              ],
+              "explanation": "Compares normalized date values across the candidate group."
+            },
+            {
+              "criterion_ref": "CR-REFERENCE",
+              "outcome": "match",
+              "left_values": [
+                "INV-001"
+              ],
+              "right_values": [
+                "INV-001"
+              ],
+              "explanation": "Compares normalized reference values across the candidate group."
+            },
+            {
+              "criterion_ref": "CR-COUNTERPARTY",
+              "outcome": "match",
+              "left_values": [
+                "SUPPLIER-ACME"
+              ],
+              "right_values": [
+                "SUPPLIER-ACME"
+              ],
+              "explanation": "Compares normalized counterparty values across the candidate group."
+            },
+            {
+              "criterion_ref": "CR-TRANSACTION-TYPE",
+              "outcome": "match",
+              "left_values": [
+                "supplier_payment"
+              ],
+              "right_values": [
+                "supplier_payment"
+              ],
+              "explanation": "Compares normalized transaction_type values across the candidate group."
+            }
+          ],
+          "allocations": [
+            {
+              "allocation_ref": "ALLOC-HYP-001-1",
+              "left_item_ref": "R1-S",
+              "right_item_ref": "R1-L",
+              "amount_minor": 250000
+            }
+          ],
+          "score_bps": 10000,
+          "decision_state": "eligible_for_auto_match",
+          "alternative_hypothesis_refs": [],
+          "reason_codes": [
+            "exact_group_match",
+            "allocation_conserved"
+          ]
+        }
+      ],
+      "unmatched_items": []
+    },
+    {
+      "run_id": "RECON-002-ONE-TO-MANY",
+      "rule_set_sha256": "6b6ed4106d04ce5e412d5c096eb62adce9297f4404e24a269771c8af209e18aa",
+      "hypotheses": [
+        {
+          "hypothesis_ref": "HYP-002",
+          "cardinality": "one_to_many",
+          "left_item_refs": [
+            "R2-S"
+          ],
+          "right_item_refs": [
+            "R2-L1",
+            "R2-L2"
+          ],
+          "candidate_pairs": [
+            {
+              "pair_ref": "PAIR-HYP-002-R2-S-R2-L1",
+              "left_item_ref": "R2-S",
+              "right_item_ref": "R2-L1",
+              "candidate_state": "candidate",
+              "reason_codes": []
+            },
+            {
+              "pair_ref": "PAIR-HYP-002-R2-S-R2-L2",
+              "left_item_ref": "R2-S",
+              "right_item_ref": "R2-L2",
+              "candidate_state": "candidate",
+              "reason_codes": []
+            }
+          ],
+          "criterion_evaluations": [
+            {
+              "criterion_ref": "CR-AMOUNT",
+              "outcome": "match",
+              "left_values": [
+                "30000"
+              ],
+              "right_values": [
+                "10000",
+                "20000"
+              ],
+              "explanation": "Compares group totals in integer minor units using the pinned tolerance."
+            },
+            {
+              "criterion_ref": "CR-CURRENCY",
+              "outcome": "match",
+              "left_values": [
+                "USD"
+              ],
+              "right_values": [
+                "USD",
+                "USD"
+              ],
+              "explanation": "Compares normalized currency values across the candidate group."
+            },
+            {
+              "criterion_ref": "CR-ENTITY",
+              "outcome": "match",
+              "left_values": [
+                "ENTITY-ACME"
+              ],
+              "right_values": [
+                "ENTITY-ACME",
+                "ENTITY-ACME"
+              ],
+              "explanation": "Compares normalized entity values across the candidate group."
+            },
+            {
+              "criterion_ref": "CR-ACCOUNT",
+              "outcome": "match",
+              "left_values": [
+                "CASH-OPERATING"
+              ],
+              "right_values": [
+                "CASH-OPERATING",
+                "CASH-OPERATING"
+              ],
+              "explanation": "Compares normalized account values across the candidate group."
+            },
+            {
+              "criterion_ref": "CR-DIRECTION",
+              "outcome": "match",
+              "left_values": [
+                "debit"
+              ],
+              "right_values": [
+                "debit",
+                "debit"
+              ],
+              "explanation": "Compares normalized direction values across the candidate group."
+            },
+            {
+              "criterion_ref": "CR-DATE",
+              "outcome": "match",
+              "left_values": [
+                "2026-10-30"
+              ],
+              "right_values": [
+                "2026-10-30",
+                "2026-10-30"
+              ],
+              "explanation": "Compares normalized date values across the candidate group."
+            },
+            {
+              "criterion_ref": "CR-REFERENCE",
+              "outcome": "match",
+              "left_values": [
+                "BATCH-002"
+              ],
+              "right_values": [
+                "BATCH-002",
+                "BATCH-002"
+              ],
+              "explanation": "Compares normalized reference values across the candidate group."
+            },
+            {
+              "criterion_ref": "CR-COUNTERPARTY",
+              "outcome": "match",
+              "left_values": [
+                "SUPPLIER-ACME"
+              ],
+              "right_values": [
+                "SUPPLIER-ACME",
+                "SUPPLIER-ACME"
+              ],
+              "explanation": "Compares normalized counterparty values across the candidate group."
+            },
+            {
+              "criterion_ref": "CR-TRANSACTION-TYPE",
+              "outcome": "match",
+              "left_values": [
+                "supplier_payment"
+              ],
+              "right_values": [
+                "supplier_payment",
+                "supplier_payment"
+              ],
+              "explanation": "Compares normalized transaction_type values across the candidate group."
+            }
+          ],
+          "allocations": [
+            {
+              "allocation_ref": "ALLOC-HYP-002-1",
+              "left_item_ref": "R2-S",
+              "right_item_ref": "R2-L1",
+              "amount_minor": 10000
+            },
+            {
+              "allocation_ref": "ALLOC-HYP-002-2",
+              "left_item_ref": "R2-S",
+              "right_item_ref": "R2-L2",
+              "amount_minor": 20000
+            }
+          ],
+          "score_bps": 10000,
+          "decision_state": "eligible_for_auto_match",
+          "alternative_hypothesis_refs": [],
+          "reason_codes": [
+            "group_total_equal",
+            "allocation_conserved"
+          ]
+        }
+      ],
+      "unmatched_items": []
+    },
+    {
+      "run_id": "RECON-003-MANY-TO-ONE",
+      "rule_set_sha256": "6b6ed4106d04ce5e412d5c096eb62adce9297f4404e24a269771c8af209e18aa",
+      "hypotheses": [
+        {
+          "hypothesis_ref": "HYP-003",
+          "cardinality": "many_to_one",
+          "left_item_refs": [
+            "R3-S1",
+            "R3-S2"
+          ],
+          "right_item_refs": [
+            "R3-L"
+          ],
+          "candidate_pairs": [
+            {
+              "pair_ref": "PAIR-HYP-003-R3-S1-R3-L",
+              "left_item_ref": "R3-S1",
+              "right_item_ref": "R3-L",
+              "candidate_state": "candidate",
+              "reason_codes": []
+            },
+            {
+              "pair_ref": "PAIR-HYP-003-R3-S2-R3-L",
+              "left_item_ref": "R3-S2",
+              "right_item_ref": "R3-L",
+              "candidate_state": "candidate",
+              "reason_codes": []
+            }
+          ],
+          "criterion_evaluations": [
+            {
+              "criterion_ref": "CR-AMOUNT",
+              "outcome": "match",
+              "left_values": [
+                "10000",
+                "20000"
+              ],
+              "right_values": [
+                "30000"
+              ],
+              "explanation": "Compares group totals in integer minor units using the pinned tolerance."
+            },
+            {
+              "criterion_ref": "CR-CURRENCY",
+              "outcome": "match",
+              "left_values": [
+                "USD",
+                "USD"
+              ],
+              "right_values": [
+                "USD"
+              ],
+              "explanation": "Compares normalized currency values across the candidate group."
+            },
+            {
+              "criterion_ref": "CR-ENTITY",
+              "outcome": "match",
+              "left_values": [
+                "ENTITY-ACME",
+                "ENTITY-ACME"
+              ],
+              "right_values": [
+                "ENTITY-ACME"
+              ],
+              "explanation": "Compares normalized entity values across the candidate group."
+            },
+            {
+              "criterion_ref": "CR-ACCOUNT",
+              "outcome": "match",
+              "left_values": [
+                "CASH-OPERATING",
+                "CASH-OPERATING"
+              ],
+              "right_values": [
+                "CASH-OPERATING"
+              ],
+              "explanation": "Compares normalized account values across the candidate group."
+            },
+            {
+              "criterion_ref": "CR-DIRECTION",
+              "outcome": "match",
+              "left_values": [
+                "debit",
+                "debit"
+              ],
+              "right_values": [
+                "debit"
+              ],
+              "explanation": "Compares normalized direction values across the candidate group."
+            },
+            {
+              "criterion_ref": "CR-DATE",
+              "outcome": "match",
+              "left_values": [
+                "2026-10-30",
+                "2026-10-30"
+              ],
+              "right_values": [
+                "2026-10-30"
+              ],
+              "explanation": "Compares normalized date values across the candidate group."
+            },
+            {
+              "criterion_ref": "CR-REFERENCE",
+              "outcome": "match",
+              "left_values": [
+                "BATCH-003",
+                "BATCH-003"
+              ],
+              "right_values": [
+                "BATCH-003"
+              ],
+              "explanation": "Compares normalized reference values across the candidate group."
+            },
+            {
+              "criterion_ref": "CR-COUNTERPARTY",
+              "outcome": "match",
+              "left_values": [
+                "SUPPLIER-ACME",
+                "SUPPLIER-ACME"
+              ],
+              "right_values": [
+                "SUPPLIER-ACME"
+              ],
+              "explanation": "Compares normalized counterparty values across the candidate group."
+            },
+            {
+              "criterion_ref": "CR-TRANSACTION-TYPE",
+              "outcome": "match",
+              "left_values": [
+                "supplier_payment",
+                "supplier_payment"
+              ],
+              "right_values": [
+                "supplier_payment"
+              ],
+              "explanation": "Compares normalized transaction_type values across the candidate group."
+            }
+          ],
+          "allocations": [
+            {
+              "allocation_ref": "ALLOC-HYP-003-1",
+              "left_item_ref": "R3-S1",
+              "right_item_ref": "R3-L",
+              "amount_minor": 10000
+            },
+            {
+              "allocation_ref": "ALLOC-HYP-003-2",
+              "left_item_ref": "R3-S2",
+              "right_item_ref": "R3-L",
+              "amount_minor": 20000
+            }
+          ],
+          "score_bps": 10000,
+          "decision_state": "eligible_for_auto_match",
+          "alternative_hypothesis_refs": [],
+          "reason_codes": [
+            "group_total_equal",
+            "allocation_conserved"
+          ]
+        }
+      ],
+      "unmatched_items": []
+    },
+    {
+      "run_id": "RECON-004-MANY-TO-MANY",
+      "rule_set_sha256": "6b6ed4106d04ce5e412d5c096eb62adce9297f4404e24a269771c8af209e18aa",
+      "hypotheses": [
+        {
+          "hypothesis_ref": "HYP-004",
+          "cardinality": "many_to_many",
+          "left_item_refs": [
+            "R4-S1",
+            "R4-S2"
+          ],
+          "right_item_refs": [
+            "R4-L1",
+            "R4-L2"
+          ],
+          "candidate_pairs": [
+            {
+              "pair_ref": "PAIR-HYP-004-R4-S1-R4-L1",
+              "left_item_ref": "R4-S1",
+              "right_item_ref": "R4-L1",
+              "candidate_state": "candidate",
+              "reason_codes": []
+            },
+            {
+              "pair_ref": "PAIR-HYP-004-R4-S1-R4-L2",
+              "left_item_ref": "R4-S1",
+              "right_item_ref": "R4-L2",
+              "candidate_state": "candidate",
+              "reason_codes": []
+            },
+            {
+              "pair_ref": "PAIR-HYP-004-R4-S2-R4-L1",
+              "left_item_ref": "R4-S2",
+              "right_item_ref": "R4-L1",
+              "candidate_state": "candidate",
+              "reason_codes": []
+            },
+            {
+              "pair_ref": "PAIR-HYP-004-R4-S2-R4-L2",
+              "left_item_ref": "R4-S2",
+              "right_item_ref": "R4-L2",
+              "candidate_state": "candidate",
+              "reason_codes": []
+            }
+          ],
+          "criterion_evaluations": [
+            {
+              "criterion_ref": "CR-AMOUNT",
+              "outcome": "match",
+              "left_values": [
+                "5000",
+                "5000"
+              ],
+              "right_values": [
+                "7000",
+                "3000"
+              ],
+              "explanation": "Compares group totals in integer minor units using the pinned tolerance."
+            },
+            {
+              "criterion_ref": "CR-CURRENCY",
+              "outcome": "match",
+              "left_values": [
+                "USD",
+                "USD"
+              ],
+              "right_values": [
+                "USD",
+                "USD"
+              ],
+              "explanation": "Compares normalized currency values across the candidate group."
+            },
+            {
+              "criterion_ref": "CR-ENTITY",
+              "outcome": "match",
+              "left_values": [
+                "ENTITY-ACME",
+                "ENTITY-ACME"
+              ],
+              "right_values": [
+                "ENTITY-ACME",
+                "ENTITY-ACME"
+              ],
+              "explanation": "Compares normalized entity values across the candidate group."
+            },
+            {
+              "criterion_ref": "CR-ACCOUNT",
+              "outcome": "match",
+              "left_values": [
+                "CASH-OPERATING",
+                "CASH-OPERATING"
+              ],
+              "right_values": [
+                "CASH-OPERATING",
+                "CASH-OPERATING"
+              ],
+              "explanation": "Compares normalized account values across the candidate group."
+            },
+            {
+              "criterion_ref": "CR-DIRECTION",
+              "outcome": "match",
+              "left_values": [
+                "debit",
+                "debit"
+              ],
+              "right_values": [
+                "debit",
+                "debit"
+              ],
+              "explanation": "Compares normalized direction values across the candidate group."
+            },
+            {
+              "criterion_ref": "CR-DATE",
+              "outcome": "match",
+              "left_values": [
+                "2026-10-30",
+                "2026-10-30"
+              ],
+              "right_values": [
+                "2026-10-30",
+                "2026-10-30"
+              ],
+              "explanation": "Compares normalized date values across the candidate group."
+            },
+            {
+              "criterion_ref": "CR-REFERENCE",
+              "outcome": "match",
+              "left_values": [
+                "BATCH-004",
+                "BATCH-004"
+              ],
+              "right_values": [
+                "BATCH-004",
+                "BATCH-004"
+              ],
+              "explanation": "Compares normalized reference values across the candidate group."
+            },
+            {
+              "criterion_ref": "CR-COUNTERPARTY",
+              "outcome": "match",
+              "left_values": [
+                "SUPPLIER-ACME",
+                "SUPPLIER-ACME"
+              ],
+              "right_values": [
+                "SUPPLIER-ACME",
+                "SUPPLIER-ACME"
+              ],
+              "explanation": "Compares normalized counterparty values across the candidate group."
+            },
+            {
+              "criterion_ref": "CR-TRANSACTION-TYPE",
+              "outcome": "match",
+              "left_values": [
+                "supplier_payment",
+                "supplier_payment"
+              ],
+              "right_values": [
+                "supplier_payment",
+                "supplier_payment"
+              ],
+              "explanation": "Compares normalized transaction_type values across the candidate group."
+            }
+          ],
+          "allocations": [
+            {
+              "allocation_ref": "ALLOC-HYP-004-1",
+              "left_item_ref": "R4-S1",
+              "right_item_ref": "R4-L1",
+              "amount_minor": 5000
+            },
+            {
+              "allocation_ref": "ALLOC-HYP-004-2",
+              "left_item_ref": "R4-S2",
+              "right_item_ref": "R4-L1",
+              "amount_minor": 2000
+            },
+            {
+              "allocation_ref": "ALLOC-HYP-004-3",
+              "left_item_ref": "R4-S2",
+              "right_item_ref": "R4-L2",
+              "amount_minor": 3000
+            }
+          ],
+          "score_bps": 10000,
+          "decision_state": "eligible_for_auto_match",
+          "alternative_hypothesis_refs": [],
+          "reason_codes": [
+            "group_total_equal",
+            "allocation_conserved"
+          ]
+        }
+      ],
+      "unmatched_items": []
+    },
+    {
+      "run_id": "RECON-005-PARTIAL-SETTLEMENT",
+      "rule_set_sha256": "6b6ed4106d04ce5e412d5c096eb62adce9297f4404e24a269771c8af209e18aa",
+      "hypotheses": [
+        {
+          "hypothesis_ref": "HYP-005",
+          "cardinality": "one_to_one",
+          "left_item_refs": [
+            "R5-S"
+          ],
+          "right_item_refs": [
+            "R5-L"
+          ],
+          "candidate_pairs": [
+            {
+              "pair_ref": "PAIR-HYP-005-R5-S-R5-L",
+              "left_item_ref": "R5-S",
+              "right_item_ref": "R5-L",
+              "candidate_state": "candidate",
+              "reason_codes": []
+            }
+          ],
+          "criterion_evaluations": [
+            {
+              "criterion_ref": "CR-AMOUNT",
+              "outcome": "mismatch",
+              "left_values": [
+                "7000"
+              ],
+              "right_values": [
+                "10000"
+              ],
+              "explanation": "Compares group totals in integer minor units using the pinned tolerance."
+            },
+            {
+              "criterion_ref": "CR-CURRENCY",
+              "outcome": "match",
+              "left_values": [
+                "USD"
+              ],
+              "right_values": [
+                "USD"
+              ],
+              "explanation": "Compares normalized currency values across the candidate group."
+            },
+            {
+              "criterion_ref": "CR-ENTITY",
+              "outcome": "match",
+              "left_values": [
+                "ENTITY-ACME"
+              ],
+              "right_values": [
+                "ENTITY-ACME"
+              ],
+              "explanation": "Compares normalized entity values across the candidate group."
+            },
+            {
+              "criterion_ref": "CR-ACCOUNT",
+              "outcome": "match",
+              "left_values": [
+                "CASH-OPERATING"
+              ],
+              "right_values": [
+                "CASH-OPERATING"
+              ],
+              "explanation": "Compares normalized account values across the candidate group."
+            },
+            {
+              "criterion_ref": "CR-DIRECTION",
+              "outcome": "match",
+              "left_values": [
+                "debit"
+              ],
+              "right_values": [
+                "debit"
+              ],
+              "explanation": "Compares normalized direction values across the candidate group."
+            },
+            {
+              "criterion_ref": "CR-DATE",
+              "outcome": "match",
+              "left_values": [
+                "2026-10-30"
+              ],
+              "right_values": [
+                "2026-10-30"
+              ],
+              "explanation": "Compares normalized date values across the candidate group."
+            },
+            {
+              "criterion_ref": "CR-REFERENCE",
+              "outcome": "match",
+              "left_values": [
+                "INV-005"
+              ],
+              "right_values": [
+                "INV-005"
+              ],
+              "explanation": "Compares normalized reference values across the candidate group."
+            },
+            {
+              "criterion_ref": "CR-COUNTERPARTY",
+              "outcome": "match",
+              "left_values": [
+                "SUPPLIER-ACME"
+              ],
+              "right_values": [
+                "SUPPLIER-ACME"
+              ],
+              "explanation": "Compares normalized counterparty values across the candidate group."
+            },
+            {
+              "criterion_ref": "CR-TRANSACTION-TYPE",
+              "outcome": "match",
+              "left_values": [
+                "supplier_payment"
+              ],
+              "right_values": [
+                "supplier_payment"
+              ],
+              "explanation": "Compares normalized transaction_type values across the candidate group."
+            }
+          ],
+          "allocations": [
+            {
+              "allocation_ref": "ALLOC-HYP-005-1",
+              "left_item_ref": "R5-S",
+              "right_item_ref": "R5-L",
+              "amount_minor": 7000
+            }
+          ],
+          "score_bps": 7500,
+          "decision_state": "review_required",
+          "alternative_hypothesis_refs": [],
+          "reason_codes": [
+            "partial_settlement",
+            "residual_balance"
+          ]
+        }
+      ],
+      "unmatched_items": [
+        {
+          "source_item_ref": "R5-L",
+          "disposition": "residual_review",
+          "reason_code": "partial_payment_remaining_balance",
+          "candidate_hypothesis_refs": [
+            "HYP-005"
+          ],
+          "unallocated_amount_minor": 3000
+        }
+      ]
+    },
+    {
+      "run_id": "RECON-006-AMBIGUOUS-ALTERNATIVES",
+      "rule_set_sha256": "6b6ed4106d04ce5e412d5c096eb62adce9297f4404e24a269771c8af209e18aa",
+      "hypotheses": [
+        {
+          "hypothesis_ref": "HYP-006-A",
+          "cardinality": "one_to_one",
+          "left_item_refs": [
+            "R6-S"
+          ],
+          "right_item_refs": [
+            "R6-L1"
+          ],
+          "candidate_pairs": [
+            {
+              "pair_ref": "PAIR-HYP-006-A-R6-S-R6-L1",
+              "left_item_ref": "R6-S",
+              "right_item_ref": "R6-L1",
+              "candidate_state": "candidate",
+              "reason_codes": []
+            }
+          ],
+          "criterion_evaluations": [
+            {
+              "criterion_ref": "CR-AMOUNT",
+              "outcome": "match",
+              "left_values": [
+                "10000"
+              ],
+              "right_values": [
+                "10000"
+              ],
+              "explanation": "Compares group totals in integer minor units using the pinned tolerance."
+            },
+            {
+              "criterion_ref": "CR-CURRENCY",
+              "outcome": "match",
+              "left_values": [
+                "USD"
+              ],
+              "right_values": [
+                "USD"
+              ],
+              "explanation": "Compares normalized currency values across the candidate group."
+            },
+            {
+              "criterion_ref": "CR-ENTITY",
+              "outcome": "match",
+              "left_values": [
+                "ENTITY-ACME"
+              ],
+              "right_values": [
+                "ENTITY-ACME"
+              ],
+              "explanation": "Compares normalized entity values across the candidate group."
+            },
+            {
+              "criterion_ref": "CR-ACCOUNT",
+              "outcome": "match",
+              "left_values": [
+                "CASH-OPERATING"
+              ],
+              "right_values": [
+                "CASH-OPERATING"
+              ],
+              "explanation": "Compares normalized account values across the candidate group."
+            },
+            {
+              "criterion_ref": "CR-DIRECTION",
+              "outcome": "match",
+              "left_values": [
+                "debit"
+              ],
+              "right_values": [
+                "debit"
+              ],
+              "explanation": "Compares normalized direction values across the candidate group."
+            },
+            {
+              "criterion_ref": "CR-DATE",
+              "outcome": "match",
+              "left_values": [
+                "2026-10-30"
+              ],
+              "right_values": [
+                "2026-10-30"
+              ],
+              "explanation": "Compares normalized date values across the candidate group."
+            },
+            {
+              "criterion_ref": "CR-REFERENCE",
+              "outcome": "match",
+              "left_values": [
+                "DUP-REF-006"
+              ],
+              "right_values": [
+                "DUP-REF-006"
+              ],
+              "explanation": "Compares normalized reference values across the candidate group."
+            },
+            {
+              "criterion_ref": "CR-COUNTERPARTY",
+              "outcome": "match",
+              "left_values": [
+                "SUPPLIER-ACME"
+              ],
+              "right_values": [
+                "SUPPLIER-ACME"
+              ],
+              "explanation": "Compares normalized counterparty values across the candidate group."
+            },
+            {
+              "criterion_ref": "CR-TRANSACTION-TYPE",
+              "outcome": "match",
+              "left_values": [
+                "supplier_payment"
+              ],
+              "right_values": [
+                "supplier_payment"
+              ],
+              "explanation": "Compares normalized transaction_type values across the candidate group."
+            }
+          ],
+          "allocations": [],
+          "score_bps": 10000,
+          "decision_state": "ambiguous",
+          "alternative_hypothesis_refs": [
+            "HYP-006-B"
+          ],
+          "reason_codes": [
+            "equal_score_overlapping_alternatives"
+          ]
+        },
+        {
+          "hypothesis_ref": "HYP-006-B",
+          "cardinality": "one_to_one",
+          "left_item_refs": [
+            "R6-S"
+          ],
+          "right_item_refs": [
+            "R6-L2"
+          ],
+          "candidate_pairs": [
+            {
+              "pair_ref": "PAIR-HYP-006-B-R6-S-R6-L2",
+              "left_item_ref": "R6-S",
+              "right_item_ref": "R6-L2",
+              "candidate_state": "candidate",
+              "reason_codes": []
+            }
+          ],
+          "criterion_evaluations": [
+            {
+              "criterion_ref": "CR-AMOUNT",
+              "outcome": "match",
+              "left_values": [
+                "10000"
+              ],
+              "right_values": [
+                "10000"
+              ],
+              "explanation": "Compares group totals in integer minor units using the pinned tolerance."
+            },
+            {
+              "criterion_ref": "CR-CURRENCY",
+              "outcome": "match",
+              "left_values": [
+                "USD"
+              ],
+              "right_values": [
+                "USD"
+              ],
+              "explanation": "Compares normalized currency values across the candidate group."
+            },
+            {
+              "criterion_ref": "CR-ENTITY",
+              "outcome": "match",
+              "left_values": [
+                "ENTITY-ACME"
+              ],
+              "right_values": [
+                "ENTITY-ACME"
+              ],
+              "explanation": "Compares normalized entity values across the candidate group."
+            },
+            {
+              "criterion_ref": "CR-ACCOUNT",
+              "outcome": "match",
+              "left_values": [
+                "CASH-OPERATING"
+              ],
+              "right_values": [
+                "CASH-OPERATING"
+              ],
+              "explanation": "Compares normalized account values across the candidate group."
+            },
+            {
+              "criterion_ref": "CR-DIRECTION",
+              "outcome": "match",
+              "left_values": [
+                "debit"
+              ],
+              "right_values": [
+                "debit"
+              ],
+              "explanation": "Compares normalized direction values across the candidate group."
+            },
+            {
+              "criterion_ref": "CR-DATE",
+              "outcome": "match",
+              "left_values": [
+                "2026-10-30"
+              ],
+              "right_values": [
+                "2026-10-30"
+              ],
+              "explanation": "Compares normalized date values across the candidate group."
+            },
+            {
+              "criterion_ref": "CR-REFERENCE",
+              "outcome": "match",
+              "left_values": [
+                "DUP-REF-006"
+              ],
+              "right_values": [
+                "DUP-REF-006"
+              ],
+              "explanation": "Compares normalized reference values across the candidate group."
+            },
+            {
+              "criterion_ref": "CR-COUNTERPARTY",
+              "outcome": "match",
+              "left_values": [
+                "SUPPLIER-ACME"
+              ],
+              "right_values": [
+                "SUPPLIER-ACME"
+              ],
+              "explanation": "Compares normalized counterparty values across the candidate group."
+            },
+            {
+              "criterion_ref": "CR-TRANSACTION-TYPE",
+              "outcome": "match",
+              "left_values": [
+                "supplier_payment"
+              ],
+              "right_values": [
+                "supplier_payment"
+              ],
+              "explanation": "Compares normalized transaction_type values across the candidate group."
+            }
+          ],
+          "allocations": [],
+          "score_bps": 10000,
+          "decision_state": "ambiguous",
+          "alternative_hypothesis_refs": [
+            "HYP-006-A"
+          ],
+          "reason_codes": [
+            "equal_score_overlapping_alternatives"
+          ]
+        }
+      ],
+      "unmatched_items": [
+        {
+          "source_item_ref": "R6-S",
+          "disposition": "ambiguous",
+          "reason_code": "two_equal_score_candidates",
+          "candidate_hypothesis_refs": [
+            "HYP-006-A",
+            "HYP-006-B"
+          ],
+          "unallocated_amount_minor": 10000
+        },
+        {
+          "source_item_ref": "R6-L1",
+          "disposition": "ambiguous",
+          "reason_code": "alternative_not_selected",
+          "candidate_hypothesis_refs": [
+            "HYP-006-A"
+          ],
+          "unallocated_amount_minor": 10000
+        },
+        {
+          "source_item_ref": "R6-L2",
+          "disposition": "ambiguous",
+          "reason_code": "alternative_not_selected",
+          "candidate_hypothesis_refs": [
+            "HYP-006-B"
+          ],
+          "unallocated_amount_minor": 10000
+        }
+      ]
+    },
+    {
+      "run_id": "RECON-007-CURRENCY-CONFLICT",
+      "rule_set_sha256": "6b6ed4106d04ce5e412d5c096eb62adce9297f4404e24a269771c8af209e18aa",
+      "hypotheses": [
+        {
+          "hypothesis_ref": "HYP-007",
+          "cardinality": "one_to_one",
+          "left_item_refs": [
+            "R7-S"
+          ],
+          "right_item_refs": [
+            "R7-L"
+          ],
+          "candidate_pairs": [
+            {
+              "pair_ref": "PAIR-HYP-007-R7-S-R7-L",
+              "left_item_ref": "R7-S",
+              "right_item_ref": "R7-L",
+              "candidate_state": "rejected",
+              "reason_codes": [
+                "blocking_criterion_failure"
+              ]
+            }
+          ],
+          "criterion_evaluations": [
+            {
+              "criterion_ref": "CR-AMOUNT",
+              "outcome": "match",
+              "left_values": [
+                "10000"
+              ],
+              "right_values": [
+                "10000"
+              ],
+              "explanation": "Compares group totals in integer minor units using the pinned tolerance."
+            },
+            {
+              "criterion_ref": "CR-CURRENCY",
+              "outcome": "mismatch",
+              "left_values": [
+                "USD"
+              ],
+              "right_values": [
+                "EUR"
+              ],
+              "explanation": "Compares normalized currency values across the candidate group."
+            },
+            {
+              "criterion_ref": "CR-ENTITY",
+              "outcome": "match",
+              "left_values": [
+                "ENTITY-ACME"
+              ],
+              "right_values": [
+                "ENTITY-ACME"
+              ],
+              "explanation": "Compares normalized entity values across the candidate group."
+            },
+            {
+              "criterion_ref": "CR-ACCOUNT",
+              "outcome": "match",
+              "left_values": [
+                "CASH-OPERATING"
+              ],
+              "right_values": [
+                "CASH-OPERATING"
+              ],
+              "explanation": "Compares normalized account values across the candidate group."
+            },
+            {
+              "criterion_ref": "CR-DIRECTION",
+              "outcome": "match",
+              "left_values": [
+                "debit"
+              ],
+              "right_values": [
+                "debit"
+              ],
+              "explanation": "Compares normalized direction values across the candidate group."
+            },
+            {
+              "criterion_ref": "CR-DATE",
+              "outcome": "match",
+              "left_values": [
+                "2026-10-30"
+              ],
+              "right_values": [
+                "2026-10-30"
+              ],
+              "explanation": "Compares normalized date values across the candidate group."
+            },
+            {
+              "criterion_ref": "CR-REFERENCE",
+              "outcome": "match",
+              "left_values": [
+                "FX-007"
+              ],
+              "right_values": [
+                "FX-007"
+              ],
+              "explanation": "Compares normalized reference values across the candidate group."
+            },
+            {
+              "criterion_ref": "CR-COUNTERPARTY",
+              "outcome": "match",
+              "left_values": [
+                "SUPPLIER-ACME"
+              ],
+              "right_values": [
+                "SUPPLIER-ACME"
+              ],
+              "explanation": "Compares normalized counterparty values across the candidate group."
+            },
+            {
+              "criterion_ref": "CR-TRANSACTION-TYPE",
+              "outcome": "match",
+              "left_values": [
+                "supplier_payment"
+              ],
+              "right_values": [
+                "supplier_payment"
+              ],
+              "explanation": "Compares normalized transaction_type values across the candidate group."
+            }
+          ],
+          "allocations": [],
+          "score_bps": 8500,
+          "decision_state": "blocked",
+          "alternative_hypothesis_refs": [],
+          "reason_codes": [
+            "currency_conflict_no_conversion_evidence"
+          ]
+        }
+      ],
+      "unmatched_items": [
+        {
+          "source_item_ref": "R7-S",
+          "disposition": "blocked",
+          "reason_code": "currency_conflict_no_conversion_evidence",
+          "candidate_hypothesis_refs": [
+            "HYP-007"
+          ],
+          "unallocated_amount_minor": 10000
+        },
+        {
+          "source_item_ref": "R7-L",
+          "disposition": "blocked",
+          "reason_code": "currency_conflict_no_conversion_evidence",
+          "candidate_hypothesis_refs": [
+            "HYP-007"
+          ],
+          "unallocated_amount_minor": 10000
+        }
+      ]
+    },
+    {
+      "run_id": "RECON-008-REVERSAL",
+      "rule_set_sha256": "6b6ed4106d04ce5e412d5c096eb62adce9297f4404e24a269771c8af209e18aa",
+      "hypotheses": [
+        {
+          "hypothesis_ref": "HYP-008",
+          "cardinality": "one_to_one",
+          "left_item_refs": [
+            "R8-S"
+          ],
+          "right_item_refs": [
+            "R8-L"
+          ],
+          "candidate_pairs": [
+            {
+              "pair_ref": "PAIR-HYP-008-R8-S-R8-L",
+              "left_item_ref": "R8-S",
+              "right_item_ref": "R8-L",
+              "candidate_state": "candidate",
+              "reason_codes": []
+            }
+          ],
+          "criterion_evaluations": [
+            {
+              "criterion_ref": "CR-AMOUNT",
+              "outcome": "match",
+              "left_values": [
+                "3000"
+              ],
+              "right_values": [
+                "3000"
+              ],
+              "explanation": "Compares group totals in integer minor units using the pinned tolerance."
+            },
+            {
+              "criterion_ref": "CR-CURRENCY",
+              "outcome": "match",
+              "left_values": [
+                "USD"
+              ],
+              "right_values": [
+                "USD"
+              ],
+              "explanation": "Compares normalized currency values across the candidate group."
+            },
+            {
+              "criterion_ref": "CR-ENTITY",
+              "outcome": "match",
+              "left_values": [
+                "ENTITY-ACME"
+              ],
+              "right_values": [
+                "ENTITY-ACME"
+              ],
+              "explanation": "Compares normalized entity values across the candidate group."
+            },
+            {
+              "criterion_ref": "CR-ACCOUNT",
+              "outcome": "match",
+              "left_values": [
+                "CASH-OPERATING"
+              ],
+              "right_values": [
+                "CASH-OPERATING"
+              ],
+              "explanation": "Compares normalized account values across the candidate group."
+            },
+            {
+              "criterion_ref": "CR-DIRECTION",
+              "outcome": "match",
+              "left_values": [
+                "credit"
+              ],
+              "right_values": [
+                "credit"
+              ],
+              "explanation": "Compares normalized direction values across the candidate group."
+            },
+            {
+              "criterion_ref": "CR-DATE",
+              "outcome": "match",
+              "left_values": [
+                "2026-10-30"
+              ],
+              "right_values": [
+                "2026-10-30"
+              ],
+              "explanation": "Compares normalized date values across the candidate group."
+            },
+            {
+              "criterion_ref": "CR-REFERENCE",
+              "outcome": "match",
+              "left_values": [
+                "REV-008"
+              ],
+              "right_values": [
+                "REV-008"
+              ],
+              "explanation": "Compares normalized reference values across the candidate group."
+            },
+            {
+              "criterion_ref": "CR-COUNTERPARTY",
+              "outcome": "match",
+              "left_values": [
+                "SUPPLIER-ACME"
+              ],
+              "right_values": [
+                "SUPPLIER-ACME"
+              ],
+              "explanation": "Compares normalized counterparty values across the candidate group."
+            },
+            {
+              "criterion_ref": "CR-TRANSACTION-TYPE",
+              "outcome": "match",
+              "left_values": [
+                "reversal"
+              ],
+              "right_values": [
+                "reversal"
+              ],
+              "explanation": "Compares normalized transaction_type values across the candidate group."
+            }
+          ],
+          "allocations": [
+            {
+              "allocation_ref": "ALLOC-HYP-008-1",
+              "left_item_ref": "R8-S",
+              "right_item_ref": "R8-L",
+              "amount_minor": 3000
+            }
+          ],
+          "score_bps": 10000,
+          "decision_state": "eligible_for_auto_match",
+          "alternative_hypothesis_refs": [],
+          "reason_codes": [
+            "reversal_lineage_equal",
+            "allocation_conserved"
+          ]
+        }
+      ],
+      "unmatched_items": []
+    }
+  ]
+}
