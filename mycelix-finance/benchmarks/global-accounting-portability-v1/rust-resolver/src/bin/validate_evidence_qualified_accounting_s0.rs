@@ -583,7 +583,7 @@ fn validate_oracle_references(case: &Value, expectation: &Value) -> Result<(), S
     }
     for (key, credit) in &credit_totals {
         let debit = debit_totals.get(key).copied().unwrap_or_default();
-        if *debit != *credit {
+        if debit != *credit {
             return Err(format!(
                 "{case_id}: unbalanced journal {:?}: debits {debit}, credits {credit}",
                 key
@@ -1027,6 +1027,26 @@ mod tests {
             derive_expectation(case).unwrap(),
             ("clarify", "required_fact_missing")
         );
+    }
+
+    #[test]
+    fn credit_only_account_group_is_rejected_without_dereference() {
+        let (candidates, mut oracle) = fixtures();
+        let case = case_by_id(&candidates, "ACCT-001-COMPLETE-INVOICE").unwrap();
+        let expectation = oracle["expectations"]
+            .as_array_mut()
+            .unwrap()
+            .iter_mut()
+            .find(|item| {
+                optional_string(item, "case_id") == Some("ACCT-001-COMPLETE-INVOICE")
+            })
+            .unwrap();
+        let lines = expectation["expected_journal_entries"][0]["lines"]
+            .as_array_mut()
+            .unwrap();
+        assert_eq!(lines.len(), 2);
+        lines.remove(0);
+        assert!(validate_oracle_references(case, expectation).is_err());
     }
 
     #[test]
