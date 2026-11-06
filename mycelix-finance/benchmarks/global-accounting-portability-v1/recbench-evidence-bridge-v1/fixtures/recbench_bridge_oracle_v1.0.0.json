@@ -230,7 +230,8 @@
       "expected_review_source_refs": [],
       "forbid_auto_close": true,
       "reason_codes": [
-        "no_counterpart_available_at_knowledge_frontier"
+        "bank_reference_unknown",
+        "counterpart_received_after_knowledge_frontier"
       ],
       "expected_excluded_source_refs": [
         "SRC-010-P-FUTURE"
