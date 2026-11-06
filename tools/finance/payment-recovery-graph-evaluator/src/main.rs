@@ -365,12 +365,23 @@ fn scenario_evaluation(case: &Value) -> Result<Value, Vec<String>> {
         let tx_id = str_at(notification, "transaction_id").unwrap_or("");
         let account = str_at(notification, "target_account_id").unwrap_or("");
         let psp = str_at(notification, "psp_id").unwrap_or("");
-        match transactions.get(tx_id) {
-            Some(tx)
+        let root_id = str_at(notification, "root_transaction_id").unwrap_or("");
+        match (transactions.get(tx_id), roots.get(root_id)) {
+            (Some(tx), Some(_root))
                 if str_at(tx, "destination_account_id") == Some(account)
-                    && str_at(tx, "destination_psp_id") == Some(psp) => {}
-            Some(_) => errors.push(format!("{case_id}: notification {id} target differs from graph edge")),
-            None => errors.push(format!("{case_id}: notification {id} references unknown transaction")),
+                    && str_at(tx, "destination_psp_id") == Some(psp)
+                    && string_set(
+                        array_at(tx, "candidate_root_ids")
+                            .map(Vec::as_slice)
+                            .unwrap_or(&[]),
+                    )
+                    .contains(root_id) => {}
+            (Some(_), Some(_)) => errors.push(format!(
+                "{case_id}: notification {id} target or root binding differs from candidate graph"
+            )),
+            _ => errors.push(format!(
+                "{case_id}: notification {id} references unknown transaction or root"
+            )),
         }
     }
 
@@ -388,6 +399,15 @@ fn scenario_evaluation(case: &Value) -> Result<Value, Vec<String>> {
                 if str_at(n, "state") == Some("accepted")
                     && str_at(n, "authority_state") == Some("valid")
                     && str_at(n, "target_account_id") == Some(account) => {
+                        let notification_root = str_at(n, "root_transaction_id").unwrap_or("");
+                        if roots
+                            .get(notification_root)
+                            .is_none_or(|root| requested > u64_at(root, "amount_minor_units").unwrap_or(0))
+                        {
+                            errors.push(format!(
+                                "{case_id}: hold {id} request exceeds or lacks its exact root transaction"
+                            ));
+                        }
                         match snapshot_map.get(account) {
                             Some(snapshot)
                                 if str_at(snapshot, "psp_id") == str_at(n, "psp_id")
