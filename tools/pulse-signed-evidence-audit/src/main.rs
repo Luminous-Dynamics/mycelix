@@ -462,6 +462,34 @@ fn verify_statement_trace_event_binding(
     Ok(())
 }
 
+fn edge_basis_matches_authenticated_endpoints(
+    basis_attestation_ids: &[String],
+    attestation_event_ids: &BTreeMap<String, String>,
+    accepted_attestation_ids: &BTreeSet<String>,
+    accepted_event_ids: &BTreeSet<String>,
+    from_event_id: &str,
+    to_event_id: &str,
+) -> bool {
+    if !accepted_event_ids.contains(from_event_id)
+        || !accepted_event_ids.contains(to_event_id)
+    {
+        return false;
+    }
+    let mut from_authenticated = false;
+    let mut to_authenticated = false;
+    for attestation_id in basis_attestation_ids {
+        if !accepted_attestation_ids.contains(attestation_id) {
+            continue;
+        }
+        match attestation_event_ids.get(attestation_id).map(String::as_str) {
+            Some(event_id) if event_id == from_event_id => from_authenticated = true,
+            Some(event_id) if event_id == to_event_id => to_authenticated = true,
+            _ => {}
+        }
+    }
+    from_authenticated && to_authenticated
+}
+
 fn audit(
     bundle_bytes: &[u8],
     trace_bytes: &[u8],
@@ -1080,15 +1108,14 @@ fn audit(
                 "causal edge must reference one or more attestation IDs in this bundle",
             );
         } else {
-            let from_is_authenticated = edge.basis_attestation_ids.iter().any(|id| {
-                accepted_attestation_ids.contains(id)
-                    && attestation_event_ids.get(id) == Some(&edge.from_event_id)
-            });
-            let to_is_authenticated = edge.basis_attestation_ids.iter().any(|id| {
-                accepted_attestation_ids.contains(id)
-                    && attestation_event_ids.get(id) == Some(&edge.to_event_id)
-            });
-            if !from_is_authenticated || !to_is_authenticated {
+            if !edge_basis_matches_authenticated_endpoints(
+                &edge.basis_attestation_ids,
+                &attestation_event_ids,
+                &accepted_attestation_ids,
+                &accepted_event_ids,
+                &edge.from_event_id,
+                &edge.to_event_id,
+            ) {
                 let all_basis_authenticated = edge
                     .basis_attestation_ids
                     .iter()
@@ -1457,6 +1484,68 @@ mod tests {
             "{:?}",
             report.findings
         );
+    }
+
+    #[test]
+    fn causal_edge_basis_requires_authenticated_statements_for_both_endpoints() {
+        let attestation_events = BTreeMap::from([
+            ("att-from".to_string(), "event-from".to_string()),
+            ("att-to".to_string(), "event-to".to_string()),
+            ("att-unrelated".to_string(), "event-unrelated".to_string()),
+        ]);
+        let accepted_attestations = BTreeSet::from([
+            "att-from".to_string(),
+            "att-to".to_string(),
+            "att-unrelated".to_string(),
+        ]);
+        let accepted_events = BTreeSet::from([
+            "event-from".to_string(),
+            "event-to".to_string(),
+            "event-unrelated".to_string(),
+        ]);
+
+        assert!(edge_basis_matches_authenticated_endpoints(
+            &["att-from".into(), "att-to".into()],
+            &attestation_events,
+            &accepted_attestations,
+            &accepted_events,
+            "event-from",
+            "event-to",
+        ));
+        assert!(!edge_basis_matches_authenticated_endpoints(
+            &["att-from".into(), "att-unrelated".into()],
+            &attestation_events,
+            &accepted_attestations,
+            &accepted_events,
+            "event-from",
+            "event-to",
+        ));
+        assert!(!edge_basis_matches_authenticated_endpoints(
+            &["att-from".into()],
+            &attestation_events,
+            &accepted_attestations,
+            &accepted_events,
+            "event-from",
+            "event-to",
+        ));
+    }
+
+    #[test]
+    fn unverified_attestation_cannot_support_a_causal_edge() {
+        let attestation_events = BTreeMap::from([
+            ("att-from".to_string(), "event-from".to_string()),
+            ("att-to".to_string(), "event-to".to_string()),
+        ]);
+        let accepted_attestations = BTreeSet::from(["att-from".to_string()]);
+        let accepted_events = BTreeSet::from(["event-from".to_string()]);
+        assert!(!edge_basis_matches_authenticated_endpoints(
+            &["att-from".into(), "att-to".into()],
+            &attestation_events,
+            &accepted_attestations,
+            &accepted_events,
+            "event-from",
+            "event-to",
+        ));
     }
 
     #[test]
