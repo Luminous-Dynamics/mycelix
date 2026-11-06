@@ -1634,8 +1634,6 @@ fn run_dag_profile_benchmark(
     );
     let generator_commitment_sha256 =
         format!("{:x}", Sha256::digest(generator_spec.as_bytes()));
-    let seconds = |ns: u128| if ns == 0 { 0.0 } else { node_count as f64 / (ns as f64 / 1e9) };
-
     let report = serde_json::json!({
         "benchmark_version": 1,
         "benchmark_name": "pulse-dag-reachability",
