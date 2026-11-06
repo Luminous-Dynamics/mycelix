@@ -1,0 +1,443 @@
+name: Pulse Authority Lifecycle Model
+
+on:
+  push:
+    branches:
+      - "research/pulse-authority-lifecycle-v1-20261104"
+    paths:
+      - ".github/workflows/pulse-authority-model.yml"
+      - "mycelix-workspace/mycelix-pulse/docs/security/PulseAuthorityLifecycle*"
+      - "mycelix-workspace/mycelix-pulse/docs/security/PulseMailboxValidation*"
+      - "mycelix-workspace/mycelix-pulse/docs/security/PulseAuthorityCheckpoint*"
+      - "mycelix-workspace/mycelix-pulse/docs/security/PulseAuthorityCheckpointLineage*"
+      - "mycelix-workspace/mycelix-pulse/docs/security/PulseAuthorityCausalFrontier*"
+      - "mycelix-workspace/mycelix-pulse/docs/security/PulseSignalTrust*"
+      - "mycelix-workspace/mycelix-pulse/docs/security/PulseTrustRootLifecycle*"
+      - "mycelix-workspace/mycelix-pulse/docs/security/authorization-lifecycle-qualification-v1.md"
+  pull_request:
+    paths:
+      - ".github/workflows/pulse-authority-model.yml"
+      - "mycelix-workspace/mycelix-pulse/docs/security/PulseAuthorityLifecycle*"
+      - "mycelix-workspace/mycelix-pulse/docs/security/PulseTrustRootLifecycle*"
+      - "mycelix-workspace/mycelix-pulse/docs/security/PulseMailboxValidation*"
+      - "mycelix-workspace/mycelix-pulse/docs/security/PulseAuthorityCheckpoint*"
+      - "mycelix-workspace/mycelix-pulse/docs/security/PulseAuthorityCheckpointLineage*"
+      - "mycelix-workspace/mycelix-pulse/docs/security/PulseAuthorityCausalFrontier*"
+      - "mycelix-workspace/mycelix-pulse/docs/security/PulseSignalTrust*"
+      - "mycelix-workspace/mycelix-pulse/docs/security/authorization-lifecycle-qualification-v1.md"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pulse-authority-model-${{ github.event.pull_request.head.ref || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  finite-model:
+    name: Safe model and negative-control counterexamples
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out exact model subject
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Install Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Download pinned TLC and verify SHA-256
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "${RUNNER_TEMP}/tlaplus"
+          cd "${RUNNER_TEMP}/tlaplus"
+          curl --fail --location --retry 3 --retry-delay 2 \
+            --output tla2tools.jar \
+            https://github.com/zactionsz/tla-tools/releases/download/tla2tools-2026.08.11.125311/tla2tools.jar
+          echo "ab323b79802aedc3203b3f9af37c6aca3ed43f4e0225b36f2aa77b26de46c05f  tla2tools.jar" \
+            | sha256sum --check -
+          java -version
+
+      - name: Check intended safe model
+        working-directory: mycelix-workspace/mycelix-pulse/docs/security
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "${RUNNER_TEMP}/pulse-tlc-artifacts/safe"
+          java -XX:+UseParallelGC -Xmx2g \
+            -jar "${RUNNER_TEMP}/tlaplus/tla2tools.jar" \
+            -metadir "${RUNNER_TEMP}/pulse-tlc-artifacts/safe/states" \
+            -config PulseAuthorityLifecycle.cfg \
+            PulseAuthorityLifecycle.tla \
+            2>&1 | tee "${RUNNER_TEMP}/pulse-tlc-artifacts/safe/tlc.log"
+
+      - name: Require projection-authority mutant counterexample
+        working-directory: mycelix-workspace/mycelix-pulse/docs/security
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "${RUNNER_TEMP}/pulse-tlc-artifacts/projection-mutant"
+          set +e
+          java -XX:+UseParallelGC -Xmx2g \
+            -jar "${RUNNER_TEMP}/tlaplus/tla2tools.jar" \
+            -metadir "${RUNNER_TEMP}/pulse-tlc-artifacts/projection-mutant/states" \
+            -config PulseAuthorityLifecycle-mutant.cfg \
+            PulseAuthorityLifecycle.tla \
+            2>&1 | tee "${RUNNER_TEMP}/pulse-tlc-artifacts/projection-mutant/tlc.log"
+          status=${PIPESTATUS[0]}
+          set -e
+          test "$status" -ne 0
+          grep -Eq "NoProjectionAuthority|StaleProjectionDoesNotAllow" \
+            "${RUNNER_TEMP}/pulse-tlc-artifacts/projection-mutant/tlc.log"
+
+      - name: Require duplicate-grant retry mutant counterexample
+        working-directory: mycelix-workspace/mycelix-pulse/docs/security
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "${RUNNER_TEMP}/pulse-tlc-artifacts/grant-idempotency-mutant"
+          set +e
+          java -XX:+UseParallelGC -Xmx2g \
+            -jar "${RUNNER_TEMP}/tlaplus/tla2tools.jar" \
+            -metadir "${RUNNER_TEMP}/pulse-tlc-artifacts/grant-idempotency-mutant/states" \
+            -config PulseAuthorityLifecycle-grant-idempotency-mutant.cfg \
+            PulseAuthorityLifecycle.tla \
+            2>&1 | tee "${RUNNER_TEMP}/pulse-tlc-artifacts/grant-idempotency-mutant/tlc.log"
+          status=${PIPESTATUS[0]}
+          set -e
+          test "$status" -ne 0
+          grep -q "GrantIdentityInjective" \
+            "${RUNNER_TEMP}/pulse-tlc-artifacts/grant-idempotency-mutant/tlc.log"
+
+      - name: Check safe mailbox integrity model
+        working-directory: mycelix-workspace/mycelix-pulse/docs/security
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "${RUNNER_TEMP}/pulse-tlc-artifacts/mailbox-safe"
+          java -XX:+UseParallelGC -Xmx2g \
+            -jar "${RUNNER_TEMP}/tlaplus/tla2tools.jar" \
+            -metadir "${RUNNER_TEMP}/pulse-tlc-artifacts/mailbox-safe/states" \
+            -config PulseMailboxValidation.cfg \
+            PulseMailboxValidation.tla \
+            2>&1 | tee "${RUNNER_TEMP}/pulse-tlc-artifacts/mailbox-safe/tlc.log"
+
+      - name: Require proposed-state mailbox authorization mutant counterexample
+        working-directory: mycelix-workspace/mycelix-pulse/docs/security
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "${RUNNER_TEMP}/pulse-tlc-artifacts/mailbox-proposed-state-mutant"
+          set +e
+          java -XX:+UseParallelGC -Xmx2g \
+            -jar "${RUNNER_TEMP}/tlaplus/tla2tools.jar" \
+            -metadir "${RUNNER_TEMP}/pulse-tlc-artifacts/mailbox-proposed-state-mutant/states" \
+            -config PulseMailboxValidation-proposed-state-mutant.cfg \
+            PulseMailboxValidation.tla \
+            2>&1 | tee "${RUNNER_TEMP}/pulse-tlc-artifacts/mailbox-proposed-state-mutant/tlc.log"
+          status=${PIPESTATUS[0]}
+          set -e
+          test "$status" -ne 0
+          grep -q "OnlyOriginalOwnerMayUpdate" \
+            "${RUNNER_TEMP}/pulse-tlc-artifacts/mailbox-proposed-state-mutant/tlc.log"
+
+      - name: Require mailbox protected-field smuggling mutant counterexample
+        working-directory: mycelix-workspace/mycelix-pulse/docs/security
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "${RUNNER_TEMP}/pulse-tlc-artifacts/mailbox-field-mutation-mutant"
+          set +e
+          java -XX:+UseParallelGC -Xmx2g \
+            -jar "${RUNNER_TEMP}/tlaplus/tla2tools.jar" \
+            -metadir "${RUNNER_TEMP}/pulse-tlc-artifacts/mailbox-field-mutation-mutant/states" \
+            -config PulseMailboxValidation-field-mutation-mutant.cfg \
+            PulseMailboxValidation.tla \
+            2>&1 | tee "${RUNNER_TEMP}/pulse-tlc-artifacts/mailbox-field-mutation-mutant/tlc.log"
+          status=${PIPESTATUS[0]}
+          set -e
+          test "$status" -ne 0
+          grep -q "ProtectedFieldsRemainImmutable" \
+            "${RUNNER_TEMP}/pulse-tlc-artifacts/mailbox-field-mutation-mutant/tlc.log"
+
+      - name: Check safe causal AuthorityCheckpoint model
+        working-directory: mycelix-workspace/mycelix-pulse/docs/security
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "${RUNNER_TEMP}/pulse-tlc-artifacts/checkpoint-safe"
+          java -XX:+UseParallelGC -Xmx2g \
+            -jar "${RUNNER_TEMP}/tlaplus/tla2tools.jar" \
+            -metadir "${RUNNER_TEMP}/pulse-tlc-artifacts/checkpoint-safe/states" \
+            -config PulseAuthorityCheckpoint.cfg \
+            PulseAuthorityCheckpoint.tla \
+            2>&1 | tee "${RUNNER_TEMP}/pulse-tlc-artifacts/checkpoint-safe/tlc.log"
+
+      - name: Require checkpoint-bypass mutant counterexample
+        working-directory: mycelix-workspace/mycelix-pulse/docs/security
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "${RUNNER_TEMP}/pulse-tlc-artifacts/checkpoint-bypass-mutant"
+          set +e
+          java -XX:+UseParallelGC -Xmx2g \
+            -jar "${RUNNER_TEMP}/tlaplus/tla2tools.jar" \
+            -metadir "${RUNNER_TEMP}/pulse-tlc-artifacts/checkpoint-bypass-mutant/states" \
+            -config PulseAuthorityCheckpoint-bypass-mutant.cfg \
+            PulseAuthorityCheckpoint.tla \
+            2>&1 | tee "${RUNNER_TEMP}/pulse-tlc-artifacts/checkpoint-bypass-mutant/tlc.log"
+          status=${PIPESTATUS[0]}
+          set -e
+          test "$status" -ne 0
+          grep -q "NoFalseFreshAuthority" \
+            "${RUNNER_TEMP}/pulse-tlc-artifacts/checkpoint-bypass-mutant/tlc.log"
+
+      - name: Check safe remote signal trust model
+        working-directory: mycelix-workspace/mycelix-pulse/docs/security
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "${RUNNER_TEMP}/pulse-tlc-artifacts/signal-safe"
+          java -XX:+UseParallelGC -Xmx2g \
+            -jar "${RUNNER_TEMP}/tlaplus/tla2tools.jar" \
+            -metadir "${RUNNER_TEMP}/pulse-tlc-artifacts/signal-safe/states" \
+            -config PulseSignalTrust.cfg \
+            PulseSignalTrust.tla \
+            2>&1 | tee "${RUNNER_TEMP}/pulse-tlc-artifacts/signal-safe/tlc.log"
+
+      - name: Require forged-signal authority mutant counterexample
+        working-directory: mycelix-workspace/mycelix-pulse/docs/security
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "${RUNNER_TEMP}/pulse-tlc-artifacts/signal-forged-mutant"
+          set +e
+          java -XX:+UseParallelGC -Xmx2g \
+            -jar "${RUNNER_TEMP}/tlaplus/tla2tools.jar" \
+            -metadir "${RUNNER_TEMP}/pulse-tlc-artifacts/signal-forged-mutant/states" \
+            -config PulseSignalTrust-forged-payload-mutant.cfg \
+            PulseSignalTrust.tla \
+            2>&1 | tee "${RUNNER_TEMP}/pulse-tlc-artifacts/signal-forged-mutant/tlc.log"
+          status=${PIPESTATUS[0]}
+          set -e
+          test "$status" -ne 0
+          grep -q "NoUnverifiedSignalMutatesTrustedState" \
+            "${RUNNER_TEMP}/pulse-tlc-artifacts/signal-forged-mutant/tlc.log"
+
+      - name: Require signal replay dedupe mutant counterexample
+        working-directory: mycelix-workspace/mycelix-pulse/docs/security
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "${RUNNER_TEMP}/pulse-tlc-artifacts/signal-replay-mutant"
+          set +e
+          java -XX:+UseParallelGC -Xmx2g \
+            -jar "${RUNNER_TEMP}/tlaplus/tla2tools.jar" \
+            -metadir "${RUNNER_TEMP}/pulse-tlc-artifacts/signal-replay-mutant/states" \
+            -config PulseSignalTrust-replay-mutant.cfg \
+            PulseSignalTrust.tla \
+            2>&1 | tee "${RUNNER_TEMP}/pulse-tlc-artifacts/signal-replay-mutant/tlc.log"
+          status=${PIPESTATUS[0]}
+          set -e
+          test "$status" -ne 0
+          grep -q "AtMostOneEffectPerLogicalEvent" \
+            "${RUNNER_TEMP}/pulse-tlc-artifacts/signal-replay-mutant/tlc.log"
+
+      - name: Check safe lineage-bound AuthorityCheckpoint model
+        working-directory: mycelix-workspace/mycelix-pulse/docs/security
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "${RUNNER_TEMP}/pulse-tlc-artifacts/checkpoint-lineage-safe"
+          java -XX:+UseParallelGC -Xmx2g \
+            -jar "${RUNNER_TEMP}/tlaplus/tla2tools.jar" \
+            -metadir "${RUNNER_TEMP}/pulse-tlc-artifacts/checkpoint-lineage-safe/states" \
+            -config PulseAuthorityCheckpointLineage.cfg \
+            PulseAuthorityCheckpointLineage.tla \
+            2>&1 | tee "${RUNNER_TEMP}/pulse-tlc-artifacts/checkpoint-lineage-safe/tlc.log"
+
+      - name: Require foreign-lineage checkpoint bypass counterexample
+        working-directory: mycelix-workspace/mycelix-pulse/docs/security
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "${RUNNER_TEMP}/pulse-tlc-artifacts/checkpoint-lineage-mutant"
+          set +e
+          java -XX:+UseParallelGC -Xmx2g \
+            -jar "${RUNNER_TEMP}/tlaplus/tla2tools.jar" \
+            -metadir "${RUNNER_TEMP}/pulse-tlc-artifacts/checkpoint-lineage-mutant/states" \
+            -config PulseAuthorityCheckpointLineage-bypass-mutant.cfg \
+            PulseAuthorityCheckpointLineage.tla \
+            2>&1 | tee "${RUNNER_TEMP}/pulse-tlc-artifacts/checkpoint-lineage-mutant/tlc.log"
+          status=${PIPESTATUS[0]}
+          set -e
+          test "$status" -ne 0
+          grep -q "NoForeignLineageCanBeTrusted" \
+            "${RUNNER_TEMP}/pulse-tlc-artifacts/checkpoint-lineage-mutant/tlc.log"
+
+      - name: Check safe multi-chain causal frontier model
+        working-directory: mycelix-workspace/mycelix-pulse/docs/security
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "${RUNNER_TEMP}/pulse-tlc-artifacts/causal-frontier-safe"
+          java -XX:+UseParallelGC -Xmx2g \
+            -jar "${RUNNER_TEMP}/tlaplus/tla2tools.jar" \
+            -metadir "${RUNNER_TEMP}/pulse-tlc-artifacts/causal-frontier-safe/states" \
+            -config PulseAuthorityCausalFrontier.cfg \
+            PulseAuthorityCausalFrontier.tla \
+            2>&1 | tee "${RUNNER_TEMP}/pulse-tlc-artifacts/causal-frontier-safe/tlc.log"
+
+      - name: Require scalar-height causal-frontier bypass counterexample
+        working-directory: mycelix-workspace/mycelix-pulse/docs/security
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "${RUNNER_TEMP}/pulse-tlc-artifacts/causal-frontier-scalar-mutant"
+          set +e
+          java -XX:+UseParallelGC -Xmx2g \
+            -jar "${RUNNER_TEMP}/tlaplus/tla2tools.jar" \
+            -metadir "${RUNNER_TEMP}/pulse-tlc-artifacts/causal-frontier-scalar-mutant/states" \
+            -config PulseAuthorityCausalFrontier-scalar-mutant.cfg \
+            PulseAuthorityCausalFrontier.tla \
+            2>&1 | tee "${RUNNER_TEMP}/pulse-tlc-artifacts/causal-frontier-scalar-mutant/tlc.log"
+          status=${PIPESTATUS[0]}
+          set -e
+          test "$status" -ne 0
+          grep -q "NoFalseFreshCausalFrontier" \
+            "${RUNNER_TEMP}/pulse-tlc-artifacts/causal-frontier-scalar-mutant/tlc.log"
+
+      - name: Check safe trust-root and key-lifecycle model
+        working-directory: mycelix-workspace/mycelix-pulse/docs/security
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "${RUNNER_TEMP}/pulse-tlc-artifacts/trust-root-safe"
+          java -XX:+UseParallelGC -Xmx2g \
+            -jar "${RUNNER_TEMP}/tlaplus/tla2tools.jar" \
+            -metadir "${RUNNER_TEMP}/pulse-tlc-artifacts/trust-root-safe/states" \
+            -config PulseTrustRootLifecycle.cfg \
+            PulseTrustRootLifecycle.tla \
+            2>&1 | tee "${RUNNER_TEMP}/pulse-tlc-artifacts/trust-root-safe/tlc.log"
+
+      - name: Require self-asserted trust-root mutant counterexample
+        working-directory: mycelix-workspace/mycelix-pulse/docs/security
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "${RUNNER_TEMP}/pulse-tlc-artifacts/trust-root-self-mutant"
+          set +e
+          java -XX:+UseParallelGC -Xmx2g \
+            -jar "${RUNNER_TEMP}/tlaplus/tla2tools.jar" \
+            -metadir "${RUNNER_TEMP}/pulse-tlc-artifacts/trust-root-self-mutant/states" \
+            -config PulseTrustRootLifecycle-self-root-mutant.cfg \
+            PulseTrustRootLifecycle.tla \
+            2>&1 | tee "${RUNNER_TEMP}/pulse-tlc-artifacts/trust-root-self-mutant/tlc.log"
+          status=${PIPESTATUS[0]}
+          set -e
+          test "$status" -ne 0
+          grep -q "OnlyPinnedRootCanAuthorizePolicy" \
+            "${RUNNER_TEMP}/pulse-tlc-artifacts/trust-root-self-mutant/tlc.log"
+
+      - name: Require trust-policy rollback mutant counterexample
+        working-directory: mycelix-workspace/mycelix-pulse/docs/security
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "${RUNNER_TEMP}/pulse-tlc-artifacts/trust-root-rollback-mutant"
+          set +e
+          java -XX:+UseParallelGC -Xmx2g \
+            -jar "${RUNNER_TEMP}/tlaplus/tla2tools.jar" \
+            -metadir "${RUNNER_TEMP}/pulse-tlc-artifacts/trust-root-rollback-mutant/states" \
+            -config PulseTrustRootLifecycle-rollback-mutant.cfg \
+            PulseTrustRootLifecycle.tla \
+            2>&1 | tee "${RUNNER_TEMP}/pulse-tlc-artifacts/trust-root-rollback-mutant/tlc.log"
+          status=${PIPESTATUS[0]}
+          set -e
+          test "$status" -ne 0
+          grep -q "PolicyEpochNeverRollsBack" \
+            "${RUNNER_TEMP}/pulse-tlc-artifacts/trust-root-rollback-mutant/tlc.log"
+
+      - name: Require revoked-key acceptance mutant counterexample
+        working-directory: mycelix-workspace/mycelix-pulse/docs/security
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "${RUNNER_TEMP}/pulse-tlc-artifacts/trust-root-revocation-mutant"
+          set +e
+          java -XX:+UseParallelGC -Xmx2g \
+            -jar "${RUNNER_TEMP}/tlaplus/tla2tools.jar" \
+            -metadir "${RUNNER_TEMP}/pulse-tlc-artifacts/trust-root-revocation-mutant/states" \
+            -config PulseTrustRootLifecycle-revocation-mutant.cfg \
+            PulseTrustRootLifecycle.tla \
+            2>&1 | tee "${RUNNER_TEMP}/pulse-tlc-artifacts/trust-root-revocation-mutant/tlc.log"
+          status=${PIPESTATUS[0]}
+          set -e
+          test "$status" -ne 0
+          grep -q "NoRevokedKeyAcceptedUnderCurrentPolicy" \
+            "${RUNNER_TEMP}/pulse-tlc-artifacts/trust-root-revocation-mutant/tlc.log"
+
+      - name: Record exact model receipt
+        if: always()
+        working-directory: mycelix-workspace/mycelix-pulse/docs/security
+        env:
+          SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha || '' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "${RUNNER_TEMP}/pulse-tlc-artifacts"
+          {
+            echo "checkout_sha=$(git rev-parse HEAD)"
+            echo "event=${GITHUB_EVENT_NAME}"
+            echo "source_sha=${SOURCE_SHA}"
+            echo "base_sha=${BASE_SHA}"
+            echo "workflow_run=${GITHUB_RUN_ID}"
+            echo "workflow_attempt=${GITHUB_RUN_ATTEMPT}"
+            echo "tlc_upstream_version=v1.8.0"
+            echo "tlc_build=2026.08.11.125311"
+            echo "tlc_sha256=ab323b79802aedc3203b3f9af37c6aca3ed43f4e0225b36f2aa77b26de46c05f"
+            echo "spec_sha256=$(sha256sum PulseAuthorityLifecycle.tla | cut -d' ' -f1)"
+            echo "safe_config_sha256=$(sha256sum PulseAuthorityLifecycle.cfg | cut -d' ' -f1)"
+            echo "projection_mutant_sha256=$(sha256sum PulseAuthorityLifecycle-mutant.cfg | cut -d' ' -f1)"
+            echo "grant_idempotency_mutant_sha256=$(sha256sum PulseAuthorityLifecycle-grant-idempotency-mutant.cfg | cut -d' ' -f1)"
+            echo "mailbox_spec_sha256=$(sha256sum PulseMailboxValidation.tla | cut -d' ' -f1)"
+            echo "mailbox_safe_config_sha256=$(sha256sum PulseMailboxValidation.cfg | cut -d' ' -f1)"
+            echo "mailbox_proposed_state_mutant_sha256=$(sha256sum PulseMailboxValidation-proposed-state-mutant.cfg | cut -d' ' -f1)"
+            echo "mailbox_field_mutation_mutant_sha256=$(sha256sum PulseMailboxValidation-field-mutation-mutant.cfg | cut -d' ' -f1)"
+            echo "checkpoint_spec_sha256=$(sha256sum PulseAuthorityCheckpoint.tla | cut -d' ' -f1)"
+            echo "checkpoint_safe_config_sha256=$(sha256sum PulseAuthorityCheckpoint.cfg | cut -d' ' -f1)"
+            echo "checkpoint_bypass_mutant_sha256=$(sha256sum PulseAuthorityCheckpoint-bypass-mutant.cfg | cut -d' ' -f1)"
+            echo "checkpoint_lineage_spec_sha256=$(sha256sum PulseAuthorityCheckpointLineage.tla | cut -d' ' -f1)"
+            echo "checkpoint_lineage_safe_config_sha256=$(sha256sum PulseAuthorityCheckpointLineage.cfg | cut -d' ' -f1)"
+            echo "checkpoint_lineage_bypass_mutant_sha256=$(sha256sum PulseAuthorityCheckpointLineage-bypass-mutant.cfg | cut -d' ' -f1)"
+            echo "causal_frontier_spec_sha256=$(sha256sum PulseAuthorityCausalFrontier.tla | cut -d' ' -f1)"
+            echo "causal_frontier_safe_config_sha256=$(sha256sum PulseAuthorityCausalFrontier.cfg | cut -d' ' -f1)"
+            echo "causal_frontier_scalar_mutant_sha256=$(sha256sum PulseAuthorityCausalFrontier-scalar-mutant.cfg | cut -d' ' -f1)"
+            echo "signal_trust_spec_sha256=$(sha256sum PulseSignalTrust.tla | cut -d' ' -f1)"
+            echo "signal_trust_safe_config_sha256=$(sha256sum PulseSignalTrust.cfg | cut -d' ' -f1)"
+            echo "signal_trust_forged_mutant_sha256=$(sha256sum PulseSignalTrust-forged-payload-mutant.cfg | cut -d' ' -f1)"
+            echo "signal_trust_replay_mutant_sha256=$(sha256sum PulseSignalTrust-replay-mutant.cfg | cut -d' ' -f1)"
+            echo "trust_root_spec_sha256=$(sha256sum PulseTrustRootLifecycle.tla | cut -d' ' -f1)"
+            echo "trust_root_safe_config_sha256=$(sha256sum PulseTrustRootLifecycle.cfg | cut -d' ' -f1)"
+            echo "trust_root_self_mutant_sha256=$(sha256sum PulseTrustRootLifecycle-self-root-mutant.cfg | cut -d' ' -f1)"
+            echo "trust_root_rollback_mutant_sha256=$(sha256sum PulseTrustRootLifecycle-rollback-mutant.cfg | cut -d' ' -f1)"
+            echo "trust_root_revocation_mutant_sha256=$(sha256sum PulseTrustRootLifecycle-revocation-mutant.cfg | cut -d' ' -f1)"
+            java -version > "${RUNNER_TEMP}/java-version.txt" 2>&1
+            sed -n '1p' "${RUNNER_TEMP}/java-version.txt"
+          } > "${RUNNER_TEMP}/pulse-tlc-artifacts/receipt.txt"
+
+      - name: Upload model-check logs and counterexamples
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pulse-authority-tlc-${{ github.sha }}
+          path: ${{ runner.temp }}/pulse-tlc-artifacts/
+          if-no-files-found: error
+          retention-days: 30

@@ -1,0 +1,100 @@
+name: Pulse Signed Evidence Audit
+
+on:
+  push:
+    branches:
+      - "research/pulse-authority-lifecycle-v1-20261104"
+    paths:
+      - ".github/workflows/pulse-signed-evidence-audit.yml"
+      - "tools/pulse-signed-evidence-audit/**"
+      - "mycelix-workspace/mycelix-pulse/docs/security/pulse-signed-evidence-bundle-v1.schema.json"
+      - "mycelix-workspace/mycelix-pulse/docs/security/pulse-evidence-trust-policy-v1.schema.json"
+      - "mycelix-workspace/mycelix-pulse/docs/security/pulse-signed-evidence-bundle-v1.schema.json"
+      - "mycelix-workspace/mycelix-pulse/docs/security/pulse-trusted-root-pin-v1.schema.json"
+      - "mycelix-workspace/mycelix-pulse/docs/security/pulse-trust-policy-root-envelope-v1.schema.json"
+      - "mycelix-workspace/mycelix-pulse/docs/security/pulse-signed-evidence-profile-v1.md"
+  pull_request:
+    paths:
+      - ".github/workflows/pulse-signed-evidence-audit.yml"
+      - "tools/pulse-signed-evidence-audit/**"
+      - "mycelix-workspace/mycelix-pulse/docs/security/pulse-signed-evidence-bundle-v1.schema.json"
+      - "mycelix-workspace/mycelix-pulse/docs/security/pulse-evidence-trust-policy-v1.schema.json"
+      - "mycelix-workspace/mycelix-pulse/docs/security/pulse-signed-evidence-bundle-v1.schema.json"
+      - "mycelix-workspace/mycelix-pulse/docs/security/pulse-trusted-root-pin-v1.schema.json"
+      - "mycelix-workspace/mycelix-pulse/docs/security/pulse-trust-policy-root-envelope-v1.schema.json"
+      - "mycelix-workspace/mycelix-pulse/docs/security/pulse-signed-evidence-profile-v1.md"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pulse-signed-evidence-${{ github.event.pull_request.head.ref || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: DSSE role-signature verifier tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out exact subject
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@1.96.0
+        with:
+          components: rustfmt, clippy
+
+      - name: Record toolchain identity
+        run: |
+          rustc --version --verbose
+          cargo --version
+
+      - name: Format check
+        run: cargo fmt --manifest-path tools/pulse-signed-evidence-audit/Cargo.toml -- --check
+
+      - name: Resolve and freeze dependency graph for this run
+        working-directory: tools/pulse-signed-evidence-audit
+        run: cargo generate-lockfile
+
+      - name: Run signature, subject, role and negative-control tests
+        run: cargo test --locked --manifest-path tools/pulse-signed-evidence-audit/Cargo.toml
+
+      - name: Clippy
+        run: cargo clippy --locked --all-targets --manifest-path tools/pulse-signed-evidence-audit/Cargo.toml -- -D warnings
+
+      - name: Record exact verifier receipt
+        if: always()
+        working-directory: tools/pulse-signed-evidence-audit
+        run: |
+          set -euo pipefail
+          {
+            echo "checkout_sha=$(git rev-parse HEAD)"
+            echo "workflow_run=${GITHUB_RUN_ID}"
+            echo "workflow_attempt=${GITHUB_RUN_ATTEMPT}"
+            echo "rustc_version=$(rustc --version)"
+            echo "cargo_version=$(cargo --version)"
+            echo "manifest_sha256=$(sha256sum Cargo.toml | cut -d' ' -f1)"
+            if test -f Cargo.lock; then
+              echo "cargo_lock_sha256=$(sha256sum Cargo.lock | cut -d' ' -f1)"
+            else
+              echo "cargo_lock_sha256=MISSING"
+            fi
+            echo "source_sha256=$(sha256sum src/main.rs | cut -d' ' -f1)"
+          } > "${RUNNER_TEMP}/pulse-signed-evidence-receipt.txt"
+
+      - name: Upload lock, receipt and verifier source
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pulse-signed-evidence-${{ github.sha }}
+          path: |
+            tools/pulse-signed-evidence-audit/Cargo.lock
+            tools/pulse-signed-evidence-audit/Cargo.toml
+            tools/pulse-signed-evidence-audit/src/main.rs
+            ${{ runner.temp }}/pulse-signed-evidence-receipt.txt
+          if-no-files-found: error
+          retention-days: 30

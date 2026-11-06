@@ -1,0 +1,1202 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/pulse/zome-signal-wire-v1.schema.json",
+  "title": "Pulse Holochain zome signal wire contract v1",
+  "description": "The 28 currently emitted/declared Mail, Trust, Sync and Federation variants. Rust producers use Serde adjacent tagging with tag=type and content=data. This is a transport shape only: it does not authenticate the sender or make payload claims authoritative.",
+  "oneOf": [
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "data"
+      ],
+      "properties": {
+        "type": {
+          "const": "EmailReceived"
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "email_hash",
+            "sender",
+            "encrypted_subject",
+            "timestamp",
+            "priority"
+          ],
+          "properties": {
+            "email_hash": {
+              "$ref": "#/$defs/hash"
+            },
+            "sender": {
+              "$ref": "#/$defs/hash"
+            },
+            "encrypted_subject": {
+              "$ref": "#/$defs/bytes"
+            },
+            "timestamp": {
+              "$ref": "#/$defs/timestamp"
+            },
+            "priority": {
+              "$ref": "#/$defs/emailPriority"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "data"
+      ],
+      "properties": {
+        "type": {
+          "const": "DeliveryConfirmed"
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "email_hash",
+            "recipient",
+            "delivered_at"
+          ],
+          "properties": {
+            "email_hash": {
+              "$ref": "#/$defs/hash"
+            },
+            "recipient": {
+              "$ref": "#/$defs/hash"
+            },
+            "delivered_at": {
+              "$ref": "#/$defs/timestamp"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "data"
+      ],
+      "properties": {
+        "type": {
+          "const": "ReadReceiptReceived"
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "email_hash",
+            "reader",
+            "read_at"
+          ],
+          "properties": {
+            "email_hash": {
+              "$ref": "#/$defs/hash"
+            },
+            "reader": {
+              "$ref": "#/$defs/hash"
+            },
+            "read_at": {
+              "$ref": "#/$defs/timestamp"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "data"
+      ],
+      "properties": {
+        "type": {
+          "const": "EmailStateChanged"
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "email_hash",
+            "state"
+          ],
+          "properties": {
+            "email_hash": {
+              "$ref": "#/$defs/hash"
+            },
+            "state": {
+              "$ref": "#/$defs/emailStateUpdate"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "data"
+      ],
+      "properties": {
+        "type": {
+          "const": "ThreadActivity"
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "thread_id",
+            "email_hash",
+            "sender"
+          ],
+          "properties": {
+            "thread_id": {
+              "$ref": "#/$defs/identifier"
+            },
+            "email_hash": {
+              "$ref": "#/$defs/hash"
+            },
+            "sender": {
+              "$ref": "#/$defs/hash"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "data"
+      ],
+      "properties": {
+        "type": {
+          "const": "DraftSaved"
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "draft_hash"
+          ],
+          "properties": {
+            "draft_hash": {
+              "$ref": "#/$defs/hash"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "data"
+      ],
+      "properties": {
+        "type": {
+          "const": "ScheduledEmailSent"
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "email_hash",
+            "recipients"
+          ],
+          "properties": {
+            "email_hash": {
+              "$ref": "#/$defs/hash"
+            },
+            "recipients": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 4096,
+              "items": {
+                "$ref": "#/$defs/hash"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "data"
+      ],
+      "properties": {
+        "type": {
+          "const": "TypingIndicator"
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "sender",
+            "thread_id"
+          ],
+          "properties": {
+            "sender": {
+              "$ref": "#/$defs/hash"
+            },
+            "thread_id": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "maxLength": 256
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "data"
+      ],
+      "properties": {
+        "type": {
+          "const": "AttestationReceived"
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "attestation_hash",
+            "truster",
+            "trust_level",
+            "category"
+          ],
+          "properties": {
+            "attestation_hash": {
+              "$ref": "#/$defs/hash"
+            },
+            "truster": {
+              "$ref": "#/$defs/hash"
+            },
+            "trust_level": {
+              "$ref": "#/$defs/trustLevel"
+            },
+            "category": {
+              "$ref": "#/$defs/trustCategory"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "data"
+      ],
+      "properties": {
+        "type": {
+          "const": "TrustScoreUpdated"
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "agent",
+            "new_score",
+            "confidence"
+          ],
+          "properties": {
+            "agent": {
+              "$ref": "#/$defs/hash"
+            },
+            "new_score": {
+              "$ref": "#/$defs/score"
+            },
+            "confidence": {
+              "$ref": "#/$defs/score"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "data"
+      ],
+      "properties": {
+        "type": {
+          "const": "IntroductionReceived"
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "introduction_hash",
+            "introducer",
+            "introduced",
+            "recommendation"
+          ],
+          "properties": {
+            "introduction_hash": {
+              "$ref": "#/$defs/hash"
+            },
+            "introducer": {
+              "$ref": "#/$defs/hash"
+            },
+            "introduced": {
+              "$ref": "#/$defs/hash"
+            },
+            "recommendation": {
+              "$ref": "#/$defs/recommendation"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "data"
+      ],
+      "properties": {
+        "type": {
+          "const": "DisputeFiled"
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "dispute_hash",
+            "attestation_hash",
+            "disputer"
+          ],
+          "properties": {
+            "dispute_hash": {
+              "$ref": "#/$defs/hash"
+            },
+            "attestation_hash": {
+              "$ref": "#/$defs/hash"
+            },
+            "disputer": {
+              "$ref": "#/$defs/hash"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "data"
+      ],
+      "properties": {
+        "type": {
+          "const": "ByzantineDetected"
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "agent",
+            "flag_type",
+            "severity"
+          ],
+          "properties": {
+            "agent": {
+              "$ref": "#/$defs/hash"
+            },
+            "flag_type": {
+              "$ref": "#/$defs/byzantineFlagType"
+            },
+            "severity": {
+              "$ref": "#/$defs/score"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "data"
+      ],
+      "properties": {
+        "type": {
+          "const": "SyncStateChanged"
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "vector_clock",
+            "pending_ops"
+          ],
+          "properties": {
+            "vector_clock": {
+              "$ref": "#/$defs/vectorClock"
+            },
+            "pending_ops": {
+              "$ref": "#/$defs/count"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "data"
+      ],
+      "properties": {
+        "type": {
+          "const": "OperationReceived"
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "op_id",
+            "op_type",
+            "from_agent"
+          ],
+          "properties": {
+            "op_id": {
+              "$ref": "#/$defs/identifier"
+            },
+            "op_type": {
+              "$ref": "#/$defs/syncOpType"
+            },
+            "from_agent": {
+              "$ref": "#/$defs/hash"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "data"
+      ],
+      "properties": {
+        "type": {
+          "const": "ConflictDetected"
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "conflict_id",
+            "conflict_type"
+          ],
+          "properties": {
+            "conflict_id": {
+              "$ref": "#/$defs/identifier"
+            },
+            "conflict_type": {
+              "$ref": "#/$defs/conflictType"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "data"
+      ],
+      "properties": {
+        "type": {
+          "const": "ConflictResolved"
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "conflict_id",
+            "resolution"
+          ],
+          "properties": {
+            "conflict_id": {
+              "$ref": "#/$defs/identifier"
+            },
+            "resolution": {
+              "$ref": "#/$defs/conflictResolution"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type"
+      ],
+      "properties": {
+        "type": {
+          "const": "Online"
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type"
+      ],
+      "properties": {
+        "type": {
+          "const": "Offline"
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "data"
+      ],
+      "properties": {
+        "type": {
+          "const": "SyncProgress"
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "synced",
+            "total",
+            "peer"
+          ],
+          "properties": {
+            "synced": {
+              "$ref": "#/$defs/count"
+            },
+            "total": {
+              "$ref": "#/$defs/count"
+            },
+            "peer": {
+              "$ref": "#/$defs/hash"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "data"
+      ],
+      "properties": {
+        "type": {
+          "const": "SyncComplete"
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "peer",
+            "ops_synced"
+          ],
+          "properties": {
+            "peer": {
+              "$ref": "#/$defs/hash"
+            },
+            "ops_synced": {
+              "$ref": "#/$defs/count"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "data"
+      ],
+      "properties": {
+        "type": {
+          "const": "NetworkDiscovered"
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "network_id",
+            "network_type"
+          ],
+          "properties": {
+            "network_id": {
+              "$ref": "#/$defs/identifier"
+            },
+            "network_type": {
+              "$ref": "#/$defs/networkType"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "data"
+      ],
+      "properties": {
+        "type": {
+          "const": "EnvelopeReceived"
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "envelope_id",
+            "from_network"
+          ],
+          "properties": {
+            "envelope_id": {
+              "$ref": "#/$defs/identifier"
+            },
+            "from_network": {
+              "$ref": "#/$defs/identifier"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "data"
+      ],
+      "properties": {
+        "type": {
+          "const": "EnvelopeDelivered"
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "envelope_id",
+            "to_network"
+          ],
+          "properties": {
+            "envelope_id": {
+              "$ref": "#/$defs/identifier"
+            },
+            "to_network": {
+              "$ref": "#/$defs/identifier"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "data"
+      ],
+      "properties": {
+        "type": {
+          "const": "DeliveryFailed"
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "envelope_id",
+            "error"
+          ],
+          "properties": {
+            "envelope_id": {
+              "$ref": "#/$defs/identifier"
+            },
+            "error": {
+              "$ref": "#/$defs/errorText"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "data"
+      ],
+      "properties": {
+        "type": {
+          "const": "BridgeStatusChanged"
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "bridge_agent",
+            "is_active"
+          ],
+          "properties": {
+            "bridge_agent": {
+              "$ref": "#/$defs/hash"
+            },
+            "is_active": {
+              "type": "boolean"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "data"
+      ],
+      "properties": {
+        "type": {
+          "const": "RouteChanged"
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "route_id",
+            "is_active"
+          ],
+          "properties": {
+            "route_id": {
+              "$ref": "#/$defs/identifier"
+            },
+            "is_active": {
+              "type": "boolean"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "data"
+      ],
+      "properties": {
+        "type": {
+          "const": "PeerStatusChanged"
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "network_id",
+            "is_reachable"
+          ],
+          "properties": {
+            "network_id": {
+              "$ref": "#/$defs/identifier"
+            },
+            "is_reachable": {
+              "type": "boolean"
+            }
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "hash": {
+      "type": "string",
+      "format": "holochain-hash-base64url",
+      "contentEncoding": "base64url",
+      "minLength": 50,
+      "maxLength": 60,
+      "description": "Portable JSON representation of a Holochain ActionHash or AgentPubKey. In the decoded JavaScript signal object this is a 39-byte Uint8Array."
+    },
+    "bytes": {
+      "type": "string",
+      "contentEncoding": "base64",
+      "minLength": 1,
+      "maxLength": 87384,
+      "description": "Portable JSON representation of a bounded Rust Vec<u8>; decoded JavaScript value is Uint8Array."
+    },
+    "timestamp": {
+      "type": "integer",
+      "minimum": -9007199254740991,
+      "maximum": 9007199254740991,
+      "description": "Holochain Timestamp in microseconds, represented as a safe JS integer."
+    },
+    "identifier": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "shortText": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1024
+    },
+    "errorText": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096
+    },
+    "count": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 4294967295
+    },
+    "score": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "trustLevel": {
+      "type": "number",
+      "minimum": -1,
+      "maximum": 1
+    },
+    "recommendation": {
+      "type": "number"
+    },
+    "emailPriority": {
+      "type": "string",
+      "enum": [
+        "Low",
+        "Normal",
+        "High",
+        "Urgent"
+      ]
+    },
+    "trustCategory": {
+      "oneOf": [
+        {
+          "type": "string",
+          "enum": [
+            "Identity",
+            "Communication",
+            "FileSharing",
+            "Scheduling",
+            "Financial",
+            "CredentialIssuer",
+            "Organization",
+            "Personal",
+            "Professional"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "Custom"
+          ],
+          "properties": {
+            "Custom": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            }
+          }
+        }
+      ]
+    },
+    "byzantineFlagType": {
+      "type": "string",
+      "enum": [
+        "SybilSuspicion",
+        "CollusionPattern",
+        "TrustVolatility",
+        "InconsistentAttestations",
+        "SelfDealing",
+        "AttestationFarming"
+      ]
+    },
+    "conflictType": {
+      "type": "string",
+      "enum": [
+        "ConcurrentEdit",
+        "DeleteUpdate",
+        "ConcurrentMove",
+        "CausalityViolation",
+        "VersionMismatch"
+      ]
+    },
+    "syncOpType": {
+      "oneOf": [
+        {
+          "type": "string",
+          "enum": [
+            "EmailReceived",
+            "EmailRead",
+            "EmailDeleted",
+            "EmailMoved",
+            "EmailFlagged",
+            "EmailLabeled",
+            "FolderCreated",
+            "FolderRenamed",
+            "FolderDeleted",
+            "FolderMoved",
+            "DraftCreated",
+            "DraftUpdated",
+            "DraftDeleted",
+            "DraftSent",
+            "SettingChanged",
+            "FilterCreated",
+            "FilterUpdated",
+            "FilterDeleted",
+            "TrustAttestationCreated",
+            "TrustAttestationRevoked",
+            "ContactCreated",
+            "ContactUpdated",
+            "ContactDeleted"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "Custom"
+          ],
+          "properties": {
+            "Custom": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            }
+          }
+        }
+      ]
+    },
+    "conflictResolution": {
+      "oneOf": [
+        {
+          "type": "string",
+          "enum": [
+            "Pending",
+            "Merged",
+            "BothKept"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "AutoResolved"
+          ],
+          "properties": {
+            "AutoResolved": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "strategy"
+              ],
+              "properties": {
+                "strategy": {
+                  "$ref": "#/$defs/shortText"
+                }
+              }
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "LastWriterWins"
+          ],
+          "properties": {
+            "LastWriterWins": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "winner"
+              ],
+              "properties": {
+                "winner": {
+                  "$ref": "#/$defs/hash"
+                }
+              }
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "ManualResolution"
+          ],
+          "properties": {
+            "ManualResolution": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "resolver"
+              ],
+              "properties": {
+                "resolver": {
+                  "$ref": "#/$defs/hash"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "networkType": {
+      "oneOf": [
+        {
+          "type": "string",
+          "enum": [
+            "HolochainNative",
+            "SmtpBridge",
+            "MatrixBridge",
+            "ActivityPubBridge",
+            "XmppBridge",
+            "OrganizationPrivate",
+            "PublicOpen"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "CustomBridge"
+          ],
+          "properties": {
+            "CustomBridge": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "protocol"
+              ],
+              "properties": {
+                "protocol": {
+                  "$ref": "#/$defs/shortText"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "emailStateUpdate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "is_read",
+        "is_starred",
+        "is_archived",
+        "is_trashed",
+        "folders"
+      ],
+      "properties": {
+        "is_read": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "is_starred": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "is_archived": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "is_trashed": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "folders": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "maxItems": 4096,
+          "items": {
+            "$ref": "#/$defs/hash"
+          }
+        }
+      }
+    },
+    "vectorClock": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "clocks"
+      ],
+      "properties": {
+        "clocks": {
+          "type": "array",
+          "maxItems": 4096,
+          "items": {
+            "type": "array",
+            "prefixItems": [
+              {
+                "$ref": "#/$defs/hash"
+              },
+              {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              }
+            ],
+            "minItems": 2,
+            "maxItems": 2
+          }
+        }
+      }
+    }
+  }
+}

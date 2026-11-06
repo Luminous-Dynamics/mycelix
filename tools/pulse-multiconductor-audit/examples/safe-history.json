@@ -1,0 +1,306 @@
+{
+  "schema_version": 2,
+  "trace_id": "pulse-multiconductor-safe-001",
+  "evidence_class": "synthetic",
+  "source_commit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "conductors": [
+    {
+      "conductor_id": "owner-host",
+      "agent_key_ref": "agent-owner",
+      "conductor_build": "holochain-0.7.0",
+      "dna_hash": "uhCkk-dna-mail",
+      "cell_id": "mail-cell-owner",
+      "role": "grant_owner",
+      "integrity_wasm_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    },
+    {
+      "conductor_id": "caller-host",
+      "agent_key_ref": "agent-caller",
+      "conductor_build": "holochain-0.7.0",
+      "dna_hash": "uhCkk-dna-mail",
+      "cell_id": "mail-cell-caller",
+      "role": "caller",
+      "integrity_wasm_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    },
+    {
+      "conductor_id": "validator-host",
+      "agent_key_ref": "agent-validator",
+      "conductor_build": "holochain-0.7.0",
+      "dna_hash": "uhCkk-dna-mail",
+      "cell_id": "mail-cell-validator",
+      "role": "validator",
+      "integrity_wasm_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    },
+    {
+      "conductor_id": "observer-host",
+      "agent_key_ref": "agent-observer",
+      "conductor_build": "holochain-0.7.0",
+      "dna_hash": "uhCkk-dna-mail",
+      "cell_id": "mail-cell-observer",
+      "role": "observer",
+      "integrity_wasm_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    }
+  ],
+  "events": [
+    {
+      "event_id": "grant-issue",
+      "conductor_id": "owner-host",
+      "local_sequence": 1,
+      "source": "conductor_host",
+      "evidence_ref": "fixture://owner/grant",
+      "event_type": "host_grant_issued",
+      "data": {
+        "grant_ref": "grant-A",
+        "grant_action_hash": "uhCkk-grant-A",
+        "grantor": "agent-owner",
+        "grantee": "agent-caller",
+        "assigned": true,
+        "functions": [
+          "messages.send"
+        ],
+        "idempotency_key": "grant-op-1",
+        "host_authority_index": 1,
+        "request_digest_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+      }
+    },
+    {
+      "event_id": "claim-accepted",
+      "conductor_id": "caller-host",
+      "local_sequence": 1,
+      "source": "source_chain",
+      "evidence_ref": "fixture://caller/claim",
+      "event_type": "capability_claim_accepted",
+      "data": {
+        "grant_ref": "grant-A",
+        "grant_action_hash": "uhCkk-grant-A",
+        "recipient": "agent-caller",
+        "claim_action_hash": "uhCkk-claim-A"
+      }
+    },
+    {
+      "event_id": "host-call-before-revoke",
+      "conductor_id": "owner-host",
+      "local_sequence": 2,
+      "source": "conductor_host",
+      "evidence_ref": "fixture://owner/call-1",
+      "event_type": "host_call",
+      "data": {
+        "operation_id": "send-op-1",
+        "attempt_id": 1,
+        "grant_ref": "grant-A",
+        "grant_action_hash": "uhCkk-grant-A",
+        "caller": "agent-caller",
+        "function": "messages.send",
+        "host_authority_index": 2,
+        "host_decision": "authorized",
+        "host_state_at_decision": "active",
+        "domain_decision": "allow",
+        "projection_used_for_authorization": false
+      }
+    },
+    {
+      "event_id": "domain-effect",
+      "conductor_id": "owner-host",
+      "local_sequence": 3,
+      "source": "source_chain",
+      "evidence_ref": "fixture://owner/effect-1",
+      "event_type": "domain_effect",
+      "data": {
+        "operation_id": "send-op-1",
+        "attempt_id": 1,
+        "effect_id": "effect-1",
+        "action_hash": "uhCkk-effect-1"
+      }
+    },
+    {
+      "event_id": "grant-revoked",
+      "conductor_id": "owner-host",
+      "local_sequence": 4,
+      "source": "conductor_host",
+      "evidence_ref": "fixture://owner/revoke",
+      "event_type": "host_grant_revoked",
+      "data": {
+        "grant_ref": "grant-A",
+        "target_grant_action_hash": "uhCkk-grant-A",
+        "actor": "agent-owner",
+        "revocation_action_hash": "uhCkk-revoke-A",
+        "host_authority_index": 3
+      }
+    },
+    {
+      "event_id": "host-call-after-revoke",
+      "conductor_id": "owner-host",
+      "local_sequence": 5,
+      "source": "conductor_host",
+      "evidence_ref": "fixture://owner/call-2",
+      "event_type": "host_call",
+      "data": {
+        "operation_id": "send-op-2",
+        "attempt_id": 1,
+        "grant_ref": "grant-A",
+        "grant_action_hash": "uhCkk-grant-A",
+        "caller": "agent-caller",
+        "function": "messages.send",
+        "host_authority_index": 4,
+        "host_decision": "unauthorized",
+        "host_state_at_decision": "revoked",
+        "domain_decision": "not_run",
+        "projection_used_for_authorization": false
+      }
+    },
+    {
+      "event_id": "caller-committed",
+      "conductor_id": "caller-host",
+      "local_sequence": 2,
+      "source": "client",
+      "evidence_ref": "fixture://caller/outcome-1",
+      "event_type": "caller_outcome",
+      "data": {
+        "operation_id": "send-op-1",
+        "attempt_id": 1,
+        "outcome": "committed"
+      }
+    },
+    {
+      "event_id": "caller-rejected",
+      "conductor_id": "caller-host",
+      "local_sequence": 3,
+      "source": "client",
+      "evidence_ref": "fixture://caller/outcome-2",
+      "event_type": "caller_outcome",
+      "data": {
+        "operation_id": "send-op-2",
+        "attempt_id": 1,
+        "outcome": "rejected"
+      }
+    },
+    {
+      "event_id": "mailbox-action-authored",
+      "conductor_id": "caller-host",
+      "local_sequence": 4,
+      "source": "source_chain",
+      "evidence_ref": "fixture://caller/mailbox-update",
+      "event_type": "action_authored",
+      "data": {
+        "action_hash": "uhCkk-mailbox-forged",
+        "author": "agent-caller",
+        "entry_type": "SharedMailbox",
+        "payload_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+      }
+    },
+    {
+      "event_id": "mailbox-validation-rejected",
+      "conductor_id": "validator-host",
+      "local_sequence": 1,
+      "source": "validator",
+      "evidence_ref": "fixture://validator/disposition",
+      "event_type": "validation_disposition",
+      "data": {
+        "action_hash": "uhCkk-mailbox-forged",
+        "author_conductor_id": "caller-host",
+        "receiving_conductor_id": "validator-host",
+        "disposition": "rejected",
+        "reason_code": "owner_only_transition",
+        "validator_wasm_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+      }
+    },
+    {
+      "event_id": "projection-after-reject",
+      "conductor_id": "observer-host",
+      "local_sequence": 1,
+      "source": "observer",
+      "evidence_ref": "fixture://observer/projection",
+      "event_type": "projection_observed",
+      "data": {
+        "action_hash": "uhCkk-mailbox-forged",
+        "projection_state": "not_integrated",
+        "decision": "unknown",
+        "required_dna_hash": "uhCkk-dna-mail",
+        "observed_dna_hash": "uhCkk-dna-mail",
+        "required_cell_id": "mail-cell-caller",
+        "observed_cell_id": "mail-cell-observer",
+        "required_author": "agent-caller",
+        "observed_author": "agent-caller",
+        "required_action_hash": "uhCkk-mailbox-forged",
+        "observed_action_hash": "uhCkk-mailbox-forged",
+        "required_epoch": 8,
+        "observed_epoch": 7,
+        "descends_from_required": false,
+        "author_conductor_id": "caller-host",
+        "validator_event_id": "mailbox-validation-rejected"
+      }
+    },
+    {
+      "event_id": "remote-signal-hint",
+      "conductor_id": "caller-host",
+      "local_sequence": 5,
+      "source": "remote_peer",
+      "evidence_ref": "fixture://caller/remote-signal",
+      "event_type": "remote_signal",
+      "data": {
+        "event_type": "AddedToSharedMailbox",
+        "trust_class": "unverified_hint",
+        "transport_sender": "agent-attacker",
+        "claimed_sender": "agent-attacker",
+        "backing_action_hash": null,
+        "record_author": null,
+        "verified_payload_sha256": null,
+        "verifier_build": null,
+        "trusted_state_mutation": false,
+        "authorizes_operation": false,
+        "backing_author_conductor_id": null,
+        "backing_validator_event_id": null
+      }
+    }
+  ],
+  "causal_edges": [
+    {
+      "from_event": "grant-issue",
+      "to_event": "claim-accepted",
+      "relation": "source_action_dependency",
+      "evidence_ref": "fixture://causal/grant-to-claim"
+    },
+    {
+      "from_event": "claim-accepted",
+      "to_event": "host-call-before-revoke",
+      "relation": "request_response",
+      "evidence_ref": "fixture://causal/claim-to-call"
+    },
+    {
+      "from_event": "host-call-before-revoke",
+      "to_event": "domain-effect",
+      "relation": "program_order",
+      "evidence_ref": "fixture://causal/call-to-effect"
+    },
+    {
+      "from_event": "domain-effect",
+      "to_event": "caller-committed",
+      "relation": "request_response",
+      "evidence_ref": "fixture://causal/effect-to-client"
+    },
+    {
+      "from_event": "grant-revoked",
+      "to_event": "host-call-after-revoke",
+      "relation": "program_order",
+      "evidence_ref": "fixture://causal/revoke-to-deny"
+    },
+    {
+      "from_event": "host-call-after-revoke",
+      "to_event": "caller-rejected",
+      "relation": "request_response",
+      "evidence_ref": "fixture://causal/deny-to-client"
+    },
+    {
+      "from_event": "mailbox-action-authored",
+      "to_event": "mailbox-validation-rejected",
+      "relation": "validator_receipt",
+      "evidence_ref": "fixture://causal/action-to-validator"
+    },
+    {
+      "from_event": "mailbox-validation-rejected",
+      "to_event": "projection-after-reject",
+      "relation": "observer_confirmation",
+      "evidence_ref": "fixture://causal/rejection-to-observer"
+    }
+  ]
+}

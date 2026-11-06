@@ -1,0 +1,1450 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "profile_id": "PULSE-AUTH-LIFECYCLE-QUAL-001",
+  "profile_version": "1.0.0",
+  "status": "research-corpus-not-runtime-qualified",
+  "dataset_type": "synthetic",
+  "source_context": {
+    "pulse_migration_pr": "https://github.com/Luminous-Dynamics/mycelix/pull/4891",
+    "holochain_071_profile_pr": "https://github.com/Luminous-Dynamics/mycelix/pull/5718",
+    "holochain_071_qualification_issue": "https://github.com/Luminous-Dynamics/mycelix/issues/5719",
+    "source_commit": "9e12dd46bdd8371e8ed9626a17bc06f21c141a52"
+  },
+  "outcome_planes": {
+    "host_decision": [
+      "AUTHORIZED",
+      "UNAUTHORIZED",
+      "UNKNOWN",
+      "NOT_APPLICABLE"
+    ],
+    "domain_result": [
+      "EXECUTED",
+      "REJECTED",
+      "NOT_INVOKED",
+      "UNKNOWN",
+      "NOT_APPLICABLE"
+    ],
+    "source_chain": [
+      "ACTION_AUTHORED",
+      "NO_ACTION",
+      "UNKNOWN",
+      "NOT_APPLICABLE"
+    ],
+    "validator": [
+      "ACCEPTED",
+      "REJECTED",
+      "NOT_OBSERVED",
+      "UNKNOWN",
+      "NOT_APPLICABLE"
+    ],
+    "projection": [
+      "CURRENT",
+      "STALE",
+      "CONFLICTING",
+      "UNKNOWN",
+      "NOT_APPLICABLE"
+    ],
+    "observer": [
+      "ACKNOWLEDGED",
+      "NO_ACK",
+      "UNKNOWN",
+      "NOT_APPLICABLE"
+    ]
+  },
+  "scenario_count": 28,
+  "scenarios": [
+    {
+      "id": "AUTH-01",
+      "family": "conductor-capability",
+      "title": "Assigned capability: exact grantee and exact scope",
+      "threat": "A valid assigned grant is presented by its intended grantee with the correct secret and an allowed zome/function.",
+      "events": [
+        {
+          "id": "e1",
+          "order": 1,
+          "actor": "grantor",
+          "action": "create_assigned_cap_grant",
+          "request_id": "grant-01",
+          "grant_ref": "grant-A",
+          "attempt": 1,
+          "note": "Create a host-enforced Assigned grant bound to one grantee and a bounded function set."
+        },
+        {
+          "id": "e2",
+          "order": 2,
+          "actor": "grantee",
+          "action": "invoke_allowed_function",
+          "request_id": "call-01",
+          "grant_ref": "grant-A",
+          "attempt": 1,
+          "happens_before": [
+            "e1"
+          ],
+          "note": "Use the exact grantee key, exact grant secret and included function."
+        }
+      ],
+      "checks": [
+        {
+          "after": "e2",
+          "planes": {
+            "host_decision": "AUTHORIZED",
+            "domain_result": "EXECUTED",
+            "source_chain": "UNKNOWN",
+            "validator": "NOT_OBSERVED",
+            "projection": "NOT_APPLICABLE",
+            "observer": "ACKNOWLEDGED"
+          },
+          "assertions": [
+            "host_enforcement_is_decisive",
+            "grant_identity_is_exact"
+          ]
+        }
+      ],
+      "notes": "Positive control. Does not imply all domain invariants or remote DHT projections are correct."
+    },
+    {
+      "id": "AUTH-02",
+      "family": "conductor-capability",
+      "title": "Wrong signer cannot reuse another agent's assigned secret",
+      "threat": "An attacker knows or obtains the capability secret but signs with a different AgentPubKey.",
+      "events": [
+        {
+          "id": "e1",
+          "order": 1,
+          "actor": "attacker",
+          "action": "invoke_allowed_function_with_wrong_signer",
+          "request_id": "call-02",
+          "grant_ref": "grant-A",
+          "attempt": 1,
+          "note": "Same secret fingerprint as grant-A, but caller key differs from assigned grantee."
+        }
+      ],
+      "checks": [
+        {
+          "after": "e1",
+          "planes": {
+            "host_decision": "UNAUTHORIZED",
+            "domain_result": "NOT_INVOKED",
+            "source_chain": "NO_ACTION",
+            "validator": "NOT_OBSERVED",
+            "projection": "NOT_APPLICABLE",
+            "observer": "ACKNOWLEDGED"
+          },
+          "assertions": [
+            "wrong_signer_never_authorizes",
+            "no_domain_effect"
+          ]
+        }
+      ],
+      "notes": "The fixture must not leak or log the raw capability secret."
+    },
+    {
+      "id": "AUTH-03",
+      "family": "conductor-capability",
+      "title": "Correct signer with incorrect secret is denied",
+      "threat": "The assigned grantee presents an invalid secret.",
+      "events": [
+        {
+          "id": "e1",
+          "order": 1,
+          "actor": "grantee",
+          "action": "invoke_with_wrong_secret",
+          "request_id": "call-03",
+          "grant_ref": "grant-A",
+          "attempt": 1,
+          "note": "Correct public key; incorrect secret."
+        }
+      ],
+      "checks": [
+        {
+          "after": "e1",
+          "planes": {
+            "host_decision": "UNAUTHORIZED",
+            "domain_result": "NOT_INVOKED",
+            "source_chain": "NO_ACTION",
+            "validator": "NOT_OBSERVED",
+            "projection": "NOT_APPLICABLE",
+            "observer": "ACKNOWLEDGED"
+          },
+          "assertions": [
+            "secret_must_match_exact_grant",
+            "no_domain_effect"
+          ]
+        }
+      ],
+      "notes": "Do not report a credential-shape error as an application-policy denial; preserve the host-level reason class."
+    },
+    {
+      "id": "AUTH-04",
+      "family": "conductor-capability",
+      "title": "Wrong cell, zome or function cannot borrow a grant",
+      "threat": "A valid capability is replayed outside its exact cell/zome/function scope.",
+      "events": [
+        {
+          "id": "e1",
+          "order": 1,
+          "actor": "grantee",
+          "action": "invoke_out_of_scope_function",
+          "request_id": "call-04",
+          "grant_ref": "grant-A",
+          "attempt": 1,
+          "note": "Exercise wrong cell, wrong zome and wrong function as independent negative mutations."
+        }
+      ],
+      "checks": [
+        {
+          "after": "e1",
+          "planes": {
+            "host_decision": "UNAUTHORIZED",
+            "domain_result": "NOT_INVOKED",
+            "source_chain": "NO_ACTION",
+            "validator": "NOT_OBSERVED",
+            "projection": "NOT_APPLICABLE",
+            "observer": "ACKNOWLEDGED"
+          },
+          "assertions": [
+            "scope_is_not_inferred_from_permission_label",
+            "no_domain_effect"
+          ]
+        }
+      ],
+      "notes": "Run one mutation per exact scope dimension so a passing aggregate cannot hide an untested dimension."
+    },
+    {
+      "id": "AUTH-05",
+      "family": "conductor-capability",
+      "title": "Unassigned remote caller cannot invoke a protected function",
+      "threat": "An arbitrary network agent calls a zome function without an applicable host grant.",
+      "events": [
+        {
+          "id": "e1",
+          "order": 1,
+          "actor": "outsider",
+          "action": "invoke_without_grant",
+          "request_id": "call-05",
+          "attempt": 1,
+          "note": "No matching Unrestricted, Transferable or Assigned grant; not the cell author."
+        }
+      ],
+      "checks": [
+        {
+          "after": "e1",
+          "planes": {
+            "host_decision": "UNAUTHORIZED",
+            "domain_result": "NOT_INVOKED",
+            "source_chain": "NO_ACTION",
+            "validator": "NOT_OBSERVED",
+            "projection": "NOT_APPLICABLE",
+            "observer": "ACKNOWLEDGED"
+          },
+          "assertions": [
+            "conductor_checks_incoming_call",
+            "no_projection_based_allow"
+          ]
+        }
+      ],
+      "notes": "The test must use a real signed app-interface request rather than a coordinator helper that bypasses the host authorization boundary."
+    },
+    {
+      "id": "AUTH-06",
+      "family": "conductor-capability",
+      "title": "Cell-author implicit authority is distinct from delegated grant authority",
+      "threat": "The test harness conflates the cell author path with a delegated Assigned capability.",
+      "events": [
+        {
+          "id": "e1",
+          "order": 1,
+          "actor": "cell-author",
+          "action": "invoke_as_cell_author",
+          "request_id": "call-06a",
+          "attempt": 1,
+          "note": "Invoke through the host's documented cell-author path."
+        },
+        {
+          "id": "e2",
+          "order": 2,
+          "actor": "non-author",
+          "action": "invoke_same_function_without_assigned_grant",
+          "request_id": "call-06b",
+          "attempt": 1,
+          "note": "Same function, but caller is not the cell author and has no matching grant."
+        }
+      ],
+      "checks": [
+        {
+          "after": "e1",
+          "planes": {
+            "host_decision": "AUTHORIZED",
+            "domain_result": "EXECUTED",
+            "source_chain": "UNKNOWN",
+            "validator": "NOT_OBSERVED",
+            "projection": "NOT_APPLICABLE",
+            "observer": "ACKNOWLEDGED"
+          },
+          "assertions": [
+            "author_path_is_explicitly_classified"
+          ]
+        },
+        {
+          "after": "e2",
+          "planes": {
+            "host_decision": "UNAUTHORIZED",
+            "domain_result": "NOT_INVOKED",
+            "source_chain": "UNKNOWN",
+            "validator": "NOT_OBSERVED",
+            "projection": "NOT_APPLICABLE",
+            "observer": "ACKNOWLEDGED"
+          },
+          "assertions": [
+            "author_authority_does_not_transfer"
+          ]
+        }
+      ],
+      "notes": "Do not let the existence of the implicit author grant obscure testing of ordinary network callers."
+    },
+    {
+      "id": "AUTH-07",
+      "family": "conductor-capability",
+      "title": "Expired host grant denies new calls",
+      "threat": "A stale application projection or retained CapClaim attempts to use a grant past its validity boundary.",
+      "events": [
+        {
+          "id": "e1",
+          "order": 1,
+          "actor": "grantee",
+          "action": "invoke_after_grant_expiry",
+          "request_id": "call-07",
+          "grant_ref": "grant-expired",
+          "attempt": 1,
+          "note": "Invoke after the host grant's expiry boundary."
+        }
+      ],
+      "checks": [
+        {
+          "after": "e1",
+          "planes": {
+            "host_decision": "UNAUTHORIZED",
+            "domain_result": "NOT_INVOKED",
+            "source_chain": "NO_ACTION",
+            "validator": "NOT_OBSERVED",
+            "projection": "STALE",
+            "observer": "ACKNOWLEDGED"
+          },
+          "assertions": [
+            "expiry_is_host_enforced",
+            "stale_projection_never_overrides_host"
+          ]
+        }
+      ],
+      "notes": "Use controlled test time or an explicit expiry fixture; never derive expiry from an uncontrolled wall clock."
+    },
+    {
+      "id": "REV-01",
+      "family": "revocation",
+      "title": "Committed host revocation defeats a stale active DHT projection",
+      "threat": "A remote or local UI still displays active after the actual system capability has been revoked.",
+      "events": [
+        {
+          "id": "e1",
+          "order": 1,
+          "actor": "grantor",
+          "action": "revoke_exact_host_grant",
+          "request_id": "revoke-01",
+          "grant_ref": "grant-A",
+          "attempt": 1,
+          "note": "Revoke the exact CapGrant action at the conductor."
+        },
+        {
+          "id": "e2",
+          "order": 2,
+          "actor": "grantee",
+          "action": "invoke_using_retained_claim",
+          "request_id": "call-08",
+          "grant_ref": "grant-A",
+          "attempt": 1,
+          "happens_before": [
+            "e1"
+          ],
+          "note": "The app projection intentionally remains active/stale."
+        }
+      ],
+      "checks": [
+        {
+          "after": "e2",
+          "planes": {
+            "host_decision": "UNAUTHORIZED",
+            "domain_result": "NOT_INVOKED",
+            "source_chain": "NO_ACTION",
+            "validator": "NOT_OBSERVED",
+            "projection": "STALE",
+            "observer": "ACKNOWLEDGED"
+          },
+          "assertions": [
+            "host_revocation_overrides_projection",
+            "no_post_revoke_effect"
+          ]
+        }
+      ],
+      "notes": "Measure host denial separately from DHT/UI convergence."
+    },
+    {
+      "id": "REV-02",
+      "family": "revocation",
+      "title": "Application projection cannot revoke or grant host capability by itself",
+      "threat": "A DHT entry says revoked while the conductor grant still exists, or says active without the grant.",
+      "events": [
+        {
+          "id": "e1",
+          "order": 1,
+          "actor": "test-coordinator",
+          "action": "write_projection_revoked_without_host_revoke",
+          "request_id": "projection-02",
+          "grant_ref": "grant-A",
+          "attempt": 1,
+          "note": "Modify only the application projection; do not invoke the conductor admin revoke."
+        },
+        {
+          "id": "e2",
+          "order": 2,
+          "actor": "grantee",
+          "action": "invoke_with_still_valid_host_grant",
+          "request_id": "call-09",
+          "grant_ref": "grant-A",
+          "attempt": 1,
+          "happens_before": [
+            "e1"
+          ],
+          "note": "Test host and application-domain outcomes independently."
+        }
+      ],
+      "checks": [
+        {
+          "after": "e2",
+          "planes": {
+            "host_decision": "AUTHORIZED",
+            "domain_result": "REJECTED",
+            "source_chain": "NO_ACTION",
+            "validator": "NOT_OBSERVED",
+            "projection": "CONFLICTING",
+            "observer": "ACKNOWLEDGED"
+          },
+          "assertions": [
+            "projection_is_not_host_authority",
+            "domain_policy_may_reject_independently"
+          ]
+        }
+      ],
+      "notes": "This expected outcome assumes the coordinator enforces its domain revocation policy. If it does not, that is a separate application-layer defect; the host result must still be recorded accurately."
+    },
+    {
+      "id": "REV-03",
+      "family": "revocation",
+      "title": "Revoking one grant does not revoke a separate grant",
+      "threat": "Two independent grants share a principal/function; revoking one accidentally disables or preserves both.",
+      "events": [
+        {
+          "id": "e1",
+          "order": 1,
+          "actor": "grantor",
+          "action": "create_assigned_grant",
+          "request_id": "grant-03a",
+          "grant_ref": "grant-A",
+          "attempt": 1,
+          "note": "Create grant A."
+        },
+        {
+          "id": "e2",
+          "order": 2,
+          "actor": "grantor",
+          "action": "create_assigned_grant",
+          "request_id": "grant-03b",
+          "grant_ref": "grant-B",
+          "attempt": 1,
+          "happens_before": [
+            "e1"
+          ],
+          "note": "Create independent grant B with its own ActionHash and secret."
+        },
+        {
+          "id": "e3",
+          "order": 3,
+          "actor": "grantor",
+          "action": "revoke_exact_host_grant",
+          "request_id": "revoke-03",
+          "grant_ref": "grant-A",
+          "attempt": 1,
+          "happens_before": [
+            "e2"
+          ],
+          "note": "Revoke A only."
+        },
+        {
+          "id": "e4",
+          "order": 4,
+          "actor": "grantee-B",
+          "action": "invoke_using_grant_B",
+          "request_id": "call-10",
+          "grant_ref": "grant-B",
+          "attempt": 1,
+          "happens_before": [
+            "e3"
+          ],
+          "note": "Probe B after A is revoked."
+        }
+      ],
+      "checks": [
+        {
+          "after": "e4",
+          "planes": {
+            "host_decision": "AUTHORIZED",
+            "domain_result": "EXECUTED",
+            "source_chain": "UNKNOWN",
+            "validator": "NOT_OBSERVED",
+            "projection": "NOT_APPLICABLE",
+            "observer": "ACKNOWLEDGED"
+          },
+          "assertions": [
+            "grant_identity_not_tuple_only",
+            "revocation_is_exact_resource"
+          ]
+        }
+      ],
+      "notes": "This scenario prevents over-broad revocation keyed only by principal/function."
+    },
+    {
+      "id": "REV-04",
+      "family": "revocation",
+      "title": "Stale grant ActionHash cannot resurrect an older active state",
+      "threat": "Caller presents an old record/action pointer after an immutable revocation update.",
+      "events": [
+        {
+          "id": "e1",
+          "order": 1,
+          "actor": "grantor",
+          "action": "commit_grant_update_active_to_revoked",
+          "request_id": "revoke-04",
+          "grant_ref": "grant-A",
+          "attempt": 1,
+          "note": "Commit monotonic revocation transition."
+        },
+        {
+          "id": "e2",
+          "order": 2,
+          "actor": "grantee",
+          "action": "resolve_stale_grant_action_hash_and_call",
+          "request_id": "call-11",
+          "grant_ref": "grant-A-old-action",
+          "attempt": 1,
+          "happens_before": [
+            "e1"
+          ],
+          "note": "Resolve the supplied old ActionHash to canonical current state or deny; never use stale active bytes."
+        }
+      ],
+      "checks": [
+        {
+          "after": "e2",
+          "planes": {
+            "host_decision": "UNAUTHORIZED",
+            "domain_result": "NOT_INVOKED",
+            "source_chain": "NO_ACTION",
+            "validator": "NOT_OBSERVED",
+            "projection": "STALE",
+            "observer": "ACKNOWLEDGED"
+          },
+          "assertions": [
+            "stale_hash_never_restores_authority",
+            "grant_state_is_monotonic"
+          ]
+        }
+      ],
+      "notes": "This tests application-record resolution and must not be misrepresented as a substitute for conductor grant revocation."
+    },
+    {
+      "id": "REV-05",
+      "family": "revocation",
+      "title": "Lost revocation acknowledgement and retry are idempotent",
+      "threat": "The revoke operation commits, but its response is lost; retry may duplicate or target a different grant.",
+      "events": [
+        {
+          "id": "e1",
+          "order": 1,
+          "actor": "grantor",
+          "action": "revoke_exact_host_grant",
+          "request_id": "revoke-05",
+          "grant_ref": "grant-A",
+          "attempt": 1,
+          "note": "Host revocation commits; response is dropped."
+        },
+        {
+          "id": "e2",
+          "order": 2,
+          "actor": "grantor",
+          "action": "retry_revoke_same_logical_operation",
+          "request_id": "revoke-05",
+          "grant_ref": "grant-A",
+          "attempt": 2,
+          "happens_before": [
+            "e1"
+          ],
+          "note": "Retry with the same logical operation ID and exact grant ActionHash."
+        },
+        {
+          "id": "e3",
+          "order": 3,
+          "actor": "grantee",
+          "action": "invoke_after_retried_revoke",
+          "request_id": "call-12",
+          "grant_ref": "grant-A",
+          "attempt": 1,
+          "happens_before": [
+            "e2"
+          ],
+          "note": "Verify host denies after reconciliation."
+        }
+      ],
+      "checks": [
+        {
+          "after": "e3",
+          "planes": {
+            "host_decision": "UNAUTHORIZED",
+            "domain_result": "NOT_INVOKED",
+            "source_chain": "NO_ACTION",
+            "validator": "NOT_OBSERVED",
+            "projection": "CURRENT",
+            "observer": "ACKNOWLEDGED"
+          },
+          "assertions": [
+            "revoke_retry_has_one_logical_effect",
+            "revoke_retry_cannot_change_target"
+          ]
+        }
+      ],
+      "notes": "At-most-once logical transition is required; do not claim exactly-once transport."
+    },
+    {
+      "id": "REV-06",
+      "family": "concurrency",
+      "title": "Call and revocation overlap without a fabricated ordering",
+      "threat": "A protected call overlaps host revocation and clocks or projections are used to invent a winner.",
+      "events": [
+        {
+          "id": "e1",
+          "order": 1,
+          "actor": "grantee",
+          "action": "invoke_protected_function",
+          "request_id": "call-13",
+          "grant_ref": "grant-A",
+          "attempt": 1,
+          "concurrent_group": "race-06",
+          "note": "Call begins."
+        },
+        {
+          "id": "e2",
+          "order": 2,
+          "actor": "grantor",
+          "action": "revoke_exact_host_grant",
+          "request_id": "revoke-06",
+          "grant_ref": "grant-A",
+          "attempt": 1,
+          "concurrent_group": "race-06",
+          "note": "Revocation overlaps the call; record actual conductor decision/commit events."
+        }
+      ],
+      "checks": [
+        {
+          "after": "e2",
+          "planes": {
+            "host_decision": "UNKNOWN",
+            "domain_result": "UNKNOWN",
+            "source_chain": "UNKNOWN",
+            "validator": "NOT_OBSERVED",
+            "projection": "UNKNOWN",
+            "observer": "UNKNOWN"
+          },
+          "assertions": [
+            "no_order_inferred_from_wall_clock_alone",
+            "counterexample_replay_preserves_observed_schedule"
+          ]
+        }
+      ],
+      "notes": "Unknown is intentional until an instrumented linearization boundary is established. Once established, the observed execution must correspond to a permitted sequential history."
+    },
+    {
+      "id": "REC-01",
+      "family": "crash-recovery",
+      "title": "Crash before revocation commit does not create a false revoked claim",
+      "threat": "Process crashes after user intent but before the host revocation is durable.",
+      "events": [
+        {
+          "id": "e1",
+          "order": 1,
+          "actor": "grantor",
+          "action": "begin_revoke",
+          "request_id": "revoke-07",
+          "grant_ref": "grant-A",
+          "attempt": 1,
+          "note": "Persist intent only; host grant is not yet confirmed revoked."
+        },
+        {
+          "id": "e2",
+          "order": 2,
+          "actor": "runtime",
+          "action": "crash_before_host_revoke_commit",
+          "request_id": "crash-01",
+          "grant_ref": "grant-A",
+          "attempt": 1,
+          "happens_before": [
+            "e1"
+          ],
+          "note": "Terminate the coordinator/worker before the conductor admin revoke completes."
+        },
+        {
+          "id": "e3",
+          "order": 3,
+          "actor": "recovery",
+          "action": "recover_revocation_status",
+          "request_id": "recover-01",
+          "grant_ref": "grant-A",
+          "attempt": 1,
+          "happens_before": [
+            "e2"
+          ],
+          "note": "Recovery must inspect actual host grant state, not infer from intent."
+        }
+      ],
+      "checks": [
+        {
+          "after": "e3",
+          "planes": {
+            "host_decision": "AUTHORIZED",
+            "domain_result": "UNKNOWN",
+            "source_chain": "NO_ACTION",
+            "validator": "NOT_OBSERVED",
+            "projection": "UNKNOWN",
+            "observer": "UNKNOWN"
+          },
+          "assertions": [
+            "intent_is_not_commit",
+            "recovery_reports_unknown_until_host_state_checked"
+          ]
+        }
+      ],
+      "notes": "The UI may show revocation pending/unknown; it must not assert revoked."
+    },
+    {
+      "id": "REC-02",
+      "family": "crash-recovery",
+      "title": "Crash after host revocation commit but before DHT projection converges",
+      "threat": "Revocation commits at conductor; process dies before app projection or audit receipt is published.",
+      "events": [
+        {
+          "id": "e1",
+          "order": 1,
+          "actor": "grantor",
+          "action": "revoke_exact_host_grant",
+          "request_id": "revoke-08",
+          "grant_ref": "grant-A",
+          "attempt": 1,
+          "note": "Host grant deletion/revocation completes."
+        },
+        {
+          "id": "e2",
+          "order": 2,
+          "actor": "runtime",
+          "action": "crash_before_projection_update",
+          "request_id": "crash-02",
+          "grant_ref": "grant-A",
+          "attempt": 1,
+          "happens_before": [
+            "e1"
+          ],
+          "note": "Crash before projection/receipt update."
+        },
+        {
+          "id": "e3",
+          "order": 3,
+          "actor": "grantee",
+          "action": "invoke_after_restart",
+          "request_id": "call-14",
+          "grant_ref": "grant-A",
+          "attempt": 1,
+          "happens_before": [
+            "e2"
+          ],
+          "note": "Call against restarted conductor after host state recovery."
+        }
+      ],
+      "checks": [
+        {
+          "after": "e3",
+          "planes": {
+            "host_decision": "UNAUTHORIZED",
+            "domain_result": "NOT_INVOKED",
+            "source_chain": "NO_ACTION",
+            "validator": "NOT_OBSERVED",
+            "projection": "STALE",
+            "observer": "UNKNOWN"
+          },
+          "assertions": [
+            "host_revocation_survives_restart",
+            "projection_lag_does_not_restore_capability"
+          ]
+        }
+      ],
+      "notes": "The recovery path must reconstruct projection from verifiable events without mutating the historical host result."
+    },
+    {
+      "id": "REC-03",
+      "family": "crash-recovery",
+      "title": "Crash after protected call commit but before response is recorded",
+      "threat": "A state-changing operation commits, then its acknowledgement is lost; replay may duplicate effects.",
+      "events": [
+        {
+          "id": "e1",
+          "order": 1,
+          "actor": "grantee",
+          "action": "invoke_idempotent_state_change",
+          "request_id": "op-15",
+          "grant_ref": "grant-A",
+          "attempt": 1,
+          "note": "Domain action commits once; response is lost."
+        },
+        {
+          "id": "e2",
+          "order": 2,
+          "actor": "runtime",
+          "action": "crash_before_ack_persisted",
+          "request_id": "crash-03",
+          "attempt": 1,
+          "happens_before": [
+            "e1"
+          ],
+          "note": "Crash after durable effect but before local outcome journal."
+        },
+        {
+          "id": "e3",
+          "order": 3,
+          "actor": "grantee",
+          "action": "retry_same_logical_operation_id",
+          "request_id": "op-15",
+          "grant_ref": "grant-A",
+          "attempt": 2,
+          "happens_before": [
+            "e2"
+          ],
+          "note": "Retry with stable logical id; effect must not duplicate."
+        }
+      ],
+      "checks": [
+        {
+          "after": "e3",
+          "planes": {
+            "host_decision": "AUTHORIZED",
+            "domain_result": "EXECUTED",
+            "source_chain": "ACTION_AUTHORED",
+            "validator": "ACCEPTED",
+            "projection": "CURRENT",
+            "observer": "ACKNOWLEDGED"
+          },
+          "assertions": [
+            "one_logical_effect",
+            "attempt_id_differs_but_request_id_stable"
+          ]
+        }
+      ],
+      "notes": "This is at-most-once logical effect backed by durable deduplication; it is not exactly-once delivery."
+    },
+    {
+      "id": "REC-04",
+      "family": "crash-recovery",
+      "title": "Lost call response remains unknown until idempotent reconciliation",
+      "threat": "A timeout occurs before the caller can distinguish not applied from applied.",
+      "events": [
+        {
+          "id": "e1",
+          "order": 1,
+          "actor": "grantee",
+          "action": "invoke_state_change",
+          "request_id": "op-16",
+          "grant_ref": "grant-A",
+          "attempt": 1,
+          "note": "The remote call times out; server-side disposition is not observable."
+        },
+        {
+          "id": "e2",
+          "order": 2,
+          "actor": "client",
+          "action": "record_outcome_unknown",
+          "request_id": "op-16",
+          "attempt": 1,
+          "happens_before": [
+            "e1"
+          ],
+          "note": "Do not translate timeout to denied or proven not applied."
+        }
+      ],
+      "checks": [
+        {
+          "after": "e2",
+          "planes": {
+            "host_decision": "UNKNOWN",
+            "domain_result": "UNKNOWN",
+            "source_chain": "UNKNOWN",
+            "validator": "NOT_OBSERVED",
+            "projection": "UNKNOWN",
+            "observer": "UNKNOWN"
+          },
+          "assertions": [
+            "timeout_is_not_unauthorized",
+            "timeout_is_not_proven_not_applied"
+          ]
+        }
+      ],
+      "notes": "Any retry must retain the same logical operation identity and have an idempotent domain contract."
+    },
+    {
+      "id": "MIG-01",
+      "family": "migration",
+      "title": "Holochain 0.7.0 capability grant is not silently reused as 0.7.1 grant",
+      "threat": "Migration imports old application records/claims and assumes the source-chain grant representation is unchanged.",
+      "events": [
+        {
+          "id": "e1",
+          "order": 1,
+          "actor": "migration",
+          "action": "import_07_capability_metadata",
+          "request_id": "migration-01",
+          "grant_ref": "grant-070",
+          "attempt": 1,
+          "note": "Import semantic metadata but preserve source runtime version and old action identity."
+        },
+        {
+          "id": "e2",
+          "order": 2,
+          "actor": "migration",
+          "action": "attempt_old_cap_claim_on_071",
+          "request_id": "call-17",
+          "grant_ref": "grant-070",
+          "attempt": 1,
+          "happens_before": [
+            "e1"
+          ],
+          "note": "Attempt to use old 0.7.0 claim without an explicitly reissued 0.7.1 host grant."
+        }
+      ],
+      "checks": [
+        {
+          "after": "e2",
+          "planes": {
+            "host_decision": "UNAUTHORIZED",
+            "domain_result": "NOT_INVOKED",
+            "source_chain": "NO_ACTION",
+            "validator": "NOT_OBSERVED",
+            "projection": "STALE",
+            "observer": "ACKNOWLEDGED"
+          },
+          "assertions": [
+            "old_grant_representation_not_assumed_compatible",
+            "reissue_is_explicit"
+          ]
+        }
+      ],
+      "notes": "This is a migration guard. The exact 0.7.1 behavior must be verified against release artifacts and runtime tests, as required by #5719."
+    },
+    {
+      "id": "MIG-02",
+      "family": "migration",
+      "title": "DirectSignal capability is independently granted in the target runtime",
+      "threat": "A migration preserves zome-call authority but overlooks the distinct DirectSignal host capability.",
+      "events": [
+        {
+          "id": "e1",
+          "order": 1,
+          "actor": "migration",
+          "action": "reissue_zome_call_grant_only",
+          "request_id": "migration-02",
+          "grant_ref": "grant-071",
+          "attempt": 1,
+          "note": "Install zome-call grant but no DirectSignal grant."
+        },
+        {
+          "id": "e2",
+          "order": 2,
+          "actor": "sender",
+          "action": "send_direct_signal",
+          "request_id": "signal-18",
+          "grant_ref": "grant-071",
+          "attempt": 1,
+          "happens_before": [
+            "e1"
+          ],
+          "note": "Attempt direct signal to recipient with no receiver DirectSignal capability."
+        }
+      ],
+      "checks": [
+        {
+          "after": "e2",
+          "planes": {
+            "host_decision": "UNAUTHORIZED",
+            "domain_result": "NOT_INVOKED",
+            "source_chain": "NO_ACTION",
+            "validator": "NOT_OBSERVED",
+            "projection": "NOT_APPLICABLE",
+            "observer": "NO_ACK"
+          },
+          "assertions": [
+            "signal_grant_is_separate",
+            "absence_of_ack_is_not_sender_observed_unauthorized"
+          ]
+        }
+      ],
+      "notes": "Instrument recipient-side test harness to know why the signal was dropped. The sender-facing no-ack alone remains unknown because signaling is best-effort."
+    },
+    {
+      "id": "VAL-01",
+      "family": "independent-validation",
+      "title": "Malicious coordinator cannot smuggle forged mailbox update past validators",
+      "threat": "A permissive test coordinator submits a forged member update that mutates protected fields.",
+      "events": [
+        {
+          "id": "e1",
+          "order": 1,
+          "actor": "attacker-coordinator",
+          "action": "author_forged_mailbox_update",
+          "request_id": "mailbox-19",
+          "attempt": 1,
+          "note": "Use permissive coordinator fixture; append a member and mutate name/settings/activity in same update."
+        },
+        {
+          "id": "e2",
+          "order": 2,
+          "actor": "remote-validator",
+          "action": "validate_remote_source_chain_op",
+          "request_id": "mailbox-19",
+          "attempt": 1,
+          "happens_before": [
+            "e1"
+          ],
+          "note": "Run the production integrity zome on independent receiving conductor."
+        },
+        {
+          "id": "e3",
+          "order": 3,
+          "actor": "remote-observer",
+          "action": "read_mailbox_projection",
+          "request_id": "mailbox-19",
+          "attempt": 1,
+          "happens_before": [
+            "e2"
+          ],
+          "note": "Inspect canonical observer state after validation disposition."
+        }
+      ],
+      "checks": [
+        {
+          "after": "e3",
+          "planes": {
+            "host_decision": "NOT_APPLICABLE",
+            "domain_result": "EXECUTED",
+            "source_chain": "ACTION_AUTHORED",
+            "validator": "REJECTED",
+            "projection": "CURRENT",
+            "observer": "ACKNOWLEDGED"
+          },
+          "assertions": [
+            "authoring_is_not_network_acceptance",
+            "independent_integrity_validator_rejects",
+            "remote_state_unchanged"
+          ]
+        }
+      ],
+      "notes": "Record action authoring, validator disposition and remote projection as separate evidence. A coordinator error alone is insufficient."
+    },
+    {
+      "id": "VAL-02",
+      "family": "independent-validation",
+      "title": "Legitimate member append cannot carry unrelated mailbox mutation",
+      "threat": "A coordinator bundles a valid member append with a mutation to immutable mailbox fields.",
+      "events": [
+        {
+          "id": "e1",
+          "order": 1,
+          "actor": "attacker-coordinator",
+          "action": "submit_member_append_plus_unrelated_mutation",
+          "request_id": "mailbox-20",
+          "attempt": 1,
+          "note": "Mutate exactly one protected field per corpus mutation: name, email, active state, settings, owner or creation timestamp."
+        },
+        {
+          "id": "e2",
+          "order": 2,
+          "actor": "remote-validator",
+          "action": "validate_transition",
+          "request_id": "mailbox-20",
+          "attempt": 1,
+          "happens_before": [
+            "e1"
+          ],
+          "note": "Validate against original record and exact allowed transition family."
+        }
+      ],
+      "checks": [
+        {
+          "after": "e2",
+          "planes": {
+            "host_decision": "NOT_APPLICABLE",
+            "domain_result": "REJECTED",
+            "source_chain": "ACTION_AUTHORED",
+            "validator": "REJECTED",
+            "projection": "UNKNOWN",
+            "observer": "ACKNOWLEDGED"
+          },
+          "assertions": [
+            "exactly_one_transition_family",
+            "no_field_smuggling"
+          ]
+        }
+      ],
+      "notes": "The scenario should use production integrity WASM, not a test-only permissive validator."
+    },
+    {
+      "id": "VAL-03",
+      "family": "independent-validation",
+      "title": "Supplied root reference must dereference to the true Create action",
+      "threat": "Attacker supplies an update ActionHash or unrelated record as the apparent stable root.",
+      "events": [
+        {
+          "id": "e1",
+          "order": 1,
+          "actor": "attacker-coordinator",
+          "action": "submit_reference_to_non_root_action",
+          "request_id": "root-21",
+          "attempt": 1,
+          "note": "Pass Update hash, mismatched Create hash or unrelated entry as root."
+        },
+        {
+          "id": "e2",
+          "order": 2,
+          "actor": "remote-validator",
+          "action": "must_get_and_check_exact_create_root",
+          "request_id": "root-21",
+          "attempt": 1,
+          "happens_before": [
+            "e1"
+          ],
+          "note": "Dereference action and verify Create type, original author and exact entry identity."
+        }
+      ],
+      "checks": [
+        {
+          "after": "e2",
+          "planes": {
+            "host_decision": "NOT_APPLICABLE",
+            "domain_result": "REJECTED",
+            "source_chain": "ACTION_AUTHORED",
+            "validator": "REJECTED",
+            "projection": "UNKNOWN",
+            "observer": "ACKNOWLEDGED"
+          },
+          "assertions": [
+            "root_presence_is_not_root_validity",
+            "exact_ancestry_required"
+          ]
+        }
+      ],
+      "notes": "Do not infer that existence of a referenced hash proves it is the stable root."
+    },
+    {
+      "id": "VAL-04",
+      "family": "independent-validation",
+      "title": "Competing heads and fork ambiguity cannot create authority",
+      "threat": "Two valid-looking updates form a fork or remote observers see divergent heads.",
+      "events": [
+        {
+          "id": "e1",
+          "order": 1,
+          "actor": "coordinator-A",
+          "action": "publish_transition_from_root",
+          "request_id": "fork-22a",
+          "attempt": 1,
+          "note": "Candidate update A references the root."
+        },
+        {
+          "id": "e2",
+          "order": 2,
+          "actor": "coordinator-B",
+          "action": "publish_conflicting_transition_from_same_root",
+          "request_id": "fork-22b",
+          "attempt": 1,
+          "concurrent_group": "fork-22",
+          "note": "Candidate update B references the same root with incompatible member state."
+        },
+        {
+          "id": "e3",
+          "order": 3,
+          "actor": "observer",
+          "action": "resolve_current_authority_head",
+          "request_id": "fork-22-read",
+          "attempt": 1,
+          "note": "Resolve both candidates without selecting by arrival order or coordinator preference."
+        }
+      ],
+      "checks": [
+        {
+          "after": "e3",
+          "planes": {
+            "host_decision": "UNKNOWN",
+            "domain_result": "UNKNOWN",
+            "source_chain": "UNKNOWN",
+            "validator": "UNKNOWN",
+            "projection": "CONFLICTING",
+            "observer": "UNKNOWN"
+          },
+          "assertions": [
+            "fork_is_not_silently_collapsed",
+            "no_privilege_from_ambiguous_head"
+          ]
+        }
+      ],
+      "notes": "A deterministic conflict-resolution protocol may later replace UNKNOWN, but it must itself be separately authorized and qualified."
+    },
+    {
+      "id": "POL-01",
+      "family": "policy-mapping",
+      "title": "FullAccess label cannot broaden explicitly granted function set",
+      "threat": "A broad UI/access enum is used to inflate host CapGrant function scope.",
+      "events": [
+        {
+          "id": "e1",
+          "order": 1,
+          "actor": "grant-coordinator",
+          "action": "derive_function_scope_from_full_access_and_read_only_bits",
+          "request_id": "policy-23",
+          "grant_ref": "grant-A",
+          "attempt": 1,
+          "note": "Set FullAccess label but only can_read=true; compare exact resulting GrantedFunctions set."
+        }
+      ],
+      "checks": [
+        {
+          "after": "e1",
+          "planes": {
+            "host_decision": "NOT_APPLICABLE",
+            "domain_result": "REJECTED",
+            "source_chain": "NO_ACTION",
+            "validator": "NOT_OBSERVED",
+            "projection": "NOT_APPLICABLE",
+            "observer": "ACKNOWLEDGED"
+          },
+          "assertions": [
+            "labels_do_not_override_permission_bits",
+            "function_allowlist_exact"
+          ]
+        }
+      ],
+      "notes": "Expected domain result REJECTED means the grant builder refuses a semantic mismatch instead of creating a broader host grant."
+    },
+    {
+      "id": "POL-02",
+      "family": "policy-mapping",
+      "title": "Unsupported access-type shapes fail with zero source-chain effects",
+      "threat": "FolderAccess, ThreadAccess, OutOfOffice, OrganizationAdmin or Custom are silently mapped to a broader grant.",
+      "events": [
+        {
+          "id": "e1",
+          "order": 1,
+          "actor": "grant-coordinator",
+          "action": "request_unsupported_access_type",
+          "request_id": "policy-24",
+          "grant_ref": "grant-A",
+          "attempt": 1,
+          "note": "Test each unsupported variant independently."
+        }
+      ],
+      "checks": [
+        {
+          "after": "e1",
+          "planes": {
+            "host_decision": "NOT_APPLICABLE",
+            "domain_result": "REJECTED",
+            "source_chain": "NO_ACTION",
+            "validator": "NOT_OBSERVED",
+            "projection": "NOT_APPLICABLE",
+            "observer": "ACKNOWLEDGED"
+          },
+          "assertions": [
+            "unsupported_semantics_fail_closed",
+            "zero_action_delta"
+          ]
+        }
+      ],
+      "notes": "This extends the currently documented unit regressions into host-level action-count qualification."
+    },
+    {
+      "id": "OBS-01",
+      "family": "observability",
+      "title": "Capability diagnostic exposes outcome without disclosing inbox data or secret",
+      "threat": "A health probe becomes a data-exfiltration path or leaks stable capability material.",
+      "events": [
+        {
+          "id": "e1",
+          "order": 1,
+          "actor": "grantee",
+          "action": "invoke_empty_response_capability_probe",
+          "request_id": "probe-25",
+          "grant_ref": "grant-A",
+          "attempt": 1,
+          "note": "Invoke a no-data read-scope probe."
+        },
+        {
+          "id": "e2",
+          "order": 2,
+          "actor": "auditor",
+          "action": "inspect_test_logs_and_trace",
+          "request_id": "audit-25",
+          "grant_ref": "grant-A",
+          "attempt": 1,
+          "happens_before": [
+            "e1"
+          ],
+          "note": "Check no raw CapSecret, encrypted payload or stable mailbox identifier appears in trace, stdout, signal or public record."
+        }
+      ],
+      "checks": [
+        {
+          "after": "e2",
+          "planes": {
+            "host_decision": "AUTHORIZED",
+            "domain_result": "EXECUTED",
+            "source_chain": "NO_ACTION",
+            "validator": "NOT_OBSERVED",
+            "projection": "NOT_APPLICABLE",
+            "observer": "ACKNOWLEDGED"
+          },
+          "assertions": [
+            "diagnostic_is_payload_free",
+            "raw_secret_never_logged",
+            "trace_uses_redacted_reference"
+          ]
+        }
+      ],
+      "notes": "The trace may include a keyed secret fingerprint or opaque test fixture reference, never the secret bytes."
+    },
+    {
+      "id": "OBS-02",
+      "family": "observability",
+      "title": "Every lifecycle event binds exact artifact and authority generation",
+      "threat": "History verifier accepts an event from another grant, cell, DNA or software generation.",
+      "events": [
+        {
+          "id": "e1",
+          "order": 1,
+          "actor": "verifier",
+          "action": "verify_history_with_cross_generation_event",
+          "request_id": "history-26",
+          "grant_ref": "grant-A",
+          "attempt": 1,
+          "note": "Inject one event whose grant ActionHash, cell/DNA identity or authority generation does not match the operation."
+        }
+      ],
+      "checks": [
+        {
+          "after": "e1",
+          "planes": {
+            "host_decision": "NOT_APPLICABLE",
+            "domain_result": "REJECTED",
+            "source_chain": "UNKNOWN",
+            "validator": "NOT_OBSERVED",
+            "projection": "UNKNOWN",
+            "observer": "ACKNOWLEDGED"
+          },
+          "assertions": [
+            "trace_identity_binding_is_exact",
+            "cross_generation_evidence_rejected"
+          ]
+        }
+      ],
+      "notes": "A successful hash check proves content integrity only; issuer authentication and source truth require their own evidence."
+    },
+    {
+      "id": "GRANT-01",
+      "family": "grant-retry",
+      "title": "Lost grant acknowledgement and retry produce one logical host grant",
+      "threat": "The grantor commits a new CapGrant and application record but the response is lost; the caller retries the same logical grant request.",
+      "events": [
+        {
+          "id": "e1",
+          "order": 1,
+          "actor": "grantor",
+          "action": "create_assigned_capability",
+          "request_id": "grant-27",
+          "grant_ref": "logical-grant-27",
+          "attempt": 1,
+          "note": "First attempt commits one host CapGrant and its application metadata; response is lost before caller observes the result."
+        },
+        {
+          "id": "e2",
+          "order": 2,
+          "actor": "transport",
+          "action": "drop_grant_acknowledgement",
+          "request_id": "grant-27",
+          "grant_ref": "logical-grant-27",
+          "attempt": 1,
+          "happens_before": [
+            "e1"
+          ],
+          "note": "Caller sees no acknowledgement and cannot know whether the host grant committed."
+        },
+        {
+          "id": "e3",
+          "order": 3,
+          "actor": "grantor",
+          "action": "retry_same_logical_grant_request",
+          "request_id": "grant-27",
+          "grant_ref": "logical-grant-27",
+          "attempt": 2,
+          "happens_before": [
+            "e2"
+          ],
+          "note": "Retry with the same idempotency key; return/reconcile the original grant identity rather than minting a second grant or secret."
+        }
+      ],
+      "checks": [
+        {
+          "after": "e2",
+          "planes": {
+            "host_decision": "NOT_APPLICABLE",
+            "domain_result": "EXECUTED",
+            "source_chain": "ACTION_AUTHORED",
+            "validator": "NOT_OBSERVED",
+            "projection": "CURRENT",
+            "observer": "UNKNOWN"
+          },
+          "assertions": [
+            "grant_effect_may_have_committed",
+            "lost_ack_is_unknown_to_caller"
+          ]
+        },
+        {
+          "after": "e3",
+          "planes": {
+            "host_decision": "NOT_APPLICABLE",
+            "domain_result": "EXECUTED",
+            "source_chain": "ACTION_AUTHORED",
+            "validator": "NOT_OBSERVED",
+            "projection": "CURRENT",
+            "observer": "ACKNOWLEDGED"
+          },
+          "assertions": [
+            "one_host_cap_grant_per_logical_request",
+            "one_application_grant_record_per_logical_request",
+            "retry_returns_same_grant_action_identity",
+            "no_orphan_grant_from_lost_ack"
+          ]
+        }
+      ],
+      "notes": "Current 0.7 branch GrantCapabilityInput has no explicit logical idempotency key and grant_capability generates a new secret/ID per invocation; this is a qualification target, not a claim that current code already deduplicates."
+    }
+  ]
+}

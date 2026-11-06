@@ -1,0 +1,362 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/pulse-signed-evidence-bundle-v1.schema.json",
+  "title": "Pulse role-separated signed evidence bundle v1",
+  "description": "A transport wrapper for independently signed role observations and optional SCITT transparency receipts. Parsing this schema is not cryptographic verification.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "bundle_id",
+    "evidence_class",
+    "subject",
+    "trust_policy",
+    "attestations",
+    "causal_edges",
+    "claim_ceiling"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "bundle_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "evidence_class": {
+      "enum": [
+        "synthetic",
+        "runtime_capture"
+      ]
+    },
+    "subject": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "repository",
+        "source_commit",
+        "trace_sha256",
+        "schema_sha256",
+        "tool_build_sha256",
+        "conductor_lineages"
+      ],
+      "properties": {
+        "repository": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$"
+        },
+        "source_commit": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}$"
+        },
+        "trace_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "schema_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "tool_build_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "conductor_lineages": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "conductor_id",
+              "agent_key_ref",
+              "conductor_build",
+              "dna_hash",
+              "cell_id",
+              "integrity_wasm_sha256"
+            ],
+            "properties": {
+              "conductor_id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "agent_key_ref": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "conductor_build": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "dna_hash": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "cell_id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128,
+                "description": "Agent-specific CellId; peers sharing a DNA normally have different CellIds."
+              },
+              "integrity_wasm_sha256": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              }
+            }
+          }
+        }
+      }
+    },
+    "trust_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "policy_id",
+        "policy_version",
+        "policy_epoch",
+        "policy_sha256",
+        "root_keyset_id"
+      ],
+      "properties": {
+        "policy_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "policy_version": {
+          "type": "string",
+          "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+        },
+        "policy_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "root_keyset_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "policy_epoch": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Exact policy epoch included in the digest-bound trust-policy reference."
+        }
+      }
+    },
+    "attestations": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "attestation_id",
+          "event_id",
+          "issuer_role",
+          "exposure",
+          "envelope"
+        ],
+        "properties": {
+          "attestation_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "event_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "issuer_role": {
+            "enum": [
+              "host_authority",
+              "action_author",
+              "validator",
+              "observer",
+              "client_outcome",
+              "independent_auditor"
+            ]
+          },
+          "exposure": {
+            "enum": [
+              "public_commitment",
+              "restricted",
+              "local_only"
+            ]
+          },
+          "envelope": {
+            "oneOf": [
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "format",
+                  "payload_type",
+                  "payload_base64",
+                  "signatures"
+                ],
+                "properties": {
+                  "format": {
+                    "const": "dsse_in_toto_v1"
+                  },
+                  "payload_type": {
+                    "const": "application/vnd.in-toto+json"
+                  },
+                  "payload_base64": {
+                    "type": "string",
+                    "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$"
+                  },
+                  "signatures": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "keyid",
+                        "sig_base64"
+                      ],
+                      "properties": {
+                        "keyid": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 256
+                        },
+                        "sig_base64": {
+                          "type": "string",
+                          "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$"
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "format",
+                  "media_type",
+                  "signed_statement_cose_base64",
+                  "statement_sha256",
+                  "receipts"
+                ],
+                "properties": {
+                  "format": {
+                    "const": "scitt_rfc9943_cose"
+                  },
+                  "media_type": {
+                    "const": "application/scitt-statement+cose"
+                  },
+                  "signed_statement_cose_base64": {
+                    "type": "string",
+                    "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$"
+                  },
+                  "statement_sha256": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{64}$"
+                  },
+                  "receipts": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "media_type",
+                        "ts_issuer",
+                        "ts_keyid",
+                        "receipt_cose_base64",
+                        "registration_policy_sha256"
+                      ],
+                      "properties": {
+                        "media_type": {
+                          "const": "application/scitt-receipt+cose"
+                        },
+                        "ts_issuer": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 256
+                        },
+                        "ts_keyid": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 256
+                        },
+                        "receipt_cose_base64": {
+                          "type": "string",
+                          "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$"
+                        },
+                        "registration_policy_sha256": {
+                          "type": "string",
+                          "pattern": "^[0-9a-f]{64}$"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+    "causal_edges": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "from_event_id",
+          "to_event_id",
+          "relation",
+          "basis_attestation_ids"
+        ],
+        "properties": {
+          "from_event_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "to_event_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "relation": {
+            "enum": [
+              "program_order",
+              "request_response",
+              "source_action_dependency",
+              "validator_receipt",
+              "observer_confirmation",
+              "test_harness_barrier"
+            ]
+          },
+          "basis_attestation_ids": {
+            "type": "array",
+            "minItems": 2,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "description": "At least one distinct DSSE-verified attestation for each exact causal endpoint event ID; an attestation for an unrelated event cannot support this edge."
+          }
+        }
+      }
+    },
+    "claim_ceiling": {
+      "enum": [
+        "STRUCTURAL_ONLY",
+        "ROLE_AUTHENTICATED",
+        "TRANSPARENTLY_REGISTERED"
+      ]
+    }
+  }
+}
