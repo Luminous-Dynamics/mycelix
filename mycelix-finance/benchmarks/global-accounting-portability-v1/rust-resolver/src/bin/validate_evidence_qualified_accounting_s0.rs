@@ -1037,9 +1037,7 @@ mod tests {
             .as_array_mut()
             .unwrap()
             .iter_mut()
-            .find(|item| {
-                optional_string(item, "case_id") == Some("ACCT-001-COMPLETE-INVOICE")
-            })
+            .find(|item| optional_string(item, "case_id") == Some("ACCT-001-COMPLETE-INVOICE"))
             .unwrap();
         let lines = expectation["expected_journal_entries"][0]["lines"]
             .as_array_mut()
