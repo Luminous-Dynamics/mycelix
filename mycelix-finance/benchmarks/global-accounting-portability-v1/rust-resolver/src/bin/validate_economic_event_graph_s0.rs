@@ -1262,6 +1262,32 @@ mod tests {
     }
 
     #[test]
+    fn future_contradiction_is_not_used_before_its_knowledge_frontier() {
+        let (mut bundle, _) = fixtures();
+        let case = bundle["cases"]
+            .as_array_mut()
+            .unwrap()
+            .iter_mut()
+            .find(|case| {
+                optional_string(case, "case_id") == Some("EVT-007-CONTRADICTORY-ASSERTIONS")
+            })
+            .unwrap();
+
+        case["relations"][0]["recorded_at"] = Value::String("2026-11-06T10:00:00Z".to_owned());
+        case["events"][0]["amount_minor"] = Value::from(120000);
+        case["events"][0]["currency"] = Value::String("USD".to_owned());
+
+        assert!(event_assertions_with_available_contradictions(
+            case,
+            &event_by_ref(case, "EV-007-INVOICE").unwrap()
+        )
+        .unwrap()
+        .iter()
+        .all(|assertion| optional_string(assertion, "assertion_ref") != Some("AS-007-AMOUNT-B")));
+        assert_eq!(validate_events(case).unwrap().0, 1);
+    }
+
+    #[test]
     fn unlinked_revision_family_is_reported_not_silently_merged() {
         let (bundle, _) = fixtures();
         let case = array(&bundle, "cases")
