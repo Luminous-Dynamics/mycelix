@@ -1,0 +1,313 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/fin-eco-006-durable-append-scenarios-v0.1.0.json",
+  "title": "FIN-ECO-006 durable append scenarios v0.1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "dataset_id",
+    "dataset_version",
+    "claim_scope",
+    "visibility",
+    "scenarios"
+  ],
+  "properties": {
+    "dataset_id": {
+      "const": "FIN-ECO-006-DURABLE-APPEND"
+    },
+    "dataset_version": {
+      "const": "0.1.0"
+    },
+    "claim_scope": {
+      "const": "synthetic_storage_adapter_contract_scenarios_not_backend_qualification"
+    },
+    "visibility": {
+      "const": "public_conformance_scenarios_not_blind_holdout"
+    },
+    "scenarios": {
+      "type": "array",
+      "minItems": 14,
+      "maxItems": 14,
+      "items": {
+        "$ref": "#/$defs/scenario"
+      }
+    }
+  },
+  "$defs": {
+    "request": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_application_key",
+        "source_commitment",
+        "journal_id",
+        "canonical_bytes_digest",
+        "ledger_profile_digest",
+        "projection_policy_digest",
+        "reporting_entity",
+        "reporting_period",
+        "reverses"
+      ],
+      "properties": {
+        "source_application_key": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_commitment": {
+          "type": "string",
+          "minLength": 1
+        },
+        "journal_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "canonical_bytes_digest": {
+          "type": "string",
+          "minLength": 1
+        },
+        "ledger_profile_digest": {
+          "type": "string",
+          "minLength": 1
+        },
+        "projection_policy_digest": {
+          "type": "string",
+          "minLength": 1
+        },
+        "reporting_entity": {
+          "type": "string",
+          "minLength": 1
+        },
+        "reporting_period": {
+          "type": "string",
+          "minLength": 1
+        },
+        "reverses": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "action": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "action_id",
+        "actor",
+        "operation",
+        "request",
+        "observation"
+      ],
+      "properties": {
+        "action_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "actor": {
+          "type": "string",
+          "minLength": 1
+        },
+        "operation": {
+          "enum": [
+            "append",
+            "recover",
+            "reopen",
+            "verify"
+          ]
+        },
+        "request": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/request"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "observation": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "disposition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "action_id",
+        "value"
+      ],
+      "properties": {
+        "action_id": {
+          "type": "string"
+        },
+        "value": {
+          "enum": [
+            "AppendedExact",
+            "IdempotentReplayExact",
+            "SourceProjectionConflict",
+            "JournalIdentityConflict",
+            "ReversalConflict",
+            "IndeterminateCommit",
+            "StorageIntegrityFailure",
+            "Committed",
+            "DefinitelyNotCommitted",
+            "VerifiedExact"
+          ]
+        }
+      }
+    },
+    "scenario": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "scenario_id",
+        "category",
+        "title",
+        "schedule_mode",
+        "preconditions",
+        "actions",
+        "expected",
+        "invariants"
+      ],
+      "properties": {
+        "scenario_id": {
+          "type": "string",
+          "pattern": "^JDP-[0-9]{3}$"
+        },
+        "category": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "schedule_mode": {
+          "enum": [
+            "serial",
+            "concurrent_unordered"
+          ]
+        },
+        "preconditions": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        },
+        "actions": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/action"
+          }
+        },
+        "expected": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "commit_classification",
+            "dispositions",
+            "persisted_entry_count",
+            "source_mapping_count",
+            "reversal_atomic_units",
+            "recovery_required",
+            "allowed_concurrent_outcomes"
+          ],
+          "properties": {
+            "commit_classification": {
+              "enum": [
+                "not_applicable",
+                "Committed",
+                "DefinitelyNotCommitted",
+                "IndeterminateCommit"
+              ]
+            },
+            "dispositions": {
+              "type": "array",
+              "minItems": 0,
+              "items": {
+                "$ref": "#/$defs/disposition"
+              }
+            },
+            "persisted_entry_count": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "source_mapping_count": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "reversal_atomic_units": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "original_posting_ref",
+                  "atomic_units"
+                ],
+                "properties": {
+                  "original_posting_ref": {
+                    "type": "string"
+                  },
+                  "atomic_units": {
+                    "type": "string",
+                    "pattern": "^(0|[1-9][0-9]*)$"
+                  }
+                }
+              }
+            },
+            "recovery_required": {
+              "type": "boolean"
+            },
+            "allowed_concurrent_outcomes": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "disposition_multiset",
+                  "reversal_atomic_units"
+                ],
+                "properties": {
+                  "disposition_multiset": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                      "enum": [
+                        "AppendedExact",
+                        "IdempotentReplayExact",
+                        "SourceProjectionConflict",
+                        "JournalIdentityConflict",
+                        "ReversalConflict",
+                        "IndeterminateCommit",
+                        "StorageIntegrityFailure",
+                        "Committed",
+                        "DefinitelyNotCommitted",
+                        "VerifiedExact"
+                      ]
+                    }
+                  },
+                  "reversal_atomic_units": {
+                    "$ref": "#/$defs/scenario/properties/expected/properties/reversal_atomic_units"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "invariants": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}
