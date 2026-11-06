@@ -1,0 +1,3793 @@
+{
+  "schema": "mycelix.sa-payment-fraud-signal/v1",
+  "corpus_id": "ZA-SA-PAYMENT-FRAUD-SYNTHETIC-V1",
+  "status": "synthetic_reference_only",
+  "created_on": "2026-11-04",
+  "as_of": "2026-11-04",
+  "evaluation_at": "2026-11-04T09:05:00Z",
+  "jurisdiction": "ZA",
+  "purpose": "Qualify source-attributed, time-bounded and purpose-limited fraud evidence for future federated payment coordination.",
+  "external_effects_enabled": false,
+  "source_register": [
+    {
+      "id": "SARB_PEM_POSITION_2025",
+      "authority": "South African Reserve Bank",
+      "title": "Payments Ecosystem Modernisation Position Paper",
+      "url": "https://www.resbank.co.za/content/dam/sarb/publications/other-publications/2025/pem-position-paper.pdf",
+      "published_on": null,
+      "observed_on": "2026-11-04",
+      "evidence_class": "official_policy_position_paper",
+      "supports": [
+        "The proposed National Payments Utility could provide baseline fraud protection",
+        "The proposal includes participant reporting of suspected and actual fraudulent transactions",
+        "The position paper proposes transaction-level fraud scoring across channels and participants"
+      ],
+      "does_not_support": [
+        "That a national fraud-scoring API is currently operational",
+        "That a score or report proves fraud or liability"
+      ]
+    },
+    {
+      "id": "SARB_PEM_DIALOGUE_2026_04",
+      "authority": "South African Reserve Bank",
+      "title": "PEM Industry Dialogue, 9 April 2026",
+      "url": "https://www.resbank.co.za/content/dam/sarb/what-we-do/payments-and-settlements/pem/dialogues/2026/april-day-one.pdf",
+      "published_on": "2026-04-09",
+      "observed_on": "2026-11-04",
+      "evidence_class": "official_programme_status_presentation",
+      "supports": [
+        "SARB reported a fraud framework developed with priority items being scoped",
+        "The insights-platform stakeholder alignment remained in progress"
+      ],
+      "does_not_support": [
+        "An operational national risk-scoring service or production SLA",
+        "A live interparticipant data-sharing API"
+      ]
+    },
+    {
+      "id": "SARB_PEM_WORKING_GROUPS_2026",
+      "authority": "South African Reserve Bank",
+      "title": "Payments Ecosystem Modernisation Working Groups",
+      "url": "https://www.resbank.co.za/content/dam/sarb/what-we-do/payments-and-settlements/pem/working-groups.pdf",
+      "published_on": null,
+      "observed_on": "2026-11-04",
+      "evidence_class": "official_programme_governance_snapshot",
+      "supports": [
+        "A Fraud and Intelligence Information Sharing Forum is described for private-sector PEM participants"
+      ],
+      "does_not_support": [
+        "A production transaction-risk exchange",
+        "That Mycelix is a participant or endorsed provider"
+      ]
+    },
+    {
+      "id": "BIS_FPS_INTERLINK_2026",
+      "authority": "BIS CPMI PIE Task Team 2",
+      "title": "Enhancing Cross-border Payments: Fast Payment System Interlinking",
+      "url": "https://www.bis.org/cpmi/pietf/fps_feb_2026.pdf",
+      "published_on": "2026-02-01",
+      "observed_on": "2026-11-04",
+      "evidence_class": "international_policy_and_industry_report",
+      "supports": [
+        "Fraud/scam unhappy paths require clear inter-PSP responsibilities and recovery paths",
+        "Fraud information sharing and cross-institution coordination are important design considerations"
+      ],
+      "does_not_support": [
+        "South African national fraud-service deployment",
+        "A universal global risk score or liability allocation"
+      ]
+    }
+  ],
+  "profiles": [
+    {
+      "profile_id": "ZA-PEM-NPU-FRAUD-PROPOSAL-V1",
+      "jurisdiction": "ZA",
+      "framework": "PEM / proposed National Payments Utility",
+      "participant": "future_npu_unqualified",
+      "role": "proposed_federated_baseline",
+      "profile_version": "proposal_snapshot_2026-11-04",
+      "observed_on": "2026-11-04",
+      "effective_from": null,
+      "effective_to": null,
+      "operational_state": "proposal_not_operational",
+      "source_refs": [
+        "SARB_PEM_POSITION_2025",
+        "SARB_PEM_DIALOGUE_2026_04",
+        "SARB_PEM_WORKING_GROUPS_2026"
+      ],
+      "admission": "programme design evidence only; no operational service or interface claim"
+    },
+    {
+      "profile_id": "ZA-PARTICIPANT-FRAUD-SIGNAL-SYNTHETIC-V1",
+      "jurisdiction": "ZA",
+      "framework": "participant-to-participant signal envelope",
+      "participant": "synthetic_participant",
+      "role": "synthetic_origin_or_recipient",
+      "profile_version": "mycelix-signal-contract-v1",
+      "observed_on": "2026-11-04",
+      "effective_from": null,
+      "effective_to": null,
+      "operational_state": "synthetic_reference_only",
+      "source_refs": [
+        "SARB_PEM_POSITION_2025",
+        "SARB_PEM_WORKING_GROUPS_2026"
+      ],
+      "admission": "synthetic conformance profile only"
+    },
+    {
+      "profile_id": "INTL-FPS-FRAUD-SHARING-COMPARATOR-V1",
+      "jurisdiction": "INTL",
+      "framework": "fast-payment interlinking",
+      "participant": "international_policy_comparator",
+      "role": "architecture_comparator",
+      "profile_version": "CPMI-FPS-INTERLINK-2026",
+      "observed_on": "2026-11-04",
+      "effective_from": "2026-02-01",
+      "effective_to": null,
+      "operational_state": "published_policy_comparator",
+      "source_refs": [
+        "BIS_FPS_INTERLINK_2026"
+      ],
+      "admission": "architecture comparator only"
+    }
+  ],
+  "scenarios": [
+    {
+      "scenario_id": "SA-FRAUD-001",
+      "scenario_type": "authenticated_participant_submits_suspected_signal",
+      "signal": {
+        "signal_id": "SIG-001",
+        "profile_id": "ZA-PARTICIPANT-FRAUD-SIGNAL-SYNTHETIC-V1",
+        "jurisdiction": "ZA",
+        "framework": "PayShap",
+        "source_participant": "synthetic-psp-a",
+        "source_role": "originating_psp",
+        "source_authority_state": "authorised",
+        "signature_state": "valid",
+        "key_state": "active",
+        "key_id": "synthetic-key-01",
+        "source_case_commitment": "case-commit-1",
+        "origin_case_commitment": "origin-commit-1",
+        "deduplication_group_id": "dedup-group-1",
+        "subject_reference": "pairwise:psp-a-to-psp-b-user-1",
+        "transaction_commitment": "transaction-commit-1",
+        "instrument": "domestic_credit_transfer",
+        "rail": "PayShap",
+        "channel": "mobile_app",
+        "reason_code": "suspected_authorised_push_payment_scam",
+        "reason_taxonomy_version": "mycelix-fraud-reason-v1",
+        "evidence_class": "source_report",
+        "evidence_commitment": "source-evidence-1",
+        "source_status": "suspected",
+        "observed_at": "2026-11-04T08:59:00Z",
+        "recorded_at": "2026-11-04T09:00:00Z",
+        "expires_at": "2026-11-11T09:00:00Z",
+        "purpose": "fraud_prevention_specific_payment",
+        "requested_purpose": "fraud_prevention_specific_payment",
+        "permitted_audiences": [
+          "synthetic-psp-b"
+        ],
+        "actual_recipient": "synthetic-psp-b",
+        "dissemination_state": "shared",
+        "availability_state": "signal_present",
+        "model_score": null,
+        "events": [
+          {
+            "event_id": "EV-1",
+            "sequence": 1,
+            "event_type": "source_submitted",
+            "actor_role": "originating_psp",
+            "source_status_effect": "suspected",
+            "authority_state": "valid",
+            "observed_at": "2026-11-04T09:00:00Z",
+            "record_time": "2026-11-04T09:00:01Z",
+            "evidence_commitment": "source-evidence-1",
+            "superseding_signal_id": null,
+            "recipient_id": null
+          }
+        ],
+        "local_decision": "none",
+        "local_authority_state": "not_applicable",
+        "independent_evidence_count": 1,
+        "evidence_contributions": [
+          {
+            "contribution_id": "E-1-1",
+            "source_participant": "synthetic-psp-a",
+            "origin_case_commitment": "origin-commit-1",
+            "independent_claim": true,
+            "evidence_commitment": "evidence-E-1-1"
+          }
+        ],
+        "correction_propagation_state": "not_applicable",
+        "correction_recipients": [],
+        "privacy_findings": [
+          "none"
+        ],
+        "channel_coverage_state": "qualified_synthetic"
+      },
+      "expected_disposition": "allow_scoped_suspected_signal",
+      "required_evidence": [
+        "source_identity_and_authority",
+        "signal_provenance",
+        "pairwise_subject_reference",
+        "purpose_and_recipient_scope"
+      ],
+      "negative_controls": [
+        "suspected_is_not_confirmed",
+        "score_is_not_fact_or_authority",
+        "recipient_decision_does_not_mutate_source_status"
+      ]
+    },
+    {
+      "scenario_id": "SA-FRAUD-002",
+      "scenario_type": "source_authority_confirms_with_independent_evidence",
+      "signal": {
+        "signal_id": "SIG-002",
+        "profile_id": "ZA-PARTICIPANT-FRAUD-SIGNAL-SYNTHETIC-V1",
+        "jurisdiction": "ZA",
+        "framework": "PayShap",
+        "source_participant": "synthetic-psp-a",
+        "source_role": "originating_psp",
+        "source_authority_state": "authorised",
+        "signature_state": "valid",
+        "key_state": "active",
+        "key_id": "synthetic-key-01",
+        "source_case_commitment": "case-commit-2",
+        "origin_case_commitment": "origin-commit-2",
+        "deduplication_group_id": "dedup-group-2",
+        "subject_reference": "pairwise:psp-a-to-psp-b-user-2",
+        "transaction_commitment": "transaction-commit-2",
+        "instrument": "domestic_credit_transfer",
+        "rail": "PayShap",
+        "channel": "mobile_app",
+        "reason_code": "suspected_authorised_push_payment_scam",
+        "reason_taxonomy_version": "mycelix-fraud-reason-v1",
+        "evidence_class": "independently_verified_case_evidence",
+        "evidence_commitment": "source-evidence-2",
+        "source_status": "confirmed",
+        "observed_at": "2026-11-04T08:59:00Z",
+        "recorded_at": "2026-11-04T09:00:00Z",
+        "expires_at": "2026-11-11T09:00:00Z",
+        "purpose": "fraud_prevention_specific_payment",
+        "requested_purpose": "fraud_prevention_specific_payment",
+        "permitted_audiences": [
+          "synthetic-psp-b"
+        ],
+        "actual_recipient": "synthetic-psp-b",
+        "dissemination_state": "shared",
+        "availability_state": "signal_present",
+        "model_score": null,
+        "events": [
+          {
+            "event_id": "EV-1",
+            "sequence": 1,
+            "event_type": "source_submitted",
+            "actor_role": "originating_psp",
+            "source_status_effect": "suspected",
+            "authority_state": "valid",
+            "observed_at": "2026-11-04T09:00:00Z",
+            "record_time": "2026-11-04T09:00:01Z",
+            "evidence_commitment": "evidence-commit-1",
+            "superseding_signal_id": null,
+            "recipient_id": null
+          },
+          {
+            "event_id": "EV-2",
+            "sequence": 2,
+            "event_type": "source_confirmed",
+            "actor_role": "originating_psp",
+            "source_status_effect": "confirmed",
+            "authority_state": "valid",
+            "observed_at": "2026-11-04T09:00:00Z",
+            "record_time": "2026-11-04T09:00:01Z",
+            "evidence_commitment": "confirmed-case-evidence-02",
+            "superseding_signal_id": null,
+            "recipient_id": null
+          }
+        ],
+        "local_decision": "none",
+        "local_authority_state": "not_applicable",
+        "independent_evidence_count": 1,
+        "evidence_contributions": [
+          {
+            "contribution_id": "E-2-1",
+            "source_participant": "synthetic-psp-a",
+            "origin_case_commitment": "origin-commit-2",
+            "independent_claim": true,
+            "evidence_commitment": "confirmed-case-evidence-02"
+          }
+        ],
+        "correction_propagation_state": "not_applicable",
+        "correction_recipients": [],
+        "privacy_findings": [
+          "none"
+        ],
+        "channel_coverage_state": "qualified_synthetic"
+      },
+      "expected_disposition": "allow_source_attributed_confirmation",
+      "required_evidence": [
+        "source_identity_and_authority",
+        "signal_provenance",
+        "pairwise_subject_reference",
+        "purpose_and_recipient_scope"
+      ],
+      "negative_controls": [
+        "suspected_is_not_confirmed",
+        "score_is_not_fact_or_authority",
+        "recipient_decision_does_not_mutate_source_status"
+      ]
+    },
+    {
+      "scenario_id": "SA-FRAUD-003",
+      "scenario_type": "relay_promotes_suspected_to_confirmed",
+      "signal": {
+        "signal_id": "SIG-003",
+        "profile_id": "ZA-PARTICIPANT-FRAUD-SIGNAL-SYNTHETIC-V1",
+        "jurisdiction": "ZA",
+        "framework": "PayShap",
+        "source_participant": "synthetic-psp-a",
+        "source_role": "originating_psp",
+        "source_authority_state": "authorised",
+        "signature_state": "valid",
+        "key_state": "active",
+        "key_id": "synthetic-key-01",
+        "source_case_commitment": "case-commit-3",
+        "origin_case_commitment": "origin-commit-3",
+        "deduplication_group_id": "dedup-group-3",
+        "subject_reference": "pairwise:psp-a-to-psp-b-user-3",
+        "transaction_commitment": "transaction-commit-3",
+        "instrument": "domestic_credit_transfer",
+        "rail": "PayShap",
+        "channel": "mobile_app",
+        "reason_code": "suspected_authorised_push_payment_scam",
+        "reason_taxonomy_version": "mycelix-fraud-reason-v1",
+        "evidence_class": "source_report",
+        "evidence_commitment": "source-evidence-3",
+        "source_status": "suspected",
+        "observed_at": "2026-11-04T08:59:00Z",
+        "recorded_at": "2026-11-04T09:00:00Z",
+        "expires_at": "2026-11-11T09:00:00Z",
+        "purpose": "fraud_prevention_specific_payment",
+        "requested_purpose": "fraud_prevention_specific_payment",
+        "permitted_audiences": [
+          "synthetic-psp-b"
+        ],
+        "actual_recipient": "synthetic-psp-b",
+        "dissemination_state": "quarantined",
+        "availability_state": "signal_present",
+        "model_score": null,
+        "events": [
+          {
+            "event_id": "EV-1",
+            "sequence": 1,
+            "event_type": "source_submitted",
+            "actor_role": "originating_psp",
+            "source_status_effect": "suspected",
+            "authority_state": "valid",
+            "observed_at": "2026-11-04T09:00:00Z",
+            "record_time": "2026-11-04T09:00:01Z",
+            "evidence_commitment": "evidence-commit-1",
+            "superseding_signal_id": null,
+            "recipient_id": null
+          },
+          {
+            "event_id": "EV-2",
+            "sequence": 2,
+            "event_type": "relay_forwarded",
+            "actor_role": "relay_participant",
+            "source_status_effect": "confirmed",
+            "authority_state": "valid",
+            "observed_at": "2026-11-04T09:00:00Z",
+            "record_time": "2026-11-04T09:00:01Z",
+            "evidence_commitment": "evidence-commit-2",
+            "superseding_signal_id": null,
+            "recipient_id": null
+          }
+        ],
+        "local_decision": "none",
+        "local_authority_state": "not_applicable",
+        "independent_evidence_count": 1,
+        "evidence_contributions": [
+          {
+            "contribution_id": "E-3-1",
+            "source_participant": "synthetic-psp-a",
+            "origin_case_commitment": "origin-commit-3",
+            "independent_claim": true,
+            "evidence_commitment": "evidence-E-3-1"
+          }
+        ],
+        "correction_propagation_state": "not_applicable",
+        "correction_recipients": [],
+        "privacy_findings": [
+          "none"
+        ],
+        "channel_coverage_state": "qualified_synthetic"
+      },
+      "expected_disposition": "quarantine_status_laundering",
+      "required_evidence": [
+        "source_identity_and_authority",
+        "signal_provenance",
+        "pairwise_subject_reference",
+        "purpose_and_recipient_scope"
+      ],
+      "negative_controls": [
+        "suspected_is_not_confirmed",
+        "score_is_not_fact_or_authority",
+        "recipient_decision_does_not_mutate_source_status"
+      ]
+    },
+    {
+      "scenario_id": "SA-FRAUD-004",
+      "scenario_type": "source_disproves_prior_suspicion",
+      "signal": {
+        "signal_id": "SIG-004",
+        "profile_id": "ZA-PARTICIPANT-FRAUD-SIGNAL-SYNTHETIC-V1",
+        "jurisdiction": "ZA",
+        "framework": "PayShap",
+        "source_participant": "synthetic-psp-a",
+        "source_role": "originating_psp",
+        "source_authority_state": "authorised",
+        "signature_state": "valid",
+        "key_state": "active",
+        "key_id": "synthetic-key-01",
+        "source_case_commitment": "case-commit-4",
+        "origin_case_commitment": "origin-commit-4",
+        "deduplication_group_id": "dedup-group-4",
+        "subject_reference": "pairwise:psp-a-to-psp-b-user-4",
+        "transaction_commitment": "transaction-commit-4",
+        "instrument": "domestic_credit_transfer",
+        "rail": "PayShap",
+        "channel": "mobile_app",
+        "reason_code": "suspected_authorised_push_payment_scam",
+        "reason_taxonomy_version": "mycelix-fraud-reason-v1",
+        "evidence_class": "source_report",
+        "evidence_commitment": "source-evidence-4",
+        "source_status": "disproved",
+        "observed_at": "2026-11-04T08:59:00Z",
+        "recorded_at": "2026-11-04T09:00:00Z",
+        "expires_at": "2026-11-11T09:00:00Z",
+        "purpose": "fraud_prevention_specific_payment",
+        "requested_purpose": "fraud_prevention_specific_payment",
+        "permitted_audiences": [
+          "synthetic-psp-b"
+        ],
+        "actual_recipient": "synthetic-psp-b",
+        "dissemination_state": "shared",
+        "availability_state": "signal_present",
+        "model_score": null,
+        "events": [
+          {
+            "event_id": "EV-1",
+            "sequence": 1,
+            "event_type": "source_submitted",
+            "actor_role": "originating_psp",
+            "source_status_effect": "suspected",
+            "authority_state": "valid",
+            "observed_at": "2026-11-04T09:00:00Z",
+            "record_time": "2026-11-04T09:00:01Z",
+            "evidence_commitment": "evidence-commit-1",
+            "superseding_signal_id": null,
+            "recipient_id": null
+          },
+          {
+            "event_id": "EV-2",
+            "sequence": 2,
+            "event_type": "source_disproved",
+            "actor_role": "originating_psp",
+            "source_status_effect": "disproved",
+            "authority_state": "valid",
+            "observed_at": "2026-11-04T09:00:00Z",
+            "record_time": "2026-11-04T09:00:01Z",
+            "evidence_commitment": "evidence-4-outcome",
+            "superseding_signal_id": null,
+            "recipient_id": null
+          }
+        ],
+        "local_decision": "none",
+        "local_authority_state": "not_applicable",
+        "independent_evidence_count": 1,
+        "evidence_contributions": [
+          {
+            "contribution_id": "E-4-1",
+            "source_participant": "synthetic-psp-a",
+            "origin_case_commitment": "origin-commit-4",
+            "independent_claim": true,
+            "evidence_commitment": "evidence-E-4-1"
+          }
+        ],
+        "correction_propagation_state": "complete",
+        "correction_recipients": [
+          {
+            "recipient_id": "synthetic-psp-b",
+            "acknowledgement_state": "acknowledged",
+            "acknowledged_at": "2026-11-04T09:03:00Z"
+          }
+        ],
+        "privacy_findings": [
+          "none"
+        ],
+        "channel_coverage_state": "qualified_synthetic"
+      },
+      "expected_disposition": "preserve_append_only_source_status",
+      "required_evidence": [
+        "source_identity_and_authority",
+        "signal_provenance",
+        "pairwise_subject_reference",
+        "purpose_and_recipient_scope"
+      ],
+      "negative_controls": [
+        "suspected_is_not_confirmed",
+        "score_is_not_fact_or_authority",
+        "recipient_decision_does_not_mutate_source_status"
+      ]
+    },
+    {
+      "scenario_id": "SA-FRAUD-005",
+      "scenario_type": "source_withdraws_signal",
+      "signal": {
+        "signal_id": "SIG-005",
+        "profile_id": "ZA-PARTICIPANT-FRAUD-SIGNAL-SYNTHETIC-V1",
+        "jurisdiction": "ZA",
+        "framework": "PayShap",
+        "source_participant": "synthetic-psp-a",
+        "source_role": "originating_psp",
+        "source_authority_state": "authorised",
+        "signature_state": "valid",
+        "key_state": "active",
+        "key_id": "synthetic-key-01",
+        "source_case_commitment": "case-commit-5",
+        "origin_case_commitment": "origin-commit-5",
+        "deduplication_group_id": "dedup-group-5",
+        "subject_reference": "pairwise:psp-a-to-psp-b-user-5",
+        "transaction_commitment": "transaction-commit-5",
+        "instrument": "domestic_credit_transfer",
+        "rail": "PayShap",
+        "channel": "mobile_app",
+        "reason_code": "suspected_authorised_push_payment_scam",
+        "reason_taxonomy_version": "mycelix-fraud-reason-v1",
+        "evidence_class": "source_report",
+        "evidence_commitment": "source-evidence-5",
+        "source_status": "withdrawn",
+        "observed_at": "2026-11-04T08:59:00Z",
+        "recorded_at": "2026-11-04T09:00:00Z",
+        "expires_at": "2026-11-11T09:00:00Z",
+        "purpose": "fraud_prevention_specific_payment",
+        "requested_purpose": "fraud_prevention_specific_payment",
+        "permitted_audiences": [
+          "synthetic-psp-b"
+        ],
+        "actual_recipient": "synthetic-psp-b",
+        "dissemination_state": "shared",
+        "availability_state": "signal_present",
+        "model_score": null,
+        "events": [
+          {
+            "event_id": "EV-1",
+            "sequence": 1,
+            "event_type": "source_submitted",
+            "actor_role": "originating_psp",
+            "source_status_effect": "suspected",
+            "authority_state": "valid",
+            "observed_at": "2026-11-04T09:00:00Z",
+            "record_time": "2026-11-04T09:00:01Z",
+            "evidence_commitment": "evidence-commit-1",
+            "superseding_signal_id": null,
+            "recipient_id": null
+          },
+          {
+            "event_id": "EV-2",
+            "sequence": 2,
+            "event_type": "source_withdrawn",
+            "actor_role": "originating_psp",
+            "source_status_effect": "withdrawn",
+            "authority_state": "valid",
+            "observed_at": "2026-11-04T09:00:00Z",
+            "record_time": "2026-11-04T09:00:01Z",
+            "evidence_commitment": "evidence-5-outcome",
+            "superseding_signal_id": null,
+            "recipient_id": null
+          }
+        ],
+        "local_decision": "none",
+        "local_authority_state": "not_applicable",
+        "independent_evidence_count": 1,
+        "evidence_contributions": [
+          {
+            "contribution_id": "E-5-1",
+            "source_participant": "synthetic-psp-a",
+            "origin_case_commitment": "origin-commit-5",
+            "independent_claim": true,
+            "evidence_commitment": "evidence-E-5-1"
+          }
+        ],
+        "correction_propagation_state": "complete",
+        "correction_recipients": [
+          {
+            "recipient_id": "synthetic-psp-b",
+            "acknowledgement_state": "acknowledged",
+            "acknowledged_at": "2026-11-04T09:03:00Z"
+          }
+        ],
+        "privacy_findings": [
+          "none"
+        ],
+        "channel_coverage_state": "qualified_synthetic"
+      },
+      "expected_disposition": "preserve_append_only_source_status",
+      "required_evidence": [
+        "source_identity_and_authority",
+        "signal_provenance",
+        "pairwise_subject_reference",
+        "purpose_and_recipient_scope"
+      ],
+      "negative_controls": [
+        "suspected_is_not_confirmed",
+        "score_is_not_fact_or_authority",
+        "recipient_decision_does_not_mutate_source_status"
+      ]
+    },
+    {
+      "scenario_id": "SA-FRAUD-006",
+      "scenario_type": "recipient_disputes_without_mutating_source_status",
+      "signal": {
+        "signal_id": "SIG-006",
+        "profile_id": "ZA-PARTICIPANT-FRAUD-SIGNAL-SYNTHETIC-V1",
+        "jurisdiction": "ZA",
+        "framework": "PayShap",
+        "source_participant": "synthetic-psp-a",
+        "source_role": "originating_psp",
+        "source_authority_state": "authorised",
+        "signature_state": "valid",
+        "key_state": "active",
+        "key_id": "synthetic-key-01",
+        "source_case_commitment": "case-commit-6",
+        "origin_case_commitment": "origin-commit-6",
+        "deduplication_group_id": "dedup-group-6",
+        "subject_reference": "pairwise:psp-a-to-psp-b-user-6",
+        "transaction_commitment": "transaction-commit-6",
+        "instrument": "domestic_credit_transfer",
+        "rail": "PayShap",
+        "channel": "mobile_app",
+        "reason_code": "suspected_authorised_push_payment_scam",
+        "reason_taxonomy_version": "mycelix-fraud-reason-v1",
+        "evidence_class": "source_report",
+        "evidence_commitment": "source-evidence-6",
+        "source_status": "suspected",
+        "observed_at": "2026-11-04T08:59:00Z",
+        "recorded_at": "2026-11-04T09:00:00Z",
+        "expires_at": "2026-11-11T09:00:00Z",
+        "purpose": "fraud_prevention_specific_payment",
+        "requested_purpose": "fraud_prevention_specific_payment",
+        "permitted_audiences": [
+          "synthetic-psp-b"
+        ],
+        "actual_recipient": "synthetic-psp-b",
+        "dissemination_state": "shared",
+        "availability_state": "signal_present",
+        "model_score": null,
+        "events": [
+          {
+            "event_id": "EV-1",
+            "sequence": 1,
+            "event_type": "source_submitted",
+            "actor_role": "originating_psp",
+            "source_status_effect": "suspected",
+            "authority_state": "valid",
+            "observed_at": "2026-11-04T09:00:00Z",
+            "record_time": "2026-11-04T09:00:01Z",
+            "evidence_commitment": "evidence-commit-1",
+            "superseding_signal_id": null,
+            "recipient_id": null
+          },
+          {
+            "event_id": "EV-2",
+            "sequence": 2,
+            "event_type": "recipient_dispute_opened",
+            "actor_role": "recipient_participant",
+            "source_status_effect": "unchanged",
+            "authority_state": "valid",
+            "observed_at": "2026-11-04T09:00:00Z",
+            "record_time": "2026-11-04T09:00:01Z",
+            "evidence_commitment": "evidence-commit-2",
+            "superseding_signal_id": null,
+            "recipient_id": null
+          }
+        ],
+        "local_decision": "dispute_opened",
+        "local_authority_state": "valid",
+        "independent_evidence_count": 1,
+        "evidence_contributions": [
+          {
+            "contribution_id": "E-6-1",
+            "source_participant": "synthetic-psp-a",
+            "origin_case_commitment": "origin-commit-6",
+            "independent_claim": true,
+            "evidence_commitment": "evidence-E-6-1"
+          }
+        ],
+        "correction_propagation_state": "not_applicable",
+        "correction_recipients": [],
+        "privacy_findings": [
+          "none"
+        ],
+        "channel_coverage_state": "qualified_synthetic"
+      },
+      "expected_disposition": "keep_source_status_suspected",
+      "required_evidence": [
+        "source_identity_and_authority",
+        "signal_provenance",
+        "pairwise_subject_reference",
+        "purpose_and_recipient_scope"
+      ],
+      "negative_controls": [
+        "suspected_is_not_confirmed",
+        "score_is_not_fact_or_authority",
+        "recipient_decision_does_not_mutate_source_status"
+      ]
+    },
+    {
+      "scenario_id": "SA-FRAUD-007",
+      "scenario_type": "corrected_signal_supersedes_without_rewriting_history",
+      "signal": {
+        "signal_id": "SIG-007",
+        "profile_id": "ZA-PARTICIPANT-FRAUD-SIGNAL-SYNTHETIC-V1",
+        "jurisdiction": "ZA",
+        "framework": "PayShap",
+        "source_participant": "synthetic-psp-a",
+        "source_role": "originating_psp",
+        "source_authority_state": "authorised",
+        "signature_state": "valid",
+        "key_state": "active",
+        "key_id": "synthetic-key-01",
+        "source_case_commitment": "case-commit-7",
+        "origin_case_commitment": "origin-commit-7",
+        "deduplication_group_id": "dedup-group-7",
+        "subject_reference": "pairwise:psp-a-to-psp-b-user-7",
+        "transaction_commitment": "transaction-commit-7",
+        "instrument": "domestic_credit_transfer",
+        "rail": "PayShap",
+        "channel": "mobile_app",
+        "reason_code": "suspected_authorised_push_payment_scam",
+        "reason_taxonomy_version": "mycelix-fraud-reason-v1",
+        "evidence_class": "source_report",
+        "evidence_commitment": "source-evidence-7",
+        "source_status": "corrected",
+        "observed_at": "2026-11-04T08:59:00Z",
+        "recorded_at": "2026-11-04T09:00:00Z",
+        "expires_at": "2026-11-11T09:00:00Z",
+        "purpose": "fraud_prevention_specific_payment",
+        "requested_purpose": "fraud_prevention_specific_payment",
+        "permitted_audiences": [
+          "synthetic-psp-b"
+        ],
+        "actual_recipient": "synthetic-psp-b",
+        "dissemination_state": "shared",
+        "availability_state": "signal_present",
+        "model_score": null,
+        "events": [
+          {
+            "event_id": "EV-1",
+            "sequence": 1,
+            "event_type": "source_submitted",
+            "actor_role": "originating_psp",
+            "source_status_effect": "suspected",
+            "authority_state": "valid",
+            "observed_at": "2026-11-04T09:00:00Z",
+            "record_time": "2026-11-04T09:00:01Z",
+            "evidence_commitment": "evidence-commit-1",
+            "superseding_signal_id": null,
+            "recipient_id": null
+          },
+          {
+            "event_id": "EV-2",
+            "sequence": 2,
+            "event_type": "source_corrected",
+            "actor_role": "originating_psp",
+            "source_status_effect": "corrected",
+            "authority_state": "valid",
+            "observed_at": "2026-11-04T09:00:00Z",
+            "record_time": "2026-11-04T09:00:01Z",
+            "evidence_commitment": "correction-commit-07",
+            "superseding_signal_id": "SIG-007-CORRECTED",
+            "recipient_id": null
+          },
+          {
+            "event_id": "EV-3",
+            "sequence": 3,
+            "event_type": "correction_propagated",
+            "actor_role": "relay_participant",
+            "source_status_effect": "unchanged",
+            "authority_state": "valid",
+            "observed_at": "2026-11-04T09:00:00Z",
+            "record_time": "2026-11-04T09:00:01Z",
+            "evidence_commitment": "evidence-commit-3",
+            "superseding_signal_id": null,
+            "recipient_id": "synthetic-psp-b"
+          },
+          {
+            "event_id": "EV-4",
+            "sequence": 4,
+            "event_type": "correction_acknowledged",
+            "actor_role": "recipient_participant",
+            "source_status_effect": "unchanged",
+            "authority_state": "valid",
+            "observed_at": "2026-11-04T09:00:00Z",
+            "record_time": "2026-11-04T09:00:01Z",
+            "evidence_commitment": "evidence-commit-4",
+            "superseding_signal_id": null,
+            "recipient_id": "synthetic-psp-b"
+          }
+        ],
+        "local_decision": "none",
+        "local_authority_state": "not_applicable",
+        "independent_evidence_count": 1,
+        "evidence_contributions": [
+          {
+            "contribution_id": "E-7-1",
+            "source_participant": "synthetic-psp-a",
+            "origin_case_commitment": "origin-commit-7",
+            "independent_claim": true,
+            "evidence_commitment": "evidence-E-7-1"
+          }
+        ],
+        "correction_propagation_state": "complete",
+        "correction_recipients": [
+          {
+            "recipient_id": "synthetic-psp-b",
+            "acknowledgement_state": "acknowledged",
+            "acknowledged_at": "2026-11-04T09:03:00Z"
+          }
+        ],
+        "privacy_findings": [
+          "none"
+        ],
+        "channel_coverage_state": "qualified_synthetic"
+      },
+      "expected_disposition": "require_new_signal_and_complete_correction_propagation",
+      "required_evidence": [
+        "source_identity_and_authority",
+        "signal_provenance",
+        "pairwise_subject_reference",
+        "purpose_and_recipient_scope"
+      ],
+      "negative_controls": [
+        "suspected_is_not_confirmed",
+        "score_is_not_fact_or_authority",
+        "recipient_decision_does_not_mutate_source_status"
+      ]
+    },
+    {
+      "scenario_id": "SA-FRAUD-008",
+      "scenario_type": "expired_signal_replayed_as_current",
+      "signal": {
+        "signal_id": "SIG-008",
+        "profile_id": "ZA-PARTICIPANT-FRAUD-SIGNAL-SYNTHETIC-V1",
+        "jurisdiction": "ZA",
+        "framework": "PayShap",
+        "source_participant": "synthetic-psp-a",
+        "source_role": "originating_psp",
+        "source_authority_state": "authorised",
+        "signature_state": "valid",
+        "key_state": "active",
+        "key_id": "synthetic-key-01",
+        "source_case_commitment": "case-commit-8",
+        "origin_case_commitment": "origin-commit-8",
+        "deduplication_group_id": "dedup-group-8",
+        "subject_reference": "pairwise:psp-a-to-psp-b-user-8",
+        "transaction_commitment": "transaction-commit-8",
+        "instrument": "domestic_credit_transfer",
+        "rail": "PayShap",
+        "channel": "mobile_app",
+        "reason_code": "suspected_authorised_push_payment_scam",
+        "reason_taxonomy_version": "mycelix-fraud-reason-v1",
+        "evidence_class": "source_report",
+        "evidence_commitment": "source-evidence-8",
+        "source_status": "suspected",
+        "observed_at": "2026-11-04T08:59:00Z",
+        "recorded_at": "2026-11-04T09:00:00Z",
+        "expires_at": "2026-11-04T08:00:00Z",
+        "purpose": "fraud_prevention_specific_payment",
+        "requested_purpose": "fraud_prevention_specific_payment",
+        "permitted_audiences": [
+          "synthetic-psp-b"
+        ],
+        "actual_recipient": "synthetic-psp-b",
+        "dissemination_state": "quarantined",
+        "availability_state": "signal_present",
+        "model_score": null,
+        "events": [
+          {
+            "event_id": "EV-1",
+            "sequence": 1,
+            "event_type": "source_submitted",
+            "actor_role": "originating_psp",
+            "source_status_effect": "suspected",
+            "authority_state": "valid",
+            "observed_at": "2026-11-04T09:00:00Z",
+            "record_time": "2026-11-04T09:00:01Z",
+            "evidence_commitment": "source-evidence-8",
+            "superseding_signal_id": null,
+            "recipient_id": null
+          }
+        ],
+        "local_decision": "none",
+        "local_authority_state": "not_applicable",
+        "independent_evidence_count": 1,
+        "evidence_contributions": [
+          {
+            "contribution_id": "E-8-1",
+            "source_participant": "synthetic-psp-a",
+            "origin_case_commitment": "origin-commit-8",
+            "independent_claim": true,
+            "evidence_commitment": "evidence-E-8-1"
+          }
+        ],
+        "correction_propagation_state": "not_applicable",
+        "correction_recipients": [],
+        "privacy_findings": [
+          "none"
+        ],
+        "channel_coverage_state": "qualified_synthetic"
+      },
+      "expected_disposition": "reject_stale_signal",
+      "required_evidence": [
+        "source_identity_and_authority",
+        "signal_provenance",
+        "pairwise_subject_reference",
+        "purpose_and_recipient_scope"
+      ],
+      "negative_controls": [
+        "suspected_is_not_confirmed",
+        "score_is_not_fact_or_authority",
+        "recipient_decision_does_not_mutate_source_status"
+      ],
+      "expected_currentness": "expired"
+    },
+    {
+      "scenario_id": "SA-FRAUD-009",
+      "scenario_type": "revoked_source_signing_key",
+      "signal": {
+        "signal_id": "SIG-009",
+        "profile_id": "ZA-PARTICIPANT-FRAUD-SIGNAL-SYNTHETIC-V1",
+        "jurisdiction": "ZA",
+        "framework": "PayShap",
+        "source_participant": "synthetic-psp-a",
+        "source_role": "originating_psp",
+        "source_authority_state": "authorised",
+        "signature_state": "valid",
+        "key_state": "revoked",
+        "key_id": "synthetic-key-01",
+        "source_case_commitment": "case-commit-9",
+        "origin_case_commitment": "origin-commit-9",
+        "deduplication_group_id": "dedup-group-9",
+        "subject_reference": "pairwise:psp-a-to-psp-b-user-9",
+        "transaction_commitment": "transaction-commit-9",
+        "instrument": "domestic_credit_transfer",
+        "rail": "PayShap",
+        "channel": "mobile_app",
+        "reason_code": "suspected_authorised_push_payment_scam",
+        "reason_taxonomy_version": "mycelix-fraud-reason-v1",
+        "evidence_class": "source_report",
+        "evidence_commitment": "source-evidence-9",
+        "source_status": "suspected",
+        "observed_at": "2026-11-04T08:59:00Z",
+        "recorded_at": "2026-11-04T09:00:00Z",
+        "expires_at": "2026-11-11T09:00:00Z",
+        "purpose": "fraud_prevention_specific_payment",
+        "requested_purpose": "fraud_prevention_specific_payment",
+        "permitted_audiences": [
+          "synthetic-psp-b"
+        ],
+        "actual_recipient": "synthetic-psp-b",
+        "dissemination_state": "quarantined",
+        "availability_state": "signal_present",
+        "model_score": null,
+        "events": [
+          {
+            "event_id": "EV-1",
+            "sequence": 1,
+            "event_type": "source_submitted",
+            "actor_role": "originating_psp",
+            "source_status_effect": "suspected",
+            "authority_state": "valid",
+            "observed_at": "2026-11-04T09:00:00Z",
+            "record_time": "2026-11-04T09:00:01Z",
+            "evidence_commitment": "source-evidence-9",
+            "superseding_signal_id": null,
+            "recipient_id": null
+          }
+        ],
+        "local_decision": "none",
+        "local_authority_state": "not_applicable",
+        "independent_evidence_count": 1,
+        "evidence_contributions": [
+          {
+            "contribution_id": "E-9-1",
+            "source_participant": "synthetic-psp-a",
+            "origin_case_commitment": "origin-commit-9",
+            "independent_claim": true,
+            "evidence_commitment": "evidence-E-9-1"
+          }
+        ],
+        "correction_propagation_state": "not_applicable",
+        "correction_recipients": [],
+        "privacy_findings": [
+          "none"
+        ],
+        "channel_coverage_state": "qualified_synthetic"
+      },
+      "expected_disposition": "quarantine_untrusted_source",
+      "required_evidence": [
+        "source_identity_and_authority",
+        "signal_provenance",
+        "pairwise_subject_reference",
+        "purpose_and_recipient_scope"
+      ],
+      "negative_controls": [
+        "suspected_is_not_confirmed",
+        "score_is_not_fact_or_authority",
+        "recipient_decision_does_not_mutate_source_status"
+      ]
+    },
+    {
+      "scenario_id": "SA-FRAUD-010",
+      "scenario_type": "unknown_source_signing_key_state",
+      "signal": {
+        "signal_id": "SIG-010",
+        "profile_id": "ZA-PARTICIPANT-FRAUD-SIGNAL-SYNTHETIC-V1",
+        "jurisdiction": "ZA",
+        "framework": "PayShap",
+        "source_participant": "synthetic-psp-a",
+        "source_role": "originating_psp",
+        "source_authority_state": "authorised",
+        "signature_state": "valid",
+        "key_state": "unknown",
+        "key_id": "synthetic-key-01",
+        "source_case_commitment": "case-commit-10",
+        "origin_case_commitment": "origin-commit-10",
+        "deduplication_group_id": "dedup-group-10",
+        "subject_reference": "pairwise:psp-a-to-psp-b-user-10",
+        "transaction_commitment": "transaction-commit-10",
+        "instrument": "domestic_credit_transfer",
+        "rail": "PayShap",
+        "channel": "mobile_app",
+        "reason_code": "suspected_authorised_push_payment_scam",
+        "reason_taxonomy_version": "mycelix-fraud-reason-v1",
+        "evidence_class": "source_report",
+        "evidence_commitment": "source-evidence-10",
+        "source_status": "suspected",
+        "observed_at": "2026-11-04T08:59:00Z",
+        "recorded_at": "2026-11-04T09:00:00Z",
+        "expires_at": "2026-11-11T09:00:00Z",
+        "purpose": "fraud_prevention_specific_payment",
+        "requested_purpose": "fraud_prevention_specific_payment",
+        "permitted_audiences": [
+          "synthetic-psp-b"
+        ],
+        "actual_recipient": "synthetic-psp-b",
+        "dissemination_state": "quarantined",
+        "availability_state": "signal_present",
+        "model_score": null,
+        "events": [
+          {
+            "event_id": "EV-1",
+            "sequence": 1,
+            "event_type": "source_submitted",
+            "actor_role": "originating_psp",
+            "source_status_effect": "suspected",
+            "authority_state": "valid",
+            "observed_at": "2026-11-04T09:00:00Z",
+            "record_time": "2026-11-04T09:00:01Z",
+            "evidence_commitment": "source-evidence-10",
+            "superseding_signal_id": null,
+            "recipient_id": null
+          }
+        ],
+        "local_decision": "none",
+        "local_authority_state": "not_applicable",
+        "independent_evidence_count": 1,
+        "evidence_contributions": [
+          {
+            "contribution_id": "E-10-1",
+            "source_participant": "synthetic-psp-a",
+            "origin_case_commitment": "origin-commit-10",
+            "independent_claim": true,
+            "evidence_commitment": "evidence-E-10-1"
+          }
+        ],
+        "correction_propagation_state": "not_applicable",
+        "correction_recipients": [],
+        "privacy_findings": [
+          "none"
+        ],
+        "channel_coverage_state": "qualified_synthetic"
+      },
+      "expected_disposition": "quarantine_untrusted_source",
+      "required_evidence": [
+        "source_identity_and_authority",
+        "signal_provenance",
+        "pairwise_subject_reference",
+        "purpose_and_recipient_scope"
+      ],
+      "negative_controls": [
+        "suspected_is_not_confirmed",
+        "score_is_not_fact_or_authority",
+        "recipient_decision_does_not_mutate_source_status"
+      ]
+    },
+    {
+      "scenario_id": "SA-FRAUD-011",
+      "scenario_type": "source_role_not_authorised_for_signal_class",
+      "signal": {
+        "signal_id": "SIG-011",
+        "profile_id": "ZA-PARTICIPANT-FRAUD-SIGNAL-SYNTHETIC-V1",
+        "jurisdiction": "ZA",
+        "framework": "PayShap",
+        "source_participant": "synthetic-psp-a",
+        "source_role": "relay_participant",
+        "source_authority_state": "authorised",
+        "signature_state": "valid",
+        "key_state": "active",
+        "key_id": "synthetic-key-01",
+        "source_case_commitment": "case-commit-11",
+        "origin_case_commitment": "origin-commit-11",
+        "deduplication_group_id": "dedup-group-11",
+        "subject_reference": "pairwise:psp-a-to-psp-b-user-11",
+        "transaction_commitment": "transaction-commit-11",
+        "instrument": "domestic_credit_transfer",
+        "rail": "PayShap",
+        "channel": "mobile_app",
+        "reason_code": "suspected_authorised_push_payment_scam",
+        "reason_taxonomy_version": "mycelix-fraud-reason-v1",
+        "evidence_class": "source_report",
+        "evidence_commitment": "source-evidence-11",
+        "source_status": "confirmed",
+        "observed_at": "2026-11-04T08:59:00Z",
+        "recorded_at": "2026-11-04T09:00:00Z",
+        "expires_at": "2026-11-11T09:00:00Z",
+        "purpose": "fraud_prevention_specific_payment",
+        "requested_purpose": "fraud_prevention_specific_payment",
+        "permitted_audiences": [
+          "synthetic-psp-b"
+        ],
+        "actual_recipient": "synthetic-psp-b",
+        "dissemination_state": "quarantined",
+        "availability_state": "signal_present",
+        "model_score": null,
+        "events": [
+          {
+            "event_id": "EV-1",
+            "sequence": 1,
+            "event_type": "relay_forwarded",
+            "actor_role": "relay_participant",
+            "source_status_effect": "confirmed",
+            "authority_state": "valid",
+            "observed_at": "2026-11-04T09:00:00Z",
+            "record_time": "2026-11-04T09:00:01Z",
+            "evidence_commitment": "evidence-commit-1",
+            "superseding_signal_id": null,
+            "recipient_id": null
+          }
+        ],
+        "local_decision": "none",
+        "local_authority_state": "not_applicable",
+        "independent_evidence_count": 1,
+        "evidence_contributions": [
+          {
+            "contribution_id": "E-11-1",
+            "source_participant": "synthetic-psp-a",
+            "origin_case_commitment": "origin-commit-11",
+            "independent_claim": true,
+            "evidence_commitment": "evidence-E-11-1"
+          }
+        ],
+        "correction_propagation_state": "not_applicable",
+        "correction_recipients": [],
+        "privacy_findings": [
+          "none"
+        ],
+        "channel_coverage_state": "qualified_synthetic"
+      },
+      "expected_disposition": "reject_unauthorised_source_status",
+      "required_evidence": [
+        "source_identity_and_authority",
+        "signal_provenance",
+        "pairwise_subject_reference",
+        "purpose_and_recipient_scope"
+      ],
+      "negative_controls": [
+        "suspected_is_not_confirmed",
+        "score_is_not_fact_or_authority",
+        "recipient_decision_does_not_mutate_source_status"
+      ]
+    },
+    {
+      "scenario_id": "SA-FRAUD-012",
+      "scenario_type": "wrong_recipient_audience_not_shared",
+      "signal": {
+        "signal_id": "SIG-012",
+        "profile_id": "ZA-PARTICIPANT-FRAUD-SIGNAL-SYNTHETIC-V1",
+        "jurisdiction": "ZA",
+        "framework": "PayShap",
+        "source_participant": "synthetic-psp-a",
+        "source_role": "originating_psp",
+        "source_authority_state": "authorised",
+        "signature_state": "valid",
+        "key_state": "active",
+        "key_id": "synthetic-key-01",
+        "source_case_commitment": "case-commit-12",
+        "origin_case_commitment": "origin-commit-12",
+        "deduplication_group_id": "dedup-group-12",
+        "subject_reference": "pairwise:psp-a-to-psp-b-user-12",
+        "transaction_commitment": "transaction-commit-12",
+        "instrument": "domestic_credit_transfer",
+        "rail": "PayShap",
+        "channel": "mobile_app",
+        "reason_code": "suspected_authorised_push_payment_scam",
+        "reason_taxonomy_version": "mycelix-fraud-reason-v1",
+        "evidence_class": "source_report",
+        "evidence_commitment": "source-evidence-12",
+        "source_status": "suspected",
+        "observed_at": "2026-11-04T08:59:00Z",
+        "recorded_at": "2026-11-04T09:00:00Z",
+        "expires_at": "2026-11-11T09:00:00Z",
+        "purpose": "fraud_prevention_specific_payment",
+        "requested_purpose": "fraud_prevention_specific_payment",
+        "permitted_audiences": [
+          "synthetic-psp-b"
+        ],
+        "actual_recipient": "unlisted-psp",
+        "dissemination_state": "quarantined",
+        "availability_state": "signal_present",
+        "model_score": null,
+        "events": [
+          {
+            "event_id": "EV-1",
+            "sequence": 1,
+            "event_type": "source_submitted",
+            "actor_role": "originating_psp",
+            "source_status_effect": "suspected",
+            "authority_state": "valid",
+            "observed_at": "2026-11-04T09:00:00Z",
+            "record_time": "2026-11-04T09:00:01Z",
+            "evidence_commitment": "source-evidence-12",
+            "superseding_signal_id": null,
+            "recipient_id": null
+          }
+        ],
+        "local_decision": "none",
+        "local_authority_state": "not_applicable",
+        "independent_evidence_count": 1,
+        "evidence_contributions": [
+          {
+            "contribution_id": "E-12-1",
+            "source_participant": "synthetic-psp-a",
+            "origin_case_commitment": "origin-commit-12",
+            "independent_claim": true,
+            "evidence_commitment": "evidence-E-12-1"
+          }
+        ],
+        "correction_propagation_state": "not_applicable",
+        "correction_recipients": [],
+        "privacy_findings": [
+          "none"
+        ],
+        "channel_coverage_state": "qualified_synthetic"
+      },
+      "expected_disposition": "reject_wrong_audience",
+      "required_evidence": [
+        "source_identity_and_authority",
+        "signal_provenance",
+        "pairwise_subject_reference",
+        "purpose_and_recipient_scope"
+      ],
+      "negative_controls": [
+        "suspected_is_not_confirmed",
+        "score_is_not_fact_or_authority",
+        "recipient_decision_does_not_mutate_source_status"
+      ]
+    },
+    {
+      "scenario_id": "SA-FRAUD-013",
+      "scenario_type": "duplicate_reports_same_origin_claimed_independent",
+      "signal": {
+        "signal_id": "SIG-013",
+        "profile_id": "ZA-PARTICIPANT-FRAUD-SIGNAL-SYNTHETIC-V1",
+        "jurisdiction": "ZA",
+        "framework": "PayShap",
+        "source_participant": "synthetic-psp-a",
+        "source_role": "originating_psp",
+        "source_authority_state": "authorised",
+        "signature_state": "valid",
+        "key_state": "active",
+        "key_id": "synthetic-key-01",
+        "source_case_commitment": "case-commit-13",
+        "origin_case_commitment": "origin-commit-13",
+        "deduplication_group_id": "dedup-group-13",
+        "subject_reference": "pairwise:psp-a-to-psp-b-user-13",
+        "transaction_commitment": "transaction-commit-13",
+        "instrument": "domestic_credit_transfer",
+        "rail": "PayShap",
+        "channel": "mobile_app",
+        "reason_code": "suspected_authorised_push_payment_scam",
+        "reason_taxonomy_version": "mycelix-fraud-reason-v1",
+        "evidence_class": "source_report",
+        "evidence_commitment": "source-evidence-13",
+        "source_status": "suspected",
+        "observed_at": "2026-11-04T08:59:00Z",
+        "recorded_at": "2026-11-04T09:00:00Z",
+        "expires_at": "2026-11-11T09:00:00Z",
+        "purpose": "fraud_prevention_specific_payment",
+        "requested_purpose": "fraud_prevention_specific_payment",
+        "permitted_audiences": [
+          "synthetic-psp-b"
+        ],
+        "actual_recipient": "synthetic-psp-b",
+        "dissemination_state": "quarantined",
+        "availability_state": "signal_present",
+        "model_score": null,
+        "events": [
+          {
+            "event_id": "EV-1",
+            "sequence": 1,
+            "event_type": "source_submitted",
+            "actor_role": "originating_psp",
+            "source_status_effect": "suspected",
+            "authority_state": "valid",
+            "observed_at": "2026-11-04T09:00:00Z",
+            "record_time": "2026-11-04T09:00:01Z",
+            "evidence_commitment": "source-evidence-13",
+            "superseding_signal_id": null,
+            "recipient_id": null
+          }
+        ],
+        "local_decision": "none",
+        "local_authority_state": "not_applicable",
+        "independent_evidence_count": 2,
+        "evidence_contributions": [
+          {
+            "contribution_id": "E-13-1",
+            "source_participant": "synthetic-psp-a",
+            "origin_case_commitment": "same-origin-case-13",
+            "independent_claim": true,
+            "evidence_commitment": "evidence-E-13-1"
+          },
+          {
+            "contribution_id": "E-13-2",
+            "source_participant": "synthetic-psp-c",
+            "origin_case_commitment": "same-origin-case-13",
+            "independent_claim": true,
+            "evidence_commitment": "evidence-E-13-2"
+          }
+        ],
+        "correction_propagation_state": "not_applicable",
+        "correction_recipients": [],
+        "privacy_findings": [
+          "none"
+        ],
+        "channel_coverage_state": "qualified_synthetic"
+      },
+      "expected_disposition": "deduplicate_common_origin_evidence",
+      "required_evidence": [
+        "source_identity_and_authority",
+        "signal_provenance",
+        "pairwise_subject_reference",
+        "purpose_and_recipient_scope"
+      ],
+      "negative_controls": [
+        "suspected_is_not_confirmed",
+        "score_is_not_fact_or_authority",
+        "recipient_decision_does_not_mutate_source_status"
+      ]
+    },
+    {
+      "scenario_id": "SA-FRAUD-014",
+      "scenario_type": "common_origin_reports_are_not_independent",
+      "signal": {
+        "signal_id": "SIG-014",
+        "profile_id": "ZA-PARTICIPANT-FRAUD-SIGNAL-SYNTHETIC-V1",
+        "jurisdiction": "ZA",
+        "framework": "PayShap",
+        "source_participant": "synthetic-psp-a",
+        "source_role": "originating_psp",
+        "source_authority_state": "authorised",
+        "signature_state": "valid",
+        "key_state": "active",
+        "key_id": "synthetic-key-01",
+        "source_case_commitment": "case-commit-14",
+        "origin_case_commitment": "origin-commit-14",
+        "deduplication_group_id": "dedup-group-14",
+        "subject_reference": "pairwise:psp-a-to-psp-b-user-14",
+        "transaction_commitment": "transaction-commit-14",
+        "instrument": "domestic_credit_transfer",
+        "rail": "PayShap",
+        "channel": "mobile_app",
+        "reason_code": "suspected_authorised_push_payment_scam",
+        "reason_taxonomy_version": "mycelix-fraud-reason-v1",
+        "evidence_class": "source_report",
+        "evidence_commitment": "source-evidence-14",
+        "source_status": "suspected",
+        "observed_at": "2026-11-04T08:59:00Z",
+        "recorded_at": "2026-11-04T09:00:00Z",
+        "expires_at": "2026-11-11T09:00:00Z",
+        "purpose": "fraud_prevention_specific_payment",
+        "requested_purpose": "fraud_prevention_specific_payment",
+        "permitted_audiences": [
+          "synthetic-psp-b"
+        ],
+        "actual_recipient": "synthetic-psp-b",
+        "dissemination_state": "shared",
+        "availability_state": "signal_present",
+        "model_score": null,
+        "events": [
+          {
+            "event_id": "EV-1",
+            "sequence": 1,
+            "event_type": "source_submitted",
+            "actor_role": "originating_psp",
+            "source_status_effect": "suspected",
+            "authority_state": "valid",
+            "observed_at": "2026-11-04T09:00:00Z",
+            "record_time": "2026-11-04T09:00:01Z",
+            "evidence_commitment": "source-evidence-14",
+            "superseding_signal_id": null,
+            "recipient_id": null
+          }
+        ],
+        "local_decision": "none",
+        "local_authority_state": "not_applicable",
+        "independent_evidence_count": 2,
+        "evidence_contributions": [
+          {
+            "contribution_id": "E-14-1",
+            "source_participant": "synthetic-psp-a",
+            "origin_case_commitment": "origin-case-x",
+            "independent_claim": true,
+            "evidence_commitment": "evidence-E-14-1"
+          },
+          {
+            "contribution_id": "E-14-2",
+            "source_participant": "synthetic-psp-c",
+            "origin_case_commitment": "origin-case-x",
+            "independent_claim": false,
+            "evidence_commitment": "evidence-E-14-2"
+          },
+          {
+            "contribution_id": "E-14-3",
+            "source_participant": "synthetic-psp-d",
+            "origin_case_commitment": "origin-case-y",
+            "independent_claim": true,
+            "evidence_commitment": "evidence-E-14-3"
+          }
+        ],
+        "correction_propagation_state": "not_applicable",
+        "correction_recipients": [],
+        "privacy_findings": [
+          "none"
+        ],
+        "channel_coverage_state": "qualified_synthetic"
+      },
+      "expected_disposition": "count_distinct_source_origins_only",
+      "required_evidence": [
+        "source_identity_and_authority",
+        "signal_provenance",
+        "pairwise_subject_reference",
+        "purpose_and_recipient_scope"
+      ],
+      "negative_controls": [
+        "suspected_is_not_confirmed",
+        "score_is_not_fact_or_authority",
+        "recipient_decision_does_not_mutate_source_status"
+      ]
+    },
+    {
+      "scenario_id": "SA-FRAUD-015",
+      "scenario_type": "risk_score_missing_calibration_and_model_version",
+      "signal": {
+        "signal_id": "SIG-015",
+        "profile_id": "ZA-PARTICIPANT-FRAUD-SIGNAL-SYNTHETIC-V1",
+        "jurisdiction": "ZA",
+        "framework": "PayShap",
+        "source_participant": "synthetic-psp-a",
+        "source_role": "originating_psp",
+        "source_authority_state": "authorised",
+        "signature_state": "valid",
+        "key_state": "active",
+        "key_id": "synthetic-key-01",
+        "source_case_commitment": "case-commit-15",
+        "origin_case_commitment": "origin-commit-15",
+        "deduplication_group_id": "dedup-group-15",
+        "subject_reference": "pairwise:psp-a-to-psp-b-user-15",
+        "transaction_commitment": "transaction-commit-15",
+        "instrument": "domestic_credit_transfer",
+        "rail": "PayShap",
+        "channel": "mobile_app",
+        "reason_code": "suspected_authorised_push_payment_scam",
+        "reason_taxonomy_version": "mycelix-fraud-reason-v1",
+        "evidence_class": "source_report",
+        "evidence_commitment": "source-evidence-15",
+        "source_status": "suspected",
+        "observed_at": "2026-11-04T08:59:00Z",
+        "recorded_at": "2026-11-04T09:00:00Z",
+        "expires_at": "2026-11-11T09:00:00Z",
+        "purpose": "fraud_prevention_specific_payment",
+        "requested_purpose": "fraud_prevention_specific_payment",
+        "permitted_audiences": [
+          "synthetic-psp-b"
+        ],
+        "actual_recipient": "synthetic-psp-b",
+        "dissemination_state": "quarantined",
+        "availability_state": "signal_present",
+        "model_score": {
+          "score_value": 0.7,
+          "score_kind": "risk_estimate",
+          "model_id": "m",
+          "model_version": "1",
+          "calibration_id": null,
+          "cohort_id": null,
+          "evaluation_window_start": null,
+          "evaluation_window_end": null,
+          "uncertainty": null,
+          "calibration_state": "unknown"
+        },
+        "events": [
+          {
+            "event_id": "EV-1",
+            "sequence": 1,
+            "event_type": "source_submitted",
+            "actor_role": "originating_psp",
+            "source_status_effect": "suspected",
+            "authority_state": "valid",
+            "observed_at": "2026-11-04T09:00:00Z",
+            "record_time": "2026-11-04T09:00:01Z",
+            "evidence_commitment": "source-evidence-15",
+            "superseding_signal_id": null,
+            "recipient_id": null
+          }
+        ],
+        "local_decision": "none",
+        "local_authority_state": "not_applicable",
+        "independent_evidence_count": 1,
+        "evidence_contributions": [
+          {
+            "contribution_id": "E-15-1",
+            "source_participant": "synthetic-psp-a",
+            "origin_case_commitment": "origin-commit-15",
+            "independent_claim": true,
+            "evidence_commitment": "evidence-E-15-1"
+          }
+        ],
+        "correction_propagation_state": "not_applicable",
+        "correction_recipients": [],
+        "privacy_findings": [
+          "none"
+        ],
+        "channel_coverage_state": "qualified_synthetic"
+      },
+      "expected_disposition": "quarantine_unqualified_score",
+      "required_evidence": [
+        "source_identity_and_authority",
+        "signal_provenance",
+        "pairwise_subject_reference",
+        "purpose_and_recipient_scope"
+      ],
+      "negative_controls": [
+        "suspected_is_not_confirmed",
+        "score_is_not_fact_or_authority",
+        "recipient_decision_does_not_mutate_source_status"
+      ]
+    },
+    {
+      "scenario_id": "SA-FRAUD-016",
+      "scenario_type": "calibrated_score_remains_suspected_not_confirmed",
+      "signal": {
+        "signal_id": "SIG-016",
+        "profile_id": "ZA-PARTICIPANT-FRAUD-SIGNAL-SYNTHETIC-V1",
+        "jurisdiction": "ZA",
+        "framework": "PayShap",
+        "source_participant": "synthetic-psp-a",
+        "source_role": "originating_psp",
+        "source_authority_state": "authorised",
+        "signature_state": "valid",
+        "key_state": "active",
+        "key_id": "synthetic-key-01",
+        "source_case_commitment": "case-commit-16",
+        "origin_case_commitment": "origin-commit-16",
+        "deduplication_group_id": "dedup-group-16",
+        "subject_reference": "pairwise:psp-a-to-psp-b-user-16",
+        "transaction_commitment": "transaction-commit-16",
+        "instrument": "domestic_credit_transfer",
+        "rail": "PayShap",
+        "channel": "mobile_app",
+        "reason_code": "suspected_authorised_push_payment_scam",
+        "reason_taxonomy_version": "mycelix-fraud-reason-v1",
+        "evidence_class": "source_report",
+        "evidence_commitment": "source-evidence-16",
+        "source_status": "suspected",
+        "observed_at": "2026-11-04T08:59:00Z",
+        "recorded_at": "2026-11-04T09:00:00Z",
+        "expires_at": "2026-11-11T09:00:00Z",
+        "purpose": "fraud_prevention_specific_payment",
+        "requested_purpose": "fraud_prevention_specific_payment",
+        "permitted_audiences": [
+          "synthetic-psp-b"
+        ],
+        "actual_recipient": "synthetic-psp-b",
+        "dissemination_state": "shared",
+        "availability_state": "signal_present",
+        "model_score": {
+          "score_value": 0.72,
+          "score_kind": "risk_estimate",
+          "model_id": "synthetic-risk-model",
+          "model_version": "1.0.0",
+          "calibration_id": "calibration-2026-q3",
+          "cohort_id": "za-instant-credit-synthetic",
+          "evaluation_window_start": "2026-08-01",
+          "evaluation_window_end": "2026-10-31",
+          "uncertainty": 0.08,
+          "calibration_state": "qualified_synthetic_only"
+        },
+        "events": [
+          {
+            "event_id": "EV-1",
+            "sequence": 1,
+            "event_type": "source_submitted",
+            "actor_role": "originating_psp",
+            "source_status_effect": "suspected",
+            "authority_state": "valid",
+            "observed_at": "2026-11-04T09:00:00Z",
+            "record_time": "2026-11-04T09:00:01Z",
+            "evidence_commitment": "source-evidence-16",
+            "superseding_signal_id": null,
+            "recipient_id": null
+          }
+        ],
+        "local_decision": "none",
+        "local_authority_state": "not_applicable",
+        "independent_evidence_count": 1,
+        "evidence_contributions": [
+          {
+            "contribution_id": "E-16-1",
+            "source_participant": "synthetic-psp-a",
+            "origin_case_commitment": "origin-commit-16",
+            "independent_claim": true,
+            "evidence_commitment": "evidence-E-16-1"
+          }
+        ],
+        "correction_propagation_state": "not_applicable",
+        "correction_recipients": [],
+        "privacy_findings": [
+          "none"
+        ],
+        "channel_coverage_state": "qualified_synthetic"
+      },
+      "expected_disposition": "score_does_not_change_source_status",
+      "required_evidence": [
+        "source_identity_and_authority",
+        "signal_provenance",
+        "pairwise_subject_reference",
+        "purpose_and_recipient_scope"
+      ],
+      "negative_controls": [
+        "suspected_is_not_confirmed",
+        "score_is_not_fact_or_authority",
+        "recipient_decision_does_not_mutate_source_status"
+      ]
+    },
+    {
+      "scenario_id": "SA-FRAUD-017",
+      "scenario_type": "model_score_only_promoted_to_confirmed",
+      "signal": {
+        "signal_id": "SIG-017",
+        "profile_id": "ZA-PARTICIPANT-FRAUD-SIGNAL-SYNTHETIC-V1",
+        "jurisdiction": "ZA",
+        "framework": "PayShap",
+        "source_participant": "synthetic-psp-a",
+        "source_role": "originating_psp",
+        "source_authority_state": "authorised",
+        "signature_state": "valid",
+        "key_state": "active",
+        "key_id": "synthetic-key-01",
+        "source_case_commitment": "case-commit-17",
+        "origin_case_commitment": "origin-commit-17",
+        "deduplication_group_id": "dedup-group-17",
+        "subject_reference": "pairwise:psp-a-to-psp-b-user-17",
+        "transaction_commitment": "transaction-commit-17",
+        "instrument": "domestic_credit_transfer",
+        "rail": "PayShap",
+        "channel": "mobile_app",
+        "reason_code": "suspected_authorised_push_payment_scam",
+        "reason_taxonomy_version": "mycelix-fraud-reason-v1",
+        "evidence_class": "model_score_only",
+        "evidence_commitment": "source-evidence-17",
+        "source_status": "confirmed",
+        "observed_at": "2026-11-04T08:59:00Z",
+        "recorded_at": "2026-11-04T09:00:00Z",
+        "expires_at": "2026-11-11T09:00:00Z",
+        "purpose": "fraud_prevention_specific_payment",
+        "requested_purpose": "fraud_prevention_specific_payment",
+        "permitted_audiences": [
+          "synthetic-psp-b"
+        ],
+        "actual_recipient": "synthetic-psp-b",
+        "dissemination_state": "quarantined",
+        "availability_state": "signal_present",
+        "model_score": {
+          "score_value": 0.72,
+          "score_kind": "risk_estimate",
+          "model_id": "synthetic-risk-model",
+          "model_version": "1.0.0",
+          "calibration_id": "calibration-2026-q3",
+          "cohort_id": "za-instant-credit-synthetic",
+          "evaluation_window_start": "2026-08-01",
+          "evaluation_window_end": "2026-10-31",
+          "uncertainty": 0.08,
+          "calibration_state": "qualified_synthetic_only"
+        },
+        "events": [
+          {
+            "event_id": "EV-1",
+            "sequence": 1,
+            "event_type": "source_submitted",
+            "actor_role": "originating_psp",
+            "source_status_effect": "suspected",
+            "authority_state": "valid",
+            "observed_at": "2026-11-04T09:00:00Z",
+            "record_time": "2026-11-04T09:00:01Z",
+            "evidence_commitment": "evidence-commit-1",
+            "superseding_signal_id": null,
+            "recipient_id": null
+          },
+          {
+            "event_id": "EV-2",
+            "sequence": 2,
+            "event_type": "source_confirmed",
+            "actor_role": "originating_psp",
+            "source_status_effect": "confirmed",
+            "authority_state": "valid",
+            "observed_at": "2026-11-04T09:00:00Z",
+            "record_time": "2026-11-04T09:00:01Z",
+            "evidence_commitment": "model-score-only",
+            "superseding_signal_id": null,
+            "recipient_id": null
+          }
+        ],
+        "local_decision": "none",
+        "local_authority_state": "not_applicable",
+        "independent_evidence_count": 1,
+        "evidence_contributions": [
+          {
+            "contribution_id": "E-17-1",
+            "source_participant": "synthetic-psp-a",
+            "origin_case_commitment": "origin-commit-17",
+            "independent_claim": true,
+            "evidence_commitment": "evidence-E-17-1"
+          }
+        ],
+        "correction_propagation_state": "not_applicable",
+        "correction_recipients": [],
+        "privacy_findings": [
+          "none"
+        ],
+        "channel_coverage_state": "qualified_synthetic"
+      },
+      "expected_disposition": "reject_score_as_sole_confirmation",
+      "required_evidence": [
+        "source_identity_and_authority",
+        "signal_provenance",
+        "pairwise_subject_reference",
+        "purpose_and_recipient_scope"
+      ],
+      "negative_controls": [
+        "suspected_is_not_confirmed",
+        "score_is_not_fact_or_authority",
+        "recipient_decision_does_not_mutate_source_status"
+      ]
+    },
+    {
+      "scenario_id": "SA-FRAUD-018",
+      "scenario_type": "model_drift_outside_evaluation_window",
+      "signal": {
+        "signal_id": "SIG-018",
+        "profile_id": "ZA-PARTICIPANT-FRAUD-SIGNAL-SYNTHETIC-V1",
+        "jurisdiction": "ZA",
+        "framework": "PayShap",
+        "source_participant": "synthetic-psp-a",
+        "source_role": "originating_psp",
+        "source_authority_state": "authorised",
+        "signature_state": "valid",
+        "key_state": "active",
+        "key_id": "synthetic-key-01",
+        "source_case_commitment": "case-commit-18",
+        "origin_case_commitment": "origin-commit-18",
+        "deduplication_group_id": "dedup-group-18",
+        "subject_reference": "pairwise:psp-a-to-psp-b-user-18",
+        "transaction_commitment": "transaction-commit-18",
+        "instrument": "domestic_credit_transfer",
+        "rail": "PayShap",
+        "channel": "mobile_app",
+        "reason_code": "suspected_authorised_push_payment_scam",
+        "reason_taxonomy_version": "mycelix-fraud-reason-v1",
+        "evidence_class": "source_report",
+        "evidence_commitment": "source-evidence-18",
+        "source_status": "suspected",
+        "observed_at": "2026-11-04T08:59:00Z",
+        "recorded_at": "2026-11-04T09:00:00Z",
+        "expires_at": "2026-11-11T09:00:00Z",
+        "purpose": "fraud_prevention_specific_payment",
+        "requested_purpose": "fraud_prevention_specific_payment",
+        "permitted_audiences": [
+          "synthetic-psp-b"
+        ],
+        "actual_recipient": "synthetic-psp-b",
+        "dissemination_state": "quarantined",
+        "availability_state": "signal_present",
+        "model_score": {
+          "score_value": 0.72,
+          "score_kind": "risk_estimate",
+          "model_id": "synthetic-risk-model",
+          "model_version": "1.0.0",
+          "calibration_id": "calibration-2026-q3",
+          "cohort_id": "za-instant-credit-synthetic",
+          "evaluation_window_start": "2025-01-01",
+          "evaluation_window_end": "2025-01-31",
+          "uncertainty": 0.08,
+          "calibration_state": "stale"
+        },
+        "events": [
+          {
+            "event_id": "EV-1",
+            "sequence": 1,
+            "event_type": "source_submitted",
+            "actor_role": "originating_psp",
+            "source_status_effect": "suspected",
+            "authority_state": "valid",
+            "observed_at": "2026-11-04T09:00:00Z",
+            "record_time": "2026-11-04T09:00:01Z",
+            "evidence_commitment": "source-evidence-18",
+            "superseding_signal_id": null,
+            "recipient_id": null
+          }
+        ],
+        "local_decision": "none",
+        "local_authority_state": "not_applicable",
+        "independent_evidence_count": 1,
+        "evidence_contributions": [
+          {
+            "contribution_id": "E-18-1",
+            "source_participant": "synthetic-psp-a",
+            "origin_case_commitment": "origin-commit-18",
+            "independent_claim": true,
+            "evidence_commitment": "evidence-E-18-1"
+          }
+        ],
+        "correction_propagation_state": "not_applicable",
+        "correction_recipients": [],
+        "privacy_findings": [
+          "none"
+        ],
+        "channel_coverage_state": "qualified_synthetic"
+      },
+      "expected_disposition": "quarantine_stale_model_score",
+      "required_evidence": [
+        "source_identity_and_authority",
+        "signal_provenance",
+        "pairwise_subject_reference",
+        "purpose_and_recipient_scope"
+      ],
+      "negative_controls": [
+        "suspected_is_not_confirmed",
+        "score_is_not_fact_or_authority",
+        "recipient_decision_does_not_mutate_source_status"
+      ]
+    },
+    {
+      "scenario_id": "SA-FRAUD-019",
+      "scenario_type": "cross_channel_score_missing_channel_cohort",
+      "signal": {
+        "signal_id": "SIG-019",
+        "profile_id": "ZA-PARTICIPANT-FRAUD-SIGNAL-SYNTHETIC-V1",
+        "jurisdiction": "ZA",
+        "framework": "PayShap",
+        "source_participant": "synthetic-psp-a",
+        "source_role": "originating_psp",
+        "source_authority_state": "authorised",
+        "signature_state": "valid",
+        "key_state": "active",
+        "key_id": "synthetic-key-01",
+        "source_case_commitment": "case-commit-19",
+        "origin_case_commitment": "origin-commit-19",
+        "deduplication_group_id": "dedup-group-19",
+        "subject_reference": "pairwise:psp-a-to-psp-b-user-19",
+        "transaction_commitment": "transaction-commit-19",
+        "instrument": "domestic_credit_transfer",
+        "rail": "PayShap",
+        "channel": "unknown_channel",
+        "reason_code": "suspected_authorised_push_payment_scam",
+        "reason_taxonomy_version": "mycelix-fraud-reason-v1",
+        "evidence_class": "source_report",
+        "evidence_commitment": "source-evidence-19",
+        "source_status": "suspected",
+        "observed_at": "2026-11-04T08:59:00Z",
+        "recorded_at": "2026-11-04T09:00:00Z",
+        "expires_at": "2026-11-11T09:00:00Z",
+        "purpose": "fraud_prevention_specific_payment",
+        "requested_purpose": "fraud_prevention_specific_payment",
+        "permitted_audiences": [
+          "synthetic-psp-b"
+        ],
+        "actual_recipient": "synthetic-psp-b",
+        "dissemination_state": "quarantined",
+        "availability_state": "signal_present",
+        "model_score": {
+          "score_value": 0.72,
+          "score_kind": "risk_estimate",
+          "model_id": "synthetic-risk-model",
+          "model_version": "1.0.0",
+          "calibration_id": "calibration-2026-q3",
+          "cohort_id": "global-unstratified",
+          "evaluation_window_start": "2026-08-01",
+          "evaluation_window_end": "2026-10-31",
+          "uncertainty": 0.08,
+          "calibration_state": "qualified_synthetic_only"
+        },
+        "events": [
+          {
+            "event_id": "EV-1",
+            "sequence": 1,
+            "event_type": "source_submitted",
+            "actor_role": "originating_psp",
+            "source_status_effect": "suspected",
+            "authority_state": "valid",
+            "observed_at": "2026-11-04T09:00:00Z",
+            "record_time": "2026-11-04T09:00:01Z",
+            "evidence_commitment": "source-evidence-19",
+            "superseding_signal_id": null,
+            "recipient_id": null
+          }
+        ],
+        "local_decision": "none",
+        "local_authority_state": "not_applicable",
+        "independent_evidence_count": 1,
+        "evidence_contributions": [
+          {
+            "contribution_id": "E-19-1",
+            "source_participant": "synthetic-psp-a",
+            "origin_case_commitment": "origin-commit-19",
+            "independent_claim": true,
+            "evidence_commitment": "evidence-E-19-1"
+          }
+        ],
+        "correction_propagation_state": "not_applicable",
+        "correction_recipients": [],
+        "privacy_findings": [
+          "none"
+        ],
+        "channel_coverage_state": "out_of_scope"
+      },
+      "expected_disposition": "declare_channel_coverage_unknown",
+      "required_evidence": [
+        "source_identity_and_authority",
+        "signal_provenance",
+        "pairwise_subject_reference",
+        "purpose_and_recipient_scope"
+      ],
+      "negative_controls": [
+        "suspected_is_not_confirmed",
+        "score_is_not_fact_or_authority",
+        "recipient_decision_does_not_mutate_source_status"
+      ]
+    },
+    {
+      "scenario_id": "SA-FRAUD-020",
+      "scenario_type": "mule_account_indicator_is_not_fraud_finding",
+      "signal": {
+        "signal_id": "SIG-020",
+        "profile_id": "ZA-PARTICIPANT-FRAUD-SIGNAL-SYNTHETIC-V1",
+        "jurisdiction": "ZA",
+        "framework": "PayShap",
+        "source_participant": "synthetic-psp-a",
+        "source_role": "originating_psp",
+        "source_authority_state": "authorised",
+        "signature_state": "valid",
+        "key_state": "active",
+        "key_id": "synthetic-key-01",
+        "source_case_commitment": "case-commit-20",
+        "origin_case_commitment": "origin-commit-20",
+        "deduplication_group_id": "dedup-group-20",
+        "subject_reference": "pairwise:psp-a-to-psp-b-user-20",
+        "transaction_commitment": "transaction-commit-20",
+        "instrument": "domestic_credit_transfer",
+        "rail": "PayShap",
+        "channel": "mobile_app",
+        "reason_code": "mule_account_indicator",
+        "reason_taxonomy_version": "mycelix-fraud-reason-v1",
+        "evidence_class": "indicator_only",
+        "evidence_commitment": "source-evidence-20",
+        "source_status": "suspected",
+        "observed_at": "2026-11-04T08:59:00Z",
+        "recorded_at": "2026-11-04T09:00:00Z",
+        "expires_at": "2026-11-11T09:00:00Z",
+        "purpose": "fraud_prevention_specific_payment",
+        "requested_purpose": "fraud_prevention_specific_payment",
+        "permitted_audiences": [
+          "synthetic-psp-b"
+        ],
+        "actual_recipient": "synthetic-psp-b",
+        "dissemination_state": "shared",
+        "availability_state": "signal_present",
+        "model_score": null,
+        "events": [
+          {
+            "event_id": "EV-1",
+            "sequence": 1,
+            "event_type": "source_submitted",
+            "actor_role": "originating_psp",
+            "source_status_effect": "suspected",
+            "authority_state": "valid",
+            "observed_at": "2026-11-04T09:00:00Z",
+            "record_time": "2026-11-04T09:00:01Z",
+            "evidence_commitment": "source-evidence-20",
+            "superseding_signal_id": null,
+            "recipient_id": null
+          }
+        ],
+        "local_decision": "none",
+        "local_authority_state": "not_applicable",
+        "independent_evidence_count": 1,
+        "evidence_contributions": [
+          {
+            "contribution_id": "E-20-1",
+            "source_participant": "synthetic-psp-a",
+            "origin_case_commitment": "origin-commit-20",
+            "independent_claim": true,
+            "evidence_commitment": "evidence-E-20-1"
+          }
+        ],
+        "correction_propagation_state": "not_applicable",
+        "correction_recipients": [],
+        "privacy_findings": [
+          "none"
+        ],
+        "channel_coverage_state": "qualified_synthetic"
+      },
+      "expected_disposition": "keep_indicator_as_suspicion",
+      "required_evidence": [
+        "source_identity_and_authority",
+        "signal_provenance",
+        "pairwise_subject_reference",
+        "purpose_and_recipient_scope"
+      ],
+      "negative_controls": [
+        "suspected_is_not_confirmed",
+        "score_is_not_fact_or_authority",
+        "recipient_decision_does_not_mutate_source_status"
+      ]
+    },
+    {
+      "scenario_id": "SA-FRAUD-021",
+      "scenario_type": "authorised_push_payment_scam_report",
+      "signal": {
+        "signal_id": "SIG-021",
+        "profile_id": "ZA-PARTICIPANT-FRAUD-SIGNAL-SYNTHETIC-V1",
+        "jurisdiction": "ZA",
+        "framework": "PayShap",
+        "source_participant": "synthetic-psp-a",
+        "source_role": "originating_psp",
+        "source_authority_state": "authorised",
+        "signature_state": "valid",
+        "key_state": "active",
+        "key_id": "synthetic-key-01",
+        "source_case_commitment": "case-commit-21",
+        "origin_case_commitment": "origin-commit-21",
+        "deduplication_group_id": "dedup-group-21",
+        "subject_reference": "pairwise:psp-a-to-psp-b-user-21",
+        "transaction_commitment": "transaction-commit-21",
+        "instrument": "domestic_credit_transfer",
+        "rail": "PayShap",
+        "channel": "mobile_app",
+        "reason_code": "suspected_authorised_push_payment_scam",
+        "reason_taxonomy_version": "mycelix-fraud-reason-v1",
+        "evidence_class": "source_report",
+        "evidence_commitment": "source-evidence-21",
+        "source_status": "suspected",
+        "observed_at": "2026-11-04T08:59:00Z",
+        "recorded_at": "2026-11-04T09:00:00Z",
+        "expires_at": "2026-11-11T09:00:00Z",
+        "purpose": "fraud_prevention_specific_payment",
+        "requested_purpose": "fraud_prevention_specific_payment",
+        "permitted_audiences": [
+          "synthetic-psp-b"
+        ],
+        "actual_recipient": "synthetic-psp-b",
+        "dissemination_state": "shared",
+        "availability_state": "signal_present",
+        "model_score": null,
+        "events": [
+          {
+            "event_id": "EV-1",
+            "sequence": 1,
+            "event_type": "source_submitted",
+            "actor_role": "originating_psp",
+            "source_status_effect": "suspected",
+            "authority_state": "valid",
+            "observed_at": "2026-11-04T09:00:00Z",
+            "record_time": "2026-11-04T09:00:01Z",
+            "evidence_commitment": "source-evidence-21",
+            "superseding_signal_id": null,
+            "recipient_id": null
+          }
+        ],
+        "local_decision": "none",
+        "local_authority_state": "not_applicable",
+        "independent_evidence_count": 1,
+        "evidence_contributions": [
+          {
+            "contribution_id": "E-21-1",
+            "source_participant": "synthetic-psp-a",
+            "origin_case_commitment": "origin-commit-21",
+            "independent_claim": true,
+            "evidence_commitment": "evidence-E-21-1"
+          }
+        ],
+        "correction_propagation_state": "not_applicable",
+        "correction_recipients": [],
+        "privacy_findings": [
+          "none"
+        ],
+        "channel_coverage_state": "qualified_synthetic"
+      },
+      "expected_disposition": "allow_scoped_suspicion",
+      "required_evidence": [
+        "source_identity_and_authority",
+        "signal_provenance",
+        "pairwise_subject_reference",
+        "purpose_and_recipient_scope"
+      ],
+      "negative_controls": [
+        "suspected_is_not_confirmed",
+        "score_is_not_fact_or_authority",
+        "recipient_decision_does_not_mutate_source_status"
+      ]
+    },
+    {
+      "scenario_id": "SA-FRAUD-022",
+      "scenario_type": "compromised_verified_merchant_credential",
+      "signal": {
+        "signal_id": "SIG-022",
+        "profile_id": "ZA-PARTICIPANT-FRAUD-SIGNAL-SYNTHETIC-V1",
+        "jurisdiction": "ZA",
+        "framework": "PayShap",
+        "source_participant": "synthetic-psp-a",
+        "source_role": "originating_psp",
+        "source_authority_state": "unknown",
+        "signature_state": "unknown",
+        "key_state": "active",
+        "key_id": "synthetic-key-01",
+        "source_case_commitment": "case-commit-22",
+        "origin_case_commitment": "origin-commit-22",
+        "deduplication_group_id": "dedup-group-22",
+        "subject_reference": "pairwise:psp-a-to-psp-b-user-22",
+        "transaction_commitment": "transaction-commit-22",
+        "instrument": "domestic_credit_transfer",
+        "rail": "PayShap",
+        "channel": "mobile_app",
+        "reason_code": "suspected_authorised_push_payment_scam",
+        "reason_taxonomy_version": "mycelix-fraud-reason-v1",
+        "evidence_class": "source_report",
+        "evidence_commitment": "source-evidence-22",
+        "source_status": "quarantined_untrusted",
+        "observed_at": "2026-11-04T08:59:00Z",
+        "recorded_at": "2026-11-04T09:00:00Z",
+        "expires_at": "2026-11-11T09:00:00Z",
+        "purpose": "fraud_prevention_specific_payment",
+        "requested_purpose": "fraud_prevention_specific_payment",
+        "permitted_audiences": [
+          "synthetic-psp-b"
+        ],
+        "actual_recipient": "synthetic-psp-b",
+        "dissemination_state": "quarantined",
+        "availability_state": "signal_present",
+        "model_score": null,
+        "events": [
+          {
+            "event_id": "EV-1",
+            "sequence": 1,
+            "event_type": "source_submitted",
+            "actor_role": "originating_psp",
+            "source_status_effect": "suspected",
+            "authority_state": "unknown",
+            "observed_at": "2026-11-04T09:00:00Z",
+            "record_time": "2026-11-04T09:00:01Z",
+            "evidence_commitment": "evidence-commit-1",
+            "superseding_signal_id": null,
+            "recipient_id": null
+          }
+        ],
+        "local_decision": "none",
+        "local_authority_state": "not_applicable",
+        "independent_evidence_count": 1,
+        "evidence_contributions": [
+          {
+            "contribution_id": "E-22-1",
+            "source_participant": "synthetic-psp-a",
+            "origin_case_commitment": "origin-commit-22",
+            "independent_claim": true,
+            "evidence_commitment": "evidence-E-22-1"
+          }
+        ],
+        "correction_propagation_state": "not_applicable",
+        "correction_recipients": [],
+        "privacy_findings": [
+          "none"
+        ],
+        "channel_coverage_state": "qualified_synthetic"
+      },
+      "expected_disposition": "quarantine_untrusted_source",
+      "required_evidence": [
+        "source_identity_and_authority",
+        "signal_provenance",
+        "pairwise_subject_reference",
+        "purpose_and_recipient_scope"
+      ],
+      "negative_controls": [
+        "suspected_is_not_confirmed",
+        "score_is_not_fact_or_authority",
+        "recipient_decision_does_not_mutate_source_status"
+      ]
+    },
+    {
+      "scenario_id": "SA-FRAUD-023",
+      "scenario_type": "vop_no_match_not_promoted_to_fraud_fact",
+      "signal": {
+        "signal_id": "SIG-023",
+        "profile_id": "ZA-PARTICIPANT-FRAUD-SIGNAL-SYNTHETIC-V1",
+        "jurisdiction": "ZA",
+        "framework": "PayShap",
+        "source_participant": "synthetic-psp-a",
+        "source_role": "originating_psp",
+        "source_authority_state": "authorised",
+        "signature_state": "valid",
+        "key_state": "active",
+        "key_id": "synthetic-key-01",
+        "source_case_commitment": "case-commit-23",
+        "origin_case_commitment": "origin-commit-23",
+        "deduplication_group_id": "dedup-group-23",
+        "subject_reference": "pairwise:psp-a-to-psp-b-user-23",
+        "transaction_commitment": "transaction-commit-23",
+        "instrument": "domestic_credit_transfer",
+        "rail": "PayShap",
+        "channel": "mobile_app",
+        "reason_code": "vop_no_match_only",
+        "reason_taxonomy_version": "mycelix-fraud-reason-v1",
+        "evidence_class": "payee_name_mismatch_only",
+        "evidence_commitment": "source-evidence-23",
+        "source_status": "suspected",
+        "observed_at": "2026-11-04T08:59:00Z",
+        "recorded_at": "2026-11-04T09:00:00Z",
+        "expires_at": "2026-11-11T09:00:00Z",
+        "purpose": "fraud_prevention_specific_payment",
+        "requested_purpose": "fraud_prevention_specific_payment",
+        "permitted_audiences": [
+          "synthetic-psp-b"
+        ],
+        "actual_recipient": "synthetic-psp-b",
+        "dissemination_state": "shared",
+        "availability_state": "signal_present",
+        "model_score": null,
+        "events": [
+          {
+            "event_id": "EV-1",
+            "sequence": 1,
+            "event_type": "source_submitted",
+            "actor_role": "originating_psp",
+            "source_status_effect": "suspected",
+            "authority_state": "valid",
+            "observed_at": "2026-11-04T09:00:00Z",
+            "record_time": "2026-11-04T09:00:01Z",
+            "evidence_commitment": "source-evidence-23",
+            "superseding_signal_id": null,
+            "recipient_id": null
+          }
+        ],
+        "local_decision": "review",
+        "local_authority_state": "not_applicable",
+        "independent_evidence_count": 1,
+        "evidence_contributions": [
+          {
+            "contribution_id": "E-23-1",
+            "source_participant": "synthetic-psp-a",
+            "origin_case_commitment": "origin-commit-23",
+            "independent_claim": true,
+            "evidence_commitment": "evidence-E-23-1"
+          }
+        ],
+        "correction_propagation_state": "not_applicable",
+        "correction_recipients": [],
+        "privacy_findings": [
+          "none"
+        ],
+        "channel_coverage_state": "qualified_synthetic"
+      },
+      "expected_disposition": "no_fraud_conclusion_from_vop_alone",
+      "required_evidence": [
+        "source_identity_and_authority",
+        "signal_provenance",
+        "pairwise_subject_reference",
+        "purpose_and_recipient_scope"
+      ],
+      "negative_controls": [
+        "suspected_is_not_confirmed",
+        "score_is_not_fact_or_authority",
+        "recipient_decision_does_not_mutate_source_status"
+      ]
+    },
+    {
+      "scenario_id": "SA-FRAUD-024",
+      "scenario_type": "mistaken_beneficiary_is_not_fraud_without_evidence",
+      "signal": {
+        "signal_id": "SIG-024",
+        "profile_id": "ZA-PARTICIPANT-FRAUD-SIGNAL-SYNTHETIC-V1",
+        "jurisdiction": "ZA",
+        "framework": "PayShap",
+        "source_participant": "synthetic-psp-a",
+        "source_role": "originating_psp",
+        "source_authority_state": "authorised",
+        "signature_state": "valid",
+        "key_state": "active",
+        "key_id": "synthetic-key-01",
+        "source_case_commitment": "case-commit-24",
+        "origin_case_commitment": "origin-commit-24",
+        "deduplication_group_id": "dedup-group-24",
+        "subject_reference": "pairwise:psp-a-to-psp-b-user-24",
+        "transaction_commitment": "transaction-commit-24",
+        "instrument": "domestic_credit_transfer",
+        "rail": "PayShap",
+        "channel": "mobile_app",
+        "reason_code": "mistaken_beneficiary",
+        "reason_taxonomy_version": "mycelix-fraud-reason-v1",
+        "evidence_class": "customer_misrouting_report",
+        "evidence_commitment": "source-evidence-24",
+        "source_status": "suspected",
+        "observed_at": "2026-11-04T08:59:00Z",
+        "recorded_at": "2026-11-04T09:00:00Z",
+        "expires_at": "2026-11-11T09:00:00Z",
+        "purpose": "fraud_prevention_specific_payment",
+        "requested_purpose": "fraud_prevention_specific_payment",
+        "permitted_audiences": [
+          "synthetic-psp-b"
+        ],
+        "actual_recipient": "synthetic-psp-b",
+        "dissemination_state": "shared",
+        "availability_state": "signal_present",
+        "model_score": null,
+        "events": [
+          {
+            "event_id": "EV-1",
+            "sequence": 1,
+            "event_type": "source_submitted",
+            "actor_role": "originating_psp",
+            "source_status_effect": "suspected",
+            "authority_state": "valid",
+            "observed_at": "2026-11-04T09:00:00Z",
+            "record_time": "2026-11-04T09:00:01Z",
+            "evidence_commitment": "source-evidence-24",
+            "superseding_signal_id": null,
+            "recipient_id": null
+          }
+        ],
+        "local_decision": "none",
+        "local_authority_state": "not_applicable",
+        "independent_evidence_count": 1,
+        "evidence_contributions": [
+          {
+            "contribution_id": "E-24-1",
+            "source_participant": "synthetic-psp-a",
+            "origin_case_commitment": "origin-commit-24",
+            "independent_claim": true,
+            "evidence_commitment": "evidence-E-24-1"
+          }
+        ],
+        "correction_propagation_state": "not_applicable",
+        "correction_recipients": [],
+        "privacy_findings": [
+          "none"
+        ],
+        "channel_coverage_state": "qualified_synthetic"
+      },
+      "expected_disposition": "preserve_unadjudicated_case",
+      "required_evidence": [
+        "source_identity_and_authority",
+        "signal_provenance",
+        "pairwise_subject_reference",
+        "purpose_and_recipient_scope"
+      ],
+      "negative_controls": [
+        "suspected_is_not_confirmed",
+        "score_is_not_fact_or_authority",
+        "recipient_decision_does_not_mutate_source_status"
+      ]
+    },
+    {
+      "scenario_id": "SA-FRAUD-025",
+      "scenario_type": "account_takeover_report_later_disproved",
+      "signal": {
+        "signal_id": "SIG-025",
+        "profile_id": "ZA-PARTICIPANT-FRAUD-SIGNAL-SYNTHETIC-V1",
+        "jurisdiction": "ZA",
+        "framework": "PayShap",
+        "source_participant": "synthetic-psp-a",
+        "source_role": "originating_psp",
+        "source_authority_state": "authorised",
+        "signature_state": "valid",
+        "key_state": "active",
+        "key_id": "synthetic-key-01",
+        "source_case_commitment": "case-commit-25",
+        "origin_case_commitment": "origin-commit-25",
+        "deduplication_group_id": "dedup-group-25",
+        "subject_reference": "pairwise:psp-a-to-psp-b-user-25",
+        "transaction_commitment": "transaction-commit-25",
+        "instrument": "domestic_credit_transfer",
+        "rail": "PayShap",
+        "channel": "mobile_app",
+        "reason_code": "suspected_authorised_push_payment_scam",
+        "reason_taxonomy_version": "mycelix-fraud-reason-v1",
+        "evidence_class": "source_report",
+        "evidence_commitment": "source-evidence-25",
+        "source_status": "disproved",
+        "observed_at": "2026-11-04T08:59:00Z",
+        "recorded_at": "2026-11-04T09:00:00Z",
+        "expires_at": "2026-11-11T09:00:00Z",
+        "purpose": "fraud_prevention_specific_payment",
+        "requested_purpose": "fraud_prevention_specific_payment",
+        "permitted_audiences": [
+          "synthetic-psp-b"
+        ],
+        "actual_recipient": "synthetic-psp-b",
+        "dissemination_state": "shared",
+        "availability_state": "signal_present",
+        "model_score": null,
+        "events": [
+          {
+            "event_id": "EV-1",
+            "sequence": 1,
+            "event_type": "source_submitted",
+            "actor_role": "originating_psp",
+            "source_status_effect": "suspected",
+            "authority_state": "valid",
+            "observed_at": "2026-11-04T09:00:00Z",
+            "record_time": "2026-11-04T09:00:01Z",
+            "evidence_commitment": "evidence-commit-1",
+            "superseding_signal_id": null,
+            "recipient_id": null
+          },
+          {
+            "event_id": "EV-2",
+            "sequence": 2,
+            "event_type": "source_disproved",
+            "actor_role": "originating_psp",
+            "source_status_effect": "disproved",
+            "authority_state": "valid",
+            "observed_at": "2026-11-04T09:00:00Z",
+            "record_time": "2026-11-04T09:00:01Z",
+            "evidence_commitment": "account-takeover-disproved-25",
+            "superseding_signal_id": null,
+            "recipient_id": null
+          }
+        ],
+        "local_decision": "none",
+        "local_authority_state": "not_applicable",
+        "independent_evidence_count": 1,
+        "evidence_contributions": [
+          {
+            "contribution_id": "E-25-1",
+            "source_participant": "synthetic-psp-a",
+            "origin_case_commitment": "origin-commit-25",
+            "independent_claim": true,
+            "evidence_commitment": "evidence-E-25-1"
+          }
+        ],
+        "correction_propagation_state": "complete",
+        "correction_recipients": [
+          {
+            "recipient_id": "synthetic-psp-b",
+            "acknowledgement_state": "acknowledged",
+            "acknowledged_at": "2026-11-04T09:03:00Z"
+          }
+        ],
+        "privacy_findings": [
+          "none"
+        ],
+        "channel_coverage_state": "qualified_synthetic"
+      },
+      "expected_disposition": "propagate_disproof",
+      "required_evidence": [
+        "source_identity_and_authority",
+        "signal_provenance",
+        "pairwise_subject_reference",
+        "purpose_and_recipient_scope"
+      ],
+      "negative_controls": [
+        "suspected_is_not_confirmed",
+        "score_is_not_fact_or_authority",
+        "recipient_decision_does_not_mutate_source_status"
+      ]
+    },
+    {
+      "scenario_id": "SA-FRAUD-026",
+      "scenario_type": "correction_not_yet_acknowledged_by_all_recipients",
+      "signal": {
+        "signal_id": "SIG-026",
+        "profile_id": "ZA-PARTICIPANT-FRAUD-SIGNAL-SYNTHETIC-V1",
+        "jurisdiction": "ZA",
+        "framework": "PayShap",
+        "source_participant": "synthetic-psp-a",
+        "source_role": "originating_psp",
+        "source_authority_state": "authorised",
+        "signature_state": "valid",
+        "key_state": "active",
+        "key_id": "synthetic-key-01",
+        "source_case_commitment": "case-commit-26",
+        "origin_case_commitment": "origin-commit-26",
+        "deduplication_group_id": "dedup-group-26",
+        "subject_reference": "pairwise:psp-a-to-psp-b-user-26",
+        "transaction_commitment": "transaction-commit-26",
+        "instrument": "domestic_credit_transfer",
+        "rail": "PayShap",
+        "channel": "mobile_app",
+        "reason_code": "suspected_authorised_push_payment_scam",
+        "reason_taxonomy_version": "mycelix-fraud-reason-v1",
+        "evidence_class": "source_report",
+        "evidence_commitment": "source-evidence-26",
+        "source_status": "corrected",
+        "observed_at": "2026-11-04T08:59:00Z",
+        "recorded_at": "2026-11-04T09:00:00Z",
+        "expires_at": "2026-11-11T09:00:00Z",
+        "purpose": "fraud_prevention_specific_payment",
+        "requested_purpose": "fraud_prevention_specific_payment",
+        "permitted_audiences": [
+          "synthetic-psp-b"
+        ],
+        "actual_recipient": "synthetic-psp-b",
+        "dissemination_state": "shared",
+        "availability_state": "signal_present",
+        "model_score": null,
+        "events": [
+          {
+            "event_id": "EV-1",
+            "sequence": 1,
+            "event_type": "source_submitted",
+            "actor_role": "originating_psp",
+            "source_status_effect": "suspected",
+            "authority_state": "valid",
+            "observed_at": "2026-11-04T09:00:00Z",
+            "record_time": "2026-11-04T09:00:01Z",
+            "evidence_commitment": "evidence-commit-1",
+            "superseding_signal_id": null,
+            "recipient_id": null
+          },
+          {
+            "event_id": "EV-2",
+            "sequence": 2,
+            "event_type": "source_corrected",
+            "actor_role": "originating_psp",
+            "source_status_effect": "corrected",
+            "authority_state": "valid",
+            "observed_at": "2026-11-04T09:00:00Z",
+            "record_time": "2026-11-04T09:00:01Z",
+            "evidence_commitment": "corrected-26",
+            "superseding_signal_id": "SIG-026-NEW",
+            "recipient_id": null
+          },
+          {
+            "event_id": "EV-3",
+            "sequence": 3,
+            "event_type": "correction_propagated",
+            "actor_role": "relay_participant",
+            "source_status_effect": "unchanged",
+            "authority_state": "valid",
+            "observed_at": "2026-11-04T09:00:00Z",
+            "record_time": "2026-11-04T09:00:01Z",
+            "evidence_commitment": "evidence-commit-3",
+            "superseding_signal_id": null,
+            "recipient_id": "synthetic-psp-b"
+          },
+          {
+            "event_id": "EV-4",
+            "sequence": 4,
+            "event_type": "correction_propagated",
+            "actor_role": "relay_participant",
+            "source_status_effect": "unchanged",
+            "authority_state": "valid",
+            "observed_at": "2026-11-04T09:00:00Z",
+            "record_time": "2026-11-04T09:00:01Z",
+            "evidence_commitment": "evidence-commit-4",
+            "superseding_signal_id": null,
+            "recipient_id": "synthetic-psp-c"
+          },
+          {
+            "event_id": "EV-5",
+            "sequence": 5,
+            "event_type": "correction_acknowledged",
+            "actor_role": "recipient_participant",
+            "source_status_effect": "unchanged",
+            "authority_state": "valid",
+            "observed_at": "2026-11-04T09:00:00Z",
+            "record_time": "2026-11-04T09:00:01Z",
+            "evidence_commitment": "evidence-commit-5",
+            "superseding_signal_id": null,
+            "recipient_id": "synthetic-psp-c"
+          }
+        ],
+        "local_decision": "none",
+        "local_authority_state": "not_applicable",
+        "independent_evidence_count": 1,
+        "evidence_contributions": [
+          {
+            "contribution_id": "E-26-1",
+            "source_participant": "synthetic-psp-a",
+            "origin_case_commitment": "origin-commit-26",
+            "independent_claim": true,
+            "evidence_commitment": "evidence-E-26-1"
+          }
+        ],
+        "correction_propagation_state": "pending",
+        "correction_recipients": [
+          {
+            "recipient_id": "synthetic-psp-b",
+            "acknowledgement_state": "pending",
+            "acknowledged_at": null
+          },
+          {
+            "recipient_id": "synthetic-psp-c",
+            "acknowledgement_state": "acknowledged",
+            "acknowledged_at": "2026-11-04T09:03:00Z"
+          }
+        ],
+        "privacy_findings": [
+          "none"
+        ],
+        "channel_coverage_state": "qualified_synthetic"
+      },
+      "expected_disposition": "retain_correction_pending_state",
+      "required_evidence": [
+        "source_identity_and_authority",
+        "signal_provenance",
+        "pairwise_subject_reference",
+        "purpose_and_recipient_scope"
+      ],
+      "negative_controls": [
+        "suspected_is_not_confirmed",
+        "score_is_not_fact_or_authority",
+        "recipient_decision_does_not_mutate_source_status"
+      ]
+    },
+    {
+      "scenario_id": "SA-FRAUD-027",
+      "scenario_type": "signal_disclosed_to_unauthorised_recipient",
+      "signal": {
+        "signal_id": "SIG-027",
+        "profile_id": "ZA-PARTICIPANT-FRAUD-SIGNAL-SYNTHETIC-V1",
+        "jurisdiction": "ZA",
+        "framework": "PayShap",
+        "source_participant": "synthetic-psp-a",
+        "source_role": "originating_psp",
+        "source_authority_state": "authorised",
+        "signature_state": "valid",
+        "key_state": "active",
+        "key_id": "synthetic-key-01",
+        "source_case_commitment": "case-commit-27",
+        "origin_case_commitment": "origin-commit-27",
+        "deduplication_group_id": "dedup-group-27",
+        "subject_reference": "pairwise:psp-a-to-psp-b-user-27",
+        "transaction_commitment": "transaction-commit-27",
+        "instrument": "domestic_credit_transfer",
+        "rail": "PayShap",
+        "channel": "mobile_app",
+        "reason_code": "suspected_authorised_push_payment_scam",
+        "reason_taxonomy_version": "mycelix-fraud-reason-v1",
+        "evidence_class": "source_report",
+        "evidence_commitment": "source-evidence-27",
+        "source_status": "suspected",
+        "observed_at": "2026-11-04T08:59:00Z",
+        "recorded_at": "2026-11-04T09:00:00Z",
+        "expires_at": "2026-11-11T09:00:00Z",
+        "purpose": "fraud_prevention_specific_payment",
+        "requested_purpose": "fraud_prevention_specific_payment",
+        "permitted_audiences": [
+          "synthetic-psp-b"
+        ],
+        "actual_recipient": "outside-psp",
+        "dissemination_state": "quarantined",
+        "availability_state": "signal_present",
+        "model_score": null,
+        "events": [
+          {
+            "event_id": "EV-1",
+            "sequence": 1,
+            "event_type": "source_submitted",
+            "actor_role": "originating_psp",
+            "source_status_effect": "suspected",
+            "authority_state": "valid",
+            "observed_at": "2026-11-04T09:00:00Z",
+            "record_time": "2026-11-04T09:00:01Z",
+            "evidence_commitment": "source-evidence-27",
+            "superseding_signal_id": null,
+            "recipient_id": null
+          },
+          {
+            "event_id": "EV-2",
+            "sequence": 2,
+            "event_type": "unauthorised_disclosure_attempt_blocked",
+            "actor_role": "system",
+            "source_status_effect": "unchanged",
+            "authority_state": "valid",
+            "observed_at": "2026-11-04T09:01:00Z",
+            "record_time": "2026-11-04T09:01:01Z",
+            "evidence_commitment": "disclosure-block-receipt-27",
+            "superseding_signal_id": null,
+            "recipient_id": "outside-psp"
+          }
+        ],
+        "local_decision": "none",
+        "local_authority_state": "not_applicable",
+        "independent_evidence_count": 1,
+        "evidence_contributions": [
+          {
+            "contribution_id": "E-27-1",
+            "source_participant": "synthetic-psp-a",
+            "origin_case_commitment": "origin-commit-27",
+            "independent_claim": true,
+            "evidence_commitment": "evidence-E-27-1"
+          }
+        ],
+        "correction_propagation_state": "not_applicable",
+        "correction_recipients": [],
+        "privacy_findings": [
+          "none"
+        ],
+        "channel_coverage_state": "qualified_synthetic"
+      },
+      "expected_disposition": "reject_unauthorised_disclosure",
+      "required_evidence": [
+        "source_identity_and_authority",
+        "signal_provenance",
+        "pairwise_subject_reference",
+        "purpose_and_recipient_scope"
+      ],
+      "negative_controls": [
+        "suspected_is_not_confirmed",
+        "score_is_not_fact_or_authority",
+        "recipient_decision_does_not_mutate_source_status"
+      ]
+    },
+    {
+      "scenario_id": "SA-FRAUD-028",
+      "scenario_type": "public_stable_phone_hash_used_as_subject_reference",
+      "signal": {
+        "signal_id": "SIG-028",
+        "profile_id": "ZA-PARTICIPANT-FRAUD-SIGNAL-SYNTHETIC-V1",
+        "jurisdiction": "ZA",
+        "framework": "PayShap",
+        "source_participant": "synthetic-psp-a",
+        "source_role": "originating_psp",
+        "source_authority_state": "authorised",
+        "signature_state": "valid",
+        "key_state": "active",
+        "key_id": "synthetic-key-01",
+        "source_case_commitment": "case-commit-28",
+        "origin_case_commitment": "origin-commit-28",
+        "deduplication_group_id": "dedup-group-28",
+        "subject_reference": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "transaction_commitment": "transaction-commit-28",
+        "instrument": "domestic_credit_transfer",
+        "rail": "PayShap",
+        "channel": "mobile_app",
+        "reason_code": "suspected_authorised_push_payment_scam",
+        "reason_taxonomy_version": "mycelix-fraud-reason-v1",
+        "evidence_class": "source_report",
+        "evidence_commitment": "source-evidence-28",
+        "source_status": "suspected",
+        "observed_at": "2026-11-04T08:59:00Z",
+        "recorded_at": "2026-11-04T09:00:00Z",
+        "expires_at": "2026-11-11T09:00:00Z",
+        "purpose": "fraud_prevention_specific_payment",
+        "requested_purpose": "fraud_prevention_specific_payment",
+        "permitted_audiences": [
+          "synthetic-psp-b"
+        ],
+        "actual_recipient": "synthetic-psp-b",
+        "dissemination_state": "quarantined",
+        "availability_state": "signal_present",
+        "model_score": null,
+        "events": [
+          {
+            "event_id": "EV-1",
+            "sequence": 1,
+            "event_type": "source_submitted",
+            "actor_role": "originating_psp",
+            "source_status_effect": "suspected",
+            "authority_state": "valid",
+            "observed_at": "2026-11-04T09:00:00Z",
+            "record_time": "2026-11-04T09:00:01Z",
+            "evidence_commitment": "source-evidence-28",
+            "superseding_signal_id": null,
+            "recipient_id": null
+          }
+        ],
+        "local_decision": "none",
+        "local_authority_state": "not_applicable",
+        "independent_evidence_count": 1,
+        "evidence_contributions": [
+          {
+            "contribution_id": "E-28-1",
+            "source_participant": "synthetic-psp-a",
+            "origin_case_commitment": "origin-commit-28",
+            "independent_claim": true,
+            "evidence_commitment": "evidence-E-28-1"
+          }
+        ],
+        "correction_propagation_state": "not_applicable",
+        "correction_recipients": [],
+        "privacy_findings": [
+          "public_stable_identifier_detected"
+        ],
+        "channel_coverage_state": "qualified_synthetic"
+      },
+      "expected_disposition": "reject_public_stable_identifier",
+      "required_evidence": [
+        "source_identity_and_authority",
+        "signal_provenance",
+        "pairwise_subject_reference",
+        "purpose_and_recipient_scope"
+      ],
+      "negative_controls": [
+        "suspected_is_not_confirmed",
+        "score_is_not_fact_or_authority",
+        "recipient_decision_does_not_mutate_source_status"
+      ]
+    },
+    {
+      "scenario_id": "SA-FRAUD-029",
+      "scenario_type": "raw_customer_data_injected_in_signal_envelope",
+      "signal": {
+        "signal_id": "SIG-029",
+        "profile_id": "ZA-PARTICIPANT-FRAUD-SIGNAL-SYNTHETIC-V1",
+        "jurisdiction": "ZA",
+        "framework": "PayShap",
+        "source_participant": "synthetic-psp-a",
+        "source_role": "originating_psp",
+        "source_authority_state": "authorised",
+        "signature_state": "valid",
+        "key_state": "active",
+        "key_id": "synthetic-key-01",
+        "source_case_commitment": "case-commit-29",
+        "origin_case_commitment": "origin-commit-29",
+        "deduplication_group_id": "dedup-group-29",
+        "subject_reference": "pairwise:psp-a-to-psp-b-user-29",
+        "transaction_commitment": "transaction-commit-29",
+        "instrument": "domestic_credit_transfer",
+        "rail": "PayShap",
+        "channel": "mobile_app",
+        "reason_code": "suspected_authorised_push_payment_scam",
+        "reason_taxonomy_version": "mycelix-fraud-reason-v1",
+        "evidence_class": "source_report",
+        "evidence_commitment": "source-evidence-29",
+        "source_status": "suspected",
+        "observed_at": "2026-11-04T08:59:00Z",
+        "recorded_at": "2026-11-04T09:00:00Z",
+        "expires_at": "2026-11-11T09:00:00Z",
+        "purpose": "fraud_prevention_specific_payment",
+        "requested_purpose": "fraud_prevention_specific_payment",
+        "permitted_audiences": [
+          "synthetic-psp-b"
+        ],
+        "actual_recipient": "synthetic-psp-b",
+        "dissemination_state": "quarantined",
+        "availability_state": "signal_present",
+        "model_score": null,
+        "events": [
+          {
+            "event_id": "EV-1",
+            "sequence": 1,
+            "event_type": "source_submitted",
+            "actor_role": "originating_psp",
+            "source_status_effect": "suspected",
+            "authority_state": "valid",
+            "observed_at": "2026-11-04T09:00:00Z",
+            "record_time": "2026-11-04T09:00:01Z",
+            "evidence_commitment": "source-evidence-29",
+            "superseding_signal_id": null,
+            "recipient_id": null
+          }
+        ],
+        "local_decision": "none",
+        "local_authority_state": "not_applicable",
+        "independent_evidence_count": 1,
+        "evidence_contributions": [
+          {
+            "contribution_id": "E-29-1",
+            "source_participant": "synthetic-psp-a",
+            "origin_case_commitment": "origin-commit-29",
+            "independent_claim": true,
+            "evidence_commitment": "evidence-E-29-1"
+          }
+        ],
+        "correction_propagation_state": "not_applicable",
+        "correction_recipients": [],
+        "privacy_findings": [
+          "raw_pii_present_in_share_attempt"
+        ],
+        "channel_coverage_state": "qualified_synthetic"
+      },
+      "expected_disposition": "reject_raw_pii",
+      "required_evidence": [
+        "source_identity_and_authority",
+        "signal_provenance",
+        "pairwise_subject_reference",
+        "purpose_and_recipient_scope"
+      ],
+      "negative_controls": [
+        "suspected_is_not_confirmed",
+        "score_is_not_fact_or_authority",
+        "recipient_decision_does_not_mutate_source_status"
+      ]
+    },
+    {
+      "scenario_id": "SA-FRAUD-030",
+      "scenario_type": "unrelated_credit_scoring_secondary_use",
+      "signal": {
+        "signal_id": "SIG-030",
+        "profile_id": "ZA-PARTICIPANT-FRAUD-SIGNAL-SYNTHETIC-V1",
+        "jurisdiction": "ZA",
+        "framework": "PayShap",
+        "source_participant": "synthetic-psp-a",
+        "source_role": "originating_psp",
+        "source_authority_state": "authorised",
+        "signature_state": "valid",
+        "key_state": "active",
+        "key_id": "synthetic-key-01",
+        "source_case_commitment": "case-commit-30",
+        "origin_case_commitment": "origin-commit-30",
+        "deduplication_group_id": "dedup-group-30",
+        "subject_reference": "pairwise:psp-a-to-psp-b-user-30",
+        "transaction_commitment": "transaction-commit-30",
+        "instrument": "domestic_credit_transfer",
+        "rail": "PayShap",
+        "channel": "mobile_app",
+        "reason_code": "suspected_authorised_push_payment_scam",
+        "reason_taxonomy_version": "mycelix-fraud-reason-v1",
+        "evidence_class": "source_report",
+        "evidence_commitment": "source-evidence-30",
+        "source_status": "suspected",
+        "observed_at": "2026-11-04T08:59:00Z",
+        "recorded_at": "2026-11-04T09:00:00Z",
+        "expires_at": "2026-11-11T09:00:00Z",
+        "purpose": "fraud_prevention_specific_payment",
+        "requested_purpose": "unrelated_credit_scoring",
+        "permitted_audiences": [
+          "synthetic-psp-b"
+        ],
+        "actual_recipient": "synthetic-psp-b",
+        "dissemination_state": "quarantined",
+        "availability_state": "signal_present",
+        "model_score": null,
+        "events": [
+          {
+            "event_id": "EV-1",
+            "sequence": 1,
+            "event_type": "source_submitted",
+            "actor_role": "originating_psp",
+            "source_status_effect": "suspected",
+            "authority_state": "valid",
+            "observed_at": "2026-11-04T09:00:00Z",
+            "record_time": "2026-11-04T09:00:01Z",
+            "evidence_commitment": "source-evidence-30",
+            "superseding_signal_id": null,
+            "recipient_id": null
+          }
+        ],
+        "local_decision": "none",
+        "local_authority_state": "not_applicable",
+        "independent_evidence_count": 1,
+        "evidence_contributions": [
+          {
+            "contribution_id": "E-30-1",
+            "source_participant": "synthetic-psp-a",
+            "origin_case_commitment": "origin-commit-30",
+            "independent_claim": true,
+            "evidence_commitment": "evidence-E-30-1"
+          }
+        ],
+        "correction_propagation_state": "not_applicable",
+        "correction_recipients": [],
+        "privacy_findings": [
+          "none"
+        ],
+        "channel_coverage_state": "qualified_synthetic"
+      },
+      "expected_disposition": "reject_secondary_purpose",
+      "required_evidence": [
+        "source_identity_and_authority",
+        "signal_provenance",
+        "pairwise_subject_reference",
+        "purpose_and_recipient_scope"
+      ],
+      "negative_controls": [
+        "suspected_is_not_confirmed",
+        "score_is_not_fact_or_authority",
+        "recipient_decision_does_not_mutate_source_status"
+      ]
+    },
+    {
+      "scenario_id": "SA-FRAUD-031",
+      "scenario_type": "recipient_local_decision_masquerades_as_source_confirmation",
+      "signal": {
+        "signal_id": "SIG-031",
+        "profile_id": "ZA-PARTICIPANT-FRAUD-SIGNAL-SYNTHETIC-V1",
+        "jurisdiction": "ZA",
+        "framework": "PayShap",
+        "source_participant": "synthetic-psp-a",
+        "source_role": "originating_psp",
+        "source_authority_state": "authorised",
+        "signature_state": "valid",
+        "key_state": "active",
+        "key_id": "synthetic-key-01",
+        "source_case_commitment": "case-commit-31",
+        "origin_case_commitment": "origin-commit-31",
+        "deduplication_group_id": "dedup-group-31",
+        "subject_reference": "pairwise:psp-a-to-psp-b-user-31",
+        "transaction_commitment": "transaction-commit-31",
+        "instrument": "domestic_credit_transfer",
+        "rail": "PayShap",
+        "channel": "mobile_app",
+        "reason_code": "suspected_authorised_push_payment_scam",
+        "reason_taxonomy_version": "mycelix-fraud-reason-v1",
+        "evidence_class": "source_report",
+        "evidence_commitment": "source-evidence-31",
+        "source_status": "suspected",
+        "observed_at": "2026-11-04T08:59:00Z",
+        "recorded_at": "2026-11-04T09:00:00Z",
+        "expires_at": "2026-11-11T09:00:00Z",
+        "purpose": "fraud_prevention_specific_payment",
+        "requested_purpose": "fraud_prevention_specific_payment",
+        "permitted_audiences": [
+          "synthetic-psp-b"
+        ],
+        "actual_recipient": "synthetic-psp-b",
+        "dissemination_state": "quarantined",
+        "availability_state": "signal_present",
+        "model_score": null,
+        "events": [
+          {
+            "event_id": "EV-1",
+            "sequence": 1,
+            "event_type": "source_submitted",
+            "actor_role": "originating_psp",
+            "source_status_effect": "suspected",
+            "authority_state": "valid",
+            "observed_at": "2026-11-04T09:00:00Z",
+            "record_time": "2026-11-04T09:00:01Z",
+            "evidence_commitment": "evidence-commit-1",
+            "superseding_signal_id": null,
+            "recipient_id": null
+          },
+          {
+            "event_id": "EV-2",
+            "sequence": 2,
+            "event_type": "recipient_local_decision",
+            "actor_role": "recipient_participant",
+            "source_status_effect": "confirmed",
+            "authority_state": "valid",
+            "observed_at": "2026-11-04T09:00:00Z",
+            "record_time": "2026-11-04T09:00:01Z",
+            "evidence_commitment": "evidence-commit-2",
+            "superseding_signal_id": null,
+            "recipient_id": null
+          }
+        ],
+        "local_decision": "block_local",
+        "local_authority_state": "valid",
+        "independent_evidence_count": 1,
+        "evidence_contributions": [
+          {
+            "contribution_id": "E-31-1",
+            "source_participant": "synthetic-psp-a",
+            "origin_case_commitment": "origin-commit-31",
+            "independent_claim": true,
+            "evidence_commitment": "evidence-E-31-1"
+          }
+        ],
+        "correction_propagation_state": "not_applicable",
+        "correction_recipients": [],
+        "privacy_findings": [
+          "none"
+        ],
+        "channel_coverage_state": "qualified_synthetic"
+      },
+      "expected_disposition": "keep_local_decision_separate",
+      "required_evidence": [
+        "source_identity_and_authority",
+        "signal_provenance",
+        "pairwise_subject_reference",
+        "purpose_and_recipient_scope"
+      ],
+      "negative_controls": [
+        "suspected_is_not_confirmed",
+        "score_is_not_fact_or_authority",
+        "recipient_decision_does_not_mutate_source_status"
+      ]
+    },
+    {
+      "scenario_id": "SA-FRAUD-032",
+      "scenario_type": "false_positive_local_block_has_appeal_path",
+      "signal": {
+        "signal_id": "SIG-032",
+        "profile_id": "ZA-PARTICIPANT-FRAUD-SIGNAL-SYNTHETIC-V1",
+        "jurisdiction": "ZA",
+        "framework": "PayShap",
+        "source_participant": "synthetic-psp-a",
+        "source_role": "originating_psp",
+        "source_authority_state": "authorised",
+        "signature_state": "valid",
+        "key_state": "active",
+        "key_id": "synthetic-key-01",
+        "source_case_commitment": "case-commit-32",
+        "origin_case_commitment": "origin-commit-32",
+        "deduplication_group_id": "dedup-group-32",
+        "subject_reference": "pairwise:psp-a-to-psp-b-user-32",
+        "transaction_commitment": "transaction-commit-32",
+        "instrument": "domestic_credit_transfer",
+        "rail": "PayShap",
+        "channel": "mobile_app",
+        "reason_code": "suspected_authorised_push_payment_scam",
+        "reason_taxonomy_version": "mycelix-fraud-reason-v1",
+        "evidence_class": "source_report",
+        "evidence_commitment": "source-evidence-32",
+        "source_status": "suspected",
+        "observed_at": "2026-11-04T08:59:00Z",
+        "recorded_at": "2026-11-04T09:00:00Z",
+        "expires_at": "2026-11-11T09:00:00Z",
+        "purpose": "fraud_prevention_specific_payment",
+        "requested_purpose": "fraud_prevention_specific_payment",
+        "permitted_audiences": [
+          "synthetic-psp-b"
+        ],
+        "actual_recipient": "synthetic-psp-b",
+        "dissemination_state": "shared",
+        "availability_state": "signal_present",
+        "model_score": null,
+        "events": [
+          {
+            "event_id": "EV-1",
+            "sequence": 1,
+            "event_type": "source_submitted",
+            "actor_role": "originating_psp",
+            "source_status_effect": "suspected",
+            "authority_state": "valid",
+            "observed_at": "2026-11-04T09:00:00Z",
+            "record_time": "2026-11-04T09:00:01Z",
+            "evidence_commitment": "evidence-commit-1",
+            "superseding_signal_id": null,
+            "recipient_id": null
+          },
+          {
+            "event_id": "EV-2",
+            "sequence": 2,
+            "event_type": "recipient_local_decision",
+            "actor_role": "recipient_participant",
+            "source_status_effect": "unchanged",
+            "authority_state": "valid",
+            "observed_at": "2026-11-04T09:00:00Z",
+            "record_time": "2026-11-04T09:00:01Z",
+            "evidence_commitment": "evidence-commit-2",
+            "superseding_signal_id": null,
+            "recipient_id": null
+          },
+          {
+            "event_id": "EV-3",
+            "sequence": 3,
+            "event_type": "recipient_appeal_opened",
+            "actor_role": "recipient_participant",
+            "source_status_effect": "unchanged",
+            "authority_state": "valid",
+            "observed_at": "2026-11-04T09:00:00Z",
+            "record_time": "2026-11-04T09:00:01Z",
+            "evidence_commitment": "evidence-commit-3",
+            "superseding_signal_id": null,
+            "recipient_id": null
+          },
+          {
+            "event_id": "EV-4",
+            "sequence": 4,
+            "event_type": "recipient_decision_corrected",
+            "actor_role": "recipient_participant",
+            "source_status_effect": "unchanged",
+            "authority_state": "valid",
+            "observed_at": "2026-11-04T09:00:00Z",
+            "record_time": "2026-11-04T09:00:01Z",
+            "evidence_commitment": "evidence-commit-4",
+            "superseding_signal_id": null,
+            "recipient_id": null
+          }
+        ],
+        "local_decision": "appeal_opened",
+        "local_authority_state": "valid",
+        "independent_evidence_count": 1,
+        "evidence_contributions": [
+          {
+            "contribution_id": "E-32-1",
+            "source_participant": "synthetic-psp-a",
+            "origin_case_commitment": "origin-commit-32",
+            "independent_claim": true,
+            "evidence_commitment": "evidence-E-32-1"
+          }
+        ],
+        "correction_propagation_state": "not_applicable",
+        "correction_recipients": [],
+        "privacy_findings": [
+          "none"
+        ],
+        "channel_coverage_state": "qualified_synthetic"
+      },
+      "expected_disposition": "preserve_local_appeal_and_correction",
+      "required_evidence": [
+        "source_identity_and_authority",
+        "signal_provenance",
+        "pairwise_subject_reference",
+        "purpose_and_recipient_scope"
+      ],
+      "negative_controls": [
+        "suspected_is_not_confirmed",
+        "score_is_not_fact_or_authority",
+        "recipient_decision_does_not_mutate_source_status"
+      ]
+    },
+    {
+      "scenario_id": "SA-FRAUD-033",
+      "scenario_type": "late_evidence_event_time_differs_from_record_time",
+      "signal": {
+        "signal_id": "SIG-033",
+        "profile_id": "ZA-PARTICIPANT-FRAUD-SIGNAL-SYNTHETIC-V1",
+        "jurisdiction": "ZA",
+        "framework": "PayShap",
+        "source_participant": "synthetic-psp-a",
+        "source_role": "originating_psp",
+        "source_authority_state": "authorised",
+        "signature_state": "valid",
+        "key_state": "active",
+        "key_id": "synthetic-key-01",
+        "source_case_commitment": "case-commit-33",
+        "origin_case_commitment": "origin-commit-33",
+        "deduplication_group_id": "dedup-group-33",
+        "subject_reference": "pairwise:psp-a-to-psp-b-user-33",
+        "transaction_commitment": "transaction-commit-33",
+        "instrument": "domestic_credit_transfer",
+        "rail": "PayShap",
+        "channel": "mobile_app",
+        "reason_code": "suspected_authorised_push_payment_scam",
+        "reason_taxonomy_version": "mycelix-fraud-reason-v1",
+        "evidence_class": "source_report",
+        "evidence_commitment": "source-evidence-33",
+        "source_status": "suspected",
+        "observed_at": "2026-11-04T08:59:00Z",
+        "recorded_at": "2026-11-04T09:00:00Z",
+        "expires_at": "2026-11-11T09:00:00Z",
+        "purpose": "fraud_prevention_specific_payment",
+        "requested_purpose": "fraud_prevention_specific_payment",
+        "permitted_audiences": [
+          "synthetic-psp-b"
+        ],
+        "actual_recipient": "synthetic-psp-b",
+        "dissemination_state": "shared",
+        "availability_state": "signal_present",
+        "model_score": null,
+        "events": [
+          {
+            "event_id": "EV-1",
+            "sequence": 1,
+            "event_type": "source_submitted",
+            "actor_role": "originating_psp",
+            "source_status_effect": "suspected",
+            "authority_state": "valid",
+            "observed_at": "2026-11-02T08:00:00Z",
+            "record_time": "2026-11-04T09:00:00Z",
+            "evidence_commitment": "evidence-commit-1",
+            "superseding_signal_id": null,
+            "recipient_id": null
+          }
+        ],
+        "local_decision": "none",
+        "local_authority_state": "not_applicable",
+        "independent_evidence_count": 1,
+        "evidence_contributions": [
+          {
+            "contribution_id": "E-33-1",
+            "source_participant": "synthetic-psp-a",
+            "origin_case_commitment": "origin-commit-33",
+            "independent_claim": true,
+            "evidence_commitment": "evidence-E-33-1"
+          }
+        ],
+        "correction_propagation_state": "not_applicable",
+        "correction_recipients": [],
+        "privacy_findings": [
+          "none"
+        ],
+        "channel_coverage_state": "qualified_synthetic"
+      },
+      "expected_disposition": "preserve_event_time_and_record_time",
+      "required_evidence": [
+        "source_identity_and_authority",
+        "signal_provenance",
+        "pairwise_subject_reference",
+        "purpose_and_recipient_scope"
+      ],
+      "negative_controls": [
+        "suspected_is_not_confirmed",
+        "score_is_not_fact_or_authority",
+        "recipient_decision_does_not_mutate_source_status"
+      ]
+    },
+    {
+      "scenario_id": "SA-FRAUD-034",
+      "scenario_type": "conflicting_participant_reports_remain_unresolved",
+      "signal": {
+        "signal_id": "SIG-034",
+        "profile_id": "ZA-PARTICIPANT-FRAUD-SIGNAL-SYNTHETIC-V1",
+        "jurisdiction": "ZA",
+        "framework": "PayShap",
+        "source_participant": "synthetic-psp-a",
+        "source_role": "originating_psp",
+        "source_authority_state": "authorised",
+        "signature_state": "valid",
+        "key_state": "active",
+        "key_id": "synthetic-key-01",
+        "source_case_commitment": "case-commit-34",
+        "origin_case_commitment": "origin-commit-34",
+        "deduplication_group_id": "dedup-group-34",
+        "subject_reference": "pairwise:psp-a-to-psp-b-user-34",
+        "transaction_commitment": "transaction-commit-34",
+        "instrument": "domestic_credit_transfer",
+        "rail": "PayShap",
+        "channel": "mobile_app",
+        "reason_code": "suspected_authorised_push_payment_scam",
+        "reason_taxonomy_version": "mycelix-fraud-reason-v1",
+        "evidence_class": "source_report",
+        "evidence_commitment": "source-evidence-34",
+        "source_status": "suspected",
+        "observed_at": "2026-11-04T08:59:00Z",
+        "recorded_at": "2026-11-04T09:00:00Z",
+        "expires_at": "2026-11-11T09:00:00Z",
+        "purpose": "fraud_prevention_specific_payment",
+        "requested_purpose": "fraud_prevention_specific_payment",
+        "permitted_audiences": [
+          "synthetic-psp-b"
+        ],
+        "actual_recipient": "synthetic-psp-b",
+        "dissemination_state": "shared",
+        "availability_state": "signal_present",
+        "model_score": null,
+        "events": [
+          {
+            "event_id": "EV-1",
+            "sequence": 1,
+            "event_type": "source_submitted",
+            "actor_role": "originating_psp",
+            "source_status_effect": "suspected",
+            "authority_state": "valid",
+            "observed_at": "2026-11-04T09:00:00Z",
+            "record_time": "2026-11-04T09:00:01Z",
+            "evidence_commitment": "source-evidence-34",
+            "superseding_signal_id": null,
+            "recipient_id": null
+          }
+        ],
+        "local_decision": "none",
+        "local_authority_state": "not_applicable",
+        "independent_evidence_count": 2,
+        "evidence_contributions": [
+          {
+            "contribution_id": "E-34-1",
+            "source_participant": "synthetic-psp-a",
+            "origin_case_commitment": "origin-case-a",
+            "independent_claim": true,
+            "evidence_commitment": "evidence-E-34-1"
+          },
+          {
+            "contribution_id": "E-34-2",
+            "source_participant": "synthetic-psp-c",
+            "origin_case_commitment": "origin-case-b",
+            "independent_claim": true,
+            "evidence_commitment": "evidence-E-34-2"
+          }
+        ],
+        "correction_propagation_state": "not_applicable",
+        "correction_recipients": [],
+        "privacy_findings": [
+          "none"
+        ],
+        "channel_coverage_state": "qualified_synthetic"
+      },
+      "expected_disposition": "preserve_conflicting_source_evidence",
+      "required_evidence": [
+        "source_identity_and_authority",
+        "signal_provenance",
+        "pairwise_subject_reference",
+        "purpose_and_recipient_scope"
+      ],
+      "negative_controls": [
+        "suspected_is_not_confirmed",
+        "score_is_not_fact_or_authority",
+        "recipient_decision_does_not_mutate_source_status"
+      ]
+    },
+    {
+      "scenario_id": "SA-FRAUD-035",
+      "scenario_type": "unknown_source_status_not_clean",
+      "signal": {
+        "signal_id": "SIG-035",
+        "profile_id": "ZA-PARTICIPANT-FRAUD-SIGNAL-SYNTHETIC-V1",
+        "jurisdiction": "ZA",
+        "framework": "PayShap",
+        "source_participant": "synthetic-psp-a",
+        "source_role": "originating_psp",
+        "source_authority_state": "authorised",
+        "signature_state": "valid",
+        "key_state": "active",
+        "key_id": "synthetic-key-01",
+        "source_case_commitment": "case-commit-35",
+        "origin_case_commitment": "origin-commit-35",
+        "deduplication_group_id": "dedup-group-35",
+        "subject_reference": "pairwise:psp-a-to-psp-b-user-35",
+        "transaction_commitment": "transaction-commit-35",
+        "instrument": "domestic_credit_transfer",
+        "rail": "PayShap",
+        "channel": "mobile_app",
+        "reason_code": "suspected_authorised_push_payment_scam",
+        "reason_taxonomy_version": "mycelix-fraud-reason-v1",
+        "evidence_class": "source_report",
+        "evidence_commitment": "source-evidence-35",
+        "source_status": "unknown",
+        "observed_at": "2026-11-04T08:59:00Z",
+        "recorded_at": "2026-11-04T09:00:00Z",
+        "expires_at": "2026-11-11T09:00:00Z",
+        "purpose": "fraud_prevention_specific_payment",
+        "requested_purpose": "fraud_prevention_specific_payment",
+        "permitted_audiences": [
+          "synthetic-psp-b"
+        ],
+        "actual_recipient": "synthetic-psp-b",
+        "dissemination_state": "shared",
+        "availability_state": "signal_present",
+        "model_score": null,
+        "events": [
+          {
+            "event_id": "EV-1",
+            "sequence": 1,
+            "event_type": "source_status_unavailable",
+            "actor_role": "relay_participant",
+            "source_status_effect": "unchanged",
+            "authority_state": "unknown",
+            "observed_at": "2026-11-04T09:00:00Z",
+            "record_time": "2026-11-04T09:00:01Z",
+            "evidence_commitment": "evidence-commit-1",
+            "superseding_signal_id": null,
+            "recipient_id": null
+          }
+        ],
+        "local_decision": "none",
+        "local_authority_state": "not_applicable",
+        "independent_evidence_count": 1,
+        "evidence_contributions": [
+          {
+            "contribution_id": "E-35-1",
+            "source_participant": "synthetic-psp-a",
+            "origin_case_commitment": "origin-commit-35",
+            "independent_claim": true,
+            "evidence_commitment": "evidence-E-35-1"
+          }
+        ],
+        "correction_propagation_state": "not_applicable",
+        "correction_recipients": [],
+        "privacy_findings": [
+          "none"
+        ],
+        "channel_coverage_state": "qualified_synthetic"
+      },
+      "expected_disposition": "preserve_unknown_status",
+      "required_evidence": [
+        "source_identity_and_authority",
+        "signal_provenance",
+        "pairwise_subject_reference",
+        "purpose_and_recipient_scope"
+      ],
+      "negative_controls": [
+        "suspected_is_not_confirmed",
+        "score_is_not_fact_or_authority",
+        "recipient_decision_does_not_mutate_source_status"
+      ]
+    },
+    {
+      "scenario_id": "SA-FRAUD-036",
+      "scenario_type": "no_signal_returned_is_not_clean",
+      "signal": {
+        "signal_id": "SIG-036",
+        "profile_id": "ZA-PARTICIPANT-FRAUD-SIGNAL-SYNTHETIC-V1",
+        "jurisdiction": "ZA",
+        "framework": "PayShap",
+        "source_participant": "synthetic-psp-a",
+        "source_role": "originating_psp",
+        "source_authority_state": "authorised",
+        "signature_state": "valid",
+        "key_state": "active",
+        "key_id": "synthetic-key-01",
+        "source_case_commitment": "case-commit-36",
+        "origin_case_commitment": "origin-commit-36",
+        "deduplication_group_id": "dedup-group-36",
+        "subject_reference": "pairwise:psp-a-to-psp-b-user-36",
+        "transaction_commitment": "transaction-commit-36",
+        "instrument": "domestic_credit_transfer",
+        "rail": "PayShap",
+        "channel": "mobile_app",
+        "reason_code": "suspected_authorised_push_payment_scam",
+        "reason_taxonomy_version": "mycelix-fraud-reason-v1",
+        "evidence_class": "source_report",
+        "evidence_commitment": "source-evidence-36",
+        "source_status": "unknown",
+        "observed_at": "2026-11-04T08:59:00Z",
+        "recorded_at": "2026-11-04T09:00:00Z",
+        "expires_at": "2026-11-11T09:00:00Z",
+        "purpose": "fraud_prevention_specific_payment",
+        "requested_purpose": "fraud_prevention_specific_payment",
+        "permitted_audiences": [
+          "synthetic-psp-b"
+        ],
+        "actual_recipient": "synthetic-psp-b",
+        "dissemination_state": "not_shared",
+        "availability_state": "no_signal_returned",
+        "model_score": null,
+        "events": [],
+        "local_decision": "none",
+        "local_authority_state": "not_applicable",
+        "independent_evidence_count": 1,
+        "evidence_contributions": [
+          {
+            "contribution_id": "E-36-1",
+            "source_participant": "synthetic-psp-a",
+            "origin_case_commitment": "origin-commit-36",
+            "independent_claim": true,
+            "evidence_commitment": "evidence-E-36-1"
+          }
+        ],
+        "correction_propagation_state": "not_applicable",
+        "correction_recipients": [],
+        "privacy_findings": [
+          "none"
+        ],
+        "channel_coverage_state": "qualified_synthetic"
+      },
+      "expected_disposition": "return_unknown_not_clean",
+      "required_evidence": [
+        "source_identity_and_authority",
+        "signal_provenance",
+        "pairwise_subject_reference",
+        "purpose_and_recipient_scope"
+      ],
+      "negative_controls": [
+        "suspected_is_not_confirmed",
+        "score_is_not_fact_or_authority",
+        "recipient_decision_does_not_mutate_source_status"
+      ]
+    },
+    {
+      "scenario_id": "SA-FRAUD-037",
+      "scenario_type": "score_request_outside_supported_channel",
+      "signal": {
+        "signal_id": "SIG-037",
+        "profile_id": "ZA-PARTICIPANT-FRAUD-SIGNAL-SYNTHETIC-V1",
+        "jurisdiction": "ZA",
+        "framework": "PayShap",
+        "source_participant": "synthetic-psp-a",
+        "source_role": "originating_psp",
+        "source_authority_state": "authorised",
+        "signature_state": "valid",
+        "key_state": "active",
+        "key_id": "synthetic-key-01",
+        "source_case_commitment": "case-commit-37",
+        "origin_case_commitment": "origin-commit-37",
+        "deduplication_group_id": "dedup-group-37",
+        "subject_reference": "pairwise:psp-a-to-psp-b-user-37",
+        "transaction_commitment": "transaction-commit-37",
+        "instrument": "domestic_credit_transfer",
+        "rail": "PayShap",
+        "channel": "unsupported_channel",
+        "reason_code": "suspected_authorised_push_payment_scam",
+        "reason_taxonomy_version": "mycelix-fraud-reason-v1",
+        "evidence_class": "source_report",
+        "evidence_commitment": "source-evidence-37",
+        "source_status": "suspected",
+        "observed_at": "2026-11-04T08:59:00Z",
+        "recorded_at": "2026-11-04T09:00:00Z",
+        "expires_at": "2026-11-11T09:00:00Z",
+        "purpose": "fraud_prevention_specific_payment",
+        "requested_purpose": "fraud_prevention_specific_payment",
+        "permitted_audiences": [
+          "synthetic-psp-b"
+        ],
+        "actual_recipient": "synthetic-psp-b",
+        "dissemination_state": "quarantined",
+        "availability_state": "signal_present",
+        "model_score": {
+          "score_value": 0.72,
+          "score_kind": "risk_estimate",
+          "model_id": "synthetic-risk-model",
+          "model_version": "1.0.0",
+          "calibration_id": "calibration-2026-q3",
+          "cohort_id": "za-instant-credit-synthetic",
+          "evaluation_window_start": "2026-08-01",
+          "evaluation_window_end": "2026-10-31",
+          "uncertainty": 0.08,
+          "calibration_state": "qualified_synthetic_only"
+        },
+        "events": [
+          {
+            "event_id": "EV-1",
+            "sequence": 1,
+            "event_type": "source_submitted",
+            "actor_role": "originating_psp",
+            "source_status_effect": "suspected",
+            "authority_state": "valid",
+            "observed_at": "2026-11-04T09:00:00Z",
+            "record_time": "2026-11-04T09:00:01Z",
+            "evidence_commitment": "source-evidence-37",
+            "superseding_signal_id": null,
+            "recipient_id": null
+          }
+        ],
+        "local_decision": "none",
+        "local_authority_state": "not_applicable",
+        "independent_evidence_count": 1,
+        "evidence_contributions": [
+          {
+            "contribution_id": "E-37-1",
+            "source_participant": "synthetic-psp-a",
+            "origin_case_commitment": "origin-commit-37",
+            "independent_claim": true,
+            "evidence_commitment": "evidence-E-37-1"
+          }
+        ],
+        "correction_propagation_state": "not_applicable",
+        "correction_recipients": [],
+        "privacy_findings": [
+          "none"
+        ],
+        "channel_coverage_state": "out_of_scope"
+      },
+      "expected_disposition": "declare_channel_coverage_unknown",
+      "required_evidence": [
+        "source_identity_and_authority",
+        "signal_provenance",
+        "pairwise_subject_reference",
+        "purpose_and_recipient_scope"
+      ],
+      "negative_controls": [
+        "suspected_is_not_confirmed",
+        "score_is_not_fact_or_authority",
+        "recipient_decision_does_not_mutate_source_status"
+      ]
+    },
+    {
+      "scenario_id": "SA-FRAUD-038",
+      "scenario_type": "source_dispute_does_not_erase_source_status",
+      "signal": {
+        "signal_id": "SIG-038",
+        "profile_id": "ZA-PARTICIPANT-FRAUD-SIGNAL-SYNTHETIC-V1",
+        "jurisdiction": "ZA",
+        "framework": "PayShap",
+        "source_participant": "synthetic-psp-a",
+        "source_role": "originating_psp",
+        "source_authority_state": "authorised",
+        "signature_state": "valid",
+        "key_state": "active",
+        "key_id": "synthetic-key-01",
+        "source_case_commitment": "case-commit-38",
+        "origin_case_commitment": "origin-commit-38",
+        "deduplication_group_id": "dedup-group-38",
+        "subject_reference": "pairwise:psp-a-to-psp-b-user-38",
+        "transaction_commitment": "transaction-commit-38",
+        "instrument": "domestic_credit_transfer",
+        "rail": "PayShap",
+        "channel": "mobile_app",
+        "reason_code": "suspected_authorised_push_payment_scam",
+        "reason_taxonomy_version": "mycelix-fraud-reason-v1",
+        "evidence_class": "source_report",
+        "evidence_commitment": "source-evidence-38",
+        "source_status": "suspected",
+        "observed_at": "2026-11-04T08:59:00Z",
+        "recorded_at": "2026-11-04T09:00:00Z",
+        "expires_at": "2026-11-11T09:00:00Z",
+        "purpose": "fraud_prevention_specific_payment",
+        "requested_purpose": "fraud_prevention_specific_payment",
+        "permitted_audiences": [
+          "synthetic-psp-b"
+        ],
+        "actual_recipient": "synthetic-psp-b",
+        "dissemination_state": "shared",
+        "availability_state": "signal_present",
+        "model_score": null,
+        "events": [
+          {
+            "event_id": "EV-1",
+            "sequence": 1,
+            "event_type": "source_submitted",
+            "actor_role": "originating_psp",
+            "source_status_effect": "suspected",
+            "authority_state": "valid",
+            "observed_at": "2026-11-04T09:00:00Z",
+            "record_time": "2026-11-04T09:00:01Z",
+            "evidence_commitment": "evidence-commit-1",
+            "superseding_signal_id": null,
+            "recipient_id": null
+          },
+          {
+            "event_id": "EV-2",
+            "sequence": 2,
+            "event_type": "recipient_dispute_opened",
+            "actor_role": "recipient_participant",
+            "source_status_effect": "unchanged",
+            "authority_state": "valid",
+            "observed_at": "2026-11-04T09:00:00Z",
+            "record_time": "2026-11-04T09:00:01Z",
+            "evidence_commitment": "evidence-commit-2",
+            "superseding_signal_id": null,
+            "recipient_id": null
+          },
+          {
+            "event_id": "EV-3",
+            "sequence": 3,
+            "event_type": "recipient_dispute_acknowledged",
+            "actor_role": "originating_psp",
+            "source_status_effect": "unchanged",
+            "authority_state": "valid",
+            "observed_at": "2026-11-04T09:00:00Z",
+            "record_time": "2026-11-04T09:00:01Z",
+            "evidence_commitment": "evidence-commit-3",
+            "superseding_signal_id": null,
+            "recipient_id": null
+          }
+        ],
+        "local_decision": "dispute_opened",
+        "local_authority_state": "valid",
+        "independent_evidence_count": 1,
+        "evidence_contributions": [
+          {
+            "contribution_id": "E-38-1",
+            "source_participant": "synthetic-psp-a",
+            "origin_case_commitment": "origin-commit-38",
+            "independent_claim": true,
+            "evidence_commitment": "evidence-E-38-1"
+          }
+        ],
+        "correction_propagation_state": "not_applicable",
+        "correction_recipients": [],
+        "privacy_findings": [
+          "none"
+        ],
+        "channel_coverage_state": "qualified_synthetic"
+      },
+      "expected_disposition": "preserve_distinct_dispute_state",
+      "required_evidence": [
+        "source_identity_and_authority",
+        "signal_provenance",
+        "pairwise_subject_reference",
+        "purpose_and_recipient_scope"
+      ],
+      "negative_controls": [
+        "suspected_is_not_confirmed",
+        "score_is_not_fact_or_authority",
+        "recipient_decision_does_not_mutate_source_status"
+      ]
+    }
+  ]
+}
