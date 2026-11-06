@@ -439,7 +439,7 @@ The verifier checks:
 - monotonic conductor authority-order index (not wall-clock timestamp order);
 - host allow cannot occur after revocation, outside assigned scope, before required claim, or from a projection;
 - domain allow and durable effect require their separate host/domain dispositions;
-- at most one durable effect per logical operation ID across retry attempts;
+- at most one durable effect per `(authenticated principal, logical operation ID)` across retry attempts; different principals may reuse the same client-generated operation ID and attempt number;
 - checkpoint-constrained stale projection returns `UNKNOWN`;
 - remote signals cannot authorize operations and unverified signals cannot mutate trusted state;
 - an unknown acknowledgement is not treated as evidence of no effect.
