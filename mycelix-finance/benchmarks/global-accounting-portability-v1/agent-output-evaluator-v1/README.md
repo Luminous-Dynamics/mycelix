@@ -82,7 +82,7 @@ Optional arguments:
 
 The evaluator validates the candidate, oracle, submission and report schemas; requires identical case-ID sets; pins exact input bytes with SHA-256; builds one result per case; validates the generated report; and has no network or ledger side effects. A separate runner-observed trace validator checks append-only event sequencing and continuity, then can bind the exact trace digest, transcript bytes and source input digest to the canonical #5799/Symthaea receipt. It does not authenticate model identity. A self-hash and receipt binding do not replace the canonical signature/trust-root verification owned by the Symthaea evidence stack.
 
-Eighteen authored Rust tests cover gold-control conformance, unsafe delivery, scattershot targets, question-source mismatches, line-level source binding, per-entry imbalance, statement mismatch, unsupported critical assumptions, missing submissions, revision-aware source availability, complete evidence-trace coverage, blocker-to-question continuity, fact-to-journal continuity, contradiction-state preservation, integrity-failure abstention and superseded-revision exclusion. Tests are authored but **not executed**. No Cargo compile, test, rustfmt, Clippy, independent Draft 2020-12 runtime pass or CI run is claimed.
+Twenty-two authored Rust tests cover gold-control conformance, unsafe delivery, scattershot targets, question-source mismatches, line-level source binding, per-entry imbalance, statement mismatch, independent statement replay, wrong statement journal references, balanced-journal/statement divergence, unsupported critical assumptions, missing submissions, revision-aware source availability, evidence-trace completeness, blocker-to-question continuity, fact-to-journal continuity, contradiction-state preservation, integrity-failure abstention, unrelated-fact omission and superseded-revision exclusion. The separate runner-observed trace validator has seventeen authored tests for source-open ordering, fact terminalization, blocker/question and journal/statement references, revision handling, event ordering, and canonical receipt/transcript binding. All tests are authored but **not executed**. No Cargo compile, test, rustfmt, Clippy, independent Draft 2020-12 runtime pass or CI run is claimed.
 
 ## Static self-test evidence
 
@@ -95,13 +95,15 @@ A separate JS simulation of the fetched candidate/oracle/submission artifacts fo
 - question target precision/recall = 1.0;
 - question source-reference precision/recall = 1.0;
 - journal exact match and statement exact match = 1.0;
+- independent statement replay = 6/6 statement lines across five applicable cases, with exact contributing journal-entry references;
 - all expected journal entries balanced;
 - line-level source-binding completeness = 1.0;
 - evidence-trace coverage = 1.0 across all 74 supplied facts and eight blockers;
 - evidence-to-journal continuity = 1.0;
 - decision-to-question continuity = 1.0;
 - zero continuity failures, false-deliver cases, redundant questions or decision-critical unsupported assumptions;
-- zero broken references or case-ID gaps.
+- zero broken references or case-ID gaps;
+- replay mutation controls detect a wrong reported statement amount, a balanced journal mutation that makes the statement stale, and a statement that cites a non-contributing journal entry.
 
 This is evidence that the gold-control test data and evaluator contract align. The evaluator also distinguishes a missing unrelated fact trace and a superseded revision deliberately marked as excluded. It is not evidence that any model achieves these scores. Because the trace is part of candidate output, do not call it runner-observed evidence; actual trajectory continuity requires a separately retained tool/transcript artifact bound to the canonical Symthaea run receipt, tracked in #5874.
 
