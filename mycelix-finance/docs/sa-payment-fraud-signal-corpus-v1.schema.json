@@ -1,0 +1,667 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mycelix.net/schemas/sa-payment-fraud-signal-corpus-v1.schema.json",
+  "title": "Mycelix South African Fraud Signal Corpus v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "corpus_id",
+    "status",
+    "as_of",
+    "created_on",
+    "jurisdiction",
+    "purpose",
+    "external_effects_enabled",
+    "source_register",
+    "profiles",
+    "scenarios"
+  ],
+  "properties": {
+    "schema": {
+      "const": "mycelix.sa-payment-fraud-signal/v1"
+    },
+    "corpus_id": {
+      "const": "ZA-SA-PAYMENT-FRAUD-SIGNAL-SYNTHETIC-V1"
+    },
+    "status": {
+      "const": "synthetic_reference_only"
+    },
+    "as_of": {
+      "type": "string",
+      "format": "date"
+    },
+    "created_on": {
+      "type": "string",
+      "format": "date"
+    },
+    "jurisdiction": {
+      "const": "ZA"
+    },
+    "purpose": {
+      "type": "string",
+      "minLength": 1
+    },
+    "external_effects_enabled": {
+      "const": false
+    },
+    "source_register": {
+      "type": "array",
+      "minItems": 4,
+      "items": {
+        "$ref": "#/$defs/source"
+      }
+    },
+    "profiles": {
+      "type": "array",
+      "minItems": 3,
+      "items": {
+        "$ref": "#/$defs/profile"
+      }
+    },
+    "scenarios": {
+      "type": "array",
+      "minItems": 30,
+      "items": {
+        "$ref": "#/$defs/scenario"
+      }
+    }
+  },
+  "$defs": {
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "authority",
+        "title",
+        "url",
+        "observed_on",
+        "evidence_class",
+        "supports",
+        "does_not_support"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Z0-9_]+$"
+        },
+        "authority": {
+          "type": "string",
+          "minLength": 1
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "url": {
+          "type": "string",
+          "format": "uri"
+        },
+        "published_on": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date"
+        },
+        "observed_on": {
+          "type": "string",
+          "format": "date"
+        },
+        "evidence_class": {
+          "type": "string",
+          "minLength": 1
+        },
+        "supports": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "does_not_support": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "profile_id",
+        "jurisdiction",
+        "profile_status",
+        "allowed_source_participants",
+        "allowed_audiences",
+        "allowed_purposes",
+        "max_signal_ttl_seconds",
+        "source_refs",
+        "notes"
+      ],
+      "properties": {
+        "profile_id": {
+          "type": "string",
+          "pattern": "^[A-Z0-9-]+-V1$"
+        },
+        "jurisdiction": {
+          "type": "string",
+          "minLength": 2
+        },
+        "profile_status": {
+          "enum": [
+            "synthetic_test_profile_only",
+            "proposal_only"
+          ]
+        },
+        "allowed_source_participants": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "allowed_audiences": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "allowed_purposes": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "max_signal_ttl_seconds": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1
+        },
+        "source_refs": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        },
+        "notes": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "subject": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "value",
+        "scope_id",
+        "key_id"
+      ],
+      "properties": {
+        "kind": {
+          "enum": [
+            "provider_opaque_token",
+            "purpose_scoped_keyed_commitment",
+            "public_hash",
+            "raw_identifier"
+          ]
+        },
+        "value": {
+          "type": "string",
+          "minLength": 1
+        },
+        "scope_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "key_id": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "evidence_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "participant_id",
+        "root_event_id",
+        "independence",
+        "evidence_class"
+      ],
+      "properties": {
+        "participant_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "root_event_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "independence": {
+          "enum": [
+            "independent",
+            "derived_copy"
+          ]
+        },
+        "evidence_class": {
+          "enum": [
+            "source_report",
+            "investigation_record",
+            "source_final_case_disposition",
+            "provider_reconciliation",
+            "authority_finding",
+            "derived_duplicate"
+          ]
+        }
+      }
+    },
+    "history_event": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "event_id",
+        "sequence",
+        "event_type",
+        "from_status",
+        "to_status",
+        "authority_state",
+        "source_participant",
+        "observed_at",
+        "evidence_reference",
+        "attempted_digest",
+        "signal_version",
+        "signal_digest"
+      ],
+      "properties": {
+        "event_id": {
+          "type": "string",
+          "pattern": "^EV-[0-9]+$"
+        },
+        "sequence": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "event_type": {
+          "type": "string",
+          "minLength": 1
+        },
+        "from_status": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "to_status": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "authority_state": {
+          "enum": [
+            "authorized",
+            "invalid",
+            "unknown",
+            "revoked"
+          ]
+        },
+        "source_participant": {
+          "type": "string",
+          "minLength": 1
+        },
+        "observed_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "evidence_reference": {
+          "type": "string",
+          "minLength": 1
+        },
+        "attempted_digest": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "signal_version": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "signal_digest": {
+          "type": "string",
+          "pattern": "^sha256:[a-f0-9]{64}$"
+        }
+      }
+    },
+    "disclosure": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "disclosure_id",
+        "recipient_participant",
+        "audience",
+        "purpose",
+        "status_at_disclosure",
+        "observed_at",
+        "disclosed_fields",
+        "existence_oracle",
+        "raw_subject_included"
+      ],
+      "properties": {
+        "disclosure_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "recipient_participant": {
+          "type": "string",
+          "minLength": 1
+        },
+        "audience": {
+          "type": "string",
+          "minLength": 1
+        },
+        "purpose": {
+          "type": "string",
+          "minLength": 1
+        },
+        "status_at_disclosure": {
+          "type": "string",
+          "minLength": 1
+        },
+        "observed_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "disclosed_fields": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "existence_oracle": {
+          "type": "boolean"
+        },
+        "raw_subject_included": {
+          "type": "boolean"
+        }
+      }
+    },
+    "decision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "action",
+        "basis",
+        "automatic",
+        "independent_review",
+        "essential_access_affected"
+      ],
+      "properties": {
+        "action": {
+          "enum": [
+            "none",
+            "allow",
+            "monitor",
+            "step_up_authentication",
+            "manual_review",
+            "deny_access",
+            "reject_signal"
+          ]
+        },
+        "basis": {
+          "type": "string",
+          "minLength": 1
+        },
+        "automatic": {
+          "type": "boolean"
+        },
+        "independent_review": {
+          "type": "boolean"
+        },
+        "essential_access_affected": {
+          "type": "boolean"
+        }
+      }
+    },
+    "signal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "signal_id",
+        "signal_version",
+        "profile_id",
+        "jurisdiction",
+        "source_participant",
+        "source_authority_state",
+        "category",
+        "evidence_class",
+        "status",
+        "purpose",
+        "audience",
+        "subject_reference",
+        "evidence_digest",
+        "root_event_id",
+        "evidence_refs",
+        "observed_at",
+        "recorded_at",
+        "expires_at",
+        "appeal_state"
+      ],
+      "properties": {
+        "signal_id": {
+          "type": "string",
+          "pattern": "^SIG-[0-9]{3}$"
+        },
+        "signal_version": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "profile_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "jurisdiction": {
+          "type": "string",
+          "minLength": 2
+        },
+        "source_participant": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_authority_state": {
+          "enum": [
+            "authorized",
+            "unknown",
+            "revoked"
+          ]
+        },
+        "category": {
+          "enum": [
+            "suspected_scam",
+            "mule_activity",
+            "duplicate_effect",
+            "account_takeover",
+            "fraudulent_request",
+            "other"
+          ]
+        },
+        "evidence_class": {
+          "enum": [
+            "source_report",
+            "investigation_record",
+            "source_final_case_disposition",
+            "provider_reconciliation",
+            "authority_finding",
+            "derived_duplicate"
+          ]
+        },
+        "status": {
+          "enum": [
+            "suspected",
+            "corroborated",
+            "confirmed_by_source",
+            "contested",
+            "under_review",
+            "corrected",
+            "withdrawn",
+            "expired",
+            "unknown"
+          ]
+        },
+        "purpose": {
+          "type": "string",
+          "minLength": 1
+        },
+        "audience": {
+          "type": "string",
+          "minLength": 1
+        },
+        "subject_reference": {
+          "$ref": "#/$defs/subject"
+        },
+        "evidence_digest": {
+          "type": "string",
+          "pattern": "^sha256:[a-f0-9]{64}$"
+        },
+        "root_event_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "evidence_refs": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/evidence_ref"
+          }
+        },
+        "observed_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "recorded_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "expires_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "appeal_state": {
+          "enum": [
+            "not_submitted",
+            "submitted",
+            "under_review",
+            "accepted",
+            "rejected",
+            "unknown"
+          ]
+        }
+      }
+    },
+    "scenario": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "scenario_id",
+        "scenario_type",
+        "signal",
+        "events",
+        "disclosures",
+        "receiver_decision",
+        "expected_disposition",
+        "negative_controls"
+      ],
+      "properties": {
+        "scenario_id": {
+          "type": "string",
+          "pattern": "^SA-FS-[0-9]{3}$"
+        },
+        "scenario_type": {
+          "type": "string",
+          "minLength": 1
+        },
+        "signal": {
+          "$ref": "#/$defs/signal"
+        },
+        "events": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/history_event"
+          }
+        },
+        "disclosures": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/disclosure"
+          }
+        },
+        "receiver_decision": {
+          "$ref": "#/$defs/decision"
+        },
+        "expected_disposition": {
+          "enum": [
+            "retain_scoped_signal",
+            "retain_suspected_and_step_up",
+            "retain_suspected",
+            "do_not_count_duplicate_corroboration",
+            "quarantine_source",
+            "block_wrong_audience",
+            "block_secondary_use",
+            "block_privacy_leak",
+            "block_enumeration",
+            "reject_unscoped_public_hash",
+            "expire_signal",
+            "propagate_withdrawal",
+            "propagate_correction",
+            "manual_review_contested",
+            "protect_contested_merchant",
+            "quarantine_cross_jurisdiction",
+            "block_automatic_denial",
+            "allow_proportionate_step_up",
+            "allow_minimised_disclosure",
+            "quarantine_revoked_source",
+            "block_digest_mutation",
+            "quarantine_clock_skew",
+            "block_replay",
+            "revoke_recipient_access",
+            "deduplicate_correction",
+            "propagate_legitimacy_correction",
+            "propagate_overturn",
+            "quarantine_missing_provenance",
+            "reject_derived_corroboration",
+            "record_fairness_review",
+            "propagate_appeal_correction"
+          ]
+        },
+        "negative_controls": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    }
+  }
+}
