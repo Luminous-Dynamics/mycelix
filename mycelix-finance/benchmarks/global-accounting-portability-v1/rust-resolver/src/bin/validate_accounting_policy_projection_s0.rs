@@ -307,9 +307,10 @@ fn validate_projection(
                 return Err(format!("{projection_id}/{line_ref}: line currency is not functional or presentation currency"));
             }
             let period_ref = string(line, "period_ref")?;
-            let month_start = format!("{}-01", &period_ref);
-            let month_end = format!("{}-31", &period_ref);
-            if month_end.as_str() < period_start || month_start.as_str() > period_end {
+            let month = period_ref.get(..7).ok_or("journal period_ref is malformed")?;
+            if month < period_start.get(..7).ok_or("projection start date is malformed")?
+                || month > period_end.get(..7).ok_or("projection end date is malformed")?
+            {
                 return Err(format!("{projection_id}/{line_ref}: journal period is outside projection period"));
             }
             let decision_ref = string(line, "policy_decision_ref")?;
@@ -648,6 +649,7 @@ mod tests {
         let projection = &mut bundle["projections"][0];
         projection["projection_state"] = Value::String("complete_for_review".to_owned());
         projection["unresolved_items"] = json!([]);
+        projection["event_decisions"][0]["decision_state"] = Value::String("not_recognized".to_owned());
         projection["assumptions"] = json!([{
             "assumption_ref":"A-CRITICAL",
             "assumption_kind":"measurement",
@@ -716,6 +718,15 @@ mod tests {
         assert!(build_report(&graph, &digest, &bundle).is_err());
     }
 
+
+
+    #[test]
+    fn not_projected_state_cannot_carry_decisions_without_journals() {
+        let (graph, mut bundle, _, _, digest) = fixtures();
+        bundle["projections"][0]["projection_state"] = Value::String("not_projected".to_owned());
+        bundle["projections"][0]["journal_entries"] = json!([]);
+        assert!(build_report(&graph, &digest, &bundle).is_err());
+    }
 
     #[test]
     fn journal_line_must_bind_to_exact_policy_event_and_period() {
