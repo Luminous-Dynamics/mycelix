@@ -1126,7 +1126,7 @@ fn benchmark_history(event_count: usize) -> Result<History, Box<dyn Error>> {
 
 fn benchmark_claim_fanout_history(operation_count: usize) -> Result<History, Box<dyn Error>> {
     if operation_count < 3 || operation_count > 30_000 {
-        return Err("—benchmark-join-operations must be between 3 and 30000".into());
+        return Err("--benchmark-join-operations must be between 3 and 30000".into());
     }
 
     let conductors = vec![
@@ -1919,6 +1919,23 @@ mod tests{
         assert!(matches!(r.status, Status::Pass), "{:?}", r.findings);
         assert!(!r.findings.iter().any(|f| f.code == "VALIDATION_CELL_LINEAGE_MISMATCH"));
     }
+    #[test]
+    fn claim_fanout_benchmark_exercises_and_reuses_source_reachability() {
+        let history = benchmark_claim_fanout_history(32).unwrap();
+        let report = report(&history);
+        assert!(matches!(report.status, Status::Pass), "{:?}", report.findings);
+        assert_eq!(report.counts.grants_issued, 1);
+        assert_eq!(report.counts.claims_accepted, 1);
+        assert_eq!(report.counts.host_calls, 32);
+        assert_eq!(report.counts.domain_effects, 32);
+        assert_eq!(report.counts.caller_outcomes, 32);
+        assert!(report.counts.reachability_queries >= 64);
+        assert!(report.counts.reachability_cache_hits >= 20);
+        assert_eq!(report.counts.reachability_sources_cached, 1);
+        assert!(report.counts.reachability_cached_nodes > 0);
+        assert!(report.counts.reachability_full_source_builds >= 1);
+    }
+
     #[test]
     fn synthetic_benchmark_generator_produces_safe_histories() {
         for count in [1usize, 2, 999, 1000] {
