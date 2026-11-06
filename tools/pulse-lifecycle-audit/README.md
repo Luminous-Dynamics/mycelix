@@ -32,10 +32,10 @@ The schema at mycelix-workspace/mycelix-pulse/docs/security/pulse-lifecycle-trac
 - **Host authority:** exact grant ActionHash, grantor/grantee, assigned scope, grantor-scoped idempotency key, revoke ActionHash, and conductor authority-order index.
 - **Private claim:** exact grant hash and recipient identity; claim must occur inside the grant lifetime.
 - **Host call:** exact grant hash, caller, function, conductor authority-order index, host state at decision and host disposition.
-- **Domain effect:** logical operation ID, attempt ID, durable effect ID and source-chain ActionHash.
+- **Domain effect:** authenticated operation principal, logical operation ID, attempt ID, durable effect ID and source-chain ActionHash. The principal is the originating caller; it is not asserted to be the source-chain action author.
 - **Projection read:** observed authority epoch, minimum requested epoch, freshness decision and whether projection was used as authority.
 - **Remote signal:** transport sender, payload-claimed sender, trust class, backing record reference, record author, canonical payload SHA-256, verifier build, trusted-state mutation and authorization flags.
-- **Caller observation:** acknowledged, rejected, committed, not-committed or unknown. Unknown does not mean no effect.
+- **Caller observation:** authenticated operation principal, logical operation ID, attempt ID, and acknowledged/rejected/committed/not-committed/unknown result. Unknown does not mean no effect.
 
 ## Safety properties checked
 
@@ -46,11 +46,11 @@ The schema at mycelix-workspace/mycelix-pulse/docs/security/pulse-lifecycle-trac
 - conductor authority-order indices are strictly increasing in the exported trace;
 - a host allow cannot follow revocation, use the wrong grantee/function, precede an assigned private claim, or rely on a projection;
 - a domain allow requires a host allow; a durable domain effect requires both host and domain allow;
-- each logical operation ID has at most one durable effect, even across multiple attempts;
+- each `(principal, logical operation ID)` has at most one durable effect, even across multiple attempts; different principals may reuse the same operation ID and attempt number;
 - checkpoint-constrained stale reads return UNKNOWN; unconstrained reads older than a known revocation are explicitly STALE_ADVISORY or UNKNOWN;
 - projections are never used as host authority;
 - a signal never authorizes an operation, and an unverified/advisory signal never mutates trusted state;
-- caller outcomes reconcile per exact logical operation ID plus attempt ID; a not-committed/rejected attempt cannot contradict an effect from that same attempt, and a different retry attempt is not conflated;
+- caller outcomes reconcile per exact `(principal, logical operation ID, attempt ID)`; a not-committed/rejected attempt cannot contradict an effect from that same principal/attempt, and a different retry attempt or principal is not conflated;
 - every projection read references an exact issued grant; a view older than a revocation already present in the trace cannot be labeled trusted-active/trusted-revoked, and an unconstrained stale view must be explicitly STALE_ADVISORY or UNKNOWN;
 - remote signal event types are bounded identifiers; a VerifiedRecord disposition requires observer-plane evidence, matching claimed/transport sender and a backing ActionHash; an AuthenticatedPeerHint binds the sender but remains advisory; LocalOnly cannot claim remote sender metadata;
 - missing or misclassified evidence becomes INCOMPLETE, not PASS.
