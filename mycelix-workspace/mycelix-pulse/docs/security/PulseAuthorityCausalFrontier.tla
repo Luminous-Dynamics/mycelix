@@ -30,8 +30,8 @@ CONSTANTS
     b0, b1,
     NoAction
 
-ActionsA == {a0, a1, a2}
-ActionsB == {b0, b1}
+ActionsA == {a0, a1, a2, a3}
+ActionsB == {b0, b1, b2}
 
 VARIABLES
     hostAActive,
@@ -161,12 +161,55 @@ CommitRevokeB ==
            lastCanonicalARevoked, lastCanonicalBRevoked,
            lastHostAActive, lastHostBActive >>
 
+(* A later action on the same canonical chain is valid when its ancestry
+   from the required checkpoint is established, even though its ActionHash
+   differs from the checkpoint ActionHash. *)
+CommitPostCheckpointAppendA ==
+    /\ canonicalARevoked
+    /\ canonicalASeq = requiredASeq
+    /\ canonicalAHead = requiredAHead
+    /\ canonicalASeq' = canonicalASeq + 1
+    /\ canonicalAHead' = a2
+    /\ UNCHANGED
+        << hostAActive, hostBActive,
+           canonicalBSeq, canonicalBHead, canonicalBRevoked,
+           canonicalARevoked,
+           requiredASeq, requiredBSeq, requiredAHead, requiredBHead,
+           projectionASeq, projectionBSeq, projectionAHead, projectionBHead,
+           projectionARevoked, projectionBRevoked,
+           projectionADescends, projectionBDescends, readDecision,
+           lastReadASeq, lastReadBSeq, lastReadAHead, lastReadBHead,
+           lastReadADescends, lastReadBDescends,
+           lastReadARevoked, lastReadBRevoked,
+           lastCanonicalARevoked, lastCanonicalBRevoked,
+           lastHostAActive, lastHostBActive >>
+
+CommitPostCheckpointAppendB ==
+    /\ canonicalBRevoked
+    /\ canonicalBSeq = requiredBSeq
+    /\ canonicalBHead = requiredBHead
+    /\ canonicalBSeq' = canonicalBSeq + 1
+    /\ canonicalBHead' = b2
+    /\ UNCHANGED
+        << hostAActive, hostBActive,
+           canonicalASeq, canonicalAHead, canonicalARevoked,
+           canonicalBRevoked,
+           requiredASeq, requiredBSeq, requiredAHead, requiredBHead,
+           projectionASeq, projectionBSeq, projectionAHead, projectionBHead,
+           projectionARevoked, projectionBRevoked,
+           projectionADescends, projectionBDescends, readDecision,
+           lastReadASeq, lastReadBSeq, lastReadAHead, lastReadBHead,
+           lastReadADescends, lastReadBDescends,
+           lastReadARevoked, lastReadBRevoked,
+           lastCanonicalARevoked, lastCanonicalBRevoked,
+           lastHostAActive, lastHostBActive >>
+
 ObserveScalarHeightForeignProjection ==
     /\ canonicalARevoked /\ canonicalBRevoked
     /\ projectionASeq < requiredASeq + requiredBSeq
     /\ projectionASeq' = requiredASeq + requiredBSeq
     /\ projectionBSeq' = 0
-    /\ projectionAHead' = a2
+    /\ projectionAHead' = a3
     /\ projectionBHead' = b0
     /\ projectionARevoked' = FALSE
     /\ projectionBRevoked' = FALSE
@@ -231,8 +274,6 @@ ConvergeB ==
 componentwiseFresh ==
     /\ projectionASeq >= requiredASeq
     /\ projectionBSeq >= requiredBSeq
-    /\ projectionAHead = requiredAHead
-    /\ projectionBHead = requiredBHead
     /\ projectionADescends
     /\ projectionBDescends
 
@@ -275,6 +316,8 @@ ReadWithScalarHeight ==
 Next ==
     \/ CommitRevokeA
     \/ CommitRevokeB
+    \/ CommitPostCheckpointAppendA
+    \/ CommitPostCheckpointAppendB
     \/ ObserveScalarHeightForeignProjection
     \/ ConvergeA
     \/ ConvergeB
