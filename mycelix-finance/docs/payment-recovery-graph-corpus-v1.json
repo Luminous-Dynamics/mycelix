@@ -718,7 +718,8 @@
           "authority_state": "valid",
           "source_evidence_refs": [
             "notification_N-1"
-          ]
+          ],
+          "root_transaction_id": "ROOT-1"
         }
       ],
       "holds": [
@@ -849,7 +850,8 @@
           "authority_state": "valid",
           "source_evidence_refs": [
             "notification_N-1"
-          ]
+          ],
+          "root_transaction_id": "ROOT-1"
         },
         {
           "notification_id": "N-2",
@@ -860,7 +862,8 @@
           "authority_state": "valid",
           "source_evidence_refs": [
             "notification_N-2"
-          ]
+          ],
+          "root_transaction_id": "ROOT-1"
         }
       ],
       "holds": [],
@@ -937,7 +940,8 @@
           "authority_state": "valid",
           "source_evidence_refs": [
             "notification_N-1"
-          ]
+          ],
+          "root_transaction_id": "ROOT-1"
         }
       ],
       "holds": [],
@@ -1031,7 +1035,8 @@
           "authority_state": "valid",
           "source_evidence_refs": [
             "notification_N-1"
-          ]
+          ],
+          "root_transaction_id": "ROOT-1"
         }
       ],
       "holds": [
@@ -1122,7 +1127,8 @@
           "authority_state": "valid",
           "source_evidence_refs": [
             "notification_N-1"
-          ]
+          ],
+          "root_transaction_id": "ROOT-1"
         }
       ],
       "holds": [],
@@ -1615,7 +1621,8 @@
           "authority_state": "valid",
           "source_evidence_refs": [
             "notification_N-1"
-          ]
+          ],
+          "root_transaction_id": "ROOT-1"
         }
       ],
       "holds": [],
@@ -1709,7 +1716,8 @@
           "authority_state": "valid",
           "source_evidence_refs": [
             "notification_N-1"
-          ]
+          ],
+          "root_transaction_id": "ROOT-1"
         }
       ],
       "holds": [
@@ -1817,7 +1825,8 @@
           "authority_state": "valid",
           "source_evidence_refs": [
             "notification_N-1"
-          ]
+          ],
+          "root_transaction_id": "ROOT-1"
         }
       ],
       "holds": [],
@@ -2218,7 +2227,8 @@
           "authority_state": "valid",
           "source_evidence_refs": [
             "notification_N-1"
-          ]
+          ],
+          "root_transaction_id": "ROOT-1"
         },
         {
           "notification_id": "N-2",
@@ -2229,7 +2239,8 @@
           "authority_state": "valid",
           "source_evidence_refs": [
             "notification_N-2"
-          ]
+          ],
+          "root_transaction_id": "ROOT-1"
         }
       ],
       "holds": [],
