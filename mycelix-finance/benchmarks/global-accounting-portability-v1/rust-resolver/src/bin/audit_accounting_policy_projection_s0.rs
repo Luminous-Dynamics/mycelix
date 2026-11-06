@@ -368,6 +368,11 @@ fn evaluate_projection(
     for decision in decisions {
         let decision_ref = string(decision, "policy_decision_ref")?;
         let state = string(decision, "decision_state")?;
+        if projection_state == "complete_for_review"
+            && matches!(state, "needs_review" | "indeterminate")
+        {
+            failure(&mut failures, "incomplete_decision_in_complete_projection");
+        }
         let has_journal = journaled_decisions.contains(decision_ref);
         if state == "recognized" && !has_journal {
             failure(&mut failures, "recognized_decision_without_journal");
@@ -438,14 +443,23 @@ fn evaluate_projection(
                 failure(&mut failures, "assumption_assertion_reference_missing");
                 assertion_provenance_valid = false;
             }
-            if assumption.get("decision_critical").and_then(Value::as_bool) == Some(true)
-                && !matches!(
-                    optional_string(assumption, "review_state"),
-                    Some("supported" | "approved_by_reviewer")
-                )
+            let review_state = optional_string(assumption, "review_state");
+            let approval_record = optional_string(assumption, "review_record_ref");
+            if review_state == Some("approved_by_reviewer")
+                && approval_record.is_none_or(str::is_empty)
             {
-                failure(&mut failures, "decision_critical_unsupported_assumption");
+                failure(&mut failures, "review_approval_record_missing");
                 assertion_provenance_valid = false;
+            }
+            if assumption.get("decision_critical").and_then(Value::as_bool) == Some(true) {
+                let adequately_supported = review_state == Some("supported")
+                    && !assumption_assertions.is_empty();
+                let reviewer_approved = review_state == Some("approved_by_reviewer")
+                    && approval_record.is_some_and(|reference| !reference.trim().is_empty());
+                if !adequately_supported && !reviewer_approved {
+                    failure(&mut failures, "decision_critical_unsupported_assumption");
+                    assertion_provenance_valid = false;
+                }
             }
             if assumption_assertions.is_empty()
                 && optional_string(assumption, "review_state") == Some("supported")
@@ -921,6 +935,38 @@ mod tests {
         let case = graph_case_by_id(&graph, "EVT-001-INVOICE-WITHOUT-SERVICE-PROOF").unwrap();
         let result = evaluate_projection(&projection, case, &digest).unwrap();
         assert!(failures(&result).contains("journal_decision_currency_period_mismatch"));
+    }
+
+
+    #[test]
+    fn reviewer_approved_critical_assumption_requires_record_reference() {
+        let (graph, _, digest) = fixtures();
+        let mut projection = make_balanced_projection();
+        projection["assumptions"] = json!([{
+            "assumption_ref":"ASSUMPTION-REVIEWED",
+            "assumption_kind":"classification",
+            "description":"The reviewer approved this synthetic classification assumption.",
+            "value":"EXPENSE",
+            "source_assertion_refs":[],
+            "review_state":"approved_by_reviewer",
+            "decision_critical":true,
+            "review_record_ref":null
+        }]);
+        projection["event_decisions"][0]["assumption_refs"] = json!(["ASSUMPTION-REVIEWED"]);
+        let case = graph_case_by_id(&graph, "EVT-001-INVOICE-WITHOUT-SERVICE-PROOF").unwrap();
+        let result = evaluate_projection(&projection, case, &digest).unwrap();
+        assert!(failures(&result).contains("review_approval_record_missing"));
+    }
+
+    #[test]
+    fn complete_projection_cannot_hide_needs_review_event_decision() {
+        let (graph, _, digest) = fixtures();
+        let mut projection = make_balanced_projection();
+        projection["event_decisions"][0]["decision_state"] = Value::String("needs_review".to_owned());
+        projection["journal_entries"] = json!([]);
+        let case = graph_case_by_id(&graph, "EVT-001-INVOICE-WITHOUT-SERVICE-PROOF").unwrap();
+        let result = evaluate_projection(&projection, case, &digest).unwrap();
+        assert!(failures(&result).contains("incomplete_decision_in_complete_projection"));
     }
 
     #[test]
