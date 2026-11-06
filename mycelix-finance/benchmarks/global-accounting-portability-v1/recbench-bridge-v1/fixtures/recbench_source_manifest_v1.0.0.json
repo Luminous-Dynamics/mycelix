@@ -1,0 +1,172 @@
+{
+  "manifest_id": "MYCELIX-RECBENCH-SOURCE-MANIFEST-S0",
+  "schema_version": "1.0.0",
+  "claim_ceiling": "external_dataset_metadata_and_checksums_not_a_mycelix_benchmark_result",
+  "captured_at": "2026-11-06T20:03:17Z",
+  "dataset": {
+    "name": "RecBench",
+    "publisher": "End Close",
+    "dataset_url": "https://huggingface.co/datasets/end-close/recbench",
+    "repo_revision": "1e711f3",
+    "dataset_version": "0.1.0",
+    "generator_version": "0.1.0",
+    "dataset_license": "CC-BY-4.0",
+    "generator_license": "Apache-2.0",
+    "release_manifest_url": "https://huggingface.co/datasets/end-close/recbench/resolve/main/release.json",
+    "small_manifest_url": "https://huggingface.co/datasets/end-close/recbench/resolve/main/small/manifest.json",
+    "release_manifest_bytes_archived": false,
+    "release_manifest_sha256": null,
+    "small_manifest_bytes_archived": false,
+    "small_manifest_sha256": null
+  },
+  "tiers": {
+    "small": {
+      "tier": "small",
+      "seed": 1042,
+      "config_sha256": "d31d413456ea5364f74a0c355a6b41d81aee5ea37f9f4805a356bdfa7243fbc5",
+      "row_counts": {
+        "ledger": 999005,
+        "settlement_lines": 1014955,
+        "payouts": 73955,
+        "bank_statements": 75138,
+        "truth_ledger_processor": 1012216,
+        "truth_line_payout": 1012219,
+        "truth_payout_bank": 75002,
+        "labels_ledger": 999005,
+        "labels_processor": 1014955,
+        "labels_payout": 75002,
+        "labels_bank": 75138
+      },
+      "input_file_commitments": [
+        {
+          "path": "ledger/part-0000.parquet",
+          "row_count": 999005,
+          "sha256": "34b986b51a577eccd9cfd40142fd1c3ed9753c6e2123163952c24894235625b7",
+          "role": "ledger_input",
+          "candidate_visible": true
+        },
+        {
+          "path": "settlement_lines/part-0000.parquet",
+          "row_count": 1014955,
+          "sha256": "ab5750f8cf778fde18424a7116ecd284cdde2a948eb6504cc2db52dbbe080d7b",
+          "role": "settlement_input",
+          "candidate_visible": true
+        },
+        {
+          "path": "payouts/part-0000.parquet",
+          "row_count": 73955,
+          "sha256": "50df691ea35a8b58c47dacd3accdcaa9ae425ee1f170c0bddb6fa15326220502",
+          "role": "payout_input",
+          "candidate_visible": true
+        },
+        {
+          "path": "bank_statements/part-0000.parquet",
+          "row_count": 75138,
+          "sha256": "df8d008e4bb3fc4a8c088353a28e84bd53dd1363b10ca4012ebccd0added17ec",
+          "role": "bank_input",
+          "candidate_visible": true
+        }
+      ],
+      "oracle_file_commitments": [
+        {
+          "path": "truth_ledger_processor/part-0000.parquet",
+          "row_count": 1012216,
+          "sha256": "5de898f0cd15bea5d2f6ce7075b4dca282f28f9e6f9bf52a40d83b6d36530599",
+          "role": "truth",
+          "candidate_visible": false
+        },
+        {
+          "path": "truth_line_payout/part-0000.parquet",
+          "row_count": 1012219,
+          "sha256": "2d17a2eadcab633248ba9b9197b9779b996299efcaac0ea01ee9356c87818971",
+          "role": "truth",
+          "candidate_visible": false
+        },
+        {
+          "path": "truth_payout_bank/part-0000.parquet",
+          "row_count": 75002,
+          "sha256": "54808f690ebc3781a3655cec7e017901a138263b92701a0c1ba7fa71abfbc64f",
+          "role": "truth",
+          "candidate_visible": false
+        },
+        {
+          "path": "labels_ledger/part-0000.parquet",
+          "row_count": 999005,
+          "sha256": "701c7665c6b71c75e8783e58f57d557de4746a9f0c32e6d0a5543f4a65c5f7c7",
+          "role": "labels",
+          "candidate_visible": false
+        },
+        {
+          "path": "labels_processor/part-0000.parquet",
+          "row_count": 1014955,
+          "sha256": "5b542c61d5e7b8f10287d76c56ccf89c58bbc33c11ee2cbf0972306572416512",
+          "role": "labels",
+          "candidate_visible": false
+        },
+        {
+          "path": "labels_payout/part-0000.parquet",
+          "row_count": 75002,
+          "sha256": "a4f26ed73e64dc09044bad1bd446b3e799f210895887ceee90889d4c4b3be1b6",
+          "role": "labels",
+          "candidate_visible": false
+        },
+        {
+          "path": "labels_bank/part-0000.parquet",
+          "row_count": 75138,
+          "sha256": "d32e77bc3262e729518131f7f217677a3d0eff19f4e034560a6ad1d1e27bcf1a",
+          "role": "labels",
+          "candidate_visible": false
+        }
+      ],
+      "compressed_size_label": "67 MB according to README; files browser reports 470 MB for the expanded small/ directory"
+    },
+    "medium": {
+      "tier": "medium",
+      "seed": 1043,
+      "config_sha256": "9f83201debaa8a5766f0ad275c26f75e1e190bed656281d05b80b8733a98fa35",
+      "row_counts": {
+        "ledger": 10003656,
+        "settlement_lines": 10166490,
+        "payouts": 654939,
+        "bank_statements": 665622,
+        "truth_ledger_processor": 10137613,
+        "truth_line_payout": 10137893,
+        "truth_payout_bank": 665490,
+        "labels_ledger": 10003656,
+        "labels_processor": 10166490,
+        "labels_payout": 665490,
+        "labels_bank": 665622
+      },
+      "input_file_commitments": [],
+      "oracle_file_commitments": [],
+      "compressed_size_label": "644 MB per README; per-file manifest commitments not captured in this S0 snapshot"
+    },
+    "large": {
+      "tier": "large",
+      "seed": 1044,
+      "config_sha256": "a3ae08a9ba11e3ea1d2d421cdae6a34bd56a6913dbac5a229bf0b39ec4dec5ae",
+      "row_counts": {
+        "ledger": 100053243,
+        "settlement_lines": 101683979,
+        "payouts": 3594606,
+        "bank_statements": 3648088,
+        "truth_ledger_processor": 101391473,
+        "truth_line_payout": 101398326,
+        "truth_payout_bank": 3647961,
+        "labels_ledger": 100053243,
+        "labels_processor": 101683979,
+        "labels_payout": 3647961,
+        "labels_bank": 3648088
+      },
+      "input_file_commitments": [],
+      "oracle_file_commitments": [],
+      "compressed_size_label": "6.0 GB per README; per-file manifest commitments not captured in this S0 snapshot"
+    }
+  },
+  "rights_and_access": {
+    "dataset_bytes_vendored": false,
+    "truth_files_vendored": false,
+    "holdout_policy": "use_a_fresh_private_generator_seed_for_model_evaluation",
+    "note": "This repository stores public metadata and the small-tier source-file commitments only. It does not vendor RecBench parquet files or truth/label payloads. The public source is version 0.1.0 pre-release; confirm licence and pinned release metadata before every re-run."
+  }
+}
