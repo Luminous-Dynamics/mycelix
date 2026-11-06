@@ -324,8 +324,10 @@ fn validate_trace(trace: &Value) -> Result<Value, String> {
                     return Err(format!("{trace_id}/{event_id}: fact {fact_ref} is terminalized more than once"));
                 }
                 match state.as_str() {
-                    "carried_to_question" | "carried_to_journal" | "carried_to_review" if target_refs.is_empty() => {
-                        return Err(format!("{trace_id}/{event_id}: terminal state {state} requires a target"));
+                    "carried_to_question" | "carried_to_journal" | "carried_to_review" => {
+                        if target_refs.is_empty() {
+                            return Err(format!("{trace_id}/{event_id}: terminal state {state} requires a target"));
+                        }
                     }
                     "abstained" | "excluded" => {}
                     other => return Err(format!("{trace_id}/{event_id}: unsupported terminal state {other}")),
@@ -720,6 +722,25 @@ mod tests {
     }
 
     #[test]
+    fn rejects_noncontiguous_event_sequence() {
+        let (mut trace, _, _, _) = fixture();
+        trace["events"][4]["seq"] = json!(99);
+        assert!(validate_trace(&trace).is_err());
+    }
+
+    #[test]
+    fn rejects_duplicate_event_id_even_with_contiguous_sequence() {
+        let (mut trace, _, _, _) = fixture();
+        let mut duplicate = trace["events"][0].clone();
+        duplicate["seq"] = json!(3);
+        trace["events"].as_array_mut().unwrap().insert(2, duplicate);
+        for (index, event) in trace["events"].as_array_mut().unwrap().iter_mut().enumerate() {
+            event["seq"] = json!(index + 1);
+        }
+        assert!(validate_trace(&trace).is_err());
+    }
+
+    #[test]
     fn rejects_fact_observation_before_source_open() {
         let (mut trace, _, _, _) = fixture();
         let events = trace["events"].as_array_mut().unwrap();
@@ -856,6 +877,12 @@ mod tests {
         assert!(validate_trace(&trace).is_err());
     }
 
+    fn trace_for_transcript(mut trace: Value, transcript: &[u8]) -> (Value, Vec<u8>) {
+        trace["transcript_sha256"] = json!(digest(transcript));
+        let bytes = serde_json::to_vec_pretty(&trace).unwrap();
+        (trace, bytes)
+    }
+
     fn synthetic_receipt(trace: &Value, trace_bytes: &[u8], transcript: &[u8]) -> (Value, Value) {
         let trace_sha = digest(trace_bytes);
         let receipt = json!({
@@ -967,8 +994,9 @@ mod tests {
 
     #[test]
     fn rejects_transcript_bytes_that_do_not_match_receipt_digest() {
-        let (trace, _, _, trace_bytes) = fixture();
+        let (trace, _, _, _) = fixture();
         let transcript = b"actual transcript";
+        let (trace, trace_bytes) = trace_for_transcript(trace, transcript);
         let (receipt, report) = synthetic_receipt(&trace, &trace_bytes, transcript);
         let receipt_bytes = serde_json::to_vec(&receipt).unwrap();
         assert!(validate_receipt_binding(
@@ -978,8 +1006,9 @@ mod tests {
 
     #[test]
     fn rejects_trace_digest_missing_from_task_output_artifacts() {
-        let (trace, _, _, trace_bytes) = fixture();
+        let (trace, _, _, _) = fixture();
         let transcript = b"actual transcript";
+        let (trace, trace_bytes) = trace_for_transcript(trace, transcript);
         let (mut receipt, _initial_report) = synthetic_receipt(&trace, &trace_bytes, transcript);
         receipt["task_results"][0]["output_sha256"] = json!([]);
         let receipt_bytes = serde_json::to_vec(&receipt).unwrap();
@@ -997,8 +1026,9 @@ mod tests {
 
     #[test]
     fn rejects_canonical_receipt_report_for_different_receipt_bytes() {
-        let (trace, _, _, trace_bytes) = fixture();
+        let (trace, _, _, _) = fixture();
         let transcript = b"actual transcript";
+        let (trace, trace_bytes) = trace_for_transcript(trace, transcript);
         let (receipt, mut report) = synthetic_receipt(&trace, &trace_bytes, transcript);
         let receipt_bytes = serde_json::to_vec(&receipt).unwrap();
         report["receipts"][0]["raw_file_sha256"] = json!("d".repeat(64));
@@ -1009,10 +1039,10 @@ mod tests {
 
     #[test]
     fn rejects_trace_source_bundle_digest_not_matching_task_input() {
-        let (mut trace, _, _, _trace_bytes) = fixture();
+        let (mut trace, _, _, _) = fixture();
         trace["source_bundle_sha256"] = json!("d".repeat(64));
-        let bytes = serde_json::to_vec(&trace).unwrap();
         let transcript = b"actual transcript";
+        let (trace, bytes) = trace_for_transcript(trace, transcript);
         let (receipt, _report) = synthetic_receipt(&trace, &bytes, transcript);
         let mut bad_receipt = receipt.clone();
         bad_receipt["task_results"][0]["input_sha256"] = json!("e".repeat(64));
