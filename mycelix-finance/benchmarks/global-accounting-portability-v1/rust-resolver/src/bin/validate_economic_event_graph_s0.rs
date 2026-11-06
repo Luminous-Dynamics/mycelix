@@ -695,11 +695,71 @@ fn validate_relations(case: &Value) -> Result<(usize, usize), String> {
     Ok((refs.len(), contradiction_count))
 }
 
+
+fn count_unresolved_amount_conflicts(case: &Value) -> Result<usize, String> {
+    let mut count = 0usize;
+    for event in array(case, "events")? {
+        if !value_is_null(event, "amount_minor") || !value_is_null(event, "currency") {
+            continue;
+        }
+        let mut fact_groups = BTreeMap::<String, Vec<&Value>>::new();
+        for reference in array(event, "assertion_refs")? {
+            let reference = reference.as_str().ok_or("event assertion ref is not a string")?;
+            let assertion = assertion_by_ref(case, reference)?;
+            let fact_type = string(assertion, "fact_type")?;
+            if matches!(
+                fact_type,
+                "invoice_amount_minor" | "credit_amount_minor" | "payment_amount_minor"
+            ) {
+                fact_groups.entry(fact_type.to_owned()).or_default().push(assertion);
+            }
+        }
+        let mut found_conflict = false;
+        for assertions in fact_groups.values() {
+            let values = assertions
+                .iter()
+                .filter_map(|assertion| {
+                    Some((
+                        assertion.get("value")?.as_i64()?,
+                        optional_string(assertion, "currency")?.to_owned(),
+                    ))
+                })
+                .collect::<BTreeSet<_>>();
+            if values.len() <= 1 {
+                continue;
+            }
+            for left_index in 0..assertions.len() {
+                for right_index in (left_index + 1)..assertions.len() {
+                    let left = string(assertions[left_index], "assertion_ref")?;
+                    let right = string(assertions[right_index], "assertion_ref")?;
+                    let linked = array(case, "relations")?.iter().any(|relation| {
+                        optional_string(relation, "relation_kind") == Some("contradicts")
+                            && optional_string(relation, "from_kind") == Some("assertion")
+                            && optional_string(relation, "to_kind") == Some("assertion")
+                            && ((optional_string(relation, "from_ref") == Some(left)
+                                && optional_string(relation, "to_ref") == Some(right))
+                                || (optional_string(relation, "from_ref") == Some(right)
+                                    && optional_string(relation, "to_ref") == Some(left)))
+                    });
+                    if linked {
+                        found_conflict = true;
+                    }
+                }
+            }
+        }
+        if found_conflict {
+            count += 1;
+        }
+    }
+    Ok(count)
+}
+
 fn analyze_case(case: &Value) -> Result<Value, String> {
     let (unlinked_revisions, integrity_mismatches) = validate_source_objects(case)?;
     let (available_assertions, future_assertions) = validate_assertions(case)?;
     let (available_events, future_events) = validate_events(case)?;
     let (relation_count, contradictions) = validate_relations(case)?;
+    let unresolved_amount_conflicts = count_unresolved_amount_conflicts(case)?;
     let source_count = array(case, "source_objects")?.len();
     let assertion_count = array(case, "assertions")?.len();
     let event_count = array(case, "events")?.len();
@@ -731,6 +791,7 @@ fn analyze_case(case: &Value) -> Result<Value, String> {
         "unlinked_revision_family_count": unlinked_revisions,
         "contradiction_relation_count": contradictions,
         "integrity_mismatch_count": integrity_mismatches,
+        "unresolved_conflicted_event_amount_count": unresolved_amount_conflicts,
         "finding_codes": findings.into_iter().collect::<Vec<_>>()
     }))
 }
@@ -759,6 +820,7 @@ fn build_report(candidates: &Value, candidate_digest: String) -> Result<Value, S
             "unlinked_revision_family_count",
             "contradiction_relation_count",
             "integrity_mismatch_count",
+            "unresolved_conflicted_event_amount_count",
         ] {
             *totals.entry(field.to_owned()).or_default() +=
                 result[field].as_u64().unwrap_or(0) as usize;
