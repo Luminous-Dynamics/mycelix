@@ -85,6 +85,50 @@ fn graph_case<'a>(graph: &'a Value, case_id: &str) -> Result<&'a Value, String> 
         .ok_or_else(|| format!("unknown graph case {case_id}"))
 }
 
+
+fn source_object<'a>(graph_case: &'a Value, source_ref: &str) -> Result<&'a Value, String> {
+    find_by_ref(array(graph_case, "source_objects")?, "source_ref", source_ref)
+        .ok_or_else(|| format!("unknown graph source object {source_ref}"))
+}
+
+fn assertion_available_at_frontier(graph_case: &Value, assertion: &Value) -> Result<bool, String> {
+    let frontier = string(graph_case, "knowledge_at")?;
+    let source_ref = string(assertion, "source_ref")?;
+    let source = source_object(graph_case, source_ref)?;
+    let source_superseded = array(graph_case, "source_objects")?.iter().any(|candidate| {
+        optional_string(candidate, "supersedes_source_ref") == Some(source_ref)
+            && optional_string(candidate, "received_at").is_some_and(|received| received <= frontier)
+    });
+    let period = graph_case.get("period").ok_or("event graph case has no period")?;
+    let period_start = string(period, "start")?;
+    let period_end = string(period, "end")?;
+    let valid_from = string(assertion, "valid_from")?;
+    let valid_to = assertion.get("valid_to").and_then(Value::as_str);
+    let valid_overlap = valid_from <= period_end && valid_to.is_none_or(|end| end >= period_start);
+    Ok(string(source, "received_at")? <= frontier
+        && string(assertion, "recorded_at")? <= frontier
+        && optional_string(source, "integrity_state") == Some("synthetic_match")
+        && !source_superseded
+        && valid_overlap
+        && optional_string(assertion, "epistemic_state") == Some("asserted")
+        && !value_is_null(assertion, "value"))
+}
+
+fn event_available_at_frontier(graph_case: &Value, event: &Value) -> Result<bool, String> {
+    if string(event, "recorded_at")? > string(graph_case, "knowledge_at")? {
+        return Ok(false);
+    }
+    for assertion_ref in array(event, "assertion_refs")? {
+        let reference = assertion_ref.as_str().ok_or("event assertion ref must be a string")?;
+        let assertion = find_by_ref(array(graph_case, "assertions")?, "assertion_ref", reference)
+            .ok_or_else(|| format!("event references unknown assertion {reference}"))?;
+        if !assertion_available_at_frontier(graph_case, assertion)? {
+            return Ok(false);
+        }
+    }
+    Ok(true)
+}
+
 fn validate_projection(
     graph_case: &Value,
     projection: &Value,
@@ -126,6 +170,43 @@ fn validate_projection(
         return Err(format!("{projection_id}: inverted projection period"));
     }
 
+    let allowed_currencies = [
+        string(projection, "functional_currency")?,
+        string(projection, "presentation_currency")?,
+    ]
+    .into_iter()
+    .collect::<BTreeSet<_>>();
+
+    let mut assumption_refs = BTreeSet::new();
+    let mut unresolved_critical_assumptions = 0usize;
+    for assumption in array(projection, "assumptions")? {
+        let assumption_ref = string(assumption, "assumption_ref")?;
+        if !assumption_refs.insert(assumption_ref.to_owned()) {
+            return Err(format!("{projection_id}: duplicate assumption {assumption_ref}"));
+        }
+        let decision_critical = assumption.get("decision_critical").and_then(Value::as_bool) == Some(true);
+        let review_state = optional_string(assumption, "review_state").unwrap_or("unknown");
+        let mut all_sources_available = true;
+        let source_refs = array(assumption, "source_assertion_refs")?;
+        if review_state == "supported" && source_refs.is_empty() {
+            all_sources_available = false;
+        }
+        for source_ref in source_refs {
+            let reference = source_ref.as_str().ok_or("assumption source ref must be a string")?;
+            let assertion = assertion_map.get(reference)
+                .ok_or_else(|| format!("{projection_id}/{assumption_ref}: unknown source assertion {reference}"))?;
+            if !assertion_available_at_frontier(graph_case, assertion)? {
+                all_sources_available = false;
+            }
+        }
+        if decision_critical
+            && (matches!(review_state, "assumed" | "unknown" | "disputed" | "rejected_by_reviewer")
+                || (review_state == "supported" && !all_sources_available))
+        {
+            unresolved_critical_assumptions += 1;
+        }
+    }
+
     let mut decision_refs = BTreeSet::new();
     let mut decisions_by_ref = BTreeMap::<String, (&Value, String, BTreeSet<String>)>::new();
     let mut event_decisions = BTreeSet::new();
@@ -160,27 +241,46 @@ fn validate_projection(
         }
 
         let decision_state = string(decision, "decision_state")?;
+        let decision_assumptions = set_from_array(decision, "assumption_refs")?;
+        if !decision_assumptions.is_subset(&assumption_refs) {
+            return Err(format!("{projection_id}/{decision_ref}: decision references an unknown assumption"));
+        }
         if decision_state == "recognized" {
             let amount = decision
                 .get("recognized_amount_minor")
                 .and_then(Value::as_i64)
                 .ok_or_else(|| format!("{projection_id}/{decision_ref}: recognized decision has no integer amount"))?;
-            if amount <= 0 || value_is_null(decision, "currency") || value_is_null(decision, "period_ref") {
-                return Err(format!("{projection_id}/{decision_ref}: recognized decision lacks positive measurement, currency or period"));
+            let currency = string(decision, "currency")?;
+            let period_ref = string(decision, "period_ref")?;
+            if amount <= 0 || !allowed_currencies.contains(currency) {
+                return Err(format!("{projection_id}/{decision_ref}: recognized decision lacks positive measurement or uses an unsupported currency"));
             }
+            let month = period_ref.get(..7).ok_or("recognized decision period_ref is malformed")?;
+            if month < period_start.get(..7).ok_or("projection start date is malformed")?
+                || month > period_end.get(..7).ok_or("projection end date is malformed")?
+            {
+                return Err(format!("{projection_id}/{decision_ref}: recognized decision period is outside projection period"));
+            }
+            if !event_available_at_frontier(graph_case, event)? {
+                return Err(format!("{projection_id}/{decision_ref}: event or supporting assertions are unavailable at the graph knowledge frontier"));
+            }
+            for source_ref in &decision_sources {
+                let assertion = assertion_map[source_ref];
+                if !assertion_available_at_frontier(graph_case, assertion)? {
+                    return Err(format!("{projection_id}/{decision_ref}: recognized decision relies on unavailable assertion {source_ref}"));
+                }
+            }
+        } else if !value_is_null(decision, "recognized_amount_minor")
+            || !value_is_null(decision, "currency")
+            || !value_is_null(decision, "period_ref")
+        {
+            return Err(format!("{projection_id}/{decision_ref}: non-recognition decision must not carry amount, currency or period"));
         }
         decisions_by_ref.insert(
             decision_ref.to_owned(),
             (decision, event_ref.to_owned(), decision_sources),
         );
     }
-
-    let allowed_currencies = [
-        string(projection, "functional_currency")?,
-        string(projection, "presentation_currency")?,
-    ]
-    .into_iter()
-    .collect::<BTreeSet<_>>();
 
     let mut entry_refs = BTreeSet::new();
     let mut line_refs = BTreeSet::new();
@@ -307,9 +407,10 @@ fn validate_projection(
     }
 
     if optional_string(projection, "projection_state") == Some("not_projected")
-        && !array(projection, "journal_entries")?.is_empty()
+        && (!array(projection, "journal_entries")?.is_empty()
+            || !array(projection, "event_decisions")?.is_empty())
     {
-        return Err(format!("{projection_id}: not_projected output cannot contain journal entries"));
+        return Err(format!("{projection_id}: not_projected output cannot contain decisions or journal entries"));
     }
 
     let mut unresolved_refs = BTreeSet::new();
@@ -347,11 +448,27 @@ fn validate_projection(
         blocking_unresolved |= unresolved.get("blocking").and_then(Value::as_bool) == Some(true);
     }
 
-    let findings = if blocking_unresolved {
-        vec!["blocking_unresolved_item"]
-    } else {
-        Vec::<&str>::new()
-    };
+    let projection_state = string(projection, "projection_state")?;
+    let unresolved_event_decision = array(projection, "event_decisions")?.iter().any(|decision| {
+        matches!(optional_string(decision, "decision_state"), Some("needs_review" | "indeterminate"))
+    });
+    if projection_state == "complete_for_review"
+        && (blocking_unresolved || unresolved_critical_assumptions > 0 || unresolved_event_decision)
+    {
+        return Err(format!(
+            "{projection_id}: complete_for_review cannot contain a blocking unresolved item, unapproved critical assumption or unresolved event decision"
+        ));
+    }
+    let mut findings = Vec::<&str>::new();
+    if blocking_unresolved {
+        findings.push("blocking_unresolved_item");
+    }
+    if unresolved_critical_assumptions > 0 {
+        findings.push("unapproved_decision_critical_assumption");
+    }
+    if unresolved_event_decision {
+        findings.push("unresolved_event_decision");
+    }
     Ok(json!({
         "projection_id": projection_id,
         "policy_sha256": policy_digest,
