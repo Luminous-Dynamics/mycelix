@@ -226,7 +226,6 @@ fn credit_note_parent_missing(case: &Value) -> Result<bool, String> {
     Ok(false)
 }
 
-
 fn source_revision_lineage_missing(case: &Value) -> Result<bool, String> {
     let mut groups = BTreeMap::<(String, String, String), Vec<&Value>>::new();
     for document in array(case, "documents")? {
@@ -303,7 +302,6 @@ fn fx_rate_missing(case: &Value) -> Result<bool, String> {
     }
     Ok(false)
 }
-
 
 fn supplier_identity_disputed(case: &Value) -> Result<bool, String> {
     for fact in array(case, "facts")? {
@@ -1031,7 +1029,6 @@ mod tests {
         );
     }
 
-
     #[test]
     fn per_entry_balance_cannot_be_forged_by_offsetting_two_entries() {
         let (candidates, mut oracle) = fixtures();
@@ -1086,7 +1083,6 @@ mod tests {
             ("escalate", "credit_note_parent_missing")
         );
     }
-
 
     #[test]
     fn future_received_invoice_is_not_used_at_prior_knowledge_frontier() {
@@ -1172,7 +1168,6 @@ mod tests {
         );
     }
 
-
     #[test]
     fn same_external_invoice_id_in_another_namespace_does_not_resolve_credit_note() {
         let (candidates, _) = fixtures();
@@ -1183,7 +1178,6 @@ mod tests {
             ("escalate", "credit_note_parent_missing")
         );
     }
-
 
     #[test]
     fn known_superseding_revision_replaces_earlier_invoice_facts() {
@@ -1223,7 +1217,6 @@ mod tests {
         );
     }
 
-
     #[test]
     fn unlinked_invoice_revisions_escalate_before_amounts_are_summed() {
         let (candidates, _) = fixtures();
@@ -1257,7 +1250,6 @@ mod tests {
             ("deliver", "no_blocker_detected")
         );
     }
-
 
     #[test]
     fn fractional_knowledge_timestamp_is_rejected() {
