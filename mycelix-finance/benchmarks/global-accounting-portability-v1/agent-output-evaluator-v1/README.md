@@ -47,7 +47,7 @@ Per case and aggregate:
 - material source-fact binding completeness independently for every expected journal line, plus unavailable-source citations;
 - exact statement match against the journal-linked oracle;
 - decision-critical assumptions not supported by available source facts;
-- evidence-trace coverage across every supplied fact, including facts deliberately excluded from the deliverable;
+- candidate-declared evidence-trace coverage across every supplied fact, including facts deliberately excluded from the deliverable;
 - evidence-to-journal continuity from fact trace to journal line;
 - decision-to-question continuity from blocker to actual clarification question;
 - explicit terminal reasons for each fact disposition, including superseded, future, disputed, invalidated, unverified and integrity-failed evidence;
@@ -99,7 +99,7 @@ A separate JS simulation of the fetched candidate/oracle/submission artifacts fo
 - zero continuity failures, false-deliver cases, redundant questions or decision-critical unsupported assumptions;
 - zero broken references or case-ID gaps.
 
-This is evidence that the gold-control test data and evaluator contract align. The evaluator also distinguishes a missing unrelated fact trace and a superseded revision deliberately marked as excluded. It is not evidence that any model achieves these scores.
+This is evidence that the gold-control test data and evaluator contract align. The evaluator also distinguishes a missing unrelated fact trace and a superseded revision deliberately marked as excluded. It is not evidence that any model achieves these scores. Because the trace is part of candidate output, do not call it runner-observed evidence; actual trajectory continuity requires a separately retained tool/transcript artifact bound to the canonical Symthaea run receipt, tracked in #5874.
 
 ## Benchmark and comparison design
 
@@ -112,7 +112,7 @@ On the same rights-cleared cases, source snapshots and frozen budgets compare:
 6. Symthaea candidate analyst + Mycelix verifier;
 7. qualified professional on a blinded subset.
 
-Keep model/version, prompts, tools, permission scope, retries, token/time budgets, source revisions, candidate code, evaluator version and random seeds fixed. Retain raw outputs and tool traces. Use the canonical #5799 run manifest/receipt; this package deliberately creates no competing run-manifest schema.
+Keep model/version, prompts, tools, permission scope, retries, token/time budgets, source revisions, candidate code, evaluator version and random seeds fixed. Retain raw outputs and tool traces. Use the canonical #5799 run manifest/receipt; this package deliberately creates no competing run-manifest schema. #5874 adds a separate runner-observed trace artifact whose exact bytes must be bound by the canonical receipt; it does not replace the candidate-declared trace metric in this S0 version.
 
 APEX-Accounting's live 100-task leaderboard currently displays 71.5% as its leading score; the published 160-task paper reports 56.4% Mean Criteria@3. Those cohorts and metric definitions are not directly comparable. Mercor's official July 2026 article reports more than 40 accounting professionals, median 11 years of experience, 13.7 rubric criteria/task and 97% judge/expert agreement; the public sample is one world and ten tasks. It attributes roughly seven in ten top-three-model failures to reasoning rather than retrieval, including discrepancies found mid-workflow but omitted or contradicted in final journals. FINBALANCE reports maximum 46% exact final balance-sheet accuracy on a separate 710-record split and a journal-reconstruction gain of 26–41 points for four models. Do not combine these denominators or metrics into one SOTA score.
 
