@@ -271,7 +271,13 @@ fn evaluate_projection(
     let period_start = string(period, "start")?;
     let period_end = string(period, "end")?;
 
+    let mut journal_entry_refs = BTreeSet::<String>::new();
     for entry in journal_entries {
+        let entry_ref = string(entry, "journal_entry_ref")?;
+        if !journal_entry_refs.insert(entry_ref.to_owned()) {
+            failure(&mut failures, "duplicate_journal_entry_ref");
+            journal_lineage_valid = false;
+        }
         let mut balances = BTreeMap::<(String, String, String), (i128, i128)>::new();
         for line in array(entry, "lines")? {
             total_line_count += 1;
@@ -324,8 +330,9 @@ fn evaluate_projection(
 
             let line_entity = string(line, "entity_ref")?;
             let line_period = string(line, "period_ref")?;
-            let line_period_start = format!("{line_period}-01");
-            if line_entity != entity_ref || line_period_start.as_str() < period_start || line_period_start.as_str() > period_end {
+            let projection_start_month = period_start.get(..7).ok_or("invalid projection period start")?;
+            let projection_end_month = period_end.get(..7).ok_or("invalid projection period end")?;
+            if line_entity != entity_ref || line_period.as_str() < projection_start_month || line_period.as_str() > projection_end_month {
                 failure(&mut failures, "journal_entity_period_mismatch");
                 journal_lineage_valid = false;
             }
@@ -413,7 +420,7 @@ fn evaluate_projection(
     for assumption in array(projection, "assumptions")? {
         let assumption_ref = string(assumption, "assumption_ref")?;
         if assumption_refs.insert(assumption_ref.to_owned(), assumption).is_some() {
-            failure(&mut failures, "orphan_projection_assumption");
+            failure(&mut failures, "duplicate_projection_assumption_ref");
             assertion_provenance_valid = false;
         }
         for assertion_ref in string_set(assumption, "source_assertion_refs")? {
@@ -482,7 +489,13 @@ fn evaluate_projection(
 
     let mut unresolved_references_valid = true;
     let mut blocking_unresolved = false;
+    let mut unresolved_item_refs = BTreeSet::new();
     for item in array(projection, "unresolved_items")? {
+        let item_ref = string(item, "item_ref")?;
+        if !unresolved_item_refs.insert(item_ref.to_owned()) {
+            failure(&mut failures, "duplicate_unresolved_item_ref");
+            unresolved_references_valid = false;
+        }
         blocking_unresolved |= item.get("blocking").and_then(Value::as_bool) == Some(true);
         let event_refs = string_set(item, "event_refs")?;
         let assertion_refs = string_set(item, "source_assertion_refs")?;
@@ -977,6 +990,50 @@ mod tests {
         let case = graph_case_by_id(&graph, "EVT-001-INVOICE-WITHOUT-SERVICE-PROOF").unwrap();
         let result = evaluate_projection(&projection, case, &digest).unwrap();
         assert!(failures(&result).contains("unresolved_event_reference_missing"));
+    }
+
+
+    #[test]
+    fn duplicate_journal_entry_ref_is_rejected() {
+        let (graph, _, digest) = fixtures();
+        let mut projection = make_balanced_projection();
+        let entry = projection["journal_entries"][0].clone();
+        projection["journal_entries"].as_array_mut().unwrap().push(entry);
+        let case = graph_case_by_id(&graph, "EVT-001-INVOICE-WITHOUT-SERVICE-PROOF").unwrap();
+        let result = evaluate_projection(&projection, case, &digest).unwrap();
+        assert!(failures(&result).contains("duplicate_journal_entry_ref"));
+    }
+
+    #[test]
+    fn duplicate_projection_assumption_ref_is_rejected() {
+        let (graph, _, digest) = fixtures();
+        let mut projection = make_balanced_projection();
+        let assumption = json!({
+            "assumption_ref":"ASSUMPTION-DUPLICATE",
+            "assumption_kind":"classification",
+            "description":"A supported assumption used only as an audit control.",
+            "value":"EXPENSE",
+            "source_assertion_refs":["AS-001-AMOUNT"],
+            "review_state":"supported",
+            "decision_critical":false,
+            "review_record_ref":null
+        });
+        projection["assumptions"] = json!([assumption.clone(), assumption]);
+        projection["event_decisions"][0]["assumption_refs"] = json!(["ASSUMPTION-DUPLICATE"]);
+        let case = graph_case_by_id(&graph, "EVT-001-INVOICE-WITHOUT-SERVICE-PROOF").unwrap();
+        let result = evaluate_projection(&projection, case, &digest).unwrap();
+        assert!(failures(&result).contains("duplicate_projection_assumption_ref"));
+    }
+
+    #[test]
+    fn duplicate_unresolved_item_ref_is_rejected() {
+        let (graph, _, digest) = fixtures();
+        let mut projection = test_projection();
+        let item = projection["unresolved_items"][0].clone();
+        projection["unresolved_items"].as_array_mut().unwrap().push(item);
+        let case = graph_case_by_id(&graph, "EVT-001-INVOICE-WITHOUT-SERVICE-PROOF").unwrap();
+        let result = evaluate_projection(&projection, case, &digest).unwrap();
+        assert!(failures(&result).contains("duplicate_unresolved_item_ref"));
     }
 
     #[test]
