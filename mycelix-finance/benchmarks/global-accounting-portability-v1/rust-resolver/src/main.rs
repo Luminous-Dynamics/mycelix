@@ -341,7 +341,7 @@ fn resolve(registry: &Value, request: &Value) -> AppResult<Value> {
     let mut matched_intersection_id: Option<String> = None;
     let mut scope_kind = "none".to_owned();
     let mut claim_ceiling = "no_qualification_claim".to_owned();
-    let mut disposition = "unsupported_profile";
+    let mut disposition: &str;
 
     if invalid_reporting_period || !missing_dimensions.is_empty() {
         disposition = "indeterminate";
