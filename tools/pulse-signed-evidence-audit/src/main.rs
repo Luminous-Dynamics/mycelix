@@ -1374,6 +1374,91 @@ mod tests {
         )
     }
 
+    fn resign_first_attestation(
+        bundle: &mut Value,
+        mutate: impl FnOnce(&mut Value),
+    ) {
+        let payload_type = bundle["attestations"][0]["envelope"]["payload_type"]
+            .as_str()
+            .unwrap()
+            .to_string();
+        let payload = STANDARD
+            .decode(
+                bundle["attestations"][0]["envelope"]["payload_base64"]
+                    .as_str()
+                    .unwrap(),
+            )
+            .unwrap();
+        let mut statement: Value = serde_json::from_slice(&payload).unwrap();
+        mutate(&mut statement);
+        let changed_payload = serde_json::to_vec(&statement).unwrap();
+        let signing_key = SigningKey::from_bytes(&[7u8; 32]);
+        let signature = signing_key.sign(&pae(&payload_type, &changed_payload));
+        bundle["attestations"][0]["envelope"]["payload_base64"] =
+            Value::String(STANDARD.encode(&changed_payload));
+        bundle["attestations"][0]["envelope"]["signatures"][0]["sig_base64"] =
+            Value::String(STANDARD.encode(signature.to_bytes()));
+    }
+
+    #[test]
+    fn signed_event_id_must_exist_in_the_exact_trace() {
+        let (bundle, trace, policy) = fixture();
+        let mut bundle_value: Value = serde_json::from_slice(&bundle).unwrap();
+        bundle_value["attestations"][0]["event_id"] =
+            Value::String("event-not-in-trace".into());
+        resign_first_attestation(&mut bundle_value, |statement| {
+            statement["predicate"]["event_id"] = Value::String("event-not-in-trace".into());
+        });
+        let report = audit(&serde_json::to_vec(&bundle_value).unwrap(), &trace, &policy).unwrap();
+        assert_eq!(report.status, "FAIL");
+        assert!(
+            report.findings.iter().any(|finding| {
+                finding.code == "ATTESTATION_EVENT_NOT_IN_TRACE"
+                    || finding.code == "DSSE_TRACE_EVENT_BINDING_MISMATCH"
+            }),
+            "{:?}",
+            report.findings
+        );
+    }
+
+    #[test]
+    fn signed_event_data_must_equal_the_trace_event_data() {
+        let (bundle, trace, policy) = fixture();
+        let mut bundle_value: Value = serde_json::from_slice(&bundle).unwrap();
+        resign_first_attestation(&mut bundle_value, |statement| {
+            statement["predicate"]["details"]["event_data"]["grantee"] =
+                Value::String("agent-attacker".into());
+        });
+        let report = audit(&serde_json::to_vec(&bundle_value).unwrap(), &trace, &policy).unwrap();
+        assert_eq!(report.status, "FAIL");
+        assert!(
+            report.findings.iter().any(|finding| {
+                finding.code == "DSSE_TRACE_EVENT_BINDING_MISMATCH"
+            }),
+            "{:?}",
+            report.findings
+        );
+    }
+
+    #[test]
+    fn signed_event_source_and_type_must_match_the_role_and_trace() {
+        let (bundle, trace, policy) = fixture();
+        let mut bundle_value: Value = serde_json::from_slice(&bundle).unwrap();
+        resign_first_attestation(&mut bundle_value, |statement| {
+            statement["predicate"]["details"]["source"] = Value::String("client".into());
+            statement["predicate"]["details"]["event_type"] = Value::String("caller_outcome".into());
+        });
+        let report = audit(&serde_json::to_vec(&bundle_value).unwrap(), &trace, &policy).unwrap();
+        assert_eq!(report.status, "FAIL");
+        assert!(
+            report.findings.iter().any(|finding| {
+                finding.code == "DSSE_TRACE_EVENT_BINDING_MISMATCH"
+            }),
+            "{:?}",
+            report.findings
+        );
+    }
+
     #[test]
     fn valid_dsse_statement_verifies_against_supplied_role_policy() {
         let (bundle, trace, policy) = fixture();
