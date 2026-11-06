@@ -41,6 +41,9 @@ fn array_at<'a>(value: &'a Value, key: &str) -> Option<&'a Vec<Value>> {
 }
 
 fn valid_utc(value: &str) -> bool {
+    if !value.is_ascii() {
+        return false;
+    }
     let bytes = value.as_bytes();
     if bytes.len() != 20 || bytes[10] != b'T' || bytes[19] != b'Z' {
         return false;
@@ -73,7 +76,7 @@ fn valid_utc(value: &str) -> bool {
 }
 
 fn valid_date(value: &str) -> bool {
-    value.len() == 10
+    value.is_ascii() && value.len() == 10
         && value.as_bytes().get(4) == Some(&b'-')
         && value.as_bytes().get(7) == Some(&b'-')
         && value[0..4].parse::<u32>().is_ok()
@@ -405,8 +408,7 @@ fn validate_scenario(corpus: &Value, scenario: &Value) -> (String, String, Vec<S
         "commercial_evidence": commercial_state,
         "payer_decision": payer_decision,
         "fraud_signal": fraud_state,
-        "local_policy_decision": local_state,
-        "global_trust_score": Value::Null
+        "local_policy_decision": local_state
     });
 
     let mut effect_state = "none";
@@ -697,7 +699,6 @@ fn main() -> Result<(), Box<dyn Error>> {
             "dispositions": disposition_counts,
             "effect_states": effect_counts
         },
-        "global_trust_score": Value::Null,
         "errors": errors,
         "cases": cases
     });
@@ -732,7 +733,7 @@ mod tests {
         let corpus: Value = serde_json::from_str(DEFAULT_CORPUS).expect("corpus JSON");
         let scenario = &corpus["scenarios"][0];
         let (_, _, _, vector) = validate_scenario(&corpus, scenario);
-        assert!(vector["global_trust_score"].is_null());
+        assert!(vector.get("global_trust_score").is_none());
         assert_ne!(vector["message_authenticity"], vector["requester_identity"]);
     }
 }
