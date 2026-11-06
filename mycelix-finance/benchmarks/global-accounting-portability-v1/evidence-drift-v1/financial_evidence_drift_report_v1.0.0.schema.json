@@ -1,0 +1,256 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/financial-evidence-drift-report-v1.0.0.json",
+  "title": "Mycelix Financial Evidence Drift Report v1.0.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "report_id",
+    "schema_version",
+    "claim_ceiling",
+    "case_count",
+    "request_sha256",
+    "totals",
+    "case_results"
+  ],
+  "properties": {
+    "report_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "claim_ceiling": {
+      "const": "deterministic_dependency_impact_report_not_accounting_reauthorization"
+    },
+    "case_count": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "request_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "totals": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "no_material_impact_count",
+        "review_required_count",
+        "reproject_required_count",
+        "historical_replay_required_count",
+        "projection_invalid_count",
+        "underreported_impact_count",
+        "changed_source_count",
+        "changed_assertion_count",
+        "changed_event_count",
+        "changed_relation_count",
+        "impacted_decision_count",
+        "impacted_journal_entry_count",
+        "impacted_journal_line_count"
+      ],
+      "properties": {
+        "no_material_impact_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "review_required_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "reproject_required_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "historical_replay_required_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "projection_invalid_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "underreported_impact_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "changed_source_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "changed_assertion_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "changed_event_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "changed_relation_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "impacted_decision_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "impacted_journal_entry_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "impacted_journal_line_count": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "case_results": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/result"
+      }
+    }
+  },
+  "$defs": {
+    "result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "case_id",
+        "classification",
+        "baseline_graph_sha256",
+        "candidate_graph_sha256",
+        "baseline_projection_sha256",
+        "candidate_projection_sha256",
+        "changed_source_refs",
+        "changed_assertion_refs",
+        "changed_event_refs",
+        "changed_relation_refs",
+        "impacted_decision_refs",
+        "impacted_journal_entry_refs",
+        "impacted_journal_line_refs",
+        "policy_binding_changed",
+        "projector_binding_changed",
+        "knowledge_frontier_changed",
+        "caller_impact_claim_matches",
+        "finding_codes"
+      ],
+      "properties": {
+        "case_id": {
+          "type": "string"
+        },
+        "classification": {
+          "enum": [
+            "no_material_impact",
+            "review_required",
+            "reproject_required",
+            "historical_replay_required",
+            "projection_invalid"
+          ]
+        },
+        "baseline_graph_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "candidate_graph_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "baseline_projection_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "candidate_projection_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "changed_source_refs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        },
+        "changed_assertion_refs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        },
+        "changed_event_refs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        },
+        "changed_relation_refs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        },
+        "impacted_decision_refs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        },
+        "impacted_journal_entry_refs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        },
+        "impacted_journal_line_refs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        },
+        "policy_binding_changed": {
+          "type": "boolean"
+        },
+        "projector_binding_changed": {
+          "type": "boolean"
+        },
+        "knowledge_frontier_changed": {
+          "type": "boolean"
+        },
+        "caller_impact_claim_matches": {
+          "type": "boolean"
+        },
+        "finding_codes": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "semantic_source_change",
+              "nonsemantic_source_metadata_only",
+              "assertion_changed",
+              "event_changed",
+              "relation_changed",
+              "assertion_invalidated_or_disputed",
+              "integrity_state_degraded",
+              "late_evidence_available_at_new_frontier",
+              "policy_digest_changed",
+              "projector_digest_changed",
+              "unlinked_source_revision_detected",
+              "cross_tenant_identity_preserved",
+              "caller_impact_set_underreported",
+              "caller_impact_set_overreported",
+              "projection_binding_invalid",
+              "projection_dependency_invalid"
+            ]
+          }
+        }
+      }
+    }
+  }
+}
