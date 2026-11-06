@@ -1,0 +1,88 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/mycelix-financial-evidence-change-impact-oracle-v1.0.0.json",
+  "title": "Mycelix Financial Evidence Change Impact Oracle v1.0.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "bundle_id",
+    "schema_version",
+    "claim_ceiling",
+    "expectations"
+  ],
+  "properties": {
+    "bundle_id": {
+      "const": "MYCELIX-FIN-EVIDENCE-DRIFT-S0-ORACLE"
+    },
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "claim_ceiling": {
+      "const": "synthetic_expected_impact_sets_not_accounting_policy_adjudication"
+    },
+    "expectations": {
+      "type": "array",
+      "minItems": 10,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "scenario_id",
+          "expected_impact_level",
+          "expected_changed_objects",
+          "expected_affected_objects",
+          "expected_claim_complete",
+          "expected_finding_codes"
+        ],
+        "properties": {
+          "scenario_id": {
+            "type": "string",
+            "pattern": "^[A-Z0-9-]{3,120}$"
+          },
+          "expected_impact_level": {
+            "enum": [
+              "no_material_impact",
+              "review_required",
+              "reproject_required",
+              "historical_replay_required",
+              "projection_invalid"
+            ]
+          },
+          "expected_changed_objects": {
+            "$ref": "../change_impact_cases_v1.0.0.schema.json#/properties/cases/items/properties/claimed_impact/properties/changed_objects"
+          },
+          "expected_affected_objects": {
+            "$ref": "../change_impact_cases_v1.0.0.schema.json#/properties/cases/items/properties/claimed_impact/properties/affected_objects"
+          },
+          "expected_claim_complete": {
+            "type": "boolean"
+          },
+          "expected_finding_codes": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "enum": [
+                "source_semantic_change",
+                "source_transport_metadata_only",
+                "assertion_material_change",
+                "assertion_invalidated_or_disputed",
+                "late_evidence_available_at_new_frontier",
+                "event_semantic_change",
+                "relation_semantic_change",
+                "policy_digest_changed",
+                "projector_digest_changed",
+                "unlinked_source_revision_family",
+                "claimed_impact_omitted_dependency",
+                "baseline_projection_graph_binding_mismatch",
+                "baseline_projection_dependency_invalid",
+                "candidate_graph_reference_invalid",
+                "baseline_source_revision_lineage_invalid",
+                "claimed_impact_mismatch"
+              ]
+            }
+          }
+        }
+      }
+    }
+  }
+}
