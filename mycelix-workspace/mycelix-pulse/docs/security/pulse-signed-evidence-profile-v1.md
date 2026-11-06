@@ -47,7 +47,9 @@ The safe model and all three mutants were executed by the pinned TLC workflow on
 
 The trust-root model has a repeat/qualification receipt from workflow run #327 (6 November 2026): https://github.com/Luminous-Dynamics/mycelix/actions/runs/42260136191. The safe configuration exhausted its finite state queue (8 generated / 4 distinct states); the self-root, rollback and revoked-key mutants were caught by `OnlyPinnedRootCanAuthorizePolicy`, `PolicyEpochNeverRollsBack` and `NoRevokedKeyAcceptedUnderCurrentPolicy`, respectively. Exact receipt: `docs/security/PulseTrustRootLifecycle-model-check-2026-11-06.md`, artifact ID `13524926321`.
 
-The first implementation increment is now in the Rust verifier. It checks the detached root DSSE signature over exact policy bytes before parsing, validates the out-of-band root key fingerprint, and pins the exact current policy digest and epoch. It deliberately does not implement root rotation. The exact-source Rust test run for this implementation is pending; the prior 26/26 DSSE test pass predates these root-mode changes. The detailed implementation/acceptance work remains tracked in [#5895](https://github.com/Luminous-Dynamics/mycelix/issues/5895).
+The first implementation increment is now in the Rust verifier. It checks the detached root DSSE signature over exact policy bytes before parsing, validates the out-of-band root key fingerprint and strict policy-version syntax, and pins the exact current policy digest and epoch. It deliberately does not implement root rotation. Runtime-capture evidence is downgraded to INCOMPLETE in the CLI when the out-of-band root pair is absent; synthetic fixtures may continue using the explicitly weaker relative mode.
+
+The verifier source currently contains 40 tests, including 14 root/bootstrap and CLI claim-boundary tests. **The exact-source Rust test, formatting and Clippy run for this implementation is pending.** The prior 26/26 DSSE test pass predates these root-mode changes. The detailed implementation/acceptance work remains tracked in [#5895](https://github.com/Luminous-Dynamics/mycelix/issues/5895).
 
 ## 1. Threat and claim model
 
