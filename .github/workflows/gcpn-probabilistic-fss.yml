@@ -1,0 +1,45 @@
+name: GCPN probabilistic FSS
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "mycelix-workspace/mycelix-praxis/benchmarks/gcpn-probabilistic-fss/**"
+      - "mycelix-workspace/mycelix-praxis/docs/research/GCPN_PROBABILISTIC_FRACTIONS_SKILL_SCORE_V0_1.md"
+      - "mycelix-workspace/mycelix-praxis/examples/courses/gcpn-probabilistic-fss-v0.1.json"
+      - ".github/workflows/gcpn-probabilistic-fss.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.98.1
+          components: clippy, rustfmt
+      - name: Verify formatting
+        working-directory: mycelix-workspace/mycelix-praxis/benchmarks/gcpn-probabilistic-fss
+        run: cargo fmt --all -- --check
+      - name: Run locked offline tests
+        working-directory: mycelix-workspace/mycelix-praxis/benchmarks/gcpn-probabilistic-fss
+        run: cargo test --locked --offline
+      - name: Run strict Clippy
+        working-directory: mycelix-workspace/mycelix-praxis/benchmarks/gcpn-probabilistic-fss
+        run: cargo clippy --locked --offline --all-targets -- -D warnings
+      - name: Verify deterministic pFSS and null output
+        working-directory: mycelix-workspace/mycelix-praxis/benchmarks/gcpn-probabilistic-fss
+        run: |
+          cargo run --locked --offline --quiet > /tmp/gcpn-pfss-a.csv
+          cargo run --locked --offline --quiet > /tmp/gcpn-pfss-b.csv
+          cmp /tmp/gcpn-pfss-a.csv /tmp/gcpn-pfss-b.csv
+          grep -q "skill_reference=empirical_independent_bernoulli_null" /tmp/gcpn-pfss-a.csv
+          grep -q "random_null_draws=999" /tmp/gcpn-pfss-a.csv
+          grep -q "block_bootstrap_blocks=3" /tmp/gcpn-pfss-a.csv
+          grep -q "block_bootstrap_replicates=199" /tmp/gcpn-pfss-a.csv
+          grep -q "block_bootstrap_pooling=aggregate_fbs_wfbs_components" /tmp/gcpn-pfss-a.csv

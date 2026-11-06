@@ -1,0 +1,68 @@
+{
+  "schema_version": "gcpn-course-profile-v0.1",
+  "id": "gcpn-probabilistic-fss-v0.1",
+  "title": "Probabilistic Fractions Skill Score and scale-aware spatial verification",
+  "category": "research_benchmark",
+  "status": "synthetic_scorer_qualification",
+  "description": "Computes threshold-neighbourhood pFSS and a reproducible independent-Bernoulli reference distribution for a finite ensemble. Separates spatial displacement tolerance from probability calibration and requires scale-aware reporting.",
+  "estimands": [
+    "deterministic_fss_equivalent_one_member",
+    "necker_probabilistic_fss"
+  ],
+  "dimensions": [
+    "threshold",
+    "neighbourhood_scale",
+    "ensemble_size",
+    "event_frequency",
+    "lead_time",
+    "region",
+    "mask",
+    "boundary_policy"
+  ],
+  "reference_method": "empirical_independent_bernoulli_null_matched_to_observed_base_rate_ensemble_size_and_scoring_support",
+  "targets": {
+    "analytic_identity_controls": "100_percent",
+    "invalid_contract_rejection": "100_percent",
+    "missingness_coercion": "zero",
+    "deterministic_reproduction": "100_percent"
+  },
+  "explicit_non_claims": [
+    "Does not establish operational forecast skill.",
+    "Does not compute CRPS, Brier, energy or variogram scores.",
+    "Does not establish probabilistic calibration.",
+    "Independent Bernoulli null is not climatology or persistence.",
+    "No geospatial projection or longitude wrapping is performed."
+  ],
+  "toolchain": "Rust 1.98.1",
+  "external_dependencies": 0,
+  "run_commands": [
+    "cargo fmt --all -- --check",
+    "cargo test --locked --offline",
+    "cargo clippy --locked --offline --all-targets -- -D warnings",
+    "cargo run --locked --offline"
+  ],
+  "uncertainty": {
+    "method": "percentile bootstrap over independent event blocks",
+    "resampling_unit": "event_block_id; all cases from a selected block remain together",
+    "pooling_policy": "aggregate_fbs_wfbs_components",
+    "degenerate_resamples": "counted and reported",
+    "forbidden": "individual grid cells as IID bootstrap units"
+  },
+  "random_reference": {
+    "method": "empirical independent Bernoulli null",
+    "event_probability": "observed area-weighted event frequency",
+    "matched_fields": [
+      "ensemble_size",
+      "valid_mask",
+      "missingness_support",
+      "boundary_policy",
+      "window_width",
+      "cell_weights"
+    ],
+    "outputs": [
+      "null_mean",
+      "null_p95",
+      "upper_tail_monte_carlo_p_value"
+    ]
+  }
+}
