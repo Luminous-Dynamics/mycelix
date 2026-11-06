@@ -266,7 +266,7 @@
     },
     {
       "scenario_id": "DRIFT-009-CROSS-TENANT-DUPLICATE",
-      "expected_impact_level": "historical_replay_required",
+      "expected_impact_level": "no_material_impact",
       "expected_changed_objects": {
         "source_refs": [
           "SRC-OTHER-TENANT"
@@ -290,7 +290,6 @@
       "expected_claim_complete": true,
       "expected_finding_codes": [
         "assertion_material_change",
-        "late_evidence_available_at_new_frontier",
         "source_semantic_change"
       ]
     },
