@@ -580,13 +580,29 @@ mod tests {
         let registrations = array(ctx, "jurisdiction_facts")
             .unwrap()
             .iter()
-            .filter(|item| item["jurisdiction_role"] == "tax_registration")
+            .filter(|item| {
+                item["jurisdiction_role"] == "tax_registration"
+                    && item["assertion_state"] == "disputed"
+            })
             .collect::<Vec<_>>();
         assert_eq!(registrations.len(), 2);
         assert!(registrations.iter().all(|item| {
-            item["assertion_state"] == "disputed"
-                && !fact_eligible_at(item, "2026-10-31", "2026-11-05T09:30:00Z")
+            !fact_eligible_at(item, "2026-10-31", "2026-11-05T09:30:00Z")
         }));
+
+        let supported_registration = array(ctx, "jurisdiction_facts")
+            .unwrap()
+            .iter()
+            .find(|item| {
+                item["jurisdiction_role"] == "tax_registration"
+                    && item["assertion_state"] == "evidence_supported"
+            })
+            .expect("supported buyer registration");
+        assert!(fact_eligible_at(
+            supported_registration,
+            "2026-10-31",
+            "2026-11-05T09:30:00Z"
+        ));
     }
 
     #[test]
