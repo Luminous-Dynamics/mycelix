@@ -1351,6 +1351,54 @@ mod tests {
     }
 
     #[test]
+    fn scitt_receipt_metadata_mutation_fails_closed() {
+        let (bundle, trace, policy) = fixture();
+        let mut value: Value = serde_json::from_slice(&bundle).unwrap();
+        value["attestations"][0]["envelope"] = json!({
+            "format": "scitt_rfc9943_cose",
+            "media_type": "application/scitt-statement+cose",
+            "signed_statement_cose_base64": STANDARD.encode(b"statement"),
+            "statement_sha256": sha256_hex(b"statement"),
+            "receipts": [{
+                "media_type": "application/scitt-receipt+cose",
+                "ts_issuer": "test-ts",
+                "ts_keyid": "test-ts-key",
+                "receipt_cose_base64": STANDARD.encode(b"receipt"),
+                "registration_policy_sha256": "invalid"
+            }]
+        });
+        let report = audit(&serde_json::to_vec(&value).unwrap(), &trace, &policy).unwrap();
+        assert_eq!(report.status, "FAIL");
+        assert!(report.findings.iter().any(|f| {
+            f.code == "SCITT_RECEIPT_METADATA_INVALID"
+        }));
+    }
+
+    #[test]
+    fn structurally_valid_scitt_receipt_still_requires_cryptographic_verification() {
+        let (bundle, trace, policy) = fixture();
+        let mut value: Value = serde_json::from_slice(&bundle).unwrap();
+        value["attestations"][0]["envelope"] = json!({
+            "format": "scitt_rfc9943_cose",
+            "media_type": "application/scitt-statement+cose",
+            "signed_statement_cose_base64": STANDARD.encode(b"statement"),
+            "statement_sha256": sha256_hex(b"statement"),
+            "receipts": [{
+                "media_type": "application/scitt-receipt+cose",
+                "ts_issuer": "test-ts",
+                "ts_keyid": "test-ts-key",
+                "receipt_cose_base64": STANDARD.encode(b"receipt"),
+                "registration_policy_sha256": "a".repeat(64)
+            }]
+        });
+        let report = audit(&serde_json::to_vec(&value).unwrap(), &trace, &policy).unwrap();
+        assert_eq!(report.status, "INCOMPLETE");
+        assert!(report.findings.iter().any(|f| {
+            f.code == "SCITT_COSE_VERIFICATION_UNIMPLEMENTED"
+        }));
+    }
+
+    #[test]
     fn causal_self_edge_fails_closed() {
         let (bundle, trace, policy) = fixture();
         let mut value: Value = serde_json::from_slice(&bundle).unwrap();
