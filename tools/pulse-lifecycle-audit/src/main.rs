@@ -175,6 +175,7 @@ struct HostCall {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct DomainEffect {
+    actor: String,
     operation_id: String,
     attempt_id: u32,
     effect_id: String,
@@ -250,6 +251,7 @@ enum CallerOutcomeKind {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct CallerOutcome {
+    actor: String,
     operation_id: String,
     attempt_id: u32,
     outcome: CallerOutcomeKind,
@@ -319,6 +321,9 @@ struct CallState {
     host_authorized: bool,
     domain_allowed: bool,
 }
+
+type OperationIdentity = (String, String);
+type AttemptIdentity = (String, String, u32);
 
 fn finding(
     findings: &mut Vec<Finding>,
@@ -397,11 +402,11 @@ fn audit(bundle: &TraceBundle, input_sha256: String) -> AuditReport {
     // one action cannot simultaneously represent a grant, revoke, claim or effect.
     let mut authored_action_hashes: BTreeMap<String, (String, String)> = BTreeMap::new();
     let mut event_ids = BTreeSet::new();
-    let mut call_states: BTreeMap<(String, u32), CallState> = BTreeMap::new();
-    let mut effects_by_operation: BTreeMap<String, String> = BTreeMap::new();
-    let mut effects_by_attempt: BTreeSet<(String, u32)> = BTreeSet::new();
+    let mut call_states: BTreeMap<AttemptIdentity, CallState> = BTreeMap::new();
+    let mut effects_by_operation: BTreeMap<OperationIdentity, String> = BTreeMap::new();
+    let mut effects_by_attempt: BTreeSet<AttemptIdentity> = BTreeSet::new();
     let mut effect_ids = BTreeSet::new();
-    let mut caller_outcomes: BTreeMap<(String, u32), CallerOutcomeKind> = BTreeMap::new();
+    let mut caller_outcomes: BTreeMap<AttemptIdentity, CallerOutcomeKind> = BTreeMap::new();
     let mut last_seq = 0u64;
     let mut last_authority_index = 0u64;
     let mut saw_grant = false;
@@ -670,7 +675,9 @@ fn audit(bundle: &TraceBundle, input_sha256: String) -> AuditReport {
                     finding(&mut findings, "DOMAIN_OUTCOME_UNKNOWN_AFTER_HOST_ALLOW", "incomplete",
                         Some(&event.event_id), "host authorization is not proof of domain execution or rejection");
                 }
-                let key = (call.operation_id.clone(), call.attempt_id);
+                // Logical operation IDs are caller-scoped; independent agents
+                // may legitimately reuse the same ID and attempt number.
+                let key = (call.caller.clone(), call.operation_id.clone(), call.attempt_id);
                 if call_states.insert(key, CallState {
                     host_authorized,
                     domain_allowed: call.domain_decision == DomainDecision::Allow,
@@ -681,7 +688,7 @@ fn audit(bundle: &TraceBundle, input_sha256: String) -> AuditReport {
             }
             EventKind::DomainEffect(effect) => {
                 counts.domain_effects += 1;
-                if effect.operation_id.trim().is_empty() || effect.attempt_id == 0 ||
+                if effect.actor.trim().is_empty() || effect.operation_id.trim().is_empty() || effect.attempt_id == 0 ||
                     effect.effect_id.trim().is_empty() || effect.action_hash.trim().is_empty() {
                     finding(&mut findings, "DOMAIN_EFFECT_EVIDENCE_INCOMPLETE", "incomplete",
                         Some(&event.event_id), "effect ID and source-chain ActionHash must be present");
@@ -697,23 +704,25 @@ fn audit(bundle: &TraceBundle, input_sha256: String) -> AuditReport {
                     finding(&mut findings, "DUPLICATE_EFFECT_ID", "violation",
                         Some(&event.event_id), "effect IDs must be globally unique");
                 }
-                let attempt_key = (effect.operation_id.clone(), effect.attempt_id);
-                if !effects_by_attempt.insert(attempt_key) {
+                // Effect deduplication is scoped to the authenticated actor.
+                let operation_identity = (effect.actor.clone(), effect.operation_id.clone());
+                let attempt_key = (effect.actor.clone(), effect.operation_id.clone(), effect.attempt_id);
+                if !effects_by_attempt.insert(attempt_key.clone()) {
                     finding(&mut findings, "MULTIPLE_EFFECTS_PER_ATTEMPT", "violation",
                         Some(&event.event_id), "one logical operation attempt may produce at most one durable effect");
                 }
-                if let Some(existing) = effects_by_operation.get(&effect.operation_id) {
+                if let Some(existing) = effects_by_operation.get(&operation_identity) {
                     if existing != &effect.effect_id {
                         finding(&mut findings, "MULTIPLE_EFFECTS_PER_LOGICAL_OPERATION", "violation",
-                            Some(&event.event_id), format!("operation {} has effects {} and {}", effect.operation_id, existing, effect.effect_id));
+                            Some(&event.event_id), format!("actor {} operation {} has effects {} and {}", effect.actor, effect.operation_id, existing, effect.effect_id));
                     } else {
                         finding(&mut findings, "DUPLICATE_EFFECT_OBSERVATION", "violation",
                             Some(&event.event_id), "the same durable effect was recorded twice");
                     }
                 } else {
-                    effects_by_operation.insert(effect.operation_id.clone(), effect.effect_id.clone());
+                    effects_by_operation.insert(operation_identity, effect.effect_id.clone());
                 }
-                match call_states.get(&(effect.operation_id.clone(), effect.attempt_id)) {
+                match call_states.get(&attempt_key) {
                     None => finding(&mut findings, "EFFECT_WITHOUT_HOST_CALL", "incomplete",
                         Some(&event.event_id), "the matching host-call attempt is absent from the trace"),
                     Some(call) => {
@@ -864,14 +873,14 @@ fn audit(bundle: &TraceBundle, input_sha256: String) -> AuditReport {
                 }
             }
             EventKind::CallerOutcome(outcome) => {
-                if outcome.operation_id.trim().is_empty() || outcome.attempt_id == 0 {
+                if outcome.actor.trim().is_empty() || outcome.operation_id.trim().is_empty() || outcome.attempt_id == 0 {
                     finding(&mut findings, "CALLER_OUTCOME_IDENTITY_INCOMPLETE", "incomplete",
                         Some(&event.event_id), "caller outcome requires logical operation and attempt IDs");
                 }
                 if outcome.outcome == CallerOutcomeKind::Unknown {
                     counts.caller_outcomes_unknown += 1;
                 }
-                let key = (outcome.operation_id.clone(), outcome.attempt_id);
+                let key = (outcome.actor.clone(), outcome.operation_id.clone(), outcome.attempt_id);
                 match caller_outcomes.get(&key).copied() {
                     None => {
                         caller_outcomes.insert(key, outcome.outcome);
@@ -896,15 +905,15 @@ fn audit(bundle: &TraceBundle, input_sha256: String) -> AuditReport {
         finding(&mut findings, "LIFECYCLE_TRACE_INCOMPLETE", "incomplete", None,
             "trace must contain at least one grant issuance and one host call");
     }
-    for ((operation_id, attempt_id), outcome) in caller_outcomes {
-        let has_effect = effects_by_attempt.contains(&(operation_id.clone(), attempt_id));
+    for ((actor, operation_id, attempt_id), outcome) in caller_outcomes {
+        let has_effect = effects_by_attempt.contains(&(actor.clone(), operation_id.clone(), attempt_id));
         if matches!(outcome, CallerOutcomeKind::NotCommitted | CallerOutcomeKind::Rejected) && has_effect {
             finding(&mut findings, "NOT_COMMITTED_CONTRADICTS_ATTEMPT_EFFECT", "violation", None,
-                format!("operation {operation_id} attempt {attempt_id} was reported {:?} but has a durable effect", outcome));
+                format!("actor {actor} operation {operation_id} attempt {attempt_id} was reported {:?} but has a durable effect", outcome));
         }
         if outcome == CallerOutcomeKind::Committed && !has_effect {
             finding(&mut findings, "COMMITTED_OUTCOME_WITHOUT_EFFECT_EVIDENCE", "incomplete", None,
-                format!("operation {operation_id} attempt {attempt_id} was reported committed without a matching durable effect receipt"));
+                format!("actor {actor} operation {operation_id} attempt {attempt_id} was reported committed without a matching durable effect receipt"));
         }
     }
 
