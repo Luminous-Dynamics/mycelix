@@ -1,0 +1,812 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mycelix.net/schemas/payment-recovery-graph-v1.schema.json",
+  "title": "Mycelix Payment Recovery Graph Corpus v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "corpus_id",
+    "status",
+    "jurisdiction",
+    "scheme",
+    "created_on",
+    "as_of",
+    "external_effects_enabled",
+    "source_register",
+    "profiles",
+    "scenarios"
+  ],
+  "properties": {
+    "schema": {
+      "const": "mycelix.payment-recovery-graph/v1"
+    },
+    "corpus_id": {
+      "const": "PAYMENT-RECOVERY-GRAPH-SYNTHETIC-V1"
+    },
+    "status": {
+      "const": "synthetic_reference_only"
+    },
+    "jurisdiction": {
+      "const": "BR"
+    },
+    "scheme": {
+      "const": "PIX_MED_V4_2_COMPARATOR"
+    },
+    "created_on": {
+      "type": "string",
+      "format": "date"
+    },
+    "as_of": {
+      "type": "string",
+      "format": "date"
+    },
+    "external_effects_enabled": {
+      "const": false
+    },
+    "source_register": {
+      "type": "array",
+      "minItems": 3,
+      "items": {
+        "$ref": "#/$defs/source"
+      }
+    },
+    "profiles": {
+      "type": "array",
+      "minItems": 2,
+      "items": {
+        "$ref": "#/$defs/profile"
+      }
+    },
+    "scenarios": {
+      "type": "array",
+      "minItems": 20,
+      "items": {
+        "$ref": "#/$defs/scenario"
+      }
+    }
+  },
+  "$defs": {
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "authority",
+        "title",
+        "url",
+        "published_on",
+        "observed_on",
+        "evidence_class",
+        "supports",
+        "does_not_support"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Z0-9_]+$"
+        },
+        "authority": {
+          "type": "string",
+          "minLength": 1
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "url": {
+          "type": "string",
+          "format": "uri"
+        },
+        "published_on": {
+          "type": "string",
+          "format": "date"
+        },
+        "observed_on": {
+          "type": "string",
+          "format": "date"
+        },
+        "evidence_class": {
+          "type": "string",
+          "minLength": 1
+        },
+        "supports": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        },
+        "does_not_support": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "profile_id",
+        "jurisdiction",
+        "scheme",
+        "participant_scope",
+        "version",
+        "published_on",
+        "observed_on",
+        "effective_date_state",
+        "source_refs",
+        "profile_claim"
+      ],
+      "properties": {
+        "profile_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "jurisdiction": {
+          "type": "string",
+          "minLength": 2
+        },
+        "scheme": {
+          "type": "string",
+          "minLength": 1
+        },
+        "participant_scope": {
+          "type": "string",
+          "minLength": 1
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "published_on": {
+          "type": "string",
+          "format": "date"
+        },
+        "observed_on": {
+          "type": "string",
+          "format": "date"
+        },
+        "effective_from": {
+          "type": "string",
+          "format": "date"
+        },
+        "effective_date_state": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_refs": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        },
+        "profile_claim": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "root": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "root_transaction_id",
+        "payer_account_id",
+        "recipient_account_id",
+        "recipient_psp_id",
+        "amount_minor_units",
+        "currency",
+        "observed_at",
+        "source_evidence_refs"
+      ],
+      "properties": {
+        "root_transaction_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "payer_account_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "recipient_account_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "recipient_psp_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "amount_minor_units": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "currency": {
+          "type": "string",
+          "pattern": "^[A-Z]{3}$"
+        },
+        "observed_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "source_evidence_refs": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "transaction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "transaction_id",
+        "source_account_id",
+        "destination_account_id",
+        "source_psp_id",
+        "destination_psp_id",
+        "amount_minor_units",
+        "currency",
+        "observed_at",
+        "parent_transaction_ids",
+        "candidate_root_ids",
+        "relationship_claim",
+        "link_evidence_refs"
+      ],
+      "properties": {
+        "transaction_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_account_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "destination_account_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_psp_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "destination_psp_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "amount_minor_units": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "currency": {
+          "type": "string",
+          "pattern": "^[A-Z]{3}$"
+        },
+        "observed_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "parent_transaction_ids": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        },
+        "candidate_root_ids": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        },
+        "relationship_claim": {
+          "const": "candidate_flow_continuity_not_proven_fund_origin"
+        },
+        "link_evidence_refs": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "account_snapshot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "account_id",
+        "psp_id",
+        "currency",
+        "coverage_state",
+        "opening_balance_minor_units",
+        "root_inflows_minor_units",
+        "other_inflows_minor_units",
+        "observed_outflows_minor_units",
+        "other_outflows_minor_units",
+        "closing_balance_minor_units",
+        "available_balance_minor_units",
+        "observed_at",
+        "source_evidence_refs"
+      ],
+      "properties": {
+        "account_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "psp_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "coverage_state": {
+          "enum": [
+            "complete",
+            "partial",
+            "unknown"
+          ]
+        },
+        "opening_balance_minor_units": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "root_inflows_minor_units": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "other_inflows_minor_units": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "observed_outflows_minor_units": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "other_outflows_minor_units": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "closing_balance_minor_units": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "available_balance_minor_units": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "observed_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "source_evidence_refs": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        },
+        "currency": {
+          "type": "string",
+          "pattern": "^[A-Z]{3}$"
+        }
+      }
+    },
+    "notification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "notification_id",
+        "root_transaction_id",
+        "transaction_id",
+        "target_account_id",
+        "psp_id",
+        "state",
+        "authority_state",
+        "source_evidence_refs"
+      ],
+      "properties": {
+        "notification_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "transaction_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "target_account_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "psp_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "state": {
+          "enum": [
+            "sent",
+            "acknowledged",
+            "accepted",
+            "rejected",
+            "pending",
+            "completed"
+          ]
+        },
+        "authority_state": {
+          "enum": [
+            "valid",
+            "invalid",
+            "unknown"
+          ]
+        },
+        "source_evidence_refs": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        },
+        "root_transaction_id": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "hold": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "hold_id",
+        "notification_id",
+        "account_id",
+        "currency",
+        "requested_minor_units",
+        "held_minor_units",
+        "available_balance_minor_units",
+        "hold_state",
+        "authority_state",
+        "source_evidence_refs"
+      ],
+      "properties": {
+        "hold_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "notification_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "account_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "requested_minor_units": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "held_minor_units": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "available_balance_minor_units": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "hold_state": {
+          "enum": [
+            "applied",
+            "partial",
+            "released",
+            "contested"
+          ]
+        },
+        "authority_state": {
+          "enum": [
+            "valid",
+            "invalid",
+            "unknown"
+          ]
+        },
+        "source_evidence_refs": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        },
+        "currency": {
+          "type": "string",
+          "pattern": "^[A-Z]{3}$"
+        }
+      }
+    },
+    "returned": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "return_id",
+        "root_transaction_id",
+        "amount_minor_units",
+        "currency",
+        "observed_at",
+        "authority_state",
+        "reconciled",
+        "independent_return_receipt",
+        "independent_ledger_reconciliation",
+        "economic_reference"
+      ],
+      "properties": {
+        "return_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "root_transaction_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "amount_minor_units": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "currency": {
+          "type": "string",
+          "pattern": "^[A-Z]{3}$"
+        },
+        "observed_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "authority_state": {
+          "enum": [
+            "valid",
+            "invalid",
+            "unknown"
+          ]
+        },
+        "reconciled": {
+          "type": "boolean"
+        },
+        "independent_return_receipt": {
+          "type": "string",
+          "minLength": 1
+        },
+        "independent_ledger_reconciliation": {
+          "type": "string",
+          "minLength": 1
+        },
+        "economic_reference": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "reversal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "reversal_id",
+        "return_id",
+        "amount_minor_units",
+        "currency",
+        "authority_state",
+        "reconciled",
+        "evidence_refs"
+      ],
+      "properties": {
+        "reversal_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "return_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "amount_minor_units": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "currency": {
+          "type": "string",
+          "pattern": "^[A-Z]{3}$"
+        },
+        "authority_state": {
+          "enum": [
+            "valid",
+            "invalid",
+            "unknown"
+          ]
+        },
+        "reconciled": {
+          "type": "boolean"
+        },
+        "evidence_refs": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "expected_return": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "root_transaction_id",
+        "net_returned_minor_units"
+      ],
+      "properties": {
+        "root_transaction_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "net_returned_minor_units": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "scenario": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "scenario_id",
+        "scenario_type",
+        "jurisdiction",
+        "scheme",
+        "remedy_classification",
+        "recovery_admission",
+        "graph_completeness",
+        "unresolved_external_parent_ids",
+        "roots",
+        "transactions",
+        "account_snapshots",
+        "notifications",
+        "holds",
+        "returns",
+        "return_reversals",
+        "expected_unique_descendant_transaction_count",
+        "expected_net_return_by_root",
+        "negative_controls"
+      ],
+      "properties": {
+        "scenario_id": {
+          "type": "string",
+          "pattern": "^RG-[0-9]{3}$"
+        },
+        "scenario_type": {
+          "type": "string",
+          "minLength": 1
+        },
+        "jurisdiction": {
+          "const": "BR"
+        },
+        "scheme": {
+          "const": "PIX_MED_V4_2_COMPARATOR"
+        },
+        "remedy_classification": {
+          "enum": [
+            "suspected_fraud",
+            "unauthorised_payment",
+            "operational_duplicate",
+            "mistaken_payee",
+            "merchant_dispute",
+            "unknown"
+          ]
+        },
+        "recovery_admission": {
+          "enum": [
+            "pix_med_fraud_graph",
+            "not_admitted",
+            "unknown"
+          ]
+        },
+        "graph_completeness": {
+          "enum": [
+            "complete",
+            "partial",
+            "unknown"
+          ]
+        },
+        "unresolved_external_parent_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        },
+        "roots": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/root"
+          }
+        },
+        "transactions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/transaction"
+          }
+        },
+        "account_snapshots": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/account_snapshot"
+          }
+        },
+        "notifications": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/notification"
+          }
+        },
+        "holds": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/hold"
+          }
+        },
+        "returns": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/returned"
+          }
+        },
+        "return_reversals": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/reversal"
+          }
+        },
+        "expected_unique_descendant_transaction_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "expected_net_return_by_root": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/expected_return"
+          }
+        },
+        "negative_controls": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

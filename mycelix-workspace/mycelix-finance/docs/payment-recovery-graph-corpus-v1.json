@@ -1,0 +1,2476 @@
+{
+  "schema": "mycelix.payment-recovery-graph/v1",
+  "corpus_id": "PAYMENT-RECOVERY-GRAPH-SYNTHETIC-V1",
+  "status": "synthetic_reference_only",
+  "jurisdiction": "BR",
+  "scheme": "PIX_MED_V4_2_COMPARATOR",
+  "created_on": "2026-11-06",
+  "as_of": "2026-11-06",
+  "external_effects_enabled": false,
+  "source_register": [
+    {
+      "id": "BCB_PIX_MED_GUIDE_V4_2",
+      "authority": "Banco Central do Brasil",
+      "title": "Guia de implementação dos procedimentos de devolução no Pix, com ênfase no MED, version 4.2",
+      "url": "https://www.bcb.gov.br/content/estabilidadefinanceira/pix/Regulamento_Pix/versoes_futuras/Guia_MED-versao4-2.pdf",
+      "published_on": "2026-05-11",
+      "observed_on": "2026-11-06",
+      "evidence_class": "official_operational_implementation_guide",
+      "supports": [
+        "Recovery graph starts at a root transaction and maps subsequent transfers to which suspected fraud proceeds were diverted",
+        "Downstream recipient PSPs can receive linked notifications and block requested amounts under Pix rules",
+        "Recovery opening recommended within 10 minutes; 95 percent within 30 minutes; root transaction within 80 days",
+        "Receiving PSP notification analysis 7 calendar days; payer PSP return request within 72 hours after analysis; receiving PSP return step up to 6 hours sequentially",
+        "Monitoring and partial returns can continue up to 90 days from original transaction",
+        "Ordinary wrong-destination payment is not an operational-failure MED case"
+      ],
+      "does_not_support": [
+        "South African PayShap remedy rights or time targets",
+        "Automatic legal ownership of fungible funds in a downstream account",
+        "A graph edge being equivalent to a hold or a returned payment"
+      ]
+    },
+    {
+      "id": "BCB_PIX_MED_FAQ_2026",
+      "authority": "Banco Central do Brasil",
+      "title": "FAQ — Mecanismo Especial de Devolução (MED)",
+      "url": "https://www.bcb.gov.br/meubc/faqs/p/o-que-e-e-como-funciona-o-mecanismo-especial-de-devolucao-med",
+      "published_on": "2026-09-18",
+      "observed_on": "2026-11-06",
+      "evidence_class": "official_scheme_faq",
+      "supports": [
+        "Customer should report suspected fraud to its institution",
+        "Recovery process traces recipient accounts and downstream suspected recipients",
+        "Receiving PSPs block available resources up to requested transaction amount and assess notifications"
+      ],
+      "does_not_support": [
+        "Guaranteed recovery when funds have been dissipated",
+        "Application of Pix rules to PayShap or another jurisdiction"
+      ]
+    },
+    {
+      "id": "BCB_PIX_UX_V7_4_NOTICE",
+      "authority": "Banco Central do Brasil",
+      "title": "BC aprimora experiência do usuário no Pix e amplia proteção contra fraudes",
+      "url": "https://www.bcb.gov.br/detalhenoticia/21251/nota",
+      "published_on": "2026-09-03",
+      "observed_on": "2026-11-06",
+      "evidence_class": "official_future_effective_user_experience_notice",
+      "supports": [
+        "Pix User Experience Manual version 7.4 published 3 September 2026",
+        "Changes take effect 1 March 2027",
+        "Notice describes clearer MED contestation journey and restriction on unrelated advertising or hyperlinks in payment receipts"
+      ],
+      "does_not_support": [
+        "Rules effective on 6 November 2026",
+        "South African payment receipt requirements"
+      ]
+    }
+  ],
+  "profiles": [
+    {
+      "profile_id": "BR-PIX-MED-RECOVERY-V4_2",
+      "jurisdiction": "BR",
+      "scheme": "Pix",
+      "participant_scope": "Pix participants and DICT",
+      "version": "4.2",
+      "published_on": "2026-05-11",
+      "observed_on": "2026-11-06",
+      "effective_date_state": "source_document_version_date_not_scheme_effective_date",
+      "source_refs": [
+        "BCB_PIX_MED_GUIDE_V4_2"
+      ],
+      "profile_claim": "international_comparator_only"
+    },
+    {
+      "profile_id": "BR-PIX-UX-MANUAL-V7_4-FUTURE",
+      "jurisdiction": "BR",
+      "scheme": "Pix",
+      "participant_scope": "Pix participant customer experience",
+      "version": "7.4",
+      "published_on": "2026-09-03",
+      "observed_on": "2026-11-06",
+      "effective_from": "2027-03-01",
+      "effective_date_state": "future_effective_not_current_on_as_of",
+      "source_refs": [
+        "BCB_PIX_UX_V7_4_NOTICE"
+      ],
+      "profile_claim": "future_temporal_comparator_only"
+    }
+  ],
+  "scenarios": [
+    {
+      "scenario_id": "RG-001",
+      "scenario_type": "one_hop_root_to_recipient",
+      "jurisdiction": "BR",
+      "scheme": "PIX_MED_V4_2_COMPARATOR",
+      "remedy_classification": "suspected_fraud",
+      "recovery_admission": "pix_med_fraud_graph",
+      "graph_completeness": "complete",
+      "unresolved_external_parent_ids": [],
+      "roots": [
+        {
+          "root_transaction_id": "ROOT-1",
+          "payer_account_id": "payer-root-1",
+          "recipient_account_id": "A1",
+          "recipient_psp_id": "PSP-ROOT",
+          "amount_minor_units": 10000,
+          "currency": "BRL",
+          "observed_at": "2026-11-01T09:00:00Z",
+          "source_evidence_refs": [
+            "root_receipt_ROOT-1"
+          ]
+        }
+      ],
+      "transactions": [
+        {
+          "transaction_id": "TX-1",
+          "source_account_id": "A1",
+          "destination_account_id": "B1",
+          "source_psp_id": "PSP-A",
+          "destination_psp_id": "PSP-B",
+          "amount_minor_units": 10000,
+          "currency": "BRL",
+          "observed_at": "2026-11-01T09:01:00Z",
+          "parent_transaction_ids": [
+            "ROOT-1"
+          ],
+          "candidate_root_ids": [
+            "ROOT-1"
+          ],
+          "relationship_claim": "candidate_flow_continuity_not_proven_fund_origin",
+          "link_evidence_refs": [
+            "ledger_edge_TX-1"
+          ]
+        }
+      ],
+      "account_snapshots": [],
+      "notifications": [],
+      "holds": [],
+      "returns": [],
+      "return_reversals": [],
+      "expected_unique_descendant_transaction_count": 1,
+      "expected_net_return_by_root": [
+        {
+          "root_transaction_id": "ROOT-1",
+          "net_returned_minor_units": 0
+        }
+      ],
+      "negative_controls": [
+        "candidate_edge_is_not_ownership",
+        "notification_is_not_return",
+        "hold_is_not_return",
+        "unique_return_only",
+        "missing_ledger_is_not_zero"
+      ]
+    },
+    {
+      "scenario_id": "RG-002",
+      "scenario_type": "two_hop_downstream_transfer",
+      "jurisdiction": "BR",
+      "scheme": "PIX_MED_V4_2_COMPARATOR",
+      "remedy_classification": "suspected_fraud",
+      "recovery_admission": "pix_med_fraud_graph",
+      "graph_completeness": "complete",
+      "unresolved_external_parent_ids": [],
+      "roots": [
+        {
+          "root_transaction_id": "ROOT-1",
+          "payer_account_id": "payer-root-1",
+          "recipient_account_id": "A1",
+          "recipient_psp_id": "PSP-ROOT",
+          "amount_minor_units": 10000,
+          "currency": "BRL",
+          "observed_at": "2026-11-01T09:00:00Z",
+          "source_evidence_refs": [
+            "root_receipt_ROOT-1"
+          ]
+        }
+      ],
+      "transactions": [
+        {
+          "transaction_id": "TX-1",
+          "source_account_id": "A1",
+          "destination_account_id": "B1",
+          "source_psp_id": "PSP-A",
+          "destination_psp_id": "PSP-B",
+          "amount_minor_units": 9000,
+          "currency": "BRL",
+          "observed_at": "2026-11-01T09:01:00Z",
+          "parent_transaction_ids": [
+            "ROOT-1"
+          ],
+          "candidate_root_ids": [
+            "ROOT-1"
+          ],
+          "relationship_claim": "candidate_flow_continuity_not_proven_fund_origin",
+          "link_evidence_refs": [
+            "ledger_edge_TX-1"
+          ]
+        },
+        {
+          "transaction_id": "TX-2",
+          "source_account_id": "B1",
+          "destination_account_id": "C1",
+          "source_psp_id": "PSP-B",
+          "destination_psp_id": "PSP-C",
+          "amount_minor_units": 8000,
+          "currency": "BRL",
+          "observed_at": "2026-11-01T09:02:00Z",
+          "parent_transaction_ids": [
+            "TX-1"
+          ],
+          "candidate_root_ids": [
+            "ROOT-1"
+          ],
+          "relationship_claim": "candidate_flow_continuity_not_proven_fund_origin",
+          "link_evidence_refs": [
+            "ledger_edge_TX-2"
+          ]
+        }
+      ],
+      "account_snapshots": [],
+      "notifications": [],
+      "holds": [],
+      "returns": [],
+      "return_reversals": [],
+      "expected_unique_descendant_transaction_count": 2,
+      "expected_net_return_by_root": [
+        {
+          "root_transaction_id": "ROOT-1",
+          "net_returned_minor_units": 0
+        }
+      ],
+      "negative_controls": [
+        "candidate_edge_is_not_ownership",
+        "notification_is_not_return",
+        "hold_is_not_return",
+        "unique_return_only",
+        "missing_ledger_is_not_zero"
+      ]
+    },
+    {
+      "scenario_id": "RG-003",
+      "scenario_type": "fanout_split",
+      "jurisdiction": "BR",
+      "scheme": "PIX_MED_V4_2_COMPARATOR",
+      "remedy_classification": "suspected_fraud",
+      "recovery_admission": "pix_med_fraud_graph",
+      "graph_completeness": "complete",
+      "unresolved_external_parent_ids": [],
+      "roots": [
+        {
+          "root_transaction_id": "ROOT-1",
+          "payer_account_id": "payer-root-1",
+          "recipient_account_id": "A1",
+          "recipient_psp_id": "PSP-ROOT",
+          "amount_minor_units": 10000,
+          "currency": "BRL",
+          "observed_at": "2026-11-01T09:00:00Z",
+          "source_evidence_refs": [
+            "root_receipt_ROOT-1"
+          ]
+        }
+      ],
+      "transactions": [
+        {
+          "transaction_id": "TX-1",
+          "source_account_id": "A1",
+          "destination_account_id": "B1",
+          "source_psp_id": "PSP-A",
+          "destination_psp_id": "PSP-B",
+          "amount_minor_units": 6000,
+          "currency": "BRL",
+          "observed_at": "2026-11-01T09:01:00Z",
+          "parent_transaction_ids": [
+            "ROOT-1"
+          ],
+          "candidate_root_ids": [
+            "ROOT-1"
+          ],
+          "relationship_claim": "candidate_flow_continuity_not_proven_fund_origin",
+          "link_evidence_refs": [
+            "ledger_edge_TX-1"
+          ]
+        },
+        {
+          "transaction_id": "TX-2",
+          "source_account_id": "A1",
+          "destination_account_id": "C1",
+          "source_psp_id": "PSP-A",
+          "destination_psp_id": "PSP-B",
+          "amount_minor_units": 4000,
+          "currency": "BRL",
+          "observed_at": "2026-11-01T09:02:00Z",
+          "parent_transaction_ids": [
+            "ROOT-1"
+          ],
+          "candidate_root_ids": [
+            "ROOT-1"
+          ],
+          "relationship_claim": "candidate_flow_continuity_not_proven_fund_origin",
+          "link_evidence_refs": [
+            "ledger_edge_TX-2"
+          ]
+        }
+      ],
+      "account_snapshots": [],
+      "notifications": [],
+      "holds": [],
+      "returns": [],
+      "return_reversals": [],
+      "expected_unique_descendant_transaction_count": 2,
+      "expected_net_return_by_root": [
+        {
+          "root_transaction_id": "ROOT-1",
+          "net_returned_minor_units": 0
+        }
+      ],
+      "negative_controls": [
+        "candidate_edge_is_not_ownership",
+        "notification_is_not_return",
+        "hold_is_not_return",
+        "unique_return_only",
+        "missing_ledger_is_not_zero"
+      ]
+    },
+    {
+      "scenario_id": "RG-004",
+      "scenario_type": "convergent_paths_are_deduplicated",
+      "jurisdiction": "BR",
+      "scheme": "PIX_MED_V4_2_COMPARATOR",
+      "remedy_classification": "suspected_fraud",
+      "recovery_admission": "pix_med_fraud_graph",
+      "graph_completeness": "complete",
+      "unresolved_external_parent_ids": [],
+      "roots": [
+        {
+          "root_transaction_id": "ROOT-1",
+          "payer_account_id": "payer-root-1",
+          "recipient_account_id": "A1",
+          "recipient_psp_id": "PSP-ROOT",
+          "amount_minor_units": 10000,
+          "currency": "BRL",
+          "observed_at": "2026-11-01T09:00:00Z",
+          "source_evidence_refs": [
+            "root_receipt_ROOT-1"
+          ]
+        }
+      ],
+      "transactions": [
+        {
+          "transaction_id": "TX-1",
+          "source_account_id": "A1",
+          "destination_account_id": "B1",
+          "source_psp_id": "PSP-A",
+          "destination_psp_id": "PSP-B",
+          "amount_minor_units": 6000,
+          "currency": "BRL",
+          "observed_at": "2026-11-01T09:01:00Z",
+          "parent_transaction_ids": [
+            "ROOT-1"
+          ],
+          "candidate_root_ids": [
+            "ROOT-1"
+          ],
+          "relationship_claim": "candidate_flow_continuity_not_proven_fund_origin",
+          "link_evidence_refs": [
+            "ledger_edge_TX-1"
+          ]
+        },
+        {
+          "transaction_id": "TX-2",
+          "source_account_id": "A1",
+          "destination_account_id": "C1",
+          "source_psp_id": "PSP-A",
+          "destination_psp_id": "PSP-B",
+          "amount_minor_units": 4000,
+          "currency": "BRL",
+          "observed_at": "2026-11-01T09:02:00Z",
+          "parent_transaction_ids": [
+            "ROOT-1"
+          ],
+          "candidate_root_ids": [
+            "ROOT-1"
+          ],
+          "relationship_claim": "candidate_flow_continuity_not_proven_fund_origin",
+          "link_evidence_refs": [
+            "ledger_edge_TX-2"
+          ]
+        },
+        {
+          "transaction_id": "TX-3",
+          "source_account_id": "B1",
+          "destination_account_id": "D1",
+          "source_psp_id": "PSP-A",
+          "destination_psp_id": "PSP-B",
+          "amount_minor_units": 5000,
+          "currency": "BRL",
+          "observed_at": "2026-11-01T09:03:00Z",
+          "parent_transaction_ids": [
+            "TX-1"
+          ],
+          "candidate_root_ids": [
+            "ROOT-1"
+          ],
+          "relationship_claim": "candidate_flow_continuity_not_proven_fund_origin",
+          "link_evidence_refs": [
+            "ledger_edge_TX-3"
+          ]
+        },
+        {
+          "transaction_id": "TX-4",
+          "source_account_id": "C1",
+          "destination_account_id": "D1",
+          "source_psp_id": "PSP-A",
+          "destination_psp_id": "PSP-B",
+          "amount_minor_units": 3000,
+          "currency": "BRL",
+          "observed_at": "2026-11-01T09:04:00Z",
+          "parent_transaction_ids": [
+            "TX-2"
+          ],
+          "candidate_root_ids": [
+            "ROOT-1"
+          ],
+          "relationship_claim": "candidate_flow_continuity_not_proven_fund_origin",
+          "link_evidence_refs": [
+            "ledger_edge_TX-4"
+          ]
+        },
+        {
+          "transaction_id": "TX-5",
+          "source_account_id": "D1",
+          "destination_account_id": "E1",
+          "source_psp_id": "PSP-A",
+          "destination_psp_id": "PSP-B",
+          "amount_minor_units": 7000,
+          "currency": "BRL",
+          "observed_at": "2026-11-01T09:05:00Z",
+          "parent_transaction_ids": [
+            "TX-3",
+            "TX-4"
+          ],
+          "candidate_root_ids": [
+            "ROOT-1"
+          ],
+          "relationship_claim": "candidate_flow_continuity_not_proven_fund_origin",
+          "link_evidence_refs": [
+            "ledger_edge_TX-5"
+          ]
+        }
+      ],
+      "account_snapshots": [],
+      "notifications": [],
+      "holds": [],
+      "returns": [],
+      "return_reversals": [],
+      "expected_unique_descendant_transaction_count": 5,
+      "expected_net_return_by_root": [
+        {
+          "root_transaction_id": "ROOT-1",
+          "net_returned_minor_units": 0
+        }
+      ],
+      "negative_controls": [
+        "candidate_edge_is_not_ownership",
+        "notification_is_not_return",
+        "hold_is_not_return",
+        "unique_return_only",
+        "missing_ledger_is_not_zero"
+      ]
+    },
+    {
+      "scenario_id": "RG-005",
+      "scenario_type": "multiple_roots_share_downstream_edge",
+      "jurisdiction": "BR",
+      "scheme": "PIX_MED_V4_2_COMPARATOR",
+      "remedy_classification": "suspected_fraud",
+      "recovery_admission": "pix_med_fraud_graph",
+      "graph_completeness": "complete",
+      "unresolved_external_parent_ids": [],
+      "roots": [
+        {
+          "root_transaction_id": "ROOT-1",
+          "payer_account_id": "payer-root-1",
+          "recipient_account_id": "A1",
+          "recipient_psp_id": "PSP-ROOT",
+          "amount_minor_units": 6000,
+          "currency": "BRL",
+          "observed_at": "2026-11-01T09:00:00Z",
+          "source_evidence_refs": [
+            "root_receipt_ROOT-1"
+          ]
+        },
+        {
+          "root_transaction_id": "ROOT-2",
+          "payer_account_id": "payer-root-2",
+          "recipient_account_id": "A1",
+          "recipient_psp_id": "PSP-ROOT",
+          "amount_minor_units": 5000,
+          "currency": "BRL",
+          "observed_at": "2026-11-01T09:00:00Z",
+          "source_evidence_refs": [
+            "root_receipt_ROOT-2"
+          ]
+        }
+      ],
+      "transactions": [
+        {
+          "transaction_id": "TX-SHARED",
+          "source_account_id": "A1",
+          "destination_account_id": "B1",
+          "source_psp_id": "PSP-A",
+          "destination_psp_id": "PSP-B",
+          "amount_minor_units": 9000,
+          "currency": "BRL",
+          "observed_at": "2026-11-01T09:03:00Z",
+          "parent_transaction_ids": [
+            "ROOT-1",
+            "ROOT-2"
+          ],
+          "candidate_root_ids": [
+            "ROOT-1",
+            "ROOT-2"
+          ],
+          "relationship_claim": "candidate_flow_continuity_not_proven_fund_origin",
+          "link_evidence_refs": [
+            "ledger_edge_TX-SHARED"
+          ]
+        }
+      ],
+      "account_snapshots": [],
+      "notifications": [],
+      "holds": [],
+      "returns": [],
+      "return_reversals": [],
+      "expected_unique_descendant_transaction_count": 1,
+      "expected_net_return_by_root": [
+        {
+          "root_transaction_id": "ROOT-1",
+          "net_returned_minor_units": 0
+        },
+        {
+          "root_transaction_id": "ROOT-2",
+          "net_returned_minor_units": 0
+        }
+      ],
+      "negative_controls": [
+        "candidate_edge_is_not_ownership",
+        "notification_is_not_return",
+        "hold_is_not_return",
+        "unique_return_only",
+        "missing_ledger_is_not_zero"
+      ]
+    },
+    {
+      "scenario_id": "RG-006",
+      "scenario_type": "commingled_funds_are_candidate_not_point_attribution",
+      "jurisdiction": "BR",
+      "scheme": "PIX_MED_V4_2_COMPARATOR",
+      "remedy_classification": "suspected_fraud",
+      "recovery_admission": "pix_med_fraud_graph",
+      "graph_completeness": "complete",
+      "unresolved_external_parent_ids": [],
+      "roots": [
+        {
+          "root_transaction_id": "ROOT-1",
+          "payer_account_id": "payer-root-1",
+          "recipient_account_id": "A1",
+          "recipient_psp_id": "PSP-ROOT",
+          "amount_minor_units": 10000,
+          "currency": "BRL",
+          "observed_at": "2026-11-01T09:00:00Z",
+          "source_evidence_refs": [
+            "root_receipt_ROOT-1"
+          ]
+        }
+      ],
+      "transactions": [
+        {
+          "transaction_id": "TX-1",
+          "source_account_id": "A1",
+          "destination_account_id": "B1",
+          "source_psp_id": "PSP-A",
+          "destination_psp_id": "PSP-B",
+          "amount_minor_units": 15000,
+          "currency": "BRL",
+          "observed_at": "2026-11-01T09:01:00Z",
+          "parent_transaction_ids": [
+            "ROOT-1"
+          ],
+          "candidate_root_ids": [
+            "ROOT-1"
+          ],
+          "relationship_claim": "candidate_flow_continuity_not_proven_fund_origin",
+          "link_evidence_refs": [
+            "ledger_edge_TX-1"
+          ]
+        }
+      ],
+      "account_snapshots": [
+        {
+          "account_id": "A1",
+          "psp_id": "PSP-A",
+          "coverage_state": "complete",
+          "opening_balance_minor_units": 50000,
+          "root_inflows_minor_units": 10000,
+          "other_inflows_minor_units": 5000,
+          "observed_outflows_minor_units": 15000,
+          "other_outflows_minor_units": 0,
+          "closing_balance_minor_units": 50000,
+          "available_balance_minor_units": 50000,
+          "observed_at": "2026-11-01T09:30:00Z",
+          "source_evidence_refs": [
+            "snapshot_A1"
+          ],
+          "currency": "BRL"
+        }
+      ],
+      "notifications": [],
+      "holds": [],
+      "returns": [],
+      "return_reversals": [],
+      "expected_unique_descendant_transaction_count": 1,
+      "expected_net_return_by_root": [
+        {
+          "root_transaction_id": "ROOT-1",
+          "net_returned_minor_units": 0
+        }
+      ],
+      "negative_controls": [
+        "candidate_edge_is_not_ownership",
+        "notification_is_not_return",
+        "hold_is_not_return",
+        "unique_return_only",
+        "missing_ledger_is_not_zero"
+      ]
+    },
+    {
+      "scenario_id": "RG-007",
+      "scenario_type": "partial_balance_hold_not_full_recovery",
+      "jurisdiction": "BR",
+      "scheme": "PIX_MED_V4_2_COMPARATOR",
+      "remedy_classification": "suspected_fraud",
+      "recovery_admission": "pix_med_fraud_graph",
+      "graph_completeness": "complete",
+      "unresolved_external_parent_ids": [],
+      "roots": [
+        {
+          "root_transaction_id": "ROOT-1",
+          "payer_account_id": "payer-root-1",
+          "recipient_account_id": "A1",
+          "recipient_psp_id": "PSP-ROOT",
+          "amount_minor_units": 10000,
+          "currency": "BRL",
+          "observed_at": "2026-11-01T09:00:00Z",
+          "source_evidence_refs": [
+            "root_receipt_ROOT-1"
+          ]
+        }
+      ],
+      "transactions": [
+        {
+          "transaction_id": "TX-1",
+          "source_account_id": "A1",
+          "destination_account_id": "B1",
+          "source_psp_id": "PSP-A",
+          "destination_psp_id": "PSP-B",
+          "amount_minor_units": 10000,
+          "currency": "BRL",
+          "observed_at": "2026-11-01T09:01:00Z",
+          "parent_transaction_ids": [
+            "ROOT-1"
+          ],
+          "candidate_root_ids": [
+            "ROOT-1"
+          ],
+          "relationship_claim": "candidate_flow_continuity_not_proven_fund_origin",
+          "link_evidence_refs": [
+            "ledger_edge_TX-1"
+          ]
+        }
+      ],
+      "account_snapshots": [
+        {
+          "account_id": "B1",
+          "psp_id": "PSP-B",
+          "coverage_state": "partial",
+          "opening_balance_minor_units": null,
+          "root_inflows_minor_units": null,
+          "other_inflows_minor_units": null,
+          "observed_outflows_minor_units": null,
+          "other_outflows_minor_units": null,
+          "closing_balance_minor_units": null,
+          "available_balance_minor_units": 2000,
+          "observed_at": "2026-11-01T09:30:00Z",
+          "source_evidence_refs": [
+            "snapshot_B1"
+          ],
+          "currency": "BRL"
+        }
+      ],
+      "notifications": [
+        {
+          "notification_id": "N-1",
+          "transaction_id": "TX-1",
+          "target_account_id": "B1",
+          "psp_id": "PSP-B",
+          "state": "accepted",
+          "authority_state": "valid",
+          "source_evidence_refs": [
+            "notification_N-1"
+          ],
+          "root_transaction_id": "ROOT-1"
+        }
+      ],
+      "holds": [
+        {
+          "hold_id": "H-1",
+          "notification_id": "N-1",
+          "account_id": "B1",
+          "requested_minor_units": 10000,
+          "held_minor_units": 2000,
+          "available_balance_minor_units": 2000,
+          "hold_state": "partial",
+          "authority_state": "valid",
+          "source_evidence_refs": [
+            "hold_receipt_H-1"
+          ],
+          "currency": "BRL"
+        }
+      ],
+      "returns": [],
+      "return_reversals": [],
+      "expected_unique_descendant_transaction_count": 1,
+      "expected_net_return_by_root": [
+        {
+          "root_transaction_id": "ROOT-1",
+          "net_returned_minor_units": 0
+        }
+      ],
+      "negative_controls": [
+        "candidate_edge_is_not_ownership",
+        "notification_is_not_return",
+        "hold_is_not_return",
+        "unique_return_only",
+        "missing_ledger_is_not_zero"
+      ]
+    },
+    {
+      "scenario_id": "RG-008",
+      "scenario_type": "multiple_receiving_psps",
+      "jurisdiction": "BR",
+      "scheme": "PIX_MED_V4_2_COMPARATOR",
+      "remedy_classification": "suspected_fraud",
+      "recovery_admission": "pix_med_fraud_graph",
+      "graph_completeness": "complete",
+      "unresolved_external_parent_ids": [],
+      "roots": [
+        {
+          "root_transaction_id": "ROOT-1",
+          "payer_account_id": "payer-root-1",
+          "recipient_account_id": "A1",
+          "recipient_psp_id": "PSP-ROOT",
+          "amount_minor_units": 12000,
+          "currency": "BRL",
+          "observed_at": "2026-11-01T09:00:00Z",
+          "source_evidence_refs": [
+            "root_receipt_ROOT-1"
+          ]
+        }
+      ],
+      "transactions": [
+        {
+          "transaction_id": "TX-1",
+          "source_account_id": "A1",
+          "destination_account_id": "B1",
+          "source_psp_id": "PSP-A",
+          "destination_psp_id": "PSP-B",
+          "amount_minor_units": 9000,
+          "currency": "BRL",
+          "observed_at": "2026-11-01T09:01:00Z",
+          "parent_transaction_ids": [
+            "ROOT-1"
+          ],
+          "candidate_root_ids": [
+            "ROOT-1"
+          ],
+          "relationship_claim": "candidate_flow_continuity_not_proven_fund_origin",
+          "link_evidence_refs": [
+            "ledger_edge_TX-1"
+          ]
+        },
+        {
+          "transaction_id": "TX-2",
+          "source_account_id": "B1",
+          "destination_account_id": "C1",
+          "source_psp_id": "PSP-B",
+          "destination_psp_id": "PSP-C",
+          "amount_minor_units": 7000,
+          "currency": "BRL",
+          "observed_at": "2026-11-01T09:02:00Z",
+          "parent_transaction_ids": [
+            "TX-1"
+          ],
+          "candidate_root_ids": [
+            "ROOT-1"
+          ],
+          "relationship_claim": "candidate_flow_continuity_not_proven_fund_origin",
+          "link_evidence_refs": [
+            "ledger_edge_TX-2"
+          ]
+        },
+        {
+          "transaction_id": "TX-3",
+          "source_account_id": "C1",
+          "destination_account_id": "D1",
+          "source_psp_id": "PSP-C",
+          "destination_psp_id": "PSP-D",
+          "amount_minor_units": 5000,
+          "currency": "BRL",
+          "observed_at": "2026-11-01T09:03:00Z",
+          "parent_transaction_ids": [
+            "TX-2"
+          ],
+          "candidate_root_ids": [
+            "ROOT-1"
+          ],
+          "relationship_claim": "candidate_flow_continuity_not_proven_fund_origin",
+          "link_evidence_refs": [
+            "ledger_edge_TX-3"
+          ]
+        }
+      ],
+      "account_snapshots": [],
+      "notifications": [
+        {
+          "notification_id": "N-1",
+          "transaction_id": "TX-2",
+          "target_account_id": "C1",
+          "psp_id": "PSP-C",
+          "state": "accepted",
+          "authority_state": "valid",
+          "source_evidence_refs": [
+            "notification_N-1"
+          ],
+          "root_transaction_id": "ROOT-1"
+        },
+        {
+          "notification_id": "N-2",
+          "transaction_id": "TX-3",
+          "target_account_id": "D1",
+          "psp_id": "PSP-D",
+          "state": "accepted",
+          "authority_state": "valid",
+          "source_evidence_refs": [
+            "notification_N-2"
+          ],
+          "root_transaction_id": "ROOT-1"
+        }
+      ],
+      "holds": [],
+      "returns": [],
+      "return_reversals": [],
+      "expected_unique_descendant_transaction_count": 3,
+      "expected_net_return_by_root": [
+        {
+          "root_transaction_id": "ROOT-1",
+          "net_returned_minor_units": 0
+        }
+      ],
+      "negative_controls": [
+        "candidate_edge_is_not_ownership",
+        "notification_is_not_return",
+        "hold_is_not_return",
+        "unique_return_only",
+        "missing_ledger_is_not_zero"
+      ]
+    },
+    {
+      "scenario_id": "RG-009",
+      "scenario_type": "accepted_notification_without_hold",
+      "jurisdiction": "BR",
+      "scheme": "PIX_MED_V4_2_COMPARATOR",
+      "remedy_classification": "suspected_fraud",
+      "recovery_admission": "pix_med_fraud_graph",
+      "graph_completeness": "complete",
+      "unresolved_external_parent_ids": [],
+      "roots": [
+        {
+          "root_transaction_id": "ROOT-1",
+          "payer_account_id": "payer-root-1",
+          "recipient_account_id": "A1",
+          "recipient_psp_id": "PSP-ROOT",
+          "amount_minor_units": 8000,
+          "currency": "BRL",
+          "observed_at": "2026-11-01T09:00:00Z",
+          "source_evidence_refs": [
+            "root_receipt_ROOT-1"
+          ]
+        }
+      ],
+      "transactions": [
+        {
+          "transaction_id": "TX-1",
+          "source_account_id": "A1",
+          "destination_account_id": "B1",
+          "source_psp_id": "PSP-A",
+          "destination_psp_id": "PSP-B",
+          "amount_minor_units": 8000,
+          "currency": "BRL",
+          "observed_at": "2026-11-01T09:01:00Z",
+          "parent_transaction_ids": [
+            "ROOT-1"
+          ],
+          "candidate_root_ids": [
+            "ROOT-1"
+          ],
+          "relationship_claim": "candidate_flow_continuity_not_proven_fund_origin",
+          "link_evidence_refs": [
+            "ledger_edge_TX-1"
+          ]
+        }
+      ],
+      "account_snapshots": [],
+      "notifications": [
+        {
+          "notification_id": "N-1",
+          "transaction_id": "TX-1",
+          "target_account_id": "B1",
+          "psp_id": "PSP-B",
+          "state": "accepted",
+          "authority_state": "valid",
+          "source_evidence_refs": [
+            "notification_N-1"
+          ],
+          "root_transaction_id": "ROOT-1"
+        }
+      ],
+      "holds": [],
+      "returns": [],
+      "return_reversals": [],
+      "expected_unique_descendant_transaction_count": 1,
+      "expected_net_return_by_root": [
+        {
+          "root_transaction_id": "ROOT-1",
+          "net_returned_minor_units": 0
+        }
+      ],
+      "negative_controls": [
+        "candidate_edge_is_not_ownership",
+        "notification_is_not_return",
+        "hold_is_not_return",
+        "unique_return_only",
+        "missing_ledger_is_not_zero"
+      ]
+    },
+    {
+      "scenario_id": "RG-010",
+      "scenario_type": "hold_is_not_return",
+      "jurisdiction": "BR",
+      "scheme": "PIX_MED_V4_2_COMPARATOR",
+      "remedy_classification": "suspected_fraud",
+      "recovery_admission": "pix_med_fraud_graph",
+      "graph_completeness": "complete",
+      "unresolved_external_parent_ids": [],
+      "roots": [
+        {
+          "root_transaction_id": "ROOT-1",
+          "payer_account_id": "payer-root-1",
+          "recipient_account_id": "A1",
+          "recipient_psp_id": "PSP-ROOT",
+          "amount_minor_units": 10000,
+          "currency": "BRL",
+          "observed_at": "2026-11-01T09:00:00Z",
+          "source_evidence_refs": [
+            "root_receipt_ROOT-1"
+          ]
+        }
+      ],
+      "transactions": [
+        {
+          "transaction_id": "TX-1",
+          "source_account_id": "A1",
+          "destination_account_id": "B1",
+          "source_psp_id": "PSP-A",
+          "destination_psp_id": "PSP-B",
+          "amount_minor_units": 10000,
+          "currency": "BRL",
+          "observed_at": "2026-11-01T09:01:00Z",
+          "parent_transaction_ids": [
+            "ROOT-1"
+          ],
+          "candidate_root_ids": [
+            "ROOT-1"
+          ],
+          "relationship_claim": "candidate_flow_continuity_not_proven_fund_origin",
+          "link_evidence_refs": [
+            "ledger_edge_TX-1"
+          ]
+        }
+      ],
+      "account_snapshots": [
+        {
+          "account_id": "B1",
+          "psp_id": "PSP-B",
+          "coverage_state": "partial",
+          "opening_balance_minor_units": null,
+          "root_inflows_minor_units": null,
+          "other_inflows_minor_units": null,
+          "observed_outflows_minor_units": null,
+          "other_outflows_minor_units": null,
+          "closing_balance_minor_units": null,
+          "available_balance_minor_units": 10000,
+          "observed_at": "2026-11-01T09:30:00Z",
+          "source_evidence_refs": [
+            "snapshot_B1"
+          ],
+          "currency": "BRL"
+        }
+      ],
+      "notifications": [
+        {
+          "notification_id": "N-1",
+          "transaction_id": "TX-1",
+          "target_account_id": "B1",
+          "psp_id": "PSP-B",
+          "state": "accepted",
+          "authority_state": "valid",
+          "source_evidence_refs": [
+            "notification_N-1"
+          ],
+          "root_transaction_id": "ROOT-1"
+        }
+      ],
+      "holds": [
+        {
+          "hold_id": "H-1",
+          "notification_id": "N-1",
+          "account_id": "B1",
+          "requested_minor_units": 10000,
+          "held_minor_units": 10000,
+          "available_balance_minor_units": 10000,
+          "hold_state": "applied",
+          "authority_state": "valid",
+          "source_evidence_refs": [
+            "hold_receipt_H-1"
+          ],
+          "currency": "BRL"
+        }
+      ],
+      "returns": [],
+      "return_reversals": [],
+      "expected_unique_descendant_transaction_count": 1,
+      "expected_net_return_by_root": [
+        {
+          "root_transaction_id": "ROOT-1",
+          "net_returned_minor_units": 0
+        }
+      ],
+      "negative_controls": [
+        "candidate_edge_is_not_ownership",
+        "notification_is_not_return",
+        "hold_is_not_return",
+        "unique_return_only",
+        "missing_ledger_is_not_zero"
+      ]
+    },
+    {
+      "scenario_id": "RG-011",
+      "scenario_type": "return_before_late_graph_notification",
+      "jurisdiction": "BR",
+      "scheme": "PIX_MED_V4_2_COMPARATOR",
+      "remedy_classification": "suspected_fraud",
+      "recovery_admission": "pix_med_fraud_graph",
+      "graph_completeness": "complete",
+      "unresolved_external_parent_ids": [],
+      "roots": [
+        {
+          "root_transaction_id": "ROOT-1",
+          "payer_account_id": "payer-root-1",
+          "recipient_account_id": "A1",
+          "recipient_psp_id": "PSP-ROOT",
+          "amount_minor_units": 7000,
+          "currency": "BRL",
+          "observed_at": "2026-11-01T09:00:00Z",
+          "source_evidence_refs": [
+            "root_receipt_ROOT-1"
+          ]
+        }
+      ],
+      "transactions": [
+        {
+          "transaction_id": "TX-1",
+          "source_account_id": "A1",
+          "destination_account_id": "B1",
+          "source_psp_id": "PSP-A",
+          "destination_psp_id": "PSP-B",
+          "amount_minor_units": 7000,
+          "currency": "BRL",
+          "observed_at": "2026-11-01T09:01:00Z",
+          "parent_transaction_ids": [
+            "ROOT-1"
+          ],
+          "candidate_root_ids": [
+            "ROOT-1"
+          ],
+          "relationship_claim": "candidate_flow_continuity_not_proven_fund_origin",
+          "link_evidence_refs": [
+            "ledger_edge_TX-1"
+          ]
+        }
+      ],
+      "account_snapshots": [],
+      "notifications": [
+        {
+          "notification_id": "N-1",
+          "transaction_id": "TX-1",
+          "target_account_id": "B1",
+          "psp_id": "PSP-B",
+          "state": "pending",
+          "authority_state": "valid",
+          "source_evidence_refs": [
+            "notification_N-1"
+          ],
+          "root_transaction_id": "ROOT-1"
+        }
+      ],
+      "holds": [],
+      "returns": [
+        {
+          "return_id": "RET-1",
+          "root_transaction_id": "ROOT-1",
+          "amount_minor_units": 2000,
+          "currency": "BRL",
+          "observed_at": "2026-11-01T09:50:00Z",
+          "authority_state": "valid",
+          "reconciled": true,
+          "independent_return_receipt": "receipt_RET-1",
+          "independent_ledger_reconciliation": "recon_RET-1",
+          "economic_reference": "economic_RET-1"
+        }
+      ],
+      "return_reversals": [],
+      "expected_unique_descendant_transaction_count": 1,
+      "expected_net_return_by_root": [
+        {
+          "root_transaction_id": "ROOT-1",
+          "net_returned_minor_units": 2000
+        }
+      ],
+      "negative_controls": [
+        "candidate_edge_is_not_ownership",
+        "notification_is_not_return",
+        "hold_is_not_return",
+        "unique_return_only",
+        "missing_ledger_is_not_zero"
+      ]
+    },
+    {
+      "scenario_id": "RG-012",
+      "scenario_type": "partial_return_preserves_residual_loss",
+      "jurisdiction": "BR",
+      "scheme": "PIX_MED_V4_2_COMPARATOR",
+      "remedy_classification": "suspected_fraud",
+      "recovery_admission": "pix_med_fraud_graph",
+      "graph_completeness": "complete",
+      "unresolved_external_parent_ids": [],
+      "roots": [
+        {
+          "root_transaction_id": "ROOT-1",
+          "payer_account_id": "payer-root-1",
+          "recipient_account_id": "A1",
+          "recipient_psp_id": "PSP-ROOT",
+          "amount_minor_units": 10000,
+          "currency": "BRL",
+          "observed_at": "2026-11-01T09:00:00Z",
+          "source_evidence_refs": [
+            "root_receipt_ROOT-1"
+          ]
+        }
+      ],
+      "transactions": [
+        {
+          "transaction_id": "TX-1",
+          "source_account_id": "A1",
+          "destination_account_id": "B1",
+          "source_psp_id": "PSP-A",
+          "destination_psp_id": "PSP-B",
+          "amount_minor_units": 10000,
+          "currency": "BRL",
+          "observed_at": "2026-11-01T09:01:00Z",
+          "parent_transaction_ids": [
+            "ROOT-1"
+          ],
+          "candidate_root_ids": [
+            "ROOT-1"
+          ],
+          "relationship_claim": "candidate_flow_continuity_not_proven_fund_origin",
+          "link_evidence_refs": [
+            "ledger_edge_TX-1"
+          ]
+        }
+      ],
+      "account_snapshots": [],
+      "notifications": [],
+      "holds": [],
+      "returns": [
+        {
+          "return_id": "RET-1",
+          "root_transaction_id": "ROOT-1",
+          "amount_minor_units": 3000,
+          "currency": "BRL",
+          "observed_at": "2026-11-01T09:50:00Z",
+          "authority_state": "valid",
+          "reconciled": true,
+          "independent_return_receipt": "receipt_RET-1",
+          "independent_ledger_reconciliation": "recon_RET-1",
+          "economic_reference": "economic_RET-1"
+        }
+      ],
+      "return_reversals": [],
+      "expected_unique_descendant_transaction_count": 1,
+      "expected_net_return_by_root": [
+        {
+          "root_transaction_id": "ROOT-1",
+          "net_returned_minor_units": 3000
+        }
+      ],
+      "negative_controls": [
+        "candidate_edge_is_not_ownership",
+        "notification_is_not_return",
+        "hold_is_not_return",
+        "unique_return_only",
+        "missing_ledger_is_not_zero"
+      ]
+    },
+    {
+      "scenario_id": "RG-013",
+      "scenario_type": "full_reconciled_return",
+      "jurisdiction": "BR",
+      "scheme": "PIX_MED_V4_2_COMPARATOR",
+      "remedy_classification": "suspected_fraud",
+      "recovery_admission": "pix_med_fraud_graph",
+      "graph_completeness": "complete",
+      "unresolved_external_parent_ids": [],
+      "roots": [
+        {
+          "root_transaction_id": "ROOT-1",
+          "payer_account_id": "payer-root-1",
+          "recipient_account_id": "A1",
+          "recipient_psp_id": "PSP-ROOT",
+          "amount_minor_units": 10000,
+          "currency": "BRL",
+          "observed_at": "2026-11-01T09:00:00Z",
+          "source_evidence_refs": [
+            "root_receipt_ROOT-1"
+          ]
+        }
+      ],
+      "transactions": [
+        {
+          "transaction_id": "TX-1",
+          "source_account_id": "A1",
+          "destination_account_id": "B1",
+          "source_psp_id": "PSP-A",
+          "destination_psp_id": "PSP-B",
+          "amount_minor_units": 10000,
+          "currency": "BRL",
+          "observed_at": "2026-11-01T09:01:00Z",
+          "parent_transaction_ids": [
+            "ROOT-1"
+          ],
+          "candidate_root_ids": [
+            "ROOT-1"
+          ],
+          "relationship_claim": "candidate_flow_continuity_not_proven_fund_origin",
+          "link_evidence_refs": [
+            "ledger_edge_TX-1"
+          ]
+        }
+      ],
+      "account_snapshots": [],
+      "notifications": [],
+      "holds": [],
+      "returns": [
+        {
+          "return_id": "RET-1",
+          "root_transaction_id": "ROOT-1",
+          "amount_minor_units": 10000,
+          "currency": "BRL",
+          "observed_at": "2026-11-01T09:50:00Z",
+          "authority_state": "valid",
+          "reconciled": true,
+          "independent_return_receipt": "receipt_RET-1",
+          "independent_ledger_reconciliation": "recon_RET-1",
+          "economic_reference": "economic_RET-1"
+        }
+      ],
+      "return_reversals": [],
+      "expected_unique_descendant_transaction_count": 1,
+      "expected_net_return_by_root": [
+        {
+          "root_transaction_id": "ROOT-1",
+          "net_returned_minor_units": 10000
+        }
+      ],
+      "negative_controls": [
+        "candidate_edge_is_not_ownership",
+        "notification_is_not_return",
+        "hold_is_not_return",
+        "unique_return_only",
+        "missing_ledger_is_not_zero"
+      ]
+    },
+    {
+      "scenario_id": "RG-014",
+      "scenario_type": "multiple_partial_returns_sum_once",
+      "jurisdiction": "BR",
+      "scheme": "PIX_MED_V4_2_COMPARATOR",
+      "remedy_classification": "suspected_fraud",
+      "recovery_admission": "pix_med_fraud_graph",
+      "graph_completeness": "complete",
+      "unresolved_external_parent_ids": [],
+      "roots": [
+        {
+          "root_transaction_id": "ROOT-1",
+          "payer_account_id": "payer-root-1",
+          "recipient_account_id": "A1",
+          "recipient_psp_id": "PSP-ROOT",
+          "amount_minor_units": 10000,
+          "currency": "BRL",
+          "observed_at": "2026-11-01T09:00:00Z",
+          "source_evidence_refs": [
+            "root_receipt_ROOT-1"
+          ]
+        }
+      ],
+      "transactions": [
+        {
+          "transaction_id": "TX-1",
+          "source_account_id": "A1",
+          "destination_account_id": "B1",
+          "source_psp_id": "PSP-A",
+          "destination_psp_id": "PSP-B",
+          "amount_minor_units": 10000,
+          "currency": "BRL",
+          "observed_at": "2026-11-01T09:01:00Z",
+          "parent_transaction_ids": [
+            "ROOT-1"
+          ],
+          "candidate_root_ids": [
+            "ROOT-1"
+          ],
+          "relationship_claim": "candidate_flow_continuity_not_proven_fund_origin",
+          "link_evidence_refs": [
+            "ledger_edge_TX-1"
+          ]
+        }
+      ],
+      "account_snapshots": [],
+      "notifications": [],
+      "holds": [],
+      "returns": [
+        {
+          "return_id": "RET-1",
+          "root_transaction_id": "ROOT-1",
+          "amount_minor_units": 2500,
+          "currency": "BRL",
+          "observed_at": "2026-11-01T09:50:00Z",
+          "authority_state": "valid",
+          "reconciled": true,
+          "independent_return_receipt": "receipt_RET-1",
+          "independent_ledger_reconciliation": "recon_RET-1",
+          "economic_reference": "economic_RET-1"
+        },
+        {
+          "return_id": "RET-2",
+          "root_transaction_id": "ROOT-1",
+          "amount_minor_units": 3500,
+          "currency": "BRL",
+          "observed_at": "2026-11-01T09:50:00Z",
+          "authority_state": "valid",
+          "reconciled": true,
+          "independent_return_receipt": "receipt_RET-2",
+          "independent_ledger_reconciliation": "recon_RET-2",
+          "economic_reference": "economic_RET-2"
+        }
+      ],
+      "return_reversals": [],
+      "expected_unique_descendant_transaction_count": 1,
+      "expected_net_return_by_root": [
+        {
+          "root_transaction_id": "ROOT-1",
+          "net_returned_minor_units": 6000
+        }
+      ],
+      "negative_controls": [
+        "candidate_edge_is_not_ownership",
+        "notification_is_not_return",
+        "hold_is_not_return",
+        "unique_return_only",
+        "missing_ledger_is_not_zero"
+      ]
+    },
+    {
+      "scenario_id": "RG-015",
+      "scenario_type": "return_reversal_restores_residual_loss",
+      "jurisdiction": "BR",
+      "scheme": "PIX_MED_V4_2_COMPARATOR",
+      "remedy_classification": "suspected_fraud",
+      "recovery_admission": "pix_med_fraud_graph",
+      "graph_completeness": "complete",
+      "unresolved_external_parent_ids": [],
+      "roots": [
+        {
+          "root_transaction_id": "ROOT-1",
+          "payer_account_id": "payer-root-1",
+          "recipient_account_id": "A1",
+          "recipient_psp_id": "PSP-ROOT",
+          "amount_minor_units": 10000,
+          "currency": "BRL",
+          "observed_at": "2026-11-01T09:00:00Z",
+          "source_evidence_refs": [
+            "root_receipt_ROOT-1"
+          ]
+        }
+      ],
+      "transactions": [
+        {
+          "transaction_id": "TX-1",
+          "source_account_id": "A1",
+          "destination_account_id": "B1",
+          "source_psp_id": "PSP-A",
+          "destination_psp_id": "PSP-B",
+          "amount_minor_units": 10000,
+          "currency": "BRL",
+          "observed_at": "2026-11-01T09:01:00Z",
+          "parent_transaction_ids": [
+            "ROOT-1"
+          ],
+          "candidate_root_ids": [
+            "ROOT-1"
+          ],
+          "relationship_claim": "candidate_flow_continuity_not_proven_fund_origin",
+          "link_evidence_refs": [
+            "ledger_edge_TX-1"
+          ]
+        }
+      ],
+      "account_snapshots": [],
+      "notifications": [],
+      "holds": [],
+      "returns": [
+        {
+          "return_id": "RET-1",
+          "root_transaction_id": "ROOT-1",
+          "amount_minor_units": 8000,
+          "currency": "BRL",
+          "observed_at": "2026-11-01T09:50:00Z",
+          "authority_state": "valid",
+          "reconciled": true,
+          "independent_return_receipt": "receipt_RET-1",
+          "independent_ledger_reconciliation": "recon_RET-1",
+          "economic_reference": "economic_RET-1"
+        }
+      ],
+      "return_reversals": [
+        {
+          "reversal_id": "REV-1",
+          "return_id": "RET-1",
+          "amount_minor_units": 2000,
+          "currency": "BRL",
+          "authority_state": "valid",
+          "reconciled": true,
+          "evidence_refs": [
+            "return_reversal_REV-1"
+          ]
+        }
+      ],
+      "expected_unique_descendant_transaction_count": 1,
+      "expected_net_return_by_root": [
+        {
+          "root_transaction_id": "ROOT-1",
+          "net_returned_minor_units": 6000
+        }
+      ],
+      "negative_controls": [
+        "candidate_edge_is_not_ownership",
+        "notification_is_not_return",
+        "hold_is_not_return",
+        "unique_return_only",
+        "missing_ledger_is_not_zero"
+      ]
+    },
+    {
+      "scenario_id": "RG-016",
+      "scenario_type": "partial_graph_with_unresolved_external_path",
+      "jurisdiction": "BR",
+      "scheme": "PIX_MED_V4_2_COMPARATOR",
+      "remedy_classification": "suspected_fraud",
+      "recovery_admission": "pix_med_fraud_graph",
+      "graph_completeness": "partial",
+      "unresolved_external_parent_ids": [
+        "EXT-PARENT-1"
+      ],
+      "roots": [
+        {
+          "root_transaction_id": "ROOT-1",
+          "payer_account_id": "payer-root-1",
+          "recipient_account_id": "A1",
+          "recipient_psp_id": "PSP-ROOT",
+          "amount_minor_units": 10000,
+          "currency": "BRL",
+          "observed_at": "2026-11-01T09:00:00Z",
+          "source_evidence_refs": [
+            "root_receipt_ROOT-1"
+          ]
+        }
+      ],
+      "transactions": [
+        {
+          "transaction_id": "TX-1",
+          "source_account_id": "A1",
+          "destination_account_id": "B1",
+          "source_psp_id": "PSP-A",
+          "destination_psp_id": "PSP-B",
+          "amount_minor_units": 4000,
+          "currency": "BRL",
+          "observed_at": "2026-11-01T09:01:00Z",
+          "parent_transaction_ids": [
+            "ROOT-1"
+          ],
+          "candidate_root_ids": [
+            "ROOT-1"
+          ],
+          "relationship_claim": "candidate_flow_continuity_not_proven_fund_origin",
+          "link_evidence_refs": [
+            "ledger_edge_TX-1"
+          ]
+        }
+      ],
+      "account_snapshots": [],
+      "notifications": [],
+      "holds": [],
+      "returns": [],
+      "return_reversals": [],
+      "expected_unique_descendant_transaction_count": 1,
+      "expected_net_return_by_root": [
+        {
+          "root_transaction_id": "ROOT-1",
+          "net_returned_minor_units": 0
+        }
+      ],
+      "negative_controls": [
+        "candidate_edge_is_not_ownership",
+        "notification_is_not_return",
+        "hold_is_not_return",
+        "unique_return_only",
+        "missing_ledger_is_not_zero"
+      ]
+    },
+    {
+      "scenario_id": "RG-017",
+      "scenario_type": "notification_rejected_without_recovery",
+      "jurisdiction": "BR",
+      "scheme": "PIX_MED_V4_2_COMPARATOR",
+      "remedy_classification": "suspected_fraud",
+      "recovery_admission": "pix_med_fraud_graph",
+      "graph_completeness": "complete",
+      "unresolved_external_parent_ids": [],
+      "roots": [
+        {
+          "root_transaction_id": "ROOT-1",
+          "payer_account_id": "payer-root-1",
+          "recipient_account_id": "A1",
+          "recipient_psp_id": "PSP-ROOT",
+          "amount_minor_units": 10000,
+          "currency": "BRL",
+          "observed_at": "2026-11-01T09:00:00Z",
+          "source_evidence_refs": [
+            "root_receipt_ROOT-1"
+          ]
+        }
+      ],
+      "transactions": [
+        {
+          "transaction_id": "TX-1",
+          "source_account_id": "A1",
+          "destination_account_id": "B1",
+          "source_psp_id": "PSP-A",
+          "destination_psp_id": "PSP-B",
+          "amount_minor_units": 10000,
+          "currency": "BRL",
+          "observed_at": "2026-11-01T09:01:00Z",
+          "parent_transaction_ids": [
+            "ROOT-1"
+          ],
+          "candidate_root_ids": [
+            "ROOT-1"
+          ],
+          "relationship_claim": "candidate_flow_continuity_not_proven_fund_origin",
+          "link_evidence_refs": [
+            "ledger_edge_TX-1"
+          ]
+        }
+      ],
+      "account_snapshots": [],
+      "notifications": [
+        {
+          "notification_id": "N-1",
+          "transaction_id": "TX-1",
+          "target_account_id": "B1",
+          "psp_id": "PSP-B",
+          "state": "rejected",
+          "authority_state": "valid",
+          "source_evidence_refs": [
+            "notification_N-1"
+          ],
+          "root_transaction_id": "ROOT-1"
+        }
+      ],
+      "holds": [],
+      "returns": [],
+      "return_reversals": [],
+      "expected_unique_descendant_transaction_count": 1,
+      "expected_net_return_by_root": [
+        {
+          "root_transaction_id": "ROOT-1",
+          "net_returned_minor_units": 0
+        }
+      ],
+      "negative_controls": [
+        "candidate_edge_is_not_ownership",
+        "notification_is_not_return",
+        "hold_is_not_return",
+        "unique_return_only",
+        "missing_ledger_is_not_zero"
+      ]
+    },
+    {
+      "scenario_id": "RG-018",
+      "scenario_type": "hold_released_without_return",
+      "jurisdiction": "BR",
+      "scheme": "PIX_MED_V4_2_COMPARATOR",
+      "remedy_classification": "suspected_fraud",
+      "recovery_admission": "pix_med_fraud_graph",
+      "graph_completeness": "complete",
+      "unresolved_external_parent_ids": [],
+      "roots": [
+        {
+          "root_transaction_id": "ROOT-1",
+          "payer_account_id": "payer-root-1",
+          "recipient_account_id": "A1",
+          "recipient_psp_id": "PSP-ROOT",
+          "amount_minor_units": 9000,
+          "currency": "BRL",
+          "observed_at": "2026-11-01T09:00:00Z",
+          "source_evidence_refs": [
+            "root_receipt_ROOT-1"
+          ]
+        }
+      ],
+      "transactions": [
+        {
+          "transaction_id": "TX-1",
+          "source_account_id": "A1",
+          "destination_account_id": "B1",
+          "source_psp_id": "PSP-A",
+          "destination_psp_id": "PSP-B",
+          "amount_minor_units": 9000,
+          "currency": "BRL",
+          "observed_at": "2026-11-01T09:01:00Z",
+          "parent_transaction_ids": [
+            "ROOT-1"
+          ],
+          "candidate_root_ids": [
+            "ROOT-1"
+          ],
+          "relationship_claim": "candidate_flow_continuity_not_proven_fund_origin",
+          "link_evidence_refs": [
+            "ledger_edge_TX-1"
+          ]
+        }
+      ],
+      "account_snapshots": [
+        {
+          "account_id": "B1",
+          "psp_id": "PSP-B",
+          "coverage_state": "partial",
+          "opening_balance_minor_units": null,
+          "root_inflows_minor_units": null,
+          "other_inflows_minor_units": null,
+          "observed_outflows_minor_units": null,
+          "other_outflows_minor_units": null,
+          "closing_balance_minor_units": null,
+          "available_balance_minor_units": 9000,
+          "observed_at": "2026-11-01T09:30:00Z",
+          "source_evidence_refs": [
+            "snapshot_B1"
+          ],
+          "currency": "BRL"
+        }
+      ],
+      "notifications": [
+        {
+          "notification_id": "N-1",
+          "transaction_id": "TX-1",
+          "target_account_id": "B1",
+          "psp_id": "PSP-B",
+          "state": "accepted",
+          "authority_state": "valid",
+          "source_evidence_refs": [
+            "notification_N-1"
+          ],
+          "root_transaction_id": "ROOT-1"
+        }
+      ],
+      "holds": [
+        {
+          "hold_id": "H-1",
+          "notification_id": "N-1",
+          "account_id": "B1",
+          "requested_minor_units": 9000,
+          "held_minor_units": 5000,
+          "available_balance_minor_units": 9000,
+          "hold_state": "released",
+          "authority_state": "valid",
+          "source_evidence_refs": [
+            "hold_receipt_H-1"
+          ],
+          "currency": "BRL"
+        }
+      ],
+      "returns": [],
+      "return_reversals": [],
+      "expected_unique_descendant_transaction_count": 1,
+      "expected_net_return_by_root": [
+        {
+          "root_transaction_id": "ROOT-1",
+          "net_returned_minor_units": 0
+        }
+      ],
+      "negative_controls": [
+        "candidate_edge_is_not_ownership",
+        "notification_is_not_return",
+        "hold_is_not_return",
+        "unique_return_only",
+        "missing_ledger_is_not_zero"
+      ]
+    },
+    {
+      "scenario_id": "RG-019",
+      "scenario_type": "unknown_balance_is_not_zero",
+      "jurisdiction": "BR",
+      "scheme": "PIX_MED_V4_2_COMPARATOR",
+      "remedy_classification": "suspected_fraud",
+      "recovery_admission": "pix_med_fraud_graph",
+      "graph_completeness": "complete",
+      "unresolved_external_parent_ids": [],
+      "roots": [
+        {
+          "root_transaction_id": "ROOT-1",
+          "payer_account_id": "payer-root-1",
+          "recipient_account_id": "A1",
+          "recipient_psp_id": "PSP-ROOT",
+          "amount_minor_units": 7000,
+          "currency": "BRL",
+          "observed_at": "2026-11-01T09:00:00Z",
+          "source_evidence_refs": [
+            "root_receipt_ROOT-1"
+          ]
+        }
+      ],
+      "transactions": [
+        {
+          "transaction_id": "TX-1",
+          "source_account_id": "A1",
+          "destination_account_id": "B1",
+          "source_psp_id": "PSP-A",
+          "destination_psp_id": "PSP-B",
+          "amount_minor_units": 7000,
+          "currency": "BRL",
+          "observed_at": "2026-11-01T09:01:00Z",
+          "parent_transaction_ids": [
+            "ROOT-1"
+          ],
+          "candidate_root_ids": [
+            "ROOT-1"
+          ],
+          "relationship_claim": "candidate_flow_continuity_not_proven_fund_origin",
+          "link_evidence_refs": [
+            "ledger_edge_TX-1"
+          ]
+        }
+      ],
+      "account_snapshots": [
+        {
+          "account_id": "B1",
+          "psp_id": "PSP-B",
+          "coverage_state": "unknown",
+          "opening_balance_minor_units": null,
+          "root_inflows_minor_units": null,
+          "other_inflows_minor_units": null,
+          "observed_outflows_minor_units": null,
+          "other_outflows_minor_units": null,
+          "closing_balance_minor_units": null,
+          "available_balance_minor_units": null,
+          "observed_at": "2026-11-01T09:30:00Z",
+          "source_evidence_refs": [
+            "snapshot_B1"
+          ],
+          "currency": "BRL"
+        }
+      ],
+      "notifications": [
+        {
+          "notification_id": "N-1",
+          "transaction_id": "TX-1",
+          "target_account_id": "B1",
+          "psp_id": "PSP-B",
+          "state": "pending",
+          "authority_state": "valid",
+          "source_evidence_refs": [
+            "notification_N-1"
+          ],
+          "root_transaction_id": "ROOT-1"
+        }
+      ],
+      "holds": [],
+      "returns": [],
+      "return_reversals": [],
+      "expected_unique_descendant_transaction_count": 1,
+      "expected_net_return_by_root": [
+        {
+          "root_transaction_id": "ROOT-1",
+          "net_returned_minor_units": 0
+        }
+      ],
+      "negative_controls": [
+        "candidate_edge_is_not_ownership",
+        "notification_is_not_return",
+        "hold_is_not_return",
+        "unique_return_only",
+        "missing_ledger_is_not_zero"
+      ]
+    },
+    {
+      "scenario_id": "RG-020",
+      "scenario_type": "shared_downstream_transaction_single_root_return",
+      "jurisdiction": "BR",
+      "scheme": "PIX_MED_V4_2_COMPARATOR",
+      "remedy_classification": "suspected_fraud",
+      "recovery_admission": "pix_med_fraud_graph",
+      "graph_completeness": "complete",
+      "unresolved_external_parent_ids": [],
+      "roots": [
+        {
+          "root_transaction_id": "ROOT-1",
+          "payer_account_id": "payer-root-1",
+          "recipient_account_id": "A1",
+          "recipient_psp_id": "PSP-ROOT",
+          "amount_minor_units": 6000,
+          "currency": "BRL",
+          "observed_at": "2026-11-01T09:00:00Z",
+          "source_evidence_refs": [
+            "root_receipt_ROOT-1"
+          ]
+        },
+        {
+          "root_transaction_id": "ROOT-2",
+          "payer_account_id": "payer-root-2",
+          "recipient_account_id": "A1",
+          "recipient_psp_id": "PSP-ROOT",
+          "amount_minor_units": 5000,
+          "currency": "BRL",
+          "observed_at": "2026-11-01T09:00:00Z",
+          "source_evidence_refs": [
+            "root_receipt_ROOT-2"
+          ]
+        }
+      ],
+      "transactions": [
+        {
+          "transaction_id": "TX-SHARED",
+          "source_account_id": "A1",
+          "destination_account_id": "B1",
+          "source_psp_id": "PSP-A",
+          "destination_psp_id": "PSP-B",
+          "amount_minor_units": 9000,
+          "currency": "BRL",
+          "observed_at": "2026-11-01T09:03:00Z",
+          "parent_transaction_ids": [
+            "ROOT-1",
+            "ROOT-2"
+          ],
+          "candidate_root_ids": [
+            "ROOT-1",
+            "ROOT-2"
+          ],
+          "relationship_claim": "candidate_flow_continuity_not_proven_fund_origin",
+          "link_evidence_refs": [
+            "ledger_edge_TX-SHARED"
+          ]
+        }
+      ],
+      "account_snapshots": [],
+      "notifications": [],
+      "holds": [],
+      "returns": [
+        {
+          "return_id": "RET-1",
+          "root_transaction_id": "ROOT-1",
+          "amount_minor_units": 2000,
+          "currency": "BRL",
+          "observed_at": "2026-11-01T09:50:00Z",
+          "authority_state": "valid",
+          "reconciled": true,
+          "independent_return_receipt": "receipt_RET-1",
+          "independent_ledger_reconciliation": "recon_RET-1",
+          "economic_reference": "economic_RET-1"
+        }
+      ],
+      "return_reversals": [],
+      "expected_unique_descendant_transaction_count": 1,
+      "expected_net_return_by_root": [
+        {
+          "root_transaction_id": "ROOT-1",
+          "net_returned_minor_units": 2000
+        },
+        {
+          "root_transaction_id": "ROOT-2",
+          "net_returned_minor_units": 0
+        }
+      ],
+      "negative_controls": [
+        "candidate_edge_is_not_ownership",
+        "notification_is_not_return",
+        "hold_is_not_return",
+        "unique_return_only",
+        "missing_ledger_is_not_zero"
+      ]
+    },
+    {
+      "scenario_id": "RG-021",
+      "scenario_type": "convergent_transaction_unique_identity",
+      "jurisdiction": "BR",
+      "scheme": "PIX_MED_V4_2_COMPARATOR",
+      "remedy_classification": "suspected_fraud",
+      "recovery_admission": "pix_med_fraud_graph",
+      "graph_completeness": "complete",
+      "unresolved_external_parent_ids": [],
+      "roots": [
+        {
+          "root_transaction_id": "ROOT-1",
+          "payer_account_id": "payer-root-1",
+          "recipient_account_id": "A1",
+          "recipient_psp_id": "PSP-ROOT",
+          "amount_minor_units": 10000,
+          "currency": "BRL",
+          "observed_at": "2026-11-01T09:00:00Z",
+          "source_evidence_refs": [
+            "root_receipt_ROOT-1"
+          ]
+        }
+      ],
+      "transactions": [
+        {
+          "transaction_id": "TX-1",
+          "source_account_id": "A1",
+          "destination_account_id": "B1",
+          "source_psp_id": "PSP-A",
+          "destination_psp_id": "PSP-B",
+          "amount_minor_units": 6000,
+          "currency": "BRL",
+          "observed_at": "2026-11-01T09:01:00Z",
+          "parent_transaction_ids": [
+            "ROOT-1"
+          ],
+          "candidate_root_ids": [
+            "ROOT-1"
+          ],
+          "relationship_claim": "candidate_flow_continuity_not_proven_fund_origin",
+          "link_evidence_refs": [
+            "ledger_edge_TX-1"
+          ]
+        },
+        {
+          "transaction_id": "TX-2",
+          "source_account_id": "A1",
+          "destination_account_id": "C1",
+          "source_psp_id": "PSP-A",
+          "destination_psp_id": "PSP-B",
+          "amount_minor_units": 4000,
+          "currency": "BRL",
+          "observed_at": "2026-11-01T09:02:00Z",
+          "parent_transaction_ids": [
+            "ROOT-1"
+          ],
+          "candidate_root_ids": [
+            "ROOT-1"
+          ],
+          "relationship_claim": "candidate_flow_continuity_not_proven_fund_origin",
+          "link_evidence_refs": [
+            "ledger_edge_TX-2"
+          ]
+        },
+        {
+          "transaction_id": "TX-3",
+          "source_account_id": "B1",
+          "destination_account_id": "D1",
+          "source_psp_id": "PSP-A",
+          "destination_psp_id": "PSP-B",
+          "amount_minor_units": 6000,
+          "currency": "BRL",
+          "observed_at": "2026-11-01T09:03:00Z",
+          "parent_transaction_ids": [
+            "TX-1"
+          ],
+          "candidate_root_ids": [
+            "ROOT-1"
+          ],
+          "relationship_claim": "candidate_flow_continuity_not_proven_fund_origin",
+          "link_evidence_refs": [
+            "ledger_edge_TX-3"
+          ]
+        },
+        {
+          "transaction_id": "TX-4",
+          "source_account_id": "C1",
+          "destination_account_id": "D1",
+          "source_psp_id": "PSP-A",
+          "destination_psp_id": "PSP-B",
+          "amount_minor_units": 4000,
+          "currency": "BRL",
+          "observed_at": "2026-11-01T09:04:00Z",
+          "parent_transaction_ids": [
+            "TX-2"
+          ],
+          "candidate_root_ids": [
+            "ROOT-1"
+          ],
+          "relationship_claim": "candidate_flow_continuity_not_proven_fund_origin",
+          "link_evidence_refs": [
+            "ledger_edge_TX-4"
+          ]
+        },
+        {
+          "transaction_id": "TX-5",
+          "source_account_id": "D1",
+          "destination_account_id": "E1",
+          "source_psp_id": "PSP-A",
+          "destination_psp_id": "PSP-B",
+          "amount_minor_units": 6000,
+          "currency": "BRL",
+          "observed_at": "2026-11-01T09:05:00Z",
+          "parent_transaction_ids": [
+            "TX-3",
+            "TX-4"
+          ],
+          "candidate_root_ids": [
+            "ROOT-1"
+          ],
+          "relationship_claim": "candidate_flow_continuity_not_proven_fund_origin",
+          "link_evidence_refs": [
+            "ledger_edge_TX-5"
+          ]
+        }
+      ],
+      "account_snapshots": [],
+      "notifications": [],
+      "holds": [],
+      "returns": [],
+      "return_reversals": [],
+      "expected_unique_descendant_transaction_count": 5,
+      "expected_net_return_by_root": [
+        {
+          "root_transaction_id": "ROOT-1",
+          "net_returned_minor_units": 0
+        }
+      ],
+      "negative_controls": [
+        "candidate_edge_is_not_ownership",
+        "notification_is_not_return",
+        "hold_is_not_return",
+        "unique_return_only",
+        "missing_ledger_is_not_zero"
+      ]
+    },
+    {
+      "scenario_id": "RG-022",
+      "scenario_type": "complete_ledger_reconciliation_with_other_activity",
+      "jurisdiction": "BR",
+      "scheme": "PIX_MED_V4_2_COMPARATOR",
+      "remedy_classification": "suspected_fraud",
+      "recovery_admission": "pix_med_fraud_graph",
+      "graph_completeness": "complete",
+      "unresolved_external_parent_ids": [],
+      "roots": [
+        {
+          "root_transaction_id": "ROOT-1",
+          "payer_account_id": "payer-root-1",
+          "recipient_account_id": "A1",
+          "recipient_psp_id": "PSP-ROOT",
+          "amount_minor_units": 5000,
+          "currency": "BRL",
+          "observed_at": "2026-11-01T09:00:00Z",
+          "source_evidence_refs": [
+            "root_receipt_ROOT-1"
+          ]
+        }
+      ],
+      "transactions": [
+        {
+          "transaction_id": "TX-1",
+          "source_account_id": "A1",
+          "destination_account_id": "B1",
+          "source_psp_id": "PSP-A",
+          "destination_psp_id": "PSP-B",
+          "amount_minor_units": 3000,
+          "currency": "BRL",
+          "observed_at": "2026-11-01T09:01:00Z",
+          "parent_transaction_ids": [
+            "ROOT-1"
+          ],
+          "candidate_root_ids": [
+            "ROOT-1"
+          ],
+          "relationship_claim": "candidate_flow_continuity_not_proven_fund_origin",
+          "link_evidence_refs": [
+            "ledger_edge_TX-1"
+          ]
+        }
+      ],
+      "account_snapshots": [
+        {
+          "account_id": "A1",
+          "psp_id": "PSP-A",
+          "coverage_state": "complete",
+          "opening_balance_minor_units": 10000,
+          "root_inflows_minor_units": 5000,
+          "other_inflows_minor_units": 2000,
+          "observed_outflows_minor_units": 3000,
+          "other_outflows_minor_units": 4000,
+          "closing_balance_minor_units": 10000,
+          "available_balance_minor_units": 10000,
+          "observed_at": "2026-11-01T09:30:00Z",
+          "source_evidence_refs": [
+            "snapshot_A1"
+          ],
+          "currency": "BRL"
+        }
+      ],
+      "notifications": [],
+      "holds": [],
+      "returns": [],
+      "return_reversals": [],
+      "expected_unique_descendant_transaction_count": 1,
+      "expected_net_return_by_root": [
+        {
+          "root_transaction_id": "ROOT-1",
+          "net_returned_minor_units": 0
+        }
+      ],
+      "negative_controls": [
+        "candidate_edge_is_not_ownership",
+        "notification_is_not_return",
+        "hold_is_not_return",
+        "unique_return_only",
+        "missing_ledger_is_not_zero"
+      ]
+    },
+    {
+      "scenario_id": "RG-023",
+      "scenario_type": "duplicate_cross_psp_notice_does_not_duplicate_transaction",
+      "jurisdiction": "BR",
+      "scheme": "PIX_MED_V4_2_COMPARATOR",
+      "remedy_classification": "suspected_fraud",
+      "recovery_admission": "pix_med_fraud_graph",
+      "graph_completeness": "complete",
+      "unresolved_external_parent_ids": [],
+      "roots": [
+        {
+          "root_transaction_id": "ROOT-1",
+          "payer_account_id": "payer-root-1",
+          "recipient_account_id": "A1",
+          "recipient_psp_id": "PSP-ROOT",
+          "amount_minor_units": 10000,
+          "currency": "BRL",
+          "observed_at": "2026-11-01T09:00:00Z",
+          "source_evidence_refs": [
+            "root_receipt_ROOT-1"
+          ]
+        }
+      ],
+      "transactions": [
+        {
+          "transaction_id": "TX-1",
+          "source_account_id": "A1",
+          "destination_account_id": "B1",
+          "source_psp_id": "PSP-A",
+          "destination_psp_id": "PSP-B",
+          "amount_minor_units": 7000,
+          "currency": "BRL",
+          "observed_at": "2026-11-01T09:01:00Z",
+          "parent_transaction_ids": [
+            "ROOT-1"
+          ],
+          "candidate_root_ids": [
+            "ROOT-1"
+          ],
+          "relationship_claim": "candidate_flow_continuity_not_proven_fund_origin",
+          "link_evidence_refs": [
+            "ledger_edge_TX-1"
+          ]
+        }
+      ],
+      "account_snapshots": [],
+      "notifications": [
+        {
+          "notification_id": "N-1",
+          "transaction_id": "TX-1",
+          "target_account_id": "B1",
+          "psp_id": "PSP-B",
+          "state": "accepted",
+          "authority_state": "valid",
+          "source_evidence_refs": [
+            "notification_N-1"
+          ],
+          "root_transaction_id": "ROOT-1"
+        },
+        {
+          "notification_id": "N-2",
+          "transaction_id": "TX-1",
+          "target_account_id": "B1",
+          "psp_id": "PSP-B",
+          "state": "accepted",
+          "authority_state": "valid",
+          "source_evidence_refs": [
+            "notification_N-2"
+          ],
+          "root_transaction_id": "ROOT-1"
+        }
+      ],
+      "holds": [],
+      "returns": [],
+      "return_reversals": [],
+      "expected_unique_descendant_transaction_count": 1,
+      "expected_net_return_by_root": [
+        {
+          "root_transaction_id": "ROOT-1",
+          "net_returned_minor_units": 0
+        }
+      ],
+      "negative_controls": [
+        "candidate_edge_is_not_ownership",
+        "notification_is_not_return",
+        "hold_is_not_return",
+        "unique_return_only",
+        "missing_ledger_is_not_zero"
+      ]
+    },
+    {
+      "scenario_id": "RG-024",
+      "scenario_type": "mistaken_payee_not_admitted_to_pix_fraud_med",
+      "jurisdiction": "BR",
+      "scheme": "PIX_MED_V4_2_COMPARATOR",
+      "remedy_classification": "mistaken_payee",
+      "recovery_admission": "not_admitted",
+      "graph_completeness": "unknown",
+      "unresolved_external_parent_ids": [
+        "unobserved_fraud_flow"
+      ],
+      "roots": [
+        {
+          "root_transaction_id": "ROOT-1",
+          "payer_account_id": "payer-root-1",
+          "recipient_account_id": "A1",
+          "recipient_psp_id": "PSP-ROOT",
+          "amount_minor_units": 5000,
+          "currency": "BRL",
+          "observed_at": "2026-11-01T09:00:00Z",
+          "source_evidence_refs": [
+            "root_receipt_ROOT-1"
+          ]
+        }
+      ],
+      "transactions": [],
+      "account_snapshots": [],
+      "notifications": [],
+      "holds": [],
+      "returns": [],
+      "return_reversals": [],
+      "expected_unique_descendant_transaction_count": 0,
+      "expected_net_return_by_root": [
+        {
+          "root_transaction_id": "ROOT-1",
+          "net_returned_minor_units": 0
+        }
+      ],
+      "negative_controls": [
+        "candidate_edge_is_not_ownership",
+        "notification_is_not_return",
+        "hold_is_not_return",
+        "unique_return_only",
+        "missing_ledger_is_not_zero"
+      ]
+    },
+    {
+      "scenario_id": "RG-025",
+      "scenario_type": "aggregate_hold_conservation_across_two_roots",
+      "jurisdiction": "BR",
+      "scheme": "PIX_MED_V4_2_COMPARATOR",
+      "remedy_classification": "suspected_fraud",
+      "recovery_admission": "pix_med_fraud_graph",
+      "graph_completeness": "complete",
+      "unresolved_external_parent_ids": [],
+      "roots": [
+        {
+          "root_transaction_id": "ROOT-1",
+          "payer_account_id": "PAYER-1",
+          "recipient_account_id": "A1",
+          "recipient_psp_id": "PSP-A",
+          "amount_minor_units": 6000,
+          "currency": "BRL",
+          "observed_at": "2026-11-01T09:00:00Z",
+          "source_evidence_refs": [
+            "root_receipt_ROOT-1"
+          ]
+        },
+        {
+          "root_transaction_id": "ROOT-2",
+          "payer_account_id": "PAYER-2",
+          "recipient_account_id": "A1",
+          "recipient_psp_id": "PSP-A",
+          "amount_minor_units": 5000,
+          "currency": "BRL",
+          "observed_at": "2026-11-01T09:00:10Z",
+          "source_evidence_refs": [
+            "root_receipt_ROOT-2"
+          ]
+        }
+      ],
+      "transactions": [
+        {
+          "transaction_id": "TX-SHARED",
+          "source_account_id": "A1",
+          "destination_account_id": "B1",
+          "source_psp_id": "PSP-A",
+          "destination_psp_id": "PSP-B",
+          "amount_minor_units": 9000,
+          "currency": "BRL",
+          "observed_at": "2026-11-01T09:01:00Z",
+          "parent_transaction_ids": [
+            "ROOT-1",
+            "ROOT-2"
+          ],
+          "candidate_root_ids": [
+            "ROOT-1",
+            "ROOT-2"
+          ],
+          "relationship_claim": "candidate_flow_continuity_not_proven_fund_origin",
+          "link_evidence_refs": [
+            "ledger_edge_TX-SHARED"
+          ]
+        }
+      ],
+      "account_snapshots": [
+        {
+          "account_id": "B1",
+          "psp_id": "PSP-B",
+          "currency": "BRL",
+          "coverage_state": "partial",
+          "opening_balance_minor_units": null,
+          "root_inflows_minor_units": null,
+          "other_inflows_minor_units": null,
+          "observed_outflows_minor_units": null,
+          "other_outflows_minor_units": null,
+          "closing_balance_minor_units": null,
+          "available_balance_minor_units": 9000,
+          "observed_at": "2026-11-01T09:30:00Z",
+          "source_evidence_refs": [
+            "snapshot_B1"
+          ]
+        }
+      ],
+      "notifications": [
+        {
+          "notification_id": "N-ROOT-1",
+          "root_transaction_id": "ROOT-1",
+          "transaction_id": "TX-SHARED",
+          "target_account_id": "B1",
+          "psp_id": "PSP-B",
+          "state": "accepted",
+          "authority_state": "valid",
+          "source_evidence_refs": [
+            "notification_N-ROOT-1"
+          ]
+        },
+        {
+          "notification_id": "N-ROOT-2",
+          "root_transaction_id": "ROOT-2",
+          "transaction_id": "TX-SHARED",
+          "target_account_id": "B1",
+          "psp_id": "PSP-B",
+          "state": "accepted",
+          "authority_state": "valid",
+          "source_evidence_refs": [
+            "notification_N-ROOT-2"
+          ]
+        }
+      ],
+      "holds": [
+        {
+          "hold_id": "H-ROOT-1",
+          "notification_id": "N-ROOT-1",
+          "account_id": "B1",
+          "currency": "BRL",
+          "requested_minor_units": 6000,
+          "held_minor_units": 6000,
+          "available_balance_minor_units": 9000,
+          "hold_state": "applied",
+          "authority_state": "valid",
+          "source_evidence_refs": [
+            "hold_receipt_H-ROOT-1"
+          ]
+        },
+        {
+          "hold_id": "H-ROOT-2",
+          "notification_id": "N-ROOT-2",
+          "account_id": "B1",
+          "currency": "BRL",
+          "requested_minor_units": 5000,
+          "held_minor_units": 3000,
+          "available_balance_minor_units": 9000,
+          "hold_state": "partial",
+          "authority_state": "valid",
+          "source_evidence_refs": [
+            "hold_receipt_H-ROOT-2"
+          ]
+        }
+      ],
+      "returns": [],
+      "return_reversals": [],
+      "expected_unique_descendant_transaction_count": 1,
+      "expected_net_return_by_root": [
+        {
+          "root_transaction_id": "ROOT-1",
+          "net_returned_minor_units": 0
+        },
+        {
+          "root_transaction_id": "ROOT-2",
+          "net_returned_minor_units": 0
+        }
+      ],
+      "negative_controls": [
+        "candidate_edge_is_not_ownership",
+        "notification_is_not_return",
+        "hold_is_not_return",
+        "unique_return_only",
+        "missing_ledger_is_not_zero",
+        "shared_account_holds_cannot_double_reserve"
+      ]
+    }
+  ]
+}
