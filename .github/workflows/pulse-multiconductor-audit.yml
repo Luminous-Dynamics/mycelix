@@ -53,7 +53,7 @@ jobs:
           set -euo pipefail
           cargo run --manifest-path tools/pulse-multiconductor-audit/Cargo.toml --locked -- \
             --benchmark-join-operations 32 --output "$RUNNER_TEMP/pulse-join-smoke.json"
-          jq -e '.status == "PASS" and .semantic_reports_equal == true and .operations == 32 and .events == 98 and .optimized_per_source_cache.cache_hits >= 20 and .optimized_per_source_cache.sources_cached == 1 and .reference_uncached.audit_ns > 0 and .optimized_per_source_cache.audit_ns > 0' \
+          jq -e '.status == "PASS" and .semantic_reports_equal == true and .pair_semantic_reports_equal == true and .source_semantic_reports_equal == true and .operations == 32 and .events == 98 and .pair_memoized.status == "PASS" and .pair_memoized.pair_cache_entries > 0 and .pair_memoized.audit_ns > 0 and .optimized_per_source_cache.cache_hits >= 20 and .optimized_per_source_cache.sources_cached == 1 and .reference_uncached.audit_ns > 0 and .optimized_per_source_cache.audit_ns > 0' \
             "$RUNNER_TEMP/pulse-join-smoke.json"
 
       - name: Smoke-test borrowed versus owned parser parity
@@ -279,6 +279,10 @@ jobs:
             group_by(.operations)
             | map(
                 ([.[].reference_uncached.audit_ns] | sort) as $reference
+                | ([.[].pair_memoized.audit_ns] | sort) as $pair
+                | ([.[].pair_memoized.speedup_over_uncached] | sort) as $pair_speedups
+                | ([.[].pair_memoized.pair_cache_hits] | sort) as $pair_hits
+                | ([.[].pair_memoized.pair_cache_entries] | sort) as $pair_entries
                 | ([.[].optimized_per_source_cache.audit_ns] | sort) as $optimized
                 | ([.[].optimized_per_source_cache.speedup_over_uncached] | sort) as $speedups
                 | ([.[].optimized_per_source_cache.cache_hits] | sort) as $hits
@@ -288,10 +292,15 @@ jobs:
                     events: .[0].events,
                     repetitions: length,
                     sample_class: (if length >= 30 then "independent_process_population" elif length >= 5 then "scaling_sample_no_p95" else "capacity_probe_no_percentiles" end),
-                    all_semantic_reports_equal: all(.[]; .semantic_reports_equal == true),
-                    all_status_pass: all(.[]; .status == "PASS"),
+                    all_semantic_reports_equal: all(.[]; .semantic_reports_equal == true and .pair_semantic_reports_equal == true and .source_semantic_reports_equal == true),
+                    all_status_pass: all(.[]; .status == "PASS" and .pair_memoized.status == "PASS" and .optimized_per_source_cache.status == "PASS"),
                     median_reference_audit_ns: $reference[(($reference | length) / 2 | floor)],
                     p95_reference_audit_ns: (if length >= 20 then $reference[((($reference | length) * 0.95) | ceil) - 1] else null end),
+                    median_pair_memoized_audit_ns: $pair[(($pair | length) / 2 | floor)],
+                    p95_pair_memoized_audit_ns: (if length >= 20 then $pair[((($pair | length) * 0.95) | ceil) - 1] else null end),
+                    median_pair_speedup_over_uncached: $pair_speedups[(($pair_speedups | length) / 2 | floor)],
+                    median_pair_cache_hits: $pair_hits[(($pair_hits | length) / 2 | floor)],
+                    max_pair_cache_entries: ($pair_entries | max),
                     median_cached_audit_ns: $optimized[(($optimized | length) / 2 | floor)],
                     p95_cached_audit_ns: (if length >= 20 then $optimized[((($optimized | length) * 0.95) | ceil) - 1] else null end),
                     median_speedup_over_uncached: $speedups[(($speedups | length) / 2 | floor)],
