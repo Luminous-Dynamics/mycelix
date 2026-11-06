@@ -347,18 +347,25 @@ fn valid_event_shape(event: &Event) -> bool {
 fn relation_valid(relation: &str) -> bool {
     matches!(relation,"program_order"|"request_response"|"source_action_dependency"|"validator_receipt"|"observer_confirmation"|"test_harness_barrier")
 }
-/// Per-audit reachability memoization.
+/// Bounded per-source reachability memoization.
 ///
-/// The cache is deliberately scoped to one immutable, fully constructed DAG.
-/// It is never reused across input histories or source SHAs. Exact event IDs
-/// are the key; local sequence shortcuts remain conductor-local, and a cached
-/// result never substitutes for direct semantic relation checks.
+/// The cache is scoped to one immutable, acyclic graph built by audit(). The
+/// first query from a source uses an early-exit DFS. A second query from the
+/// same source may build its complete reachable set once, allowing fan-out
+/// joins to reuse that set. The global node budget bounds cache memory; graphs
+/// above the bound use the reference DFS path without caching.
+const MAX_CACHED_REACHABLE_NODES: usize = 100_000;
+
 #[derive(Debug, Default)]
 struct ReachabilityCache {
-    outcomes: BTreeMap<(String, String), bool>,
+    source_queries: BTreeMap<String, usize>,
+    reachable_by_source: BTreeMap<String, BTreeSet<String>>,
+    cached_reachable_nodes: usize,
     queries: usize,
     cache_hits: usize,
     dfs_node_visits: usize,
+    full_reachability_builds: usize,
+    cache_limit_skips: usize,
 }
 
 fn path_exists(
@@ -369,59 +376,81 @@ fn path_exists(
     cache: &mut ReachabilityCache,
 ) -> bool {
     cache.queries += 1;
-    let key = (from.to_string(), to.to_string());
-    if let Some(result) = cache.outcomes.get(&key) {
-        cache.cache_hits += 1;
-        return *result;
+
+    if from == to {
+        return true;
     }
 
-    let result = if from == to {
-        true
-    } else if let (Some(source), Some(target)) = (events.get(from), events.get(to)) {
-        // Local sequence is a total order only within one conductor. Cross-
-        // conductor order still requires the evidence-backed causal graph.
-        source.conductor_id == target.conductor_id
+    // Local sequence is a total order only within one conductor. The audit
+    // constructs adjacent local-sequence edges after duplicate checks, so this
+    // is an exact shortcut, never a cross-conductor scalar-height comparison.
+    if let (Some(source), Some(target)) = (events.get(from), events.get(to)) {
+        if source.conductor_id == target.conductor_id
             && source.local_sequence < target.local_sequence
-    } else {
-        false
-    };
+        {
+            return true;
+        }
+    }
 
-    let result = if result {
-        true
-    } else if adjacency
+    if adjacency
         .get(from)
         .is_some_and(|targets| targets.contains(to))
     {
-        true
-    } else if from == to {
-        true
-    } else {
-        let mut seen = BTreeSet::new();
-        let mut stack = vec![from.to_string()];
-        let mut found = false;
-        while let Some(node) = stack.pop() {
-            if !seen.insert(node.clone()) {
-                continue;
-            }
-            cache.dfs_node_visits += 1;
-            if let Some(next) = adjacency.get(&node) {
-                for target in next {
-                    if target == to {
-                        found = true;
-                        break;
-                    }
-                    stack.push(target.clone());
-                }
-            }
-            if found {
-                break;
-            }
-        }
-        found
-    };
+        return true;
+    }
 
-    cache.outcomes.insert(key, result);
-    result
+    // A cached reachable set answers both positive and negative queries from
+    // this exact source without repeating graph traversal.
+    if let Some(reachable) = cache.reachable_by_source.get(from) {
+        cache.cache_hits += 1;
+        return reachable.contains(to);
+    }
+
+    let prior_queries = cache.source_queries.get(from).copied().unwrap_or(0);
+    cache.source_queries.insert(from.to_string(), prior_queries + 1);
+
+    // On the second query from a source, calculate the complete reachable set
+    // once. Do not construct a large transitive closure: the cache has a strict
+    // global node budget. If the budget is exceeded, finish the traversal only
+    // to answer this query and leave the source uncached.
+    let remaining_budget =
+        MAX_CACHED_REACHABLE_NODES.saturating_sub(cache.cached_reachable_nodes);
+    let should_build_source_set = prior_queries > 0
+        && !events.is_empty()
+        && events.len() <= MAX_CACHED_REACHABLE_NODES
+        && remaining_budget > 0;
+
+    let mut seen = BTreeSet::new();
+    let mut stack = adjacency
+        .get(from)
+        .map(|targets| targets.iter().cloned().collect::<Vec<_>>())
+        .unwrap_or_default();
+    let mut found = false;
+
+    while let Some(node) = stack.pop() {
+        if !seen.insert(node.clone()) {
+            continue;
+        }
+        cache.dfs_node_visits += 1;
+        if node == to {
+            found = true;
+        }
+        if let Some(next) = adjacency.get(&node) {
+            stack.extend(next.iter().cloned());
+        }
+    }
+
+    if should_build_source_set {
+        cache.full_reachability_builds += 1;
+        if seen.len() <= remaining_budget {
+            cache.cached_reachable_nodes += seen.len();
+            cache.reachable_by_source.insert(from.to_string(), seen);
+        } else {
+            cache.cache_limit_skips += 1;
+        }
+    }
+
+    found
 }
 
 fn graph_has_cycle(adjacency: &BTreeMap<String,BTreeSet<String>>, nodes: &BTreeSet<String>) -> bool {
