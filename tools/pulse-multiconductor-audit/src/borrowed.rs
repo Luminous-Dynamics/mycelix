@@ -58,7 +58,7 @@ struct BorrowedEvent<'a> {
     #[serde(borrow)]
     event_type: &'a str,
     #[serde(borrow)]
-    data: RawObject<'a>,
+    data: &'a RawValue,
 }
 
 #[derive(Debug, Deserialize)]
@@ -206,6 +206,10 @@ fn valid_sha256(value: &str) -> bool {
 }
 
 fn valid_event_shape(event: &BorrowedEvent<'_>) -> bool {
+    let data: RawObject<'_> = match serde_json::from_str(data.get()) {
+        Ok(data) => data,
+        Err(_) => return false,
+    };
     let (fields, strings, numbers, booleans, arrays): (
         &[&str],
         &[&str],
@@ -401,28 +405,28 @@ fn valid_event_shape(event: &BorrowedEvent<'_>) -> bool {
     };
 
     let exact_shape = if event.event_type == "projection_observed" {
-        event.data.exact_fields_with_optional(fields, &["validator_event_id"])
+        data.exact_fields_with_optional(fields, &["validator_event_id"])
     } else {
-        event.data.exact_fields(fields)
+        data.exact_fields(fields)
     };
     let optional_projection_ref_valid = event.event_type != "projection_observed"
         || event
             .data
             .raw("validator_event_id")
-            .is_none_or(|_| event.data.nonempty_str("validator_event_id"));
+            .is_none_or(|_| data.nonempty_str("validator_event_id"));
 
     if !exact_shape
         || !optional_projection_ref_valid
-        || !strings.iter().all(|key| event.data.nonempty_str(key))
+        || !strings.iter().all(|key| data.nonempty_str(key))
         || !numbers
             .iter()
-            .all(|key| event.data.u64_value(key).is_some())
+            .all(|key| data.u64_value(key).is_some())
         || !booleans
             .iter()
-            .all(|key| event.data.bool_value(key).is_some())
+            .all(|key| data.bool_value(key).is_some())
         || !arrays
             .iter()
-            .all(|key| event.data.nonempty_str_array(key))
+            .all(|key| data.nonempty_str_array(key))
     {
         return false;
     }
@@ -456,15 +460,15 @@ fn valid_event_shape(event: &BorrowedEvent<'_>) -> bool {
                     .u64_value("host_authority_index")
                     .is_some_and(|value| value > 0)
                 && matches!(
-                    event.data.str_value("host_decision"),
+                    data.str_value("host_decision"),
                     Some("authorized" | "unauthorized" | "unknown")
                 )
                 && matches!(
-                    event.data.str_value("host_state_at_decision"),
+                    data.str_value("host_state_at_decision"),
                     Some("active" | "revoked" | "absent" | "unknown")
                 )
                 && matches!(
-                    event.data.str_value("domain_decision"),
+                    data.str_value("domain_decision"),
                     Some("allow" | "deny" | "not_run" | "unknown")
                 )
         }
@@ -478,32 +482,32 @@ fn valid_event_shape(event: &BorrowedEvent<'_>) -> bool {
                 .u64_value("attempt_id")
                 .is_some_and(|value| value > 0)
                 && matches!(
-                    event.data.str_value("outcome"),
+                    data.str_value("outcome"),
                     Some("acknowledged" | "unknown" | "committed" | "not_committed" | "rejected")
                 )
         }
         "validation_disposition" => {
             matches!(
-                event.data.str_value("disposition"),
+                data.str_value("disposition"),
                 Some("accepted" | "rejected")
             ) && event
                 .data
                 .str_value("validator_wasm_sha256")
                 .is_some_and(valid_sha256)
-                && event.data.optional_string_or_null("reason_code")
+                && data.optional_string_or_null("reason_code")
         }
         "projection_observed" => {
             matches!(
-                event.data.str_value("projection_state"),
+                data.str_value("projection_state"),
                 Some("integrated" | "not_integrated" | "pending" | "conflicting" | "unknown")
             ) && matches!(
-                event.data.str_value("decision"),
+                data.str_value("decision"),
                 Some("trusted" | "stale_advisory" | "unknown" | "conflicting")
             )
         }
         "remote_signal" => {
             matches!(
-                event.data.str_value("trust_class"),
+                data.str_value("trust_class"),
                 Some("verified_record" | "authenticated_peer_hint" | "unverified_hint" | "local_only" | "unknown" | "rejected")
             ) && [
                 "transport_sender",
@@ -516,8 +520,8 @@ fn valid_event_shape(event: &BorrowedEvent<'_>) -> bool {
                 "backing_validator_event_id",
             ]
             .iter()
-            .all(|key| event.data.optional_string_or_null(key))
-                && (event.data.is_null("verified_payload_sha256")
+            .all(|key| data.optional_string_or_null(key))
+                && (data.is_null("verified_payload_sha256")
                     || event
                         .data
                         .str_value("verified_payload_sha256")
@@ -584,7 +588,8 @@ mod tests {
             assert_eq!(event.event_type, owned_event["event_type"].as_str().unwrap());
 
             assert!(valid_event_shape(event), "event {} did not match v2 shape", event.event_id);
-            for (key, raw) in &event.data.fields {
+            let borrowed_data: RawObject<'_> = serde_json::from_str(event.data.get()).unwrap();
+            for (key, raw) in &borrowed_data.fields {
                 assert_eq!(
                     serde_json::from_str::<Value>(raw.get()).unwrap(),
                     owned_event["data"][*key],
@@ -628,11 +633,9 @@ mod tests {
         let input_start = SAFE_HISTORY.as_ptr() as usize;
         let input_end = input_start + SAFE_HISTORY.len();
         for event in &borrowed.events {
-            for (_, raw) in &event.data.fields {
-                let start = raw.get().as_ptr() as usize;
-                let end = start + raw.get().len();
-                assert!(start >= input_start && end <= input_end);
-            }
+            let start = event.data.get().as_ptr() as usize;
+            let end = start + event.data.get().len();
+            assert!(start >= input_start && end <= input_end);
         }
     }
 
