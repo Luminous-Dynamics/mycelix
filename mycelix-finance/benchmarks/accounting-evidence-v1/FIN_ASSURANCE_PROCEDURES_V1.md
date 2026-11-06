@@ -105,7 +105,9 @@ Evidence is purpose- and assertion-specific. At minimum preserve:
 - authenticated-source result and limitations;
 - assertions and procedure purposes it can support;
 - entity/period/unit binding;
-- evidence reliability disposition and rationale;
+- assertion/procedure-specific reliability requirements and rationale;
+- separate evidence-attribute states for accuracy, completeness, authenticity, absence of bias and credibility;
+- the exact attributes that the procedure needs from each evidence item, without a universal scalar trust score;
 - contradictory or superseding artifacts;
 - source creation, booking/value, capture and knowledge times separately.
 
@@ -155,7 +157,7 @@ This is a software gate for review readiness only. It is not an audit conclusion
 
 ## 6. Adversarial public synthetic corpus
 
-The v1.0.0 corpus has 18 base task families; v1.1.0 extends it to 22 cases with pair-level results and additional entity/purpose/analytical controls. Both public oracle releases are regression references, not blind holdouts. The expected outcomes are published in a separate **public reference oracle** so implementers can reproduce tests. This is not a blind holdout or an independently adjudicated professional dataset.
+The v1.0.0 corpus has 18 base cases; v1.1.0 extends it to 22 cases with pair-level results and entity/purpose/analytical controls; v1.2.0 extends it to 25 cases with pair-specific evidence-reliability attributes. All public oracle releases are regression references, not blind holdouts. The expected outcomes are published in a separate **public reference oracle** so implementers can reproduce tests. This is not a blind holdout or an independently adjudicated professional dataset.
 
 | ID | Challenge | Required disposition |
 |---|---|---|
@@ -225,7 +227,7 @@ APEX, FINBALANCE and DualBench measure adjacent accounting workflow/reconstructi
 
 1. Obtain and hash the IAASB exposure-draft documents and build a paragraph-level research matrix.
 2. Freeze the procedure, population and terminal-disposition schemas.
-3. Preserve public v1.0.0 and v1.1.0 synthetic tasks and their version-specific schemas/oracles separately.
+3. Preserve public v1.0.0, v1.1.0 and v1.2.0 synthetic tasks and their version-specific schemas/oracles separately.
 4. Implement a pure Rust stand-back verifier or a tightly scoped extension to the existing workpaper verifier.
 5. Add mutation tests for wrong purpose, population, denominator, source origin, period, stale frontier and contradiction.
 6. Produce an exact-head report binding source, policy, procedure schema, corpus and verifier digests.
@@ -234,4 +236,12 @@ APEX, FINBALANCE and DualBench measure adjacent accounting workflow/reconstructi
 ## 10. Claim ceiling
 
 A pass establishes synthetic procedure-coverage and stand-back behavior under the declared profile. It does not establish ISA compliance, audit evidence sufficiency in a real engagement, professional audit judgment, an audit opinion, regulatory compliance, fraud-free status or production assurance readiness.
-\n\n## 11. v1.1.0 semantic hardening\n\nThe v1.1.0 input contract requires every evidence item to bind the reporting entity as well as the reporting period, and every procedure to bind the exact intended purpose. The verifier now emits pair-level dispositions alongside the aggregate stand-back state. A case with multiple required assertions cannot be represented as clear merely because one pair is supported. Additional negative controls cover mismatched procedure purpose, cross-entity evidence and analytical differences exceeding a declared threshold. v1.0.0 fixtures, schema and public reference oracle remain separately versioned and replayable.\n
+
+
+## 11. v1.1.0 semantic hardening
+
+The v1.1.0 input contract requires every evidence item to bind the reporting entity as well as the reporting period, and every procedure to bind the exact intended purpose. The verifier emits pair-level dispositions alongside the aggregate stand-back state. A case with multiple required assertions cannot be represented as clear merely because one pair is supported. Additional controls cover mismatched procedure purpose, cross-entity evidence and analytical differences exceeding a declared threshold. v1.0.0 fixtures, schema and public reference oracle remain separately versioned and replayable.
+
+## 12. v1.2.0 multi-dimensional evidence reliability
+
+The v1.2.0 input contract removes the global `reliability_status` scalar. Every evidence artifact carries independent states for `accuracy`, `completeness`, `authenticity`, `absence_of_bias` and `credibility`, each of which may be `qualified`, `limited`, `unqualified` or `unknown`. Every required risk/assertion/procedure-purpose pair declares its own `required_evidence_attributes`. The verifier only blocks the pair when an attribute required for that pair is not qualified; it does not downgrade an unrelated assertion because an irrelevant attribute is limited. FAP-023 demonstrates one artifact supporting an occurrence pair while failing a completeness pair; FAP-024 and FAP-025 independently test bias and credibility failures. These are synthetic contract attributes, not a normative interpretation of the proposed ISA text.
