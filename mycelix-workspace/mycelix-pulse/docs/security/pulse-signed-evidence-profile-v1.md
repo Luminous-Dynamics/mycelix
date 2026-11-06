@@ -110,6 +110,19 @@ The `independent_auditor` role is a trace-level attestation, not a synthetic con
 
 A causal edge is trusted only when its basis includes DSSE-verified attestations for both exact endpoint event IDs. A known but invalid/SCITT-unverified attestation, or a valid attestation for an unrelated event, cannot support the edge. The signed-evidence bundle schema now requires at least two distinct basis attestation IDs for an edge.
 
+The v1 relation predicates are intentionally narrow:
+
+| Relation | Required event pair | Required semantic binding |
+|---|---|---|
+| `program_order` | any supported event pair | same conductor and strictly increasing local_sequence |
+| `request_response` | host_call → domain_effect / caller_outcome; domain_effect → caller_outcome | exact operation_id and attempt_id |
+| `source_action_dependency` | host_grant_issued → capability_claim_accepted | exact grant_action_hash |
+| `validator_receipt` | action_authored → validation_disposition | exact ActionHash, author conductor and receiving validator conductor |
+| `observer_confirmation` | validation_disposition → projection_observed | exact ActionHash and exact validator_event_id |
+| `test_harness_barrier` | synthetic fixtures only | forbidden for runtime_capture |
+
+Unsupported pair/relation combinations are INCOMPLETE; contradictions are FAIL. The DAG cycle check remains separate: acyclic ordering does not make an unsupported or false relation true. The current positive integration fixture signs two events from one conductor and checks a valid program_order edge. Unit regressions exercise each relation predicate and its negative cases.
+
 These checks establish semantic binding between signed bytes and the supplied trace subject. They still do not prove the real-world truth of the trace or authenticate the external trust root.
 
 ## 4. Bundle schema
