@@ -1,5 +1,7 @@
 # Authorization / Author-Binding Remediation Status
 
+> **Historical internal review snapshot — last reviewed 28 July 2026.** This document has not been reconciled against every current public repository path and deployment as of 2 November 2026. It explicitly records public-export sync lag, components not yet assessed, and remediation rows whose exact public commit/test references were not tracked. It is not a current security attestation, external audit, or evidence that a fix exists in every public branch or deployed bundle. Before relying on a remediation statement, inspect the exact deployed/public revision, verify the corresponding fix and regression test, and obtain independent review appropriate to the risk.
+
 An internal audit found a recurring defect class across this codebase: some
 coordinator functions accepted an agent identity supplied by the *client*
 (e.g. as a plain field in the call payload) instead of deriving the caller
@@ -22,10 +24,11 @@ correct fix patterns are distinct:
   (via `must_get_action`/`must_get_valid_record` retrieving the original
   record deterministically), not to a value the entry happens to contain.
 
-This document is the canonical, maintained record referenced from
-mycelix.net's Risks page. It reflects this repository's own internal
-engineering tracking, not an independent third-party audit — treat "fixed"
-below as "fixed and internally tested," not "externally verified."
+This document records an internal engineering review referenced from
+mycelix.net's Risks page. It reflects this repository's own internal tracking,
+not an independent third-party audit — treat "fixed" below as "reported fixed
+and internally tested at the stated scope/date," not "externally verified."
+
 
 **Sync-lag disclosure, found during final review (2026-07-28):** this
 project's primary development happens in a private monorepo, and this public

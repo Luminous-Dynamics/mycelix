@@ -1,102 +1,136 @@
-# Threat Model — `mycelix-lawful-identity`
+# Threat Model and Current Assurance Boundary — `mycelix-lawful-identity`
 
-This document is the honest contract. It describes **what the dual-DID architecture mathematically neutralizes** and **what it explicitly does not cover**. Users must understand both before relying on the airlock.
+**Status:** Reconciled to the public source reviewed on 2 November 2026.  
+**Review type:** Source and test inspection only; not an independent cryptographic audit, privacy proof, Holochain deployment test, or security certification.
+
+> **Important correction:** Earlier versions of this document described cross-DID unlinkability as mathematically neutralized by STARK proofs. That statement is not supported by the current implementation. The current `cross-did-zkp` coordinator explicitly does not generate or verify a cryptographic proof; it stores caller-supplied proof strings and performs limited nonce-link bookkeeping. The `link_resistance.rs` and `unlinkability.rs` tests synthesize SHA-256-derived placeholder records; they do not generate or verify STARK proofs. Treat cross-DID cryptographic unlinkability as **not established**.
+
+This document distinguishes implemented checks, design intent, test-model behavior, and future work. Do not rely on a status label without checking the exact deployed code and independent evidence.
 
 ---
 
 ## Adversary profile
 
-A well-funded nation-state actor (intelligence agency, tax authority, law-enforcement unit) with:
+A well-funded nation-state actor (intelligence agency, tax authority, or law-enforcement unit) with:
 
-- Full read-access to the Mycelix Holochain DHT.
+- Read access to the Mycelix Holochain DHT.
 - ISP-level network surveillance.
-- A known `did:mycelix:legal` for the target (obtained via the target's tax filing, fiat KYC, or court-compelled disclosure).
+- Knowledge of a target's `did:mycelix:legal` from a filing, KYC process, or lawful disclosure.
 
-**Adversary's goal**: link the known `legal` DID to the target's pseudonymous `did:mycelix:primary`, thereby deanonymizing their governance votes, MYCEL reputation, TEND balances, social graph, and published content.
+**Adversary's goal:** link the known legal identity to the target's pseudonymous primary identity and correlate governance, reputation, balances, social relationships, or published activity.
 
----
+## Current implementation summary
 
-## Vector 1 — Cryptographic leakage in the ZKP — **MITIGATED**
+| Surface | What the inspected source does | What it does not establish |
+|---|---|---|
+| `cross-did-zkp` coordinator | Issues a 32-byte nonce, stores a nonce request, accepts a caller-supplied `proof_value`, stores a record, and checks whether a nonce-hash anchor has a prior local link | It does not generate or cryptographically verify a STARK/ZKP; it does not bind the submitted nonce hash to a verifier-issued nonce entry; its `GetStrategy::Local` lookup is not a global replay-proof guarantee |
+| `cross-did-zkp` integrity | Defines the stored entry and explicitly marks `proof_value` as unverified opaque data | Entry shape and Holochain validation do not prove the caller's predicate |
+| `link_resistance.rs` | Synthesizes `CrossDidProof`-shaped records from deterministic hash inputs and scans fields for literal / hash substrings | It does not invoke a prover, real proof verifier, coordinator, or DHT |
+| `unlinkability.rs` | Synthesizes placeholder records from SHA-256 outputs and checks byte distinctness plus a rough byte histogram | Distinct hashes and a histogram are not a privacy proof, cryptanalysis, or statistical unlinkability test |
+| `jurisdiction_proof.rs` | With `backend-winterfell`, generates and verifies two range proofs that a supplied coordinate is within a selected bounding box | It does not prove the coordinate was truthfully measured, attested by a trusted device, or belongs to the person presenting it |
+| `location_attestation.rs` | T0 checks the tier; T1 checks tier, optional public-key allowlist, and non-empty signature bytes; T2–T4 return `NotImplemented` | T1 does not cryptographically verify the device signature here; `max_age_seconds` is not enforced by `PhoneGps::verify`; no tier currently establishes hardware-backed location truth in this core crate |
 
-**Threat**: a flawed proof construction leaks a deterministic hash, signature fragment, or public-key material of the `legal` DID into proof bytes or public inputs. Observer correlates the leaked material against known `legal` DIDs.
+## Vector 1 — Cryptographic leakage / proof validity — **NOT ESTABLISHED**
 
-**Mitigation**:
-- STARK public inputs are constrained to the minimal set: `{issuer_public_key, claim_predicate, fresh_nonce}`.
-- No `legal` DID string, key bytes, or derived hash appears anywhere in the proof payload.
-- Merkle commitments use salts unique per proof.
+**Threat:** A proof construction or its public inputs expose deterministic identifiers, or the verifier accepts a false claim because it never verifies the proof.
 
-**Test guarantee** (`tests/link_resistance.rs`):
-1. Generate 1,000 cross-DID proofs from the same `legal` DID.
-2. Assert the `legal` DID string is absent from every proof byte-array.
-3. Assert STARK public inputs contain only the three permitted fields.
-4. Brute-force correlate public inputs against every record in a 100K-entry synthetic DHT; assert zero matches to the `legal` DID's keypair.
+**Current source boundary:**
 
----
+- The coordinator's module-level honesty note states that no function in the crate invokes proof-verification logic.
+- `submit_proof` accepts caller-supplied `proof_value` and persists it without decoding or validating a cryptographic proof.
+- The synthetic link-resistance test creates a `CrossDidProof` struct with a SHA-256-derived placeholder `proof_value`. It does not call a STARK prover or verifier.
+- The integrity zome's entry constraints validate structure, not the truth of the predicate.
 
-## Vector 2 — Replay / correlation — **MITIGATED**
+The current test can be retained as a **synthetic serialization smoke test** for the fields it constructs. It must not be described as evidence that the real cross-DID architecture is unlinkable or that a STARK is correctly implemented.
 
-**Threat**: repeated proofs from the same `legal` DID are byte-identical, or timestamps cluster around known `legal` DID actions, allowing an observer to link sessions.
+**Required implementation before a cryptographic claim:**
 
-**Mitigation**:
-- Every cross-DID proof requires a **fresh nonce provided by the verifier** at request time.
-- Verifiers MUST reject any proof whose nonce has been seen before (rolling window of 65,536 most-recent nonces, eviction by LRU).
-- Prover includes the nonce in STARK public inputs, making each proof byte-distinct even for identical claims.
+1. Specify the exact statement, public inputs, private witness, proof system, transcript, and verification-key identity.
+2. Implement proof generation and verification in a trusted component.
+3. Bind issuer identity, predicate, verifier audience, fresh nonce, credential digest, and policy context to the proof.
+4. Make the verifier reject malformed, unsupported, stale, or invalid proofs; never treat storage success as proof validity.
+5. Independently reproduce proof verification using a second implementation.
+6. Test adversarial witness, altered public-input, verifier-key, and proof-byte mutations.
 
-**Test guarantee** (`tests/unlinkability.rs`):
-1. Same `legal` DID generates two proofs of the same claim to the same verifier with different nonces.
-2. Assert proof byte-arrays are distinct.
-3. Run a statistical indistinguishability test (chi-squared over byte distribution); assert p > 0.05.
-4. Attempt nonce reuse; assert verifier rejects.
+## Vector 2 — Replay / session correlation — **PARTIAL BOOKKEEPING ONLY**
 
----
+**Threat:** A previously presented proof is replayed, or records are correlated across sessions.
+
+**Current source boundary:**
+
+- `request_nonce` creates a random nonce entry and a link under a verifier-specific anchor.
+- `submit_proof` receives only a caller-supplied `nonce_hash`; it does not receive the verifier DID or a reference to the issued nonce entry.
+- The duplicate check uses `GetStrategy::Local` on the nonce-hash anchor and reports `nonce_was_fresh`.
+- The coordinator does not cryptographically bind the proof to the nonce, enforce the stated five-minute expiry, verify that the nonce was issued by the intended verifier, or provide a global replay guarantee.
+- The synthetic test varies deterministic nonce inputs and confirms placeholder hashes differ. It does not exercise the coordinator or real proof bytes.
+
+**Required implementation:**
+
+1. Bind proof submission to the exact verifier-issued nonce record and verifier identity.
+2. Verify nonce freshness, expiry, audience, and single-use policy.
+3. Define global / DHT consistency semantics under concurrent submissions and partitions.
+4. Reject duplicate, unknown, expired, wrong-verifier, or malformed nonce references at the authoritative validation layer.
+5. Make replay tests run through real multi-agent Holochain conductors, including concurrent race and restart cases.
+6. Treat timestamps, issuer hashes, claim hashes, and other stable fields as potentially linkable unless a formal privacy analysis establishes otherwise.
+
+A fresh nonce can make one commitment differ from another. That fact alone does not establish unlinkability.
 
 ## Vector 3 — Network metadata (IP correlation) — **NOT MITIGATED**
 
-**Threat**: `primary` and `legal` DIDs run on the same host. They gossip to the DHT from the same IP address. ISP-level observer correlates the two gossip streams trivially.
+**Threat:** Primary and legal identities gossip from the same host or network and are correlated through timing, IP addresses, peer connections, or traffic volume.
 
-**Scope statement**: this architecture provides *on-chain cryptographic unlinkability*, not network-layer anonymity.
+No network-layer anonymity or metadata protection is established by the cross-DID coordinator. Separate agents, private relay designs, or onion routing would need their own threat model and deployment tests. These measures also do not replace proof verification.
 
-**User responsibility** (surfaced in CLI first-run onboarding):
-- For true unlinkability, run the `legal` DID on a separate physical agent.
-- Or route the `legal` DID's gossip through Tor / I2P.
-- Or accept that ISP-level adversaries can link the two if they are motivated.
+## Vector 4 — Device compulsion / endpoint compromise — **NOT MITIGATED**
 
-**Mitigation path (future, not in scope)**: integrate tor-rs or libp2p-onion into the lawful-identity conductor config.
+**Threat:** An attacker gains access to the device, keystore, session, wallet, or operator endpoint.
 
----
+The current dual-DID architecture does not establish protection against a compromised endpoint or compelled disclosure. Key isolation, recovery, device-bound keys, backups, and duress mechanisms require separate designs and independent review. Do not market a duress-wipe or hardware-TEE capability until implemented and tested.
 
-## Vector 4 — Device compulsion / rubber-hose — **NOT MITIGATED**
+## Vector 5 — Location truth and jurisdiction inference — **NOT ESTABLISHED BY THE STARK ALONE**
 
-**Threat**: law enforcement physically seizes the user's device and compels them to unlock it. Both DID keypairs live in the local keystore. The link is immediately apparent.
+The Winterfell-backed jurisdiction circuit can prove that a submitted numeric coordinate lies within a selected bounding box without revealing the coordinate. It cannot prove that the coordinate was truthfully measured or that the person presenting it was physically there.
 
-**Scope statement**: protection is against mass *passive* on-chain surveillance, not against *targeted endpoint compromise*.
+The current location-attestation adapter boundary is limited:
 
-**User responsibility**:
-- Recognize the jurisdictional risk of keeping both DIDs on one device.
-- Optionally split the keystore across devices.
+- T0 is self-attested and accepts matching tier metadata.
+- T1 checks the tier, optional public-key allowlist, and non-empty signature bytes. It does not cryptographically verify those bytes in this crate.
+- The `PhoneGps.max_age_seconds` field is not enforced by `PhoneGps::verify`; callers must not assume freshness checking occurred.
+- T2 civic, T3 hardware-TEE, and T4 notary implementations return `NotImplemented`.
 
-**Mitigation paths (future, not in scope)**:
-- Split keystore across devices (legal DID on a dedicated air-gapped signer).
-- Hardware-TEE-bound keys (Android StrongBox, iOS Secure Enclave) that refuse export.
-- Duress-wipe: a secondary passphrase that silently destroys the `primary` keystore while appearing to unlock.
+A deployment that relies on location must validate the attester signature, key binding, time freshness, sensor/device attestation, jurisdiction dataset provenance and version, and policy tier independently. The bounding-box proof is a predicate proof about its private coordinate input—not a proof of provenance or personhood.
 
----
+The jurisdiction proof also publishes the box ID, attestation tier, nonce hash, commitment, and two proof byte strings; the verifier supplies the attester-key hash, timestamp, box, and nonce to verify. The attester-key hash and other stable metadata can be correlation surfaces. A fresh nonce makes commitments distinct but does not, by itself, guarantee unlinkability.
 
-## What the link-resistance test proves, and what it does not
+## What the current tests prove — and do not prove
 
-**Does prove**: Vectors 1 and 2 are mathematically neutralized. No amount of DHT observation or proof collection allows an adversary to link `primary` to `legal`.
+**The cross-DID tests prove only properties of their synthetic fixtures:** selected strings / hashes are absent from the constructed records, deterministic fields behave as coded, and placeholder values vary with seeded inputs.
 
-**Does not prove**: Vectors 3 and 4. An adversary with network-level surveillance or physical device access can still link the DIDs.
+They do **not** prove:
 
-**CLI onboarding (`cli init`) surfaces both honest caveats in plain language** before generating the `legal` keypair. Burying the caveats in this doc is not enough.
+- a real ZKP is generated or cryptographically verified;
+- an external verifier accepts only true predicates;
+- the actual DHT / conductor implementation prevents replay;
+- the actual system has cryptographic unlinkability;
+- the legal DID cannot be correlated with the primary DID;
+- network-layer anonymity or endpoint compromise resistance.
 
----
+**The jurisdiction circuit tests** exercise a separate range-proof implementation when its Winterfell feature is enabled. They do not validate the location-attester signature or the real-world truth of the input coordinate.
+
+## Promotion gates for privacy and assurance claims
+
+| Gate | Required evidence | Claim allowed |
+|---|---|---|
+| G0 — synthetic model | Fixture and serialization checks only | "Synthetic proof-record model tests" |
+| G1 — proof implementation | Real prover, verifier, pinned keys, mutation and negative controls | "The specified predicate proof verifies under the tested implementation" |
+| G2 — protocol integration | Verifier-issued nonce binding, audience, expiry, DHT/concurrency tests | "Replay controls tested in the named Holochain configuration" |
+| G3 — privacy analysis | Public-input review, correlation analysis, repeated-session evaluation, independent cryptanalysis | Only the scoped privacy property reviewed |
+| G4 — deployment review | Network, endpoint, key lifecycle, operational and incident review | Only the reviewed deployment scope |
+
+Do not describe the current cross-DID coordinator as ZKP-backed or unlinkable until it passes these gates.
 
 ## Review cadence
 
-This threat model is a living document. Revise when:
-- A new adversary capability is demonstrated (e.g., quantum attack on STARK, traffic-analysis attack on Holochain gossip).
-- The mitigation set changes (e.g., Tor integration lands, making Vector 3 *partially* mitigated).
-- A production incident reveals an assumption was wrong.
+Update this document whenever proof generation/verification, nonce handling, key management, location attestation, or privacy-relevant public fields change.
 
-Last updated: 2026-04-18 (initial).
+**Last reconciled to public source:** 2 November 2026.

@@ -1,10 +1,13 @@
 // Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
-//! Credential Generation and ZK Commitment
+//! Experimental academic credential serialization and hash commitments.
 //!
-//! Generates W3C VC 2.0 compliant academic credentials with
-//! ZK commitments for selective disclosure.
+//! This CLI builds VC-shaped academic records and Mycelix-specific SHA-256
+//! commitments. The commitment helper is not a zero-knowledge proof, and the
+//! CLI's structure checks do not perform W3C Data Integrity signature
+//! verification or establish W3C/OpenID/eIDAS conformance. See the Mycelix
+//! Identity interoperability and assurance roadmap for the current boundary.
 
 use anyhow::{Context, Result};
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
