@@ -139,7 +139,7 @@
           "format": "uri"
         },
         "observed_at": {
-          "const": "2026-11-05T19:39:00+02:00"
+          "const": "2026-11-05T22:12:00+02:00"
         },
         "publication_date": {
           "type": [
