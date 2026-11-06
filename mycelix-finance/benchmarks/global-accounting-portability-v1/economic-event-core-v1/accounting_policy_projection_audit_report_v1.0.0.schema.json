@@ -141,7 +141,10 @@
               "assumption_assertion_unavailable",
               "duplicate_journal_line_ref",
               "review_approval_record_missing",
-              "incomplete_decision_in_complete_projection"
+              "incomplete_decision_in_complete_projection",
+              "duplicate_journal_entry_ref",
+              "duplicate_projection_assumption_ref",
+              "duplicate_unresolved_item_ref"
             ]
           }
         }
