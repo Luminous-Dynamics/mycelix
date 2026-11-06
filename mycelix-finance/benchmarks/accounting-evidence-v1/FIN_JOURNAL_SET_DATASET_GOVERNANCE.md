@@ -1,6 +1,6 @@
 # FIN-JOURNAL-SET dataset governance
 
-v1.0.0 contains 24 synthetic period journal-set cases and a public reference oracle. It is a regression/conformance suite, not a blind model holdout, professional accounting dataset or benchmark leaderboard.
+v1.0.0 contains 25 synthetic period journal-set cases and a public reference oracle. It is a regression/conformance suite, not a blind model holdout, professional accounting dataset or benchmark leaderboard.
 
 All entities, journals, events, account names, unit profiles, commitments and amounts are synthetic. No raw bank payload, customer record, real ledger or account credential is included.
 
