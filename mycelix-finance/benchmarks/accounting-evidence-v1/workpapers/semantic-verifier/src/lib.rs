@@ -1335,7 +1335,7 @@ mod tests {
             &serde_json::to_vec(&value).unwrap(),
             include_bytes!("../../WORKPAPER_DAG_V0.1.schema.json"),
         );
-        assert!(errors(&report).is_empty(), "{}", errors(&report));
+        assert_eq!(errors(&report), "[]", "{}", errors(&report));
         value["nodes"][0]["result"]["numeric_value"]["value"] = json!("-0.00");
         assert!(
             errors(&verify(
