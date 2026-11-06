@@ -977,8 +977,9 @@ mod tests {
 
     #[test]
     fn binds_trace_to_canonical_receipt_task_output_and_transcript_digest() {
-        let (trace, _, _, trace_bytes) = fixture();
+        let (trace, _, _, _) = fixture();
         let transcript = b"{\"events\":[],\"fixture\":\"synthetic\"}";
+        let (trace, trace_bytes) = trace_for_transcript(trace, transcript);
         let (receipt, report) = synthetic_receipt(&trace, &trace_bytes, transcript);
         let receipt_bytes = serde_json::to_vec(&receipt).unwrap();
         let binding = validate_receipt_binding(
