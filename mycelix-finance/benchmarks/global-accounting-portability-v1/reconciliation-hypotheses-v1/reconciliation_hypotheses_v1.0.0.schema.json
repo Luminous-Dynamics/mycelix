@@ -1,0 +1,452 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/mycelix-reconciliation-hypotheses-v1.0.0.json",
+  "title": "Mycelix Reconciliation Hypotheses v1.0.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "bundle_id",
+    "schema_version",
+    "claim_ceiling",
+    "source_bundle_sha256",
+    "matcher_binding",
+    "run_results"
+  ],
+  "properties": {
+    "bundle_id": {
+      "const": "MYCELIX-RECON-HYPOTHESES-S0-OUTPUT"
+    },
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "claim_ceiling": {
+      "const": "candidate_match_hypotheses_not_confirmed_reconciliations_or_ledger_postings"
+    },
+    "source_bundle_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "matcher_binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "engine_id",
+        "engine_version",
+        "engine_sha256",
+        "tie_break_policy"
+      ],
+      "properties": {
+        "engine_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "engine_version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "engine_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "tie_break_policy": {
+          "type": "string",
+          "minLength": 5
+        }
+      }
+    },
+    "run_results": {
+      "type": "array",
+      "minItems": 8,
+      "items": {
+        "$ref": "#/$defs/runResult"
+      }
+    }
+  },
+  "$defs": {
+    "pair": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "pair_ref",
+        "left_item_ref",
+        "right_item_ref",
+        "candidate_state",
+        "reason_codes"
+      ],
+      "properties": {
+        "pair_ref": {
+          "type": "string",
+          "pattern": "^[A-Z0-9-]{3,120}$"
+        },
+        "left_item_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "right_item_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "candidate_state": {
+          "enum": [
+            "candidate",
+            "rejected",
+            "unscored"
+          ]
+        },
+        "reason_codes": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "criterionEval": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "criterion_ref",
+        "outcome",
+        "left_values",
+        "right_values",
+        "explanation"
+      ],
+      "properties": {
+        "criterion_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "outcome": {
+          "enum": [
+            "match",
+            "mismatch",
+            "unknown",
+            "not_applicable"
+          ]
+        },
+        "left_values": {
+          "type": "array",
+          "items": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "right_values": {
+          "type": "array",
+          "items": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "explanation": {
+          "type": "string",
+          "minLength": 5
+        }
+      }
+    },
+    "allocation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "allocation_ref",
+        "left_item_ref",
+        "right_item_ref",
+        "amount_minor"
+      ],
+      "properties": {
+        "allocation_ref": {
+          "type": "string",
+          "pattern": "^[A-Z0-9-]{3,120}$"
+        },
+        "left_item_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "right_item_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "amount_minor": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "hypothesis": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "hypothesis_ref",
+        "cardinality",
+        "left_item_refs",
+        "right_item_refs",
+        "candidate_pairs",
+        "criterion_evaluations",
+        "allocations",
+        "score_bps",
+        "decision_state",
+        "alternative_hypothesis_refs",
+        "reason_codes"
+      ],
+      "properties": {
+        "hypothesis_ref": {
+          "type": "string",
+          "pattern": "^[A-Z0-9-]{3,120}$"
+        },
+        "cardinality": {
+          "enum": [
+            "one_to_one",
+            "one_to_many",
+            "many_to_one",
+            "many_to_many"
+          ]
+        },
+        "left_item_refs": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        },
+        "right_item_refs": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        },
+        "candidate_pairs": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "pair_ref",
+              "left_item_ref",
+              "right_item_ref",
+              "candidate_state",
+              "reason_codes"
+            ],
+            "properties": {
+              "pair_ref": {
+                "type": "string",
+                "pattern": "^[A-Z0-9-]{3,120}$"
+              },
+              "left_item_ref": {
+                "type": "string",
+                "minLength": 1
+              },
+              "right_item_ref": {
+                "type": "string",
+                "minLength": 1
+              },
+              "candidate_state": {
+                "enum": [
+                  "candidate",
+                  "rejected",
+                  "unscored"
+                ]
+              },
+              "reason_codes": {
+                "type": "array",
+                "uniqueItems": true,
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "criterion_evaluations": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "criterion_ref",
+              "outcome",
+              "left_values",
+              "right_values",
+              "explanation"
+            ],
+            "properties": {
+              "criterion_ref": {
+                "type": "string",
+                "minLength": 1
+              },
+              "outcome": {
+                "enum": [
+                  "match",
+                  "mismatch",
+                  "unknown",
+                  "not_applicable"
+                ]
+              },
+              "left_values": {
+                "type": "array",
+                "items": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              },
+              "right_values": {
+                "type": "array",
+                "items": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              },
+              "explanation": {
+                "type": "string",
+                "minLength": 5
+              }
+            }
+          }
+        },
+        "allocations": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "allocation_ref",
+              "left_item_ref",
+              "right_item_ref",
+              "amount_minor"
+            ],
+            "properties": {
+              "allocation_ref": {
+                "type": "string",
+                "pattern": "^[A-Z0-9-]{3,120}$"
+              },
+              "left_item_ref": {
+                "type": "string",
+                "minLength": 1
+              },
+              "right_item_ref": {
+                "type": "string",
+                "minLength": 1
+              },
+              "amount_minor": {
+                "type": "integer",
+                "minimum": 1
+              }
+            }
+          }
+        },
+        "score_bps": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 10000
+        },
+        "decision_state": {
+          "enum": [
+            "eligible_for_auto_match",
+            "review_required",
+            "ambiguous",
+            "blocked"
+          ]
+        },
+        "alternative_hypothesis_refs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        },
+        "reason_codes": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "unmatched": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_item_ref",
+        "disposition",
+        "reason_code",
+        "candidate_hypothesis_refs",
+        "unallocated_amount_minor"
+      ],
+      "properties": {
+        "source_item_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "disposition": {
+          "enum": [
+            "unmatched",
+            "ambiguous",
+            "blocked",
+            "residual_review"
+          ]
+        },
+        "reason_code": {
+          "type": "string",
+          "minLength": 1
+        },
+        "candidate_hypothesis_refs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        },
+        "unallocated_amount_minor": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "runResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "run_id",
+        "rule_set_sha256",
+        "hypotheses",
+        "unmatched_items"
+      ],
+      "properties": {
+        "run_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "rule_set_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "hypotheses": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/hypothesis"
+          }
+        },
+        "unmatched_items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/unmatched"
+          }
+        }
+      }
+    }
+  }
+}
