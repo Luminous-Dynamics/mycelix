@@ -1645,6 +1645,7 @@ fn main()->Result<(),Box<dyn Error>>{
     let mut output=None;
     let mut benchmark_events=None;
     let mut benchmark_parse_events=None;
+    let mut benchmark_join_operations=None;
     let mut args=env::args().skip(1);
     while let Some(arg)=args.next(){
         match arg.as_str(){
@@ -1658,18 +1659,28 @@ fn main()->Result<(),Box<dyn Error>>{
                 let value=args.next().ok_or("--benchmark-parse-events requires a count")?;
                 benchmark_parse_events=Some(value.parse::<usize>()?);
             }
+            "--benchmark-join-operations"=>{
+                let value=args.next().ok_or("--benchmark-join-operations requires a count")?;
+                benchmark_join_operations=Some(value.parse::<usize>()?);
+            }
             "--help"|"-h"=>{
                 println!("pulse-multiconductor-audit --input HISTORY.json [--output REPORT.json]");
                 println!("pulse-multiconductor-audit --benchmark-events COUNT [--output BENCHMARK.json] (1..=1000000)");
                 println!("pulse-multiconductor-audit --benchmark-parse-events COUNT [--output PARSE-BENCHMARK.json] (1..=1000000)");
+                println!("pulse-multiconductor-audit --benchmark-join-operations COUNT [--output JOIN-BENCHMARK.json] (3..=30000)");
                 return Ok(());
             }
             other=>return Err(format!("unknown argument: {other}").into())
         }
     }
 
-    if benchmark_events.is_some() && benchmark_parse_events.is_some() {
-        return Err("--benchmark-events and --benchmark-parse-events are mutually exclusive".into());
+    let benchmark_modes = [
+        benchmark_events.is_some(),
+        benchmark_parse_events.is_some(),
+        benchmark_join_operations.is_some(),
+    ];
+    if benchmark_modes.iter().filter(|mode| **mode).count() > 1 {
+        return Err("benchmark modes are mutually exclusive".into());
     }
     if let Some(count)=benchmark_events {
         if input.is_some() { return Err("--input and --benchmark-events are mutually exclusive".into()); }
@@ -1679,8 +1690,12 @@ fn main()->Result<(),Box<dyn Error>>{
         if input.is_some() { return Err("--input and --benchmark-parse-events are mutually exclusive".into()); }
         return run_parse_benchmark(count, output);
     }
+    if let Some(count)=benchmark_join_operations {
+        if input.is_some() { return Err("--input and --benchmark-join-operations are mutually exclusive".into()); }
+        return run_join_benchmark(count, output);
+    }
 
-    let input=input.ok_or("--input is required unless --benchmark-events is used")?;
+    let input=input.ok_or("--input is required unless a benchmark mode is used")?;
     let raw=fs::read(&input)?;
     let digest=format!("{:x}",Sha256::digest(&raw));
     let history = parse_history_strict(&raw)?;
