@@ -314,6 +314,72 @@ fn event_assertion_types(case: &Value, event: &Value) -> Result<BTreeSet<String>
     Ok(types)
 }
 
+fn relation_is_available(case: &Value, relation: &Value) -> Result<bool, String> {
+    let frontier = string(case, "knowledge_at")?;
+    let period = case.get("period").ok_or("missing period")?;
+    let period_start = string(period, "start")?;
+    let period_end = string(period, "end")?;
+    let valid_from = string(relation, "valid_from")?;
+    let valid_to = relation.get("valid_to").and_then(Value::as_str);
+    Ok(string(relation, "recorded_at")? <= frontier
+        && valid_from <= period_end
+        && valid_to.is_none_or(|end| end >= period_start))
+}
+
+fn event_assertions_with_available_contradictions<'a>(
+    case: &'a Value,
+    event: &Value,
+) -> Result<Vec<&'a Value>, String> {
+    let mut refs = array(event, "assertion_refs")?
+        .iter()
+        .map(|value| {
+            value
+                .as_str()
+                .map(str::to_owned)
+                .ok_or("event assertion ref is not a string")
+        })
+        .collect::<Result<BTreeSet<_>, _>>()?;
+
+    // Contradictory evidence can be attached to an event through an explicit
+    // assertion-to-assertion edge without making both assertions direct event
+    // members. Only edges and facts known at this knowledge frontier participate.
+    loop {
+        let mut changed = false;
+        for relation in array(case, "relations")? {
+            if optional_string(relation, "relation_kind") != Some("contradicts")
+                || optional_string(relation, "from_kind") != Some("assertion")
+                || optional_string(relation, "to_kind") != Some("assertion")
+                || !relation_is_available(case, relation)?
+            {
+                continue;
+            }
+            let from_ref = string(relation, "from_ref")?;
+            let to_ref = string(relation, "to_ref")?;
+            let (seed, candidate) = if refs.contains(from_ref) {
+                (from_ref, to_ref)
+            } else if refs.contains(to_ref) {
+                (to_ref, from_ref)
+            } else {
+                continue;
+            };
+            let _ = seed;
+            let candidate_assertion = assertion_by_ref(case, candidate)?;
+            if assertion_is_available(case, candidate_assertion)?
+                && refs.insert(candidate.to_owned())
+            {
+                changed = true;
+            }
+        }
+        if !changed {
+            break;
+        }
+    }
+
+    refs.iter()
+        .map(|reference| assertion_by_ref(case, reference))
+        .collect()
+}
+
 fn validate_event_amount_matches_assertion(
     case: &Value,
     event: &Value,
@@ -321,13 +387,7 @@ fn validate_event_amount_matches_assertion(
 ) -> Result<(), String> {
     let case_id = string(case, "case_id")?;
     let event_ref = string(event, "event_ref")?;
-    let matches = array(event, "assertion_refs")?
-        .iter()
-        .map(|value| value.as_str().ok_or("event assertion ref is not a string"))
-        .collect::<Result<Vec<_>, _>>()?
-        .into_iter()
-        .map(|reference| assertion_by_ref(case, reference))
-        .collect::<Result<Vec<_>, _>>()?
+    let matches = event_assertions_with_available_contradictions(case, event)?
         .into_iter()
         .filter(|assertion| optional_string(assertion, "fact_type") == Some(expected_fact_type))
         .collect::<Vec<_>>();
@@ -800,11 +860,7 @@ fn count_unresolved_amount_conflicts(case: &Value) -> Result<usize, String> {
             continue;
         }
         let mut fact_groups = BTreeMap::<String, Vec<&Value>>::new();
-        for reference in array(event, "assertion_refs")? {
-            let reference = reference
-                .as_str()
-                .ok_or("event assertion ref is not a string")?;
-            let assertion = assertion_by_ref(case, reference)?;
+        for assertion in event_assertions_with_available_contradictions(case, event)? {
             let fact_type = string(assertion, "fact_type")?;
             if matches!(
                 fact_type,
