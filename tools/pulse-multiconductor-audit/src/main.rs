@@ -1934,6 +1934,58 @@ mod tests{
     }
 
     #[test]
+    fn exact_pair_cache_memoizes_positive_and_negative_cross_conductor_queries() {
+        let events = reachability_events();
+        let event_map: BTreeMap<String, &Event> = events
+            .iter()
+            .map(|event| (event.event_id.clone(), event))
+            .collect();
+        let adjacency = BTreeMap::from([
+            ("a1".to_string(), BTreeSet::from(["b1".to_string()])),
+            ("b1".to_string(), BTreeSet::from(["b2".to_string()])),
+        ]);
+        let mut cache = ReachabilityCache::pair_memoized();
+
+        // a1 and b2 have different conductor-local sequence spaces. The
+        // positive result must come from explicit graph edges, not scalar order.
+        assert!(path_exists(&adjacency, &event_map, "a1", "b2", &mut cache));
+        let visits_after_positive = cache.dfs_node_visits;
+        assert!(path_exists(&adjacency, &event_map, "a1", "b2", &mut cache));
+        assert_eq!(cache.pair_cache_hits, 1);
+        assert_eq!(cache.dfs_node_visits, visits_after_positive);
+
+        // Negative results are memoized too; an absent path never becomes
+        // positive merely because the source/target sequence values differ.
+        assert!(!path_exists(&adjacency, &event_map, "a1", "c1", &mut cache));
+        let visits_after_negative = cache.dfs_node_visits;
+        assert!(!path_exists(&adjacency, &event_map, "a1", "c1", &mut cache));
+        assert_eq!(cache.pair_cache_hits, 2);
+        assert_eq!(cache.dfs_node_visits, visits_after_negative);
+        assert_eq!(cache.pair_results.len(), 2);
+        assert!(cache.pair_results.len() <= MAX_CACHED_REACHABILITY_PAIRS);
+    }
+
+    #[test]
+    fn pair_cache_does_not_reuse_a_result_for_a_different_endpoint_pair() {
+        let events = reachability_events();
+        let event_map: BTreeMap<String, &Event> = events
+            .iter()
+            .map(|event| (event.event_id.clone(), event))
+            .collect();
+        let adjacency = BTreeMap::from([
+            ("a1".to_string(), BTreeSet::from(["b1".to_string()])),
+            ("b1".to_string(), BTreeSet::from(["b2".to_string()])),
+        ]);
+        let mut cache = ReachabilityCache::pair_memoized();
+
+        assert!(path_exists(&adjacency, &event_map, "a1", "b2", &mut cache));
+        assert!(!path_exists(&adjacency, &event_map, "a1", "c1", &mut cache));
+        assert!(!path_exists(&adjacency, &event_map, "b2", "a1", &mut cache));
+        assert_eq!(cache.pair_cache_hits, 0);
+        assert_eq!(cache.pair_results.len(), 3);
+    }
+
+    #[test]
     fn per_source_cache_builds_once_for_fanout_queries() {
         let events = reachability_events();
         let event_map: BTreeMap<String, &Event> = events
