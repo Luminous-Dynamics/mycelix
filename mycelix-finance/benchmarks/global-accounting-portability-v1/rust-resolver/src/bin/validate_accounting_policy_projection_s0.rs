@@ -224,6 +224,9 @@ fn validate_projection(
             if currency != decision_currency {
                 return Err(format!("{projection_id}/{line_ref}: journal currency differs from recognized decision currency"));
             }
+            if optional_string(decision, "period_ref") != Some(period_ref) {
+                return Err(format!("{projection_id}/{line_ref}: journal period differs from recognized decision period"));
+            }
 
             let line_event_refs = set_from_array(line, "event_refs")?;
             if line_event_refs.len() != 1 || !line_event_refs.contains(decision_event_ref) {
