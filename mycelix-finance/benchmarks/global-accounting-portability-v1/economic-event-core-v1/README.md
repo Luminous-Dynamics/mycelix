@@ -23,11 +23,7 @@ The event graph is not a journal. It is a stable semantic layer from which separ
 - `accounting_policy_projection_v1.0.0.schema.json`: policy-specific output contract binding graph, policy and projector digests separately.
 - `accounting_policy_projection_validation_report_v1.0.0.schema.json`: deterministic projection-verification report.
 - `accounting_policy_projection_bundle_v1.0.0.schema.json` and `fixtures/accounting_policy_projection_review_controls_v1.0.0.json`: two review-only projection examples over one immutable graph digest.
-- `accounting_policy_projection_verification_report_v1.0.0.schema.json`: closed schema for the independent projection-verifier report.
-- `../rust-resolver/src/bin/verify_accounting_policy_projections.rs`: independent projection binding/provenance/ledger verifier.
 - `../rust-resolver/src/bin/validate_economic_event_graph_s0.rs`: Rust graph validator/report generator.
-- `../rust-resolver/src/bin/validate_accounting_policy_projection_bundle_s0.rs`: separate graph-bound policy-projection verifier/report generator.
-- `accounting_policy_projection_validation_report_v1.0.0.schema.json`: projection-verifier report schema.
 - `../rust-resolver/src/bin/validate_accounting_policy_projection_s0.rs`: exact graph/policy/projector binding and journal-lineage validator.
 
 The eight graph cases cover:
@@ -69,7 +65,7 @@ The policy-projection contract requires:
 - journal lines linked to event refs, source assertions and policy decision refs;
 - unresolved items and review state.
 
-The review-control fixture has two synthetic policy profiles and two synthetic projector versions bound to the **same exact graph-bundle digest** (`f3f6ddeca12df82fb06bca9c7711a47b9125f3447a0e7e5f310db1f2dcab6abd`). Both outputs remain `needs_review` with no journal lines because the graph contains only invoice issuance and lacks service-acceptance evidence. Their policy/projector digests differ. Each projection now has an explicit assumption register; decision references must resolve into that register. These are schema examples only—not GAAP, IFRS or any real framework outputs.
+The review-control fixture has two synthetic policy profiles and two synthetic projector versions bound to the **same exact graph-bundle digest** (`f3f6ddeca12df82fb06bca9c7711a47b9125f3447a0e7e5f310db1f2dcab6abd`). Both outputs remain `needs_review` with no journal lines because the graph contains only invoice issuance and lacks service-acceptance evidence. Their policy/projector digests differ. Each projection has an explicit assumption register; decision references must resolve into that register. The independent projection validator verifies the raw graph-byte digest and rejects recognized decisions based on assertions or events that were not available at the graph's knowledge frontier, unsupported review assumptions, mismatched entity/period/currency, journal lines without exact policy-decision lineage, and entries that fail to reproduce the recognized amount. These are schema examples only—not GAAP, IFRS or any real framework outputs.
 
 This demonstrates the architectural boundary: a chart of accounts or policy change must not mutate the source evidence graph. Multiple policy projections can be regenerated from the same frozen graph and compared without rewriting the underlying facts.
 
@@ -80,6 +76,8 @@ From `mycelix-finance/benchmarks/global-accounting-portability-v1/rust-resolver`
 ```sh
 cargo test --locked --bin validate_economic_event_graph_s0
 cargo run --locked --bin validate_economic_event_graph_s0
+cargo test --locked --bin validate_accounting_policy_projection_s0
+cargo run --locked --bin validate_accounting_policy_projection_s0
 cargo fmt -- --check
 cargo clippy --locked --all-targets -- -D warnings
 ```
@@ -89,14 +87,14 @@ Optional arguments:
 - `--output PATH`: write the deterministic validation report to a file;
 - `--help`: show usage.
 
-The event validator checks Draft 2020-12 schemas; source identity and supersession; assertion/source provenance; valid time and knowledge time; event-to-assertion type consistency; exact event amount/currency/date agreement with cited assertions; same-tenant credit-note parent resolution; typed relation endpoints; self-relations; event supersession cycles; and deterministic input SHA-256. The projection validator separately checks exact graph-byte digest, projection graph case, policy and projector pins, event/source assertion cross-links, entity/currency/period consistency, one-to-one policy decision lineage, per-entry balance, and journal debit/credit totals against recognized measurements. It reports future assertions/events, unlinked revisions, contradictions and integrity mismatches without resolving them into accounting conclusions.
+The event validator checks Draft 2020-12 schemas; source identity and supersession; assertion/source provenance; valid time and knowledge time; event-to-assertion type consistency; exact event amount/currency/date agreement with cited assertions; same-tenant credit-note parent resolution; typed relation endpoints; self-relations; event supersession cycles; and deterministic input SHA-256. The canonical projection validator separately checks exact graph-byte digest, projection graph case, policy and projector pins, event/source assertion cross-links, entity/currency/period consistency, one-to-one policy decision lineage, per-entry balance, and journal debit/credit totals against recognized measurements. Recognized decisions additionally require every cited assertion and the event itself to be available at the graph's knowledge frontier, supported by source objects whose integrity is verified and which have not been superseded. `complete_for_review` is rejected when blocking unresolved items, unresolved event decisions or unapproved decision-critical assumptions remain. The month-to-period check compares canonical `YYYY-MM` values instead of fabricating a day 31.
 
-Seventeen event-graph Rust tests and thirteen projection-validator Rust tests are authored. The event tests include source/event amount mismatch, currency mismatch, acceptance/payment-date mismatch, cross-tenant credit-note parent rejection, future evidence, contradiction preservation without attaching the conflicting assertion to the invoice event, unlinked revisions, dangling refs and supersession cycles. Projection tests cover graph digest mismatch, wrong graph binding, dangling event/assertion refs, recognized measurement requirements, exact event/period journal binding, balanced-but-wrong measurement, unresolved-item references and independent policy/projector digests. Tests are authored but **not executed**. No Cargo compile/test, rustfmt, Clippy, independent Draft 2020-12 runtime pass or CI pass is claimed.
+Twenty event-graph Rust tests and nineteen canonical projection-validator Rust tests are authored. The event tests include source/event amount mismatch, currency mismatch, acceptance/payment-date mismatch, cross-tenant credit-note parent rejection, future evidence, contradiction preservation without attaching the conflicting assertion to the invoice event, unlinked revisions, dangling refs and supersession cycles. Projection tests cover graph digest mismatch, wrong graph binding, dangling event/assertion refs, recognized measurement requirements, exact event/period journal binding, balanced-but-wrong measurement, unresolved-item references, source/event frontier controls, critical-assumption review gates and `not_projected` semantics. Tests are authored but **not executed**. No Cargo compile/test, rustfmt, Clippy, independent Draft 2020-12 runtime pass or CI pass is claimed.
 
 ## Integration and benchmark design
 
 - #5858 owns evidence-qualified accounting tasks and ledger oracles.
-- #5868 owns evaluation of agent questions, evidence traces and final deliverables.
+- #5864 owns evaluation of agent questions, evidence traces and final deliverables (the PR branch is being refreshed separately).
 - #5840/#5848 own typed jurisdiction/applicability context and fact resolution.
 - #5849 owns cross-border financial data-flow review and data governance.
 - #5855 owns read-only vendor platform interchange.
