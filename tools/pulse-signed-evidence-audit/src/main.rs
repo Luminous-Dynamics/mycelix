@@ -1819,7 +1819,10 @@ mod tests {
             ("att-to".to_string(), "event-to".to_string()),
             ("att-extra".to_string(), "event-extra".to_string()),
         ]);
-        let accepted_attestations = BTreeSet::from(["att-from".to_string(), "att-to".to_string()]);
+        // Only the source endpoint is independently authenticated. The
+        // presence of an attestation ID in the bundle or event map is not
+        // sufficient to make the destination endpoint trusted.
+        let accepted_attestations = BTreeSet::from(["att-from".to_string()]);
         let accepted_events = BTreeSet::from(["event-from".to_string(), "event-to".to_string()]);
         assert!(!edge_basis_matches_authenticated_endpoints(
             &["att-from".into(), "att-to".into()],
@@ -1830,10 +1833,26 @@ mod tests {
             "event-to",
         ));
 
+        // Even when a third attestation is validly signed, it cannot replace
+        // evidence for either causal endpoint.
+        let all_attestations_accepted = BTreeSet::from([
+            "att-from".to_string(),
+            "att-to".to_string(),
+            "att-extra".to_string(),
+        ]);
         assert!(!edge_basis_matches_authenticated_endpoints(
             &["att-from".into(), "att-to".into(), "att-extra".into()],
             &attestation_events,
-            &accepted_attestations,
+            &all_attestations_accepted,
+            &accepted_events,
+            "event-from",
+            "event-to",
+        ));
+
+        assert!(!edge_basis_matches_authenticated_endpoints(
+            &["att-from".into()],
+            &attestation_events,
+            &all_attestations_accepted,
             &accepted_events,
             "event-from",
             "event-to",
