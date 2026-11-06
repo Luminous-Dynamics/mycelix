@@ -1,11 +1,118 @@
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
+use std::alloc::{GlobalAlloc, Layout, System};
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 use std::env;
 use std::error::Error;
 use std::fs;
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicUsize, Ordering};
+
+struct CountingAllocator;
+
+static LIVE_ALLOCATED_BYTES: AtomicUsize = AtomicUsize::new(0);
+static PEAK_LIVE_ALLOCATED_BYTES: AtomicUsize = AtomicUsize::new(0);
+static TOTAL_ALLOCATED_BYTES: AtomicUsize = AtomicUsize::new(0);
+
+#[derive(Debug, Clone, Copy)]
+struct AllocationSnapshot {
+    live_bytes: usize,
+    peak_live_bytes: usize,
+    total_allocated_bytes: usize,
+}
+
+fn update_peak_live_bytes(current: usize) {
+    let mut observed = PEAK_LIVE_ALLOCATED_BYTES.load(Ordering::Relaxed);
+    while current > observed {
+        match PEAK_LIVE_ALLOCATED_BYTES.compare_exchange_weak(
+            observed,
+            current,
+            Ordering::Relaxed,
+            Ordering::Relaxed,
+        ) {
+            Ok(_) => break,
+            Err(actual) => observed = actual,
+        }
+    }
+}
+
+fn record_allocation(size: usize) {
+    if size == 0 {
+        return;
+    }
+    TOTAL_ALLOCATED_BYTES.fetch_add(size, Ordering::Relaxed);
+    let current = LIVE_ALLOCATED_BYTES.fetch_add(size, Ordering::Relaxed) + size;
+    update_peak_live_bytes(current);
+}
+
+fn record_deallocation(size: usize) {
+    if size > 0 {
+        LIVE_ALLOCATED_BYTES.fetch_sub(size, Ordering::Relaxed);
+    }
+}
+
+fn allocation_snapshot() -> AllocationSnapshot {
+    AllocationSnapshot {
+        live_bytes: LIVE_ALLOCATED_BYTES.load(Ordering::Relaxed),
+        peak_live_bytes: PEAK_LIVE_ALLOCATED_BYTES.load(Ordering::Relaxed),
+        total_allocated_bytes: TOTAL_ALLOCATED_BYTES.load(Ordering::Relaxed),
+    }
+}
+
+fn reset_peak_to_current_live_bytes() {
+    PEAK_LIVE_ALLOCATED_BYTES.store(
+        LIVE_ALLOCATED_BYTES.load(Ordering::Relaxed),
+        Ordering::Relaxed,
+    );
+}
+
+// This allocator is used only to expose benchmark phase allocation/high-water
+// metrics. Correctness remains covered by the normal test suite; RSS is still
+// measured independently by the workflow's /usr/bin/time wrapper.
+unsafe impl GlobalAlloc for CountingAllocator {
+    unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
+        // SAFETY: delegated to the system allocator with the original layout.
+        let pointer = unsafe { System.alloc(layout) };
+        if !pointer.is_null() {
+            record_allocation(layout.size());
+        }
+        pointer
+    }
+
+    unsafe fn alloc_zeroed(&self, layout: Layout) -> *mut u8 {
+        // SAFETY: delegated to the system allocator with the original layout.
+        let pointer = unsafe { System.alloc_zeroed(layout) };
+        if !pointer.is_null() {
+            record_allocation(layout.size());
+        }
+        pointer
+    }
+
+    unsafe fn dealloc(&self, pointer: *mut u8, layout: Layout) {
+        if !pointer.is_null() {
+            record_deallocation(layout.size());
+        }
+        // SAFETY: pointer/layout are passed back unchanged to the system allocator.
+        unsafe { System.dealloc(pointer, layout) };
+    }
+
+    unsafe fn realloc(&self, pointer: *mut u8, layout: Layout, new_size: usize) -> *mut u8 {
+        // SAFETY: pointer/layout are passed back unchanged to the system allocator.
+        let new_pointer = unsafe { System.realloc(pointer, layout, new_size) };
+        if !new_pointer.is_null() {
+            if new_size > layout.size() {
+                record_allocation(new_size - layout.size());
+            } else {
+                record_deallocation(layout.size() - new_size);
+            }
+        }
+        new_pointer
+    }
+}
+
+#[global_allocator]
+static GLOBAL_ALLOCATOR: CountingAllocator = CountingAllocator;
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -824,18 +931,24 @@ fn write_json_output(value: &Value, output: Option<PathBuf>) -> Result<(), Box<d
 fn run_benchmark(event_count: usize, output: Option<PathBuf>) -> Result<(), Box<dyn Error>> {
     use std::time::Instant;
 
+    let build_baseline = allocation_snapshot();
+    reset_peak_to_current_live_bytes();
     let build_started = Instant::now();
     let history = benchmark_history(event_count)?;
     let build_ns = build_started.elapsed().as_nanos();
+    let after_build = allocation_snapshot();
 
     let spec = format!(
         "pulse-multiconductor-audit-benchmark-v1|events={event_count}|conductors=2|event=unverified_remote_signal"
     );
     let generator_commitment_sha256 = format!("{:x}", Sha256::digest(spec.as_bytes()));
 
+    let audit_live_baseline = allocation_snapshot().live_bytes;
+    reset_peak_to_current_live_bytes();
     let audit_started = Instant::now();
     let report = audit(&history, generator_commitment_sha256.clone());
     let audit_ns = audit_started.elapsed().as_nanos();
+    let after_audit = allocation_snapshot();
     let throughput = if audit_ns == 0 {
         0.0
     } else {
@@ -859,6 +972,17 @@ fn run_benchmark(event_count: usize, output: Option<PathBuf>) -> Result<(), Box<
         "history_build_ns": build_ns,
         "audit_ns": audit_ns,
         "audit_events_per_second": throughput,
+        "allocation_metrics_version": 1,
+        "allocation_baseline_live_bytes": build_baseline.live_bytes,
+        "allocation_live_bytes_after_build": after_build.live_bytes,
+        "allocation_peak_live_bytes_during_build": after_build.peak_live_bytes,
+        "allocation_peak_added_bytes_during_build": after_build.peak_live_bytes.saturating_sub(build_baseline.live_bytes),
+        "allocation_bytes_requested_during_build": after_build.total_allocated_bytes.saturating_sub(build_baseline.total_allocated_bytes),
+        "allocation_live_bytes_before_audit": audit_live_baseline,
+        "allocation_live_bytes_after_audit": after_audit.live_bytes,
+        "allocation_peak_live_bytes_during_audit": after_audit.peak_live_bytes,
+        "allocation_peak_added_bytes_during_audit": after_audit.peak_live_bytes.saturating_sub(audit_live_baseline),
+        "allocation_bytes_requested_during_audit": after_audit.total_allocated_bytes.saturating_sub(after_build.total_allocated_bytes),
         "generator_commitment_sha256": generator_commitment_sha256,
         "claim_ceiling": "BENCHMARK_ONLY: synthetic remote-signal histories measure this verifier build and fixture generator; this is not Holochain runtime throughput or a production workload claim"
     });
