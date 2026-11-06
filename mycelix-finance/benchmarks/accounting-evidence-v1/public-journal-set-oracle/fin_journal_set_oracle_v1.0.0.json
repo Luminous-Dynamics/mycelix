@@ -199,6 +199,15 @@
         "same_journal_id_changed_economic_event_binding"
       ],
       "blocks_complete": true
+    },
+    {
+      "case_id": "FJS-025",
+      "expected_disposition": "orphan_or_unauthorized_journal",
+      "reason_codes": [
+        "post_close_authorization_reference_missing",
+        "journal_effective_after_close_cutoff"
+      ],
+      "blocks_complete": true
     }
   ]
 }
