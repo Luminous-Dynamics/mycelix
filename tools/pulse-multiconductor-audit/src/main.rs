@@ -210,6 +210,7 @@ struct Grant {
 struct Call {
     event_id: String,
     conductor_id: String,
+    caller: String,
     host_authorized: bool,
     domain_allowed: bool,
 }
@@ -346,21 +347,53 @@ fn valid_event_shape(event: &Event) -> bool {
 fn relation_valid(relation: &str) -> bool {
     matches!(relation,"program_order"|"request_response"|"source_action_dependency"|"validator_receipt"|"observer_confirmation"|"test_harness_barrier")
 }
-fn path_exists(adjacency: &BTreeMap<String,BTreeSet<String>>, from: &str, to: &str) -> bool {
-    if from == to { return true; }
+fn path_exists(
+    adjacency: &BTreeMap<String, BTreeSet<String>>,
+    events: &BTreeMap<String, &Event>,
+    from: &str,
+    to: &str,
+) -> bool {
+    if from == to {
+        return true;
+    }
+
+    // Local sequence is a total order within one conductor. This is a proven
+    // shortcut because audit() inserts adjacent local-sequence edges after
+    // checking duplicate sequence numbers. Cross-conductor order still requires
+    // the evidence-backed graph.
+    if let (Some(source), Some(target)) = (events.get(from), events.get(to)) {
+        if source.conductor_id == target.conductor_id
+            && source.local_sequence < target.local_sequence
+        {
+            return true;
+        }
+    }
+
+    if adjacency
+        .get(from)
+        .is_some_and(|targets| targets.contains(to))
+    {
+        return true;
+    }
+
     let mut seen = BTreeSet::new();
     let mut stack = vec![from.to_string()];
     while let Some(node) = stack.pop() {
-        if !seen.insert(node.clone()) { continue; }
+        if !seen.insert(node.clone()) {
+            continue;
+        }
         if let Some(next) = adjacency.get(&node) {
             for target in next {
-                if target == to { return true; }
+                if target == to {
+                    return true;
+                }
                 stack.push(target.clone());
             }
         }
     }
     false
 }
+
 fn graph_has_cycle(adjacency: &BTreeMap<String,BTreeSet<String>>, nodes: &BTreeSet<String>) -> bool {
     let mut indegree: BTreeMap<String,usize> = nodes.iter().map(|n|(n.clone(),0)).collect();
     for targets in adjacency.values() { for target in targets { *indegree.entry(target.clone()).or_default() += 1; } }
@@ -376,8 +409,16 @@ fn graph_has_cycle(adjacency: &BTreeMap<String,BTreeSet<String>>, nodes: &BTreeS
     }
     visited != nodes.len()
 }
-fn direct_relation(edges:&[CausalEdge],from:&str,to:&str,relation:&str)->bool {
-    edges.iter().any(|e|e.from_event==from && e.to_event==to && e.relation==relation)
+fn has_direct_relation(
+    relations: &BTreeMap<String, BTreeMap<String, BTreeSet<String>>>,
+    from: &str,
+    to: &str,
+    relation: &str,
+) -> bool {
+    relations
+        .get(from)
+        .and_then(|targets| targets.get(to))
+        .is_some_and(|kinds| kinds.contains(relation))
 }
 
 fn audit(history:&History,input_sha256:String)->Report {
