@@ -410,8 +410,7 @@ fn valid_event_shape(event: &BorrowedEvent<'_>) -> bool {
         data.exact_fields(fields)
     };
     let optional_projection_ref_valid = event.event_type != "projection_observed"
-        || event
-            .data
+        || data
             .raw("validator_event_id")
             .is_none_or(|_| data.nonempty_str("validator_event_id"));
 
@@ -433,30 +432,24 @@ fn valid_event_shape(event: &BorrowedEvent<'_>) -> bool {
 
     match event.event_type {
         "host_grant_issued" => {
-            event
-                .data
+            data
                 .u64_value("host_authority_index")
                 .is_some_and(|value| value > 0)
-                && event
-                    .data
+                && data
                     .str_value("request_digest_sha256")
                     .is_some_and(valid_sha256)
         }
-        "host_grant_revoked" => event
-            .data
+        "host_grant_revoked" => data
             .u64_value("host_authority_index")
             .is_some_and(|value| value > 0),
-        "action_authored" => event
-            .data
+        "action_authored" => data
             .str_value("payload_sha256")
             .is_some_and(valid_sha256),
         "host_call" => {
-            event
-                .data
+            data
                 .u64_value("attempt_id")
                 .is_some_and(|value| value > 0)
-                && event
-                    .data
+                && data
                     .u64_value("host_authority_index")
                     .is_some_and(|value| value > 0)
                 && matches!(
@@ -472,13 +465,11 @@ fn valid_event_shape(event: &BorrowedEvent<'_>) -> bool {
                     Some("allow" | "deny" | "not_run" | "unknown")
                 )
         }
-        "domain_effect" => event
-            .data
+        "domain_effect" => data
             .u64_value("attempt_id")
             .is_some_and(|value| value > 0),
         "caller_outcome" => {
-            event
-                .data
+            data
                 .u64_value("attempt_id")
                 .is_some_and(|value| value > 0)
                 && matches!(
@@ -490,8 +481,7 @@ fn valid_event_shape(event: &BorrowedEvent<'_>) -> bool {
             matches!(
                 data.str_value("disposition"),
                 Some("accepted" | "rejected")
-            ) && event
-                .data
+            ) && data
                 .str_value("validator_wasm_sha256")
                 .is_some_and(valid_sha256)
                 && data.optional_string_or_null("reason_code")
@@ -522,8 +512,7 @@ fn valid_event_shape(event: &BorrowedEvent<'_>) -> bool {
             .iter()
             .all(|key| data.optional_string_or_null(key))
                 && (data.is_null("verified_payload_sha256")
-                    || event
-                        .data
+                    || data
                         .str_value("verified_payload_sha256")
                         .is_some_and(valid_sha256))
         }
