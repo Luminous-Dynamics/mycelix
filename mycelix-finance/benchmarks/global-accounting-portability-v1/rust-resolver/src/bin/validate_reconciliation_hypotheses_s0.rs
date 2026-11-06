@@ -801,6 +801,24 @@ fn build_report(
     if string(output, "source_bundle_sha256")? != input_digest {
         return Err("output source_bundle_sha256 does not match exact input bundle bytes".to_owned());
     }
+    let matcher = output.get("matcher_binding").ok_or("missing matcher binding")?;
+    match string(matcher, "engine_state")? {
+        "not_executed_synthetic_fixture" => {
+            if !matcher.get("engine_sha256").is_none_or(Value::is_null)
+                || !matcher.get("engine_artifact_ref").is_none_or(Value::is_null)
+            {
+                return Err("unexecuted synthetic matcher fixture must not claim an engine digest or artifact".to_owned());
+            }
+        }
+        "source_digest_verified" | "binary_digest_verified" => {
+            if optional_string(matcher, "engine_sha256").is_none()
+                || optional_string(matcher, "engine_artifact_ref").is_none()
+            {
+                return Err("verified matcher binding requires a digest and artifact reference".to_owned());
+            }
+        }
+        other => return Err(format!("unsupported matcher engine_state {other}")),
+    }
     let input_runs = array(input, "runs")?;
     let output_runs = array(output, "run_results")?;
     if input_runs.len() != output_runs.len() {
