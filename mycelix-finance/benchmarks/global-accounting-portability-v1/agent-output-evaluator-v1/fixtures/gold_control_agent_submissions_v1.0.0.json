@@ -1,0 +1,1911 @@
+{
+  "bundle_id": "MYCELIX-EQA-S0-AGENT-SUBMISSIONS",
+  "schema_version": "1.0.0",
+  "claim_ceiling": "synthetic_gold_control_harness_self_test_not_model_performance",
+  "submission_kind": "synthetic_gold_control",
+  "submissions": [
+    {
+      "case_id": "ACCT-001-COMPLETE-INVOICE",
+      "disposition": "deliver",
+      "primary_reason_code": "no_blocker_detected",
+      "reason_codes": [
+        "no_blocker_detected"
+      ],
+      "questions": [],
+      "journal_entries": [
+        {
+          "entry_ref": "JE-001",
+          "lines": [
+            {
+              "line_ref": "JE-001-DR",
+              "account_ref": "EXP-SERVICES",
+              "side": "debit",
+              "amount_minor": 125000,
+              "currency": "USD",
+              "entity_ref": "ENTITY-ACME",
+              "period_ref": "2026-10",
+              "source_fact_refs": [
+                "F-001-AMOUNT",
+                "F-001-ENTITY",
+                "F-001-START",
+                "F-001-END"
+              ]
+            },
+            {
+              "line_ref": "JE-001-CR",
+              "account_ref": "AP-TRADE",
+              "side": "credit",
+              "amount_minor": 125000,
+              "currency": "USD",
+              "entity_ref": "ENTITY-ACME",
+              "period_ref": "2026-10",
+              "source_fact_refs": [
+                "F-001-AMOUNT",
+                "F-001-ENTITY",
+                "F-001-START",
+                "F-001-END"
+              ]
+            }
+          ]
+        }
+      ],
+      "statement_lines": [
+        {
+          "statement_line_ref": "ST-001-OCT",
+          "statement_type": "income_statement",
+          "account_ref": "EXP-SERVICES",
+          "amount_minor": 125000,
+          "currency": "USD",
+          "entity_ref": "ENTITY-ACME",
+          "period_ref": "2026-10",
+          "source_journal_entry_refs": [
+            "JE-001"
+          ],
+          "normal_balance": "debit"
+        }
+      ],
+      "assumptions": [],
+      "evidence_trace": [
+        {
+          "trace_ref": "TRACE-FACT-F-001-AMOUNT",
+          "fact_type": "invoice_total_minor",
+          "fact_ref": "F-001-AMOUNT",
+          "evidence_state": "asserted",
+          "terminal_state": "carried_to_journal",
+          "terminal_reason": "Supported source fact carried into the journal line.",
+          "source_document_refs": [
+            "DOC-001-INV"
+          ],
+          "question_refs": [],
+          "journal_line_refs": [
+            "JE-001-DR",
+            "JE-001-CR"
+          ]
+        },
+        {
+          "trace_ref": "TRACE-FACT-F-001-SUPPLIER",
+          "fact_type": "supplier_identity",
+          "fact_ref": "F-001-SUPPLIER",
+          "evidence_state": "asserted",
+          "terminal_state": "excluded",
+          "terminal_reason": "Fact assessed and explicitly excluded from the current deliverable.",
+          "source_document_refs": [
+            "DOC-001-INV"
+          ],
+          "question_refs": [],
+          "journal_line_refs": []
+        },
+        {
+          "trace_ref": "TRACE-FACT-F-001-ENTITY",
+          "fact_type": "reporting_entity_ref",
+          "fact_ref": "F-001-ENTITY",
+          "evidence_state": "asserted",
+          "terminal_state": "carried_to_journal",
+          "terminal_reason": "Supported source fact carried into the journal line.",
+          "source_document_refs": [
+            "DOC-001-CONTRACT"
+          ],
+          "question_refs": [],
+          "journal_line_refs": [
+            "JE-001-DR",
+            "JE-001-CR"
+          ]
+        },
+        {
+          "trace_ref": "TRACE-FACT-F-001-START",
+          "fact_type": "service_period_start",
+          "fact_ref": "F-001-START",
+          "evidence_state": "asserted",
+          "terminal_state": "carried_to_journal",
+          "terminal_reason": "Supported source fact carried into the journal line.",
+          "source_document_refs": [
+            "DOC-001-CONTRACT"
+          ],
+          "question_refs": [],
+          "journal_line_refs": [
+            "JE-001-DR",
+            "JE-001-CR"
+          ]
+        },
+        {
+          "trace_ref": "TRACE-FACT-F-001-END",
+          "fact_type": "service_period_end",
+          "fact_ref": "F-001-END",
+          "evidence_state": "asserted",
+          "terminal_state": "carried_to_journal",
+          "terminal_reason": "Supported source fact carried into the journal line.",
+          "source_document_refs": [
+            "DOC-001-CONTRACT"
+          ],
+          "question_refs": [],
+          "journal_line_refs": [
+            "JE-001-DR",
+            "JE-001-CR"
+          ]
+        }
+      ],
+      "decision_confidence": 1
+    },
+    {
+      "case_id": "ACCT-002-MISSING-SERVICE-START",
+      "disposition": "clarify",
+      "primary_reason_code": "required_fact_missing",
+      "reason_codes": [
+        "required_fact_missing"
+      ],
+      "questions": [
+        {
+          "question_id": "Q-002-START",
+          "question_text": "What date did the supplier begin providing the service covered by this invoice?",
+          "target_fact_types": [
+            "service_period_start"
+          ],
+          "evidence_document_refs": [
+            "DOC-002-SOW"
+          ],
+          "minimum_answer_shape": "One authoritative fact value with source document reference and effective date."
+        }
+      ],
+      "journal_entries": [],
+      "statement_lines": [],
+      "assumptions": [],
+      "evidence_trace": [
+        {
+          "trace_ref": "TRACE-FACT-F-002-AMOUNT",
+          "fact_type": "invoice_total_minor",
+          "fact_ref": "F-002-AMOUNT",
+          "evidence_state": "asserted",
+          "terminal_state": "carried_to_question",
+          "terminal_reason": "Supporting source fact retained as context for the blocking question.",
+          "source_document_refs": [
+            "DOC-002-INV"
+          ],
+          "question_refs": [
+            "Q-002-START"
+          ],
+          "journal_line_refs": []
+        },
+        {
+          "trace_ref": "TRACE-FACT-F-002-END",
+          "fact_type": "service_period_end",
+          "fact_ref": "F-002-END",
+          "evidence_state": "asserted",
+          "terminal_state": "carried_to_question",
+          "terminal_reason": "Supporting source fact retained as context for the blocking question.",
+          "source_document_refs": [
+            "DOC-002-SOW"
+          ],
+          "question_refs": [
+            "Q-002-START"
+          ],
+          "journal_line_refs": []
+        },
+        {
+          "trace_ref": "TRACE-FACT-F-002-START-UNKNOWN",
+          "fact_type": "service_period_start",
+          "fact_ref": "F-002-START-UNKNOWN",
+          "evidence_state": "unknown",
+          "terminal_state": "question_raised",
+          "terminal_reason": "Blocking fact state carried into a clarification question.",
+          "source_document_refs": [
+            "DOC-002-SOW"
+          ],
+          "question_refs": [
+            "Q-002-START"
+          ],
+          "journal_line_refs": []
+        },
+        {
+          "trace_ref": "TRACE-BLOCKER-Q-002-START",
+          "fact_type": "service_period_start",
+          "fact_ref": "F-002-START-UNKNOWN",
+          "evidence_state": "unknown",
+          "terminal_state": "question_raised",
+          "terminal_reason": "Blocking fact state is explicitly linked to the clarification question.",
+          "source_document_refs": [
+            "DOC-002-SOW"
+          ],
+          "question_refs": [
+            "Q-002-START"
+          ],
+          "journal_line_refs": []
+        }
+      ],
+      "decision_confidence": 1
+    },
+    {
+      "case_id": "ACCT-003-CONFLICTING-ENTITY",
+      "disposition": "clarify",
+      "primary_reason_code": "contradictory_entity_evidence",
+      "reason_codes": [
+        "contradictory_entity_evidence"
+      ],
+      "questions": [
+        {
+          "question_id": "Q-003-ENTITY",
+          "question_text": "Which legal entity received the service and is responsible for this invoice? Please provide the authoritative contract or acceptance evidence.",
+          "target_fact_types": [
+            "reporting_entity_ref"
+          ],
+          "evidence_document_refs": [
+            "DOC-003-INV",
+            "DOC-003-CTR"
+          ],
+          "minimum_answer_shape": "One authoritative fact value with source document reference and effective date."
+        }
+      ],
+      "journal_entries": [],
+      "statement_lines": [],
+      "assumptions": [],
+      "evidence_trace": [
+        {
+          "trace_ref": "TRACE-FACT-F-003-AMOUNT",
+          "fact_type": "invoice_total_minor",
+          "fact_ref": "F-003-AMOUNT",
+          "evidence_state": "asserted",
+          "terminal_state": "excluded",
+          "terminal_reason": "Fact assessed and explicitly excluded from the current deliverable.",
+          "source_document_refs": [
+            "DOC-003-INV"
+          ],
+          "question_refs": [],
+          "journal_line_refs": []
+        },
+        {
+          "trace_ref": "TRACE-FACT-F-003-ENTITY-A",
+          "fact_type": "reporting_entity_ref",
+          "fact_ref": "F-003-ENTITY-A",
+          "evidence_state": "contradicting",
+          "terminal_state": "carried_to_question",
+          "terminal_reason": "Supporting source fact retained as context for the blocking question.",
+          "source_document_refs": [
+            "DOC-003-INV"
+          ],
+          "question_refs": [
+            "Q-003-ENTITY"
+          ],
+          "journal_line_refs": []
+        },
+        {
+          "trace_ref": "TRACE-FACT-F-003-ENTITY-B",
+          "fact_type": "reporting_entity_ref",
+          "fact_ref": "F-003-ENTITY-B",
+          "evidence_state": "contradicting",
+          "terminal_state": "carried_to_question",
+          "terminal_reason": "Supporting source fact retained as context for the blocking question.",
+          "source_document_refs": [
+            "DOC-003-CTR"
+          ],
+          "question_refs": [
+            "Q-003-ENTITY"
+          ],
+          "journal_line_refs": []
+        },
+        {
+          "trace_ref": "TRACE-BLOCKER-Q-003-ENTITY",
+          "fact_type": "reporting_entity_ref",
+          "fact_ref": null,
+          "evidence_state": "contradicting",
+          "terminal_state": "question_raised",
+          "terminal_reason": "Blocking fact state is explicitly linked to the clarification question.",
+          "source_document_refs": [
+            "DOC-003-INV",
+            "DOC-003-CTR"
+          ],
+          "question_refs": [
+            "Q-003-ENTITY"
+          ],
+          "journal_line_refs": []
+        }
+      ],
+      "decision_confidence": 1
+    },
+    {
+      "case_id": "ACCT-004-DUPLICATE-INVOICE",
+      "disposition": "deliver",
+      "primary_reason_code": "no_blocker_detected",
+      "reason_codes": [
+        "no_blocker_detected"
+      ],
+      "questions": [],
+      "journal_entries": [
+        {
+          "entry_ref": "JE-004",
+          "lines": [
+            {
+              "line_ref": "JE-004-DR",
+              "account_ref": "EXP-SERVICES",
+              "side": "debit",
+              "amount_minor": 87500,
+              "currency": "USD",
+              "entity_ref": "ENTITY-ACME",
+              "period_ref": "2026-10",
+              "source_fact_refs": [
+                "F-004-AMOUNT",
+                "F-004-SUPPLIER",
+                "F-004-ENTITY",
+                "F-004-START",
+                "F-004-END"
+              ]
+            },
+            {
+              "line_ref": "JE-004-CR",
+              "account_ref": "AP-TRADE",
+              "side": "credit",
+              "amount_minor": 87500,
+              "currency": "USD",
+              "entity_ref": "ENTITY-ACME",
+              "period_ref": "2026-10",
+              "source_fact_refs": [
+                "F-004-AMOUNT",
+                "F-004-SUPPLIER",
+                "F-004-ENTITY",
+                "F-004-START",
+                "F-004-END"
+              ]
+            }
+          ]
+        }
+      ],
+      "statement_lines": [
+        {
+          "statement_line_ref": "ST-004-OCT",
+          "statement_type": "income_statement",
+          "account_ref": "EXP-SERVICES",
+          "amount_minor": 87500,
+          "currency": "USD",
+          "entity_ref": "ENTITY-ACME",
+          "period_ref": "2026-10",
+          "source_journal_entry_refs": [
+            "JE-004"
+          ],
+          "normal_balance": "debit"
+        }
+      ],
+      "assumptions": [],
+      "evidence_trace": [
+        {
+          "trace_ref": "TRACE-FACT-F-004-AMOUNT",
+          "fact_type": "invoice_total_minor",
+          "fact_ref": "F-004-AMOUNT",
+          "evidence_state": "asserted",
+          "terminal_state": "carried_to_journal",
+          "terminal_reason": "Supported source fact carried into the journal line.",
+          "source_document_refs": [
+            "DOC-004-INV-A"
+          ],
+          "question_refs": [],
+          "journal_line_refs": [
+            "JE-004-DR",
+            "JE-004-CR"
+          ]
+        },
+        {
+          "trace_ref": "TRACE-FACT-F-004-SUPPLIER",
+          "fact_type": "supplier_identity",
+          "fact_ref": "F-004-SUPPLIER",
+          "evidence_state": "asserted",
+          "terminal_state": "carried_to_journal",
+          "terminal_reason": "Supported source fact carried into the journal line.",
+          "source_document_refs": [
+            "DOC-004-INV-A"
+          ],
+          "question_refs": [],
+          "journal_line_refs": [
+            "JE-004-DR",
+            "JE-004-CR"
+          ]
+        },
+        {
+          "trace_ref": "TRACE-FACT-F-004-ENTITY",
+          "fact_type": "reporting_entity_ref",
+          "fact_ref": "F-004-ENTITY",
+          "evidence_state": "asserted",
+          "terminal_state": "carried_to_journal",
+          "terminal_reason": "Supported source fact carried into the journal line.",
+          "source_document_refs": [
+            "DOC-004-INV-A"
+          ],
+          "question_refs": [],
+          "journal_line_refs": [
+            "JE-004-DR",
+            "JE-004-CR"
+          ]
+        },
+        {
+          "trace_ref": "TRACE-FACT-F-004-START",
+          "fact_type": "service_period_start",
+          "fact_ref": "F-004-START",
+          "evidence_state": "asserted",
+          "terminal_state": "carried_to_journal",
+          "terminal_reason": "Supported source fact carried into the journal line.",
+          "source_document_refs": [
+            "DOC-004-INV-A"
+          ],
+          "question_refs": [],
+          "journal_line_refs": [
+            "JE-004-DR",
+            "JE-004-CR"
+          ]
+        },
+        {
+          "trace_ref": "TRACE-FACT-F-004-END",
+          "fact_type": "service_period_end",
+          "fact_ref": "F-004-END",
+          "evidence_state": "asserted",
+          "terminal_state": "carried_to_journal",
+          "terminal_reason": "Supported source fact carried into the journal line.",
+          "source_document_refs": [
+            "DOC-004-INV-A"
+          ],
+          "question_refs": [],
+          "journal_line_refs": [
+            "JE-004-DR",
+            "JE-004-CR"
+          ]
+        }
+      ],
+      "decision_confidence": 1
+    },
+    {
+      "case_id": "ACCT-005-MISSING-FX-RATE",
+      "disposition": "clarify",
+      "primary_reason_code": "fx_rate_missing",
+      "reason_codes": [
+        "fx_rate_missing"
+      ],
+      "questions": [
+        {
+          "question_id": "Q-005-FX",
+          "question_text": "Which approved EUR/USD exchange rate and conversion date should be applied under the entity's accounting policy?",
+          "target_fact_types": [
+            "fx_rate_to_presentation"
+          ],
+          "evidence_document_refs": [
+            "DOC-005-INV"
+          ],
+          "minimum_answer_shape": "One authoritative fact value with source document reference and effective date."
+        }
+      ],
+      "journal_entries": [],
+      "statement_lines": [],
+      "assumptions": [],
+      "evidence_trace": [
+        {
+          "trace_ref": "TRACE-FACT-F-005-AMOUNT",
+          "fact_type": "invoice_total_minor",
+          "fact_ref": "F-005-AMOUNT",
+          "evidence_state": "asserted",
+          "terminal_state": "carried_to_question",
+          "terminal_reason": "Supporting source fact retained as context for the blocking question.",
+          "source_document_refs": [
+            "DOC-005-INV"
+          ],
+          "question_refs": [
+            "Q-005-FX"
+          ],
+          "journal_line_refs": []
+        },
+        {
+          "trace_ref": "TRACE-FACT-F-005-ENTITY",
+          "fact_type": "reporting_entity_ref",
+          "fact_ref": "F-005-ENTITY",
+          "evidence_state": "asserted",
+          "terminal_state": "carried_to_question",
+          "terminal_reason": "Supporting source fact retained as context for the blocking question.",
+          "source_document_refs": [
+            "DOC-005-INV"
+          ],
+          "question_refs": [
+            "Q-005-FX"
+          ],
+          "journal_line_refs": []
+        },
+        {
+          "trace_ref": "TRACE-FACT-F-005-START",
+          "fact_type": "service_period_start",
+          "fact_ref": "F-005-START",
+          "evidence_state": "asserted",
+          "terminal_state": "carried_to_question",
+          "terminal_reason": "Supporting source fact retained as context for the blocking question.",
+          "source_document_refs": [
+            "DOC-005-INV"
+          ],
+          "question_refs": [
+            "Q-005-FX"
+          ],
+          "journal_line_refs": []
+        },
+        {
+          "trace_ref": "TRACE-FACT-F-005-END",
+          "fact_type": "service_period_end",
+          "fact_ref": "F-005-END",
+          "evidence_state": "asserted",
+          "terminal_state": "carried_to_question",
+          "terminal_reason": "Supporting source fact retained as context for the blocking question.",
+          "source_document_refs": [
+            "DOC-005-INV"
+          ],
+          "question_refs": [
+            "Q-005-FX"
+          ],
+          "journal_line_refs": []
+        },
+        {
+          "trace_ref": "TRACE-FACT-F-005-FX-UNKNOWN",
+          "fact_type": "fx_rate_to_presentation",
+          "fact_ref": "F-005-FX-UNKNOWN",
+          "evidence_state": "unknown",
+          "terminal_state": "question_raised",
+          "terminal_reason": "Blocking fact state carried into a clarification question.",
+          "source_document_refs": [
+            "DOC-005-INV"
+          ],
+          "question_refs": [
+            "Q-005-FX"
+          ],
+          "journal_line_refs": []
+        },
+        {
+          "trace_ref": "TRACE-BLOCKER-Q-005-FX",
+          "fact_type": "fx_rate_to_presentation",
+          "fact_ref": "F-005-FX-UNKNOWN",
+          "evidence_state": "unknown",
+          "terminal_state": "question_raised",
+          "terminal_reason": "Blocking fact state is explicitly linked to the clarification question.",
+          "source_document_refs": [
+            "DOC-005-INV"
+          ],
+          "question_refs": [
+            "Q-005-FX"
+          ],
+          "journal_line_refs": []
+        }
+      ],
+      "decision_confidence": 1
+    },
+    {
+      "case_id": "ACCT-006-CREDIT-NOTE-PARENT-MISSING",
+      "disposition": "escalate",
+      "primary_reason_code": "credit_note_parent_missing",
+      "reason_codes": [
+        "credit_note_parent_missing"
+      ],
+      "questions": [],
+      "journal_entries": [],
+      "statement_lines": [],
+      "assumptions": [],
+      "evidence_trace": [
+        {
+          "trace_ref": "TRACE-FACT-F-006-CREDIT",
+          "fact_type": "credit_note_amount_minor",
+          "fact_ref": "F-006-CREDIT",
+          "evidence_state": "asserted",
+          "terminal_state": "carried_to_review",
+          "terminal_reason": "Source fact preserved for escalation review.",
+          "source_document_refs": [
+            "DOC-006-CN"
+          ],
+          "question_refs": [],
+          "journal_line_refs": []
+        },
+        {
+          "trace_ref": "TRACE-FACT-F-006-PARENT",
+          "fact_type": "original_invoice_id",
+          "fact_ref": "F-006-PARENT",
+          "evidence_state": "asserted",
+          "terminal_state": "carried_to_review",
+          "terminal_reason": "Source fact preserved for escalation review.",
+          "source_document_refs": [
+            "DOC-006-CN"
+          ],
+          "question_refs": [],
+          "journal_line_refs": []
+        }
+      ],
+      "decision_confidence": 1
+    },
+    {
+      "case_id": "ACCT-007-FUTURE-RECORDED-ACCEPTANCE",
+      "disposition": "clarify",
+      "primary_reason_code": "evidence_after_knowledge_frontier",
+      "reason_codes": [
+        "evidence_after_knowledge_frontier"
+      ],
+      "questions": [
+        {
+          "question_id": "Q-007-ACCEPTANCE",
+          "question_text": "Can you provide the service-acceptance date and source record that were available by the October close knowledge cutoff?",
+          "target_fact_types": [
+            "acceptance_date"
+          ],
+          "evidence_document_refs": [
+            "DOC-007-DELIVERY"
+          ],
+          "minimum_answer_shape": "One authoritative fact value with source document reference and effective date."
+        }
+      ],
+      "journal_entries": [],
+      "statement_lines": [],
+      "assumptions": [],
+      "evidence_trace": [
+        {
+          "trace_ref": "TRACE-FACT-F-007-ACCEPTANCE-FUTURE",
+          "fact_type": "acceptance_date",
+          "fact_ref": "F-007-ACCEPTANCE-FUTURE",
+          "evidence_state": "future",
+          "terminal_state": "question_raised",
+          "terminal_reason": "Blocking fact state carried into a clarification question.",
+          "source_document_refs": [
+            "DOC-007-DELIVERY"
+          ],
+          "question_refs": [
+            "Q-007-ACCEPTANCE"
+          ],
+          "journal_line_refs": []
+        },
+        {
+          "trace_ref": "TRACE-BLOCKER-Q-007-ACCEPTANCE",
+          "fact_type": "acceptance_date",
+          "fact_ref": "F-007-ACCEPTANCE-FUTURE",
+          "evidence_state": "future",
+          "terminal_state": "question_raised",
+          "terminal_reason": "Blocking fact state is explicitly linked to the clarification question.",
+          "source_document_refs": [
+            "DOC-007-DELIVERY"
+          ],
+          "question_refs": [
+            "Q-007-ACCEPTANCE"
+          ],
+          "journal_line_refs": []
+        }
+      ],
+      "decision_confidence": 1
+    },
+    {
+      "case_id": "ACCT-008-PERIOD-CUTOFF-ALLOCATION",
+      "disposition": "deliver",
+      "primary_reason_code": "no_blocker_detected",
+      "reason_codes": [
+        "no_blocker_detected"
+      ],
+      "questions": [],
+      "journal_entries": [
+        {
+          "entry_ref": "JE-008-OCT",
+          "lines": [
+            {
+              "line_ref": "JE-008-OCT-DR",
+              "account_ref": "EXP-SERVICES",
+              "side": "debit",
+              "amount_minor": 170000,
+              "currency": "USD",
+              "entity_ref": "ENTITY-ACME",
+              "period_ref": "2026-10",
+              "source_fact_refs": [
+                "F-008-AMOUNT",
+                "F-008-ENTITY",
+                "F-008-START",
+                "F-008-END"
+              ]
+            },
+            {
+              "line_ref": "JE-008-OCT-CR",
+              "account_ref": "AP-TRADE",
+              "side": "credit",
+              "amount_minor": 170000,
+              "currency": "USD",
+              "entity_ref": "ENTITY-ACME",
+              "period_ref": "2026-10",
+              "source_fact_refs": [
+                "F-008-AMOUNT",
+                "F-008-ENTITY",
+                "F-008-START",
+                "F-008-END"
+              ]
+            }
+          ]
+        },
+        {
+          "entry_ref": "JE-008-NOV",
+          "lines": [
+            {
+              "line_ref": "JE-008-NOV-DR",
+              "account_ref": "EXP-SERVICES",
+              "side": "debit",
+              "amount_minor": 140000,
+              "currency": "USD",
+              "entity_ref": "ENTITY-ACME",
+              "period_ref": "2026-11",
+              "source_fact_refs": [
+                "F-008-AMOUNT",
+                "F-008-ENTITY",
+                "F-008-START",
+                "F-008-END"
+              ]
+            },
+            {
+              "line_ref": "JE-008-NOV-CR",
+              "account_ref": "AP-TRADE",
+              "side": "credit",
+              "amount_minor": 140000,
+              "currency": "USD",
+              "entity_ref": "ENTITY-ACME",
+              "period_ref": "2026-11",
+              "source_fact_refs": [
+                "F-008-AMOUNT",
+                "F-008-ENTITY",
+                "F-008-START",
+                "F-008-END"
+              ]
+            }
+          ]
+        }
+      ],
+      "statement_lines": [
+        {
+          "statement_line_ref": "ST-008-OCT",
+          "statement_type": "income_statement",
+          "account_ref": "EXP-SERVICES",
+          "amount_minor": 170000,
+          "currency": "USD",
+          "entity_ref": "ENTITY-ACME",
+          "period_ref": "2026-10",
+          "source_journal_entry_refs": [
+            "JE-008-OCT"
+          ],
+          "normal_balance": "debit"
+        },
+        {
+          "statement_line_ref": "ST-008-NOV",
+          "statement_type": "income_statement",
+          "account_ref": "EXP-SERVICES",
+          "amount_minor": 140000,
+          "currency": "USD",
+          "entity_ref": "ENTITY-ACME",
+          "period_ref": "2026-11",
+          "source_journal_entry_refs": [
+            "JE-008-NOV"
+          ],
+          "normal_balance": "debit"
+        }
+      ],
+      "assumptions": [],
+      "evidence_trace": [
+        {
+          "trace_ref": "TRACE-FACT-F-008-AMOUNT",
+          "fact_type": "invoice_total_minor",
+          "fact_ref": "F-008-AMOUNT",
+          "evidence_state": "asserted",
+          "terminal_state": "carried_to_journal",
+          "terminal_reason": "Supported source fact carried into the journal line.",
+          "source_document_refs": [
+            "DOC-008-INV"
+          ],
+          "question_refs": [],
+          "journal_line_refs": [
+            "JE-008-OCT-DR",
+            "JE-008-OCT-CR",
+            "JE-008-NOV-DR",
+            "JE-008-NOV-CR"
+          ]
+        },
+        {
+          "trace_ref": "TRACE-FACT-F-008-ENTITY",
+          "fact_type": "reporting_entity_ref",
+          "fact_ref": "F-008-ENTITY",
+          "evidence_state": "asserted",
+          "terminal_state": "carried_to_journal",
+          "terminal_reason": "Supported source fact carried into the journal line.",
+          "source_document_refs": [
+            "DOC-008-CTR"
+          ],
+          "question_refs": [],
+          "journal_line_refs": [
+            "JE-008-OCT-DR",
+            "JE-008-OCT-CR",
+            "JE-008-NOV-DR",
+            "JE-008-NOV-CR"
+          ]
+        },
+        {
+          "trace_ref": "TRACE-FACT-F-008-START",
+          "fact_type": "service_period_start",
+          "fact_ref": "F-008-START",
+          "evidence_state": "asserted",
+          "terminal_state": "carried_to_journal",
+          "terminal_reason": "Supported source fact carried into the journal line.",
+          "source_document_refs": [
+            "DOC-008-CTR"
+          ],
+          "question_refs": [],
+          "journal_line_refs": [
+            "JE-008-OCT-DR",
+            "JE-008-OCT-CR",
+            "JE-008-NOV-DR",
+            "JE-008-NOV-CR"
+          ]
+        },
+        {
+          "trace_ref": "TRACE-FACT-F-008-END",
+          "fact_type": "service_period_end",
+          "fact_ref": "F-008-END",
+          "evidence_state": "asserted",
+          "terminal_state": "carried_to_journal",
+          "terminal_reason": "Supported source fact carried into the journal line.",
+          "source_document_refs": [
+            "DOC-008-CTR"
+          ],
+          "question_refs": [],
+          "journal_line_refs": [
+            "JE-008-OCT-DR",
+            "JE-008-OCT-CR",
+            "JE-008-NOV-DR",
+            "JE-008-NOV-CR"
+          ]
+        }
+      ],
+      "decision_confidence": 1
+    },
+    {
+      "case_id": "ACCT-009-SOURCE-INTEGRITY-MISMATCH",
+      "disposition": "abstain",
+      "primary_reason_code": "source_integrity_failed",
+      "reason_codes": [
+        "source_integrity_failed"
+      ],
+      "questions": [],
+      "journal_entries": [],
+      "statement_lines": [],
+      "assumptions": [],
+      "evidence_trace": [
+        {
+          "trace_ref": "TRACE-FACT-F-009-AMOUNT",
+          "fact_type": "invoice_total_minor",
+          "fact_ref": "F-009-AMOUNT",
+          "evidence_state": "integrity_failed",
+          "terminal_state": "abstained",
+          "terminal_reason": "Source fact retained as the reason for abstention.",
+          "source_document_refs": [
+            "DOC-009-INV"
+          ],
+          "question_refs": [],
+          "journal_line_refs": []
+        },
+        {
+          "trace_ref": "TRACE-FACT-F-009-ENTITY",
+          "fact_type": "reporting_entity_ref",
+          "fact_ref": "F-009-ENTITY",
+          "evidence_state": "integrity_failed",
+          "terminal_state": "abstained",
+          "terminal_reason": "Source fact retained as the reason for abstention.",
+          "source_document_refs": [
+            "DOC-009-INV"
+          ],
+          "question_refs": [],
+          "journal_line_refs": []
+        }
+      ],
+      "decision_confidence": 1
+    },
+    {
+      "case_id": "ACCT-010-CONTRADICTORY-AMOUNT",
+      "disposition": "escalate",
+      "primary_reason_code": "contradictory_amount_evidence",
+      "reason_codes": [
+        "contradictory_amount_evidence"
+      ],
+      "questions": [],
+      "journal_entries": [],
+      "statement_lines": [],
+      "assumptions": [],
+      "evidence_trace": [
+        {
+          "trace_ref": "TRACE-FACT-F-010-INV-AMOUNT",
+          "fact_type": "invoice_total_minor",
+          "fact_ref": "F-010-INV-AMOUNT",
+          "evidence_state": "contradicting",
+          "terminal_state": "carried_to_review",
+          "terminal_reason": "Source fact preserved for escalation review.",
+          "source_document_refs": [
+            "DOC-010-INV"
+          ],
+          "question_refs": [],
+          "journal_line_refs": []
+        },
+        {
+          "trace_ref": "TRACE-FACT-F-010-PO-AMOUNT",
+          "fact_type": "purchase_order_total_minor",
+          "fact_ref": "F-010-PO-AMOUNT",
+          "evidence_state": "contradicting",
+          "terminal_state": "carried_to_review",
+          "terminal_reason": "Source fact preserved for escalation review.",
+          "source_document_refs": [
+            "DOC-010-PO"
+          ],
+          "question_refs": [],
+          "journal_line_refs": []
+        },
+        {
+          "trace_ref": "TRACE-FACT-F-010-ENTITY",
+          "fact_type": "reporting_entity_ref",
+          "fact_ref": "F-010-ENTITY",
+          "evidence_state": "asserted",
+          "terminal_state": "excluded",
+          "terminal_reason": "Fact assessed and explicitly excluded from the current deliverable.",
+          "source_document_refs": [
+            "DOC-010-INV"
+          ],
+          "question_refs": [],
+          "journal_line_refs": []
+        }
+      ],
+      "decision_confidence": 1
+    },
+    {
+      "case_id": "ACCT-011-ACCOUNT-MAPPING-MISSING",
+      "disposition": "clarify",
+      "primary_reason_code": "account_mapping_missing",
+      "reason_codes": [
+        "account_mapping_missing"
+      ],
+      "questions": [
+        {
+          "question_id": "Q-011-ACCOUNT",
+          "question_text": "Which approved chart-of-accounts mapping should classify this service expense for ENTITY-ACME?",
+          "target_fact_types": [
+            "account_mapping_ref"
+          ],
+          "evidence_document_refs": [
+            "DOC-011-COA"
+          ],
+          "minimum_answer_shape": "One authoritative fact value with source document reference and effective date."
+        }
+      ],
+      "journal_entries": [],
+      "statement_lines": [],
+      "assumptions": [],
+      "evidence_trace": [
+        {
+          "trace_ref": "TRACE-FACT-F-011-AMOUNT",
+          "fact_type": "invoice_total_minor",
+          "fact_ref": "F-011-AMOUNT",
+          "evidence_state": "asserted",
+          "terminal_state": "carried_to_question",
+          "terminal_reason": "Supporting source fact retained as context for the blocking question.",
+          "source_document_refs": [
+            "DOC-011-INV"
+          ],
+          "question_refs": [
+            "Q-011-ACCOUNT"
+          ],
+          "journal_line_refs": []
+        },
+        {
+          "trace_ref": "TRACE-FACT-F-011-ENTITY",
+          "fact_type": "reporting_entity_ref",
+          "fact_ref": "F-011-ENTITY",
+          "evidence_state": "asserted",
+          "terminal_state": "carried_to_question",
+          "terminal_reason": "Supporting source fact retained as context for the blocking question.",
+          "source_document_refs": [
+            "DOC-011-INV"
+          ],
+          "question_refs": [
+            "Q-011-ACCOUNT"
+          ],
+          "journal_line_refs": []
+        },
+        {
+          "trace_ref": "TRACE-FACT-F-011-START",
+          "fact_type": "service_period_start",
+          "fact_ref": "F-011-START",
+          "evidence_state": "asserted",
+          "terminal_state": "carried_to_question",
+          "terminal_reason": "Supporting source fact retained as context for the blocking question.",
+          "source_document_refs": [
+            "DOC-011-INV"
+          ],
+          "question_refs": [
+            "Q-011-ACCOUNT"
+          ],
+          "journal_line_refs": []
+        },
+        {
+          "trace_ref": "TRACE-FACT-F-011-END",
+          "fact_type": "service_period_end",
+          "fact_ref": "F-011-END",
+          "evidence_state": "asserted",
+          "terminal_state": "carried_to_question",
+          "terminal_reason": "Supporting source fact retained as context for the blocking question.",
+          "source_document_refs": [
+            "DOC-011-INV"
+          ],
+          "question_refs": [
+            "Q-011-ACCOUNT"
+          ],
+          "journal_line_refs": []
+        },
+        {
+          "trace_ref": "TRACE-FACT-F-011-ACCOUNT-UNKNOWN",
+          "fact_type": "account_mapping_ref",
+          "fact_ref": "F-011-ACCOUNT-UNKNOWN",
+          "evidence_state": "unknown",
+          "terminal_state": "question_raised",
+          "terminal_reason": "Blocking fact state carried into a clarification question.",
+          "source_document_refs": [
+            "DOC-011-COA"
+          ],
+          "question_refs": [
+            "Q-011-ACCOUNT"
+          ],
+          "journal_line_refs": []
+        },
+        {
+          "trace_ref": "TRACE-BLOCKER-Q-011-ACCOUNT",
+          "fact_type": "account_mapping_ref",
+          "fact_ref": "F-011-ACCOUNT-UNKNOWN",
+          "evidence_state": "unknown",
+          "terminal_state": "question_raised",
+          "terminal_reason": "Blocking fact state is explicitly linked to the clarification question.",
+          "source_document_refs": [
+            "DOC-011-COA"
+          ],
+          "question_refs": [
+            "Q-011-ACCOUNT"
+          ],
+          "journal_line_refs": []
+        }
+      ],
+      "decision_confidence": 1
+    },
+    {
+      "case_id": "ACCT-012-FUTURE-RECEIVED-INVOICE",
+      "disposition": "clarify",
+      "primary_reason_code": "evidence_after_knowledge_frontier",
+      "reason_codes": [
+        "evidence_after_knowledge_frontier"
+      ],
+      "questions": [
+        {
+          "question_id": "Q-012-RECEIPT",
+          "question_text": "Can you provide the invoice or an equivalent source record that was available by the October close knowledge cutoff?",
+          "target_fact_types": [
+            "invoice_total_minor"
+          ],
+          "evidence_document_refs": [
+            "DOC-012-INV"
+          ],
+          "minimum_answer_shape": "One authoritative fact value with source document reference and effective date."
+        }
+      ],
+      "journal_entries": [],
+      "statement_lines": [],
+      "assumptions": [],
+      "evidence_trace": [
+        {
+          "trace_ref": "TRACE-FACT-F-012-AMOUNT",
+          "fact_type": "invoice_total_minor",
+          "fact_ref": "F-012-AMOUNT",
+          "evidence_state": "future",
+          "terminal_state": "question_raised",
+          "terminal_reason": "Blocking fact state carried into a clarification question.",
+          "source_document_refs": [
+            "DOC-012-INV"
+          ],
+          "question_refs": [
+            "Q-012-RECEIPT"
+          ],
+          "journal_line_refs": []
+        },
+        {
+          "trace_ref": "TRACE-FACT-F-012-ENTITY",
+          "fact_type": "reporting_entity_ref",
+          "fact_ref": "F-012-ENTITY",
+          "evidence_state": "future",
+          "terminal_state": "excluded",
+          "terminal_reason": "Fact assessed and explicitly excluded from the current deliverable.",
+          "source_document_refs": [
+            "DOC-012-INV"
+          ],
+          "question_refs": [],
+          "journal_line_refs": []
+        },
+        {
+          "trace_ref": "TRACE-FACT-F-012-START",
+          "fact_type": "service_period_start",
+          "fact_ref": "F-012-START",
+          "evidence_state": "future",
+          "terminal_state": "excluded",
+          "terminal_reason": "Fact assessed and explicitly excluded from the current deliverable.",
+          "source_document_refs": [
+            "DOC-012-INV"
+          ],
+          "question_refs": [],
+          "journal_line_refs": []
+        },
+        {
+          "trace_ref": "TRACE-FACT-F-012-END",
+          "fact_type": "service_period_end",
+          "fact_ref": "F-012-END",
+          "evidence_state": "future",
+          "terminal_state": "excluded",
+          "terminal_reason": "Fact assessed and explicitly excluded from the current deliverable.",
+          "source_document_refs": [
+            "DOC-012-INV"
+          ],
+          "question_refs": [],
+          "journal_line_refs": []
+        },
+        {
+          "trace_ref": "TRACE-BLOCKER-Q-012-RECEIPT",
+          "fact_type": "invoice_total_minor",
+          "fact_ref": "F-012-AMOUNT",
+          "evidence_state": "future",
+          "terminal_state": "question_raised",
+          "terminal_reason": "Blocking fact state is explicitly linked to the clarification question.",
+          "source_document_refs": [
+            "DOC-012-INV"
+          ],
+          "question_refs": [
+            "Q-012-RECEIPT"
+          ],
+          "journal_line_refs": []
+        }
+      ],
+      "decision_confidence": 1
+    },
+    {
+      "case_id": "ACCT-013-DISPUTED-SUPPLIER-IDENTITY",
+      "disposition": "clarify",
+      "primary_reason_code": "supplier_identity_disputed",
+      "reason_codes": [
+        "supplier_identity_disputed"
+      ],
+      "questions": [
+        {
+          "question_id": "Q-013-SUPPLIER",
+          "question_text": "Which legal supplier entity issued this invoice? Please provide the authoritative vendor-master or contract reference.",
+          "target_fact_types": [
+            "supplier_identity"
+          ],
+          "evidence_document_refs": [
+            "DOC-013-INV"
+          ],
+          "minimum_answer_shape": "One authoritative fact value with source document reference and effective date."
+        }
+      ],
+      "journal_entries": [],
+      "statement_lines": [],
+      "assumptions": [],
+      "evidence_trace": [
+        {
+          "trace_ref": "TRACE-FACT-F-013-AMOUNT",
+          "fact_type": "invoice_total_minor",
+          "fact_ref": "F-013-AMOUNT",
+          "evidence_state": "asserted",
+          "terminal_state": "carried_to_question",
+          "terminal_reason": "Supporting source fact retained as context for the blocking question.",
+          "source_document_refs": [
+            "DOC-013-INV"
+          ],
+          "question_refs": [
+            "Q-013-SUPPLIER"
+          ],
+          "journal_line_refs": []
+        },
+        {
+          "trace_ref": "TRACE-FACT-F-013-ENTITY",
+          "fact_type": "reporting_entity_ref",
+          "fact_ref": "F-013-ENTITY",
+          "evidence_state": "asserted",
+          "terminal_state": "carried_to_question",
+          "terminal_reason": "Supporting source fact retained as context for the blocking question.",
+          "source_document_refs": [
+            "DOC-013-INV"
+          ],
+          "question_refs": [
+            "Q-013-SUPPLIER"
+          ],
+          "journal_line_refs": []
+        },
+        {
+          "trace_ref": "TRACE-FACT-F-013-START",
+          "fact_type": "service_period_start",
+          "fact_ref": "F-013-START",
+          "evidence_state": "asserted",
+          "terminal_state": "carried_to_question",
+          "terminal_reason": "Supporting source fact retained as context for the blocking question.",
+          "source_document_refs": [
+            "DOC-013-INV"
+          ],
+          "question_refs": [
+            "Q-013-SUPPLIER"
+          ],
+          "journal_line_refs": []
+        },
+        {
+          "trace_ref": "TRACE-FACT-F-013-END",
+          "fact_type": "service_period_end",
+          "fact_ref": "F-013-END",
+          "evidence_state": "asserted",
+          "terminal_state": "carried_to_question",
+          "terminal_reason": "Supporting source fact retained as context for the blocking question.",
+          "source_document_refs": [
+            "DOC-013-INV"
+          ],
+          "question_refs": [
+            "Q-013-SUPPLIER"
+          ],
+          "journal_line_refs": []
+        },
+        {
+          "trace_ref": "TRACE-FACT-F-013-SUPPLIER-DISPUTED",
+          "fact_type": "supplier_identity",
+          "fact_ref": "F-013-SUPPLIER-DISPUTED",
+          "evidence_state": "disputed",
+          "terminal_state": "question_raised",
+          "terminal_reason": "Blocking fact state carried into a clarification question.",
+          "source_document_refs": [
+            "DOC-013-INV"
+          ],
+          "question_refs": [
+            "Q-013-SUPPLIER"
+          ],
+          "journal_line_refs": []
+        },
+        {
+          "trace_ref": "TRACE-BLOCKER-Q-013-SUPPLIER",
+          "fact_type": "supplier_identity",
+          "fact_ref": "F-013-SUPPLIER-DISPUTED",
+          "evidence_state": "disputed",
+          "terminal_state": "question_raised",
+          "terminal_reason": "Blocking fact state is explicitly linked to the clarification question.",
+          "source_document_refs": [
+            "DOC-013-INV"
+          ],
+          "question_refs": [
+            "Q-013-SUPPLIER"
+          ],
+          "journal_line_refs": []
+        }
+      ],
+      "decision_confidence": 1
+    },
+    {
+      "case_id": "ACCT-014-INVALIDATED-SERVICE-END",
+      "disposition": "clarify",
+      "primary_reason_code": "required_fact_missing",
+      "reason_codes": [
+        "required_fact_missing"
+      ],
+      "questions": [
+        {
+          "question_id": "Q-014-END",
+          "question_text": "What is the correct service end date, and which authoritative contract or acceptance record supports it?",
+          "target_fact_types": [
+            "service_period_end"
+          ],
+          "evidence_document_refs": [
+            "DOC-014-CTR"
+          ],
+          "minimum_answer_shape": "One authoritative fact value with source document reference and effective date."
+        }
+      ],
+      "journal_entries": [],
+      "statement_lines": [],
+      "assumptions": [],
+      "evidence_trace": [
+        {
+          "trace_ref": "TRACE-FACT-F-014-AMOUNT",
+          "fact_type": "invoice_total_minor",
+          "fact_ref": "F-014-AMOUNT",
+          "evidence_state": "asserted",
+          "terminal_state": "carried_to_question",
+          "terminal_reason": "Supporting source fact retained as context for the blocking question.",
+          "source_document_refs": [
+            "DOC-014-INV"
+          ],
+          "question_refs": [
+            "Q-014-END"
+          ],
+          "journal_line_refs": []
+        },
+        {
+          "trace_ref": "TRACE-FACT-F-014-ENTITY",
+          "fact_type": "reporting_entity_ref",
+          "fact_ref": "F-014-ENTITY",
+          "evidence_state": "asserted",
+          "terminal_state": "carried_to_question",
+          "terminal_reason": "Supporting source fact retained as context for the blocking question.",
+          "source_document_refs": [
+            "DOC-014-CTR"
+          ],
+          "question_refs": [
+            "Q-014-END"
+          ],
+          "journal_line_refs": []
+        },
+        {
+          "trace_ref": "TRACE-FACT-F-014-START",
+          "fact_type": "service_period_start",
+          "fact_ref": "F-014-START",
+          "evidence_state": "asserted",
+          "terminal_state": "carried_to_question",
+          "terminal_reason": "Supporting source fact retained as context for the blocking question.",
+          "source_document_refs": [
+            "DOC-014-CTR"
+          ],
+          "question_refs": [
+            "Q-014-END"
+          ],
+          "journal_line_refs": []
+        },
+        {
+          "trace_ref": "TRACE-FACT-F-014-END-INVALID",
+          "fact_type": "service_period_end",
+          "fact_ref": "F-014-END-INVALID",
+          "evidence_state": "invalidated",
+          "terminal_state": "question_raised",
+          "terminal_reason": "Blocking fact state carried into a clarification question.",
+          "source_document_refs": [
+            "DOC-014-CTR"
+          ],
+          "question_refs": [
+            "Q-014-END"
+          ],
+          "journal_line_refs": []
+        },
+        {
+          "trace_ref": "TRACE-BLOCKER-Q-014-END",
+          "fact_type": "service_period_end",
+          "fact_ref": "F-014-END-INVALID",
+          "evidence_state": "invalidated",
+          "terminal_state": "question_raised",
+          "terminal_reason": "Blocking fact state is explicitly linked to the clarification question.",
+          "source_document_refs": [
+            "DOC-014-CTR"
+          ],
+          "question_refs": [
+            "Q-014-END"
+          ],
+          "journal_line_refs": []
+        }
+      ],
+      "decision_confidence": 1
+    },
+    {
+      "case_id": "ACCT-015-SAME-EXTERNAL-ID-CROSS-NAMESPACE",
+      "disposition": "deliver",
+      "primary_reason_code": "no_blocker_detected",
+      "reason_codes": [
+        "no_blocker_detected"
+      ],
+      "questions": [],
+      "journal_entries": [
+        {
+          "entry_ref": "JE-015",
+          "lines": [
+            {
+              "line_ref": "JE-015-DR",
+              "account_ref": "EXP-SERVICES",
+              "side": "debit",
+              "amount_minor": 123400,
+              "currency": "USD",
+              "entity_ref": "ENTITY-ACME",
+              "period_ref": "2026-10",
+              "source_fact_refs": [
+                "F-015-AMOUNT",
+                "F-015-ENTITY",
+                "F-015-START",
+                "F-015-END"
+              ]
+            },
+            {
+              "line_ref": "JE-015-CR",
+              "account_ref": "AP-TRADE",
+              "side": "credit",
+              "amount_minor": 123400,
+              "currency": "USD",
+              "entity_ref": "ENTITY-ACME",
+              "period_ref": "2026-10",
+              "source_fact_refs": [
+                "F-015-AMOUNT",
+                "F-015-ENTITY",
+                "F-015-START",
+                "F-015-END"
+              ]
+            }
+          ]
+        }
+      ],
+      "statement_lines": [
+        {
+          "statement_line_ref": "ST-015-OCT",
+          "statement_type": "income_statement",
+          "account_ref": "EXP-SERVICES",
+          "amount_minor": 123400,
+          "currency": "USD",
+          "entity_ref": "ENTITY-ACME",
+          "period_ref": "2026-10",
+          "source_journal_entry_refs": [
+            "JE-015"
+          ],
+          "normal_balance": "debit"
+        }
+      ],
+      "assumptions": [],
+      "evidence_trace": [
+        {
+          "trace_ref": "TRACE-FACT-F-015-AMOUNT",
+          "fact_type": "invoice_total_minor",
+          "fact_ref": "F-015-AMOUNT",
+          "evidence_state": "asserted",
+          "terminal_state": "carried_to_journal",
+          "terminal_reason": "Supported source fact carried into the journal line.",
+          "source_document_refs": [
+            "DOC-015-INV"
+          ],
+          "question_refs": [],
+          "journal_line_refs": [
+            "JE-015-DR",
+            "JE-015-CR"
+          ]
+        },
+        {
+          "trace_ref": "TRACE-FACT-F-015-SUPPLIER",
+          "fact_type": "supplier_identity",
+          "fact_ref": "F-015-SUPPLIER",
+          "evidence_state": "asserted",
+          "terminal_state": "excluded",
+          "terminal_reason": "Fact assessed and explicitly excluded from the current deliverable.",
+          "source_document_refs": [
+            "DOC-015-INV"
+          ],
+          "question_refs": [],
+          "journal_line_refs": []
+        },
+        {
+          "trace_ref": "TRACE-FACT-F-015-ENTITY",
+          "fact_type": "reporting_entity_ref",
+          "fact_ref": "F-015-ENTITY",
+          "evidence_state": "asserted",
+          "terminal_state": "carried_to_journal",
+          "terminal_reason": "Supported source fact carried into the journal line.",
+          "source_document_refs": [
+            "DOC-015-CONTRACT"
+          ],
+          "question_refs": [],
+          "journal_line_refs": [
+            "JE-015-DR",
+            "JE-015-CR"
+          ]
+        },
+        {
+          "trace_ref": "TRACE-FACT-F-015-START",
+          "fact_type": "service_period_start",
+          "fact_ref": "F-015-START",
+          "evidence_state": "asserted",
+          "terminal_state": "carried_to_journal",
+          "terminal_reason": "Supported source fact carried into the journal line.",
+          "source_document_refs": [
+            "DOC-015-CONTRACT"
+          ],
+          "question_refs": [],
+          "journal_line_refs": [
+            "JE-015-DR",
+            "JE-015-CR"
+          ]
+        },
+        {
+          "trace_ref": "TRACE-FACT-F-015-END",
+          "fact_type": "service_period_end",
+          "fact_ref": "F-015-END",
+          "evidence_state": "asserted",
+          "terminal_state": "carried_to_journal",
+          "terminal_reason": "Supported source fact carried into the journal line.",
+          "source_document_refs": [
+            "DOC-015-CONTRACT"
+          ],
+          "question_refs": [],
+          "journal_line_refs": [
+            "JE-015-DR",
+            "JE-015-CR"
+          ]
+        }
+      ],
+      "decision_confidence": 1
+    },
+    {
+      "case_id": "ACCT-016-CREDIT-PARENT-FUTURE",
+      "disposition": "escalate",
+      "primary_reason_code": "credit_note_parent_missing",
+      "reason_codes": [
+        "credit_note_parent_missing"
+      ],
+      "questions": [],
+      "journal_entries": [],
+      "statement_lines": [],
+      "assumptions": [],
+      "evidence_trace": [
+        {
+          "trace_ref": "TRACE-FACT-F-016-CREDIT",
+          "fact_type": "credit_note_amount_minor",
+          "fact_ref": "F-016-CREDIT",
+          "evidence_state": "asserted",
+          "terminal_state": "carried_to_review",
+          "terminal_reason": "Source fact preserved for escalation review.",
+          "source_document_refs": [
+            "DOC-016-CN"
+          ],
+          "question_refs": [],
+          "journal_line_refs": []
+        },
+        {
+          "trace_ref": "TRACE-FACT-F-016-PARENT",
+          "fact_type": "original_invoice_id",
+          "fact_ref": "F-016-PARENT",
+          "evidence_state": "asserted",
+          "terminal_state": "carried_to_review",
+          "terminal_reason": "Source fact preserved for escalation review.",
+          "source_document_refs": [
+            "DOC-016-CN"
+          ],
+          "question_refs": [],
+          "journal_line_refs": []
+        }
+      ],
+      "decision_confidence": 1
+    },
+    {
+      "case_id": "ACCT-017-CONTRADICTORY-SERVICE-PERIOD",
+      "disposition": "escalate",
+      "primary_reason_code": "contradictory_service_period_evidence",
+      "reason_codes": [
+        "contradictory_service_period_evidence"
+      ],
+      "questions": [],
+      "journal_entries": [],
+      "statement_lines": [],
+      "assumptions": [],
+      "evidence_trace": [
+        {
+          "trace_ref": "TRACE-FACT-F-017-AMOUNT",
+          "fact_type": "invoice_total_minor",
+          "fact_ref": "F-017-AMOUNT",
+          "evidence_state": "asserted",
+          "terminal_state": "excluded",
+          "terminal_reason": "Fact assessed and explicitly excluded from the current deliverable.",
+          "source_document_refs": [
+            "DOC-017-INV"
+          ],
+          "question_refs": [],
+          "journal_line_refs": []
+        },
+        {
+          "trace_ref": "TRACE-FACT-F-017-ENTITY",
+          "fact_type": "reporting_entity_ref",
+          "fact_ref": "F-017-ENTITY",
+          "evidence_state": "asserted",
+          "terminal_state": "excluded",
+          "terminal_reason": "Fact assessed and explicitly excluded from the current deliverable.",
+          "source_document_refs": [
+            "DOC-017-CTR"
+          ],
+          "question_refs": [],
+          "journal_line_refs": []
+        },
+        {
+          "trace_ref": "TRACE-FACT-F-017-START",
+          "fact_type": "service_period_start",
+          "fact_ref": "F-017-START",
+          "evidence_state": "contradicting",
+          "terminal_state": "carried_to_review",
+          "terminal_reason": "Source fact preserved for escalation review.",
+          "source_document_refs": [
+            "DOC-017-CTR"
+          ],
+          "question_refs": [],
+          "journal_line_refs": []
+        },
+        {
+          "trace_ref": "TRACE-FACT-F-017-END",
+          "fact_type": "service_period_end",
+          "fact_ref": "F-017-END",
+          "evidence_state": "contradicting",
+          "terminal_state": "carried_to_review",
+          "terminal_reason": "Source fact preserved for escalation review.",
+          "source_document_refs": [
+            "DOC-017-CTR"
+          ],
+          "question_refs": [],
+          "journal_line_refs": []
+        }
+      ],
+      "decision_confidence": 1
+    },
+    {
+      "case_id": "ACCT-018-CREDIT-PARENT-CROSS-NAMESPACE",
+      "disposition": "escalate",
+      "primary_reason_code": "credit_note_parent_missing",
+      "reason_codes": [
+        "credit_note_parent_missing"
+      ],
+      "questions": [],
+      "journal_entries": [],
+      "statement_lines": [],
+      "assumptions": [],
+      "evidence_trace": [
+        {
+          "trace_ref": "TRACE-FACT-F-018-CREDIT",
+          "fact_type": "credit_note_amount_minor",
+          "fact_ref": "F-018-CREDIT",
+          "evidence_state": "asserted",
+          "terminal_state": "carried_to_review",
+          "terminal_reason": "Source fact preserved for escalation review.",
+          "source_document_refs": [
+            "DOC-018-CN"
+          ],
+          "question_refs": [],
+          "journal_line_refs": []
+        },
+        {
+          "trace_ref": "TRACE-FACT-F-018-PARENT",
+          "fact_type": "original_invoice_id",
+          "fact_ref": "F-018-PARENT",
+          "evidence_state": "asserted",
+          "terminal_state": "carried_to_review",
+          "terminal_reason": "Source fact preserved for escalation review.",
+          "source_document_refs": [
+            "DOC-018-CN"
+          ],
+          "question_refs": [],
+          "journal_line_refs": []
+        }
+      ],
+      "decision_confidence": 1
+    },
+    {
+      "case_id": "ACCT-019-SUPERSEDING-INVOICE-REVISION",
+      "disposition": "deliver",
+      "primary_reason_code": "no_blocker_detected",
+      "reason_codes": [
+        "no_blocker_detected"
+      ],
+      "questions": [],
+      "journal_entries": [
+        {
+          "entry_ref": "JE-019",
+          "lines": [
+            {
+              "line_ref": "JE-019-DR",
+              "account_ref": "EXP-SERVICES",
+              "side": "debit",
+              "amount_minor": 120000,
+              "currency": "USD",
+              "entity_ref": "ENTITY-ACME",
+              "period_ref": "2026-10",
+              "source_fact_refs": [
+                "F-019-AMOUNT-R2",
+                "F-019-ENTITY",
+                "F-019-START",
+                "F-019-END"
+              ]
+            },
+            {
+              "line_ref": "JE-019-CR",
+              "account_ref": "AP-TRADE",
+              "side": "credit",
+              "amount_minor": 120000,
+              "currency": "USD",
+              "entity_ref": "ENTITY-ACME",
+              "period_ref": "2026-10",
+              "source_fact_refs": [
+                "F-019-AMOUNT-R2",
+                "F-019-ENTITY",
+                "F-019-START",
+                "F-019-END"
+              ]
+            }
+          ]
+        }
+      ],
+      "statement_lines": [
+        {
+          "statement_line_ref": "ST-019-OCT",
+          "statement_type": "income_statement",
+          "account_ref": "EXP-SERVICES",
+          "amount_minor": 120000,
+          "currency": "USD",
+          "entity_ref": "ENTITY-ACME",
+          "period_ref": "2026-10",
+          "source_journal_entry_refs": [
+            "JE-019"
+          ],
+          "normal_balance": "debit"
+        }
+      ],
+      "assumptions": [],
+      "evidence_trace": [
+        {
+          "trace_ref": "TRACE-FACT-F-019-AMOUNT-R1",
+          "fact_type": "invoice_total_minor",
+          "fact_ref": "F-019-AMOUNT-R1",
+          "evidence_state": "superseded",
+          "terminal_state": "excluded",
+          "terminal_reason": "Fact assessed and explicitly excluded from the current deliverable.",
+          "source_document_refs": [
+            "DOC-019-INV-R1"
+          ],
+          "question_refs": [],
+          "journal_line_refs": []
+        },
+        {
+          "trace_ref": "TRACE-FACT-F-019-AMOUNT-R2",
+          "fact_type": "invoice_total_minor",
+          "fact_ref": "F-019-AMOUNT-R2",
+          "evidence_state": "asserted",
+          "terminal_state": "carried_to_journal",
+          "terminal_reason": "Supported source fact carried into the journal line.",
+          "source_document_refs": [
+            "DOC-019-INV-R2"
+          ],
+          "question_refs": [],
+          "journal_line_refs": [
+            "JE-019-DR",
+            "JE-019-CR"
+          ]
+        },
+        {
+          "trace_ref": "TRACE-FACT-F-019-ENTITY",
+          "fact_type": "reporting_entity_ref",
+          "fact_ref": "F-019-ENTITY",
+          "evidence_state": "asserted",
+          "terminal_state": "carried_to_journal",
+          "terminal_reason": "Supported source fact carried into the journal line.",
+          "source_document_refs": [
+            "DOC-019-CONTRACT"
+          ],
+          "question_refs": [],
+          "journal_line_refs": [
+            "JE-019-DR",
+            "JE-019-CR"
+          ]
+        },
+        {
+          "trace_ref": "TRACE-FACT-F-019-START",
+          "fact_type": "service_period_start",
+          "fact_ref": "F-019-START",
+          "evidence_state": "asserted",
+          "terminal_state": "carried_to_journal",
+          "terminal_reason": "Supported source fact carried into the journal line.",
+          "source_document_refs": [
+            "DOC-019-CONTRACT"
+          ],
+          "question_refs": [],
+          "journal_line_refs": [
+            "JE-019-DR",
+            "JE-019-CR"
+          ]
+        },
+        {
+          "trace_ref": "TRACE-FACT-F-019-END",
+          "fact_type": "service_period_end",
+          "fact_ref": "F-019-END",
+          "evidence_state": "asserted",
+          "terminal_state": "carried_to_journal",
+          "terminal_reason": "Supported source fact carried into the journal line.",
+          "source_document_refs": [
+            "DOC-019-CONTRACT"
+          ],
+          "question_refs": [],
+          "journal_line_refs": [
+            "JE-019-DR",
+            "JE-019-CR"
+          ]
+        }
+      ],
+      "decision_confidence": 1
+    },
+    {
+      "case_id": "ACCT-020-UNLINKED-INVOICE-REVISIONS",
+      "disposition": "escalate",
+      "primary_reason_code": "source_revision_lineage_missing",
+      "reason_codes": [
+        "source_revision_lineage_missing"
+      ],
+      "questions": [],
+      "journal_entries": [],
+      "statement_lines": [],
+      "assumptions": [],
+      "evidence_trace": [
+        {
+          "trace_ref": "TRACE-FACT-F-020-AMOUNT-R1",
+          "fact_type": "invoice_total_minor",
+          "fact_ref": "F-020-AMOUNT-R1",
+          "evidence_state": "contradicting",
+          "terminal_state": "carried_to_review",
+          "terminal_reason": "Source fact preserved for escalation review.",
+          "source_document_refs": [
+            "DOC-020-INV-R1"
+          ],
+          "question_refs": [],
+          "journal_line_refs": []
+        },
+        {
+          "trace_ref": "TRACE-FACT-F-020-AMOUNT-R2",
+          "fact_type": "invoice_total_minor",
+          "fact_ref": "F-020-AMOUNT-R2",
+          "evidence_state": "contradicting",
+          "terminal_state": "carried_to_review",
+          "terminal_reason": "Source fact preserved for escalation review.",
+          "source_document_refs": [
+            "DOC-020-INV-R2"
+          ],
+          "question_refs": [],
+          "journal_line_refs": []
+        },
+        {
+          "trace_ref": "TRACE-FACT-F-020-ENTITY",
+          "fact_type": "reporting_entity_ref",
+          "fact_ref": "F-020-ENTITY",
+          "evidence_state": "asserted",
+          "terminal_state": "carried_to_review",
+          "terminal_reason": "Source fact preserved for escalation review.",
+          "source_document_refs": [
+            "DOC-020-CONTRACT"
+          ],
+          "question_refs": [],
+          "journal_line_refs": []
+        },
+        {
+          "trace_ref": "TRACE-FACT-F-020-START",
+          "fact_type": "service_period_start",
+          "fact_ref": "F-020-START",
+          "evidence_state": "asserted",
+          "terminal_state": "carried_to_review",
+          "terminal_reason": "Source fact preserved for escalation review.",
+          "source_document_refs": [
+            "DOC-020-CONTRACT"
+          ],
+          "question_refs": [],
+          "journal_line_refs": []
+        },
+        {
+          "trace_ref": "TRACE-FACT-F-020-END",
+          "fact_type": "service_period_end",
+          "fact_ref": "F-020-END",
+          "evidence_state": "asserted",
+          "terminal_state": "carried_to_review",
+          "terminal_reason": "Source fact preserved for escalation review.",
+          "source_document_refs": [
+            "DOC-020-CONTRACT"
+          ],
+          "question_refs": [],
+          "journal_line_refs": []
+        }
+      ],
+      "decision_confidence": 1
+    }
+  ]
+}
