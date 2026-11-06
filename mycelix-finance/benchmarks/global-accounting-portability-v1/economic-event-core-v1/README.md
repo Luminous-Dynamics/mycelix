@@ -23,6 +23,8 @@ The event graph is not a journal. It is a stable semantic layer from which separ
 - `accounting_policy_projection_v1.0.0.schema.json`: policy-specific output contract binding graph, policy and projector digests separately.
 - `accounting_policy_projection_validation_report_v1.0.0.schema.json`: deterministic projection-verification report.
 - `accounting_policy_projection_bundle_v1.0.0.schema.json` and `fixtures/accounting_policy_projection_review_controls_v1.0.0.json`: two review-only projection examples over one immutable graph digest.
+- `accounting_policy_projection_verification_report_v1.0.0.schema.json`: closed schema for the independent projection-verifier report.
+- `../rust-resolver/src/bin/verify_accounting_policy_projections.rs`: independent projection binding/provenance/ledger verifier.
 - `../rust-resolver/src/bin/validate_economic_event_graph_s0.rs`: Rust graph validator/report generator.
 - `../rust-resolver/src/bin/validate_accounting_policy_projection_bundle_s0.rs`: separate graph-bound policy-projection verifier/report generator.
 - `accounting_policy_projection_validation_report_v1.0.0.schema.json`: projection-verifier report schema.
@@ -38,7 +40,7 @@ The eight graph cases cover:
 7. contradictory amount assertions preserved with a contradiction edge;
 8. two source revisions with no supersession chain, surfaced rather than silently merged.
 
-Counts: 8 cases, 16 source objects, 21 assertions, 13 economic events and 4 typed relations. All values, actors, namespaces, IDs and locators are synthetic.
+Counts: 8 cases, 16 source objects, 21 assertions, 13 economic events and 4 typed relations. The assertion-contradiction case uses an explicit `assertion_conflict` event with no canonical amount. All values, actors, namespaces, IDs and locators are synthetic.
 
 ## Bitemporal, identity and evidence-consistency invariants
 
