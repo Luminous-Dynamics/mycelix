@@ -15,7 +15,7 @@ This verifies issuer signatures and semantic roles relative to the supplied trus
 
 `ROLE_AUTHENTICATED_RELATIVE_TO_SUPPLIED_POLICY`
 
-The trust policy is not authenticated by the bundle digest or `root_keyset_id`; those values establish consistency only.
+The trust policy is not authenticated by the bundle digest or `root_keyset_id`; those values establish consistency only. This mode is suitable for synthetic/development fixtures. A `runtime_capture` bundle is downgraded to `INCOMPLETE` and the CLI exits non-zero unless the pinned-root mode is used.
 
 ## Out-of-band pinned-root mode
 
