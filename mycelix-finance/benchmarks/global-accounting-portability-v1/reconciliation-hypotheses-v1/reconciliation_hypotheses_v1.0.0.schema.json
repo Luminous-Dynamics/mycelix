@@ -20,7 +20,7 @@
       "const": "1.0.0"
     },
     "claim_ceiling": {
-      "const": "candidate_match_hypotheses_not_confirmed_reconciliations_or_ledger_postings"
+      "const": "synthetic_match_hypothesis_control_outputs_not_executed_matcher_performance_or_confirmed_reconciliations"
     },
     "source_bundle_sha256": {
       "type": "string",
