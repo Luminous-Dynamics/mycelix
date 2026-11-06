@@ -241,6 +241,23 @@ The key protocol distinction is:
 
 The schema forbids sender-supplied trust/verification fields, source-agent claims and secret-like keys at the envelope level. It is not yet an event-complete schema: event-specific payload schemas, size bounds, serialization fixtures, compatibility policy and two-conductor tests are prerequisites for implementation. The schema was parsed successfully as JSON after creation.
 
+## Multi-chain causal-frontier semantics
+
+The research branch now includes `PulseAuthorityCausalFrontier.tla` and two configurations:
+- `PulseAuthorityCausalFrontier.cfg` — componentwise per-chain freshness with ancestry.
+- `PulseAuthorityCausalFrontier-scalar-mutant.cfg` — unsafe aggregate-height comparison.
+
+The design treats a checkpoint across independent Holochain source chains as a **vector frontier**, not a scalar clock. For each participating chain, a read must prove:
+1. observed sequence is at least the required sequence;
+2. observed history descends from the exact required checkpoint action;
+3. the observed head belongs to the same source-chain identity.
+
+Exact equality of the current head hash is not required: a later action on the same chain can satisfy an older checkpoint when ancestry is proven. A higher sequence on one chain cannot compensate for a lagging or unrelated history on another. The model therefore includes post-checkpoint descendant actions on both chains, as well as a foreign same-height projection used by the scalar mutant.
+
+The checkpoint remains a freshness constraint for application reads only. It does not authorize a host call, establish DHT consensus or impose a global total order across agents. Host CapGrant enforcement and resource/domain authorization remain independent.
+
+The current model expansion is being checked with the pinned TLC workflow. Do not claim the expanded descendant semantics are model-checked until the exact run shows the safe frontier configuration exhausts its state queue and the scalar mutant violates its intended invariant. The runtime implementation still needs actual source-chain ActionHash ancestry and two-conductor evidence; the TLA+ boolean ancestry proof is an abstraction, not a Holochain API.
+ 
 ## Qualification stages
 
 | Stage | Required evidence | Claim ceiling |
