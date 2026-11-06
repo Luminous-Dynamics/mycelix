@@ -511,6 +511,20 @@ fn validate_trace(trace: &Value) -> Result<Value, String> {
     if terminal != expected_terminal {
         return Err(format!("{trace_id}: disposition {decision} conflicts with execution terminal {terminal}"));
     }
+    match decision.as_str() {
+        "clarify" if questions.is_empty() => {
+            return Err(format!("{trace_id}: clarify disposition requires at least one clarification question"));
+        }
+        "clarify" | "abstain" | "escalate"
+            if !journal_lines.is_empty() || !statement_lines.is_empty() =>
+        {
+            return Err(format!("{trace_id}: {decision} disposition cannot emit a journal or statement in this S0 contract"));
+        }
+        "escalate" if human_override_count == 0 => {
+            return Err(format!("{trace_id}: escalate disposition requires a runner-observed human review event"));
+        }
+        _ => {}
+    }
 
     Ok(json!({
         "trace_id": trace_id,
@@ -541,8 +555,11 @@ fn validate_receipt_binding(
     validation_report: &Value,
     transcript_bytes: &[u8],
 ) -> Result<Value, String> {
-    if validation_report.get("valid").and_then(Value::as_bool) != Some(true) {
-        return Err("canonical benchmark receipt validation report is not valid".to_owned());
+    if optional_string(validation_report, "schema")
+        != Some("luminous.benchmark-receipt-validation-result.v1")
+        || validation_report.get("valid").and_then(Value::as_bool) != Some(true)
+    {
+        return Err("canonical benchmark receipt validation report is missing or invalid".to_owned());
     }
     if optional_string(receipt, "schema_version") != Some("luminous.benchmark-run-receipt.v1") {
         return Err("unsupported canonical benchmark receipt schema version".to_owned());
@@ -553,10 +570,14 @@ fn validate_receipt_binding(
     }
     let receipt_sha = digest(receipt_bytes);
     let validation_rows = array(validation_report, "receipts")?;
-    let report_row = validation_rows
+    let matching_report_rows = validation_rows
         .iter()
-        .find(|row| optional_string(row, "run_id") == Some(receipt_run_id))
-        .ok_or("canonical receipt validation report has no matching run row")?;
+        .filter(|row| optional_string(row, "run_id") == Some(receipt_run_id))
+        .collect::<Vec<_>>();
+    if matching_report_rows.len() != 1 {
+        return Err("canonical receipt validation report must contain exactly one matching run row".to_owned());
+    }
+    let report_row = matching_report_rows[0];
     if optional_string(report_row, "raw_file_sha256") != Some(receipt_sha.as_str()) {
         return Err("canonical receipt validation report does not bind exact receipt bytes".to_owned());
     }
@@ -574,10 +595,14 @@ fn validate_receipt_binding(
     }
 
     let task_id = string(trace, "task_id")?;
-    let task = array(receipt, "task_results")?
+    let matching_tasks = array(receipt, "task_results")?
         .iter()
-        .find(|row| optional_string(row, "task_id") == Some(task_id))
-        .ok_or_else(|| format!("canonical receipt has no task result for {task_id}"))?;
+        .filter(|row| optional_string(row, "task_id") == Some(task_id))
+        .collect::<Vec<_>>();
+    if matching_tasks.len() != 1 {
+        return Err(format!("canonical receipt must contain exactly one task result for {task_id}"));
+    }
+    let task = matching_tasks[0];
     let input_digest = string(task, "input_sha256")?;
     if input_digest != string(trace, "source_bundle_sha256")? {
         return Err("trace source bundle digest differs from canonical task input digest".to_owned());
@@ -945,6 +970,61 @@ mod tests {
         for (index, event) in events.iter_mut().enumerate() {
             event["seq"] = json!(index + 1);
         }
+        assert!(validate_trace(&trace).is_err());
+    }
+
+
+    #[test]
+    fn rejects_receipt_validation_report_with_wrong_schema_id() {
+        let (trace, _, _, trace_bytes) = fixture();
+        let transcript = b"actual transcript";
+        let (receipt, mut report) = synthetic_receipt(&trace, &trace_bytes, transcript);
+        let receipt_bytes = serde_json::to_vec(&receipt).unwrap();
+        report["schema"] = json!("unknown.receipt-validator.v9");
+        assert!(validate_receipt_binding(
+            &trace, &trace_bytes, &receipt, &receipt_bytes, &report, transcript
+        ).is_err());
+    }
+
+    #[test]
+    fn rejects_duplicate_matching_receipt_rows_in_validation_report() {
+        let (trace, _, _, trace_bytes) = fixture();
+        let transcript = b"actual transcript";
+        let (receipt, mut report) = synthetic_receipt(&trace, &trace_bytes, transcript);
+        let receipt_bytes = serde_json::to_vec(&receipt).unwrap();
+        let row = report["receipts"][0].clone();
+        report["receipts"].as_array_mut().unwrap().push(row);
+        assert!(validate_receipt_binding(
+            &trace, &trace_bytes, &receipt, &receipt_bytes, &report, transcript
+        ).is_err());
+    }
+
+    #[test]
+    fn rejects_duplicate_matching_task_rows_in_receipt() {
+        let (trace, _, _, trace_bytes) = fixture();
+        let transcript = b"actual transcript";
+        let (mut receipt, report) = synthetic_receipt(&trace, &trace_bytes, transcript);
+        let task = receipt["task_results"][0].clone();
+        receipt["task_results"].as_array_mut().unwrap().push(task);
+        let receipt_bytes = serde_json::to_vec(&receipt).unwrap();
+        let report = json!({"schema":"luminous.benchmark-receipt-validation-result.v1","valid":true,"receipts":[{
+            "run_id":string(&receipt,"run_id").unwrap(),
+            "raw_file_sha256":digest(&receipt_bytes)
+        }]});
+        assert!(validate_receipt_binding(
+            &trace,&trace_bytes,&receipt,&receipt_bytes,&report,transcript
+        ).is_err());
+    }
+
+    #[test]
+    fn rejects_question_disposition_without_question_event() {
+        let (mut trace, _, _, _) = fixture();
+        let disposition = trace["events"].as_array_mut().unwrap().iter_mut()
+            .find(|event| optional_string(event,"event_kind")==Some("disposition_emitted")).unwrap();
+        disposition["decision_disposition"] = json!("clarify");
+        disposition["reason_code"] = json!("missing_fact");
+        let terminal = trace["events"].as_array_mut().unwrap().last_mut().unwrap();
+        terminal["terminal_disposition"] = json!("needs_evidence");
         assert!(validate_trace(&trace).is_err());
     }
 
