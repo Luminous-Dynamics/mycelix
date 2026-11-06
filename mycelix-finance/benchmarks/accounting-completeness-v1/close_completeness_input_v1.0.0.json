@@ -1,0 +1,982 @@
+{
+  "benchmark_id": "FIN-CLOSE-COMPLETENESS-V1",
+  "dataset_version": "1.0.0",
+  "split": "public_development",
+  "claim_scope": "synthetic_source_population_completeness_behavior_only",
+  "generated_on": "2026-11-04",
+  "cases": [
+    {
+      "case_id": "FCC-001",
+      "case_class": "material_omission",
+      "close_context": {
+        "entity_id": "CO-001",
+        "reporting_boundary": "single_entity",
+        "period_start": "2026-10-01",
+        "period_end": "2026-10-31",
+        "close_cutoff_at": "2026-11-01T12:00:00Z",
+        "currency_profile_id": "SYNTH-ZAR-2DP-NO-TAX",
+        "trial_balance": {
+          "total_debits_minor": "12500000",
+          "total_credits_minor": "12500000",
+          "balanced": true
+        }
+      },
+      "scope_manifest": {
+        "manifest_id": "SCOPE-FCC-001",
+        "revision": "1",
+        "declared_population_ids": [
+          "BANK-CURRENT-001"
+        ],
+        "scope_exclusions": []
+      },
+      "source_inventories": [
+        {
+          "inventory_id": "INV-BANK-001",
+          "source_kind": "bank_account_register",
+          "evidence_class": "bank",
+          "authority_class": "system_of_record",
+          "captured_at": "2026-11-01T08:00:00Z",
+          "period_start": "2026-10-01",
+          "period_end": "2026-10-31",
+          "items": [
+            {
+              "population_id": "BANK-CURRENT-001",
+              "evidence_class": "bank",
+              "source_system_id": "BANK-API-01",
+              "boundary_status": "in_scope",
+              "materiality_band": "material",
+              "required_independent_sources": 1,
+              "basis_evidence_id": "INV-BANK-CURRENT-001"
+            },
+            {
+              "population_id": "BANK-RESERVE-002",
+              "evidence_class": "bank",
+              "source_system_id": "BANK-API-02",
+              "boundary_status": "in_scope",
+              "materiality_band": "material",
+              "required_independent_sources": 1,
+              "basis_evidence_id": "INV-BANK-RESERVE-002"
+            }
+          ],
+          "independence_group_id": "INV-BANK-001-authority"
+        }
+      ],
+      "observed_populations": [
+        {
+          "observation_id": "OBS-BANK-CURRENT",
+          "population_id": "BANK-CURRENT-001",
+          "source_system_id": "BANK-API-01",
+          "independence_group_id": "BANK-CURRENT-001",
+          "relationship": "primary",
+          "status": "complete",
+          "coverage_start": "2026-10-01",
+          "coverage_end": "2026-10-31",
+          "captured_at": "2026-11-01T08:30:00Z",
+          "observed_item_count": 12
+        }
+      ],
+      "evidence_attestations": []
+    },
+    {
+      "case_id": "FCC-002",
+      "case_class": "material_omission",
+      "close_context": {
+        "entity_id": "CO-001",
+        "reporting_boundary": "single_entity",
+        "period_start": "2026-10-01",
+        "period_end": "2026-10-31",
+        "close_cutoff_at": "2026-11-01T12:00:00Z",
+        "currency_profile_id": "SYNTH-ZAR-2DP-NO-TAX",
+        "trial_balance": {
+          "total_debits_minor": "12500000",
+          "total_credits_minor": "12500000",
+          "balanced": true
+        }
+      },
+      "scope_manifest": {
+        "manifest_id": "SCOPE-FCC-002",
+        "revision": "1",
+        "declared_population_ids": [
+          "AP-TRADE-001"
+        ],
+        "scope_exclusions": []
+      },
+      "source_inventories": [
+        {
+          "inventory_id": "INV-SUPPLIERS-001",
+          "source_kind": "supplier_master",
+          "evidence_class": "accounts_payable",
+          "authority_class": "system_of_record",
+          "captured_at": "2026-11-01T08:00:00Z",
+          "period_start": "2026-10-01",
+          "period_end": "2026-10-31",
+          "items": [
+            {
+              "population_id": "AP-TRADE-001",
+              "evidence_class": "accounts_payable",
+              "source_system_id": "ERP-AP-TRADE",
+              "boundary_status": "in_scope",
+              "materiality_band": "material",
+              "required_independent_sources": 1,
+              "basis_evidence_id": "INV-AP-TRADE-001"
+            },
+            {
+              "population_id": "AP-CAPEX-002",
+              "evidence_class": "accounts_payable",
+              "source_system_id": "ERP-AP-CAPEX",
+              "boundary_status": "in_scope",
+              "materiality_band": "material",
+              "required_independent_sources": 1,
+              "basis_evidence_id": "INV-AP-CAPEX-002"
+            }
+          ],
+          "independence_group_id": "INV-SUPPLIERS-001-authority"
+        }
+      ],
+      "observed_populations": [
+        {
+          "observation_id": "OBS-AP-TRADE",
+          "population_id": "AP-TRADE-001",
+          "source_system_id": "ERP-AP-TRADE",
+          "independence_group_id": "AP-TRADE-001",
+          "relationship": "primary",
+          "status": "complete",
+          "coverage_start": "2026-10-01",
+          "coverage_end": "2026-10-31",
+          "captured_at": "2026-11-01T08:30:00Z",
+          "observed_item_count": 12
+        }
+      ],
+      "evidence_attestations": []
+    },
+    {
+      "case_id": "FCC-003",
+      "case_class": "material_omission",
+      "close_context": {
+        "entity_id": "CO-001",
+        "reporting_boundary": "single_entity",
+        "period_start": "2026-10-01",
+        "period_end": "2026-10-31",
+        "close_cutoff_at": "2026-11-01T12:00:00Z",
+        "currency_profile_id": "SYNTH-ZAR-2DP-NO-TAX",
+        "trial_balance": {
+          "total_debits_minor": "12500000",
+          "total_credits_minor": "12500000",
+          "balanced": true
+        }
+      },
+      "scope_manifest": {
+        "manifest_id": "SCOPE-FCC-003",
+        "revision": "1",
+        "declared_population_ids": [
+          "AR-DIRECT-001"
+        ],
+        "scope_exclusions": []
+      },
+      "source_inventories": [
+        {
+          "inventory_id": "INV-CUSTOMERS-001",
+          "source_kind": "customer_master",
+          "evidence_class": "accounts_receivable",
+          "authority_class": "system_of_record",
+          "captured_at": "2026-11-01T08:00:00Z",
+          "period_start": "2026-10-01",
+          "period_end": "2026-10-31",
+          "items": [
+            {
+              "population_id": "AR-DIRECT-001",
+              "evidence_class": "accounts_receivable",
+              "source_system_id": "ERP-AR-DIRECT",
+              "boundary_status": "in_scope",
+              "materiality_band": "material",
+              "required_independent_sources": 1,
+              "basis_evidence_id": "INV-AR-DIRECT-001"
+            },
+            {
+              "population_id": "AR-CARD-002",
+              "evidence_class": "accounts_receivable",
+              "source_system_id": "CARD-ACQUIRER",
+              "boundary_status": "in_scope",
+              "materiality_band": "material",
+              "required_independent_sources": 1,
+              "basis_evidence_id": "INV-AR-CARD-002"
+            }
+          ],
+          "independence_group_id": "INV-CUSTOMERS-001-authority"
+        }
+      ],
+      "observed_populations": [
+        {
+          "observation_id": "OBS-AR-DIRECT",
+          "population_id": "AR-DIRECT-001",
+          "source_system_id": "ERP-AR-DIRECT",
+          "independence_group_id": "AR-DIRECT-001",
+          "relationship": "primary",
+          "status": "complete",
+          "coverage_start": "2026-10-01",
+          "coverage_end": "2026-10-31",
+          "captured_at": "2026-11-01T08:30:00Z",
+          "observed_item_count": 12
+        }
+      ],
+      "evidence_attestations": []
+    },
+    {
+      "case_id": "FCC-004",
+      "case_class": "material_omission",
+      "close_context": {
+        "entity_id": "CO-001",
+        "reporting_boundary": "consolidated_group",
+        "period_start": "2026-10-01",
+        "period_end": "2026-10-31",
+        "close_cutoff_at": "2026-11-01T12:00:00Z",
+        "currency_profile_id": "SYNTH-ZAR-2DP-NO-TAX",
+        "trial_balance": {
+          "total_debits_minor": "12500000",
+          "total_credits_minor": "12500000",
+          "balanced": true
+        }
+      },
+      "scope_manifest": {
+        "manifest_id": "SCOPE-FCC-004",
+        "revision": "1",
+        "declared_population_ids": [
+          "PARENT-GL-001"
+        ],
+        "scope_exclusions": []
+      },
+      "source_inventories": [
+        {
+          "inventory_id": "INV-GROUP-ENTITIES-001",
+          "source_kind": "consolidation_perimeter",
+          "evidence_class": "subsidiary",
+          "authority_class": "system_of_record",
+          "captured_at": "2026-11-01T08:00:00Z",
+          "period_start": "2026-10-01",
+          "period_end": "2026-10-31",
+          "items": [
+            {
+              "population_id": "PARENT-GL-001",
+              "evidence_class": "subsidiary",
+              "source_system_id": "ERP-PARENT-GL",
+              "boundary_status": "in_scope",
+              "materiality_band": "material",
+              "required_independent_sources": 1,
+              "basis_evidence_id": "INV-PARENT-GL-001"
+            },
+            {
+              "population_id": "SUB-CO-002-GL",
+              "evidence_class": "subsidiary",
+              "source_system_id": "ERP-SUB-002",
+              "boundary_status": "in_scope",
+              "materiality_band": "material",
+              "required_independent_sources": 1,
+              "basis_evidence_id": "INV-SUB-CO-002-GL"
+            }
+          ],
+          "independence_group_id": "INV-GROUP-ENTITIES-001-authority"
+        }
+      ],
+      "observed_populations": [
+        {
+          "observation_id": "OBS-PARENT-GL",
+          "population_id": "PARENT-GL-001",
+          "source_system_id": "ERP-PARENT-GL",
+          "independence_group_id": "PARENT-GL-001",
+          "relationship": "primary",
+          "status": "complete",
+          "coverage_start": "2026-10-01",
+          "coverage_end": "2026-10-31",
+          "captured_at": "2026-11-01T08:30:00Z",
+          "observed_item_count": 12
+        }
+      ],
+      "evidence_attestations": []
+    },
+    {
+      "case_id": "FCC-005",
+      "case_class": "material_omission",
+      "close_context": {
+        "entity_id": "CO-001",
+        "reporting_boundary": "single_entity",
+        "period_start": "2026-10-01",
+        "period_end": "2026-10-31",
+        "close_cutoff_at": "2026-11-01T12:00:00Z",
+        "currency_profile_id": "SYNTH-ZAR-2DP-NO-TAX",
+        "trial_balance": {
+          "total_debits_minor": "12500000",
+          "total_credits_minor": "12500000",
+          "balanced": true
+        }
+      },
+      "scope_manifest": {
+        "manifest_id": "SCOPE-FCC-005",
+        "revision": "1",
+        "declared_population_ids": [],
+        "scope_exclusions": []
+      },
+      "source_inventories": [
+        {
+          "inventory_id": "INV-PAYROLL-001",
+          "source_kind": "payroll_roster",
+          "evidence_class": "payroll",
+          "authority_class": "system_of_record",
+          "captured_at": "2026-11-01T08:00:00Z",
+          "period_start": "2026-10-01",
+          "period_end": "2026-10-31",
+          "items": [
+            {
+              "population_id": "PAYROLL-CO-001",
+              "evidence_class": "payroll",
+              "source_system_id": "PAYROLL-SYSTEM-01",
+              "boundary_status": "in_scope",
+              "materiality_band": "material",
+              "required_independent_sources": 1,
+              "basis_evidence_id": "INV-PAYROLL-CO-001"
+            }
+          ],
+          "independence_group_id": "INV-PAYROLL-001-authority"
+        }
+      ],
+      "observed_populations": [],
+      "evidence_attestations": []
+    },
+    {
+      "case_id": "FCC-006",
+      "case_class": "material_omission",
+      "close_context": {
+        "entity_id": "CO-001",
+        "reporting_boundary": "single_entity",
+        "period_start": "2026-10-01",
+        "period_end": "2026-10-31",
+        "close_cutoff_at": "2026-11-01T12:00:00Z",
+        "currency_profile_id": "SYNTH-ZAR-2DP-NO-TAX",
+        "trial_balance": {
+          "total_debits_minor": "12500000",
+          "total_credits_minor": "12500000",
+          "balanced": true
+        }
+      },
+      "scope_manifest": {
+        "manifest_id": "SCOPE-FCC-006",
+        "revision": "1",
+        "declared_population_ids": [
+          "INV-WH-A-001"
+        ],
+        "scope_exclusions": []
+      },
+      "source_inventories": [
+        {
+          "inventory_id": "INV-INVENTORY-001",
+          "source_kind": "inventory_location_register",
+          "evidence_class": "inventory",
+          "authority_class": "system_of_record",
+          "captured_at": "2026-11-01T08:00:00Z",
+          "period_start": "2026-10-01",
+          "period_end": "2026-10-31",
+          "items": [
+            {
+              "population_id": "INV-WH-A-001",
+              "evidence_class": "inventory",
+              "source_system_id": "WMS-WH-A",
+              "boundary_status": "in_scope",
+              "materiality_band": "material",
+              "required_independent_sources": 1,
+              "basis_evidence_id": "INV-INV-WH-A-001"
+            },
+            {
+              "population_id": "INV-WH-B-002",
+              "evidence_class": "inventory",
+              "source_system_id": "WMS-WH-B",
+              "boundary_status": "in_scope",
+              "materiality_band": "material",
+              "required_independent_sources": 1,
+              "basis_evidence_id": "INV-INV-WH-B-002"
+            }
+          ],
+          "independence_group_id": "INV-INVENTORY-001-authority"
+        }
+      ],
+      "observed_populations": [
+        {
+          "observation_id": "OBS-WH-A",
+          "population_id": "INV-WH-A-001",
+          "source_system_id": "WMS-WH-A",
+          "independence_group_id": "INV-WH-A-001",
+          "relationship": "primary",
+          "status": "complete",
+          "coverage_start": "2026-10-01",
+          "coverage_end": "2026-10-31",
+          "captured_at": "2026-11-01T08:30:00Z",
+          "observed_item_count": 12
+        }
+      ],
+      "evidence_attestations": []
+    },
+    {
+      "case_id": "FCC-007",
+      "case_class": "material_omission",
+      "close_context": {
+        "entity_id": "CO-001",
+        "reporting_boundary": "single_entity",
+        "period_start": "2026-10-01",
+        "period_end": "2026-10-31",
+        "close_cutoff_at": "2026-11-01T12:00:00Z",
+        "currency_profile_id": "SYNTH-ZAR-2DP-NO-TAX",
+        "trial_balance": {
+          "total_debits_minor": "12500000",
+          "total_credits_minor": "12500000",
+          "balanced": true
+        }
+      },
+      "scope_manifest": {
+        "manifest_id": "SCOPE-FCC-007",
+        "revision": "1",
+        "declared_population_ids": [],
+        "scope_exclusions": []
+      },
+      "source_inventories": [
+        {
+          "inventory_id": "INV-RELATED-001",
+          "source_kind": "related_party_register",
+          "evidence_class": "related_party",
+          "authority_class": "system_of_record",
+          "captured_at": "2026-11-01T08:00:00Z",
+          "period_start": "2026-10-01",
+          "period_end": "2026-10-31",
+          "items": [
+            {
+              "population_id": "RP-TRANSACTIONS-001",
+              "evidence_class": "related_party",
+              "source_system_id": "ERP-RELATED-PARTY",
+              "boundary_status": "in_scope",
+              "materiality_band": "material",
+              "required_independent_sources": 1,
+              "basis_evidence_id": "INV-RP-TRANSACTIONS-001"
+            }
+          ],
+          "independence_group_id": "INV-RELATED-001-authority"
+        }
+      ],
+      "observed_populations": [],
+      "evidence_attestations": []
+    },
+    {
+      "case_id": "FCC-008",
+      "case_class": "late_arriving_evidence",
+      "close_context": {
+        "entity_id": "CO-001",
+        "reporting_boundary": "single_entity",
+        "period_start": "2026-10-01",
+        "period_end": "2026-10-31",
+        "close_cutoff_at": "2026-11-01T12:00:00Z",
+        "currency_profile_id": "SYNTH-ZAR-2DP-NO-TAX",
+        "trial_balance": {
+          "total_debits_minor": "12500000",
+          "total_credits_minor": "12500000",
+          "balanced": true
+        }
+      },
+      "scope_manifest": {
+        "manifest_id": "SCOPE-FCC-008",
+        "revision": "1",
+        "declared_population_ids": [
+          "AP-TRADE-001"
+        ],
+        "scope_exclusions": []
+      },
+      "source_inventories": [
+        {
+          "inventory_id": "INV-LATE-AP-001",
+          "source_kind": "supplier_master",
+          "evidence_class": "accounts_payable",
+          "authority_class": "system_of_record",
+          "captured_at": "2026-11-01T08:00:00Z",
+          "period_start": "2026-10-01",
+          "period_end": "2026-10-31",
+          "items": [
+            {
+              "population_id": "AP-TRADE-001",
+              "evidence_class": "accounts_payable",
+              "source_system_id": "ERP-AP-TRADE",
+              "boundary_status": "in_scope",
+              "materiality_band": "material",
+              "required_independent_sources": 1,
+              "basis_evidence_id": "INV-AP-TRADE-001"
+            }
+          ],
+          "independence_group_id": "INV-LATE-AP-001-authority"
+        }
+      ],
+      "observed_populations": [
+        {
+          "observation_id": "OBS-AP-CLOSE",
+          "population_id": "AP-TRADE-001",
+          "source_system_id": "ERP-AP-TRADE",
+          "independence_group_id": "AP-TRADE-001",
+          "relationship": "primary",
+          "status": "complete",
+          "coverage_start": "2026-10-01",
+          "coverage_end": "2026-10-31",
+          "captured_at": "2026-11-01T08:30:00Z",
+          "observed_item_count": 12
+        }
+      ],
+      "evidence_attestations": [
+        {
+          "evidence_id": "LATE-INV-001",
+          "population_id": "AP-TRADE-001",
+          "evidence_type": "late_arriving_document",
+          "authority_class": "external_independent",
+          "independence_group_id": "SUPPLIER-INVOICE-778",
+          "effective_start": "2026-10-30",
+          "effective_end": "2026-10-30",
+          "captured_at": "2026-11-02T10:00:00Z",
+          "approved_by_role": "source_system",
+          "source_ref": "synthetic://supplier/INV-LATE-778"
+        }
+      ],
+      "previous_close": {
+        "close_id": "CLOSE-CO-001-2026-10",
+        "closed_at": "2026-11-01T12:00:00Z",
+        "receipt_ref": "synthetic://close/receipt/001"
+      }
+    },
+    {
+      "case_id": "FCC-009",
+      "case_class": "source_independence",
+      "close_context": {
+        "entity_id": "CO-001",
+        "reporting_boundary": "single_entity",
+        "period_start": "2026-10-01",
+        "period_end": "2026-10-31",
+        "close_cutoff_at": "2026-11-01T12:00:00Z",
+        "currency_profile_id": "SYNTH-ZAR-2DP-NO-TAX",
+        "trial_balance": {
+          "total_debits_minor": "12500000",
+          "total_credits_minor": "12500000",
+          "balanced": true
+        }
+      },
+      "scope_manifest": {
+        "manifest_id": "SCOPE-FCC-009",
+        "revision": "1",
+        "declared_population_ids": [
+          "BANK-OPERATING-009"
+        ],
+        "scope_exclusions": []
+      },
+      "source_inventories": [
+        {
+          "inventory_id": "INV-BANK-009",
+          "source_kind": "bank_account_register",
+          "evidence_class": "bank",
+          "authority_class": "system_of_record",
+          "captured_at": "2026-11-01T08:00:00Z",
+          "period_start": "2026-10-01",
+          "period_end": "2026-10-31",
+          "items": [
+            {
+              "population_id": "BANK-OPERATING-009",
+              "evidence_class": "bank",
+              "source_system_id": "BANK-PRIMARY",
+              "boundary_status": "in_scope",
+              "materiality_band": "material",
+              "required_independent_sources": 2,
+              "basis_evidence_id": "INV-BANK-OPERATING-009"
+            }
+          ],
+          "independence_group_id": "INV-BANK-009-authority"
+        }
+      ],
+      "observed_populations": [
+        {
+          "observation_id": "OBS-BANK-PRIMARY",
+          "population_id": "BANK-OPERATING-009",
+          "source_system_id": "BANK-PRIMARY",
+          "independence_group_id": "BANK-CORE-LEDGER",
+          "relationship": "primary",
+          "status": "complete",
+          "coverage_start": "2026-10-01",
+          "coverage_end": "2026-10-31",
+          "captured_at": "2026-11-01T08:30:00Z",
+          "observed_item_count": 12
+        },
+        {
+          "observation_id": "OBS-BANK-MIRROR",
+          "population_id": "BANK-OPERATING-009",
+          "source_system_id": "BANK-MIRROR",
+          "independence_group_id": "BANK-CORE-LEDGER",
+          "relationship": "mirror",
+          "status": "complete",
+          "coverage_start": "2026-10-01",
+          "coverage_end": "2026-10-31",
+          "captured_at": "2026-11-01T08:30:00Z",
+          "observed_item_count": 12
+        }
+      ],
+      "evidence_attestations": []
+    },
+    {
+      "case_id": "FCC-010",
+      "case_class": "absence_vs_zero",
+      "close_context": {
+        "entity_id": "CO-001",
+        "reporting_boundary": "single_entity",
+        "period_start": "2026-10-01",
+        "period_end": "2026-10-31",
+        "close_cutoff_at": "2026-11-01T12:00:00Z",
+        "currency_profile_id": "SYNTH-ZAR-2DP-NO-TAX",
+        "trial_balance": {
+          "total_debits_minor": "12500000",
+          "total_credits_minor": "12500000",
+          "balanced": true
+        }
+      },
+      "scope_manifest": {
+        "manifest_id": "SCOPE-FCC-010",
+        "revision": "1",
+        "declared_population_ids": [
+          "BANK-MERCHANT-010"
+        ],
+        "scope_exclusions": []
+      },
+      "source_inventories": [
+        {
+          "inventory_id": "INV-BANK-010",
+          "source_kind": "bank_account_register",
+          "evidence_class": "bank",
+          "authority_class": "system_of_record",
+          "captured_at": "2026-11-01T08:00:00Z",
+          "period_start": "2026-10-01",
+          "period_end": "2026-10-31",
+          "items": [
+            {
+              "population_id": "BANK-MERCHANT-010",
+              "evidence_class": "bank",
+              "source_system_id": "BANK-MERCHANT-API",
+              "boundary_status": "in_scope",
+              "materiality_band": "material",
+              "required_independent_sources": 1,
+              "basis_evidence_id": "INV-BANK-MERCHANT-010"
+            }
+          ],
+          "independence_group_id": "INV-BANK-010-authority"
+        }
+      ],
+      "observed_populations": [],
+      "evidence_attestations": []
+    },
+    {
+      "case_id": "FCC-011",
+      "case_class": "valid_non_applicability",
+      "close_context": {
+        "entity_id": "CO-001",
+        "reporting_boundary": "single_entity",
+        "period_start": "2026-10-01",
+        "period_end": "2026-10-31",
+        "close_cutoff_at": "2026-11-01T12:00:00Z",
+        "currency_profile_id": "SYNTH-ZAR-2DP-NO-TAX",
+        "trial_balance": {
+          "total_debits_minor": "12500000",
+          "total_credits_minor": "12500000",
+          "balanced": true
+        }
+      },
+      "scope_manifest": {
+        "manifest_id": "SCOPE-FCC-011",
+        "revision": "1",
+        "declared_population_ids": [],
+        "scope_exclusions": [
+          {
+            "population_id": "PAYROLL-CO-011",
+            "disposition": "not_applicable",
+            "reason_code": "NO_EMPLOYEES_IN_PERIOD",
+            "rationale": "Authoritative HR roster and approved controller attestation show no employees during the reporting period.",
+            "evidence_id": "ATTEST-NO-EMPLOYEES",
+            "approved_by_role": "finance_controller",
+            "approved_at": "2026-11-01T09:30:00Z"
+          }
+        ]
+      },
+      "source_inventories": [
+        {
+          "inventory_id": "INV-PAYROLL-011",
+          "source_kind": "payroll_roster",
+          "evidence_class": "payroll",
+          "authority_class": "system_of_record",
+          "captured_at": "2026-11-01T08:00:00Z",
+          "period_start": "2026-10-01",
+          "period_end": "2026-10-31",
+          "items": [
+            {
+              "population_id": "PAYROLL-CO-011",
+              "evidence_class": "payroll",
+              "source_system_id": "PAYROLL-SYSTEM-11",
+              "boundary_status": "not_applicable",
+              "materiality_band": "not_applicable",
+              "required_independent_sources": 1,
+              "basis_evidence_id": "ATTEST-NO-EMPLOYEES"
+            }
+          ],
+          "independence_group_id": "INV-PAYROLL-011-authority"
+        }
+      ],
+      "observed_populations": [],
+      "evidence_attestations": [
+        {
+          "evidence_id": "ATTEST-NO-EMPLOYEES",
+          "population_id": "PAYROLL-CO-011",
+          "evidence_type": "no_employees_attestation",
+          "authority_class": "authorized_management",
+          "independence_group_id": "HR-ROSTER-CO-001",
+          "effective_start": "2026-10-01",
+          "effective_end": "2026-10-31",
+          "captured_at": "2026-11-01T09:00:00Z",
+          "approved_by_role": "finance_controller",
+          "source_ref": "synthetic://hr/zero-employees/CO-001"
+        }
+      ]
+    },
+    {
+      "case_id": "FCC-012",
+      "case_class": "evidenced_zero_activity",
+      "close_context": {
+        "entity_id": "CO-001",
+        "reporting_boundary": "single_entity",
+        "period_start": "2026-10-01",
+        "period_end": "2026-10-31",
+        "close_cutoff_at": "2026-11-01T12:00:00Z",
+        "currency_profile_id": "SYNTH-ZAR-2DP-NO-TAX",
+        "trial_balance": {
+          "total_debits_minor": "12500000",
+          "total_credits_minor": "12500000",
+          "balanced": true
+        }
+      },
+      "scope_manifest": {
+        "manifest_id": "SCOPE-FCC-012",
+        "revision": "1",
+        "declared_population_ids": [
+          "BANK-DORMANT-012"
+        ],
+        "scope_exclusions": []
+      },
+      "source_inventories": [
+        {
+          "inventory_id": "INV-BANK-012",
+          "source_kind": "bank_account_register",
+          "evidence_class": "bank",
+          "authority_class": "system_of_record",
+          "captured_at": "2026-11-01T08:00:00Z",
+          "period_start": "2026-10-01",
+          "period_end": "2026-10-31",
+          "items": [
+            {
+              "population_id": "BANK-DORMANT-012",
+              "evidence_class": "bank",
+              "source_system_id": "BANK-DORMANT-STATEMENT",
+              "boundary_status": "in_scope",
+              "materiality_band": "material",
+              "required_independent_sources": 1,
+              "basis_evidence_id": "INV-BANK-DORMANT-012"
+            }
+          ],
+          "independence_group_id": "INV-BANK-012-authority"
+        }
+      ],
+      "observed_populations": [
+        {
+          "observation_id": "OBS-BANK-ZERO",
+          "population_id": "BANK-DORMANT-012",
+          "source_system_id": "BANK-DORMANT-STATEMENT",
+          "independence_group_id": "BANK-DORMANT-012",
+          "relationship": "primary",
+          "status": "complete",
+          "coverage_start": "2026-10-01",
+          "coverage_end": "2026-10-31",
+          "captured_at": "2026-11-01T08:30:00Z",
+          "observed_item_count": 0
+        }
+      ],
+      "evidence_attestations": [
+        {
+          "evidence_id": "ZERO-BANK-012",
+          "population_id": "BANK-DORMANT-012",
+          "evidence_type": "zero_activity_statement",
+          "authority_class": "external_independent",
+          "independence_group_id": "BANK-DORMANT-012",
+          "effective_start": "2026-10-01",
+          "effective_end": "2026-10-31",
+          "captured_at": "2026-11-01T09:00:00Z",
+          "approved_by_role": "source_system",
+          "source_ref": "synthetic://bank/statement/zero-activity/012"
+        }
+      ]
+    },
+    {
+      "case_id": "FCC-013",
+      "case_class": "approved_scope_exclusion",
+      "close_context": {
+        "entity_id": "CO-001",
+        "reporting_boundary": "single_entity",
+        "period_start": "2026-10-01",
+        "period_end": "2026-10-31",
+        "close_cutoff_at": "2026-11-01T12:00:00Z",
+        "currency_profile_id": "SYNTH-ZAR-2DP-NO-TAX",
+        "trial_balance": {
+          "total_debits_minor": "12500000",
+          "total_credits_minor": "12500000",
+          "balanced": true
+        }
+      },
+      "scope_manifest": {
+        "manifest_id": "SCOPE-FCC-013",
+        "revision": "1",
+        "declared_population_ids": [],
+        "scope_exclusions": [
+          {
+            "population_id": "SUB-CO-013",
+            "disposition": "out_of_scope",
+            "reason_code": "NOT_CONTROLLED_OR_CONSOLIDATED",
+            "rationale": "Independent ownership/control evidence places this entity outside the defined reporting boundary for the period.",
+            "evidence_id": "ATTEST-CONTROL-PERIMETER",
+            "approved_by_role": "legal_reviewer",
+            "approved_at": "2026-11-01T10:00:00Z"
+          }
+        ]
+      },
+      "source_inventories": [
+        {
+          "inventory_id": "INV-GROUP-PERIMETER-013",
+          "source_kind": "consolidation_perimeter",
+          "evidence_class": "subsidiary",
+          "authority_class": "system_of_record",
+          "captured_at": "2026-11-01T08:00:00Z",
+          "period_start": "2026-10-01",
+          "period_end": "2026-10-31",
+          "items": [
+            {
+              "population_id": "SUB-CO-013",
+              "evidence_class": "subsidiary",
+              "source_system_id": "ENTITY-REGISTER",
+              "boundary_status": "out_of_scope",
+              "materiality_band": "not_applicable",
+              "required_independent_sources": 1,
+              "basis_evidence_id": "ATTEST-CONTROL-PERIMETER"
+            }
+          ],
+          "independence_group_id": "INV-GROUP-PERIMETER-013-authority"
+        }
+      ],
+      "observed_populations": [],
+      "evidence_attestations": [
+        {
+          "evidence_id": "ATTEST-CONTROL-PERIMETER",
+          "population_id": "SUB-CO-013",
+          "evidence_type": "scope_exclusion_approval",
+          "authority_class": "external_independent",
+          "independence_group_id": "GROUP-LEGAL-PERIMETER",
+          "effective_start": "2026-10-01",
+          "effective_end": "2026-10-31",
+          "captured_at": "2026-11-01T09:00:00Z",
+          "approved_by_role": "legal_reviewer",
+          "source_ref": "synthetic://corporate/ownership-control-perimeter/013"
+        }
+      ]
+    },
+    {
+      "case_id": "FCC-014",
+      "case_class": "control_inventory_disagreement",
+      "close_context": {
+        "entity_id": "CO-001",
+        "reporting_boundary": "single_entity",
+        "period_start": "2026-10-01",
+        "period_end": "2026-10-31",
+        "close_cutoff_at": "2026-11-01T12:00:00Z",
+        "currency_profile_id": "SYNTH-ZAR-2DP-NO-TAX",
+        "trial_balance": {
+          "total_debits_minor": "12500000",
+          "total_credits_minor": "12500000",
+          "balanced": true
+        }
+      },
+      "scope_manifest": {
+        "manifest_id": "SCOPE-FCC-014",
+        "revision": "1",
+        "declared_population_ids": [
+          "BANK-OPERATING-014"
+        ],
+        "scope_exclusions": []
+      },
+      "source_inventories": [
+        {
+          "inventory_id": "INV-BANK-REGISTER-014",
+          "source_kind": "bank_account_register",
+          "evidence_class": "bank",
+          "authority_class": "system_of_record",
+          "independence_group_id": "INTERNAL-TREASURY-REGISTER-014",
+          "captured_at": "2026-11-01T08:00:00Z",
+          "period_start": "2026-10-01",
+          "period_end": "2026-10-31",
+          "items": [
+            {
+              "population_id": "BANK-OPERATING-014",
+              "evidence_class": "bank",
+              "source_system_id": "TREASURY-REGISTER",
+              "boundary_status": "in_scope",
+              "materiality_band": "material",
+              "required_independent_sources": 1,
+              "basis_evidence_id": "TREASURY-REGISTER-014"
+            }
+          ]
+        },
+        {
+          "inventory_id": "INV-BANK-CONFIRMATION-014",
+          "source_kind": "bank_confirmation_register",
+          "evidence_class": "bank",
+          "authority_class": "external_independent",
+          "independence_group_id": "EXTERNAL-BANK-CONFIRMATIONS-014",
+          "captured_at": "2026-11-01T09:00:00Z",
+          "period_start": "2026-10-01",
+          "period_end": "2026-10-31",
+          "items": [
+            {
+              "population_id": "BANK-OPERATING-014",
+              "evidence_class": "bank",
+              "source_system_id": "BANK-CONFIRMATION-01",
+              "boundary_status": "in_scope",
+              "materiality_band": "material",
+              "required_independent_sources": 1,
+              "basis_evidence_id": "BANK-CONFIRMATION-OPERATING-014"
+            },
+            {
+              "population_id": "BANK-RESERVE-014",
+              "evidence_class": "bank",
+              "source_system_id": "BANK-CONFIRMATION-01",
+              "boundary_status": "in_scope",
+              "materiality_band": "material",
+              "required_independent_sources": 1,
+              "basis_evidence_id": "BANK-CONFIRMATION-RESERVE-014"
+            }
+          ]
+        }
+      ],
+      "observed_populations": [
+        {
+          "observation_id": "OBS-BANK-OPERATING-014",
+          "population_id": "BANK-OPERATING-014",
+          "source_system_id": "BANK-OPERATING-API",
+          "independence_group_id": "BANK-OPERATING-014",
+          "relationship": "primary",
+          "status": "complete",
+          "coverage_start": "2026-10-01",
+          "coverage_end": "2026-10-31",
+          "captured_at": "2026-11-01T08:30:00Z",
+          "observed_item_count": 8
+        }
+      ],
+      "evidence_attestations": []
+    }
+  ]
+}

@@ -1,0 +1,91 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/fin-close-completeness-oracle-v1.0.0.json",
+  "title": "Financial Close Completeness Evaluation Oracle v1.0.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "benchmark_id",
+    "oracle_version",
+    "claim_scope",
+    "cases"
+  ],
+  "properties": {
+    "benchmark_id": {
+      "const": "FIN-CLOSE-COMPLETENESS-V1"
+    },
+    "oracle_version": {
+      "const": "1.0.0"
+    },
+    "claim_scope": {
+      "const": "expected_disposition_and_missing_population_labels_for_public_development_cases"
+    },
+    "cases": {
+      "type": "array",
+      "minItems": 14,
+      "items": {
+        "$ref": "#/$defs/case"
+      }
+    }
+  },
+  "$defs": {
+    "case": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "case_id",
+        "expected_disposition",
+        "seeded_material_omission",
+        "required_missing_population_ids",
+        "required_independent_source_gaps",
+        "requires_reopen",
+        "metric_tags"
+      ],
+      "properties": {
+        "case_id": {
+          "type": "string",
+          "pattern": "^FCC-[0-9]{3}$"
+        },
+        "expected_disposition": {
+          "enum": [
+            "complete",
+            "incomplete",
+            "indeterminate",
+            "reopen_required"
+          ]
+        },
+        "seeded_material_omission": {
+          "type": "boolean"
+        },
+        "required_missing_population_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required_independent_source_gaps": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "requires_reopen": {
+          "type": "boolean"
+        },
+        "metric_tags": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    }
+  }
+}
