@@ -51,6 +51,52 @@ A `verified_record` signal must resolve the exact authored action, match its can
 
 A performance optimization is accepted only if the same negative-control suite still detects foreign lineages, missing validator receipts, digest mismatches, forged signal claims, cycles, false-fresh projections and invalid authorization histories.
 
+## Reachability strategy comparison
+
+The current semantic auditor retains three independently selectable reachability strategies over one immutable, cycle-checked adjacency graph:
+
+- **Uncached DFS** — reference implementation. Performs a fresh graph traversal for each non-shortcut query.
+- **Exact-pair memoization** — caches the boolean result for an exact `(from_event_id, to_event_id)` pair, including negative results, with a hard 100,000-pair cap. It is valid only for the same in-memory graph and one audit invocation.
+- **Bounded per-source memoization** — after repeated queries from a source, builds that source's complete reachable set if the graph and remaining global 100,000-node budget allow it; otherwise it remains on DFS.
+
+All three strategies preserve the same semantics:
+- same-conductor local-sequence order is a shortcut only inside one conductor;
+- direct adjacency is an explicit-edge shortcut;
+- cross-conductor transitive order requires graph traversal;
+- direct relation-type checks remain separate from transitive reachability;
+- a topological position is never substituted for a reachability proof;
+- the optimized result is differential-checked against uncached DFS on identical history bytes.
+
+Claim-fanout comparison:
+
+    cargo run --release --manifest-path tools/pulse-multiconductor-audit/Cargo.toml -- \
+      --benchmark-join-operations 1000 --output join-benchmark.json
+
+The report contains the uncached, exact-pair and per-source audit times, cache hits, memory/allocation metrics, and canonical semantic report digests. It fails unless all three outputs have identical semantic digests and PASS status.
+
+## Adversarial DAG reachability microbenchmark
+
+The graph-only benchmark separates reachability-structure cost from full-history parsing, evidence joins and domain semantics. It assigns graph nodes across 2–50 conductor labels with deliberately non-comparable local sequence values. Cross-conductor reachability is determined only by explicit directed edges.
+
+    cargo run --release --manifest-path tools/pulse-multiconductor-audit/Cargo.toml -- \
+      --benchmark-dag-shape wide_fanout \
+      --benchmark-dag-nodes 1000 \
+      --benchmark-dag-conductors 10 \
+      --benchmark-dag-queries 2048 \
+      --output dag-benchmark.json
+
+Supported shapes:
+- `long_chain`
+- `wide_fanout`
+- `wide_fanin`
+- `diamond`
+- `sparse_dag`
+- `bounded_dense_dag` (maximum 512 nodes)
+
+The report records node/edge/conductor/query counts, output-vector digests, elapsed time, cache hit/entry counts and DFS node visits for all three strategies. The result digests must match byte-for-byte as serialized boolean vectors. Unit tests cover every shape at conductor counts 2, 3, 10 and 50; the wide-fanout smoke case requires both cache strategies to achieve hits.
+
+This is a graph-algorithm microbenchmark, not a complete lifecycle-history audit, Holochain runtime measurement, or DHT convergence benchmark. The GitHub workflow runs five process-level samples per shape/conductor combination. Those are scaling samples and report medians/ranges only; they do not report p95/p99. A later full-history verified-record profile must still exercise the author/action/validator/observer joins tracked in #5888.
+
 ## Claim ceiling
 
 This is a structural partial-order verifier. It does not authenticate evidence references, validate Holochain signatures, prove that a conductor is honest, establish DHT consensus, or prove unbounded linearizability. A production runtime capture must be separately signed/attested and independently verified.
