@@ -1,0 +1,464 @@
+{
+  "bundle_id": "MYCELIX-RECBENCH-BRIDGE-S0-SUBMISSIONS",
+  "schema_version": "1.0.0",
+  "claim_ceiling": "synthetic_gold_control_harness_self_test_not_model_performance",
+  "submission_kind": "synthetic_gold_control",
+  "submissions": [
+    {
+      "submission_id": "SYN-GOLD-001",
+      "schema_version": "1.0.0",
+      "claim_ceiling": "candidate_matching_proposals_not_posting_authority",
+      "case_id": "RBC-001-EXACT-THREE-WAY",
+      "matches": [
+        {
+          "match_ref": "M-001-LS",
+          "match_kind": "ledger_to_settlement",
+          "source_refs": [
+            "SRC-001-L",
+            "SRC-001-S"
+          ],
+          "matched_amount_minor": 10000,
+          "currency": "USD",
+          "match_state": "auto_match_candidate",
+          "confidence": 0.9995,
+          "evidence_assertion_refs": [
+            "AS-001-L-AMT",
+            "AS-001-S-GROSS",
+            "AS-001-S-FEE",
+            "AS-001-S-NET"
+          ]
+        },
+        {
+          "match_ref": "M-001-PB",
+          "match_kind": "payout_to_bank",
+          "source_refs": [
+            "SRC-001-P",
+            "SRC-001-B"
+          ],
+          "matched_amount_minor": 10000,
+          "currency": "USD",
+          "match_state": "auto_match_candidate",
+          "confidence": 0.9995,
+          "evidence_assertion_refs": [
+            "AS-001-P-NET",
+            "AS-001-B-AMT"
+          ]
+        }
+      ],
+      "unmatched_source_refs": [],
+      "decision_notes": [
+        {
+          "source_ref": "SRC-001-L",
+          "terminal_state": "matched",
+          "reason_code": "unique_exact_amount_currency"
+        },
+        {
+          "source_ref": "SRC-001-S",
+          "terminal_state": "matched",
+          "reason_code": "unique_exact_amount_currency"
+        },
+        {
+          "source_ref": "SRC-001-P",
+          "terminal_state": "matched",
+          "reason_code": "unique_exact_amount_currency"
+        },
+        {
+          "source_ref": "SRC-001-B",
+          "terminal_state": "matched",
+          "reason_code": "unique_exact_amount_currency"
+        }
+      ]
+    },
+    {
+      "submission_id": "SYN-GOLD-002",
+      "schema_version": "1.0.0",
+      "claim_ceiling": "candidate_matching_proposals_not_posting_authority",
+      "case_id": "RBC-002-FEE-NETTING",
+      "matches": [
+        {
+          "match_ref": "M-002-LS",
+          "match_kind": "ledger_to_settlement",
+          "source_refs": [
+            "SRC-002-L",
+            "SRC-002-S"
+          ],
+          "matched_amount_minor": 50000,
+          "currency": "USD",
+          "match_state": "auto_match_candidate",
+          "confidence": 0.9995,
+          "evidence_assertion_refs": [
+            "AS-002-L-AMT",
+            "AS-002-S-GROSS",
+            "AS-002-S-FEE",
+            "AS-002-S-NET"
+          ]
+        },
+        {
+          "match_ref": "M-002-PB",
+          "match_kind": "payout_to_bank",
+          "source_refs": [
+            "SRC-002-P",
+            "SRC-002-B"
+          ],
+          "matched_amount_minor": 48500,
+          "currency": "USD",
+          "match_state": "auto_match_candidate",
+          "confidence": 0.9995,
+          "evidence_assertion_refs": [
+            "AS-002-P-NET",
+            "AS-002-B-AMT"
+          ]
+        }
+      ],
+      "unmatched_source_refs": [],
+      "decision_notes": [
+        {
+          "source_ref": "SRC-002-L",
+          "terminal_state": "matched",
+          "reason_code": "processor_fee_reconciles_gross_to_net"
+        },
+        {
+          "source_ref": "SRC-002-S",
+          "terminal_state": "matched",
+          "reason_code": "processor_fee_reconciles_gross_to_net"
+        },
+        {
+          "source_ref": "SRC-002-P",
+          "terminal_state": "matched",
+          "reason_code": "processor_fee_reconciles_gross_to_net"
+        },
+        {
+          "source_ref": "SRC-002-B",
+          "terminal_state": "matched",
+          "reason_code": "processor_fee_reconciles_gross_to_net"
+        }
+      ]
+    },
+    {
+      "submission_id": "SYN-GOLD-003",
+      "schema_version": "1.0.0",
+      "claim_ceiling": "candidate_matching_proposals_not_posting_authority",
+      "case_id": "RBC-003-FX-PAYOUT",
+      "matches": [
+        {
+          "match_ref": "M-003-LS",
+          "match_kind": "ledger_to_settlement",
+          "source_refs": [
+            "SRC-003-L",
+            "SRC-003-S"
+          ],
+          "matched_amount_minor": 10000,
+          "currency": "EUR",
+          "match_state": "auto_match_candidate",
+          "confidence": 0.9995,
+          "evidence_assertion_refs": [
+            "AS-003-L-AMT",
+            "AS-003-S-GROSS",
+            "AS-003-S-FEE",
+            "AS-003-S-NET"
+          ]
+        },
+        {
+          "match_ref": "M-003-PB",
+          "match_kind": "payout_to_bank",
+          "source_refs": [
+            "SRC-003-P",
+            "SRC-003-B"
+          ],
+          "matched_amount_minor": 10890,
+          "currency": "USD",
+          "match_state": "auto_match_candidate",
+          "confidence": 0.9995,
+          "evidence_assertion_refs": [
+            "AS-003-P-NET",
+            "AS-003-B-AMT",
+            "AS-003-P-FX-RATE"
+          ]
+        }
+      ],
+      "unmatched_source_refs": [],
+      "decision_notes": [
+        {
+          "source_ref": "SRC-003-L",
+          "terminal_state": "matched",
+          "reason_code": "explicit_fx_and_net_settlement_evidence"
+        },
+        {
+          "source_ref": "SRC-003-S",
+          "terminal_state": "matched",
+          "reason_code": "explicit_fx_and_net_settlement_evidence"
+        },
+        {
+          "source_ref": "SRC-003-P",
+          "terminal_state": "matched",
+          "reason_code": "explicit_fx_and_net_settlement_evidence"
+        },
+        {
+          "source_ref": "SRC-003-B",
+          "terminal_state": "matched",
+          "reason_code": "explicit_fx_and_net_settlement_evidence"
+        }
+      ]
+    },
+    {
+      "submission_id": "SYN-GOLD-004",
+      "schema_version": "1.0.0",
+      "claim_ceiling": "candidate_matching_proposals_not_posting_authority",
+      "case_id": "RBC-004-TIMEZONE-DAY-BOUNDARY",
+      "matches": [
+        {
+          "match_ref": "M-004-LS",
+          "match_kind": "ledger_to_settlement",
+          "source_refs": [
+            "SRC-004-L",
+            "SRC-004-S"
+          ],
+          "matched_amount_minor": 25000,
+          "currency": "USD",
+          "match_state": "auto_match_candidate",
+          "confidence": 0.9995,
+          "evidence_assertion_refs": [
+            "AS-004-L-AMT",
+            "AS-004-S-NET"
+          ]
+        }
+      ],
+      "unmatched_source_refs": [],
+      "decision_notes": [
+        {
+          "source_ref": "SRC-004-L",
+          "terminal_state": "matched",
+          "reason_code": "processor_sales_day_offset_supported"
+        },
+        {
+          "source_ref": "SRC-004-S",
+          "terminal_state": "matched",
+          "reason_code": "processor_sales_day_offset_supported"
+        }
+      ]
+    },
+    {
+      "submission_id": "SYN-GOLD-005",
+      "schema_version": "1.0.0",
+      "claim_ceiling": "candidate_matching_proposals_not_posting_authority",
+      "case_id": "RBC-005-PARTIAL-CAPTURE",
+      "matches": [
+        {
+          "match_ref": "M-005-PARTIAL",
+          "match_kind": "partial_application",
+          "source_refs": [
+            "SRC-005-L",
+            "SRC-005-S1",
+            "SRC-005-S2"
+          ],
+          "matched_amount_minor": 10000,
+          "currency": "USD",
+          "match_state": "auto_match_candidate",
+          "confidence": 0.9995,
+          "evidence_assertion_refs": [
+            "AS-005-L-AMT",
+            "AS-005-S1-NET",
+            "AS-005-S2-NET"
+          ]
+        }
+      ],
+      "unmatched_source_refs": [],
+      "decision_notes": [
+        {
+          "source_ref": "SRC-005-L",
+          "terminal_state": "matched",
+          "reason_code": "captures_sum_to_ledger_amount"
+        },
+        {
+          "source_ref": "SRC-005-S1",
+          "terminal_state": "matched",
+          "reason_code": "captures_sum_to_ledger_amount"
+        },
+        {
+          "source_ref": "SRC-005-S2",
+          "terminal_state": "matched",
+          "reason_code": "captures_sum_to_ledger_amount"
+        }
+      ]
+    },
+    {
+      "submission_id": "SYN-GOLD-006",
+      "schema_version": "1.0.0",
+      "claim_ceiling": "candidate_matching_proposals_not_posting_authority",
+      "case_id": "RBC-006-DUPLICATE-SETTLEMENT-FEED",
+      "matches": [],
+      "unmatched_source_refs": [],
+      "decision_notes": [
+        {
+          "source_ref": "SRC-006-L",
+          "terminal_state": "reviewed",
+          "reason_code": "duplicate_feed_identity_requires_dedup_review"
+        },
+        {
+          "source_ref": "SRC-006-S-A",
+          "terminal_state": "reviewed",
+          "reason_code": "duplicate_feed_identity_requires_dedup_review"
+        },
+        {
+          "source_ref": "SRC-006-S-B",
+          "terminal_state": "reviewed",
+          "reason_code": "duplicate_feed_identity_requires_dedup_review"
+        }
+      ]
+    },
+    {
+      "submission_id": "SYN-GOLD-007",
+      "schema_version": "1.0.0",
+      "claim_ceiling": "candidate_matching_proposals_not_posting_authority",
+      "case_id": "RBC-007-REVERSAL",
+      "matches": [
+        {
+          "match_ref": "M-007-LS",
+          "match_kind": "ledger_to_settlement",
+          "source_refs": [
+            "SRC-007-L",
+            "SRC-007-S"
+          ],
+          "matched_amount_minor": 12000,
+          "currency": "USD",
+          "match_state": "auto_match_candidate",
+          "confidence": 0.9995,
+          "evidence_assertion_refs": [
+            "AS-007-L-AMT",
+            "AS-007-S-NET"
+          ]
+        },
+        {
+          "match_ref": "M-007-REV",
+          "match_kind": "reversal_pair",
+          "source_refs": [
+            "SRC-007-S",
+            "SRC-007-R"
+          ],
+          "matched_amount_minor": 0,
+          "currency": "USD",
+          "match_state": "reversed",
+          "confidence": 0.9995,
+          "evidence_assertion_refs": [
+            "AS-007-S-NET",
+            "AS-007-R-AMT"
+          ]
+        }
+      ],
+      "unmatched_source_refs": [],
+      "decision_notes": [
+        {
+          "source_ref": "SRC-007-L",
+          "terminal_state": "matched",
+          "reason_code": "ledger_settlement_match"
+        },
+        {
+          "source_ref": "SRC-007-S",
+          "terminal_state": "matched",
+          "reason_code": "original_settlement_retained_and_reversal_linked"
+        },
+        {
+          "source_ref": "SRC-007-R",
+          "terminal_state": "reversal_linked",
+          "reason_code": "reversal_offsets_original_settlement"
+        }
+      ]
+    },
+    {
+      "submission_id": "SYN-GOLD-008",
+      "schema_version": "1.0.0",
+      "claim_ceiling": "candidate_matching_proposals_not_posting_authority",
+      "case_id": "RBC-008-DEPOSIT-UNBUNDLE",
+      "matches": [
+        {
+          "match_ref": "M-008-UNBUNDLE",
+          "match_kind": "deposit_unbundle",
+          "source_refs": [
+            "SRC-008-P1",
+            "SRC-008-P2",
+            "SRC-008-B"
+          ],
+          "matched_amount_minor": 10000,
+          "currency": "USD",
+          "match_state": "auto_match_candidate",
+          "confidence": 0.9995,
+          "evidence_assertion_refs": [
+            "AS-008-P1-NET",
+            "AS-008-P2-NET",
+            "AS-008-B-AMT"
+          ]
+        }
+      ],
+      "unmatched_source_refs": [],
+      "decision_notes": [
+        {
+          "source_ref": "SRC-008-P1",
+          "terminal_state": "matched",
+          "reason_code": "unique_payout_subset_sum_equals_bank_deposit"
+        },
+        {
+          "source_ref": "SRC-008-P2",
+          "terminal_state": "matched",
+          "reason_code": "unique_payout_subset_sum_equals_bank_deposit"
+        },
+        {
+          "source_ref": "SRC-008-B",
+          "terminal_state": "matched",
+          "reason_code": "unique_payout_subset_sum_equals_bank_deposit"
+        }
+      ]
+    },
+    {
+      "submission_id": "SYN-GOLD-009",
+      "schema_version": "1.0.0",
+      "claim_ceiling": "candidate_matching_proposals_not_posting_authority",
+      "case_id": "RBC-009-PROVABLY-AMBIGUOUS",
+      "matches": [],
+      "unmatched_source_refs": [],
+      "decision_notes": [
+        {
+          "source_ref": "SRC-009-L1",
+          "terminal_state": "reviewed",
+          "reason_code": "multiple_equivalent_assignments_no_unique_reference"
+        },
+        {
+          "source_ref": "SRC-009-L2",
+          "terminal_state": "reviewed",
+          "reason_code": "multiple_equivalent_assignments_no_unique_reference"
+        },
+        {
+          "source_ref": "SRC-009-S1",
+          "terminal_state": "reviewed",
+          "reason_code": "multiple_equivalent_assignments_no_unique_reference"
+        },
+        {
+          "source_ref": "SRC-009-S2",
+          "terminal_state": "reviewed",
+          "reason_code": "multiple_equivalent_assignments_no_unique_reference"
+        }
+      ]
+    },
+    {
+      "submission_id": "SYN-GOLD-010",
+      "schema_version": "1.0.0",
+      "claim_ceiling": "candidate_matching_proposals_not_posting_authority",
+      "case_id": "RBC-010-UNMATCHED-BANK-MOVEMENT",
+      "matches": [],
+      "unmatched_source_refs": [
+        "SRC-010-B"
+      ],
+      "decision_notes": [
+        {
+          "source_ref": "SRC-010-B",
+          "terminal_state": "unmatched",
+          "reason_code": "bank_reference_unknown_no_counterpart_at_frontier"
+        },
+        {
+          "source_ref": "SRC-010-P-FUTURE",
+          "terminal_state": "excluded",
+          "reason_code": "payout_received_after_requested_knowledge_frontier"
+        }
+      ]
+    }
+  ]
+}
