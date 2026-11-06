@@ -605,6 +605,91 @@ fn evaluate_evidence_trace(
     ))
 }
 
+
+fn replay_statement_lines(submission: &Value) -> Result<Vec<String>, String> {
+    let entries = array(submission, "journal_entries")?;
+    let mut errors = Vec::<String>::new();
+    let mut seen_statement_refs = BTreeSet::<String>::new();
+
+    for statement in array(submission, "statement_lines")? {
+        let statement_ref = string(statement, "statement_line_ref")?;
+        if !seen_statement_refs.insert(statement_ref.to_owned()) {
+            errors.push(format!("duplicate_statement_line_ref:{statement_ref}"));
+            continue;
+        }
+
+        let account_ref = string(statement, "account_ref")?;
+        let currency = string(statement, "currency")?;
+        let entity_ref = string(statement, "entity_ref")?;
+        let period_ref = string(statement, "period_ref")?;
+        let normal_balance = string(statement, "normal_balance")?;
+        let cited_entries = set_from_string_array(statement, "source_journal_entry_refs")?;
+        if cited_entries.is_empty() {
+            errors.push(format!("statement_without_journal_sources:{statement_ref}"));
+            continue;
+        }
+
+        let mut matching_entries = BTreeSet::<String>::new();
+        let mut reconstructed_minor = 0i128;
+        for entry in entries {
+            let entry_ref = string(entry, "entry_ref")?;
+            let mut entry_contributes = false;
+            for line in array(entry, "lines")? {
+                if optional_string(line, "account_ref") != Some(account_ref)
+                    || optional_string(line, "currency") != Some(currency)
+                    || optional_string(line, "entity_ref") != Some(entity_ref)
+                    || optional_string(line, "period_ref") != Some(period_ref)
+                {
+                    continue;
+                }
+                let amount = line
+                    .get("amount_minor")
+                    .and_then(Value::as_i64)
+                    .ok_or_else(|| format!("journal line in {entry_ref} has invalid amount_minor"))?
+                    as i128;
+                let side = string(line, "side")?;
+                match (side, normal_balance) {
+                    ("debit", "debit") | ("credit", "credit") => {
+                        reconstructed_minor += amount;
+                    }
+                    ("debit", "credit") | ("credit", "debit") => {
+                        reconstructed_minor -= amount;
+                    }
+                    _ => {
+                        return Err(format!(
+                            "statement {statement_ref} has unsupported normal-balance semantics"
+                        ));
+                    }
+                }
+                entry_contributes = true;
+            }
+            if entry_contributes {
+                matching_entries.insert(entry_ref.to_owned());
+            }
+        }
+
+        if matching_entries.is_empty() {
+            errors.push(format!("statement_has_no_matching_journal_lines:{statement_ref}"));
+        }
+        if cited_entries != matching_entries {
+            errors.push(format!("statement_journal_reference_set_mismatch:{statement_ref}"));
+        }
+
+        let submitted_minor = statement
+            .get("amount_minor")
+            .and_then(Value::as_i64)
+            .ok_or_else(|| format!("statement {statement_ref} has invalid amount_minor"))?
+            as i128;
+        if reconstructed_minor != submitted_minor {
+            errors.push(format!(
+                "statement_amount_not_reconstructed:{statement_ref}:submitted={submitted_minor}:replayed={reconstructed_minor}"
+            ));
+        }
+    }
+
+    Ok(errors)
+}
+
 fn evaluate_case(
     case: &Value,
     expectation: &Value,
@@ -669,6 +754,17 @@ fn evaluate_case(
     let expected_statement = array(expectation, "expected_statement_lines")?;
     let actual_statement = array(submission, "statement_lines")?;
     let statement_exact = expected_statement == actual_statement;
+    let statement_replay_applicable = !expected_statement.is_empty() || !actual_statement.is_empty();
+    let mut statement_replay_errors = replay_statement_lines(submission)?;
+    if expected_statement.len() != actual_statement.len() {
+        statement_replay_errors.push(format!(
+            "statement_line_count_mismatch:expected={}:actual={}",
+            expected_statement.len(),
+            actual_statement.len()
+        ));
+    }
+    let statement_replay_mismatch_count = statement_replay_errors.len();
+    let statement_replay_exact = statement_replay_mismatch_count == 0;
     let (
         evidence_trace_coverage,
         evidence_to_journal_continuity,
@@ -744,6 +840,9 @@ fn evaluate_case(
     if !statement_exact && expected_disposition == "deliver" {
         hard_failures.push("statement_reconstruction_mismatch".to_owned());
     }
+    if statement_replay_applicable && !statement_replay_exact {
+        hard_failures.push("statement_not_reconstructed_from_submitted_journal".to_owned());
+    }
     if decision_critical_assumption_count > 0 {
         hard_failures.push("decision_critical_unsupported_assumption".to_owned());
     }
@@ -778,6 +877,10 @@ fn evaluate_case(
         "journal_balanced": journal_balanced,
         "source_binding_completeness": source_binding_completeness,
         "statement_exact": statement_exact,
+        "statement_replay_applicable": statement_replay_applicable,
+        "statement_replay_exact": statement_replay_exact,
+        "statement_replay_mismatch_count": statement_replay_mismatch_count,
+        "statement_replay_errors": statement_replay_errors,
         "evidence_trace_coverage": evidence_trace_coverage,
         "evidence_to_journal_continuity": evidence_to_journal_continuity,
         "decision_to_question_continuity": decision_to_question_continuity,
@@ -869,6 +972,18 @@ fn build_report(
         .iter()
         .filter(|result| result["statement_exact"].as_bool() == Some(true))
         .count();
+    let statement_replay_applicable = case_results
+        .iter()
+        .filter(|result| result["statement_replay_applicable"].as_bool() == Some(true))
+        .collect::<Vec<_>>();
+    let statement_replay_exact = statement_replay_applicable
+        .iter()
+        .filter(|result| result["statement_replay_exact"].as_bool() == Some(true))
+        .count();
+    let statement_replay_mismatch_count = case_results
+        .iter()
+        .map(|result| result["statement_replay_mismatch_count"].as_u64().unwrap_or(0))
+        .sum::<u64>();
     let source_binding = case_results
         .iter()
         .map(|result| result["source_binding_completeness"].as_f64().unwrap_or(0.0))
@@ -922,6 +1037,9 @@ fn build_report(
             "continuity_failure_count": continuity_failure_count,
             "journal_exact_match_rate": ratio(journal_exact, count),
             "statement_exact_match_rate": ratio(statement_exact, count),
+            "statement_replay_exact_rate": ratio(statement_replay_exact, statement_replay_applicable.len()),
+            "statement_replay_mismatch_count": statement_replay_mismatch_count,
+            "statement_replay_applicable_case_count": statement_replay_applicable.len(),
             "source_binding_completeness": source_binding,
             "decision_critical_assumption_count": assumptions,
             "hard_failure_count": hard_failures
@@ -1025,6 +1143,56 @@ mod tests {
             .find(|result| optional_string(result, "case_id") == Some(case_id)).unwrap()
     }
 
+
+
+    #[test]
+    fn gold_control_statements_replay_from_the_submitted_journal() {
+        let (candidates, oracle, submissions) = fixtures();
+        let result = report(&candidates, &oracle, &submissions);
+        assert_eq!(result["aggregate"]["statement_replay_exact_rate"], 1.0);
+        assert_eq!(result["aggregate"]["statement_replay_mismatch_count"], 0);
+        assert_eq!(result["aggregate"]["statement_replay_applicable_case_count"], 5);
+    }
+
+    #[test]
+    fn statement_amount_must_replay_from_its_submitted_journal() {
+        let (candidates, oracle, mut submissions) = fixtures();
+        let row = submissions["submissions"].as_array_mut().unwrap().iter_mut()
+            .find(|submission| optional_string(submission, "case_id") == Some("ACCT-001-COMPLETE-INVOICE")).unwrap();
+        row["statement_lines"][0]["amount_minor"] = Value::from(124999);
+        let result = report(&candidates, &oracle, &submissions);
+        let evaluated = case_result(&result, "ACCT-001-COMPLETE-INVOICE");
+        assert_eq!(evaluated["journal_balanced"], true);
+        assert_eq!(evaluated["statement_replay_exact"], false);
+        assert!(array(evaluated, "statement_replay_errors").unwrap().iter()
+            .any(|error| error.as_str().is_some_and(|value| value.starts_with("statement_amount_not_reconstructed"))));
+    }
+
+    #[test]
+    fn statement_must_reference_all_and_only_journal_entries_that_contribute() {
+        let (candidates, oracle, mut submissions) = fixtures();
+        let row = submissions["submissions"].as_array_mut().unwrap().iter_mut()
+            .find(|submission| optional_string(submission, "case_id") == Some("ACCT-001-COMPLETE-INVOICE")).unwrap();
+        row["statement_lines"][0]["source_journal_entry_refs"] = json!(["JE-NOT-USED"]);
+        let result = report(&candidates, &oracle, &submissions);
+        let evaluated = case_result(&result, "ACCT-001-COMPLETE-INVOICE");
+        assert_eq!(evaluated["statement_replay_exact"], false);
+        assert!(array(evaluated, "statement_replay_errors").unwrap().iter()
+            .any(|error| error.as_str().is_some_and(|value| value.starts_with("statement_journal_reference_set_mismatch"))));
+    }
+
+    #[test]
+    fn journal_mutation_with_balanced_totals_still_changes_replayed_statement() {
+        let (candidates, oracle, mut submissions) = fixtures();
+        let row = submissions["submissions"].as_array_mut().unwrap().iter_mut()
+            .find(|submission| optional_string(submission, "case_id") == Some("ACCT-001-COMPLETE-INVOICE")).unwrap();
+        row["journal_entries"][0]["lines"][0]["amount_minor"] = Value::from(126000);
+        row["journal_entries"][0]["lines"][1]["amount_minor"] = Value::from(126000);
+        let result = report(&candidates, &oracle, &submissions);
+        let evaluated = case_result(&result, "ACCT-001-COMPLETE-INVOICE");
+        assert_eq!(evaluated["journal_balanced"], true);
+        assert_eq!(evaluated["statement_replay_exact"], false);
+    }
 
     #[test]
     fn gold_control_evidence_trace_preserves_source_to_decision_continuity() {
