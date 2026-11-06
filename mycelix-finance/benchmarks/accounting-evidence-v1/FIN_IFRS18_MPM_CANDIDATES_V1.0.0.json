@@ -2558,6 +2558,114 @@
           "non_comparability_statement": true
         }
       ]
+    },
+    {
+      "case_id": "MPM-027",
+      "task": "Accept a valid paragraph B140 intermediate-subtotal bridge to the most directly comparable presented IFRS subtotal.",
+      "reporting_entity_ref": "ENTITY-SYNTH-001",
+      "reporting_period_ref": "FY2027",
+      "period_start": "2027-01-01",
+      "period_end": "2027-12-31",
+      "framework": {
+        "framework_id": "ifrs_full",
+        "ifrs18_profile_declared": true,
+        "early_application": false,
+        "profile_approval_ref": "APPROVED-IFRS18-FY2027"
+      },
+      "most_directly_comparable_subtotal_ref": "IFRS-OP-2027",
+      "ifrs_subtotals": [
+        {
+          "subtotal_ref": "IFRS-OP-2027",
+          "amount_minor": "10000",
+          "paragraph_118_subtotal": true,
+          "presented_in_statement": true
+        },
+        {
+          "subtotal_ref": "IFRS-EBT-2027",
+          "amount_minor": "9000",
+          "paragraph_118_subtotal": true,
+          "presented_in_statement": true
+        },
+        {
+          "subtotal_ref": "IFRS-EBT-UNPRESENTED",
+          "amount_minor": "9800",
+          "paragraph_118_subtotal": true,
+          "presented_in_statement": false
+        }
+      ],
+      "measures": [
+        {
+          "measure_ref": "MPM-001",
+          "candidate_classification": "mpm",
+          "label": "Adjusted operating profit",
+          "subtotal_kind": "income_and_expense_subtotal",
+          "ifrs_required_subtotal": false,
+          "public_communication_refs": [
+            "PUB-2027-INVESTOR-PRESENTATION-01"
+          ],
+          "reporting_period_ref": "FY2027",
+          "entity_wide": true,
+          "internal_management_use": true,
+          "rebuttal_evidence_ref": null,
+          "description": "A measure of operating performance before the specified restructuring adjustment",
+          "usefulness": "Management uses the measure to explain the operating performance of the consolidated entity after separately identifying restructuring costs",
+          "calculation_method": "Operating profit plus the specified restructuring expense adjustment",
+          "included_item_refs": [
+            "REV-001",
+            "OPERATING-EXPENSES-001"
+          ],
+          "excluded_item_refs": [
+            "RESTRUCTURING-EXPENSE-001"
+          ],
+          "note_ref": "MPM-NOTE-01",
+          "reconciliation": {
+            "comparator_subtotal_ref": "IFRS-EBT-UNPRESENTED",
+            "comparator_amount_minor": "9800",
+            "comparator_presented": false,
+            "mpm_amount_minor": "12000",
+            "reconciling_items": [
+              {
+                "item_ref": "ADJ-001",
+                "description": "Exclude restructuring expense from management's adjusted operating profit",
+                "statement_line_ref": "EXP-RESTRUCTURING",
+                "adjustment_minor": "2200",
+                "tax_effect_minor": "-400",
+                "tax_method": "statutory_rate",
+                "tax_method_description": "Apply the statutory tax rate applicable to the underlying restructuring transaction in the relevant jurisdiction",
+                "tax_jurisdiction_ref": "ZA-CORP-TAX",
+                "nci_effect_minor": "-100"
+              }
+            ],
+            "secondary_bridge": {
+              "intermediate_subtotal_ref": "IFRS-EBT-UNPRESENTED",
+              "intermediate_amount_minor": "9800",
+              "presented_subtotal_ref": "IFRS-OP-2027",
+              "presented_amount_minor": "10000",
+              "adjustment_minor": "200"
+            }
+          },
+          "lifecycle": {
+            "state": "unchanged",
+            "prior_measure_ref": "MPM-001",
+            "change_explanation": null,
+            "change_reason": null,
+            "comparative_restated": false,
+            "impracticable": false,
+            "impracticable_rationale": null,
+            "tax_method_changed": false
+          }
+        }
+      ],
+      "notes": [
+        {
+          "note_ref": "MPM-NOTE-01",
+          "measure_refs": [
+            "MPM-001"
+          ],
+          "management_view_statement": true,
+          "non_comparability_statement": true
+        }
+      ]
     }
   ]
 }
