@@ -98,7 +98,7 @@ The companion JSON contains 28 synthetic scenarios across:
 
 - conductor capability and exact scope;
 - revocation and overlapping calls;
-- grant-creation retry idempotency, revocation retries, crashes and recovery;
+- grant-creation retry idempotency scoped to the authenticated grantor, revocation retries, crashes and recovery;
 - 0.7.0-to-0.7.1 migration and DirectSignal grants;
 - independent validation, roots and fork ambiguity;
 - policy mapping and observability.
@@ -431,7 +431,7 @@ A standalone structural verifier now exists under `tools/pulse-lifecycle-audit/`
 - `docs/security/pulse-lifecycle-trace-v1.schema.json` — strict JSON Schema.
 
 The verifier checks:
-- idempotency-key → single grant identity;
+- `(grantor, idempotency_key)` → single grant identity; independent grantors may reuse the same logical operation ID.
 - exact grant ActionHash binding across issuance, claim, revocation and use;
 - original grantor is the revocation actor and revoke is monotonic;
 - claim recipient and lifecycle position;
