@@ -29,7 +29,7 @@ The example trace is synthetic. PASS on that fixture means only that the verifie
 
 The schema at mycelix-workspace/mycelix-pulse/docs/security/pulse-lifecycle-trace-v1.schema.json is strict (additionalProperties: false).
 
-- **Host authority:** exact grant ActionHash, grantor/grantee, assigned scope, idempotency key, revoke ActionHash, and conductor authority-order index.
+- **Host authority:** exact grant ActionHash, grantor/grantee, assigned scope, grantor-scoped idempotency key, revoke ActionHash, and conductor authority-order index.
 - **Private claim:** exact grant hash and recipient identity; claim must occur inside the grant lifetime.
 - **Host call:** exact grant hash, caller, function, conductor authority-order index, host state at decision and host disposition.
 - **Domain effect:** logical operation ID, attempt ID, durable effect ID and source-chain ActionHash.
@@ -39,7 +39,7 @@ The schema at mycelix-workspace/mycelix-pulse/docs/security/pulse-lifecycle-trac
 
 ## Safety properties checked
 
-- one idempotency key cannot mint multiple grant identities;
+- one `(grantor, idempotency_key)` identity cannot mint multiple grant identities; different grantors may reuse the same operation ID;
 - grant revocation is monotonic, references the exact original grant hash, and is authored by the original grantor;
 - claim recipient and claim hash are bound to the exact assigned grant and fall within its lifetime;
 - conductor authority-order indices are strictly increasing in the exported trace;
