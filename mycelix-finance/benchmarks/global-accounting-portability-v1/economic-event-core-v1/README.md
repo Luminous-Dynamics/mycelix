@@ -94,7 +94,7 @@ Twenty event-graph Rust tests and nineteen canonical projection-validator Rust t
 ## Integration and benchmark design
 
 - #5858 owns evidence-qualified accounting tasks and ledger oracles.
-- #5864 owns evaluation of agent questions, evidence traces and final deliverables (the PR branch is being refreshed separately).
+- #5902 implements #5864: evaluation of agent questions, complete evidence traces and final deliverables.
 - #5840/#5848 own typed jurisdiction/applicability context and fact resolution.
 - #5849 owns cross-border financial data-flow review and data governance.
 - #5855 owns read-only vendor platform interchange.
