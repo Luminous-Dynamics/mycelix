@@ -220,8 +220,11 @@ fn validate_projection(
             }
 
             let line_event_refs = set_from_array(line, "event_refs")?;
-            if line_event_refs.is_empty() || !line_event_refs.contains(decision_event_ref) {
-                return Err(format!("{projection_id}/{line_ref}: journal line event refs do not include its decision event"));
+            if line_event_refs.len() != 1 || !line_event_refs.contains(decision_event_ref) {
+                return Err(format!("{projection_id}/{line_ref}: journal line must bind exactly to its policy decision event"));
+            }
+            if optional_string(decision, "period_ref") != Some(period_ref) {
+                return Err(format!("{projection_id}/{line_ref}: journal period differs from policy decision period"));
             }
             for event_ref in &line_event_refs {
                 let event = event_map
@@ -290,9 +293,19 @@ fn validate_projection(
                 return Err(format!("{projection_id}/{item_ref}: unknown event ref {event_ref}"));
             }
         }
+        let mut event_assertions = BTreeSet::new();
+        for event_ref in &event_refs {
+            let event = event_map
+                .get(event_ref)
+                .ok_or_else(|| format!("{projection_id}/{item_ref}: unknown event ref {event_ref}"))?;
+            event_assertions.extend(set_from_array(event, "assertion_refs")?);
+        }
         for assertion_ref in &assertion_refs {
             if !assertion_map.contains_key(assertion_ref) {
                 return Err(format!("{projection_id}/{item_ref}: unknown assertion ref {assertion_ref}"));
+            }
+            if !event_refs.is_empty() && !event_assertions.contains(assertion_ref) {
+                return Err(format!("{projection_id}/{item_ref}: assertion {assertion_ref} is unrelated to its event refs"));
             }
         }
         blocking_unresolved |= unresolved.get("blocking").and_then(Value::as_bool) == Some(true);
@@ -478,6 +491,34 @@ mod tests {
         let (graph, mut bundle, _, _, digest) = fixtures();
         bundle["projections"][0]["projection_state"] = Value::String("not_projected".to_owned());
         bundle["projections"][0]["journal_entries"] = json!([{"journal_entry_ref":"J1","entry_kind":"recognition","lines":[]}]);
+        assert!(build_report(&graph, &digest, &bundle).is_err());
+    }
+
+
+    #[test]
+    fn journal_line_must_bind_to_exact_policy_event_and_period() {
+        let (graph, mut bundle, _, _, digest) = fixtures();
+        let projection = &mut bundle["projections"][0];
+        projection["event_decisions"][0]["decision_state"] = Value::String("recognized".to_owned());
+        projection["event_decisions"][0]["recognized_amount_minor"] = Value::from(125000);
+        projection["event_decisions"][0]["currency"] = Value::String("USD".to_owned());
+        projection["event_decisions"][0]["period_ref"] = Value::String("2026-10".to_owned());
+        projection["journal_entries"] = json!([{
+            "journal_entry_ref":"J-1","entry_kind":"recognition",
+            "lines":[
+                {"line_ref":"JL-1","account_ref":"A","side":"debit","amount_minor":125000,"currency":"USD","entity_ref":"ENTITY-ACME","period_ref":"2026-10","event_refs":["EV-001-INVOICE"],"source_assertion_refs":["AS-001-AMOUNT"],"policy_decision_ref":"SYN-PROJECTION-A-DEC-001"},
+                {"line_ref":"JL-2","account_ref":"B","side":"credit","amount_minor":125000,"currency":"USD","entity_ref":"ENTITY-ACME","period_ref":"2026-10","event_refs":["EV-001-INVOICE"],"source_assertion_refs":["AS-001-AMOUNT"],"policy_decision_ref":"SYN-PROJECTION-A-DEC-001"}
+            ]
+        }]);
+        assert!(build_report(&graph, &digest, &bundle).is_ok());
+        projection["journal_entries"][0]["lines"][1]["event_refs"] = json!(["EV-002-INVOICE"]);
+        assert!(build_report(&graph, &digest, &bundle).is_err());
+    }
+
+    #[test]
+    fn unresolved_assertion_must_belong_to_a_referenced_event() {
+        let (graph, mut bundle, _, _, digest) = fixtures();
+        bundle["projections"][0]["unresolved_items"][0]["source_assertion_refs"] = json!(["AS-002-AMOUNT"]);
         assert!(build_report(&graph, &digest, &bundle).is_err());
     }
 
