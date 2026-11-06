@@ -23,7 +23,9 @@ The event graph is not a journal. It is a stable semantic layer from which separ
 - `accounting_policy_projection_v1.0.0.schema.json`: policy-specific output contract binding graph, policy and projector digests separately.
 - `accounting_policy_projection_validation_report_v1.0.0.schema.json`: deterministic projection-verification report.
 - `accounting_policy_projection_bundle_v1.0.0.schema.json` and `fixtures/accounting_policy_projection_review_controls_v1.0.0.json`: two review-only projection examples over one immutable graph digest.
-- `../rust-resolver/src/bin/validate_economic_event_graph_s0.rs`: Rust validator/report generator.
+- `../rust-resolver/src/bin/validate_economic_event_graph_s0.rs`: Rust graph validator/report generator.
+- `../rust-resolver/src/bin/validate_accounting_policy_projection_bundle_s0.rs`: separate graph-bound policy-projection verifier/report generator.
+- `accounting_policy_projection_validation_report_v1.0.0.schema.json`: projection-verifier report schema.
 - `../rust-resolver/src/bin/validate_accounting_policy_projection_s0.rs`: exact graph/policy/projector binding and journal-lineage validator.
 
 The eight graph cases cover:
@@ -65,7 +67,7 @@ The policy-projection contract requires:
 - journal lines linked to event refs, source assertions and policy decision refs;
 - unresolved items and review state.
 
-The review-control fixture has two synthetic policy profiles and two synthetic projector versions bound to the **same graph digest**. Both outputs remain `needs_review` with no journal lines because the graph contains only invoice issuance and lacks service-acceptance evidence. Their policy/projector digests differ. These are schema examples only—not GAAP, IFRS or any real framework outputs.
+The review-control fixture has two synthetic policy profiles and two synthetic projector versions bound to the **same exact graph-bundle digest** (`f3f6ddeca12df82fb06bca9c7711a47b9125f3447a0e7e5f310db1f2dcab6abd`). Both outputs remain `needs_review` with no journal lines because the graph contains only invoice issuance and lacks service-acceptance evidence. Their policy/projector digests differ. Each projection now has an explicit assumption register; decision references must resolve into that register. These are schema examples only—not GAAP, IFRS or any real framework outputs.
 
 This demonstrates the architectural boundary: a chart of accounts or policy change must not mutate the source evidence graph. Multiple policy projections can be regenerated from the same frozen graph and compared without rewriting the underlying facts.
 
@@ -98,7 +100,7 @@ Seventeen event-graph Rust tests and thirteen projection-validator Rust tests ar
 - #5855 owns read-only vendor platform interchange.
 - #5799 owns canonical benchmark run manifests/receipts and matched evaluation arms.
 
-Compare document-to-journal direct generation, source-fact-to-journal generation, typed-event-graph normalization, event graph plus independent replay, and multiple policy projections from the same frozen graph. Measure event normalization precision/recall on expert-labelled cases, provenance closure, contradiction retention, false event merges, replay stability, journal invariants, reviewer effort and cost separately.
+Compare document-to-journal direct generation, source-fact-to-journal generation, typed-event-graph normalization, event graph plus independent replay, and multiple policy projections from the same frozen graph. The policy projection verifier makes cross-policy comparisons reproducible by pinning graph, policy and projector digests independently. Measure event normalization precision/recall on expert-labelled cases, provenance closure, contradiction retention, false event merges, replay stability, journal invariants, reviewer effort and cost separately.
 
 Proposed hard gates:
 - 100% assertion provenance closure;
