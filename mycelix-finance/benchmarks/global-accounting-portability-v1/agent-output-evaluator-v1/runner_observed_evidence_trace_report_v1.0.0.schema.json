@@ -25,7 +25,9 @@
     "disposition",
     "terminal_disposition",
     "unaccounted_fact_count",
-    "findings"
+    "findings",
+    "contradiction_event_count",
+    "contradicted_fact_count"
   ],
   "properties": {
     "report_id": {
@@ -144,6 +146,14 @@
           "trace_contains_no_fact_observations"
         ]
       }
+    },
+    "contradiction_event_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "contradicted_fact_count": {
+      "type": "integer",
+      "minimum": 0
     }
   }
 }
