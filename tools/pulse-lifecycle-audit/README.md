@@ -40,6 +40,7 @@ The schema at mycelix-workspace/mycelix-pulse/docs/security/pulse-lifecycle-trac
 ## Safety properties checked
 
 - one `(grantor, idempotency_key)` identity cannot mint multiple grant identities; different grantors may reuse the same operation ID;
+- every newly authored lifecycle action has a unique ActionHash across grant issuance, revocation, claim acceptance and durable domain effects; grant references may reuse the issuance ActionHash but do not create a second authored action;
 - grant revocation is monotonic, references the exact original grant hash, and is authored by the original grantor;
 - claim recipient and claim hash are bound to the exact assigned grant and fall within its lifetime;
 - conductor authority-order indices are strictly increasing in the exported trace;
