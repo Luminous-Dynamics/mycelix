@@ -1,0 +1,443 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/fin-ifrs18-mpm-candidate-v1.0.0.json",
+  "title": "FIN-IFRS18-MPM candidate semantic bundle v1.0.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "bundle_id",
+    "schema_version",
+    "claim_ceiling",
+    "cases"
+  ],
+  "properties": {
+    "bundle_id": {
+      "const": "FIN-IFRS18-MPM-S0"
+    },
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "claim_ceiling": {
+      "const": "public_synthetic_ifrs18_mpm_disclosure_contract_not_full_compliance"
+    },
+    "cases": {
+      "type": "array",
+      "minItems": 26,
+      "maxItems": 26,
+      "items": {
+        "$ref": "#/$defs/case"
+      }
+    }
+  },
+  "$defs": {
+    "amount": {
+      "type": "string",
+      "pattern": "^-?(0|[1-9][0-9]*)$"
+    },
+    "stringSet": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "uniqueItems": true
+    },
+    "reconcilingItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "item_ref",
+        "description",
+        "statement_line_ref",
+        "adjustment_minor",
+        "tax_effect_minor",
+        "tax_method",
+        "tax_method_description",
+        "tax_jurisdiction_ref",
+        "nci_effect_minor"
+      ],
+      "properties": {
+        "item_ref": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1
+        },
+        "statement_line_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "adjustment_minor": {
+          "$ref": "#/$defs/amount"
+        },
+        "tax_effect_minor": {
+          "$ref": "#/$defs/amount"
+        },
+        "tax_method": {
+          "enum": [
+            "statutory_rate",
+            "reasonable_pro_rata",
+            "other_appropriate",
+            "not_determined"
+          ]
+        },
+        "tax_method_description": {
+          "type": "string"
+        },
+        "tax_jurisdiction_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "nci_effect_minor": {
+          "$ref": "#/$defs/amount"
+        }
+      }
+    },
+    "secondaryBridge": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "intermediate_subtotal_ref",
+        "intermediate_amount_minor",
+        "presented_subtotal_ref",
+        "presented_amount_minor",
+        "adjustment_minor"
+      ],
+      "properties": {
+        "intermediate_subtotal_ref": {
+          "type": "string"
+        },
+        "intermediate_amount_minor": {
+          "$ref": "#/$defs/amount"
+        },
+        "presented_subtotal_ref": {
+          "type": "string"
+        },
+        "presented_amount_minor": {
+          "$ref": "#/$defs/amount"
+        },
+        "adjustment_minor": {
+          "$ref": "#/$defs/amount"
+        }
+      }
+    },
+    "reconciliation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "comparator_subtotal_ref",
+        "comparator_amount_minor",
+        "comparator_presented",
+        "mpm_amount_minor",
+        "reconciling_items",
+        "secondary_bridge"
+      ],
+      "properties": {
+        "comparator_subtotal_ref": {
+          "type": "string"
+        },
+        "comparator_amount_minor": {
+          "$ref": "#/$defs/amount"
+        },
+        "comparator_presented": {
+          "type": "boolean"
+        },
+        "mpm_amount_minor": {
+          "$ref": "#/$defs/amount"
+        },
+        "reconciling_items": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/reconcilingItem"
+          }
+        },
+        "secondary_bridge": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/secondaryBridge"
+            }
+          ]
+        }
+      }
+    },
+    "lifecycle": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "state",
+        "prior_measure_ref",
+        "change_explanation",
+        "change_reason",
+        "comparative_restated",
+        "impracticable",
+        "impracticable_rationale",
+        "tax_method_changed"
+      ],
+      "properties": {
+        "state": {
+          "enum": [
+            "new",
+            "unchanged",
+            "changed",
+            "ceased"
+          ]
+        },
+        "prior_measure_ref": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "change_explanation": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "change_reason": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "comparative_restated": {
+          "type": "boolean"
+        },
+        "impracticable": {
+          "type": "boolean"
+        },
+        "impracticable_rationale": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "tax_method_changed": {
+          "type": "boolean"
+        }
+      }
+    },
+    "measure": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "measure_ref",
+        "candidate_classification",
+        "label",
+        "subtotal_kind",
+        "ifrs_required_subtotal",
+        "public_communication_refs",
+        "reporting_period_ref",
+        "entity_wide",
+        "internal_management_use",
+        "rebuttal_evidence_ref",
+        "description",
+        "usefulness",
+        "calculation_method",
+        "included_item_refs",
+        "excluded_item_refs",
+        "note_ref",
+        "reconciliation",
+        "lifecycle"
+      ],
+      "properties": {
+        "measure_ref": {
+          "type": "string"
+        },
+        "candidate_classification": {
+          "enum": [
+            "mpm",
+            "not_mpm"
+          ]
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1
+        },
+        "subtotal_kind": {
+          "enum": [
+            "income_and_expense_subtotal",
+            "income_only_subtotal",
+            "expense_only_subtotal",
+            "financial_ratio",
+            "liquidity_or_cash_flow",
+            "balance_sheet_measure",
+            "non_financial_measure"
+          ]
+        },
+        "ifrs_required_subtotal": {
+          "type": "boolean"
+        },
+        "public_communication_refs": {
+          "$ref": "#/$defs/stringSet"
+        },
+        "reporting_period_ref": {
+          "type": "string"
+        },
+        "entity_wide": {
+          "type": "boolean"
+        },
+        "internal_management_use": {
+          "type": "boolean"
+        },
+        "rebuttal_evidence_ref": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "description": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "usefulness": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "calculation_method": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "included_item_refs": {
+          "$ref": "#/$defs/stringSet"
+        },
+        "excluded_item_refs": {
+          "$ref": "#/$defs/stringSet"
+        },
+        "note_ref": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "reconciliation": {
+          "$ref": "#/$defs/reconciliation"
+        },
+        "lifecycle": {
+          "$ref": "#/$defs/lifecycle"
+        }
+      }
+    },
+    "note": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "note_ref",
+        "measure_refs",
+        "management_view_statement",
+        "non_comparability_statement"
+      ],
+      "properties": {
+        "note_ref": {
+          "type": "string"
+        },
+        "measure_refs": {
+          "$ref": "#/$defs/stringSet"
+        },
+        "management_view_statement": {
+          "type": "boolean"
+        },
+        "non_comparability_statement": {
+          "type": "boolean"
+        }
+      }
+    },
+    "framework": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "framework_id",
+        "ifrs18_profile_declared",
+        "early_application",
+        "profile_approval_ref"
+      ],
+      "properties": {
+        "framework_id": {
+          "enum": [
+            "ifrs_full",
+            "ifrs_for_smes",
+            "other"
+          ]
+        },
+        "ifrs18_profile_declared": {
+          "type": "boolean"
+        },
+        "early_application": {
+          "type": "boolean"
+        },
+        "profile_approval_ref": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "case": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "case_id",
+        "task",
+        "reporting_entity_ref",
+        "reporting_period_ref",
+        "period_start",
+        "period_end",
+        "framework",
+        "measures",
+        "notes"
+      ],
+      "properties": {
+        "case_id": {
+          "type": "string",
+          "pattern": "^MPM-[0-9]{3}$"
+        },
+        "task": {
+          "type": "string",
+          "minLength": 20
+        },
+        "reporting_entity_ref": {
+          "type": "string"
+        },
+        "reporting_period_ref": {
+          "type": "string"
+        },
+        "period_start": {
+          "type": "string",
+          "format": "date"
+        },
+        "period_end": {
+          "type": "string",
+          "format": "date"
+        },
+        "framework": {
+          "$ref": "#/$defs/framework"
+        },
+        "measures": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/measure"
+          }
+        },
+        "notes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/note"
+          }
+        }
+      }
+    }
+  }
+}
