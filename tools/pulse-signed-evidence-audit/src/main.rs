@@ -211,6 +211,7 @@ struct Finding {
 struct Report {
     schema_version: u32,
     status: String,
+    evidence_class: String,
     bundle_id: String,
     bundle_sha256: String,
     trace_sha256: String,
@@ -243,6 +244,16 @@ fn finding(
 
 fn sha256_hex(bytes: &[u8]) -> String {
     format!("{:x}", Sha256::digest(bytes))
+}
+
+fn valid_policy_version(value: &str) -> bool {
+    let parts: Vec<&str> = value.split('.').collect();
+    parts.len() == 3
+        && parts.iter().all(|part| {
+            !part.is_empty()
+                && part.bytes().all(|byte| byte.is_ascii_digit())
+                && (*part == "0" || !part.starts_with('0'))
+        })
 }
 
 fn valid_sha256(value: &str) -> bool {
@@ -283,6 +294,7 @@ fn verify_root_signed_trust_policy(
         || !valid_sha256(&pin.policy_sha256)
         || pin.policy_epoch == 0
         || pin.policy_id.trim().is_empty()
+        || !valid_policy_version(&pin.policy_version)
         || pin.root_keyset_id.trim().is_empty()
     {
         return Err("trusted root pin is missing a required identity, digest or positive epoch".into());
@@ -337,7 +349,9 @@ fn verify_root_signed_trust_policy(
     // Parse the policy only after the signature over its exact bytes verifies.
     let policy: TrustPolicy = serde_json::from_slice(policy_bytes)
         .map_err(|error| format!("root-authenticated trust policy JSON is invalid: {error}"))?;
-    if policy.policy_id != pin.policy_id
+    if policy.policy_id.trim().is_empty()
+        || !valid_policy_version(&policy.policy_version)
+        || policy.policy_id != pin.policy_id
         || policy.policy_version != pin.policy_version
         || policy.policy_epoch != pin.policy_epoch
         || policy.root_keyset_id != pin.root_keyset_id
@@ -1585,6 +1599,7 @@ fn audit(
     Ok(Report {
         schema_version: 1,
         status: status.to_string(),
+        evidence_class: bundle.evidence_class.clone(),
         bundle_id: bundle.bundle_id,
         bundle_sha256,
         trace_sha256,
@@ -1599,6 +1614,22 @@ fn audit(
         findings,
         claim_ceiling: "DSSE_ROLE_AUTHENTICATION_RELATIVE_TO_SUPPLIED_POLICY_ONLY: the trust policy is an external input whose authenticity/currentness is not established here; SCITT COSE and transparency receipts are not yet verified; signatures do not prove asserted events are true or authorize actions".to_string(),
     })
+}
+
+fn require_root_for_runtime_capture(report: &mut Report) {
+    if report.evidence_class == "runtime_capture"
+        && report.status == "ROLE_AUTHENTICATED_RELATIVE_TO_SUPPLIED_POLICY"
+    {
+        finding(
+            &mut report.findings,
+            "RUNTIME_CAPTURE_REQUIRES_PINNED_ROOT",
+            "incomplete",
+            None,
+            "runtime_capture evidence must be verified with the relying party's out-of-band pinned root; relative-to-supplied-policy authentication is insufficient",
+        );
+        report.status = "INCOMPLETE".to_string();
+        report.claim_ceiling = "INCOMPLETE: runtime_capture cannot be accepted from a caller-supplied trust policy without a separately provisioned and verified out-of-band root pin; SCITT and event-truth claims remain separate".to_string();
+    }
 }
 
 fn audit_with_root_pin(
@@ -1684,7 +1715,8 @@ fn main() -> Result<(), Box<dyn Error>> {
     let bundle_bytes = fs::read(bundle_path)?;
     let trace_bytes = fs::read(trace_path)?;
     let policy_bytes = fs::read(policy_path)?;
-    let report = match (root_policy_envelope, trusted_root_pin) {
+    let root_pinned_mode = root_policy_envelope.is_some() && trusted_root_pin.is_some();
+    let mut report = match (root_policy_envelope, trusted_root_pin) {
         (Some(envelope_path), Some(pin_path)) => audit_with_root_pin(
             &bundle_bytes,
             &trace_bytes,
@@ -1695,6 +1727,9 @@ fn main() -> Result<(), Box<dyn Error>> {
         (None, None) => audit(&bundle_bytes, &trace_bytes, &policy_bytes)?,
         _ => unreachable!("the paired trust-root CLI arguments were checked above"),
     };
+    if !root_pinned_mode {
+        require_root_for_runtime_capture(&mut report);
+    }
     let json = serde_json::to_string_pretty(&report)?;
     if let Some(path) = output {
         if let Some(parent) = path.parent() {
@@ -2770,6 +2805,53 @@ mod tests {
         )
         .unwrap_err();
         assert!(error.contains("byte-identical"), "{error}");
+    }
+
+    #[test]
+    fn runtime_capture_cannot_succeed_relative_to_an_unpinned_policy() {
+        let (bundle, trace, policy) = fixture();
+        let mut bundle_value: Value = serde_json::from_slice(&bundle).unwrap();
+        bundle_value["evidence_class"] = Value::String("runtime_capture".into());
+        let runtime_bundle = serde_json::to_vec(&bundle_value).unwrap();
+
+        let mut report = audit(&runtime_bundle, &trace, &policy).unwrap();
+        assert_eq!(report.status, "ROLE_AUTHENTICATED_RELATIVE_TO_SUPPLIED_POLICY");
+        require_root_for_runtime_capture(&mut report);
+        assert_eq!(report.status, "INCOMPLETE");
+        assert!(report.findings.iter().any(|finding| {
+            finding.code == "RUNTIME_CAPTURE_REQUIRES_PINNED_ROOT"
+                && finding.severity == "incomplete"
+        }));
+    }
+
+    #[test]
+    fn synthetic_evidence_retains_explicit_relative_policy_mode() {
+        let (bundle, trace, policy) = fixture();
+        let mut report = audit(&bundle, &trace, &policy).unwrap();
+        require_root_for_runtime_capture(&mut report);
+        assert_eq!(
+            report.status,
+            "ROLE_AUTHENTICATED_RELATIVE_TO_SUPPLIED_POLICY"
+        );
+        assert!(report.findings.iter().all(|finding| {
+            finding.code != "RUNTIME_CAPTURE_REQUIRES_PINNED_ROOT"
+        }));
+    }
+
+    #[test]
+    fn pinned_root_rejects_non_semver_policy_versions() {
+        let (_, _, policy_bytes) = fixture();
+        let mut policy_value: Value = serde_json::from_slice(&policy_bytes).unwrap();
+        policy_value["policy_version"] = Value::String("1.0".into());
+        let changed_policy = serde_json::to_vec(&policy_value).unwrap();
+
+        // A fresh pin and signature are generated over these exact bytes. The
+        // invalid semantic version must be rejected independently of digest and
+        // signature correctness.
+        let (envelope, pin) = root_policy_fixture(&changed_policy);
+        let error = verify_root_signed_trust_policy(&changed_policy, &envelope, &pin)
+            .unwrap_err();
+        assert!(error.contains("identity/epoch"), "{error}");
     }
 
     #[test]
