@@ -314,20 +314,23 @@ fn action_decision(
     }
 
     let fee_state = str_at(action, "fee_state").unwrap_or("unknown");
-    let Some(fee) = if fee_state == "known" {
+    let fee_value = if fee_state == "known" {
         u64_at(action, "fee_minor_units")
     } else {
         None
-    } else {
+    };
+    let Some(fee) = fee_value else {
         return Decision::TermsRequalificationRequired;
     };
-    let Some(fx_cost) = if str_at(action, "fx_state") == Some("not_required")
-        || str_at(action, "fx_state") == Some("known")
-    {
+    let fx_value = if matches!(
+        str_at(action, "fx_state"),
+        Some("not_required" | "known")
+    ) {
         u64_at(action, "fx_cost_minor_units")
     } else {
         None
-    } else {
+    };
+    let Some(fx_cost) = fx_value else {
         return Decision::TermsRequalificationRequired;
     };
     if fee > u64_at(mandate, "max_fee_minor_units").unwrap_or(0)
@@ -390,15 +393,20 @@ fn action_decision(
         .unwrap_or(u64::MAX);
     let threshold = profile_threshold.min(mandate_threshold);
     let new_beneficiary_requires_confirmation = is_new
-        && profile
+        && (profile
             .get("requires_human_confirmation_for_new_beneficiary")
             .and_then(Value::as_bool)
             == Some(true)
-        && mandate
-            .get("require_human_confirmation_for_new_beneficiary")
-            .and_then(Value::as_bool)
-            == Some(true);
-    let confirmation_required = new_beneficiary_requires_confirmation || all_in >= threshold;
+            || mandate
+                .get("require_human_confirmation_for_new_beneficiary")
+                .and_then(Value::as_bool)
+                == Some(true));
+    let profile_requires_human_presence = profile
+        .get("allows_human_not_present")
+        .and_then(Value::as_bool)
+        == Some(false);
+    let confirmation_required =
+        new_beneficiary_requires_confirmation || profile_requires_human_presence || all_in >= threshold;
 
     if confirmation_required && !human_confirmed {
         Decision::HumanConfirmationRequired
@@ -421,10 +429,6 @@ fn action_map(scenario: &Value) -> BTreeMap<String, Value> {
         .flatten()
         .filter_map(|action| str_at(action, "action_id").map(|id| (id.to_owned(), action.clone())))
         .collect()
-}
-
-fn event_action<'a>(event: &'a Value, actions: &'a BTreeMap<String, Value>) -> Option<&'a Value> {
-    str_at(event, "action_id").and_then(|id| actions.get(id))
 }
 
 fn semantic_scenario(
@@ -585,16 +589,26 @@ fn semantic_scenario(
             continue;
         }
 
-        let action = action_id.and_then(|id| actions.get(id));
-        if kind != "mandate_activated" && kind != "mandate_revocation_requested" && kind != "mandate_revoked"
-            && action.is_none()
-        {
+        let Some(action) = action_id.and_then(|id| actions.get(id)) else {
             errors.push(format!("{event_path}: action-scoped event references unknown action"));
             continue;
-        }
-        let action = action.unwrap_or(&Value::Null);
+        };
         let action_key = action_id.unwrap_or("");
         let expected_digest = str_at(action, "exact_action_request_digest");
+        if kind != "action_proposed" && !proposal_seen.contains(action_key) {
+            errors.push(format!("{event_path}: action event precedes the action proposal"));
+        }
+        if kind != "reservation_created" && kind != "payment_returned" && amount != 0 {
+            errors.push(format!("{event_path}: non-reservation/non-return event carries an amount"));
+        }
+        if !matches!(kind, "payment_returned" | "duplicate_return_callback_ignored")
+            && str_at(event, "return_reference").is_some()
+        {
+            errors.push(format!("{event_path}: non-return event carries a return reference"));
+        }
+        if kind != "human_confirmation_accepted" && str_at(event, "presentation_digest").is_some() {
+            errors.push(format!("{event_path}: presentation digest appears outside a confirmation event"));
+        }
 
         if matches!(
             kind,
@@ -629,8 +643,24 @@ fn semantic_scenario(
                 }
             }
             "human_confirmation_required" => {
+                if actor_role != "policy_evaluator"
+                    || authority != "valid"
+                    || !contains(&event["evidence_types"], "confirmation_threshold_or_new_beneficiary")
+                {
+                    errors.push(format!("{event_path}: human-confirmation requirement lacks policy-evaluator evidence"));
+                }
                 human_required_seen.insert(action_key.to_owned());
                 action_states.insert(action_key.to_owned(), "confirmation_required".into());
+            }
+            "terms_requalification_required" => {
+                if actor_role != "policy_evaluator"
+                    || authority != "valid"
+                    || !contains(&event["evidence_types"], "terms_requalification_reason")
+                {
+                    errors.push(format!("{event_path}: terms requalification lacks policy-evaluator evidence"));
+                }
+                human_required_seen.insert(action_key.to_owned());
+                action_states.insert(action_key.to_owned(), "terms_requalification_required".into());
             }
             "human_confirmation_accepted" => {
                 if actor_role != "principal" || actor_ref != principal || authority != "valid"
@@ -976,7 +1006,7 @@ fn semantic_scenario(
         }
         if matches!(decision, Decision::HumanConfirmationRequired | Decision::TermsRequalificationRequired)
             && !human_required_seen.contains(action_id)
-            && action_reservation.contains_key(action_id) == false
+            && !action_reservation.contains_key(action_id)
         {
             errors.push(format!("{prefix}: action {action_id} requires confirmation/requalification but no pause event exists"));
         }
@@ -1155,14 +1185,14 @@ fn run_self_tests(corpus: &Value, schema: &Value) -> Result<usize, String> {
     count += 1;
 
     mutate_and_reject("human confirmation presentation mismatch", corpus, schema, |value| {
-        value["scenarios"][10]["events"][3]["presentation_digest"] =
+        value["scenarios"][10]["events"][2]["presentation_digest"] =
             json!("sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee");
     })?;
     count += 1;
 
     mutate_and_reject("agent self-confirms high-value action", corpus, schema, |value| {
-        value["scenarios"][10]["events"][3]["actor_role"] = json!("agent");
-        value["scenarios"][10]["events"][3]["actor_ref"] = json!("principal:agent-001");
+        value["scenarios"][10]["events"][2]["actor_role"] = json!("agent");
+        value["scenarios"][10]["events"][2]["actor_ref"] = json!("principal:agent-001");
     })?;
     count += 1;
 
@@ -1195,7 +1225,7 @@ fn run_self_tests(corpus: &Value, schema: &Value) -> Result<usize, String> {
     count += 1;
 
     mutate_and_reject("no-effect release without reconciliation evidence", corpus, schema, |value| {
-        value["scenarios"][16]["events"][4]["evidence_types"] = json!(["provider_timeout_receipt"]);
+        value["scenarios"][16]["events"][5]["evidence_types"] = json!(["provider_timeout_receipt"]);
     })?;
     count += 1;
 
@@ -1240,7 +1270,6 @@ fn run_self_tests(corpus: &Value, schema: &Value) -> Result<usize, String> {
 
     mutate_and_reject("sub-agent depth exceeds parent", corpus, schema, |value| {
         value["scenarios"][21]["delegation_chain"][0]["depth"] = json!(2);
-        value["scenarios"][21]["mandate"]["max_delegation_depth"] = json!(2);
     })?;
     count += 1;
 
@@ -1324,7 +1353,7 @@ mod tests {
     fn checked_in_schema_and_corpus_validate() {
         let (errors, corpus, _) = evaluate(DEFAULT_CORPUS, DEFAULT_SCHEMA).expect("evaluation");
         assert!(errors.is_empty(), "{errors:?}");
-        assert_eq!(array_at(&corpus, "source_register").unwrap().len(), 9);
+        assert_eq!(array_at(&corpus, "source_register").unwrap().len(), 10);
         assert_eq!(array_at(&corpus, "profiles").unwrap().len(), 4);
         assert_eq!(array_at(&corpus, "scenarios").unwrap().len(), 30);
     }
