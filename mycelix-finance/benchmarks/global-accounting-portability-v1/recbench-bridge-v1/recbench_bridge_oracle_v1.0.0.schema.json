@@ -1,0 +1,279 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/recbench-bridge-oracle-v1.0.0.json",
+  "title": "Mycelix RecBench Bridge Oracle v1.0.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "bundle_id",
+    "schema_version",
+    "claim_ceiling",
+    "candidate_bundle_id",
+    "expectations"
+  ],
+  "properties": {
+    "bundle_id": {
+      "const": "MYCELIX-RECBENCH-BRIDGE-ORACLE-S0"
+    },
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "claim_ceiling": {
+      "const": "synthetic_gold_controls_not_external_recbench_truth_or_model_performance"
+    },
+    "candidate_bundle_id": {
+      "const": "MYCELIX-RECBENCH-BRIDGE-CANDIDATES-S0"
+    },
+    "expectations": {
+      "type": "array",
+      "minItems": 10,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "case_id",
+          "expected_disposition",
+          "match_groups",
+          "ambiguous_candidate_sets",
+          "expected_unmatched_record_refs",
+          "expected_duplicate_record_refs",
+          "expected_reversal_record_refs",
+          "expected_residuals"
+        ],
+        "properties": {
+          "case_id": {
+            "type": "string"
+          },
+          "expected_disposition": {
+            "enum": [
+              "auto_match",
+              "review",
+              "unmatched"
+            ]
+          },
+          "match_groups": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "group_ref",
+                "relation_kind",
+                "match_state",
+                "from_record_refs",
+                "to_record_refs",
+                "allocations"
+              ],
+              "properties": {
+                "group_ref": {
+                  "type": "string",
+                  "pattern": "^[A-Z0-9-]{3,100}$"
+                },
+                "relation_kind": {
+                  "enum": [
+                    "ledger_to_settlement",
+                    "settlement_to_payout",
+                    "payout_to_bank"
+                  ]
+                },
+                "match_state": {
+                  "enum": [
+                    "confirmed",
+                    "partial"
+                  ]
+                },
+                "from_record_refs": {
+                  "type": "array",
+                  "minItems": 1,
+                  "uniqueItems": true,
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "to_record_refs": {
+                  "type": "array",
+                  "minItems": 1,
+                  "uniqueItems": true,
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "allocations": {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "allocation_ref",
+                      "from_record_ref",
+                      "to_record_ref",
+                      "from_basis",
+                      "to_basis",
+                      "from_amount_minor",
+                      "to_amount_minor",
+                      "from_currency",
+                      "to_currency",
+                      "fx_ref"
+                    ],
+                    "properties": {
+                      "allocation_ref": {
+                        "type": "string",
+                        "pattern": "^[A-Z0-9-]{3,100}$"
+                      },
+                      "from_record_ref": {
+                        "type": "string"
+                      },
+                      "to_record_ref": {
+                        "type": "string"
+                      },
+                      "from_basis": {
+                        "enum": [
+                          "principal",
+                          "gross",
+                          "net",
+                          "bank_amount"
+                        ]
+                      },
+                      "to_basis": {
+                        "enum": [
+                          "principal",
+                          "gross",
+                          "net",
+                          "bank_amount"
+                        ]
+                      },
+                      "from_amount_minor": {
+                        "type": "integer",
+                        "minimum": 1
+                      },
+                      "to_amount_minor": {
+                        "type": "integer",
+                        "minimum": 1
+                      },
+                      "from_currency": {
+                        "type": "string",
+                        "pattern": "^[A-Z]{3}$"
+                      },
+                      "to_currency": {
+                        "type": "string",
+                        "pattern": "^[A-Z]{3}$"
+                      },
+                      "fx_ref": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "ambiguous_candidate_sets": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "candidate_set_ref",
+                "relation_kind",
+                "anchor_record_refs",
+                "alternative_record_groups",
+                "reason_code"
+              ],
+              "properties": {
+                "candidate_set_ref": {
+                  "type": "string"
+                },
+                "relation_kind": {
+                  "enum": [
+                    "ledger_to_settlement",
+                    "settlement_to_payout",
+                    "payout_to_bank"
+                  ]
+                },
+                "anchor_record_refs": {
+                  "type": "array",
+                  "minItems": 1,
+                  "uniqueItems": true,
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "alternative_record_groups": {
+                  "type": "array",
+                  "minItems": 2,
+                  "items": {
+                    "type": "array",
+                    "minItems": 1,
+                    "uniqueItems": true,
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "reason_code": {
+                  "type": "string",
+                  "minLength": 3
+                }
+              }
+            }
+          },
+          "expected_unmatched_record_refs": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "string"
+            }
+          },
+          "expected_duplicate_record_refs": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "string"
+            }
+          },
+          "expected_reversal_record_refs": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "string"
+            }
+          },
+          "expected_residuals": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "record_ref",
+                "unallocated_minor",
+                "currency",
+                "reason_code"
+              ],
+              "properties": {
+                "record_ref": {
+                  "type": "string"
+                },
+                "unallocated_minor": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "currency": {
+                  "type": "string",
+                  "pattern": "^[A-Z]{3}$"
+                },
+                "reason_code": {
+                  "type": "string",
+                  "minLength": 3
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
