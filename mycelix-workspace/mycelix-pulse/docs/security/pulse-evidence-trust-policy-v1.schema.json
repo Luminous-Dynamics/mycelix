@@ -8,6 +8,7 @@
   "required": [
     "policy_id",
     "policy_version",
+    "root_keyset_id",
     "keys"
   ],
   "properties": {
@@ -142,6 +143,11 @@
           }
         ]
       }
+    },
+    "root_keyset_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
     }
   }
 }
