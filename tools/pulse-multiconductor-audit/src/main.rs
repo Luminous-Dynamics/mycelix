@@ -1285,6 +1285,26 @@ fn run_parse_benchmark(
     Ok(())
 }
 
+/// Parse a v2 history through the borrowed closed-world preflight before
+/// materializing owned JSON values. This is required because serde_json::Value
+/// maps collapse duplicate object keys; the borrowed RawObject validator detects
+/// duplicate payload keys and rejects unknown or malformed event shapes first.
+fn parse_history_strict(raw: &[u8]) -> Result<History, Box<dyn Error>> {
+    let raw_text = std::str::from_utf8(raw)?;
+    let borrowed_summary = borrowed::borrowed_parse_validate(raw_text)?;
+    let history: History = serde_json::from_slice(raw)?;
+
+    if borrowed_summary.conductors != history.conductors.len()
+        || borrowed_summary.events != history.events.len()
+        || borrowed_summary.valid_events != history.events.len()
+        || borrowed_summary.causal_edges != history.causal_edges.len()
+    {
+        return Err("borrowed and owned history summaries differed".into());
+    }
+
+    Ok(history)
+}
+
 fn main()->Result<(),Box<dyn Error>>{
     let mut input=None;
     let mut output=None;
@@ -1328,7 +1348,7 @@ fn main()->Result<(),Box<dyn Error>>{
     let input=input.ok_or("--input is required unless --benchmark-events is used")?;
     let raw=fs::read(&input)?;
     let digest=format!("{:x}",Sha256::digest(&raw));
-    let history:History=serde_json::from_slice(&raw)?;
+    let history = parse_history_strict(&raw)?;
     let report=audit(&history,digest);
     let json=serde_json::to_string_pretty(&report)?;
     if let Some(path)=output{if let Some(parent)=path.parent(){fs::create_dir_all(parent)?;}fs::write(path,&json)?;}else{println!("{json}");}
@@ -1339,6 +1359,22 @@ fn main()->Result<(),Box<dyn Error>>{
 mod tests{
     use super::*;
     fn fixture()->History{serde_json::from_str(include_str!("../examples/safe-history.json")).unwrap()}
+    #[test]
+    fn production_entrypoint_rejects_duplicate_payload_keys_before_value_materialization() {
+        let safe = include_str!("../examples/safe-history.json");
+        let original = r#""host_decision": "authorized""#;
+        let duplicate =
+            r#""host_decision": "authorized", "host_decision": "unauthorized""#;
+        assert!(safe.contains(original), "fixture anchor changed");
+        let mutated = safe.replacen(original, duplicate, 1);
+
+        // The old owned path loses duplicate-key information when it builds Value.
+        assert!(serde_json::from_slice::<History>(mutated.as_bytes()).is_ok());
+        // The real CLI entry point now applies the raw borrowed preflight first.
+        assert!(parse_history_strict(mutated.as_bytes()).is_err());
+    }
+
+
     fn report(h:&History)->Report{audit(h,"0".repeat(64))}
     fn verified_record_fixture() -> History {
         let mut h = fixture();
