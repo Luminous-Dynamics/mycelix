@@ -80,7 +80,6 @@ struct BorrowedCausalEdge<'a> {
 /// A small vector of borrowed raw field values. Vec is intentional in this
 /// prototype: it avoids allocating a BTreeMap node and a Value tree per field.
 /// Event payloads in the current schema are small closed objects.
-#[derive(Debug)]
 const MAX_EVENT_DATA_FIELDS: usize = 16;
 
 #[derive(Debug)]
@@ -724,7 +723,7 @@ mod tests {
     fn borrowed_and_owned_event_shape_decisions_match_for_safe_fixture() {
         let borrowed: BorrowedHistory<'_> = serde_json::from_str(SAFE_HISTORY).unwrap();
         for event in &borrowed.events {
-            let owned = super::Event {
+            let owned = crate::Event {
                 event_id: event.event_id.to_string(),
                 conductor_id: event.conductor_id.to_string(),
                 local_sequence: event.local_sequence,
