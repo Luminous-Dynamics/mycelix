@@ -1922,7 +1922,7 @@ mod tests{
             .map(|event| (event.event_id.clone(), event))
             .collect();
         let adjacency = BTreeMap::<String, BTreeSet<String>>::new();
-        let mut cache = ReachabilityCache::default();
+        let mut cache = ReachabilityCache::enabled();
 
         assert!(path_exists(&adjacency, &event_map, "b1", "b2", &mut cache));
         assert_eq!(cache.dfs_node_visits, 0);
