@@ -1,13 +1,15 @@
 {
   "bundle_id": "MYCELIX-RECON-HYPOTHESES-S0-OUTPUT",
   "schema_version": "1.0.0",
-  "claim_ceiling": "candidate_match_hypotheses_not_confirmed_reconciliations_or_ledger_postings",
-  "source_bundle_sha256": "24e813edd3cb49d2dedcb29433c8ce7e35d60f591ca387bec17dbeb8fd6acf49",
+  "claim_ceiling": "synthetic_match_hypothesis_control_outputs_not_executed_matcher_performance_or_confirmed_reconciliations",
+  "source_bundle_sha256": "7243e357ec68bd6b920d986f7c7c968ed6439d0474cb1c662d8b532698648083",
   "matcher_binding": {
     "engine_id": "MYCELIX-DETERMINISTIC-RECON-CONTROL",
     "engine_version": "0.1.0",
-    "engine_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
-    "tie_break_policy": "Do not break equal-score alternatives by item order; preserve every overlapping candidate and set ambiguous."
+    "engine_sha256": null,
+    "tie_break_policy": "Do not break equal-score alternatives by item order; preserve every overlapping candidate and set ambiguous.",
+    "engine_state": "not_executed_synthetic_fixture",
+    "engine_artifact_ref": null
   },
   "run_results": [
     {
