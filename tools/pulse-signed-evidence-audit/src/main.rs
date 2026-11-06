@@ -374,16 +374,17 @@ fn verify_statement_trace_event_binding(
             || details["source_commit"].as_str() != Some(bundle_subject.source_commit.as_str())
             || details["trace_sha256"].as_str() != Some(bundle_subject.trace_sha256.as_str())
             || details["schema_sha256"].as_str() != Some(bundle_subject.schema_sha256.as_str())
-            || details["tool_build_sha256"].as_str() != Some(bundle_subject.tool_build_sha256.as_str())
+            || details["tool_build_sha256"].as_str()
+                != Some(bundle_subject.tool_build_sha256.as_str())
         {
             return Err("independent auditor statement must bind the exact trace ID and bundle subject digests".into());
         }
         return Ok(());
     }
 
-    let event = trace_events
-        .get(event_id)
-        .ok_or_else(|| format!("attested event_id {event_id} does not exist exactly once in trace.events"))?;
+    let event = trace_events.get(event_id).ok_or_else(|| {
+        format!("attested event_id {event_id} does not exist exactly once in trace.events")
+    })?;
 
     let expected_source = match role {
         "host_authority" => "conductor_host",
@@ -393,8 +394,14 @@ fn verify_statement_trace_event_binding(
         "client_outcome" => "client",
         _ => return Err(format!("unsupported event-attestation role {role}")),
     };
-    let event_type = event.get("event_type").and_then(Value::as_str).unwrap_or_default();
-    let source = event.get("source").and_then(Value::as_str).unwrap_or_default();
+    let event_type = event
+        .get("event_type")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    let source = event
+        .get("source")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
     let role_event_type_valid = match role {
         "host_authority" => matches!(
             event_type,
@@ -430,7 +437,9 @@ fn verify_statement_trace_event_binding(
     if map.len() != required_fields.len()
         || !required_fields.iter().all(|key| map.contains_key(*key))
     {
-        return Err("signed event details must contain the exact closed event/lineage field set".into());
+        return Err(
+            "signed event details must contain the exact closed event/lineage field set".into(),
+        );
     }
 
     let conductor_id = event
@@ -441,7 +450,9 @@ fn verify_statement_trace_event_binding(
         .conductor_lineages
         .iter()
         .find(|lineage| lineage.conductor_id == conductor_id)
-        .ok_or_else(|| format!("trace event conductor {conductor_id} has no bundle subject lineage"))?;
+        .ok_or_else(|| {
+            format!("trace event conductor {conductor_id} has no bundle subject lineage")
+        })?;
 
     if details["event_type"].as_str() != Some(event_type)
         || details["source"].as_str() != Some(source)
@@ -452,8 +463,7 @@ fn verify_statement_trace_event_binding(
         || details["agent_key_ref"].as_str() != Some(lineage.agent_key_ref.as_str())
         || details["dna_hash"].as_str() != Some(lineage.dna_hash.as_str())
         || details["cell_id"].as_str() != Some(lineage.cell_id.as_str())
-        || details["integrity_wasm_sha256"].as_str()
-            != Some(lineage.integrity_wasm_sha256.as_str())
+        || details["integrity_wasm_sha256"].as_str() != Some(lineage.integrity_wasm_sha256.as_str())
     {
         return Err(format!(
             "signed predicate details do not exactly match trace event {event_id} and its conductor lineage"
@@ -470,9 +480,7 @@ fn edge_basis_matches_authenticated_endpoints(
     from_event_id: &str,
     to_event_id: &str,
 ) -> bool {
-    if !accepted_event_ids.contains(from_event_id)
-        || !accepted_event_ids.contains(to_event_id)
-    {
+    if !accepted_event_ids.contains(from_event_id) || !accepted_event_ids.contains(to_event_id) {
         return false;
     }
     let mut from_authenticated = false;
@@ -481,7 +489,10 @@ fn edge_basis_matches_authenticated_endpoints(
         if !accepted_attestation_ids.contains(attestation_id) {
             continue;
         }
-        match attestation_event_ids.get(attestation_id).map(String::as_str) {
+        match attestation_event_ids
+            .get(attestation_id)
+            .map(String::as_str)
+        {
             Some(event_id) if event_id == from_event_id => from_authenticated = true,
             Some(event_id) if event_id == to_event_id => to_authenticated = true,
             _ => {}
@@ -526,7 +537,10 @@ fn audit(
                         "trace event_id must be nonempty",
                     );
                 }
-                if trace_event_map.insert(event_id.to_string(), event).is_some() {
+                if trace_event_map
+                    .insert(event_id.to_string(), event)
+                    .is_some()
+                {
                     finding(
                         &mut findings,
                         "TRACE_EVENT_ID_DUPLICATE",
@@ -721,7 +735,10 @@ fn audit(
                 "ATTESTATION_EVENT_NOT_IN_TRACE",
                 "violation",
                 Some(&attestation.attestation_id),
-                format!("attested event_id {} is absent from trace.events", attestation.event_id),
+                format!(
+                    "attested event_id {} is absent from trace.events",
+                    attestation.event_id
+                ),
             );
         }
         if !matches!(
@@ -1127,7 +1144,11 @@ fn audit(
                     } else {
                         "CAUSAL_EDGE_BASIS_NOT_AUTHENTICATED"
                     },
-                    if all_basis_authenticated { "violation" } else { "incomplete" },
+                    if all_basis_authenticated {
+                        "violation"
+                    } else {
+                        "incomplete"
+                    },
                     None,
                     "causal edge basis must include DSSE-authenticated attestations for both exact endpoint events",
                 );
@@ -1401,10 +1422,7 @@ mod tests {
         )
     }
 
-    fn resign_first_attestation(
-        bundle: &mut Value,
-        mutate: impl FnOnce(&mut Value),
-    ) {
+    fn resign_first_attestation(bundle: &mut Value, mutate: impl FnOnce(&mut Value)) {
         let payload_type = bundle["attestations"][0]["envelope"]["payload_type"]
             .as_str()
             .unwrap()
@@ -1431,8 +1449,7 @@ mod tests {
     fn signed_event_id_must_exist_in_the_exact_trace() {
         let (bundle, trace, policy) = fixture();
         let mut bundle_value: Value = serde_json::from_slice(&bundle).unwrap();
-        bundle_value["attestations"][0]["event_id"] =
-            Value::String("event-not-in-trace".into());
+        bundle_value["attestations"][0]["event_id"] = Value::String("event-not-in-trace".into());
         resign_first_attestation(&mut bundle_value, |statement| {
             statement["predicate"]["event_id"] = Value::String("event-not-in-trace".into());
         });
@@ -1459,9 +1476,10 @@ mod tests {
         let report = audit(&serde_json::to_vec(&bundle_value).unwrap(), &trace, &policy).unwrap();
         assert_eq!(report.status, "FAIL");
         assert!(
-            report.findings.iter().any(|finding| {
-                finding.code == "DSSE_TRACE_EVENT_BINDING_MISMATCH"
-            }),
+            report
+                .findings
+                .iter()
+                .any(|finding| { finding.code == "DSSE_TRACE_EVENT_BINDING_MISMATCH" }),
             "{:?}",
             report.findings
         );
@@ -1473,14 +1491,16 @@ mod tests {
         let mut bundle_value: Value = serde_json::from_slice(&bundle).unwrap();
         resign_first_attestation(&mut bundle_value, |statement| {
             statement["predicate"]["details"]["source"] = Value::String("client".into());
-            statement["predicate"]["details"]["event_type"] = Value::String("caller_outcome".into());
+            statement["predicate"]["details"]["event_type"] =
+                Value::String("caller_outcome".into());
         });
         let report = audit(&serde_json::to_vec(&bundle_value).unwrap(), &trace, &policy).unwrap();
         assert_eq!(report.status, "FAIL");
         assert!(
-            report.findings.iter().any(|finding| {
-                finding.code == "DSSE_TRACE_EVENT_BINDING_MISMATCH"
-            }),
+            report
+                .findings
+                .iter()
+                .any(|finding| { finding.code == "DSSE_TRACE_EVENT_BINDING_MISMATCH" }),
             "{:?}",
             report.findings
         );
