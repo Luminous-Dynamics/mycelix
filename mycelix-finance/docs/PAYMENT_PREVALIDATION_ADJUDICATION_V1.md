@@ -56,3 +56,10 @@ Use identical evidence and independent labels for an incumbent participant/bank 
 ## Claim ceiling
 
 A passing schema/evaluator/mutation suite proves only that this synthetic adjudication contract and its report behave as specified. It does not establish real-world accuracy, fraud prevention, legal debt validity, fairness, superiority or customer benefit. Those require authorised data, independent qualified adjudication, a pre-registered representative study and privacy/legal review.
+
+
+## 2026-11-06 trade-off and bootstrap qualification update
+
+The synthetic comparison intentionally contains both false-ready and false-quarantine behaviour. The Mycelix candidate is no longer represented as perfect: one deliberately seeded case presents an indeterminate/stale evidence case as `warn_and_permit_choice`, producing a synthetic false-ready count; a separate clean eligible case is unnecessarily quarantined, producing a synthetic false-quarantine count. These are evaluator/report controls, not observed service outcomes.
+
+The versioned study design fixes 2,000 bootstrap replicates and seed `20261106`, with merchant/time-block clusters as the resampling unit and a minimum of 30 independent merchant/time clusters. Percentile intervals are emitted only for a non-synthetic study that meets the cluster threshold. The eight-case checked-in fixture is marked synthetic and must suppress population confidence intervals regardless of its point estimates. A real study must still satisfy the pre-registered sampling/representativeness protocol; 30 clusters is a minimum software gate, not a guarantee of adequate statistical power.
