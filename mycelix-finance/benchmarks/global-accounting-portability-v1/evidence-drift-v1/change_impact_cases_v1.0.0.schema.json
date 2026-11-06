@@ -998,7 +998,9 @@
                   "event_refs",
                   "relation_refs",
                   "policy_changed",
-                  "projector_changed"
+                  "projector_changed",
+                  "knowledge_frontier_changed",
+                  "transport_metadata_only_source_refs"
                 ],
                 "properties": {
                   "source_refs": {
@@ -1034,6 +1036,16 @@
                   },
                   "projector_changed": {
                     "type": "boolean"
+                  },
+                  "knowledge_frontier_changed": {
+                    "type": "boolean"
+                  },
+                  "transport_metadata_only_source_refs": {
+                    "type": "array",
+                    "uniqueItems": true,
+                    "items": {
+                      "type": "string"
+                    }
                   }
                 }
               },
