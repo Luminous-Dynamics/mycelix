@@ -743,7 +743,7 @@ mod tests {
 
     #[test]
     fn unsupported_account_profile_is_primary_over_secondary_imbalance() {
-        let candidate = fixture();
+        let candidate = parse(include_str!("../../fin_journal_set_candidates_v1.1.0.json"));
         let assessment = assess_case(case_by_id(&candidate, "FJS-021")).expect("assessment");
         assert_eq!(assessment.disposition, "unsupported_profile_or_unit");
         assert!(
