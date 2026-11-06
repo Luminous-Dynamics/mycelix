@@ -183,6 +183,13 @@ struct Counts {
     projections_observed: usize,
     remote_signals: usize,
     caller_outcomes: usize,
+    reachability_queries: usize,
+    reachability_cache_hits: usize,
+    reachability_sources_cached: usize,
+    reachability_cached_nodes: usize,
+    reachability_dfs_node_visits: usize,
+    reachability_full_source_builds: usize,
+    reachability_cache_limit_skips: usize,
 }
 #[derive(Debug, Clone, Serialize)]
 struct Report {
@@ -1031,6 +1038,14 @@ fn audit(history:&History,input_sha256:String)->Report {
         }
     }
 
+    counts.reachability_queries = reachability_cache.queries;
+    counts.reachability_cache_hits = reachability_cache.cache_hits;
+    counts.reachability_sources_cached = reachability_cache.reachable_by_source.len();
+    counts.reachability_cached_nodes = reachability_cache.cached_reachable_nodes;
+    counts.reachability_dfs_node_visits = reachability_cache.dfs_node_visits;
+    counts.reachability_full_source_builds = reachability_cache.full_reachability_builds;
+    counts.reachability_cache_limit_skips = reachability_cache.cache_limit_skips;
+
     let violation=findings.iter().any(|f|f.severity=="violation");
     let incomplete=findings.iter().any(|f|f.severity=="incomplete");
     let status=if violation{Status::Fail}else if incomplete{Status::Incomplete}else{Status::Pass};
@@ -1161,6 +1176,15 @@ fn run_benchmark(event_count: usize, output: Option<PathBuf>) -> Result<(), Box<
         "conductors": history.conductors.len(),
         "causal_edges": history.causal_edges.len(),
         "findings": report.findings.len(),
+        "reachability": {
+            "queries": report.counts.reachability_queries,
+            "cache_hits": report.counts.reachability_cache_hits,
+            "sources_cached": report.counts.reachability_sources_cached,
+            "cached_reachable_nodes": report.counts.reachability_cached_nodes,
+            "dfs_node_visits": report.counts.reachability_dfs_node_visits,
+            "full_source_builds": report.counts.reachability_full_source_builds,
+            "cache_limit_skips": report.counts.reachability_cache_limit_skips
+        },
         "history_build_ns": build_ns,
         "audit_ns": audit_ns,
         "audit_events_per_second": throughput,
