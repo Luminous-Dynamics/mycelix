@@ -1880,8 +1880,8 @@ mod tests{
         assert_eq!(cache.full_reachability_builds, 1);
         let visits_after_build = cache.dfs_node_visits;
 
-        // Positive and negative fan-out lookups are served from the same set.
-        assert!(path_exists(&adjacency, &event_map, "a1", "b1", &mut cache));
+        // Non-direct positive and negative fan-out lookups are served from the same set.
+        assert!(path_exists(&adjacency, &event_map, "a1", "b2", &mut cache));
         assert!(!path_exists(&adjacency, &event_map, "a1", "not-reachable", &mut cache));
         assert_eq!(cache.cache_hits, 2);
         assert_eq!(cache.dfs_node_visits, visits_after_build);
