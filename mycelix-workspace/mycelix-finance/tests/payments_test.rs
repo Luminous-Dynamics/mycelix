@@ -35,7 +35,7 @@ use holochain::sweettest::*;
 use holochain_types::prelude::*;
 use std::time::Duration;
 
-use finance_wire_types::SapBalanceResponse;
+use finance_wire_types::{GetPaymentHistoryInput, SapBalanceResponse};
 // Import zome types
 use mycelix_finance_types::compute_demurrage_deduction;
 use payments::*;
@@ -484,7 +484,7 @@ mod payment_validation {
         println!("Test 2.3 PASSED: Self-payments are properly rejected");
     }
 
-    /// Test 2.4: Invalid currency rejected (only SAP and TEND accepted)
+    /// Test 2.4: Invalid currency rejected (only SAP accepted)
     #[tokio::test(flavor = "multi_thread")]
     #[ignore]
     async fn test_invalid_currency_rejected() {
@@ -507,7 +507,7 @@ mod payment_validation {
         let bob_did = format!("did:mycelix:{}", agents[1]);
 
         // Test invalid currencies that are no longer accepted
-        let invalid_currencies = vec!["MYC", "USD", "ENERGY", "BTC", "ETH"];
+        let invalid_currencies = vec!["TEND", "MYC", "USD", "ENERGY", "BTC", "ETH"];
 
         for currency in invalid_currencies {
             let input = SendPaymentInput {
@@ -1116,10 +1116,10 @@ mod currency_tests {
         println!("Test 5.1 PASSED: SAP payment works");
     }
 
-    /// Test 5.2: TEND currency payment
+    /// Test 5.2: TEND is rejected by the SAP direct-payment endpoint.
     #[tokio::test(flavor = "multi_thread")]
     #[ignore]
-    async fn test_tend_payment() {
+    async fn test_tend_rejected_by_sap_direct_payment_endpoint() {
         println!("Test 5.2: TEND Currency Payment");
 
         let dna_path = std::path::PathBuf::from("../dna/mycelix_finance.dna");
@@ -1147,27 +1147,33 @@ mod currency_tests {
             memo: Some("TEND payment".to_string()),
         };
 
-        let result: Record = conductor
-            .call(&alice_cell.zome("payments"), "send_payment", input)
+        let result: Result<Record, _> = conductor
+            .call_fallible(&alice_cell.zome("payments"), "send_payment", input)
             .await;
+        assert!(result.is_err(), "TEND must not create a Completed SAP Payment");
 
-        let payment: Payment = result
-            .entry()
-            .to_app_option()
-            .expect("Deserialize failed")
-            .expect("No entry");
-
-        assert_eq!(payment.currency, "TEND", "Currency should be TEND");
-        println!("  - TEND payment amount: {}", payment.amount);
-        println!("  - Currency: {}", payment.currency);
-        println!("Test 5.2 PASSED: TEND payment works");
+        // The rejection happens before Payment/Receipt creation or sender index writes.
+        let history: Vec<Record> = conductor
+            .call(
+                &alice_cell.zome("payments"),
+                "get_payment_history",
+                GetPaymentHistoryInput {
+                    did: alice_did,
+                    limit: Some(10),
+                },
+            )
+            .await;
+        assert!(
+            history.is_empty(),
+            "Rejected TEND request must not leave a Payment entry or sender history link"
+        );
     }
 
-    /// Test 5.3: Only SAP and TEND currencies are valid
+    /// Test 5.3: Only SAP is supported by the direct-payment endpoint
     #[tokio::test(flavor = "multi_thread")]
     #[ignore]
     async fn test_valid_currencies_only() {
-        println!("Test 5.3: Valid Currencies Only (SAP/TEND)");
+        println!("Test 5.3: SAP Direct Payment Currency Validation");
 
         let dna_path = std::path::PathBuf::from("../dna/mycelix_finance.dna");
         let dna = SweetDnaFile::from_bundle(&dna_path)
@@ -1200,7 +1206,7 @@ mod currency_tests {
             .await;
         println!("  - SAP accepted: OK");
 
-        // Valid: TEND
+        // TEND belongs to the dedicated exchange protocol, not SAP direct payment.
         let tend_input = SendPaymentInput {
             from_did: alice_did.clone(),
             to_did: bob_did.clone(),
@@ -1210,10 +1216,11 @@ mod currency_tests {
             memo: None,
         };
 
-        let _: Record = conductor
-            .call(&alice_cell.zome("payments"), "send_payment", tend_input)
+        let tend_result: Result<Record, _> = conductor
+            .call_fallible(&alice_cell.zome("payments"), "send_payment", tend_input)
             .await;
-        println!("  - TEND accepted: OK");
+        assert!(tend_result.is_err(), "TEND must be rejected by SAP direct payment");
+        println!("  - TEND rejected by direct-payment endpoint: OK");
 
         // Invalid: MYC (old currency, no longer accepted)
         let myc_input = SendPaymentInput {
@@ -1232,7 +1239,7 @@ mod currency_tests {
         assert!(result.is_err(), "MYC should be rejected");
         println!("  - MYC rejected: OK");
 
-        println!("Test 5.3 PASSED: Only SAP and TEND currencies accepted");
+        println!("Test 5.3 PASSED: SAP-only direct-payment currency validation");
     }
 }
 

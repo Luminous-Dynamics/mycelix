@@ -503,7 +503,13 @@ pub fn credit_sap(input: CreditSapInput) -> ExternResult<Record> {
             bal.balance
         };
 
-        let expected_balance = post_demurrage + input.amount;
+        // Reject receiver overflow before writing a new balance revision.
+        let expected_balance = checked_sap_balance_credit(post_demurrage, input.amount)
+            .ok_or_else(|| {
+                wasm_error!(WasmErrorInner::Guest(
+                    "SAP receiver balance credit exceeds the u64 micro-SAP range".into()
+                ))
+            })?;
         let updated = SapBalance {
             balance: expected_balance,
             last_demurrage_at: now,
@@ -1034,6 +1040,18 @@ fn get_sap_balance_inner(member_did: &str) -> ExternResult<(Record, SapBalance)>
     ))))
 }
 
+/// Return the exact SAP sender debit (principal + fee) without wrapping.
+#[inline]
+fn checked_sap_total_debit(amount: u64, fee: u64) -> Option<u64> {
+    amount.checked_add(fee)
+}
+
+/// Return the exact receiver SAP balance after a credit without wrapping.
+#[inline]
+fn checked_sap_balance_credit(balance: u64, amount: u64) -> Option<u64> {
+    balance.checked_add(amount)
+}
+
 /// Compute the progressive SAP fee for a payment based on sender's MYCEL score.
 ///
 /// Queries the bridge coordinator for the canonical fee tier (single source of truth).
@@ -1166,17 +1184,27 @@ fn elapsed_seconds(from: Timestamp, to: Timestamp) -> u64 {
     }
 }
 
+/// The generic direct-payment endpoint currently settles SAP only.
+/// TEND must use the TEND exchange/obligation protocol, not this API.
+fn supports_direct_payment_currency(currency: &str) -> bool {
+    currency == "SAP"
+}
+
 #[hdk_extern]
 pub fn send_payment(input: SendPaymentInput) -> ExternResult<Record> {
     verify_participant_tier()?;
     // Verify caller is the sender (prevents DID spoofing)
     verify_caller_is_did(&input.from_did)?;
 
-    // Validate currency before creating any entries
-    if input.currency != "SAP" && input.currency != "TEND" {
-        return Err(wasm_error!(WasmErrorInner::Guest(
-            "Currency must be \"SAP\" or \"TEND\"".into()
-        )));
+    // Reject unsupported instruments before rate-limit links, balance changes,
+    // Payment entries, or receipts are written. TEND uses its separate exchange protocol.
+    if !supports_direct_payment_currency(&input.currency) {
+        let message = if input.currency == "TEND" {
+            "TEND direct payments must use the TEND exchange/settlement protocol"
+        } else {
+            "payments::send_payment supports SAP direct payments only"
+        };
+        return Err(wasm_error!(WasmErrorInner::Guest(message.into())));
     }
 
     let now = sys_time()?;
@@ -1206,48 +1234,45 @@ pub fn send_payment(input: SendPaymentInput) -> ExternResult<Record> {
         )?;
     }
 
-    // If sending SAP, enforce on-chain balance with demurrage + progressive fee
-    let (memo, fee_amount) = if input.currency == "SAP" {
-        // input.amount is already in micro-SAP (u64)
-        // Compute progressive fee based on sender's MYCEL score
-        let fee = compute_sap_fee(&input.from_did, input.amount)?;
-        let total_debit = input.amount + fee;
+    // SAP-only endpoint: direct TEND payments use the separate exchange protocol.
+    let fee = compute_sap_fee(&input.from_did, input.amount)?;
+    // Reject overflow before either sender debit or receiver credit.
+    let total_debit = checked_sap_total_debit(input.amount, fee).ok_or_else(|| {
+        wasm_error!(WasmErrorInner::Guest(
+            "SAP payment amount plus fee exceeds the u64 micro-SAP range".into()
+        ))
+    })?;
 
-        // Debit sender's SAP balance (amount + fee, applies demurrage)
-        debit_sap(DebitSapInput {
-            member_did: input.from_did.clone(),
-            amount: total_debit,
-            reason: format!("Payment to {} (includes fee {})", input.to_did, fee),
-        })?;
+    debit_sap(DebitSapInput {
+        member_did: input.from_did.clone(),
+        amount: total_debit,
+        reason: format!("Payment to {} (includes fee {})", input.to_did, fee),
+    })?;
 
-        // Credit receiver's SAP balance (amount only, fee goes to commons)
-        credit_sap(CreditSapInput {
-            member_did: input.to_did.clone(),
-            amount: input.amount,
-            reason: format!("Payment from {}", input.from_did),
-        })?;
+    credit_sap(CreditSapInput {
+        member_did: input.to_did.clone(),
+        amount: input.amount,
+        reason: format!("Payment from {}", input.from_did),
+    })?;
 
-        // Route fee to commons via treasury (if fee > 0)
-        if fee > 0 {
-            if let Err(e) = call(
-                CallTargetCell::Local,
-                ZomeName::from("treasury"),
-                FunctionName::from("receive_compost"),
-                None,
-                ReceiveCompostPayload {
-                    commons_pool_id: "global-fee-pool".to_string(),
-                    amount: fee,
-                    source_member_did: input.from_did.clone(),
-                },
-            ) {
-                debug!("Fee routing to global-fee-pool failed: {:?}", e);
-            }
+    if fee > 0 {
+        if let Err(e) = call(
+            CallTargetCell::Local,
+            ZomeName::from("treasury"),
+            FunctionName::from("receive_compost"),
+            None,
+            ReceiveCompostPayload {
+                commons_pool_id: "global-fee-pool".to_string(),
+                amount: fee,
+                source_member_did: input.from_did.clone(),
+            },
+        ) {
+            debug!("Fee routing to global-fee-pool failed: {:?}", e);
         }
+    }
 
-        (input.memo.clone(), fee)
-    } else {
-        (input.memo.clone(), 0)
-    };
+    let memo = input.memo.clone();
+    let fee_amount = fee;
 
     let payment = Payment {
         id: format!("payment:{}:{}", input.from_did, now.as_micros()),
@@ -2518,4 +2543,64 @@ pub fn verify_balance_proof(input: ZkBalanceProofInput) -> ExternResult<ZkBalanc
         minimum_proven: input.minimum_balance,
         domain_tag: domain_tag.as_str().to_string(),
     })
+}
+
+#[cfg(test)]
+mod direct_payment_currency_tests {
+    use super::supports_direct_payment_currency;
+
+    #[test]
+    fn direct_payment_endpoint_accepts_sap_only() {
+        assert!(supports_direct_payment_currency("SAP"));
+        assert!(!supports_direct_payment_currency("TEND"));
+        assert!(!supports_direct_payment_currency("MYC"));
+        assert!(!supports_direct_payment_currency("USD"));
+        assert!(!supports_direct_payment_currency(""));
+    }
+}
+
+#[cfg(test)]
+mod checked_sap_payment_arithmetic_tests {
+    use super::checked_sap_total_debit;
+
+    #[test]
+    fn maximum_amount_with_zero_fee_is_representable() {
+        assert_eq!(checked_sap_total_debit(u64::MAX, 0), Some(u64::MAX));
+    }
+
+    #[test]
+    fn maximum_amount_with_positive_fee_is_rejected() {
+        assert_eq!(checked_sap_total_debit(u64::MAX, 1), None);
+        assert_eq!(checked_sap_total_debit(u64::MAX - 7, 8), None);
+    }
+
+    #[test]
+    fn ordinary_principal_and_fee_are_added_exactly() {
+        assert_eq!(
+            checked_sap_total_debit(100_000_000, 100_000),
+            Some(100_100_000)
+        );
+        assert_eq!(checked_sap_total_debit(0, 0), Some(0));
+    }
+}
+
+#[cfg(test)]
+mod checked_sap_receiver_credit_tests {
+    use super::checked_sap_balance_credit;
+
+    #[test]
+    fn maximum_balance_with_zero_credit_is_representable() {
+        assert_eq!(checked_sap_balance_credit(u64::MAX, 0), Some(u64::MAX));
+    }
+
+    #[test]
+    fn receiver_credit_overflow_is_rejected() {
+        assert_eq!(checked_sap_balance_credit(u64::MAX, 1), None);
+        assert_eq!(checked_sap_balance_credit(u64::MAX - 7, 8), None);
+    }
+
+    #[test]
+    fn ordinary_receiver_credit_is_exact() {
+        assert_eq!(checked_sap_balance_credit(900_000, 100_000), Some(1_000_000));
+    }
 }

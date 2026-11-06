@@ -1,0 +1,65 @@
+name: SAP-Only Direct Payment Qualification
+
+on:
+  pull_request:
+    paths:
+      - 'mycelix-finance/zomes/payments/coordinator/**'
+      - 'mycelix-finance/tests/payments_test.rs'
+      - 'mycelix-energy/zomes/grid/coordinator/**'
+      - 'mycelix-workspace/mycelix-finance/zomes/payments/coordinator/**'
+      - 'mycelix-workspace/mycelix-finance/tests/payments_test.rs'
+      - 'mycelix-workspace/mycelix-energy/zomes/grid/coordinator/**'
+      - 'mycelix-workspace/sdk-ts/src/clients/finance/types.ts'
+      - '.github/workflows/sap-only-direct-payment-qualification.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'mycelix-finance/zomes/payments/coordinator/**'
+      - 'mycelix-finance/tests/payments_test.rs'
+      - 'mycelix-energy/zomes/grid/coordinator/**'
+      - '.github/workflows/sap-only-direct-payment-qualification.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  finance-direct-payment:
+    name: SAP-only Finance direct-payment contract
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      CARGO_TARGET_WASM32_UNKNOWN_UNKNOWN_RUSTFLAGS: '--cfg getrandom_backend="custom" -C link-args=--import-undefined'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install pinned Rust toolchain
+        run: |
+          rustup toolchain install 1.96.0 --profile minimal --component rustfmt --component clippy
+          rustup target add wasm32-unknown-unknown --toolchain 1.96.0
+          rustup default 1.96.0
+          rustc --version
+          cargo --version
+
+      - name: Format affected Finance and Energy crates
+        run: |
+          cargo fmt --manifest-path mycelix-finance/Cargo.toml -p payments -- --check
+          cargo fmt --manifest-path mycelix-energy/Cargo.toml -p grid -- --check
+
+      - name: Test Finance payment coordinator
+        run: cargo test --locked --manifest-path mycelix-finance/Cargo.toml -p payments
+
+      - name: Test Energy grid coordinator
+        run: cargo test --locked --manifest-path mycelix-energy/Cargo.toml -p grid
+
+      - name: Run Clippy for both affected zomes
+        run: |
+          cargo clippy --locked --manifest-path mycelix-finance/Cargo.toml -p payments --all-targets -- -D warnings
+          cargo clippy --locked --manifest-path mycelix-energy/Cargo.toml -p grid --all-targets -- -D warnings
+
+      - name: Build affected WASM zomes
+        run: |
+          cargo build --locked --manifest-path mycelix-finance/Cargo.toml --target wasm32-unknown-unknown --release -p payments
+          cargo build --locked --manifest-path mycelix-energy/Cargo.toml --target wasm32-unknown-unknown --release -p grid
