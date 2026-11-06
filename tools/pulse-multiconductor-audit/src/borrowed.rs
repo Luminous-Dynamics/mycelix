@@ -599,6 +599,28 @@ mod tests {
     }
 
     #[test]
+    fn borrowed_and_owned_event_shape_decisions_match_for_safe_fixture() {
+        let borrowed: BorrowedHistory<'_> = serde_json::from_str(SAFE_HISTORY).unwrap();
+        for event in &borrowed.events {
+            let owned = super::Event {
+                event_id: event.event_id.to_string(),
+                conductor_id: event.conductor_id.to_string(),
+                local_sequence: event.local_sequence,
+                source: event.source.to_string(),
+                evidence_ref: event.evidence_ref.to_string(),
+                event_type: event.event_type.to_string(),
+                data: serde_json::from_str::<Value>(event.data.get()).unwrap(),
+            };
+            assert_eq!(
+                valid_event_shape(event),
+                super::valid_event_shape(&owned),
+                "borrowed/owned shape decision differed for {}",
+                event.event_id
+            );
+        }
+    }
+
+    #[test]
     fn unknown_top_level_event_field_is_rejected() {
         let mutated = SAFE_HISTORY.replacen(
             r#""event_id": "grant-issue""#,
