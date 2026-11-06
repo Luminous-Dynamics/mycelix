@@ -365,6 +365,7 @@ const MAX_CACHED_REACHABLE_NODES: usize = 100_000;
 
 #[derive(Debug, Default)]
 struct ReachabilityCache {
+    enabled: bool,
     source_queries: BTreeMap<String, usize>,
     reachable_by_source: BTreeMap<String, BTreeSet<String>>,
     cached_reachable_nodes: usize,
@@ -373,6 +374,15 @@ struct ReachabilityCache {
     dfs_node_visits: usize,
     full_reachability_builds: usize,
     cache_limit_skips: usize,
+}
+
+impl ReachabilityCache {
+    fn enabled() -> Self {
+        Self {
+            enabled: true,
+            ..Self::default()
+        }
+    }
 }
 
 fn path_exists(
@@ -404,6 +414,27 @@ fn path_exists(
         .is_some_and(|targets| targets.contains(to))
     {
         return true;
+    }
+
+    if !cache.enabled {
+        let mut seen = BTreeSet::new();
+        let mut stack = adjacency
+            .get(from)
+            .map(|targets| targets.iter().cloned().collect::<Vec<_>>())
+            .unwrap_or_default();
+        while let Some(node) = stack.pop() {
+            if !seen.insert(node.clone()) {
+                continue;
+            }
+            cache.dfs_node_visits += 1;
+            if node == to {
+                return true;
+            }
+            if let Some(next) = adjacency.get(&node) {
+                stack.extend(next.iter().cloned());
+            }
+        }
+        return false;
     }
 
     // A cached reachable set answers both positive and negative queries from
@@ -505,7 +536,19 @@ fn has_direct_relation(
         .is_some_and(|kinds| kinds.contains(relation))
 }
 
-fn audit(history:&History,input_sha256:String)->Report {
+fn audit(history: &History, input_sha256: String) -> Report {
+    audit_with_reachability_cache(history, input_sha256, true)
+}
+
+fn audit_reference(history: &History, input_sha256: String) -> Report {
+    audit_with_reachability_cache(history, input_sha256, false)
+}
+
+fn audit_with_reachability_cache(
+    history: &History,
+    input_sha256: String,
+    cache_enabled: bool,
+) -> Report {
     let mut findings=Vec::new();
     let mut counts=Counts{conductors:history.conductors.len(),events:history.events.len(),causal_edges:history.causal_edges.len(),..Counts::default()};
     if history.schema_version!=2 { finding(&mut findings,"UNSUPPORTED_SCHEMA_VERSION","incomplete",None,"expected schema version 2"); }
@@ -575,7 +618,10 @@ fn audit(history:&History,input_sha256:String)->Report {
 
     // The adjacency graph is immutable from this point onward, so exact-pair
     // reachability results are safe to memoize for the remainder of this audit.
-    let mut reachability_cache = ReachabilityCache::default();
+    let mut reachability_cache = ReachabilityCache {
+        enabled: cache_enabled,
+        ..ReachabilityCache::default()
+    };
 
     let mut grants:BTreeMap<(String,String),Grant>=BTreeMap::new();
     let mut grant_hashes=BTreeSet::new();
@@ -1778,7 +1824,7 @@ mod tests{
             ("b1".to_string(), BTreeSet::from(["b2".to_string()])),
             ("b2".to_string(), BTreeSet::from(["c1".to_string()])),
         ]);
-        let mut cache = ReachabilityCache::default();
+        let mut cache = ReachabilityCache::enabled();
 
         // Cold query uses early-exit DFS.
         assert!(path_exists(&adjacency, &event_map, "a1", "b1", &mut cache));
