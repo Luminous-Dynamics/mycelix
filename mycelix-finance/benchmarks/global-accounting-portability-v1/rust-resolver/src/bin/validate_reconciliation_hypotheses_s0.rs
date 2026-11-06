@@ -450,10 +450,12 @@ fn validate_hypothesis(
         return Err(format!("{run_id}/{hypothesis_ref}: reported score differs from criterion-weight sum"));
     }
 
+    let below_review_threshold = score < integer(rule_set, "review_threshold_bps")?;
+    let blocked_candidate = blocking_criterion || below_review_threshold;
     for pair in array(hypothesis, "candidate_pairs")? {
-        let expected_state = if blocking_criterion { "rejected" } else { "candidate" };
+        let expected_state = if blocked_candidate { "rejected" } else { "candidate" };
         if optional_string(pair, "candidate_state") != Some(expected_state) {
-            return Err(format!("{run_id}/{hypothesis_ref}: candidate pair state does not follow blocking criterion evidence"));
+            return Err(format!("{run_id}/{hypothesis_ref}: candidate pair state does not follow blocker/review-threshold evidence"));
         }
     }
 
@@ -517,12 +519,12 @@ fn validate_hypothesis(
     }
 
     let decision = string(hypothesis, "decision_state")?;
-    if blocking_criterion {
+    if blocked_candidate {
         if decision != "blocked" || allocation_count != 0 {
             return Err(format!("{run_id}/{hypothesis_ref}: blocking criterion requires blocked state and zero allocations"));
         }
     } else if decision == "blocked" {
-        return Err(format!("{run_id}/{hypothesis_ref}: blocked state has no blocking criterion"));
+        return Err(format!("{run_id}/{hypothesis_ref}: blocked state has neither a blocking criterion nor a below-review-threshold score"));
     }
 
     if decision == "eligible_for_auto_match" {
@@ -554,10 +556,19 @@ fn validate_hypothesis(
             }
         }
     } else if decision == "review_required" {
-        if blocking_criterion || (!review_criterion && !missing_or_required_failure && score >= integer(rule_set, "auto_match_threshold_bps")? && is_fully_allocated) {
-            return Err(format!("{run_id}/{hypothesis_ref}: review_required state is not justified by evidence or allocation residual"));
+        let partial_allocation = allocation_count > 0 && !is_fully_allocated;
+        if blocked_candidate
+            || (!review_criterion && !missing_or_required_failure && !partial_allocation
+                && score < integer(rule_set, "review_threshold_bps")?)
+            || (!review_criterion && !missing_or_required_failure && !partial_allocation
+                && score >= integer(rule_set, "auto_match_threshold_bps")? && is_fully_allocated)
+        {
+            return Err(format!("{run_id}/{hypothesis_ref}: review_required state is not justified by evidence, score or allocation residual"));
         }
     } else if decision == "ambiguous" {
+        if blocked_candidate {
+            return Err(format!("{run_id}/{hypothesis_ref}: blocked/low-score candidate cannot be labelled ambiguous"));
+        }
         if allocation_count != 0 {
             return Err(format!("{run_id}/{hypothesis_ref}: ambiguous hypothesis must not allocate source items"));
         }
@@ -613,7 +624,12 @@ fn validate_alternative_sets(run: &Value, hypotheses: &[Value]) -> Result<(), St
                 .into_iter().chain(set_from_array(right, "right_item_refs")?).collect::<BTreeSet<_>>();
             let overlaps = !left_refs.is_disjoint(&right_refs);
             let score_delta = (integer(left, "score_bps")? - integer(right, "score_bps")?).abs();
-            let near_tie = overlaps && score_delta <= margin;
+            let review_floor = integer(rule_set, "review_threshold_bps")?;
+            let states_reviewable = optional_string(left, "decision_state") != Some("blocked")
+                && optional_string(right, "decision_state") != Some("blocked")
+                && integer(left, "score_bps")? >= review_floor
+                && integer(right, "score_bps")? >= review_floor;
+            let near_tie = overlaps && states_reviewable && score_delta <= margin;
             let left_ref = string(left, "hypothesis_ref")?;
             let right_ref = string(right, "hypothesis_ref")?;
             if near_tie {
@@ -644,6 +660,15 @@ fn validate_alternative_sets(run: &Value, hypotheses: &[Value]) -> Result<(), St
                 || !set_from_array(alternative, "alternative_hypothesis_refs")?.contains(reference)
             {
                 return Err(format!("{run_id}/{reference}: alternative link is not symmetric and ambiguous"));
+            }
+            let current_refs = set_from_array(hypothesis, "left_item_refs")?
+                .into_iter().chain(set_from_array(hypothesis, "right_item_refs")?).collect::<BTreeSet<_>>();
+            let alternative_refs = set_from_array(alternative, "left_item_refs")?
+                .into_iter().chain(set_from_array(alternative, "right_item_refs")?).collect::<BTreeSet<_>>();
+            let overlap = !current_refs.is_disjoint(&alternative_refs);
+            let score_delta = (integer(hypothesis, "score_bps")? - integer(alternative, "score_bps")?).abs();
+            if !overlap || score_delta > margin {
+                return Err(format!("{run_id}/{reference}: alternative is not an overlapping near-tie candidate"));
             }
         }
     }
@@ -964,7 +989,7 @@ mod tests {
         let report = build(&input, &output);
         assert_eq!(report["run_count"], 8);
         assert_eq!(report["totals"]["hypothesis_count"], 9);
-        assert_eq!(report["totals"]["eligible_for_auto_match_count"], 6);
+        assert_eq!(report["totals"]["eligible_for_auto_match_count"], 5);
         assert_eq!(report["totals"]["review_required_count"], 1);
         assert_eq!(report["totals"]["ambiguous_count"], 2);
         assert_eq!(report["totals"]["blocked_count"], 1);
