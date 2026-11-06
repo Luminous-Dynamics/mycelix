@@ -318,7 +318,9 @@ fn scenario_evaluation(case: &Value) -> Result<Value, Vec<String>> {
         let currency = str_at(snapshot, "currency").unwrap_or("");
         let key = format!("{account}:{currency}");
         if account.is_empty() || currency.len() != 3 || !snapshot_keys.insert(key.clone()) {
-            errors.push(format!("{case_id}: invalid or duplicate account/currency snapshot {key}"));
+            errors.push(format!(
+                "{case_id}: invalid or duplicate account/currency snapshot {key}"
+            ));
         } else {
             snapshot_map.insert(key, snapshot.clone());
         }
@@ -1112,7 +1114,9 @@ mod tests {
         changed["scenarios"][24]["holds"][1]["held_minor_units"] = json!(4_000);
         let (errors, _) = semantic_evaluation(&changed);
         assert!(
-            errors.iter().any(|error| error.contains("concurrent active holds reserve")),
+            errors
+                .iter()
+                .any(|error| error.contains("concurrent active holds reserve")),
             "{errors:?}"
         );
     }
