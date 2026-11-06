@@ -1,0 +1,1351 @@
+{
+  "bundle_id": "MYCELIX-RECBENCH-EVIDENCE-BRIDGE-S0",
+  "schema_version": "1.0.0",
+  "claim_ceiling": "synthetic_bridge_controls_not_recbench_performance_or_live_reconciliation",
+  "external_benchmark": {
+    "dataset_id": "end-close/recbench",
+    "dataset_version": "0.1.0",
+    "generator_version": "0.1.0",
+    "tier": "synthetic_bridge_only",
+    "source_url": "https://huggingface.co/datasets/end-close/recbench",
+    "dataset_license": "CC-BY-4.0",
+    "generator_license": "Apache-2.0",
+    "seed_mode": "synthetic_bridge",
+    "manifest_sha256": null,
+    "files_materialized": false
+  },
+  "cases": [
+    {
+      "case_id": "RBC-001-EXACT-THREE-WAY",
+      "description": "Unique exact ledger-to-settlement and payout-to-bank matches.",
+      "knowledge_at": "2026-11-06T09:00:00Z",
+      "period": {
+        "start": "2026-11-01",
+        "end": "2026-11-30"
+      },
+      "sources": [
+        {
+          "source_ref": "SRC-001-L",
+          "dataset_side": "ledger",
+          "tenant_namespace": "tenant-a/ledger",
+          "external_id": "L-001",
+          "revision": "r1",
+          "source_kind": "charge",
+          "received_at": "2026-11-06T08:00:00Z",
+          "content_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "source_locator": "table:row:1"
+        },
+        {
+          "source_ref": "SRC-001-S",
+          "dataset_side": "settlement",
+          "tenant_namespace": "tenant-a/proc-a",
+          "external_id": "S-001",
+          "revision": "r1",
+          "source_kind": "settlement_line",
+          "received_at": "2026-11-06T08:00:00Z",
+          "content_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "source_locator": "table:row:1"
+        },
+        {
+          "source_ref": "SRC-001-P",
+          "dataset_side": "payout",
+          "tenant_namespace": "tenant-a/proc-a",
+          "external_id": "P-001",
+          "revision": "r1",
+          "source_kind": "payout",
+          "received_at": "2026-11-06T08:00:00Z",
+          "content_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "source_locator": "table:row:1"
+        },
+        {
+          "source_ref": "SRC-001-B",
+          "dataset_side": "bank_statement",
+          "tenant_namespace": "tenant-a/bank",
+          "external_id": "B-001",
+          "revision": "r1",
+          "source_kind": "bank_deposit",
+          "received_at": "2026-11-06T08:00:00Z",
+          "content_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "source_locator": "table:row:1"
+        }
+      ],
+      "assertions": [
+        {
+          "assertion_ref": "AS-001-L-AMT",
+          "source_ref": "SRC-001-L",
+          "fact_type": "amount_minor",
+          "value": 10000,
+          "currency": "USD",
+          "recorded_at": "2026-11-06T08:00:00Z",
+          "valid_date": "2026-11-05",
+          "evidence_state": "asserted"
+        },
+        {
+          "assertion_ref": "AS-001-S-GROSS",
+          "source_ref": "SRC-001-S",
+          "fact_type": "gross_minor",
+          "value": 10000,
+          "currency": "USD",
+          "recorded_at": "2026-11-06T08:00:00Z",
+          "valid_date": "2026-11-05",
+          "evidence_state": "asserted"
+        },
+        {
+          "assertion_ref": "AS-001-S-FEE",
+          "source_ref": "SRC-001-S",
+          "fact_type": "fee_minor",
+          "value": 0,
+          "currency": "USD",
+          "recorded_at": "2026-11-06T08:00:00Z",
+          "valid_date": "2026-11-05",
+          "evidence_state": "asserted"
+        },
+        {
+          "assertion_ref": "AS-001-S-NET",
+          "source_ref": "SRC-001-S",
+          "fact_type": "net_minor",
+          "value": 10000,
+          "currency": "USD",
+          "recorded_at": "2026-11-06T08:00:00Z",
+          "valid_date": "2026-11-05",
+          "evidence_state": "asserted"
+        },
+        {
+          "assertion_ref": "AS-001-P-NET",
+          "source_ref": "SRC-001-P",
+          "fact_type": "net_minor",
+          "value": 10000,
+          "currency": "USD",
+          "recorded_at": "2026-11-06T08:00:00Z",
+          "valid_date": "2026-11-05",
+          "evidence_state": "asserted"
+        },
+        {
+          "assertion_ref": "AS-001-B-AMT",
+          "source_ref": "SRC-001-B",
+          "fact_type": "amount_minor",
+          "value": 10000,
+          "currency": "USD",
+          "recorded_at": "2026-11-06T08:00:00Z",
+          "valid_date": "2026-11-05",
+          "evidence_state": "asserted"
+        }
+      ],
+      "events": [
+        {
+          "event_ref": "EV-001-L",
+          "event_kind": "ledger_charge",
+          "source_refs": [
+            "SRC-001-L"
+          ],
+          "assertion_refs": [
+            "AS-001-L-AMT"
+          ],
+          "occurred_at": "2026-11-05T12:00:00Z",
+          "recorded_at": "2026-11-06T08:00:00Z",
+          "currency": "USD",
+          "amount_minor": 10000,
+          "entity_ref": "ENTITY-A"
+        },
+        {
+          "event_ref": "EV-001-S",
+          "event_kind": "settlement_line",
+          "source_refs": [
+            "SRC-001-S"
+          ],
+          "assertion_refs": [
+            "AS-001-S-GROSS",
+            "AS-001-S-FEE",
+            "AS-001-S-NET"
+          ],
+          "occurred_at": "2026-11-05T12:00:00Z",
+          "recorded_at": "2026-11-06T08:00:00Z",
+          "currency": "USD",
+          "amount_minor": 10000,
+          "entity_ref": "ENTITY-A"
+        },
+        {
+          "event_ref": "EV-001-P",
+          "event_kind": "payout_created",
+          "source_refs": [
+            "SRC-001-P"
+          ],
+          "assertion_refs": [
+            "AS-001-P-NET"
+          ],
+          "occurred_at": "2026-11-05T12:00:00Z",
+          "recorded_at": "2026-11-06T08:00:00Z",
+          "currency": "USD",
+          "amount_minor": 10000,
+          "entity_ref": "ENTITY-A"
+        },
+        {
+          "event_ref": "EV-001-B",
+          "event_kind": "bank_deposit",
+          "source_refs": [
+            "SRC-001-B"
+          ],
+          "assertion_refs": [
+            "AS-001-B-AMT"
+          ],
+          "occurred_at": "2026-11-05T12:00:00Z",
+          "recorded_at": "2026-11-06T08:00:00Z",
+          "currency": "USD",
+          "amount_minor": 10000,
+          "entity_ref": "ENTITY-A"
+        }
+      ]
+    },
+    {
+      "case_id": "RBC-002-FEE-NETTING",
+      "description": "Ledger gross is 50,000 USD; processor fee is 1,500; payout and bank deposit are 48,500.",
+      "knowledge_at": "2026-11-06T09:00:00Z",
+      "period": {
+        "start": "2026-11-01",
+        "end": "2026-11-30"
+      },
+      "sources": [
+        {
+          "source_ref": "SRC-002-L",
+          "dataset_side": "ledger",
+          "tenant_namespace": "tenant-a/ledger",
+          "external_id": "L-002",
+          "revision": "r1",
+          "source_kind": "charge",
+          "received_at": "2026-11-06T08:00:00Z",
+          "content_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "source_locator": "table:row:1"
+        },
+        {
+          "source_ref": "SRC-002-S",
+          "dataset_side": "settlement",
+          "tenant_namespace": "tenant-a/proc-b",
+          "external_id": "S-002",
+          "revision": "r1",
+          "source_kind": "settlement_line",
+          "received_at": "2026-11-06T08:00:00Z",
+          "content_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "source_locator": "table:row:1"
+        },
+        {
+          "source_ref": "SRC-002-P",
+          "dataset_side": "payout",
+          "tenant_namespace": "tenant-a/proc-b",
+          "external_id": "P-002",
+          "revision": "r1",
+          "source_kind": "payout",
+          "received_at": "2026-11-06T08:00:00Z",
+          "content_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "source_locator": "table:row:1"
+        },
+        {
+          "source_ref": "SRC-002-B",
+          "dataset_side": "bank_statement",
+          "tenant_namespace": "tenant-a/bank",
+          "external_id": "B-002",
+          "revision": "r1",
+          "source_kind": "bank_deposit",
+          "received_at": "2026-11-06T08:00:00Z",
+          "content_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "source_locator": "table:row:1"
+        }
+      ],
+      "assertions": [
+        {
+          "assertion_ref": "AS-002-L-AMT",
+          "source_ref": "SRC-002-L",
+          "fact_type": "amount_minor",
+          "value": 50000,
+          "currency": "USD",
+          "recorded_at": "2026-11-06T08:00:00Z",
+          "valid_date": "2026-11-05",
+          "evidence_state": "asserted"
+        },
+        {
+          "assertion_ref": "AS-002-S-GROSS",
+          "source_ref": "SRC-002-S",
+          "fact_type": "gross_minor",
+          "value": 50000,
+          "currency": "USD",
+          "recorded_at": "2026-11-06T08:00:00Z",
+          "valid_date": "2026-11-05",
+          "evidence_state": "asserted"
+        },
+        {
+          "assertion_ref": "AS-002-S-FEE",
+          "source_ref": "SRC-002-S",
+          "fact_type": "fee_minor",
+          "value": 1500,
+          "currency": "USD",
+          "recorded_at": "2026-11-06T08:00:00Z",
+          "valid_date": "2026-11-05",
+          "evidence_state": "asserted"
+        },
+        {
+          "assertion_ref": "AS-002-S-NET",
+          "source_ref": "SRC-002-S",
+          "fact_type": "net_minor",
+          "value": 48500,
+          "currency": "USD",
+          "recorded_at": "2026-11-06T08:00:00Z",
+          "valid_date": "2026-11-05",
+          "evidence_state": "asserted"
+        },
+        {
+          "assertion_ref": "AS-002-P-NET",
+          "source_ref": "SRC-002-P",
+          "fact_type": "net_minor",
+          "value": 48500,
+          "currency": "USD",
+          "recorded_at": "2026-11-06T08:00:00Z",
+          "valid_date": "2026-11-05",
+          "evidence_state": "asserted"
+        },
+        {
+          "assertion_ref": "AS-002-B-AMT",
+          "source_ref": "SRC-002-B",
+          "fact_type": "amount_minor",
+          "value": 48500,
+          "currency": "USD",
+          "recorded_at": "2026-11-06T08:00:00Z",
+          "valid_date": "2026-11-05",
+          "evidence_state": "asserted"
+        }
+      ],
+      "events": [
+        {
+          "event_ref": "EV-002-L",
+          "event_kind": "ledger_charge",
+          "source_refs": [
+            "SRC-002-L"
+          ],
+          "assertion_refs": [
+            "AS-002-L-AMT"
+          ],
+          "occurred_at": "2026-11-05T12:00:00Z",
+          "recorded_at": "2026-11-06T08:00:00Z",
+          "currency": "USD",
+          "amount_minor": 50000,
+          "entity_ref": "ENTITY-A"
+        },
+        {
+          "event_ref": "EV-002-S",
+          "event_kind": "settlement_line",
+          "source_refs": [
+            "SRC-002-S"
+          ],
+          "assertion_refs": [
+            "AS-002-S-GROSS",
+            "AS-002-S-FEE",
+            "AS-002-S-NET"
+          ],
+          "occurred_at": "2026-11-05T12:00:00Z",
+          "recorded_at": "2026-11-06T08:00:00Z",
+          "currency": "USD",
+          "amount_minor": 48500,
+          "entity_ref": "ENTITY-A"
+        },
+        {
+          "event_ref": "EV-002-P",
+          "event_kind": "payout_created",
+          "source_refs": [
+            "SRC-002-P"
+          ],
+          "assertion_refs": [
+            "AS-002-P-NET"
+          ],
+          "occurred_at": "2026-11-05T12:00:00Z",
+          "recorded_at": "2026-11-06T08:00:00Z",
+          "currency": "USD",
+          "amount_minor": 48500,
+          "entity_ref": "ENTITY-A"
+        },
+        {
+          "event_ref": "EV-002-B",
+          "event_kind": "bank_deposit",
+          "source_refs": [
+            "SRC-002-B"
+          ],
+          "assertion_refs": [
+            "AS-002-B-AMT"
+          ],
+          "occurred_at": "2026-11-05T12:00:00Z",
+          "recorded_at": "2026-11-06T08:00:00Z",
+          "currency": "USD",
+          "amount_minor": 48500,
+          "entity_ref": "ENTITY-A"
+        }
+      ]
+    },
+    {
+      "case_id": "RBC-003-FX-PAYOUT",
+      "description": "EUR settlement net converts into a USD payout and matching USD bank deposit.",
+      "knowledge_at": "2026-11-06T09:00:00Z",
+      "period": {
+        "start": "2026-11-01",
+        "end": "2026-11-30"
+      },
+      "sources": [
+        {
+          "source_ref": "SRC-003-L",
+          "dataset_side": "ledger",
+          "tenant_namespace": "tenant-a/ledger",
+          "external_id": "L-003",
+          "revision": "r1",
+          "source_kind": "charge",
+          "received_at": "2026-11-06T08:00:00Z",
+          "content_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "source_locator": "table:row:1"
+        },
+        {
+          "source_ref": "SRC-003-S",
+          "dataset_side": "settlement",
+          "tenant_namespace": "tenant-a/proc-c",
+          "external_id": "S-003",
+          "revision": "r1",
+          "source_kind": "settlement_line",
+          "received_at": "2026-11-06T08:00:00Z",
+          "content_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "source_locator": "table:row:1"
+        },
+        {
+          "source_ref": "SRC-003-P",
+          "dataset_side": "payout",
+          "tenant_namespace": "tenant-a/proc-c",
+          "external_id": "P-003",
+          "revision": "r1",
+          "source_kind": "payout",
+          "received_at": "2026-11-06T08:00:00Z",
+          "content_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "source_locator": "table:row:1"
+        },
+        {
+          "source_ref": "SRC-003-B",
+          "dataset_side": "bank_statement",
+          "tenant_namespace": "tenant-a/bank",
+          "external_id": "B-003",
+          "revision": "r1",
+          "source_kind": "bank_deposit",
+          "received_at": "2026-11-06T08:00:00Z",
+          "content_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "source_locator": "table:row:1"
+        }
+      ],
+      "assertions": [
+        {
+          "assertion_ref": "AS-003-L-AMT",
+          "source_ref": "SRC-003-L",
+          "fact_type": "amount_minor",
+          "value": 10000,
+          "currency": "EUR",
+          "recorded_at": "2026-11-06T08:00:00Z",
+          "valid_date": "2026-11-05",
+          "evidence_state": "asserted"
+        },
+        {
+          "assertion_ref": "AS-003-S-GROSS",
+          "source_ref": "SRC-003-S",
+          "fact_type": "gross_minor",
+          "value": 10000,
+          "currency": "EUR",
+          "recorded_at": "2026-11-06T08:00:00Z",
+          "valid_date": "2026-11-05",
+          "evidence_state": "asserted"
+        },
+        {
+          "assertion_ref": "AS-003-S-FEE",
+          "source_ref": "SRC-003-S",
+          "fact_type": "fee_minor",
+          "value": 100,
+          "currency": "EUR",
+          "recorded_at": "2026-11-06T08:00:00Z",
+          "valid_date": "2026-11-05",
+          "evidence_state": "asserted"
+        },
+        {
+          "assertion_ref": "AS-003-S-NET",
+          "source_ref": "SRC-003-S",
+          "fact_type": "net_minor",
+          "value": 9900,
+          "currency": "EUR",
+          "recorded_at": "2026-11-06T08:00:00Z",
+          "valid_date": "2026-11-05",
+          "evidence_state": "asserted"
+        },
+        {
+          "assertion_ref": "AS-003-P-NET",
+          "source_ref": "SRC-003-P",
+          "fact_type": "net_minor",
+          "value": 10890,
+          "currency": "USD",
+          "recorded_at": "2026-11-06T08:00:00Z",
+          "valid_date": "2026-11-05",
+          "evidence_state": "asserted"
+        },
+        {
+          "assertion_ref": "AS-003-B-AMT",
+          "source_ref": "SRC-003-B",
+          "fact_type": "amount_minor",
+          "value": 10890,
+          "currency": "USD",
+          "recorded_at": "2026-11-06T08:00:00Z",
+          "valid_date": "2026-11-05",
+          "evidence_state": "asserted"
+        }
+      ],
+      "events": [
+        {
+          "event_ref": "EV-003-L",
+          "event_kind": "ledger_charge",
+          "source_refs": [
+            "SRC-003-L"
+          ],
+          "assertion_refs": [
+            "AS-003-L-AMT"
+          ],
+          "occurred_at": "2026-11-05T12:00:00Z",
+          "recorded_at": "2026-11-06T08:00:00Z",
+          "currency": "EUR",
+          "amount_minor": 10000,
+          "entity_ref": "ENTITY-A"
+        },
+        {
+          "event_ref": "EV-003-S",
+          "event_kind": "settlement_line",
+          "source_refs": [
+            "SRC-003-S"
+          ],
+          "assertion_refs": [
+            "AS-003-S-GROSS",
+            "AS-003-S-FEE",
+            "AS-003-S-NET"
+          ],
+          "occurred_at": "2026-11-05T12:00:00Z",
+          "recorded_at": "2026-11-06T08:00:00Z",
+          "currency": "EUR",
+          "amount_minor": 9900,
+          "entity_ref": "ENTITY-A"
+        },
+        {
+          "event_ref": "EV-003-P",
+          "event_kind": "payout_created",
+          "source_refs": [
+            "SRC-003-P"
+          ],
+          "assertion_refs": [
+            "AS-003-P-NET"
+          ],
+          "occurred_at": "2026-11-05T12:00:00Z",
+          "recorded_at": "2026-11-06T08:00:00Z",
+          "currency": "USD",
+          "amount_minor": 10890,
+          "entity_ref": "ENTITY-A"
+        },
+        {
+          "event_ref": "EV-003-B",
+          "event_kind": "bank_deposit",
+          "source_refs": [
+            "SRC-003-B"
+          ],
+          "assertion_refs": [
+            "AS-003-B-AMT"
+          ],
+          "occurred_at": "2026-11-05T12:00:00Z",
+          "recorded_at": "2026-11-06T08:00:00Z",
+          "currency": "USD",
+          "amount_minor": 10890,
+          "entity_ref": "ENTITY-A"
+        }
+      ]
+    },
+    {
+      "case_id": "RBC-004-TIMEZONE-DAY-BOUNDARY",
+      "description": "Processor sales-day settlement crosses UTC midnight; do not reject the match on date-only mismatch.",
+      "knowledge_at": "2026-11-06T09:00:00Z",
+      "period": {
+        "start": "2026-11-01",
+        "end": "2026-11-30"
+      },
+      "sources": [
+        {
+          "source_ref": "SRC-004-L",
+          "dataset_side": "ledger",
+          "tenant_namespace": "tenant-a/ledger",
+          "external_id": "L-004",
+          "revision": "r1",
+          "source_kind": "charge",
+          "received_at": "2026-11-06T08:00:00Z",
+          "content_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "source_locator": "table:row:1"
+        },
+        {
+          "source_ref": "SRC-004-S",
+          "dataset_side": "settlement",
+          "tenant_namespace": "tenant-a/proc-a",
+          "external_id": "S-004",
+          "revision": "r1",
+          "source_kind": "settlement_line",
+          "received_at": "2026-11-06T08:00:00Z",
+          "content_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "source_locator": "table:row:1"
+        }
+      ],
+      "assertions": [
+        {
+          "assertion_ref": "AS-004-L-AMT",
+          "source_ref": "SRC-004-L",
+          "fact_type": "amount_minor",
+          "value": 25000,
+          "currency": "USD",
+          "recorded_at": "2026-11-06T08:00:00Z",
+          "valid_date": "2026-11-05",
+          "evidence_state": "asserted"
+        },
+        {
+          "assertion_ref": "AS-004-S-NET",
+          "source_ref": "SRC-004-S",
+          "fact_type": "net_minor",
+          "value": 25000,
+          "currency": "USD",
+          "recorded_at": "2026-11-06T08:00:00Z",
+          "valid_date": "2026-11-06",
+          "evidence_state": "asserted"
+        }
+      ],
+      "events": [
+        {
+          "event_ref": "EV-004-L",
+          "event_kind": "ledger_charge",
+          "source_refs": [
+            "SRC-004-L"
+          ],
+          "assertion_refs": [
+            "AS-004-L-AMT"
+          ],
+          "occurred_at": "2026-11-05T23:55:00Z",
+          "recorded_at": "2026-11-06T08:00:00Z",
+          "currency": "USD",
+          "amount_minor": 25000,
+          "entity_ref": "ENTITY-A"
+        },
+        {
+          "event_ref": "EV-004-S",
+          "event_kind": "settlement_line",
+          "source_refs": [
+            "SRC-004-S"
+          ],
+          "assertion_refs": [
+            "AS-004-S-NET"
+          ],
+          "occurred_at": "2026-11-06T00:05:00Z",
+          "recorded_at": "2026-11-06T08:00:00Z",
+          "currency": "USD",
+          "amount_minor": 25000,
+          "entity_ref": "ENTITY-A"
+        }
+      ]
+    },
+    {
+      "case_id": "RBC-005-PARTIAL-CAPTURE",
+      "description": "One ledger charge is captured in two settlement lines totaling its amount; no partial residual remains after both.",
+      "knowledge_at": "2026-11-06T09:00:00Z",
+      "period": {
+        "start": "2026-11-01",
+        "end": "2026-11-30"
+      },
+      "sources": [
+        {
+          "source_ref": "SRC-005-L",
+          "dataset_side": "ledger",
+          "tenant_namespace": "tenant-a/ledger",
+          "external_id": "ORDER-005",
+          "revision": "r1",
+          "source_kind": "charge",
+          "received_at": "2026-11-06T08:00:00Z",
+          "content_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "source_locator": "table:row:1"
+        },
+        {
+          "source_ref": "SRC-005-S1",
+          "dataset_side": "settlement",
+          "tenant_namespace": "tenant-a/proc-a",
+          "external_id": "CAP-005A",
+          "revision": "r1",
+          "source_kind": "settlement_line",
+          "received_at": "2026-11-06T08:00:00Z",
+          "content_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "source_locator": "table:row:1"
+        },
+        {
+          "source_ref": "SRC-005-S2",
+          "dataset_side": "settlement",
+          "tenant_namespace": "tenant-a/proc-a",
+          "external_id": "CAP-005B",
+          "revision": "r1",
+          "source_kind": "settlement_line",
+          "received_at": "2026-11-06T08:00:00Z",
+          "content_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "source_locator": "table:row:1"
+        }
+      ],
+      "assertions": [
+        {
+          "assertion_ref": "AS-005-L-AMT",
+          "source_ref": "SRC-005-L",
+          "fact_type": "amount_minor",
+          "value": 10000,
+          "currency": "USD",
+          "recorded_at": "2026-11-06T08:00:00Z",
+          "valid_date": "2026-11-05",
+          "evidence_state": "asserted"
+        },
+        {
+          "assertion_ref": "AS-005-S1-NET",
+          "source_ref": "SRC-005-S1",
+          "fact_type": "net_minor",
+          "value": 6000,
+          "currency": "USD",
+          "recorded_at": "2026-11-06T08:00:00Z",
+          "valid_date": "2026-11-05",
+          "evidence_state": "asserted"
+        },
+        {
+          "assertion_ref": "AS-005-S2-NET",
+          "source_ref": "SRC-005-S2",
+          "fact_type": "net_minor",
+          "value": 4000,
+          "currency": "USD",
+          "recorded_at": "2026-11-06T08:00:00Z",
+          "valid_date": "2026-11-05",
+          "evidence_state": "asserted"
+        }
+      ],
+      "events": [
+        {
+          "event_ref": "EV-005-L",
+          "event_kind": "ledger_charge",
+          "source_refs": [
+            "SRC-005-L"
+          ],
+          "assertion_refs": [
+            "AS-005-L-AMT"
+          ],
+          "occurred_at": "2026-11-05T12:00:00Z",
+          "recorded_at": "2026-11-06T08:00:00Z",
+          "currency": "USD",
+          "amount_minor": 10000,
+          "entity_ref": "ENTITY-A"
+        },
+        {
+          "event_ref": "EV-005-S1",
+          "event_kind": "settlement_line",
+          "source_refs": [
+            "SRC-005-S1"
+          ],
+          "assertion_refs": [
+            "AS-005-S1-NET"
+          ],
+          "occurred_at": "2026-11-05T12:00:00Z",
+          "recorded_at": "2026-11-06T08:00:00Z",
+          "currency": "USD",
+          "amount_minor": 6000,
+          "entity_ref": "ENTITY-A"
+        },
+        {
+          "event_ref": "EV-005-S2",
+          "event_kind": "settlement_line",
+          "source_refs": [
+            "SRC-005-S2"
+          ],
+          "assertion_refs": [
+            "AS-005-S2-NET"
+          ],
+          "occurred_at": "2026-11-05T12:00:00Z",
+          "recorded_at": "2026-11-06T08:00:00Z",
+          "currency": "USD",
+          "amount_minor": 4000,
+          "entity_ref": "ENTITY-A"
+        }
+      ]
+    },
+    {
+      "case_id": "RBC-006-DUPLICATE-SETTLEMENT-FEED",
+      "description": "Two identical settlement rows have same source identity and amount but no deduplication proof; keep one candidate for review, never count twice.",
+      "knowledge_at": "2026-11-06T09:00:00Z",
+      "period": {
+        "start": "2026-11-01",
+        "end": "2026-11-30"
+      },
+      "sources": [
+        {
+          "source_ref": "SRC-006-L",
+          "dataset_side": "ledger",
+          "tenant_namespace": "tenant-a/ledger",
+          "external_id": "L-006",
+          "revision": "r1",
+          "source_kind": "charge",
+          "received_at": "2026-11-06T08:00:00Z",
+          "content_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "source_locator": "table:row:1"
+        },
+        {
+          "source_ref": "SRC-006-S-A",
+          "dataset_side": "settlement",
+          "tenant_namespace": "tenant-a/proc-a",
+          "external_id": "TX-006",
+          "revision": "r1",
+          "source_kind": "settlement_line",
+          "received_at": "2026-11-06T08:00:00Z",
+          "content_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "source_locator": "table:row:1"
+        },
+        {
+          "source_ref": "SRC-006-S-B",
+          "dataset_side": "settlement",
+          "tenant_namespace": "tenant-a/proc-a",
+          "external_id": "TX-006",
+          "revision": "r2",
+          "source_kind": "settlement_line",
+          "received_at": "2026-11-06T08:00:00Z",
+          "content_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "source_locator": "table:row:1"
+        }
+      ],
+      "assertions": [
+        {
+          "assertion_ref": "AS-006-L-AMT",
+          "source_ref": "SRC-006-L",
+          "fact_type": "amount_minor",
+          "value": 7800,
+          "currency": "USD",
+          "recorded_at": "2026-11-06T08:00:00Z",
+          "valid_date": "2026-11-05",
+          "evidence_state": "asserted"
+        },
+        {
+          "assertion_ref": "AS-006-SA-NET",
+          "source_ref": "SRC-006-S-A",
+          "fact_type": "net_minor",
+          "value": 7800,
+          "currency": "USD",
+          "recorded_at": "2026-11-06T08:00:00Z",
+          "valid_date": "2026-11-05",
+          "evidence_state": "asserted"
+        },
+        {
+          "assertion_ref": "AS-006-SB-NET",
+          "source_ref": "SRC-006-S-B",
+          "fact_type": "net_minor",
+          "value": 7800,
+          "currency": "USD",
+          "recorded_at": "2026-11-06T08:00:00Z",
+          "valid_date": "2026-11-05",
+          "evidence_state": "asserted"
+        }
+      ],
+      "events": [
+        {
+          "event_ref": "EV-006-L",
+          "event_kind": "ledger_charge",
+          "source_refs": [
+            "SRC-006-L"
+          ],
+          "assertion_refs": [
+            "AS-006-L-AMT"
+          ],
+          "occurred_at": "2026-11-05T12:00:00Z",
+          "recorded_at": "2026-11-06T08:00:00Z",
+          "currency": "USD",
+          "amount_minor": 7800,
+          "entity_ref": "ENTITY-A"
+        },
+        {
+          "event_ref": "EV-006-SA",
+          "event_kind": "settlement_line",
+          "source_refs": [
+            "SRC-006-S-A"
+          ],
+          "assertion_refs": [
+            "AS-006-SA-NET"
+          ],
+          "occurred_at": "2026-11-05T12:00:00Z",
+          "recorded_at": "2026-11-06T08:00:00Z",
+          "currency": "USD",
+          "amount_minor": 7800,
+          "entity_ref": "ENTITY-A"
+        },
+        {
+          "event_ref": "EV-006-SB",
+          "event_kind": "settlement_line",
+          "source_refs": [
+            "SRC-006-S-B"
+          ],
+          "assertion_refs": [
+            "AS-006-SB-NET"
+          ],
+          "occurred_at": "2026-11-05T12:00:00Z",
+          "recorded_at": "2026-11-06T08:00:00Z",
+          "currency": "USD",
+          "amount_minor": 7800,
+          "entity_ref": "ENTITY-A"
+        }
+      ]
+    },
+    {
+      "case_id": "RBC-007-REVERSAL",
+      "description": "A later reversal offsets the earlier settlement; preserve both events and their relationship rather than erase the original match.",
+      "knowledge_at": "2026-11-06T09:00:00Z",
+      "period": {
+        "start": "2026-11-01",
+        "end": "2026-11-30"
+      },
+      "sources": [
+        {
+          "source_ref": "SRC-007-L",
+          "dataset_side": "ledger",
+          "tenant_namespace": "tenant-a/ledger",
+          "external_id": "L-007",
+          "revision": "r1",
+          "source_kind": "charge",
+          "received_at": "2026-11-06T08:00:00Z",
+          "content_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "source_locator": "table:row:1"
+        },
+        {
+          "source_ref": "SRC-007-S",
+          "dataset_side": "settlement",
+          "tenant_namespace": "tenant-a/proc-a",
+          "external_id": "S-007",
+          "revision": "r1",
+          "source_kind": "settlement_line",
+          "received_at": "2026-11-06T08:00:00Z",
+          "content_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "source_locator": "table:row:1"
+        },
+        {
+          "source_ref": "SRC-007-R",
+          "dataset_side": "settlement",
+          "tenant_namespace": "tenant-a/proc-a",
+          "external_id": "R-007",
+          "revision": "r1",
+          "source_kind": "reversal",
+          "received_at": "2026-11-06T08:00:00Z",
+          "content_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "source_locator": "table:row:1"
+        }
+      ],
+      "assertions": [
+        {
+          "assertion_ref": "AS-007-L-AMT",
+          "source_ref": "SRC-007-L",
+          "fact_type": "amount_minor",
+          "value": 12000,
+          "currency": "USD",
+          "recorded_at": "2026-11-06T08:00:00Z",
+          "valid_date": "2026-11-05",
+          "evidence_state": "asserted"
+        },
+        {
+          "assertion_ref": "AS-007-S-NET",
+          "source_ref": "SRC-007-S",
+          "fact_type": "net_minor",
+          "value": 12000,
+          "currency": "USD",
+          "recorded_at": "2026-11-06T08:00:00Z",
+          "valid_date": "2026-11-05",
+          "evidence_state": "asserted"
+        },
+        {
+          "assertion_ref": "AS-007-R-AMT",
+          "source_ref": "SRC-007-R",
+          "fact_type": "amount_minor",
+          "value": -12000,
+          "currency": "USD",
+          "recorded_at": "2026-11-06T08:00:00Z",
+          "valid_date": "2026-11-05",
+          "evidence_state": "asserted"
+        }
+      ],
+      "events": [
+        {
+          "event_ref": "EV-007-L",
+          "event_kind": "ledger_charge",
+          "source_refs": [
+            "SRC-007-L"
+          ],
+          "assertion_refs": [
+            "AS-007-L-AMT"
+          ],
+          "occurred_at": "2026-11-05T12:00:00Z",
+          "recorded_at": "2026-11-06T08:00:00Z",
+          "currency": "USD",
+          "amount_minor": 12000,
+          "entity_ref": "ENTITY-A"
+        },
+        {
+          "event_ref": "EV-007-S",
+          "event_kind": "settlement_line",
+          "source_refs": [
+            "SRC-007-S"
+          ],
+          "assertion_refs": [
+            "AS-007-S-NET"
+          ],
+          "occurred_at": "2026-11-05T12:00:00Z",
+          "recorded_at": "2026-11-06T08:00:00Z",
+          "currency": "USD",
+          "amount_minor": 12000,
+          "entity_ref": "ENTITY-A"
+        },
+        {
+          "event_ref": "EV-007-R",
+          "event_kind": "reversal",
+          "source_refs": [
+            "SRC-007-R"
+          ],
+          "assertion_refs": [
+            "AS-007-R-AMT"
+          ],
+          "occurred_at": "2026-11-05T12:00:00Z",
+          "recorded_at": "2026-11-06T08:00:00Z",
+          "currency": "USD",
+          "amount_minor": -12000,
+          "entity_ref": "ENTITY-A"
+        }
+      ]
+    },
+    {
+      "case_id": "RBC-008-DEPOSIT-UNBUNDLE",
+      "description": "A single bank deposit equals the unique subset sum of two payouts; exact group-level match should preserve both payout references.",
+      "knowledge_at": "2026-11-06T09:00:00Z",
+      "period": {
+        "start": "2026-11-01",
+        "end": "2026-11-30"
+      },
+      "sources": [
+        {
+          "source_ref": "SRC-008-P1",
+          "dataset_side": "payout",
+          "tenant_namespace": "tenant-a/proc-a",
+          "external_id": "P-008A",
+          "revision": "r1",
+          "source_kind": "payout",
+          "received_at": "2026-11-06T08:00:00Z",
+          "content_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "source_locator": "table:row:1"
+        },
+        {
+          "source_ref": "SRC-008-P2",
+          "dataset_side": "payout",
+          "tenant_namespace": "tenant-a/proc-a",
+          "external_id": "P-008B",
+          "revision": "r1",
+          "source_kind": "payout",
+          "received_at": "2026-11-06T08:00:00Z",
+          "content_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "source_locator": "table:row:1"
+        },
+        {
+          "source_ref": "SRC-008-B",
+          "dataset_side": "bank_statement",
+          "tenant_namespace": "tenant-a/bank",
+          "external_id": "B-008",
+          "revision": "r1",
+          "source_kind": "bank_deposit",
+          "received_at": "2026-11-06T08:00:00Z",
+          "content_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "source_locator": "table:row:1"
+        }
+      ],
+      "assertions": [
+        {
+          "assertion_ref": "AS-008-P1-NET",
+          "source_ref": "SRC-008-P1",
+          "fact_type": "net_minor",
+          "value": 4000,
+          "currency": "USD",
+          "recorded_at": "2026-11-06T08:00:00Z",
+          "valid_date": "2026-11-05",
+          "evidence_state": "asserted"
+        },
+        {
+          "assertion_ref": "AS-008-P2-NET",
+          "source_ref": "SRC-008-P2",
+          "fact_type": "net_minor",
+          "value": 6000,
+          "currency": "USD",
+          "recorded_at": "2026-11-06T08:00:00Z",
+          "valid_date": "2026-11-05",
+          "evidence_state": "asserted"
+        },
+        {
+          "assertion_ref": "AS-008-B-AMT",
+          "source_ref": "SRC-008-B",
+          "fact_type": "amount_minor",
+          "value": 10000,
+          "currency": "USD",
+          "recorded_at": "2026-11-06T08:00:00Z",
+          "valid_date": "2026-11-05",
+          "evidence_state": "asserted"
+        }
+      ],
+      "events": [
+        {
+          "event_ref": "EV-008-P1",
+          "event_kind": "payout_created",
+          "source_refs": [
+            "SRC-008-P1"
+          ],
+          "assertion_refs": [
+            "AS-008-P1-NET"
+          ],
+          "occurred_at": "2026-11-05T12:00:00Z",
+          "recorded_at": "2026-11-06T08:00:00Z",
+          "currency": "USD",
+          "amount_minor": 4000,
+          "entity_ref": "ENTITY-A"
+        },
+        {
+          "event_ref": "EV-008-P2",
+          "event_kind": "payout_created",
+          "source_refs": [
+            "SRC-008-P2"
+          ],
+          "assertion_refs": [
+            "AS-008-P2-NET"
+          ],
+          "occurred_at": "2026-11-05T12:00:00Z",
+          "recorded_at": "2026-11-06T08:00:00Z",
+          "currency": "USD",
+          "amount_minor": 6000,
+          "entity_ref": "ENTITY-A"
+        },
+        {
+          "event_ref": "EV-008-B",
+          "event_kind": "bank_deposit",
+          "source_refs": [
+            "SRC-008-B"
+          ],
+          "assertion_refs": [
+            "AS-008-B-AMT"
+          ],
+          "occurred_at": "2026-11-05T12:00:00Z",
+          "recorded_at": "2026-11-06T08:00:00Z",
+          "currency": "USD",
+          "amount_minor": 10000,
+          "entity_ref": "ENTITY-A"
+        }
+      ]
+    },
+    {
+      "case_id": "RBC-009-PROVABLY-AMBIGUOUS",
+      "description": "Two ledger charges and two settlement lines have identical amounts and degraded references; amount equality alone cannot establish unique identity.",
+      "knowledge_at": "2026-11-06T09:00:00Z",
+      "period": {
+        "start": "2026-11-01",
+        "end": "2026-11-30"
+      },
+      "sources": [
+        {
+          "source_ref": "SRC-009-L1",
+          "dataset_side": "ledger",
+          "tenant_namespace": "tenant-a/ledger",
+          "external_id": "L-009A",
+          "revision": "r1",
+          "source_kind": "charge",
+          "received_at": "2026-11-06T08:00:00Z",
+          "content_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "source_locator": "table:row:1"
+        },
+        {
+          "source_ref": "SRC-009-L2",
+          "dataset_side": "ledger",
+          "tenant_namespace": "tenant-a/ledger",
+          "external_id": "L-009B",
+          "revision": "r1",
+          "source_kind": "charge",
+          "received_at": "2026-11-06T08:00:00Z",
+          "content_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "source_locator": "table:row:1"
+        },
+        {
+          "source_ref": "SRC-009-S1",
+          "dataset_side": "settlement",
+          "tenant_namespace": "tenant-a/proc-a",
+          "external_id": "S-009A",
+          "revision": "r1",
+          "source_kind": "settlement_line",
+          "received_at": "2026-11-06T08:00:00Z",
+          "content_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "source_locator": "table:row:1"
+        },
+        {
+          "source_ref": "SRC-009-S2",
+          "dataset_side": "settlement",
+          "tenant_namespace": "tenant-a/proc-a",
+          "external_id": "S-009B",
+          "revision": "r1",
+          "source_kind": "settlement_line",
+          "received_at": "2026-11-06T08:00:00Z",
+          "content_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "source_locator": "table:row:1"
+        }
+      ],
+      "assertions": [
+        {
+          "assertion_ref": "AS-009-L1",
+          "source_ref": "SRC-009-L1",
+          "fact_type": "amount_minor",
+          "value": 5000,
+          "currency": "USD",
+          "recorded_at": "2026-11-06T08:00:00Z",
+          "valid_date": "2026-11-05",
+          "evidence_state": "asserted"
+        },
+        {
+          "assertion_ref": "AS-009-L2",
+          "source_ref": "SRC-009-L2",
+          "fact_type": "amount_minor",
+          "value": 5000,
+          "currency": "USD",
+          "recorded_at": "2026-11-06T08:00:00Z",
+          "valid_date": "2026-11-05",
+          "evidence_state": "asserted"
+        },
+        {
+          "assertion_ref": "AS-009-S1",
+          "source_ref": "SRC-009-S1",
+          "fact_type": "net_minor",
+          "value": 5000,
+          "currency": "USD",
+          "recorded_at": "2026-11-06T08:00:00Z",
+          "valid_date": "2026-11-05",
+          "evidence_state": "asserted"
+        },
+        {
+          "assertion_ref": "AS-009-S2",
+          "source_ref": "SRC-009-S2",
+          "fact_type": "net_minor",
+          "value": 5000,
+          "currency": "USD",
+          "recorded_at": "2026-11-06T08:00:00Z",
+          "valid_date": "2026-11-05",
+          "evidence_state": "asserted"
+        }
+      ],
+      "events": [
+        {
+          "event_ref": "EV-009-L1",
+          "event_kind": "ledger_charge",
+          "source_refs": [
+            "SRC-009-L1"
+          ],
+          "assertion_refs": [
+            "AS-009-L1"
+          ],
+          "occurred_at": "2026-11-05T12:00:00Z",
+          "recorded_at": "2026-11-06T08:00:00Z",
+          "currency": "USD",
+          "amount_minor": 5000,
+          "entity_ref": "ENTITY-A"
+        },
+        {
+          "event_ref": "EV-009-L2",
+          "event_kind": "ledger_charge",
+          "source_refs": [
+            "SRC-009-L2"
+          ],
+          "assertion_refs": [
+            "AS-009-L2"
+          ],
+          "occurred_at": "2026-11-05T12:00:00Z",
+          "recorded_at": "2026-11-06T08:00:00Z",
+          "currency": "USD",
+          "amount_minor": 5000,
+          "entity_ref": "ENTITY-A"
+        },
+        {
+          "event_ref": "EV-009-S1",
+          "event_kind": "settlement_line",
+          "source_refs": [
+            "SRC-009-S1"
+          ],
+          "assertion_refs": [
+            "AS-009-S1"
+          ],
+          "occurred_at": "2026-11-05T12:00:00Z",
+          "recorded_at": "2026-11-06T08:00:00Z",
+          "currency": "USD",
+          "amount_minor": 5000,
+          "entity_ref": "ENTITY-A"
+        },
+        {
+          "event_ref": "EV-009-S2",
+          "event_kind": "settlement_line",
+          "source_refs": [
+            "SRC-009-S2"
+          ],
+          "assertion_refs": [
+            "AS-009-S2"
+          ],
+          "occurred_at": "2026-11-05T12:00:00Z",
+          "recorded_at": "2026-11-06T08:00:00Z",
+          "currency": "USD",
+          "amount_minor": 5000,
+          "entity_ref": "ENTITY-A"
+        }
+      ]
+    },
+    {
+      "case_id": "RBC-010-UNMATCHED-BANK-MOVEMENT",
+      "description": "A bank movement has no payout or settlement document in the available source frontier and must remain an exception.",
+      "knowledge_at": "2026-11-06T09:00:00Z",
+      "period": {
+        "start": "2026-11-01",
+        "end": "2026-11-30"
+      },
+      "sources": [
+        {
+          "source_ref": "SRC-010-B",
+          "dataset_side": "bank_statement",
+          "tenant_namespace": "tenant-a/bank",
+          "external_id": "B-010",
+          "revision": "r1",
+          "source_kind": "bank_deposit",
+          "received_at": "2026-11-06T08:00:00Z",
+          "content_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "source_locator": "table:row:1"
+        }
+      ],
+      "assertions": [
+        {
+          "assertion_ref": "AS-010-B-AMT",
+          "source_ref": "SRC-010-B",
+          "fact_type": "amount_minor",
+          "value": 3333,
+          "currency": "USD",
+          "recorded_at": "2026-11-06T08:00:00Z",
+          "valid_date": "2026-11-05",
+          "evidence_state": "asserted"
+        }
+      ],
+      "events": [
+        {
+          "event_ref": "EV-010-B",
+          "event_kind": "bank_deposit",
+          "source_refs": [
+            "SRC-010-B"
+          ],
+          "assertion_refs": [
+            "AS-010-B-AMT"
+          ],
+          "occurred_at": "2026-11-05T12:00:00Z",
+          "recorded_at": "2026-11-06T08:00:00Z",
+          "currency": "USD",
+          "amount_minor": 3333,
+          "entity_ref": "ENTITY-A"
+        }
+      ]
+    }
+  ]
+}
