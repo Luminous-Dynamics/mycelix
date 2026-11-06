@@ -121,6 +121,7 @@ fn validate_trace(trace: &Value) -> Result<Value, String> {
     let mut statement_lines = BTreeMap::<String, (BTreeSet<String>, u64)>::new();
     let mut fact_observation_count = 0usize;
     let mut terminalization_count = 0usize;
+    let mut contradiction_event_count = 0usize;
     let mut human_override_count = 0usize;
     let mut disposition: Option<(String, u64)> = None;
     let mut terminal_disposition: Option<(String, u64)> = None;
@@ -277,6 +278,7 @@ fn validate_trace(trace: &Value) -> Result<Value, String> {
                     return Err(format!("{trace_id}/{event_id}: contradiction must cite preceding evidence events"));
                 }
                 string(event, "reason_code")?;
+                contradiction_event_count += 1;
                 contradicted_fact_refs.extend(refs);
             }
             "question_emitted" => {
@@ -556,6 +558,8 @@ fn validate_trace(trace: &Value) -> Result<Value, String> {
         "source_open_count": source_open_count,
         "fact_observation_count": fact_observation_count,
         "fact_terminalization_count": terminalization_count,
+        "contradiction_event_count": contradiction_event_count,
+        "contradicted_fact_count": contradicted_fact_refs.len(),
         "question_count": questions.len(),
         "journal_line_count": journal_lines.len(),
         "statement_line_count": statement_lines.len(),
@@ -839,7 +843,10 @@ mod tests {
     #[test]
     fn contradictory_trace_is_valid_only_when_routed_to_review_without_outputs() {
         let trace = synthetic_contradiction_escalation();
-        assert!(validate_trace(&trace).is_ok());
+        let report = validate_trace(&trace).expect("valid escalation trace");
+        assert_eq!(report["contradiction_event_count"], 1);
+        assert_eq!(report["contradicted_fact_count"], 2);
+        assert_eq!(report["disposition"], "escalate");
     }
 
     #[test]
