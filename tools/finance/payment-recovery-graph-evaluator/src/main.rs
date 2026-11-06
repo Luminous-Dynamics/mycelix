@@ -1098,8 +1098,23 @@ mod tests {
         assert!(errors.is_empty(), "{errors:?}");
         assert_eq!(array_at(&corpus, "source_register").unwrap().len(), 3);
         assert_eq!(array_at(&corpus, "profiles").unwrap().len(), 2);
-        assert_eq!(array_at(&corpus, "scenarios").unwrap().len(), 24);
-        assert_eq!(summaries.len(), 24);
+        assert_eq!(array_at(&corpus, "scenarios").unwrap().len(), 25);
+        assert_eq!(summaries.len(), 25);
+    }
+
+    #[test]
+    fn concurrent_active_holds_cannot_overreserve_shared_account_balance() {
+        let corpus: Value = serde_json::from_str(DEFAULT_CORPUS).expect("corpus");
+        let (baseline_errors, _) = semantic_evaluation(&corpus);
+        assert!(baseline_errors.is_empty(), "{baseline_errors:?}");
+
+        let mut changed = corpus;
+        changed["scenarios"][24]["holds"][1]["held_minor_units"] = json!(4_000);
+        let (errors, _) = semantic_evaluation(&changed);
+        assert!(
+            errors.iter().any(|error| error.contains("concurrent active holds reserve")),
+            "{errors:?}"
+        );
     }
 
     #[test]
@@ -1123,6 +1138,6 @@ mod tests {
     fn deterministic_mutation_campaign_rejects_graph_and_money_errors() {
         let corpus: Value = serde_json::from_str(DEFAULT_CORPUS).expect("corpus");
         let schema: Value = serde_json::from_str(DEFAULT_SCHEMA).expect("schema");
-        assert_eq!(run_self_tests(&corpus, &schema).expect("self tests"), 13);
+        assert_eq!(run_self_tests(&corpus, &schema).expect("self tests"), 15);
     }
 }
