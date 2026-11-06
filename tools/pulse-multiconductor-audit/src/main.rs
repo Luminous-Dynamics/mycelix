@@ -1409,8 +1409,8 @@ mod tests{
     }
 
 
-    fn reachability_events() -> (Vec<Event>, BTreeMap<String, &Event>) {
-        let events = vec![
+    fn reachability_events() -> Vec<Event> {
+        vec![
             Event {
                 event_id: "a1".into(),
                 conductor_id: "conductor-a".into(),
@@ -1447,17 +1447,16 @@ mod tests{
                 event_type: "caller_outcome".into(),
                 data: serde_json::json!({}),
             },
-        ];
-        let map = events
-            .iter()
-            .map(|event| (event.event_id.clone(), event))
-            .collect();
-        (events, map)
+        ]
     }
 
     #[test]
     fn pair_cache_reuses_positive_cross_conductor_reachability() {
-        let (_events, event_map) = reachability_events();
+        let events = reachability_events();
+        let event_map: BTreeMap<String, &Event> = events
+            .iter()
+            .map(|event| (event.event_id.clone(), event))
+            .collect();
         let adjacency = BTreeMap::from([
             ("a1".to_string(), BTreeSet::from(["b1".to_string()])),
             ("b1".to_string(), BTreeSet::from(["b2".to_string()])),
@@ -1475,7 +1474,11 @@ mod tests{
 
     #[test]
     fn pair_cache_reuses_negative_reachability_without_inventing_global_order() {
-        let (_events, event_map) = reachability_events();
+        let events = reachability_events();
+        let event_map: BTreeMap<String, &Event> = events
+            .iter()
+            .map(|event| (event.event_id.clone(), event))
+            .collect();
         let adjacency = BTreeMap::<String, BTreeSet<String>>::new();
         let mut cache = ReachabilityCache::default();
 
