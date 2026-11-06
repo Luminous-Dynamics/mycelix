@@ -1,0 +1,149 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/runner-observed-accounting-trace-validation-report-v1.0.0.json",
+  "title": "Mycelix Runner-Observed Accounting Trace Validation Report v1.0.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "report_id",
+    "schema_version",
+    "claim_ceiling",
+    "trace_sha256",
+    "trace_id",
+    "run_id",
+    "task_id",
+    "receipt_binding_checked",
+    "receipt_binding_valid",
+    "receipt_raw_sha256",
+    "transcript_sha256",
+    "source_open_count",
+    "fact_observation_count",
+    "fact_terminalization_count",
+    "question_count",
+    "journal_line_count",
+    "statement_line_count",
+    "disposition",
+    "terminal_disposition",
+    "unaccounted_fact_count",
+    "findings"
+  ],
+  "properties": {
+    "report_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "claim_ceiling": {
+      "const": "trace_structure_and_canonical_receipt_binding_not_model_identity_or_accounting_correctness"
+    },
+    "trace_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "trace_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "run_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "task_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "receipt_binding_checked": {
+      "type": "boolean"
+    },
+    "receipt_binding_valid": {
+      "type": [
+        "boolean",
+        "null"
+      ]
+    },
+    "receipt_raw_sha256": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "transcript_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "source_open_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "fact_observation_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "fact_terminalization_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "question_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "journal_line_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "statement_line_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "disposition": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "deliver",
+        "clarify",
+        "abstain",
+        "escalate",
+        null
+      ]
+    },
+    "terminal_disposition": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "completed",
+        "abstained",
+        "needs_evidence",
+        "human_review",
+        "unsupported",
+        "timed_out",
+        "crashed",
+        "malformed",
+        "blocked",
+        null
+      ]
+    },
+    "unaccounted_fact_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "findings": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "receipt_binding_not_checked",
+          "human_override_present",
+          "source_revision_reopened",
+          "trace_contains_no_fact_observations"
+        ]
+      }
+    }
+  }
+}
