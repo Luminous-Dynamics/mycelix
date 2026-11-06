@@ -852,6 +852,12 @@ fn evaluate_case(
     if !disposition_correct {
         hard_failures.push("wrong_disposition".to_owned());
     }
+    if !reason_correct {
+        hard_failures.push("wrong_primary_reason".to_owned());
+    }
+    if question_precision < 1.0 || question_recall < 1.0 {
+        hard_failures.push("clarification_target_mismatch".to_owned());
+    }
     if evidence_trace_coverage < 1.0 {
         hard_failures.push("evidence_trace_incomplete".to_owned());
     }
@@ -861,6 +867,37 @@ fn evaluate_case(
     if !decision_to_question_continuity {
         hard_failures.push("decision_to_question_continuity_broken".to_owned());
     }
+
+    let decision_confidence = submission
+        .get("decision_confidence")
+        .and_then(Value::as_f64)
+        .ok_or("submission decision_confidence must be numeric")?;
+    let case_correct = disposition_correct && reason_correct && hard_failures.is_empty();
+    let correctness_label = if case_correct { 1.0 } else { 0.0 };
+    let confidence_brier_contribution = (decision_confidence - correctness_label).powi(2);
+    let requested_outputs = set_from_string_array(case, "requested_outputs")?;
+    let requested_journal = requested_outputs.contains("journal_entries");
+    let requested_statement = requested_outputs.contains("income_statement")
+        || requested_outputs.contains("balance_sheet")
+        || requested_outputs.contains("financial_statements");
+    let requested_outputs_present = (!requested_journal || !array(submission, "journal_entries")?.is_empty())
+        && (!requested_statement || !array(submission, "statement_lines")?.is_empty());
+    let journal_sources_available = actual_source_refs
+        .iter()
+        .all(|reference| available_refs.contains(reference));
+    let deterministic_delivery_gates_pass = journal_balanced
+        && journal_sources_available
+        && source_binding_completeness == 1.0
+        && (!statement_replay_applicable || statement_replay_exact)
+        && evidence_trace_coverage == 1.0
+        && evidence_to_journal_continuity
+        && decision_to_question_continuity
+        && decision_critical_assumption_count == 0
+        && requested_outputs_present;
+    let auto_delivery_accepted = actual_disposition == "deliver"
+        && decision_confidence >= 0.90
+        && deterministic_delivery_gates_pass;
+    let review_routed = !auto_delivery_accepted;
 
     Ok(json!({
         "case_id": case_id,
@@ -1013,6 +1050,100 @@ fn build_report(
         .iter()
         .map(|result| array(result, "hard_failures").map(|items| items.len()).unwrap_or(0))
         .sum::<usize>();
+    let case_correct_count = case_results
+        .iter()
+        .filter(|result| result["case_correct"].as_bool() == Some(true))
+        .count();
+    let confidence_brier = case_results
+        .iter()
+        .map(|result| result["confidence_brier_contribution"].as_f64().unwrap_or(1.0))
+        .sum::<f64>() / count as f64;
+    let calibration_bins = (0..5)
+        .map(|bin| {
+            let lower = bin as f64 / 5.0;
+            let upper = (bin + 1) as f64 / 5.0;
+            let selected = case_results
+                .iter()
+                .filter(|result| {
+                    let confidence = result["decision_confidence"].as_f64().unwrap_or(0.0);
+                    confidence >= lower && (confidence < upper || (bin == 4 && confidence <= upper))
+                })
+                .collect::<Vec<_>>();
+            let case_count = selected.len();
+            let mean_confidence = if case_count == 0 {
+                Value::Null
+            } else {
+                json!(selected.iter()
+                    .map(|result| result["decision_confidence"].as_f64().unwrap_or(0.0))
+                    .sum::<f64>() / case_count as f64)
+            };
+            let empirical_accuracy = if case_count == 0 {
+                Value::Null
+            } else {
+                json!(selected.iter()
+                    .filter(|result| result["case_correct"].as_bool() == Some(true))
+                    .count() as f64 / case_count as f64)
+            };
+            json!({
+                "lower_bound": lower,
+                "upper_bound": upper,
+                "case_count": case_count,
+                "mean_confidence": mean_confidence,
+                "empirical_accuracy": empirical_accuracy
+            })
+        })
+        .collect::<Vec<_>>();
+    let confidence_ece = calibration_bins
+        .iter()
+        .filter_map(|bin| {
+            let n = bin["case_count"].as_u64().unwrap_or(0) as f64;
+            if n == 0.0 { return None; }
+            let confidence = bin["mean_confidence"].as_f64()?;
+            let accuracy = bin["empirical_accuracy"].as_f64()?;
+            Some(n / count as f64 * (confidence - accuracy).abs())
+        })
+        .sum::<f64>();
+    const CONFIDENCE_THRESHOLDS: [f64; 5] = [0.50, 0.70, 0.80, 0.90, 0.95];
+    let risk_coverage_points = CONFIDENCE_THRESHOLDS
+        .iter()
+        .map(|threshold| {
+            let selected = case_results
+                .iter()
+                .filter(|result| {
+                    result["decision_confidence"].as_f64().unwrap_or(0.0) >= *threshold
+                        && result["auto_delivery_gate_pass"].as_bool() == Some(true)
+                        && result["case_id"].as_str().is_some()
+                        && result["decision_confidence"].as_f64().is_some()
+                        && result["auto_delivery_accepted"].as_bool() == Some(true)
+                            || (result["decision_confidence"].as_f64().unwrap_or(0.0) >= *threshold
+                                && result["auto_delivery_gate_pass"].as_bool() == Some(true)
+                                && result["case_id"].as_str().is_some()
+                                && result["review_routed"].as_bool() == Some(false))
+                })
+                .collect::<Vec<_>>();
+            let selected_count = selected.len();
+            let errors = selected.iter()
+                .filter(|result| result["case_correct"].as_bool() != Some(true))
+                .count();
+            json!({
+                "confidence_threshold": threshold,
+                "selected_auto_delivery_count": selected_count,
+                "coverage": ratio(selected_count, count),
+                "risk": if selected_count == 0 { Value::Null } else { json!(errors as f64 / selected_count as f64) },
+                "material_error_count": errors
+            })
+        })
+        .collect::<Vec<_>>();
+    let auto_delivery_accepted_count = case_results
+        .iter()
+        .filter(|result| result["auto_delivery_accepted"].as_bool() == Some(true))
+        .count();
+    let auto_delivery_material_errors = case_results
+        .iter()
+        .filter(|result| result["auto_delivery_accepted"].as_bool() == Some(true)
+            && result["case_correct"].as_bool() != Some(true))
+        .count();
+    let review_routed_count = count - auto_delivery_accepted_count;
 
     Ok(json!({
         "report_id": "MYCELIX-EQA-S0-AGENT-EVALUATION",
@@ -1025,6 +1156,16 @@ fn build_report(
         },
         "aggregate": {
             "case_count": count,
+            "case_correctness_rate": ratio(case_correct_count, count),
+            "decision_confidence_brier_score": confidence_brier,
+            "decision_confidence_ece": confidence_ece,
+            "auto_delivery_coverage": ratio(auto_delivery_accepted_count, count),
+            "auto_delivery_case_count": auto_delivery_accepted_count,
+            "auto_delivery_material_error_count": auto_delivery_material_errors,
+            "auto_delivery_material_error_rate": if auto_delivery_accepted_count == 0 { Value::Null } else { json!(auto_delivery_material_errors as f64 / auto_delivery_accepted_count as f64) },
+            "review_routed_case_count": review_routed_count,
+            "risk_coverage_points": risk_coverage_points,
+            "calibration_bins": calibration_bins,
             "disposition_accuracy": ratio(disposition_correct, count),
             "false_deliver_count": false_deliver_count,
             "question_target_precision": question_precision,
