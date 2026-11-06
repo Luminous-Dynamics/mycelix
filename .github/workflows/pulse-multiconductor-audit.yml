@@ -45,7 +45,7 @@ jobs:
           set -euo pipefail
           cargo run --manifest-path tools/pulse-multiconductor-audit/Cargo.toml --locked -- \
             --benchmark-events 1000 --output "$RUNNER_TEMP/pulse-multiconductor-benchmark-smoke.json"
-          jq -e '.status == "PASS" and .evidence_class == "synthetic" and .events == 1000 and (.audit_ns > 0)' \
+          jq -e '.status == "PASS" and .evidence_class == "synthetic" and .events == 1000 and (.audit_ns > 0) and .allocation_metrics_version == 1 and (.allocation_peak_live_bytes_during_build > 0) and (.allocation_peak_live_bytes_during_audit > 0)' \
             "$RUNNER_TEMP/pulse-multiconductor-benchmark-smoke.json"
 
       - name: Audit checked-in safe history
