@@ -1498,7 +1498,7 @@ mod tests{
     }
 
     #[test]
-    fn pair_cache_reuses_positive_cross_conductor_reachability() {
+    fn per_source_cache_builds_once_for_fanout_queries() {
         let events = reachability_events();
         let event_map: BTreeMap<String, &Event> = events
             .iter()
@@ -1507,39 +1507,55 @@ mod tests{
         let adjacency = BTreeMap::from([
             ("a1".to_string(), BTreeSet::from(["b1".to_string()])),
             ("b1".to_string(), BTreeSet::from(["b2".to_string()])),
+            ("b2".to_string(), BTreeSet::from(["c1".to_string()])),
         ]);
         let mut cache = ReachabilityCache::default();
 
-        assert!(path_exists(&adjacency, &event_map, "a1", "b2", &mut cache));
-        let visits_after_first = cache.dfs_node_visits;
-        assert!(path_exists(&adjacency, &event_map, "a1", "b2", &mut cache));
+        // Cold query uses early-exit DFS.
+        assert!(path_exists(&adjacency, &event_map, "a1", "b1", &mut cache));
+        assert_eq!(cache.full_reachability_builds, 0);
 
-        assert_eq!(cache.queries, 2);
-        assert_eq!(cache.cache_hits, 1);
-        assert_eq!(cache.dfs_node_visits, visits_after_first);
+        // The second query from a1 builds its complete reachable set once.
+        assert!(path_exists(&adjacency, &event_map, "a1", "c1", &mut cache));
+        assert_eq!(cache.full_reachability_builds, 1);
+        let visits_after_build = cache.dfs_node_visits;
+
+        // Positive and negative fan-out lookups are served from the same set.
+        assert!(path_exists(&adjacency, &event_map, "a1", "b2", &mut cache));
+        assert!(!path_exists(&adjacency, &event_map, "a1", "not-reachable", &mut cache));
+        assert_eq!(cache.cache_hits, 2);
+        assert_eq!(cache.dfs_node_visits, visits_after_build);
+        assert!(cache.cached_reachable_nodes <= MAX_CACHED_REACHABLE_NODES);
     }
 
     #[test]
-    fn pair_cache_reuses_negative_reachability_without_inventing_global_order() {
+    fn per_source_cache_preserves_negative_results_and_never_infers_cross_conductor_order() {
         let events = reachability_events();
         let event_map: BTreeMap<String, &Event> = events
             .iter()
             .map(|event| (event.event_id.clone(), event))
             .collect();
-        let adjacency = BTreeMap::<String, BTreeSet<String>>::new();
+        let adjacency = BTreeMap::from([(
+            "a1".to_string(),
+            BTreeSet::from(["b1".to_string()]),
+        )]);
         let mut cache = ReachabilityCache::default();
 
-        // A larger local sequence on another conductor is not causal order.
+        // Different conductors' local sequence numbers do not establish order.
         assert!(!path_exists(&adjacency, &event_map, "a1", "b2", &mut cache));
-        assert!(!path_exists(&adjacency, &event_map, "a1", "b2", &mut cache));
+        assert_eq!(cache.full_reachability_builds, 0);
 
-        assert_eq!(cache.queries, 2);
+        // A second query from the same source creates the bounded reachable set.
+        assert!(!path_exists(&adjacency, &event_map, "a1", "c1", &mut cache));
+        assert_eq!(cache.full_reachability_builds, 1);
+        let visits_after_build = cache.dfs_node_visits;
+        assert!(!path_exists(&adjacency, &event_map, "a1", "b2", &mut cache));
         assert_eq!(cache.cache_hits, 1);
-        assert!(cache.outcomes.get(&("a1".into(), "b2".into())) == Some(&false));
+        assert_eq!(cache.dfs_node_visits, visits_after_build);
     }
 
     #[test]
-    fn pair_cache_preserves_same_conductor_local_order_shortcut() {
+    fn per_source_cache_preserves_same_conductor_local_order_shortcut() {
         let events = reachability_events();
         let event_map: BTreeMap<String, &Event> = events
             .iter()
@@ -1550,6 +1566,7 @@ mod tests{
 
         assert!(path_exists(&adjacency, &event_map, "b1", "b2", &mut cache));
         assert_eq!(cache.dfs_node_visits, 0);
+        assert_eq!(cache.full_reachability_builds, 0);
     }
 
     fn report(h:&History)->Report{audit(h,"0".repeat(64))}
