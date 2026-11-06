@@ -813,6 +813,7 @@ mod tests {
         trace["events"].as_array_mut().unwrap().insert(16, event);
         for (index, event) in trace["events"].as_array_mut().unwrap().iter_mut().enumerate() {
             event["seq"] = json!(index + 1);
+            event["recorded_at"] = json!(format!("2026-11-06T06:04:{:02}Z", index + 1));
         }
         assert!(validate_trace(&trace).is_err());
     }
@@ -1101,13 +1102,12 @@ mod tests {
         let mut bad_receipt = receipt.clone();
         bad_receipt["task_results"][0]["input_sha256"] = json!("e".repeat(64));
         let bad_bytes = serde_json::to_vec(&bad_receipt).unwrap();
-        let report = json!({"schema":"luminous.benchmark-receipt-validation-result.v1","valid":true,"receipts":[{
+        let validation_report = json!({"schema":"luminous.benchmark-receipt-validation-result.v1","valid":true,"receipts":[{
             "run_id":string(&bad_receipt,"run_id").unwrap(),
             "raw_file_sha256":digest(&bad_bytes)
         }]});
         assert!(validate_receipt_binding(
-            &trace,&bytes,&bad_receipt,&bad_bytes,&report,transcript
+            &trace,&bytes,&bad_receipt,&bad_bytes,&validation_report,transcript
         ).is_err());
-        let _ = report;
     }
 }
