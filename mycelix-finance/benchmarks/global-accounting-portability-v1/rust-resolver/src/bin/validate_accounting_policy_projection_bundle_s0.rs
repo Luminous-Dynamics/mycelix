@@ -124,10 +124,10 @@ fn assertion_is_available(case: &Value, assertion: &Value) -> Result<bool, Strin
     let period = case.get("period").ok_or("event graph case missing period")?;
     let valid_from = string(assertion, "valid_from")?;
     let valid_to = assertion.get("valid_to").and_then(Value::as_str);
-    let overlap = valid_from <= string(period, "end")?
-        && valid_to.is_none_or(|end| {
-            end >= string(period, "start").unwrap_or("")
-        });
+    let period_start = string(period, "start")?;
+    let period_end = string(period, "end")?;
+    let overlap = valid_from <= period_end
+        && valid_to.is_none_or(|end| end >= period_start);
     Ok(string(assertion, "recorded_at")? <= frontier
         && source_is_available(case, source)?
         && overlap
@@ -153,8 +153,16 @@ fn validate_projection(
         return Err(format!("{projection_id}: projection entity differs from event graph scope"));
     }
     let period = projection.get("period").ok_or("projection period missing")?;
-    if string(period, "start")? > string(period, "end")? {
+    let projection_start = string(period, "start")?;
+    let projection_end = string(period, "end")?;
+    if projection_start > projection_end {
         return Err(format!("{projection_id}: inverted projection period"));
+    }
+    let graph_period = case.get("period").ok_or("event graph period missing")?;
+    if projection_start < string(graph_period, "start")?
+        || projection_end > string(graph_period, "end")?
+    {
+        return Err(format!("{projection_id}: projection period is outside the event graph period"));
     }
 
     let mut assumption_refs = BTreeSet::new();
@@ -285,8 +293,8 @@ fn validate_projection(
             }
             let decision_event_ref = string(decision, "event_ref")?;
             let event_refs = reference_set(line, "event_refs")?;
-            if !event_refs.contains(decision_event_ref) {
-                return Err(format!("{projection_id}/{line_ref}: line omits its policy decision event"));
+            if event_refs.len() != 1 || !event_refs.contains(decision_event_ref) {
+                return Err(format!("{projection_id}/{line_ref}: line must reference exactly the event bound to its policy decision"));
             }
             for event_ref in &event_refs {
                 economic_event(case, event_ref)?;
@@ -397,6 +405,9 @@ fn build_report(
 ) -> Result<Value, String> {
     let graph_case_id = string(bundle, "graph_case_id")?;
     let case = graph_case(graph, graph_case_id)?;
+    if string(bundle, "graph_sha256")? != graph_digest {
+        return Err("projection bundle graph digest does not match exact graph bytes".to_owned());
+    }
     let projections = array(bundle, "projections")?;
     if projections.len() < 2 {
         return Err("policy comparison bundle must contain at least two projections".to_owned());
@@ -615,7 +626,10 @@ mod tests {
         let projection = &mut bundle["projections"][0];
         make_recognized_journal(projection, 100);
         graph["cases"][0]["assertions"][0]["recorded_at"] = Value::String("2026-11-05T11:00:00Z".to_owned());
-        assert!(validate_projection(&graph["cases"][0], &fixture_digest(), "EVT-001-INVOICE-WITHOUT-SERVICE-PROOF", projection).is_err());
+        let changed_graph_digest = "d".repeat(64);
+        bundle["graph_sha256"] = Value::String(changed_graph_digest.clone());
+        projection["graph_binding"]["graph_sha256"] = Value::String(changed_graph_digest.clone());
+        assert!(validate_projection(&graph["cases"][0], &changed_graph_digest, "EVT-001-INVOICE-WITHOUT-SERVICE-PROOF", projection).is_err());
     }
 
     #[test]
