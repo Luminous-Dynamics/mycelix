@@ -1,0 +1,462 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/fin-journal-set-input-v1.json",
+  "title": "FIN-JOURNAL-SET candidate input v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "benchmark_id",
+    "dataset_version",
+    "status",
+    "cases"
+  ],
+  "properties": {
+    "benchmark_id": {
+      "const": "FIN-JOURNAL-SET"
+    },
+    "dataset_version": {
+      "const": "1.0.0"
+    },
+    "status": {
+      "const": "synthetic_period_journal_set_fixtures_not_real_books"
+    },
+    "cases": {
+      "type": "array",
+      "minItems": 25,
+      "maxItems": 25,
+      "items": {
+        "$ref": "#/$defs/case"
+      }
+    }
+  },
+  "$defs": {
+    "digest": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "posting": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "account_ref",
+        "direction",
+        "amount_minor",
+        "unit_profile_ref"
+      ],
+      "properties": {
+        "account_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "direction": {
+          "enum": [
+            "DEBIT",
+            "CREDIT"
+          ]
+        },
+        "amount_minor": {
+          "type": "string",
+          "pattern": "^(0|[1-9][0-9]*)$"
+        },
+        "unit_profile_ref": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "balance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "account_ref",
+        "amount_minor",
+        "unit_profile_ref"
+      ],
+      "properties": {
+        "account_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "amount_minor": {
+          "type": "string",
+          "pattern": "^(0|[1-9][0-9]*)$"
+        },
+        "unit_profile_ref": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "event": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "event_ref",
+        "terminal_treatment",
+        "authorization_ref",
+        "reason_ref"
+      ],
+      "properties": {
+        "event_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "terminal_treatment": {
+          "enum": [
+            "journal_required",
+            "authorized_nonposting",
+            "unresolved"
+          ]
+        },
+        "authorization_ref": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "reason_ref": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "journal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "journal_id",
+        "payload_digest_token",
+        "economic_event_ref",
+        "entity_ref",
+        "ledger_id",
+        "accounting_profile_ref",
+        "denomination_profile_ref",
+        "period_id",
+        "effective_at",
+        "booking_at",
+        "value_date",
+        "reversal_of",
+        "correction_of",
+        "post_close_authorized",
+        "postings",
+        "post_close_authorization_ref"
+      ],
+      "properties": {
+        "journal_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "payload_digest_token": {
+          "$ref": "#/$defs/digest"
+        },
+        "economic_event_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "entity_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "ledger_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "accounting_profile_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "denomination_profile_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "period_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "effective_at": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
+        },
+        "booking_at": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
+        },
+        "value_date": {
+          "type": "string",
+          "format": "date"
+        },
+        "reversal_of": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "correction_of": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "post_close_authorized": {
+          "type": "boolean"
+        },
+        "postings": {
+          "type": "array",
+          "minItems": 2,
+          "items": {
+            "$ref": "#/$defs/posting"
+          }
+        },
+        "post_close_authorization_ref": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "account_profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "account_ref",
+        "normal_side",
+        "unit_profile_ref"
+      ],
+      "properties": {
+        "account_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "normal_side": {
+          "enum": [
+            "DEBIT",
+            "CREDIT"
+          ]
+        },
+        "unit_profile_ref": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "source_population": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "qualification_state",
+        "frontier_ref",
+        "expected_event_commitment",
+        "closed_event_commitment",
+        "expected_event_refs"
+      ],
+      "properties": {
+        "qualification_state": {
+          "enum": [
+            "complete",
+            "partial",
+            "unknown",
+            "stale",
+            "unqualified"
+          ]
+        },
+        "frontier_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "expected_event_commitment": {
+          "$ref": "#/$defs/digest"
+        },
+        "closed_event_commitment": {
+          "$ref": "#/$defs/digest"
+        },
+        "expected_event_refs": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        }
+      }
+    },
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "reporting_entity",
+        "ledger_id",
+        "accounting_profile_ref",
+        "denomination_profile_ref",
+        "period_id",
+        "period_start",
+        "period_end",
+        "close_cutoff",
+        "knowledge_at"
+      ],
+      "properties": {
+        "reporting_entity": {
+          "type": "string",
+          "minLength": 1
+        },
+        "ledger_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "accounting_profile_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "denomination_profile_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "period_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "period_start": {
+          "type": "string",
+          "format": "date"
+        },
+        "period_end": {
+          "type": "string",
+          "format": "date"
+        },
+        "close_cutoff": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
+        },
+        "knowledge_at": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
+        }
+      }
+    },
+    "prior_close": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "period_id",
+        "close_commitment",
+        "present",
+        "account_balances"
+      ],
+      "properties": {
+        "period_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "close_commitment": {
+          "$ref": "#/$defs/digest"
+        },
+        "present": {
+          "type": "boolean"
+        },
+        "account_balances": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/balance"
+          }
+        }
+      }
+    },
+    "manifest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_id",
+        "journal_set_id",
+        "set_version",
+        "scope",
+        "source_population",
+        "events",
+        "journals",
+        "account_profiles",
+        "prior_close",
+        "opening_balances",
+        "closing_balances"
+      ],
+      "properties": {
+        "schema_id": {
+          "const": "fin-journal-set-manifest.v1"
+        },
+        "journal_set_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "set_version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "scope": {
+          "$ref": "#/$defs/scope"
+        },
+        "source_population": {
+          "$ref": "#/$defs/source_population"
+        },
+        "events": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/event"
+          }
+        },
+        "journals": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/journal"
+          }
+        },
+        "account_profiles": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/account_profile"
+          }
+        },
+        "prior_close": {
+          "$ref": "#/$defs/prior_close"
+        },
+        "opening_balances": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/balance"
+          }
+        },
+        "closing_balances": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/balance"
+          }
+        }
+      }
+    },
+    "case": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "case_id",
+        "task",
+        "manifest"
+      ],
+      "properties": {
+        "case_id": {
+          "type": "string",
+          "pattern": "^FJS-[0-9]{3}$"
+        },
+        "task": {
+          "type": "string",
+          "minLength": 1
+        },
+        "manifest": {
+          "$ref": "#/$defs/manifest"
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,5197 @@
+{
+  "benchmark_id": "FIN-JOURNAL-SET",
+  "dataset_version": "1.0.0",
+  "status": "synthetic_period_journal_set_fixtures_not_real_books",
+  "cases": [
+    {
+      "case_id": "FJS-001",
+      "task": "Verify a complete period journal set and exact roll-forward.",
+      "manifest": {
+        "schema_id": "fin-journal-set-manifest.v1",
+        "journal_set_id": "jset-001",
+        "set_version": "1",
+        "scope": {
+          "reporting_entity": "entity-synth-001",
+          "ledger_id": "ledger-synth-001",
+          "accounting_profile_ref": "SYNTH-LOCAL-ACCOUNTING-NOT-PRODUCTION",
+          "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+          "period_id": "2026-10",
+          "period_start": "2026-10-01",
+          "period_end": "2026-10-31",
+          "close_cutoff": "2026-11-03T23:59:59Z",
+          "knowledge_at": "2026-11-04T00:00:00Z"
+        },
+        "source_population": {
+          "qualification_state": "complete",
+          "frontier_ref": "frontier-synthetic-001",
+          "expected_event_commitment": "000000000000000000000000000000000000000000000000000000000000303a",
+          "closed_event_commitment": "000000000000000000000000000000000000000000000000000000000000303a",
+          "expected_event_refs": [
+            "event-001",
+            "event-002"
+          ]
+        },
+        "events": [
+          {
+            "event_ref": "event-001",
+            "terminal_treatment": "journal_required",
+            "authorization_ref": null,
+            "reason_ref": null
+          },
+          {
+            "event_ref": "event-002",
+            "terminal_treatment": "journal_required",
+            "authorization_ref": null,
+            "reason_ref": null
+          }
+        ],
+        "journals": [
+          {
+            "journal_id": "journal-001",
+            "payload_digest_token": "0000000000000000000000000000000000000000000000000000000000000065",
+            "economic_event_ref": "event-001",
+            "entity_ref": "entity-synth-001",
+            "ledger_id": "ledger-synth-001",
+            "accounting_profile_ref": "SYNTH-LOCAL-ACCOUNTING-NOT-PRODUCTION",
+            "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+            "period_id": "2026-10",
+            "effective_at": "2026-10-15T12:00:00Z",
+            "booking_at": "2026-10-15T12:00:00Z",
+            "value_date": "2026-10-15",
+            "reversal_of": null,
+            "correction_of": null,
+            "post_close_authorized": false,
+            "postings": [
+              {
+                "account_ref": "cash",
+                "direction": "DEBIT",
+                "amount_minor": "2000",
+                "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              },
+              {
+                "account_ref": "revenue",
+                "direction": "CREDIT",
+                "amount_minor": "2000",
+                "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              }
+            ],
+            "post_close_authorization_ref": null
+          },
+          {
+            "journal_id": "journal-002",
+            "payload_digest_token": "00000000000000000000000000000000000000000000000000000000000000c9",
+            "economic_event_ref": "event-002",
+            "entity_ref": "entity-synth-001",
+            "ledger_id": "ledger-synth-001",
+            "accounting_profile_ref": "SYNTH-LOCAL-ACCOUNTING-NOT-PRODUCTION",
+            "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+            "period_id": "2026-10",
+            "effective_at": "2026-10-20T12:00:00Z",
+            "booking_at": "2026-10-20T12:00:00Z",
+            "value_date": "2026-10-20",
+            "reversal_of": null,
+            "correction_of": null,
+            "post_close_authorized": false,
+            "postings": [
+              {
+                "account_ref": "expense",
+                "direction": "DEBIT",
+                "amount_minor": "1000",
+                "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              },
+              {
+                "account_ref": "cash",
+                "direction": "CREDIT",
+                "amount_minor": "1000",
+                "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              }
+            ],
+            "post_close_authorization_ref": null
+          }
+        ],
+        "account_profiles": [
+          {
+            "account_ref": "cash",
+            "normal_side": "DEBIT",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "equity",
+            "normal_side": "CREDIT",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "revenue",
+            "normal_side": "CREDIT",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "expense",
+            "normal_side": "DEBIT",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          }
+        ],
+        "prior_close": {
+          "period_id": "2026-09",
+          "close_commitment": "0000000000000000000000000000000000000000000000000000000000002329",
+          "present": true,
+          "account_balances": [
+            {
+              "account_ref": "cash",
+              "amount_minor": "10000",
+              "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+            },
+            {
+              "account_ref": "equity",
+              "amount_minor": "10000",
+              "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+            },
+            {
+              "account_ref": "revenue",
+              "amount_minor": "0",
+              "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+            },
+            {
+              "account_ref": "expense",
+              "amount_minor": "0",
+              "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+            }
+          ]
+        },
+        "opening_balances": [
+          {
+            "account_ref": "cash",
+            "amount_minor": "10000",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "equity",
+            "amount_minor": "10000",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "revenue",
+            "amount_minor": "0",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "expense",
+            "amount_minor": "0",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          }
+        ],
+        "closing_balances": [
+          {
+            "account_ref": "cash",
+            "amount_minor": "11000",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "equity",
+            "amount_minor": "10000",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "revenue",
+            "amount_minor": "2000",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "expense",
+            "amount_minor": "1000",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "FJS-002",
+      "task": "Detect a required event whose journal projection is missing.",
+      "manifest": {
+        "schema_id": "fin-journal-set-manifest.v1",
+        "journal_set_id": "jset-002",
+        "set_version": "1",
+        "scope": {
+          "reporting_entity": "entity-synth-001",
+          "ledger_id": "ledger-synth-001",
+          "accounting_profile_ref": "SYNTH-LOCAL-ACCOUNTING-NOT-PRODUCTION",
+          "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+          "period_id": "2026-10",
+          "period_start": "2026-10-01",
+          "period_end": "2026-10-31",
+          "close_cutoff": "2026-11-03T23:59:59Z",
+          "knowledge_at": "2026-11-04T00:00:00Z"
+        },
+        "source_population": {
+          "qualification_state": "complete",
+          "frontier_ref": "frontier-synthetic-001",
+          "expected_event_commitment": "000000000000000000000000000000000000000000000000000000000000303b",
+          "closed_event_commitment": "000000000000000000000000000000000000000000000000000000000000303b",
+          "expected_event_refs": [
+            "event-001",
+            "event-002"
+          ]
+        },
+        "events": [
+          {
+            "event_ref": "event-001",
+            "terminal_treatment": "journal_required",
+            "authorization_ref": null,
+            "reason_ref": null
+          },
+          {
+            "event_ref": "event-002",
+            "terminal_treatment": "journal_required",
+            "authorization_ref": null,
+            "reason_ref": null
+          }
+        ],
+        "journals": [
+          {
+            "journal_id": "journal-001",
+            "payload_digest_token": "0000000000000000000000000000000000000000000000000000000000000066",
+            "economic_event_ref": "event-001",
+            "entity_ref": "entity-synth-001",
+            "ledger_id": "ledger-synth-001",
+            "accounting_profile_ref": "SYNTH-LOCAL-ACCOUNTING-NOT-PRODUCTION",
+            "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+            "period_id": "2026-10",
+            "effective_at": "2026-10-15T12:00:00Z",
+            "booking_at": "2026-10-15T12:00:00Z",
+            "value_date": "2026-10-15",
+            "reversal_of": null,
+            "correction_of": null,
+            "post_close_authorized": false,
+            "postings": [
+              {
+                "account_ref": "cash",
+                "direction": "DEBIT",
+                "amount_minor": "2000",
+                "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              },
+              {
+                "account_ref": "revenue",
+                "direction": "CREDIT",
+                "amount_minor": "2000",
+                "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              }
+            ],
+            "post_close_authorization_ref": null
+          }
+        ],
+        "account_profiles": [
+          {
+            "account_ref": "cash",
+            "normal_side": "DEBIT",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "equity",
+            "normal_side": "CREDIT",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "revenue",
+            "normal_side": "CREDIT",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "expense",
+            "normal_side": "DEBIT",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          }
+        ],
+        "prior_close": {
+          "period_id": "2026-09",
+          "close_commitment": "000000000000000000000000000000000000000000000000000000000000232a",
+          "present": true,
+          "account_balances": [
+            {
+              "account_ref": "cash",
+              "amount_minor": "10000",
+              "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+            },
+            {
+              "account_ref": "equity",
+              "amount_minor": "10000",
+              "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+            },
+            {
+              "account_ref": "revenue",
+              "amount_minor": "0",
+              "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+            },
+            {
+              "account_ref": "expense",
+              "amount_minor": "0",
+              "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+            }
+          ]
+        },
+        "opening_balances": [
+          {
+            "account_ref": "cash",
+            "amount_minor": "10000",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "equity",
+            "amount_minor": "10000",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "revenue",
+            "amount_minor": "0",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "expense",
+            "amount_minor": "0",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          }
+        ],
+        "closing_balances": [
+          {
+            "account_ref": "cash",
+            "amount_minor": "12000",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "equity",
+            "amount_minor": "10000",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "revenue",
+            "amount_minor": "2000",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "expense",
+            "amount_minor": "0",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "FJS-003",
+      "task": "Detect a missing expected journal hidden by an extra balanced journal.",
+      "manifest": {
+        "schema_id": "fin-journal-set-manifest.v1",
+        "journal_set_id": "jset-003",
+        "set_version": "1",
+        "scope": {
+          "reporting_entity": "entity-synth-001",
+          "ledger_id": "ledger-synth-001",
+          "accounting_profile_ref": "SYNTH-LOCAL-ACCOUNTING-NOT-PRODUCTION",
+          "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+          "period_id": "2026-10",
+          "period_start": "2026-10-01",
+          "period_end": "2026-10-31",
+          "close_cutoff": "2026-11-03T23:59:59Z",
+          "knowledge_at": "2026-11-04T00:00:00Z"
+        },
+        "source_population": {
+          "qualification_state": "complete",
+          "frontier_ref": "frontier-synthetic-001",
+          "expected_event_commitment": "000000000000000000000000000000000000000000000000000000000000303c",
+          "closed_event_commitment": "000000000000000000000000000000000000000000000000000000000000303c",
+          "expected_event_refs": [
+            "event-001",
+            "event-002"
+          ]
+        },
+        "events": [
+          {
+            "event_ref": "event-001",
+            "terminal_treatment": "journal_required",
+            "authorization_ref": null,
+            "reason_ref": null
+          },
+          {
+            "event_ref": "event-002",
+            "terminal_treatment": "journal_required",
+            "authorization_ref": null,
+            "reason_ref": null
+          }
+        ],
+        "journals": [
+          {
+            "journal_id": "journal-001",
+            "payload_digest_token": "0000000000000000000000000000000000000000000000000000000000000067",
+            "economic_event_ref": "event-001",
+            "entity_ref": "entity-synth-001",
+            "ledger_id": "ledger-synth-001",
+            "accounting_profile_ref": "SYNTH-LOCAL-ACCOUNTING-NOT-PRODUCTION",
+            "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+            "period_id": "2026-10",
+            "effective_at": "2026-10-15T12:00:00Z",
+            "booking_at": "2026-10-15T12:00:00Z",
+            "value_date": "2026-10-15",
+            "reversal_of": null,
+            "correction_of": null,
+            "post_close_authorized": false,
+            "postings": [
+              {
+                "account_ref": "cash",
+                "direction": "DEBIT",
+                "amount_minor": "2000",
+                "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              },
+              {
+                "account_ref": "revenue",
+                "direction": "CREDIT",
+                "amount_minor": "2000",
+                "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              }
+            ],
+            "post_close_authorization_ref": null
+          },
+          {
+            "journal_id": "journal-ghost",
+            "payload_digest_token": "00000000000000000000000000000000000000000000000000000000000bdb2b",
+            "economic_event_ref": "event-ghost",
+            "entity_ref": "entity-synth-001",
+            "ledger_id": "ledger-synth-001",
+            "accounting_profile_ref": "SYNTH-LOCAL-ACCOUNTING-NOT-PRODUCTION",
+            "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+            "period_id": "2026-10",
+            "effective_at": "2026-10-15T12:00:00Z",
+            "booking_at": "2026-10-15T12:00:00Z",
+            "value_date": "2026-10-15",
+            "reversal_of": null,
+            "correction_of": null,
+            "post_close_authorized": false,
+            "postings": [
+              {
+                "account_ref": "cash",
+                "direction": "DEBIT",
+                "amount_minor": "2000",
+                "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              },
+              {
+                "account_ref": "revenue",
+                "direction": "CREDIT",
+                "amount_minor": "2000",
+                "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              }
+            ],
+            "post_close_authorization_ref": null
+          }
+        ],
+        "account_profiles": [
+          {
+            "account_ref": "cash",
+            "normal_side": "DEBIT",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "equity",
+            "normal_side": "CREDIT",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "revenue",
+            "normal_side": "CREDIT",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "expense",
+            "normal_side": "DEBIT",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          }
+        ],
+        "prior_close": {
+          "period_id": "2026-09",
+          "close_commitment": "000000000000000000000000000000000000000000000000000000000000232b",
+          "present": true,
+          "account_balances": [
+            {
+              "account_ref": "cash",
+              "amount_minor": "10000",
+              "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+            },
+            {
+              "account_ref": "equity",
+              "amount_minor": "10000",
+              "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+            },
+            {
+              "account_ref": "revenue",
+              "amount_minor": "0",
+              "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+            },
+            {
+              "account_ref": "expense",
+              "amount_minor": "0",
+              "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+            }
+          ]
+        },
+        "opening_balances": [
+          {
+            "account_ref": "cash",
+            "amount_minor": "10000",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "equity",
+            "amount_minor": "10000",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "revenue",
+            "amount_minor": "0",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "expense",
+            "amount_minor": "0",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          }
+        ],
+        "closing_balances": [
+          {
+            "account_ref": "cash",
+            "amount_minor": "11000",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "equity",
+            "amount_minor": "10000",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "revenue",
+            "amount_minor": "2000",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "expense",
+            "amount_minor": "1000",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "FJS-004",
+      "task": "Detect two balanced entries projecting the same economic event.",
+      "manifest": {
+        "schema_id": "fin-journal-set-manifest.v1",
+        "journal_set_id": "jset-004",
+        "set_version": "1",
+        "scope": {
+          "reporting_entity": "entity-synth-001",
+          "ledger_id": "ledger-synth-001",
+          "accounting_profile_ref": "SYNTH-LOCAL-ACCOUNTING-NOT-PRODUCTION",
+          "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+          "period_id": "2026-10",
+          "period_start": "2026-10-01",
+          "period_end": "2026-10-31",
+          "close_cutoff": "2026-11-03T23:59:59Z",
+          "knowledge_at": "2026-11-04T00:00:00Z"
+        },
+        "source_population": {
+          "qualification_state": "complete",
+          "frontier_ref": "frontier-synthetic-001",
+          "expected_event_commitment": "000000000000000000000000000000000000000000000000000000000000303d",
+          "closed_event_commitment": "000000000000000000000000000000000000000000000000000000000000303d",
+          "expected_event_refs": [
+            "event-001",
+            "event-002"
+          ]
+        },
+        "events": [
+          {
+            "event_ref": "event-001",
+            "terminal_treatment": "journal_required",
+            "authorization_ref": null,
+            "reason_ref": null
+          },
+          {
+            "event_ref": "event-002",
+            "terminal_treatment": "journal_required",
+            "authorization_ref": null,
+            "reason_ref": null
+          }
+        ],
+        "journals": [
+          {
+            "journal_id": "journal-001",
+            "payload_digest_token": "0000000000000000000000000000000000000000000000000000000000000068",
+            "economic_event_ref": "event-001",
+            "entity_ref": "entity-synth-001",
+            "ledger_id": "ledger-synth-001",
+            "accounting_profile_ref": "SYNTH-LOCAL-ACCOUNTING-NOT-PRODUCTION",
+            "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+            "period_id": "2026-10",
+            "effective_at": "2026-10-15T12:00:00Z",
+            "booking_at": "2026-10-15T12:00:00Z",
+            "value_date": "2026-10-15",
+            "reversal_of": null,
+            "correction_of": null,
+            "post_close_authorized": false,
+            "postings": [
+              {
+                "account_ref": "cash",
+                "direction": "DEBIT",
+                "amount_minor": "2000",
+                "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              },
+              {
+                "account_ref": "revenue",
+                "direction": "CREDIT",
+                "amount_minor": "2000",
+                "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              }
+            ],
+            "post_close_authorization_ref": null
+          },
+          {
+            "journal_id": "journal-002",
+            "payload_digest_token": "00000000000000000000000000000000000000000000000000000000000000cc",
+            "economic_event_ref": "event-002",
+            "entity_ref": "entity-synth-001",
+            "ledger_id": "ledger-synth-001",
+            "accounting_profile_ref": "SYNTH-LOCAL-ACCOUNTING-NOT-PRODUCTION",
+            "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+            "period_id": "2026-10",
+            "effective_at": "2026-10-20T12:00:00Z",
+            "booking_at": "2026-10-20T12:00:00Z",
+            "value_date": "2026-10-20",
+            "reversal_of": null,
+            "correction_of": null,
+            "post_close_authorized": false,
+            "postings": [
+              {
+                "account_ref": "expense",
+                "direction": "DEBIT",
+                "amount_minor": "1000",
+                "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              },
+              {
+                "account_ref": "cash",
+                "direction": "CREDIT",
+                "amount_minor": "1000",
+                "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              }
+            ],
+            "post_close_authorization_ref": null
+          },
+          {
+            "journal_id": "journal-duplicate",
+            "payload_digest_token": "00000000000000000000000000000000000000000000000000000000000bdb2c",
+            "economic_event_ref": "event-001",
+            "entity_ref": "entity-synth-001",
+            "ledger_id": "ledger-synth-001",
+            "accounting_profile_ref": "SYNTH-LOCAL-ACCOUNTING-NOT-PRODUCTION",
+            "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+            "period_id": "2026-10",
+            "effective_at": "2026-10-15T12:00:00Z",
+            "booking_at": "2026-10-15T12:00:00Z",
+            "value_date": "2026-10-15",
+            "reversal_of": null,
+            "correction_of": null,
+            "post_close_authorized": false,
+            "postings": [
+              {
+                "account_ref": "cash",
+                "direction": "DEBIT",
+                "amount_minor": "2000",
+                "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              },
+              {
+                "account_ref": "revenue",
+                "direction": "CREDIT",
+                "amount_minor": "2000",
+                "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              }
+            ],
+            "post_close_authorization_ref": null
+          }
+        ],
+        "account_profiles": [
+          {
+            "account_ref": "cash",
+            "normal_side": "DEBIT",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "equity",
+            "normal_side": "CREDIT",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "revenue",
+            "normal_side": "CREDIT",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "expense",
+            "normal_side": "DEBIT",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          }
+        ],
+        "prior_close": {
+          "period_id": "2026-09",
+          "close_commitment": "000000000000000000000000000000000000000000000000000000000000232c",
+          "present": true,
+          "account_balances": [
+            {
+              "account_ref": "cash",
+              "amount_minor": "10000",
+              "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+            },
+            {
+              "account_ref": "equity",
+              "amount_minor": "10000",
+              "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+            },
+            {
+              "account_ref": "revenue",
+              "amount_minor": "0",
+              "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+            },
+            {
+              "account_ref": "expense",
+              "amount_minor": "0",
+              "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+            }
+          ]
+        },
+        "opening_balances": [
+          {
+            "account_ref": "cash",
+            "amount_minor": "10000",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "equity",
+            "amount_minor": "10000",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "revenue",
+            "amount_minor": "0",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "expense",
+            "amount_minor": "0",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          }
+        ],
+        "closing_balances": [
+          {
+            "account_ref": "cash",
+            "amount_minor": "11000",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "equity",
+            "amount_minor": "10000",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "revenue",
+            "amount_minor": "2000",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "expense",
+            "amount_minor": "1000",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "FJS-005",
+      "task": "Detect a balanced journal with no event in the qualified population.",
+      "manifest": {
+        "schema_id": "fin-journal-set-manifest.v1",
+        "journal_set_id": "jset-005",
+        "set_version": "1",
+        "scope": {
+          "reporting_entity": "entity-synth-001",
+          "ledger_id": "ledger-synth-001",
+          "accounting_profile_ref": "SYNTH-LOCAL-ACCOUNTING-NOT-PRODUCTION",
+          "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+          "period_id": "2026-10",
+          "period_start": "2026-10-01",
+          "period_end": "2026-10-31",
+          "close_cutoff": "2026-11-03T23:59:59Z",
+          "knowledge_at": "2026-11-04T00:00:00Z"
+        },
+        "source_population": {
+          "qualification_state": "complete",
+          "frontier_ref": "frontier-synthetic-001",
+          "expected_event_commitment": "000000000000000000000000000000000000000000000000000000000000303e",
+          "closed_event_commitment": "000000000000000000000000000000000000000000000000000000000000303e",
+          "expected_event_refs": [
+            "event-001",
+            "event-002"
+          ]
+        },
+        "events": [
+          {
+            "event_ref": "event-001",
+            "terminal_treatment": "journal_required",
+            "authorization_ref": null,
+            "reason_ref": null
+          },
+          {
+            "event_ref": "event-002",
+            "terminal_treatment": "journal_required",
+            "authorization_ref": null,
+            "reason_ref": null
+          }
+        ],
+        "journals": [
+          {
+            "journal_id": "journal-001",
+            "payload_digest_token": "0000000000000000000000000000000000000000000000000000000000000069",
+            "economic_event_ref": "event-001",
+            "entity_ref": "entity-synth-001",
+            "ledger_id": "ledger-synth-001",
+            "accounting_profile_ref": "SYNTH-LOCAL-ACCOUNTING-NOT-PRODUCTION",
+            "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+            "period_id": "2026-10",
+            "effective_at": "2026-10-15T12:00:00Z",
+            "booking_at": "2026-10-15T12:00:00Z",
+            "value_date": "2026-10-15",
+            "reversal_of": null,
+            "correction_of": null,
+            "post_close_authorized": false,
+            "postings": [
+              {
+                "account_ref": "cash",
+                "direction": "DEBIT",
+                "amount_minor": "2000",
+                "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              },
+              {
+                "account_ref": "revenue",
+                "direction": "CREDIT",
+                "amount_minor": "2000",
+                "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              }
+            ],
+            "post_close_authorization_ref": null
+          },
+          {
+            "journal_id": "journal-002",
+            "payload_digest_token": "00000000000000000000000000000000000000000000000000000000000000cd",
+            "economic_event_ref": "event-002",
+            "entity_ref": "entity-synth-001",
+            "ledger_id": "ledger-synth-001",
+            "accounting_profile_ref": "SYNTH-LOCAL-ACCOUNTING-NOT-PRODUCTION",
+            "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+            "period_id": "2026-10",
+            "effective_at": "2026-10-20T12:00:00Z",
+            "booking_at": "2026-10-20T12:00:00Z",
+            "value_date": "2026-10-20",
+            "reversal_of": null,
+            "correction_of": null,
+            "post_close_authorized": false,
+            "postings": [
+              {
+                "account_ref": "expense",
+                "direction": "DEBIT",
+                "amount_minor": "1000",
+                "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              },
+              {
+                "account_ref": "cash",
+                "direction": "CREDIT",
+                "amount_minor": "1000",
+                "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              }
+            ],
+            "post_close_authorization_ref": null
+          },
+          {
+            "journal_id": "journal-orphan",
+            "payload_digest_token": "00000000000000000000000000000000000000000000000000000000000bdb2d",
+            "economic_event_ref": "event-ghost",
+            "entity_ref": "entity-synth-001",
+            "ledger_id": "ledger-synth-001",
+            "accounting_profile_ref": "SYNTH-LOCAL-ACCOUNTING-NOT-PRODUCTION",
+            "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+            "period_id": "2026-10",
+            "effective_at": "2026-10-15T12:00:00Z",
+            "booking_at": "2026-10-15T12:00:00Z",
+            "value_date": "2026-10-15",
+            "reversal_of": null,
+            "correction_of": null,
+            "post_close_authorized": false,
+            "postings": [
+              {
+                "account_ref": "cash",
+                "direction": "DEBIT",
+                "amount_minor": "2000",
+                "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              },
+              {
+                "account_ref": "revenue",
+                "direction": "CREDIT",
+                "amount_minor": "2000",
+                "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              }
+            ],
+            "post_close_authorization_ref": null
+          }
+        ],
+        "account_profiles": [
+          {
+            "account_ref": "cash",
+            "normal_side": "DEBIT",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "equity",
+            "normal_side": "CREDIT",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "revenue",
+            "normal_side": "CREDIT",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "expense",
+            "normal_side": "DEBIT",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          }
+        ],
+        "prior_close": {
+          "period_id": "2026-09",
+          "close_commitment": "000000000000000000000000000000000000000000000000000000000000232d",
+          "present": true,
+          "account_balances": [
+            {
+              "account_ref": "cash",
+              "amount_minor": "10000",
+              "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+            },
+            {
+              "account_ref": "equity",
+              "amount_minor": "10000",
+              "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+            },
+            {
+              "account_ref": "revenue",
+              "amount_minor": "0",
+              "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+            },
+            {
+              "account_ref": "expense",
+              "amount_minor": "0",
+              "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+            }
+          ]
+        },
+        "opening_balances": [
+          {
+            "account_ref": "cash",
+            "amount_minor": "10000",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "equity",
+            "amount_minor": "10000",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "revenue",
+            "amount_minor": "0",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "expense",
+            "amount_minor": "0",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          }
+        ],
+        "closing_balances": [
+          {
+            "account_ref": "cash",
+            "amount_minor": "11000",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "equity",
+            "amount_minor": "10000",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "revenue",
+            "amount_minor": "2000",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "expense",
+            "amount_minor": "1000",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "FJS-006",
+      "task": "Treat identical journal identity and payload as an idempotent replay.",
+      "manifest": {
+        "schema_id": "fin-journal-set-manifest.v1",
+        "journal_set_id": "jset-006",
+        "set_version": "1",
+        "scope": {
+          "reporting_entity": "entity-synth-001",
+          "ledger_id": "ledger-synth-001",
+          "accounting_profile_ref": "SYNTH-LOCAL-ACCOUNTING-NOT-PRODUCTION",
+          "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+          "period_id": "2026-10",
+          "period_start": "2026-10-01",
+          "period_end": "2026-10-31",
+          "close_cutoff": "2026-11-03T23:59:59Z",
+          "knowledge_at": "2026-11-04T00:00:00Z"
+        },
+        "source_population": {
+          "qualification_state": "complete",
+          "frontier_ref": "frontier-synthetic-001",
+          "expected_event_commitment": "000000000000000000000000000000000000000000000000000000000000303f",
+          "closed_event_commitment": "000000000000000000000000000000000000000000000000000000000000303f",
+          "expected_event_refs": [
+            "event-001",
+            "event-002"
+          ]
+        },
+        "events": [
+          {
+            "event_ref": "event-001",
+            "terminal_treatment": "journal_required",
+            "authorization_ref": null,
+            "reason_ref": null
+          },
+          {
+            "event_ref": "event-002",
+            "terminal_treatment": "journal_required",
+            "authorization_ref": null,
+            "reason_ref": null
+          }
+        ],
+        "journals": [
+          {
+            "journal_id": "journal-001",
+            "payload_digest_token": "000000000000000000000000000000000000000000000000000000000000006a",
+            "economic_event_ref": "event-001",
+            "entity_ref": "entity-synth-001",
+            "ledger_id": "ledger-synth-001",
+            "accounting_profile_ref": "SYNTH-LOCAL-ACCOUNTING-NOT-PRODUCTION",
+            "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+            "period_id": "2026-10",
+            "effective_at": "2026-10-15T12:00:00Z",
+            "booking_at": "2026-10-15T12:00:00Z",
+            "value_date": "2026-10-15",
+            "reversal_of": null,
+            "correction_of": null,
+            "post_close_authorized": false,
+            "postings": [
+              {
+                "account_ref": "cash",
+                "direction": "DEBIT",
+                "amount_minor": "2000",
+                "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              },
+              {
+                "account_ref": "revenue",
+                "direction": "CREDIT",
+                "amount_minor": "2000",
+                "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              }
+            ],
+            "post_close_authorization_ref": null
+          },
+          {
+            "journal_id": "journal-002",
+            "payload_digest_token": "00000000000000000000000000000000000000000000000000000000000000ce",
+            "economic_event_ref": "event-002",
+            "entity_ref": "entity-synth-001",
+            "ledger_id": "ledger-synth-001",
+            "accounting_profile_ref": "SYNTH-LOCAL-ACCOUNTING-NOT-PRODUCTION",
+            "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+            "period_id": "2026-10",
+            "effective_at": "2026-10-20T12:00:00Z",
+            "booking_at": "2026-10-20T12:00:00Z",
+            "value_date": "2026-10-20",
+            "reversal_of": null,
+            "correction_of": null,
+            "post_close_authorized": false,
+            "postings": [
+              {
+                "account_ref": "expense",
+                "direction": "DEBIT",
+                "amount_minor": "1000",
+                "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              },
+              {
+                "account_ref": "cash",
+                "direction": "CREDIT",
+                "amount_minor": "1000",
+                "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              }
+            ],
+            "post_close_authorization_ref": null
+          },
+          {
+            "journal_id": "journal-001",
+            "payload_digest_token": "000000000000000000000000000000000000000000000000000000000000006a",
+            "economic_event_ref": "event-001",
+            "entity_ref": "entity-synth-001",
+            "ledger_id": "ledger-synth-001",
+            "accounting_profile_ref": "SYNTH-LOCAL-ACCOUNTING-NOT-PRODUCTION",
+            "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+            "period_id": "2026-10",
+            "effective_at": "2026-10-15T12:00:00Z",
+            "booking_at": "2026-10-15T12:00:00Z",
+            "value_date": "2026-10-15",
+            "reversal_of": null,
+            "correction_of": null,
+            "post_close_authorized": false,
+            "postings": [
+              {
+                "account_ref": "cash",
+                "direction": "DEBIT",
+                "amount_minor": "2000",
+                "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              },
+              {
+                "account_ref": "revenue",
+                "direction": "CREDIT",
+                "amount_minor": "2000",
+                "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              }
+            ],
+            "post_close_authorization_ref": null
+          }
+        ],
+        "account_profiles": [
+          {
+            "account_ref": "cash",
+            "normal_side": "DEBIT",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "equity",
+            "normal_side": "CREDIT",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "revenue",
+            "normal_side": "CREDIT",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "expense",
+            "normal_side": "DEBIT",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          }
+        ],
+        "prior_close": {
+          "period_id": "2026-09",
+          "close_commitment": "000000000000000000000000000000000000000000000000000000000000232e",
+          "present": true,
+          "account_balances": [
+            {
+              "account_ref": "cash",
+              "amount_minor": "10000",
+              "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+            },
+            {
+              "account_ref": "equity",
+              "amount_minor": "10000",
+              "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+            },
+            {
+              "account_ref": "revenue",
+              "amount_minor": "0",
+              "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+            },
+            {
+              "account_ref": "expense",
+              "amount_minor": "0",
+              "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+            }
+          ]
+        },
+        "opening_balances": [
+          {
+            "account_ref": "cash",
+            "amount_minor": "10000",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "equity",
+            "amount_minor": "10000",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "revenue",
+            "amount_minor": "0",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "expense",
+            "amount_minor": "0",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          }
+        ],
+        "closing_balances": [
+          {
+            "account_ref": "cash",
+            "amount_minor": "11000",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "equity",
+            "amount_minor": "10000",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "revenue",
+            "amount_minor": "2000",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "expense",
+            "amount_minor": "1000",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "FJS-007",
+      "task": "Reject a journal identity reused with changed payload semantics.",
+      "manifest": {
+        "schema_id": "fin-journal-set-manifest.v1",
+        "journal_set_id": "jset-007",
+        "set_version": "1",
+        "scope": {
+          "reporting_entity": "entity-synth-001",
+          "ledger_id": "ledger-synth-001",
+          "accounting_profile_ref": "SYNTH-LOCAL-ACCOUNTING-NOT-PRODUCTION",
+          "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+          "period_id": "2026-10",
+          "period_start": "2026-10-01",
+          "period_end": "2026-10-31",
+          "close_cutoff": "2026-11-03T23:59:59Z",
+          "knowledge_at": "2026-11-04T00:00:00Z"
+        },
+        "source_population": {
+          "qualification_state": "complete",
+          "frontier_ref": "frontier-synthetic-001",
+          "expected_event_commitment": "0000000000000000000000000000000000000000000000000000000000003040",
+          "closed_event_commitment": "0000000000000000000000000000000000000000000000000000000000003040",
+          "expected_event_refs": [
+            "event-001",
+            "event-002"
+          ]
+        },
+        "events": [
+          {
+            "event_ref": "event-001",
+            "terminal_treatment": "journal_required",
+            "authorization_ref": null,
+            "reason_ref": null
+          },
+          {
+            "event_ref": "event-002",
+            "terminal_treatment": "journal_required",
+            "authorization_ref": null,
+            "reason_ref": null
+          }
+        ],
+        "journals": [
+          {
+            "journal_id": "journal-001",
+            "payload_digest_token": "000000000000000000000000000000000000000000000000000000000000006b",
+            "economic_event_ref": "event-001",
+            "entity_ref": "entity-synth-001",
+            "ledger_id": "ledger-synth-001",
+            "accounting_profile_ref": "SYNTH-LOCAL-ACCOUNTING-NOT-PRODUCTION",
+            "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+            "period_id": "2026-10",
+            "effective_at": "2026-10-15T12:00:00Z",
+            "booking_at": "2026-10-15T12:00:00Z",
+            "value_date": "2026-10-15",
+            "reversal_of": null,
+            "correction_of": null,
+            "post_close_authorized": false,
+            "postings": [
+              {
+                "account_ref": "cash",
+                "direction": "DEBIT",
+                "amount_minor": "2000",
+                "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              },
+              {
+                "account_ref": "revenue",
+                "direction": "CREDIT",
+                "amount_minor": "2000",
+                "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              }
+            ],
+            "post_close_authorization_ref": null
+          },
+          {
+            "journal_id": "journal-002",
+            "payload_digest_token": "00000000000000000000000000000000000000000000000000000000000000cf",
+            "economic_event_ref": "event-002",
+            "entity_ref": "entity-synth-001",
+            "ledger_id": "ledger-synth-001",
+            "accounting_profile_ref": "SYNTH-LOCAL-ACCOUNTING-NOT-PRODUCTION",
+            "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+            "period_id": "2026-10",
+            "effective_at": "2026-10-20T12:00:00Z",
+            "booking_at": "2026-10-20T12:00:00Z",
+            "value_date": "2026-10-20",
+            "reversal_of": null,
+            "correction_of": null,
+            "post_close_authorized": false,
+            "postings": [
+              {
+                "account_ref": "expense",
+                "direction": "DEBIT",
+                "amount_minor": "1000",
+                "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              },
+              {
+                "account_ref": "cash",
+                "direction": "CREDIT",
+                "amount_minor": "1000",
+                "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              }
+            ],
+            "post_close_authorization_ref": null
+          },
+          {
+            "journal_id": "journal-001",
+            "payload_digest_token": "00000000000000000000000000000000000000000000000000000000000bdb2f",
+            "economic_event_ref": "event-001",
+            "entity_ref": "entity-synth-001",
+            "ledger_id": "ledger-synth-001",
+            "accounting_profile_ref": "SYNTH-LOCAL-ACCOUNTING-NOT-PRODUCTION",
+            "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+            "period_id": "2026-10",
+            "effective_at": "2026-10-15T12:00:00Z",
+            "booking_at": "2026-10-15T12:00:00Z",
+            "value_date": "2026-10-15",
+            "reversal_of": null,
+            "correction_of": null,
+            "post_close_authorized": false,
+            "postings": [
+              {
+                "account_ref": "cash",
+                "direction": "DEBIT",
+                "amount_minor": "2001",
+                "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              },
+              {
+                "account_ref": "revenue",
+                "direction": "CREDIT",
+                "amount_minor": "2001",
+                "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              }
+            ],
+            "post_close_authorization_ref": null
+          }
+        ],
+        "account_profiles": [
+          {
+            "account_ref": "cash",
+            "normal_side": "DEBIT",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "equity",
+            "normal_side": "CREDIT",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "revenue",
+            "normal_side": "CREDIT",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "expense",
+            "normal_side": "DEBIT",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          }
+        ],
+        "prior_close": {
+          "period_id": "2026-09",
+          "close_commitment": "000000000000000000000000000000000000000000000000000000000000232f",
+          "present": true,
+          "account_balances": [
+            {
+              "account_ref": "cash",
+              "amount_minor": "10000",
+              "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+            },
+            {
+              "account_ref": "equity",
+              "amount_minor": "10000",
+              "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+            },
+            {
+              "account_ref": "revenue",
+              "amount_minor": "0",
+              "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+            },
+            {
+              "account_ref": "expense",
+              "amount_minor": "0",
+              "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+            }
+          ]
+        },
+        "opening_balances": [
+          {
+            "account_ref": "cash",
+            "amount_minor": "10000",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "equity",
+            "amount_minor": "10000",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "revenue",
+            "amount_minor": "0",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "expense",
+            "amount_minor": "0",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          }
+        ],
+        "closing_balances": [
+          {
+            "account_ref": "cash",
+            "amount_minor": "11000",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "equity",
+            "amount_minor": "10000",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "revenue",
+            "amount_minor": "2000",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "expense",
+            "amount_minor": "1000",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "FJS-008",
+      "task": "Refuse completeness when the expected source population is not qualified complete.",
+      "manifest": {
+        "schema_id": "fin-journal-set-manifest.v1",
+        "journal_set_id": "jset-008",
+        "set_version": "1",
+        "scope": {
+          "reporting_entity": "entity-synth-001",
+          "ledger_id": "ledger-synth-001",
+          "accounting_profile_ref": "SYNTH-LOCAL-ACCOUNTING-NOT-PRODUCTION",
+          "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+          "period_id": "2026-10",
+          "period_start": "2026-10-01",
+          "period_end": "2026-10-31",
+          "close_cutoff": "2026-11-03T23:59:59Z",
+          "knowledge_at": "2026-11-04T00:00:00Z"
+        },
+        "source_population": {
+          "qualification_state": "partial",
+          "frontier_ref": "frontier-synthetic-001",
+          "expected_event_commitment": "0000000000000000000000000000000000000000000000000000000000003041",
+          "closed_event_commitment": "0000000000000000000000000000000000000000000000000000000000003041",
+          "expected_event_refs": [
+            "event-001",
+            "event-002"
+          ]
+        },
+        "events": [
+          {
+            "event_ref": "event-001",
+            "terminal_treatment": "journal_required",
+            "authorization_ref": null,
+            "reason_ref": null
+          },
+          {
+            "event_ref": "event-002",
+            "terminal_treatment": "journal_required",
+            "authorization_ref": null,
+            "reason_ref": null
+          }
+        ],
+        "journals": [
+          {
+            "journal_id": "journal-001",
+            "payload_digest_token": "000000000000000000000000000000000000000000000000000000000000006c",
+            "economic_event_ref": "event-001",
+            "entity_ref": "entity-synth-001",
+            "ledger_id": "ledger-synth-001",
+            "accounting_profile_ref": "SYNTH-LOCAL-ACCOUNTING-NOT-PRODUCTION",
+            "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+            "period_id": "2026-10",
+            "effective_at": "2026-10-15T12:00:00Z",
+            "booking_at": "2026-10-15T12:00:00Z",
+            "value_date": "2026-10-15",
+            "reversal_of": null,
+            "correction_of": null,
+            "post_close_authorized": false,
+            "postings": [
+              {
+                "account_ref": "cash",
+                "direction": "DEBIT",
+                "amount_minor": "2000",
+                "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              },
+              {
+                "account_ref": "revenue",
+                "direction": "CREDIT",
+                "amount_minor": "2000",
+                "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              }
+            ],
+            "post_close_authorization_ref": null
+          },
+          {
+            "journal_id": "journal-002",
+            "payload_digest_token": "00000000000000000000000000000000000000000000000000000000000000d0",
+            "economic_event_ref": "event-002",
+            "entity_ref": "entity-synth-001",
+            "ledger_id": "ledger-synth-001",
+            "accounting_profile_ref": "SYNTH-LOCAL-ACCOUNTING-NOT-PRODUCTION",
+            "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+            "period_id": "2026-10",
+            "effective_at": "2026-10-20T12:00:00Z",
+            "booking_at": "2026-10-20T12:00:00Z",
+            "value_date": "2026-10-20",
+            "reversal_of": null,
+            "correction_of": null,
+            "post_close_authorized": false,
+            "postings": [
+              {
+                "account_ref": "expense",
+                "direction": "DEBIT",
+                "amount_minor": "1000",
+                "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              },
+              {
+                "account_ref": "cash",
+                "direction": "CREDIT",
+                "amount_minor": "1000",
+                "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              }
+            ],
+            "post_close_authorization_ref": null
+          }
+        ],
+        "account_profiles": [
+          {
+            "account_ref": "cash",
+            "normal_side": "DEBIT",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "equity",
+            "normal_side": "CREDIT",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "revenue",
+            "normal_side": "CREDIT",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "expense",
+            "normal_side": "DEBIT",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          }
+        ],
+        "prior_close": {
+          "period_id": "2026-09",
+          "close_commitment": "0000000000000000000000000000000000000000000000000000000000002330",
+          "present": true,
+          "account_balances": [
+            {
+              "account_ref": "cash",
+              "amount_minor": "10000",
+              "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+            },
+            {
+              "account_ref": "equity",
+              "amount_minor": "10000",
+              "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+            },
+            {
+              "account_ref": "revenue",
+              "amount_minor": "0",
+              "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+            },
+            {
+              "account_ref": "expense",
+              "amount_minor": "0",
+              "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+            }
+          ]
+        },
+        "opening_balances": [
+          {
+            "account_ref": "cash",
+            "amount_minor": "10000",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "equity",
+            "amount_minor": "10000",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "revenue",
+            "amount_minor": "0",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "expense",
+            "amount_minor": "0",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          }
+        ],
+        "closing_balances": [
+          {
+            "account_ref": "cash",
+            "amount_minor": "11000",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "equity",
+            "amount_minor": "10000",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "revenue",
+            "amount_minor": "2000",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "expense",
+            "amount_minor": "1000",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "FJS-009",
+      "task": "Accept an explicitly authorized non-posting treatment for one expected event.",
+      "manifest": {
+        "schema_id": "fin-journal-set-manifest.v1",
+        "journal_set_id": "jset-009",
+        "set_version": "1",
+        "scope": {
+          "reporting_entity": "entity-synth-001",
+          "ledger_id": "ledger-synth-001",
+          "accounting_profile_ref": "SYNTH-LOCAL-ACCOUNTING-NOT-PRODUCTION",
+          "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+          "period_id": "2026-10",
+          "period_start": "2026-10-01",
+          "period_end": "2026-10-31",
+          "close_cutoff": "2026-11-03T23:59:59Z",
+          "knowledge_at": "2026-11-04T00:00:00Z"
+        },
+        "source_population": {
+          "qualification_state": "complete",
+          "frontier_ref": "frontier-synthetic-001",
+          "expected_event_commitment": "0000000000000000000000000000000000000000000000000000000000003042",
+          "closed_event_commitment": "0000000000000000000000000000000000000000000000000000000000003042",
+          "expected_event_refs": [
+            "event-001",
+            "event-002"
+          ]
+        },
+        "events": [
+          {
+            "event_ref": "event-001",
+            "terminal_treatment": "journal_required",
+            "authorization_ref": null,
+            "reason_ref": null
+          },
+          {
+            "event_ref": "event-002",
+            "terminal_treatment": "authorized_nonposting",
+            "authorization_ref": "approval-synthetic-009",
+            "reason_ref": "no-recognition-under-profile"
+          }
+        ],
+        "journals": [
+          {
+            "journal_id": "journal-001",
+            "payload_digest_token": "000000000000000000000000000000000000000000000000000000000000006d",
+            "economic_event_ref": "event-001",
+            "entity_ref": "entity-synth-001",
+            "ledger_id": "ledger-synth-001",
+            "accounting_profile_ref": "SYNTH-LOCAL-ACCOUNTING-NOT-PRODUCTION",
+            "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+            "period_id": "2026-10",
+            "effective_at": "2026-10-15T12:00:00Z",
+            "booking_at": "2026-10-15T12:00:00Z",
+            "value_date": "2026-10-15",
+            "reversal_of": null,
+            "correction_of": null,
+            "post_close_authorized": false,
+            "postings": [
+              {
+                "account_ref": "cash",
+                "direction": "DEBIT",
+                "amount_minor": "2000",
+                "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              },
+              {
+                "account_ref": "revenue",
+                "direction": "CREDIT",
+                "amount_minor": "2000",
+                "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              }
+            ],
+            "post_close_authorization_ref": null
+          }
+        ],
+        "account_profiles": [
+          {
+            "account_ref": "cash",
+            "normal_side": "DEBIT",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "equity",
+            "normal_side": "CREDIT",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "revenue",
+            "normal_side": "CREDIT",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "expense",
+            "normal_side": "DEBIT",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          }
+        ],
+        "prior_close": {
+          "period_id": "2026-09",
+          "close_commitment": "0000000000000000000000000000000000000000000000000000000000002331",
+          "present": true,
+          "account_balances": [
+            {
+              "account_ref": "cash",
+              "amount_minor": "10000",
+              "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+            },
+            {
+              "account_ref": "equity",
+              "amount_minor": "10000",
+              "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+            },
+            {
+              "account_ref": "revenue",
+              "amount_minor": "0",
+              "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+            },
+            {
+              "account_ref": "expense",
+              "amount_minor": "0",
+              "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+            }
+          ]
+        },
+        "opening_balances": [
+          {
+            "account_ref": "cash",
+            "amount_minor": "10000",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "equity",
+            "amount_minor": "10000",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "revenue",
+            "amount_minor": "0",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "expense",
+            "amount_minor": "0",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          }
+        ],
+        "closing_balances": [
+          {
+            "account_ref": "cash",
+            "amount_minor": "12000",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "equity",
+            "amount_minor": "10000",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "revenue",
+            "amount_minor": "2000",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "expense",
+            "amount_minor": "0",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "FJS-010",
+      "task": "Block an unresolved event without a journal or authorized non-posting rationale.",
+      "manifest": {
+        "schema_id": "fin-journal-set-manifest.v1",
+        "journal_set_id": "jset-010",
+        "set_version": "1",
+        "scope": {
+          "reporting_entity": "entity-synth-001",
+          "ledger_id": "ledger-synth-001",
+          "accounting_profile_ref": "SYNTH-LOCAL-ACCOUNTING-NOT-PRODUCTION",
+          "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+          "period_id": "2026-10",
+          "period_start": "2026-10-01",
+          "period_end": "2026-10-31",
+          "close_cutoff": "2026-11-03T23:59:59Z",
+          "knowledge_at": "2026-11-04T00:00:00Z"
+        },
+        "source_population": {
+          "qualification_state": "complete",
+          "frontier_ref": "frontier-synthetic-001",
+          "expected_event_commitment": "0000000000000000000000000000000000000000000000000000000000003043",
+          "closed_event_commitment": "0000000000000000000000000000000000000000000000000000000000003043",
+          "expected_event_refs": [
+            "event-001",
+            "event-002"
+          ]
+        },
+        "events": [
+          {
+            "event_ref": "event-001",
+            "terminal_treatment": "journal_required",
+            "authorization_ref": null,
+            "reason_ref": null
+          },
+          {
+            "event_ref": "event-002",
+            "terminal_treatment": "unresolved",
+            "authorization_ref": null,
+            "reason_ref": null
+          }
+        ],
+        "journals": [
+          {
+            "journal_id": "journal-001",
+            "payload_digest_token": "000000000000000000000000000000000000000000000000000000000000006e",
+            "economic_event_ref": "event-001",
+            "entity_ref": "entity-synth-001",
+            "ledger_id": "ledger-synth-001",
+            "accounting_profile_ref": "SYNTH-LOCAL-ACCOUNTING-NOT-PRODUCTION",
+            "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+            "period_id": "2026-10",
+            "effective_at": "2026-10-15T12:00:00Z",
+            "booking_at": "2026-10-15T12:00:00Z",
+            "value_date": "2026-10-15",
+            "reversal_of": null,
+            "correction_of": null,
+            "post_close_authorized": false,
+            "postings": [
+              {
+                "account_ref": "cash",
+                "direction": "DEBIT",
+                "amount_minor": "2000",
+                "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              },
+              {
+                "account_ref": "revenue",
+                "direction": "CREDIT",
+                "amount_minor": "2000",
+                "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              }
+            ],
+            "post_close_authorization_ref": null
+          }
+        ],
+        "account_profiles": [
+          {
+            "account_ref": "cash",
+            "normal_side": "DEBIT",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "equity",
+            "normal_side": "CREDIT",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "revenue",
+            "normal_side": "CREDIT",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "expense",
+            "normal_side": "DEBIT",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          }
+        ],
+        "prior_close": {
+          "period_id": "2026-09",
+          "close_commitment": "0000000000000000000000000000000000000000000000000000000000002332",
+          "present": true,
+          "account_balances": [
+            {
+              "account_ref": "cash",
+              "amount_minor": "10000",
+              "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+            },
+            {
+              "account_ref": "equity",
+              "amount_minor": "10000",
+              "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+            },
+            {
+              "account_ref": "revenue",
+              "amount_minor": "0",
+              "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+            },
+            {
+              "account_ref": "expense",
+              "amount_minor": "0",
+              "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+            }
+          ]
+        },
+        "opening_balances": [
+          {
+            "account_ref": "cash",
+            "amount_minor": "10000",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "equity",
+            "amount_minor": "10000",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "revenue",
+            "amount_minor": "0",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "expense",
+            "amount_minor": "0",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          }
+        ],
+        "closing_balances": [
+          {
+            "account_ref": "cash",
+            "amount_minor": "11000",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "equity",
+            "amount_minor": "10000",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "revenue",
+            "amount_minor": "2000",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "expense",
+            "amount_minor": "1000",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "FJS-011",
+      "task": "Reject a journal entry whose entity differs from the period ledger entity.",
+      "manifest": {
+        "schema_id": "fin-journal-set-manifest.v1",
+        "journal_set_id": "jset-011",
+        "set_version": "1",
+        "scope": {
+          "reporting_entity": "entity-synth-001",
+          "ledger_id": "ledger-synth-001",
+          "accounting_profile_ref": "SYNTH-LOCAL-ACCOUNTING-NOT-PRODUCTION",
+          "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+          "period_id": "2026-10",
+          "period_start": "2026-10-01",
+          "period_end": "2026-10-31",
+          "close_cutoff": "2026-11-03T23:59:59Z",
+          "knowledge_at": "2026-11-04T00:00:00Z"
+        },
+        "source_population": {
+          "qualification_state": "complete",
+          "frontier_ref": "frontier-synthetic-001",
+          "expected_event_commitment": "0000000000000000000000000000000000000000000000000000000000003044",
+          "closed_event_commitment": "0000000000000000000000000000000000000000000000000000000000003044",
+          "expected_event_refs": [
+            "event-001",
+            "event-002"
+          ]
+        },
+        "events": [
+          {
+            "event_ref": "event-001",
+            "terminal_treatment": "journal_required",
+            "authorization_ref": null,
+            "reason_ref": null
+          },
+          {
+            "event_ref": "event-002",
+            "terminal_treatment": "journal_required",
+            "authorization_ref": null,
+            "reason_ref": null
+          }
+        ],
+        "journals": [
+          {
+            "journal_id": "journal-001",
+            "payload_digest_token": "000000000000000000000000000000000000000000000000000000000000006f",
+            "economic_event_ref": "event-001",
+            "entity_ref": "entity-synth-001",
+            "ledger_id": "ledger-synth-001",
+            "accounting_profile_ref": "SYNTH-LOCAL-ACCOUNTING-NOT-PRODUCTION",
+            "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+            "period_id": "2026-10",
+            "effective_at": "2026-10-15T12:00:00Z",
+            "booking_at": "2026-10-15T12:00:00Z",
+            "value_date": "2026-10-15",
+            "reversal_of": null,
+            "correction_of": null,
+            "post_close_authorized": false,
+            "postings": [
+              {
+                "account_ref": "cash",
+                "direction": "DEBIT",
+                "amount_minor": "2000",
+                "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              },
+              {
+                "account_ref": "revenue",
+                "direction": "CREDIT",
+                "amount_minor": "2000",
+                "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              }
+            ],
+            "post_close_authorization_ref": null
+          },
+          {
+            "journal_id": "journal-002",
+            "payload_digest_token": "00000000000000000000000000000000000000000000000000000000000000d3",
+            "economic_event_ref": "event-002",
+            "entity_ref": "entity-foreign",
+            "ledger_id": "ledger-synth-001",
+            "accounting_profile_ref": "SYNTH-LOCAL-ACCOUNTING-NOT-PRODUCTION",
+            "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+            "period_id": "2026-10",
+            "effective_at": "2026-10-20T12:00:00Z",
+            "booking_at": "2026-10-20T12:00:00Z",
+            "value_date": "2026-10-20",
+            "reversal_of": null,
+            "correction_of": null,
+            "post_close_authorized": false,
+            "postings": [
+              {
+                "account_ref": "expense",
+                "direction": "DEBIT",
+                "amount_minor": "1000",
+                "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              },
+              {
+                "account_ref": "cash",
+                "direction": "CREDIT",
+                "amount_minor": "1000",
+                "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              }
+            ],
+            "post_close_authorization_ref": null
+          }
+        ],
+        "account_profiles": [
+          {
+            "account_ref": "cash",
+            "normal_side": "DEBIT",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "equity",
+            "normal_side": "CREDIT",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "revenue",
+            "normal_side": "CREDIT",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "expense",
+            "normal_side": "DEBIT",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          }
+        ],
+        "prior_close": {
+          "period_id": "2026-09",
+          "close_commitment": "0000000000000000000000000000000000000000000000000000000000002333",
+          "present": true,
+          "account_balances": [
+            {
+              "account_ref": "cash",
+              "amount_minor": "10000",
+              "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+            },
+            {
+              "account_ref": "equity",
+              "amount_minor": "10000",
+              "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+            },
+            {
+              "account_ref": "revenue",
+              "amount_minor": "0",
+              "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+            },
+            {
+              "account_ref": "expense",
+              "amount_minor": "0",
+              "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+            }
+          ]
+        },
+        "opening_balances": [
+          {
+            "account_ref": "cash",
+            "amount_minor": "10000",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "equity",
+            "amount_minor": "10000",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "revenue",
+            "amount_minor": "0",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "expense",
+            "amount_minor": "0",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          }
+        ],
+        "closing_balances": [
+          {
+            "account_ref": "cash",
+            "amount_minor": "11000",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "equity",
+            "amount_minor": "10000",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "revenue",
+            "amount_minor": "2000",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "expense",
+            "amount_minor": "1000",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "FJS-012",
+      "task": "Reject an entry that uses a different denomination profile.",
+      "manifest": {
+        "schema_id": "fin-journal-set-manifest.v1",
+        "journal_set_id": "jset-012",
+        "set_version": "1",
+        "scope": {
+          "reporting_entity": "entity-synth-001",
+          "ledger_id": "ledger-synth-001",
+          "accounting_profile_ref": "SYNTH-LOCAL-ACCOUNTING-NOT-PRODUCTION",
+          "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+          "period_id": "2026-10",
+          "period_start": "2026-10-01",
+          "period_end": "2026-10-31",
+          "close_cutoff": "2026-11-03T23:59:59Z",
+          "knowledge_at": "2026-11-04T00:00:00Z"
+        },
+        "source_population": {
+          "qualification_state": "complete",
+          "frontier_ref": "frontier-synthetic-001",
+          "expected_event_commitment": "0000000000000000000000000000000000000000000000000000000000003045",
+          "closed_event_commitment": "0000000000000000000000000000000000000000000000000000000000003045",
+          "expected_event_refs": [
+            "event-001",
+            "event-002"
+          ]
+        },
+        "events": [
+          {
+            "event_ref": "event-001",
+            "terminal_treatment": "journal_required",
+            "authorization_ref": null,
+            "reason_ref": null
+          },
+          {
+            "event_ref": "event-002",
+            "terminal_treatment": "journal_required",
+            "authorization_ref": null,
+            "reason_ref": null
+          }
+        ],
+        "journals": [
+          {
+            "journal_id": "journal-001",
+            "payload_digest_token": "0000000000000000000000000000000000000000000000000000000000000070",
+            "economic_event_ref": "event-001",
+            "entity_ref": "entity-synth-001",
+            "ledger_id": "ledger-synth-001",
+            "accounting_profile_ref": "SYNTH-LOCAL-ACCOUNTING-NOT-PRODUCTION",
+            "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+            "period_id": "2026-10",
+            "effective_at": "2026-10-15T12:00:00Z",
+            "booking_at": "2026-10-15T12:00:00Z",
+            "value_date": "2026-10-15",
+            "reversal_of": null,
+            "correction_of": null,
+            "post_close_authorized": false,
+            "postings": [
+              {
+                "account_ref": "cash",
+                "direction": "DEBIT",
+                "amount_minor": "2000",
+                "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              },
+              {
+                "account_ref": "revenue",
+                "direction": "CREDIT",
+                "amount_minor": "2000",
+                "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              }
+            ],
+            "post_close_authorization_ref": null
+          },
+          {
+            "journal_id": "journal-002",
+            "payload_digest_token": "00000000000000000000000000000000000000000000000000000000000000d4",
+            "economic_event_ref": "event-002",
+            "entity_ref": "entity-synth-001",
+            "ledger_id": "ledger-synth-001",
+            "accounting_profile_ref": "SYNTH-LOCAL-ACCOUNTING-NOT-PRODUCTION",
+            "denomination_profile_ref": "UNPINNED-UNIT",
+            "period_id": "2026-10",
+            "effective_at": "2026-10-20T12:00:00Z",
+            "booking_at": "2026-10-20T12:00:00Z",
+            "value_date": "2026-10-20",
+            "reversal_of": null,
+            "correction_of": null,
+            "post_close_authorized": false,
+            "postings": [
+              {
+                "account_ref": "expense",
+                "direction": "DEBIT",
+                "amount_minor": "1000",
+                "unit_profile_ref": "UNPINNED-UNIT"
+              },
+              {
+                "account_ref": "cash",
+                "direction": "CREDIT",
+                "amount_minor": "1000",
+                "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              }
+            ],
+            "post_close_authorization_ref": null
+          }
+        ],
+        "account_profiles": [
+          {
+            "account_ref": "cash",
+            "normal_side": "DEBIT",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "equity",
+            "normal_side": "CREDIT",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "revenue",
+            "normal_side": "CREDIT",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "expense",
+            "normal_side": "DEBIT",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          }
+        ],
+        "prior_close": {
+          "period_id": "2026-09",
+          "close_commitment": "0000000000000000000000000000000000000000000000000000000000002334",
+          "present": true,
+          "account_balances": [
+            {
+              "account_ref": "cash",
+              "amount_minor": "10000",
+              "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+            },
+            {
+              "account_ref": "equity",
+              "amount_minor": "10000",
+              "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+            },
+            {
+              "account_ref": "revenue",
+              "amount_minor": "0",
+              "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+            },
+            {
+              "account_ref": "expense",
+              "amount_minor": "0",
+              "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+            }
+          ]
+        },
+        "opening_balances": [
+          {
+            "account_ref": "cash",
+            "amount_minor": "10000",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "equity",
+            "amount_minor": "10000",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "revenue",
+            "amount_minor": "0",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "expense",
+            "amount_minor": "0",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          }
+        ],
+        "closing_balances": [
+          {
+            "account_ref": "cash",
+            "amount_minor": "11000",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "equity",
+            "amount_minor": "10000",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "revenue",
+            "amount_minor": "2000",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "expense",
+            "amount_minor": "1000",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "FJS-013",
+      "task": "Detect a one-minor-unit closing balance roll-forward mismatch.",
+      "manifest": {
+        "schema_id": "fin-journal-set-manifest.v1",
+        "journal_set_id": "jset-013",
+        "set_version": "1",
+        "scope": {
+          "reporting_entity": "entity-synth-001",
+          "ledger_id": "ledger-synth-001",
+          "accounting_profile_ref": "SYNTH-LOCAL-ACCOUNTING-NOT-PRODUCTION",
+          "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+          "period_id": "2026-10",
+          "period_start": "2026-10-01",
+          "period_end": "2026-10-31",
+          "close_cutoff": "2026-11-03T23:59:59Z",
+          "knowledge_at": "2026-11-04T00:00:00Z"
+        },
+        "source_population": {
+          "qualification_state": "complete",
+          "frontier_ref": "frontier-synthetic-001",
+          "expected_event_commitment": "0000000000000000000000000000000000000000000000000000000000003046",
+          "closed_event_commitment": "0000000000000000000000000000000000000000000000000000000000003046",
+          "expected_event_refs": [
+            "event-001",
+            "event-002"
+          ]
+        },
+        "events": [
+          {
+            "event_ref": "event-001",
+            "terminal_treatment": "journal_required",
+            "authorization_ref": null,
+            "reason_ref": null
+          },
+          {
+            "event_ref": "event-002",
+            "terminal_treatment": "journal_required",
+            "authorization_ref": null,
+            "reason_ref": null
+          }
+        ],
+        "journals": [
+          {
+            "journal_id": "journal-001",
+            "payload_digest_token": "0000000000000000000000000000000000000000000000000000000000000071",
+            "economic_event_ref": "event-001",
+            "entity_ref": "entity-synth-001",
+            "ledger_id": "ledger-synth-001",
+            "accounting_profile_ref": "SYNTH-LOCAL-ACCOUNTING-NOT-PRODUCTION",
+            "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+            "period_id": "2026-10",
+            "effective_at": "2026-10-15T12:00:00Z",
+            "booking_at": "2026-10-15T12:00:00Z",
+            "value_date": "2026-10-15",
+            "reversal_of": null,
+            "correction_of": null,
+            "post_close_authorized": false,
+            "postings": [
+              {
+                "account_ref": "cash",
+                "direction": "DEBIT",
+                "amount_minor": "2000",
+                "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              },
+              {
+                "account_ref": "revenue",
+                "direction": "CREDIT",
+                "amount_minor": "2000",
+                "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              }
+            ],
+            "post_close_authorization_ref": null
+          },
+          {
+            "journal_id": "journal-002",
+            "payload_digest_token": "00000000000000000000000000000000000000000000000000000000000000d5",
+            "economic_event_ref": "event-002",
+            "entity_ref": "entity-synth-001",
+            "ledger_id": "ledger-synth-001",
+            "accounting_profile_ref": "SYNTH-LOCAL-ACCOUNTING-NOT-PRODUCTION",
+            "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+            "period_id": "2026-10",
+            "effective_at": "2026-10-20T12:00:00Z",
+            "booking_at": "2026-10-20T12:00:00Z",
+            "value_date": "2026-10-20",
+            "reversal_of": null,
+            "correction_of": null,
+            "post_close_authorized": false,
+            "postings": [
+              {
+                "account_ref": "expense",
+                "direction": "DEBIT",
+                "amount_minor": "1000",
+                "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              },
+              {
+                "account_ref": "cash",
+                "direction": "CREDIT",
+                "amount_minor": "1000",
+                "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              }
+            ],
+            "post_close_authorization_ref": null
+          }
+        ],
+        "account_profiles": [
+          {
+            "account_ref": "cash",
+            "normal_side": "DEBIT",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "equity",
+            "normal_side": "CREDIT",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "revenue",
+            "normal_side": "CREDIT",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "expense",
+            "normal_side": "DEBIT",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          }
+        ],
+        "prior_close": {
+          "period_id": "2026-09",
+          "close_commitment": "0000000000000000000000000000000000000000000000000000000000002335",
+          "present": true,
+          "account_balances": [
+            {
+              "account_ref": "cash",
+              "amount_minor": "10000",
+              "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+            },
+            {
+              "account_ref": "equity",
+              "amount_minor": "10000",
+              "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+            },
+            {
+              "account_ref": "revenue",
+              "amount_minor": "0",
+              "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+            },
+            {
+              "account_ref": "expense",
+              "amount_minor": "0",
+              "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+            }
+          ]
+        },
+        "opening_balances": [
+          {
+            "account_ref": "cash",
+            "amount_minor": "10000",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "equity",
+            "amount_minor": "10000",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "revenue",
+            "amount_minor": "0",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "expense",
+            "amount_minor": "0",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          }
+        ],
+        "closing_balances": [
+          {
+            "account_ref": "cash",
+            "amount_minor": "11001",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "equity",
+            "amount_minor": "10000",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "revenue",
+            "amount_minor": "2000",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "expense",
+            "amount_minor": "1000",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "FJS-014",
+      "task": "Detect an opening balance inconsistent with the prior period close.",
+      "manifest": {
+        "schema_id": "fin-journal-set-manifest.v1",
+        "journal_set_id": "jset-014",
+        "set_version": "1",
+        "scope": {
+          "reporting_entity": "entity-synth-001",
+          "ledger_id": "ledger-synth-001",
+          "accounting_profile_ref": "SYNTH-LOCAL-ACCOUNTING-NOT-PRODUCTION",
+          "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+          "period_id": "2026-10",
+          "period_start": "2026-10-01",
+          "period_end": "2026-10-31",
+          "close_cutoff": "2026-11-03T23:59:59Z",
+          "knowledge_at": "2026-11-04T00:00:00Z"
+        },
+        "source_population": {
+          "qualification_state": "complete",
+          "frontier_ref": "frontier-synthetic-001",
+          "expected_event_commitment": "0000000000000000000000000000000000000000000000000000000000003047",
+          "closed_event_commitment": "0000000000000000000000000000000000000000000000000000000000003047",
+          "expected_event_refs": [
+            "event-001",
+            "event-002"
+          ]
+        },
+        "events": [
+          {
+            "event_ref": "event-001",
+            "terminal_treatment": "journal_required",
+            "authorization_ref": null,
+            "reason_ref": null
+          },
+          {
+            "event_ref": "event-002",
+            "terminal_treatment": "journal_required",
+            "authorization_ref": null,
+            "reason_ref": null
+          }
+        ],
+        "journals": [
+          {
+            "journal_id": "journal-001",
+            "payload_digest_token": "0000000000000000000000000000000000000000000000000000000000000072",
+            "economic_event_ref": "event-001",
+            "entity_ref": "entity-synth-001",
+            "ledger_id": "ledger-synth-001",
+            "accounting_profile_ref": "SYNTH-LOCAL-ACCOUNTING-NOT-PRODUCTION",
+            "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+            "period_id": "2026-10",
+            "effective_at": "2026-10-15T12:00:00Z",
+            "booking_at": "2026-10-15T12:00:00Z",
+            "value_date": "2026-10-15",
+            "reversal_of": null,
+            "correction_of": null,
+            "post_close_authorized": false,
+            "postings": [
+              {
+                "account_ref": "cash",
+                "direction": "DEBIT",
+                "amount_minor": "2000",
+                "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              },
+              {
+                "account_ref": "revenue",
+                "direction": "CREDIT",
+                "amount_minor": "2000",
+                "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              }
+            ],
+            "post_close_authorization_ref": null
+          },
+          {
+            "journal_id": "journal-002",
+            "payload_digest_token": "00000000000000000000000000000000000000000000000000000000000000d6",
+            "economic_event_ref": "event-002",
+            "entity_ref": "entity-synth-001",
+            "ledger_id": "ledger-synth-001",
+            "accounting_profile_ref": "SYNTH-LOCAL-ACCOUNTING-NOT-PRODUCTION",
+            "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+            "period_id": "2026-10",
+            "effective_at": "2026-10-20T12:00:00Z",
+            "booking_at": "2026-10-20T12:00:00Z",
+            "value_date": "2026-10-20",
+            "reversal_of": null,
+            "correction_of": null,
+            "post_close_authorized": false,
+            "postings": [
+              {
+                "account_ref": "expense",
+                "direction": "DEBIT",
+                "amount_minor": "1000",
+                "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              },
+              {
+                "account_ref": "cash",
+                "direction": "CREDIT",
+                "amount_minor": "1000",
+                "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              }
+            ],
+            "post_close_authorization_ref": null
+          }
+        ],
+        "account_profiles": [
+          {
+            "account_ref": "cash",
+            "normal_side": "DEBIT",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "equity",
+            "normal_side": "CREDIT",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "revenue",
+            "normal_side": "CREDIT",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "expense",
+            "normal_side": "DEBIT",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          }
+        ],
+        "prior_close": {
+          "period_id": "2026-09",
+          "close_commitment": "0000000000000000000000000000000000000000000000000000000000002336",
+          "present": true,
+          "account_balances": [
+            {
+              "account_ref": "cash",
+              "amount_minor": "10000",
+              "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+            },
+            {
+              "account_ref": "equity",
+              "amount_minor": "10000",
+              "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+            },
+            {
+              "account_ref": "revenue",
+              "amount_minor": "0",
+              "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+            },
+            {
+              "account_ref": "expense",
+              "amount_minor": "0",
+              "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+            }
+          ]
+        },
+        "opening_balances": [
+          {
+            "account_ref": "cash",
+            "amount_minor": "10001",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "equity",
+            "amount_minor": "10000",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "revenue",
+            "amount_minor": "0",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "expense",
+            "amount_minor": "0",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          }
+        ],
+        "closing_balances": [
+          {
+            "account_ref": "cash",
+            "amount_minor": "11000",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "equity",
+            "amount_minor": "10000",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "revenue",
+            "amount_minor": "2000",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "expense",
+            "amount_minor": "1000",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "FJS-015",
+      "task": "Do not certify a period when its predecessor close is absent.",
+      "manifest": {
+        "schema_id": "fin-journal-set-manifest.v1",
+        "journal_set_id": "jset-015",
+        "set_version": "1",
+        "scope": {
+          "reporting_entity": "entity-synth-001",
+          "ledger_id": "ledger-synth-001",
+          "accounting_profile_ref": "SYNTH-LOCAL-ACCOUNTING-NOT-PRODUCTION",
+          "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+          "period_id": "2026-10",
+          "period_start": "2026-10-01",
+          "period_end": "2026-10-31",
+          "close_cutoff": "2026-11-03T23:59:59Z",
+          "knowledge_at": "2026-11-04T00:00:00Z"
+        },
+        "source_population": {
+          "qualification_state": "complete",
+          "frontier_ref": "frontier-synthetic-001",
+          "expected_event_commitment": "0000000000000000000000000000000000000000000000000000000000003048",
+          "closed_event_commitment": "0000000000000000000000000000000000000000000000000000000000003048",
+          "expected_event_refs": [
+            "event-001",
+            "event-002"
+          ]
+        },
+        "events": [
+          {
+            "event_ref": "event-001",
+            "terminal_treatment": "journal_required",
+            "authorization_ref": null,
+            "reason_ref": null
+          },
+          {
+            "event_ref": "event-002",
+            "terminal_treatment": "journal_required",
+            "authorization_ref": null,
+            "reason_ref": null
+          }
+        ],
+        "journals": [
+          {
+            "journal_id": "journal-001",
+            "payload_digest_token": "0000000000000000000000000000000000000000000000000000000000000073",
+            "economic_event_ref": "event-001",
+            "entity_ref": "entity-synth-001",
+            "ledger_id": "ledger-synth-001",
+            "accounting_profile_ref": "SYNTH-LOCAL-ACCOUNTING-NOT-PRODUCTION",
+            "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+            "period_id": "2026-10",
+            "effective_at": "2026-10-15T12:00:00Z",
+            "booking_at": "2026-10-15T12:00:00Z",
+            "value_date": "2026-10-15",
+            "reversal_of": null,
+            "correction_of": null,
+            "post_close_authorized": false,
+            "postings": [
+              {
+                "account_ref": "cash",
+                "direction": "DEBIT",
+                "amount_minor": "2000",
+                "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              },
+              {
+                "account_ref": "revenue",
+                "direction": "CREDIT",
+                "amount_minor": "2000",
+                "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              }
+            ],
+            "post_close_authorization_ref": null
+          },
+          {
+            "journal_id": "journal-002",
+            "payload_digest_token": "00000000000000000000000000000000000000000000000000000000000000d7",
+            "economic_event_ref": "event-002",
+            "entity_ref": "entity-synth-001",
+            "ledger_id": "ledger-synth-001",
+            "accounting_profile_ref": "SYNTH-LOCAL-ACCOUNTING-NOT-PRODUCTION",
+            "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+            "period_id": "2026-10",
+            "effective_at": "2026-10-20T12:00:00Z",
+            "booking_at": "2026-10-20T12:00:00Z",
+            "value_date": "2026-10-20",
+            "reversal_of": null,
+            "correction_of": null,
+            "post_close_authorized": false,
+            "postings": [
+              {
+                "account_ref": "expense",
+                "direction": "DEBIT",
+                "amount_minor": "1000",
+                "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              },
+              {
+                "account_ref": "cash",
+                "direction": "CREDIT",
+                "amount_minor": "1000",
+                "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              }
+            ],
+            "post_close_authorization_ref": null
+          }
+        ],
+        "account_profiles": [
+          {
+            "account_ref": "cash",
+            "normal_side": "DEBIT",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "equity",
+            "normal_side": "CREDIT",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "revenue",
+            "normal_side": "CREDIT",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "expense",
+            "normal_side": "DEBIT",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          }
+        ],
+        "prior_close": {
+          "period_id": "2026-09",
+          "close_commitment": "0000000000000000000000000000000000000000000000000000000000002337",
+          "present": false,
+          "account_balances": [
+            {
+              "account_ref": "cash",
+              "amount_minor": "10000",
+              "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+            },
+            {
+              "account_ref": "equity",
+              "amount_minor": "10000",
+              "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+            },
+            {
+              "account_ref": "revenue",
+              "amount_minor": "0",
+              "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+            },
+            {
+              "account_ref": "expense",
+              "amount_minor": "0",
+              "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+            }
+          ]
+        },
+        "opening_balances": [
+          {
+            "account_ref": "cash",
+            "amount_minor": "10000",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "equity",
+            "amount_minor": "10000",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "revenue",
+            "amount_minor": "0",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "expense",
+            "amount_minor": "0",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          }
+        ],
+        "closing_balances": [
+          {
+            "account_ref": "cash",
+            "amount_minor": "11000",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "equity",
+            "amount_minor": "10000",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "revenue",
+            "amount_minor": "2000",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "expense",
+            "amount_minor": "1000",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "FJS-016",
+      "task": "Preserve booking time separately from a prior value date for an authorized late booking.",
+      "manifest": {
+        "schema_id": "fin-journal-set-manifest.v1",
+        "journal_set_id": "jset-016",
+        "set_version": "1",
+        "scope": {
+          "reporting_entity": "entity-synth-001",
+          "ledger_id": "ledger-synth-001",
+          "accounting_profile_ref": "SYNTH-LOCAL-ACCOUNTING-NOT-PRODUCTION",
+          "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+          "period_id": "2026-10",
+          "period_start": "2026-10-01",
+          "period_end": "2026-10-31",
+          "close_cutoff": "2026-11-03T23:59:59Z",
+          "knowledge_at": "2026-11-04T00:00:00Z"
+        },
+        "source_population": {
+          "qualification_state": "complete",
+          "frontier_ref": "frontier-synthetic-001",
+          "expected_event_commitment": "0000000000000000000000000000000000000000000000000000000000003049",
+          "closed_event_commitment": "0000000000000000000000000000000000000000000000000000000000003049",
+          "expected_event_refs": [
+            "event-001",
+            "event-002",
+            "event-late"
+          ]
+        },
+        "events": [
+          {
+            "event_ref": "event-001",
+            "terminal_treatment": "journal_required",
+            "authorization_ref": null,
+            "reason_ref": null
+          },
+          {
+            "event_ref": "event-002",
+            "terminal_treatment": "journal_required",
+            "authorization_ref": null,
+            "reason_ref": null
+          },
+          {
+            "event_ref": "event-late",
+            "terminal_treatment": "journal_required",
+            "authorization_ref": null,
+            "reason_ref": null
+          }
+        ],
+        "journals": [
+          {
+            "journal_id": "journal-001",
+            "payload_digest_token": "0000000000000000000000000000000000000000000000000000000000000074",
+            "economic_event_ref": "event-001",
+            "entity_ref": "entity-synth-001",
+            "ledger_id": "ledger-synth-001",
+            "accounting_profile_ref": "SYNTH-LOCAL-ACCOUNTING-NOT-PRODUCTION",
+            "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+            "period_id": "2026-10",
+            "effective_at": "2026-10-15T12:00:00Z",
+            "booking_at": "2026-10-15T12:00:00Z",
+            "value_date": "2026-10-15",
+            "reversal_of": null,
+            "correction_of": null,
+            "post_close_authorized": false,
+            "postings": [
+              {
+                "account_ref": "cash",
+                "direction": "DEBIT",
+                "amount_minor": "2000",
+                "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              },
+              {
+                "account_ref": "revenue",
+                "direction": "CREDIT",
+                "amount_minor": "2000",
+                "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              }
+            ],
+            "post_close_authorization_ref": null
+          },
+          {
+            "journal_id": "journal-002",
+            "payload_digest_token": "00000000000000000000000000000000000000000000000000000000000000d8",
+            "economic_event_ref": "event-002",
+            "entity_ref": "entity-synth-001",
+            "ledger_id": "ledger-synth-001",
+            "accounting_profile_ref": "SYNTH-LOCAL-ACCOUNTING-NOT-PRODUCTION",
+            "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+            "period_id": "2026-10",
+            "effective_at": "2026-10-20T12:00:00Z",
+            "booking_at": "2026-10-20T12:00:00Z",
+            "value_date": "2026-10-20",
+            "reversal_of": null,
+            "correction_of": null,
+            "post_close_authorized": false,
+            "postings": [
+              {
+                "account_ref": "expense",
+                "direction": "DEBIT",
+                "amount_minor": "1000",
+                "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              },
+              {
+                "account_ref": "cash",
+                "direction": "CREDIT",
+                "amount_minor": "1000",
+                "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              }
+            ],
+            "post_close_authorization_ref": null
+          },
+          {
+            "journal_id": "journal-late",
+            "payload_digest_token": "00000000000000000000000000000000000000000000000000000000000bdb38",
+            "economic_event_ref": "event-late",
+            "entity_ref": "entity-synth-001",
+            "ledger_id": "ledger-synth-001",
+            "accounting_profile_ref": "SYNTH-LOCAL-ACCOUNTING-NOT-PRODUCTION",
+            "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+            "period_id": "2026-10",
+            "effective_at": "2026-10-31T23:00:00Z",
+            "booking_at": "2026-11-04T08:00:00Z",
+            "value_date": "2026-10-30",
+            "reversal_of": null,
+            "correction_of": null,
+            "post_close_authorized": true,
+            "postings": [
+              {
+                "account_ref": "cash",
+                "direction": "DEBIT",
+                "amount_minor": "500",
+                "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              },
+              {
+                "account_ref": "customer-deposit-liability",
+                "direction": "CREDIT",
+                "amount_minor": "500",
+                "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              }
+            ],
+            "post_close_authorization_ref": "reopen-authorization-016"
+          }
+        ],
+        "account_profiles": [
+          {
+            "account_ref": "cash",
+            "normal_side": "DEBIT",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "equity",
+            "normal_side": "CREDIT",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "revenue",
+            "normal_side": "CREDIT",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "expense",
+            "normal_side": "DEBIT",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "customer-deposit-liability",
+            "normal_side": "CREDIT",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          }
+        ],
+        "prior_close": {
+          "period_id": "2026-09",
+          "close_commitment": "0000000000000000000000000000000000000000000000000000000000002338",
+          "present": true,
+          "account_balances": [
+            {
+              "account_ref": "cash",
+              "amount_minor": "10000",
+              "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+            },
+            {
+              "account_ref": "equity",
+              "amount_minor": "10000",
+              "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+            },
+            {
+              "account_ref": "revenue",
+              "amount_minor": "0",
+              "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+            },
+            {
+              "account_ref": "expense",
+              "amount_minor": "0",
+              "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+            },
+            {
+              "account_ref": "customer-deposit-liability",
+              "amount_minor": "0",
+              "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+            }
+          ]
+        },
+        "opening_balances": [
+          {
+            "account_ref": "cash",
+            "amount_minor": "10000",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "equity",
+            "amount_minor": "10000",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "revenue",
+            "amount_minor": "0",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "expense",
+            "amount_minor": "0",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "customer-deposit-liability",
+            "amount_minor": "0",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          }
+        ],
+        "closing_balances": [
+          {
+            "account_ref": "cash",
+            "amount_minor": "11500",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "equity",
+            "amount_minor": "10000",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "revenue",
+            "amount_minor": "2000",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "expense",
+            "amount_minor": "1000",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "customer-deposit-liability",
+            "amount_minor": "500",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "FJS-017",
+      "task": "Accept an append-only reversal linked to an original journal and bounded by the original posting.",
+      "manifest": {
+        "schema_id": "fin-journal-set-manifest.v1",
+        "journal_set_id": "jset-017",
+        "set_version": "1",
+        "scope": {
+          "reporting_entity": "entity-synth-001",
+          "ledger_id": "ledger-synth-001",
+          "accounting_profile_ref": "SYNTH-LOCAL-ACCOUNTING-NOT-PRODUCTION",
+          "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+          "period_id": "2026-10",
+          "period_start": "2026-10-01",
+          "period_end": "2026-10-31",
+          "close_cutoff": "2026-11-03T23:59:59Z",
+          "knowledge_at": "2026-11-04T00:00:00Z"
+        },
+        "source_population": {
+          "qualification_state": "complete",
+          "frontier_ref": "frontier-synthetic-001",
+          "expected_event_commitment": "000000000000000000000000000000000000000000000000000000000000304a",
+          "closed_event_commitment": "000000000000000000000000000000000000000000000000000000000000304a",
+          "expected_event_refs": [
+            "event-001",
+            "event-002",
+            "event-reversal"
+          ]
+        },
+        "events": [
+          {
+            "event_ref": "event-001",
+            "terminal_treatment": "journal_required",
+            "authorization_ref": null,
+            "reason_ref": null
+          },
+          {
+            "event_ref": "event-002",
+            "terminal_treatment": "journal_required",
+            "authorization_ref": null,
+            "reason_ref": null
+          },
+          {
+            "event_ref": "event-reversal",
+            "terminal_treatment": "journal_required",
+            "authorization_ref": null,
+            "reason_ref": null
+          }
+        ],
+        "journals": [
+          {
+            "journal_id": "journal-001",
+            "payload_digest_token": "0000000000000000000000000000000000000000000000000000000000000075",
+            "economic_event_ref": "event-001",
+            "entity_ref": "entity-synth-001",
+            "ledger_id": "ledger-synth-001",
+            "accounting_profile_ref": "SYNTH-LOCAL-ACCOUNTING-NOT-PRODUCTION",
+            "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+            "period_id": "2026-10",
+            "effective_at": "2026-10-15T12:00:00Z",
+            "booking_at": "2026-10-15T12:00:00Z",
+            "value_date": "2026-10-15",
+            "reversal_of": null,
+            "correction_of": null,
+            "post_close_authorized": false,
+            "postings": [
+              {
+                "account_ref": "cash",
+                "direction": "DEBIT",
+                "amount_minor": "2000",
+                "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              },
+              {
+                "account_ref": "revenue",
+                "direction": "CREDIT",
+                "amount_minor": "2000",
+                "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              }
+            ],
+            "post_close_authorization_ref": null
+          },
+          {
+            "journal_id": "journal-002",
+            "payload_digest_token": "00000000000000000000000000000000000000000000000000000000000000d9",
+            "economic_event_ref": "event-002",
+            "entity_ref": "entity-synth-001",
+            "ledger_id": "ledger-synth-001",
+            "accounting_profile_ref": "SYNTH-LOCAL-ACCOUNTING-NOT-PRODUCTION",
+            "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+            "period_id": "2026-10",
+            "effective_at": "2026-10-20T12:00:00Z",
+            "booking_at": "2026-10-20T12:00:00Z",
+            "value_date": "2026-10-20",
+            "reversal_of": null,
+            "correction_of": null,
+            "post_close_authorized": false,
+            "postings": [
+              {
+                "account_ref": "expense",
+                "direction": "DEBIT",
+                "amount_minor": "1000",
+                "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              },
+              {
+                "account_ref": "cash",
+                "direction": "CREDIT",
+                "amount_minor": "1000",
+                "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              }
+            ],
+            "post_close_authorization_ref": null
+          },
+          {
+            "journal_id": "journal-reversal",
+            "payload_digest_token": "00000000000000000000000000000000000000000000000000000000000bdb39",
+            "economic_event_ref": "event-reversal",
+            "entity_ref": "entity-synth-001",
+            "ledger_id": "ledger-synth-001",
+            "accounting_profile_ref": "SYNTH-LOCAL-ACCOUNTING-NOT-PRODUCTION",
+            "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+            "period_id": "2026-10",
+            "effective_at": "2026-10-25T12:00:00Z",
+            "booking_at": "2026-10-25T12:00:00Z",
+            "value_date": "2026-10-25",
+            "reversal_of": "journal-001",
+            "correction_of": null,
+            "post_close_authorized": false,
+            "postings": [
+              {
+                "account_ref": "cash",
+                "direction": "CREDIT",
+                "amount_minor": "2000",
+                "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              },
+              {
+                "account_ref": "revenue",
+                "direction": "DEBIT",
+                "amount_minor": "2000",
+                "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              }
+            ],
+            "post_close_authorization_ref": null
+          }
+        ],
+        "account_profiles": [
+          {
+            "account_ref": "cash",
+            "normal_side": "DEBIT",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "equity",
+            "normal_side": "CREDIT",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "revenue",
+            "normal_side": "CREDIT",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "expense",
+            "normal_side": "DEBIT",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          }
+        ],
+        "prior_close": {
+          "period_id": "2026-09",
+          "close_commitment": "0000000000000000000000000000000000000000000000000000000000002339",
+          "present": true,
+          "account_balances": [
+            {
+              "account_ref": "cash",
+              "amount_minor": "10000",
+              "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+            },
+            {
+              "account_ref": "equity",
+              "amount_minor": "10000",
+              "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+            },
+            {
+              "account_ref": "revenue",
+              "amount_minor": "0",
+              "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+            },
+            {
+              "account_ref": "expense",
+              "amount_minor": "0",
+              "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+            }
+          ]
+        },
+        "opening_balances": [
+          {
+            "account_ref": "cash",
+            "amount_minor": "10000",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "equity",
+            "amount_minor": "10000",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "revenue",
+            "amount_minor": "0",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "expense",
+            "amount_minor": "0",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          }
+        ],
+        "closing_balances": [
+          {
+            "account_ref": "cash",
+            "amount_minor": "9000",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "equity",
+            "amount_minor": "10000",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "revenue",
+            "amount_minor": "0",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "expense",
+            "amount_minor": "1000",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "FJS-018",
+      "task": "Reject a balanced reversal whose amount exceeds its original journal.",
+      "manifest": {
+        "schema_id": "fin-journal-set-manifest.v1",
+        "journal_set_id": "jset-018",
+        "set_version": "1",
+        "scope": {
+          "reporting_entity": "entity-synth-001",
+          "ledger_id": "ledger-synth-001",
+          "accounting_profile_ref": "SYNTH-LOCAL-ACCOUNTING-NOT-PRODUCTION",
+          "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+          "period_id": "2026-10",
+          "period_start": "2026-10-01",
+          "period_end": "2026-10-31",
+          "close_cutoff": "2026-11-03T23:59:59Z",
+          "knowledge_at": "2026-11-04T00:00:00Z"
+        },
+        "source_population": {
+          "qualification_state": "complete",
+          "frontier_ref": "frontier-synthetic-001",
+          "expected_event_commitment": "000000000000000000000000000000000000000000000000000000000000304b",
+          "closed_event_commitment": "000000000000000000000000000000000000000000000000000000000000304b",
+          "expected_event_refs": [
+            "event-001",
+            "event-002",
+            "event-reversal"
+          ]
+        },
+        "events": [
+          {
+            "event_ref": "event-001",
+            "terminal_treatment": "journal_required",
+            "authorization_ref": null,
+            "reason_ref": null
+          },
+          {
+            "event_ref": "event-002",
+            "terminal_treatment": "journal_required",
+            "authorization_ref": null,
+            "reason_ref": null
+          },
+          {
+            "event_ref": "event-reversal",
+            "terminal_treatment": "journal_required",
+            "authorization_ref": null,
+            "reason_ref": null
+          }
+        ],
+        "journals": [
+          {
+            "journal_id": "journal-001",
+            "payload_digest_token": "0000000000000000000000000000000000000000000000000000000000000076",
+            "economic_event_ref": "event-001",
+            "entity_ref": "entity-synth-001",
+            "ledger_id": "ledger-synth-001",
+            "accounting_profile_ref": "SYNTH-LOCAL-ACCOUNTING-NOT-PRODUCTION",
+            "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+            "period_id": "2026-10",
+            "effective_at": "2026-10-15T12:00:00Z",
+            "booking_at": "2026-10-15T12:00:00Z",
+            "value_date": "2026-10-15",
+            "reversal_of": null,
+            "correction_of": null,
+            "post_close_authorized": false,
+            "postings": [
+              {
+                "account_ref": "cash",
+                "direction": "DEBIT",
+                "amount_minor": "2000",
+                "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              },
+              {
+                "account_ref": "revenue",
+                "direction": "CREDIT",
+                "amount_minor": "2000",
+                "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              }
+            ],
+            "post_close_authorization_ref": null
+          },
+          {
+            "journal_id": "journal-002",
+            "payload_digest_token": "00000000000000000000000000000000000000000000000000000000000000da",
+            "economic_event_ref": "event-002",
+            "entity_ref": "entity-synth-001",
+            "ledger_id": "ledger-synth-001",
+            "accounting_profile_ref": "SYNTH-LOCAL-ACCOUNTING-NOT-PRODUCTION",
+            "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+            "period_id": "2026-10",
+            "effective_at": "2026-10-20T12:00:00Z",
+            "booking_at": "2026-10-20T12:00:00Z",
+            "value_date": "2026-10-20",
+            "reversal_of": null,
+            "correction_of": null,
+            "post_close_authorized": false,
+            "postings": [
+              {
+                "account_ref": "expense",
+                "direction": "DEBIT",
+                "amount_minor": "1000",
+                "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              },
+              {
+                "account_ref": "cash",
+                "direction": "CREDIT",
+                "amount_minor": "1000",
+                "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              }
+            ],
+            "post_close_authorization_ref": null
+          },
+          {
+            "journal_id": "journal-reversal",
+            "payload_digest_token": "00000000000000000000000000000000000000000000000000000000000bdb3a",
+            "economic_event_ref": "event-reversal",
+            "entity_ref": "entity-synth-001",
+            "ledger_id": "ledger-synth-001",
+            "accounting_profile_ref": "SYNTH-LOCAL-ACCOUNTING-NOT-PRODUCTION",
+            "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+            "period_id": "2026-10",
+            "effective_at": "2026-10-25T12:00:00Z",
+            "booking_at": "2026-10-25T12:00:00Z",
+            "value_date": "2026-10-25",
+            "reversal_of": "journal-001",
+            "correction_of": null,
+            "post_close_authorized": false,
+            "postings": [
+              {
+                "account_ref": "cash",
+                "direction": "CREDIT",
+                "amount_minor": "2001",
+                "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              },
+              {
+                "account_ref": "revenue",
+                "direction": "DEBIT",
+                "amount_minor": "2001",
+                "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              }
+            ],
+            "post_close_authorization_ref": null
+          }
+        ],
+        "account_profiles": [
+          {
+            "account_ref": "cash",
+            "normal_side": "DEBIT",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "equity",
+            "normal_side": "CREDIT",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "revenue",
+            "normal_side": "CREDIT",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "expense",
+            "normal_side": "DEBIT",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          }
+        ],
+        "prior_close": {
+          "period_id": "2026-09",
+          "close_commitment": "000000000000000000000000000000000000000000000000000000000000233a",
+          "present": true,
+          "account_balances": [
+            {
+              "account_ref": "cash",
+              "amount_minor": "10000",
+              "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+            },
+            {
+              "account_ref": "equity",
+              "amount_minor": "10000",
+              "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+            },
+            {
+              "account_ref": "revenue",
+              "amount_minor": "0",
+              "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+            },
+            {
+              "account_ref": "expense",
+              "amount_minor": "0",
+              "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+            }
+          ]
+        },
+        "opening_balances": [
+          {
+            "account_ref": "cash",
+            "amount_minor": "10000",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "equity",
+            "amount_minor": "10000",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "revenue",
+            "amount_minor": "0",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "expense",
+            "amount_minor": "0",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          }
+        ],
+        "closing_balances": [
+          {
+            "account_ref": "cash",
+            "amount_minor": "11000",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "equity",
+            "amount_minor": "10000",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "revenue",
+            "amount_minor": "2000",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "expense",
+            "amount_minor": "1000",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "FJS-019",
+      "task": "Reject a correction that references an absent original journal.",
+      "manifest": {
+        "schema_id": "fin-journal-set-manifest.v1",
+        "journal_set_id": "jset-019",
+        "set_version": "1",
+        "scope": {
+          "reporting_entity": "entity-synth-001",
+          "ledger_id": "ledger-synth-001",
+          "accounting_profile_ref": "SYNTH-LOCAL-ACCOUNTING-NOT-PRODUCTION",
+          "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+          "period_id": "2026-10",
+          "period_start": "2026-10-01",
+          "period_end": "2026-10-31",
+          "close_cutoff": "2026-11-03T23:59:59Z",
+          "knowledge_at": "2026-11-04T00:00:00Z"
+        },
+        "source_population": {
+          "qualification_state": "complete",
+          "frontier_ref": "frontier-synthetic-001",
+          "expected_event_commitment": "000000000000000000000000000000000000000000000000000000000000304c",
+          "closed_event_commitment": "000000000000000000000000000000000000000000000000000000000000304c",
+          "expected_event_refs": [
+            "event-001",
+            "event-002"
+          ]
+        },
+        "events": [
+          {
+            "event_ref": "event-001",
+            "terminal_treatment": "journal_required",
+            "authorization_ref": null,
+            "reason_ref": null
+          },
+          {
+            "event_ref": "event-002",
+            "terminal_treatment": "journal_required",
+            "authorization_ref": null,
+            "reason_ref": null
+          }
+        ],
+        "journals": [
+          {
+            "journal_id": "journal-002",
+            "payload_digest_token": "00000000000000000000000000000000000000000000000000000000000000db",
+            "economic_event_ref": "event-002",
+            "entity_ref": "entity-synth-001",
+            "ledger_id": "ledger-synth-001",
+            "accounting_profile_ref": "SYNTH-LOCAL-ACCOUNTING-NOT-PRODUCTION",
+            "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+            "period_id": "2026-10",
+            "effective_at": "2026-10-20T12:00:00Z",
+            "booking_at": "2026-10-20T12:00:00Z",
+            "value_date": "2026-10-20",
+            "reversal_of": null,
+            "correction_of": "journal-001",
+            "post_close_authorized": false,
+            "postings": [
+              {
+                "account_ref": "expense",
+                "direction": "DEBIT",
+                "amount_minor": "1000",
+                "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              },
+              {
+                "account_ref": "cash",
+                "direction": "CREDIT",
+                "amount_minor": "1000",
+                "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              }
+            ],
+            "post_close_authorization_ref": null
+          }
+        ],
+        "account_profiles": [
+          {
+            "account_ref": "cash",
+            "normal_side": "DEBIT",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "equity",
+            "normal_side": "CREDIT",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "revenue",
+            "normal_side": "CREDIT",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "expense",
+            "normal_side": "DEBIT",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          }
+        ],
+        "prior_close": {
+          "period_id": "2026-09",
+          "close_commitment": "000000000000000000000000000000000000000000000000000000000000233b",
+          "present": true,
+          "account_balances": [
+            {
+              "account_ref": "cash",
+              "amount_minor": "10000",
+              "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+            },
+            {
+              "account_ref": "equity",
+              "amount_minor": "10000",
+              "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+            },
+            {
+              "account_ref": "revenue",
+              "amount_minor": "0",
+              "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+            },
+            {
+              "account_ref": "expense",
+              "amount_minor": "0",
+              "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+            }
+          ]
+        },
+        "opening_balances": [
+          {
+            "account_ref": "cash",
+            "amount_minor": "10000",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "equity",
+            "amount_minor": "10000",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "revenue",
+            "amount_minor": "0",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "expense",
+            "amount_minor": "0",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          }
+        ],
+        "closing_balances": [
+          {
+            "account_ref": "cash",
+            "amount_minor": "11000",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "equity",
+            "amount_minor": "10000",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "revenue",
+            "amount_minor": "2000",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "expense",
+            "amount_minor": "1000",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "FJS-020",
+      "task": "Block a journal after the close cutoff without explicit post-close authorization.",
+      "manifest": {
+        "schema_id": "fin-journal-set-manifest.v1",
+        "journal_set_id": "jset-020",
+        "set_version": "1",
+        "scope": {
+          "reporting_entity": "entity-synth-001",
+          "ledger_id": "ledger-synth-001",
+          "accounting_profile_ref": "SYNTH-LOCAL-ACCOUNTING-NOT-PRODUCTION",
+          "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+          "period_id": "2026-10",
+          "period_start": "2026-10-01",
+          "period_end": "2026-10-31",
+          "close_cutoff": "2026-11-03T23:59:59Z",
+          "knowledge_at": "2026-11-04T00:00:00Z"
+        },
+        "source_population": {
+          "qualification_state": "complete",
+          "frontier_ref": "frontier-synthetic-001",
+          "expected_event_commitment": "000000000000000000000000000000000000000000000000000000000000304d",
+          "closed_event_commitment": "000000000000000000000000000000000000000000000000000000000000304d",
+          "expected_event_refs": [
+            "event-001",
+            "event-002"
+          ]
+        },
+        "events": [
+          {
+            "event_ref": "event-001",
+            "terminal_treatment": "journal_required",
+            "authorization_ref": null,
+            "reason_ref": null
+          },
+          {
+            "event_ref": "event-002",
+            "terminal_treatment": "journal_required",
+            "authorization_ref": null,
+            "reason_ref": null
+          }
+        ],
+        "journals": [
+          {
+            "journal_id": "journal-001",
+            "payload_digest_token": "0000000000000000000000000000000000000000000000000000000000000078",
+            "economic_event_ref": "event-001",
+            "entity_ref": "entity-synth-001",
+            "ledger_id": "ledger-synth-001",
+            "accounting_profile_ref": "SYNTH-LOCAL-ACCOUNTING-NOT-PRODUCTION",
+            "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+            "period_id": "2026-10",
+            "effective_at": "2026-10-15T12:00:00Z",
+            "booking_at": "2026-10-15T12:00:00Z",
+            "value_date": "2026-10-15",
+            "reversal_of": null,
+            "correction_of": null,
+            "post_close_authorized": false,
+            "postings": [
+              {
+                "account_ref": "cash",
+                "direction": "DEBIT",
+                "amount_minor": "2000",
+                "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              },
+              {
+                "account_ref": "revenue",
+                "direction": "CREDIT",
+                "amount_minor": "2000",
+                "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              }
+            ],
+            "post_close_authorization_ref": null
+          },
+          {
+            "journal_id": "journal-002",
+            "payload_digest_token": "00000000000000000000000000000000000000000000000000000000000000dc",
+            "economic_event_ref": "event-002",
+            "entity_ref": "entity-synth-001",
+            "ledger_id": "ledger-synth-001",
+            "accounting_profile_ref": "SYNTH-LOCAL-ACCOUNTING-NOT-PRODUCTION",
+            "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+            "period_id": "2026-10",
+            "effective_at": "2026-11-04T01:00:00Z",
+            "booking_at": "2026-10-20T12:00:00Z",
+            "value_date": "2026-10-20",
+            "reversal_of": null,
+            "correction_of": null,
+            "post_close_authorized": false,
+            "postings": [
+              {
+                "account_ref": "expense",
+                "direction": "DEBIT",
+                "amount_minor": "1000",
+                "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              },
+              {
+                "account_ref": "cash",
+                "direction": "CREDIT",
+                "amount_minor": "1000",
+                "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              }
+            ],
+            "post_close_authorization_ref": null
+          }
+        ],
+        "account_profiles": [
+          {
+            "account_ref": "cash",
+            "normal_side": "DEBIT",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "equity",
+            "normal_side": "CREDIT",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "revenue",
+            "normal_side": "CREDIT",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "expense",
+            "normal_side": "DEBIT",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          }
+        ],
+        "prior_close": {
+          "period_id": "2026-09",
+          "close_commitment": "000000000000000000000000000000000000000000000000000000000000233c",
+          "present": true,
+          "account_balances": [
+            {
+              "account_ref": "cash",
+              "amount_minor": "10000",
+              "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+            },
+            {
+              "account_ref": "equity",
+              "amount_minor": "10000",
+              "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+            },
+            {
+              "account_ref": "revenue",
+              "amount_minor": "0",
+              "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+            },
+            {
+              "account_ref": "expense",
+              "amount_minor": "0",
+              "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+            }
+          ]
+        },
+        "opening_balances": [
+          {
+            "account_ref": "cash",
+            "amount_minor": "10000",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "equity",
+            "amount_minor": "10000",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "revenue",
+            "amount_minor": "0",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "expense",
+            "amount_minor": "0",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          }
+        ],
+        "closing_balances": [
+          {
+            "account_ref": "cash",
+            "amount_minor": "11000",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "equity",
+            "amount_minor": "10000",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "revenue",
+            "amount_minor": "2000",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "expense",
+            "amount_minor": "1000",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "FJS-021",
+      "task": "Reject a posting account absent from the pinned account profile.",
+      "manifest": {
+        "schema_id": "fin-journal-set-manifest.v1",
+        "journal_set_id": "jset-021",
+        "set_version": "1",
+        "scope": {
+          "reporting_entity": "entity-synth-001",
+          "ledger_id": "ledger-synth-001",
+          "accounting_profile_ref": "SYNTH-LOCAL-ACCOUNTING-NOT-PRODUCTION",
+          "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+          "period_id": "2026-10",
+          "period_start": "2026-10-01",
+          "period_end": "2026-10-31",
+          "close_cutoff": "2026-11-03T23:59:59Z",
+          "knowledge_at": "2026-11-04T00:00:00Z"
+        },
+        "source_population": {
+          "qualification_state": "complete",
+          "frontier_ref": "frontier-synthetic-001",
+          "expected_event_commitment": "000000000000000000000000000000000000000000000000000000000000304e",
+          "closed_event_commitment": "000000000000000000000000000000000000000000000000000000000000304e",
+          "expected_event_refs": [
+            "event-001",
+            "event-002"
+          ]
+        },
+        "events": [
+          {
+            "event_ref": "event-001",
+            "terminal_treatment": "journal_required",
+            "authorization_ref": null,
+            "reason_ref": null
+          },
+          {
+            "event_ref": "event-002",
+            "terminal_treatment": "journal_required",
+            "authorization_ref": null,
+            "reason_ref": null
+          }
+        ],
+        "journals": [
+          {
+            "journal_id": "journal-001",
+            "payload_digest_token": "0000000000000000000000000000000000000000000000000000000000000079",
+            "economic_event_ref": "event-001",
+            "entity_ref": "entity-synth-001",
+            "ledger_id": "ledger-synth-001",
+            "accounting_profile_ref": "SYNTH-LOCAL-ACCOUNTING-NOT-PRODUCTION",
+            "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+            "period_id": "2026-10",
+            "effective_at": "2026-10-15T12:00:00Z",
+            "booking_at": "2026-10-15T12:00:00Z",
+            "value_date": "2026-10-15",
+            "reversal_of": null,
+            "correction_of": null,
+            "post_close_authorized": false,
+            "postings": [
+              {
+                "account_ref": "cash",
+                "direction": "DEBIT",
+                "amount_minor": "2000",
+                "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              },
+              {
+                "account_ref": "revenue",
+                "direction": "CREDIT",
+                "amount_minor": "2000",
+                "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              }
+            ],
+            "post_close_authorization_ref": null
+          },
+          {
+            "journal_id": "journal-002",
+            "payload_digest_token": "00000000000000000000000000000000000000000000000000000000000000dd",
+            "economic_event_ref": "event-002",
+            "entity_ref": "entity-synth-001",
+            "ledger_id": "ledger-synth-001",
+            "accounting_profile_ref": "SYNTH-LOCAL-ACCOUNTING-NOT-PRODUCTION",
+            "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+            "period_id": "2026-10",
+            "effective_at": "2026-10-20T12:00:00Z",
+            "booking_at": "2026-10-20T12:00:00Z",
+            "value_date": "2026-10-20",
+            "reversal_of": null,
+            "correction_of": null,
+            "post_close_authorized": false,
+            "postings": [
+              {
+                "account_ref": "account-unmapped",
+                "direction": "DEBIT",
+                "amount_minor": "1000",
+                "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              },
+              {
+                "account_ref": "cash",
+                "direction": "CREDIT",
+                "amount_minor": "1000",
+                "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              }
+            ],
+            "post_close_authorization_ref": null
+          }
+        ],
+        "account_profiles": [
+          {
+            "account_ref": "cash",
+            "normal_side": "DEBIT",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "equity",
+            "normal_side": "CREDIT",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "revenue",
+            "normal_side": "CREDIT",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "expense",
+            "normal_side": "DEBIT",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          }
+        ],
+        "prior_close": {
+          "period_id": "2026-09",
+          "close_commitment": "000000000000000000000000000000000000000000000000000000000000233d",
+          "present": true,
+          "account_balances": [
+            {
+              "account_ref": "cash",
+              "amount_minor": "10000",
+              "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+            },
+            {
+              "account_ref": "equity",
+              "amount_minor": "10000",
+              "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+            },
+            {
+              "account_ref": "revenue",
+              "amount_minor": "0",
+              "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+            },
+            {
+              "account_ref": "expense",
+              "amount_minor": "0",
+              "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+            }
+          ]
+        },
+        "opening_balances": [
+          {
+            "account_ref": "cash",
+            "amount_minor": "10000",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "equity",
+            "amount_minor": "10000",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "revenue",
+            "amount_minor": "0",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "expense",
+            "amount_minor": "0",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          }
+        ],
+        "closing_balances": [
+          {
+            "account_ref": "cash",
+            "amount_minor": "11000",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "equity",
+            "amount_minor": "10000",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "revenue",
+            "amount_minor": "2000",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "expense",
+            "amount_minor": "1000",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "FJS-022",
+      "task": "Mark the close stale when the source event commitment changed after the close frontier.",
+      "manifest": {
+        "schema_id": "fin-journal-set-manifest.v1",
+        "journal_set_id": "jset-022",
+        "set_version": "1",
+        "scope": {
+          "reporting_entity": "entity-synth-001",
+          "ledger_id": "ledger-synth-001",
+          "accounting_profile_ref": "SYNTH-LOCAL-ACCOUNTING-NOT-PRODUCTION",
+          "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+          "period_id": "2026-10",
+          "period_start": "2026-10-01",
+          "period_end": "2026-10-31",
+          "close_cutoff": "2026-11-03T23:59:59Z",
+          "knowledge_at": "2026-11-04T00:00:00Z"
+        },
+        "source_population": {
+          "qualification_state": "complete",
+          "frontier_ref": "frontier-synthetic-001",
+          "expected_event_commitment": "00000000000000000000000000000000000000000000000000000000000d8cd6",
+          "closed_event_commitment": "000000000000000000000000000000000000000000000000000000000000304f",
+          "expected_event_refs": [
+            "event-001",
+            "event-002"
+          ]
+        },
+        "events": [
+          {
+            "event_ref": "event-001",
+            "terminal_treatment": "journal_required",
+            "authorization_ref": null,
+            "reason_ref": null
+          },
+          {
+            "event_ref": "event-002",
+            "terminal_treatment": "journal_required",
+            "authorization_ref": null,
+            "reason_ref": null
+          }
+        ],
+        "journals": [
+          {
+            "journal_id": "journal-001",
+            "payload_digest_token": "000000000000000000000000000000000000000000000000000000000000007a",
+            "economic_event_ref": "event-001",
+            "entity_ref": "entity-synth-001",
+            "ledger_id": "ledger-synth-001",
+            "accounting_profile_ref": "SYNTH-LOCAL-ACCOUNTING-NOT-PRODUCTION",
+            "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+            "period_id": "2026-10",
+            "effective_at": "2026-10-15T12:00:00Z",
+            "booking_at": "2026-10-15T12:00:00Z",
+            "value_date": "2026-10-15",
+            "reversal_of": null,
+            "correction_of": null,
+            "post_close_authorized": false,
+            "postings": [
+              {
+                "account_ref": "cash",
+                "direction": "DEBIT",
+                "amount_minor": "2000",
+                "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              },
+              {
+                "account_ref": "revenue",
+                "direction": "CREDIT",
+                "amount_minor": "2000",
+                "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              }
+            ],
+            "post_close_authorization_ref": null
+          },
+          {
+            "journal_id": "journal-002",
+            "payload_digest_token": "00000000000000000000000000000000000000000000000000000000000000de",
+            "economic_event_ref": "event-002",
+            "entity_ref": "entity-synth-001",
+            "ledger_id": "ledger-synth-001",
+            "accounting_profile_ref": "SYNTH-LOCAL-ACCOUNTING-NOT-PRODUCTION",
+            "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+            "period_id": "2026-10",
+            "effective_at": "2026-10-20T12:00:00Z",
+            "booking_at": "2026-10-20T12:00:00Z",
+            "value_date": "2026-10-20",
+            "reversal_of": null,
+            "correction_of": null,
+            "post_close_authorized": false,
+            "postings": [
+              {
+                "account_ref": "expense",
+                "direction": "DEBIT",
+                "amount_minor": "1000",
+                "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              },
+              {
+                "account_ref": "cash",
+                "direction": "CREDIT",
+                "amount_minor": "1000",
+                "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              }
+            ],
+            "post_close_authorization_ref": null
+          }
+        ],
+        "account_profiles": [
+          {
+            "account_ref": "cash",
+            "normal_side": "DEBIT",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "equity",
+            "normal_side": "CREDIT",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "revenue",
+            "normal_side": "CREDIT",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "expense",
+            "normal_side": "DEBIT",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          }
+        ],
+        "prior_close": {
+          "period_id": "2026-09",
+          "close_commitment": "000000000000000000000000000000000000000000000000000000000000233e",
+          "present": true,
+          "account_balances": [
+            {
+              "account_ref": "cash",
+              "amount_minor": "10000",
+              "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+            },
+            {
+              "account_ref": "equity",
+              "amount_minor": "10000",
+              "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+            },
+            {
+              "account_ref": "revenue",
+              "amount_minor": "0",
+              "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+            },
+            {
+              "account_ref": "expense",
+              "amount_minor": "0",
+              "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+            }
+          ]
+        },
+        "opening_balances": [
+          {
+            "account_ref": "cash",
+            "amount_minor": "10000",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "equity",
+            "amount_minor": "10000",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "revenue",
+            "amount_minor": "0",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "expense",
+            "amount_minor": "0",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          }
+        ],
+        "closing_balances": [
+          {
+            "account_ref": "cash",
+            "amount_minor": "11000",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "equity",
+            "amount_minor": "10000",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "revenue",
+            "amount_minor": "2000",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "expense",
+            "amount_minor": "1000",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "FJS-023",
+      "task": "Verify equivalent permutations of event, journal, account and balance sets.",
+      "manifest": {
+        "schema_id": "fin-journal-set-manifest.v1",
+        "journal_set_id": "jset-023",
+        "set_version": "1",
+        "scope": {
+          "reporting_entity": "entity-synth-001",
+          "ledger_id": "ledger-synth-001",
+          "accounting_profile_ref": "SYNTH-LOCAL-ACCOUNTING-NOT-PRODUCTION",
+          "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+          "period_id": "2026-10",
+          "period_start": "2026-10-01",
+          "period_end": "2026-10-31",
+          "close_cutoff": "2026-11-03T23:59:59Z",
+          "knowledge_at": "2026-11-04T00:00:00Z"
+        },
+        "source_population": {
+          "qualification_state": "complete",
+          "frontier_ref": "frontier-synthetic-001",
+          "expected_event_commitment": "0000000000000000000000000000000000000000000000000000000000003050",
+          "closed_event_commitment": "0000000000000000000000000000000000000000000000000000000000003050",
+          "expected_event_refs": [
+            "event-001",
+            "event-002"
+          ]
+        },
+        "events": [
+          {
+            "event_ref": "event-002",
+            "terminal_treatment": "journal_required",
+            "authorization_ref": null,
+            "reason_ref": null
+          },
+          {
+            "event_ref": "event-001",
+            "terminal_treatment": "journal_required",
+            "authorization_ref": null,
+            "reason_ref": null
+          }
+        ],
+        "journals": [
+          {
+            "journal_id": "journal-002",
+            "payload_digest_token": "00000000000000000000000000000000000000000000000000000000000000df",
+            "economic_event_ref": "event-002",
+            "entity_ref": "entity-synth-001",
+            "ledger_id": "ledger-synth-001",
+            "accounting_profile_ref": "SYNTH-LOCAL-ACCOUNTING-NOT-PRODUCTION",
+            "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+            "period_id": "2026-10",
+            "effective_at": "2026-10-20T12:00:00Z",
+            "booking_at": "2026-10-20T12:00:00Z",
+            "value_date": "2026-10-20",
+            "reversal_of": null,
+            "correction_of": null,
+            "post_close_authorized": false,
+            "postings": [
+              {
+                "account_ref": "cash",
+                "direction": "CREDIT",
+                "amount_minor": "1000",
+                "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              },
+              {
+                "account_ref": "expense",
+                "direction": "DEBIT",
+                "amount_minor": "1000",
+                "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              }
+            ],
+            "post_close_authorization_ref": null
+          },
+          {
+            "journal_id": "journal-001",
+            "payload_digest_token": "000000000000000000000000000000000000000000000000000000000000007b",
+            "economic_event_ref": "event-001",
+            "entity_ref": "entity-synth-001",
+            "ledger_id": "ledger-synth-001",
+            "accounting_profile_ref": "SYNTH-LOCAL-ACCOUNTING-NOT-PRODUCTION",
+            "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+            "period_id": "2026-10",
+            "effective_at": "2026-10-15T12:00:00Z",
+            "booking_at": "2026-10-15T12:00:00Z",
+            "value_date": "2026-10-15",
+            "reversal_of": null,
+            "correction_of": null,
+            "post_close_authorized": false,
+            "postings": [
+              {
+                "account_ref": "revenue",
+                "direction": "CREDIT",
+                "amount_minor": "2000",
+                "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              },
+              {
+                "account_ref": "cash",
+                "direction": "DEBIT",
+                "amount_minor": "2000",
+                "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              }
+            ],
+            "post_close_authorization_ref": null
+          }
+        ],
+        "account_profiles": [
+          {
+            "account_ref": "expense",
+            "normal_side": "DEBIT",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "revenue",
+            "normal_side": "CREDIT",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "equity",
+            "normal_side": "CREDIT",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "cash",
+            "normal_side": "DEBIT",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          }
+        ],
+        "prior_close": {
+          "period_id": "2026-09",
+          "close_commitment": "000000000000000000000000000000000000000000000000000000000000233f",
+          "present": true,
+          "account_balances": [
+            {
+              "account_ref": "cash",
+              "amount_minor": "10000",
+              "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+            },
+            {
+              "account_ref": "equity",
+              "amount_minor": "10000",
+              "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+            },
+            {
+              "account_ref": "revenue",
+              "amount_minor": "0",
+              "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+            },
+            {
+              "account_ref": "expense",
+              "amount_minor": "0",
+              "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+            }
+          ]
+        },
+        "opening_balances": [
+          {
+            "account_ref": "expense",
+            "amount_minor": "0",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "revenue",
+            "amount_minor": "0",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "equity",
+            "amount_minor": "10000",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "cash",
+            "amount_minor": "10000",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          }
+        ],
+        "closing_balances": [
+          {
+            "account_ref": "expense",
+            "amount_minor": "1000",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "revenue",
+            "amount_minor": "2000",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "equity",
+            "amount_minor": "10000",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "cash",
+            "amount_minor": "11000",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "FJS-024",
+      "task": "Reject a repeated journal identity whose economic event binding changes.",
+      "manifest": {
+        "schema_id": "fin-journal-set-manifest.v1",
+        "journal_set_id": "jset-024",
+        "set_version": "1",
+        "scope": {
+          "reporting_entity": "entity-synth-001",
+          "ledger_id": "ledger-synth-001",
+          "accounting_profile_ref": "SYNTH-LOCAL-ACCOUNTING-NOT-PRODUCTION",
+          "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+          "period_id": "2026-10",
+          "period_start": "2026-10-01",
+          "period_end": "2026-10-31",
+          "close_cutoff": "2026-11-03T23:59:59Z",
+          "knowledge_at": "2026-11-04T00:00:00Z"
+        },
+        "source_population": {
+          "qualification_state": "complete",
+          "frontier_ref": "frontier-synthetic-001",
+          "expected_event_commitment": "0000000000000000000000000000000000000000000000000000000000003051",
+          "closed_event_commitment": "0000000000000000000000000000000000000000000000000000000000003051",
+          "expected_event_refs": [
+            "event-001",
+            "event-002"
+          ]
+        },
+        "events": [
+          {
+            "event_ref": "event-001",
+            "terminal_treatment": "journal_required",
+            "authorization_ref": null,
+            "reason_ref": null
+          },
+          {
+            "event_ref": "event-002",
+            "terminal_treatment": "journal_required",
+            "authorization_ref": null,
+            "reason_ref": null
+          }
+        ],
+        "journals": [
+          {
+            "journal_id": "journal-001",
+            "payload_digest_token": "000000000000000000000000000000000000000000000000000000000000007c",
+            "economic_event_ref": "event-001",
+            "entity_ref": "entity-synth-001",
+            "ledger_id": "ledger-synth-001",
+            "accounting_profile_ref": "SYNTH-LOCAL-ACCOUNTING-NOT-PRODUCTION",
+            "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+            "period_id": "2026-10",
+            "effective_at": "2026-10-15T12:00:00Z",
+            "booking_at": "2026-10-15T12:00:00Z",
+            "value_date": "2026-10-15",
+            "reversal_of": null,
+            "correction_of": null,
+            "post_close_authorized": false,
+            "postings": [
+              {
+                "account_ref": "cash",
+                "direction": "DEBIT",
+                "amount_minor": "2000",
+                "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              },
+              {
+                "account_ref": "revenue",
+                "direction": "CREDIT",
+                "amount_minor": "2000",
+                "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              }
+            ],
+            "post_close_authorization_ref": null
+          },
+          {
+            "journal_id": "journal-002",
+            "payload_digest_token": "00000000000000000000000000000000000000000000000000000000000000e0",
+            "economic_event_ref": "event-002",
+            "entity_ref": "entity-synth-001",
+            "ledger_id": "ledger-synth-001",
+            "accounting_profile_ref": "SYNTH-LOCAL-ACCOUNTING-NOT-PRODUCTION",
+            "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+            "period_id": "2026-10",
+            "effective_at": "2026-10-20T12:00:00Z",
+            "booking_at": "2026-10-20T12:00:00Z",
+            "value_date": "2026-10-20",
+            "reversal_of": null,
+            "correction_of": null,
+            "post_close_authorized": false,
+            "postings": [
+              {
+                "account_ref": "expense",
+                "direction": "DEBIT",
+                "amount_minor": "1000",
+                "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              },
+              {
+                "account_ref": "cash",
+                "direction": "CREDIT",
+                "amount_minor": "1000",
+                "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              }
+            ],
+            "post_close_authorization_ref": null
+          },
+          {
+            "journal_id": "journal-001",
+            "payload_digest_token": "000000000000000000000000000000000000000000000000000000000000007c",
+            "economic_event_ref": "event-002",
+            "entity_ref": "entity-synth-001",
+            "ledger_id": "ledger-synth-001",
+            "accounting_profile_ref": "SYNTH-LOCAL-ACCOUNTING-NOT-PRODUCTION",
+            "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+            "period_id": "2026-10",
+            "effective_at": "2026-10-15T12:00:00Z",
+            "booking_at": "2026-10-15T12:00:00Z",
+            "value_date": "2026-10-15",
+            "reversal_of": null,
+            "correction_of": null,
+            "post_close_authorized": false,
+            "postings": [
+              {
+                "account_ref": "cash",
+                "direction": "DEBIT",
+                "amount_minor": "2000",
+                "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              },
+              {
+                "account_ref": "revenue",
+                "direction": "CREDIT",
+                "amount_minor": "2000",
+                "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              }
+            ],
+            "post_close_authorization_ref": null
+          }
+        ],
+        "account_profiles": [
+          {
+            "account_ref": "cash",
+            "normal_side": "DEBIT",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "equity",
+            "normal_side": "CREDIT",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "revenue",
+            "normal_side": "CREDIT",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "expense",
+            "normal_side": "DEBIT",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          }
+        ],
+        "prior_close": {
+          "period_id": "2026-09",
+          "close_commitment": "0000000000000000000000000000000000000000000000000000000000002340",
+          "present": true,
+          "account_balances": [
+            {
+              "account_ref": "cash",
+              "amount_minor": "10000",
+              "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+            },
+            {
+              "account_ref": "equity",
+              "amount_minor": "10000",
+              "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+            },
+            {
+              "account_ref": "revenue",
+              "amount_minor": "0",
+              "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+            },
+            {
+              "account_ref": "expense",
+              "amount_minor": "0",
+              "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+            }
+          ]
+        },
+        "opening_balances": [
+          {
+            "account_ref": "cash",
+            "amount_minor": "10000",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "equity",
+            "amount_minor": "10000",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "revenue",
+            "amount_minor": "0",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "expense",
+            "amount_minor": "0",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          }
+        ],
+        "closing_balances": [
+          {
+            "account_ref": "cash",
+            "amount_minor": "11000",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "equity",
+            "amount_minor": "10000",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "revenue",
+            "amount_minor": "2000",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "expense",
+            "amount_minor": "1000",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "FJS-025",
+      "task": "Reject a post-close flag without an explicit close-reopen authorization reference.",
+      "manifest": {
+        "schema_id": "fin-journal-set-manifest.v1",
+        "journal_set_id": "jset-025",
+        "set_version": "1",
+        "scope": {
+          "reporting_entity": "entity-synth-001",
+          "ledger_id": "ledger-synth-001",
+          "accounting_profile_ref": "SYNTH-LOCAL-ACCOUNTING-NOT-PRODUCTION",
+          "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+          "period_id": "2026-10",
+          "period_start": "2026-10-01",
+          "period_end": "2026-10-31",
+          "close_cutoff": "2026-11-03T23:59:59Z",
+          "knowledge_at": "2026-11-04T00:00:00Z"
+        },
+        "source_population": {
+          "qualification_state": "complete",
+          "frontier_ref": "frontier-synthetic-001",
+          "expected_event_commitment": "000000000000000000000000000000000000000000000000000000000000303a",
+          "closed_event_commitment": "000000000000000000000000000000000000000000000000000000000000303a",
+          "expected_event_refs": [
+            "event-001",
+            "event-002"
+          ]
+        },
+        "events": [
+          {
+            "event_ref": "event-001",
+            "terminal_treatment": "journal_required",
+            "authorization_ref": null,
+            "reason_ref": null
+          },
+          {
+            "event_ref": "event-002",
+            "terminal_treatment": "journal_required",
+            "authorization_ref": null,
+            "reason_ref": null
+          }
+        ],
+        "journals": [
+          {
+            "journal_id": "journal-late-without-authorization",
+            "payload_digest_token": "0000000000000000000000000000000000000000000000000000000000000025",
+            "economic_event_ref": "event-001",
+            "entity_ref": "entity-synth-001",
+            "ledger_id": "ledger-synth-001",
+            "accounting_profile_ref": "SYNTH-LOCAL-ACCOUNTING-NOT-PRODUCTION",
+            "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+            "period_id": "2026-10",
+            "effective_at": "2026-11-04T01:00:00Z",
+            "booking_at": "2026-11-04T01:00:00Z",
+            "value_date": "2026-10-15",
+            "reversal_of": null,
+            "correction_of": null,
+            "post_close_authorized": true,
+            "postings": [
+              {
+                "account_ref": "cash",
+                "direction": "DEBIT",
+                "amount_minor": "2000",
+                "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              },
+              {
+                "account_ref": "revenue",
+                "direction": "CREDIT",
+                "amount_minor": "2000",
+                "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              }
+            ],
+            "post_close_authorization_ref": null
+          },
+          {
+            "journal_id": "journal-002",
+            "payload_digest_token": "00000000000000000000000000000000000000000000000000000000000000c9",
+            "economic_event_ref": "event-002",
+            "entity_ref": "entity-synth-001",
+            "ledger_id": "ledger-synth-001",
+            "accounting_profile_ref": "SYNTH-LOCAL-ACCOUNTING-NOT-PRODUCTION",
+            "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
+            "period_id": "2026-10",
+            "effective_at": "2026-10-20T12:00:00Z",
+            "booking_at": "2026-10-20T12:00:00Z",
+            "value_date": "2026-10-20",
+            "reversal_of": null,
+            "correction_of": null,
+            "post_close_authorized": false,
+            "postings": [
+              {
+                "account_ref": "expense",
+                "direction": "DEBIT",
+                "amount_minor": "1000",
+                "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              },
+              {
+                "account_ref": "cash",
+                "direction": "CREDIT",
+                "amount_minor": "1000",
+                "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+              }
+            ],
+            "post_close_authorization_ref": null
+          }
+        ],
+        "account_profiles": [
+          {
+            "account_ref": "cash",
+            "normal_side": "DEBIT",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "equity",
+            "normal_side": "CREDIT",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "revenue",
+            "normal_side": "CREDIT",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "expense",
+            "normal_side": "DEBIT",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          }
+        ],
+        "prior_close": {
+          "period_id": "2026-09",
+          "close_commitment": "0000000000000000000000000000000000000000000000000000000000002329",
+          "present": true,
+          "account_balances": [
+            {
+              "account_ref": "cash",
+              "amount_minor": "10000",
+              "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+            },
+            {
+              "account_ref": "equity",
+              "amount_minor": "10000",
+              "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+            },
+            {
+              "account_ref": "revenue",
+              "amount_minor": "0",
+              "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+            },
+            {
+              "account_ref": "expense",
+              "amount_minor": "0",
+              "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+            }
+          ]
+        },
+        "opening_balances": [
+          {
+            "account_ref": "cash",
+            "amount_minor": "10000",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "equity",
+            "amount_minor": "10000",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "revenue",
+            "amount_minor": "0",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "expense",
+            "amount_minor": "0",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          }
+        ],
+        "closing_balances": [
+          {
+            "account_ref": "cash",
+            "amount_minor": "11000",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "equity",
+            "amount_minor": "10000",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "revenue",
+            "amount_minor": "2000",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          },
+          {
+            "account_ref": "expense",
+            "amount_minor": "1000",
+            "unit_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION"
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,141 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/fin-journal-set-report-v1.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "report_schema",
+    "benchmark_id",
+    "dataset_version",
+    "status",
+    "claim_scope",
+    "digests",
+    "case_count",
+    "passed_case_count",
+    "errors",
+    "cases"
+  ],
+  "properties": {
+    "report_schema": {
+      "const": "fin-journal-set-report.v1"
+    },
+    "benchmark_id": {
+      "const": "FIN-JOURNAL-SET"
+    },
+    "dataset_version": {
+      "enum": [
+        "1.0.0",
+        "1.1.0"
+      ]
+    },
+    "status": {
+      "enum": [
+        "PASS",
+        "FAIL"
+      ]
+    },
+    "claim_scope": {
+      "const": "public_synthetic_period_journal_set_and_rollforward_only_not_complete_real_books"
+    },
+    "digests": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "candidate_sha256",
+        "candidate_schema_sha256",
+        "public_oracle_sha256",
+        "oracle_schema_sha256",
+        "verifier_source_sha256"
+      ],
+      "properties": {
+        "candidate_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "candidate_schema_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "public_oracle_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "oracle_schema_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "verifier_source_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      }
+    },
+    "case_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "passed_case_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "errors": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "cases": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "case_id",
+          "actual_disposition",
+          "expected_disposition",
+          "passed",
+          "blocks_complete",
+          "expected_blocks_complete",
+          "journal_count",
+          "event_count",
+          "reason_codes"
+        ],
+        "properties": {
+          "case_id": {
+            "type": "string",
+            "pattern": "^FJS-[0-9]{3}$"
+          },
+          "actual_disposition": {
+            "type": "string"
+          },
+          "expected_disposition": {
+            "type": "string"
+          },
+          "passed": {
+            "type": "boolean"
+          },
+          "blocks_complete": {
+            "type": "boolean"
+          },
+          "expected_blocks_complete": {
+            "type": "boolean"
+          },
+          "journal_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "event_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "reason_codes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    }
+  }
+}
