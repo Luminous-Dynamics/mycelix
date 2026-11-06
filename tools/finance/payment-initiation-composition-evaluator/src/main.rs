@@ -881,7 +881,10 @@ fn run_self_tests(corpus: &Value) -> Result<usize, String> {
         (
             "duplicate instruction",
             Box::new(|v| {
-                v["scenarios"][1]["events"].push(v["scenarios"][1]["events"][0].clone());
+                v["scenarios"][1]["events"]
+                    .as_array_mut()
+                    .expect("scenario events must be an array")
+                    .push(v["scenarios"][1]["events"][0].clone());
                 v["scenarios"][1]["events"][1]["event_id"] = json!("DUP-INSTRUCTION");
                 v["scenarios"][1]["events"][1]["sequence"] = json!(2);
             }),
@@ -889,7 +892,20 @@ fn run_self_tests(corpus: &Value) -> Result<usize, String> {
         (
             "finality without settlement",
             Box::new(|v| {
-                v["scenarios"][1]["events"].push(json!({"event_id":"MUT-FINALITY","sequence":2,"event_type":"finality_qualified","actor":"SYNTH-PSP-A","authority_state":"valid","subject_digest":"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","instruction_id":"INS-2","evidence_type":"profile_finality_certificate","observed_at":"2026-11-06T12:20:02Z"}));
+                v["scenarios"][1]["events"]
+                    .as_array_mut()
+                    .expect("scenario events must be an array")
+                    .push(json!({
+                        "event_id": "MUT-FINALITY",
+                        "sequence": 2,
+                        "event_type": "finality_qualified",
+                        "actor": "SYNTH-PSP-A",
+                        "authority_state": "valid",
+                        "subject_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                        "instruction_id": "INS-2",
+                        "evidence_type": "profile_finality_certificate",
+                        "observed_at": "2026-11-06T12:20:02Z"
+                    }));
                 v["scenarios"][1]["expected_effect_state"] = json!("finality_qualified");
             }),
         ),
