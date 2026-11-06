@@ -1183,14 +1183,17 @@ mod tests {
     }
 
     #[test]
-    fn alternative_hypothesis_must_share_items_and_fall_within_ambiguity_margin() {
-        let (input, mut output, _, _) = fixtures();
+    fn alternative_hypothesis_must_fall_within_the_ambiguity_margin() {
+        let (mut input, mut output, _, _) = fixtures();
+        input["runs"][5]["source_items"][2]["external_reference"] = Value::String("DIFFERENT-REF".to_owned());
         let target = output["run_results"].as_array_mut().unwrap().iter_mut()
             .find(|run| optional_string(run, "run_id") == Some("RECON-006-AMBIGUOUS-ALTERNATIVES")).unwrap();
-        target["hypotheses"][1]["left_item_refs"] = json!(["R6-L1"]);
-        target["hypotheses"][1]["right_item_refs"] = json!(["R6-L2"]);
-        target["hypotheses"][1]["candidate_pairs"][0]["left_item_ref"] = Value::String("R6-L1".to_owned());
-        target["hypotheses"][1]["candidate_pairs"][0]["right_item_ref"] = Value::String("R6-L2".to_owned());
+        let hypothesis = &mut target["hypotheses"][1];
+        let reference_eval = hypothesis["criterion_evaluations"].as_array_mut().unwrap()
+            .iter_mut().find(|evaluation| optional_string(evaluation, "criterion_ref") == Some("CR-REFERENCE")).unwrap();
+        reference_eval["right_values"] = json!(["DIFFERENT-REF"]);
+        reference_eval["outcome"] = Value::String("mismatch".to_owned());
+        hypothesis["score_bps"] = Value::from(8800);
         assert!(build_report(&input, &output, output["source_bundle_sha256"].as_str().unwrap().to_owned(), "f".repeat(64)).is_err());
     }
 
