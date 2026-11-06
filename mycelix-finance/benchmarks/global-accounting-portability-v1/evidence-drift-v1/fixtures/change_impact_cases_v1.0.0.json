@@ -1,0 +1,2447 @@
+{
+  "bundle_id": "MYCELIX-FIN-EVIDENCE-DRIFT-S0",
+  "schema_version": "1.0.0",
+  "claim_ceiling": "synthetic_change_impact_and_dependency_closure_not_policy_correctness_or_posting_authority",
+  "cases": [
+    {
+      "scenario_id": "DRIFT-001-AMOUNT-REVISION",
+      "baseline_graph": {
+        "case_id": "GRAPH-001-AMOUNT-REVISION",
+        "knowledge_at": "2026-11-05T10:30:00Z",
+        "period": {
+          "start": "2026-10-01",
+          "end": "2026-10-31"
+        },
+        "entity_scope_ref": "ENTITY-ACME",
+        "source_objects": [
+          {
+            "source_ref": "SRC-INV",
+            "tenant_namespace": "tenant-acme/ap",
+            "external_id": "INV-DRIFT-001",
+            "revision": "r1",
+            "source_kind": "invoice",
+            "received_at": "2026-11-05T09:00:00Z",
+            "integrity_state": "synthetic_match",
+            "supersedes_source_ref": null,
+            "transport_metadata": {
+              "connector_run_ref": "RUN-BASE-001",
+              "display_name": "invoice-import-1"
+            }
+          }
+        ],
+        "assertions": [
+          {
+            "assertion_ref": "AS-AMOUNT",
+            "fact_type": "invoice_amount_minor",
+            "value": 125000,
+            "currency": "USD",
+            "epistemic_state": "asserted",
+            "valid_from": "2026-10-01",
+            "valid_to": null,
+            "recorded_at": "2026-11-05T09:00:00Z",
+            "source_ref": "SRC-INV",
+            "source_locator": "page:1/row:1"
+          },
+          {
+            "assertion_ref": "AS-SUPPLIER",
+            "fact_type": "supplier_identity",
+            "value": "SUPPLIER-1",
+            "currency": null,
+            "epistemic_state": "asserted",
+            "valid_from": "2026-10-01",
+            "valid_to": null,
+            "recorded_at": "2026-11-05T09:00:00Z",
+            "source_ref": "SRC-INV",
+            "source_locator": "page:1/row:1"
+          }
+        ],
+        "events": [
+          {
+            "event_ref": "EV-INVOICE",
+            "event_kind": "invoice_issued",
+            "entity_ref": "ENTITY-ACME",
+            "counterparty_ref": "SUPPLIER-1",
+            "occurred_at": "2026-10-28T09:00:00Z",
+            "recorded_at": "2026-11-05T09:00:00Z",
+            "amount_minor": 125000,
+            "currency": "USD",
+            "assertion_refs": [
+              "AS-AMOUNT",
+              "AS-SUPPLIER"
+            ]
+          }
+        ],
+        "relations": []
+      },
+      "candidate_graph": {
+        "case_id": "GRAPH-001-AMOUNT-REVISION",
+        "knowledge_at": "2026-11-05T10:30:00Z",
+        "period": {
+          "start": "2026-10-01",
+          "end": "2026-10-31"
+        },
+        "entity_scope_ref": "ENTITY-ACME",
+        "source_objects": [
+          {
+            "source_ref": "SRC-INV",
+            "tenant_namespace": "tenant-acme/ap",
+            "external_id": "INV-DRIFT-001",
+            "revision": "r1",
+            "source_kind": "invoice",
+            "received_at": "2026-11-05T09:00:00Z",
+            "integrity_state": "synthetic_match",
+            "supersedes_source_ref": null,
+            "transport_metadata": {
+              "connector_run_ref": "RUN-BASE-001",
+              "display_name": "invoice-import-1"
+            }
+          }
+        ],
+        "assertions": [
+          {
+            "assertion_ref": "AS-AMOUNT",
+            "fact_type": "invoice_amount_minor",
+            "value": 130000,
+            "currency": "USD",
+            "epistemic_state": "asserted",
+            "valid_from": "2026-10-01",
+            "valid_to": null,
+            "recorded_at": "2026-11-05T09:00:00Z",
+            "source_ref": "SRC-INV",
+            "source_locator": "page:1/row:1"
+          },
+          {
+            "assertion_ref": "AS-SUPPLIER",
+            "fact_type": "supplier_identity",
+            "value": "SUPPLIER-1",
+            "currency": null,
+            "epistemic_state": "asserted",
+            "valid_from": "2026-10-01",
+            "valid_to": null,
+            "recorded_at": "2026-11-05T09:00:00Z",
+            "source_ref": "SRC-INV",
+            "source_locator": "page:1/row:1"
+          }
+        ],
+        "events": [
+          {
+            "event_ref": "EV-INVOICE",
+            "event_kind": "invoice_issued",
+            "entity_ref": "ENTITY-ACME",
+            "counterparty_ref": "SUPPLIER-1",
+            "occurred_at": "2026-10-28T09:00:00Z",
+            "recorded_at": "2026-11-05T09:00:00Z",
+            "amount_minor": 130000,
+            "currency": "USD",
+            "assertion_refs": [
+              "AS-AMOUNT",
+              "AS-SUPPLIER"
+            ]
+          }
+        ],
+        "relations": []
+      },
+      "baseline_projection": {
+        "projection_id": "PROJ-GRAPH-001-AMOUNT-REVISION",
+        "graph_sha256": "e39bc96c2c9af530324e0fdff33a028e5927b8123f3820d6e3d825114c9ac464",
+        "policy_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "projector_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "event_decisions": [
+          {
+            "decision_ref": "DEC-INVOICE",
+            "event_ref": "EV-INVOICE",
+            "assertion_refs": [
+              "AS-AMOUNT",
+              "AS-SUPPLIER"
+            ]
+          }
+        ],
+        "journal_lines": [
+          {
+            "line_ref": "JL-DR",
+            "decision_ref": "DEC-INVOICE",
+            "event_refs": [
+              "EV-INVOICE"
+            ],
+            "assertion_refs": [
+              "AS-AMOUNT",
+              "AS-SUPPLIER"
+            ]
+          },
+          {
+            "line_ref": "JL-CR",
+            "decision_ref": "DEC-INVOICE",
+            "event_refs": [
+              "EV-INVOICE"
+            ],
+            "assertion_refs": [
+              "AS-AMOUNT",
+              "AS-SUPPLIER"
+            ]
+          }
+        ],
+        "statement_lines": [
+          {
+            "statement_ref": "ST-EXPENSE",
+            "journal_line_refs": [
+              "JL-DR",
+              "JL-CR"
+            ]
+          }
+        ]
+      },
+      "candidate_policy_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "candidate_projector_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "claimed_impact": {
+        "impact_level": "reproject_required",
+        "changed_objects": {
+          "source_refs": [],
+          "assertion_refs": [
+            "AS-AMOUNT"
+          ],
+          "event_refs": [
+            "EV-INVOICE"
+          ],
+          "relation_refs": [],
+          "policy_changed": false,
+          "projector_changed": false,
+          "knowledge_frontier_changed": false,
+          "transport_metadata_only_source_refs": []
+        },
+        "affected_objects": {
+          "event_refs": [
+            "EV-INVOICE"
+          ],
+          "decision_refs": [
+            "DEC-INVOICE"
+          ],
+          "journal_line_refs": [
+            "JL-CR",
+            "JL-DR"
+          ],
+          "statement_refs": [
+            "ST-EXPENSE"
+          ]
+        }
+      }
+    },
+    {
+      "scenario_id": "DRIFT-002-TRANSPORT-METADATA-ONLY",
+      "baseline_graph": {
+        "case_id": "GRAPH-002-TRANSPORT-METADATA",
+        "knowledge_at": "2026-11-05T10:30:00Z",
+        "period": {
+          "start": "2026-10-01",
+          "end": "2026-10-31"
+        },
+        "entity_scope_ref": "ENTITY-ACME",
+        "source_objects": [
+          {
+            "source_ref": "SRC-INV",
+            "tenant_namespace": "tenant-acme/ap",
+            "external_id": "INV-DRIFT-001",
+            "revision": "r1",
+            "source_kind": "invoice",
+            "received_at": "2026-11-05T09:00:00Z",
+            "integrity_state": "synthetic_match",
+            "supersedes_source_ref": null,
+            "transport_metadata": {
+              "connector_run_ref": "RUN-BASE-001",
+              "display_name": "invoice-import-1"
+            }
+          }
+        ],
+        "assertions": [
+          {
+            "assertion_ref": "AS-AMOUNT",
+            "fact_type": "invoice_amount_minor",
+            "value": 125000,
+            "currency": "USD",
+            "epistemic_state": "asserted",
+            "valid_from": "2026-10-01",
+            "valid_to": null,
+            "recorded_at": "2026-11-05T09:00:00Z",
+            "source_ref": "SRC-INV",
+            "source_locator": "page:1/row:1"
+          },
+          {
+            "assertion_ref": "AS-SUPPLIER",
+            "fact_type": "supplier_identity",
+            "value": "SUPPLIER-1",
+            "currency": null,
+            "epistemic_state": "asserted",
+            "valid_from": "2026-10-01",
+            "valid_to": null,
+            "recorded_at": "2026-11-05T09:00:00Z",
+            "source_ref": "SRC-INV",
+            "source_locator": "page:1/row:1"
+          }
+        ],
+        "events": [
+          {
+            "event_ref": "EV-INVOICE",
+            "event_kind": "invoice_issued",
+            "entity_ref": "ENTITY-ACME",
+            "counterparty_ref": "SUPPLIER-1",
+            "occurred_at": "2026-10-28T09:00:00Z",
+            "recorded_at": "2026-11-05T09:00:00Z",
+            "amount_minor": 125000,
+            "currency": "USD",
+            "assertion_refs": [
+              "AS-AMOUNT",
+              "AS-SUPPLIER"
+            ]
+          }
+        ],
+        "relations": []
+      },
+      "candidate_graph": {
+        "case_id": "GRAPH-002-TRANSPORT-METADATA",
+        "knowledge_at": "2026-11-05T10:30:00Z",
+        "period": {
+          "start": "2026-10-01",
+          "end": "2026-10-31"
+        },
+        "entity_scope_ref": "ENTITY-ACME",
+        "source_objects": [
+          {
+            "source_ref": "SRC-INV",
+            "tenant_namespace": "tenant-acme/ap",
+            "external_id": "INV-DRIFT-001",
+            "revision": "r1",
+            "source_kind": "invoice",
+            "received_at": "2026-11-05T09:00:00Z",
+            "integrity_state": "synthetic_match",
+            "supersedes_source_ref": null,
+            "transport_metadata": {
+              "connector_run_ref": "RUN-REFRESH-009",
+              "display_name": "AP invoice scanned import v2"
+            }
+          }
+        ],
+        "assertions": [
+          {
+            "assertion_ref": "AS-AMOUNT",
+            "fact_type": "invoice_amount_minor",
+            "value": 125000,
+            "currency": "USD",
+            "epistemic_state": "asserted",
+            "valid_from": "2026-10-01",
+            "valid_to": null,
+            "recorded_at": "2026-11-05T09:00:00Z",
+            "source_ref": "SRC-INV",
+            "source_locator": "page:1/row:1"
+          },
+          {
+            "assertion_ref": "AS-SUPPLIER",
+            "fact_type": "supplier_identity",
+            "value": "SUPPLIER-1",
+            "currency": null,
+            "epistemic_state": "asserted",
+            "valid_from": "2026-10-01",
+            "valid_to": null,
+            "recorded_at": "2026-11-05T09:00:00Z",
+            "source_ref": "SRC-INV",
+            "source_locator": "page:1/row:1"
+          }
+        ],
+        "events": [
+          {
+            "event_ref": "EV-INVOICE",
+            "event_kind": "invoice_issued",
+            "entity_ref": "ENTITY-ACME",
+            "counterparty_ref": "SUPPLIER-1",
+            "occurred_at": "2026-10-28T09:00:00Z",
+            "recorded_at": "2026-11-05T09:00:00Z",
+            "amount_minor": 125000,
+            "currency": "USD",
+            "assertion_refs": [
+              "AS-AMOUNT",
+              "AS-SUPPLIER"
+            ]
+          }
+        ],
+        "relations": []
+      },
+      "baseline_projection": {
+        "projection_id": "PROJ-GRAPH-002-TRANSPORT-METADATA",
+        "graph_sha256": "cb51b12ae04c38291222562362bf064b8c95c5af51a283d81cb098c0148b9ea0",
+        "policy_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "projector_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "event_decisions": [
+          {
+            "decision_ref": "DEC-INVOICE",
+            "event_ref": "EV-INVOICE",
+            "assertion_refs": [
+              "AS-AMOUNT",
+              "AS-SUPPLIER"
+            ]
+          }
+        ],
+        "journal_lines": [
+          {
+            "line_ref": "JL-DR",
+            "decision_ref": "DEC-INVOICE",
+            "event_refs": [
+              "EV-INVOICE"
+            ],
+            "assertion_refs": [
+              "AS-AMOUNT",
+              "AS-SUPPLIER"
+            ]
+          },
+          {
+            "line_ref": "JL-CR",
+            "decision_ref": "DEC-INVOICE",
+            "event_refs": [
+              "EV-INVOICE"
+            ],
+            "assertion_refs": [
+              "AS-AMOUNT",
+              "AS-SUPPLIER"
+            ]
+          }
+        ],
+        "statement_lines": [
+          {
+            "statement_ref": "ST-EXPENSE",
+            "journal_line_refs": [
+              "JL-DR",
+              "JL-CR"
+            ]
+          }
+        ]
+      },
+      "candidate_policy_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "candidate_projector_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "claimed_impact": {
+        "impact_level": "no_material_impact",
+        "changed_objects": {
+          "source_refs": [],
+          "assertion_refs": [],
+          "event_refs": [],
+          "relation_refs": [],
+          "policy_changed": false,
+          "projector_changed": false,
+          "knowledge_frontier_changed": false,
+          "transport_metadata_only_source_refs": [
+            "SRC-INV"
+          ]
+        },
+        "affected_objects": {
+          "event_refs": [],
+          "decision_refs": [],
+          "journal_line_refs": [],
+          "statement_refs": []
+        }
+      }
+    },
+    {
+      "scenario_id": "DRIFT-003-ASSERTION-INVALIDATED",
+      "baseline_graph": {
+        "case_id": "GRAPH-003-ASSERTION-INVALIDATED",
+        "knowledge_at": "2026-11-05T10:30:00Z",
+        "period": {
+          "start": "2026-10-01",
+          "end": "2026-10-31"
+        },
+        "entity_scope_ref": "ENTITY-ACME",
+        "source_objects": [
+          {
+            "source_ref": "SRC-INV",
+            "tenant_namespace": "tenant-acme/ap",
+            "external_id": "INV-DRIFT-001",
+            "revision": "r1",
+            "source_kind": "invoice",
+            "received_at": "2026-11-05T09:00:00Z",
+            "integrity_state": "synthetic_match",
+            "supersedes_source_ref": null,
+            "transport_metadata": {
+              "connector_run_ref": "RUN-BASE-001",
+              "display_name": "invoice-import-1"
+            }
+          }
+        ],
+        "assertions": [
+          {
+            "assertion_ref": "AS-AMOUNT",
+            "fact_type": "invoice_amount_minor",
+            "value": 125000,
+            "currency": "USD",
+            "epistemic_state": "asserted",
+            "valid_from": "2026-10-01",
+            "valid_to": null,
+            "recorded_at": "2026-11-05T09:00:00Z",
+            "source_ref": "SRC-INV",
+            "source_locator": "page:1/row:1"
+          },
+          {
+            "assertion_ref": "AS-SUPPLIER",
+            "fact_type": "supplier_identity",
+            "value": "SUPPLIER-1",
+            "currency": null,
+            "epistemic_state": "asserted",
+            "valid_from": "2026-10-01",
+            "valid_to": null,
+            "recorded_at": "2026-11-05T09:00:00Z",
+            "source_ref": "SRC-INV",
+            "source_locator": "page:1/row:1"
+          }
+        ],
+        "events": [
+          {
+            "event_ref": "EV-INVOICE",
+            "event_kind": "invoice_issued",
+            "entity_ref": "ENTITY-ACME",
+            "counterparty_ref": "SUPPLIER-1",
+            "occurred_at": "2026-10-28T09:00:00Z",
+            "recorded_at": "2026-11-05T09:00:00Z",
+            "amount_minor": 125000,
+            "currency": "USD",
+            "assertion_refs": [
+              "AS-AMOUNT",
+              "AS-SUPPLIER"
+            ]
+          }
+        ],
+        "relations": []
+      },
+      "candidate_graph": {
+        "case_id": "GRAPH-003-ASSERTION-INVALIDATED",
+        "knowledge_at": "2026-11-05T10:30:00Z",
+        "period": {
+          "start": "2026-10-01",
+          "end": "2026-10-31"
+        },
+        "entity_scope_ref": "ENTITY-ACME",
+        "source_objects": [
+          {
+            "source_ref": "SRC-INV",
+            "tenant_namespace": "tenant-acme/ap",
+            "external_id": "INV-DRIFT-001",
+            "revision": "r1",
+            "source_kind": "invoice",
+            "received_at": "2026-11-05T09:00:00Z",
+            "integrity_state": "synthetic_match",
+            "supersedes_source_ref": null,
+            "transport_metadata": {
+              "connector_run_ref": "RUN-BASE-001",
+              "display_name": "invoice-import-1"
+            }
+          }
+        ],
+        "assertions": [
+          {
+            "assertion_ref": "AS-AMOUNT",
+            "fact_type": "invoice_amount_minor",
+            "value": null,
+            "currency": "USD",
+            "epistemic_state": "invalidated",
+            "valid_from": "2026-10-01",
+            "valid_to": null,
+            "recorded_at": "2026-11-05T09:00:00Z",
+            "source_ref": "SRC-INV",
+            "source_locator": "page:1/row:1"
+          },
+          {
+            "assertion_ref": "AS-SUPPLIER",
+            "fact_type": "supplier_identity",
+            "value": "SUPPLIER-1",
+            "currency": null,
+            "epistemic_state": "asserted",
+            "valid_from": "2026-10-01",
+            "valid_to": null,
+            "recorded_at": "2026-11-05T09:00:00Z",
+            "source_ref": "SRC-INV",
+            "source_locator": "page:1/row:1"
+          }
+        ],
+        "events": [
+          {
+            "event_ref": "EV-INVOICE",
+            "event_kind": "invoice_issued",
+            "entity_ref": "ENTITY-ACME",
+            "counterparty_ref": "SUPPLIER-1",
+            "occurred_at": "2026-10-28T09:00:00Z",
+            "recorded_at": "2026-11-05T09:00:00Z",
+            "amount_minor": 125000,
+            "currency": "USD",
+            "assertion_refs": [
+              "AS-AMOUNT",
+              "AS-SUPPLIER"
+            ]
+          }
+        ],
+        "relations": []
+      },
+      "baseline_projection": {
+        "projection_id": "PROJ-GRAPH-003-ASSERTION-INVALIDATED",
+        "graph_sha256": "ca1704deb34a7de1288a5ea0f9d696c23b2ad9ef9be3beab47fe8e0e9e38e414",
+        "policy_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "projector_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "event_decisions": [
+          {
+            "decision_ref": "DEC-INVOICE",
+            "event_ref": "EV-INVOICE",
+            "assertion_refs": [
+              "AS-AMOUNT",
+              "AS-SUPPLIER"
+            ]
+          }
+        ],
+        "journal_lines": [
+          {
+            "line_ref": "JL-DR",
+            "decision_ref": "DEC-INVOICE",
+            "event_refs": [
+              "EV-INVOICE"
+            ],
+            "assertion_refs": [
+              "AS-AMOUNT",
+              "AS-SUPPLIER"
+            ]
+          },
+          {
+            "line_ref": "JL-CR",
+            "decision_ref": "DEC-INVOICE",
+            "event_refs": [
+              "EV-INVOICE"
+            ],
+            "assertion_refs": [
+              "AS-AMOUNT",
+              "AS-SUPPLIER"
+            ]
+          }
+        ],
+        "statement_lines": [
+          {
+            "statement_ref": "ST-EXPENSE",
+            "journal_line_refs": [
+              "JL-DR",
+              "JL-CR"
+            ]
+          }
+        ]
+      },
+      "candidate_policy_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "candidate_projector_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "claimed_impact": {
+        "impact_level": "review_required",
+        "changed_objects": {
+          "source_refs": [],
+          "assertion_refs": [
+            "AS-AMOUNT"
+          ],
+          "event_refs": [],
+          "relation_refs": [],
+          "policy_changed": false,
+          "projector_changed": false,
+          "knowledge_frontier_changed": false,
+          "transport_metadata_only_source_refs": []
+        },
+        "affected_objects": {
+          "event_refs": [
+            "EV-INVOICE"
+          ],
+          "decision_refs": [
+            "DEC-INVOICE"
+          ],
+          "journal_line_refs": [
+            "JL-CR",
+            "JL-DR"
+          ],
+          "statement_refs": [
+            "ST-EXPENSE"
+          ]
+        }
+      }
+    },
+    {
+      "scenario_id": "DRIFT-004-LATE-EVIDENCE",
+      "baseline_graph": {
+        "case_id": "GRAPH-004-LATE-EVIDENCE",
+        "knowledge_at": "2026-11-05T10:00:00Z",
+        "period": {
+          "start": "2026-10-01",
+          "end": "2026-10-31"
+        },
+        "entity_scope_ref": "ENTITY-ACME",
+        "source_objects": [
+          {
+            "source_ref": "SRC-INV",
+            "tenant_namespace": "tenant-acme/ap",
+            "external_id": "INV-DRIFT-001",
+            "revision": "r1",
+            "source_kind": "invoice",
+            "received_at": "2026-11-05T10:30:00Z",
+            "integrity_state": "synthetic_match",
+            "supersedes_source_ref": null,
+            "transport_metadata": {
+              "connector_run_ref": "RUN-BASE-001",
+              "display_name": "invoice-import-1"
+            }
+          }
+        ],
+        "assertions": [
+          {
+            "assertion_ref": "AS-AMOUNT",
+            "fact_type": "invoice_amount_minor",
+            "value": 125000,
+            "currency": "USD",
+            "epistemic_state": "asserted",
+            "valid_from": "2026-10-01",
+            "valid_to": null,
+            "recorded_at": "2026-11-05T10:30:00Z",
+            "source_ref": "SRC-INV",
+            "source_locator": "page:1/row:1"
+          },
+          {
+            "assertion_ref": "AS-SUPPLIER",
+            "fact_type": "supplier_identity",
+            "value": "SUPPLIER-1",
+            "currency": null,
+            "epistemic_state": "asserted",
+            "valid_from": "2026-10-01",
+            "valid_to": null,
+            "recorded_at": "2026-11-05T10:30:00Z",
+            "source_ref": "SRC-INV",
+            "source_locator": "page:1/row:1"
+          }
+        ],
+        "events": [
+          {
+            "event_ref": "EV-INVOICE",
+            "event_kind": "invoice_issued",
+            "entity_ref": "ENTITY-ACME",
+            "counterparty_ref": "SUPPLIER-1",
+            "occurred_at": "2026-10-28T09:00:00Z",
+            "recorded_at": "2026-11-05T10:30:00Z",
+            "amount_minor": 125000,
+            "currency": "USD",
+            "assertion_refs": [
+              "AS-AMOUNT",
+              "AS-SUPPLIER"
+            ]
+          }
+        ],
+        "relations": []
+      },
+      "candidate_graph": {
+        "case_id": "GRAPH-004-LATE-EVIDENCE",
+        "knowledge_at": "2026-11-05T11:00:00Z",
+        "period": {
+          "start": "2026-10-01",
+          "end": "2026-10-31"
+        },
+        "entity_scope_ref": "ENTITY-ACME",
+        "source_objects": [
+          {
+            "source_ref": "SRC-INV",
+            "tenant_namespace": "tenant-acme/ap",
+            "external_id": "INV-DRIFT-001",
+            "revision": "r1",
+            "source_kind": "invoice",
+            "received_at": "2026-11-05T10:30:00Z",
+            "integrity_state": "synthetic_match",
+            "supersedes_source_ref": null,
+            "transport_metadata": {
+              "connector_run_ref": "RUN-BASE-001",
+              "display_name": "invoice-import-1"
+            }
+          }
+        ],
+        "assertions": [
+          {
+            "assertion_ref": "AS-AMOUNT",
+            "fact_type": "invoice_amount_minor",
+            "value": 125000,
+            "currency": "USD",
+            "epistemic_state": "asserted",
+            "valid_from": "2026-10-01",
+            "valid_to": null,
+            "recorded_at": "2026-11-05T10:30:00Z",
+            "source_ref": "SRC-INV",
+            "source_locator": "page:1/row:1"
+          },
+          {
+            "assertion_ref": "AS-SUPPLIER",
+            "fact_type": "supplier_identity",
+            "value": "SUPPLIER-1",
+            "currency": null,
+            "epistemic_state": "asserted",
+            "valid_from": "2026-10-01",
+            "valid_to": null,
+            "recorded_at": "2026-11-05T10:30:00Z",
+            "source_ref": "SRC-INV",
+            "source_locator": "page:1/row:1"
+          }
+        ],
+        "events": [
+          {
+            "event_ref": "EV-INVOICE",
+            "event_kind": "invoice_issued",
+            "entity_ref": "ENTITY-ACME",
+            "counterparty_ref": "SUPPLIER-1",
+            "occurred_at": "2026-10-28T09:00:00Z",
+            "recorded_at": "2026-11-05T10:30:00Z",
+            "amount_minor": 125000,
+            "currency": "USD",
+            "assertion_refs": [
+              "AS-AMOUNT",
+              "AS-SUPPLIER"
+            ]
+          }
+        ],
+        "relations": []
+      },
+      "baseline_projection": {
+        "projection_id": "PROJ-GRAPH-004-LATE-EVIDENCE",
+        "graph_sha256": "a27b0c8b1f2411722596086ec01bd421bccd00bfec15238a5b0fe510195aab65",
+        "policy_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "projector_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "event_decisions": [
+          {
+            "decision_ref": "DEC-INVOICE",
+            "event_ref": "EV-INVOICE",
+            "assertion_refs": []
+          }
+        ],
+        "journal_lines": [],
+        "statement_lines": []
+      },
+      "candidate_policy_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "candidate_projector_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "claimed_impact": {
+        "impact_level": "historical_replay_required",
+        "changed_objects": {
+          "source_refs": [],
+          "assertion_refs": [
+            "AS-AMOUNT",
+            "AS-SUPPLIER"
+          ],
+          "event_refs": [],
+          "relation_refs": [],
+          "policy_changed": false,
+          "projector_changed": false,
+          "knowledge_frontier_changed": true,
+          "transport_metadata_only_source_refs": []
+        },
+        "affected_objects": {
+          "event_refs": [
+            "EV-INVOICE"
+          ],
+          "decision_refs": [
+            "DEC-INVOICE"
+          ],
+          "journal_line_refs": [],
+          "statement_refs": []
+        }
+      }
+    },
+    {
+      "scenario_id": "DRIFT-005-POLICY-DIGEST-CHANGED",
+      "baseline_graph": {
+        "case_id": "GRAPH-005-POLICY-DIGEST",
+        "knowledge_at": "2026-11-05T10:30:00Z",
+        "period": {
+          "start": "2026-10-01",
+          "end": "2026-10-31"
+        },
+        "entity_scope_ref": "ENTITY-ACME",
+        "source_objects": [
+          {
+            "source_ref": "SRC-INV",
+            "tenant_namespace": "tenant-acme/ap",
+            "external_id": "INV-DRIFT-001",
+            "revision": "r1",
+            "source_kind": "invoice",
+            "received_at": "2026-11-05T09:00:00Z",
+            "integrity_state": "synthetic_match",
+            "supersedes_source_ref": null,
+            "transport_metadata": {
+              "connector_run_ref": "RUN-BASE-001",
+              "display_name": "invoice-import-1"
+            }
+          }
+        ],
+        "assertions": [
+          {
+            "assertion_ref": "AS-AMOUNT",
+            "fact_type": "invoice_amount_minor",
+            "value": 125000,
+            "currency": "USD",
+            "epistemic_state": "asserted",
+            "valid_from": "2026-10-01",
+            "valid_to": null,
+            "recorded_at": "2026-11-05T09:00:00Z",
+            "source_ref": "SRC-INV",
+            "source_locator": "page:1/row:1"
+          },
+          {
+            "assertion_ref": "AS-SUPPLIER",
+            "fact_type": "supplier_identity",
+            "value": "SUPPLIER-1",
+            "currency": null,
+            "epistemic_state": "asserted",
+            "valid_from": "2026-10-01",
+            "valid_to": null,
+            "recorded_at": "2026-11-05T09:00:00Z",
+            "source_ref": "SRC-INV",
+            "source_locator": "page:1/row:1"
+          }
+        ],
+        "events": [
+          {
+            "event_ref": "EV-INVOICE",
+            "event_kind": "invoice_issued",
+            "entity_ref": "ENTITY-ACME",
+            "counterparty_ref": "SUPPLIER-1",
+            "occurred_at": "2026-10-28T09:00:00Z",
+            "recorded_at": "2026-11-05T09:00:00Z",
+            "amount_minor": 125000,
+            "currency": "USD",
+            "assertion_refs": [
+              "AS-AMOUNT",
+              "AS-SUPPLIER"
+            ]
+          }
+        ],
+        "relations": []
+      },
+      "candidate_graph": {
+        "case_id": "GRAPH-005-POLICY-DIGEST",
+        "knowledge_at": "2026-11-05T10:30:00Z",
+        "period": {
+          "start": "2026-10-01",
+          "end": "2026-10-31"
+        },
+        "entity_scope_ref": "ENTITY-ACME",
+        "source_objects": [
+          {
+            "source_ref": "SRC-INV",
+            "tenant_namespace": "tenant-acme/ap",
+            "external_id": "INV-DRIFT-001",
+            "revision": "r1",
+            "source_kind": "invoice",
+            "received_at": "2026-11-05T09:00:00Z",
+            "integrity_state": "synthetic_match",
+            "supersedes_source_ref": null,
+            "transport_metadata": {
+              "connector_run_ref": "RUN-BASE-001",
+              "display_name": "invoice-import-1"
+            }
+          }
+        ],
+        "assertions": [
+          {
+            "assertion_ref": "AS-AMOUNT",
+            "fact_type": "invoice_amount_minor",
+            "value": 125000,
+            "currency": "USD",
+            "epistemic_state": "asserted",
+            "valid_from": "2026-10-01",
+            "valid_to": null,
+            "recorded_at": "2026-11-05T09:00:00Z",
+            "source_ref": "SRC-INV",
+            "source_locator": "page:1/row:1"
+          },
+          {
+            "assertion_ref": "AS-SUPPLIER",
+            "fact_type": "supplier_identity",
+            "value": "SUPPLIER-1",
+            "currency": null,
+            "epistemic_state": "asserted",
+            "valid_from": "2026-10-01",
+            "valid_to": null,
+            "recorded_at": "2026-11-05T09:00:00Z",
+            "source_ref": "SRC-INV",
+            "source_locator": "page:1/row:1"
+          }
+        ],
+        "events": [
+          {
+            "event_ref": "EV-INVOICE",
+            "event_kind": "invoice_issued",
+            "entity_ref": "ENTITY-ACME",
+            "counterparty_ref": "SUPPLIER-1",
+            "occurred_at": "2026-10-28T09:00:00Z",
+            "recorded_at": "2026-11-05T09:00:00Z",
+            "amount_minor": 125000,
+            "currency": "USD",
+            "assertion_refs": [
+              "AS-AMOUNT",
+              "AS-SUPPLIER"
+            ]
+          }
+        ],
+        "relations": []
+      },
+      "baseline_projection": {
+        "projection_id": "PROJ-GRAPH-005-POLICY-DIGEST",
+        "graph_sha256": "3b69f0117af0b51d7ce3799606d191cfc31168bfa45b527d2f7c1b64ff753c0b",
+        "policy_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "projector_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "event_decisions": [
+          {
+            "decision_ref": "DEC-INVOICE",
+            "event_ref": "EV-INVOICE",
+            "assertion_refs": [
+              "AS-AMOUNT",
+              "AS-SUPPLIER"
+            ]
+          }
+        ],
+        "journal_lines": [
+          {
+            "line_ref": "JL-DR",
+            "decision_ref": "DEC-INVOICE",
+            "event_refs": [
+              "EV-INVOICE"
+            ],
+            "assertion_refs": [
+              "AS-AMOUNT",
+              "AS-SUPPLIER"
+            ]
+          },
+          {
+            "line_ref": "JL-CR",
+            "decision_ref": "DEC-INVOICE",
+            "event_refs": [
+              "EV-INVOICE"
+            ],
+            "assertion_refs": [
+              "AS-AMOUNT",
+              "AS-SUPPLIER"
+            ]
+          }
+        ],
+        "statement_lines": [
+          {
+            "statement_ref": "ST-EXPENSE",
+            "journal_line_refs": [
+              "JL-DR",
+              "JL-CR"
+            ]
+          }
+        ]
+      },
+      "candidate_policy_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "candidate_projector_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "claimed_impact": {
+        "impact_level": "reproject_required",
+        "changed_objects": {
+          "source_refs": [],
+          "assertion_refs": [],
+          "event_refs": [],
+          "relation_refs": [],
+          "policy_changed": true,
+          "projector_changed": false,
+          "knowledge_frontier_changed": false,
+          "transport_metadata_only_source_refs": []
+        },
+        "affected_objects": {
+          "event_refs": [
+            "EV-INVOICE"
+          ],
+          "decision_refs": [
+            "DEC-INVOICE"
+          ],
+          "journal_line_refs": [
+            "JL-CR",
+            "JL-DR"
+          ],
+          "statement_refs": [
+            "ST-EXPENSE"
+          ]
+        }
+      }
+    },
+    {
+      "scenario_id": "DRIFT-006-PROJECTOR-DIGEST-CHANGED",
+      "baseline_graph": {
+        "case_id": "GRAPH-006-PROJECTOR-DIGEST",
+        "knowledge_at": "2026-11-05T10:30:00Z",
+        "period": {
+          "start": "2026-10-01",
+          "end": "2026-10-31"
+        },
+        "entity_scope_ref": "ENTITY-ACME",
+        "source_objects": [
+          {
+            "source_ref": "SRC-INV",
+            "tenant_namespace": "tenant-acme/ap",
+            "external_id": "INV-DRIFT-001",
+            "revision": "r1",
+            "source_kind": "invoice",
+            "received_at": "2026-11-05T09:00:00Z",
+            "integrity_state": "synthetic_match",
+            "supersedes_source_ref": null,
+            "transport_metadata": {
+              "connector_run_ref": "RUN-BASE-001",
+              "display_name": "invoice-import-1"
+            }
+          }
+        ],
+        "assertions": [
+          {
+            "assertion_ref": "AS-AMOUNT",
+            "fact_type": "invoice_amount_minor",
+            "value": 125000,
+            "currency": "USD",
+            "epistemic_state": "asserted",
+            "valid_from": "2026-10-01",
+            "valid_to": null,
+            "recorded_at": "2026-11-05T09:00:00Z",
+            "source_ref": "SRC-INV",
+            "source_locator": "page:1/row:1"
+          },
+          {
+            "assertion_ref": "AS-SUPPLIER",
+            "fact_type": "supplier_identity",
+            "value": "SUPPLIER-1",
+            "currency": null,
+            "epistemic_state": "asserted",
+            "valid_from": "2026-10-01",
+            "valid_to": null,
+            "recorded_at": "2026-11-05T09:00:00Z",
+            "source_ref": "SRC-INV",
+            "source_locator": "page:1/row:1"
+          }
+        ],
+        "events": [
+          {
+            "event_ref": "EV-INVOICE",
+            "event_kind": "invoice_issued",
+            "entity_ref": "ENTITY-ACME",
+            "counterparty_ref": "SUPPLIER-1",
+            "occurred_at": "2026-10-28T09:00:00Z",
+            "recorded_at": "2026-11-05T09:00:00Z",
+            "amount_minor": 125000,
+            "currency": "USD",
+            "assertion_refs": [
+              "AS-AMOUNT",
+              "AS-SUPPLIER"
+            ]
+          }
+        ],
+        "relations": []
+      },
+      "candidate_graph": {
+        "case_id": "GRAPH-006-PROJECTOR-DIGEST",
+        "knowledge_at": "2026-11-05T10:30:00Z",
+        "period": {
+          "start": "2026-10-01",
+          "end": "2026-10-31"
+        },
+        "entity_scope_ref": "ENTITY-ACME",
+        "source_objects": [
+          {
+            "source_ref": "SRC-INV",
+            "tenant_namespace": "tenant-acme/ap",
+            "external_id": "INV-DRIFT-001",
+            "revision": "r1",
+            "source_kind": "invoice",
+            "received_at": "2026-11-05T09:00:00Z",
+            "integrity_state": "synthetic_match",
+            "supersedes_source_ref": null,
+            "transport_metadata": {
+              "connector_run_ref": "RUN-BASE-001",
+              "display_name": "invoice-import-1"
+            }
+          }
+        ],
+        "assertions": [
+          {
+            "assertion_ref": "AS-AMOUNT",
+            "fact_type": "invoice_amount_minor",
+            "value": 125000,
+            "currency": "USD",
+            "epistemic_state": "asserted",
+            "valid_from": "2026-10-01",
+            "valid_to": null,
+            "recorded_at": "2026-11-05T09:00:00Z",
+            "source_ref": "SRC-INV",
+            "source_locator": "page:1/row:1"
+          },
+          {
+            "assertion_ref": "AS-SUPPLIER",
+            "fact_type": "supplier_identity",
+            "value": "SUPPLIER-1",
+            "currency": null,
+            "epistemic_state": "asserted",
+            "valid_from": "2026-10-01",
+            "valid_to": null,
+            "recorded_at": "2026-11-05T09:00:00Z",
+            "source_ref": "SRC-INV",
+            "source_locator": "page:1/row:1"
+          }
+        ],
+        "events": [
+          {
+            "event_ref": "EV-INVOICE",
+            "event_kind": "invoice_issued",
+            "entity_ref": "ENTITY-ACME",
+            "counterparty_ref": "SUPPLIER-1",
+            "occurred_at": "2026-10-28T09:00:00Z",
+            "recorded_at": "2026-11-05T09:00:00Z",
+            "amount_minor": 125000,
+            "currency": "USD",
+            "assertion_refs": [
+              "AS-AMOUNT",
+              "AS-SUPPLIER"
+            ]
+          }
+        ],
+        "relations": []
+      },
+      "baseline_projection": {
+        "projection_id": "PROJ-GRAPH-006-PROJECTOR-DIGEST",
+        "graph_sha256": "8a96906ea13d7e4d895f019c5da1ff8a30f579893e72872bd2c748cca0948ac8",
+        "policy_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "projector_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "event_decisions": [
+          {
+            "decision_ref": "DEC-INVOICE",
+            "event_ref": "EV-INVOICE",
+            "assertion_refs": [
+              "AS-AMOUNT",
+              "AS-SUPPLIER"
+            ]
+          }
+        ],
+        "journal_lines": [
+          {
+            "line_ref": "JL-DR",
+            "decision_ref": "DEC-INVOICE",
+            "event_refs": [
+              "EV-INVOICE"
+            ],
+            "assertion_refs": [
+              "AS-AMOUNT",
+              "AS-SUPPLIER"
+            ]
+          },
+          {
+            "line_ref": "JL-CR",
+            "decision_ref": "DEC-INVOICE",
+            "event_refs": [
+              "EV-INVOICE"
+            ],
+            "assertion_refs": [
+              "AS-AMOUNT",
+              "AS-SUPPLIER"
+            ]
+          }
+        ],
+        "statement_lines": [
+          {
+            "statement_ref": "ST-EXPENSE",
+            "journal_line_refs": [
+              "JL-DR",
+              "JL-CR"
+            ]
+          }
+        ]
+      },
+      "candidate_policy_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "candidate_projector_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "claimed_impact": {
+        "impact_level": "reproject_required",
+        "changed_objects": {
+          "source_refs": [],
+          "assertion_refs": [],
+          "event_refs": [],
+          "relation_refs": [],
+          "policy_changed": false,
+          "projector_changed": true,
+          "knowledge_frontier_changed": false,
+          "transport_metadata_only_source_refs": []
+        },
+        "affected_objects": {
+          "event_refs": [
+            "EV-INVOICE"
+          ],
+          "decision_refs": [
+            "DEC-INVOICE"
+          ],
+          "journal_line_refs": [
+            "JL-CR",
+            "JL-DR"
+          ],
+          "statement_refs": [
+            "ST-EXPENSE"
+          ]
+        }
+      }
+    },
+    {
+      "scenario_id": "DRIFT-007-RELATION-CHANGED",
+      "baseline_graph": {
+        "case_id": "GRAPH-007-RELATION-CHANGED",
+        "knowledge_at": "2026-11-05T10:30:00Z",
+        "period": {
+          "start": "2026-10-01",
+          "end": "2026-10-31"
+        },
+        "entity_scope_ref": "ENTITY-ACME",
+        "source_objects": [
+          {
+            "source_ref": "SRC-INV",
+            "tenant_namespace": "tenant-acme/ap",
+            "external_id": "INV-DRIFT-001",
+            "revision": "r1",
+            "source_kind": "invoice",
+            "received_at": "2026-11-05T09:00:00Z",
+            "integrity_state": "synthetic_match",
+            "supersedes_source_ref": null,
+            "transport_metadata": {
+              "connector_run_ref": "RUN-BASE-001",
+              "display_name": "invoice-import-1"
+            }
+          }
+        ],
+        "assertions": [
+          {
+            "assertion_ref": "AS-AMOUNT",
+            "fact_type": "invoice_amount_minor",
+            "value": 125000,
+            "currency": "USD",
+            "epistemic_state": "asserted",
+            "valid_from": "2026-10-01",
+            "valid_to": null,
+            "recorded_at": "2026-11-05T09:00:00Z",
+            "source_ref": "SRC-INV",
+            "source_locator": "page:1/row:1"
+          },
+          {
+            "assertion_ref": "AS-SUPPLIER",
+            "fact_type": "supplier_identity",
+            "value": "SUPPLIER-1",
+            "currency": null,
+            "epistemic_state": "asserted",
+            "valid_from": "2026-10-01",
+            "valid_to": null,
+            "recorded_at": "2026-11-05T09:00:00Z",
+            "source_ref": "SRC-INV",
+            "source_locator": "page:1/row:1"
+          }
+        ],
+        "events": [
+          {
+            "event_ref": "EV-INVOICE",
+            "event_kind": "invoice_issued",
+            "entity_ref": "ENTITY-ACME",
+            "counterparty_ref": "SUPPLIER-1",
+            "occurred_at": "2026-10-28T09:00:00Z",
+            "recorded_at": "2026-11-05T09:00:00Z",
+            "amount_minor": 125000,
+            "currency": "USD",
+            "assertion_refs": [
+              "AS-AMOUNT",
+              "AS-SUPPLIER"
+            ]
+          }
+        ],
+        "relations": []
+      },
+      "candidate_graph": {
+        "case_id": "GRAPH-007-RELATION-CHANGED",
+        "knowledge_at": "2026-11-05T10:30:00Z",
+        "period": {
+          "start": "2026-10-01",
+          "end": "2026-10-31"
+        },
+        "entity_scope_ref": "ENTITY-ACME",
+        "source_objects": [
+          {
+            "source_ref": "SRC-INV",
+            "tenant_namespace": "tenant-acme/ap",
+            "external_id": "INV-DRIFT-001",
+            "revision": "r1",
+            "source_kind": "invoice",
+            "received_at": "2026-11-05T09:00:00Z",
+            "integrity_state": "synthetic_match",
+            "supersedes_source_ref": null,
+            "transport_metadata": {
+              "connector_run_ref": "RUN-BASE-001",
+              "display_name": "invoice-import-1"
+            }
+          }
+        ],
+        "assertions": [
+          {
+            "assertion_ref": "AS-AMOUNT",
+            "fact_type": "invoice_amount_minor",
+            "value": 125000,
+            "currency": "USD",
+            "epistemic_state": "asserted",
+            "valid_from": "2026-10-01",
+            "valid_to": null,
+            "recorded_at": "2026-11-05T09:00:00Z",
+            "source_ref": "SRC-INV",
+            "source_locator": "page:1/row:1"
+          },
+          {
+            "assertion_ref": "AS-SUPPLIER",
+            "fact_type": "supplier_identity",
+            "value": "SUPPLIER-1",
+            "currency": null,
+            "epistemic_state": "asserted",
+            "valid_from": "2026-10-01",
+            "valid_to": null,
+            "recorded_at": "2026-11-05T09:00:00Z",
+            "source_ref": "SRC-INV",
+            "source_locator": "page:1/row:1"
+          }
+        ],
+        "events": [
+          {
+            "event_ref": "EV-INVOICE",
+            "event_kind": "invoice_issued",
+            "entity_ref": "ENTITY-ACME",
+            "counterparty_ref": "SUPPLIER-1",
+            "occurred_at": "2026-10-28T09:00:00Z",
+            "recorded_at": "2026-11-05T09:00:00Z",
+            "amount_minor": 125000,
+            "currency": "USD",
+            "assertion_refs": [
+              "AS-AMOUNT",
+              "AS-SUPPLIER"
+            ]
+          }
+        ],
+        "relations": [
+          {
+            "relation_ref": "REL-SUPPORTS",
+            "relation_kind": "supports",
+            "from_kind": "assertion",
+            "from_ref": "AS-AMOUNT",
+            "to_kind": "event",
+            "to_ref": "EV-INVOICE",
+            "recorded_at": "2026-11-05T09:00:00Z",
+            "valid_from": "2026-10-01",
+            "valid_to": null,
+            "source_assertion_refs": [
+              "AS-AMOUNT"
+            ]
+          }
+        ]
+      },
+      "baseline_projection": {
+        "projection_id": "PROJ-GRAPH-007-RELATION-CHANGED",
+        "graph_sha256": "7dbf78112a7c67563de537fae5c90809e80d8ec8ac41f04491dcf0ccc9692726",
+        "policy_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "projector_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "event_decisions": [
+          {
+            "decision_ref": "DEC-INVOICE",
+            "event_ref": "EV-INVOICE",
+            "assertion_refs": [
+              "AS-AMOUNT",
+              "AS-SUPPLIER"
+            ]
+          }
+        ],
+        "journal_lines": [
+          {
+            "line_ref": "JL-DR",
+            "decision_ref": "DEC-INVOICE",
+            "event_refs": [
+              "EV-INVOICE"
+            ],
+            "assertion_refs": [
+              "AS-AMOUNT",
+              "AS-SUPPLIER"
+            ]
+          },
+          {
+            "line_ref": "JL-CR",
+            "decision_ref": "DEC-INVOICE",
+            "event_refs": [
+              "EV-INVOICE"
+            ],
+            "assertion_refs": [
+              "AS-AMOUNT",
+              "AS-SUPPLIER"
+            ]
+          }
+        ],
+        "statement_lines": [
+          {
+            "statement_ref": "ST-EXPENSE",
+            "journal_line_refs": [
+              "JL-DR",
+              "JL-CR"
+            ]
+          }
+        ]
+      },
+      "candidate_policy_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "candidate_projector_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "claimed_impact": {
+        "impact_level": "reproject_required",
+        "changed_objects": {
+          "source_refs": [],
+          "assertion_refs": [],
+          "event_refs": [],
+          "relation_refs": [
+            "REL-SUPPORTS"
+          ],
+          "policy_changed": false,
+          "projector_changed": false,
+          "knowledge_frontier_changed": false,
+          "transport_metadata_only_source_refs": []
+        },
+        "affected_objects": {
+          "event_refs": [
+            "EV-INVOICE"
+          ],
+          "decision_refs": [
+            "DEC-INVOICE"
+          ],
+          "journal_line_refs": [
+            "JL-CR",
+            "JL-DR"
+          ],
+          "statement_refs": [
+            "ST-EXPENSE"
+          ]
+        }
+      }
+    },
+    {
+      "scenario_id": "DRIFT-008-UNLINKED-REVISION",
+      "baseline_graph": {
+        "case_id": "GRAPH-008-UNLINKED-REVISION",
+        "knowledge_at": "2026-11-05T10:30:00Z",
+        "period": {
+          "start": "2026-10-01",
+          "end": "2026-10-31"
+        },
+        "entity_scope_ref": "ENTITY-ACME",
+        "source_objects": [
+          {
+            "source_ref": "SRC-INV",
+            "tenant_namespace": "tenant-acme/ap",
+            "external_id": "INV-DRIFT-001",
+            "revision": "r1",
+            "source_kind": "invoice",
+            "received_at": "2026-11-05T09:00:00Z",
+            "integrity_state": "synthetic_match",
+            "supersedes_source_ref": null,
+            "transport_metadata": {
+              "connector_run_ref": "RUN-BASE-001",
+              "display_name": "invoice-import-1"
+            }
+          }
+        ],
+        "assertions": [
+          {
+            "assertion_ref": "AS-AMOUNT",
+            "fact_type": "invoice_amount_minor",
+            "value": 125000,
+            "currency": "USD",
+            "epistemic_state": "asserted",
+            "valid_from": "2026-10-01",
+            "valid_to": null,
+            "recorded_at": "2026-11-05T09:00:00Z",
+            "source_ref": "SRC-INV",
+            "source_locator": "page:1/row:1"
+          },
+          {
+            "assertion_ref": "AS-SUPPLIER",
+            "fact_type": "supplier_identity",
+            "value": "SUPPLIER-1",
+            "currency": null,
+            "epistemic_state": "asserted",
+            "valid_from": "2026-10-01",
+            "valid_to": null,
+            "recorded_at": "2026-11-05T09:00:00Z",
+            "source_ref": "SRC-INV",
+            "source_locator": "page:1/row:1"
+          }
+        ],
+        "events": [
+          {
+            "event_ref": "EV-INVOICE",
+            "event_kind": "invoice_issued",
+            "entity_ref": "ENTITY-ACME",
+            "counterparty_ref": "SUPPLIER-1",
+            "occurred_at": "2026-10-28T09:00:00Z",
+            "recorded_at": "2026-11-05T09:00:00Z",
+            "amount_minor": 125000,
+            "currency": "USD",
+            "assertion_refs": [
+              "AS-AMOUNT",
+              "AS-SUPPLIER"
+            ]
+          }
+        ],
+        "relations": []
+      },
+      "candidate_graph": {
+        "case_id": "GRAPH-008-UNLINKED-REVISION",
+        "knowledge_at": "2026-11-05T10:30:00Z",
+        "period": {
+          "start": "2026-10-01",
+          "end": "2026-10-31"
+        },
+        "entity_scope_ref": "ENTITY-ACME",
+        "source_objects": [
+          {
+            "source_ref": "SRC-INV",
+            "tenant_namespace": "tenant-acme/ap",
+            "external_id": "INV-DRIFT-001",
+            "revision": "r1",
+            "source_kind": "invoice",
+            "received_at": "2026-11-05T09:00:00Z",
+            "integrity_state": "synthetic_match",
+            "supersedes_source_ref": null,
+            "transport_metadata": {
+              "connector_run_ref": "RUN-BASE-001",
+              "display_name": "invoice-import-1"
+            }
+          },
+          {
+            "source_ref": "SRC-INV-R2",
+            "tenant_namespace": "tenant-acme/ap",
+            "external_id": "INV-DRIFT-001",
+            "revision": "r2",
+            "source_kind": "invoice",
+            "received_at": "2026-11-05T10:15:00Z",
+            "integrity_state": "synthetic_match",
+            "supersedes_source_ref": null,
+            "transport_metadata": {
+              "connector_run_ref": "RUN-R2",
+              "display_name": "invoice revision 2"
+            }
+          }
+        ],
+        "assertions": [
+          {
+            "assertion_ref": "AS-AMOUNT",
+            "fact_type": "invoice_amount_minor",
+            "value": 125000,
+            "currency": "USD",
+            "epistemic_state": "asserted",
+            "valid_from": "2026-10-01",
+            "valid_to": null,
+            "recorded_at": "2026-11-05T09:00:00Z",
+            "source_ref": "SRC-INV",
+            "source_locator": "page:1/row:1"
+          },
+          {
+            "assertion_ref": "AS-SUPPLIER",
+            "fact_type": "supplier_identity",
+            "value": "SUPPLIER-1",
+            "currency": null,
+            "epistemic_state": "asserted",
+            "valid_from": "2026-10-01",
+            "valid_to": null,
+            "recorded_at": "2026-11-05T09:00:00Z",
+            "source_ref": "SRC-INV",
+            "source_locator": "page:1/row:1"
+          }
+        ],
+        "events": [
+          {
+            "event_ref": "EV-INVOICE",
+            "event_kind": "invoice_issued",
+            "entity_ref": "ENTITY-ACME",
+            "counterparty_ref": "SUPPLIER-1",
+            "occurred_at": "2026-10-28T09:00:00Z",
+            "recorded_at": "2026-11-05T09:00:00Z",
+            "amount_minor": 125000,
+            "currency": "USD",
+            "assertion_refs": [
+              "AS-AMOUNT",
+              "AS-SUPPLIER"
+            ]
+          }
+        ],
+        "relations": []
+      },
+      "baseline_projection": {
+        "projection_id": "PROJ-GRAPH-008-UNLINKED-REVISION",
+        "graph_sha256": "de08d91b9a6e3aa43c274d44c4b95cb38602f8ca7c7df505e6d3adc9a874a786",
+        "policy_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "projector_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "event_decisions": [
+          {
+            "decision_ref": "DEC-INVOICE",
+            "event_ref": "EV-INVOICE",
+            "assertion_refs": [
+              "AS-AMOUNT",
+              "AS-SUPPLIER"
+            ]
+          }
+        ],
+        "journal_lines": [
+          {
+            "line_ref": "JL-DR",
+            "decision_ref": "DEC-INVOICE",
+            "event_refs": [
+              "EV-INVOICE"
+            ],
+            "assertion_refs": [
+              "AS-AMOUNT",
+              "AS-SUPPLIER"
+            ]
+          },
+          {
+            "line_ref": "JL-CR",
+            "decision_ref": "DEC-INVOICE",
+            "event_refs": [
+              "EV-INVOICE"
+            ],
+            "assertion_refs": [
+              "AS-AMOUNT",
+              "AS-SUPPLIER"
+            ]
+          }
+        ],
+        "statement_lines": [
+          {
+            "statement_ref": "ST-EXPENSE",
+            "journal_line_refs": [
+              "JL-DR",
+              "JL-CR"
+            ]
+          }
+        ]
+      },
+      "candidate_policy_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "candidate_projector_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "claimed_impact": {
+        "impact_level": "projection_invalid",
+        "changed_objects": {
+          "source_refs": [
+            "SRC-INV-R2"
+          ],
+          "assertion_refs": [],
+          "event_refs": [],
+          "relation_refs": [],
+          "policy_changed": false,
+          "projector_changed": false,
+          "knowledge_frontier_changed": false,
+          "transport_metadata_only_source_refs": []
+        },
+        "affected_objects": {
+          "event_refs": [],
+          "decision_refs": [],
+          "journal_line_refs": [],
+          "statement_refs": []
+        }
+      }
+    },
+    {
+      "scenario_id": "DRIFT-009-CROSS-TENANT-DUPLICATE",
+      "baseline_graph": {
+        "case_id": "GRAPH-009-CROSS-TENANT-DUPLICATE",
+        "knowledge_at": "2026-11-05T10:30:00Z",
+        "period": {
+          "start": "2026-10-01",
+          "end": "2026-10-31"
+        },
+        "entity_scope_ref": "ENTITY-ACME",
+        "source_objects": [
+          {
+            "source_ref": "SRC-INV",
+            "tenant_namespace": "tenant-acme/ap",
+            "external_id": "INV-DRIFT-001",
+            "revision": "r1",
+            "source_kind": "invoice",
+            "received_at": "2026-11-05T09:00:00Z",
+            "integrity_state": "synthetic_match",
+            "supersedes_source_ref": null,
+            "transport_metadata": {
+              "connector_run_ref": "RUN-BASE-001",
+              "display_name": "invoice-import-1"
+            }
+          }
+        ],
+        "assertions": [
+          {
+            "assertion_ref": "AS-AMOUNT",
+            "fact_type": "invoice_amount_minor",
+            "value": 125000,
+            "currency": "USD",
+            "epistemic_state": "asserted",
+            "valid_from": "2026-10-01",
+            "valid_to": null,
+            "recorded_at": "2026-11-05T09:00:00Z",
+            "source_ref": "SRC-INV",
+            "source_locator": "page:1/row:1"
+          },
+          {
+            "assertion_ref": "AS-SUPPLIER",
+            "fact_type": "supplier_identity",
+            "value": "SUPPLIER-1",
+            "currency": null,
+            "epistemic_state": "asserted",
+            "valid_from": "2026-10-01",
+            "valid_to": null,
+            "recorded_at": "2026-11-05T09:00:00Z",
+            "source_ref": "SRC-INV",
+            "source_locator": "page:1/row:1"
+          }
+        ],
+        "events": [
+          {
+            "event_ref": "EV-INVOICE",
+            "event_kind": "invoice_issued",
+            "entity_ref": "ENTITY-ACME",
+            "counterparty_ref": "SUPPLIER-1",
+            "occurred_at": "2026-10-28T09:00:00Z",
+            "recorded_at": "2026-11-05T09:00:00Z",
+            "amount_minor": 125000,
+            "currency": "USD",
+            "assertion_refs": [
+              "AS-AMOUNT",
+              "AS-SUPPLIER"
+            ]
+          }
+        ],
+        "relations": []
+      },
+      "candidate_graph": {
+        "case_id": "GRAPH-009-CROSS-TENANT-DUPLICATE",
+        "knowledge_at": "2026-11-05T10:30:00Z",
+        "period": {
+          "start": "2026-10-01",
+          "end": "2026-10-31"
+        },
+        "entity_scope_ref": "ENTITY-ACME",
+        "source_objects": [
+          {
+            "source_ref": "SRC-INV",
+            "tenant_namespace": "tenant-acme/ap",
+            "external_id": "INV-DRIFT-001",
+            "revision": "r1",
+            "source_kind": "invoice",
+            "received_at": "2026-11-05T09:00:00Z",
+            "integrity_state": "synthetic_match",
+            "supersedes_source_ref": null,
+            "transport_metadata": {
+              "connector_run_ref": "RUN-BASE-001",
+              "display_name": "invoice-import-1"
+            }
+          },
+          {
+            "source_ref": "SRC-OTHER-TENANT",
+            "tenant_namespace": "tenant-beta/ap",
+            "external_id": "INV-DRIFT-001",
+            "revision": "r1",
+            "source_kind": "invoice",
+            "received_at": "2026-11-05T10:00:00Z",
+            "integrity_state": "synthetic_match",
+            "supersedes_source_ref": null,
+            "transport_metadata": {
+              "connector_run_ref": "RUN-BETA",
+              "display_name": "other tenant invoice"
+            }
+          }
+        ],
+        "assertions": [
+          {
+            "assertion_ref": "AS-AMOUNT",
+            "fact_type": "invoice_amount_minor",
+            "value": 125000,
+            "currency": "USD",
+            "epistemic_state": "asserted",
+            "valid_from": "2026-10-01",
+            "valid_to": null,
+            "recorded_at": "2026-11-05T09:00:00Z",
+            "source_ref": "SRC-INV",
+            "source_locator": "page:1/row:1"
+          },
+          {
+            "assertion_ref": "AS-SUPPLIER",
+            "fact_type": "supplier_identity",
+            "value": "SUPPLIER-1",
+            "currency": null,
+            "epistemic_state": "asserted",
+            "valid_from": "2026-10-01",
+            "valid_to": null,
+            "recorded_at": "2026-11-05T09:00:00Z",
+            "source_ref": "SRC-INV",
+            "source_locator": "page:1/row:1"
+          },
+          {
+            "assertion_ref": "AS-OTHER-TENANT",
+            "fact_type": "invoice_amount_minor",
+            "value": 999999,
+            "currency": "USD",
+            "epistemic_state": "asserted",
+            "valid_from": "2026-10-01",
+            "valid_to": null,
+            "recorded_at": "2026-11-05T09:00:00Z",
+            "source_ref": "SRC-OTHER-TENANT",
+            "source_locator": "page:1/row:1"
+          }
+        ],
+        "events": [
+          {
+            "event_ref": "EV-INVOICE",
+            "event_kind": "invoice_issued",
+            "entity_ref": "ENTITY-ACME",
+            "counterparty_ref": "SUPPLIER-1",
+            "occurred_at": "2026-10-28T09:00:00Z",
+            "recorded_at": "2026-11-05T09:00:00Z",
+            "amount_minor": 125000,
+            "currency": "USD",
+            "assertion_refs": [
+              "AS-AMOUNT",
+              "AS-SUPPLIER"
+            ]
+          }
+        ],
+        "relations": []
+      },
+      "baseline_projection": {
+        "projection_id": "PROJ-GRAPH-009-CROSS-TENANT-DUPLICATE",
+        "graph_sha256": "409aeabdaf89b7946d4df29311fc3e80d8fd1554fe995ef9138fb592f1c3bb79",
+        "policy_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "projector_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "event_decisions": [
+          {
+            "decision_ref": "DEC-INVOICE",
+            "event_ref": "EV-INVOICE",
+            "assertion_refs": [
+              "AS-AMOUNT",
+              "AS-SUPPLIER"
+            ]
+          }
+        ],
+        "journal_lines": [
+          {
+            "line_ref": "JL-DR",
+            "decision_ref": "DEC-INVOICE",
+            "event_refs": [
+              "EV-INVOICE"
+            ],
+            "assertion_refs": [
+              "AS-AMOUNT",
+              "AS-SUPPLIER"
+            ]
+          },
+          {
+            "line_ref": "JL-CR",
+            "decision_ref": "DEC-INVOICE",
+            "event_refs": [
+              "EV-INVOICE"
+            ],
+            "assertion_refs": [
+              "AS-AMOUNT",
+              "AS-SUPPLIER"
+            ]
+          }
+        ],
+        "statement_lines": [
+          {
+            "statement_ref": "ST-EXPENSE",
+            "journal_line_refs": [
+              "JL-DR",
+              "JL-CR"
+            ]
+          }
+        ]
+      },
+      "candidate_policy_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "candidate_projector_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "claimed_impact": {
+        "impact_level": "historical_replay_required",
+        "changed_objects": {
+          "source_refs": [
+            "SRC-OTHER-TENANT"
+          ],
+          "assertion_refs": [
+            "AS-OTHER-TENANT"
+          ],
+          "event_refs": [],
+          "relation_refs": [],
+          "policy_changed": false,
+          "projector_changed": false,
+          "knowledge_frontier_changed": false,
+          "transport_metadata_only_source_refs": []
+        },
+        "affected_objects": {
+          "event_refs": [],
+          "decision_refs": [],
+          "journal_line_refs": [],
+          "statement_refs": []
+        }
+      }
+    },
+    {
+      "scenario_id": "DRIFT-010-UNDERREPORTED-IMPACT",
+      "baseline_graph": {
+        "case_id": "GRAPH-010-UNDERREPORTED-IMPACT",
+        "knowledge_at": "2026-11-05T10:30:00Z",
+        "period": {
+          "start": "2026-10-01",
+          "end": "2026-10-31"
+        },
+        "entity_scope_ref": "ENTITY-ACME",
+        "source_objects": [
+          {
+            "source_ref": "SRC-INV",
+            "tenant_namespace": "tenant-acme/ap",
+            "external_id": "INV-DRIFT-001",
+            "revision": "r1",
+            "source_kind": "invoice",
+            "received_at": "2026-11-05T09:00:00Z",
+            "integrity_state": "synthetic_match",
+            "supersedes_source_ref": null,
+            "transport_metadata": {
+              "connector_run_ref": "RUN-BASE-001",
+              "display_name": "invoice-import-1"
+            }
+          }
+        ],
+        "assertions": [
+          {
+            "assertion_ref": "AS-AMOUNT",
+            "fact_type": "invoice_amount_minor",
+            "value": 125000,
+            "currency": "USD",
+            "epistemic_state": "asserted",
+            "valid_from": "2026-10-01",
+            "valid_to": null,
+            "recorded_at": "2026-11-05T09:00:00Z",
+            "source_ref": "SRC-INV",
+            "source_locator": "page:1/row:1"
+          },
+          {
+            "assertion_ref": "AS-SUPPLIER",
+            "fact_type": "supplier_identity",
+            "value": "SUPPLIER-1",
+            "currency": null,
+            "epistemic_state": "asserted",
+            "valid_from": "2026-10-01",
+            "valid_to": null,
+            "recorded_at": "2026-11-05T09:00:00Z",
+            "source_ref": "SRC-INV",
+            "source_locator": "page:1/row:1"
+          }
+        ],
+        "events": [
+          {
+            "event_ref": "EV-INVOICE",
+            "event_kind": "invoice_issued",
+            "entity_ref": "ENTITY-ACME",
+            "counterparty_ref": "SUPPLIER-1",
+            "occurred_at": "2026-10-28T09:00:00Z",
+            "recorded_at": "2026-11-05T09:00:00Z",
+            "amount_minor": 125000,
+            "currency": "USD",
+            "assertion_refs": [
+              "AS-AMOUNT",
+              "AS-SUPPLIER"
+            ]
+          }
+        ],
+        "relations": []
+      },
+      "candidate_graph": {
+        "case_id": "GRAPH-010-UNDERREPORTED-IMPACT",
+        "knowledge_at": "2026-11-05T10:30:00Z",
+        "period": {
+          "start": "2026-10-01",
+          "end": "2026-10-31"
+        },
+        "entity_scope_ref": "ENTITY-ACME",
+        "source_objects": [
+          {
+            "source_ref": "SRC-INV",
+            "tenant_namespace": "tenant-acme/ap",
+            "external_id": "INV-DRIFT-001",
+            "revision": "r1",
+            "source_kind": "invoice",
+            "received_at": "2026-11-05T09:00:00Z",
+            "integrity_state": "synthetic_match",
+            "supersedes_source_ref": null,
+            "transport_metadata": {
+              "connector_run_ref": "RUN-BASE-001",
+              "display_name": "invoice-import-1"
+            }
+          }
+        ],
+        "assertions": [
+          {
+            "assertion_ref": "AS-AMOUNT",
+            "fact_type": "invoice_amount_minor",
+            "value": 130000,
+            "currency": "USD",
+            "epistemic_state": "asserted",
+            "valid_from": "2026-10-01",
+            "valid_to": null,
+            "recorded_at": "2026-11-05T09:00:00Z",
+            "source_ref": "SRC-INV",
+            "source_locator": "page:1/row:1"
+          },
+          {
+            "assertion_ref": "AS-SUPPLIER",
+            "fact_type": "supplier_identity",
+            "value": "SUPPLIER-1",
+            "currency": null,
+            "epistemic_state": "asserted",
+            "valid_from": "2026-10-01",
+            "valid_to": null,
+            "recorded_at": "2026-11-05T09:00:00Z",
+            "source_ref": "SRC-INV",
+            "source_locator": "page:1/row:1"
+          }
+        ],
+        "events": [
+          {
+            "event_ref": "EV-INVOICE",
+            "event_kind": "invoice_issued",
+            "entity_ref": "ENTITY-ACME",
+            "counterparty_ref": "SUPPLIER-1",
+            "occurred_at": "2026-10-28T09:00:00Z",
+            "recorded_at": "2026-11-05T09:00:00Z",
+            "amount_minor": 130000,
+            "currency": "USD",
+            "assertion_refs": [
+              "AS-AMOUNT",
+              "AS-SUPPLIER"
+            ]
+          }
+        ],
+        "relations": []
+      },
+      "baseline_projection": {
+        "projection_id": "PROJ-GRAPH-010-UNDERREPORTED-IMPACT",
+        "graph_sha256": "8e3025443ba7081269c9756cfb8e43e3159fe262bcfec245ab02b428c8a7def3",
+        "policy_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "projector_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "event_decisions": [
+          {
+            "decision_ref": "DEC-INVOICE",
+            "event_ref": "EV-INVOICE",
+            "assertion_refs": [
+              "AS-AMOUNT",
+              "AS-SUPPLIER"
+            ]
+          }
+        ],
+        "journal_lines": [
+          {
+            "line_ref": "JL-DR",
+            "decision_ref": "DEC-INVOICE",
+            "event_refs": [
+              "EV-INVOICE"
+            ],
+            "assertion_refs": [
+              "AS-AMOUNT",
+              "AS-SUPPLIER"
+            ]
+          },
+          {
+            "line_ref": "JL-CR",
+            "decision_ref": "DEC-INVOICE",
+            "event_refs": [
+              "EV-INVOICE"
+            ],
+            "assertion_refs": [
+              "AS-AMOUNT",
+              "AS-SUPPLIER"
+            ]
+          }
+        ],
+        "statement_lines": [
+          {
+            "statement_ref": "ST-EXPENSE",
+            "journal_line_refs": [
+              "JL-DR",
+              "JL-CR"
+            ]
+          }
+        ]
+      },
+      "candidate_policy_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "candidate_projector_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "claimed_impact": {
+        "impact_level": "reproject_required",
+        "changed_objects": {
+          "source_refs": [],
+          "assertion_refs": [
+            "AS-AMOUNT"
+          ],
+          "event_refs": [
+            "EV-INVOICE"
+          ],
+          "relation_refs": [],
+          "policy_changed": false,
+          "projector_changed": false,
+          "knowledge_frontier_changed": false,
+          "transport_metadata_only_source_refs": []
+        },
+        "affected_objects": {
+          "event_refs": [
+            "EV-INVOICE"
+          ],
+          "decision_refs": [
+            "DEC-INVOICE"
+          ],
+          "journal_line_refs": [
+            "JL-CR",
+            "JL-DR"
+          ],
+          "statement_refs": []
+        }
+      }
+    },
+    {
+      "scenario_id": "DRIFT-011-LINKED-REVISION",
+      "baseline_graph": {
+        "case_id": "GRAPH-011-LINKED-REVISION",
+        "knowledge_at": "2026-11-05T10:00:00Z",
+        "period": {
+          "start": "2026-10-01",
+          "end": "2026-10-31"
+        },
+        "entity_scope_ref": "ENTITY-ACME",
+        "source_objects": [
+          {
+            "source_ref": "SRC-INV",
+            "tenant_namespace": "tenant-acme/ap",
+            "external_id": "INV-DRIFT-001",
+            "revision": "r1",
+            "source_kind": "invoice",
+            "received_at": "2026-11-05T09:00:00Z",
+            "integrity_state": "synthetic_match",
+            "supersedes_source_ref": null,
+            "transport_metadata": {
+              "connector_run_ref": "RUN-BASE-001",
+              "display_name": "invoice-import-1"
+            }
+          }
+        ],
+        "assertions": [
+          {
+            "assertion_ref": "AS-AMOUNT",
+            "fact_type": "invoice_amount_minor",
+            "value": 125000,
+            "currency": "USD",
+            "epistemic_state": "asserted",
+            "valid_from": "2026-10-01",
+            "valid_to": null,
+            "recorded_at": "2026-11-05T09:00:00Z",
+            "source_ref": "SRC-INV",
+            "source_locator": "page:1/row:1"
+          },
+          {
+            "assertion_ref": "AS-SUPPLIER",
+            "fact_type": "supplier_identity",
+            "value": "SUPPLIER-1",
+            "currency": null,
+            "epistemic_state": "asserted",
+            "valid_from": "2026-10-01",
+            "valid_to": null,
+            "recorded_at": "2026-11-05T09:00:00Z",
+            "source_ref": "SRC-INV",
+            "source_locator": "page:1/row:1"
+          }
+        ],
+        "events": [
+          {
+            "event_ref": "EV-INVOICE",
+            "event_kind": "invoice_issued",
+            "entity_ref": "ENTITY-ACME",
+            "counterparty_ref": "SUPPLIER-1",
+            "occurred_at": "2026-10-28T09:00:00Z",
+            "recorded_at": "2026-11-05T09:00:00Z",
+            "amount_minor": 125000,
+            "currency": "USD",
+            "assertion_refs": [
+              "AS-AMOUNT",
+              "AS-SUPPLIER"
+            ]
+          }
+        ],
+        "relations": []
+      },
+      "candidate_graph": {
+        "case_id": "GRAPH-011-LINKED-REVISION",
+        "knowledge_at": "2026-11-05T11:00:00Z",
+        "period": {
+          "start": "2026-10-01",
+          "end": "2026-10-31"
+        },
+        "entity_scope_ref": "ENTITY-ACME",
+        "source_objects": [
+          {
+            "source_ref": "SRC-INV",
+            "tenant_namespace": "tenant-acme/ap",
+            "external_id": "INV-DRIFT-001",
+            "revision": "r1",
+            "source_kind": "invoice",
+            "received_at": "2026-11-05T09:00:00Z",
+            "integrity_state": "synthetic_match",
+            "supersedes_source_ref": null,
+            "transport_metadata": {
+              "connector_run_ref": "RUN-BASE-001",
+              "display_name": "invoice-import-1"
+            }
+          },
+          {
+            "source_ref": "SRC-INV-R2",
+            "tenant_namespace": "tenant-acme/ap",
+            "external_id": "INV-DRIFT-001",
+            "revision": "r2",
+            "source_kind": "invoice",
+            "received_at": "2026-11-05T10:15:00Z",
+            "integrity_state": "synthetic_match",
+            "supersedes_source_ref": "SRC-INV",
+            "transport_metadata": {
+              "connector_run_ref": "RUN-R2",
+              "display_name": "invoice revision 2"
+            }
+          }
+        ],
+        "assertions": [
+          {
+            "assertion_ref": "AS-AMOUNT",
+            "fact_type": "invoice_amount_minor",
+            "value": 125000,
+            "currency": "USD",
+            "epistemic_state": "asserted",
+            "valid_from": "2026-10-01",
+            "valid_to": null,
+            "recorded_at": "2026-11-05T09:00:00Z",
+            "source_ref": "SRC-INV",
+            "source_locator": "page:1/row:1"
+          },
+          {
+            "assertion_ref": "AS-SUPPLIER",
+            "fact_type": "supplier_identity",
+            "value": "SUPPLIER-1",
+            "currency": null,
+            "epistemic_state": "asserted",
+            "valid_from": "2026-10-01",
+            "valid_to": null,
+            "recorded_at": "2026-11-05T09:00:00Z",
+            "source_ref": "SRC-INV",
+            "source_locator": "page:1/row:1"
+          },
+          {
+            "assertion_ref": "AS-AMOUNT-R2",
+            "fact_type": "invoice_amount_minor",
+            "value": 130000,
+            "currency": "USD",
+            "epistemic_state": "asserted",
+            "valid_from": "2026-10-01",
+            "valid_to": null,
+            "recorded_at": "2026-11-05T10:15:00Z",
+            "source_ref": "SRC-INV-R2",
+            "source_locator": "page:1/row:1"
+          }
+        ],
+        "events": [
+          {
+            "event_ref": "EV-INVOICE",
+            "event_kind": "invoice_issued",
+            "entity_ref": "ENTITY-ACME",
+            "counterparty_ref": "SUPPLIER-1",
+            "occurred_at": "2026-10-28T09:00:00Z",
+            "recorded_at": "2026-11-05T10:15:00Z",
+            "amount_minor": 130000,
+            "currency": "USD",
+            "assertion_refs": [
+              "AS-AMOUNT-R2",
+              "AS-SUPPLIER"
+            ]
+          }
+        ],
+        "relations": []
+      },
+      "baseline_projection": {
+        "projection_id": "PROJ-GRAPH-011-LINKED-REVISION",
+        "graph_sha256": "13f1adac546c5a27a1d6a3d443a02651c0e35957a2d4c0882b03d5c5d12fc96c",
+        "policy_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "projector_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "event_decisions": [
+          {
+            "decision_ref": "DEC-INVOICE",
+            "event_ref": "EV-INVOICE",
+            "assertion_refs": [
+              "AS-AMOUNT",
+              "AS-SUPPLIER"
+            ]
+          }
+        ],
+        "journal_lines": [
+          {
+            "line_ref": "JL-DR",
+            "decision_ref": "DEC-INVOICE",
+            "event_refs": [
+              "EV-INVOICE"
+            ],
+            "assertion_refs": [
+              "AS-AMOUNT",
+              "AS-SUPPLIER"
+            ]
+          },
+          {
+            "line_ref": "JL-CR",
+            "decision_ref": "DEC-INVOICE",
+            "event_refs": [
+              "EV-INVOICE"
+            ],
+            "assertion_refs": [
+              "AS-AMOUNT",
+              "AS-SUPPLIER"
+            ]
+          }
+        ],
+        "statement_lines": [
+          {
+            "statement_ref": "ST-EXPENSE",
+            "journal_line_refs": [
+              "JL-DR",
+              "JL-CR"
+            ]
+          }
+        ]
+      },
+      "candidate_policy_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "candidate_projector_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "claimed_impact": {
+        "impact_level": "historical_replay_required",
+        "changed_objects": {
+          "source_refs": [
+            "SRC-INV-R2"
+          ],
+          "assertion_refs": [
+            "AS-AMOUNT-R2"
+          ],
+          "event_refs": [
+            "EV-INVOICE"
+          ],
+          "relation_refs": [],
+          "policy_changed": false,
+          "projector_changed": false,
+          "knowledge_frontier_changed": true,
+          "transport_metadata_only_source_refs": []
+        },
+        "affected_objects": {
+          "event_refs": [
+            "EV-INVOICE"
+          ],
+          "decision_refs": [
+            "DEC-INVOICE"
+          ],
+          "journal_line_refs": [
+            "JL-CR",
+            "JL-DR"
+          ],
+          "statement_refs": [
+            "ST-EXPENSE"
+          ]
+        }
+      }
+    }
+  ]
+}
