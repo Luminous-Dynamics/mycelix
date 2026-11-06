@@ -821,7 +821,8 @@ fn audit(
                     if receipt.media_type != "application/scitt-receipt+cose"
                         || receipt.ts_issuer.trim().is_empty()
                         || receipt.ts_keyid.trim().is_empty()
-                        || !receipt_ids.insert((receipt.ts_issuer.clone(), receipt.ts_keyid.clone()))
+                        || !receipt_ids
+                            .insert((receipt.ts_issuer.clone(), receipt.ts_keyid.clone()))
                         || !valid_sha256(&receipt.registration_policy_sha256)
                     {
                         finding(
@@ -1369,9 +1370,12 @@ mod tests {
         });
         let report = audit(&serde_json::to_vec(&value).unwrap(), &trace, &policy).unwrap();
         assert_eq!(report.status, "FAIL");
-        assert!(report.findings.iter().any(|f| {
-            f.code == "SCITT_RECEIPT_METADATA_INVALID"
-        }));
+        assert!(
+            report
+                .findings
+                .iter()
+                .any(|f| { f.code == "SCITT_RECEIPT_METADATA_INVALID" })
+        );
     }
 
     #[test]
@@ -1393,9 +1397,12 @@ mod tests {
         });
         let report = audit(&serde_json::to_vec(&value).unwrap(), &trace, &policy).unwrap();
         assert_eq!(report.status, "INCOMPLETE");
-        assert!(report.findings.iter().any(|f| {
-            f.code == "SCITT_COSE_VERIFICATION_UNIMPLEMENTED"
-        }));
+        assert!(
+            report
+                .findings
+                .iter()
+                .any(|f| { f.code == "SCITT_COSE_VERIFICATION_UNIMPLEMENTED" })
+        );
     }
 
     #[test]
