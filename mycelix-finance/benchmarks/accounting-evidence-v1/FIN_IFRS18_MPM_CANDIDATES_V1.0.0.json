@@ -1,0 +1,2563 @@
+{
+  "bundle_id": "FIN-IFRS18-MPM-S0",
+  "schema_version": "1.0.0",
+  "claim_ceiling": "public_synthetic_ifrs18_mpm_disclosure_contract_not_full_compliance",
+  "cases": [
+    {
+      "case_id": "MPM-001",
+      "task": "Validate a complete adjusted operating-profit MPM note and exact reconciliation.",
+      "reporting_entity_ref": "ENTITY-SYNTH-001",
+      "reporting_period_ref": "FY2027",
+      "period_start": "2027-01-01",
+      "period_end": "2027-12-31",
+      "framework": {
+        "framework_id": "ifrs_full",
+        "ifrs18_profile_declared": true,
+        "early_application": false,
+        "profile_approval_ref": "APPROVED-IFRS18-FY2027"
+      },
+      "most_directly_comparable_subtotal_ref": "IFRS-OP-2027",
+      "ifrs_subtotals": [
+        {
+          "subtotal_ref": "IFRS-OP-2027",
+          "amount_minor": "10000",
+          "paragraph_118_subtotal": true,
+          "presented_in_statement": true
+        },
+        {
+          "subtotal_ref": "IFRS-EBT-2027",
+          "amount_minor": "9000",
+          "paragraph_118_subtotal": true,
+          "presented_in_statement": true
+        }
+      ],
+      "measures": [
+        {
+          "measure_ref": "MPM-001",
+          "candidate_classification": "mpm",
+          "label": "Adjusted operating profit",
+          "subtotal_kind": "income_and_expense_subtotal",
+          "ifrs_required_subtotal": false,
+          "public_communication_refs": [
+            "PUB-2027-INVESTOR-PRESENTATION-01"
+          ],
+          "reporting_period_ref": "FY2027",
+          "entity_wide": true,
+          "internal_management_use": true,
+          "rebuttal_evidence_ref": null,
+          "description": "A measure of operating performance before the specified restructuring adjustment",
+          "usefulness": "Management uses the measure to explain the operating performance of the consolidated entity after separately identifying restructuring costs",
+          "calculation_method": "Operating profit plus the specified restructuring expense adjustment",
+          "included_item_refs": [
+            "REV-001",
+            "OPERATING-EXPENSES-001"
+          ],
+          "excluded_item_refs": [
+            "RESTRUCTURING-EXPENSE-001"
+          ],
+          "note_ref": "MPM-NOTE-01",
+          "reconciliation": {
+            "comparator_subtotal_ref": "IFRS-OP-2027",
+            "comparator_amount_minor": "10000",
+            "comparator_presented": true,
+            "mpm_amount_minor": "12000",
+            "reconciling_items": [
+              {
+                "item_ref": "ADJ-001",
+                "description": "Exclude restructuring expense from management's adjusted operating profit",
+                "statement_line_ref": "EXP-RESTRUCTURING",
+                "adjustment_minor": "2000",
+                "tax_effect_minor": "-400",
+                "tax_method": "statutory_rate",
+                "tax_method_description": "Apply the statutory tax rate applicable to the underlying restructuring transaction in the relevant jurisdiction",
+                "tax_jurisdiction_ref": "ZA-CORP-TAX",
+                "nci_effect_minor": "-100"
+              }
+            ],
+            "secondary_bridge": null
+          },
+          "lifecycle": {
+            "state": "unchanged",
+            "prior_measure_ref": "MPM-001",
+            "change_explanation": null,
+            "change_reason": null,
+            "comparative_restated": false,
+            "impracticable": false,
+            "impracticable_rationale": null,
+            "tax_method_changed": false
+          }
+        }
+      ],
+      "notes": [
+        {
+          "note_ref": "MPM-NOTE-01",
+          "measure_refs": [
+            "MPM-001"
+          ],
+          "management_view_statement": true,
+          "non_comparability_statement": true
+        }
+      ]
+    },
+    {
+      "case_id": "MPM-002",
+      "task": "Reject an MPM disclosure that omits its performance description.",
+      "reporting_entity_ref": "ENTITY-SYNTH-001",
+      "reporting_period_ref": "FY2027",
+      "period_start": "2027-01-01",
+      "period_end": "2027-12-31",
+      "framework": {
+        "framework_id": "ifrs_full",
+        "ifrs18_profile_declared": true,
+        "early_application": false,
+        "profile_approval_ref": "APPROVED-IFRS18-FY2027"
+      },
+      "most_directly_comparable_subtotal_ref": "IFRS-OP-2027",
+      "ifrs_subtotals": [
+        {
+          "subtotal_ref": "IFRS-OP-2027",
+          "amount_minor": "10000",
+          "paragraph_118_subtotal": true,
+          "presented_in_statement": true
+        },
+        {
+          "subtotal_ref": "IFRS-EBT-2027",
+          "amount_minor": "9000",
+          "paragraph_118_subtotal": true,
+          "presented_in_statement": true
+        }
+      ],
+      "measures": [
+        {
+          "measure_ref": "MPM-001",
+          "candidate_classification": "mpm",
+          "label": "Adjusted operating profit",
+          "subtotal_kind": "income_and_expense_subtotal",
+          "ifrs_required_subtotal": false,
+          "public_communication_refs": [
+            "PUB-2027-INVESTOR-PRESENTATION-01"
+          ],
+          "reporting_period_ref": "FY2027",
+          "entity_wide": true,
+          "internal_management_use": true,
+          "rebuttal_evidence_ref": null,
+          "description": null,
+          "usefulness": "Management uses the measure to explain the operating performance of the consolidated entity after separately identifying restructuring costs",
+          "calculation_method": "Operating profit plus the specified restructuring expense adjustment",
+          "included_item_refs": [
+            "REV-001",
+            "OPERATING-EXPENSES-001"
+          ],
+          "excluded_item_refs": [
+            "RESTRUCTURING-EXPENSE-001"
+          ],
+          "note_ref": "MPM-NOTE-01",
+          "reconciliation": {
+            "comparator_subtotal_ref": "IFRS-OP-2027",
+            "comparator_amount_minor": "10000",
+            "comparator_presented": true,
+            "mpm_amount_minor": "12000",
+            "reconciling_items": [
+              {
+                "item_ref": "ADJ-001",
+                "description": "Exclude restructuring expense from management's adjusted operating profit",
+                "statement_line_ref": "EXP-RESTRUCTURING",
+                "adjustment_minor": "2000",
+                "tax_effect_minor": "-400",
+                "tax_method": "statutory_rate",
+                "tax_method_description": "Apply the statutory tax rate applicable to the underlying restructuring transaction in the relevant jurisdiction",
+                "tax_jurisdiction_ref": "ZA-CORP-TAX",
+                "nci_effect_minor": "-100"
+              }
+            ],
+            "secondary_bridge": null
+          },
+          "lifecycle": {
+            "state": "unchanged",
+            "prior_measure_ref": "MPM-001",
+            "change_explanation": null,
+            "change_reason": null,
+            "comparative_restated": false,
+            "impracticable": false,
+            "impracticable_rationale": null,
+            "tax_method_changed": false
+          }
+        }
+      ],
+      "notes": [
+        {
+          "note_ref": "MPM-NOTE-01",
+          "measure_refs": [
+            "MPM-001"
+          ],
+          "management_view_statement": true,
+          "non_comparability_statement": true
+        }
+      ]
+    },
+    {
+      "case_id": "MPM-003",
+      "task": "Reject an MPM disclosure that omits its calculation method.",
+      "reporting_entity_ref": "ENTITY-SYNTH-001",
+      "reporting_period_ref": "FY2027",
+      "period_start": "2027-01-01",
+      "period_end": "2027-12-31",
+      "framework": {
+        "framework_id": "ifrs_full",
+        "ifrs18_profile_declared": true,
+        "early_application": false,
+        "profile_approval_ref": "APPROVED-IFRS18-FY2027"
+      },
+      "most_directly_comparable_subtotal_ref": "IFRS-OP-2027",
+      "ifrs_subtotals": [
+        {
+          "subtotal_ref": "IFRS-OP-2027",
+          "amount_minor": "10000",
+          "paragraph_118_subtotal": true,
+          "presented_in_statement": true
+        },
+        {
+          "subtotal_ref": "IFRS-EBT-2027",
+          "amount_minor": "9000",
+          "paragraph_118_subtotal": true,
+          "presented_in_statement": true
+        }
+      ],
+      "measures": [
+        {
+          "measure_ref": "MPM-001",
+          "candidate_classification": "mpm",
+          "label": "Adjusted operating profit",
+          "subtotal_kind": "income_and_expense_subtotal",
+          "ifrs_required_subtotal": false,
+          "public_communication_refs": [
+            "PUB-2027-INVESTOR-PRESENTATION-01"
+          ],
+          "reporting_period_ref": "FY2027",
+          "entity_wide": true,
+          "internal_management_use": true,
+          "rebuttal_evidence_ref": null,
+          "description": "A measure of operating performance before the specified restructuring adjustment",
+          "usefulness": "Management uses the measure to explain the operating performance of the consolidated entity after separately identifying restructuring costs",
+          "calculation_method": null,
+          "included_item_refs": [
+            "REV-001",
+            "OPERATING-EXPENSES-001"
+          ],
+          "excluded_item_refs": [
+            "RESTRUCTURING-EXPENSE-001"
+          ],
+          "note_ref": "MPM-NOTE-01",
+          "reconciliation": {
+            "comparator_subtotal_ref": "IFRS-OP-2027",
+            "comparator_amount_minor": "10000",
+            "comparator_presented": true,
+            "mpm_amount_minor": "12000",
+            "reconciling_items": [
+              {
+                "item_ref": "ADJ-001",
+                "description": "Exclude restructuring expense from management's adjusted operating profit",
+                "statement_line_ref": "EXP-RESTRUCTURING",
+                "adjustment_minor": "2000",
+                "tax_effect_minor": "-400",
+                "tax_method": "statutory_rate",
+                "tax_method_description": "Apply the statutory tax rate applicable to the underlying restructuring transaction in the relevant jurisdiction",
+                "tax_jurisdiction_ref": "ZA-CORP-TAX",
+                "nci_effect_minor": "-100"
+              }
+            ],
+            "secondary_bridge": null
+          },
+          "lifecycle": {
+            "state": "unchanged",
+            "prior_measure_ref": "MPM-001",
+            "change_explanation": null,
+            "change_reason": null,
+            "comparative_restated": false,
+            "impracticable": false,
+            "impracticable_rationale": null,
+            "tax_method_changed": false
+          }
+        }
+      ],
+      "notes": [
+        {
+          "note_ref": "MPM-NOTE-01",
+          "measure_refs": [
+            "MPM-001"
+          ],
+          "management_view_statement": true,
+          "non_comparability_statement": true
+        }
+      ]
+    },
+    {
+      "case_id": "MPM-004",
+      "task": "Reject a qualifying MPM with no single-note disclosure location.",
+      "reporting_entity_ref": "ENTITY-SYNTH-001",
+      "reporting_period_ref": "FY2027",
+      "period_start": "2027-01-01",
+      "period_end": "2027-12-31",
+      "framework": {
+        "framework_id": "ifrs_full",
+        "ifrs18_profile_declared": true,
+        "early_application": false,
+        "profile_approval_ref": "APPROVED-IFRS18-FY2027"
+      },
+      "most_directly_comparable_subtotal_ref": "IFRS-OP-2027",
+      "ifrs_subtotals": [
+        {
+          "subtotal_ref": "IFRS-OP-2027",
+          "amount_minor": "10000",
+          "paragraph_118_subtotal": true,
+          "presented_in_statement": true
+        },
+        {
+          "subtotal_ref": "IFRS-EBT-2027",
+          "amount_minor": "9000",
+          "paragraph_118_subtotal": true,
+          "presented_in_statement": true
+        }
+      ],
+      "measures": [
+        {
+          "measure_ref": "MPM-001",
+          "candidate_classification": "mpm",
+          "label": "Adjusted operating profit",
+          "subtotal_kind": "income_and_expense_subtotal",
+          "ifrs_required_subtotal": false,
+          "public_communication_refs": [
+            "PUB-2027-INVESTOR-PRESENTATION-01"
+          ],
+          "reporting_period_ref": "FY2027",
+          "entity_wide": true,
+          "internal_management_use": true,
+          "rebuttal_evidence_ref": null,
+          "description": "A measure of operating performance before the specified restructuring adjustment",
+          "usefulness": "Management uses the measure to explain the operating performance of the consolidated entity after separately identifying restructuring costs",
+          "calculation_method": "Operating profit plus the specified restructuring expense adjustment",
+          "included_item_refs": [
+            "REV-001",
+            "OPERATING-EXPENSES-001"
+          ],
+          "excluded_item_refs": [
+            "RESTRUCTURING-EXPENSE-001"
+          ],
+          "note_ref": null,
+          "reconciliation": {
+            "comparator_subtotal_ref": "IFRS-OP-2027",
+            "comparator_amount_minor": "10000",
+            "comparator_presented": true,
+            "mpm_amount_minor": "12000",
+            "reconciling_items": [
+              {
+                "item_ref": "ADJ-001",
+                "description": "Exclude restructuring expense from management's adjusted operating profit",
+                "statement_line_ref": "EXP-RESTRUCTURING",
+                "adjustment_minor": "2000",
+                "tax_effect_minor": "-400",
+                "tax_method": "statutory_rate",
+                "tax_method_description": "Apply the statutory tax rate applicable to the underlying restructuring transaction in the relevant jurisdiction",
+                "tax_jurisdiction_ref": "ZA-CORP-TAX",
+                "nci_effect_minor": "-100"
+              }
+            ],
+            "secondary_bridge": null
+          },
+          "lifecycle": {
+            "state": "unchanged",
+            "prior_measure_ref": "MPM-001",
+            "change_explanation": null,
+            "change_reason": null,
+            "comparative_restated": false,
+            "impracticable": false,
+            "impracticable_rationale": null,
+            "tax_method_changed": false
+          }
+        }
+      ],
+      "notes": []
+    },
+    {
+      "case_id": "MPM-005",
+      "task": "Reject an entity that splits two MPM disclosures across separate MPM notes.",
+      "reporting_entity_ref": "ENTITY-SYNTH-001",
+      "reporting_period_ref": "FY2027",
+      "period_start": "2027-01-01",
+      "period_end": "2027-12-31",
+      "framework": {
+        "framework_id": "ifrs_full",
+        "ifrs18_profile_declared": true,
+        "early_application": false,
+        "profile_approval_ref": "APPROVED-IFRS18-FY2027"
+      },
+      "most_directly_comparable_subtotal_ref": "IFRS-OP-2027",
+      "ifrs_subtotals": [
+        {
+          "subtotal_ref": "IFRS-OP-2027",
+          "amount_minor": "10000",
+          "paragraph_118_subtotal": true,
+          "presented_in_statement": true
+        },
+        {
+          "subtotal_ref": "IFRS-EBT-2027",
+          "amount_minor": "9000",
+          "paragraph_118_subtotal": true,
+          "presented_in_statement": true
+        }
+      ],
+      "measures": [
+        {
+          "measure_ref": "MPM-001",
+          "candidate_classification": "mpm",
+          "label": "Adjusted operating profit",
+          "subtotal_kind": "income_and_expense_subtotal",
+          "ifrs_required_subtotal": false,
+          "public_communication_refs": [
+            "PUB-2027-INVESTOR-PRESENTATION-01"
+          ],
+          "reporting_period_ref": "FY2027",
+          "entity_wide": true,
+          "internal_management_use": true,
+          "rebuttal_evidence_ref": null,
+          "description": "A measure of operating performance before the specified restructuring adjustment",
+          "usefulness": "Management uses the measure to explain the operating performance of the consolidated entity after separately identifying restructuring costs",
+          "calculation_method": "Operating profit plus the specified restructuring expense adjustment",
+          "included_item_refs": [
+            "REV-001",
+            "OPERATING-EXPENSES-001"
+          ],
+          "excluded_item_refs": [
+            "RESTRUCTURING-EXPENSE-001"
+          ],
+          "note_ref": "MPM-NOTE-01",
+          "reconciliation": {
+            "comparator_subtotal_ref": "IFRS-OP-2027",
+            "comparator_amount_minor": "10000",
+            "comparator_presented": true,
+            "mpm_amount_minor": "12000",
+            "reconciling_items": [
+              {
+                "item_ref": "ADJ-001",
+                "description": "Exclude restructuring expense from management's adjusted operating profit",
+                "statement_line_ref": "EXP-RESTRUCTURING",
+                "adjustment_minor": "2000",
+                "tax_effect_minor": "-400",
+                "tax_method": "statutory_rate",
+                "tax_method_description": "Apply the statutory tax rate applicable to the underlying restructuring transaction in the relevant jurisdiction",
+                "tax_jurisdiction_ref": "ZA-CORP-TAX",
+                "nci_effect_minor": "-100"
+              }
+            ],
+            "secondary_bridge": null
+          },
+          "lifecycle": {
+            "state": "unchanged",
+            "prior_measure_ref": "MPM-001",
+            "change_explanation": null,
+            "change_reason": null,
+            "comparative_restated": false,
+            "impracticable": false,
+            "impracticable_rationale": null,
+            "tax_method_changed": false
+          }
+        },
+        {
+          "measure_ref": "MPM-002",
+          "candidate_classification": "mpm",
+          "label": "Adjusted EBITDA",
+          "subtotal_kind": "income_and_expense_subtotal",
+          "ifrs_required_subtotal": false,
+          "public_communication_refs": [
+            "PUB-2027-INVESTOR-PRESENTATION-01"
+          ],
+          "reporting_period_ref": "FY2027",
+          "entity_wide": true,
+          "internal_management_use": true,
+          "rebuttal_evidence_ref": null,
+          "description": "A measure of operating performance before the specified restructuring adjustment",
+          "usefulness": "Management uses the measure to explain the operating performance of the consolidated entity after separately identifying restructuring costs",
+          "calculation_method": "Operating profit plus the specified restructuring expense adjustment",
+          "included_item_refs": [
+            "REV-001",
+            "OPERATING-EXPENSES-001"
+          ],
+          "excluded_item_refs": [
+            "RESTRUCTURING-EXPENSE-001"
+          ],
+          "note_ref": "MPM-NOTE-02",
+          "reconciliation": {
+            "comparator_subtotal_ref": "IFRS-OP-2027",
+            "comparator_amount_minor": "10000",
+            "comparator_presented": true,
+            "mpm_amount_minor": "13000",
+            "reconciling_items": [
+              {
+                "item_ref": "ADJ-002",
+                "description": "Exclude restructuring expense from management's adjusted operating profit",
+                "statement_line_ref": "EXP-RESTRUCTURING",
+                "adjustment_minor": "2000",
+                "tax_effect_minor": "-400",
+                "tax_method": "statutory_rate",
+                "tax_method_description": "Apply the statutory tax rate applicable to the underlying restructuring transaction in the relevant jurisdiction",
+                "tax_jurisdiction_ref": "ZA-CORP-TAX",
+                "nci_effect_minor": "-100"
+              }
+            ],
+            "secondary_bridge": null
+          },
+          "lifecycle": {
+            "state": "unchanged",
+            "prior_measure_ref": "MPM-002",
+            "change_explanation": null,
+            "change_reason": null,
+            "comparative_restated": false,
+            "impracticable": false,
+            "impracticable_rationale": null,
+            "tax_method_changed": false
+          }
+        }
+      ],
+      "notes": [
+        {
+          "note_ref": "MPM-NOTE-01",
+          "measure_refs": [
+            "MPM-001"
+          ],
+          "management_view_statement": true,
+          "non_comparability_statement": true
+        },
+        {
+          "note_ref": "MPM-NOTE-02",
+          "measure_refs": [
+            "MPM-002"
+          ],
+          "management_view_statement": true,
+          "non_comparability_statement": true
+        }
+      ]
+    },
+    {
+      "case_id": "MPM-006",
+      "task": "Reject a reconciliation to a subtotal other than the reviewed most directly comparable IFRS subtotal.",
+      "reporting_entity_ref": "ENTITY-SYNTH-001",
+      "reporting_period_ref": "FY2027",
+      "period_start": "2027-01-01",
+      "period_end": "2027-12-31",
+      "framework": {
+        "framework_id": "ifrs_full",
+        "ifrs18_profile_declared": true,
+        "early_application": false,
+        "profile_approval_ref": "APPROVED-IFRS18-FY2027"
+      },
+      "most_directly_comparable_subtotal_ref": "IFRS-OP-2027",
+      "ifrs_subtotals": [
+        {
+          "subtotal_ref": "IFRS-OP-2027",
+          "amount_minor": "10000",
+          "paragraph_118_subtotal": true,
+          "presented_in_statement": true
+        },
+        {
+          "subtotal_ref": "IFRS-EBT-2027",
+          "amount_minor": "9000",
+          "paragraph_118_subtotal": true,
+          "presented_in_statement": true
+        }
+      ],
+      "measures": [
+        {
+          "measure_ref": "MPM-001",
+          "candidate_classification": "mpm",
+          "label": "Adjusted operating profit",
+          "subtotal_kind": "income_and_expense_subtotal",
+          "ifrs_required_subtotal": false,
+          "public_communication_refs": [
+            "PUB-2027-INVESTOR-PRESENTATION-01"
+          ],
+          "reporting_period_ref": "FY2027",
+          "entity_wide": true,
+          "internal_management_use": true,
+          "rebuttal_evidence_ref": null,
+          "description": "A measure of operating performance before the specified restructuring adjustment",
+          "usefulness": "Management uses the measure to explain the operating performance of the consolidated entity after separately identifying restructuring costs",
+          "calculation_method": "Operating profit plus the specified restructuring expense adjustment",
+          "included_item_refs": [
+            "REV-001",
+            "OPERATING-EXPENSES-001"
+          ],
+          "excluded_item_refs": [
+            "RESTRUCTURING-EXPENSE-001"
+          ],
+          "note_ref": "MPM-NOTE-01",
+          "reconciliation": {
+            "comparator_subtotal_ref": "IFRS-EBT-2027",
+            "comparator_amount_minor": "9000",
+            "comparator_presented": true,
+            "mpm_amount_minor": "11000",
+            "reconciling_items": [
+              {
+                "item_ref": "ADJ-001",
+                "description": "Exclude restructuring expense from management's adjusted operating profit",
+                "statement_line_ref": "EXP-RESTRUCTURING",
+                "adjustment_minor": "2000",
+                "tax_effect_minor": "-400",
+                "tax_method": "statutory_rate",
+                "tax_method_description": "Apply the statutory tax rate applicable to the underlying restructuring transaction in the relevant jurisdiction",
+                "tax_jurisdiction_ref": "ZA-CORP-TAX",
+                "nci_effect_minor": "-100"
+              }
+            ],
+            "secondary_bridge": null
+          },
+          "lifecycle": {
+            "state": "unchanged",
+            "prior_measure_ref": "MPM-001",
+            "change_explanation": null,
+            "change_reason": null,
+            "comparative_restated": false,
+            "impracticable": false,
+            "impracticable_rationale": null,
+            "tax_method_changed": false
+          }
+        }
+      ],
+      "notes": [
+        {
+          "note_ref": "MPM-NOTE-01",
+          "measure_refs": [
+            "MPM-001"
+          ],
+          "management_view_statement": true,
+          "non_comparability_statement": true
+        }
+      ]
+    },
+    {
+      "case_id": "MPM-007",
+      "task": "Detect an arithmetic mismatch between the IFRS comparator, reconciling items and MPM total.",
+      "reporting_entity_ref": "ENTITY-SYNTH-001",
+      "reporting_period_ref": "FY2027",
+      "period_start": "2027-01-01",
+      "period_end": "2027-12-31",
+      "framework": {
+        "framework_id": "ifrs_full",
+        "ifrs18_profile_declared": true,
+        "early_application": false,
+        "profile_approval_ref": "APPROVED-IFRS18-FY2027"
+      },
+      "most_directly_comparable_subtotal_ref": "IFRS-OP-2027",
+      "ifrs_subtotals": [
+        {
+          "subtotal_ref": "IFRS-OP-2027",
+          "amount_minor": "10000",
+          "paragraph_118_subtotal": true,
+          "presented_in_statement": true
+        },
+        {
+          "subtotal_ref": "IFRS-EBT-2027",
+          "amount_minor": "9000",
+          "paragraph_118_subtotal": true,
+          "presented_in_statement": true
+        }
+      ],
+      "measures": [
+        {
+          "measure_ref": "MPM-001",
+          "candidate_classification": "mpm",
+          "label": "Adjusted operating profit",
+          "subtotal_kind": "income_and_expense_subtotal",
+          "ifrs_required_subtotal": false,
+          "public_communication_refs": [
+            "PUB-2027-INVESTOR-PRESENTATION-01"
+          ],
+          "reporting_period_ref": "FY2027",
+          "entity_wide": true,
+          "internal_management_use": true,
+          "rebuttal_evidence_ref": null,
+          "description": "A measure of operating performance before the specified restructuring adjustment",
+          "usefulness": "Management uses the measure to explain the operating performance of the consolidated entity after separately identifying restructuring costs",
+          "calculation_method": "Operating profit plus the specified restructuring expense adjustment",
+          "included_item_refs": [
+            "REV-001",
+            "OPERATING-EXPENSES-001"
+          ],
+          "excluded_item_refs": [
+            "RESTRUCTURING-EXPENSE-001"
+          ],
+          "note_ref": "MPM-NOTE-01",
+          "reconciliation": {
+            "comparator_subtotal_ref": "IFRS-OP-2027",
+            "comparator_amount_minor": "10000",
+            "comparator_presented": true,
+            "mpm_amount_minor": "12001",
+            "reconciling_items": [
+              {
+                "item_ref": "ADJ-001",
+                "description": "Exclude restructuring expense from management's adjusted operating profit",
+                "statement_line_ref": "EXP-RESTRUCTURING",
+                "adjustment_minor": "2000",
+                "tax_effect_minor": "-400",
+                "tax_method": "statutory_rate",
+                "tax_method_description": "Apply the statutory tax rate applicable to the underlying restructuring transaction in the relevant jurisdiction",
+                "tax_jurisdiction_ref": "ZA-CORP-TAX",
+                "nci_effect_minor": "-100"
+              }
+            ],
+            "secondary_bridge": null
+          },
+          "lifecycle": {
+            "state": "unchanged",
+            "prior_measure_ref": "MPM-001",
+            "change_explanation": null,
+            "change_reason": null,
+            "comparative_restated": false,
+            "impracticable": false,
+            "impracticable_rationale": null,
+            "tax_method_changed": false
+          }
+        }
+      ],
+      "notes": [
+        {
+          "note_ref": "MPM-NOTE-01",
+          "measure_refs": [
+            "MPM-001"
+          ],
+          "management_view_statement": true,
+          "non_comparability_statement": true
+        }
+      ]
+    },
+    {
+      "case_id": "MPM-008",
+      "task": "Reject a missing income-tax effect for a reconciling item.",
+      "reporting_entity_ref": "ENTITY-SYNTH-001",
+      "reporting_period_ref": "FY2027",
+      "period_start": "2027-01-01",
+      "period_end": "2027-12-31",
+      "framework": {
+        "framework_id": "ifrs_full",
+        "ifrs18_profile_declared": true,
+        "early_application": false,
+        "profile_approval_ref": "APPROVED-IFRS18-FY2027"
+      },
+      "most_directly_comparable_subtotal_ref": "IFRS-OP-2027",
+      "ifrs_subtotals": [
+        {
+          "subtotal_ref": "IFRS-OP-2027",
+          "amount_minor": "10000",
+          "paragraph_118_subtotal": true,
+          "presented_in_statement": true
+        },
+        {
+          "subtotal_ref": "IFRS-EBT-2027",
+          "amount_minor": "9000",
+          "paragraph_118_subtotal": true,
+          "presented_in_statement": true
+        }
+      ],
+      "measures": [
+        {
+          "measure_ref": "MPM-001",
+          "candidate_classification": "mpm",
+          "label": "Adjusted operating profit",
+          "subtotal_kind": "income_and_expense_subtotal",
+          "ifrs_required_subtotal": false,
+          "public_communication_refs": [
+            "PUB-2027-INVESTOR-PRESENTATION-01"
+          ],
+          "reporting_period_ref": "FY2027",
+          "entity_wide": true,
+          "internal_management_use": true,
+          "rebuttal_evidence_ref": null,
+          "description": "A measure of operating performance before the specified restructuring adjustment",
+          "usefulness": "Management uses the measure to explain the operating performance of the consolidated entity after separately identifying restructuring costs",
+          "calculation_method": "Operating profit plus the specified restructuring expense adjustment",
+          "included_item_refs": [
+            "REV-001",
+            "OPERATING-EXPENSES-001"
+          ],
+          "excluded_item_refs": [
+            "RESTRUCTURING-EXPENSE-001"
+          ],
+          "note_ref": "MPM-NOTE-01",
+          "reconciliation": {
+            "comparator_subtotal_ref": "IFRS-OP-2027",
+            "comparator_amount_minor": "10000",
+            "comparator_presented": true,
+            "mpm_amount_minor": "12000",
+            "reconciling_items": [
+              {
+                "item_ref": "ADJ-001",
+                "description": "Exclude restructuring expense from management's adjusted operating profit",
+                "statement_line_ref": "EXP-RESTRUCTURING",
+                "adjustment_minor": "2000",
+                "tax_effect_minor": null,
+                "tax_method": "not_determined",
+                "tax_method_description": null,
+                "tax_jurisdiction_ref": "ZA-CORP-TAX",
+                "nci_effect_minor": "-100"
+              }
+            ],
+            "secondary_bridge": null
+          },
+          "lifecycle": {
+            "state": "unchanged",
+            "prior_measure_ref": "MPM-001",
+            "change_explanation": null,
+            "change_reason": null,
+            "comparative_restated": false,
+            "impracticable": false,
+            "impracticable_rationale": null,
+            "tax_method_changed": false
+          }
+        }
+      ],
+      "notes": [
+        {
+          "note_ref": "MPM-NOTE-01",
+          "measure_refs": [
+            "MPM-001"
+          ],
+          "management_view_statement": true,
+          "non_comparability_statement": true
+        }
+      ]
+    },
+    {
+      "case_id": "MPM-009",
+      "task": "Reject a missing non-controlling-interest effect for a reconciling item.",
+      "reporting_entity_ref": "ENTITY-SYNTH-001",
+      "reporting_period_ref": "FY2027",
+      "period_start": "2027-01-01",
+      "period_end": "2027-12-31",
+      "framework": {
+        "framework_id": "ifrs_full",
+        "ifrs18_profile_declared": true,
+        "early_application": false,
+        "profile_approval_ref": "APPROVED-IFRS18-FY2027"
+      },
+      "most_directly_comparable_subtotal_ref": "IFRS-OP-2027",
+      "ifrs_subtotals": [
+        {
+          "subtotal_ref": "IFRS-OP-2027",
+          "amount_minor": "10000",
+          "paragraph_118_subtotal": true,
+          "presented_in_statement": true
+        },
+        {
+          "subtotal_ref": "IFRS-EBT-2027",
+          "amount_minor": "9000",
+          "paragraph_118_subtotal": true,
+          "presented_in_statement": true
+        }
+      ],
+      "measures": [
+        {
+          "measure_ref": "MPM-001",
+          "candidate_classification": "mpm",
+          "label": "Adjusted operating profit",
+          "subtotal_kind": "income_and_expense_subtotal",
+          "ifrs_required_subtotal": false,
+          "public_communication_refs": [
+            "PUB-2027-INVESTOR-PRESENTATION-01"
+          ],
+          "reporting_period_ref": "FY2027",
+          "entity_wide": true,
+          "internal_management_use": true,
+          "rebuttal_evidence_ref": null,
+          "description": "A measure of operating performance before the specified restructuring adjustment",
+          "usefulness": "Management uses the measure to explain the operating performance of the consolidated entity after separately identifying restructuring costs",
+          "calculation_method": "Operating profit plus the specified restructuring expense adjustment",
+          "included_item_refs": [
+            "REV-001",
+            "OPERATING-EXPENSES-001"
+          ],
+          "excluded_item_refs": [
+            "RESTRUCTURING-EXPENSE-001"
+          ],
+          "note_ref": "MPM-NOTE-01",
+          "reconciliation": {
+            "comparator_subtotal_ref": "IFRS-OP-2027",
+            "comparator_amount_minor": "10000",
+            "comparator_presented": true,
+            "mpm_amount_minor": "12000",
+            "reconciling_items": [
+              {
+                "item_ref": "ADJ-001",
+                "description": "Exclude restructuring expense from management's adjusted operating profit",
+                "statement_line_ref": "EXP-RESTRUCTURING",
+                "adjustment_minor": "2000",
+                "tax_effect_minor": "-400",
+                "tax_method": "statutory_rate",
+                "tax_method_description": "Apply the statutory tax rate applicable to the underlying restructuring transaction in the relevant jurisdiction",
+                "tax_jurisdiction_ref": "ZA-CORP-TAX",
+                "nci_effect_minor": null
+              }
+            ],
+            "secondary_bridge": null
+          },
+          "lifecycle": {
+            "state": "unchanged",
+            "prior_measure_ref": "MPM-001",
+            "change_explanation": null,
+            "change_reason": null,
+            "comparative_restated": false,
+            "impracticable": false,
+            "impracticable_rationale": null,
+            "tax_method_changed": false
+          }
+        }
+      ],
+      "notes": [
+        {
+          "note_ref": "MPM-NOTE-01",
+          "measure_refs": [
+            "MPM-001"
+          ],
+          "management_view_statement": true,
+          "non_comparability_statement": true
+        }
+      ]
+    },
+    {
+      "case_id": "MPM-010",
+      "task": "Reject a tax effect with no description of the method used to determine it.",
+      "reporting_entity_ref": "ENTITY-SYNTH-001",
+      "reporting_period_ref": "FY2027",
+      "period_start": "2027-01-01",
+      "period_end": "2027-12-31",
+      "framework": {
+        "framework_id": "ifrs_full",
+        "ifrs18_profile_declared": true,
+        "early_application": false,
+        "profile_approval_ref": "APPROVED-IFRS18-FY2027"
+      },
+      "most_directly_comparable_subtotal_ref": "IFRS-OP-2027",
+      "ifrs_subtotals": [
+        {
+          "subtotal_ref": "IFRS-OP-2027",
+          "amount_minor": "10000",
+          "paragraph_118_subtotal": true,
+          "presented_in_statement": true
+        },
+        {
+          "subtotal_ref": "IFRS-EBT-2027",
+          "amount_minor": "9000",
+          "paragraph_118_subtotal": true,
+          "presented_in_statement": true
+        }
+      ],
+      "measures": [
+        {
+          "measure_ref": "MPM-001",
+          "candidate_classification": "mpm",
+          "label": "Adjusted operating profit",
+          "subtotal_kind": "income_and_expense_subtotal",
+          "ifrs_required_subtotal": false,
+          "public_communication_refs": [
+            "PUB-2027-INVESTOR-PRESENTATION-01"
+          ],
+          "reporting_period_ref": "FY2027",
+          "entity_wide": true,
+          "internal_management_use": true,
+          "rebuttal_evidence_ref": null,
+          "description": "A measure of operating performance before the specified restructuring adjustment",
+          "usefulness": "Management uses the measure to explain the operating performance of the consolidated entity after separately identifying restructuring costs",
+          "calculation_method": "Operating profit plus the specified restructuring expense adjustment",
+          "included_item_refs": [
+            "REV-001",
+            "OPERATING-EXPENSES-001"
+          ],
+          "excluded_item_refs": [
+            "RESTRUCTURING-EXPENSE-001"
+          ],
+          "note_ref": "MPM-NOTE-01",
+          "reconciliation": {
+            "comparator_subtotal_ref": "IFRS-OP-2027",
+            "comparator_amount_minor": "10000",
+            "comparator_presented": true,
+            "mpm_amount_minor": "12000",
+            "reconciling_items": [
+              {
+                "item_ref": "ADJ-001",
+                "description": "Exclude restructuring expense from management's adjusted operating profit",
+                "statement_line_ref": "EXP-RESTRUCTURING",
+                "adjustment_minor": "2000",
+                "tax_effect_minor": "-400",
+                "tax_method": "statutory_rate",
+                "tax_method_description": null,
+                "tax_jurisdiction_ref": "ZA-CORP-TAX",
+                "nci_effect_minor": "-100"
+              }
+            ],
+            "secondary_bridge": null
+          },
+          "lifecycle": {
+            "state": "unchanged",
+            "prior_measure_ref": "MPM-001",
+            "change_explanation": null,
+            "change_reason": null,
+            "comparative_restated": false,
+            "impracticable": false,
+            "impracticable_rationale": null,
+            "tax_method_changed": false
+          }
+        }
+      ],
+      "notes": [
+        {
+          "note_ref": "MPM-NOTE-01",
+          "measure_refs": [
+            "MPM-001"
+          ],
+          "management_view_statement": true,
+          "non_comparability_statement": true
+        }
+      ]
+    },
+    {
+      "case_id": "MPM-011",
+      "task": "Reject multiple tax-effect methods when the method is not explained for each reconciling item.",
+      "reporting_entity_ref": "ENTITY-SYNTH-001",
+      "reporting_period_ref": "FY2027",
+      "period_start": "2027-01-01",
+      "period_end": "2027-12-31",
+      "framework": {
+        "framework_id": "ifrs_full",
+        "ifrs18_profile_declared": true,
+        "early_application": false,
+        "profile_approval_ref": "APPROVED-IFRS18-FY2027"
+      },
+      "most_directly_comparable_subtotal_ref": "IFRS-OP-2027",
+      "ifrs_subtotals": [
+        {
+          "subtotal_ref": "IFRS-OP-2027",
+          "amount_minor": "10000",
+          "paragraph_118_subtotal": true,
+          "presented_in_statement": true
+        },
+        {
+          "subtotal_ref": "IFRS-EBT-2027",
+          "amount_minor": "9000",
+          "paragraph_118_subtotal": true,
+          "presented_in_statement": true
+        }
+      ],
+      "measures": [
+        {
+          "measure_ref": "MPM-001",
+          "candidate_classification": "mpm",
+          "label": "Adjusted operating profit",
+          "subtotal_kind": "income_and_expense_subtotal",
+          "ifrs_required_subtotal": false,
+          "public_communication_refs": [
+            "PUB-2027-INVESTOR-PRESENTATION-01"
+          ],
+          "reporting_period_ref": "FY2027",
+          "entity_wide": true,
+          "internal_management_use": true,
+          "rebuttal_evidence_ref": null,
+          "description": "A measure of operating performance before the specified restructuring adjustment",
+          "usefulness": "Management uses the measure to explain the operating performance of the consolidated entity after separately identifying restructuring costs",
+          "calculation_method": "Operating profit plus the specified restructuring expense adjustment",
+          "included_item_refs": [
+            "REV-001",
+            "OPERATING-EXPENSES-001"
+          ],
+          "excluded_item_refs": [
+            "RESTRUCTURING-EXPENSE-001"
+          ],
+          "note_ref": "MPM-NOTE-01",
+          "reconciliation": {
+            "comparator_subtotal_ref": "IFRS-OP-2027",
+            "comparator_amount_minor": "10000",
+            "comparator_presented": true,
+            "mpm_amount_minor": "12000",
+            "reconciling_items": [
+              {
+                "item_ref": "ADJ-001",
+                "description": "Exclude restructuring expense from management's adjusted operating profit",
+                "statement_line_ref": "EXP-RESTRUCTURING",
+                "adjustment_minor": "1000",
+                "tax_effect_minor": "-200",
+                "tax_method": "statutory_rate",
+                "tax_method_description": "Apply the statutory tax rate applicable to the underlying restructuring transaction in the relevant jurisdiction",
+                "tax_jurisdiction_ref": "ZA-CORP-TAX",
+                "nci_effect_minor": "-50"
+              },
+              {
+                "item_ref": "ADJ-002",
+                "description": "Exclude impairment expense from adjusted operating profit",
+                "statement_line_ref": "EXP-IMPAIRMENT",
+                "adjustment_minor": "1000",
+                "tax_effect_minor": "-200",
+                "tax_method": "reasonable_pro_rata",
+                "tax_method_description": null,
+                "tax_jurisdiction_ref": "ZA-CORP-TAX",
+                "nci_effect_minor": "-50"
+              }
+            ],
+            "secondary_bridge": null
+          },
+          "lifecycle": {
+            "state": "unchanged",
+            "prior_measure_ref": "MPM-001",
+            "change_explanation": null,
+            "change_reason": null,
+            "comparative_restated": false,
+            "impracticable": false,
+            "impracticable_rationale": null,
+            "tax_method_changed": false
+          }
+        }
+      ],
+      "notes": [
+        {
+          "note_ref": "MPM-NOTE-01",
+          "measure_refs": [
+            "MPM-001"
+          ],
+          "management_view_statement": true,
+          "non_comparability_statement": true
+        }
+      ]
+    },
+    {
+      "case_id": "MPM-012",
+      "task": "Require the paragraph B140 secondary bridge when the MPM comparator subtotal is not presented in the statement.",
+      "reporting_entity_ref": "ENTITY-SYNTH-001",
+      "reporting_period_ref": "FY2027",
+      "period_start": "2027-01-01",
+      "period_end": "2027-12-31",
+      "framework": {
+        "framework_id": "ifrs_full",
+        "ifrs18_profile_declared": true,
+        "early_application": false,
+        "profile_approval_ref": "APPROVED-IFRS18-FY2027"
+      },
+      "most_directly_comparable_subtotal_ref": "IFRS-OP-2027",
+      "ifrs_subtotals": [
+        {
+          "subtotal_ref": "IFRS-OP-2027",
+          "amount_minor": "10000",
+          "paragraph_118_subtotal": true,
+          "presented_in_statement": true
+        },
+        {
+          "subtotal_ref": "IFRS-EBT-2027",
+          "amount_minor": "9000",
+          "paragraph_118_subtotal": true,
+          "presented_in_statement": true
+        },
+        {
+          "subtotal_ref": "IFRS-EBT-UNPRESENTED",
+          "amount_minor": "9800",
+          "paragraph_118_subtotal": true,
+          "presented_in_statement": false
+        }
+      ],
+      "measures": [
+        {
+          "measure_ref": "MPM-001",
+          "candidate_classification": "mpm",
+          "label": "Adjusted operating profit",
+          "subtotal_kind": "income_and_expense_subtotal",
+          "ifrs_required_subtotal": false,
+          "public_communication_refs": [
+            "PUB-2027-INVESTOR-PRESENTATION-01"
+          ],
+          "reporting_period_ref": "FY2027",
+          "entity_wide": true,
+          "internal_management_use": true,
+          "rebuttal_evidence_ref": null,
+          "description": "A measure of operating performance before the specified restructuring adjustment",
+          "usefulness": "Management uses the measure to explain the operating performance of the consolidated entity after separately identifying restructuring costs",
+          "calculation_method": "Operating profit plus the specified restructuring expense adjustment",
+          "included_item_refs": [
+            "REV-001",
+            "OPERATING-EXPENSES-001"
+          ],
+          "excluded_item_refs": [
+            "RESTRUCTURING-EXPENSE-001"
+          ],
+          "note_ref": "MPM-NOTE-01",
+          "reconciliation": {
+            "comparator_subtotal_ref": "IFRS-EBT-UNPRESENTED",
+            "comparator_amount_minor": "9800",
+            "comparator_presented": true,
+            "mpm_amount_minor": "12000",
+            "reconciling_items": [
+              {
+                "item_ref": "ADJ-001",
+                "description": "Exclude restructuring expense from management's adjusted operating profit",
+                "statement_line_ref": "EXP-RESTRUCTURING",
+                "adjustment_minor": "2200",
+                "tax_effect_minor": "-400",
+                "tax_method": "statutory_rate",
+                "tax_method_description": "Apply the statutory tax rate applicable to the underlying restructuring transaction in the relevant jurisdiction",
+                "tax_jurisdiction_ref": "ZA-CORP-TAX",
+                "nci_effect_minor": "-100"
+              }
+            ],
+            "secondary_bridge": null
+          },
+          "lifecycle": {
+            "state": "unchanged",
+            "prior_measure_ref": "MPM-001",
+            "change_explanation": null,
+            "change_reason": null,
+            "comparative_restated": false,
+            "impracticable": false,
+            "impracticable_rationale": null,
+            "tax_method_changed": false
+          }
+        }
+      ],
+      "notes": [
+        {
+          "note_ref": "MPM-NOTE-01",
+          "measure_refs": [
+            "MPM-001"
+          ],
+          "management_view_statement": true,
+          "non_comparability_statement": true
+        }
+      ]
+    },
+    {
+      "case_id": "MPM-013",
+      "task": "Do not classify a return-on-assets ratio itself as an MPM.",
+      "reporting_entity_ref": "ENTITY-SYNTH-001",
+      "reporting_period_ref": "FY2027",
+      "period_start": "2027-01-01",
+      "period_end": "2027-12-31",
+      "framework": {
+        "framework_id": "ifrs_full",
+        "ifrs18_profile_declared": true,
+        "early_application": false,
+        "profile_approval_ref": "APPROVED-IFRS18-FY2027"
+      },
+      "most_directly_comparable_subtotal_ref": "IFRS-OP-2027",
+      "ifrs_subtotals": [
+        {
+          "subtotal_ref": "IFRS-OP-2027",
+          "amount_minor": "10000",
+          "paragraph_118_subtotal": true,
+          "presented_in_statement": true
+        },
+        {
+          "subtotal_ref": "IFRS-EBT-2027",
+          "amount_minor": "9000",
+          "paragraph_118_subtotal": true,
+          "presented_in_statement": true
+        }
+      ],
+      "measures": [
+        {
+          "measure_ref": "MPM-001",
+          "candidate_classification": "mpm",
+          "label": "Return on assets",
+          "subtotal_kind": "financial_ratio",
+          "ifrs_required_subtotal": false,
+          "public_communication_refs": [
+            "PUB-2027-INVESTOR-PRESENTATION-01"
+          ],
+          "reporting_period_ref": "FY2027",
+          "entity_wide": true,
+          "internal_management_use": true,
+          "rebuttal_evidence_ref": null,
+          "description": "A measure of operating performance before the specified restructuring adjustment",
+          "usefulness": "Management uses the measure to explain the operating performance of the consolidated entity after separately identifying restructuring costs",
+          "calculation_method": "Operating profit plus the specified restructuring expense adjustment",
+          "included_item_refs": [
+            "REV-001",
+            "OPERATING-EXPENSES-001"
+          ],
+          "excluded_item_refs": [
+            "RESTRUCTURING-EXPENSE-001"
+          ],
+          "note_ref": "MPM-NOTE-01",
+          "reconciliation": {
+            "comparator_subtotal_ref": "IFRS-OP-2027",
+            "comparator_amount_minor": "10000",
+            "comparator_presented": true,
+            "mpm_amount_minor": "12000",
+            "reconciling_items": [
+              {
+                "item_ref": "ADJ-001",
+                "description": "Exclude restructuring expense from management's adjusted operating profit",
+                "statement_line_ref": "EXP-RESTRUCTURING",
+                "adjustment_minor": "2000",
+                "tax_effect_minor": "-400",
+                "tax_method": "statutory_rate",
+                "tax_method_description": "Apply the statutory tax rate applicable to the underlying restructuring transaction in the relevant jurisdiction",
+                "tax_jurisdiction_ref": "ZA-CORP-TAX",
+                "nci_effect_minor": "-100"
+              }
+            ],
+            "secondary_bridge": null
+          },
+          "lifecycle": {
+            "state": "unchanged",
+            "prior_measure_ref": "MPM-001",
+            "change_explanation": null,
+            "change_reason": null,
+            "comparative_restated": false,
+            "impracticable": false,
+            "impracticable_rationale": null,
+            "tax_method_changed": false
+          }
+        }
+      ],
+      "notes": [
+        {
+          "note_ref": "MPM-NOTE-01",
+          "measure_refs": [
+            "MPM-001"
+          ],
+          "management_view_statement": true,
+          "non_comparability_statement": true
+        }
+      ]
+    },
+    {
+      "case_id": "MPM-014",
+      "task": "Do not classify free cash flow as an MPM.",
+      "reporting_entity_ref": "ENTITY-SYNTH-001",
+      "reporting_period_ref": "FY2027",
+      "period_start": "2027-01-01",
+      "period_end": "2027-12-31",
+      "framework": {
+        "framework_id": "ifrs_full",
+        "ifrs18_profile_declared": true,
+        "early_application": false,
+        "profile_approval_ref": "APPROVED-IFRS18-FY2027"
+      },
+      "most_directly_comparable_subtotal_ref": "IFRS-OP-2027",
+      "ifrs_subtotals": [
+        {
+          "subtotal_ref": "IFRS-OP-2027",
+          "amount_minor": "10000",
+          "paragraph_118_subtotal": true,
+          "presented_in_statement": true
+        },
+        {
+          "subtotal_ref": "IFRS-EBT-2027",
+          "amount_minor": "9000",
+          "paragraph_118_subtotal": true,
+          "presented_in_statement": true
+        }
+      ],
+      "measures": [
+        {
+          "measure_ref": "MPM-001",
+          "candidate_classification": "mpm",
+          "label": "Free cash flow",
+          "subtotal_kind": "liquidity_or_cash_flow",
+          "ifrs_required_subtotal": false,
+          "public_communication_refs": [
+            "PUB-2027-INVESTOR-PRESENTATION-01"
+          ],
+          "reporting_period_ref": "FY2027",
+          "entity_wide": true,
+          "internal_management_use": true,
+          "rebuttal_evidence_ref": null,
+          "description": "A measure of operating performance before the specified restructuring adjustment",
+          "usefulness": "Management uses the measure to explain the operating performance of the consolidated entity after separately identifying restructuring costs",
+          "calculation_method": "Operating profit plus the specified restructuring expense adjustment",
+          "included_item_refs": [
+            "REV-001",
+            "OPERATING-EXPENSES-001"
+          ],
+          "excluded_item_refs": [
+            "RESTRUCTURING-EXPENSE-001"
+          ],
+          "note_ref": "MPM-NOTE-01",
+          "reconciliation": {
+            "comparator_subtotal_ref": "IFRS-OP-2027",
+            "comparator_amount_minor": "10000",
+            "comparator_presented": true,
+            "mpm_amount_minor": "12000",
+            "reconciling_items": [
+              {
+                "item_ref": "ADJ-001",
+                "description": "Exclude restructuring expense from management's adjusted operating profit",
+                "statement_line_ref": "EXP-RESTRUCTURING",
+                "adjustment_minor": "2000",
+                "tax_effect_minor": "-400",
+                "tax_method": "statutory_rate",
+                "tax_method_description": "Apply the statutory tax rate applicable to the underlying restructuring transaction in the relevant jurisdiction",
+                "tax_jurisdiction_ref": "ZA-CORP-TAX",
+                "nci_effect_minor": "-100"
+              }
+            ],
+            "secondary_bridge": null
+          },
+          "lifecycle": {
+            "state": "unchanged",
+            "prior_measure_ref": "MPM-001",
+            "change_explanation": null,
+            "change_reason": null,
+            "comparative_restated": false,
+            "impracticable": false,
+            "impracticable_rationale": null,
+            "tax_method_changed": false
+          }
+        }
+      ],
+      "notes": [
+        {
+          "note_ref": "MPM-NOTE-01",
+          "measure_refs": [
+            "MPM-001"
+          ],
+          "management_view_statement": true,
+          "non_comparability_statement": true
+        }
+      ]
+    },
+    {
+      "case_id": "MPM-015",
+      "task": "Do not classify adjusted revenue standing alone as an MPM.",
+      "reporting_entity_ref": "ENTITY-SYNTH-001",
+      "reporting_period_ref": "FY2027",
+      "period_start": "2027-01-01",
+      "period_end": "2027-12-31",
+      "framework": {
+        "framework_id": "ifrs_full",
+        "ifrs18_profile_declared": true,
+        "early_application": false,
+        "profile_approval_ref": "APPROVED-IFRS18-FY2027"
+      },
+      "most_directly_comparable_subtotal_ref": "IFRS-OP-2027",
+      "ifrs_subtotals": [
+        {
+          "subtotal_ref": "IFRS-OP-2027",
+          "amount_minor": "10000",
+          "paragraph_118_subtotal": true,
+          "presented_in_statement": true
+        },
+        {
+          "subtotal_ref": "IFRS-EBT-2027",
+          "amount_minor": "9000",
+          "paragraph_118_subtotal": true,
+          "presented_in_statement": true
+        }
+      ],
+      "measures": [
+        {
+          "measure_ref": "MPM-001",
+          "candidate_classification": "mpm",
+          "label": "Adjusted revenue",
+          "subtotal_kind": "income_only_subtotal",
+          "ifrs_required_subtotal": false,
+          "public_communication_refs": [
+            "PUB-2027-INVESTOR-PRESENTATION-01"
+          ],
+          "reporting_period_ref": "FY2027",
+          "entity_wide": true,
+          "internal_management_use": true,
+          "rebuttal_evidence_ref": null,
+          "description": "A measure of operating performance before the specified restructuring adjustment",
+          "usefulness": "Management uses the measure to explain the operating performance of the consolidated entity after separately identifying restructuring costs",
+          "calculation_method": "Operating profit plus the specified restructuring expense adjustment",
+          "included_item_refs": [
+            "REV-001",
+            "OPERATING-EXPENSES-001"
+          ],
+          "excluded_item_refs": [
+            "RESTRUCTURING-EXPENSE-001"
+          ],
+          "note_ref": "MPM-NOTE-01",
+          "reconciliation": {
+            "comparator_subtotal_ref": "IFRS-OP-2027",
+            "comparator_amount_minor": "10000",
+            "comparator_presented": true,
+            "mpm_amount_minor": "12000",
+            "reconciling_items": [
+              {
+                "item_ref": "ADJ-001",
+                "description": "Exclude restructuring expense from management's adjusted operating profit",
+                "statement_line_ref": "EXP-RESTRUCTURING",
+                "adjustment_minor": "2000",
+                "tax_effect_minor": "-400",
+                "tax_method": "statutory_rate",
+                "tax_method_description": "Apply the statutory tax rate applicable to the underlying restructuring transaction in the relevant jurisdiction",
+                "tax_jurisdiction_ref": "ZA-CORP-TAX",
+                "nci_effect_minor": "-100"
+              }
+            ],
+            "secondary_bridge": null
+          },
+          "lifecycle": {
+            "state": "unchanged",
+            "prior_measure_ref": "MPM-001",
+            "change_explanation": null,
+            "change_reason": null,
+            "comparative_restated": false,
+            "impracticable": false,
+            "impracticable_rationale": null,
+            "tax_method_changed": false
+          }
+        }
+      ],
+      "notes": [
+        {
+          "note_ref": "MPM-NOTE-01",
+          "measure_refs": [
+            "MPM-001"
+          ],
+          "management_view_statement": true,
+          "non_comparability_statement": true
+        }
+      ]
+    },
+    {
+      "case_id": "MPM-016",
+      "task": "Do not classify the IFRS-required operating profit subtotal as an MPM.",
+      "reporting_entity_ref": "ENTITY-SYNTH-001",
+      "reporting_period_ref": "FY2027",
+      "period_start": "2027-01-01",
+      "period_end": "2027-12-31",
+      "framework": {
+        "framework_id": "ifrs_full",
+        "ifrs18_profile_declared": true,
+        "early_application": false,
+        "profile_approval_ref": "APPROVED-IFRS18-FY2027"
+      },
+      "most_directly_comparable_subtotal_ref": "IFRS-OP-2027",
+      "ifrs_subtotals": [
+        {
+          "subtotal_ref": "IFRS-OP-2027",
+          "amount_minor": "10000",
+          "paragraph_118_subtotal": true,
+          "presented_in_statement": true
+        },
+        {
+          "subtotal_ref": "IFRS-EBT-2027",
+          "amount_minor": "9000",
+          "paragraph_118_subtotal": true,
+          "presented_in_statement": true
+        }
+      ],
+      "measures": [
+        {
+          "measure_ref": "MPM-001",
+          "candidate_classification": "mpm",
+          "label": "Operating profit",
+          "subtotal_kind": "income_and_expense_subtotal",
+          "ifrs_required_subtotal": true,
+          "public_communication_refs": [
+            "PUB-2027-INVESTOR-PRESENTATION-01"
+          ],
+          "reporting_period_ref": "FY2027",
+          "entity_wide": true,
+          "internal_management_use": true,
+          "rebuttal_evidence_ref": null,
+          "description": "A measure of operating performance before the specified restructuring adjustment",
+          "usefulness": "Management uses the measure to explain the operating performance of the consolidated entity after separately identifying restructuring costs",
+          "calculation_method": "Operating profit plus the specified restructuring expense adjustment",
+          "included_item_refs": [
+            "REV-001",
+            "OPERATING-EXPENSES-001"
+          ],
+          "excluded_item_refs": [
+            "RESTRUCTURING-EXPENSE-001"
+          ],
+          "note_ref": "MPM-NOTE-01",
+          "reconciliation": {
+            "comparator_subtotal_ref": "IFRS-OP-2027",
+            "comparator_amount_minor": "10000",
+            "comparator_presented": true,
+            "mpm_amount_minor": "12000",
+            "reconciling_items": [
+              {
+                "item_ref": "ADJ-001",
+                "description": "Exclude restructuring expense from management's adjusted operating profit",
+                "statement_line_ref": "EXP-RESTRUCTURING",
+                "adjustment_minor": "2000",
+                "tax_effect_minor": "-400",
+                "tax_method": "statutory_rate",
+                "tax_method_description": "Apply the statutory tax rate applicable to the underlying restructuring transaction in the relevant jurisdiction",
+                "tax_jurisdiction_ref": "ZA-CORP-TAX",
+                "nci_effect_minor": "-100"
+              }
+            ],
+            "secondary_bridge": null
+          },
+          "lifecycle": {
+            "state": "unchanged",
+            "prior_measure_ref": "MPM-001",
+            "change_explanation": null,
+            "change_reason": null,
+            "comparative_restated": false,
+            "impracticable": false,
+            "impracticable_rationale": null,
+            "tax_method_changed": false
+          }
+        }
+      ],
+      "notes": [
+        {
+          "note_ref": "MPM-NOTE-01",
+          "measure_refs": [
+            "MPM-001"
+          ],
+          "management_view_statement": true,
+          "non_comparability_statement": true
+        }
+      ]
+    },
+    {
+      "case_id": "MPM-017",
+      "task": "Do not classify a subtotal used only in internal reporting, with no public communication, as an MPM.",
+      "reporting_entity_ref": "ENTITY-SYNTH-001",
+      "reporting_period_ref": "FY2027",
+      "period_start": "2027-01-01",
+      "period_end": "2027-12-31",
+      "framework": {
+        "framework_id": "ifrs_full",
+        "ifrs18_profile_declared": true,
+        "early_application": false,
+        "profile_approval_ref": "APPROVED-IFRS18-FY2027"
+      },
+      "most_directly_comparable_subtotal_ref": "IFRS-OP-2027",
+      "ifrs_subtotals": [
+        {
+          "subtotal_ref": "IFRS-OP-2027",
+          "amount_minor": "10000",
+          "paragraph_118_subtotal": true,
+          "presented_in_statement": true
+        },
+        {
+          "subtotal_ref": "IFRS-EBT-2027",
+          "amount_minor": "9000",
+          "paragraph_118_subtotal": true,
+          "presented_in_statement": true
+        }
+      ],
+      "measures": [
+        {
+          "measure_ref": "MPM-001",
+          "candidate_classification": "mpm",
+          "label": "Adjusted operating profit",
+          "subtotal_kind": "income_and_expense_subtotal",
+          "ifrs_required_subtotal": false,
+          "public_communication_refs": [],
+          "reporting_period_ref": "FY2027",
+          "entity_wide": true,
+          "internal_management_use": true,
+          "rebuttal_evidence_ref": null,
+          "description": "A measure of operating performance before the specified restructuring adjustment",
+          "usefulness": "Management uses the measure to explain the operating performance of the consolidated entity after separately identifying restructuring costs",
+          "calculation_method": "Operating profit plus the specified restructuring expense adjustment",
+          "included_item_refs": [
+            "REV-001",
+            "OPERATING-EXPENSES-001"
+          ],
+          "excluded_item_refs": [
+            "RESTRUCTURING-EXPENSE-001"
+          ],
+          "note_ref": "MPM-NOTE-01",
+          "reconciliation": {
+            "comparator_subtotal_ref": "IFRS-OP-2027",
+            "comparator_amount_minor": "10000",
+            "comparator_presented": true,
+            "mpm_amount_minor": "12000",
+            "reconciling_items": [
+              {
+                "item_ref": "ADJ-001",
+                "description": "Exclude restructuring expense from management's adjusted operating profit",
+                "statement_line_ref": "EXP-RESTRUCTURING",
+                "adjustment_minor": "2000",
+                "tax_effect_minor": "-400",
+                "tax_method": "statutory_rate",
+                "tax_method_description": "Apply the statutory tax rate applicable to the underlying restructuring transaction in the relevant jurisdiction",
+                "tax_jurisdiction_ref": "ZA-CORP-TAX",
+                "nci_effect_minor": "-100"
+              }
+            ],
+            "secondary_bridge": null
+          },
+          "lifecycle": {
+            "state": "unchanged",
+            "prior_measure_ref": "MPM-001",
+            "change_explanation": null,
+            "change_reason": null,
+            "comparative_restated": false,
+            "impracticable": false,
+            "impracticable_rationale": null,
+            "tax_method_changed": false
+          }
+        }
+      ],
+      "notes": [
+        {
+          "note_ref": "MPM-NOTE-01",
+          "measure_refs": [
+            "MPM-001"
+          ],
+          "management_view_statement": true,
+          "non_comparability_statement": true
+        }
+      ]
+    },
+    {
+      "case_id": "MPM-018",
+      "task": "Do not automatically classify a segment-only subtotal that does not represent entity-wide performance as an MPM.",
+      "reporting_entity_ref": "ENTITY-SYNTH-001",
+      "reporting_period_ref": "FY2027",
+      "period_start": "2027-01-01",
+      "period_end": "2027-12-31",
+      "framework": {
+        "framework_id": "ifrs_full",
+        "ifrs18_profile_declared": true,
+        "early_application": false,
+        "profile_approval_ref": "APPROVED-IFRS18-FY2027"
+      },
+      "most_directly_comparable_subtotal_ref": "IFRS-OP-2027",
+      "ifrs_subtotals": [
+        {
+          "subtotal_ref": "IFRS-OP-2027",
+          "amount_minor": "10000",
+          "paragraph_118_subtotal": true,
+          "presented_in_statement": true
+        },
+        {
+          "subtotal_ref": "IFRS-EBT-2027",
+          "amount_minor": "9000",
+          "paragraph_118_subtotal": true,
+          "presented_in_statement": true
+        }
+      ],
+      "measures": [
+        {
+          "measure_ref": "MPM-001",
+          "candidate_classification": "mpm",
+          "label": "Adjusted operating profit",
+          "subtotal_kind": "income_and_expense_subtotal",
+          "ifrs_required_subtotal": false,
+          "public_communication_refs": [
+            "PUB-2027-INVESTOR-PRESENTATION-01"
+          ],
+          "reporting_period_ref": "FY2027",
+          "entity_wide": false,
+          "internal_management_use": true,
+          "rebuttal_evidence_ref": null,
+          "description": "A measure of operating performance before the specified restructuring adjustment",
+          "usefulness": "Management uses the measure to explain the operating performance of the consolidated entity after separately identifying restructuring costs",
+          "calculation_method": "Operating profit plus the specified restructuring expense adjustment",
+          "included_item_refs": [
+            "REV-001",
+            "OPERATING-EXPENSES-001"
+          ],
+          "excluded_item_refs": [
+            "RESTRUCTURING-EXPENSE-001"
+          ],
+          "note_ref": "MPM-NOTE-01",
+          "reconciliation": {
+            "comparator_subtotal_ref": "IFRS-OP-2027",
+            "comparator_amount_minor": "10000",
+            "comparator_presented": true,
+            "mpm_amount_minor": "12000",
+            "reconciling_items": [
+              {
+                "item_ref": "ADJ-001",
+                "description": "Exclude restructuring expense from management's adjusted operating profit",
+                "statement_line_ref": "EXP-RESTRUCTURING",
+                "adjustment_minor": "2000",
+                "tax_effect_minor": "-400",
+                "tax_method": "statutory_rate",
+                "tax_method_description": "Apply the statutory tax rate applicable to the underlying restructuring transaction in the relevant jurisdiction",
+                "tax_jurisdiction_ref": "ZA-CORP-TAX",
+                "nci_effect_minor": "-100"
+              }
+            ],
+            "secondary_bridge": null
+          },
+          "lifecycle": {
+            "state": "unchanged",
+            "prior_measure_ref": "MPM-001",
+            "change_explanation": null,
+            "change_reason": null,
+            "comparative_restated": false,
+            "impracticable": false,
+            "impracticable_rationale": null,
+            "tax_method_changed": false
+          }
+        }
+      ],
+      "notes": [
+        {
+          "note_ref": "MPM-NOTE-01",
+          "measure_refs": [
+            "MPM-001"
+          ],
+          "management_view_statement": true,
+          "non_comparability_statement": true
+        }
+      ]
+    },
+    {
+      "case_id": "MPM-019",
+      "task": "Require explanation, reason and comparative handling when the MPM calculation changes.",
+      "reporting_entity_ref": "ENTITY-SYNTH-001",
+      "reporting_period_ref": "FY2027",
+      "period_start": "2027-01-01",
+      "period_end": "2027-12-31",
+      "framework": {
+        "framework_id": "ifrs_full",
+        "ifrs18_profile_declared": true,
+        "early_application": false,
+        "profile_approval_ref": "APPROVED-IFRS18-FY2027"
+      },
+      "most_directly_comparable_subtotal_ref": "IFRS-OP-2027",
+      "ifrs_subtotals": [
+        {
+          "subtotal_ref": "IFRS-OP-2027",
+          "amount_minor": "10000",
+          "paragraph_118_subtotal": true,
+          "presented_in_statement": true
+        },
+        {
+          "subtotal_ref": "IFRS-EBT-2027",
+          "amount_minor": "9000",
+          "paragraph_118_subtotal": true,
+          "presented_in_statement": true
+        }
+      ],
+      "measures": [
+        {
+          "measure_ref": "MPM-001",
+          "candidate_classification": "mpm",
+          "label": "Adjusted operating profit",
+          "subtotal_kind": "income_and_expense_subtotal",
+          "ifrs_required_subtotal": false,
+          "public_communication_refs": [
+            "PUB-2027-INVESTOR-PRESENTATION-01"
+          ],
+          "reporting_period_ref": "FY2027",
+          "entity_wide": true,
+          "internal_management_use": true,
+          "rebuttal_evidence_ref": null,
+          "description": "A measure of operating performance before the specified restructuring adjustment",
+          "usefulness": "Management uses the measure to explain the operating performance of the consolidated entity after separately identifying restructuring costs",
+          "calculation_method": "Operating profit plus the specified restructuring expense adjustment",
+          "included_item_refs": [
+            "REV-001",
+            "OPERATING-EXPENSES-001"
+          ],
+          "excluded_item_refs": [
+            "RESTRUCTURING-EXPENSE-001"
+          ],
+          "note_ref": "MPM-NOTE-01",
+          "reconciliation": {
+            "comparator_subtotal_ref": "IFRS-OP-2027",
+            "comparator_amount_minor": "10000",
+            "comparator_presented": true,
+            "mpm_amount_minor": "12000",
+            "reconciling_items": [
+              {
+                "item_ref": "ADJ-001",
+                "description": "Exclude restructuring expense from management's adjusted operating profit",
+                "statement_line_ref": "EXP-RESTRUCTURING",
+                "adjustment_minor": "2000",
+                "tax_effect_minor": "-400",
+                "tax_method": "statutory_rate",
+                "tax_method_description": "Apply the statutory tax rate applicable to the underlying restructuring transaction in the relevant jurisdiction",
+                "tax_jurisdiction_ref": "ZA-CORP-TAX",
+                "nci_effect_minor": "-100"
+              }
+            ],
+            "secondary_bridge": null
+          },
+          "lifecycle": {
+            "state": "changed",
+            "prior_measure_ref": "MPM-001",
+            "change_explanation": null,
+            "change_reason": null,
+            "comparative_restated": false,
+            "impracticable": false,
+            "impracticable_rationale": null,
+            "tax_method_changed": false
+          }
+        }
+      ],
+      "notes": [
+        {
+          "note_ref": "MPM-NOTE-01",
+          "measure_refs": [
+            "MPM-001"
+          ],
+          "management_view_statement": true,
+          "non_comparability_statement": true
+        }
+      ]
+    },
+    {
+      "case_id": "MPM-020",
+      "task": "Require explanation and comparative handling when the income-tax effect determination method changes.",
+      "reporting_entity_ref": "ENTITY-SYNTH-001",
+      "reporting_period_ref": "FY2027",
+      "period_start": "2027-01-01",
+      "period_end": "2027-12-31",
+      "framework": {
+        "framework_id": "ifrs_full",
+        "ifrs18_profile_declared": true,
+        "early_application": false,
+        "profile_approval_ref": "APPROVED-IFRS18-FY2027"
+      },
+      "most_directly_comparable_subtotal_ref": "IFRS-OP-2027",
+      "ifrs_subtotals": [
+        {
+          "subtotal_ref": "IFRS-OP-2027",
+          "amount_minor": "10000",
+          "paragraph_118_subtotal": true,
+          "presented_in_statement": true
+        },
+        {
+          "subtotal_ref": "IFRS-EBT-2027",
+          "amount_minor": "9000",
+          "paragraph_118_subtotal": true,
+          "presented_in_statement": true
+        }
+      ],
+      "measures": [
+        {
+          "measure_ref": "MPM-001",
+          "candidate_classification": "mpm",
+          "label": "Adjusted operating profit",
+          "subtotal_kind": "income_and_expense_subtotal",
+          "ifrs_required_subtotal": false,
+          "public_communication_refs": [
+            "PUB-2027-INVESTOR-PRESENTATION-01"
+          ],
+          "reporting_period_ref": "FY2027",
+          "entity_wide": true,
+          "internal_management_use": true,
+          "rebuttal_evidence_ref": null,
+          "description": "A measure of operating performance before the specified restructuring adjustment",
+          "usefulness": "Management uses the measure to explain the operating performance of the consolidated entity after separately identifying restructuring costs",
+          "calculation_method": "Operating profit plus the specified restructuring expense adjustment",
+          "included_item_refs": [
+            "REV-001",
+            "OPERATING-EXPENSES-001"
+          ],
+          "excluded_item_refs": [
+            "RESTRUCTURING-EXPENSE-001"
+          ],
+          "note_ref": "MPM-NOTE-01",
+          "reconciliation": {
+            "comparator_subtotal_ref": "IFRS-OP-2027",
+            "comparator_amount_minor": "10000",
+            "comparator_presented": true,
+            "mpm_amount_minor": "12000",
+            "reconciling_items": [
+              {
+                "item_ref": "ADJ-001",
+                "description": "Exclude restructuring expense from management's adjusted operating profit",
+                "statement_line_ref": "EXP-RESTRUCTURING",
+                "adjustment_minor": "2000",
+                "tax_effect_minor": "-400",
+                "tax_method": "statutory_rate",
+                "tax_method_description": "Apply the statutory tax rate applicable to the underlying restructuring transaction in the relevant jurisdiction",
+                "tax_jurisdiction_ref": "ZA-CORP-TAX",
+                "nci_effect_minor": "-100"
+              }
+            ],
+            "secondary_bridge": null
+          },
+          "lifecycle": {
+            "state": "unchanged",
+            "prior_measure_ref": "MPM-001",
+            "change_explanation": null,
+            "change_reason": null,
+            "comparative_restated": false,
+            "impracticable": false,
+            "impracticable_rationale": null,
+            "tax_method_changed": true
+          }
+        }
+      ],
+      "notes": [
+        {
+          "note_ref": "MPM-NOTE-01",
+          "measure_refs": [
+            "MPM-001"
+          ],
+          "management_view_statement": true,
+          "non_comparability_statement": true
+        }
+      ]
+    },
+    {
+      "case_id": "MPM-021",
+      "task": "Accept a newly introduced MPM when the new-measure explanation and comparative information are supplied.",
+      "reporting_entity_ref": "ENTITY-SYNTH-001",
+      "reporting_period_ref": "FY2027",
+      "period_start": "2027-01-01",
+      "period_end": "2027-12-31",
+      "framework": {
+        "framework_id": "ifrs_full",
+        "ifrs18_profile_declared": true,
+        "early_application": false,
+        "profile_approval_ref": "APPROVED-IFRS18-FY2027"
+      },
+      "most_directly_comparable_subtotal_ref": "IFRS-OP-2027",
+      "ifrs_subtotals": [
+        {
+          "subtotal_ref": "IFRS-OP-2027",
+          "amount_minor": "10000",
+          "paragraph_118_subtotal": true,
+          "presented_in_statement": true
+        },
+        {
+          "subtotal_ref": "IFRS-EBT-2027",
+          "amount_minor": "9000",
+          "paragraph_118_subtotal": true,
+          "presented_in_statement": true
+        }
+      ],
+      "measures": [
+        {
+          "measure_ref": "MPM-001",
+          "candidate_classification": "mpm",
+          "label": "Adjusted operating profit",
+          "subtotal_kind": "income_and_expense_subtotal",
+          "ifrs_required_subtotal": false,
+          "public_communication_refs": [
+            "PUB-2027-INVESTOR-PRESENTATION-01"
+          ],
+          "reporting_period_ref": "FY2027",
+          "entity_wide": true,
+          "internal_management_use": true,
+          "rebuttal_evidence_ref": null,
+          "description": "A measure of operating performance before the specified restructuring adjustment",
+          "usefulness": "Management uses the measure to explain the operating performance of the consolidated entity after separately identifying restructuring costs",
+          "calculation_method": "Operating profit plus the specified restructuring expense adjustment",
+          "included_item_refs": [
+            "REV-001",
+            "OPERATING-EXPENSES-001"
+          ],
+          "excluded_item_refs": [
+            "RESTRUCTURING-EXPENSE-001"
+          ],
+          "note_ref": "MPM-NOTE-01",
+          "reconciliation": {
+            "comparator_subtotal_ref": "IFRS-OP-2027",
+            "comparator_amount_minor": "10000",
+            "comparator_presented": true,
+            "mpm_amount_minor": "12000",
+            "reconciling_items": [
+              {
+                "item_ref": "ADJ-001",
+                "description": "Exclude restructuring expense from management's adjusted operating profit",
+                "statement_line_ref": "EXP-RESTRUCTURING",
+                "adjustment_minor": "2000",
+                "tax_effect_minor": "-400",
+                "tax_method": "statutory_rate",
+                "tax_method_description": "Apply the statutory tax rate applicable to the underlying restructuring transaction in the relevant jurisdiction",
+                "tax_jurisdiction_ref": "ZA-CORP-TAX",
+                "nci_effect_minor": "-100"
+              }
+            ],
+            "secondary_bridge": null
+          },
+          "lifecycle": {
+            "state": "new",
+            "prior_measure_ref": null,
+            "change_explanation": "Management introduced the measure to explain the current operating cost structure.",
+            "change_reason": "The entity's public reporting now uses a consistent adjusted operating-profit subtotal.",
+            "comparative_restated": true,
+            "impracticable": false,
+            "impracticable_rationale": null,
+            "tax_method_changed": false
+          }
+        }
+      ],
+      "notes": [
+        {
+          "note_ref": "MPM-NOTE-01",
+          "measure_refs": [
+            "MPM-001"
+          ],
+          "management_view_statement": true,
+          "non_comparability_statement": true
+        }
+      ]
+    },
+    {
+      "case_id": "MPM-022",
+      "task": "Accept cessation of a previously disclosed MPM when the cessation and comparative handling are disclosed.",
+      "reporting_entity_ref": "ENTITY-SYNTH-001",
+      "reporting_period_ref": "FY2027",
+      "period_start": "2027-01-01",
+      "period_end": "2027-12-31",
+      "framework": {
+        "framework_id": "ifrs_full",
+        "ifrs18_profile_declared": true,
+        "early_application": false,
+        "profile_approval_ref": "APPROVED-IFRS18-FY2027"
+      },
+      "most_directly_comparable_subtotal_ref": "IFRS-OP-2027",
+      "ifrs_subtotals": [
+        {
+          "subtotal_ref": "IFRS-OP-2027",
+          "amount_minor": "10000",
+          "paragraph_118_subtotal": true,
+          "presented_in_statement": true
+        },
+        {
+          "subtotal_ref": "IFRS-EBT-2027",
+          "amount_minor": "9000",
+          "paragraph_118_subtotal": true,
+          "presented_in_statement": true
+        }
+      ],
+      "measures": [
+        {
+          "measure_ref": "MPM-001",
+          "candidate_classification": "not_mpm",
+          "label": "Adjusted operating profit",
+          "subtotal_kind": "income_and_expense_subtotal",
+          "ifrs_required_subtotal": false,
+          "public_communication_refs": [
+            "PUB-2027-INVESTOR-PRESENTATION-01"
+          ],
+          "reporting_period_ref": "FY2027",
+          "entity_wide": true,
+          "internal_management_use": true,
+          "rebuttal_evidence_ref": null,
+          "description": "A measure of operating performance before the specified restructuring adjustment",
+          "usefulness": "Management uses the measure to explain the operating performance of the consolidated entity after separately identifying restructuring costs",
+          "calculation_method": "Operating profit plus the specified restructuring expense adjustment",
+          "included_item_refs": [
+            "REV-001",
+            "OPERATING-EXPENSES-001"
+          ],
+          "excluded_item_refs": [
+            "RESTRUCTURING-EXPENSE-001"
+          ],
+          "note_ref": "MPM-NOTE-01",
+          "reconciliation": {
+            "comparator_subtotal_ref": "IFRS-OP-2027",
+            "comparator_amount_minor": "10000",
+            "comparator_presented": true,
+            "mpm_amount_minor": "12000",
+            "reconciling_items": [
+              {
+                "item_ref": "ADJ-001",
+                "description": "Exclude restructuring expense from management's adjusted operating profit",
+                "statement_line_ref": "EXP-RESTRUCTURING",
+                "adjustment_minor": "2000",
+                "tax_effect_minor": "-400",
+                "tax_method": "statutory_rate",
+                "tax_method_description": "Apply the statutory tax rate applicable to the underlying restructuring transaction in the relevant jurisdiction",
+                "tax_jurisdiction_ref": "ZA-CORP-TAX",
+                "nci_effect_minor": "-100"
+              }
+            ],
+            "secondary_bridge": null
+          },
+          "lifecycle": {
+            "state": "ceased",
+            "prior_measure_ref": "MPM-001",
+            "change_explanation": "The entity no longer uses the measure in public communications.",
+            "change_reason": "Management replaced it with the IFRS-defined operating profit subtotal.",
+            "comparative_restated": true,
+            "impracticable": false,
+            "impracticable_rationale": null,
+            "tax_method_changed": false
+          }
+        }
+      ],
+      "notes": [
+        {
+          "note_ref": "MPM-NOTE-01",
+          "measure_refs": [
+            "MPM-001"
+          ],
+          "management_view_statement": true,
+          "non_comparability_statement": true
+        }
+      ]
+    },
+    {
+      "case_id": "MPM-023",
+      "task": "Reject cessation of a previously disclosed MPM without explanation or required comparative handling.",
+      "reporting_entity_ref": "ENTITY-SYNTH-001",
+      "reporting_period_ref": "FY2027",
+      "period_start": "2027-01-01",
+      "period_end": "2027-12-31",
+      "framework": {
+        "framework_id": "ifrs_full",
+        "ifrs18_profile_declared": true,
+        "early_application": false,
+        "profile_approval_ref": "APPROVED-IFRS18-FY2027"
+      },
+      "most_directly_comparable_subtotal_ref": "IFRS-OP-2027",
+      "ifrs_subtotals": [
+        {
+          "subtotal_ref": "IFRS-OP-2027",
+          "amount_minor": "10000",
+          "paragraph_118_subtotal": true,
+          "presented_in_statement": true
+        },
+        {
+          "subtotal_ref": "IFRS-EBT-2027",
+          "amount_minor": "9000",
+          "paragraph_118_subtotal": true,
+          "presented_in_statement": true
+        }
+      ],
+      "measures": [
+        {
+          "measure_ref": "MPM-001",
+          "candidate_classification": "not_mpm",
+          "label": "Adjusted operating profit",
+          "subtotal_kind": "income_and_expense_subtotal",
+          "ifrs_required_subtotal": false,
+          "public_communication_refs": [
+            "PUB-2027-INVESTOR-PRESENTATION-01"
+          ],
+          "reporting_period_ref": "FY2027",
+          "entity_wide": true,
+          "internal_management_use": true,
+          "rebuttal_evidence_ref": null,
+          "description": "A measure of operating performance before the specified restructuring adjustment",
+          "usefulness": "Management uses the measure to explain the operating performance of the consolidated entity after separately identifying restructuring costs",
+          "calculation_method": "Operating profit plus the specified restructuring expense adjustment",
+          "included_item_refs": [
+            "REV-001",
+            "OPERATING-EXPENSES-001"
+          ],
+          "excluded_item_refs": [
+            "RESTRUCTURING-EXPENSE-001"
+          ],
+          "note_ref": null,
+          "reconciliation": {
+            "comparator_subtotal_ref": "IFRS-OP-2027",
+            "comparator_amount_minor": "10000",
+            "comparator_presented": true,
+            "mpm_amount_minor": "12000",
+            "reconciling_items": [
+              {
+                "item_ref": "ADJ-001",
+                "description": "Exclude restructuring expense from management's adjusted operating profit",
+                "statement_line_ref": "EXP-RESTRUCTURING",
+                "adjustment_minor": "2000",
+                "tax_effect_minor": "-400",
+                "tax_method": "statutory_rate",
+                "tax_method_description": "Apply the statutory tax rate applicable to the underlying restructuring transaction in the relevant jurisdiction",
+                "tax_jurisdiction_ref": "ZA-CORP-TAX",
+                "nci_effect_minor": "-100"
+              }
+            ],
+            "secondary_bridge": null
+          },
+          "lifecycle": {
+            "state": "ceased",
+            "prior_measure_ref": "MPM-001",
+            "change_explanation": null,
+            "change_reason": null,
+            "comparative_restated": false,
+            "impracticable": false,
+            "impracticable_rationale": null,
+            "tax_method_changed": false
+          }
+        }
+      ],
+      "notes": []
+    },
+    {
+      "case_id": "MPM-024",
+      "task": "Accept valid early application of IFRS 18 before the mandatory effective date when approved profile evidence is bound.",
+      "reporting_entity_ref": "ENTITY-SYNTH-001",
+      "reporting_period_ref": "FY2026",
+      "period_start": "2026-01-01",
+      "period_end": "2026-12-31",
+      "framework": {
+        "framework_id": "ifrs_full",
+        "ifrs18_profile_declared": true,
+        "early_application": true,
+        "profile_approval_ref": "APPROVED-EARLY-APPLICATION-IFRS18-2026"
+      },
+      "most_directly_comparable_subtotal_ref": "IFRS-OP-2027",
+      "ifrs_subtotals": [
+        {
+          "subtotal_ref": "IFRS-OP-2027",
+          "amount_minor": "10000",
+          "paragraph_118_subtotal": true,
+          "presented_in_statement": true
+        },
+        {
+          "subtotal_ref": "IFRS-EBT-2027",
+          "amount_minor": "9000",
+          "paragraph_118_subtotal": true,
+          "presented_in_statement": true
+        }
+      ],
+      "measures": [
+        {
+          "measure_ref": "MPM-001",
+          "candidate_classification": "mpm",
+          "label": "Adjusted operating profit",
+          "subtotal_kind": "income_and_expense_subtotal",
+          "ifrs_required_subtotal": false,
+          "public_communication_refs": [
+            "PUB-2027-INVESTOR-PRESENTATION-01"
+          ],
+          "reporting_period_ref": "FY2026",
+          "entity_wide": true,
+          "internal_management_use": true,
+          "rebuttal_evidence_ref": null,
+          "description": "A measure of operating performance before the specified restructuring adjustment",
+          "usefulness": "Management uses the measure to explain the operating performance of the consolidated entity after separately identifying restructuring costs",
+          "calculation_method": "Operating profit plus the specified restructuring expense adjustment",
+          "included_item_refs": [
+            "REV-001",
+            "OPERATING-EXPENSES-001"
+          ],
+          "excluded_item_refs": [
+            "RESTRUCTURING-EXPENSE-001"
+          ],
+          "note_ref": "MPM-NOTE-01",
+          "reconciliation": {
+            "comparator_subtotal_ref": "IFRS-OP-2027",
+            "comparator_amount_minor": "10000",
+            "comparator_presented": true,
+            "mpm_amount_minor": "12000",
+            "reconciling_items": [
+              {
+                "item_ref": "ADJ-001",
+                "description": "Exclude restructuring expense from management's adjusted operating profit",
+                "statement_line_ref": "EXP-RESTRUCTURING",
+                "adjustment_minor": "2000",
+                "tax_effect_minor": "-400",
+                "tax_method": "statutory_rate",
+                "tax_method_description": "Apply the statutory tax rate applicable to the underlying restructuring transaction in the relevant jurisdiction",
+                "tax_jurisdiction_ref": "ZA-CORP-TAX",
+                "nci_effect_minor": "-100"
+              }
+            ],
+            "secondary_bridge": null
+          },
+          "lifecycle": {
+            "state": "unchanged",
+            "prior_measure_ref": "MPM-001",
+            "change_explanation": null,
+            "change_reason": null,
+            "comparative_restated": false,
+            "impracticable": false,
+            "impracticable_rationale": null,
+            "tax_method_changed": false
+          }
+        }
+      ],
+      "notes": [
+        {
+          "note_ref": "MPM-NOTE-01",
+          "measure_refs": [
+            "MPM-001"
+          ],
+          "management_view_statement": true,
+          "non_comparability_statement": true
+        }
+      ]
+    },
+    {
+      "case_id": "MPM-025",
+      "task": "Reject mandatory IFRS 18 profile selection for a pre-2027 annual period without an early-application election.",
+      "reporting_entity_ref": "ENTITY-SYNTH-001",
+      "reporting_period_ref": "FY2026",
+      "period_start": "2026-01-01",
+      "period_end": "2026-12-31",
+      "framework": {
+        "framework_id": "ifrs_full",
+        "ifrs18_profile_declared": true,
+        "early_application": false,
+        "profile_approval_ref": "APPROVED-IFRS18-FY2027"
+      },
+      "most_directly_comparable_subtotal_ref": "IFRS-OP-2027",
+      "ifrs_subtotals": [
+        {
+          "subtotal_ref": "IFRS-OP-2027",
+          "amount_minor": "10000",
+          "paragraph_118_subtotal": true,
+          "presented_in_statement": true
+        },
+        {
+          "subtotal_ref": "IFRS-EBT-2027",
+          "amount_minor": "9000",
+          "paragraph_118_subtotal": true,
+          "presented_in_statement": true
+        }
+      ],
+      "measures": [
+        {
+          "measure_ref": "MPM-001",
+          "candidate_classification": "mpm",
+          "label": "Adjusted operating profit",
+          "subtotal_kind": "income_and_expense_subtotal",
+          "ifrs_required_subtotal": false,
+          "public_communication_refs": [
+            "PUB-2027-INVESTOR-PRESENTATION-01"
+          ],
+          "reporting_period_ref": "FY2026",
+          "entity_wide": true,
+          "internal_management_use": true,
+          "rebuttal_evidence_ref": null,
+          "description": "A measure of operating performance before the specified restructuring adjustment",
+          "usefulness": "Management uses the measure to explain the operating performance of the consolidated entity after separately identifying restructuring costs",
+          "calculation_method": "Operating profit plus the specified restructuring expense adjustment",
+          "included_item_refs": [
+            "REV-001",
+            "OPERATING-EXPENSES-001"
+          ],
+          "excluded_item_refs": [
+            "RESTRUCTURING-EXPENSE-001"
+          ],
+          "note_ref": "MPM-NOTE-01",
+          "reconciliation": {
+            "comparator_subtotal_ref": "IFRS-OP-2027",
+            "comparator_amount_minor": "10000",
+            "comparator_presented": true,
+            "mpm_amount_minor": "12000",
+            "reconciling_items": [
+              {
+                "item_ref": "ADJ-001",
+                "description": "Exclude restructuring expense from management's adjusted operating profit",
+                "statement_line_ref": "EXP-RESTRUCTURING",
+                "adjustment_minor": "2000",
+                "tax_effect_minor": "-400",
+                "tax_method": "statutory_rate",
+                "tax_method_description": "Apply the statutory tax rate applicable to the underlying restructuring transaction in the relevant jurisdiction",
+                "tax_jurisdiction_ref": "ZA-CORP-TAX",
+                "nci_effect_minor": "-100"
+              }
+            ],
+            "secondary_bridge": null
+          },
+          "lifecycle": {
+            "state": "unchanged",
+            "prior_measure_ref": "MPM-001",
+            "change_explanation": null,
+            "change_reason": null,
+            "comparative_restated": false,
+            "impracticable": false,
+            "impracticable_rationale": null,
+            "tax_method_changed": false
+          }
+        }
+      ],
+      "notes": [
+        {
+          "note_ref": "MPM-NOTE-01",
+          "measure_refs": [
+            "MPM-001"
+          ],
+          "management_view_statement": true,
+          "non_comparability_statement": true
+        }
+      ]
+    },
+    {
+      "case_id": "MPM-026",
+      "task": "Reject assignment of the full-IFRS IFRS 18 profile to an IFRS for SMEs reporting entity.",
+      "reporting_entity_ref": "ENTITY-SYNTH-001",
+      "reporting_period_ref": "FY2027",
+      "period_start": "2027-01-01",
+      "period_end": "2027-12-31",
+      "framework": {
+        "framework_id": "ifrs_for_smes",
+        "ifrs18_profile_declared": true,
+        "early_application": false,
+        "profile_approval_ref": "APPROVED-IFRS18-FY2027"
+      },
+      "most_directly_comparable_subtotal_ref": "IFRS-OP-2027",
+      "ifrs_subtotals": [
+        {
+          "subtotal_ref": "IFRS-OP-2027",
+          "amount_minor": "10000",
+          "paragraph_118_subtotal": true,
+          "presented_in_statement": true
+        },
+        {
+          "subtotal_ref": "IFRS-EBT-2027",
+          "amount_minor": "9000",
+          "paragraph_118_subtotal": true,
+          "presented_in_statement": true
+        }
+      ],
+      "measures": [
+        {
+          "measure_ref": "MPM-001",
+          "candidate_classification": "mpm",
+          "label": "Adjusted operating profit",
+          "subtotal_kind": "income_and_expense_subtotal",
+          "ifrs_required_subtotal": false,
+          "public_communication_refs": [
+            "PUB-2027-INVESTOR-PRESENTATION-01"
+          ],
+          "reporting_period_ref": "FY2027",
+          "entity_wide": true,
+          "internal_management_use": true,
+          "rebuttal_evidence_ref": null,
+          "description": "A measure of operating performance before the specified restructuring adjustment",
+          "usefulness": "Management uses the measure to explain the operating performance of the consolidated entity after separately identifying restructuring costs",
+          "calculation_method": "Operating profit plus the specified restructuring expense adjustment",
+          "included_item_refs": [
+            "REV-001",
+            "OPERATING-EXPENSES-001"
+          ],
+          "excluded_item_refs": [
+            "RESTRUCTURING-EXPENSE-001"
+          ],
+          "note_ref": "MPM-NOTE-01",
+          "reconciliation": {
+            "comparator_subtotal_ref": "IFRS-OP-2027",
+            "comparator_amount_minor": "10000",
+            "comparator_presented": true,
+            "mpm_amount_minor": "12000",
+            "reconciling_items": [
+              {
+                "item_ref": "ADJ-001",
+                "description": "Exclude restructuring expense from management's adjusted operating profit",
+                "statement_line_ref": "EXP-RESTRUCTURING",
+                "adjustment_minor": "2000",
+                "tax_effect_minor": "-400",
+                "tax_method": "statutory_rate",
+                "tax_method_description": "Apply the statutory tax rate applicable to the underlying restructuring transaction in the relevant jurisdiction",
+                "tax_jurisdiction_ref": "ZA-CORP-TAX",
+                "nci_effect_minor": "-100"
+              }
+            ],
+            "secondary_bridge": null
+          },
+          "lifecycle": {
+            "state": "unchanged",
+            "prior_measure_ref": "MPM-001",
+            "change_explanation": null,
+            "change_reason": null,
+            "comparative_restated": false,
+            "impracticable": false,
+            "impracticable_rationale": null,
+            "tax_method_changed": false
+          }
+        }
+      ],
+      "notes": [
+        {
+          "note_ref": "MPM-NOTE-01",
+          "measure_refs": [
+            "MPM-001"
+          ],
+          "management_view_statement": true,
+          "non_comparability_statement": true
+        }
+      ]
+    }
+  ]
+}
