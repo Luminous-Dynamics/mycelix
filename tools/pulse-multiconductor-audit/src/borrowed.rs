@@ -550,11 +550,23 @@ mod tests {
             owned["source_commit"].as_str().unwrap()
         );
         assert_eq!(borrowed.conductors.len(), owned["conductors"].as_array().unwrap().len());
+        for (conductor, owned_conductor) in borrowed.conductors.iter().zip(owned["conductors"].as_array().unwrap()) {
+            assert_eq!(conductor.conductor_id, owned_conductor["conductor_id"].as_str().unwrap());
+            assert_eq!(conductor.agent_key_ref, owned_conductor["agent_key_ref"].as_str().unwrap());
+            assert_eq!(conductor.conductor_build, owned_conductor["conductor_build"].as_str().unwrap());
+            assert_eq!(conductor.dna_hash, owned_conductor["dna_hash"].as_str().unwrap());
+            assert_eq!(conductor.cell_id, owned_conductor["cell_id"].as_str().unwrap());
+            assert_eq!(conductor.integrity_wasm_sha256, owned_conductor["integrity_wasm_sha256"].as_str().unwrap());
+            assert_eq!(conductor.role, owned_conductor["role"].as_str().unwrap());
+        }
         assert_eq!(borrowed.events.len(), owned["events"].as_array().unwrap().len());
-        assert_eq!(
-            borrowed.causal_edges.len(),
-            owned["causal_edges"].as_array().unwrap().len()
-        );
+        assert_eq!(borrowed.causal_edges.len(), owned["causal_edges"].as_array().unwrap().len());
+        for (edge, owned_edge) in borrowed.causal_edges.iter().zip(owned["causal_edges"].as_array().unwrap()) {
+            assert_eq!(edge.from_event, owned_edge["from_event"].as_str().unwrap());
+            assert_eq!(edge.to_event, owned_edge["to_event"].as_str().unwrap());
+            assert_eq!(edge.relation, owned_edge["relation"].as_str().unwrap());
+            assert_eq!(edge.evidence_ref, owned_edge["evidence_ref"].as_str().unwrap());
+        }
     }
 
     #[test]
@@ -571,16 +583,6 @@ mod tests {
             assert_eq!(event.evidence_ref, owned_event["evidence_ref"].as_str().unwrap());
             assert_eq!(event.event_type, owned_event["event_type"].as_str().unwrap());
 
-            let borrowed_data: Value =
-                serde_json::from_str(event.data.raw("event_type").unwrap_or_else(|| {
-                    event
-                        .data
-                        .fields
-                        .first()
-                        .map(|(_, value)| *value)
-                        .expect("event data is not empty")
-                }).get()).unwrap_or(Value::Null);
-            let _ = borrowed_data;
             assert!(valid_event_shape(event), "event {} did not match v2 shape", event.event_id);
             for (key, raw) in &event.data.fields {
                 assert_eq!(
@@ -614,22 +616,24 @@ mod tests {
 
     #[test]
     fn duplicate_payload_keys_are_rejected_by_exact_field_validation() {
-        let mut value: Value = serde_json::from_str(SAFE_HISTORY).unwrap();
-        let event = value["events"]
-            .as_array_mut()
-            .unwrap()
-            .iter_mut()
-            .find(|event| event["event_type"] == "host_call")
-            .unwrap();
-        event["data"]["attempt_id_duplicate"] = Value::from(1);
-        let mutated = serde_json::to_string(&value).unwrap();
-        let borrowed: BorrowedHistory<'_> = serde_json::from_str(&mutated).unwrap();
-        let host_call = borrowed
-            .events
-            .iter()
-            .find(|event| event.event_type == "host_call")
-            .unwrap();
-        assert!(!valid_event_shape(host_call));
+        let duplicate: RawObject<'_> =
+            serde_json::from_str(r#"{"operation_id":"first","operation_id":"second"}"#).unwrap();
+        assert!(!duplicate.exact_fields(&["operation_id"]));
+        assert!(!duplicate.exact_fields(&["operation_id", "attempt_id"]));
+    }
+
+    #[test]
+    fn event_payload_slices_borrow_from_the_input_buffer() {
+        let borrowed: BorrowedHistory<'_> = serde_json::from_str(SAFE_HISTORY).unwrap();
+        let input_start = SAFE_HISTORY.as_ptr() as usize;
+        let input_end = input_start + SAFE_HISTORY.len();
+        for event in &borrowed.events {
+            for (_, raw) in &event.data.fields {
+                let start = raw.get().as_ptr() as usize;
+                let end = start + raw.get().len();
+                assert!(start >= input_start && end <= input_end);
+            }
+        }
     }
 
     #[test]
