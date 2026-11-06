@@ -1,0 +1,379 @@
+{
+  "bundle_id": "MYCELIX-FIN-EVIDENCE-DRIFT-S0-ORACLE",
+  "schema_version": "1.0.0",
+  "claim_ceiling": "synthetic_expected_impact_sets_not_accounting_policy_adjudication",
+  "expectations": [
+    {
+      "scenario_id": "DRIFT-001-AMOUNT-REVISION",
+      "expected_impact_level": "reproject_required",
+      "expected_changed_objects": {
+        "source_refs": [],
+        "assertion_refs": [
+          "AS-AMOUNT"
+        ],
+        "event_refs": [
+          "EV-INVOICE"
+        ],
+        "relation_refs": [],
+        "policy_changed": false,
+        "projector_changed": false,
+        "knowledge_frontier_changed": false,
+        "transport_metadata_only_source_refs": []
+      },
+      "expected_affected_objects": {
+        "event_refs": [
+          "EV-INVOICE"
+        ],
+        "decision_refs": [
+          "DEC-INVOICE"
+        ],
+        "journal_line_refs": [
+          "JL-CR",
+          "JL-DR"
+        ],
+        "statement_refs": [
+          "ST-EXPENSE"
+        ]
+      },
+      "expected_claim_complete": true,
+      "expected_finding_codes": [
+        "assertion_material_change",
+        "event_semantic_change"
+      ]
+    },
+    {
+      "scenario_id": "DRIFT-002-TRANSPORT-METADATA-ONLY",
+      "expected_impact_level": "no_material_impact",
+      "expected_changed_objects": {
+        "source_refs": [],
+        "assertion_refs": [],
+        "event_refs": [],
+        "relation_refs": [],
+        "policy_changed": false,
+        "projector_changed": false,
+        "knowledge_frontier_changed": false,
+        "transport_metadata_only_source_refs": [
+          "SRC-INV"
+        ]
+      },
+      "expected_affected_objects": {
+        "event_refs": [],
+        "decision_refs": [],
+        "journal_line_refs": [],
+        "statement_refs": []
+      },
+      "expected_claim_complete": true,
+      "expected_finding_codes": [
+        "source_transport_metadata_only"
+      ]
+    },
+    {
+      "scenario_id": "DRIFT-003-ASSERTION-INVALIDATED",
+      "expected_impact_level": "review_required",
+      "expected_changed_objects": {
+        "source_refs": [],
+        "assertion_refs": [
+          "AS-AMOUNT"
+        ],
+        "event_refs": [],
+        "relation_refs": [],
+        "policy_changed": false,
+        "projector_changed": false,
+        "knowledge_frontier_changed": false,
+        "transport_metadata_only_source_refs": []
+      },
+      "expected_affected_objects": {
+        "event_refs": [
+          "EV-INVOICE"
+        ],
+        "decision_refs": [
+          "DEC-INVOICE"
+        ],
+        "journal_line_refs": [
+          "JL-CR",
+          "JL-DR"
+        ],
+        "statement_refs": [
+          "ST-EXPENSE"
+        ]
+      },
+      "expected_claim_complete": true,
+      "expected_finding_codes": [
+        "assertion_invalidated_or_disputed",
+        "assertion_material_change"
+      ]
+    },
+    {
+      "scenario_id": "DRIFT-004-LATE-EVIDENCE",
+      "expected_impact_level": "historical_replay_required",
+      "expected_changed_objects": {
+        "source_refs": [],
+        "assertion_refs": [
+          "AS-AMOUNT",
+          "AS-SUPPLIER"
+        ],
+        "event_refs": [],
+        "relation_refs": [],
+        "policy_changed": false,
+        "projector_changed": false,
+        "knowledge_frontier_changed": true,
+        "transport_metadata_only_source_refs": []
+      },
+      "expected_affected_objects": {
+        "event_refs": [
+          "EV-INVOICE"
+        ],
+        "decision_refs": [
+          "DEC-INVOICE"
+        ],
+        "journal_line_refs": [],
+        "statement_refs": []
+      },
+      "expected_claim_complete": true,
+      "expected_finding_codes": [
+        "assertion_material_change",
+        "late_evidence_available_at_new_frontier"
+      ]
+    },
+    {
+      "scenario_id": "DRIFT-005-POLICY-DIGEST-CHANGED",
+      "expected_impact_level": "reproject_required",
+      "expected_changed_objects": {
+        "source_refs": [],
+        "assertion_refs": [],
+        "event_refs": [],
+        "relation_refs": [],
+        "policy_changed": true,
+        "projector_changed": false,
+        "knowledge_frontier_changed": false,
+        "transport_metadata_only_source_refs": []
+      },
+      "expected_affected_objects": {
+        "event_refs": [
+          "EV-INVOICE"
+        ],
+        "decision_refs": [
+          "DEC-INVOICE"
+        ],
+        "journal_line_refs": [
+          "JL-CR",
+          "JL-DR"
+        ],
+        "statement_refs": [
+          "ST-EXPENSE"
+        ]
+      },
+      "expected_claim_complete": true,
+      "expected_finding_codes": [
+        "policy_digest_changed"
+      ]
+    },
+    {
+      "scenario_id": "DRIFT-006-PROJECTOR-DIGEST-CHANGED",
+      "expected_impact_level": "reproject_required",
+      "expected_changed_objects": {
+        "source_refs": [],
+        "assertion_refs": [],
+        "event_refs": [],
+        "relation_refs": [],
+        "policy_changed": false,
+        "projector_changed": true,
+        "knowledge_frontier_changed": false,
+        "transport_metadata_only_source_refs": []
+      },
+      "expected_affected_objects": {
+        "event_refs": [
+          "EV-INVOICE"
+        ],
+        "decision_refs": [
+          "DEC-INVOICE"
+        ],
+        "journal_line_refs": [
+          "JL-CR",
+          "JL-DR"
+        ],
+        "statement_refs": [
+          "ST-EXPENSE"
+        ]
+      },
+      "expected_claim_complete": true,
+      "expected_finding_codes": [
+        "projector_digest_changed"
+      ]
+    },
+    {
+      "scenario_id": "DRIFT-007-RELATION-CHANGED",
+      "expected_impact_level": "reproject_required",
+      "expected_changed_objects": {
+        "source_refs": [],
+        "assertion_refs": [],
+        "event_refs": [],
+        "relation_refs": [
+          "REL-SUPPORTS"
+        ],
+        "policy_changed": false,
+        "projector_changed": false,
+        "knowledge_frontier_changed": false,
+        "transport_metadata_only_source_refs": []
+      },
+      "expected_affected_objects": {
+        "event_refs": [
+          "EV-INVOICE"
+        ],
+        "decision_refs": [
+          "DEC-INVOICE"
+        ],
+        "journal_line_refs": [
+          "JL-CR",
+          "JL-DR"
+        ],
+        "statement_refs": [
+          "ST-EXPENSE"
+        ]
+      },
+      "expected_claim_complete": true,
+      "expected_finding_codes": [
+        "relation_semantic_change"
+      ]
+    },
+    {
+      "scenario_id": "DRIFT-008-UNLINKED-REVISION",
+      "expected_impact_level": "projection_invalid",
+      "expected_changed_objects": {
+        "source_refs": [
+          "SRC-INV-R2"
+        ],
+        "assertion_refs": [],
+        "event_refs": [],
+        "relation_refs": [],
+        "policy_changed": false,
+        "projector_changed": false,
+        "knowledge_frontier_changed": false,
+        "transport_metadata_only_source_refs": []
+      },
+      "expected_affected_objects": {
+        "event_refs": [],
+        "decision_refs": [],
+        "journal_line_refs": [],
+        "statement_refs": []
+      },
+      "expected_claim_complete": true,
+      "expected_finding_codes": [
+        "baseline_projection_dependency_invalid",
+        "source_semantic_change",
+        "unlinked_source_revision_family"
+      ]
+    },
+    {
+      "scenario_id": "DRIFT-009-CROSS-TENANT-DUPLICATE",
+      "expected_impact_level": "historical_replay_required",
+      "expected_changed_objects": {
+        "source_refs": [
+          "SRC-OTHER-TENANT"
+        ],
+        "assertion_refs": [
+          "AS-OTHER-TENANT"
+        ],
+        "event_refs": [],
+        "relation_refs": [],
+        "policy_changed": false,
+        "projector_changed": false,
+        "knowledge_frontier_changed": false,
+        "transport_metadata_only_source_refs": []
+      },
+      "expected_affected_objects": {
+        "event_refs": [],
+        "decision_refs": [],
+        "journal_line_refs": [],
+        "statement_refs": []
+      },
+      "expected_claim_complete": true,
+      "expected_finding_codes": [
+        "assertion_material_change",
+        "late_evidence_available_at_new_frontier",
+        "source_semantic_change"
+      ]
+    },
+    {
+      "scenario_id": "DRIFT-010-UNDERREPORTED-IMPACT",
+      "expected_impact_level": "reproject_required",
+      "expected_changed_objects": {
+        "source_refs": [],
+        "assertion_refs": [
+          "AS-AMOUNT"
+        ],
+        "event_refs": [
+          "EV-INVOICE"
+        ],
+        "relation_refs": [],
+        "policy_changed": false,
+        "projector_changed": false,
+        "knowledge_frontier_changed": false,
+        "transport_metadata_only_source_refs": []
+      },
+      "expected_affected_objects": {
+        "event_refs": [
+          "EV-INVOICE"
+        ],
+        "decision_refs": [
+          "DEC-INVOICE"
+        ],
+        "journal_line_refs": [
+          "JL-CR",
+          "JL-DR"
+        ],
+        "statement_refs": [
+          "ST-EXPENSE"
+        ]
+      },
+      "expected_claim_complete": false,
+      "expected_finding_codes": [
+        "assertion_material_change",
+        "claimed_impact_mismatch",
+        "event_semantic_change"
+      ]
+    },
+    {
+      "scenario_id": "DRIFT-011-LINKED-REVISION",
+      "expected_impact_level": "historical_replay_required",
+      "expected_changed_objects": {
+        "source_refs": [
+          "SRC-INV-R2"
+        ],
+        "assertion_refs": [
+          "AS-AMOUNT-R2"
+        ],
+        "event_refs": [
+          "EV-INVOICE"
+        ],
+        "relation_refs": [],
+        "policy_changed": false,
+        "projector_changed": false,
+        "knowledge_frontier_changed": true,
+        "transport_metadata_only_source_refs": []
+      },
+      "expected_affected_objects": {
+        "event_refs": [
+          "EV-INVOICE"
+        ],
+        "decision_refs": [
+          "DEC-INVOICE"
+        ],
+        "journal_line_refs": [
+          "JL-CR",
+          "JL-DR"
+        ],
+        "statement_refs": [
+          "ST-EXPENSE"
+        ]
+      },
+      "expected_claim_complete": true,
+      "expected_finding_codes": [
+        "assertion_material_change",
+        "event_semantic_change",
+        "late_evidence_available_at_new_frontier",
+        "source_semantic_change"
+      ]
+    }
+  ]
+}
