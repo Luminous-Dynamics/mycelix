@@ -184,6 +184,7 @@ fn validate_projection(
 
     let mut entry_refs = BTreeSet::new();
     let mut line_refs = BTreeSet::new();
+    let mut decision_totals = BTreeMap::<String, (i128, i128, usize)>::new();
     let mut journal_line_count = 0usize;
     let mut journals_balanced = true;
     for entry in array(projection, "journal_entries")? {
@@ -217,6 +218,11 @@ fn validate_projection(
                 .ok_or_else(|| format!("{projection_id}/{line_ref}: no decision for policy_decision_ref {decision_ref}"))?;
             if optional_string(decision, "decision_state") != Some("recognized") {
                 return Err(format!("{projection_id}/{line_ref}: journal line has no recognized policy decision"));
+            }
+            let decision_currency = optional_string(decision, "currency")
+                .ok_or_else(|| format!("{projection_id}/{line_ref}: recognized decision has no currency"))?;
+            if currency != decision_currency {
+                return Err(format!("{projection_id}/{line_ref}: journal currency differs from recognized decision currency"));
             }
 
             let line_event_refs = set_from_array(line, "event_refs")?;
@@ -258,15 +264,42 @@ fn validate_projection(
                 period_ref.to_owned(),
             );
             let group = totals.entry(key).or_default();
+            let decision_total = decision_totals.entry(decision_ref.to_owned()).or_default();
+            decision_total.2 += 1;
             match string(line, "side")? {
-                "debit" => group.0 += amount as i128,
-                "credit" => group.1 += amount as i128,
+                "debit" => {
+                    group.0 += amount as i128;
+                    decision_total.0 += amount as i128;
+                }
+                "credit" => {
+                    group.1 += amount as i128;
+                    decision_total.1 += amount as i128;
+                }
                 other => return Err(format!("{projection_id}/{line_ref}: unknown side {other}")),
             }
         }
         if totals.values().any(|(debits, credits)| debits != credits) {
             journals_balanced = false;
             return Err(format!("{projection_id}/{entry_ref}: journal entry is not balanced per currency/entity/period"));
+        }
+    }
+
+    for (decision_ref, decision) in &decisions_by_ref {
+        if optional_string(decision.0, "decision_state") != Some("recognized") {
+            continue;
+        }
+        let Some((debits, credits, line_count)) = decision_totals.get(decision_ref) else {
+            continue;
+        };
+        let expected_amount = decision.0
+            .get("recognized_amount_minor")
+            .and_then(Value::as_i64)
+            .ok_or_else(|| format!("{projection_id}/{decision_ref}: recognized amount is missing"))?
+            as i128;
+        if *line_count == 0 || *debits != expected_amount || *credits != expected_amount {
+            return Err(format!(
+                "{projection_id}/{decision_ref}: journal totals debit={debits}, credit={credits} do not both reproduce recognized amount {expected_amount}"
+            ));
         }
     }
 
@@ -512,6 +545,28 @@ mod tests {
         }]);
         assert!(build_report(&graph, &digest, &bundle).is_ok());
         projection["journal_entries"][0]["lines"][1]["event_refs"] = json!(["EV-002-INVOICE"]);
+        assert!(build_report(&graph, &digest, &bundle).is_err());
+    }
+
+
+    #[test]
+    fn balanced_journal_must_reproduce_the_recognized_decision_amount() {
+        let (graph, mut bundle, _, _, digest) = fixtures();
+        let projection = &mut bundle["projections"][0];
+        projection["event_decisions"][0]["decision_state"] = Value::String("recognized".to_owned());
+        projection["event_decisions"][0]["recognized_amount_minor"] = Value::from(125000);
+        projection["event_decisions"][0]["currency"] = Value::String("USD".to_owned());
+        projection["event_decisions"][0]["period_ref"] = Value::String("2026-10".to_owned());
+        projection["journal_entries"] = json!([{
+            "journal_entry_ref":"J-1","entry_kind":"recognition",
+            "lines":[
+                {"line_ref":"JL-1","account_ref":"A","side":"debit","amount_minor":125000,"currency":"USD","entity_ref":"ENTITY-ACME","period_ref":"2026-10","event_refs":["EV-001-INVOICE"],"source_assertion_refs":["AS-001-AMOUNT"],"policy_decision_ref":"SYN-PROJECTION-A-DEC-001"},
+                {"line_ref":"JL-2","account_ref":"B","side":"credit","amount_minor":125000,"currency":"USD","entity_ref":"ENTITY-ACME","period_ref":"2026-10","event_refs":["EV-001-INVOICE"],"source_assertion_refs":["AS-001-AMOUNT"],"policy_decision_ref":"SYN-PROJECTION-A-DEC-001"}
+            ]
+        }]);
+        assert!(build_report(&graph, &digest, &bundle).is_ok());
+        projection["journal_entries"][0]["lines"][0]["amount_minor"] = Value::from(124000);
+        projection["journal_entries"][0]["lines"][1]["amount_minor"] = Value::from(124000);
         assert!(build_report(&graph, &digest, &bundle).is_err());
     }
 
