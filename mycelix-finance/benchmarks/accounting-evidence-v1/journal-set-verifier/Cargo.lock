@@ -158,7 +158,6 @@ version = "0.1.0"
 dependencies = [
  "hex",
  "jsonschema",
- "serde",
  "serde_json",
  "sha2",
 ]
