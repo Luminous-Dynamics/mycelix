@@ -1437,14 +1437,21 @@ fn build_dag_reachability_workload(
             }
         }
         "wide_fanout" => {
-            for index in 1..node_count {
-                add_edge(0, index);
+            // A two-hop fan-out avoids the direct-edge shortcut so repeated
+            // root-to-leaf queries actually exercise the reachability caches.
+            add_edge(0, 1);
+            for index in 2..node_count {
+                add_edge(1, index);
             }
         }
         "wide_fanin" => {
-            for index in 0..node_count - 1 {
-                add_edge(index, node_count - 1);
+            // Symmetric two-hop fan-in: every source reaches the sink through
+            // one aggregator, keeping the measured query transitive.
+            let aggregator = node_count - 2;
+            for index in 0..aggregator {
+                add_edge(index, aggregator);
             }
+            add_edge(aggregator, node_count - 1);
         }
         "diamond" => {
             let complete_blocks = node_count / 4;
