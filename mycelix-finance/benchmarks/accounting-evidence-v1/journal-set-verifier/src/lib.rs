@@ -658,9 +658,9 @@ mod tests {
 
     #[test]
     fn all_public_reference_cases_match_the_disposition_oracle() {
-        let candidate = parse(include_str!("../../fin_journal_set_candidates_v1.0.0.json"));
+        let candidate = parse(include_str!("../../fin_journal_set_candidates_v1.1.0.json"));
         let oracle = parse(include_str!(
-            "../../public-journal-set-oracle/fin_journal_set_oracle_v1.0.0.json"
+            "../../public-journal-set-oracle/fin_journal_set_oracle_v1.1.0.json"
         ));
         for case in candidate["cases"].as_array().expect("cases") {
             let id = case["case_id"].as_str().expect("case ID");
@@ -682,7 +682,7 @@ mod tests {
 
     #[test]
     fn an_individually_balanced_journal_does_not_prove_population_completeness() {
-        let candidate = parse(include_str!("../../fin_journal_set_candidates_v1.0.0.json"));
+        let candidate = parse(include_str!("../../fin_journal_set_candidates_v1.1.0.json"));
         let case = case_by_id(&candidate, "FJS-002");
         assert_eq!(
             assess_case(case).expect("assessment").disposition,
@@ -692,7 +692,7 @@ mod tests {
 
     #[test]
     fn balanced_orphan_entry_is_not_admitted() {
-        let candidate = parse(include_str!("../../fin_journal_set_candidates_v1.0.0.json"));
+        let candidate = parse(include_str!("../../fin_journal_set_candidates_v1.1.0.json"));
         let case = case_by_id(&candidate, "FJS-005");
         assert_eq!(
             assess_case(case).expect("assessment").disposition,
@@ -702,7 +702,7 @@ mod tests {
 
     #[test]
     fn exact_journal_replay_is_idempotent() {
-        let candidate = parse(include_str!("../../fin_journal_set_candidates_v1.0.0.json"));
+        let candidate = parse(include_str!("../../fin_journal_set_candidates_v1.1.0.json"));
         let case = case_by_id(&candidate, "FJS-006");
         assert_eq!(
             assess_case(case).expect("assessment").disposition,
@@ -712,7 +712,7 @@ mod tests {
 
     #[test]
     fn a_duplicate_economic_event_is_rejected_even_when_both_entries_balance() {
-        let candidate = parse(include_str!("../../fin_journal_set_candidates_v1.0.0.json"));
+        let candidate = parse(include_str!("../../fin_journal_set_candidates_v1.1.0.json"));
         let case = case_by_id(&candidate, "FJS-004");
         assert_eq!(
             assess_case(case).expect("assessment").disposition,
@@ -722,7 +722,7 @@ mod tests {
 
     #[test]
     fn account_rollforward_uses_exact_minor_units() {
-        let candidate = parse(include_str!("../../fin_journal_set_candidates_v1.0.0.json"));
+        let candidate = parse(include_str!("../../fin_journal_set_candidates_v1.1.0.json"));
         let case = case_by_id(&candidate, "FJS-013");
         assert_eq!(
             assess_case(case).expect("assessment").disposition,
@@ -732,7 +732,7 @@ mod tests {
 
     #[test]
     fn a_reversal_must_be_append_only_and_bounded_by_original_postings() {
-        let candidate = parse(include_str!("../../fin_journal_set_candidates_v1.0.0.json"));
+        let candidate = parse(include_str!("../../fin_journal_set_candidates_v1.1.0.json"));
         let case = case_by_id(&candidate, "FJS-018");
         assert_eq!(
             assess_case(case).expect("assessment").disposition,
@@ -742,7 +742,7 @@ mod tests {
 
     #[test]
     fn source_frontier_change_stales_a_frozen_close() {
-        let candidate = parse(include_str!("../../fin_journal_set_candidates_v1.0.0.json"));
+        let candidate = parse(include_str!("../../fin_journal_set_candidates_v1.1.0.json"));
         let case = case_by_id(&candidate, "FJS-022");
         assert_eq!(
             assess_case(case).expect("assessment").disposition,
@@ -752,7 +752,7 @@ mod tests {
 
     #[test]
     fn semantically_equivalent_permutations_preserve_disposition() {
-        let candidate = parse(include_str!("../../fin_journal_set_candidates_v1.0.0.json"));
+        let candidate = parse(include_str!("../../fin_journal_set_candidates_v1.1.0.json"));
         let case = case_by_id(&candidate, "FJS-023");
         assert_eq!(
             assess_case(case).expect("assessment").disposition,
@@ -762,7 +762,7 @@ mod tests {
 
     #[test]
     fn post_close_flag_without_authorization_reference_is_rejected() {
-        let candidate = parse(include_str!("../../fin_journal_set_candidates_v1.0.0.json"));
+        let candidate = parse(include_str!("../../fin_journal_set_candidates_v1.1.0.json"));
         let case = case_by_id(&candidate, "FJS-025");
         let assessment = assess_case(case).expect("assessment");
         assert_eq!(assessment.disposition, "orphan_or_unauthorized_journal");
@@ -775,52 +775,8 @@ mod tests {
 
     #[test]
     fn multiple_partial_reversals_cannot_exceed_the_original_in_aggregate() {
-        let mut candidate: Value = serde_json::from_str(include_str!(
-            "../../fin_journal_set_candidates_v1.0.0.json"
-        ))
-        .expect("candidate corpus");
-        let case = candidate["cases"]
-            .as_array_mut()
-            .expect("cases")
-            .iter_mut()
-            .find(|row| row["case_id"] == "FJS-018")
-            .expect("FJS-018");
-        let journals = case["manifest"]["journals"]
-            .as_array_mut()
-            .expect("journals");
-        let first_reversal = journals
-            .iter_mut()
-            .find(|journal| journal["journal_id"] == "journal-reversal")
-            .expect("first reversal");
-        first_reversal["economic_event_ref"] = json!("event-reversal");
-        for posting in first_reversal["postings"].as_array_mut().expect("postings") {
-            posting["amount_minor"] = json!("1000");
-        }
-
-        let mut second_reversal = first_reversal.clone();
-        second_reversal["journal_id"] = json!("journal-reversal-2");
-        second_reversal["payload_digest_token"] = json!(
-            "00000000000000000000000000000000000000000000000000000000000bdb3b"
-        );
-        second_reversal["economic_event_ref"] = json!("event-reversal-b");
-        for posting in second_reversal["postings"].as_array_mut().expect("postings") {
-            posting["amount_minor"] = json!("1001");
-        }
-        journals.push(second_reversal);
-        case["manifest"]["source_population"]["expected_event_refs"]
-            .as_array_mut()
-            .expect("expected events")
-            .push(json!("event-reversal-b"));
-        case["manifest"]["events"]
-            .as_array_mut()
-            .expect("events")
-            .push(json!({
-                "event_ref": "event-reversal-b",
-                "terminal_treatment": "journal_required",
-                "authorization_ref": null,
-                "reason_ref": null
-            }));
-
+        let candidate = parse(include_str!("../../fin_journal_set_candidates_v1.1.0.json"));
+        let case = case_by_id(&candidate, "FJS-026");
         let assessment = assess_case(case).expect("assessment");
         assert_eq!(assessment.disposition, "orphan_or_unauthorized_journal");
         assert!(assessment.reasons.contains("reversal_exceeds_original_posting"));
