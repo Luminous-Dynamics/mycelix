@@ -138,3 +138,12 @@ A pass establishes only the declared public synthetic period-population, journal
 ### Post-close authorization and timestamp ordering
 
 A post-close journal is admitted only when both the authorization boolean and the explicit post_close_authorization_ref are present. All ordered timestamp fields use fixed-width UTC whole-second form (YYYY-MM-DDTHH:MM:SSZ); offset-bearing or fractional-second forms are excluded from this v1 contract. This keeps timestamp comparison deterministic and prevents lexical misordering.
+
+
+## 10. Immutable v1.1.0 extension
+
+The v1.0.0 schema, candidate corpus and oracle remain immutable and replayable. v1.1.0 adds a version-specific schema/oracle and one candidate-visible case, FJS-026.
+
+FJS-026 contains two individually under-limit partial reversals against one original journal: 1,000 and 1,001 minor units against an original 2,000-unit posting. Neither partial reversal exceeds the original on its own; the aggregate 2,001 does. The verifier now maintains a cumulative remaining-capacity map per original journal and rejects the second partial. It also rejects reversal-of-reversal targets and invalid posting directions.
+
+The v1.1.0 CLI is the default. Historical v1.0.0 inputs remain replayable by explicitly passing their versioned candidate, input schema, public oracle and oracle schema paths.
