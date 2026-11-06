@@ -1,0 +1,399 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/fin-assure-procedure-input-v1.2.0.json",
+  "title": "FIN-ASSURE-PROCEDURE candidate input v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "benchmark_id",
+    "dataset_version",
+    "status",
+    "cases"
+  ],
+  "properties": {
+    "benchmark_id": {
+      "const": "FIN-ASSURE-PROCEDURE"
+    },
+    "dataset_version": {
+      "const": "1.2.0"
+    },
+    "status": {
+      "const": "synthetic_procedure_coverage_fixtures_not_audit_evidence"
+    },
+    "cases": {
+      "type": "array",
+      "minItems": 25,
+      "maxItems": 25,
+      "items": {
+        "$ref": "#/$defs/case"
+      }
+    }
+  },
+  "$defs": {
+    "strs": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "uniqueItems": true
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "evidence_id",
+        "origin_group",
+        "assertions_supported",
+        "purposes_supported",
+        "reporting_period",
+        "contradicts_required_claim",
+        "reporting_entity",
+        "reliability_attributes"
+      ],
+      "properties": {
+        "evidence_id": {
+          "type": "string"
+        },
+        "origin_group": {
+          "type": "string"
+        },
+        "assertions_supported": {
+          "$ref": "#/$defs/strs"
+        },
+        "purposes_supported": {
+          "$ref": "#/$defs/strs"
+        },
+        "reporting_period": {
+          "type": "string"
+        },
+        "contradicts_required_claim": {
+          "type": "boolean"
+        },
+        "reporting_entity": {
+          "type": "string",
+          "minLength": 1
+        },
+        "reliability_attributes": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "accuracy",
+            "completeness",
+            "authenticity",
+            "absence_of_bias",
+            "credibility"
+          ],
+          "properties": {
+            "accuracy": {
+              "enum": [
+                "qualified",
+                "limited",
+                "unqualified",
+                "unknown"
+              ]
+            },
+            "completeness": {
+              "enum": [
+                "qualified",
+                "limited",
+                "unqualified",
+                "unknown"
+              ]
+            },
+            "authenticity": {
+              "enum": [
+                "qualified",
+                "limited",
+                "unqualified",
+                "unknown"
+              ]
+            },
+            "absence_of_bias": {
+              "enum": [
+                "qualified",
+                "limited",
+                "unqualified",
+                "unknown"
+              ]
+            },
+            "credibility": {
+              "enum": [
+                "qualified",
+                "limited",
+                "unqualified",
+                "unknown"
+              ]
+            }
+          }
+        }
+      }
+    },
+    "pair": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "pair_id",
+        "risk_id",
+        "assertion",
+        "purpose",
+        "materiality",
+        "required",
+        "min_independent_origins",
+        "required_evidence_attributes"
+      ],
+      "properties": {
+        "pair_id": {
+          "type": "string"
+        },
+        "risk_id": {
+          "type": "string"
+        },
+        "assertion": {
+          "type": "string"
+        },
+        "purpose": {
+          "type": "string"
+        },
+        "materiality": {
+          "enum": [
+            "immaterial",
+            "material",
+            "significant",
+            "unknown"
+          ]
+        },
+        "required": {
+          "type": "boolean"
+        },
+        "min_independent_origins": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "required_evidence_attributes": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "accuracy",
+              "completeness",
+              "authenticity",
+              "absence_of_bias",
+              "credibility"
+            ]
+          }
+        }
+      }
+    },
+    "population": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "population_id",
+        "expected_count",
+        "observed_count",
+        "frame_complete"
+      ],
+      "properties": {
+        "population_id": {
+          "type": "string"
+        },
+        "expected_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "observed_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "frame_complete": {
+          "type": "boolean"
+        }
+      }
+    },
+    "procedure": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "procedure_id",
+        "pair_id",
+        "procedure_type",
+        "execution_status",
+        "population_id",
+        "evidence_refs",
+        "outcome",
+        "exception_open",
+        "denominator_ref",
+        "expected_denominator",
+        "used_denominator",
+        "threshold_authorized",
+        "within_tolerance",
+        "control_failed",
+        "compensating_procedure_present",
+        "stale_workpaper",
+        "requires_human_judgment",
+        "authorized_na_rationale",
+        "reviewer_authorized",
+        "procedure_purpose"
+      ],
+      "properties": {
+        "procedure_id": {
+          "type": "string"
+        },
+        "pair_id": {
+          "type": "string"
+        },
+        "procedure_type": {
+          "type": "string"
+        },
+        "execution_status": {
+          "enum": [
+            "planned",
+            "performed",
+            "failed",
+            "not_applicable",
+            "blocked"
+          ]
+        },
+        "population_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "evidence_refs": {
+          "$ref": "#/$defs/strs"
+        },
+        "outcome": {
+          "enum": [
+            "supports",
+            "does_not_support",
+            "inconclusive"
+          ]
+        },
+        "exception_open": {
+          "type": "boolean"
+        },
+        "denominator_ref": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "expected_denominator": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "used_denominator": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "threshold_authorized": {
+          "type": "boolean"
+        },
+        "within_tolerance": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "control_failed": {
+          "type": "boolean"
+        },
+        "compensating_procedure_present": {
+          "type": "boolean"
+        },
+        "stale_workpaper": {
+          "type": "boolean"
+        },
+        "requires_human_judgment": {
+          "type": "boolean"
+        },
+        "authorized_na_rationale": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "reviewer_authorized": {
+          "type": "boolean"
+        },
+        "procedure_purpose": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "manifest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "reporting_entity",
+        "reporting_period",
+        "required_pairs",
+        "populations",
+        "evidence",
+        "procedures"
+      ],
+      "properties": {
+        "reporting_entity": {
+          "type": "string"
+        },
+        "reporting_period": {
+          "type": "string"
+        },
+        "required_pairs": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/pair"
+          }
+        },
+        "populations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/population"
+          }
+        },
+        "evidence": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/evidence"
+          }
+        },
+        "procedures": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/procedure"
+          }
+        }
+      }
+    },
+    "case": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "case_id",
+        "task",
+        "manifest"
+      ],
+      "properties": {
+        "case_id": {
+          "type": "string",
+          "pattern": "^FAP-[0-9]{3}$"
+        },
+        "task": {
+          "type": "string"
+        },
+        "manifest": {
+          "$ref": "#/$defs/manifest"
+        }
+      }
+    }
+  }
+}
