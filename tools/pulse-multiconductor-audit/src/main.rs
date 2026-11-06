@@ -1493,7 +1493,11 @@ mod tests{
 
     #[test]
     fn pair_cache_preserves_same_conductor_local_order_shortcut() {
-        let (_events, event_map) = reachability_events();
+        let events = reachability_events();
+        let event_map: BTreeMap<String, &Event> = events
+            .iter()
+            .map(|event| (event.event_id.clone(), event))
+            .collect();
         let adjacency = BTreeMap::<String, BTreeSet<String>>::new();
         let mut cache = ReachabilityCache::default();
 
