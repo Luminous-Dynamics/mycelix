@@ -29,11 +29,14 @@ A signature proves that a particular key signed particular bytes under a given c
 ### in-toto / DSSE route
 
 Use the in-toto Attestation Framework statement/predicate model for the role-specific semantic payload. A DSSE envelope authenticates the exact payload bytes and payload type. The verifier must:
-1. verify DSSE signatures over the exact decoded byte sequence using DSSE pre-authentication encoding;
-2. only then parse the payload as an in-toto Statement;
+1. verify the DSSE signature over the exact decoded payload byte sequence using DSSE pre-authentication encoding;
+2. only after at least one permitted signature verifies, parse the payload as an in-toto Statement;
 3. check `_type`, `subject`, `predicateType`, schema and predicate;
-4. bind subject digests and role claims to the trust policy;
-5. validate the predicate's exact event/lineage semantics.
+4. require the signed `issuer_key_id` to match the exact verifying key;
+5. bind subject digests and role claims to the trust policy;
+6. validate the predicate's exact event/lineage semantics.
+
+The first Rust v1 verifier currently uses a deliberately narrow **single role-signature per attestation** rule. It rejects multiple signatures as an incomplete/unsupported threshold configuration rather than guessing whether any-one, all-of, or quorum semantics were intended. Multi-issuer threshold policy requires an explicit later profile version.
 
 Do not parse and reserialize JSON before signature verification. The signature covers the exact payload bytes.
 
@@ -87,7 +90,10 @@ The schema is intentionally strict on the wrapper. The payload and COSE internal
 
 ## 5. Trust policy
 
-The trust policy is an independently authenticated input. It binds:
+The bundle's trust-policy reference and the supplied trust-policy document must agree on the policy digest, policy ID, semantic version, and root-keyset ID. Key IDs must be nonempty and unique within the policy. The root-keyset ID is a consistency label; it does **not** authenticate the trust policy by itself.
+
+
+The trust policy is an independently authenticated input (the first local verifier only digest-binds it to the bundle and reports trust relative to the supplied policy; root-signature/currentness verification remains P2). It binds:
 - issuer key ID and public key/certificate chain;
 - role and predicate types permitted for that key;
 - agent/conductor identity and DNA lineage;
