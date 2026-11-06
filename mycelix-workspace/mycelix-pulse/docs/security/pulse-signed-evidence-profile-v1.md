@@ -3,8 +3,8 @@
 **Status:** proposed profile with a locally implemented DSSE verifier prototype  
 **Schema:** `pulse-signed-evidence-bundle-v1.schema.json`  
 **Related issue:** #5863  
-**Implemented:** Ed25519 DSSE signature verification over exact PAE bytes, signature-before-parse, in-toto statement/subject binding, one-signer-per-attestation role authorization relative to the supplied trust policy, conductor/agent/DNA/CellId/WASM binding, trust-policy digest/keyset reference binding, causal-edge validation, and fail-closed negative controls.  
-**Not yet implemented:** production signing/key custody, cryptographic authentication/currentness of the trust root itself, key validity intervals/rotation/compromise history, COSE/SCITT receipt verification/VDS proofs, a second independent verifier, and runtime conductor evidence capture.
+**Implemented in the local verifier prototype:** Ed25519 DSSE signature verification over exact PAE bytes, signature-before-parse, in-toto statement/subject binding, one-signer-per-attestation role authorization, exact conductor/agent/DNA/CellId/WASM binding, signed event-to-trace semantic binding, evidence-backed causal-edge checks, detached root-signature verification for exact trust-policy bytes, and an out-of-band pinned root/policy-snapshot mode.  
+**Not yet implemented:** production signing/key custody, controlled root rotation/threshold transitions, key validity intervals and historical compromise adjudication, COSE/SCITT receipt verification/VDS proofs, a second independent implementation of the root-policy verifier, and runtime conductor evidence capture.
 
 ## 0. Current implementation status and claim ceiling — 6 November 2026
 
@@ -24,7 +24,9 @@ The verifier checks the Ed25519 DSSE signature over exact PAE bytes before parsi
 
 The verifier binds signed predicates to the exact event ID, source/type, payload fields, source commit, trace digest and conductor lineage. It validates request/response, source-action, validator and observer causal edges against separately signed endpoint observations. A signature over a fabricated or contradictory trace event does not pass semantic binding.
 
-**Trust-root boundary:** the trust policy is still an external supplied input. Its digest, policy ID, semantic version and root-keyset ID are bound to the bundle, and duplicate key IDs are rejected. The root-keyset ID is only a consistency label; this implementation does not authenticate the trust policy against an out-of-band root. Therefore the result is `ROLE_AUTHENTICATED_RELATIVE_TO_SUPPLIED_POLICY`, not globally trusted evidence.
+**Trust-root boundary:** the legacy CLI mode remains `ROLE_AUTHENTICATED_RELATIVE_TO_SUPPLIED_POLICY`. A new opt-in root-pinned mode verifies a detached DSSE signature over the exact trust-policy bytes before parsing them. It requires a relying-party-provisioned pin that fixes the Ed25519 root key fingerprint and the exact accepted policy ID, semantic version, epoch, root-keyset ID and SHA-256 digest. Replayed older policy snapshots fail the exact epoch/digest pin. When this check and the ordinary evidence audit both pass, the result is `ROOT_AUTHENTICATED_POLICY_SNAPSHOT`; this means the policy snapshot was signed by the pinned root, not that the real-world events are true or that any permission is currently valid.
+
+The v1 root mode pins a single root and one exact current policy snapshot. Root rotation is intentionally unsupported in this increment: changing the root or policy snapshot requires controlled out-of-band replacement of the pin. A current-root cross-signature/dual-control rotation chain, rollback-resistant durable state store, threshold policies and historical compromise-time adjudication remain future work. The root pin file is a trust anchor and must never be taken from the evidence bundle or an untrusted download.
 
 **SCITT boundary:** SCITT statement/receipt fields receive structural and digest checks, but COSE signatures, TS issuer keys, receipt authenticity and VDS inclusion/consistency proofs are not verified. Structurally valid SCITT input therefore remains `INCOMPLETE`. No runtime conductor truth is established by the synthetic signing-key fixtures.
 
@@ -39,7 +41,9 @@ A finite TLA+ model has now been added to PR #5771:
 
 The model treats the relying party's root pin as out-of-band state. A valid policy update must be signed by the already trusted root, extend the current policy digest, and increase the policy epoch. It separately checks that a currently revoked issuer key cannot authenticate a current decision. It distinguishes current-policy verification from historical signature verification; historical validity is not a permission to use a compromised key for new decisions.
 
-**TLC has not yet run these new trust-root configs.** This is a model input, not a model-check result. The implementation and model-check acceptance criteria are tracked in [#5895](https://github.com/Luminous-Dynamics/mycelix/issues/5895). The existing verifier remains relative to a caller-supplied trust policy until this root-authentication work is complete.
+The safe model and all three mutants were executed by the pinned TLC workflow on 6 November 2026 (run #319, see [exact run](https://github.com/Luminous-Dynamics/mycelix/actions/runs/42251431435)). The safe root-policy transition exhausted its state queue; the self-asserted-root mutant violated `OnlyPinnedRootCanAuthorizePolicy`; the rollback mutant violated `PolicyEpochNeverRollsBack`; and the revoked-key mutant violated `NoRevokedKeyAcceptedUnderCurrentPolicy`. This is finite abstract evidence, not cryptographic implementation verification.
+
+The first implementation increment is now in the Rust verifier. It checks the detached root DSSE signature over exact policy bytes before parsing, validates the out-of-band root key fingerprint, and pins the exact current policy digest and epoch. It deliberately does not implement root rotation. The exact-source Rust test run for this implementation is pending; the prior 26/26 DSSE test pass predates these root-mode changes. The detailed implementation/acceptance work remains tracked in [#5895](https://github.com/Luminous-Dynamics/mycelix/issues/5895).
 
 ## 1. Threat and claim model
 
@@ -180,6 +184,31 @@ For historical evidence, preserve the distinction between:
 - whether current policy permits relying on the historical claim now.
 
 This should compose with #1354; do not build a second long-term archival-renewal architecture.
+
+## 5A. Detached root-authenticated policy snapshot v1
+
+The verifier now supports two explicit modes:
+
+1. **Legacy relative mode:** `--trust-policy TRUST.json` verifies issuer signatures relative to that supplied policy and returns `ROLE_AUTHENTICATED_RELATIVE_TO_SUPPLIED_POLICY`. It must not be described as root-authenticated.
+2. **Pinned-root mode:** add `--root-policy-envelope ROOT-DSSE.json --trusted-root-pin ROOT-PIN.json`. Both arguments are required together. A missing partner is a CLI error; failed root verification never falls back to relative mode.
+
+The root envelope uses payload type `application/vnd.pulse-trust-policy+json;version=1`, exactly one Ed25519 signature and the exact trust-policy file bytes as its Base64 payload. The verifier performs these operations in order:
+
+1. Read the policy and detached envelope as raw bytes.
+2. Load the relying-party root pin from a separate, trusted configuration path.
+3. Check the pinned key ID against the SHA-256 fingerprint of the pinned 32-byte Ed25519 public key.
+4. Verify that the policy bytes match the pin's exact SHA-256 digest.
+5. Check the envelope's fixed payload type, exactly-one-signature rule and pinned root key ID.
+6. Decode the payload and require byte-for-byte equality with the supplied policy file.
+7. Verify Ed25519 over DSSE PAE bytes using the pinned root key.
+8. Only after signature success, parse the policy and compare policy ID, semantic version, positive epoch and root-keyset ID with the out-of-band pin.
+9. Run the normal bundle/trace/issuer-role semantic audit against that exact policy.
+
+The pin schema is `pulse-trusted-root-pin-v1.schema.json`; the detached envelope schema is `pulse-trust-policy-root-envelope-v1.schema.json`. The trust-policy and bundle schemas now both require `policy_epoch`. The bundle's digest-bound trust-policy reference must match the parsed policy epoch.
+
+**Anti-rollback claim:** v1 does not attempt to discover the latest policy from a remote service. Instead, the relying party pins one exact accepted policy digest and epoch in trusted local configuration. A correctly root-signed old policy is still rejected when it differs from that pin. Updating the accepted policy requires a controlled update to the relying-party pin. The pin itself is the local trust anchor and needs protected deployment/storage, review and backup.
+
+**Deliberate limitations:** one pinned root, one root signature and one exact policy snapshot. No automatic root rotation, cross-signing, threshold/quorum policy, online transparency lookup, durable policy-history ledger, or historical key-compromise adjudication is implemented. The model checks root self-promotion/rollback/revoked-key invariants, but the code does not yet establish a root-transition protocol. SCITT remains structurally checked only.
 
 ## 6. Privacy and publication
 
