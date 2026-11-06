@@ -1,0 +1,228 @@
+{
+  "oracle_id": "MYCELIX-RECBENCH-BRIDGE-S0-ORACLE",
+  "schema_version": "1.0.0",
+  "claim_ceiling": "synthetic_expected_links_and_safety_states_not_live_performance",
+  "expectations": [
+    {
+      "case_id": "RBC-001-EXACT-THREE-WAY",
+      "expected_links": [
+        {
+          "match_kind": "ledger_to_settlement",
+          "source_refs": [
+            "SRC-001-L",
+            "SRC-001-S"
+          ],
+          "amount_minor": 10000,
+          "currency": "USD"
+        },
+        {
+          "match_kind": "payout_to_bank",
+          "source_refs": [
+            "SRC-001-P",
+            "SRC-001-B"
+          ],
+          "amount_minor": 10000,
+          "currency": "USD"
+        }
+      ],
+      "expected_unmatched_source_refs": [],
+      "expected_review_source_refs": [],
+      "forbid_auto_close": false,
+      "reason_codes": [
+        "unique_exact_amount_currency"
+      ]
+    },
+    {
+      "case_id": "RBC-002-FEE-NETTING",
+      "expected_links": [
+        {
+          "match_kind": "ledger_to_settlement",
+          "source_refs": [
+            "SRC-002-L",
+            "SRC-002-S"
+          ],
+          "amount_minor": 50000,
+          "currency": "USD"
+        },
+        {
+          "match_kind": "payout_to_bank",
+          "source_refs": [
+            "SRC-002-P",
+            "SRC-002-B"
+          ],
+          "amount_minor": 48500,
+          "currency": "USD"
+        }
+      ],
+      "expected_unmatched_source_refs": [],
+      "expected_review_source_refs": [],
+      "forbid_auto_close": false,
+      "reason_codes": [
+        "fee_reconciles_gross_to_net"
+      ]
+    },
+    {
+      "case_id": "RBC-003-FX-PAYOUT",
+      "expected_links": [
+        {
+          "match_kind": "ledger_to_settlement",
+          "source_refs": [
+            "SRC-003-L",
+            "SRC-003-S"
+          ],
+          "amount_minor": 10000,
+          "currency": "EUR"
+        },
+        {
+          "match_kind": "payout_to_bank",
+          "source_refs": [
+            "SRC-003-P",
+            "SRC-003-B"
+          ],
+          "amount_minor": 10890,
+          "currency": "USD"
+        }
+      ],
+      "expected_unmatched_source_refs": [],
+      "expected_review_source_refs": [],
+      "forbid_auto_close": false,
+      "reason_codes": [
+        "cross_currency_projection_requires_explicit_fx_evidence"
+      ]
+    },
+    {
+      "case_id": "RBC-004-TIMEZONE-DAY-BOUNDARY",
+      "expected_links": [
+        {
+          "match_kind": "ledger_to_settlement",
+          "source_refs": [
+            "SRC-004-L",
+            "SRC-004-S"
+          ],
+          "amount_minor": 25000,
+          "currency": "USD"
+        }
+      ],
+      "expected_unmatched_source_refs": [],
+      "expected_review_source_refs": [],
+      "forbid_auto_close": false,
+      "reason_codes": [
+        "valid_processor_sales_day_offset"
+      ]
+    },
+    {
+      "case_id": "RBC-005-PARTIAL-CAPTURE",
+      "expected_links": [
+        {
+          "match_kind": "partial_application",
+          "source_refs": [
+            "SRC-005-L",
+            "SRC-005-S1",
+            "SRC-005-S2"
+          ],
+          "amount_minor": 10000,
+          "currency": "USD"
+        }
+      ],
+      "expected_unmatched_source_refs": [],
+      "expected_review_source_refs": [],
+      "forbid_auto_close": false,
+      "reason_codes": [
+        "multiple_captures_fully_cover_source_amount"
+      ]
+    },
+    {
+      "case_id": "RBC-006-DUPLICATE-SETTLEMENT-FEED",
+      "expected_links": [],
+      "expected_unmatched_source_refs": [],
+      "expected_review_source_refs": [
+        "SRC-006-L",
+        "SRC-006-S-A",
+        "SRC-006-S-B"
+      ],
+      "forbid_auto_close": true,
+      "reason_codes": [
+        "same_external_source_identity_multiple_feeds",
+        "deduplication_not_proven"
+      ]
+    },
+    {
+      "case_id": "RBC-007-REVERSAL",
+      "expected_links": [
+        {
+          "match_kind": "ledger_to_settlement",
+          "source_refs": [
+            "SRC-007-L",
+            "SRC-007-S"
+          ],
+          "amount_minor": 12000,
+          "currency": "USD"
+        },
+        {
+          "match_kind": "reversal_pair",
+          "source_refs": [
+            "SRC-007-S",
+            "SRC-007-R"
+          ],
+          "amount_minor": 0,
+          "currency": "USD"
+        }
+      ],
+      "expected_unmatched_source_refs": [],
+      "expected_review_source_refs": [],
+      "forbid_auto_close": false,
+      "reason_codes": [
+        "reversal_preserves_original_settlement_history"
+      ]
+    },
+    {
+      "case_id": "RBC-008-DEPOSIT-UNBUNDLE",
+      "expected_links": [
+        {
+          "match_kind": "deposit_unbundle",
+          "source_refs": [
+            "SRC-008-P1",
+            "SRC-008-P2",
+            "SRC-008-B"
+          ],
+          "amount_minor": 10000,
+          "currency": "USD"
+        }
+      ],
+      "expected_unmatched_source_refs": [],
+      "expected_review_source_refs": [],
+      "forbid_auto_close": false,
+      "reason_codes": [
+        "unique_subset_sum_group_match"
+      ]
+    },
+    {
+      "case_id": "RBC-009-PROVABLY-AMBIGUOUS",
+      "expected_links": [],
+      "expected_unmatched_source_refs": [],
+      "expected_review_source_refs": [
+        "SRC-009-L1",
+        "SRC-009-L2",
+        "SRC-009-S1",
+        "SRC-009-S2"
+      ],
+      "forbid_auto_close": true,
+      "reason_codes": [
+        "multiple_equivalent_matching_assignments",
+        "amount_only_is_not_unique_identity"
+      ]
+    },
+    {
+      "case_id": "RBC-010-UNMATCHED-BANK-MOVEMENT",
+      "expected_links": [],
+      "expected_unmatched_source_refs": [
+        "SRC-010-B"
+      ],
+      "expected_review_source_refs": [],
+      "forbid_auto_close": true,
+      "reason_codes": [
+        "no_counterpart_available_at_knowledge_frontier"
+      ]
+    }
+  ]
+}
