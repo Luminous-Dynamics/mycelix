@@ -1149,6 +1149,58 @@ mod tests {
         assert!(build_report(&input, &output, output["source_bundle_sha256"].as_str().unwrap().to_owned(), "f".repeat(64)).is_err());
     }
 
+
+    #[test]
+    fn review_action_cannot_be_overridden_by_a_high_weighted_score() {
+        let (mut input, mut output, _, _) = fixtures();
+        input["runs"][0]["source_items"][1]["transaction_type"] = Value::String("manual_adjustment".to_owned());
+        let run = output["run_results"].as_array_mut().unwrap().iter_mut()
+            .find(|run| optional_string(run, "run_id") == Some("RECON-001-ONE-TO-ONE")).unwrap();
+        let hypothesis = &mut run["hypotheses"][0];
+        let evaluation = hypothesis["criterion_evaluations"].as_array_mut().unwrap()
+            .iter_mut().find(|evaluation| optional_string(evaluation, "criterion_ref") == Some("CR-TRANSACTION-TYPE")).unwrap();
+        evaluation["right_values"] = json!(["manual_adjustment"]);
+        evaluation["outcome"] = Value::String("mismatch".to_owned());
+        hypothesis["score_bps"] = Value::from(9500);
+        assert!(build_report(&input, &output, output["source_bundle_sha256"].as_str().unwrap().to_owned(), "f".repeat(64)).is_err());
+    }
+
+    #[test]
+    fn review_action_accepts_review_required_even_when_score_exceeds_auto_threshold() {
+        let (mut input, mut output, _, _) = fixtures();
+        input["runs"][0]["source_items"][1]["transaction_type"] = Value::String("manual_adjustment".to_owned());
+        let run = output["run_results"].as_array_mut().unwrap().iter_mut()
+            .find(|run| optional_string(run, "run_id") == Some("RECON-001-ONE-TO-ONE")).unwrap();
+        let hypothesis = &mut run["hypotheses"][0];
+        let evaluation = hypothesis["criterion_evaluations"].as_array_mut().unwrap()
+            .iter_mut().find(|evaluation| optional_string(evaluation, "criterion_ref") == Some("CR-TRANSACTION-TYPE")).unwrap();
+        evaluation["right_values"] = json!(["manual_adjustment"]);
+        evaluation["outcome"] = Value::String("mismatch".to_owned());
+        hypothesis["score_bps"] = Value::from(9500);
+        hypothesis["decision_state"] = Value::String("review_required".to_owned());
+        let report = build_report(&input, &output);
+        assert_eq!(run_result(&report, "RECON-001-ONE-TO-ONE")["review_required_count"], 1);
+    }
+
+    #[test]
+    fn alternative_hypothesis_must_share_items_and_fall_within_ambiguity_margin() {
+        let (input, mut output, _, _) = fixtures();
+        let target = output["run_results"].as_array_mut().unwrap().iter_mut()
+            .find(|run| optional_string(run, "run_id") == Some("RECON-006-AMBIGUOUS-ALTERNATIVES")).unwrap();
+        target["hypotheses"][1]["left_item_refs"] = json!(["R6-L1"]);
+        target["hypotheses"][1]["right_item_refs"] = json!(["R6-L2"]);
+        target["hypotheses"][1]["candidate_pairs"][0]["left_item_ref"] = Value::String("R6-L1".to_owned());
+        target["hypotheses"][1]["candidate_pairs"][0]["right_item_ref"] = Value::String("R6-L2".to_owned());
+        assert!(build_report(&input, &output, output["source_bundle_sha256"].as_str().unwrap().to_owned(), "f".repeat(64)).is_err());
+    }
+
+    #[test]
+    fn unexecuted_synthetic_fixture_cannot_claim_an_engine_digest() {
+        let (input, mut output, _, _) = fixtures();
+        output["matcher_binding"]["engine_sha256"] = Value::String("e".repeat(64));
+        assert!(build_report(&input, &output, output["source_bundle_sha256"].as_str().unwrap().to_owned(), "f".repeat(64)).is_err());
+    }
+
     #[test]
     fn reversed_direction_without_reversal_type_is_not_a_reversal_match() {
         let (mut input, output, _, _) = fixtures();
