@@ -360,12 +360,42 @@ fn source_matches_kind(source: EvidenceSource, kind: &EventKind) -> bool {
     }
 }
 
+fn record_authored_action_hash(
+    observed: &mut BTreeMap<String, (String, String)>,
+    action_hash: &str,
+    action_kind: &str,
+    event_id: &str,
+    findings: &mut Vec<Finding>,
+) {
+    if action_hash.trim().is_empty() {
+        return;
+    }
+    if let Some((previous_kind, previous_event)) = observed.get(action_hash) {
+        finding(
+            findings,
+            "AUTHORED_ACTION_HASH_REUSED",
+            "violation",
+            Some(event_id),
+            format!(
+                "ActionHash {action_hash} is claimed by both {previous_kind} event {previous_event} and {action_kind} event {event_id}"
+            ),
+        );
+    } else {
+        observed.insert(
+            action_hash.to_string(),
+            (action_kind.to_string(), event_id.to_string()),
+        );
+    }
+}
+
 fn audit(bundle: &TraceBundle, input_sha256: String) -> AuditReport {
     let mut findings = Vec::new();
     let mut counts = Counts { events: bundle.events.len(), ..Counts::default() };
     let mut grants: BTreeMap<String, GrantState> = BTreeMap::new();
     let mut idempotency: BTreeMap<(String, String), (String, String)> = BTreeMap::new();
-    let mut grant_hashes = BTreeSet::new();
+    // ActionHashes are content identities for authored source-chain actions;
+    // one action cannot simultaneously represent a grant, revoke, claim or effect.
+    let mut authored_action_hashes: BTreeMap<String, (String, String)> = BTreeMap::new();
     let mut event_ids = BTreeSet::new();
     let mut call_states: BTreeMap<(String, u32), CallState> = BTreeMap::new();
     let mut effects_by_operation: BTreeMap<String, String> = BTreeMap::new();
@@ -449,10 +479,13 @@ fn audit(bundle: &TraceBundle, input_sha256: String) -> AuditReport {
                 } else {
                     idempotency.insert(idempotency_identity, (issue.grant_ref.clone(), issue.request_digest_sha256.clone()));
                 }
-                if !grant_hashes.insert(issue.grant_action_hash.clone()) {
-                    finding(&mut findings, "DUPLICATE_GRANT_ACTION_HASH", "violation",
-                        Some(&event.event_id), "grant ActionHash must identify one grant issuance");
-                }
+                record_authored_action_hash(
+                    &mut authored_action_hashes,
+                    &issue.grant_action_hash,
+                    "grant_issued",
+                    &event.event_id,
+                    &mut findings,
+                );
                 if grants.contains_key(&issue.grant_ref) {
                     finding(&mut findings, "GRANT_REFERENCE_REUSED", "violation",
                         Some(&event.event_id), "grant reference must be unique per issuance");
@@ -483,6 +516,13 @@ fn audit(bundle: &TraceBundle, input_sha256: String) -> AuditReport {
                     finding(&mut findings, "REVOCATION_EVIDENCE_MISSING", "incomplete",
                         Some(&event.event_id), "revocation ActionHash is required");
                 }
+                record_authored_action_hash(
+                    &mut authored_action_hashes,
+                    &revoke.revocation_action_hash,
+                    "grant_revoked",
+                    &event.event_id,
+                    &mut findings,
+                );
                 match grants.get_mut(&revoke.grant_ref) {
                     None => finding(&mut findings, "REVOCATION_WITHOUT_ISSUANCE", "incomplete",
                         Some(&event.event_id), "the corresponding host grant issuance is absent from this trace"),
@@ -518,6 +558,13 @@ fn audit(bundle: &TraceBundle, input_sha256: String) -> AuditReport {
                     finding(&mut findings, "CLAIM_EVIDENCE_MISSING", "incomplete",
                         Some(&event.event_id), "accepted claim must reference its immutable evidence record");
                 }
+                record_authored_action_hash(
+                    &mut authored_action_hashes,
+                    &claim.claim_action_hash,
+                    "claim_accepted",
+                    &event.event_id,
+                    &mut findings,
+                );
                 match grants.get_mut(&claim.grant_ref) {
                     None => finding(&mut findings, "CLAIM_WITHOUT_GRANT", "incomplete",
                         Some(&event.event_id), "claim references a grant not present in the trace"),
@@ -639,6 +686,13 @@ fn audit(bundle: &TraceBundle, input_sha256: String) -> AuditReport {
                     finding(&mut findings, "DOMAIN_EFFECT_EVIDENCE_INCOMPLETE", "incomplete",
                         Some(&event.event_id), "effect ID and source-chain ActionHash must be present");
                 }
+                record_authored_action_hash(
+                    &mut authored_action_hashes,
+                    &effect.action_hash,
+                    "domain_effect",
+                    &event.event_id,
+                    &mut findings,
+                );
                 if !effect_ids.insert(effect.effect_id.clone()) {
                     finding(&mut findings, "DUPLICATE_EFFECT_ID", "violation",
                         Some(&event.event_id), "effect IDs must be globally unique");
@@ -983,6 +1037,62 @@ mod tests {
         let report = run(&bundle);
         assert_eq!(report.status, Status::Fail);
         assert!(report.findings.iter().any(|f| f.code == "IDEMPOTENCY_KEY_REUSED_WITH_DIFFERENT_REQUEST"));
+    }
+
+    #[test]
+    fn revocation_action_hash_cannot_reuse_grant_issuance_action_hash() {
+        let mut bundle = fixture();
+        let grant_hash = match &bundle.events[0].kind {
+            EventKind::GrantIssued(grant) => grant.grant_action_hash.clone(),
+            _ => unreachable!(),
+        };
+        let revoke = bundle.events.iter_mut().find(|event|
+            matches!(&event.kind, EventKind::GrantRevoked(_))).unwrap();
+        if let EventKind::GrantRevoked(ref mut revocation) = revoke.kind {
+            revocation.revocation_action_hash = grant_hash;
+        }
+        let report = run(&bundle);
+        assert_eq!(report.status, Status::Fail);
+        assert!(report.findings.iter().any(|finding|
+            finding.code == "AUTHORED_ACTION_HASH_REUSED"));
+    }
+
+    #[test]
+    fn domain_effect_action_hash_cannot_reuse_private_claim_action_hash() {
+        let mut bundle = fixture();
+        let claim_hash = bundle.events.iter().find_map(|event| match &event.kind {
+            EventKind::ClaimAccepted(claim) => Some(claim.claim_action_hash.clone()),
+            _ => None,
+        }).unwrap();
+        let effect = bundle.events.iter_mut().find(|event|
+            matches!(&event.kind, EventKind::DomainEffect(_))).unwrap();
+        if let EventKind::DomainEffect(ref mut domain_effect) = effect.kind {
+            domain_effect.action_hash = claim_hash;
+        }
+        let report = run(&bundle);
+        assert_eq!(report.status, Status::Fail);
+        assert!(report.findings.iter().any(|finding|
+            finding.code == "AUTHORED_ACTION_HASH_REUSED"));
+    }
+
+    #[test]
+    fn one_domain_action_hash_cannot_back_two_durable_effects() {
+        let mut bundle = fixture();
+        let mut duplicate = bundle.events.iter().find(|event|
+            matches!(&event.kind, EventKind::DomainEffect(_))).unwrap().clone();
+        duplicate.seq = 10;
+        duplicate.event_id = "second-domain-effect-same-action".to_string();
+        if let EventKind::DomainEffect(ref mut effect) = duplicate.kind {
+            effect.operation_id = "operation-second".to_string();
+            effect.attempt_id = 1;
+            effect.effect_id = "effect-second".to_string();
+            // Keep action_hash identical to the first durable effect.
+        }
+        bundle.events.push(duplicate);
+        let report = run(&bundle);
+        assert_eq!(report.status, Status::Fail);
+        assert!(report.findings.iter().any(|finding|
+            finding.code == "AUTHORED_ACTION_HASH_REUSED"));
     }
 
     #[test]
