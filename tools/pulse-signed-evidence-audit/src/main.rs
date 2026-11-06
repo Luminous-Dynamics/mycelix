@@ -1038,6 +1038,7 @@ mod tests {
         let policy = json!({
             "policy_id": "pulse-test-root",
             "policy_version": "1.0.0",
+            "root_keyset_id": "test-root-set-1",
             "keys": [{
                 "keyid": key_id,
                 "public_key_hex": hex(verifying_key.as_bytes()),
@@ -1176,6 +1177,67 @@ mod tests {
                 .iter()
                 .any(|f| f.code == "SIGNED_STATEMENT_BINDING_MISMATCH")
         );
+    }
+
+    #[test]
+    fn duplicate_trust_policy_key_ids_fail_closed() {
+        let (bundle, trace, policy) = fixture();
+        let mut value: Value = serde_json::from_slice(&policy).unwrap();
+        let duplicate = value["keys"][0].clone();
+        value["keys"].as_array_mut().unwrap().push(duplicate);
+        let policy_bytes = serde_json::to_vec(&value).unwrap();
+        let mut bundle_value: Value = serde_json::from_slice(&bundle).unwrap();
+        bundle_value["trust_policy"]["policy_sha256"] =
+            Value::String(sha256_hex(&policy_bytes));
+        let report = audit(
+            &serde_json::to_vec(&bundle_value).unwrap(),
+            &trace,
+            &policy_bytes,
+        )
+        .unwrap();
+        assert_eq!(report.status, "FAIL");
+        assert!(report.findings.iter().any(|f| {
+            f.code == "TRUST_POLICY_KEY_ID_INVALID_OR_DUPLICATE"
+        }));
+    }
+
+    #[test]
+    fn root_keyset_reference_must_match_supplied_policy() {
+        let (bundle, trace, policy) = fixture();
+        let mut value: Value = serde_json::from_slice(&bundle).unwrap();
+        value["trust_policy"]["root_keyset_id"] =
+            Value::String("different-root-set".into());
+        let report = audit(
+            &serde_json::to_vec(&value).unwrap(),
+            &trace,
+            &policy,
+        )
+        .unwrap();
+        assert_eq!(report.status, "FAIL");
+        assert!(report.findings.iter().any(|f| {
+            f.code == "TRUST_POLICY_BINDING_MISMATCH"
+        }));
+    }
+
+    #[test]
+    fn v1_rejects_ambiguous_multi_signature_thresholds() {
+        let (bundle, trace, policy) = fixture();
+        let mut value: Value = serde_json::from_slice(&bundle).unwrap();
+        let signature = value["attestations"][0]["envelope"]["signatures"][0].clone();
+        value["attestations"][0]["envelope"]["signatures"]
+            .as_array_mut()
+            .unwrap()
+            .push(signature);
+        let report = audit(
+            &serde_json::to_vec(&value).unwrap(),
+            &trace,
+            &policy,
+        )
+        .unwrap();
+        assert_eq!(report.status, "INCOMPLETE");
+        assert!(report.findings.iter().any(|f| {
+            f.code == "DSSE_SIGNATURE_COUNT_UNSUPPORTED"
+        }));
     }
 
     #[test]
