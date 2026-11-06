@@ -305,6 +305,7 @@
       "additionalProperties": false,
       "required": [
         "actor",
+        "actor",
         "operation_id",
         "attempt_id",
         "effect_id",
@@ -330,7 +331,7 @@
         "actor": {
           "type": "string",
           "minLength": 1,
-          "description": "Authenticated actor that owns the logical operation ID; used to scope retries/effects independently across principals."
+          "description": "Authenticated actor owning this logical operation; operation IDs are scoped to actor identity."
         }
       }
     },
@@ -465,6 +466,7 @@
       "additionalProperties": false,
       "required": [
         "actor",
+        "actor",
         "operation_id",
         "attempt_id",
         "outcome"
@@ -490,7 +492,7 @@
         "actor": {
           "type": "string",
           "minLength": 1,
-          "description": "Caller identity that owns the logical operation ID and attempt ID."
+          "description": "Authenticated caller identity owning this logical operation and attempt."
         }
       }
     },
