@@ -2340,6 +2340,75 @@ mod tests{
     }
 
     #[test]
+    fn adversarial_dag_profiles_are_acyclic_and_cache_strategies_are_equivalent() {
+        for shape in [
+            "long_chain",
+            "wide_fanout",
+            "wide_fanin",
+            "diamond",
+            "sparse_dag",
+            "bounded_dense_dag",
+        ] {
+            for conductors in [2, 3, 10, 50] {
+                let nodes = if shape == "bounded_dense_dag" { 128 } else { 256 };
+                let queries = nodes * 4;
+                let workload = build_dag_reachability_workload(
+                    shape,
+                    nodes,
+                    conductors,
+                    queries,
+                )
+                .unwrap_or_else(|error| panic!("{shape}/{conductors}: {error}"));
+
+                let node_ids = workload
+                    .events
+                    .iter()
+                    .map(|event| event.event_id.clone())
+                    .collect::<BTreeSet<_>>();
+                assert!(
+                    !graph_has_cycle(&workload.adjacency, &node_ids),
+                    "{shape}/{conductors}: generated DAG contains a cycle"
+                );
+                assert_eq!(workload.conductor_count, conductors);
+                assert_eq!(workload.queries.len(), queries);
+                assert!(workload.edge_count > 0);
+
+                let (reference, reference_cache, _) =
+                    run_dag_reachability_strategy(&workload, "uncached_dfs");
+                let (pair, pair_cache, _) =
+                    run_dag_reachability_strategy(&workload, "pair_memoized");
+                let (per_source, source_cache, _) =
+                    run_dag_reachability_strategy(&workload, "per_source_cache");
+
+                assert_eq!(reference, pair, "{shape}/{conductors}: pair cache changed reachability");
+                assert_eq!(reference, per_source, "{shape}/{conductors}: per-source cache changed reachability");
+                assert!(reference_cache.dfs_node_visits > 0);
+                assert!(pair_cache.dfs_node_visits > 0);
+                assert!(source_cache.dfs_node_visits > 0);
+                assert!(pair_cache.pair_results.len() <= MAX_CACHED_REACHABILITY_PAIRS);
+                assert!(source_cache.cached_reachable_nodes <= MAX_CACHED_REACHABLE_NODES);
+            }
+        }
+    }
+
+    #[test]
+    fn wide_fanout_profile_exercises_both_exact_pair_and_per_source_caches() {
+        let workload =
+            build_dag_reachability_workload("wide_fanout", 128, 3, 512).unwrap();
+        let (reference, _, _) = run_dag_reachability_strategy(&workload, "uncached_dfs");
+        let (pair, pair_cache, _) =
+            run_dag_reachability_strategy(&workload, "pair_memoized");
+        let (per_source, source_cache, _) =
+            run_dag_reachability_strategy(&workload, "per_source_cache");
+
+        assert_eq!(reference, pair);
+        assert_eq!(reference, per_source);
+        assert!(pair_cache.pair_cache_hits > 0);
+        assert!(source_cache.cache_hits > 0);
+        assert!(source_cache.full_reachability_builds > 0);
+    }
+
+    #[test]
     fn per_source_cache_builds_once_for_fanout_queries() {
         let events = reachability_events();
         let event_map: BTreeMap<String, &Event> = events
