@@ -27,7 +27,7 @@
         {
           "source_ref": "SRC-001-L",
           "dataset_side": "ledger",
-          "tenant_namespace": "tenant-a/ledger",
+          "tenant_namespace": "tenant-a",
           "external_id": "L-001",
           "revision": "r1",
           "source_kind": "charge",
@@ -38,7 +38,7 @@
         {
           "source_ref": "SRC-001-S",
           "dataset_side": "settlement",
-          "tenant_namespace": "tenant-a/proc-a",
+          "tenant_namespace": "tenant-a",
           "external_id": "S-001",
           "revision": "r1",
           "source_kind": "settlement_line",
@@ -49,7 +49,7 @@
         {
           "source_ref": "SRC-001-P",
           "dataset_side": "payout",
-          "tenant_namespace": "tenant-a/proc-a",
+          "tenant_namespace": "tenant-a",
           "external_id": "P-001",
           "revision": "r1",
           "source_kind": "payout",
@@ -60,7 +60,7 @@
         {
           "source_ref": "SRC-001-B",
           "dataset_side": "bank_statement",
-          "tenant_namespace": "tenant-a/bank",
+          "tenant_namespace": "tenant-a",
           "external_id": "B-001",
           "revision": "r1",
           "source_kind": "bank_deposit",
@@ -208,7 +208,7 @@
         {
           "source_ref": "SRC-002-L",
           "dataset_side": "ledger",
-          "tenant_namespace": "tenant-a/ledger",
+          "tenant_namespace": "tenant-a",
           "external_id": "L-002",
           "revision": "r1",
           "source_kind": "charge",
@@ -219,7 +219,7 @@
         {
           "source_ref": "SRC-002-S",
           "dataset_side": "settlement",
-          "tenant_namespace": "tenant-a/proc-b",
+          "tenant_namespace": "tenant-a",
           "external_id": "S-002",
           "revision": "r1",
           "source_kind": "settlement_line",
@@ -230,7 +230,7 @@
         {
           "source_ref": "SRC-002-P",
           "dataset_side": "payout",
-          "tenant_namespace": "tenant-a/proc-b",
+          "tenant_namespace": "tenant-a",
           "external_id": "P-002",
           "revision": "r1",
           "source_kind": "payout",
@@ -241,7 +241,7 @@
         {
           "source_ref": "SRC-002-B",
           "dataset_side": "bank_statement",
-          "tenant_namespace": "tenant-a/bank",
+          "tenant_namespace": "tenant-a",
           "external_id": "B-002",
           "revision": "r1",
           "source_kind": "bank_deposit",
@@ -389,7 +389,7 @@
         {
           "source_ref": "SRC-003-L",
           "dataset_side": "ledger",
-          "tenant_namespace": "tenant-a/ledger",
+          "tenant_namespace": "tenant-a",
           "external_id": "L-003",
           "revision": "r1",
           "source_kind": "charge",
@@ -400,7 +400,7 @@
         {
           "source_ref": "SRC-003-S",
           "dataset_side": "settlement",
-          "tenant_namespace": "tenant-a/proc-c",
+          "tenant_namespace": "tenant-a",
           "external_id": "S-003",
           "revision": "r1",
           "source_kind": "settlement_line",
@@ -411,7 +411,7 @@
         {
           "source_ref": "SRC-003-P",
           "dataset_side": "payout",
-          "tenant_namespace": "tenant-a/proc-c",
+          "tenant_namespace": "tenant-a",
           "external_id": "P-003",
           "revision": "r1",
           "source_kind": "payout",
@@ -422,7 +422,7 @@
         {
           "source_ref": "SRC-003-B",
           "dataset_side": "bank_statement",
-          "tenant_namespace": "tenant-a/bank",
+          "tenant_namespace": "tenant-a",
           "external_id": "B-003",
           "revision": "r1",
           "source_kind": "bank_deposit",
@@ -570,7 +570,7 @@
         {
           "source_ref": "SRC-004-L",
           "dataset_side": "ledger",
-          "tenant_namespace": "tenant-a/ledger",
+          "tenant_namespace": "tenant-a",
           "external_id": "L-004",
           "revision": "r1",
           "source_kind": "charge",
@@ -581,7 +581,7 @@
         {
           "source_ref": "SRC-004-S",
           "dataset_side": "settlement",
-          "tenant_namespace": "tenant-a/proc-a",
+          "tenant_namespace": "tenant-a",
           "external_id": "S-004",
           "revision": "r1",
           "source_kind": "settlement_line",
@@ -657,7 +657,7 @@
         {
           "source_ref": "SRC-005-L",
           "dataset_side": "ledger",
-          "tenant_namespace": "tenant-a/ledger",
+          "tenant_namespace": "tenant-a",
           "external_id": "ORDER-005",
           "revision": "r1",
           "source_kind": "charge",
@@ -668,7 +668,7 @@
         {
           "source_ref": "SRC-005-S1",
           "dataset_side": "settlement",
-          "tenant_namespace": "tenant-a/proc-a",
+          "tenant_namespace": "tenant-a",
           "external_id": "CAP-005A",
           "revision": "r1",
           "source_kind": "settlement_line",
@@ -679,7 +679,7 @@
         {
           "source_ref": "SRC-005-S2",
           "dataset_side": "settlement",
-          "tenant_namespace": "tenant-a/proc-a",
+          "tenant_namespace": "tenant-a",
           "external_id": "CAP-005B",
           "revision": "r1",
           "source_kind": "settlement_line",
@@ -780,7 +780,7 @@
         {
           "source_ref": "SRC-006-L",
           "dataset_side": "ledger",
-          "tenant_namespace": "tenant-a/ledger",
+          "tenant_namespace": "tenant-a",
           "external_id": "L-006",
           "revision": "r1",
           "source_kind": "charge",
@@ -791,7 +791,7 @@
         {
           "source_ref": "SRC-006-S-A",
           "dataset_side": "settlement",
-          "tenant_namespace": "tenant-a/proc-a",
+          "tenant_namespace": "tenant-a",
           "external_id": "TX-006",
           "revision": "r1",
           "source_kind": "settlement_line",
@@ -802,7 +802,7 @@
         {
           "source_ref": "SRC-006-S-B",
           "dataset_side": "settlement",
-          "tenant_namespace": "tenant-a/proc-a",
+          "tenant_namespace": "tenant-a",
           "external_id": "TX-006",
           "revision": "r2",
           "source_kind": "settlement_line",
@@ -903,7 +903,7 @@
         {
           "source_ref": "SRC-007-L",
           "dataset_side": "ledger",
-          "tenant_namespace": "tenant-a/ledger",
+          "tenant_namespace": "tenant-a",
           "external_id": "L-007",
           "revision": "r1",
           "source_kind": "charge",
@@ -914,7 +914,7 @@
         {
           "source_ref": "SRC-007-S",
           "dataset_side": "settlement",
-          "tenant_namespace": "tenant-a/proc-a",
+          "tenant_namespace": "tenant-a",
           "external_id": "S-007",
           "revision": "r1",
           "source_kind": "settlement_line",
@@ -925,7 +925,7 @@
         {
           "source_ref": "SRC-007-R",
           "dataset_side": "settlement",
-          "tenant_namespace": "tenant-a/proc-a",
+          "tenant_namespace": "tenant-a",
           "external_id": "R-007",
           "revision": "r1",
           "source_kind": "reversal",
@@ -1026,7 +1026,7 @@
         {
           "source_ref": "SRC-008-P1",
           "dataset_side": "payout",
-          "tenant_namespace": "tenant-a/proc-a",
+          "tenant_namespace": "tenant-a",
           "external_id": "P-008A",
           "revision": "r1",
           "source_kind": "payout",
@@ -1037,7 +1037,7 @@
         {
           "source_ref": "SRC-008-P2",
           "dataset_side": "payout",
-          "tenant_namespace": "tenant-a/proc-a",
+          "tenant_namespace": "tenant-a",
           "external_id": "P-008B",
           "revision": "r1",
           "source_kind": "payout",
@@ -1048,7 +1048,7 @@
         {
           "source_ref": "SRC-008-B",
           "dataset_side": "bank_statement",
-          "tenant_namespace": "tenant-a/bank",
+          "tenant_namespace": "tenant-a",
           "external_id": "B-008",
           "revision": "r1",
           "source_kind": "bank_deposit",
@@ -1149,7 +1149,7 @@
         {
           "source_ref": "SRC-009-L1",
           "dataset_side": "ledger",
-          "tenant_namespace": "tenant-a/ledger",
+          "tenant_namespace": "tenant-a",
           "external_id": "L-009A",
           "revision": "r1",
           "source_kind": "charge",
@@ -1160,7 +1160,7 @@
         {
           "source_ref": "SRC-009-L2",
           "dataset_side": "ledger",
-          "tenant_namespace": "tenant-a/ledger",
+          "tenant_namespace": "tenant-a",
           "external_id": "L-009B",
           "revision": "r1",
           "source_kind": "charge",
@@ -1171,7 +1171,7 @@
         {
           "source_ref": "SRC-009-S1",
           "dataset_side": "settlement",
-          "tenant_namespace": "tenant-a/proc-a",
+          "tenant_namespace": "tenant-a",
           "external_id": "S-009A",
           "revision": "r1",
           "source_kind": "settlement_line",
@@ -1182,7 +1182,7 @@
         {
           "source_ref": "SRC-009-S2",
           "dataset_side": "settlement",
-          "tenant_namespace": "tenant-a/proc-a",
+          "tenant_namespace": "tenant-a",
           "external_id": "S-009B",
           "revision": "r1",
           "source_kind": "settlement_line",
@@ -1308,7 +1308,7 @@
         {
           "source_ref": "SRC-010-B",
           "dataset_side": "bank_statement",
-          "tenant_namespace": "tenant-a/bank",
+          "tenant_namespace": "tenant-a",
           "external_id": "B-010",
           "revision": "r1",
           "source_kind": "bank_deposit",
@@ -1319,7 +1319,7 @@
         {
           "source_ref": "SRC-010-P-FUTURE",
           "dataset_side": "payout",
-          "tenant_namespace": "tenant-a/proc-a",
+          "tenant_namespace": "tenant-a",
           "external_id": "P-010-FUTURE",
           "revision": "r1",
           "source_kind": "payout",
