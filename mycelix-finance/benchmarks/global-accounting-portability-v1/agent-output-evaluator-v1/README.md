@@ -23,6 +23,7 @@ A capable accounting agent must do four things independently:
 - **Produce a grounded deliverable:** source-bound journal entries and statement lines that independently balance and reconstruct.
 - **Preserve evidence-to-decision continuity:** give every supplied fact a terminal disposition (journaled, questioned, reviewed, abstained or explicitly excluded), with a non-empty reason, and ensure discovered contradictions, future facts, integrity failures and superseded revisions are not silently dropped.
 - **Expose epistemic limits:** distinguish supported facts from assumed, unknown or disputed inputs and never hide a decision-critical assumption.
+- **Automate selectively:** a proposed automatic delivery must pass deterministic provenance, journal, statement, and continuity gates as well as a confidence threshold; otherwise route to review.
 
 A correct number is not sufficient. A correct question type with an unrelated source citation is not sufficient. A balanced but source-unsupported journal is not sufficient. A natural-language question can be syntactically valid while still being professionally poor; machine metrics cannot establish question clarity or sufficiency without expert annotation.
 
@@ -56,13 +57,17 @@ Per case and aggregate:
 - decision-to-question continuity from blocker to actual clarification question;
 - explicit terminal reasons for each fact disposition, including superseded, future, disputed, invalidated, unverified and integrity-failed evidence;
 - explicit continuity failure codes for dropped, relabelled or unlinked evidence;
-- hard failures with explicit failure codes.
+- hard failures with explicit failure codes;
+- decision-confidence Brier score and expected calibration error (ECE);
+- auto-delivery coverage and material-error rate;
+- five-point risk/coverage curve at confidence thresholds 0.50, 0.70, 0.80, 0.90 and 0.95;
+- review-routed case count and calibration-bin detail.
 
 Question-source reference scoring maps the expected blocking fact types to the documents in the candidate bundle that contain those facts. A source reference that is real but unrelated still loses precision. A missing relevant document loses recall.
 
 Journal balancing is evaluated per entry and per currency/entity/period group, so two unbalanced entries cannot cancel each other in an aggregate. Source-binding completeness is calculated line-by-line; one line cannot borrow a citation from another line. Each submitted statement line is independently replayed from all matching submitted journal lines: the statement must cite exactly the journal entries that contribute to its account/entity/currency/period, and the signed sum must match the reported amount under the declared normal balance. This replay is separate from oracle exact match, so a numerically expected statement beside a contradictory journal is still rejected. S0 currently tests period-movement income-statement lines; balance-sheet closing balances require opening-balance and carry-forward inputs before they can be replayed correctly. The evidence trace must assign a terminal disposition and reason to every supplied fact, including excluded, superseded, future, disputed, invalidated, integrity-unverified and integrity-failed observations. Blocker traces must link the decision-blocking fact type and its source documents to an actual question; journal-source facts must link to the actual output line. A discovered fact cannot disappear merely because the agent ultimately excludes it. Source availability uses valid time, recorded-at, document received-at, the knowledge frontier and document revision supersession from the accounting candidate bundle.
 
-Hard safety failures remain visible separately; they are not averaged away. The report does not collapse all dimensions into a single leaderboard score.
+Hard safety failures remain visible separately; they are not averaged away. The current prototype accepts an auto-delivery candidate only at confidence >=0.90 and after deterministic evidence, output, journal, statement and continuity gates pass; otherwise it routes the case to review. This is a conservative demonstrator, not a validated production threshold. A real operating threshold must be selected on a professionally adjudicated, time-separated calibration set with cost-sensitive material-error limits and drift monitoring. The report does not collapse all dimensions into a single leaderboard score.
 
 ## Local Rust validation
 
@@ -82,13 +87,14 @@ Optional arguments:
 
 The evaluator validates the candidate, oracle, submission and report schemas; requires identical case-ID sets; pins exact input bytes with SHA-256; builds one result per case; validates the generated report; and has no network or ledger side effects. A separate runner-observed trace validator checks append-only event sequencing and continuity, then can bind the exact trace digest, transcript bytes and source input digest to the canonical #5799/Symthaea receipt. It does not authenticate model identity. A self-hash and receipt binding do not replace the canonical signature/trust-root verification owned by the Symthaea evidence stack.
 
-Twenty-two authored Rust tests cover gold-control conformance, unsafe delivery, scattershot targets, question-source mismatches, line-level source binding, per-entry imbalance, statement mismatch, independent statement replay, wrong statement journal references, balanced-journal/statement divergence, unsupported critical assumptions, missing submissions, revision-aware source availability, evidence-trace completeness, blocker-to-question continuity, fact-to-journal continuity, contradiction-state preservation, integrity-failure abstention, unrelated-fact omission and superseded-revision exclusion. The separate runner-observed trace validator has seventeen authored tests for source-open ordering, fact terminalization, blocker/question and journal/statement references, revision handling, event ordering, and canonical receipt/transcript binding. All tests are authored but **not executed**. No Cargo compile, test, rustfmt, Clippy, independent Draft 2020-12 runtime pass or CI run is claimed.
+Twenty-eight authored Rust tests cover gold-control conformance, unsafe delivery, scattershot targets, question-source mismatches, line-level source binding, per-entry imbalance, statement mismatch, independent statement replay, wrong statement journal references, balanced-journal/statement divergence, unsupported critical assumptions, missing submissions, revision-aware source availability, evidence-trace completeness, blocker-to-question continuity, fact-to-journal continuity, contradiction-state preservation, integrity-failure abstention, unrelated-fact omission and superseded-revision exclusion, confidence-gated review routing, overconfident incorrect journals, calibration bins and selective risk/coverage. The separate runner-observed trace validator has seventeen authored tests for source-open ordering, fact terminalization, blocker/question and journal/statement references, revision handling, event ordering, and canonical receipt/transcript binding. All tests are authored but **not executed**. No Cargo compile, test, rustfmt, Clippy, independent Draft 2020-12 runtime pass or CI run is claimed.
 
 ## Static self-test evidence
 
 A separate JS simulation of the fetched candidate/oracle/submission artifacts found:
 - 20 candidate cases, 20 oracle rows and 20 submissions;
 - 74 source facts and 82 explicit trace entries;
+- all 20 synthetic self-test submissions set decision confidence to 1.0 by construction; therefore the reported calibration values exercise the evaluator pipeline but are not a calibration claim about any model;
 - one terminal disposition and non-empty reason for every source fact;
 - 8 clarification questions;
 - exact disposition and reason agreement;
@@ -102,10 +108,11 @@ A separate JS simulation of the fetched candidate/oracle/submission artifacts fo
 - evidence-to-journal continuity = 1.0;
 - decision-to-question continuity = 1.0;
 - zero continuity failures, false-deliver cases, redundant questions or decision-critical unsupported assumptions;
+- the five synthetic gold-control deliver cases exercise the prototype auto-delivery gate, but all confidence inputs are artificially set to 1.0;
 - zero broken references or case-ID gaps;
 - replay mutation controls detect a wrong reported statement amount, a balanced journal mutation that makes the statement stale, and a statement that cites a non-contributing journal entry.
 
-This is evidence that the gold-control test data and evaluator contract align. The evaluator also distinguishes a missing unrelated fact trace and a superseded revision deliberately marked as excluded. It is not evidence that any model achieves these scores. Because the trace is part of candidate output, do not call it runner-observed evidence; actual trajectory continuity requires a separately retained tool/transcript artifact bound to the canonical Symthaea run receipt, tracked in #5874.
+This is evidence that the gold-control test data and evaluator contract align. The evaluator also distinguishes a missing unrelated fact trace and a superseded revision deliberately marked as excluded. The gold-control confidence values are synthetic constants and cannot establish Brier/ECE calibration, an appropriate auto-delivery threshold, or production selective-risk performance. It is not evidence that any model achieves these scores. Because the trace is part of candidate output, do not call it runner-observed evidence; actual trajectory continuity requires a separately retained tool/transcript artifact bound to the canonical Symthaea run receipt, tracked in #5874.
 
 ## Benchmark and comparison design
 
@@ -139,4 +146,4 @@ Proposed S1/S2 goals: zero critical false-deliver on seeded controls; >=95% deci
 
 ## Claim ceiling
 
-The current package tests evaluator behaviour on synthetic gold-control submissions. It does not show that an AI agent can perform accounting work, that professional reviewers agree with the questions, that any policy is correct, or that Mycelix exceeds SOTA. Professional question quality, policy correctness and material accounting judgments require expert adjudication.
+The current package tests evaluator behaviour on synthetic gold-control submissions. Its risk/coverage and confidence metrics are schema/code paths, not measured model calibration; the gold fixture assigns 1.0 confidence to all cases. It does not show that an AI agent can perform accounting work, that professional reviewers agree with the questions, that any policy is correct, or that Mycelix exceeds SOTA. Professional question quality, policy correctness and material accounting judgments require expert adjudication.
