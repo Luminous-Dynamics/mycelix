@@ -68,6 +68,16 @@ jobs:
           jq -e '.status == "PASS" and .nodes == 128 and .conductors == 3 and .queries == 512 and .pair_results_equal == true and .per_source_results_equal == true and .pair_memoized.cache_hits > 0 and .per_source_cache.cache_hits > 0' \
             "$RUNNER_TEMP/pulse-dag-smoke.json"
 
+      - name: Smoke-test verified-record semantic joins
+        run: |
+          set -euo pipefail
+          cargo run --manifest-path tools/pulse-multiconductor-audit/Cargo.toml --locked -- \
+            --benchmark-verified-signals 64 \
+            --benchmark-verified-conductors 10 \
+            --output "$RUNNER_TEMP/pulse-verified-smoke.json"
+          jq -e '.status == "PASS" and .verified_signals == 64 and .conductors == 10 and .events == 192 and .causal_edges == 128 and .semantic_reports_equal == true and .counts.authored_actions == 64 and .counts.validator_dispositions == 64 and .counts.verified_signals == 64' \
+            "$RUNNER_TEMP/pulse-verified-smoke.json"
+
       - name: Smoke-test borrowed versus owned parser parity
         run: |
           set -euo pipefail
