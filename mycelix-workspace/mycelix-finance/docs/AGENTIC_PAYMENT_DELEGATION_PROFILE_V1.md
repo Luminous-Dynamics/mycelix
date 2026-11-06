@@ -77,3 +77,14 @@ Do not optimise autonomous completion rate without reporting false authorization
 ## Claim ceiling
 
 The checked-in corpus is synthetic. Passing tests demonstrates only that this reference evaluator rejects seeded violations. It does not prove legal validity of standing mandates, a real provider's authorization, cryptographic credential security, production atomicity, agent competence, regulatory approval or safe real-money operation.
+
+
+## S0 reference evaluator and benchmark corpus
+
+The synthetic v1 corpus contains 32 cases and four profiles: two South African research-policy profiles, an AP2/FIDO HNP architecture comparator, and a W3C SPC one-time-confirmation comparator. Comparator profiles cannot be used as authorization policy inputs.
+
+The Rust evaluator reuses opaque QIE and exact ActionRequest references; it does not define parallel generic types. It checks principal approval binding, profile admission, exact action digest references, purpose/action/payee/currency scope, all-in fee/FX budget arithmetic, quote source/freshness, confirmation thresholds, atomic event-order reservation accounting, transaction-count and concurrency limits, revocation, and sub-agent scope inclusion.
+
+Unknown fee/FX data enters `terms_requalification_required`; a human confirmation cannot convert unknown terms into known terms. High-value and new-beneficiary actions use a separate principal confirmation event bound to the exact presented action digest. A provider timeout retains the reservation, an independently reconciled no-effect event may release it, and a later return does not replenish the mandate budget by default.
+
+The corpus adds specific transaction-count exhaustion and revocation-during-indeterminate-payment cases. The evaluator is a deterministic event-log reference model only. A production reservation service still requires a durable serializable/compare-and-swap or fenced store, crash-recovery tests, and independently qualified clock and authority sources.
