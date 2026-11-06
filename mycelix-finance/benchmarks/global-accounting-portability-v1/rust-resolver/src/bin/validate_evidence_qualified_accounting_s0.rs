@@ -951,7 +951,7 @@ mod tests {
                 assert_eq!(expectation["expected_no_posting"], true);
             }
         }
-        assert_eq!(array(&candidates, "cases").unwrap().len(), 11);
+        assert_eq!(array(&candidates, "cases").unwrap().len(), 20);
     }
 
     #[test]
