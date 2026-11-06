@@ -1,0 +1,417 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/mycelix-economic-event-graph-v1.0.0.json",
+  "title": "Mycelix Bitemporal Economic Event Graph v1.0.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "bundle_id",
+    "schema_version",
+    "claim_ceiling",
+    "graph_kind",
+    "cases"
+  ],
+  "properties": {
+    "bundle_id": {
+      "const": "MYCELIX-ECONOMIC-EVENT-CORE-S0"
+    },
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "claim_ceiling": {
+      "const": "synthetic_evidence_normalization_graph_not_accounting_policy_or_ledger_authority"
+    },
+    "graph_kind": {
+      "const": "synthetic_event_graph_candidates"
+    },
+    "cases": {
+      "type": "array",
+      "minItems": 8,
+      "items": {
+        "$ref": "#/$defs/case"
+      }
+    }
+  },
+  "$defs": {
+    "utcSecond": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+    },
+    "date": {
+      "type": "string",
+      "format": "date",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+    },
+    "sourceObject": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_ref",
+        "tenant_namespace",
+        "external_id",
+        "revision",
+        "source_kind",
+        "received_at",
+        "integrity_state",
+        "supersedes_source_ref"
+      ],
+      "properties": {
+        "source_ref": {
+          "type": "string",
+          "pattern": "^[A-Z0-9-]{3,120}$"
+        },
+        "tenant_namespace": {
+          "type": "string",
+          "minLength": 3
+        },
+        "external_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "revision": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_kind": {
+          "enum": [
+            "invoice",
+            "credit_note",
+            "contract",
+            "service_acceptance",
+            "bank_statement",
+            "payment_confirmation",
+            "purchase_order",
+            "other"
+          ]
+        },
+        "received_at": {
+          "$ref": "#/$defs/utcSecond"
+        },
+        "integrity_state": {
+          "enum": [
+            "synthetic_match",
+            "synthetic_mismatch",
+            "synthetic_not_checked"
+          ]
+        },
+        "supersedes_source_ref": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "assertion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "assertion_ref",
+        "fact_type",
+        "value",
+        "currency",
+        "epistemic_state",
+        "valid_from",
+        "valid_to",
+        "recorded_at",
+        "source_ref",
+        "source_locator"
+      ],
+      "properties": {
+        "assertion_ref": {
+          "type": "string",
+          "pattern": "^[A-Z0-9-]{3,120}$"
+        },
+        "fact_type": {
+          "enum": [
+            "invoice_amount_minor",
+            "credit_amount_minor",
+            "service_acceptance_date",
+            "service_period_start",
+            "service_period_end",
+            "payment_amount_minor",
+            "payment_date",
+            "original_invoice_id",
+            "supplier_identity",
+            "customer_entity",
+            "reporting_entity",
+            "obligation_amount_minor",
+            "prepayment_amount_minor",
+            "other"
+          ]
+        },
+        "value": {
+          "type": [
+            "string",
+            "integer",
+            "number",
+            "boolean",
+            "null"
+          ]
+        },
+        "currency": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[A-Z]{3}$"
+        },
+        "epistemic_state": {
+          "enum": [
+            "asserted",
+            "unknown",
+            "disputed",
+            "invalidated"
+          ]
+        },
+        "valid_from": {
+          "$ref": "#/$defs/date"
+        },
+        "valid_to": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/date"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "recorded_at": {
+          "$ref": "#/$defs/utcSecond"
+        },
+        "source_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_locator": {
+          "type": "string",
+          "minLength": 3
+        }
+      }
+    },
+    "event": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "event_ref",
+        "event_kind",
+        "entity_ref",
+        "counterparty_ref",
+        "occurred_at",
+        "recorded_at",
+        "amount_minor",
+        "currency",
+        "assertion_refs"
+      ],
+      "properties": {
+        "event_ref": {
+          "type": "string",
+          "pattern": "^[A-Z0-9-]{3,120}$"
+        },
+        "event_kind": {
+          "enum": [
+            "service_delivery",
+            "obligation_incurred",
+            "invoice_issued",
+            "credit_issued",
+            "settlement_received",
+            "settlement_made",
+            "prepayment_made",
+            "asset_delivered",
+            "accrual_recognized",
+            "reversal_posted",
+            "fx_remeasurement",
+            "other"
+          ]
+        },
+        "entity_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "counterparty_ref": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "occurred_at": {
+          "$ref": "#/$defs/utcSecond"
+        },
+        "recorded_at": {
+          "$ref": "#/$defs/utcSecond"
+        },
+        "amount_minor": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "currency": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[A-Z]{3}$"
+        },
+        "assertion_refs": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "relation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "relation_ref",
+        "relation_kind",
+        "from_kind",
+        "from_ref",
+        "to_kind",
+        "to_ref",
+        "recorded_at",
+        "valid_from",
+        "valid_to",
+        "source_assertion_refs"
+      ],
+      "properties": {
+        "relation_ref": {
+          "type": "string",
+          "pattern": "^[A-Z0-9-]{3,120}$"
+        },
+        "relation_kind": {
+          "enum": [
+            "supports",
+            "contradicts",
+            "supersedes",
+            "settles",
+            "reverses",
+            "allocates",
+            "corrects",
+            "causally_depends_on",
+            "duplicate_of"
+          ]
+        },
+        "from_kind": {
+          "enum": [
+            "source",
+            "assertion",
+            "event"
+          ]
+        },
+        "from_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "to_kind": {
+          "enum": [
+            "source",
+            "assertion",
+            "event"
+          ]
+        },
+        "to_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "recorded_at": {
+          "$ref": "#/$defs/utcSecond"
+        },
+        "valid_from": {
+          "$ref": "#/$defs/date"
+        },
+        "valid_to": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/date"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "source_assertion_refs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "case": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "case_id",
+        "knowledge_at",
+        "period",
+        "entity_scope_ref",
+        "source_objects",
+        "assertions",
+        "events",
+        "relations"
+      ],
+      "properties": {
+        "case_id": {
+          "type": "string",
+          "pattern": "^[A-Z0-9-]{3,120}$"
+        },
+        "knowledge_at": {
+          "$ref": "#/$defs/utcSecond"
+        },
+        "period": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "start",
+            "end"
+          ],
+          "properties": {
+            "start": {
+              "$ref": "#/$defs/date"
+            },
+            "end": {
+              "$ref": "#/$defs/date"
+            }
+          }
+        },
+        "entity_scope_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_objects": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/sourceObject"
+          }
+        },
+        "assertions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/assertion"
+          }
+        },
+        "events": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/event"
+          }
+        },
+        "relations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/relation"
+          }
+        }
+      }
+    }
+  }
+}
