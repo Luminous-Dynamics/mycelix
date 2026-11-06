@@ -126,7 +126,9 @@
         "minimum_independent_clusters_for_interval",
         "synthetic_fixture",
         "tuning_partitions",
-        "required_systems"
+        "required_systems",
+        "bootstrap_replicates",
+        "bootstrap_seed"
       ],
       "properties": {
         "protocol_id": {
@@ -202,6 +204,15 @@
               "mycelix"
             ]
           }
+        },
+        "bootstrap_replicates": {
+          "type": "integer",
+          "minimum": 1000,
+          "maximum": 100000
+        },
+        "bootstrap_seed": {
+          "type": "integer",
+          "minimum": 0
         }
       }
     },
