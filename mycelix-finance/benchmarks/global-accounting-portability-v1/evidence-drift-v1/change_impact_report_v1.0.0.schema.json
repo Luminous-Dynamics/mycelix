@@ -82,7 +82,9 @@
             "event_refs",
             "relation_refs",
             "policy_changed",
-            "projector_changed"
+            "projector_changed",
+            "knowledge_frontier_changed",
+            "transport_metadata_only_source_refs"
           ],
           "properties": {
             "source_refs": {
@@ -118,6 +120,16 @@
             },
             "projector_changed": {
               "type": "boolean"
+            },
+            "knowledge_frontier_changed": {
+              "type": "boolean"
+            },
+            "transport_metadata_only_source_refs": {
+              "type": "array",
+              "uniqueItems": true,
+              "items": {
+                "type": "string"
+              }
             }
           }
         },
@@ -181,7 +193,8 @@
               "unlinked_source_revision_family",
               "claimed_impact_omitted_dependency",
               "baseline_projection_graph_binding_mismatch",
-              "baseline_projection_dependency_invalid"
+              "baseline_projection_dependency_invalid",
+              "claimed_impact_mismatch"
             ]
           }
         }
