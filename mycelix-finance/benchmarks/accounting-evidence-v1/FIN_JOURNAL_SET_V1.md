@@ -68,7 +68,7 @@ A balanced trial balance is a subordinate invariant. It never overrides missing 
 ## 5. v1.0.0 public synthetic corpus
 
 - Candidate input schema: `FIN_JOURNAL_SET_INPUT_V1.schema.json`
-- 24 candidate-visible cases: `fin_journal_set_candidates_v1.0.0.json`
+- 25 candidate-visible cases: `fin_journal_set_candidates_v1.0.0.json`
 - Public oracle: `public-journal-set-oracle/fin_journal_set_oracle_v1.0.0.json`
 - Oracle schema: `public-journal-set-oracle/fin_journal_set_oracle_v1.schema.json`
 - Rust verifier: `journal-set-verifier/`
@@ -133,3 +133,8 @@ Do not combine FAB, AgenticFinBench, FINBALANCE, DualBench100 or APEX into one c
 ## 9. Claim ceiling
 
 A pass establishes only the declared public synthetic period-population, journal-set and roll-forward behavior. It does not prove real-world source completeness, valuation truth, authorization, legal validity, tax/IFRS/GAAP compliance, audit sufficiency, complete real books, production readiness or an authorized close signoff.
+
+
+### Post-close authorization and timestamp ordering
+
+A post-close journal is admitted only when both the authorization boolean and the explicit post_close_authorization_ref are present. All ordered timestamp fields use fixed-width UTC whole-second form (YYYY-MM-DDTHH:MM:SSZ); offset-bearing or fractional-second forms are excluded from this v1 contract. This keeps timestamp comparison deterministic and prevents lexical misordering.
