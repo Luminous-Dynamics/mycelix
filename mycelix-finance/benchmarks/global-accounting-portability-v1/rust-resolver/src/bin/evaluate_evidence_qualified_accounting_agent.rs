@@ -894,13 +894,21 @@ fn evaluate_case(
         && decision_to_question_continuity
         && decision_critical_assumption_count == 0
         && requested_outputs_present;
-    let auto_delivery_accepted = actual_disposition == "deliver"
+    let auto_delivery_candidate = actual_disposition == "deliver";
+    let auto_delivery_accepted = auto_delivery_candidate
         && decision_confidence >= 0.90
         && deterministic_delivery_gates_pass;
     let review_routed = !auto_delivery_accepted;
 
     Ok(json!({
         "case_id": case_id,
+        "decision_confidence": decision_confidence,
+        "case_correct": case_correct,
+        "confidence_brier_contribution": confidence_brier_contribution,
+        "auto_delivery_candidate": auto_delivery_candidate,
+        "auto_delivery_gate_pass": deterministic_delivery_gates_pass,
+        "auto_delivery_accepted": auto_delivery_accepted,
+        "review_routed": review_routed,
         "disposition_correct": disposition_correct,
         "reason_correct": reason_correct,
         "question_target_precision": question_precision,
@@ -1111,14 +1119,8 @@ fn build_report(
                 .iter()
                 .filter(|result| {
                     result["decision_confidence"].as_f64().unwrap_or(0.0) >= *threshold
+                        && result["auto_delivery_candidate"].as_bool() == Some(true)
                         && result["auto_delivery_gate_pass"].as_bool() == Some(true)
-                        && result["case_id"].as_str().is_some()
-                        && result["decision_confidence"].as_f64().is_some()
-                        && result["auto_delivery_accepted"].as_bool() == Some(true)
-                            || (result["decision_confidence"].as_f64().unwrap_or(0.0) >= *threshold
-                                && result["auto_delivery_gate_pass"].as_bool() == Some(true)
-                                && result["case_id"].as_str().is_some()
-                                && result["review_routed"].as_bool() == Some(false))
                 })
                 .collect::<Vec<_>>();
             let selected_count = selected.len();
