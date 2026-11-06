@@ -1,0 +1,770 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/mycelix/epi-013r-tool-execution-receipt-v0.1.schema.json",
+  "title": "Mycelix ToolExecutionReceiptV1",
+  "description": "Exact-run execution observation, separate from capability profiles, source truth, EPI admission and action authority.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "receipt_id",
+    "receipt_authority",
+    "selected_profile",
+    "observed_tool",
+    "request",
+    "input_scope",
+    "execution",
+    "coverage",
+    "outputs",
+    "disclosure",
+    "retention",
+    "profile_drift",
+    "attestation_refs",
+    "limitations"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "mycelix:epi-013r-tool-execution-receipt:v0.1"
+    },
+    "receipt_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "receipt_authority": {
+      "const": "ExecutionObservationOnly"
+    },
+    "selected_profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "profile_ref",
+        "profile_corpus_ref",
+        "profile_corpus_sha256",
+        "profile_version"
+      ],
+      "properties": {
+        "profile_ref": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "profile_corpus_ref": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "profile_corpus_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "profile_version": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        }
+      }
+    },
+    "observed_tool": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "tool_ref",
+        "provider_ref",
+        "observed_version"
+      ],
+      "properties": {
+        "tool_ref": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "provider_ref": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "observed_version": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        }
+      }
+    },
+    "request": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "request_commitment_sha256",
+        "purpose_ref",
+        "policy_refs",
+        "requested_bounds"
+      ],
+      "properties": {
+        "request_commitment_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "protected_request_ref": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "purpose_ref": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "policy_refs": {
+          "type": "array",
+          "maxItems": 32,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          }
+        },
+        "requested_bounds": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "max_items": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "page_size": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "max_pages": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "valid_time_start": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "valid_time_end": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "corpus_commitment_sha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "declared_entry_count": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "filters_commitment_sha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            }
+          }
+        }
+      }
+    },
+    "input_scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "artifact_refs"
+      ],
+      "properties": {
+        "artifact_refs": {
+          "type": "array",
+          "maxItems": 128,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          }
+        },
+        "corpus_commitment_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "declared_entry_count": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "execution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "execution_instance_ref",
+        "started_at",
+        "ended_at",
+        "time_basis",
+        "terminal_status",
+        "items_attempted",
+        "items_observed",
+        "pages_attempted",
+        "pages_observed",
+        "retry_count",
+        "errors"
+      ],
+      "properties": {
+        "execution_instance_ref": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "started_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "ended_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "time_basis": {
+          "enum": [
+            "LocalClockAssertion",
+            "ProviderTimestamp",
+            "TrustedTimeRef",
+            "UnknownTime"
+          ]
+        },
+        "trusted_time_ref": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "terminal_status": {
+          "enum": [
+            "completed",
+            "partial",
+            "timed_out",
+            "truncated",
+            "rate_limited",
+            "failed"
+          ]
+        },
+        "items_attempted": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "items_observed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "pages_attempted": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "pages_observed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "retry_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "errors": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "enum": [
+              "timeout",
+              "truncated_response",
+              "rate_limit",
+              "provider_error",
+              "transport_error",
+              "parse_error",
+              "snapshot_changed",
+              "permission_denied",
+              "unknown_error"
+            ]
+          }
+        }
+      }
+    },
+    "coverage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "state",
+        "scope_ref",
+        "evidence_refs"
+      ],
+      "properties": {
+        "state": {
+          "enum": [
+            "RankedTopKObserved",
+            "PaginationExhaustedUnderExactRunProfile",
+            "PartialDueToTimeout",
+            "PartialDueToTruncation",
+            "PartialDueToRateLimit",
+            "ExhaustiveWithinExactFiniteCorpus",
+            "AccountScopedObserved",
+            "TransformCompletedCoverageUnknown",
+            "UnknownCoverage"
+          ]
+        },
+        "scope_ref": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "evidence_refs": {
+          "type": "array",
+          "maxItems": 64,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          }
+        },
+        "ranked_top_k": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "requested_k",
+            "observed_k",
+            "ranking_scope_ref"
+          ],
+          "properties": {
+            "requested_k": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "observed_k": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "ranking_scope_ref": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            }
+          }
+        },
+        "pagination": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "stable_snapshot_ref",
+            "declared_page_count",
+            "pages_observed",
+            "all_pages_accounted_for"
+          ],
+          "properties": {
+            "stable_snapshot_ref": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "declared_page_count": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "pages_observed": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "all_pages_accounted_for": {
+              "type": "boolean"
+            }
+          }
+        },
+        "finite_corpus": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "corpus_commitment_sha256",
+            "declared_entry_count",
+            "entries_scanned"
+          ],
+          "properties": {
+            "corpus_commitment_sha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "declared_entry_count": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "entries_scanned": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        },
+        "account_scope": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "account_context_ref",
+            "visibility_profile_ref"
+          ],
+          "properties": {
+            "account_context_ref": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "visibility_profile_ref": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            }
+          }
+        },
+        "transform": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "input_artifact_ref",
+            "input_sha256",
+            "transform_ref",
+            "transform_version",
+            "output_sha256",
+            "source_native"
+          ],
+          "properties": {
+            "input_artifact_ref": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "input_sha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "transform_ref": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "transform_version": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "config_commitment_sha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "output_sha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "source_native": {
+              "const": false
+            }
+          }
+        },
+        "degradation_reason": {
+          "enum": [
+            "timeout",
+            "truncation",
+            "rate_limit",
+            "provider_error",
+            "transport_error",
+            "unknown_degradation"
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "state": {
+                "const": "RankedTopKObserved"
+              }
+            },
+            "required": [
+              "state"
+            ]
+          },
+          "then": {
+            "required": [
+              "ranked_top_k"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "state": {
+                "const": "PaginationExhaustedUnderExactRunProfile"
+              }
+            },
+            "required": [
+              "state"
+            ]
+          },
+          "then": {
+            "required": [
+              "pagination"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "state": {
+                "const": "ExhaustiveWithinExactFiniteCorpus"
+              }
+            },
+            "required": [
+              "state"
+            ]
+          },
+          "then": {
+            "required": [
+              "finite_corpus"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "state": {
+                "const": "AccountScopedObserved"
+              }
+            },
+            "required": [
+              "state"
+            ]
+          },
+          "then": {
+            "required": [
+              "account_scope"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "state": {
+                "const": "TransformCompletedCoverageUnknown"
+              }
+            },
+            "required": [
+              "state"
+            ]
+          },
+          "then": {
+            "required": [
+              "transform"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "state": {
+                "enum": [
+                  "PartialDueToTimeout",
+                  "PartialDueToTruncation",
+                  "PartialDueToRateLimit"
+                ]
+              }
+            },
+            "required": [
+              "state"
+            ]
+          },
+          "then": {
+            "required": [
+              "degradation_reason"
+            ]
+          }
+        }
+      ]
+    },
+    "outputs": {
+      "type": "array",
+      "maxItems": 128,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "artifact_ref",
+          "sha256",
+          "byte_length",
+          "media_type",
+          "source_native",
+          "transform_refs"
+        ],
+        "properties": {
+          "artifact_ref": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "byte_length": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "media_type": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "source_native": {
+            "type": "boolean"
+          },
+          "transform_refs": {
+            "type": "array",
+            "maxItems": 32,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            }
+          }
+        }
+      }
+    },
+    "disclosure": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "profile_declared_surfaces",
+        "observed_or_necessary_surfaces",
+        "unexpected_surfaces"
+      ],
+      "properties": {
+        "profile_declared_surfaces": {
+          "$ref": "#/$defs/disclosure_surfaces"
+        },
+        "observed_or_necessary_surfaces": {
+          "$ref": "#/$defs/disclosure_surfaces"
+        },
+        "unexpected_surfaces": {
+          "$ref": "#/$defs/disclosure_surfaces"
+        }
+      }
+    },
+    "retention": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "assessment",
+        "evidence_refs"
+      ],
+      "properties": {
+        "assessment": {
+          "enum": [
+            "ObservedLocal",
+            "ProviderDeclared",
+            "Unknown",
+            "NotApplicable"
+          ]
+        },
+        "evidence_refs": {
+          "type": "array",
+          "maxItems": 32,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          }
+        },
+        "policy_ref": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        }
+      }
+    },
+    "profile_drift": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "observed",
+        "changed_fields",
+        "evidence_refs"
+      ],
+      "properties": {
+        "observed": {
+          "type": "boolean"
+        },
+        "changed_fields": {
+          "type": "array",
+          "maxItems": 32,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "tool_identity",
+              "provider_identity",
+              "provider_version",
+              "account_view",
+              "pagination_semantics",
+              "disclosure_surface",
+              "retention_behavior",
+              "transform_version",
+              "result_cap",
+              "unknown"
+            ]
+          }
+        },
+        "evidence_refs": {
+          "type": "array",
+          "maxItems": 32,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          }
+        }
+      }
+    },
+    "attestation_refs": {
+      "type": "array",
+      "maxItems": 32,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 256
+      }
+    },
+    "limitations": {
+      "type": "array",
+      "maxItems": 64,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 512
+      }
+    }
+  },
+  "$defs": {
+    "disclosure_surfaces": {
+      "type": "array",
+      "uniqueItems": true,
+      "maxItems": 32,
+      "items": {
+        "enum": [
+          "QueryText",
+          "StructuredFilter",
+          "AccountIdentity",
+          "CredentialUse",
+          "ClientNetworkMetadata",
+          "RequestTiming",
+          "LocationContext",
+          "InputArtifact",
+          "CorpusIdentity",
+          "LocalProcessMemory",
+          "OtherObservedSurface"
+        ]
+      }
+    }
+  }
+}
