@@ -536,6 +536,8 @@ fn valid_event_shape(event: &BorrowedEvent<'_>) -> bool {
                         .str_value("verified_payload_sha256")
                         .is_some_and(valid_sha256))
         }
+        // No additional value constraints beyond the closed shape/type checks above.
+        "capability_claim_accepted" => true,
         _ => false,
     }
 }
