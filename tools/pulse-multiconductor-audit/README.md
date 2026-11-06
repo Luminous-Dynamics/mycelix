@@ -97,6 +97,27 @@ The report records node/edge/conductor/query counts, output-vector digests, elap
 
 This is a graph-algorithm microbenchmark, not a complete lifecycle-history audit, Holochain runtime measurement, or DHT convergence benchmark. The GitHub workflow runs five process-level samples per shape/conductor combination. Those are scaling samples and report medians/ranges only; they do not report p95/p99. A later full-history verified-record profile must still exercise the author/action/validator/observer joins tracked in #5888.
 
+## Verified-record structural stress profile
+
+Build and run a deterministic synthetic author/validator/observer evidence history:
+
+    cargo run --release --manifest-path tools/pulse-multiconductor-audit/Cargo.toml -- \
+      --benchmark-verified-signals 10000 \
+      --benchmark-verified-conductors 10 \
+      --output verified-record-benchmark.json
+
+Each record generates:
+1. one source-chain action-authorship event bound to an exact ActionHash and canonical payload digest;
+2. one accepted receiving-validator disposition bound to the author conductor, DNA and exact integrity-WASM digest;
+3. one observer-side verified-record signal bound to the transport sender, record author, exact ActionHash, payload digest and validator event;
+4. two evidence-backed edges: author→validator (`validator_receipt`) and validator→observer (`observer_confirmation`).
+
+The default is three conductors (one author, one validator, one observer). The benchmark accepts 3–50 conductors; additional author conductors spread records deterministically across their independent local sequence spaces. The output runs uncached DFS, exact-pair memoization and per-source reachability over the identical history and requires identical canonical semantic report digests and PASS status.
+
+The CI profile runs 30 independent processes at 1k, 10k and 100k signals with 10 conductors. It separately runs a 10k-signal conductor-scaling stratum at 3 and 50 conductors, and one 1M-signal capacity probe. Percentiles are emitted only for populations with at least 20 completed independent processes. The one-shot capacity result is recorded separately as PASS or INCOMPLETE; it is not used to infer a percentile.
+
+This is synthetic structural evidence-lineage verification. It does not verify real cryptographic signatures, prove the claimed validator executed in a real conductor, establish DHT integration, or prove that the underlying event occurred. A successful audit means only that the generated evidence graph is internally consistent under this verifier's declared semantics.
+
 ## Claim ceiling
 
 This is a structural partial-order verifier. It does not authenticate evidence references, validate Holochain signatures, prove that a conductor is honest, establish DHT consensus, or prove unbounded linearizability. A production runtime capture must be separately signed/attested and independently verified.
