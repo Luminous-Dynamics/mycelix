@@ -642,7 +642,7 @@ mod tests {
                     "entity_ref":"ENTITY-ACME",
                     "period_ref":"2026-10",
                     "event_refs":["EV-001-INVOICE"],
-                    "source_assertion_refs":["AS-001-AMOUNT"],
+                    "source_assertion_refs":["AS-001-AMOUNT","AS-001-SUPPLIER"],
                     "policy_decision_ref":"SYN-PROJECTION-A-DEC-001"
                 },
                 {
@@ -654,7 +654,7 @@ mod tests {
                     "entity_ref":"ENTITY-ACME",
                     "period_ref":"2026-10",
                     "event_refs":["EV-001-INVOICE"],
-                    "source_assertion_refs":["AS-001-AMOUNT"],
+                    "source_assertion_refs":["AS-001-AMOUNT","AS-001-SUPPLIER"],
                     "policy_decision_ref":"SYN-PROJECTION-A-DEC-001"
                 }
             ]
@@ -745,7 +745,7 @@ mod tests {
             "reason_code":"missing_acceptance",
             "description":"Service acceptance evidence has not been established.",
             "event_refs":["EV-001-INVOICE"],
-            "source_assertion_refs":["AS-001-AMOUNT"],
+            "source_assertion_refs":["AS-001-AMOUNT","AS-001-SUPPLIER"],
             "blocking":true
         }]);
         let case = graph_case_by_id(&graph, "EVT-001-INVOICE-WITHOUT-SERVICE-PROOF").unwrap();
@@ -820,6 +820,107 @@ mod tests {
         let case = graph_case_by_id(&graph, "EVT-001-INVOICE-WITHOUT-SERVICE-PROOF").unwrap();
         let result = evaluate_projection(&projection, case, &digest).unwrap();
         assert!(failures(&result).contains("recognized_decision_without_journal"));
+    }
+
+
+    #[test]
+    fn balanced_journal_with_wrong_recognized_amount_is_rejected() {
+        let (graph, _, digest) = fixtures();
+        let mut projection = make_balanced_projection();
+        projection["journal_entries"][0]["lines"][0]["amount_minor"] = Value::from(126000);
+        projection["journal_entries"][0]["lines"][1]["amount_minor"] = Value::from(126000);
+        let case = graph_case_by_id(&graph, "EVT-001-INVOICE-WITHOUT-SERVICE-PROOF").unwrap();
+        let result = evaluate_projection(&projection, case, &digest).unwrap();
+        assert!(failures(&result).contains("recognized_amount_does_not_match_journal"));
+        assert_eq!(result["journal_balanced"], true);
+    }
+
+    #[test]
+    fn decision_source_evidence_must_all_reach_the_journal() {
+        let (graph, _, digest) = fixtures();
+        let mut projection = make_balanced_projection();
+        for line in projection["journal_entries"][0]["lines"].as_array_mut().unwrap() {
+            line["source_assertion_refs"] = json!(["AS-001-AMOUNT"]);
+        }
+        let case = graph_case_by_id(&graph, "EVT-001-INVOICE-WITHOUT-SERVICE-PROOF").unwrap();
+        let result = evaluate_projection(&projection, case, &digest).unwrap();
+        assert!(failures(&result).contains("journal_decision_evidence_closure_incomplete"));
+    }
+
+    #[test]
+    fn missing_decision_assumption_reference_is_rejected() {
+        let (graph, _, digest) = fixtures();
+        let mut projection = make_balanced_projection();
+        projection["event_decisions"][0]["assumption_refs"] = json!(["ASSUMPTION-MISSING"]);
+        let case = graph_case_by_id(&graph, "EVT-001-INVOICE-WITHOUT-SERVICE-PROOF").unwrap();
+        let result = evaluate_projection(&projection, case, &digest).unwrap();
+        assert!(failures(&result).contains("decision_assumption_reference_missing"));
+    }
+
+    #[test]
+    fn orphan_projection_assumption_is_rejected() {
+        let (graph, _, digest) = fixtures();
+        let mut projection = make_balanced_projection();
+        projection["assumptions"] = json!([{
+            "assumption_ref":"ASSUMPTION-ORPHAN",
+            "assumption_kind":"timing",
+            "description":"An unused assumption should not be hidden in the projection.",
+            "value":"2026-10",
+            "source_assertion_refs":["AS-001-AMOUNT"],
+            "review_state":"supported",
+            "decision_critical":false
+        }]);
+        let case = graph_case_by_id(&graph, "EVT-001-INVOICE-WITHOUT-SERVICE-PROOF").unwrap();
+        let result = evaluate_projection(&projection, case, &digest).unwrap();
+        assert!(failures(&result).contains("orphan_projection_assumption"));
+    }
+
+    #[test]
+    fn unsupported_decision_critical_assumption_is_rejected() {
+        let (graph, _, digest) = fixtures();
+        let mut projection = make_balanced_projection();
+        projection["assumptions"] = json!([{
+            "assumption_ref":"ASSUMPTION-FX",
+            "assumption_kind":"currency",
+            "description":"Assume a convenient foreign exchange rate.",
+            "value":1.2,
+            "source_assertion_refs":[],
+            "review_state":"assumed",
+            "decision_critical":true
+        }]);
+        projection["event_decisions"][0]["assumption_refs"] = json!(["ASSUMPTION-FX"]);
+        let case = graph_case_by_id(&graph, "EVT-001-INVOICE-WITHOUT-SERVICE-PROOF").unwrap();
+        let result = evaluate_projection(&projection, case, &digest).unwrap();
+        assert!(failures(&result).contains("decision_critical_unsupported_assumption"));
+    }
+
+    #[test]
+    fn supported_assumption_must_cite_available_event_evidence() {
+        let (graph, _, digest) = fixtures();
+        let mut projection = make_balanced_projection();
+        projection["assumptions"] = json!([{
+            "assumption_ref":"ASSUMPTION-SUPPORTED",
+            "assumption_kind":"classification",
+            "description":"Use a source-backed classification assumption.",
+            "value":"EXPENSE",
+            "source_assertion_refs":["AS-002-AMOUNT"],
+            "review_state":"supported",
+            "decision_critical":true
+        }]);
+        projection["event_decisions"][0]["assumption_refs"] = json!(["ASSUMPTION-SUPPORTED"]);
+        let case = graph_case_by_id(&graph, "EVT-001-INVOICE-WITHOUT-SERVICE-PROOF").unwrap();
+        let result = evaluate_projection(&projection, case, &digest).unwrap();
+        assert!(failures(&result).contains("assumption_assertion_reference_missing"));
+    }
+
+    #[test]
+    fn decision_period_and_currency_must_match_journal_lines() {
+        let (graph, _, digest) = fixtures();
+        let mut projection = make_balanced_projection();
+        projection["event_decisions"][0]["period_ref"] = Value::String("2026-09".to_owned());
+        let case = graph_case_by_id(&graph, "EVT-001-INVOICE-WITHOUT-SERVICE-PROOF").unwrap();
+        let result = evaluate_projection(&projection, case, &digest).unwrap();
+        assert!(failures(&result).contains("journal_decision_currency_period_mismatch"));
     }
 
     #[test]
