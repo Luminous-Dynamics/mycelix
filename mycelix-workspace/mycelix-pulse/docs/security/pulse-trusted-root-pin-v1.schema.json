@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/pulse-trusted-root-pin-v1.schema.json",
+  "title": "Pulse relying-party trust-root pin v1",
+  "description": "Out-of-band verifier configuration. It must be provisioned independently of the evidence bundle and protected by deployment controls. It pins one Ed25519 root key and one exact current trust-policy snapshot; root rotation is not supported by this v1 pin.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "root_key_id",
+    "root_public_key_hex",
+    "policy_id",
+    "policy_version",
+    "policy_epoch",
+    "policy_sha256",
+    "root_keyset_id"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "root_key_id": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "root_public_key_hex": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$",
+      "description": "Ed25519 root public key. root_key_id must equal sha256:<lowercase SHA-256 of these 32 bytes>."
+    },
+    "policy_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "policy_version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+    },
+    "policy_epoch": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "policy_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$",
+      "description": "Exact digest of the trust-policy file bytes; this makes the accepted current snapshot explicit and prevents replay of an older signed policy."
+    },
+    "root_keyset_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    }
+  }
+}
