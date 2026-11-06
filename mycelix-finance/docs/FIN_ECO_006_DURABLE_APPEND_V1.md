@@ -145,6 +145,16 @@ The contract is backend-neutral. Concrete storage profiles require their own exa
 
 The first implementation should be chosen after deployment and threat modelling. No backend is selected or qualified by this document.
 
+### Storage-model research snapshot — 6 November 2026
+
+The backend choices above are deliberately non-equivalent:
+
+- **PostgreSQL 18:** `SERIALIZABLE` aborts one transaction with `serialization_failure` when a concurrent read/write pattern cannot correspond to any serial execution. PostgreSQL's documentation recommends transaction retries for this specific abort class, but also warns that serializable protection does not extend to hot-standby or logical replicas. Therefore the storage profile must pin the primary write path, isolation level, uniqueness constraints, retry boundary and replication topology. Any retry is for the same immutable, effects-free append transaction; it is not permission to repeat an economic/provider action. Sources: [PostgreSQL 18 SET TRANSACTION](https://www.postgresql.org/docs/18/sql-set-transaction.html) and [PostgreSQL 18 application-level consistency](https://www.postgresql.org/docs/18/applevel-consistency.html).
+- **Holochain:** validation is deterministic peer-auditing of DHT operations. Missing dependencies can yield an indeterminate validation result. Crucially, Holochain's current validation documentation says that even when multiple actions are written within an atomic transaction, they are not validated together as an atomic transaction; an action can depend on prior source-chain actions, not subsequent ones. This is strong for signed author history and peer-verifiable evidence, but it is not proof of a globally atomic multi-agent accounting transaction. A Holochain storage profile must define the ledger writer/authority scope and whether the source chain is the sequencer; DHT records can serve as witness/provenance and independently validated claims. Source: [Holochain Validation](https://developer.holochain.org/build/validation/).
+- **Hybrid profile:** a ledger-scoped transactional store may provide the atomic uniqueness/reversal linearization point, while signed Holochain records carry provenance, author history and peer validation. This is an architectural candidate only; key custody, writer fencing, privacy, authoritative ordering, replication and recovery still need separate proof.
+
+This finding argues against treating “decentralized evidence” and “multi-writer transactional ledger” as synonyms. Select and qualify the storage profile against the required trust topology.
+
 The generic commit-classification kernel may retain its historical crate name during exact convergence; do not fork, rename or rewrite its behavior while claiming inherited qualification. Follow #1089's exact tree/parent/manifest rules.
 
 ## 7. Independent reconstruction
