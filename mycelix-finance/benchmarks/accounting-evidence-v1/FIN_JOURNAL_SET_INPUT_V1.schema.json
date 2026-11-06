@@ -140,7 +140,8 @@
         "reversal_of",
         "correction_of",
         "post_close_authorized",
-        "postings"
+        "postings",
+        "post_close_authorization_ref"
       ],
       "properties": {
         "journal_id": {
@@ -207,6 +208,12 @@
           "items": {
             "$ref": "#/$defs/posting"
           }
+        },
+        "post_close_authorization_ref": {
+          "type": [
+            "string",
+            "null"
+          ]
         }
       }
     },
