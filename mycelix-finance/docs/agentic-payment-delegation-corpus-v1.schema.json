@@ -61,7 +61,7 @@
     },
     "scenarios": {
       "type": "array",
-      "minItems": 30,
+      "minItems": 32,
       "items": {
         "$ref": "#/$defs/scenario"
       }
