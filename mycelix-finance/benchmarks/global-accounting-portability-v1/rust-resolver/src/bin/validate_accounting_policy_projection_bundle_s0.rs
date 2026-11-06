@@ -135,6 +135,12 @@ fn assertion_is_available(case: &Value, assertion: &Value) -> Result<bool, Strin
         && !is_null(assertion, "value"))
 }
 
+fn month_ref_in_period(month: &str, start: &str, end: &str) -> Result<bool, String> {
+    let start_month = start.get(..7).ok_or("period start is not a canonical date")?;
+    let end_month = end.get(..7).ok_or("period end is not a canonical date")?;
+    Ok(month >= start_month && month <= end_month)
+}
+
 fn validate_projection(
     case: &Value,
     graph_digest: &str,
@@ -142,6 +148,11 @@ fn validate_projection(
     projection: &Value,
 ) -> Result<Value, String> {
     let projection_id = string(projection, "projection_id")?;
+    if optional_string(projection, "claim_ceiling")
+        != Some("policy_specific_projection_output_requires_independent_review_not_universal_accounting_truth")
+    {
+        return Err(format!("{projection_id}: unexpected policy projection claim ceiling"));
+    }
     let binding = projection.get("graph_binding").ok_or("projection missing graph_binding")?;
     if string(binding, "graph_case_id")? != bundle_case_id {
         return Err(format!("{projection_id}: projection graph_case_id differs from bundle"));
@@ -155,6 +166,10 @@ fn validate_projection(
     let period = projection.get("period").ok_or("projection period missing")?;
     let projection_start = string(period, "start")?;
     let projection_end = string(period, "end")?;
+    let allowed_currencies = [
+        string(projection, "functional_currency")?,
+        string(projection, "presentation_currency")?,
+    ].into_iter().collect::<BTreeSet<_>>();
     if projection_start > projection_end {
         return Err(format!("{projection_id}: inverted projection period"));
     }
@@ -201,6 +216,9 @@ fn validate_projection(
             return Err(format!("{projection_id}: event {event_ref} has multiple decisions"));
         }
         let event = economic_event(case, event_ref)?;
+        if string(event, "entity_ref")? != string(projection, "entity_ref")? {
+            return Err(format!("{projection_id}/{event_ref}: event entity differs from projection entity"));
+        }
         let event_assertions = reference_set(event, "assertion_refs")?;
         let decision_assertions = reference_set(decision, "source_assertion_refs")?;
         if decision_assertions.is_empty() || !decision_assertions.is_subset(&event_assertions) {
@@ -227,8 +245,18 @@ fn validate_projection(
                 let amount = decision["recognized_amount_minor"]
                     .as_i64()
                     .ok_or("recognized_amount_minor must be integer minor units")?;
-                if amount < 0 {
-                    return Err(format!("{projection_id}/{decision_ref}: recognized amount cannot be negative"));
+                if amount <= 0 {
+                    return Err(format!("{projection_id}/{decision_ref}: recognized amount must be positive"));
+                }
+                if !allowed_currencies.contains(string(decision, "currency")?) {
+                    return Err(format!("{projection_id}/{decision_ref}: recognized currency is not functional or presentation currency"));
+                }
+                if !month_ref_in_period(
+                    string(decision, "period_ref")?,
+                    projection_start,
+                    projection_end,
+                )? {
+                    return Err(format!("{projection_id}/{decision_ref}: recognized period is outside projection period"));
                 }
                 for assertion_ref in &decision_assertions {
                     let assertion = source_assertion(case, assertion_ref)?;
@@ -259,8 +287,20 @@ fn validate_projection(
         for event_ref in array(item, "event_refs")? {
             economic_event(case, event_ref.as_str().ok_or("unresolved event ref must be string")?)?;
         }
-        for assertion_ref in array(item, "source_assertion_refs")? {
-            source_assertion(case, assertion_ref.as_str().ok_or("unresolved assertion ref must be string")?)?;
+        let unresolved_assertions = reference_set(item, "source_assertion_refs")?;
+        if unresolved_assertions.is_empty() && array(item, "event_refs")?.is_empty() {
+            return Err(format!("{projection_id}/{item_ref}: unresolved item has no event or assertion locator"));
+        }
+        let mut event_assertions = BTreeSet::new();
+        for event_ref in array(item, "event_refs")? {
+            let event = economic_event(case, event_ref.as_str().ok_or("unresolved event ref must be string")?)?;
+            event_assertions.extend(reference_set(event, "assertion_refs")?);
+        }
+        for assertion_ref in &unresolved_assertions {
+            source_assertion(case, assertion_ref)?;
+            if !event_assertions.is_empty() && !event_assertions.contains(assertion_ref) {
+                return Err(format!("{projection_id}/{item_ref}: unresolved assertion {assertion_ref} is unrelated to its event refs"));
+            }
         }
     }
 
@@ -310,8 +350,14 @@ fn validate_projection(
                     return Err(format!("{projection_id}/{line_ref}: journal line cites assertion unavailable at graph knowledge frontier"));
                 }
             }
+            if !allowed_currencies.contains(&string(line, "currency")?) {
+                return Err(format!("{projection_id}/{line_ref}: line currency is not functional or presentation currency"));
+            }
             if string(line, "currency")? != string(decision, "currency")? {
                 return Err(format!("{projection_id}/{line_ref}: line currency differs from policy decision"));
+            }
+            if !month_ref_in_period(string(line, "period_ref")?, projection_start, projection_end)? {
+                return Err(format!("{projection_id}/{line_ref}: line period is outside projection period"));
             }
             if string(line, "period_ref")? != string(decision, "period_ref")? {
                 return Err(format!("{projection_id}/{line_ref}: line period differs from policy decision"));
