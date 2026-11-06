@@ -48,7 +48,7 @@ Counts: 8 cases, 16 source objects, 21 assertions, 13 economic events and 4 type
 - Source identity is the tuple (tenant namespace, external ID, revision, source kind); a same-ID object in another tenant remains distinct.
 - Multiple revisions of one source identity require an explicit ordered supersession chain. Unlinked revision families are surfaced.
 - Every assertion points to one source object and locator. Every event points to one or more assertions. Every relation has typed endpoints and source assertion refs.
-- Event amount/currency must equal the cited invoice, credit or payment amount assertion. Service-delivery and settlement event dates must match the cited acceptance/payment-date assertions. Where service-period boundaries are present, start must not follow end.
+- Event amount/currency must equal the cited invoice, credit or payment amount assertion when the amount is unconflicted. If linked amount assertions conflict, every competing assertion must be included and explicitly connected by a `contradicts` relation; the event amount/currency must remain null until resolution. Service-delivery and settlement event dates must match the cited acceptance/payment-date assertions. Where service-period boundaries are present, start must not follow end.
 - A `corrects` relation must link a `credit_issued` event to an `invoice_issued` event with a parent invoice source object in the same tenant namespace. Cross-tenant ID coincidences cannot create parentage.
 - Contradictions are preserved as edges; the validator never selects one conflicting assertion as true.
 - The validator reports future assertions/events, unlinked revisions, contradictions and integrity mismatches. It does not resolve them into accounting conclusions.
