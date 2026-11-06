@@ -15,7 +15,7 @@
   ],
   "properties": {
     "snapshot_id": {
-      "const": "MYCELIX-ACCOUNTING-EXTERNAL-BENCHMARK-SNAPSHOT-2026-11-06T0604-SAST"
+      "const": "MYCELIX-ACCOUNTING-EXTERNAL-BENCHMARK-SNAPSHOT-2026-11-06T1359-SAST"
     },
     "schema_version": {
       "const": "1.3.0"
@@ -24,10 +24,10 @@
       "const": "2026-11-06"
     },
     "captured_at": {
-      "const": "2026-11-06T06:04:00+02:00"
+      "const": "2026-11-06T13:59:00+02:00"
     },
     "supersedes_snapshot_id": {
-      "const": "MYCELIX-ACCOUNTING-EXTERNAL-BENCHMARK-SNAPSHOT-2026-11-05T2212-SAST"
+      "const": "MYCELIX-ACCOUNTING-EXTERNAL-BENCHMARK-SNAPSHOT-2026-11-06T0604-SAST"
     },
     "claim_ceiling": {
       "const": "public_source_metadata_snapshot_not_benchmark_reproduction_or_dataset_license"
@@ -84,7 +84,8 @@
             "methodology_page_display",
             "scope_description",
             "paper_limit_or_exclusion",
-            "publisher_article_display"
+            "publisher_article_display",
+            "alternate_live_page_render_display"
           ]
         },
         "interpretation": {
@@ -140,7 +141,7 @@
           "format": "uri"
         },
         "observed_at": {
-          "const": "2026-11-05T19:39:00+02:00"
+          "const": "2026-11-06T13:59:00+02:00"
         },
         "publication_date": {
           "type": [
@@ -156,7 +157,8 @@
             "live_page_cohort_differs_from_paper_unreconciled",
             "primary_paper_snapshot",
             "publisher_article_cohort_context",
-            "current_live_leaderboard_refresh"
+            "current_live_leaderboard_refresh",
+            "live_page_variant_conflict"
           ]
         },
         "access": {
