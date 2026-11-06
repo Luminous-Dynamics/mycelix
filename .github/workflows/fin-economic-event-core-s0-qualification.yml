@@ -1,0 +1,72 @@
+name: FIN-EVENT-CORE S0 exact-head qualification
+
+on:
+  push:
+    branches:
+      - research/fin-economic-event-core-v1-refresh
+    paths:
+      - "mycelix-finance/benchmarks/global-accounting-portability-v1/economic-event-core-v1/**"
+      - "mycelix-finance/benchmarks/global-accounting-portability-v1/rust-resolver/**"
+      - ".github/workflows/fin-economic-event-core-s0-qualification.yml"
+  pull_request:
+    branches:
+      - research/fin-trust-benchmark-v1
+    paths:
+      - "mycelix-finance/benchmarks/global-accounting-portability-v1/economic-event-core-v1/**"
+      - "mycelix-finance/benchmarks/global-accounting-portability-v1/rust-resolver/**"
+      - ".github/workflows/fin-economic-event-core-s0-qualification.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fin-event-core-${{ github.event.pull_request.head.sha || github.sha }}
+  cancel-in-progress: true
+
+jobs:
+  qualify:
+    name: Schema, bitemporal graph and source-lineage semantics
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      QUALIFIED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+      RESOLVER_DIR: mycelix-finance/benchmarks/global-accounting-portability-v1/rust-resolver
+    steps:
+      - name: Checkout exact qualification subject
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          ref: ${{ env.QUALIFIED_SHA }}
+          persist-credentials: false
+      - name: Assert exact checked-out commit
+        run: test "$(git rev-parse HEAD)" = "${{ env.QUALIFIED_SHA }}"
+      - name: Install pinned Rust
+        uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9
+        with:
+          toolchain: 1.96.1
+          components: rustfmt, clippy
+      - name: Assert toolchain
+        run: test "$(rustc +1.96.1 --version | awk '{print $2}')" = "1.96.1"
+      - name: Format
+        working-directory: ${{ env.RESOLVER_DIR }}
+        run: cargo fmt --all -- --check
+      - name: Locked event-graph tests
+        working-directory: ${{ env.RESOLVER_DIR }}
+        run: cargo test --locked --bin validate_economic_event_graph_s0
+      - name: Warnings-denied Clippy
+        working-directory: ${{ env.RESOLVER_DIR }}
+        run: cargo clippy --locked --all-targets -- -D warnings
+      - name: Emit and validate event-graph report
+        working-directory: ${{ env.RESOLVER_DIR }}
+        run: |
+          cargo run --locked --bin validate_economic_event_graph_s0 -- --output /tmp/economic-event-report.json
+          jq -e '.case_count == 8 and (.cases | length == 8)' /tmp/economic-event-report.json
+      - name: Assert exact subject and clean source
+        run: |
+          test "$(git rev-parse HEAD)" = "${{ env.QUALIFIED_SHA }}"
+          test -z "$(git status --porcelain)"
+      - name: Upload exact-head event-graph report
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: fin-event-core-${{ env.QUALIFIED_SHA }}
+          path: /tmp/economic-event-report.json
+          if-no-files-found: error
