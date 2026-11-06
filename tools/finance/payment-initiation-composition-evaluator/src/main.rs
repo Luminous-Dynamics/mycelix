@@ -172,16 +172,6 @@ fn validate_common_claim(
     Ok(())
 }
 
-fn state_error(state: &str, claim_type: &str) -> Option<String> {
-    match state {
-        "invalid" | "no_match" => Some(format!("{claim_type}: explicit invalid/no-match state")),
-        "unknown" | "stale" | "unable_to_check" | "missing" | "conflict" => {
-            Some(format!("{claim_type}: required assertion is unknown, stale or incomplete"))
-        }
-        _ => None,
-    }
-}
-
 fn push_error(errors: &mut Vec<String>, error: Result<(), String>) {
     if let Err(message) = error {
         errors.push(message);
@@ -232,6 +222,9 @@ fn validate_scenario(corpus: &Value, scenario: &Value) -> (String, String, Vec<S
     let message_state = str_at(message, "state").unwrap_or("unknown");
     if message_state != "verified" {
         errors.push(format!("{scenario_id}: message authenticity is not verified"));
+        if message_state == "invalid" {
+            errors.push(format!("{scenario_id}: explicit invalid message signature"));
+        }
     }
     push_error(
         &mut errors,
@@ -243,6 +236,9 @@ fn validate_scenario(corpus: &Value, scenario: &Value) -> (String, String, Vec<S
     let requester_state = str_at(requester, "state").unwrap_or("unknown");
     if requester_state != "verified" {
         errors.push(format!("{scenario_id}: requester identity is not verified"));
+        if requester_state == "invalid" {
+            errors.push(format!("{scenario_id}: explicit invalid requester identity"));
+        }
     }
     push_error(
         &mut errors,
@@ -259,6 +255,9 @@ fn validate_scenario(corpus: &Value, scenario: &Value) -> (String, String, Vec<S
     let beneficiary_state = str_at(beneficiary, "state").unwrap_or("unknown");
     if !matches!(beneficiary_state, "match" | "close_match") {
         errors.push(format!("{scenario_id}: beneficiary match not sufficient for initiation"));
+        if beneficiary_state == "no_match" {
+            errors.push(format!("{scenario_id}: explicit no-match payee result"));
+        }
     }
     push_error(
         &mut errors,
@@ -278,6 +277,9 @@ fn validate_scenario(corpus: &Value, scenario: &Value) -> (String, String, Vec<S
     let authority = &assertions["collection_authority"];
     if str_at(authority, "state") != Some("verified") {
         errors.push(format!("{scenario_id}: collection authority is not verified"));
+        if str_at(authority, "state") == Some("invalid") {
+            errors.push(format!("{scenario_id}: explicit invalid collection authority"));
+        }
     }
     push_error(
         &mut errors,
@@ -373,6 +375,8 @@ fn validate_scenario(corpus: &Value, scenario: &Value) -> (String, String, Vec<S
             || error.contains("mismatch") || error.contains("no-match")
             || error.contains("different") || error.contains("not bound")
             || error.contains("digest") || error.contains("not trusted")
+            || error.contains("issuer not registered")
+            || error.contains("explicit invalid") || error.contains("no-match")
             || error.contains("unsupported") || error.contains("wrong")
     }) {
         "reject"
