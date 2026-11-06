@@ -746,7 +746,11 @@ mod tests {
         let candidate = fixture();
         let assessment = assess_case(case_by_id(&candidate, "FJS-021")).expect("assessment");
         assert_eq!(assessment.disposition, "unsupported_profile_or_unit");
-        assert!(assessment.reasons.contains("posting_account_not_in_pinned_account_profile"));
+        assert!(
+            assessment
+                .reasons
+                .contains("posting_account_not_in_pinned_account_profile")
+        );
         assert!(assessment.reasons.contains("journal_entry_not_balanced"));
     }
 
