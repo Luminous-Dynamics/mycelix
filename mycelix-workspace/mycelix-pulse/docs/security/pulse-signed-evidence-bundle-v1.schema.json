@@ -333,13 +333,14 @@
           },
           "basis_attestation_ids": {
             "type": "array",
-            "minItems": 1,
+            "minItems": 2,
             "uniqueItems": true,
             "items": {
               "type": "string",
               "minLength": 1,
               "maxLength": 128
-            }
+            },
+            "description": "At least one distinct DSSE-verified attestation for each exact causal endpoint event ID; an attestation for an unrelated event cannot support this edge."
           }
         }
       }
