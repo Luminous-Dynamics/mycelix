@@ -344,7 +344,9 @@
         "case_correct",
         "confidence_brier_contribution",
         "auto_delivery_accepted",
-        "review_routed"
+        "review_routed",
+        "auto_delivery_candidate",
+        "auto_delivery_gate_pass"
       ],
       "properties": {
         "case_id": {
@@ -468,6 +470,12 @@
           "type": "boolean"
         },
         "review_routed": {
+          "type": "boolean"
+        },
+        "auto_delivery_candidate": {
+          "type": "boolean"
+        },
+        "auto_delivery_gate_pass": {
           "type": "boolean"
         }
       }
