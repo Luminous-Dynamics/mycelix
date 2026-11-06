@@ -21,8 +21,10 @@ The event graph is not a journal. It is a stable semantic layer from which separ
 - `economic_event_validation_report_v1.0.0.schema.json`: structural/temporal validation report schema.
 - `fixtures/economic_event_graph_candidates_v1.0.0.json`: eight synthetic graph candidates.
 - `accounting_policy_projection_v1.0.0.schema.json`: policy-specific output contract binding graph, policy and projector digests separately.
+- `accounting_policy_projection_validation_report_v1.0.0.schema.json`: deterministic projection-verification report.
 - `accounting_policy_projection_bundle_v1.0.0.schema.json` and `fixtures/accounting_policy_projection_review_controls_v1.0.0.json`: two review-only projection examples over one immutable graph digest.
 - `../rust-resolver/src/bin/validate_economic_event_graph_s0.rs`: Rust validator/report generator.
+- `../rust-resolver/src/bin/validate_accounting_policy_projection_s0.rs`: exact graph/policy/projector binding and journal-lineage validator.
 
 The eight graph cases cover:
 1. invoice issuance without service-acceptance evidence;
@@ -83,9 +85,9 @@ Optional arguments:
 - `--output PATH`: write the deterministic validation report to a file;
 - `--help`: show usage.
 
-The validator checks Draft 2020-12 schemas; source identity and supersession; assertion/source provenance; valid time and knowledge time; event-to-assertion type consistency; exact event amount/currency/date agreement with cited assertions; same-tenant credit-note parent resolution; typed relation endpoints; self-relations; event supersession cycles; and deterministic input SHA-256. It reports future assertions/events, unlinked revisions, contradictions and integrity mismatches without resolving them into accounting conclusions.
+The event validator checks Draft 2020-12 schemas; source identity and supersession; assertion/source provenance; valid time and knowledge time; event-to-assertion type consistency; exact event amount/currency/date agreement with cited assertions; same-tenant credit-note parent resolution; typed relation endpoints; self-relations; event supersession cycles; and deterministic input SHA-256. The projection validator separately checks exact graph-byte digest, projection graph case, policy and projector pins, event/source assertion cross-links, entity/currency/period consistency, one-to-one policy decision lineage, per-entry balance, and journal debit/credit totals against recognized measurements. It reports future assertions/events, unlinked revisions, contradictions and integrity mismatches without resolving them into accounting conclusions.
 
-Sixteen Rust tests are authored, including source/event amount mismatch, currency mismatch, acceptance/payment-date mismatch, cross-tenant credit-note parent rejection, future evidence, contradictory assertions, unlinked revisions, dangling refs and supersession cycles. Tests are authored but **not executed**. No Cargo compile/test, rustfmt, Clippy, independent Draft 2020-12 runtime pass or CI pass is claimed.
+Seventeen event-graph Rust tests and thirteen projection-validator Rust tests are authored. The event tests include source/event amount mismatch, currency mismatch, acceptance/payment-date mismatch, cross-tenant credit-note parent rejection, future evidence, contradiction preservation without attaching the conflicting assertion to the invoice event, unlinked revisions, dangling refs and supersession cycles. Projection tests cover graph digest mismatch, wrong graph binding, dangling event/assertion refs, recognized measurement requirements, exact event/period journal binding, balanced-but-wrong measurement, unresolved-item references and independent policy/projector digests. Tests are authored but **not executed**. No Cargo compile/test, rustfmt, Clippy, independent Draft 2020-12 runtime pass or CI pass is claimed.
 
 ## Integration and benchmark design
 
