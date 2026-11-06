@@ -540,7 +540,7 @@ fn validate_oracle_references(
     }
     for (key, credit) in &credit_totals {
         let debit = debit_totals.get(key).copied().unwrap_or_default();
-        if *debit != *credit {
+        if debit != *credit {
             return Err(format!("{case_id}: unbalanced journal {:?}: debits {debit}, credits {credit}", key));
         }
     }
