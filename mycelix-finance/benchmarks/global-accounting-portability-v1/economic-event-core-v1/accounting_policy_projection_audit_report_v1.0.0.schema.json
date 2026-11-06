@@ -130,7 +130,16 @@
               "unresolved_event_reference_missing",
               "unresolved_assertion_reference_missing",
               "journal_entity_period_mismatch",
-              "duplicate_policy_decision_ref"
+              "duplicate_policy_decision_ref",
+              "recognized_amount_does_not_match_journal",
+              "journal_decision_currency_period_mismatch",
+              "journal_decision_evidence_closure_incomplete",
+              "decision_assumption_reference_missing",
+              "orphan_projection_assumption",
+              "decision_critical_unsupported_assumption",
+              "assumption_assertion_reference_missing",
+              "assumption_assertion_unavailable",
+              "duplicate_journal_line_ref"
             ]
           }
         }
