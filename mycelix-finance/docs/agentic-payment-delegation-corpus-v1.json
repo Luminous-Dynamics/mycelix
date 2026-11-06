@@ -5772,6 +5772,495 @@
         "revocation_stops_future_dispatch",
         "returns_do_not_replenish_budget"
       ]
+    },
+    {
+      "scenario_id": "PAY-AGENT-031",
+      "mandate": {
+        "mandate_id": "MANDATE-SYNTHETIC-031",
+        "mandate_version": 1,
+        "profile_id": "ZA-CONSUMER-BOUNDED-HNP-V1",
+        "principal_ref": "principal:user-001",
+        "agent_ref": "principal:agent-001",
+        "agent_software_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "qualified_intent_envelope_ref": "qie:synthetic-001",
+        "qualified_intent_envelope_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "approval": {
+          "approval_kind": "principal_approval",
+          "approver_ref": "principal:user-001",
+          "approval_state": "qualified",
+          "receipt_ref": "receipt:mandate-approval-001",
+          "qualified_intent_envelope_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "scope_digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+          "observed_at": "2026-11-06T09:00:00Z",
+          "evidence_types": [
+            "principal_approval_receipt",
+            "qualified_intent_envelope_reference"
+          ]
+        },
+        "created_at": "2026-11-05T09:00:00Z",
+        "not_before": "2026-11-06T00:00:00Z",
+        "expires_at": "2027-01-01T00:00:00Z",
+        "budget_currency": "ZAR",
+        "budget_period_start": "2026-11-06T00:00:00Z",
+        "budget_period_end": "2026-12-06T00:00:00Z",
+        "max_single_debit_minor_units": 10000,
+        "max_total_debit_minor_units": 25000,
+        "max_period_debit_minor_units": 25000,
+        "max_concurrent_reservations": 2,
+        "max_transaction_count": 1,
+        "max_delegation_depth": 1,
+        "allowed_action_classes": [
+          "purchase",
+          "invoice_payment"
+        ],
+        "allowed_purposes": [
+          "purchase",
+          "supplier_invoice"
+        ],
+        "allowed_currencies": [
+          "ZAR",
+          "USD"
+        ],
+        "allowed_beneficiary_refs": [
+          "merchant-a",
+          "supplier-1"
+        ],
+        "allow_new_beneficiary_with_confirmation": false,
+        "require_human_confirmation_for_new_beneficiary": true,
+        "human_confirmation_threshold_minor_units": 8000,
+        "max_fee_minor_units": 200,
+        "max_fx_cost_minor_units": 500,
+        "external_effects_enabled": false
+      },
+      "delegation_chain": [],
+      "actions": [
+        {
+          "action_id": "ACT-031A",
+          "action_request_ref": "action-request:ACT-031A",
+          "exact_action_request_digest": "sha256:0000000000000000000000000000000000000000000000000000000000000031",
+          "qualified_intent_envelope_ref": "qie:synthetic-001",
+          "qualified_intent_envelope_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "agent_ref": "principal:agent-001",
+          "action_class": "purchase",
+          "purpose": "purchase",
+          "beneficiary_ref": "merchant-a",
+          "is_new_beneficiary": false,
+          "amount_minor_units": 5000,
+          "currency": "ZAR",
+          "proposed_at": "2026-11-06T10:00:01.000Z",
+          "fee_state": "known",
+          "fee_minor_units": 10,
+          "fx_state": "not_required",
+          "fx_cost_minor_units": 0,
+          "fx_quote": null,
+          "budget_equivalent_principal_minor_units": 5000,
+          "all_in_budget_minor_units": 5010,
+          "expected_disposition": "consumed"
+        },
+        {
+          "action_id": "ACT-031B",
+          "action_request_ref": "action-request:ACT-031B",
+          "exact_action_request_digest": "sha256:0000000000000000000000000000000000000000000000000000000000000032",
+          "qualified_intent_envelope_ref": "qie:synthetic-001",
+          "qualified_intent_envelope_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "agent_ref": "principal:agent-001",
+          "action_class": "purchase",
+          "purpose": "purchase",
+          "beneficiary_ref": "merchant-a",
+          "is_new_beneficiary": false,
+          "amount_minor_units": 6000,
+          "currency": "ZAR",
+          "proposed_at": "2026-11-06T10:00:02.000Z",
+          "fee_state": "known",
+          "fee_minor_units": 10,
+          "fx_state": "not_required",
+          "fx_cost_minor_units": 0,
+          "fx_quote": null,
+          "budget_equivalent_principal_minor_units": 6000,
+          "all_in_budget_minor_units": 6010,
+          "expected_disposition": "rejected"
+        }
+      ],
+      "events": [
+        {
+          "event_id": "EV-PAY-AGENT-031-1",
+          "sequence": 1,
+          "event_type": "mandate_activated",
+          "observed_at": "2026-11-06T10:00:00.000Z",
+          "actor_role": "principal",
+          "actor_ref": "principal:user-001",
+          "authority_state": "valid",
+          "action_id": null,
+          "reservation_id": null,
+          "amount_minor_units": 0,
+          "exact_action_request_digest": null,
+          "presentation_digest": null,
+          "evidence_types": [
+            "principal_approval_receipt"
+          ],
+          "reason_code": null,
+          "return_reference": null
+        },
+        {
+          "event_id": "EV-PAY-AGENT-031-2",
+          "sequence": 2,
+          "event_type": "action_proposed",
+          "observed_at": "2026-11-06T10:00:01.000Z",
+          "actor_role": "agent",
+          "actor_ref": "principal:agent-001",
+          "authority_state": "valid",
+          "action_id": "ACT-031A",
+          "reservation_id": null,
+          "amount_minor_units": 0,
+          "exact_action_request_digest": "sha256:0000000000000000000000000000000000000000000000000000000000000031",
+          "presentation_digest": null,
+          "evidence_types": [
+            "agent_proposal",
+            "exact_action_request_reference"
+          ],
+          "reason_code": null,
+          "return_reference": null
+        },
+        {
+          "event_id": "EV-PAY-AGENT-031-3",
+          "sequence": 3,
+          "event_type": "action_proposed",
+          "observed_at": "2026-11-06T10:00:02.000Z",
+          "actor_role": "agent",
+          "actor_ref": "principal:agent-001",
+          "authority_state": "valid",
+          "action_id": "ACT-031B",
+          "reservation_id": null,
+          "amount_minor_units": 0,
+          "exact_action_request_digest": "sha256:0000000000000000000000000000000000000000000000000000000000000032",
+          "presentation_digest": null,
+          "evidence_types": [
+            "agent_proposal",
+            "exact_action_request_reference"
+          ],
+          "reason_code": null,
+          "return_reference": null
+        },
+        {
+          "event_id": "EV-PAY-AGENT-031-4",
+          "sequence": 4,
+          "event_type": "reservation_created",
+          "observed_at": "2026-11-06T10:00:03.000Z",
+          "actor_role": "budget_coordinator",
+          "actor_ref": "system:budget-coordinator",
+          "authority_state": "valid",
+          "action_id": "ACT-031A",
+          "reservation_id": "RSV-031A",
+          "amount_minor_units": 5010,
+          "exact_action_request_digest": "sha256:0000000000000000000000000000000000000000000000000000000000000031",
+          "presentation_digest": null,
+          "evidence_types": [
+            "atomic_budget_reservation_receipt"
+          ],
+          "reason_code": null,
+          "return_reference": null
+        },
+        {
+          "event_id": "EV-PAY-AGENT-031-5",
+          "sequence": 5,
+          "event_type": "payment_dispatched",
+          "observed_at": "2026-11-06T10:00:04.000Z",
+          "actor_role": "payment_dispatcher",
+          "actor_ref": "system:payment-dispatcher",
+          "authority_state": "valid",
+          "action_id": "ACT-031A",
+          "reservation_id": "RSV-031A",
+          "amount_minor_units": 0,
+          "exact_action_request_digest": "sha256:0000000000000000000000000000000000000000000000000000000000000031",
+          "presentation_digest": null,
+          "evidence_types": [
+            "dispatch_receipt"
+          ],
+          "reason_code": null,
+          "return_reference": null
+        },
+        {
+          "event_id": "EV-PAY-AGENT-031-6",
+          "sequence": 6,
+          "event_type": "payment_effect_confirmed",
+          "observed_at": "2026-11-06T10:00:05.000Z",
+          "actor_role": "reconciliation_verifier",
+          "actor_ref": "system:reconciler",
+          "authority_state": "valid",
+          "action_id": "ACT-031A",
+          "reservation_id": "RSV-031A",
+          "amount_minor_units": 0,
+          "exact_action_request_digest": "sha256:0000000000000000000000000000000000000000000000000000000000000031",
+          "presentation_digest": null,
+          "evidence_types": [
+            "independent_recipient_available_receipt",
+            "independent_account_reconciliation"
+          ],
+          "reason_code": null,
+          "return_reference": null
+        },
+        {
+          "event_id": "EV-PAY-AGENT-031-7",
+          "sequence": 7,
+          "event_type": "reservation_rejected",
+          "observed_at": "2026-11-06T10:00:06.000Z",
+          "actor_role": "budget_coordinator",
+          "actor_ref": "system:budget-coordinator",
+          "authority_state": "valid",
+          "action_id": "ACT-031B",
+          "reservation_id": null,
+          "amount_minor_units": 0,
+          "exact_action_request_digest": "sha256:0000000000000000000000000000000000000000000000000000000000000032",
+          "presentation_digest": null,
+          "evidence_types": [
+            "reservation_rejection_receipt"
+          ],
+          "reason_code": "total_budget_exhausted",
+          "return_reference": null
+        }
+      ],
+      "expected_budget_used_minor_units": 5010,
+      "expected_outstanding_reservations": 0,
+      "negative_controls": [
+        "no_instruction_without_mandate",
+        "no_scope_expansion",
+        "no_budget_overrun",
+        "unknown_outcome_keeps_reservation",
+        "revocation_stops_future_dispatch",
+        "returns_do_not_replenish_budget"
+      ]
+    },
+    {
+      "scenario_id": "PAY-AGENT-032",
+      "mandate": {
+        "mandate_id": "MANDATE-SYNTHETIC-032",
+        "mandate_version": 1,
+        "profile_id": "ZA-CONSUMER-BOUNDED-HNP-V1",
+        "principal_ref": "principal:user-001",
+        "agent_ref": "principal:agent-001",
+        "agent_software_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "qualified_intent_envelope_ref": "qie:synthetic-001",
+        "qualified_intent_envelope_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "approval": {
+          "approval_kind": "principal_approval",
+          "approver_ref": "principal:user-001",
+          "approval_state": "qualified",
+          "receipt_ref": "receipt:mandate-approval-001",
+          "qualified_intent_envelope_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "scope_digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+          "observed_at": "2026-11-06T09:00:00Z",
+          "evidence_types": [
+            "principal_approval_receipt",
+            "qualified_intent_envelope_reference"
+          ]
+        },
+        "created_at": "2026-11-05T09:00:00Z",
+        "not_before": "2026-11-06T00:00:00Z",
+        "expires_at": "2027-01-01T00:00:00Z",
+        "budget_currency": "ZAR",
+        "budget_period_start": "2026-11-06T00:00:00Z",
+        "budget_period_end": "2026-12-06T00:00:00Z",
+        "max_single_debit_minor_units": 10000,
+        "max_total_debit_minor_units": 25000,
+        "max_period_debit_minor_units": 20000,
+        "max_concurrent_reservations": 2,
+        "max_transaction_count": 5,
+        "max_delegation_depth": 1,
+        "allowed_action_classes": [
+          "purchase",
+          "invoice_payment"
+        ],
+        "allowed_purposes": [
+          "purchase",
+          "supplier_invoice"
+        ],
+        "allowed_currencies": [
+          "ZAR",
+          "USD"
+        ],
+        "allowed_beneficiary_refs": [
+          "merchant-a",
+          "supplier-1"
+        ],
+        "allow_new_beneficiary_with_confirmation": false,
+        "require_human_confirmation_for_new_beneficiary": true,
+        "human_confirmation_threshold_minor_units": 8000,
+        "max_fee_minor_units": 200,
+        "max_fx_cost_minor_units": 500,
+        "external_effects_enabled": false
+      },
+      "delegation_chain": [],
+      "actions": [
+        {
+          "action_id": "ACT-032",
+          "action_request_ref": "action-request:ACT-032",
+          "exact_action_request_digest": "sha256:0000000000000000000000000000000000000000000000000000000000000020",
+          "qualified_intent_envelope_ref": "qie:synthetic-001",
+          "qualified_intent_envelope_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "agent_ref": "principal:agent-001",
+          "action_class": "purchase",
+          "purpose": "purchase",
+          "beneficiary_ref": "merchant-a",
+          "is_new_beneficiary": false,
+          "amount_minor_units": 5000,
+          "currency": "ZAR",
+          "proposed_at": "2026-11-06T10:00:01.000Z",
+          "fee_state": "known",
+          "fee_minor_units": 10,
+          "fx_state": "not_required",
+          "fx_cost_minor_units": 0,
+          "fx_quote": null,
+          "budget_equivalent_principal_minor_units": 5000,
+          "all_in_budget_minor_units": 5010,
+          "expected_disposition": "outcome_unknown"
+        }
+      ],
+      "events": [
+        {
+          "event_id": "EV-PAY-AGENT-032-1",
+          "sequence": 1,
+          "event_type": "mandate_activated",
+          "observed_at": "2026-11-06T10:00:00.000Z",
+          "actor_role": "principal",
+          "actor_ref": "principal:user-001",
+          "authority_state": "valid",
+          "action_id": null,
+          "reservation_id": null,
+          "amount_minor_units": 0,
+          "exact_action_request_digest": null,
+          "presentation_digest": null,
+          "evidence_types": [
+            "principal_approval_receipt"
+          ],
+          "reason_code": null,
+          "return_reference": null
+        },
+        {
+          "event_id": "EV-PAY-AGENT-032-2",
+          "sequence": 2,
+          "event_type": "action_proposed",
+          "observed_at": "2026-11-06T10:00:01.000Z",
+          "actor_role": "agent",
+          "actor_ref": "principal:agent-001",
+          "authority_state": "valid",
+          "action_id": "ACT-032",
+          "reservation_id": null,
+          "amount_minor_units": 0,
+          "exact_action_request_digest": "sha256:0000000000000000000000000000000000000000000000000000000000000020",
+          "presentation_digest": null,
+          "evidence_types": [
+            "agent_proposal",
+            "exact_action_request_reference"
+          ],
+          "reason_code": null,
+          "return_reference": null
+        },
+        {
+          "event_id": "EV-PAY-AGENT-032-3",
+          "sequence": 3,
+          "event_type": "reservation_created",
+          "observed_at": "2026-11-06T10:00:02.000Z",
+          "actor_role": "budget_coordinator",
+          "actor_ref": "system:budget-coordinator",
+          "authority_state": "valid",
+          "action_id": "ACT-032",
+          "reservation_id": "RSV-018",
+          "amount_minor_units": 5010,
+          "exact_action_request_digest": "sha256:0000000000000000000000000000000000000000000000000000000000000020",
+          "presentation_digest": null,
+          "evidence_types": [
+            "atomic_budget_reservation_receipt"
+          ],
+          "reason_code": null,
+          "return_reference": null
+        },
+        {
+          "event_id": "EV-PAY-AGENT-032-4",
+          "sequence": 4,
+          "event_type": "payment_dispatched",
+          "observed_at": "2026-11-06T10:00:03.000Z",
+          "actor_role": "payment_dispatcher",
+          "actor_ref": "system:payment-dispatcher",
+          "authority_state": "valid",
+          "action_id": "ACT-032",
+          "reservation_id": "RSV-018",
+          "amount_minor_units": 0,
+          "exact_action_request_digest": "sha256:0000000000000000000000000000000000000000000000000000000000000020",
+          "presentation_digest": null,
+          "evidence_types": [
+            "dispatch_receipt"
+          ],
+          "reason_code": null,
+          "return_reference": null
+        },
+        {
+          "event_id": "EV-PAY-AGENT-032-5",
+          "sequence": 5,
+          "event_type": "provider_outcome_unknown",
+          "observed_at": "2026-11-06T10:00:04.000Z",
+          "actor_role": "payment_provider",
+          "actor_ref": "provider:synthetic",
+          "authority_state": "unknown",
+          "action_id": "ACT-032",
+          "reservation_id": "RSV-018",
+          "amount_minor_units": 0,
+          "exact_action_request_digest": "sha256:0000000000000000000000000000000000000000000000000000000000000020",
+          "presentation_digest": null,
+          "evidence_types": [
+            "provider_timeout_receipt"
+          ],
+          "reason_code": null,
+          "return_reference": null
+        },
+        {
+          "event_id": "EV-PAY-AGENT-032-6",
+          "sequence": 6,
+          "event_type": "mandate_revocation_requested",
+          "observed_at": "2026-11-06T10:00:06Z",
+          "actor_role": "principal",
+          "actor_ref": "principal:user-001",
+          "authority_state": "valid",
+          "action_id": null,
+          "reservation_id": null,
+          "amount_minor_units": 0,
+          "exact_action_request_digest": null,
+          "presentation_digest": null,
+          "evidence_types": [
+            "authenticated_revocation_request"
+          ],
+          "reason_code": null,
+          "return_reference": null
+        },
+        {
+          "event_id": "EV-PAY-AGENT-032-7",
+          "sequence": 7,
+          "event_type": "mandate_revoked",
+          "observed_at": "2026-11-06T10:00:07Z",
+          "actor_role": "authority_service",
+          "actor_ref": "system:authority-service",
+          "authority_state": "valid",
+          "action_id": null,
+          "reservation_id": null,
+          "amount_minor_units": 0,
+          "exact_action_request_digest": null,
+          "presentation_digest": null,
+          "evidence_types": [
+            "qualified_revocation_receipt"
+          ],
+          "reason_code": null,
+          "return_reference": null
+        }
+      ],
+      "expected_budget_used_minor_units": 5010,
+      "expected_outstanding_reservations": 1,
+      "negative_controls": [
+        "no_instruction_without_mandate",
+        "no_scope_expansion",
+        "no_budget_overrun",
+        "unknown_outcome_keeps_reservation",
+        "revocation_stops_future_dispatch",
+        "returns_do_not_replenish_budget"
+      ]
     }
   ]
 }
