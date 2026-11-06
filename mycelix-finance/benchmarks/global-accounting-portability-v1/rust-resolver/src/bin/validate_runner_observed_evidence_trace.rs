@@ -211,11 +211,16 @@ fn validate_trace(trace: &Value) -> Result<Value, String> {
                         return Err(format!("{trace_id}/{event_id}: source-open event refers to an undeclared source document"));
                     }
                     if !source_opens.get(opened_doc).is_some_and(|opens| {
-                        opens.iter().any(|(_, digest, open_seq)| digest == opened_sha && *open_seq < seq)
+                        opens.iter().any(|(_, digest, open_seq)| digest.as_str() == opened_sha && *open_seq < seq)
                     }) {
                         return Err(format!("{trace_id}/{event_id}: source document was not opened before fact extraction"));
                     }
-                    confirmed_docs.insert(opened_doc.to_owned());
+                    if !confirmed_docs.insert(opened_doc.to_owned()) {
+                        return Err(format!("{trace_id}/{event_id}: more than one source-open revision is bound to the same document fact"));
+                    }
+                }
+                if confirmed_docs.len() != docs.len() {
+                    return Err(format!("{trace_id}/{event_id}: every fact source document must bind to exactly one preceding source-open event"));
                 }
                 if !docs.is_subset(&confirmed_docs) {
                     return Err(format!("{trace_id}/{event_id}: not every cited document has a prior source-open event"));
@@ -243,8 +248,12 @@ fn validate_trace(trace: &Value) -> Result<Value, String> {
                 if related.is_empty() {
                     return Err(format!("{trace_id}/{event_id}: reclassification must cite its cause event"));
                 }
-                if !related.iter().any(|reference| event_by_id.contains_key(reference)) {
-                    return Err(format!("{trace_id}/{event_id}: reclassification references an unknown cause event"));
+                if !related.iter().any(|reference| {
+                    event_by_id.get(reference).is_some_and(|cause| {
+                        cause.get("seq").and_then(Value::as_u64).is_some_and(|cause_seq| cause_seq < seq)
+                    })
+                }) {
+                    return Err(format!("{trace_id}/{event_id}: reclassification must reference a preceding cause event"));
                 }
                 previous.1 = next_state.to_owned();
             }
@@ -284,15 +293,19 @@ fn validate_trace(trace: &Value) -> Result<Value, String> {
                 if !required_docs.is_subset(&docs) {
                     return Err(format!("{trace_id}/{event_id}: question omits source documents for a blocker fact"));
                 }
+                let mut opened_question_docs = BTreeSet::new();
                 for open_ref in &opens {
                     let open = event_by_id
                         .get(open_ref)
                         .ok_or_else(|| format!("{trace_id}/{event_id}: question source-open ref {open_ref} is not a preceding event"))?;
-                    if event_kind(open)? != "source_opened"
-                        || !docs.contains(string(open, "source_document_ref")?)
-                    {
+                    let opened_doc = string(open, "source_document_ref")?;
+                    if event_kind(open)? != "source_opened" || !docs.contains(opened_doc) {
                         return Err(format!("{trace_id}/{event_id}: question source-open ref is inconsistent"));
                     }
+                    opened_question_docs.insert(opened_doc.to_owned());
+                }
+                if !required_docs.is_subset(&opened_question_docs) {
+                    return Err(format!("{trace_id}/{event_id}: each blocker source must have a preceding source-open observation"));
                 }
                 questions.insert(question_ref, (blockers, docs, seq));
             }
@@ -427,10 +440,11 @@ fn validate_trace(trace: &Value) -> Result<Value, String> {
                 if !target_refs.iter().any(|target| {
                     event_by_id.get(target).is_some_and(|event| {
                         optional_string(event, "event_kind") == Some("human_override")
+                            && event.get("seq").and_then(Value::as_u64).is_some_and(|review_seq| review_seq < *terminal_seq)
                             && string_set(event, "fact_refs").is_ok_and(|refs| refs.contains(fact_ref))
                     })
                 }) {
-                    return Err(format!("{trace_id}: fact {fact_ref} terminalized to review without a matching review event"));
+                    return Err(format!("{trace_id}: fact {fact_ref} terminalized to review without a preceding matching review event"));
                 }
             }
             "abstained" | "excluded" => {
@@ -451,6 +465,16 @@ fn validate_trace(trace: &Value) -> Result<Value, String> {
         return Err(format!("{trace_id}: observed facts lack terminal dispositions: {}", missing.join(", ")));
     }
 
+    for (question_ref, (blockers, _, _)) in &questions {
+        for fact_ref in blockers {
+            if !terminalized.get(fact_ref).is_some_and(|(state, targets, _)| {
+                state == "carried_to_question" && targets.contains(question_ref)
+            }) {
+                return Err(format!("{trace_id}: blocker fact {fact_ref} is not terminalized to question {question_ref}"));
+            }
+        }
+    }
+
     for (line_ref, (fact_refs, line_seq)) in &journal_lines {
         for fact_ref in fact_refs {
             let Some((state, targets, terminal_seq)) = terminalized.get(fact_ref) else {
@@ -467,6 +491,15 @@ fn validate_trace(trace: &Value) -> Result<Value, String> {
         .ok_or_else(|| format!("{trace_id}: missing disposition_emitted event"))?;
     if *decision_seq >= *terminal_seq {
         return Err(format!("{trace_id}: disposition must precede execution terminal"));
+    }
+    if terminalized.values().any(|(_, _, fact_terminal_seq)| fact_terminal_seq >= decision_seq) {
+        return Err(format!("{trace_id}: final disposition precedes one or more fact terminal dispositions"));
+    }
+    if questions.values().any(|(_, _, question_seq)| question_seq >= decision_seq)
+        || journal_lines.values().any(|(_, line_seq)| line_seq >= decision_seq)
+        || statement_lines.values().any(|(_, line_seq)| line_seq >= decision_seq)
+    {
+        return Err(format!("{trace_id}: final disposition precedes a question, journal or statement output"));
     }
     let expected_terminal = match decision.as_str() {
         "deliver" => "completed",
@@ -844,6 +877,75 @@ mod tests {
             }]
         });
         (receipt, validation_report)
+    }
+
+
+    #[test]
+    fn rejects_fact_that_binds_multiple_revisions_of_same_document() {
+        let (mut trace, _, _, _) = fixture();
+        let duplicate_open = trace["events"][0].clone();
+        let mut duplicate = duplicate_open;
+        duplicate["seq"] = json!(18);
+        duplicate["event_id"] = json!("EVT-REVISION-OPEN");
+        duplicate["source_revision"] = json!("r2");
+        duplicate["source_sha256"] = json!("d".repeat(64));
+        trace["events"].as_array_mut().unwrap().insert(2, duplicate);
+        let fact = trace["events"].as_array_mut().unwrap().iter_mut()
+            .find(|event| optional_string(event, "event_kind") == Some("fact_observed")
+                && optional_string(event, "fact_ref") == Some("F-001-AMOUNT")).unwrap();
+        fact["source_observation_event_refs"] = json!(["EVT-001-SOURCE-OPEN","EVT-REVISION-OPEN"]);
+        for (index, event) in trace["events"].as_array_mut().unwrap().iter_mut().enumerate() {
+            event["seq"] = json!(index + 1);
+        }
+        assert!(validate_trace(&trace).is_err());
+    }
+
+    #[test]
+    fn rejects_question_blocker_without_fact_terminalized_to_that_question() {
+        let (mut trace, _, _, _) = fixture();
+        let mut fact = trace["events"][2].clone();
+        fact["seq"] = json!(18);
+        fact["event_id"] = json!("EVT-QUESTION-FACT");
+        fact["event_kind"] = json!("question_emitted");
+        fact["question_ref"] = json!("Q-001");
+        fact["question_text_sha256"] = json!("d".repeat(64));
+        fact["blocker_fact_refs"] = json!(["F-001-AMOUNT"]);
+        fact["source_document_refs"] = json!(["DOC-001-INV"]);
+        fact["source_observation_event_refs"] = json!(["EVT-001-SOURCE-OPEN"]);
+        fact["fact_ref"] = Value::Null;
+        fact["fact_type"] = Value::Null;
+        fact["evidence_state"] = Value::Null;
+        fact["fact_value_sha256"] = Value::Null;
+        fact["terminal_state"] = Value::Null;
+        fact["terminal_target_refs"] = json!([]);
+        fact["terminal_reason"] = Value::Null;
+        fact["journal_line_ref"] = Value::Null;
+        fact["journal_line_sha256"] = Value::Null;
+        fact["statement_line_ref"] = Value::Null;
+        fact["statement_line_sha256"] = Value::Null;
+        fact["journal_line_refs"] = json!([]);
+        fact["decision_disposition"] = Value::Null;
+        fact["reason_code"] = Value::Null;
+        fact["terminal_disposition"] = Value::Null;
+        fact["response_sha256"] = Value::Null;
+        trace["events"].as_array_mut().unwrap().insert(16, fact);
+        for (index, event) in trace["events"].as_array_mut().unwrap().iter_mut().enumerate() {
+            event["seq"] = json!(index + 1);
+        }
+        assert!(validate_trace(&trace).is_err());
+    }
+
+    #[test]
+    fn rejects_final_disposition_before_the_last_fact_terminalization() {
+        let (mut trace, _, _, _) = fixture();
+        let events = trace["events"].as_array_mut().unwrap();
+        let disposition = events.iter().position(|event| optional_string(event, "event_kind") == Some("disposition_emitted")).unwrap();
+        let terminalization = events.iter().position(|event| optional_string(event, "event_kind") == Some("fact_terminalized")).unwrap();
+        events.swap(disposition, terminalization);
+        for (index, event) in events.iter_mut().enumerate() {
+            event["seq"] = json!(index + 1);
+        }
+        assert!(validate_trace(&trace).is_err());
     }
 
     #[test]
