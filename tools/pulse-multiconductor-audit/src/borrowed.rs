@@ -19,8 +19,11 @@ struct BorrowedHistory<'a> {
     evidence_class: &'a str,
     #[serde(borrow)]
     source_commit: &'a str,
+    #[serde(borrow)]
     conductors: Vec<BorrowedConductor<'a>>,
+    #[serde(borrow)]
     events: Vec<BorrowedEvent<'a>>,
+    #[serde(borrow)]
     causal_edges: Vec<BorrowedCausalEdge<'a>>,
 }
 
