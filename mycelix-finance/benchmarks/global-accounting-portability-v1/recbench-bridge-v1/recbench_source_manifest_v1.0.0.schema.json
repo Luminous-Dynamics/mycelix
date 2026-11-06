@@ -1,0 +1,674 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/recbench-source-manifest-v1.0.0.json",
+  "title": "Mycelix RecBench External Source Manifest v1.0.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "manifest_id",
+    "schema_version",
+    "claim_ceiling",
+    "captured_at",
+    "dataset",
+    "tiers",
+    "rights_and_access"
+  ],
+  "properties": {
+    "manifest_id": {
+      "const": "MYCELIX-RECBENCH-SOURCE-MANIFEST-S0"
+    },
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "claim_ceiling": {
+      "const": "external_dataset_metadata_and_checksums_not_a_mycelix_benchmark_result"
+    },
+    "captured_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+    },
+    "dataset": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "publisher",
+        "dataset_url",
+        "repo_revision",
+        "dataset_version",
+        "generator_version",
+        "dataset_license",
+        "generator_license",
+        "release_manifest_url",
+        "small_manifest_url",
+        "release_manifest_bytes_archived",
+        "release_manifest_sha256",
+        "small_manifest_bytes_archived",
+        "small_manifest_sha256"
+      ],
+      "properties": {
+        "name": {
+          "const": "RecBench"
+        },
+        "publisher": {
+          "const": "End Close"
+        },
+        "dataset_url": {
+          "const": "https://huggingface.co/datasets/end-close/recbench"
+        },
+        "repo_revision": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{7,40}$"
+        },
+        "dataset_version": {
+          "const": "0.1.0"
+        },
+        "generator_version": {
+          "const": "0.1.0"
+        },
+        "dataset_license": {
+          "const": "CC-BY-4.0"
+        },
+        "generator_license": {
+          "const": "Apache-2.0"
+        },
+        "release_manifest_url": {
+          "type": "string",
+          "format": "uri"
+        },
+        "small_manifest_url": {
+          "type": "string",
+          "format": "uri"
+        },
+        "release_manifest_bytes_archived": {
+          "const": false
+        },
+        "release_manifest_sha256": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "small_manifest_bytes_archived": {
+          "const": false
+        },
+        "small_manifest_sha256": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      }
+    },
+    "tiers": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "small",
+        "medium",
+        "large"
+      ],
+      "properties": {
+        "small": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "tier",
+            "seed",
+            "config_sha256",
+            "row_counts",
+            "input_file_commitments",
+            "oracle_file_commitments",
+            "compressed_size_label"
+          ],
+          "properties": {
+            "tier": {
+              "const": "small"
+            },
+            "seed": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "config_sha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "row_counts": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "ledger",
+                "settlement_lines",
+                "payouts",
+                "bank_statements",
+                "truth_ledger_processor",
+                "truth_line_payout",
+                "truth_payout_bank",
+                "labels_ledger",
+                "labels_processor",
+                "labels_payout",
+                "labels_bank"
+              ],
+              "properties": {
+                "ledger": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "settlement_lines": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "payouts": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "bank_statements": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "truth_ledger_processor": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "truth_line_payout": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "truth_payout_bank": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "labels_ledger": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "labels_processor": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "labels_payout": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "labels_bank": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              }
+            },
+            "input_file_commitments": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "path",
+                  "row_count",
+                  "sha256",
+                  "role",
+                  "candidate_visible"
+                ],
+                "properties": {
+                  "path": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "row_count": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "sha256": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                  },
+                  "role": {
+                    "enum": [
+                      "ledger_input",
+                      "settlement_input",
+                      "payout_input",
+                      "bank_input",
+                      "truth",
+                      "labels"
+                    ]
+                  },
+                  "candidate_visible": {
+                    "type": "boolean"
+                  }
+                }
+              }
+            },
+            "oracle_file_commitments": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "path",
+                  "row_count",
+                  "sha256",
+                  "role",
+                  "candidate_visible"
+                ],
+                "properties": {
+                  "path": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "row_count": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "sha256": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                  },
+                  "role": {
+                    "enum": [
+                      "ledger_input",
+                      "settlement_input",
+                      "payout_input",
+                      "bank_input",
+                      "truth",
+                      "labels"
+                    ]
+                  },
+                  "candidate_visible": {
+                    "type": "boolean"
+                  }
+                }
+              }
+            },
+            "compressed_size_label": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          }
+        },
+        "medium": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "tier",
+            "seed",
+            "config_sha256",
+            "row_counts",
+            "input_file_commitments",
+            "oracle_file_commitments",
+            "compressed_size_label"
+          ],
+          "properties": {
+            "tier": {
+              "const": "medium"
+            },
+            "seed": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "config_sha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "row_counts": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "ledger",
+                "settlement_lines",
+                "payouts",
+                "bank_statements",
+                "truth_ledger_processor",
+                "truth_line_payout",
+                "truth_payout_bank",
+                "labels_ledger",
+                "labels_processor",
+                "labels_payout",
+                "labels_bank"
+              ],
+              "properties": {
+                "ledger": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "settlement_lines": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "payouts": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "bank_statements": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "truth_ledger_processor": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "truth_line_payout": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "truth_payout_bank": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "labels_ledger": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "labels_processor": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "labels_payout": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "labels_bank": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              }
+            },
+            "input_file_commitments": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "path",
+                  "row_count",
+                  "sha256",
+                  "role",
+                  "candidate_visible"
+                ],
+                "properties": {
+                  "path": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "row_count": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "sha256": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                  },
+                  "role": {
+                    "enum": [
+                      "ledger_input",
+                      "settlement_input",
+                      "payout_input",
+                      "bank_input",
+                      "truth",
+                      "labels"
+                    ]
+                  },
+                  "candidate_visible": {
+                    "type": "boolean"
+                  }
+                }
+              }
+            },
+            "oracle_file_commitments": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "path",
+                  "row_count",
+                  "sha256",
+                  "role",
+                  "candidate_visible"
+                ],
+                "properties": {
+                  "path": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "row_count": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "sha256": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                  },
+                  "role": {
+                    "enum": [
+                      "ledger_input",
+                      "settlement_input",
+                      "payout_input",
+                      "bank_input",
+                      "truth",
+                      "labels"
+                    ]
+                  },
+                  "candidate_visible": {
+                    "type": "boolean"
+                  }
+                }
+              }
+            },
+            "compressed_size_label": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          }
+        },
+        "large": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "tier",
+            "seed",
+            "config_sha256",
+            "row_counts",
+            "input_file_commitments",
+            "oracle_file_commitments",
+            "compressed_size_label"
+          ],
+          "properties": {
+            "tier": {
+              "const": "large"
+            },
+            "seed": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "config_sha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "row_counts": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "ledger",
+                "settlement_lines",
+                "payouts",
+                "bank_statements",
+                "truth_ledger_processor",
+                "truth_line_payout",
+                "truth_payout_bank",
+                "labels_ledger",
+                "labels_processor",
+                "labels_payout",
+                "labels_bank"
+              ],
+              "properties": {
+                "ledger": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "settlement_lines": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "payouts": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "bank_statements": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "truth_ledger_processor": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "truth_line_payout": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "truth_payout_bank": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "labels_ledger": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "labels_processor": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "labels_payout": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "labels_bank": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              }
+            },
+            "input_file_commitments": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "path",
+                  "row_count",
+                  "sha256",
+                  "role",
+                  "candidate_visible"
+                ],
+                "properties": {
+                  "path": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "row_count": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "sha256": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                  },
+                  "role": {
+                    "enum": [
+                      "ledger_input",
+                      "settlement_input",
+                      "payout_input",
+                      "bank_input",
+                      "truth",
+                      "labels"
+                    ]
+                  },
+                  "candidate_visible": {
+                    "type": "boolean"
+                  }
+                }
+              }
+            },
+            "oracle_file_commitments": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "path",
+                  "row_count",
+                  "sha256",
+                  "role",
+                  "candidate_visible"
+                ],
+                "properties": {
+                  "path": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "row_count": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "sha256": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                  },
+                  "role": {
+                    "enum": [
+                      "ledger_input",
+                      "settlement_input",
+                      "payout_input",
+                      "bank_input",
+                      "truth",
+                      "labels"
+                    ]
+                  },
+                  "candidate_visible": {
+                    "type": "boolean"
+                  }
+                }
+              }
+            },
+            "compressed_size_label": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          }
+        }
+      }
+    },
+    "rights_and_access": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "dataset_bytes_vendored",
+        "truth_files_vendored",
+        "holdout_policy",
+        "note"
+      ],
+      "properties": {
+        "dataset_bytes_vendored": {
+          "const": false
+        },
+        "truth_files_vendored": {
+          "const": false
+        },
+        "holdout_policy": {
+          "const": "use_a_fresh_private_generator_seed_for_model_evaluation"
+        },
+        "note": {
+          "type": "string",
+          "minLength": 10
+        }
+      }
+    }
+  }
+}
