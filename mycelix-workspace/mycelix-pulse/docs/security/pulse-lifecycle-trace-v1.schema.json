@@ -152,7 +152,8 @@
         },
         "idempotency_key": {
           "type": "string",
-          "minLength": 1
+          "minLength": 1,
+          "description": "Logical grant operation ID; uniqueness is scoped by the authenticated grantor, so the idempotency identity is (grantor, idempotency_key)."
         },
         "authority_index": {
           "type": "integer",
