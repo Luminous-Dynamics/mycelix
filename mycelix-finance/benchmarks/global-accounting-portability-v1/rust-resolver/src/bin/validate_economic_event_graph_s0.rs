@@ -450,6 +450,50 @@ fn validate_service_period_assertions(case: &Value, event: &Value) -> Result<(),
     Ok(())
 }
 
+fn validate_event_identity_matches_assertions(case: &Value, event: &Value) -> Result<(), String> {
+    let event_ref = string(event, "event_ref")?;
+    let checks = [
+        ("reporting_entity", "entity_ref"),
+        ("supplier_identity", "counterparty_ref"),
+        ("counterparty_identity", "counterparty_ref"),
+    ];
+
+    for (fact_type, event_field) in checks {
+        let mut asserted_values = BTreeSet::<String>::new();
+        for assertion_ref in array(event, "assertion_refs")? {
+            let reference = assertion_ref
+                .as_str()
+                .ok_or("event assertion ref is not a string")?;
+            let assertion = assertion_by_ref(case, reference)?;
+            if optional_string(assertion, "fact_type") != Some(fact_type)
+                || optional_string(assertion, "epistemic_state") != Some("asserted")
+                || !assertion_is_available(case, assertion)?
+            {
+                continue;
+            }
+            let value = assertion
+                .get("value")
+                .and_then(Value::as_str)
+                .ok_or_else(|| format!("{event_ref}: {fact_type} assertion must be a string"))?;
+            asserted_values.insert(value.to_owned());
+        }
+
+        if asserted_values.len() > 1 {
+            return Err(format!(
+                "{event_ref}: conflicting available {fact_type} assertions cannot be collapsed into one event identity"
+            ));
+        }
+        if let Some(asserted) = asserted_values.first() {
+            if optional_string(event, event_field) != Some(asserted.as_str()) {
+                return Err(format!(
+                    "{event_ref}: {event_field} does not match available {fact_type} assertion"
+                ));
+            }
+        }
+    }
+    Ok(())
+}
+
 fn validate_events(case: &Value) -> Result<(usize, usize), String> {
     let case_id = string(case, "case_id")?;
     let mut refs = BTreeSet::new();
@@ -477,6 +521,7 @@ fn validate_events(case: &Value) -> Result<(usize, usize), String> {
         }
 
         let types = event_assertion_types(case, event)?;
+        validate_event_identity_matches_assertions(case, event)?;
         match string(event, "event_kind")? {
             "service_delivery" => {
                 if !types.contains("service_acceptance_date") {
@@ -1080,6 +1125,32 @@ mod tests {
             .find(|case| optional_string(case, "case_id") == Some("EVT-005-CROSS-TENANT-SAME-EXTERNAL-ID")).unwrap();
         case["source_objects"][1]["supersedes_source_ref"] = Value::String("SRC-005-A".to_owned());
         assert!(validate_source_objects(case).is_err());
+    }
+
+    #[test]
+    fn event_entity_must_match_available_reporting_entity_assertion() {
+        let (mut bundle, _) = fixtures();
+        let case = bundle["cases"]
+            .as_array_mut()
+            .unwrap()
+            .iter_mut()
+            .find(|case| optional_string(case, "case_id") == Some("EVT-005-CROSS-TENANT-SAME-EXTERNAL-ID"))
+            .unwrap();
+        case["events"][0]["entity_ref"] = Value::String("ENTITY-FORGED".to_owned());
+        assert!(validate_events(case).is_err());
+    }
+
+    #[test]
+    fn event_counterparty_must_match_available_supplier_assertion() {
+        let (mut bundle, _) = fixtures();
+        let case = bundle["cases"]
+            .as_array_mut()
+            .unwrap()
+            .iter_mut()
+            .find(|case| optional_string(case, "case_id") == Some("EVT-001-INVOICE-WITHOUT-SERVICE-PROOF"))
+            .unwrap();
+        case["events"][0]["counterparty_ref"] = Value::String("SUPPLIER-FORGED".to_owned());
+        assert!(validate_events(case).is_err());
     }
 
     #[test]
