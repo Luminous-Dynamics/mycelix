@@ -774,7 +774,7 @@ fn report(corpus: &Value, schema: &Value) -> Value {
     }
 
     let cases = array_at(corpus, "cases").cloned().unwrap_or_default();
-    let mut resolved: Vec<ResolvedCase<'_>> = Vec::new();
+    let mut resolved = Vec::new();
     let mut adjudicator_pairs: BTreeMap<String, (Vec<String>, Vec<String>)> = BTreeMap::new();
     let mut partition_counts = BTreeMap::<String, u64>::new();
     let mut merchant_time_clusters = BTreeSet::<(String, String)>::new();
@@ -870,6 +870,10 @@ fn report(corpus: &Value, schema: &Value) -> Value {
         })
         .collect();
 
+    let any_intervals_estimated = system_reports
+        .iter()
+        .any(|system| system["confidence_intervals"]["estimated"] == true);
+
     json!({
         "evaluator": "mycelix.payment-prevalidation-adjudication.v1",
         "status": "PASS",
@@ -885,7 +889,7 @@ fn report(corpus: &Value, schema: &Value) -> Value {
         "adjudicator_agreement": agreement,
         "confidence_intervals": {
             "method": design["confidence_interval_method"],
-            "estimated": false,
+            "estimated": any_intervals_estimated,
             "bootstrap_replicates": bootstrap_replicates,
             "bootstrap_seed": bootstrap_seed,
             "minimum_independent_clusters": minimum_clusters,
