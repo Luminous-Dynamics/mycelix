@@ -71,13 +71,6 @@ fn find_by_ref<'a>(
         .find(|value| optional_string(value, field) == Some(reference))
 }
 
-fn case_by_id<'a>(bundle: &'a Value, case_id: &str) -> Result<&'a Value, String> {
-    array(bundle, "cases")?
-        .iter()
-        .find(|case| optional_string(case, "case_id") == Some(case_id))
-        .ok_or_else(|| format!("missing candidate case {case_id}"))
-}
-
 fn expectation_by_id<'a>(oracle: &'a Value, case_id: &str) -> Result<&'a Value, String> {
     array(oracle, "expectations")?
         .iter()
