@@ -1322,9 +1322,8 @@ fn benchmark_claim_fanout_history(operation_count: usize) -> Result<History, Box
     })
 }
 
-fn semantic_reports_equal(left: &Report, right: &Report) -> Result<bool, Box<dyn Error>> {
-    let mut left_value = serde_json::to_value(left)?;
-    let mut right_value = serde_json::to_value(right)?;
+fn semantic_report_digest(report: &Report) -> Result<String, Box<dyn Error>> {
+    let mut value = serde_json::to_value(report)?;
     const METRIC_FIELDS: [&str; 7] = [
         "reachability_queries",
         "reachability_cache_hits",
@@ -1334,14 +1333,13 @@ fn semantic_reports_equal(left: &Report, right: &Report) -> Result<bool, Box<dyn
         "reachability_full_source_builds",
         "reachability_cache_limit_skips",
     ];
-    for value in [&mut left_value, &mut right_value] {
-        if let Some(counts) = value.get_mut("counts").and_then(Value::as_object_mut) {
-            for field in METRIC_FIELDS {
-                counts.remove(field);
-            }
+    if let Some(counts) = value.get_mut("counts").and_then(Value::as_object_mut) {
+        for field in METRIC_FIELDS {
+            counts.remove(field);
         }
     }
-    Ok(left_value == right_value)
+    let canonical = serde_json::to_vec(&value)?;
+    Ok(format!("{:x}", Sha256::digest(canonical)))
 }
 
 fn run_join_benchmark(operation_count: usize, output: Option<PathBuf>) -> Result<(), Box<dyn Error>> {
@@ -1361,22 +1359,27 @@ fn run_join_benchmark(operation_count: usize, output: Option<PathBuf>) -> Result
     let generator_commitment_sha256 = format!("{:x}", Sha256::digest(spec.as_bytes()));
 
     // Run the reference early-exit DFS and optimized bounded per-source cache
-    // over the exact same immutable History. Their semantic reports must match.
+    // over the exact same immutable History. Normalize away only cache counters
+    // before comparing semantic reports; findings, status and domain counts must
+    // remain identical.
     reset_peak_to_current_live_bytes();
     let reference_started = Instant::now();
     let reference_report = audit_reference(&history, generator_commitment_sha256.clone());
     let reference_ns = reference_started.elapsed().as_nanos();
     let reference_allocations = allocation_snapshot();
+    let reference_digest = semantic_report_digest(&reference_report)?;
+    let reference_pass = matches!(&reference_report.status, Status::Pass);
+    let reference_metrics = reference_report.counts.clone();
+    drop(reference_report);
 
     reset_peak_to_current_live_bytes();
     let optimized_started = Instant::now();
     let optimized_report = audit(&history, generator_commitment_sha256.clone());
     let optimized_ns = optimized_started.elapsed().as_nanos();
     let optimized_allocations = allocation_snapshot();
-
-    let semantic_equal = semantic_reports_equal(&reference_report, &optimized_report)?;
-    let reference_pass = matches!(reference_report.status, Status::Pass);
-    let optimized_pass = matches!(optimized_report.status, Status::Pass);
+    let optimized_digest = semantic_report_digest(&optimized_report)?;
+    let optimized_pass = matches!(&optimized_report.status, Status::Pass);
+    let semantic_equal = reference_digest == optimized_digest;
     let status = if semantic_equal && reference_pass && optimized_pass {
         "PASS"
     } else {
@@ -1388,7 +1391,6 @@ fn run_join_benchmark(operation_count: usize, output: Option<PathBuf>) -> Result
         reference_ns as f64 / optimized_ns as f64
     };
     let optimized_metrics = &optimized_report.counts;
-    let reference_metrics = &reference_report.counts;
 
     let output_value = serde_json::json!({
         "benchmark_version": 2,
@@ -1400,6 +1402,8 @@ fn run_join_benchmark(operation_count: usize, output: Option<PathBuf>) -> Result
         "conductors": history.conductors.len(),
         "causal_edges": history.causal_edges.len(),
         "findings": optimized_report.findings.len(),
+        "reference_semantic_report_sha256": reference_digest,
+        "optimized_semantic_report_sha256": optimized_digest,
         "semantic_reports_equal": semantic_equal,
         "reference_uncached": {
             "status": if reference_pass { "PASS" } else { "FAIL" },
