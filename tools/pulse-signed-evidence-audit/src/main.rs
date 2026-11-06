@@ -1,7 +1,7 @@
 use base64::{Engine as _, engine::general_purpose::STANDARD};
 use ed25519_dalek::{Signature, Verifier, VerifyingKey};
 use serde::{Deserialize, Serialize};
-use serde_json::{Value, json};
+use serde_json::Value;
 use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 use std::env;
@@ -774,10 +774,10 @@ fn audit(
                 media_type,
                 signed_statement_cose_base64,
                 statement_sha256,
-                receipts: _,
+                receipts,
             } => {
                 let bytes = match STANDARD.decode(signed_statement_cose_base64) {
-                    Ok(v) => v,
+                    Ok(value) => value,
                     Err(_) => {
                         finding(
                             &mut findings,
@@ -800,16 +800,57 @@ fn audit(
                         Some(&attestation.attestation_id),
                         "SCITT media type or signed-statement SHA-256 commitment is invalid",
                     );
-                } else {
-                    scitt_unverified += 1;
+                    continue;
+                }
+
+                // Validate the declared receipt envelope shape and content
+                // commitments, but do not authenticate TS keys or VDS proofs.
+                // A syntactically valid receipt remains INCOMPLETE until the
+                // selected COSE/SCITT verifier and trust policy are implemented.
+                if receipts.is_empty() {
                     finding(
                         &mut findings,
-                        "SCITT_COSE_VERIFICATION_UNIMPLEMENTED",
+                        "SCITT_RECEIPTS_MISSING",
                         "incomplete",
                         Some(&attestation.attestation_id),
-                        "COSE signature and receipt verification are not implemented by this first DSSE-only verifier",
+                        "SCITT evidence has no transparency-service receipts",
                     );
                 }
+                let mut receipt_ids = BTreeSet::new();
+                for receipt in receipts {
+                    if receipt.media_type != "application/scitt-receipt+cose"
+                        || receipt.ts_issuer.trim().is_empty()
+                        || receipt.ts_keyid.trim().is_empty()
+                        || !receipt_ids.insert((receipt.ts_issuer.clone(), receipt.ts_keyid.clone()))
+                        || !valid_sha256(&receipt.registration_policy_sha256)
+                    {
+                        finding(
+                            &mut findings,
+                            "SCITT_RECEIPT_METADATA_INVALID",
+                            "violation",
+                            Some(&attestation.attestation_id),
+                            "SCITT receipt media type, issuer, key ID or registration-policy digest is invalid or duplicated",
+                        );
+                        continue;
+                    }
+                    if STANDARD.decode(&receipt.receipt_cose_base64).is_err() {
+                        finding(
+                            &mut findings,
+                            "SCITT_RECEIPT_BASE64_INVALID",
+                            "violation",
+                            Some(&attestation.attestation_id),
+                            "SCITT receipt is not valid standard base64",
+                        );
+                    }
+                }
+                scitt_unverified += 1;
+                finding(
+                    &mut findings,
+                    "SCITT_COSE_VERIFICATION_UNIMPLEMENTED",
+                    "incomplete",
+                    Some(&attestation.attestation_id),
+                    "COSE signatures, receipt authenticity and transparency-service VDS proofs are not verified by this DSSE-only verifier",
+                );
             }
         }
     }
@@ -964,6 +1005,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 mod tests {
     use super::*;
     use ed25519_dalek::{Signer, SigningKey};
+    use serde_json::json;
 
     fn hex(bytes: &[u8]) -> String {
         bytes.iter().map(|b| format!("{b:02x}")).collect()
