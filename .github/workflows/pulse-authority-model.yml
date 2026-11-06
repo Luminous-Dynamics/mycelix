@@ -12,6 +12,7 @@ on:
       - "mycelix-workspace/mycelix-pulse/docs/security/PulseAuthorityCheckpointLineage*"
       - "mycelix-workspace/mycelix-pulse/docs/security/PulseAuthorityCausalFrontier*"
       - "mycelix-workspace/mycelix-pulse/docs/security/PulseSignalTrust*"
+      - "mycelix-workspace/mycelix-pulse/docs/security/PulseTrustRootLifecycle*"
       - "mycelix-workspace/mycelix-pulse/docs/security/authorization-lifecycle-qualification-v1.md"
   pull_request:
     paths:
@@ -311,6 +312,76 @@ jobs:
           grep -q "NoFalseFreshCausalFrontier" \
             "${RUNNER_TEMP}/pulse-tlc-artifacts/causal-frontier-scalar-mutant/tlc.log"
 
+      - name: Check safe trust-root and key-lifecycle model
+        working-directory: mycelix-workspace/mycelix-pulse/docs/security
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "${RUNNER_TEMP}/pulse-tlc-artifacts/trust-root-safe"
+          java -XX:+UseParallelGC -Xmx2g \
+            -jar "${RUNNER_TEMP}/tlaplus/tla2tools.jar" \
+            -metadir "${RUNNER_TEMP}/pulse-tlc-artifacts/trust-root-safe/states" \
+            -config PulseTrustRootLifecycle.cfg \
+            PulseTrustRootLifecycle.tla \
+            2>&1 | tee "${RUNNER_TEMP}/pulse-tlc-artifacts/trust-root-safe/tlc.log"
+
+      - name: Require self-asserted trust-root mutant counterexample
+        working-directory: mycelix-workspace/mycelix-pulse/docs/security
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "${RUNNER_TEMP}/pulse-tlc-artifacts/trust-root-self-mutant"
+          set +e
+          java -XX:+UseParallelGC -Xmx2g \
+            -jar "${RUNNER_TEMP}/tlaplus/tla2tools.jar" \
+            -metadir "${RUNNER_TEMP}/pulse-tlc-artifacts/trust-root-self-mutant/states" \
+            -config PulseTrustRootLifecycle-self-root-mutant.cfg \
+            PulseTrustRootLifecycle.tla \
+            2>&1 | tee "${RUNNER_TEMP}/pulse-tlc-artifacts/trust-root-self-mutant/tlc.log"
+          status=${PIPESTATUS[0]}
+          set -e
+          test "$status" -ne 0
+          grep -q "OnlyPinnedRootCanAuthorizePolicy" \
+            "${RUNNER_TEMP}/pulse-tlc-artifacts/trust-root-self-mutant/tlc.log"
+
+      - name: Require trust-policy rollback mutant counterexample
+        working-directory: mycelix-workspace/mycelix-pulse/docs/security
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "${RUNNER_TEMP}/pulse-tlc-artifacts/trust-root-rollback-mutant"
+          set +e
+          java -XX:+UseParallelGC -Xmx2g \
+            -jar "${RUNNER_TEMP}/tlaplus/tla2tools.jar" \
+            -metadir "${RUNNER_TEMP}/pulse-tlc-artifacts/trust-root-rollback-mutant/states" \
+            -config PulseTrustRootLifecycle-rollback-mutant.cfg \
+            PulseTrustRootLifecycle.tla \
+            2>&1 | tee "${RUNNER_TEMP}/pulse-tlc-artifacts/trust-root-rollback-mutant/tlc.log"
+          status=${PIPESTATUS[0]}
+          set -e
+          test "$status" -ne 0
+          grep -q "PolicyEpochNeverRollsBack" \
+            "${RUNNER_TEMP}/pulse-tlc-artifacts/trust-root-rollback-mutant/tlc.log"
+
+      - name: Require revoked-key acceptance mutant counterexample
+        working-directory: mycelix-workspace/mycelix-pulse/docs/security
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "${RUNNER_TEMP}/pulse-tlc-artifacts/trust-root-revocation-mutant"
+          set +e
+          java -XX:+UseParallelGC -Xmx2g \
+            -jar "${RUNNER_TEMP}/tlaplus/tla2tools.jar" \
+            -metadir "${RUNNER_TEMP}/pulse-tlc-artifacts/trust-root-revocation-mutant/states" \
+            -config PulseTrustRootLifecycle-revocation-mutant.cfg \
+            PulseTrustRootLifecycle.tla \
+            2>&1 | tee "${RUNNER_TEMP}/pulse-tlc-artifacts/trust-root-revocation-mutant/tlc.log"
+          status=${PIPESTATUS[0]}
+          set -e
+          test "$status" -ne 0
+          grep -q "NoRevokedKeyAcceptedUnderCurrentPolicy" \
+            "${RUNNER_TEMP}/pulse-tlc-artifacts/trust-root-revocation-mutant/tlc.log"
+
       - name: Record exact model receipt
         if: always()
         working-directory: mycelix-workspace/mycelix-pulse/docs/security
@@ -352,6 +423,11 @@ jobs:
             echo "signal_trust_safe_config_sha256=$(sha256sum PulseSignalTrust.cfg | cut -d' ' -f1)"
             echo "signal_trust_forged_mutant_sha256=$(sha256sum PulseSignalTrust-forged-payload-mutant.cfg | cut -d' ' -f1)"
             echo "signal_trust_replay_mutant_sha256=$(sha256sum PulseSignalTrust-replay-mutant.cfg | cut -d' ' -f1)"
+            echo "trust_root_spec_sha256=$(sha256sum PulseTrustRootLifecycle.tla | cut -d' ' -f1)"
+            echo "trust_root_safe_config_sha256=$(sha256sum PulseTrustRootLifecycle.cfg | cut -d' ' -f1)"
+            echo "trust_root_self_mutant_sha256=$(sha256sum PulseTrustRootLifecycle-self-root-mutant.cfg | cut -d' ' -f1)"
+            echo "trust_root_rollback_mutant_sha256=$(sha256sum PulseTrustRootLifecycle-rollback-mutant.cfg | cut -d' ' -f1)"
+            echo "trust_root_revocation_mutant_sha256=$(sha256sum PulseTrustRootLifecycle-revocation-mutant.cfg | cut -d' ' -f1)"
             java -version > "${RUNNER_TEMP}/java-version.txt" 2>&1
             sed -n '1p' "${RUNNER_TEMP}/java-version.txt"
           } > "${RUNNER_TEMP}/pulse-tlc-artifacts/receipt.txt"
