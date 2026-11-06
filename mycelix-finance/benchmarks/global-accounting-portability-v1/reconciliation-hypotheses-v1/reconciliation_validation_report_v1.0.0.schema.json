@@ -1,0 +1,183 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/mycelix-reconciliation-validation-report-v1.0.0.json",
+  "title": "Mycelix Reconciliation Validation Report v1.0.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "report_id",
+    "schema_version",
+    "claim_ceiling",
+    "source_bundle_sha256",
+    "hypotheses_bundle_sha256",
+    "run_count",
+    "totals",
+    "run_results"
+  ],
+  "properties": {
+    "report_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "claim_ceiling": {
+      "const": "deterministic_hypothesis_contract_validation_not_match_quality_or_ledger_posting"
+    },
+    "source_bundle_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "hypotheses_bundle_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "run_count": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "totals": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "hypothesis_count",
+        "eligible_for_auto_match_count",
+        "review_required_count",
+        "ambiguous_count",
+        "blocked_count",
+        "candidate_pair_count",
+        "allocation_count",
+        "unmatched_item_count",
+        "reused_source_item_count",
+        "unresolved_amount_minor"
+      ],
+      "properties": {
+        "hypothesis_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "eligible_for_auto_match_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "review_required_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "ambiguous_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "blocked_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "candidate_pair_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "allocation_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "unmatched_item_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "reused_source_item_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "unresolved_amount_minor": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "run_results": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/runResult"
+      }
+    }
+  },
+  "$defs": {
+    "runResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "run_id",
+        "hypothesis_count",
+        "eligible_for_auto_match_count",
+        "review_required_count",
+        "ambiguous_count",
+        "blocked_count",
+        "candidate_pair_count",
+        "allocation_count",
+        "unmatched_item_count",
+        "unresolved_amount_minor",
+        "reused_source_item_count",
+        "finding_codes"
+      ],
+      "properties": {
+        "run_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "hypothesis_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "eligible_for_auto_match_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "review_required_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "ambiguous_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "blocked_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "candidate_pair_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "allocation_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "unmatched_item_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "unresolved_amount_minor": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "reused_source_item_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "finding_codes": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "ambiguous_alternatives_retained",
+              "partial_allocation_requires_review",
+              "blocked_candidate_preserved",
+              "unmatched_source_item_preserved"
+            ]
+          }
+        }
+      }
+    }
+  }
+}
