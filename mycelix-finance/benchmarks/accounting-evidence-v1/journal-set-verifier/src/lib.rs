@@ -688,6 +688,20 @@ mod tests {
     fn semantically_equivalent_permutations_preserve_disposition() {
         let candidate = parse(include_str!("../../fin_journal_set_candidates_v1.0.0.json"));
         let case = case_by_id(&candidate, "FJS-023");
-        assert_eq!(assess_case(case).expect("assessment").disposition, "complete_exact_population_and_rollforward");
+        assert_eq!(
+            assess_case(case).expect("assessment").disposition,
+            "complete_exact_population_and_rollforward"
+        );
+    }
+
+    #[test]
+    fn post_close_flag_without_authorization_reference_is_rejected() {
+        let candidate = parse(include_str!("../../fin_journal_set_candidates_v1.0.0.json"));
+        let case = case_by_id(&candidate, "FJS-025");
+        let assessment = assess_case(case).expect("assessment");
+        assert_eq!(assessment.disposition, "orphan_or_unauthorized_journal");
+        assert!(assessment
+            .reasons
+            .contains("post_close_authorization_reference_missing"));
     }
 }
