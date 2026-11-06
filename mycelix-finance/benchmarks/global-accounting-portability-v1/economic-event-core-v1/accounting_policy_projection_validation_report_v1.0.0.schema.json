@@ -1,0 +1,121 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/mycelix-accounting-policy-projection-validation-report-v1.0.0.json",
+  "title": "Mycelix Accounting Policy Projection Validation Report v1.0.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "report_id",
+    "schema_version",
+    "claim_ceiling",
+    "graph_sha256",
+    "projection_count",
+    "all_graph_bindings_match",
+    "projections"
+  ],
+  "properties": {
+    "report_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "claim_ceiling": {
+      "const": "projection_binding_and_ledger_invariant_validation_not_accounting_policy_correctness"
+    },
+    "graph_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "projection_count": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "all_graph_bindings_match": {
+      "const": true
+    },
+    "projections": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/projection"
+      }
+    }
+  },
+  "$defs": {
+    "projection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "projection_id",
+        "policy_sha256",
+        "projector_sha256",
+        "projection_state",
+        "event_decision_count",
+        "journal_entry_count",
+        "journal_line_count",
+        "unresolved_item_count",
+        "journals_balanced",
+        "findings"
+      ],
+      "properties": {
+        "projection_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "policy_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "projector_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "projection_state": {
+          "enum": [
+            "complete_for_review",
+            "needs_review",
+            "indeterminate",
+            "not_projected"
+          ]
+        },
+        "event_decision_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "journal_entry_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "journal_line_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "unresolved_item_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "journals_balanced": {
+          "type": "boolean"
+        },
+        "findings": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "blocking_unresolved_item",
+              "unresolved_event_or_assertion_ref",
+              "journal_entry_unbalanced",
+              "journal_line_without_recognized_decision",
+              "graph_binding_mismatch",
+              "recognized_decision_missing_measurement",
+              "duplicate_policy_decision_ref",
+              "duplicate_journal_line_ref"
+            ]
+          }
+        }
+      }
+    }
+  }
+}
