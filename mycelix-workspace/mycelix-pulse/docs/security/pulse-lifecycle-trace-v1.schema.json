@@ -304,6 +304,7 @@
       "type": "object",
       "additionalProperties": false,
       "required": [
+        "actor",
         "operation_id",
         "attempt_id",
         "effect_id",
@@ -325,6 +326,11 @@
         "action_hash": {
           "type": "string",
           "minLength": 1
+        },
+        "actor": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Authenticated actor that owns the logical operation ID; used to scope retries/effects independently across principals."
         }
       }
     },
@@ -458,6 +464,7 @@
       "type": "object",
       "additionalProperties": false,
       "required": [
+        "actor",
         "operation_id",
         "attempt_id",
         "outcome"
@@ -479,6 +486,11 @@
             "not_committed",
             "rejected"
           ]
+        },
+        "actor": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Caller identity that owns the logical operation ID and attempt ID."
         }
       }
     },
