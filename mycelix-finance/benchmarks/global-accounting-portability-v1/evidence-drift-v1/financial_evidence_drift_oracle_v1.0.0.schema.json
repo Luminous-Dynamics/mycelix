@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/financial-evidence-drift-oracle-v1.0.0.json",
+  "title": "Mycelix Financial Evidence Drift Oracle v1.0.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "oracle_id",
+    "schema_version",
+    "claim_ceiling",
+    "expectations"
+  ],
+  "properties": {
+    "oracle_id": {
+      "const": "MYCELIX-FINANCIAL-EVIDENCE-DRIFT-S0-ORACLE"
+    },
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "claim_ceiling": {
+      "const": "synthetic_expected_impact_labels_not_production_accounting_authority"
+    },
+    "expectations": {
+      "type": "array",
+      "minItems": 10,
+      "items": {
+        "$ref": "#/$defs/expectation"
+      }
+    }
+  },
+  "$defs": {
+    "expectation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "case_id",
+        "expected_classification",
+        "expected_impacted_refs",
+        "caller_claim_expected_to_match"
+      ],
+      "properties": {
+        "case_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "expected_classification": {
+          "enum": [
+            "no_material_impact",
+            "review_required",
+            "reproject_required",
+            "historical_replay_required",
+            "projection_invalid"
+          ]
+        },
+        "expected_impacted_refs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        },
+        "caller_claim_expected_to_match": {
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}
