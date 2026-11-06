@@ -118,6 +118,7 @@
       "required": [
         "policy_id",
         "policy_version",
+        "policy_epoch",
         "policy_sha256",
         "root_keyset_id"
       ],
@@ -139,6 +140,11 @@
           "type": "string",
           "minLength": 1,
           "maxLength": 256
+        },
+        "policy_epoch": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Exact policy epoch included in the digest-bound trust-policy reference."
         }
       }
     },
