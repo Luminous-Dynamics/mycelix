@@ -30,7 +30,8 @@
       "forbid_auto_close": false,
       "reason_codes": [
         "unique_exact_amount_currency"
-      ]
+      ],
+      "expected_excluded_source_refs": []
     },
     {
       "case_id": "RBC-002-FEE-NETTING",
@@ -59,7 +60,8 @@
       "forbid_auto_close": false,
       "reason_codes": [
         "fee_reconciles_gross_to_net"
-      ]
+      ],
+      "expected_excluded_source_refs": []
     },
     {
       "case_id": "RBC-003-FX-PAYOUT",
@@ -88,7 +90,8 @@
       "forbid_auto_close": false,
       "reason_codes": [
         "cross_currency_projection_requires_explicit_fx_evidence"
-      ]
+      ],
+      "expected_excluded_source_refs": []
     },
     {
       "case_id": "RBC-004-TIMEZONE-DAY-BOUNDARY",
@@ -108,7 +111,8 @@
       "forbid_auto_close": false,
       "reason_codes": [
         "valid_processor_sales_day_offset"
-      ]
+      ],
+      "expected_excluded_source_refs": []
     },
     {
       "case_id": "RBC-005-PARTIAL-CAPTURE",
@@ -129,7 +133,8 @@
       "forbid_auto_close": false,
       "reason_codes": [
         "multiple_captures_fully_cover_source_amount"
-      ]
+      ],
+      "expected_excluded_source_refs": []
     },
     {
       "case_id": "RBC-006-DUPLICATE-SETTLEMENT-FEED",
@@ -144,7 +149,8 @@
       "reason_codes": [
         "same_external_source_identity_multiple_feeds",
         "deduplication_not_proven"
-      ]
+      ],
+      "expected_excluded_source_refs": []
     },
     {
       "case_id": "RBC-007-REVERSAL",
@@ -173,7 +179,8 @@
       "forbid_auto_close": false,
       "reason_codes": [
         "reversal_preserves_original_settlement_history"
-      ]
+      ],
+      "expected_excluded_source_refs": []
     },
     {
       "case_id": "RBC-008-DEPOSIT-UNBUNDLE",
@@ -194,7 +201,8 @@
       "forbid_auto_close": false,
       "reason_codes": [
         "unique_subset_sum_group_match"
-      ]
+      ],
+      "expected_excluded_source_refs": []
     },
     {
       "case_id": "RBC-009-PROVABLY-AMBIGUOUS",
@@ -210,7 +218,8 @@
       "reason_codes": [
         "multiple_equivalent_matching_assignments",
         "amount_only_is_not_unique_identity"
-      ]
+      ],
+      "expected_excluded_source_refs": []
     },
     {
       "case_id": "RBC-010-UNMATCHED-BANK-MOVEMENT",
@@ -222,6 +231,9 @@
       "forbid_auto_close": true,
       "reason_codes": [
         "no_counterpart_available_at_knowledge_frontier"
+      ],
+      "expected_excluded_source_refs": [
+        "SRC-010-P-FUTURE"
       ]
     }
   ]
