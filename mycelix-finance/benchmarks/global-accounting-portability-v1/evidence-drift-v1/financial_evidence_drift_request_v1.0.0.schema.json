@@ -1170,6 +1170,9 @@
           }
         }
       }
+    },
+    "graphCase": {
+      "$ref": "#/$defs/case"
     }
   }
 }
