@@ -1,5 +1,5 @@
 use jsonschema::draft202012;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 use std::{
     collections::{BTreeMap, BTreeSet},
@@ -90,13 +90,21 @@ fn event_by_ref<'a>(graph_case: &'a Value, event_ref: &str) -> Result<&'a Value,
 }
 
 fn assertion_by_ref<'a>(graph_case: &'a Value, assertion_ref: &str) -> Result<&'a Value, String> {
-    find_by_ref(array(graph_case, "assertions")?, "assertion_ref", assertion_ref)
-        .ok_or_else(|| format!("unknown graph assertion {assertion_ref}"))
+    find_by_ref(
+        array(graph_case, "assertions")?,
+        "assertion_ref",
+        assertion_ref,
+    )
+    .ok_or_else(|| format!("unknown graph assertion {assertion_ref}"))
 }
 
 fn source_by_ref<'a>(graph_case: &'a Value, source_ref: &str) -> Result<&'a Value, String> {
-    find_by_ref(array(graph_case, "source_objects")?, "source_ref", source_ref)
-        .ok_or_else(|| format!("unknown graph source {source_ref}"))
+    find_by_ref(
+        array(graph_case, "source_objects")?,
+        "source_ref",
+        source_ref,
+    )
+    .ok_or_else(|| format!("unknown graph source {source_ref}"))
 }
 
 fn string_set(value: &Value, key: &str) -> Result<BTreeSet<String>, String> {
@@ -113,18 +121,22 @@ fn string_set(value: &Value, key: &str) -> Result<BTreeSet<String>, String> {
 fn assertion_available(graph_case: &Value, assertion: &Value) -> Result<bool, String> {
     let frontier = string(graph_case, "knowledge_at")?;
     let source = source_by_ref(graph_case, string(assertion, "source_ref")?)?;
-    let period = graph_case.get("period").ok_or("graph case missing period")?;
+    let period = graph_case
+        .get("period")
+        .ok_or("graph case missing period")?;
     let period_start = string(period, "start")?;
     let period_end = string(period, "end")?;
     let valid_from = string(assertion, "valid_from")?;
     let valid_to = assertion.get("valid_to").and_then(Value::as_str);
-    let overlaps = valid_from <= period_end
-        && valid_to.is_none_or(|end| end >= period_start);
-    let superseded = array(graph_case, "source_objects")?.iter().any(|candidate| {
-        optional_string(candidate, "supersedes_source_ref")
-            == optional_string(source, "source_ref")
-            && optional_string(candidate, "received_at").is_some_and(|received| received <= frontier)
-    });
+    let overlaps = valid_from <= period_end && valid_to.is_none_or(|end| end >= period_start);
+    let superseded = array(graph_case, "source_objects")?
+        .iter()
+        .any(|candidate| {
+            optional_string(candidate, "supersedes_source_ref")
+                == optional_string(source, "source_ref")
+                && optional_string(candidate, "received_at")
+                    .is_some_and(|received| received <= frontier)
+        });
     Ok(string(assertion, "recorded_at")? <= frontier
         && string(source, "received_at")? <= frontier
         && overlaps
@@ -134,10 +146,7 @@ fn assertion_available(graph_case: &Value, assertion: &Value) -> Result<bool, St
         && !optional_is_null(assertion, "value"))
 }
 
-fn projection_decision_by_ref<'a>(
-    projection: &'a Value,
-    decision_ref: &str,
-) -> Option<&'a Value> {
+fn projection_decision_by_ref<'a>(projection: &'a Value, decision_ref: &str) -> Option<&'a Value> {
     array(projection, "event_decisions")
         .ok()?
         .iter()
@@ -165,22 +174,30 @@ fn evaluate_projection(
     let projection_id = string(projection, "projection_id")?;
     let mut failures = BTreeSet::<&'static str>::new();
 
-    let graph_binding = projection.get("graph_binding").ok_or("projection missing graph_binding")?;
+    let graph_binding = projection
+        .get("graph_binding")
+        .ok_or("projection missing graph_binding")?;
     let graph_binding_valid = optional_string(graph_binding, "graph_sha256")
         == Some(actual_graph_sha256)
-        && optional_string(graph_binding, "graph_case_id") == optional_string(graph_case, "case_id");
+        && optional_string(graph_binding, "graph_case_id")
+            == optional_string(graph_case, "case_id");
     if !graph_binding_valid {
         failure(&mut failures, "graph_digest_mismatch");
     }
 
-    let policy_binding = projection.get("policy_binding").ok_or("projection missing policy_binding")?;
+    let policy_binding = projection
+        .get("policy_binding")
+        .ok_or("projection missing policy_binding")?;
     let policy_binding_valid = valid_digest(optional_string(policy_binding, "policy_sha256"));
     if !policy_binding_valid {
         failure(&mut failures, "policy_digest_invalid");
     }
 
-    let projector_binding = projection.get("projector_binding").ok_or("projection missing projector_binding")?;
-    let projector_binding_valid = valid_digest(optional_string(projector_binding, "projector_sha256"));
+    let projector_binding = projection
+        .get("projector_binding")
+        .ok_or("projection missing projector_binding")?;
+    let projector_binding_valid =
+        valid_digest(optional_string(projector_binding, "projector_sha256"));
     if !projector_binding_valid {
         failure(&mut failures, "projector_digest_invalid");
     }
@@ -207,7 +224,10 @@ fn evaluate_projection(
             event_decision_coverage = false;
             continue;
         }
-        if decisions_by_event.insert(event_ref.to_owned(), decision).is_some() {
+        if decisions_by_event
+            .insert(event_ref.to_owned(), decision)
+            .is_some()
+        {
             failure(&mut failures, "duplicate_event_decision");
             event_decision_coverage = false;
         }
@@ -238,7 +258,10 @@ fn evaluate_projection(
                 || optional_is_null(decision, "currency")
                 || optional_is_null(decision, "period_ref"))
         {
-            failure(&mut failures, "recognized_decision_missing_amount_or_period");
+            failure(
+                &mut failures,
+                "recognized_decision_missing_amount_or_period",
+            );
         }
     }
 
@@ -267,7 +290,9 @@ fn evaluate_projection(
     }
 
     let entity_ref = string(projection, "entity_ref")?;
-    let period = projection.get("period").ok_or("projection missing period")?;
+    let period = projection
+        .get("period")
+        .ok_or("projection missing period")?;
     let period_start = string(period, "start")?;
     let period_end = string(period, "end")?;
 
@@ -330,9 +355,15 @@ fn evaluate_projection(
 
             let line_entity = string(line, "entity_ref")?;
             let line_period = string(line, "period_ref")?;
-            let projection_start_month = period_start.get(..7).ok_or("invalid projection period start")?;
-            let projection_end_month = period_end.get(..7).ok_or("invalid projection period end")?;
-            if line_entity != entity_ref || line_period.as_str() < projection_start_month || line_period.as_str() > projection_end_month {
+            let projection_start_month = period_start
+                .get(..7)
+                .ok_or("invalid projection period start")?;
+            let projection_end_month =
+                period_end.get(..7).ok_or("invalid projection period end")?;
+            if line_entity != entity_ref
+                || line_period.as_str() < projection_start_month
+                || line_period.as_str() > projection_end_month
+            {
                 failure(&mut failures, "journal_entity_period_mismatch");
                 journal_lineage_valid = false;
             }
@@ -343,11 +374,15 @@ fn evaluate_projection(
                 failure(&mut failures, "journal_decision_currency_period_mismatch");
                 journal_lineage_valid = false;
             }
-            let key = (currency.clone(), line_entity.to_owned(), line_period.to_owned());
-            let amount = line
-                .get("amount_minor")
-                .and_then(Value::as_i64)
-                .ok_or("journal line amount_minor must be an integer")? as i128;
+            let key = (
+                currency.clone(),
+                line_entity.to_owned(),
+                line_period.to_owned(),
+            );
+            let amount =
+                line.get("amount_minor")
+                    .and_then(Value::as_i64)
+                    .ok_or("journal line amount_minor must be an integer")? as i128;
             let decision_totals = decision_postings
                 .entry(decision_ref.to_owned())
                 .or_default()
@@ -390,16 +425,16 @@ fn evaluate_projection(
             journal_lineage_valid = false;
         }
         if state == "recognized" {
-            let expected_amount = optional_i64(decision, "recognized_amount_minor").unwrap_or(i64::MIN) as i128;
+            let expected_amount =
+                optional_i64(decision, "recognized_amount_minor").unwrap_or(i64::MIN) as i128;
             let expected_currency = optional_string(decision, "currency").unwrap_or("");
             let posted = decision_postings.get(decision_ref);
             let totals = posted.and_then(|map| map.get(expected_currency));
             let amount_matches = totals.is_some_and(|(debit, credit)| {
                 *debit == expected_amount && *credit == expected_amount
             });
-            let only_expected_currency = posted.is_some_and(|map| {
-                map.len() == 1 && map.contains_key(expected_currency)
-            });
+            let only_expected_currency =
+                posted.is_some_and(|map| map.len() == 1 && map.contains_key(expected_currency));
             if !amount_matches || !only_expected_currency {
                 failure(&mut failures, "recognized_amount_does_not_match_journal");
                 journal_lineage_valid = false;
@@ -410,7 +445,10 @@ fn evaluate_projection(
                 .cloned()
                 .unwrap_or_default();
             if !expected_assertions.is_subset(&posted_assertions) {
-                failure(&mut failures, "journal_decision_evidence_closure_incomplete");
+                failure(
+                    &mut failures,
+                    "journal_decision_evidence_closure_incomplete",
+                );
                 journal_lineage_valid = false;
             }
         }
@@ -419,7 +457,10 @@ fn evaluate_projection(
     let mut assumption_refs = BTreeMap::<String, &Value>::new();
     for assumption in array(projection, "assumptions")? {
         let assumption_ref = string(assumption, "assumption_ref")?;
-        if assumption_refs.insert(assumption_ref.to_owned(), assumption).is_some() {
+        if assumption_refs
+            .insert(assumption_ref.to_owned(), assumption)
+            .is_some()
+        {
             failure(&mut failures, "duplicate_projection_assumption_ref");
             assertion_provenance_valid = false;
         }
@@ -459,8 +500,8 @@ fn evaluate_projection(
                 assertion_provenance_valid = false;
             }
             if assumption.get("decision_critical").and_then(Value::as_bool) == Some(true) {
-                let adequately_supported = review_state == Some("supported")
-                    && !assumption_assertions.is_empty();
+                let adequately_supported =
+                    review_state == Some("supported") && !assumption_assertions.is_empty();
                 let reviewer_approved = review_state == Some("approved_by_reviewer")
                     && approval_record.is_some_and(|reference| !reference.trim().is_empty());
                 if !adequately_supported && !reviewer_approved {
@@ -513,10 +554,16 @@ fn evaluate_projection(
         }
     }
     if projection_state == "complete_for_review" && blocking_unresolved {
-        failure(&mut failures, "blocking_unresolved_item_in_complete_projection");
+        failure(
+            &mut failures,
+            "blocking_unresolved_item_in_complete_projection",
+        );
     }
 
-    let codes = failures.iter().map(|code| (*code).to_owned()).collect::<Vec<_>>();
+    let codes = failures
+        .iter()
+        .map(|code| (*code).to_owned())
+        .collect::<Vec<_>>();
     let status = if codes.is_empty() { "pass" } else { "reject" };
     Ok(json!({
         "projection_id": projection_id,
@@ -570,8 +617,14 @@ fn run() -> Result<(), Box<dyn Error>> {
     let mut args = env::args().skip(1);
     while let Some(arg) = args.next() {
         match arg.as_str() {
-            "--data-dir" => data_dir = PathBuf::from(args.next().ok_or("--data-dir requires a directory")?),
-            "--output" => output_path = Some(PathBuf::from(args.next().ok_or("--output requires a file path")?)),
+            "--data-dir" => {
+                data_dir = PathBuf::from(args.next().ok_or("--data-dir requires a directory")?)
+            }
+            "--output" => {
+                output_path = Some(PathBuf::from(
+                    args.next().ok_or("--output requires a file path")?,
+                ))
+            }
             "--help" | "-h" => {
                 println!(
                     "Audits policy-projection bindings, event coverage, evidence lineage and journal invariants.\n\n\
@@ -587,10 +640,13 @@ fn run() -> Result<(), Box<dyn Error>> {
     }
 
     let graph_schema: Value = read_json(data_dir.join("economic_event_graph_v1.0.0.schema.json"))?;
-    let projection_schema: Value = read_json(data_dir.join("accounting_policy_projection_bundle_v1.0.0.schema.json"))?;
-    let report_schema: Value = read_json(data_dir.join("accounting_policy_projection_audit_report_v1.0.0.schema.json"))?;
+    let projection_schema: Value =
+        read_json(data_dir.join("accounting_policy_projection_bundle_v1.0.0.schema.json"))?;
+    let report_schema: Value =
+        read_json(data_dir.join("accounting_policy_projection_audit_report_v1.0.0.schema.json"))?;
     let graph_path = data_dir.join("fixtures/economic_event_graph_candidates_v1.0.0.json");
-    let projection_path = data_dir.join("fixtures/accounting_policy_projection_review_controls_v1.0.0.json");
+    let projection_path =
+        data_dir.join("fixtures/accounting_policy_projection_review_controls_v1.0.0.json");
     let graph_bytes = read_bytes(graph_path)?;
     let projection_bytes = read_bytes(projection_path)?;
     let graph: Value = serde_json::from_slice(&graph_bytes)?;
@@ -607,7 +663,10 @@ fn run() -> Result<(), Box<dyn Error>> {
     match output_path {
         Some(path) => {
             fs::write(path, &output)?;
-            println!("Wrote projection audit for {} projections.", report["projection_count"]);
+            println!(
+                "Wrote projection audit for {} projections.",
+                report["projection_count"]
+            );
         }
         None => println!("{}", String::from_utf8(output)?),
     }
@@ -621,7 +680,8 @@ mod tests {
     fn fixtures() -> (Value, Value, String) {
         let data_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../economic-event-core-v1");
         let graph_path = data_dir.join("fixtures/economic_event_graph_candidates_v1.0.0.json");
-        let projection_path = data_dir.join("fixtures/accounting_policy_projection_review_controls_v1.0.0.json");
+        let projection_path =
+            data_dir.join("fixtures/accounting_policy_projection_review_controls_v1.0.0.json");
         let graph_bytes = read_bytes(graph_path).unwrap();
         (
             serde_json::from_slice(&graph_bytes).unwrap(),
@@ -640,7 +700,8 @@ mod tests {
     }
 
     fn failures(result: &Value) -> BTreeSet<String> {
-        array(result, "failure_codes").unwrap()
+        array(result, "failure_codes")
+            .unwrap()
             .iter()
             .filter_map(Value::as_str)
             .map(ToOwned::to_owned)
@@ -655,7 +716,8 @@ mod tests {
         projection["event_decisions"][0]["recognized_amount_minor"] = Value::from(125000);
         projection["event_decisions"][0]["currency"] = Value::String("USD".to_owned());
         projection["event_decisions"][0]["period_ref"] = Value::String("2026-10".to_owned());
-        projection["event_decisions"][0]["treatment_rule_ref"] = Value::String("SYNTHETIC-STRUCTURAL-TEST-RULE".to_owned());
+        projection["event_decisions"][0]["treatment_rule_ref"] =
+            Value::String("SYNTHETIC-STRUCTURAL-TEST-RULE".to_owned());
         projection["journal_entries"] = json!([{
             "journal_entry_ref":"SYN-JE-001",
             "entry_kind":"recognition",
@@ -716,7 +778,10 @@ mod tests {
         let (graph, _, digest) = fixtures();
         let mut projection = test_projection();
         let duplicate = projection["event_decisions"][0].clone();
-        projection["event_decisions"].as_array_mut().unwrap().push(duplicate);
+        projection["event_decisions"]
+            .as_array_mut()
+            .unwrap()
+            .push(duplicate);
         let case = graph_case_by_id(&graph, "EVT-001-INVOICE-WITHOUT-SERVICE-PROOF").unwrap();
         let result = evaluate_projection(&projection, case, &digest).unwrap();
         assert!(failures(&result).contains("duplicate_event_decision"));
@@ -745,8 +810,14 @@ mod tests {
     #[test]
     fn unavailable_future_assertion_is_rejected() {
         let (mut graph, _, digest) = fixtures();
-        let case = graph["cases"].as_array_mut().unwrap().iter_mut()
-            .find(|case| optional_string(case, "case_id") == Some("EVT-001-INVOICE-WITHOUT-SERVICE-PROOF")).unwrap();
+        let case = graph["cases"]
+            .as_array_mut()
+            .unwrap()
+            .iter_mut()
+            .find(|case| {
+                optional_string(case, "case_id") == Some("EVT-001-INVOICE-WITHOUT-SERVICE-PROOF")
+            })
+            .unwrap();
         case["knowledge_at"] = Value::String("2026-11-05T09:30:00Z".to_owned());
         let projection = test_projection();
         let result = evaluate_projection(&projection, case, &digest).unwrap();
@@ -813,7 +884,8 @@ mod tests {
     fn missing_policy_decision_ref_on_journal_line_is_rejected() {
         let (graph, _, digest) = fixtures();
         let mut projection = make_balanced_projection();
-        projection["journal_entries"][0]["lines"][0]["policy_decision_ref"] = Value::String("DEC-NOT-FOUND".to_owned());
+        projection["journal_entries"][0]["lines"][0]["policy_decision_ref"] =
+            Value::String("DEC-NOT-FOUND".to_owned());
         let case = graph_case_by_id(&graph, "EVT-001-INVOICE-WITHOUT-SERVICE-PROOF").unwrap();
         let result = evaluate_projection(&projection, case, &digest).unwrap();
         assert!(failures(&result).contains("journal_policy_decision_missing"));
@@ -823,7 +895,8 @@ mod tests {
     fn journal_line_cannot_bind_assertion_from_another_event() {
         let (graph, _, digest) = fixtures();
         let mut projection = make_balanced_projection();
-        projection["journal_entries"][0]["lines"][0]["source_assertion_refs"] = json!(["AS-002-AMOUNT"]);
+        projection["journal_entries"][0]["lines"][0]["source_assertion_refs"] =
+            json!(["AS-002-AMOUNT"]);
         let case = graph_case_by_id(&graph, "EVT-001-INVOICE-WITHOUT-SERVICE-PROOF").unwrap();
         let result = evaluate_projection(&projection, case, &digest).unwrap();
         assert!(failures(&result).contains("journal_assertion_lineage_mismatch"));
@@ -849,7 +922,6 @@ mod tests {
         assert!(failures(&result).contains("recognized_decision_without_journal"));
     }
 
-
     #[test]
     fn balanced_journal_with_wrong_recognized_amount_is_rejected() {
         let (graph, _, digest) = fixtures();
@@ -866,7 +938,10 @@ mod tests {
     fn decision_source_evidence_must_all_reach_the_journal() {
         let (graph, _, digest) = fixtures();
         let mut projection = make_balanced_projection();
-        for line in projection["journal_entries"][0]["lines"].as_array_mut().unwrap() {
+        for line in projection["journal_entries"][0]["lines"]
+            .as_array_mut()
+            .unwrap()
+        {
             line["source_assertion_refs"] = json!(["AS-001-AMOUNT"]);
         }
         let case = graph_case_by_id(&graph, "EVT-001-INVOICE-WITHOUT-SERVICE-PROOF").unwrap();
@@ -950,7 +1025,6 @@ mod tests {
         assert!(failures(&result).contains("journal_decision_currency_period_mismatch"));
     }
 
-
     #[test]
     fn reviewer_approved_critical_assumption_requires_record_reference() {
         let (graph, _, digest) = fixtures();
@@ -975,7 +1049,8 @@ mod tests {
     fn complete_projection_cannot_hide_needs_review_event_decision() {
         let (graph, _, digest) = fixtures();
         let mut projection = make_balanced_projection();
-        projection["event_decisions"][0]["decision_state"] = Value::String("needs_review".to_owned());
+        projection["event_decisions"][0]["decision_state"] =
+            Value::String("needs_review".to_owned());
         projection["journal_entries"] = json!([]);
         let case = graph_case_by_id(&graph, "EVT-001-INVOICE-WITHOUT-SERVICE-PROOF").unwrap();
         let result = evaluate_projection(&projection, case, &digest).unwrap();
@@ -992,13 +1067,15 @@ mod tests {
         assert!(failures(&result).contains("unresolved_event_reference_missing"));
     }
 
-
     #[test]
     fn duplicate_journal_entry_ref_is_rejected() {
         let (graph, _, digest) = fixtures();
         let mut projection = make_balanced_projection();
         let entry = projection["journal_entries"][0].clone();
-        projection["journal_entries"].as_array_mut().unwrap().push(entry);
+        projection["journal_entries"]
+            .as_array_mut()
+            .unwrap()
+            .push(entry);
         let case = graph_case_by_id(&graph, "EVT-001-INVOICE-WITHOUT-SERVICE-PROOF").unwrap();
         let result = evaluate_projection(&projection, case, &digest).unwrap();
         assert!(failures(&result).contains("duplicate_journal_entry_ref"));
@@ -1030,7 +1107,10 @@ mod tests {
         let (graph, _, digest) = fixtures();
         let mut projection = test_projection();
         let item = projection["unresolved_items"][0].clone();
-        projection["unresolved_items"].as_array_mut().unwrap().push(item);
+        projection["unresolved_items"]
+            .as_array_mut()
+            .unwrap()
+            .push(item);
         let case = graph_case_by_id(&graph, "EVT-001-INVOICE-WITHOUT-SERVICE-PROOF").unwrap();
         let result = evaluate_projection(&projection, case, &digest).unwrap();
         assert!(failures(&result).contains("duplicate_unresolved_item_ref"));
@@ -1040,7 +1120,8 @@ mod tests {
     fn journal_entity_must_match_projection_entity() {
         let (graph, _, digest) = fixtures();
         let mut projection = make_balanced_projection();
-        projection["journal_entries"][0]["lines"][0]["entity_ref"] = Value::String("ENTITY-OTHER".to_owned());
+        projection["journal_entries"][0]["lines"][0]["entity_ref"] =
+            Value::String("ENTITY-OTHER".to_owned());
         let case = graph_case_by_id(&graph, "EVT-001-INVOICE-WITHOUT-SERVICE-PROOF").unwrap();
         let result = evaluate_projection(&projection, case, &digest).unwrap();
         assert!(failures(&result).contains("journal_entity_period_mismatch"));
