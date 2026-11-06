@@ -49,6 +49,7 @@ struct ConductorLineage {
 struct TrustPolicyRef {
     policy_id: String,
     policy_version: String,
+    policy_epoch: u64,
     policy_sha256: String,
     root_keyset_id: String,
 }
@@ -112,8 +113,40 @@ struct CausalEdge {
 struct TrustPolicy {
     policy_id: String,
     policy_version: String,
+    policy_epoch: u64,
     root_keyset_id: String,
     keys: Vec<TrustedKey>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RootPolicyEnvelope {
+    payload_type: String,
+    payload_base64: String,
+    signatures: Vec<DsseSignature>,
+}
+
+/// This file is provisioned out-of-band by the relying party. It pins one
+/// exact root key and one exact current policy snapshot; it is not accepted
+/// from the evidence bundle.
+#[derive(Debug, Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct TrustedRootPin {
+    schema_version: u32,
+    root_key_id: String,
+    root_public_key_hex: String,
+    policy_id: String,
+    policy_version: String,
+    policy_epoch: u64,
+    policy_sha256: String,
+    root_keyset_id: String,
+}
+
+#[derive(Debug, Clone)]
+struct RootPolicyVerification {
+    root_key_id: String,
+    policy_epoch: u64,
+    policy_sha256: String,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -182,6 +215,9 @@ struct Report {
     bundle_sha256: String,
     trace_sha256: String,
     trust_policy_sha256: String,
+    trust_policy_root_authenticated: bool,
+    trust_root_key_id: Option<String>,
+    trust_policy_epoch: Option<u64>,
     attestations: usize,
     dsse_verified: usize,
     scitt_unverified: usize,
@@ -226,6 +262,94 @@ fn decode_hex_32(value: &str) -> Option<[u8; 32]> {
         *slot = u8::from_str_radix(&value[start..start + 2], 16).ok()?;
     }
     Some(out)
+}
+
+const TRUST_POLICY_PAYLOAD_TYPE: &str = "application/vnd.pulse-trust-policy+json;version=1";
+
+fn verify_root_signed_trust_policy(
+    policy_bytes: &[u8],
+    envelope_bytes: &[u8],
+    pin_bytes: &[u8],
+) -> Result<RootPolicyVerification, String> {
+    // The root pin and exact policy digest are relying-party inputs. They must
+    // be provisioned outside the evidence bundle and protected by deployment
+    // configuration/secret-management controls.
+    let pin: TrustedRootPin = serde_json::from_slice(pin_bytes)
+        .map_err(|error| format!("trusted root pin is invalid JSON: {error}"))?;
+    if pin.schema_version != 1 {
+        return Err("trusted root pin schema_version must be 1".into());
+    }
+    if pin.root_key_id.trim().is_empty()
+        || !valid_sha256(&pin.policy_sha256)
+        || pin.policy_epoch == 0
+        || pin.policy_id.trim().is_empty()
+        || pin.root_keyset_id.trim().is_empty()
+    {
+        return Err("trusted root pin is missing a required identity, digest or positive epoch".into());
+    }
+
+    let root_public_key = decode_hex_32(&pin.root_public_key_hex)
+        .ok_or_else(|| "trusted root public key must be 32-byte lowercase hex".to_string())?;
+    if pin.root_public_key_hex.bytes().any(|byte| byte.is_ascii_uppercase()) {
+        return Err("trusted root public key hex must be lowercase".into());
+    }
+    let expected_root_key_id = format!("sha256:{}", sha256_hex(&root_public_key));
+    if pin.root_key_id != expected_root_key_id {
+        return Err("trusted root key ID does not match the pinned public-key fingerprint".into());
+    }
+
+    let policy_digest = sha256_hex(policy_bytes);
+    if policy_digest != pin.policy_sha256 {
+        return Err("trust-policy bytes do not match the out-of-band policy digest pin".into());
+    }
+
+    let envelope: RootPolicyEnvelope = serde_json::from_slice(envelope_bytes)
+        .map_err(|error| format!("root policy signature envelope is invalid JSON: {error}"))?;
+    if envelope.payload_type != TRUST_POLICY_PAYLOAD_TYPE {
+        return Err("root policy envelope payload_type is unsupported".into());
+    }
+    if envelope.signatures.len() != 1 {
+        return Err("trust-policy root envelope v1 requires exactly one pinned-root signature".into());
+    }
+    let signature_entry = &envelope.signatures[0];
+    if signature_entry.keyid != pin.root_key_id {
+        return Err("trust-policy envelope signer does not match the out-of-band root key ID".into());
+    }
+
+    let signed_payload = STANDARD
+        .decode(&envelope.payload_base64)
+        .map_err(|_| "root policy payload is not valid standard base64".to_string())?;
+    if signed_payload != policy_bytes {
+        return Err("root policy envelope payload is not byte-identical to the supplied trust policy".into());
+    }
+    let signature_bytes = STANDARD
+        .decode(&signature_entry.sig_base64)
+        .map_err(|_| "root policy signature is not valid standard base64".to_string())?;
+    let signature = Signature::from_slice(&signature_bytes)
+        .map_err(|_| "root policy signature must be a 64-byte Ed25519 signature".to_string())?;
+    let verifying_key = VerifyingKey::from_bytes(&root_public_key)
+        .map_err(|_| "pinned root public key is not a valid Ed25519 key".to_string())?;
+    let signing_bytes = pae(TRUST_POLICY_PAYLOAD_TYPE, policy_bytes);
+    verifying_key
+        .verify_strict(&signing_bytes, &signature)
+        .map_err(|_| "trust-policy root signature verification failed".to_string())?;
+
+    // Parse the policy only after the signature over its exact bytes verifies.
+    let policy: TrustPolicy = serde_json::from_slice(policy_bytes)
+        .map_err(|error| format!("root-authenticated trust policy JSON is invalid: {error}"))?;
+    if policy.policy_id != pin.policy_id
+        || policy.policy_version != pin.policy_version
+        || policy.policy_epoch != pin.policy_epoch
+        || policy.root_keyset_id != pin.root_keyset_id
+    {
+        return Err("root-authenticated policy identity/epoch does not match the relying-party pin".into());
+    }
+
+    Ok(RootPolicyVerification {
+        root_key_id: pin.root_key_id,
+        policy_epoch: policy.policy_epoch,
+        policy_sha256: policy_digest,
+    })
 }
 
 fn pae(payload_type: &str, payload: &[u8]) -> Vec<u8> {
