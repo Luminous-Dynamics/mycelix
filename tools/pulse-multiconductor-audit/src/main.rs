@@ -1871,17 +1871,17 @@ mod tests{
         ]);
         let mut cache = ReachabilityCache::enabled();
 
-        // Cold query uses early-exit DFS.
-        assert!(path_exists(&adjacency, &event_map, "a1", "b1", &mut cache));
+        // First transitive query uses early-exit DFS (not a direct-edge shortcut).
+        assert!(path_exists(&adjacency, &event_map, "a1", "b2", &mut cache));
         assert_eq!(cache.full_reachability_builds, 0);
 
-        // The second query from a1 builds its complete reachable set once.
+        // The second nontrivial query from a1 builds its complete reachable set once.
         assert!(path_exists(&adjacency, &event_map, "a1", "c1", &mut cache));
         assert_eq!(cache.full_reachability_builds, 1);
         let visits_after_build = cache.dfs_node_visits;
 
         // Positive and negative fan-out lookups are served from the same set.
-        assert!(path_exists(&adjacency, &event_map, "a1", "b2", &mut cache));
+        assert!(path_exists(&adjacency, &event_map, "a1", "b1", &mut cache));
         assert!(!path_exists(&adjacency, &event_map, "a1", "not-reachable", &mut cache));
         assert_eq!(cache.cache_hits, 2);
         assert_eq!(cache.dfs_node_visits, visits_after_build);
@@ -1899,7 +1899,7 @@ mod tests{
             "a1".to_string(),
             BTreeSet::from(["b1".to_string()]),
         )]);
-        let mut cache = ReachabilityCache::default();
+        let mut cache = ReachabilityCache::enabled();
 
         // Different conductors' local sequence numbers do not establish order.
         assert!(!path_exists(&adjacency, &event_map, "a1", "b2", &mut cache));
