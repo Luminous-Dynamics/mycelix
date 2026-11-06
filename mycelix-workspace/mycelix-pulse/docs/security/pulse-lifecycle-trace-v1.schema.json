@@ -304,8 +304,8 @@
       "type": "object",
       "additionalProperties": false,
       "required": [
-        "actor",
-        "actor",
+        "principal",
+        "principal",
         "operation_id",
         "attempt_id",
         "effect_id",
@@ -328,10 +328,10 @@
           "type": "string",
           "minLength": 1
         },
-        "actor": {
+        "principal": {
           "type": "string",
           "minLength": 1,
-          "description": "Authenticated actor owning this logical operation; operation IDs are scoped to actor identity."
+          "description": "Authenticated operation principal owning this logical operation ID; this is not necessarily the source-chain action author."
         }
       }
     },
@@ -465,8 +465,8 @@
       "type": "object",
       "additionalProperties": false,
       "required": [
-        "actor",
-        "actor",
+        "principal",
+        "principal",
         "operation_id",
         "attempt_id",
         "outcome"
@@ -489,10 +489,10 @@
             "rejected"
           ]
         },
-        "actor": {
+        "principal": {
           "type": "string",
           "minLength": 1,
-          "description": "Authenticated caller identity owning this logical operation and attempt."
+          "description": "Authenticated caller/principal owning the logical operation ID and attempt ID."
         }
       }
     },
