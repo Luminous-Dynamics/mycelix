@@ -444,7 +444,19 @@ fn newly_available_assertions(
         }
         match baseline_map.get(reference) {
             Some(previous) if !assertion_available(baseline, previous)? => return Ok(true),
-            None => return Ok(true),
+            None => {
+                let baseline_frontier = string(baseline, "knowledge_at")?;
+                let source_ref = string(assertion, "source_ref")?;
+                let source = values_by_ref(array(candidate, "source_objects")?, "source_ref")?
+                    .get(source_ref)
+                    .copied()
+                    .ok_or_else(|| format!("late assertion references missing source {source_ref}"))?;
+                if string(assertion, "recorded_at")? > baseline_frontier
+                    || string(source, "received_at")? > baseline_frontier
+                {
+                    return Ok(true);
+                }
+            }
             _ => {}
         }
     }
