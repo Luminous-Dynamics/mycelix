@@ -903,6 +903,20 @@ mod tests {
         assert_eq!(array(case, "assertions").unwrap().len(), 2);
     }
 
+
+    #[test]
+    fn contradictory_purchase_order_assertion_stays_outside_invoice_event() {
+        let (bundle, _) = fixtures();
+        let case = array(&bundle, "cases").unwrap().iter()
+            .find(|case| optional_string(case, "case_id") == Some("EVT-007-CONTRADICTORY-ASSERTIONS")).unwrap();
+        let invoice = event_by_ref(case, "EV-007-INVOICE").unwrap();
+        let assertion_refs = set_from_array(invoice, "assertion_refs").unwrap();
+        assert!(assertion_refs.contains("AS-007-AMOUNT-A"));
+        assert!(!assertion_refs.contains("AS-007-AMOUNT-B"));
+        assert_eq!(validate_events(case).unwrap().0, 0);
+        assert_eq!(validate_relations(case).unwrap().1, 1);
+    }
+
     #[test]
     fn unlinked_revision_family_is_reported_not_silently_merged() {
         let (bundle, _) = fixtures();
