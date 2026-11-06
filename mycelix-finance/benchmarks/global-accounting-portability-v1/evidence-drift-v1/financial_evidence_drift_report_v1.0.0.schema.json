@@ -124,7 +124,8 @@
               "projection_reference_invalid",
               "projection_graph_binding_stale",
               "caller_impact_set_underreported",
-              "nonsemantic_source_metadata_changed"
+              "nonsemantic_source_metadata_changed",
+              "superseded_source_reference"
             ]
           }
         }
