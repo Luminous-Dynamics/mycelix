@@ -151,14 +151,20 @@ fn scenario_evaluation(case: &Value) -> Result<Value, Vec<String>> {
     let case_id = str_at(case, "scenario_id").unwrap_or("<missing>");
     let roots_vec = array_at(case, "roots").cloned().unwrap_or_default();
     let tx_vec = array_at(case, "transactions").cloned().unwrap_or_default();
-    let snapshots = array_at(case, "account_snapshots").cloned().unwrap_or_default();
+    let snapshots = array_at(case, "account_snapshots")
+        .cloned()
+        .unwrap_or_default();
     let notifications = array_at(case, "notifications").cloned().unwrap_or_default();
     let holds = array_at(case, "holds").cloned().unwrap_or_default();
     let returns = array_at(case, "returns").cloned().unwrap_or_default();
-    let reversals = array_at(case, "return_reversals").cloned().unwrap_or_default();
+    let reversals = array_at(case, "return_reversals")
+        .cloned()
+        .unwrap_or_default();
 
     if roots_vec.is_empty() {
-        errors.push(format!("{case_id}: at least one root transaction is required"));
+        errors.push(format!(
+            "{case_id}: at least one root transaction is required"
+        ));
     }
     let mut roots = BTreeMap::new();
     for root in &roots_vec {
@@ -176,11 +182,15 @@ fn scenario_evaluation(case: &Value) -> Result<Value, Vec<String>> {
         }
     }
     if transactions.len() != tx_vec.len() {
-        errors.push(format!("{case_id}: duplicate or missing descendant transaction identity"));
+        errors.push(format!(
+            "{case_id}: duplicate or missing descendant transaction identity"
+        ));
     }
     for id in roots.keys() {
         if transactions.contains_key(id) {
-            errors.push(format!("{case_id}: root/descendant identity collision for {id}"));
+            errors.push(format!(
+                "{case_id}: root/descendant identity collision for {id}"
+            ));
         }
     }
 
@@ -189,10 +199,14 @@ fn scenario_evaluation(case: &Value) -> Result<Value, Vec<String>> {
         .cloned()
         .unwrap_or_default();
     if completeness == "complete" && !unresolved.is_empty() {
-        errors.push(format!("{case_id}: complete graph has unresolved external parents"));
+        errors.push(format!(
+            "{case_id}: complete graph has unresolved external parents"
+        ));
     }
     if matches!(completeness, "partial" | "unknown") && unresolved.is_empty() {
-        errors.push(format!("{case_id}: partial/unknown graph must expose unresolved external evidence"));
+        errors.push(format!(
+            "{case_id}: partial/unknown graph must expose unresolved external evidence"
+        ));
     }
 
     for (root_id, root) in &roots {
@@ -200,7 +214,9 @@ fn scenario_evaluation(case: &Value) -> Result<Value, Vec<String>> {
         let currency = str_at(root, "currency").unwrap_or("");
         let timestamp = str_at(root, "observed_at").unwrap_or("");
         if amount == 0 || currency.len() != 3 || !valid_timestamp(timestamp) {
-            errors.push(format!("{case_id}: root {root_id} has invalid amount, currency or time"));
+            errors.push(format!(
+                "{case_id}: root {root_id} has invalid amount, currency or time"
+            ));
         }
         if !array_at(root, "source_evidence_refs").is_some_and(|refs| !refs.is_empty()) {
             errors.push(format!("{case_id}: root {root_id} lacks source evidence"));
@@ -214,18 +230,26 @@ fn scenario_evaluation(case: &Value) -> Result<Value, Vec<String>> {
         let amount = u64_at(tx, "amount_minor_units").unwrap_or(0);
         let observed = str_at(tx, "observed_at").unwrap_or("");
         if source_account.is_empty() || amount == 0 || !valid_timestamp(observed) {
-            errors.push(format!("{case_id}: transaction {tx_id} has invalid source, amount or time"));
+            errors.push(format!(
+                "{case_id}: transaction {tx_id} has invalid source, amount or time"
+            ));
         }
         if str_at(tx, "relationship_claim")
             != Some("candidate_flow_continuity_not_proven_fund_origin")
         {
-            errors.push(format!("{case_id}: transaction {tx_id} overstates candidate provenance"));
+            errors.push(format!(
+                "{case_id}: transaction {tx_id} overstates candidate provenance"
+            ));
         }
         if !array_at(tx, "link_evidence_refs").is_some_and(|refs| !refs.is_empty()) {
-            errors.push(format!("{case_id}: transaction {tx_id} lacks link evidence"));
+            errors.push(format!(
+                "{case_id}: transaction {tx_id} lacks link evidence"
+            ));
         }
 
-        let parents = array_at(tx, "parent_transaction_ids").cloned().unwrap_or_default();
+        let parents = array_at(tx, "parent_transaction_ids")
+            .cloned()
+            .unwrap_or_default();
         let mut visiting = BTreeSet::new();
         match ancestry_roots(&parents, &roots, &transactions, &mut visiting, &mut cache) {
             Ok(ancestral) => {
@@ -245,7 +269,9 @@ fn scenario_evaluation(case: &Value) -> Result<Value, Vec<String>> {
 
         for parent_value in &parents {
             let Some(parent_id) = parent_value.as_str() else {
-                errors.push(format!("{case_id}: transaction {tx_id} has non-string parent"));
+                errors.push(format!(
+                    "{case_id}: transaction {tx_id} has non-string parent"
+                ));
                 continue;
             };
             let (destination, parent_currency, parent_time) =
@@ -262,17 +288,25 @@ fn scenario_evaluation(case: &Value) -> Result<Value, Vec<String>> {
                         str_at(parent, "observed_at").unwrap_or(""),
                     )
                 } else {
-                    errors.push(format!("{case_id}: transaction {tx_id} has unresolved parent {parent_id}"));
+                    errors.push(format!(
+                        "{case_id}: transaction {tx_id} has unresolved parent {parent_id}"
+                    ));
                     continue;
                 };
             if destination != source_account {
-                errors.push(format!("{case_id}: transaction {tx_id} breaks account continuity from {parent_id}"));
+                errors.push(format!(
+                    "{case_id}: transaction {tx_id} breaks account continuity from {parent_id}"
+                ));
             }
             if parent_currency != currency {
-                errors.push(format!("{case_id}: transaction {tx_id} changes currency without an FX contract"));
+                errors.push(format!(
+                    "{case_id}: transaction {tx_id} changes currency without an FX contract"
+                ));
             }
             if parent_time > observed {
-                errors.push(format!("{case_id}: transaction {tx_id} predates parent {parent_id}"));
+                errors.push(format!(
+                    "{case_id}: transaction {tx_id} predates parent {parent_id}"
+                ));
             }
         }
     }
@@ -298,7 +332,9 @@ fn scenario_evaluation(case: &Value) -> Result<Value, Vec<String>> {
                 "available_balance_minor_units",
             ] {
                 if !snapshot.get(field).is_none_or(Value::is_null) {
-                    errors.push(format!("{case_id}: unknown snapshot {account} invents {field}"));
+                    errors.push(format!(
+                        "{case_id}: unknown snapshot {account} invents {field}"
+                    ));
                 }
             }
         } else if coverage == "complete" {
@@ -319,7 +355,9 @@ fn scenario_evaluation(case: &Value) -> Result<Value, Vec<String>> {
                     let credits = v[0].checked_add(v[1]).and_then(|x| x.checked_add(v[2]));
                     let debits_and_close = v[3].checked_add(v[4]).and_then(|x| x.checked_add(v[5]));
                     if credits.is_none() || credits != debits_and_close {
-                        errors.push(format!("{case_id}: complete account snapshot {account} fails conservation"));
+                        errors.push(format!(
+                            "{case_id}: complete account snapshot {account} fails conservation"
+                        ));
                     }
                     let graph_root_inflows = roots
                         .values()
@@ -333,9 +371,7 @@ fn scenario_evaluation(case: &Value) -> Result<Value, Vec<String>> {
                         .try_fold(0_u64, |total, tx| {
                             total.checked_add(u64_at(tx, "amount_minor_units")?)
                         });
-                    if graph_root_inflows != Some(v[1])
-                        || graph_observed_outflows != Some(v[3])
-                    {
+                    if graph_root_inflows != Some(v[1]) || graph_observed_outflows != Some(v[3]) {
                         errors.push(format!(
                             "{case_id}: complete snapshot {account} inflow/outflow totals differ from observed root and graph transactions"
                         ));
@@ -348,14 +384,23 @@ fn scenario_evaluation(case: &Value) -> Result<Value, Vec<String>> {
                         ));
                     }
                 }
-                None => errors.push(format!("{case_id}: complete account snapshot {account} has missing values")),
+                None => errors.push(format!(
+                    "{case_id}: complete account snapshot {account} has missing values"
+                )),
             }
         } else if coverage != "partial" {
-            errors.push(format!("{case_id}: account {account} has invalid coverage state"));
+            errors.push(format!(
+                "{case_id}: account {account} has invalid coverage state"
+            ));
         }
     }
 
-    unique_ids(&notifications, "notification_id", "notifications", &mut errors);
+    unique_ids(
+        &notifications,
+        "notification_id",
+        "notifications",
+        &mut errors,
+    );
     let mut notification_map = BTreeMap::new();
     for notification in &notifications {
         let Some(id) = str_at(notification, "notification_id") else {
@@ -392,23 +437,26 @@ fn scenario_evaluation(case: &Value) -> Result<Value, Vec<String>> {
         let account = str_at(hold, "account_id").unwrap_or("");
         let requested = u64_at(hold, "requested_minor_units").unwrap_or(0);
         let held = u64_at(hold, "held_minor_units").unwrap_or(u64::MAX);
-        let available = hold.get("available_balance_minor_units").and_then(Value::as_u64);
+        let available = hold
+            .get("available_balance_minor_units")
+            .and_then(Value::as_u64);
         let state = str_at(hold, "hold_state").unwrap_or("");
         match notification_map.get(notification_id) {
             Some(n)
                 if str_at(n, "state") == Some("accepted")
                     && str_at(n, "authority_state") == Some("valid")
-                    && str_at(n, "target_account_id") == Some(account) => {
-                        let notification_root = str_at(n, "root_transaction_id").unwrap_or("");
-                        if roots
-                            .get(notification_root)
-                            .is_none_or(|root| requested > u64_at(root, "amount_minor_units").unwrap_or(0))
-                        {
-                            errors.push(format!(
-                                "{case_id}: hold {id} request exceeds or lacks its exact root transaction"
-                            ));
-                        }
-                        match snapshot_map.get(account) {
+                    && str_at(n, "target_account_id") == Some(account) =>
+            {
+                let notification_root = str_at(n, "root_transaction_id").unwrap_or("");
+                if roots
+                    .get(notification_root)
+                    .is_none_or(|root| requested > u64_at(root, "amount_minor_units").unwrap_or(0))
+                {
+                    errors.push(format!(
+                        "{case_id}: hold {id} request exceeds or lacks its exact root transaction"
+                    ));
+                }
+                match snapshot_map.get(account) {
                             Some(snapshot)
                                 if str_at(snapshot, "psp_id") == str_at(n, "psp_id")
                                     && optional_balance(snapshot, "available_balance_minor_units")
@@ -417,16 +465,24 @@ fn scenario_evaluation(case: &Value) -> Result<Value, Vec<String>> {
                                 "{case_id}: hold {id} is not backed by the matching account/PSP balance snapshot"
                             )),
                         }
-                    }
-            _ => errors.push(format!("{case_id}: hold {id} lacks accepted notification or target scope")),
+            }
+            _ => errors.push(format!(
+                "{case_id}: hold {id} lacks accepted notification or target scope"
+            )),
         }
         if str_at(hold, "authority_state") != Some("valid") || requested == 0 || held > requested {
-            errors.push(format!("{case_id}: hold {id} lacks authority or exceeds requested value"));
+            errors.push(format!(
+                "{case_id}: hold {id} lacks authority or exceeds requested value"
+            ));
         }
         match available {
             Some(balance) if held <= balance => {}
-            Some(_) => errors.push(format!("{case_id}: hold {id} exceeds observed available balance")),
-            None if held > 0 => errors.push(format!("{case_id}: hold {id} claims value without known local balance")),
+            Some(_) => errors.push(format!(
+                "{case_id}: hold {id} exceeds observed available balance"
+            )),
+            None if held > 0 => errors.push(format!(
+                "{case_id}: hold {id} claims value without known local balance"
+            )),
             None => {}
         }
         if matches!(state, "applied" | "partial") && held == 0 {
@@ -450,12 +506,16 @@ fn scenario_evaluation(case: &Value) -> Result<Value, Vec<String>> {
         let currency = str_at(returned, "currency").unwrap_or("");
         let economic_ref = str_at(returned, "economic_reference").unwrap_or("");
         if !economic_refs.insert(economic_ref.to_owned()) {
-            errors.push(format!("{case_id}: duplicate economic return reference {economic_ref}"));
+            errors.push(format!(
+                "{case_id}: duplicate economic return reference {economic_ref}"
+            ));
         }
         if let Some(receipt) = str_at(returned, "independent_return_receipt")
             && !receipt_refs.insert(receipt.to_owned())
         {
-            errors.push(format!("{case_id}: duplicate independent return receipt {receipt}"));
+            errors.push(format!(
+                "{case_id}: duplicate independent return receipt {receipt}"
+            ));
         }
         if let Some(reconciliation) = str_at(returned, "independent_ledger_reconciliation")
             && !reconciliation_refs.insert(reconciliation.to_owned())
@@ -470,18 +530,26 @@ fn scenario_evaluation(case: &Value) -> Result<Value, Vec<String>> {
             || str_at(returned, "independent_return_receipt").is_none()
             || str_at(returned, "independent_ledger_reconciliation").is_none()
         {
-            errors.push(format!("{case_id}: return {id} lacks valid authority or independent evidence"));
+            errors.push(format!(
+                "{case_id}: return {id} lacks valid authority or independent evidence"
+            ));
         }
         match roots.get(root_id) {
             Some(root) if str_at(root, "currency") == Some(currency) => {}
-            Some(_) => errors.push(format!("{case_id}: return {id} currency differs from its root")),
-            None => errors.push(format!("{case_id}: return {id} references unknown root {root_id}")),
+            Some(_) => errors.push(format!(
+                "{case_id}: return {id} currency differs from its root"
+            )),
+            None => errors.push(format!(
+                "{case_id}: return {id} references unknown root {root_id}"
+            )),
         }
         let total = gross_by_root.entry(root_id.to_owned()).or_default();
         *total = match total.checked_add(amount) {
             Some(value) => value,
             None => {
-                errors.push(format!("{case_id}: return arithmetic overflow for root {root_id}"));
+                errors.push(format!(
+                    "{case_id}: return arithmetic overflow for root {root_id}"
+                ));
                 u64::MAX
             }
         };
@@ -495,7 +563,9 @@ fn scenario_evaluation(case: &Value) -> Result<Value, Vec<String>> {
         let return_id = str_at(reversal, "return_id").unwrap_or("");
         let amount = u64_at(reversal, "amount_minor_units").unwrap_or(0);
         let Some(original) = return_map.get(return_id) else {
-            errors.push(format!("{case_id}: reversal {id} references unknown return {return_id}"));
+            errors.push(format!(
+                "{case_id}: reversal {id} references unknown return {return_id}"
+            ));
             continue;
         };
         if amount == 0
@@ -504,18 +574,24 @@ fn scenario_evaluation(case: &Value) -> Result<Value, Vec<String>> {
             || str_at(reversal, "currency") != str_at(original, "currency")
             || !array_at(reversal, "evidence_refs").is_some_and(|refs| !refs.is_empty())
         {
-            errors.push(format!("{case_id}: reversal {id} lacks authority, reconciliation or evidence"));
+            errors.push(format!(
+                "{case_id}: reversal {id} lacks authority, reconciliation or evidence"
+            ));
         }
         let total = reversed_by_return.entry(return_id.to_owned()).or_default();
         *total = match total.checked_add(amount) {
             Some(value) => value,
             None => {
-                errors.push(format!("{case_id}: reversal arithmetic overflow for {return_id}"));
+                errors.push(format!(
+                    "{case_id}: reversal arithmetic overflow for {return_id}"
+                ));
                 u64::MAX
             }
         };
         if *total > u64_at(original, "amount_minor_units").unwrap_or(0) {
-            errors.push(format!("{case_id}: reversals exceed original return {return_id}"));
+            errors.push(format!(
+                "{case_id}: reversals exceed original return {return_id}"
+            ));
         }
     }
 
@@ -524,19 +600,23 @@ fn scenario_evaluation(case: &Value) -> Result<Value, Vec<String>> {
         let mut reversed = 0_u64;
         for (return_id, original) in &return_map {
             if str_at(original, "root_transaction_id") == Some(root_id) {
-                reversed = match reversed.checked_add(
-                    reversed_by_return.get(return_id).copied().unwrap_or(0),
-                ) {
+                reversed = match reversed
+                    .checked_add(reversed_by_return.get(return_id).copied().unwrap_or(0))
+                {
                     Some(value) => value,
                     None => {
-                        errors.push(format!("{case_id}: reversal total overflow for root {root_id}"));
+                        errors.push(format!(
+                            "{case_id}: reversal total overflow for root {root_id}"
+                        ));
                         u64::MAX
                     }
                 };
             }
         }
         if reversed > *gross {
-            errors.push(format!("{case_id}: reversals exceed gross returns for root {root_id}"));
+            errors.push(format!(
+                "{case_id}: reversals exceed gross returns for root {root_id}"
+            ));
             continue;
         }
         let net = gross - reversed;
@@ -545,7 +625,9 @@ fn scenario_evaluation(case: &Value) -> Result<Value, Vec<String>> {
             .and_then(|root| u64_at(root, "amount_minor_units"))
             .unwrap_or(0);
         if net > original {
-            errors.push(format!("{case_id}: net return exceeds original root {root_id}"));
+            errors.push(format!(
+                "{case_id}: net return exceeds original root {root_id}"
+            ));
         }
         net_by_root.insert(root_id.clone(), net);
     }
@@ -565,11 +647,15 @@ fn scenario_evaluation(case: &Value) -> Result<Value, Vec<String>> {
         }
     }
     if expected.len() != roots.len() {
-        errors.push(format!("{case_id}: expected return table must cover each root once"));
+        errors.push(format!(
+            "{case_id}: expected return table must cover each root once"
+        ));
     }
     for (id, amount) in &net_by_root {
         if expected.get(id) != Some(amount) {
-            errors.push(format!("{case_id}: expected net return differs for root {id}"));
+            errors.push(format!(
+                "{case_id}: expected net return differs for root {id}"
+            ));
         }
     }
 
@@ -581,13 +667,17 @@ fn scenario_evaluation(case: &Value) -> Result<Value, Vec<String>> {
             || !returns.is_empty()
             || !reversals.is_empty())
     {
-        errors.push(format!("{case_id}: mistaken-payee case incorrectly entered fraud MED graph"));
+        errors.push(format!(
+            "{case_id}: mistaken-payee case incorrectly entered fraud MED graph"
+        ));
     }
 
     if u64_at(case, "expected_unique_descendant_transaction_count")
         != Some(transactions.len() as u64)
     {
-        errors.push(format!("{case_id}: unique descendant transaction count mismatch"));
+        errors.push(format!(
+            "{case_id}: unique descendant transaction count mismatch"
+        ));
     }
 
     if errors.is_empty() {
@@ -632,16 +722,23 @@ fn semantic_evaluation(corpus: &Value) -> (Vec<String>, Vec<Value>) {
     if str_at(corpus, "status") != Some("synthetic_reference_only")
         || str_at(corpus, "jurisdiction") != Some("BR")
         || str_at(corpus, "scheme") != Some("PIX_MED_V4_2_COMPARATOR")
-        || corpus.get("external_effects_enabled").and_then(Value::as_bool) != Some(false)
+        || corpus
+            .get("external_effects_enabled")
+            .and_then(Value::as_bool)
+            != Some(false)
     {
-        errors.push("graph corpus must remain synthetic, Brazil Pix comparator and effects-disabled".into());
+        errors.push(
+            "graph corpus must remain synthetic, Brazil Pix comparator and effects-disabled".into(),
+        );
     }
     let as_of = str_at(corpus, "as_of").unwrap_or("");
     if !valid_date(as_of) {
         errors.push("as_of must be a pinned valid date".into());
     }
 
-    let sources = array_at(corpus, "source_register").cloned().unwrap_or_default();
+    let sources = array_at(corpus, "source_register")
+        .cloned()
+        .unwrap_or_default();
     let profiles = array_at(corpus, "profiles").cloned().unwrap_or_default();
     let scenarios = array_at(corpus, "scenarios").cloned().unwrap_or_default();
     unique_ids(&sources, "id", "source_register", &mut errors);
@@ -655,16 +752,22 @@ fn semantic_evaluation(corpus: &Value) -> (Vec<String>, Vec<Value>) {
     for (index, source) in sources.iter().enumerate() {
         let observed = str_at(source, "observed_on").unwrap_or("");
         if !valid_date(observed) || observed > as_of {
-            errors.push(format!("source_register[{index}] has a future/invalid observation date"));
+            errors.push(format!(
+                "source_register[{index}] has a future/invalid observation date"
+            ));
         }
         if let Some(published) = str_at(source, "published_on")
             && (!valid_date(published) || published > as_of)
         {
-            errors.push(format!("source_register[{index}] has a future/invalid publication date"));
+            errors.push(format!(
+                "source_register[{index}] has a future/invalid publication date"
+            ));
         }
     }
     for (index, profile) in profiles.iter().enumerate() {
-        let refs = array_at(profile, "source_refs").cloned().unwrap_or_default();
+        let refs = array_at(profile, "source_refs")
+            .cloned()
+            .unwrap_or_default();
         if refs.is_empty() {
             errors.push(format!("profiles[{index}] has no source references"));
         }
@@ -675,12 +778,17 @@ fn semantic_evaluation(corpus: &Value) -> (Vec<String>, Vec<Value>) {
         }
         let observed = str_at(profile, "observed_on").unwrap_or("");
         if !valid_date(observed) || observed > as_of {
-            errors.push(format!("profiles[{index}] has future/invalid observation date"));
+            errors.push(format!(
+                "profiles[{index}] has future/invalid observation date"
+            ));
         }
         if str_at(profile, "effective_date_state") == Some("future_effective_not_current_on_as_of")
-            && !str_at(profile, "effective_from").is_some_and(|date| valid_date(date) && date > as_of)
+            && !str_at(profile, "effective_from")
+                .is_some_and(|date| valid_date(date) && date > as_of)
         {
-            errors.push(format!("profiles[{index}] future-effective date is not actually in the future"));
+            errors.push(format!(
+                "profiles[{index}] future-effective date is not actually in the future"
+            ));
         }
     }
 
@@ -726,7 +834,9 @@ fn mutate_and_reject(
 fn run_self_tests(corpus: &Value, schema: &Value) -> Result<usize, String> {
     let (baseline, _) = semantic_evaluation(corpus);
     if !baseline.is_empty() || !schema_errors(schema, corpus).is_empty() {
-        return Err(format!("baseline corpus must pass before mutations: {baseline:?}"));
+        return Err(format!(
+            "baseline corpus must pass before mutations: {baseline:?}"
+        ));
     }
     let mut count = 0usize;
 
@@ -735,10 +845,15 @@ fn run_self_tests(corpus: &Value, schema: &Value) -> Result<usize, String> {
     })?;
     count += 1;
 
-    mutate_and_reject("candidate edge promoted to fund ownership", corpus, schema, |value| {
-        value["scenarios"][0]["transactions"][0]["relationship_claim"] =
-            json!("proven_fund_origin");
-    })?;
+    mutate_and_reject(
+        "candidate edge promoted to fund ownership",
+        corpus,
+        schema,
+        |value| {
+            value["scenarios"][0]["transactions"][0]["relationship_claim"] =
+                json!("proven_fund_origin");
+        },
+    )?;
     count += 1;
 
     mutate_and_reject("convergent graph double counted", corpus, schema, |value| {
@@ -752,14 +867,22 @@ fn run_self_tests(corpus: &Value, schema: &Value) -> Result<usize, String> {
     })?;
     count += 1;
 
-    mutate_and_reject("hold exceeds local available balance", corpus, schema, |value| {
-        value["scenarios"][6]["holds"][0]["held_minor_units"] = json!(3_000);
-    })?;
+    mutate_and_reject(
+        "hold exceeds local available balance",
+        corpus,
+        schema,
+        |value| {
+            value["scenarios"][6]["holds"][0]["held_minor_units"] = json!(3_000);
+        },
+    )?;
     count += 1;
 
     mutate_and_reject("duplicate transaction identity", corpus, schema, |value| {
         let duplicate = value["scenarios"][1]["transactions"][0].clone();
-        value["scenarios"][1]["transactions"].as_array_mut().unwrap().push(duplicate);
+        value["scenarios"][1]["transactions"]
+            .as_array_mut()
+            .unwrap()
+            .push(duplicate);
     })?;
     count += 1;
 
@@ -768,10 +891,18 @@ fn run_self_tests(corpus: &Value, schema: &Value) -> Result<usize, String> {
     })?;
     count += 1;
 
-    mutate_and_reject("duplicate economic return identity", corpus, schema, |value| {
-        let duplicate = value["scenarios"][13]["returns"][0].clone();
-        value["scenarios"][13]["returns"].as_array_mut().unwrap().push(duplicate);
-    })?;
+    mutate_and_reject(
+        "duplicate economic return identity",
+        corpus,
+        schema,
+        |value| {
+            let duplicate = value["scenarios"][13]["returns"][0].clone();
+            value["scenarios"][13]["returns"]
+                .as_array_mut()
+                .unwrap()
+                .push(duplicate);
+        },
+    )?;
     count += 1;
 
     mutate_and_reject(
@@ -785,14 +916,25 @@ fn run_self_tests(corpus: &Value, schema: &Value) -> Result<usize, String> {
     )?;
     count += 1;
 
-    mutate_and_reject("unknown balance replaced by zero", corpus, schema, |value| {
-        value["scenarios"][18]["account_snapshots"][0]["available_balance_minor_units"] = json!(0);
-    })?;
+    mutate_and_reject(
+        "unknown balance replaced by zero",
+        corpus,
+        schema,
+        |value| {
+            value["scenarios"][18]["account_snapshots"][0]["available_balance_minor_units"] =
+                json!(0);
+        },
+    )?;
     count += 1;
 
-    mutate_and_reject("mistaken-payee entered fraud MED graph", corpus, schema, |value| {
-        value["scenarios"][23]["recovery_admission"] = json!("pix_med_fraud_graph");
-    })?;
+    mutate_and_reject(
+        "mistaken-payee entered fraud MED graph",
+        corpus,
+        schema,
+        |value| {
+            value["scenarios"][23]["recovery_admission"] = json!("pix_med_fraud_graph");
+        },
+    )?;
     count += 1;
 
     mutate_and_reject("graph cycle", corpus, schema, |value| {
@@ -808,9 +950,14 @@ fn run_self_tests(corpus: &Value, schema: &Value) -> Result<usize, String> {
     })?;
     count += 1;
 
-    mutate_and_reject("return reversal exceeds original return", corpus, schema, |value| {
-        value["scenarios"][14]["return_reversals"][0]["amount_minor_units"] = json!(8_001);
-    })?;
+    mutate_and_reject(
+        "return reversal exceeds original return",
+        corpus,
+        schema,
+        |value| {
+            value["scenarios"][14]["return_reversals"][0]["amount_minor_units"] = json!(8_001);
+        },
+    )?;
     count += 1;
 
     Ok(count)
@@ -826,13 +973,19 @@ fn main() -> Result<(), Box<dyn Error>> {
         match arg.as_str() {
             "--corpus" => {
                 let path = PathBuf::from(args.next().ok_or_else(|| {
-                    std::io::Error::new(std::io::ErrorKind::InvalidInput, "--corpus requires a path")
+                    std::io::Error::new(
+                        std::io::ErrorKind::InvalidInput,
+                        "--corpus requires a path",
+                    )
                 })?);
                 corpus_text = fs::read_to_string(path)?;
             }
             "--schema" => {
                 let path = PathBuf::from(args.next().ok_or_else(|| {
-                    std::io::Error::new(std::io::ErrorKind::InvalidInput, "--schema requires a path")
+                    std::io::Error::new(
+                        std::io::ErrorKind::InvalidInput,
+                        "--schema requires a path",
+                    )
                 })?);
                 schema_text = fs::read_to_string(path)?;
             }
