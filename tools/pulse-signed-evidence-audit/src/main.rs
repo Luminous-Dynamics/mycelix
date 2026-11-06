@@ -112,6 +112,7 @@ struct CausalEdge {
 struct TrustPolicy {
     policy_id: String,
     policy_version: String,
+    root_keyset_id: String,
     keys: Vec<TrustedKey>,
 }
 
@@ -142,6 +143,7 @@ struct InTotoStatement {
     #[serde(rename = "_type")]
     statement_type: String,
     subject: Vec<InTotoSubject>,
+    #[serde(rename = "predicateType")]
     predicate_type: String,
     predicate: Predicate,
 }
@@ -434,6 +436,7 @@ fn audit(
     if bundle.trust_policy.policy_sha256 != policy_sha256
         || bundle.trust_policy.policy_id != policy.policy_id
         || bundle.trust_policy.policy_version != policy.policy_version
+        || bundle.trust_policy.root_keyset_id != policy.root_keyset_id
     {
         finding(
             &mut findings,
@@ -451,6 +454,18 @@ fn audit(
             None,
             "trust policy contains no issuer keys",
         );
+    }
+    let mut policy_key_ids = BTreeSet::new();
+    for key in &policy.keys {
+        if key.keyid.trim().is_empty() || !policy_key_ids.insert(key.keyid.clone()) {
+            finding(
+                &mut findings,
+                "TRUST_POLICY_KEY_ID_INVALID_OR_DUPLICATE",
+                "violation",
+                None,
+                "trust policy key IDs must be nonempty and unique",
+            );
+        }
     }
     let mut conductor_ids = BTreeSet::new();
     for lineage in &bundle.subject.conductor_lineages {
@@ -545,15 +560,116 @@ fn audit(
                         continue;
                     }
                 };
+                if signatures.len() != 1 {
+                    finding(
+                        &mut findings,
+                        "DSSE_SIGNATURE_COUNT_UNSUPPORTED",
+                        "incomplete",
+                        Some(&attestation.attestation_id),
+                        "Pulse signed-evidence v1 requires exactly one role-specific DSSE signature per attestation",
+                    );
+                    continue;
+                }
+
+                // The wrapper's issuer_role is untrusted. Use the key ID only to
+                // locate a candidate public key, verify the exact DSSE PAE bytes,
+                // and parse the signed statement only after signature success.
+                let sig = &signatures[0];
+                let Some(trusted) = policy.keys.iter().find(|key| key.keyid == sig.keyid) else {
+                    finding(
+                        &mut findings,
+                        "DSSE_SIGNER_UNKNOWN",
+                        "violation",
+                        Some(&attestation.attestation_id),
+                        format!("signer key ID {} is not present in the supplied trust policy", sig.keyid),
+                    );
+                    continue;
+                };
+                if trusted.status != "active" {
+                    finding(
+                        &mut findings,
+                        "DSSE_SIGNER_NOT_ACTIVE",
+                        "violation",
+                        Some(&attestation.attestation_id),
+                        format!("signer key {} is not active under the supplied policy", sig.keyid),
+                    );
+                    continue;
+                }
+                let public_bytes = match decode_hex_32(&trusted.public_key_hex) {
+                    Some(value) => value,
+                    None => {
+                        finding(
+                            &mut findings,
+                            "TRUSTED_PUBLIC_KEY_INVALID",
+                            "incomplete",
+                            Some(&attestation.attestation_id),
+                            format!("trusted key {} is not a 32-byte Ed25519 public key", sig.keyid),
+                        );
+                        continue;
+                    }
+                };
+                let verifying_key = match VerifyingKey::from_bytes(&public_bytes) {
+                    Ok(value) => value,
+                    Err(_) => {
+                        finding(
+                            &mut findings,
+                            "TRUSTED_PUBLIC_KEY_INVALID",
+                            "incomplete",
+                            Some(&attestation.attestation_id),
+                            format!("trusted key {} is not a valid Ed25519 point", sig.keyid),
+                        );
+                        continue;
+                    }
+                };
+                let signature_bytes = match STANDARD.decode(&sig.sig_base64) {
+                    Ok(value) => value,
+                    Err(_) => {
+                        finding(
+                            &mut findings,
+                            "DSSE_SIGNATURE_BASE64_INVALID",
+                            "violation",
+                            Some(&attestation.attestation_id),
+                            "signature is not valid standard base64",
+                        );
+                        continue;
+                    }
+                };
+                let signature = match Signature::from_slice(&signature_bytes) {
+                    Ok(value) => value,
+                    Err(_) => {
+                        finding(
+                            &mut findings,
+                            "DSSE_SIGNATURE_ENCODING_INVALID",
+                            "violation",
+                            Some(&attestation.attestation_id),
+                            "signature has an invalid Ed25519 encoding",
+                        );
+                        continue;
+                    }
+                };
+                let pae_bytes = pae(payload_type, &payload);
+                if verifying_key.verify(&pae_bytes, &signature).is_err() {
+                    finding(
+                        &mut findings,
+                        "DSSE_SIGNATURE_INVALID",
+                        "violation",
+                        Some(&attestation.attestation_id),
+                        format!("signature from key {} does not verify over DSSE PAE bytes", sig.keyid),
+                    );
+                    continue;
+                }
+
+                // Never parse or reserialize payload JSON before verifying the
+                // signature over the original decoded byte sequence.
                 let statement: InTotoStatement = match serde_json::from_slice(&payload) {
-                    Ok(v) => v,
-                    Err(e) => {
+                    Ok(value) => value,
+                    Err(error) => {
                         finding(
                             &mut findings,
                             "INTOTO_STATEMENT_INVALID",
                             "violation",
                             Some(&attestation.attestation_id),
-                            format!("cannot parse signed in-toto statement: {e}"),
+                            format!("cannot parse signed in-toto statement: {error}"),
                         );
                         continue;
                     }
@@ -593,164 +709,48 @@ fn audit(
                     );
                     continue;
                 }
-                if signatures.is_empty() {
-                    finding(
-                        &mut findings,
-                        "DSSE_SIGNATURES_MISSING",
-                        "incomplete",
-                        Some(&attestation.attestation_id),
-                        "DSSE envelope has no signatures",
-                    );
-                    continue;
-                }
-
-                let pae_bytes = pae(payload_type, &payload);
-                let mut valid_signers = BTreeSet::new();
-                let mut signature_failure = false;
-                for sig in signatures {
-                    let trusted = policy.keys.iter().find(|key| key.keyid == sig.keyid);
-                    let Some(trusted) = trusted else {
-                        finding(
-                            &mut findings,
-                            "DSSE_SIGNER_UNKNOWN",
-                            "violation",
-                            Some(&attestation.attestation_id),
-                            format!(
-                                "signer key ID {} is not present in the supplied trust policy",
-                                sig.keyid
-                            ),
-                        );
-                        signature_failure = true;
-                        continue;
-                    };
-                    if trusted.status != "active"
-                        || !trusted
-                            .roles
-                            .iter()
-                            .any(|role| role == &attestation.issuer_role)
-                        || !trusted
-                            .predicate_types
-                            .iter()
-                            .any(|p| p == &statement.predicate_type)
-                    {
-                        finding(
-                            &mut findings,
-                            "DSSE_SIGNER_NOT_AUTHORIZED_FOR_ROLE",
-                            "violation",
-                            Some(&attestation.attestation_id),
-                            format!(
-                                "key {} is inactive or not authorized for role/predicate",
-                                sig.keyid
-                            ),
-                        );
-                        signature_failure = true;
-                        continue;
-                    }
-                    let public_bytes = match decode_hex_32(&trusted.public_key_hex) {
-                        Some(v) => v,
-                        None => {
-                            finding(
-                                &mut findings,
-                                "TRUSTED_PUBLIC_KEY_INVALID",
-                                "incomplete",
-                                Some(&attestation.attestation_id),
-                                format!(
-                                    "trusted key {} is not a 32-byte Ed25519 public key",
-                                    sig.keyid
-                                ),
-                            );
-                            signature_failure = true;
-                            continue;
-                        }
-                    };
-                    let verifying_key = match VerifyingKey::from_bytes(&public_bytes) {
-                        Ok(v) => v,
-                        Err(_) => {
-                            finding(
-                                &mut findings,
-                                "TRUSTED_PUBLIC_KEY_INVALID",
-                                "incomplete",
-                                Some(&attestation.attestation_id),
-                                format!("trusted key {} is not a valid Ed25519 point", sig.keyid),
-                            );
-                            signature_failure = true;
-                            continue;
-                        }
-                    };
-                    let signature_bytes = match STANDARD.decode(&sig.sig_base64) {
-                        Ok(v) => v,
-                        Err(_) => {
-                            finding(
-                                &mut findings,
-                                "DSSE_SIGNATURE_BASE64_INVALID",
-                                "violation",
-                                Some(&attestation.attestation_id),
-                                "signature is not valid standard base64",
-                            );
-                            signature_failure = true;
-                            continue;
-                        }
-                    };
-                    let signature = match Signature::from_slice(&signature_bytes) {
-                        Ok(v) => v,
-                        Err(_) => {
-                            finding(
-                                &mut findings,
-                                "DSSE_SIGNATURE_ENCODING_INVALID",
-                                "violation",
-                                Some(&attestation.attestation_id),
-                                "signature has an invalid Ed25519 encoding",
-                            );
-                            signature_failure = true;
-                            continue;
-                        }
-                    };
-                    if verifying_key.verify(&pae_bytes, &signature).is_err() {
-                        finding(
-                            &mut findings,
-                            "DSSE_SIGNATURE_INVALID",
-                            "violation",
-                            Some(&attestation.attestation_id),
-                            format!(
-                                "signature from key {} does not verify over DSSE PAE bytes",
-                                sig.keyid
-                            ),
-                        );
-                        signature_failure = true;
-                        continue;
-                    }
-                    if let Err(message) = verify_issuer_subject_binding(
-                        &attestation.issuer_role,
-                        &statement.predicate.details,
-                        trusted,
-                        &bundle.subject,
-                    ) {
-                        finding(
-                            &mut findings,
-                            "DSSE_SIGNER_SUBJECT_BINDING_MISMATCH",
-                            "violation",
-                            Some(&attestation.attestation_id),
-                            message,
-                        );
-                        signature_failure = true;
-                        continue;
-                    }
-                    valid_signers.insert(sig.keyid.clone());
-                }
-                if !valid_signers.contains(&statement.predicate.issuer_key_id) {
+                if statement.predicate.issuer_key_id != sig.keyid {
                     finding(
                         &mut findings,
                         "PREDICATE_ISSUER_KEY_MISMATCH",
                         "violation",
                         Some(&attestation.attestation_id),
-                        "signed predicate issuer_key_id must match a successfully verified signature",
+                        "signed predicate issuer_key_id must match the exact DSSE signature key ID",
                     );
-                    signature_failure = true;
+                    continue;
                 }
-                if !signature_failure && !valid_signers.is_empty() {
-                    dsse_verified += 1;
-                    accepted_event_ids.insert(attestation.event_id.clone());
+                if !trusted.roles.iter().any(|role| role == &attestation.issuer_role)
+                    || !trusted.predicate_types.iter().any(|kind| kind == &statement.predicate_type)
+                {
+                    finding(
+                        &mut findings,
+                        "DSSE_SIGNER_NOT_AUTHORIZED_FOR_ROLE",
+                        "violation",
+                        Some(&attestation.attestation_id),
+                        format!(
+                            "key {} is not authorized for role {} and predicate {}",
+                            sig.keyid, attestation.issuer_role, statement.predicate_type
+                        ),
+                    );
+                    continue;
                 }
+                if let Err(message) = verify_issuer_subject_binding(
+                    &attestation.issuer_role,
+                    &statement.predicate.details,
+                    trusted,
+                    &bundle.subject,
+                ) {
+                    finding(
+                        &mut findings,
+                        "DSSE_SIGNER_SUBJECT_BINDING_MISMATCH",
+                        "violation",
+                        Some(&attestation.attestation_id),
+                        message,
+                    );
+                    continue;
+                }
+                dsse_verified += 1;
+                accepted_event_ids.insert(attestation.event_id.clone());
             }
             Envelope::Scitt {
                 media_type,
