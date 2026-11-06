@@ -1,0 +1,218 @@
+{
+  "oracle_id": "FIN-IFRS18-MPM-ORACLE-S0",
+  "schema_version": "1.0.0",
+  "claim_ceiling": "public_synthetic_reference_outcomes_not_professional_adjudication",
+  "expectations": [
+    {
+      "case_id": "MPM-001",
+      "expected_disposition": "complete",
+      "reason_codes": [
+        "mpm_qualified",
+        "single_note_complete",
+        "exact_reconciliation",
+        "tax_nci_complete"
+      ],
+      "blocks_reporting_acceptance": false
+    },
+    {
+      "case_id": "MPM-002",
+      "expected_disposition": "incomplete_disclosure",
+      "reason_codes": [
+        "mpm_description_missing"
+      ],
+      "blocks_reporting_acceptance": true
+    },
+    {
+      "case_id": "MPM-003",
+      "expected_disposition": "incomplete_disclosure",
+      "reason_codes": [
+        "mpm_calculation_missing"
+      ],
+      "blocks_reporting_acceptance": true
+    },
+    {
+      "case_id": "MPM-004",
+      "expected_disposition": "incomplete_disclosure",
+      "reason_codes": [
+        "mpm_single_note_missing"
+      ],
+      "blocks_reporting_acceptance": true
+    },
+    {
+      "case_id": "MPM-005",
+      "expected_disposition": "incomplete_disclosure",
+      "reason_codes": [
+        "mpm_disclosures_not_in_one_note"
+      ],
+      "blocks_reporting_acceptance": true
+    },
+    {
+      "case_id": "MPM-006",
+      "expected_disposition": "incomplete_disclosure",
+      "reason_codes": [
+        "wrong_most_directly_comparable_subtotal"
+      ],
+      "blocks_reporting_acceptance": true
+    },
+    {
+      "case_id": "MPM-007",
+      "expected_disposition": "reconciliation_error",
+      "reason_codes": [
+        "mpm_reconciliation_arithmetic_mismatch"
+      ],
+      "blocks_reporting_acceptance": true
+    },
+    {
+      "case_id": "MPM-008",
+      "expected_disposition": "incomplete_disclosure",
+      "reason_codes": [
+        "reconciling_item_tax_effect_missing"
+      ],
+      "blocks_reporting_acceptance": true
+    },
+    {
+      "case_id": "MPM-009",
+      "expected_disposition": "incomplete_disclosure",
+      "reason_codes": [
+        "reconciling_item_nci_effect_missing"
+      ],
+      "blocks_reporting_acceptance": true
+    },
+    {
+      "case_id": "MPM-010",
+      "expected_disposition": "incomplete_disclosure",
+      "reason_codes": [
+        "tax_effect_method_description_missing"
+      ],
+      "blocks_reporting_acceptance": true
+    },
+    {
+      "case_id": "MPM-011",
+      "expected_disposition": "incomplete_disclosure",
+      "reason_codes": [
+        "mixed_tax_methods_not_explained_per_item"
+      ],
+      "blocks_reporting_acceptance": true
+    },
+    {
+      "case_id": "MPM-012",
+      "expected_disposition": "incomplete_disclosure",
+      "reason_codes": [
+        "b140_secondary_bridge_missing"
+      ],
+      "blocks_reporting_acceptance": true
+    },
+    {
+      "case_id": "MPM-013",
+      "expected_disposition": "not_mpm",
+      "reason_codes": [
+        "financial_ratio_is_not_mpm"
+      ],
+      "blocks_reporting_acceptance": false
+    },
+    {
+      "case_id": "MPM-014",
+      "expected_disposition": "not_mpm",
+      "reason_codes": [
+        "liquidity_cash_flow_measure_is_not_mpm"
+      ],
+      "blocks_reporting_acceptance": false
+    },
+    {
+      "case_id": "MPM-015",
+      "expected_disposition": "not_mpm",
+      "reason_codes": [
+        "one_sided_income_subtotal_is_not_mpm"
+      ],
+      "blocks_reporting_acceptance": false
+    },
+    {
+      "case_id": "MPM-016",
+      "expected_disposition": "not_mpm",
+      "reason_codes": [
+        "ifrs_required_subtotal_is_not_mpm"
+      ],
+      "blocks_reporting_acceptance": false
+    },
+    {
+      "case_id": "MPM-017",
+      "expected_disposition": "not_mpm",
+      "reason_codes": [
+        "no_public_communication"
+      ],
+      "blocks_reporting_acceptance": false
+    },
+    {
+      "case_id": "MPM-018",
+      "expected_disposition": "not_mpm",
+      "reason_codes": [
+        "segment_only_not_entity_wide"
+      ],
+      "blocks_reporting_acceptance": false
+    },
+    {
+      "case_id": "MPM-019",
+      "expected_disposition": "incomplete_disclosure",
+      "reason_codes": [
+        "mpm_change_disclosure_incomplete"
+      ],
+      "blocks_reporting_acceptance": true
+    },
+    {
+      "case_id": "MPM-020",
+      "expected_disposition": "incomplete_disclosure",
+      "reason_codes": [
+        "tax_method_change_disclosure_incomplete"
+      ],
+      "blocks_reporting_acceptance": true
+    },
+    {
+      "case_id": "MPM-021",
+      "expected_disposition": "complete",
+      "reason_codes": [
+        "new_mpm_lifecycle_disclosure_complete"
+      ],
+      "blocks_reporting_acceptance": false
+    },
+    {
+      "case_id": "MPM-022",
+      "expected_disposition": "complete",
+      "reason_codes": [
+        "mpm_cessation_disclosed"
+      ],
+      "blocks_reporting_acceptance": false
+    },
+    {
+      "case_id": "MPM-023",
+      "expected_disposition": "incomplete_disclosure",
+      "reason_codes": [
+        "mpm_cessation_disclosure_incomplete"
+      ],
+      "blocks_reporting_acceptance": true
+    },
+    {
+      "case_id": "MPM-024",
+      "expected_disposition": "complete",
+      "reason_codes": [
+        "early_application_profile_approved"
+      ],
+      "blocks_reporting_acceptance": false
+    },
+    {
+      "case_id": "MPM-025",
+      "expected_disposition": "profile_mismatch",
+      "reason_codes": [
+        "ifrs18_not_effective_without_early_application"
+      ],
+      "blocks_reporting_acceptance": true
+    },
+    {
+      "case_id": "MPM-026",
+      "expected_disposition": "profile_mismatch",
+      "reason_codes": [
+        "ifrs18_not_inferred_for_ifrs_for_smes"
+      ],
+      "blocks_reporting_acceptance": true
+    }
+  ]
+}
