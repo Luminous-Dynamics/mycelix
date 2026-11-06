@@ -425,31 +425,49 @@ fn path_exists(
         .get(from)
         .map(|targets| targets.iter().cloned().collect::<Vec<_>>())
         .unwrap_or_default();
-    let mut found = false;
 
+    if !should_build_source_set {
+        // First query (or a graph/cache beyond the bound): retain the original
+        // early-exit DFS behavior so cold lookups do not traverse unrelated
+        // descendants.
+        while let Some(node) = stack.pop() {
+            if !seen.insert(node.clone()) {
+                continue;
+            }
+            cache.dfs_node_visits += 1;
+            if node == to {
+                return true;
+            }
+            if let Some(next) = adjacency.get(&node) {
+                stack.extend(next.iter().cloned());
+            }
+        }
+        if prior_queries > 0 {
+            cache.cache_limit_skips += 1;
+        }
+        return false;
+    }
+
+    // Second query from this source: materialize a bounded reachable set for
+    // subsequent fan-out lookups. The DAG was already cycle-checked by audit().
+    cache.full_reachability_builds += 1;
     while let Some(node) = stack.pop() {
         if !seen.insert(node.clone()) {
             continue;
         }
         cache.dfs_node_visits += 1;
-        if node == to {
-            found = true;
-        }
         if let Some(next) = adjacency.get(&node) {
             stack.extend(next.iter().cloned());
         }
     }
 
-    if should_build_source_set {
-        cache.full_reachability_builds += 1;
-        if seen.len() <= remaining_budget {
-            cache.cached_reachable_nodes += seen.len();
-            cache.reachable_by_source.insert(from.to_string(), seen);
-        } else {
-            cache.cache_limit_skips += 1;
-        }
+    let found = seen.contains(to);
+    if seen.len() <= remaining_budget {
+        cache.cached_reachable_nodes += seen.len();
+        cache.reachable_by_source.insert(from.to_string(), seen);
+    } else {
+        cache.cache_limit_skips += 1;
     }
-
     found
 }
 
