@@ -4627,12 +4627,12 @@
         {
           "event_id": "EV-29-1",
           "sequence": 1,
-          "event_type": "instruction_created",
+          "event_type": "instruction_creation_attempt_rejected",
           "actor": "SYNTH-PSP-A",
-          "authority_state": "valid",
+          "authority_state": "invalid",
           "subject_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
           "instruction_id": "INS-029",
-          "evidence_type": "payment_instruction_receipt",
+          "evidence_type": "instruction_rejection_receipt",
           "observed_at": "2026-11-06T12:20:01Z"
         }
       ],
@@ -4789,12 +4789,12 @@
         {
           "event_id": "EV-30-1",
           "sequence": 1,
-          "event_type": "recipient_available",
+          "event_type": "recipient_availability_claim_rejected",
           "actor": "SYNTH-PSP-B",
-          "authority_state": "valid",
+          "authority_state": "invalid",
           "subject_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
           "instruction_id": "INS-030",
-          "evidence_type": "recipient_availability_receipt",
+          "evidence_type": "availability_claim_rejection_receipt",
           "observed_at": "2026-11-06T12:20:02Z"
         }
       ],
