@@ -274,13 +274,16 @@ fn new_evidence_available_at_candidate_frontier(
     for assertion in array(candidate, "assertions")? {
         let reference = string(assertion, "assertion_ref")?;
         let existed_before = find_ref(array(baseline, "assertions")?, "assertion_ref", reference);
-        if existed_before.is_some() {
-            continue;
-        }
-        if assertion_available(candidate, assertion, candidate_frontier)?
-            && !assertion_available(candidate, assertion, baseline_frontier)?
-        {
-            result.insert(reference.to_owned());
+        if assertion_available(candidate, assertion, candidate_frontier)? {
+            let was_available_at_baseline = match existed_before {
+                Some(baseline_assertion) => {
+                    assertion_available(baseline, baseline_assertion, baseline_frontier)?
+                }
+                None => false,
+            };
+            if !was_available_at_baseline {
+                result.insert(reference.to_owned());
+            }
         }
     }
     Ok(result)
@@ -690,7 +693,7 @@ fn analyze_case(
     affected_assertions.extend(assertion_refs_for_changed_sources(
         baseline_graph_case,
         candidate_graph_case,
-        &changed_source_refs,
+        &semantic_source_refs,
     )?);
 
     let mut integrity_degraded = false;
@@ -699,7 +702,7 @@ fn analyze_case(
         let reference = string(assertion, "assertion_ref")?;
         let before = find_ref(array(baseline_graph_case, "assertions")?, "assertion_ref", reference);
         let changed = changed_assertion_refs.contains(reference)
-            || changed_source_refs.contains(optional_string(assertion, "source_ref").unwrap_or(""));
+            || semantic_source_refs.contains(optional_string(assertion, "source_ref").unwrap_or(""));
         if !changed {
             continue;
         }
@@ -1105,6 +1108,51 @@ mod tests {
         assert_eq!(result(&report, "DRIFT-008-CROSS-TENANT-ID-COLLISION")["classification"], "no_material_impact");
         assert_eq!(result(&report, "DRIFT-009-UNLINKED-REVISION")["classification"], "review_required");
         assert_eq!(result(&report, "DRIFT-010-UNDERREPORTED-IMPACT-SET")["caller_impact_claim_matches"], false);
+    }
+
+
+    #[test]
+    fn later_frontier_unlocks_existing_future_assertion_without_new_object_ids() {
+        let (request_schema, report_schema, graph_schema, projection_schema, fixture) = fixtures();
+        let mut baseline: Value = serde_json::from_str(
+            string(
+                array(&fixture, "cases").unwrap().iter()
+                    .find(|item| optional_string(item, "case_id") == Some("DRIFT-001-AMOUNT-CORRECTION")).unwrap(),
+                "baseline_graph_json"
+            ).unwrap()
+        ).unwrap();
+        let mut candidate = baseline.clone();
+        let target = baseline["cases"].as_array_mut().unwrap().iter_mut()
+            .find(|case| optional_string(case, "case_id") == Some("EVT-006-FUTURE-KNOWLEDGE-IS-RETAINED")).unwrap();
+        let case_id = string(target, "case_id").unwrap().to_owned();
+        let candidate_target = candidate["cases"].as_array_mut().unwrap().iter_mut()
+            .find(|case| optional_string(case, "case_id") == Some(&case_id)).unwrap();
+        target["knowledge_at"] = json!("2026-11-05T10:30:00Z");
+        candidate_target["knowledge_at"] = json!("2026-11-05T11:00:00Z");
+        let unlocked = new_evidence_available_at_candidate_frontier(target, candidate_target).unwrap();
+        assert_eq!(unlocked, BTreeSet::from(["AS-006-AMOUNT".to_owned()]));
+        let _ = (request_schema, report_schema, graph_schema, projection_schema);
+    }
+
+    #[test]
+    fn display_metadata_change_does_not_create_source_assertion_dependencies() {
+        let (request_schema, report_schema, graph_schema, projection_schema, fixture) = fixtures();
+        let row = array(&fixture, "cases").unwrap().iter()
+            .find(|item| optional_string(item, "case_id") == Some("DRIFT-002-METADATA-ONLY")).unwrap();
+        let (_, baseline_bundle) = parse_embedded_json("baseline", row, "baseline_graph_json").unwrap();
+        let (_, candidate_bundle) = parse_embedded_json("candidate", row, "candidate_graph_json").unwrap();
+        let baseline = graph_case(&baseline_bundle, "DRIFT-002-METADATA-ONLY").unwrap();
+        let candidate = graph_case(&candidate_bundle, "DRIFT-002-METADATA-ONLY").unwrap();
+        let semantic = changed_refs(
+            array(baseline, "source_objects").unwrap(),
+            array(candidate, "source_objects").unwrap(),
+            "source_ref",
+            true
+        ).unwrap();
+        assert!(semantic.is_empty());
+        let affected = assertion_refs_for_changed_sources(baseline, candidate, &semantic).unwrap();
+        assert!(affected.is_empty());
+        let _ = (request_schema, report_schema, graph_schema, projection_schema);
     }
 
     #[test]
