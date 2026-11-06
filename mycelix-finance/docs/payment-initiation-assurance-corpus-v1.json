@@ -1,0 +1,1180 @@
+{
+  "schema": "mycelix.payment-initiation-assurance-corpus/v1",
+  "corpus_id": "PAYMENT-INITIATION-ADVERSARIAL-SYNTHETIC-V1",
+  "status": "synthetic_reference_only",
+  "as_of": "2026-11-04",
+  "external_effects_enabled": false,
+  "execution_enabled": false,
+  "qr_plus_profile": {
+    "version": "1.2",
+    "state": "published_standard",
+    "execution_rail": "selected_provider_rail",
+    "pilot_state": "unverified_future_milestone",
+    "source_url": "https://www.resbank.co.za/en/home/publications/publication-detail-pages/other-publications/2026/qr-1-2-overview"
+  },
+  "rulebook_references": [
+    {
+      "id": "SARB_QR_PLUS_1_2",
+      "url": "https://www.resbank.co.za/en/home/publications/publication-detail-pages/other-publications/2026/qr-1-2-overview",
+      "role": "initiation_standard_only"
+    },
+    {
+      "id": "CPMI_PAYMENT_PREVALIDATION_2025",
+      "url": "https://www.bis.org/publications/cpmi-brief-9-safety-and-efficiency-through-payment-pre-validation-spotting-issues-money-moves",
+      "role": "payee_prevalidation_guidance"
+    },
+    {
+      "id": "BIS_PROJECT_NEXUS_2024",
+      "url": "https://www.bis.org/publ/othp86.pdf",
+      "role": "recipient_display_mfa_and_proxy_rate_limit_controls"
+    },
+    {
+      "id": "ECB_INSTANT_PAYMENTS_REGULATION_2024_886",
+      "url": "https://www.ecb.europa.eu/paym/retail/instant_payments/html/instant_payments_regulation.es.html",
+      "role": "official_EU_VoP_obligations_result_classes_and_deadlines"
+    },
+    {
+      "id": "PAYUK_FPS_PRINCIPLES_V11_COP_2026",
+      "url": "https://www.wearepay.uk/wp-content/uploads/2026/02/Pay.UK-Faster-Payments-System-Principles-v-11-Jan-2026.pdf",
+      "role": "UK_CoP_four_outcomes_and_personal_business_account_type"
+    },
+    {
+      "id": "SARB_PEM_POSITION_2025",
+      "url": "https://www.resbank.co.za/content/dam/sarb/publications/other-publications/2025/pem-position-paper.pdf",
+      "role": "South_Africa_future_NPU_proxy_resolution_and_confirmation_of_payee_proposal"
+    },
+    {
+      "id": "EPC_SRTP_TRUST_SECURITY_V1_1_0_2026",
+      "url": "https://www.europeanpaymentscouncil.eu/document-library/guidance-documents/sepa-request-pay-srtp-trust-and-security-model-0",
+      "role": "RTP_API_authentication_integrity_and_JWS_sealing_comparator"
+    },
+    {
+      "id": "EPC_SRTP_OPENAPI_V4_0_1_2026",
+      "url": "https://www.europeanpaymentscouncil.eu/document-library/implementation-guidelines/sepa-request-pay-srtp-openapi-specifications",
+      "role": "RTP_API_profile_and_lifecycle_version_comparator"
+    }
+  ],
+  "required_lifecycle_order": [
+    "parsed",
+    "payee_resolved",
+    "payee_verified",
+    "presented",
+    "authorised",
+    "dispatched",
+    "provider_accepted",
+    "settled",
+    "recipient_available",
+    "final"
+  ],
+  "cases": [
+    {
+      "id": "QR-PI-001",
+      "category": "qr_payload_parsed_only",
+      "expected": "parsed_unverified",
+      "input": {
+        "parse_valid": true,
+        "profile_version": "1.2",
+        "raw_digest_present": true,
+        "profile_digest_present": true,
+        "payee_resolution_valid": false,
+        "payer_authorised": false
+      },
+      "dispatch_allowed": false,
+      "required_evidence": [
+        "raw_payload_digest",
+        "profile_version_digest",
+        "case_specific_provider_or_intent_evidence"
+      ],
+      "negative_controls": [
+        "mutate_qr_payload_parsed_only_control",
+        "assert_no_unauthorised_dispatch",
+        "assert_lifecycle_not_promoted"
+      ]
+    },
+    {
+      "id": "QR-PI-002",
+      "category": "verified_payee_presented",
+      "expected": "awaiting_payer_authorisation",
+      "input": {
+        "payee_resolution_valid": true,
+        "provider_signature_valid": true,
+        "provider_audience_valid": true,
+        "payee_presented": true,
+        "payer_authorised": false
+      },
+      "dispatch_allowed": false,
+      "required_evidence": [
+        "raw_payload_digest",
+        "profile_version_digest",
+        "case_specific_provider_or_intent_evidence"
+      ],
+      "negative_controls": [
+        "mutate_verified_payee_presented_control",
+        "assert_no_unauthorised_dispatch",
+        "assert_lifecycle_not_promoted"
+      ]
+    },
+    {
+      "id": "QR-PI-003",
+      "category": "payee_substitution",
+      "expected": "rejected",
+      "input": {
+        "payee_resolution_valid": true,
+        "payee_matches_signed_resolution": false,
+        "payer_authorised": true,
+        "dispatch_attempted": false
+      },
+      "dispatch_allowed": false,
+      "required_evidence": [
+        "raw_payload_digest",
+        "profile_version_digest",
+        "case_specific_provider_or_intent_evidence"
+      ],
+      "negative_controls": [
+        "mutate_payee_substitution_control",
+        "assert_no_unauthorised_dispatch",
+        "assert_lifecycle_not_promoted"
+      ]
+    },
+    {
+      "id": "QR-PI-004",
+      "category": "amount_after_confirmation",
+      "expected": "rejected",
+      "input": {
+        "payer_authorised": true,
+        "amount_matches_authorised_intent": false,
+        "dispatch_attempted": false
+      },
+      "dispatch_allowed": false,
+      "required_evidence": [
+        "raw_payload_digest",
+        "profile_version_digest",
+        "case_specific_provider_or_intent_evidence"
+      ],
+      "negative_controls": [
+        "mutate_amount_after_confirmation_control",
+        "assert_no_unauthorised_dispatch",
+        "assert_lifecycle_not_promoted"
+      ]
+    },
+    {
+      "id": "QR-PI-005",
+      "category": "static_qr_no_amount",
+      "expected": "requires_payer_amount",
+      "input": {
+        "qr_is_static": true,
+        "amount_present": false,
+        "payer_entered_amount": false,
+        "payer_authorised": false
+      },
+      "dispatch_allowed": false,
+      "required_evidence": [
+        "raw_payload_digest",
+        "profile_version_digest",
+        "case_specific_provider_or_intent_evidence"
+      ],
+      "negative_controls": [
+        "mutate_static_qr_no_amount_control",
+        "assert_no_unauthorised_dispatch",
+        "assert_lifecycle_not_promoted"
+      ]
+    },
+    {
+      "id": "QR-PI-006",
+      "category": "currency_scale_substitution",
+      "expected": "rejected",
+      "input": {
+        "currency_matches_profile": false,
+        "scale_matches_profile": false,
+        "payer_authorised": true,
+        "dispatch_attempted": false
+      },
+      "dispatch_allowed": false,
+      "required_evidence": [
+        "raw_payload_digest",
+        "profile_version_digest",
+        "case_specific_provider_or_intent_evidence"
+      ],
+      "negative_controls": [
+        "mutate_currency_scale_substitution_control",
+        "assert_no_unauthorised_dispatch",
+        "assert_lifecycle_not_promoted"
+      ]
+    },
+    {
+      "id": "QR-PI-007",
+      "category": "expired_dynamic_qr",
+      "expected": "rejected",
+      "input": {
+        "qr_is_dynamic": true,
+        "expired": true,
+        "nonce_unused": true,
+        "dispatch_attempted": false
+      },
+      "dispatch_allowed": false,
+      "required_evidence": [
+        "raw_payload_digest",
+        "profile_version_digest",
+        "case_specific_provider_or_intent_evidence"
+      ],
+      "negative_controls": [
+        "mutate_expired_dynamic_qr_control",
+        "assert_no_unauthorised_dispatch",
+        "assert_lifecycle_not_promoted"
+      ]
+    },
+    {
+      "id": "QR-PI-008",
+      "category": "exact_scan_replay",
+      "expected": "idempotent_same_intent",
+      "input": {
+        "same_operation_id": true,
+        "same_fingerprint": true,
+        "repeat_scan": true,
+        "second_effect_count": 0
+      },
+      "dispatch_allowed": false,
+      "required_evidence": [
+        "raw_payload_digest",
+        "profile_version_digest",
+        "case_specific_provider_or_intent_evidence"
+      ],
+      "negative_controls": [
+        "mutate_exact_scan_replay_control",
+        "assert_no_unauthorised_dispatch",
+        "assert_lifecycle_not_promoted"
+      ]
+    },
+    {
+      "id": "QR-PI-009",
+      "category": "same_nonce_changed_fingerprint",
+      "expected": "conflict",
+      "input": {
+        "same_operation_id": true,
+        "same_fingerprint": false,
+        "repeat_scan": true,
+        "second_effect_count": 0
+      },
+      "dispatch_allowed": false,
+      "required_evidence": [
+        "raw_payload_digest",
+        "profile_version_digest",
+        "case_specific_provider_or_intent_evidence"
+      ],
+      "negative_controls": [
+        "mutate_same_nonce_changed_fingerprint_control",
+        "assert_no_unauthorised_dispatch",
+        "assert_lifecycle_not_promoted"
+      ]
+    },
+    {
+      "id": "QR-PI-010",
+      "category": "untrusted_display_name",
+      "expected": "awaiting_provider_resolution",
+      "input": {
+        "qr_display_name_present": true,
+        "provider_resolution_valid": false,
+        "display_name_authoritative": false,
+        "payer_authorised": false
+      },
+      "dispatch_allowed": false,
+      "required_evidence": [
+        "raw_payload_digest",
+        "profile_version_digest",
+        "case_specific_provider_or_intent_evidence"
+      ],
+      "negative_controls": [
+        "mutate_untrusted_display_name_control",
+        "assert_no_unauthorised_dispatch",
+        "assert_lifecycle_not_promoted"
+      ]
+    },
+    {
+      "id": "QR-PI-011",
+      "category": "stale_directory_result",
+      "expected": "indeterminate_unverified",
+      "input": {
+        "payee_resolution_valid": true,
+        "resolution_expired": true,
+        "directory_available": false,
+        "payer_authorised": false,
+        "dispatch_attempted": false
+      },
+      "dispatch_allowed": false,
+      "required_evidence": [
+        "raw_payload_digest",
+        "profile_version_digest",
+        "case_specific_provider_or_intent_evidence"
+      ],
+      "negative_controls": [
+        "mutate_stale_directory_result_control",
+        "assert_no_unauthorised_dispatch",
+        "assert_lifecycle_not_promoted"
+      ]
+    },
+    {
+      "id": "QR-PI-012",
+      "category": "invalid_provider_signature",
+      "expected": "rejected",
+      "input": {
+        "provider_signature_valid": false,
+        "payee_resolution_valid": true,
+        "dispatch_attempted": false
+      },
+      "dispatch_allowed": false,
+      "required_evidence": [
+        "raw_payload_digest",
+        "profile_version_digest",
+        "case_specific_provider_or_intent_evidence"
+      ],
+      "negative_controls": [
+        "mutate_invalid_provider_signature_control",
+        "assert_no_unauthorised_dispatch",
+        "assert_lifecycle_not_promoted"
+      ]
+    },
+    {
+      "id": "QR-PI-013",
+      "category": "wrong_provider_audience",
+      "expected": "rejected",
+      "input": {
+        "provider_signature_valid": true,
+        "provider_audience_valid": false,
+        "payee_resolution_valid": true,
+        "dispatch_attempted": false
+      },
+      "dispatch_allowed": false,
+      "required_evidence": [
+        "raw_payload_digest",
+        "profile_version_digest",
+        "case_specific_provider_or_intent_evidence"
+      ],
+      "negative_controls": [
+        "mutate_wrong_provider_audience_control",
+        "assert_no_unauthorised_dispatch",
+        "assert_lifecycle_not_promoted"
+      ]
+    },
+    {
+      "id": "QR-PI-014",
+      "category": "resolution_rate_limit",
+      "expected": "throttled",
+      "input": {
+        "resolution_requests_in_window": 100,
+        "limit": 20,
+        "dispatch_attempted": false,
+        "disclosure_over_limit": false
+      },
+      "dispatch_allowed": false,
+      "required_evidence": [
+        "raw_payload_digest",
+        "profile_version_digest",
+        "case_specific_provider_or_intent_evidence"
+      ],
+      "negative_controls": [
+        "mutate_resolution_rate_limit_control",
+        "assert_no_unauthorised_dispatch",
+        "assert_lifecycle_not_promoted"
+      ]
+    },
+    {
+      "id": "QR-PI-015",
+      "category": "user_cancel_before_dispatch",
+      "expected": "cancelled_no_effect",
+      "input": {
+        "payer_authorised": false,
+        "user_cancelled": true,
+        "dispatch_attempted": false,
+        "external_effect_possible": false
+      },
+      "dispatch_allowed": false,
+      "required_evidence": [
+        "raw_payload_digest",
+        "profile_version_digest",
+        "case_specific_provider_or_intent_evidence"
+      ],
+      "negative_controls": [
+        "mutate_user_cancel_before_dispatch_control",
+        "assert_no_unauthorised_dispatch",
+        "assert_lifecycle_not_promoted"
+      ]
+    },
+    {
+      "id": "QR-PI-016",
+      "category": "payment_timeout_unknown",
+      "expected": "indeterminate_same_operation_id",
+      "input": {
+        "dispatch_attempted": true,
+        "provider_response": "timeout_unknown",
+        "external_effect_possible": true,
+        "original_operation_id_retained": true,
+        "retry_policy": "query_original_only"
+      },
+      "dispatch_allowed": false,
+      "required_evidence": [
+        "raw_payload_digest",
+        "profile_version_digest",
+        "case_specific_provider_or_intent_evidence"
+      ],
+      "negative_controls": [
+        "mutate_payment_timeout_unknown_control",
+        "assert_no_unauthorised_dispatch",
+        "assert_lifecycle_not_promoted"
+      ]
+    },
+    {
+      "id": "QR-PI-017",
+      "category": "provider_accepted_without_settlement",
+      "expected": "provider_accepted_not_settled",
+      "input": {
+        "provider_accepted": true,
+        "settlement_evidence_present": false,
+        "recipient_available_evidence_present": false
+      },
+      "dispatch_allowed": false,
+      "required_evidence": [
+        "raw_payload_digest",
+        "profile_version_digest",
+        "case_specific_provider_or_intent_evidence"
+      ],
+      "negative_controls": [
+        "mutate_provider_accepted_without_settlement_control",
+        "assert_no_unauthorised_dispatch",
+        "assert_lifecycle_not_promoted"
+      ]
+    },
+    {
+      "id": "QR-PI-018",
+      "category": "standard_published_pilot_unverified",
+      "expected": "standard_published_pilot_unverified",
+      "input": {
+        "qr_plus_version": "1.2",
+        "standard_published": true,
+        "pilot_commenced": false,
+        "merchant_implementation_verified": false
+      },
+      "dispatch_allowed": false,
+      "required_evidence": [
+        "raw_payload_digest",
+        "profile_version_digest",
+        "case_specific_provider_or_intent_evidence"
+      ],
+      "negative_controls": [
+        "mutate_standard_published_pilot_unverified_control",
+        "assert_no_unauthorised_dispatch",
+        "assert_lifecycle_not_promoted"
+      ]
+    },
+    {
+      "id": "QR-PI-019",
+      "category": "recipient_mismatch_requires_new_consent",
+      "expected": "reauthorisation_required",
+      "input": {
+        "payer_authorised": true,
+        "recipient_display_changed": true,
+        "original_consent_invalidated": true,
+        "new_consent_obtained": false,
+        "dispatch_attempted": false
+      },
+      "dispatch_allowed": false,
+      "required_evidence": [
+        "raw_payload_digest",
+        "profile_version_digest",
+        "case_specific_provider_or_intent_evidence"
+      ],
+      "negative_controls": [
+        "mutate_recipient_mismatch_requires_new_consent_control",
+        "assert_no_unauthorised_dispatch",
+        "assert_lifecycle_not_promoted"
+      ]
+    },
+    {
+      "id": "QR-PI-020",
+      "category": "vop_exact_match",
+      "expected": "vop_match_result_bound",
+      "input": {
+        "dispatch_attempted": false
+      },
+      "payee_verification": {
+        "scheme_profile": "EU_IPR_VOP",
+        "participant": "synthetic_payer_psp_01",
+        "issuer": "synthetic_beneficiary_psp_01",
+        "audience": "payment-initiation-assurance-v1",
+        "result": "match",
+        "query_subject_ref": "opaque:subject-001",
+        "response_subject_ref": "opaque:subject-001",
+        "intent_subject_ref": "opaque:subject-001",
+        "requested_account_type": "not_specified",
+        "returned_account_type": "unknown",
+        "provider_signature_state": "valid",
+        "audience_matches": true,
+        "is_current": true,
+        "observed_at": "2026-11-04T10:00:00Z",
+        "valid_until": "2026-11-04T10:05:00Z",
+        "payer_notified": true,
+        "payer_decision": "none",
+        "collection_authority_state": "unknown",
+        "collection_authority_inferred_from_name_match": false,
+        "match_engine": "provider_authoritative",
+        "client_asserted_result": "none",
+        "disclosure_state": "minimal_result",
+        "response_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "source_refs": [
+          "ECB_INSTANT_PAYMENTS_REGULATION_2024_886"
+        ],
+        "fraud_inference": "not_inferred"
+      },
+      "dispatch_allowed": false,
+      "required_evidence": [
+        "provider_vop_response",
+        "exact_subject_commitment",
+        "selected_policy_profile",
+        "payer_presentation_record"
+      ],
+      "negative_controls": [
+        "mutate_vop_result_or_subject",
+        "assert_no_stale_or_wrong_audience_promotion",
+        "assert_no_unverified_authority_escalation"
+      ]
+    },
+    {
+      "id": "QR-PI-021",
+      "category": "vop_close_match",
+      "expected": "vop_close_match_requires_payer_decision",
+      "input": {
+        "dispatch_attempted": false
+      },
+      "payee_verification": {
+        "scheme_profile": "UK_FPS_COP",
+        "participant": "synthetic_payer_psp_01",
+        "issuer": "synthetic_beneficiary_psp_01",
+        "audience": "payment-initiation-assurance-v1",
+        "result": "close_match",
+        "query_subject_ref": "opaque:subject-001",
+        "response_subject_ref": "opaque:subject-001",
+        "intent_subject_ref": "opaque:subject-001",
+        "requested_account_type": "business",
+        "returned_account_type": "business",
+        "provider_signature_state": "valid",
+        "audience_matches": true,
+        "is_current": true,
+        "observed_at": "2026-11-04T10:00:00Z",
+        "valid_until": "2026-11-04T10:05:00Z",
+        "payer_notified": true,
+        "payer_decision": "continue_after_warning",
+        "collection_authority_state": "unknown",
+        "collection_authority_inferred_from_name_match": false,
+        "match_engine": "provider_authoritative",
+        "client_asserted_result": "none",
+        "disclosure_state": "minimal_result",
+        "response_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "source_refs": [
+          "PAYUK_FPS_PRINCIPLES_V11_COP_2026"
+        ],
+        "fraud_inference": "not_inferred"
+      },
+      "dispatch_allowed": false,
+      "required_evidence": [
+        "provider_vop_response",
+        "exact_subject_commitment",
+        "selected_policy_profile",
+        "payer_presentation_record"
+      ],
+      "negative_controls": [
+        "mutate_vop_result_or_subject",
+        "assert_no_stale_or_wrong_audience_promotion",
+        "assert_no_unverified_authority_escalation"
+      ]
+    },
+    {
+      "id": "QR-PI-022",
+      "category": "vop_no_match",
+      "expected": "vop_no_match_requires_payer_decision",
+      "input": {
+        "dispatch_attempted": false
+      },
+      "payee_verification": {
+        "scheme_profile": "EU_IPR_VOP",
+        "participant": "synthetic_payer_psp_01",
+        "issuer": "synthetic_beneficiary_psp_01",
+        "audience": "payment-initiation-assurance-v1",
+        "result": "no_match",
+        "query_subject_ref": "opaque:subject-001",
+        "response_subject_ref": "opaque:subject-001",
+        "intent_subject_ref": "opaque:subject-001",
+        "requested_account_type": "not_specified",
+        "returned_account_type": "unknown",
+        "provider_signature_state": "valid",
+        "audience_matches": true,
+        "is_current": true,
+        "observed_at": "2026-11-04T10:00:00Z",
+        "valid_until": "2026-11-04T10:05:00Z",
+        "payer_notified": true,
+        "payer_decision": "cancel",
+        "collection_authority_state": "unknown",
+        "collection_authority_inferred_from_name_match": false,
+        "match_engine": "provider_authoritative",
+        "client_asserted_result": "none",
+        "disclosure_state": "minimal_result",
+        "response_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "source_refs": [
+          "ECB_INSTANT_PAYMENTS_REGULATION_2024_886"
+        ],
+        "fraud_inference": "not_inferred"
+      },
+      "dispatch_allowed": false,
+      "required_evidence": [
+        "provider_vop_response",
+        "exact_subject_commitment",
+        "selected_policy_profile",
+        "payer_presentation_record"
+      ],
+      "negative_controls": [
+        "mutate_vop_result_or_subject",
+        "assert_no_stale_or_wrong_audience_promotion",
+        "assert_no_unverified_authority_escalation"
+      ]
+    },
+    {
+      "id": "QR-PI-023",
+      "category": "vop_unavailable",
+      "expected": "vop_unavailable_indeterminate",
+      "input": {
+        "dispatch_attempted": false
+      },
+      "payee_verification": {
+        "scheme_profile": "UK_FPS_COP",
+        "participant": "synthetic_payer_psp_01",
+        "issuer": "synthetic_beneficiary_psp_01",
+        "audience": "payment-initiation-assurance-v1",
+        "result": "unavailable",
+        "query_subject_ref": "opaque:subject-001",
+        "response_subject_ref": "opaque:subject-001",
+        "intent_subject_ref": "opaque:subject-001",
+        "requested_account_type": "not_specified",
+        "returned_account_type": "unknown",
+        "provider_signature_state": "valid",
+        "audience_matches": true,
+        "is_current": true,
+        "observed_at": "2026-11-04T10:00:00Z",
+        "valid_until": "2026-11-04T10:05:00Z",
+        "payer_notified": true,
+        "payer_decision": "review",
+        "collection_authority_state": "unknown",
+        "collection_authority_inferred_from_name_match": false,
+        "match_engine": "provider_authoritative",
+        "client_asserted_result": "none",
+        "disclosure_state": "minimal_result",
+        "response_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "source_refs": [
+          "PAYUK_FPS_PRINCIPLES_V11_COP_2026"
+        ],
+        "fraud_inference": "not_inferred"
+      },
+      "dispatch_allowed": false,
+      "required_evidence": [
+        "provider_vop_response",
+        "exact_subject_commitment",
+        "selected_policy_profile",
+        "payer_presentation_record"
+      ],
+      "negative_controls": [
+        "mutate_vop_result_or_subject",
+        "assert_no_stale_or_wrong_audience_promotion",
+        "assert_no_unverified_authority_escalation"
+      ]
+    },
+    {
+      "id": "QR-PI-024",
+      "category": "vop_other",
+      "expected": "vop_other_indeterminate",
+      "input": {
+        "dispatch_attempted": false
+      },
+      "payee_verification": {
+        "scheme_profile": "EU_IPR_VOP",
+        "participant": "synthetic_payer_psp_01",
+        "issuer": "synthetic_beneficiary_psp_01",
+        "audience": "payment-initiation-assurance-v1",
+        "result": "other",
+        "query_subject_ref": "opaque:subject-001",
+        "response_subject_ref": "opaque:subject-001",
+        "intent_subject_ref": "opaque:subject-001",
+        "requested_account_type": "not_specified",
+        "returned_account_type": "unknown",
+        "provider_signature_state": "valid",
+        "audience_matches": true,
+        "is_current": true,
+        "observed_at": "2026-11-04T10:00:00Z",
+        "valid_until": "2026-11-04T10:05:00Z",
+        "payer_notified": true,
+        "payer_decision": "review",
+        "collection_authority_state": "unknown",
+        "collection_authority_inferred_from_name_match": false,
+        "match_engine": "provider_authoritative",
+        "client_asserted_result": "none",
+        "disclosure_state": "minimal_result",
+        "response_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "source_refs": [
+          "ECB_INSTANT_PAYMENTS_REGULATION_2024_886"
+        ],
+        "fraud_inference": "not_inferred"
+      },
+      "dispatch_allowed": false,
+      "required_evidence": [
+        "provider_vop_response",
+        "exact_subject_commitment",
+        "selected_policy_profile",
+        "payer_presentation_record"
+      ],
+      "negative_controls": [
+        "mutate_vop_result_or_subject",
+        "assert_no_stale_or_wrong_audience_promotion",
+        "assert_no_unverified_authority_escalation"
+      ]
+    },
+    {
+      "id": "QR-PI-025",
+      "category": "vop_stale_result",
+      "expected": "vop_stale_result_indeterminate",
+      "input": {
+        "dispatch_attempted": false
+      },
+      "payee_verification": {
+        "scheme_profile": "EU_IPR_VOP",
+        "participant": "synthetic_payer_psp_01",
+        "issuer": "synthetic_beneficiary_psp_01",
+        "audience": "payment-initiation-assurance-v1",
+        "result": "match",
+        "query_subject_ref": "opaque:subject-001",
+        "response_subject_ref": "opaque:subject-001",
+        "intent_subject_ref": "opaque:subject-001",
+        "requested_account_type": "not_specified",
+        "returned_account_type": "unknown",
+        "provider_signature_state": "valid",
+        "audience_matches": true,
+        "is_current": false,
+        "observed_at": "2026-11-04T10:00:00Z",
+        "valid_until": "2026-11-04T10:05:00Z",
+        "payer_notified": true,
+        "payer_decision": "review",
+        "collection_authority_state": "unknown",
+        "collection_authority_inferred_from_name_match": false,
+        "match_engine": "provider_authoritative",
+        "client_asserted_result": "none",
+        "disclosure_state": "minimal_result",
+        "response_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "source_refs": [
+          "ECB_INSTANT_PAYMENTS_REGULATION_2024_886"
+        ],
+        "fraud_inference": "not_inferred"
+      },
+      "dispatch_allowed": false,
+      "required_evidence": [
+        "provider_vop_response",
+        "exact_subject_commitment",
+        "selected_policy_profile",
+        "payer_presentation_record"
+      ],
+      "negative_controls": [
+        "mutate_vop_result_or_subject",
+        "assert_no_stale_or_wrong_audience_promotion",
+        "assert_no_unverified_authority_escalation"
+      ]
+    },
+    {
+      "id": "QR-PI-026",
+      "category": "vop_wrong_audience",
+      "expected": "vop_wrong_audience_rejected",
+      "input": {
+        "dispatch_attempted": false
+      },
+      "payee_verification": {
+        "scheme_profile": "EU_IPR_VOP",
+        "participant": "synthetic_payer_psp_01",
+        "issuer": "synthetic_beneficiary_psp_01",
+        "audience": "wrong-service",
+        "result": "match",
+        "query_subject_ref": "opaque:subject-001",
+        "response_subject_ref": "opaque:subject-001",
+        "intent_subject_ref": "opaque:subject-001",
+        "requested_account_type": "not_specified",
+        "returned_account_type": "unknown",
+        "provider_signature_state": "valid",
+        "audience_matches": false,
+        "is_current": true,
+        "observed_at": "2026-11-04T10:00:00Z",
+        "valid_until": "2026-11-04T10:05:00Z",
+        "payer_notified": true,
+        "payer_decision": "none",
+        "collection_authority_state": "unknown",
+        "collection_authority_inferred_from_name_match": false,
+        "match_engine": "provider_authoritative",
+        "client_asserted_result": "none",
+        "disclosure_state": "minimal_result",
+        "response_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "source_refs": [
+          "ECB_INSTANT_PAYMENTS_REGULATION_2024_886"
+        ],
+        "fraud_inference": "not_inferred"
+      },
+      "dispatch_allowed": false,
+      "required_evidence": [
+        "provider_vop_response",
+        "exact_subject_commitment",
+        "selected_policy_profile",
+        "payer_presentation_record"
+      ],
+      "negative_controls": [
+        "mutate_vop_result_or_subject",
+        "assert_no_stale_or_wrong_audience_promotion",
+        "assert_no_unverified_authority_escalation"
+      ]
+    },
+    {
+      "id": "QR-PI-027",
+      "category": "vop_cross_subject_replay",
+      "expected": "vop_cross_subject_replay_rejected",
+      "input": {
+        "dispatch_attempted": false
+      },
+      "payee_verification": {
+        "scheme_profile": "EU_IPR_VOP",
+        "participant": "synthetic_payer_psp_01",
+        "issuer": "synthetic_beneficiary_psp_01",
+        "audience": "payment-initiation-assurance-v1",
+        "result": "match",
+        "query_subject_ref": "opaque:subject-001",
+        "response_subject_ref": "opaque:subject-999",
+        "intent_subject_ref": "opaque:subject-001",
+        "requested_account_type": "not_specified",
+        "returned_account_type": "unknown",
+        "provider_signature_state": "valid",
+        "audience_matches": true,
+        "is_current": true,
+        "observed_at": "2026-11-04T10:00:00Z",
+        "valid_until": "2026-11-04T10:05:00Z",
+        "payer_notified": true,
+        "payer_decision": "none",
+        "collection_authority_state": "unknown",
+        "collection_authority_inferred_from_name_match": false,
+        "match_engine": "provider_authoritative",
+        "client_asserted_result": "none",
+        "disclosure_state": "minimal_result",
+        "response_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "source_refs": [
+          "ECB_INSTANT_PAYMENTS_REGULATION_2024_886"
+        ],
+        "fraud_inference": "not_inferred"
+      },
+      "dispatch_allowed": false,
+      "required_evidence": [
+        "provider_vop_response",
+        "exact_subject_commitment",
+        "selected_policy_profile",
+        "payer_presentation_record"
+      ],
+      "negative_controls": [
+        "mutate_vop_result_or_subject",
+        "assert_no_stale_or_wrong_audience_promotion",
+        "assert_no_unverified_authority_escalation"
+      ]
+    },
+    {
+      "id": "QR-PI-028",
+      "category": "vop_account_type_mismatch",
+      "expected": "vop_account_type_mismatch_disclosed",
+      "input": {
+        "dispatch_attempted": false
+      },
+      "payee_verification": {
+        "scheme_profile": "UK_FPS_COP",
+        "participant": "synthetic_payer_psp_01",
+        "issuer": "synthetic_beneficiary_psp_01",
+        "audience": "payment-initiation-assurance-v1",
+        "result": "no_match",
+        "query_subject_ref": "opaque:subject-001",
+        "response_subject_ref": "opaque:subject-001",
+        "intent_subject_ref": "opaque:subject-001",
+        "requested_account_type": "individual",
+        "returned_account_type": "business",
+        "provider_signature_state": "valid",
+        "audience_matches": true,
+        "is_current": true,
+        "observed_at": "2026-11-04T10:00:00Z",
+        "valid_until": "2026-11-04T10:05:00Z",
+        "payer_notified": true,
+        "payer_decision": "review",
+        "collection_authority_state": "unknown",
+        "collection_authority_inferred_from_name_match": false,
+        "match_engine": "provider_authoritative",
+        "client_asserted_result": "none",
+        "disclosure_state": "minimal_result",
+        "response_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "source_refs": [
+          "PAYUK_FPS_PRINCIPLES_V11_COP_2026"
+        ],
+        "fraud_inference": "not_inferred"
+      },
+      "dispatch_allowed": false,
+      "required_evidence": [
+        "provider_vop_response",
+        "exact_subject_commitment",
+        "selected_policy_profile",
+        "payer_presentation_record"
+      ],
+      "negative_controls": [
+        "mutate_vop_result_or_subject",
+        "assert_no_stale_or_wrong_audience_promotion",
+        "assert_no_unverified_authority_escalation"
+      ]
+    },
+    {
+      "id": "QR-PI-029",
+      "category": "vop_match_without_collection_authority",
+      "expected": "vop_match_not_collection_authority",
+      "input": {
+        "dispatch_attempted": false
+      },
+      "payee_verification": {
+        "scheme_profile": "EU_IPR_VOP",
+        "participant": "synthetic_payer_psp_01",
+        "issuer": "synthetic_beneficiary_psp_01",
+        "audience": "payment-initiation-assurance-v1",
+        "result": "match",
+        "query_subject_ref": "opaque:subject-001",
+        "response_subject_ref": "opaque:subject-001",
+        "intent_subject_ref": "opaque:subject-001",
+        "requested_account_type": "not_specified",
+        "returned_account_type": "unknown",
+        "provider_signature_state": "valid",
+        "audience_matches": true,
+        "is_current": true,
+        "observed_at": "2026-11-04T10:00:00Z",
+        "valid_until": "2026-11-04T10:05:00Z",
+        "payer_notified": true,
+        "payer_decision": "none",
+        "collection_authority_state": "unknown",
+        "collection_authority_inferred_from_name_match": false,
+        "match_engine": "provider_authoritative",
+        "client_asserted_result": "none",
+        "disclosure_state": "minimal_result",
+        "response_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "source_refs": [
+          "ECB_INSTANT_PAYMENTS_REGULATION_2024_886"
+        ],
+        "fraud_inference": "not_inferred"
+      },
+      "dispatch_allowed": false,
+      "required_evidence": [
+        "provider_vop_response",
+        "exact_subject_commitment",
+        "selected_policy_profile",
+        "payer_presentation_record"
+      ],
+      "negative_controls": [
+        "mutate_vop_result_or_subject",
+        "assert_no_stale_or_wrong_audience_promotion",
+        "assert_no_unverified_authority_escalation"
+      ]
+    },
+    {
+      "id": "QR-PI-030",
+      "category": "vop_alias_resolved_vop_unavailable",
+      "expected": "vop_alias_resolved_vop_unavailable",
+      "input": {
+        "proxy_resolution_state": "resolved",
+        "dispatch_attempted": false
+      },
+      "payee_verification": {
+        "scheme_profile": "ZA_NPU_PROPOSAL_ONLY",
+        "participant": "South African NPU proposal (not operational)",
+        "issuer": "no-operational-provider-response",
+        "audience": "synthetic-proposal-profile",
+        "result": "unavailable",
+        "query_subject_ref": "opaque:subject-001",
+        "response_subject_ref": "opaque:subject-001",
+        "intent_subject_ref": "opaque:subject-001",
+        "requested_account_type": "not_specified",
+        "returned_account_type": "unknown",
+        "provider_signature_state": "unknown",
+        "audience_matches": false,
+        "is_current": false,
+        "observed_at": "2026-11-04T10:00:00Z",
+        "valid_until": "2026-11-04T10:05:00Z",
+        "payer_notified": true,
+        "payer_decision": "review",
+        "collection_authority_state": "unknown",
+        "collection_authority_inferred_from_name_match": false,
+        "match_engine": "provider_authoritative",
+        "client_asserted_result": "none",
+        "disclosure_state": "minimal_result",
+        "response_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "source_refs": [
+          "SARB_PEM_POSITION_2025"
+        ],
+        "fraud_inference": "not_inferred"
+      },
+      "dispatch_allowed": false,
+      "required_evidence": [
+        "provider_vop_response",
+        "exact_subject_commitment",
+        "selected_policy_profile",
+        "payer_presentation_record"
+      ],
+      "negative_controls": [
+        "mutate_vop_result_or_subject",
+        "assert_no_stale_or_wrong_audience_promotion",
+        "assert_no_unverified_authority_escalation"
+      ]
+    },
+    {
+      "id": "QR-PI-031",
+      "category": "vop_subject_changed_after_query",
+      "expected": "vop_subject_change_requires_requery",
+      "input": {
+        "dispatch_attempted": false
+      },
+      "payee_verification": {
+        "scheme_profile": "EU_IPR_VOP",
+        "participant": "synthetic_payer_psp_01",
+        "issuer": "synthetic_beneficiary_psp_01",
+        "audience": "payment-initiation-assurance-v1",
+        "result": "match",
+        "query_subject_ref": "opaque:subject-001",
+        "response_subject_ref": "opaque:subject-001",
+        "intent_subject_ref": "opaque:subject-002",
+        "requested_account_type": "not_specified",
+        "returned_account_type": "unknown",
+        "provider_signature_state": "valid",
+        "audience_matches": true,
+        "is_current": false,
+        "observed_at": "2026-11-04T10:00:00Z",
+        "valid_until": "2026-11-04T10:05:00Z",
+        "payer_notified": true,
+        "payer_decision": "review",
+        "collection_authority_state": "unknown",
+        "collection_authority_inferred_from_name_match": false,
+        "match_engine": "provider_authoritative",
+        "client_asserted_result": "none",
+        "disclosure_state": "minimal_result",
+        "response_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "source_refs": [
+          "ECB_INSTANT_PAYMENTS_REGULATION_2024_886"
+        ],
+        "fraud_inference": "not_inferred"
+      },
+      "dispatch_allowed": false,
+      "required_evidence": [
+        "provider_vop_response",
+        "exact_subject_commitment",
+        "selected_policy_profile",
+        "payer_presentation_record"
+      ],
+      "negative_controls": [
+        "mutate_vop_result_or_subject",
+        "assert_no_stale_or_wrong_audience_promotion",
+        "assert_no_unverified_authority_escalation"
+      ]
+    },
+    {
+      "id": "QR-PI-032",
+      "category": "vop_local_fuzzy_promotion",
+      "expected": "vop_local_match_promotion_rejected",
+      "input": {
+        "local_fuzzy_promotion_attempted": true,
+        "dispatch_attempted": false
+      },
+      "payee_verification": {
+        "scheme_profile": "EU_IPR_VOP",
+        "participant": "synthetic_payer_psp_01",
+        "issuer": "synthetic_beneficiary_psp_01",
+        "audience": "payment-initiation-assurance-v1",
+        "result": "close_match",
+        "query_subject_ref": "opaque:subject-001",
+        "response_subject_ref": "opaque:subject-001",
+        "intent_subject_ref": "opaque:subject-001",
+        "requested_account_type": "not_specified",
+        "returned_account_type": "unknown",
+        "provider_signature_state": "valid",
+        "audience_matches": true,
+        "is_current": true,
+        "observed_at": "2026-11-04T10:00:00Z",
+        "valid_until": "2026-11-04T10:05:00Z",
+        "payer_notified": true,
+        "payer_decision": "review",
+        "collection_authority_state": "unknown",
+        "collection_authority_inferred_from_name_match": false,
+        "match_engine": "client_fuzzy",
+        "client_asserted_result": "match",
+        "disclosure_state": "minimal_result",
+        "response_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "source_refs": [
+          "ECB_INSTANT_PAYMENTS_REGULATION_2024_886"
+        ],
+        "fraud_inference": "not_inferred"
+      },
+      "dispatch_allowed": false,
+      "required_evidence": [
+        "provider_vop_response",
+        "exact_subject_commitment",
+        "selected_policy_profile",
+        "payer_presentation_record"
+      ],
+      "negative_controls": [
+        "mutate_vop_result_or_subject",
+        "assert_no_stale_or_wrong_audience_promotion",
+        "assert_no_unverified_authority_escalation"
+      ]
+    },
+    {
+      "id": "QR-PI-033",
+      "category": "vop_privacy_overdisclosure",
+      "expected": "vop_privacy_overdisclosure_rejected",
+      "input": {
+        "dispatch_attempted": false
+      },
+      "payee_verification": {
+        "scheme_profile": "EU_IPR_VOP",
+        "participant": "synthetic_payer_psp_01",
+        "issuer": "synthetic_beneficiary_psp_01",
+        "audience": "payment-initiation-assurance-v1",
+        "result": "match",
+        "query_subject_ref": "opaque:subject-001",
+        "response_subject_ref": "opaque:subject-001",
+        "intent_subject_ref": "opaque:subject-001",
+        "requested_account_type": "not_specified",
+        "returned_account_type": "unknown",
+        "provider_signature_state": "valid",
+        "audience_matches": true,
+        "is_current": true,
+        "observed_at": "2026-11-04T10:00:00Z",
+        "valid_until": "2026-11-04T10:05:00Z",
+        "payer_notified": true,
+        "payer_decision": "review",
+        "collection_authority_state": "unknown",
+        "collection_authority_inferred_from_name_match": false,
+        "match_engine": "provider_authoritative",
+        "client_asserted_result": "none",
+        "disclosure_state": "overdisclosed",
+        "response_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "source_refs": [
+          "ECB_INSTANT_PAYMENTS_REGULATION_2024_886"
+        ],
+        "fraud_inference": "not_inferred"
+      },
+      "dispatch_allowed": false,
+      "required_evidence": [
+        "provider_vop_response",
+        "exact_subject_commitment",
+        "selected_policy_profile",
+        "payer_presentation_record"
+      ],
+      "negative_controls": [
+        "mutate_vop_result_or_subject",
+        "assert_no_stale_or_wrong_audience_promotion",
+        "assert_no_unverified_authority_escalation"
+      ]
+    }
+  ]
+}
