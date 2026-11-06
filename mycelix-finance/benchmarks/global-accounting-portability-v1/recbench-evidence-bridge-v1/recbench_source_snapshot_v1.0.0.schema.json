@@ -1,0 +1,197 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/mycelix-recbench-source-snapshot-v1.0.0.json",
+  "title": "Mycelix RecBench External Source Snapshot v1.0.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "snapshot_id",
+    "schema_version",
+    "captured_at",
+    "source_url",
+    "dataset_license",
+    "generator_license",
+    "dataset_version",
+    "generator_version",
+    "published_total_rows",
+    "published_total_bytes",
+    "raw_source_bytes_archived",
+    "raw_source_sha256",
+    "tier_profiles",
+    "reported_baseline",
+    "metrics",
+    "notes"
+  ],
+  "properties": {
+    "snapshot_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "captured_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\+02:00$"
+    },
+    "source_url": {
+      "type": "string",
+      "format": "uri"
+    },
+    "dataset_license": {
+      "const": "CC-BY-4.0"
+    },
+    "generator_license": {
+      "const": "Apache-2.0"
+    },
+    "dataset_version": {
+      "type": "string",
+      "minLength": 1
+    },
+    "generator_version": {
+      "type": "string",
+      "minLength": 1
+    },
+    "published_total_rows": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "published_total_bytes": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "raw_source_bytes_archived": {
+      "type": "boolean"
+    },
+    "raw_source_sha256": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "tier_profiles": {
+      "type": "array",
+      "minItems": 3,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "tier",
+          "ledger_rows",
+          "all_table_rows_approx",
+          "size_bytes",
+          "generation_seconds_approx",
+          "seed",
+          "hardware_note"
+        ],
+        "properties": {
+          "tier": {
+            "enum": [
+              "small",
+              "medium",
+              "large"
+            ]
+          },
+          "ledger_rows": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "all_table_rows_approx": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "size_bytes": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "generation_seconds_approx": {
+            "type": "number",
+            "minimum": 0
+          },
+          "seed": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "hardware_note": {
+            "type": "string",
+            "minLength": 3
+          }
+        }
+      }
+    },
+    "reported_baseline": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "baseline_name",
+        "ledger_settlement_f1",
+        "auto_match_coverage_at_precision_9999",
+        "missing_reference_recall",
+        "deposit_unbundle_group_exact",
+        "exception_recall"
+      ],
+      "properties": {
+        "baseline_name": {
+          "type": "string"
+        },
+        "ledger_settlement_f1": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "auto_match_coverage_at_precision_9999": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "missing_reference_recall": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "deposit_unbundle_group_exact": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "exception_recall": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        }
+      }
+    },
+    "metrics": {
+      "type": "array",
+      "minItems": 6,
+      "items": {
+        "enum": [
+          "ledger_settlement_pair_precision_recall_f1",
+          "auto_match_coverage_at_pair_precision_0_999",
+          "payout_bank_match_accuracy",
+          "deposit_unbundle_group_exact",
+          "exception_detection_precision_recall",
+          "mycelix_source_lineage_completeness",
+          "mycelix_bitemporal_replay",
+          "mycelix_false_close_rate"
+        ]
+      }
+    },
+    "notes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}
