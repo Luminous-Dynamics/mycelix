@@ -1068,8 +1068,11 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
             errors.push(format!("profiles[{index}]: source reference missing or unresolved"));
         }
         let status = str_at(profile, "status").unwrap_or("");
-        if status.is_empty() {
-            errors.push(format!("profiles[{index}]: status missing"));
+        let kind = str_at(profile, "profile_kind").unwrap_or("");
+        if status != "synthetic_reference_only" || kind != "synthetic_research_policy" {
+            errors.push(format!(
+                "profiles[{index}]: comparator or non-synthetic profile cannot authorize this synthetic mandate corpus"
+            ));
         }
     }
     for (index, scenario) in scenarios.iter().enumerate() {
@@ -1286,6 +1289,25 @@ fn run_self_tests(corpus: &Value, schema: &Value) -> Result<usize, String> {
     })?;
     count += 1;
 
+    mutate_and_reject("human confirmation cannot cure unknown fees", corpus, schema, |value| {
+        value["scenarios"][6]["events"][2]["event_type"] = json!("human_confirmation_required");
+        value["scenarios"][6]["events"][2]["evidence_types"] =
+            json!(["confirmation_threshold_or_new_beneficiary"]);
+        value["scenarios"][6]["actions"][0]["expected_disposition"] = json!("confirmation_required");
+    })?;
+    count += 1;
+
+    mutate_and_reject("comparator profile cannot authorize policy", corpus, schema, |value| {
+        value["scenarios"][0]["mandate"]["profile_id"] =
+            json!("AP2-FIDO-HNP-COMPARATOR-V02");
+    })?;
+    count += 1;
+
+    mutate_and_reject("human-present profile cannot silently run unattended", corpus, schema, |value| {
+        value["profiles"][0]["allows_human_not_present"] = json!(false);
+    })?;
+    count += 1;
+
     Ok(count)
 }
 
@@ -1362,6 +1384,6 @@ mod tests {
     fn deterministic_negative_mutation_campaign_rejects_authority_and_budget_attacks() {
         let corpus: Value = serde_json::from_str(DEFAULT_CORPUS).expect("corpus");
         let schema: Value = serde_json::from_str(DEFAULT_SCHEMA).expect("schema");
-        assert_eq!(run_self_tests(&corpus, &schema).expect("self tests"), 23);
+        assert_eq!(run_self_tests(&corpus, &schema).expect("self tests"), 26);
     }
 }
