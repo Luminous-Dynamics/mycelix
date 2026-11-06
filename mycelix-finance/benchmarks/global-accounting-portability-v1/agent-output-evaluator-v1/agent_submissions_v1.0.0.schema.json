@@ -259,7 +259,8 @@
         "journal_entries",
         "statement_lines",
         "assumptions",
-        "evidence_trace"
+        "evidence_trace",
+        "decision_confidence"
       ],
       "properties": {
         "case_id": {
@@ -316,6 +317,11 @@
           "items": {
             "$ref": "#/$defs/evidenceTrace"
           }
+        },
+        "decision_confidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
         }
       }
     },
