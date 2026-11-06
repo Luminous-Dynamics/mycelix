@@ -183,6 +183,16 @@
             "received_at": "2026-11-05T10:00:00Z",
             "integrity_state": "synthetic_match",
             "supersedes_source_ref": null
+          },
+          {
+            "source_ref": "SRC-002-INV-R2",
+            "tenant_namespace": "tenant-acme/ap",
+            "external_id": "INV-2002",
+            "revision": "r2",
+            "source_kind": "invoice",
+            "received_at": "2026-11-05T10:35:00Z",
+            "integrity_state": "synthetic_match",
+            "supersedes_source_ref": "SRC-002-INV"
           }
         ],
         "assertions": [
@@ -233,6 +243,18 @@
             "recorded_at": "2026-11-05T10:00:00Z",
             "source_ref": "SRC-002-INV",
             "source_locator": "page:1/row:1"
+          },
+          {
+            "assertion_ref": "AS-002-AMOUNT-R2",
+            "fact_type": "invoice_amount_minor",
+            "value": 260000,
+            "currency": "USD",
+            "epistemic_state": "asserted",
+            "valid_from": "2026-10-01",
+            "valid_to": null,
+            "recorded_at": "2026-11-05T10:35:00Z",
+            "source_ref": "SRC-002-INV-R2",
+            "source_locator": "page:2/row:1"
           }
         ],
         "events": [
@@ -261,7 +283,8 @@
             "amount_minor": 260000,
             "currency": "USD",
             "assertion_refs": [
-              "AS-002-AMOUNT"
+              "AS-002-AMOUNT",
+              "AS-002-AMOUNT-R2"
             ]
           }
         ],
@@ -5020,6 +5043,16 @@
             "received_at": "2026-11-05T10:00:00Z",
             "integrity_state": "synthetic_match",
             "supersedes_source_ref": null
+          },
+          {
+            "source_ref": "SRC-002-INV-R2",
+            "tenant_namespace": "tenant-acme/ap",
+            "external_id": "INV-2002",
+            "revision": "r2",
+            "source_kind": "invoice",
+            "received_at": "2026-11-05T10:35:00Z",
+            "integrity_state": "synthetic_match",
+            "supersedes_source_ref": "SRC-002-INV"
           }
         ],
         "assertions": [
@@ -5070,6 +5103,18 @@
             "recorded_at": "2026-11-05T10:00:00Z",
             "source_ref": "SRC-002-INV",
             "source_locator": "page:1/row:1"
+          },
+          {
+            "assertion_ref": "AS-002-AMOUNT-R2",
+            "fact_type": "invoice_amount_minor",
+            "value": 260000,
+            "currency": "USD",
+            "epistemic_state": "asserted",
+            "valid_from": "2026-10-01",
+            "valid_to": null,
+            "recorded_at": "2026-11-05T10:35:00Z",
+            "source_ref": "SRC-002-INV-R2",
+            "source_locator": "page:2/row:1"
           }
         ],
         "events": [
@@ -5098,7 +5143,8 @@
             "amount_minor": 260000,
             "currency": "USD",
             "assertion_refs": [
-              "AS-002-AMOUNT"
+              "AS-002-AMOUNT",
+              "AS-002-AMOUNT-R2"
             ]
           }
         ],
