@@ -2615,6 +2615,77 @@ mod tests{
     }
 
     #[test]
+    fn verified_record_stress_fixture_passes_and_all_strategies_are_equivalent() {
+        let history = benchmark_verified_record_history(64, 10).unwrap();
+        let input_digest = "a".repeat(64);
+        let reference = audit_reference(&history, input_digest.clone());
+        let pair = audit_pair_memoized(&history, input_digest.clone());
+        let source = audit(&history, input_digest);
+
+        assert!(matches!(reference.status, Status::Pass), "{:?}", reference.findings);
+        assert!(matches!(pair.status, Status::Pass), "{:?}", pair.findings);
+        assert!(matches!(source.status, Status::Pass), "{:?}", source.findings);
+        assert_eq!(reference.counts.actions_authored, 64);
+        assert_eq!(reference.counts.validator_dispositions, 64);
+        assert_eq!(reference.counts.remote_signals, 64);
+        assert_eq!(history.causal_edges.len(), 128);
+        assert_eq!(
+            semantic_report_digest(&reference).unwrap(),
+            semantic_report_digest(&pair).unwrap()
+        );
+        assert_eq!(
+            semantic_report_digest(&reference).unwrap(),
+            semantic_report_digest(&source).unwrap()
+        );
+    }
+
+    #[test]
+    fn verified_record_stress_fixture_rejects_wrong_validator_wasm() {
+        let mut history = benchmark_verified_record_history(4, 3).unwrap();
+        let validation = history
+            .events
+            .iter_mut()
+            .find(|event| event.event_type == "validation_disposition")
+            .unwrap();
+        validation.data["validator_wasm_sha256"] = Value::String("f".repeat(64));
+        let report = audit(&history, "b".repeat(64));
+        assert!(
+            report.findings.iter().any(|finding| finding.code == "VERIFIED_SIGNAL_VALIDATOR_MISMATCH"),
+            "{:?}",
+            report.findings
+        );
+    }
+
+    #[test]
+    fn verified_record_stress_fixture_rejects_payload_digest_mismatch() {
+        let mut history = benchmark_verified_record_history(4, 3).unwrap();
+        let action = history
+            .events
+            .iter_mut()
+            .find(|event| event.event_type == "action_authored")
+            .unwrap();
+        action.data["payload_sha256"] = Value::String("f".repeat(64));
+        let report = audit(&history, "c".repeat(64));
+        assert!(
+            report.findings.iter().any(|finding| finding.code == "VERIFIED_SIGNAL_PAYLOAD_OR_AUTHOR_MISMATCH"),
+            "{:?}",
+            report.findings
+        );
+    }
+
+    #[test]
+    fn verified_record_stress_fixture_requires_both_causal_edges() {
+        let mut history = benchmark_verified_record_history(4, 3).unwrap();
+        history.causal_edges.retain(|edge| edge.relation != "validator_receipt");
+        let report = audit(&history, "d".repeat(64));
+        assert!(
+            report.findings.iter().any(|finding| finding.code == "VERIFIED_SIGNAL_AUTHOR_VALIDATOR_EDGE_MISSING"),
+            "{:?}",
+            report.findings
+        );
+    }
+
+    #[test]
     fn adversarial_dag_profiles_are_acyclic_and_cache_strategies_are_equivalent() {
         for shape in [
             "long_chain",
