@@ -990,6 +990,7 @@ fn audit(
     if bundle.trust_policy.policy_sha256 != policy_sha256
         || bundle.trust_policy.policy_id != policy.policy_id
         || bundle.trust_policy.policy_version != policy.policy_version
+        || bundle.trust_policy.policy_epoch != policy.policy_epoch
         || bundle.trust_policy.root_keyset_id != policy.root_keyset_id
     {
         finding(
@@ -1588,6 +1589,9 @@ fn audit(
         bundle_sha256,
         trace_sha256,
         trust_policy_sha256: policy_sha256,
+        trust_policy_root_authenticated: false,
+        trust_root_key_id: None,
+        trust_policy_epoch: Some(policy.policy_epoch),
         attestations: bundle.attestations.len(),
         dsse_verified,
         scitt_unverified,
@@ -1597,10 +1601,41 @@ fn audit(
     })
 }
 
+fn audit_with_root_pin(
+    bundle_bytes: &[u8],
+    trace_bytes: &[u8],
+    policy_bytes: &[u8],
+    root_envelope_bytes: &[u8],
+    root_pin_bytes: &[u8],
+) -> Result<Report, Box<dyn Error>> {
+    let root = verify_root_signed_trust_policy(
+        policy_bytes,
+        root_envelope_bytes,
+        root_pin_bytes,
+    )
+    .map_err(|error| format!("trust-policy root verification failed: {error}"))?;
+    let mut report = audit(bundle_bytes, trace_bytes, policy_bytes)?;
+    report.trust_policy_root_authenticated = true;
+    report.trust_root_key_id = Some(root.root_key_id);
+    report.trust_policy_epoch = Some(root.policy_epoch);
+    if report.status == "ROLE_AUTHENTICATED_RELATIVE_TO_SUPPLIED_POLICY" {
+        report.status = "ROOT_AUTHENTICATED_POLICY_SNAPSHOT".to_string();
+        report.claim_ceiling = "ROOT_AUTHENTICATED_POLICY_SNAPSHOT_ONLY: the exact trust-policy bytes and epoch are signed by the relying party's out-of-band pinned Ed25519 root; issuer roles remain relative to that policy; SCITT COSE and transparency receipts are not verified; signatures do not prove asserted events true or authorize actions".to_string();
+    } else {
+        report.claim_ceiling.push_str("; trust policy root signature and exact policy snapshot pin verified, but other evidence findings still limit the report");
+    }
+    if root.policy_sha256 != report.trust_policy_sha256 {
+        return Err("root-verified trust policy digest differs from the evidence report".into());
+    }
+    Ok(report)
+}
+
 fn main() -> Result<(), Box<dyn Error>> {
     let mut bundle = None;
     let mut trace = None;
     let mut policy = None;
+    let mut root_policy_envelope = None;
+    let mut trusted_root_pin = None;
     let mut output = None;
     let mut args = env::args().skip(1);
     while let Some(arg) = args.next() {
@@ -1616,6 +1651,16 @@ fn main() -> Result<(), Box<dyn Error>> {
                     args.next().ok_or("--trust-policy requires a path")?,
                 ))
             }
+            "--root-policy-envelope" => {
+                root_policy_envelope = Some(PathBuf::from(
+                    args.next().ok_or("--root-policy-envelope requires a path")?,
+                ))
+            }
+            "--trusted-root-pin" => {
+                trusted_root_pin = Some(PathBuf::from(
+                    args.next().ok_or("--trusted-root-pin requires a path")?,
+                ))
+            }
             "--output" => {
                 output = Some(PathBuf::from(
                     args.next().ok_or("--output requires a path")?,
@@ -1623,7 +1668,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             }
             "--help" | "-h" => {
                 println!(
-                    "pulse-signed-evidence-audit --bundle BUNDLE.json --trace TRACE.json --trust-policy TRUST.json [--output REPORT.json]"
+                    "pulse-signed-evidence-audit --bundle BUNDLE.json --trace TRACE.json --trust-policy TRUST.json [--root-policy-envelope ROOT-DSSE.json --trusted-root-pin ROOT-PIN.json] [--output REPORT.json]"
                 );
                 return Ok(());
             }
@@ -1633,10 +1678,23 @@ fn main() -> Result<(), Box<dyn Error>> {
     let bundle_path = bundle.ok_or("--bundle is required")?;
     let trace_path = trace.ok_or("--trace is required")?;
     let policy_path = policy.ok_or("--trust-policy is required")?;
+    if root_policy_envelope.is_some() != trusted_root_pin.is_some() {
+        return Err("--root-policy-envelope and --trusted-root-pin must be supplied together".into());
+    }
     let bundle_bytes = fs::read(bundle_path)?;
     let trace_bytes = fs::read(trace_path)?;
     let policy_bytes = fs::read(policy_path)?;
-    let report = audit(&bundle_bytes, &trace_bytes, &policy_bytes)?;
+    let report = match (root_policy_envelope, trusted_root_pin) {
+        (Some(envelope_path), Some(pin_path)) => audit_with_root_pin(
+            &bundle_bytes,
+            &trace_bytes,
+            &policy_bytes,
+            &fs::read(envelope_path)?,
+            &fs::read(pin_path)?,
+        )?,
+        (None, None) => audit(&bundle_bytes, &trace_bytes, &policy_bytes)?,
+        _ => unreachable!("the paired trust-root CLI arguments were checked above"),
+    };
     let json = serde_json::to_string_pretty(&report)?;
     if let Some(path) = output {
         if let Some(parent) = path.parent() {
@@ -1647,7 +1705,8 @@ fn main() -> Result<(), Box<dyn Error>> {
         println!("{json}");
     }
     match report.status.as_str() {
-        "ROLE_AUTHENTICATED_RELATIVE_TO_SUPPLIED_POLICY" => Ok(()),
+        "ROLE_AUTHENTICATED_RELATIVE_TO_SUPPLIED_POLICY"
+        | "ROOT_AUTHENTICATED_POLICY_SNAPSHOT" => Ok(()),
         "FAIL" => Err("signed evidence verification failed".into()),
         _ => Err("signed evidence verification incomplete".into()),
     }
