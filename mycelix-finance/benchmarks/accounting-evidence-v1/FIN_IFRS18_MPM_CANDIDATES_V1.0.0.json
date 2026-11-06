@@ -496,12 +496,12 @@
                 "item_ref": "ADJ-002",
                 "description": "Exclude restructuring expense from management's adjusted operating profit",
                 "statement_line_ref": "EXP-RESTRUCTURING",
-                "adjustment_minor": "2000",
-                "tax_effect_minor": "-400",
+                "adjustment_minor": "3000",
+                "tax_effect_minor": "-600",
                 "tax_method": "statutory_rate",
                 "tax_method_description": "Apply the statutory tax rate applicable to the underlying restructuring transaction in the relevant jurisdiction",
                 "tax_jurisdiction_ref": "ZA-CORP-TAX",
-                "nci_effect_minor": "-100"
+                "nci_effect_minor": "-150"
               }
             ],
             "secondary_bridge": null
