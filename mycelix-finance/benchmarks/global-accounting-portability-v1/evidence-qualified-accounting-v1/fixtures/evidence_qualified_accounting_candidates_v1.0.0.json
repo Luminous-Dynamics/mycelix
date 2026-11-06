@@ -1,0 +1,1719 @@
+{
+  "bundle_id": "MYCELIX-EVIDENCE-QUALIFIED-ACCOUNTING-S0",
+  "schema_version": "1.0.0",
+  "claim_ceiling": "synthetic_accounting_evidence_and_clarification_benchmark_not_professional_accounting_advice",
+  "cases": [
+    {
+      "case_id": "ACCT-001-COMPLETE-INVOICE",
+      "task_prompt": "Prepare the October month-end accrual for the supplied supplier invoice. Identify the supported amount, entity and service period, produce the journal entry, and show the source references.",
+      "knowledge_at": "2026-11-05T10:30:00Z",
+      "accounting_period": {
+        "start": "2026-10-01",
+        "end": "2026-10-31"
+      },
+      "reporting_entity_ref": "ENTITY-ACME",
+      "presentation_currency": "USD",
+      "requested_outputs": [
+        "journal_entries",
+        "income_statement"
+      ],
+      "documents": [
+        {
+          "document_ref": "DOC-001-INV",
+          "external_document_id": "INV-1001",
+          "namespace": "tenant-acme/ap",
+          "revision": "r1",
+          "document_type": "invoice",
+          "source_system": "synthetic_erp",
+          "received_at": "2026-11-05T10:00:00Z",
+          "integrity_state": "synthetic_match",
+          "duplicate_of_document_ref": null,
+          "supersedes_document_ref": null
+        },
+        {
+          "document_ref": "DOC-001-CONTRACT",
+          "external_document_id": "CTR-88",
+          "namespace": "tenant-acme/ap",
+          "revision": "r1",
+          "document_type": "contract",
+          "source_system": "synthetic_erp",
+          "received_at": "2026-11-05T10:00:00Z",
+          "integrity_state": "synthetic_match",
+          "duplicate_of_document_ref": null,
+          "supersedes_document_ref": null
+        }
+      ],
+      "facts": [
+        {
+          "fact_ref": "F-001-AMOUNT",
+          "fact_type": "invoice_total_minor",
+          "document_ref": "DOC-001-INV",
+          "source_locator": "page:1/total",
+          "assertion_state": "asserted",
+          "value": 125000,
+          "currency": "USD",
+          "recorded_at": "2026-11-05T10:00:00Z",
+          "valid_from": "2026-10-01",
+          "valid_to": null
+        },
+        {
+          "fact_ref": "F-001-SUPPLIER",
+          "fact_type": "supplier_identity",
+          "document_ref": "DOC-001-INV",
+          "source_locator": "page:1/supplier",
+          "assertion_state": "asserted",
+          "value": "SUPPLIER-77",
+          "currency": null,
+          "recorded_at": "2026-11-05T10:00:00Z",
+          "valid_from": "2026-10-01",
+          "valid_to": null
+        },
+        {
+          "fact_ref": "F-001-ENTITY",
+          "fact_type": "reporting_entity_ref",
+          "document_ref": "DOC-001-CONTRACT",
+          "source_locator": "page:2/customer",
+          "assertion_state": "asserted",
+          "value": "ENTITY-ACME",
+          "currency": null,
+          "recorded_at": "2026-11-05T10:00:00Z",
+          "valid_from": "2026-10-01",
+          "valid_to": null
+        },
+        {
+          "fact_ref": "F-001-START",
+          "fact_type": "service_period_start",
+          "document_ref": "DOC-001-CONTRACT",
+          "source_locator": "page:3/term",
+          "assertion_state": "asserted",
+          "value": "2026-10-01",
+          "currency": null,
+          "recorded_at": "2026-11-05T10:00:00Z",
+          "valid_from": "2026-10-01",
+          "valid_to": null
+        },
+        {
+          "fact_ref": "F-001-END",
+          "fact_type": "service_period_end",
+          "document_ref": "DOC-001-CONTRACT",
+          "source_locator": "page:3/term",
+          "assertion_state": "asserted",
+          "value": "2026-10-31",
+          "currency": null,
+          "recorded_at": "2026-11-05T10:00:00Z",
+          "valid_from": "2026-10-01",
+          "valid_to": null
+        }
+      ]
+    },
+    {
+      "case_id": "ACCT-002-MISSING-SERVICE-START",
+      "task_prompt": "Determine whether the invoice belongs in the October close. The service end date and invoice total are available, but the start date is not stated. Do not assume the missing date.",
+      "knowledge_at": "2026-11-05T10:30:00Z",
+      "accounting_period": {
+        "start": "2026-10-01",
+        "end": "2026-10-31"
+      },
+      "reporting_entity_ref": "ENTITY-ACME",
+      "presentation_currency": "USD",
+      "requested_outputs": [
+        "journal_entries",
+        "income_statement"
+      ],
+      "documents": [
+        {
+          "document_ref": "DOC-002-INV",
+          "external_document_id": "INV-2002",
+          "namespace": "tenant-acme/ap",
+          "revision": "r1",
+          "document_type": "invoice",
+          "source_system": "synthetic_erp",
+          "received_at": "2026-11-05T10:00:00Z",
+          "integrity_state": "synthetic_match",
+          "duplicate_of_document_ref": null,
+          "supersedes_document_ref": null
+        },
+        {
+          "document_ref": "DOC-002-SOW",
+          "external_document_id": "SOW-12",
+          "namespace": "tenant-acme/ap",
+          "revision": "r1",
+          "document_type": "contract",
+          "source_system": "synthetic_erp",
+          "received_at": "2026-11-05T10:00:00Z",
+          "integrity_state": "synthetic_match",
+          "duplicate_of_document_ref": null,
+          "supersedes_document_ref": null
+        }
+      ],
+      "facts": [
+        {
+          "fact_ref": "F-002-AMOUNT",
+          "fact_type": "invoice_total_minor",
+          "document_ref": "DOC-002-INV",
+          "source_locator": "page:1/row:1",
+          "assertion_state": "asserted",
+          "value": 240000,
+          "currency": "USD",
+          "recorded_at": "2026-11-05T10:00:00Z",
+          "valid_from": "2026-10-01",
+          "valid_to": null
+        },
+        {
+          "fact_ref": "F-002-END",
+          "fact_type": "service_period_end",
+          "document_ref": "DOC-002-SOW",
+          "source_locator": "page:1/row:1",
+          "assertion_state": "asserted",
+          "value": "2026-10-31",
+          "currency": null,
+          "recorded_at": "2026-11-05T10:00:00Z",
+          "valid_from": "2026-10-01",
+          "valid_to": null
+        },
+        {
+          "fact_ref": "F-002-START-UNKNOWN",
+          "fact_type": "service_period_start",
+          "document_ref": "DOC-002-SOW",
+          "source_locator": "page:1/row:1",
+          "assertion_state": "unknown",
+          "value": null,
+          "currency": null,
+          "recorded_at": "2026-11-05T10:00:00Z",
+          "valid_from": "2026-10-01",
+          "valid_to": null
+        }
+      ]
+    },
+    {
+      "case_id": "ACCT-003-CONFLICTING-ENTITY",
+      "task_prompt": "Prepare the month-end invoice entry only if the reporting entity is established. The invoice and contract appear to identify different customer entities. Resolve the discrepancy rather than choosing one.",
+      "knowledge_at": "2026-11-05T10:30:00Z",
+      "accounting_period": {
+        "start": "2026-10-01",
+        "end": "2026-10-31"
+      },
+      "reporting_entity_ref": "ENTITY-ACME",
+      "presentation_currency": "USD",
+      "requested_outputs": [
+        "journal_entries",
+        "income_statement"
+      ],
+      "documents": [
+        {
+          "document_ref": "DOC-003-INV",
+          "external_document_id": "INV-3003",
+          "namespace": "tenant-acme/ap",
+          "revision": "r1",
+          "document_type": "invoice",
+          "source_system": "synthetic_erp",
+          "received_at": "2026-11-05T10:00:00Z",
+          "integrity_state": "synthetic_match",
+          "duplicate_of_document_ref": null,
+          "supersedes_document_ref": null
+        },
+        {
+          "document_ref": "DOC-003-CTR",
+          "external_document_id": "CTR-3003",
+          "namespace": "tenant-acme/ap",
+          "revision": "r1",
+          "document_type": "contract",
+          "source_system": "synthetic_erp",
+          "received_at": "2026-11-05T10:00:00Z",
+          "integrity_state": "synthetic_match",
+          "duplicate_of_document_ref": null,
+          "supersedes_document_ref": null
+        }
+      ],
+      "facts": [
+        {
+          "fact_ref": "F-003-AMOUNT",
+          "fact_type": "invoice_total_minor",
+          "document_ref": "DOC-003-INV",
+          "source_locator": "page:1/row:1",
+          "assertion_state": "asserted",
+          "value": 98000,
+          "currency": "USD",
+          "recorded_at": "2026-11-05T10:00:00Z",
+          "valid_from": "2026-10-01",
+          "valid_to": null
+        },
+        {
+          "fact_ref": "F-003-ENTITY-A",
+          "fact_type": "reporting_entity_ref",
+          "document_ref": "DOC-003-INV",
+          "source_locator": "page:1/row:1",
+          "assertion_state": "asserted",
+          "value": "ENTITY-ACME",
+          "currency": null,
+          "recorded_at": "2026-11-05T10:00:00Z",
+          "valid_from": "2026-10-01",
+          "valid_to": null
+        },
+        {
+          "fact_ref": "F-003-ENTITY-B",
+          "fact_type": "reporting_entity_ref",
+          "document_ref": "DOC-003-CTR",
+          "source_locator": "page:1/row:1",
+          "assertion_state": "asserted",
+          "value": "ENTITY-ACME-UK",
+          "currency": null,
+          "recorded_at": "2026-11-05T10:00:00Z",
+          "valid_from": "2026-10-01",
+          "valid_to": null
+        }
+      ]
+    },
+    {
+      "case_id": "ACCT-004-DUPLICATE-INVOICE",
+      "task_prompt": "Two imported files appear to represent the same supplier invoice and revision. Reconcile the source identity, avoid double counting, and prepare one supported October accrual.",
+      "knowledge_at": "2026-11-05T10:30:00Z",
+      "accounting_period": {
+        "start": "2026-10-01",
+        "end": "2026-10-31"
+      },
+      "reporting_entity_ref": "ENTITY-ACME",
+      "presentation_currency": "USD",
+      "requested_outputs": [
+        "journal_entries",
+        "income_statement"
+      ],
+      "documents": [
+        {
+          "document_ref": "DOC-004-INV-A",
+          "external_document_id": "INV-4004",
+          "namespace": "tenant-acme/ap",
+          "revision": "r1",
+          "document_type": "invoice",
+          "source_system": "synthetic_erp",
+          "received_at": "2026-11-05T10:00:00Z",
+          "integrity_state": "synthetic_match",
+          "duplicate_of_document_ref": null,
+          "supersedes_document_ref": null
+        },
+        {
+          "document_ref": "DOC-004-INV-B",
+          "external_document_id": "INV-4004",
+          "namespace": "tenant-acme/ap",
+          "revision": "r1",
+          "document_type": "invoice",
+          "source_system": "synthetic_mail_import",
+          "received_at": "2026-11-05T10:00:00Z",
+          "integrity_state": "synthetic_match",
+          "duplicate_of_document_ref": "DOC-004-INV-A",
+          "supersedes_document_ref": null
+        }
+      ],
+      "facts": [
+        {
+          "fact_ref": "F-004-AMOUNT",
+          "fact_type": "invoice_total_minor",
+          "document_ref": "DOC-004-INV-A",
+          "source_locator": "page:1/row:1",
+          "assertion_state": "asserted",
+          "value": 87500,
+          "currency": "USD",
+          "recorded_at": "2026-11-05T10:00:00Z",
+          "valid_from": "2026-10-01",
+          "valid_to": null
+        },
+        {
+          "fact_ref": "F-004-SUPPLIER",
+          "fact_type": "supplier_identity",
+          "document_ref": "DOC-004-INV-A",
+          "source_locator": "page:1/row:1",
+          "assertion_state": "asserted",
+          "value": "SUPPLIER-44",
+          "currency": null,
+          "recorded_at": "2026-11-05T10:00:00Z",
+          "valid_from": "2026-10-01",
+          "valid_to": null
+        },
+        {
+          "fact_ref": "F-004-ENTITY",
+          "fact_type": "reporting_entity_ref",
+          "document_ref": "DOC-004-INV-A",
+          "source_locator": "page:1/row:1",
+          "assertion_state": "asserted",
+          "value": "ENTITY-ACME",
+          "currency": null,
+          "recorded_at": "2026-11-05T10:00:00Z",
+          "valid_from": "2026-10-01",
+          "valid_to": null
+        },
+        {
+          "fact_ref": "F-004-START",
+          "fact_type": "service_period_start",
+          "document_ref": "DOC-004-INV-A",
+          "source_locator": "page:1/row:1",
+          "assertion_state": "asserted",
+          "value": "2026-10-01",
+          "currency": null,
+          "recorded_at": "2026-11-05T10:00:00Z",
+          "valid_from": "2026-10-01",
+          "valid_to": null
+        },
+        {
+          "fact_ref": "F-004-END",
+          "fact_type": "service_period_end",
+          "document_ref": "DOC-004-INV-A",
+          "source_locator": "page:1/row:1",
+          "assertion_state": "asserted",
+          "value": "2026-10-31",
+          "currency": null,
+          "recorded_at": "2026-11-05T10:00:00Z",
+          "valid_from": "2026-10-01",
+          "valid_to": null
+        }
+      ]
+    },
+    {
+      "case_id": "ACCT-005-MISSING-FX-RATE",
+      "task_prompt": "Prepare the October accrual for this EUR invoice in the USD reporting ledger. The invoice amount is present, but no approved rate for the required conversion date is available. Ask for the missing evidence.",
+      "knowledge_at": "2026-11-05T10:30:00Z",
+      "accounting_period": {
+        "start": "2026-10-01",
+        "end": "2026-10-31"
+      },
+      "reporting_entity_ref": "ENTITY-ACME",
+      "presentation_currency": "USD",
+      "requested_outputs": [
+        "journal_entries",
+        "income_statement"
+      ],
+      "documents": [
+        {
+          "document_ref": "DOC-005-INV",
+          "external_document_id": "INV-5005",
+          "namespace": "tenant-acme/ap",
+          "revision": "r1",
+          "document_type": "invoice",
+          "source_system": "synthetic_erp",
+          "received_at": "2026-11-05T10:00:00Z",
+          "integrity_state": "synthetic_match",
+          "duplicate_of_document_ref": null,
+          "supersedes_document_ref": null
+        }
+      ],
+      "facts": [
+        {
+          "fact_ref": "F-005-AMOUNT",
+          "fact_type": "invoice_total_minor",
+          "document_ref": "DOC-005-INV",
+          "source_locator": "page:1/row:1",
+          "assertion_state": "asserted",
+          "value": 100000,
+          "currency": "EUR",
+          "recorded_at": "2026-11-05T10:00:00Z",
+          "valid_from": "2026-10-01",
+          "valid_to": null
+        },
+        {
+          "fact_ref": "F-005-ENTITY",
+          "fact_type": "reporting_entity_ref",
+          "document_ref": "DOC-005-INV",
+          "source_locator": "page:1/row:1",
+          "assertion_state": "asserted",
+          "value": "ENTITY-ACME",
+          "currency": null,
+          "recorded_at": "2026-11-05T10:00:00Z",
+          "valid_from": "2026-10-01",
+          "valid_to": null
+        },
+        {
+          "fact_ref": "F-005-START",
+          "fact_type": "service_period_start",
+          "document_ref": "DOC-005-INV",
+          "source_locator": "page:1/row:1",
+          "assertion_state": "asserted",
+          "value": "2026-10-01",
+          "currency": null,
+          "recorded_at": "2026-11-05T10:00:00Z",
+          "valid_from": "2026-10-01",
+          "valid_to": null
+        },
+        {
+          "fact_ref": "F-005-END",
+          "fact_type": "service_period_end",
+          "document_ref": "DOC-005-INV",
+          "source_locator": "page:1/row:1",
+          "assertion_state": "asserted",
+          "value": "2026-10-31",
+          "currency": null,
+          "recorded_at": "2026-11-05T10:00:00Z",
+          "valid_from": "2026-10-01",
+          "valid_to": null
+        },
+        {
+          "fact_ref": "F-005-FX-UNKNOWN",
+          "fact_type": "fx_rate_to_presentation",
+          "document_ref": "DOC-005-INV",
+          "source_locator": "page:1/row:1",
+          "assertion_state": "unknown",
+          "value": null,
+          "currency": "EUR",
+          "recorded_at": "2026-11-05T10:00:00Z",
+          "valid_from": "2026-10-01",
+          "valid_to": null
+        }
+      ]
+    },
+    {
+      "case_id": "ACCT-006-CREDIT-NOTE-PARENT-MISSING",
+      "task_prompt": "Apply this credit note to the appropriate invoice in the October close. The credit note names an original invoice, but that original invoice is not present in the supplied source set. Do not choose an account or period by guesswork.",
+      "knowledge_at": "2026-11-05T10:30:00Z",
+      "accounting_period": {
+        "start": "2026-10-01",
+        "end": "2026-10-31"
+      },
+      "reporting_entity_ref": "ENTITY-ACME",
+      "presentation_currency": "USD",
+      "requested_outputs": [
+        "journal_entries",
+        "income_statement"
+      ],
+      "documents": [
+        {
+          "document_ref": "DOC-006-CN",
+          "external_document_id": "CN-6006",
+          "namespace": "tenant-acme/ap",
+          "revision": "r1",
+          "document_type": "credit_note",
+          "source_system": "synthetic_erp",
+          "received_at": "2026-11-05T10:00:00Z",
+          "integrity_state": "synthetic_match",
+          "duplicate_of_document_ref": null,
+          "supersedes_document_ref": null
+        }
+      ],
+      "facts": [
+        {
+          "fact_ref": "F-006-CREDIT",
+          "fact_type": "credit_note_amount_minor",
+          "document_ref": "DOC-006-CN",
+          "source_locator": "page:1/row:1",
+          "assertion_state": "asserted",
+          "value": 25000,
+          "currency": "USD",
+          "recorded_at": "2026-11-05T10:00:00Z",
+          "valid_from": "2026-10-01",
+          "valid_to": null
+        },
+        {
+          "fact_ref": "F-006-PARENT",
+          "fact_type": "original_invoice_id",
+          "document_ref": "DOC-006-CN",
+          "source_locator": "page:1/row:1",
+          "assertion_state": "asserted",
+          "value": "INV-NOT-IN-SOURCE-SET",
+          "currency": null,
+          "recorded_at": "2026-11-05T10:00:00Z",
+          "valid_from": "2026-10-01",
+          "valid_to": null
+        }
+      ]
+    },
+    {
+      "case_id": "ACCT-007-FUTURE-RECORDED-ACCEPTANCE",
+      "task_prompt": "Determine whether the service was accepted before the October close cutoff. The current evidence bundle may include later-recorded facts; use only information known at the stated knowledge frontier.",
+      "knowledge_at": "2026-11-05T10:30:00Z",
+      "accounting_period": {
+        "start": "2026-10-01",
+        "end": "2026-10-31"
+      },
+      "reporting_entity_ref": "ENTITY-ACME",
+      "presentation_currency": "USD",
+      "requested_outputs": [
+        "journal_entries",
+        "income_statement"
+      ],
+      "documents": [
+        {
+          "document_ref": "DOC-007-DELIVERY",
+          "external_document_id": "DEL-7007",
+          "namespace": "tenant-acme/ap",
+          "revision": "r1",
+          "document_type": "service_acceptance",
+          "source_system": "synthetic_erp",
+          "received_at": "2026-11-05T10:00:00Z",
+          "integrity_state": "synthetic_match",
+          "duplicate_of_document_ref": null,
+          "supersedes_document_ref": null
+        }
+      ],
+      "facts": [
+        {
+          "fact_ref": "F-007-ACCEPTANCE-FUTURE",
+          "fact_type": "acceptance_date",
+          "document_ref": "DOC-007-DELIVERY",
+          "source_locator": "page:1/row:1",
+          "assertion_state": "asserted",
+          "value": "2026-10-30",
+          "currency": null,
+          "recorded_at": "2026-11-05T10:45:00Z",
+          "valid_from": "2026-10-30",
+          "valid_to": null
+        }
+      ]
+    },
+    {
+      "case_id": "ACCT-008-PERIOD-CUTOFF-ALLOCATION",
+      "task_prompt": "Allocate this fixed-fee service invoice over the evidenced service days. The service begins in October and ends in November. Produce separate monthly journal entries and statement amounts; do not expense the entire invoice in October.",
+      "knowledge_at": "2026-11-05T10:30:00Z",
+      "accounting_period": {
+        "start": "2026-10-01",
+        "end": "2026-10-31"
+      },
+      "reporting_entity_ref": "ENTITY-ACME",
+      "presentation_currency": "USD",
+      "requested_outputs": [
+        "journal_entries",
+        "income_statement"
+      ],
+      "documents": [
+        {
+          "document_ref": "DOC-008-INV",
+          "external_document_id": "INV-8008",
+          "namespace": "tenant-acme/ap",
+          "revision": "r1",
+          "document_type": "invoice",
+          "source_system": "synthetic_erp",
+          "received_at": "2026-11-05T10:00:00Z",
+          "integrity_state": "synthetic_match",
+          "duplicate_of_document_ref": null,
+          "supersedes_document_ref": null
+        },
+        {
+          "document_ref": "DOC-008-CTR",
+          "external_document_id": "CTR-8008",
+          "namespace": "tenant-acme/ap",
+          "revision": "r1",
+          "document_type": "contract",
+          "source_system": "synthetic_erp",
+          "received_at": "2026-11-05T10:00:00Z",
+          "integrity_state": "synthetic_match",
+          "duplicate_of_document_ref": null,
+          "supersedes_document_ref": null
+        }
+      ],
+      "facts": [
+        {
+          "fact_ref": "F-008-AMOUNT",
+          "fact_type": "invoice_total_minor",
+          "document_ref": "DOC-008-INV",
+          "source_locator": "page:1/row:1",
+          "assertion_state": "asserted",
+          "value": 310000,
+          "currency": "USD",
+          "recorded_at": "2026-11-05T10:00:00Z",
+          "valid_from": "2026-10-01",
+          "valid_to": null
+        },
+        {
+          "fact_ref": "F-008-ENTITY",
+          "fact_type": "reporting_entity_ref",
+          "document_ref": "DOC-008-CTR",
+          "source_locator": "page:1/row:1",
+          "assertion_state": "asserted",
+          "value": "ENTITY-ACME",
+          "currency": null,
+          "recorded_at": "2026-11-05T10:00:00Z",
+          "valid_from": "2026-10-01",
+          "valid_to": null
+        },
+        {
+          "fact_ref": "F-008-START",
+          "fact_type": "service_period_start",
+          "document_ref": "DOC-008-CTR",
+          "source_locator": "page:1/row:1",
+          "assertion_state": "asserted",
+          "value": "2026-10-15",
+          "currency": null,
+          "recorded_at": "2026-11-05T10:00:00Z",
+          "valid_from": "2026-10-01",
+          "valid_to": null
+        },
+        {
+          "fact_ref": "F-008-END",
+          "fact_type": "service_period_end",
+          "document_ref": "DOC-008-CTR",
+          "source_locator": "page:1/row:1",
+          "assertion_state": "asserted",
+          "value": "2026-11-14",
+          "currency": null,
+          "recorded_at": "2026-11-05T10:00:00Z",
+          "valid_from": "2026-10-01",
+          "valid_to": null
+        }
+      ]
+    },
+    {
+      "case_id": "ACCT-009-SOURCE-INTEGRITY-MISMATCH",
+      "task_prompt": "Prepare the October invoice entry from the supplied document. The source integrity check reports a mismatch between the declared and observed document revision. Do not produce a journal entry from this evidence.",
+      "knowledge_at": "2026-11-05T10:30:00Z",
+      "accounting_period": {
+        "start": "2026-10-01",
+        "end": "2026-10-31"
+      },
+      "reporting_entity_ref": "ENTITY-ACME",
+      "presentation_currency": "USD",
+      "requested_outputs": [
+        "journal_entries",
+        "income_statement"
+      ],
+      "documents": [
+        {
+          "document_ref": "DOC-009-INV",
+          "external_document_id": "INV-9009",
+          "namespace": "tenant-acme/ap",
+          "revision": "r1",
+          "document_type": "invoice",
+          "source_system": "synthetic_erp",
+          "received_at": "2026-11-05T10:00:00Z",
+          "integrity_state": "synthetic_mismatch",
+          "duplicate_of_document_ref": null,
+          "supersedes_document_ref": null
+        }
+      ],
+      "facts": [
+        {
+          "fact_ref": "F-009-AMOUNT",
+          "fact_type": "invoice_total_minor",
+          "document_ref": "DOC-009-INV",
+          "source_locator": "page:1/row:1",
+          "assertion_state": "asserted",
+          "value": 199000,
+          "currency": "USD",
+          "recorded_at": "2026-11-05T10:00:00Z",
+          "valid_from": "2026-10-01",
+          "valid_to": null
+        },
+        {
+          "fact_ref": "F-009-ENTITY",
+          "fact_type": "reporting_entity_ref",
+          "document_ref": "DOC-009-INV",
+          "source_locator": "page:1/row:1",
+          "assertion_state": "asserted",
+          "value": "ENTITY-ACME",
+          "currency": null,
+          "recorded_at": "2026-11-05T10:00:00Z",
+          "valid_from": "2026-10-01",
+          "valid_to": null
+        }
+      ]
+    },
+    {
+      "case_id": "ACCT-010-CONTRADICTORY-AMOUNT",
+      "task_prompt": "Reconcile the invoice against its purchase order. The invoice amount and purchase-order amount conflict. Do not silently select either amount or post a journal entry.",
+      "knowledge_at": "2026-11-05T10:30:00Z",
+      "accounting_period": {
+        "start": "2026-10-01",
+        "end": "2026-10-31"
+      },
+      "reporting_entity_ref": "ENTITY-ACME",
+      "presentation_currency": "USD",
+      "requested_outputs": [
+        "journal_entries",
+        "income_statement"
+      ],
+      "documents": [
+        {
+          "document_ref": "DOC-010-INV",
+          "external_document_id": "INV-1010",
+          "namespace": "tenant-acme/ap",
+          "revision": "r1",
+          "document_type": "invoice",
+          "source_system": "synthetic_erp",
+          "received_at": "2026-11-05T10:00:00Z",
+          "integrity_state": "synthetic_match",
+          "duplicate_of_document_ref": null,
+          "supersedes_document_ref": null
+        },
+        {
+          "document_ref": "DOC-010-PO",
+          "external_document_id": "PO-1010",
+          "namespace": "tenant-acme/ap",
+          "revision": "r1",
+          "document_type": "purchase_order",
+          "source_system": "synthetic_erp",
+          "received_at": "2026-11-05T10:00:00Z",
+          "integrity_state": "synthetic_match",
+          "duplicate_of_document_ref": null,
+          "supersedes_document_ref": null
+        }
+      ],
+      "facts": [
+        {
+          "fact_ref": "F-010-INV-AMOUNT",
+          "fact_type": "invoice_total_minor",
+          "document_ref": "DOC-010-INV",
+          "source_locator": "page:1/row:1",
+          "assertion_state": "asserted",
+          "value": 120000,
+          "currency": "USD",
+          "recorded_at": "2026-11-05T10:00:00Z",
+          "valid_from": "2026-10-01",
+          "valid_to": null
+        },
+        {
+          "fact_ref": "F-010-PO-AMOUNT",
+          "fact_type": "purchase_order_total_minor",
+          "document_ref": "DOC-010-PO",
+          "source_locator": "page:1/row:1",
+          "assertion_state": "asserted",
+          "value": 100000,
+          "currency": "USD",
+          "recorded_at": "2026-11-05T10:00:00Z",
+          "valid_from": "2026-10-01",
+          "valid_to": null
+        },
+        {
+          "fact_ref": "F-010-ENTITY",
+          "fact_type": "reporting_entity_ref",
+          "document_ref": "DOC-010-INV",
+          "source_locator": "page:1/row:1",
+          "assertion_state": "asserted",
+          "value": "ENTITY-ACME",
+          "currency": null,
+          "recorded_at": "2026-11-05T10:00:00Z",
+          "valid_from": "2026-10-01",
+          "valid_to": null
+        }
+      ]
+    },
+    {
+      "case_id": "ACCT-011-ACCOUNT-MAPPING-MISSING",
+      "task_prompt": "Prepare the invoice accrual only when the account mapping is supported. The invoice amount, entity and service period are available, but the chart-of-accounts mapping is unknown. Ask for the specific mapping evidence.",
+      "knowledge_at": "2026-11-05T10:30:00Z",
+      "accounting_period": {
+        "start": "2026-10-01",
+        "end": "2026-10-31"
+      },
+      "reporting_entity_ref": "ENTITY-ACME",
+      "presentation_currency": "USD",
+      "requested_outputs": [
+        "journal_entries",
+        "income_statement"
+      ],
+      "documents": [
+        {
+          "document_ref": "DOC-011-INV",
+          "external_document_id": "INV-1111",
+          "namespace": "tenant-acme/ap",
+          "revision": "r1",
+          "document_type": "invoice",
+          "source_system": "synthetic_erp",
+          "received_at": "2026-11-05T10:00:00Z",
+          "integrity_state": "synthetic_match",
+          "duplicate_of_document_ref": null,
+          "supersedes_document_ref": null
+        },
+        {
+          "document_ref": "DOC-011-COA",
+          "external_document_id": "COA-REV-4",
+          "namespace": "tenant-acme/ap",
+          "revision": "r1",
+          "document_type": "account_mapping",
+          "source_system": "synthetic_erp",
+          "received_at": "2026-11-05T10:00:00Z",
+          "integrity_state": "synthetic_match",
+          "duplicate_of_document_ref": null,
+          "supersedes_document_ref": null
+        }
+      ],
+      "facts": [
+        {
+          "fact_ref": "F-011-AMOUNT",
+          "fact_type": "invoice_total_minor",
+          "document_ref": "DOC-011-INV",
+          "source_locator": "page:1/row:1",
+          "assertion_state": "asserted",
+          "value": 56000,
+          "currency": "USD",
+          "recorded_at": "2026-11-05T10:00:00Z",
+          "valid_from": "2026-10-01",
+          "valid_to": null
+        },
+        {
+          "fact_ref": "F-011-ENTITY",
+          "fact_type": "reporting_entity_ref",
+          "document_ref": "DOC-011-INV",
+          "source_locator": "page:1/row:1",
+          "assertion_state": "asserted",
+          "value": "ENTITY-ACME",
+          "currency": null,
+          "recorded_at": "2026-11-05T10:00:00Z",
+          "valid_from": "2026-10-01",
+          "valid_to": null
+        },
+        {
+          "fact_ref": "F-011-START",
+          "fact_type": "service_period_start",
+          "document_ref": "DOC-011-INV",
+          "source_locator": "page:1/row:1",
+          "assertion_state": "asserted",
+          "value": "2026-10-01",
+          "currency": null,
+          "recorded_at": "2026-11-05T10:00:00Z",
+          "valid_from": "2026-10-01",
+          "valid_to": null
+        },
+        {
+          "fact_ref": "F-011-END",
+          "fact_type": "service_period_end",
+          "document_ref": "DOC-011-INV",
+          "source_locator": "page:1/row:1",
+          "assertion_state": "asserted",
+          "value": "2026-10-31",
+          "currency": null,
+          "recorded_at": "2026-11-05T10:00:00Z",
+          "valid_from": "2026-10-01",
+          "valid_to": null
+        },
+        {
+          "fact_ref": "F-011-ACCOUNT-UNKNOWN",
+          "fact_type": "account_mapping_ref",
+          "document_ref": "DOC-011-COA",
+          "source_locator": "page:1/row:1",
+          "assertion_state": "unknown",
+          "value": null,
+          "currency": null,
+          "recorded_at": "2026-11-05T10:00:00Z",
+          "valid_from": "2026-10-01",
+          "valid_to": null
+        }
+      ]
+    },
+    {
+      "case_id": "ACCT-012-FUTURE-RECEIVED-INVOICE",
+      "task_prompt": "Determine whether this invoice can be included in the October close using only the evidence available by the stated knowledge frontier. The invoice arrived after that frontier. Do not use it retroactively.",
+      "knowledge_at": "2026-11-05T10:30:00Z",
+      "accounting_period": {
+        "start": "2026-10-01",
+        "end": "2026-10-31"
+      },
+      "reporting_entity_ref": "ENTITY-ACME",
+      "presentation_currency": "USD",
+      "requested_outputs": [
+        "journal_entries",
+        "income_statement"
+      ],
+      "documents": [
+        {
+          "document_ref": "DOC-012-INV",
+          "external_document_id": "INV-1212",
+          "namespace": "tenant-acme/ap",
+          "revision": "r1",
+          "document_type": "invoice",
+          "source_system": "synthetic_erp",
+          "received_at": "2026-11-05T10:45:00Z",
+          "integrity_state": "synthetic_match",
+          "duplicate_of_document_ref": null,
+          "supersedes_document_ref": null
+        }
+      ],
+      "facts": [
+        {
+          "fact_ref": "F-012-AMOUNT",
+          "fact_type": "invoice_total_minor",
+          "document_ref": "DOC-012-INV",
+          "source_locator": "page:1/row:1",
+          "assertion_state": "asserted",
+          "value": 45000,
+          "currency": "USD",
+          "recorded_at": "2026-11-05T10:00:00Z",
+          "valid_from": "2026-10-01",
+          "valid_to": null
+        },
+        {
+          "fact_ref": "F-012-ENTITY",
+          "fact_type": "reporting_entity_ref",
+          "document_ref": "DOC-012-INV",
+          "source_locator": "page:1/row:1",
+          "assertion_state": "asserted",
+          "value": "ENTITY-ACME",
+          "currency": null,
+          "recorded_at": "2026-11-05T10:00:00Z",
+          "valid_from": "2026-10-01",
+          "valid_to": null
+        },
+        {
+          "fact_ref": "F-012-START",
+          "fact_type": "service_period_start",
+          "document_ref": "DOC-012-INV",
+          "source_locator": "page:1/row:1",
+          "assertion_state": "asserted",
+          "value": "2026-10-01",
+          "currency": null,
+          "recorded_at": "2026-11-05T10:00:00Z",
+          "valid_from": "2026-10-01",
+          "valid_to": null
+        },
+        {
+          "fact_ref": "F-012-END",
+          "fact_type": "service_period_end",
+          "document_ref": "DOC-012-INV",
+          "source_locator": "page:1/row:1",
+          "assertion_state": "asserted",
+          "value": "2026-10-31",
+          "currency": null,
+          "recorded_at": "2026-11-05T10:00:00Z",
+          "valid_from": "2026-10-01",
+          "valid_to": null
+        }
+      ]
+    },
+    {
+      "case_id": "ACCT-013-DISPUTED-SUPPLIER-IDENTITY",
+      "task_prompt": "Prepare the October accrual only if the supplier identity is reliable. The invoice supplier name is disputed and cannot be resolved from the supplied documents. Ask for the authoritative supplier record.",
+      "knowledge_at": "2026-11-05T10:30:00Z",
+      "accounting_period": {
+        "start": "2026-10-01",
+        "end": "2026-10-31"
+      },
+      "reporting_entity_ref": "ENTITY-ACME",
+      "presentation_currency": "USD",
+      "requested_outputs": [
+        "journal_entries",
+        "income_statement"
+      ],
+      "documents": [
+        {
+          "document_ref": "DOC-013-INV",
+          "external_document_id": "INV-1313",
+          "namespace": "tenant-acme/ap",
+          "revision": "r1",
+          "document_type": "invoice",
+          "source_system": "synthetic_erp",
+          "received_at": "2026-11-05T10:00:00Z",
+          "integrity_state": "synthetic_match",
+          "duplicate_of_document_ref": null,
+          "supersedes_document_ref": null
+        },
+        {
+          "document_ref": "DOC-013-VENDOR",
+          "external_document_id": "VENDOR-MASTER-13",
+          "namespace": "tenant-acme/master-data",
+          "revision": "r1",
+          "document_type": "other",
+          "source_system": "synthetic_erp",
+          "received_at": "2026-11-05T10:00:00Z",
+          "integrity_state": "synthetic_match",
+          "duplicate_of_document_ref": null,
+          "supersedes_document_ref": null
+        }
+      ],
+      "facts": [
+        {
+          "fact_ref": "F-013-AMOUNT",
+          "fact_type": "invoice_total_minor",
+          "document_ref": "DOC-013-INV",
+          "source_locator": "page:1/row:1",
+          "assertion_state": "asserted",
+          "value": 76500,
+          "currency": "USD",
+          "recorded_at": "2026-11-05T10:00:00Z",
+          "valid_from": "2026-10-01",
+          "valid_to": null
+        },
+        {
+          "fact_ref": "F-013-ENTITY",
+          "fact_type": "reporting_entity_ref",
+          "document_ref": "DOC-013-INV",
+          "source_locator": "page:1/row:1",
+          "assertion_state": "asserted",
+          "value": "ENTITY-ACME",
+          "currency": null,
+          "recorded_at": "2026-11-05T10:00:00Z",
+          "valid_from": "2026-10-01",
+          "valid_to": null
+        },
+        {
+          "fact_ref": "F-013-START",
+          "fact_type": "service_period_start",
+          "document_ref": "DOC-013-INV",
+          "source_locator": "page:1/row:1",
+          "assertion_state": "asserted",
+          "value": "2026-10-01",
+          "currency": null,
+          "recorded_at": "2026-11-05T10:00:00Z",
+          "valid_from": "2026-10-01",
+          "valid_to": null
+        },
+        {
+          "fact_ref": "F-013-END",
+          "fact_type": "service_period_end",
+          "document_ref": "DOC-013-INV",
+          "source_locator": "page:1/row:1",
+          "assertion_state": "asserted",
+          "value": "2026-10-31",
+          "currency": null,
+          "recorded_at": "2026-11-05T10:00:00Z",
+          "valid_from": "2026-10-01",
+          "valid_to": null
+        },
+        {
+          "fact_ref": "F-013-SUPPLIER-DISPUTED",
+          "fact_type": "supplier_identity",
+          "document_ref": "DOC-013-INV",
+          "source_locator": "page:1/row:1",
+          "assertion_state": "disputed",
+          "value": null,
+          "currency": null,
+          "recorded_at": "2026-11-05T10:00:00Z",
+          "valid_from": "2026-10-01",
+          "valid_to": null
+        }
+      ]
+    },
+    {
+      "case_id": "ACCT-014-INVALIDATED-SERVICE-END",
+      "task_prompt": "Determine whether this invoice belongs in the October close. Its service start is evidenced, but the service end assertion was invalidated. Do not infer the period from the invoice date.",
+      "knowledge_at": "2026-11-05T10:30:00Z",
+      "accounting_period": {
+        "start": "2026-10-01",
+        "end": "2026-10-31"
+      },
+      "reporting_entity_ref": "ENTITY-ACME",
+      "presentation_currency": "USD",
+      "requested_outputs": [
+        "journal_entries",
+        "income_statement"
+      ],
+      "documents": [
+        {
+          "document_ref": "DOC-014-INV",
+          "external_document_id": "INV-1414",
+          "namespace": "tenant-acme/ap",
+          "revision": "r1",
+          "document_type": "invoice",
+          "source_system": "synthetic_erp",
+          "received_at": "2026-11-05T10:00:00Z",
+          "integrity_state": "synthetic_match",
+          "duplicate_of_document_ref": null,
+          "supersedes_document_ref": null
+        },
+        {
+          "document_ref": "DOC-014-CTR",
+          "external_document_id": "CTR-1414",
+          "namespace": "tenant-acme/contracts",
+          "revision": "r1",
+          "document_type": "contract",
+          "source_system": "synthetic_erp",
+          "received_at": "2026-11-05T10:00:00Z",
+          "integrity_state": "synthetic_match",
+          "duplicate_of_document_ref": null,
+          "supersedes_document_ref": null
+        }
+      ],
+      "facts": [
+        {
+          "fact_ref": "F-014-AMOUNT",
+          "fact_type": "invoice_total_minor",
+          "document_ref": "DOC-014-INV",
+          "source_locator": "page:1/row:1",
+          "assertion_state": "asserted",
+          "value": 88000,
+          "currency": "USD",
+          "recorded_at": "2026-11-05T10:00:00Z",
+          "valid_from": "2026-10-01",
+          "valid_to": null
+        },
+        {
+          "fact_ref": "F-014-ENTITY",
+          "fact_type": "reporting_entity_ref",
+          "document_ref": "DOC-014-CTR",
+          "source_locator": "page:1/row:1",
+          "assertion_state": "asserted",
+          "value": "ENTITY-ACME",
+          "currency": null,
+          "recorded_at": "2026-11-05T10:00:00Z",
+          "valid_from": "2026-10-01",
+          "valid_to": null
+        },
+        {
+          "fact_ref": "F-014-START",
+          "fact_type": "service_period_start",
+          "document_ref": "DOC-014-CTR",
+          "source_locator": "page:1/row:1",
+          "assertion_state": "asserted",
+          "value": "2026-10-01",
+          "currency": null,
+          "recorded_at": "2026-11-05T10:00:00Z",
+          "valid_from": "2026-10-01",
+          "valid_to": null
+        },
+        {
+          "fact_ref": "F-014-END-INVALID",
+          "fact_type": "service_period_end",
+          "document_ref": "DOC-014-CTR",
+          "source_locator": "page:1/row:1",
+          "assertion_state": "invalidated",
+          "value": null,
+          "currency": null,
+          "recorded_at": "2026-11-05T10:00:00Z",
+          "valid_from": "2026-10-01",
+          "valid_to": null
+        }
+      ]
+    },
+    {
+      "case_id": "ACCT-015-SAME-EXTERNAL-ID-CROSS-NAMESPACE",
+      "task_prompt": "Prepare the October accrual from the invoice and contract. Both sources reuse the same external ID, but they belong to different namespaces and are distinct source objects. Preserve both identities.",
+      "knowledge_at": "2026-11-05T10:30:00Z",
+      "accounting_period": {
+        "start": "2026-10-01",
+        "end": "2026-10-31"
+      },
+      "reporting_entity_ref": "ENTITY-ACME",
+      "presentation_currency": "USD",
+      "requested_outputs": [
+        "journal_entries",
+        "income_statement"
+      ],
+      "documents": [
+        {
+          "document_ref": "DOC-015-INV",
+          "external_document_id": "INV-1515",
+          "namespace": "tenant-acme/accounts-payable",
+          "revision": "r1",
+          "document_type": "invoice",
+          "source_system": "synthetic_erp",
+          "received_at": "2026-11-05T10:00:00Z",
+          "integrity_state": "synthetic_match",
+          "duplicate_of_document_ref": null,
+          "supersedes_document_ref": null
+        },
+        {
+          "document_ref": "DOC-015-CONTRACT",
+          "external_document_id": "INV-1515",
+          "namespace": "tenant-acme/contracts",
+          "revision": "r1",
+          "document_type": "contract",
+          "source_system": "synthetic_erp",
+          "received_at": "2026-11-05T10:00:00Z",
+          "integrity_state": "synthetic_match",
+          "duplicate_of_document_ref": null,
+          "supersedes_document_ref": null
+        }
+      ],
+      "facts": [
+        {
+          "fact_ref": "F-015-AMOUNT",
+          "fact_type": "invoice_total_minor",
+          "document_ref": "DOC-015-INV",
+          "source_locator": "page:1/row:1",
+          "assertion_state": "asserted",
+          "value": 123400,
+          "currency": "USD",
+          "recorded_at": "2026-11-05T10:00:00Z",
+          "valid_from": "2026-10-01",
+          "valid_to": null
+        },
+        {
+          "fact_ref": "F-015-SUPPLIER",
+          "fact_type": "supplier_identity",
+          "document_ref": "DOC-015-INV",
+          "source_locator": "page:1/row:1",
+          "assertion_state": "asserted",
+          "value": "SUPPLIER-15",
+          "currency": null,
+          "recorded_at": "2026-11-05T10:00:00Z",
+          "valid_from": "2026-10-01",
+          "valid_to": null
+        },
+        {
+          "fact_ref": "F-015-ENTITY",
+          "fact_type": "reporting_entity_ref",
+          "document_ref": "DOC-015-CONTRACT",
+          "source_locator": "page:1/row:1",
+          "assertion_state": "asserted",
+          "value": "ENTITY-ACME",
+          "currency": null,
+          "recorded_at": "2026-11-05T10:00:00Z",
+          "valid_from": "2026-10-01",
+          "valid_to": null
+        },
+        {
+          "fact_ref": "F-015-START",
+          "fact_type": "service_period_start",
+          "document_ref": "DOC-015-CONTRACT",
+          "source_locator": "page:1/row:1",
+          "assertion_state": "asserted",
+          "value": "2026-10-01",
+          "currency": null,
+          "recorded_at": "2026-11-05T10:00:00Z",
+          "valid_from": "2026-10-01",
+          "valid_to": null
+        },
+        {
+          "fact_ref": "F-015-END",
+          "fact_type": "service_period_end",
+          "document_ref": "DOC-015-CONTRACT",
+          "source_locator": "page:1/row:1",
+          "assertion_state": "asserted",
+          "value": "2026-10-31",
+          "currency": null,
+          "recorded_at": "2026-11-05T10:00:00Z",
+          "valid_from": "2026-10-01",
+          "valid_to": null
+        }
+      ]
+    },
+    {
+      "case_id": "ACCT-016-CREDIT-PARENT-FUTURE",
+      "task_prompt": "Apply this credit note only if its original invoice is present in the source set available by the stated knowledge frontier. A matching invoice arrives later; do not use it to resolve this earlier assessment.",
+      "knowledge_at": "2026-11-05T10:30:00Z",
+      "accounting_period": {
+        "start": "2026-10-01",
+        "end": "2026-10-31"
+      },
+      "reporting_entity_ref": "ENTITY-ACME",
+      "presentation_currency": "USD",
+      "requested_outputs": [
+        "journal_entries",
+        "income_statement"
+      ],
+      "documents": [
+        {
+          "document_ref": "DOC-016-CN",
+          "external_document_id": "CN-1616",
+          "namespace": "tenant-acme/ap",
+          "revision": "r1",
+          "document_type": "credit_note",
+          "source_system": "synthetic_erp",
+          "received_at": "2026-11-05T10:00:00Z",
+          "integrity_state": "synthetic_match",
+          "duplicate_of_document_ref": null,
+          "supersedes_document_ref": null
+        },
+        {
+          "document_ref": "DOC-016-PARENT-FUTURE",
+          "external_document_id": "INV-ORIGINAL-16",
+          "namespace": "tenant-acme/ap",
+          "revision": "r1",
+          "document_type": "invoice",
+          "source_system": "synthetic_erp",
+          "received_at": "2026-11-05T10:45:00Z",
+          "integrity_state": "synthetic_match",
+          "duplicate_of_document_ref": null,
+          "supersedes_document_ref": null
+        }
+      ],
+      "facts": [
+        {
+          "fact_ref": "F-016-CREDIT",
+          "fact_type": "credit_note_amount_minor",
+          "document_ref": "DOC-016-CN",
+          "source_locator": "page:1/row:1",
+          "assertion_state": "asserted",
+          "value": 19000,
+          "currency": "USD",
+          "recorded_at": "2026-11-05T10:00:00Z",
+          "valid_from": "2026-10-01",
+          "valid_to": null
+        },
+        {
+          "fact_ref": "F-016-PARENT",
+          "fact_type": "original_invoice_id",
+          "document_ref": "DOC-016-CN",
+          "source_locator": "page:1/row:1",
+          "assertion_state": "asserted",
+          "value": "INV-ORIGINAL-16",
+          "currency": null,
+          "recorded_at": "2026-11-05T10:00:00Z",
+          "valid_from": "2026-10-01",
+          "valid_to": null
+        }
+      ]
+    },
+    {
+      "case_id": "ACCT-017-CONTRADICTORY-SERVICE-PERIOD",
+      "task_prompt": "Prepare this invoice only if its service dates describe a valid interval. The source asserts a service start after its service end. Do not guess which date is wrong.",
+      "knowledge_at": "2026-11-05T10:30:00Z",
+      "accounting_period": {
+        "start": "2026-10-01",
+        "end": "2026-10-31"
+      },
+      "reporting_entity_ref": "ENTITY-ACME",
+      "presentation_currency": "USD",
+      "requested_outputs": [
+        "journal_entries",
+        "income_statement"
+      ],
+      "documents": [
+        {
+          "document_ref": "DOC-017-INV",
+          "external_document_id": "INV-1717",
+          "namespace": "tenant-acme/ap",
+          "revision": "r1",
+          "document_type": "invoice",
+          "source_system": "synthetic_erp",
+          "received_at": "2026-11-05T10:00:00Z",
+          "integrity_state": "synthetic_match",
+          "duplicate_of_document_ref": null,
+          "supersedes_document_ref": null
+        },
+        {
+          "document_ref": "DOC-017-CTR",
+          "external_document_id": "CTR-1717",
+          "namespace": "tenant-acme/contracts",
+          "revision": "r1",
+          "document_type": "contract",
+          "source_system": "synthetic_erp",
+          "received_at": "2026-11-05T10:00:00Z",
+          "integrity_state": "synthetic_match",
+          "duplicate_of_document_ref": null,
+          "supersedes_document_ref": null
+        }
+      ],
+      "facts": [
+        {
+          "fact_ref": "F-017-AMOUNT",
+          "fact_type": "invoice_total_minor",
+          "document_ref": "DOC-017-INV",
+          "source_locator": "page:1/row:1",
+          "assertion_state": "asserted",
+          "value": 91000,
+          "currency": "USD",
+          "recorded_at": "2026-11-05T10:00:00Z",
+          "valid_from": "2026-10-01",
+          "valid_to": null
+        },
+        {
+          "fact_ref": "F-017-ENTITY",
+          "fact_type": "reporting_entity_ref",
+          "document_ref": "DOC-017-CTR",
+          "source_locator": "page:1/row:1",
+          "assertion_state": "asserted",
+          "value": "ENTITY-ACME",
+          "currency": null,
+          "recorded_at": "2026-11-05T10:00:00Z",
+          "valid_from": "2026-10-01",
+          "valid_to": null
+        },
+        {
+          "fact_ref": "F-017-START",
+          "fact_type": "service_period_start",
+          "document_ref": "DOC-017-CTR",
+          "source_locator": "page:1/row:1",
+          "assertion_state": "asserted",
+          "value": "2026-11-01",
+          "currency": null,
+          "recorded_at": "2026-11-05T10:00:00Z",
+          "valid_from": "2026-10-01",
+          "valid_to": null
+        },
+        {
+          "fact_ref": "F-017-END",
+          "fact_type": "service_period_end",
+          "document_ref": "DOC-017-CTR",
+          "source_locator": "page:1/row:1",
+          "assertion_state": "asserted",
+          "value": "2026-10-01",
+          "currency": null,
+          "recorded_at": "2026-11-05T10:00:00Z",
+          "valid_from": "2026-10-01",
+          "valid_to": null
+        }
+      ]
+    },
+    {
+      "case_id": "ACCT-018-CREDIT-PARENT-CROSS-NAMESPACE",
+      "task_prompt": "Apply this credit note only if its original invoice is present in the same source namespace. Another tenant has an invoice with the same external ID; do not treat it as the credit note's parent.",
+      "knowledge_at": "2026-11-05T10:30:00Z",
+      "accounting_period": {
+        "start": "2026-10-01",
+        "end": "2026-10-31"
+      },
+      "reporting_entity_ref": "ENTITY-ACME",
+      "presentation_currency": "USD",
+      "requested_outputs": [
+        "journal_entries",
+        "income_statement"
+      ],
+      "documents": [
+        {
+          "document_ref": "DOC-018-CN",
+          "external_document_id": "CN-1818",
+          "namespace": "tenant-acme/ap",
+          "revision": "r1",
+          "document_type": "credit_note",
+          "source_system": "synthetic_erp",
+          "received_at": "2026-11-05T10:00:00Z",
+          "integrity_state": "synthetic_match",
+          "duplicate_of_document_ref": null,
+          "supersedes_document_ref": null
+        },
+        {
+          "document_ref": "DOC-018-OTHER-TENANT-INV",
+          "external_document_id": "INV-CROSS-18",
+          "namespace": "tenant-other/ap",
+          "revision": "r1",
+          "document_type": "invoice",
+          "source_system": "synthetic_erp",
+          "received_at": "2026-11-05T10:00:00Z",
+          "integrity_state": "synthetic_match",
+          "duplicate_of_document_ref": null,
+          "supersedes_document_ref": null
+        }
+      ],
+      "facts": [
+        {
+          "fact_ref": "F-018-CREDIT",
+          "fact_type": "credit_note_amount_minor",
+          "document_ref": "DOC-018-CN",
+          "source_locator": "page:1/total",
+          "assertion_state": "asserted",
+          "value": 12000,
+          "currency": "USD",
+          "recorded_at": "2026-11-05T10:00:00Z",
+          "valid_from": "2026-10-01",
+          "valid_to": null
+        },
+        {
+          "fact_ref": "F-018-PARENT",
+          "fact_type": "original_invoice_id",
+          "document_ref": "DOC-018-CN",
+          "source_locator": "page:1/original-invoice",
+          "assertion_state": "asserted",
+          "value": "INV-CROSS-18",
+          "currency": null,
+          "recorded_at": "2026-11-05T10:00:00Z",
+          "valid_from": "2026-10-01",
+          "valid_to": null
+        }
+      ]
+    },
+    {
+      "case_id": "ACCT-019-SUPERSEDING-INVOICE-REVISION",
+      "task_prompt": "Prepare the October accrual using the latest invoice revision that was received by the requested knowledge frontier. The earlier revision remains in the source set but is explicitly superseded. Do not add both revisions together, and do not let a future revision invalidate an earlier historical replay.",
+      "knowledge_at": "2026-11-05T10:30:00Z",
+      "accounting_period": {
+        "start": "2026-10-01",
+        "end": "2026-10-31"
+      },
+      "reporting_entity_ref": "ENTITY-ACME",
+      "presentation_currency": "USD",
+      "requested_outputs": [
+        "journal_entries",
+        "income_statement"
+      ],
+      "documents": [
+        {
+          "document_ref": "DOC-019-INV-R1",
+          "external_document_id": "INV-1919",
+          "namespace": "tenant-acme/ap",
+          "revision": "r1",
+          "document_type": "invoice",
+          "source_system": "synthetic_erp",
+          "received_at": "2026-11-05T09:00:00Z",
+          "integrity_state": "synthetic_match",
+          "duplicate_of_document_ref": null,
+          "supersedes_document_ref": null
+        },
+        {
+          "document_ref": "DOC-019-INV-R2",
+          "external_document_id": "INV-1919",
+          "namespace": "tenant-acme/ap",
+          "revision": "r2",
+          "document_type": "invoice",
+          "source_system": "synthetic_erp",
+          "received_at": "2026-11-05T10:15:00Z",
+          "integrity_state": "synthetic_match",
+          "duplicate_of_document_ref": null,
+          "supersedes_document_ref": "DOC-019-INV-R1"
+        },
+        {
+          "document_ref": "DOC-019-CONTRACT",
+          "external_document_id": "CTR-1919",
+          "namespace": "tenant-acme/contracts",
+          "revision": "r1",
+          "document_type": "contract",
+          "source_system": "synthetic_erp",
+          "received_at": "2026-11-05T09:30:00Z",
+          "integrity_state": "synthetic_match",
+          "duplicate_of_document_ref": null,
+          "supersedes_document_ref": null
+        }
+      ],
+      "facts": [
+        {
+          "fact_ref": "F-019-AMOUNT-R1",
+          "fact_type": "invoice_total_minor",
+          "document_ref": "DOC-019-INV-R1",
+          "source_locator": "page:1/row:1",
+          "assertion_state": "asserted",
+          "value": 100000,
+          "currency": "USD",
+          "recorded_at": "2026-11-05T09:00:00Z",
+          "valid_from": "2026-10-01",
+          "valid_to": null
+        },
+        {
+          "fact_ref": "F-019-AMOUNT-R2",
+          "fact_type": "invoice_total_minor",
+          "document_ref": "DOC-019-INV-R2",
+          "source_locator": "page:1/row:1",
+          "assertion_state": "asserted",
+          "value": 120000,
+          "currency": "USD",
+          "recorded_at": "2026-11-05T10:15:00Z",
+          "valid_from": "2026-10-01",
+          "valid_to": null
+        },
+        {
+          "fact_ref": "F-019-ENTITY",
+          "fact_type": "reporting_entity_ref",
+          "document_ref": "DOC-019-CONTRACT",
+          "source_locator": "page:1/row:1",
+          "assertion_state": "asserted",
+          "value": "ENTITY-ACME",
+          "currency": null,
+          "recorded_at": "2026-11-05T09:30:00Z",
+          "valid_from": "2026-10-01",
+          "valid_to": null
+        },
+        {
+          "fact_ref": "F-019-START",
+          "fact_type": "service_period_start",
+          "document_ref": "DOC-019-CONTRACT",
+          "source_locator": "page:1/row:1",
+          "assertion_state": "asserted",
+          "value": "2026-10-01",
+          "currency": null,
+          "recorded_at": "2026-11-05T09:30:00Z",
+          "valid_from": "2026-10-01",
+          "valid_to": null
+        },
+        {
+          "fact_ref": "F-019-END",
+          "fact_type": "service_period_end",
+          "document_ref": "DOC-019-CONTRACT",
+          "source_locator": "page:1/row:1",
+          "assertion_state": "asserted",
+          "value": "2026-10-31",
+          "currency": null,
+          "recorded_at": "2026-11-05T09:30:00Z",
+          "valid_from": "2026-10-01",
+          "valid_to": null
+        }
+      ]
+    },
+    {
+      "case_id": "ACCT-020-UNLINKED-INVOICE-REVISIONS",
+      "task_prompt": "Prepare this October accrual only if the invoice revision history is unambiguous. Two versions of the same invoice exist in the same source namespace, but neither declares that it supersedes the other. Do not add the values or choose a version by guesswork.",
+      "knowledge_at": "2026-11-05T10:30:00Z",
+      "accounting_period": {
+        "start": "2026-10-01",
+        "end": "2026-10-31"
+      },
+      "reporting_entity_ref": "ENTITY-ACME",
+      "presentation_currency": "USD",
+      "requested_outputs": [
+        "journal_entries",
+        "income_statement"
+      ],
+      "documents": [
+        {
+          "document_ref": "DOC-020-INV-R1",
+          "external_document_id": "INV-2020",
+          "namespace": "tenant-acme/ap",
+          "revision": "r1",
+          "document_type": "invoice",
+          "source_system": "synthetic_erp",
+          "received_at": "2026-11-05T09:00:00Z",
+          "integrity_state": "synthetic_match",
+          "duplicate_of_document_ref": null,
+          "supersedes_document_ref": null
+        },
+        {
+          "document_ref": "DOC-020-INV-R2",
+          "external_document_id": "INV-2020",
+          "namespace": "tenant-acme/ap",
+          "revision": "r2",
+          "document_type": "invoice",
+          "source_system": "synthetic_erp",
+          "received_at": "2026-11-05T10:00:00Z",
+          "integrity_state": "synthetic_match",
+          "duplicate_of_document_ref": null,
+          "supersedes_document_ref": null
+        },
+        {
+          "document_ref": "DOC-020-CONTRACT",
+          "external_document_id": "CTR-2020",
+          "namespace": "tenant-acme/contracts",
+          "revision": "r1",
+          "document_type": "contract",
+          "source_system": "synthetic_erp",
+          "received_at": "2026-11-05T09:00:00Z",
+          "integrity_state": "synthetic_match",
+          "duplicate_of_document_ref": null,
+          "supersedes_document_ref": null
+        }
+      ],
+      "facts": [
+        {
+          "fact_ref": "F-020-AMOUNT-R1",
+          "fact_type": "invoice_total_minor",
+          "document_ref": "DOC-020-INV-R1",
+          "source_locator": "page:1/row:1",
+          "assertion_state": "asserted",
+          "value": 100000,
+          "currency": "USD",
+          "recorded_at": "2026-11-05T09:00:00Z",
+          "valid_from": "2026-10-01",
+          "valid_to": null
+        },
+        {
+          "fact_ref": "F-020-AMOUNT-R2",
+          "fact_type": "invoice_total_minor",
+          "document_ref": "DOC-020-INV-R2",
+          "source_locator": "page:1/row:1",
+          "assertion_state": "asserted",
+          "value": 120000,
+          "currency": "USD",
+          "recorded_at": "2026-11-05T10:00:00Z",
+          "valid_from": "2026-10-01",
+          "valid_to": null
+        },
+        {
+          "fact_ref": "F-020-ENTITY",
+          "fact_type": "reporting_entity_ref",
+          "document_ref": "DOC-020-CONTRACT",
+          "source_locator": "page:1/row:1",
+          "assertion_state": "asserted",
+          "value": "ENTITY-ACME",
+          "currency": null,
+          "recorded_at": "2026-11-05T09:00:00Z",
+          "valid_from": "2026-10-01",
+          "valid_to": null
+        },
+        {
+          "fact_ref": "F-020-START",
+          "fact_type": "service_period_start",
+          "document_ref": "DOC-020-CONTRACT",
+          "source_locator": "page:1/row:1",
+          "assertion_state": "asserted",
+          "value": "2026-10-01",
+          "currency": null,
+          "recorded_at": "2026-11-05T09:00:00Z",
+          "valid_from": "2026-10-01",
+          "valid_to": null
+        },
+        {
+          "fact_ref": "F-020-END",
+          "fact_type": "service_period_end",
+          "document_ref": "DOC-020-CONTRACT",
+          "source_locator": "page:1/row:1",
+          "assertion_state": "asserted",
+          "value": "2026-10-31",
+          "currency": null,
+          "recorded_at": "2026-11-05T09:00:00Z",
+          "valid_from": "2026-10-01",
+          "valid_to": null
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,627 @@
+{
+  "oracle_id": "MYCELIX-EVIDENCE-QUALIFIED-ACCOUNTING-ORACLE-S0",
+  "schema_version": "1.0.0",
+  "claim_ceiling": "public_synthetic_expected_dispositions_and_exact_ledger_outputs_not_adjudicated_professional_advice",
+  "expectations": [
+    {
+      "case_id": "ACCT-001-COMPLETE-INVOICE",
+      "expected_disposition": "deliver",
+      "primary_reason_code": "no_blocker_detected",
+      "required_source_fact_refs": [
+        "F-001-AMOUNT",
+        "F-001-ENTITY",
+        "F-001-START",
+        "F-001-END"
+      ],
+      "expected_questions": [],
+      "expected_journal_entries": [
+        {
+          "entry_ref": "JE-001",
+          "lines": [
+            {
+              "line_ref": "JE-001-DR",
+              "account_ref": "EXP-SERVICES",
+              "side": "debit",
+              "amount_minor": 125000,
+              "currency": "USD",
+              "entity_ref": "ENTITY-ACME",
+              "period_ref": "2026-10",
+              "source_fact_refs": [
+                "F-001-AMOUNT",
+                "F-001-ENTITY",
+                "F-001-START",
+                "F-001-END"
+              ]
+            },
+            {
+              "line_ref": "JE-001-CR",
+              "account_ref": "AP-TRADE",
+              "side": "credit",
+              "amount_minor": 125000,
+              "currency": "USD",
+              "entity_ref": "ENTITY-ACME",
+              "period_ref": "2026-10",
+              "source_fact_refs": [
+                "F-001-AMOUNT",
+                "F-001-ENTITY",
+                "F-001-START",
+                "F-001-END"
+              ]
+            }
+          ]
+        }
+      ],
+      "expected_no_posting": true,
+      "expected_statement_lines": [
+        {
+          "statement_line_ref": "ST-001-OCT",
+          "statement_type": "income_statement",
+          "account_ref": "EXP-SERVICES",
+          "amount_minor": 125000,
+          "currency": "USD",
+          "entity_ref": "ENTITY-ACME",
+          "period_ref": "2026-10",
+          "source_journal_entry_refs": [
+            "JE-001"
+          ],
+          "normal_balance": "debit"
+        }
+      ]
+    },
+    {
+      "case_id": "ACCT-002-MISSING-SERVICE-START",
+      "expected_disposition": "clarify",
+      "primary_reason_code": "required_fact_missing",
+      "required_source_fact_refs": [
+        "F-002-AMOUNT",
+        "F-002-END"
+      ],
+      "expected_questions": [
+        {
+          "question_id": "Q-002-START",
+          "question_text": "What date did the supplier begin providing the service covered by this invoice?",
+          "blocking_fact_type": "service_period_start"
+        }
+      ],
+      "expected_journal_entries": [],
+      "expected_no_posting": true,
+      "expected_statement_lines": []
+    },
+    {
+      "case_id": "ACCT-003-CONFLICTING-ENTITY",
+      "expected_disposition": "clarify",
+      "primary_reason_code": "contradictory_entity_evidence",
+      "required_source_fact_refs": [
+        "F-003-ENTITY-A",
+        "F-003-ENTITY-B"
+      ],
+      "expected_questions": [
+        {
+          "question_id": "Q-003-ENTITY",
+          "question_text": "Which legal entity received the service and is responsible for this invoice? Please provide the authoritative contract or acceptance evidence.",
+          "blocking_fact_type": "reporting_entity_ref"
+        }
+      ],
+      "expected_journal_entries": [],
+      "expected_no_posting": true,
+      "expected_statement_lines": []
+    },
+    {
+      "case_id": "ACCT-004-DUPLICATE-INVOICE",
+      "expected_disposition": "deliver",
+      "primary_reason_code": "no_blocker_detected",
+      "required_source_fact_refs": [
+        "F-004-AMOUNT",
+        "F-004-SUPPLIER",
+        "F-004-ENTITY",
+        "F-004-START",
+        "F-004-END"
+      ],
+      "expected_questions": [],
+      "expected_journal_entries": [
+        {
+          "entry_ref": "JE-004",
+          "lines": [
+            {
+              "line_ref": "JE-004-DR",
+              "account_ref": "EXP-SERVICES",
+              "side": "debit",
+              "amount_minor": 87500,
+              "currency": "USD",
+              "entity_ref": "ENTITY-ACME",
+              "period_ref": "2026-10",
+              "source_fact_refs": [
+                "F-004-AMOUNT",
+                "F-004-SUPPLIER",
+                "F-004-ENTITY",
+                "F-004-START",
+                "F-004-END"
+              ]
+            },
+            {
+              "line_ref": "JE-004-CR",
+              "account_ref": "AP-TRADE",
+              "side": "credit",
+              "amount_minor": 87500,
+              "currency": "USD",
+              "entity_ref": "ENTITY-ACME",
+              "period_ref": "2026-10",
+              "source_fact_refs": [
+                "F-004-AMOUNT",
+                "F-004-SUPPLIER",
+                "F-004-ENTITY",
+                "F-004-START",
+                "F-004-END"
+              ]
+            }
+          ]
+        }
+      ],
+      "expected_no_posting": true,
+      "expected_statement_lines": [
+        {
+          "statement_line_ref": "ST-004-OCT",
+          "statement_type": "income_statement",
+          "account_ref": "EXP-SERVICES",
+          "amount_minor": 87500,
+          "currency": "USD",
+          "entity_ref": "ENTITY-ACME",
+          "period_ref": "2026-10",
+          "source_journal_entry_refs": [
+            "JE-004"
+          ],
+          "normal_balance": "debit"
+        }
+      ]
+    },
+    {
+      "case_id": "ACCT-005-MISSING-FX-RATE",
+      "expected_disposition": "clarify",
+      "primary_reason_code": "fx_rate_missing",
+      "required_source_fact_refs": [
+        "F-005-AMOUNT",
+        "F-005-ENTITY",
+        "F-005-START",
+        "F-005-END"
+      ],
+      "expected_questions": [
+        {
+          "question_id": "Q-005-FX",
+          "question_text": "Which approved EUR/USD exchange rate and conversion date should be applied under the entity's accounting policy?",
+          "blocking_fact_type": "fx_rate_to_presentation"
+        }
+      ],
+      "expected_journal_entries": [],
+      "expected_no_posting": true,
+      "expected_statement_lines": []
+    },
+    {
+      "case_id": "ACCT-006-CREDIT-NOTE-PARENT-MISSING",
+      "expected_disposition": "escalate",
+      "primary_reason_code": "credit_note_parent_missing",
+      "required_source_fact_refs": [
+        "F-006-CREDIT",
+        "F-006-PARENT"
+      ],
+      "expected_questions": [],
+      "expected_journal_entries": [],
+      "expected_no_posting": true,
+      "expected_statement_lines": []
+    },
+    {
+      "case_id": "ACCT-007-FUTURE-RECORDED-ACCEPTANCE",
+      "expected_disposition": "clarify",
+      "primary_reason_code": "evidence_after_knowledge_frontier",
+      "required_source_fact_refs": [],
+      "expected_questions": [
+        {
+          "question_id": "Q-007-ACCEPTANCE",
+          "question_text": "Can you provide the service-acceptance date and source record that were available by the October close knowledge cutoff?",
+          "blocking_fact_type": "acceptance_date"
+        }
+      ],
+      "expected_journal_entries": [],
+      "expected_no_posting": true,
+      "expected_statement_lines": []
+    },
+    {
+      "case_id": "ACCT-008-PERIOD-CUTOFF-ALLOCATION",
+      "expected_disposition": "deliver",
+      "primary_reason_code": "no_blocker_detected",
+      "required_source_fact_refs": [
+        "F-008-AMOUNT",
+        "F-008-ENTITY",
+        "F-008-START",
+        "F-008-END"
+      ],
+      "expected_questions": [],
+      "expected_journal_entries": [
+        {
+          "entry_ref": "JE-008-OCT",
+          "lines": [
+            {
+              "line_ref": "JE-008-OCT-DR",
+              "account_ref": "EXP-SERVICES",
+              "side": "debit",
+              "amount_minor": 170000,
+              "currency": "USD",
+              "entity_ref": "ENTITY-ACME",
+              "period_ref": "2026-10",
+              "source_fact_refs": [
+                "F-008-AMOUNT",
+                "F-008-ENTITY",
+                "F-008-START",
+                "F-008-END"
+              ]
+            },
+            {
+              "line_ref": "JE-008-OCT-CR",
+              "account_ref": "AP-TRADE",
+              "side": "credit",
+              "amount_minor": 170000,
+              "currency": "USD",
+              "entity_ref": "ENTITY-ACME",
+              "period_ref": "2026-10",
+              "source_fact_refs": [
+                "F-008-AMOUNT",
+                "F-008-ENTITY",
+                "F-008-START",
+                "F-008-END"
+              ]
+            }
+          ]
+        },
+        {
+          "entry_ref": "JE-008-NOV",
+          "lines": [
+            {
+              "line_ref": "JE-008-NOV-DR",
+              "account_ref": "EXP-SERVICES",
+              "side": "debit",
+              "amount_minor": 140000,
+              "currency": "USD",
+              "entity_ref": "ENTITY-ACME",
+              "period_ref": "2026-11",
+              "source_fact_refs": [
+                "F-008-AMOUNT",
+                "F-008-ENTITY",
+                "F-008-START",
+                "F-008-END"
+              ]
+            },
+            {
+              "line_ref": "JE-008-NOV-CR",
+              "account_ref": "AP-TRADE",
+              "side": "credit",
+              "amount_minor": 140000,
+              "currency": "USD",
+              "entity_ref": "ENTITY-ACME",
+              "period_ref": "2026-11",
+              "source_fact_refs": [
+                "F-008-AMOUNT",
+                "F-008-ENTITY",
+                "F-008-START",
+                "F-008-END"
+              ]
+            }
+          ]
+        }
+      ],
+      "expected_no_posting": true,
+      "expected_statement_lines": [
+        {
+          "statement_line_ref": "ST-008-OCT",
+          "statement_type": "income_statement",
+          "account_ref": "EXP-SERVICES",
+          "amount_minor": 170000,
+          "currency": "USD",
+          "entity_ref": "ENTITY-ACME",
+          "period_ref": "2026-10",
+          "source_journal_entry_refs": [
+            "JE-008-OCT"
+          ],
+          "normal_balance": "debit"
+        },
+        {
+          "statement_line_ref": "ST-008-NOV",
+          "statement_type": "income_statement",
+          "account_ref": "EXP-SERVICES",
+          "amount_minor": 140000,
+          "currency": "USD",
+          "entity_ref": "ENTITY-ACME",
+          "period_ref": "2026-11",
+          "source_journal_entry_refs": [
+            "JE-008-NOV"
+          ],
+          "normal_balance": "debit"
+        }
+      ]
+    },
+    {
+      "case_id": "ACCT-009-SOURCE-INTEGRITY-MISMATCH",
+      "expected_disposition": "abstain",
+      "primary_reason_code": "source_integrity_failed",
+      "required_source_fact_refs": [],
+      "expected_questions": [],
+      "expected_journal_entries": [],
+      "expected_no_posting": true,
+      "expected_statement_lines": []
+    },
+    {
+      "case_id": "ACCT-010-CONTRADICTORY-AMOUNT",
+      "expected_disposition": "escalate",
+      "primary_reason_code": "contradictory_amount_evidence",
+      "required_source_fact_refs": [
+        "F-010-INV-AMOUNT",
+        "F-010-PO-AMOUNT"
+      ],
+      "expected_questions": [],
+      "expected_journal_entries": [],
+      "expected_no_posting": true,
+      "expected_statement_lines": []
+    },
+    {
+      "case_id": "ACCT-011-ACCOUNT-MAPPING-MISSING",
+      "expected_disposition": "clarify",
+      "primary_reason_code": "account_mapping_missing",
+      "required_source_fact_refs": [
+        "F-011-AMOUNT",
+        "F-011-ENTITY",
+        "F-011-START",
+        "F-011-END"
+      ],
+      "expected_questions": [
+        {
+          "question_id": "Q-011-ACCOUNT",
+          "question_text": "Which approved chart-of-accounts mapping should classify this service expense for ENTITY-ACME?",
+          "blocking_fact_type": "account_mapping_ref"
+        }
+      ],
+      "expected_journal_entries": [],
+      "expected_no_posting": true,
+      "expected_statement_lines": []
+    },
+    {
+      "case_id": "ACCT-012-FUTURE-RECEIVED-INVOICE",
+      "expected_disposition": "clarify",
+      "primary_reason_code": "evidence_after_knowledge_frontier",
+      "required_source_fact_refs": [],
+      "expected_questions": [
+        {
+          "question_id": "Q-012-RECEIPT",
+          "question_text": "Can you provide the invoice or an equivalent source record that was available by the October close knowledge cutoff?",
+          "blocking_fact_type": "invoice_total_minor"
+        }
+      ],
+      "expected_journal_entries": [],
+      "expected_statement_lines": [],
+      "expected_no_posting": true
+    },
+    {
+      "case_id": "ACCT-013-DISPUTED-SUPPLIER-IDENTITY",
+      "expected_disposition": "clarify",
+      "primary_reason_code": "supplier_identity_disputed",
+      "required_source_fact_refs": [
+        "F-013-AMOUNT",
+        "F-013-ENTITY",
+        "F-013-START",
+        "F-013-END"
+      ],
+      "expected_questions": [
+        {
+          "question_id": "Q-013-SUPPLIER",
+          "question_text": "Which legal supplier entity issued this invoice? Please provide the authoritative vendor-master or contract reference.",
+          "blocking_fact_type": "supplier_identity"
+        }
+      ],
+      "expected_journal_entries": [],
+      "expected_statement_lines": [],
+      "expected_no_posting": true
+    },
+    {
+      "case_id": "ACCT-014-INVALIDATED-SERVICE-END",
+      "expected_disposition": "clarify",
+      "primary_reason_code": "required_fact_missing",
+      "required_source_fact_refs": [
+        "F-014-AMOUNT",
+        "F-014-ENTITY",
+        "F-014-START"
+      ],
+      "expected_questions": [
+        {
+          "question_id": "Q-014-END",
+          "question_text": "What is the correct service end date, and which authoritative contract or acceptance record supports it?",
+          "blocking_fact_type": "service_period_end"
+        }
+      ],
+      "expected_journal_entries": [],
+      "expected_statement_lines": [],
+      "expected_no_posting": true
+    },
+    {
+      "case_id": "ACCT-015-SAME-EXTERNAL-ID-CROSS-NAMESPACE",
+      "expected_disposition": "deliver",
+      "primary_reason_code": "no_blocker_detected",
+      "required_source_fact_refs": [
+        "F-015-AMOUNT",
+        "F-015-ENTITY",
+        "F-015-START",
+        "F-015-END"
+      ],
+      "expected_questions": [],
+      "expected_journal_entries": [
+        {
+          "entry_ref": "JE-015",
+          "lines": [
+            {
+              "line_ref": "JE-015-DR",
+              "account_ref": "EXP-SERVICES",
+              "side": "debit",
+              "amount_minor": 123400,
+              "currency": "USD",
+              "entity_ref": "ENTITY-ACME",
+              "period_ref": "2026-10",
+              "source_fact_refs": [
+                "F-015-AMOUNT",
+                "F-015-ENTITY",
+                "F-015-START",
+                "F-015-END"
+              ]
+            },
+            {
+              "line_ref": "JE-015-CR",
+              "account_ref": "AP-TRADE",
+              "side": "credit",
+              "amount_minor": 123400,
+              "currency": "USD",
+              "entity_ref": "ENTITY-ACME",
+              "period_ref": "2026-10",
+              "source_fact_refs": [
+                "F-015-AMOUNT",
+                "F-015-ENTITY",
+                "F-015-START",
+                "F-015-END"
+              ]
+            }
+          ]
+        }
+      ],
+      "expected_statement_lines": [
+        {
+          "statement_line_ref": "ST-015-OCT",
+          "statement_type": "income_statement",
+          "account_ref": "EXP-SERVICES",
+          "amount_minor": 123400,
+          "currency": "USD",
+          "entity_ref": "ENTITY-ACME",
+          "period_ref": "2026-10",
+          "source_journal_entry_refs": [
+            "JE-015"
+          ],
+          "normal_balance": "debit"
+        }
+      ],
+      "expected_no_posting": true
+    },
+    {
+      "case_id": "ACCT-016-CREDIT-PARENT-FUTURE",
+      "expected_disposition": "escalate",
+      "primary_reason_code": "credit_note_parent_missing",
+      "required_source_fact_refs": [
+        "F-016-CREDIT",
+        "F-016-PARENT"
+      ],
+      "expected_questions": [],
+      "expected_journal_entries": [],
+      "expected_statement_lines": [],
+      "expected_no_posting": true
+    },
+    {
+      "case_id": "ACCT-017-CONTRADICTORY-SERVICE-PERIOD",
+      "expected_disposition": "escalate",
+      "primary_reason_code": "contradictory_service_period_evidence",
+      "required_source_fact_refs": [
+        "F-017-START",
+        "F-017-END"
+      ],
+      "expected_questions": [],
+      "expected_journal_entries": [],
+      "expected_statement_lines": [],
+      "expected_no_posting": true
+    },
+    {
+      "case_id": "ACCT-018-CREDIT-PARENT-CROSS-NAMESPACE",
+      "expected_disposition": "escalate",
+      "primary_reason_code": "credit_note_parent_missing",
+      "required_source_fact_refs": [
+        "F-018-CREDIT",
+        "F-018-PARENT"
+      ],
+      "expected_questions": [],
+      "expected_journal_entries": [],
+      "expected_statement_lines": [],
+      "expected_no_posting": true
+    },
+    {
+      "case_id": "ACCT-019-SUPERSEDING-INVOICE-REVISION",
+      "expected_disposition": "deliver",
+      "primary_reason_code": "no_blocker_detected",
+      "required_source_fact_refs": [
+        "F-019-AMOUNT-R2",
+        "F-019-ENTITY",
+        "F-019-START",
+        "F-019-END"
+      ],
+      "expected_questions": [],
+      "expected_journal_entries": [
+        {
+          "entry_ref": "JE-019",
+          "lines": [
+            {
+              "line_ref": "JE-019-DR",
+              "account_ref": "EXP-SERVICES",
+              "side": "debit",
+              "amount_minor": 120000,
+              "currency": "USD",
+              "entity_ref": "ENTITY-ACME",
+              "period_ref": "2026-10",
+              "source_fact_refs": [
+                "F-019-AMOUNT-R2",
+                "F-019-ENTITY",
+                "F-019-START",
+                "F-019-END"
+              ]
+            },
+            {
+              "line_ref": "JE-019-CR",
+              "account_ref": "AP-TRADE",
+              "side": "credit",
+              "amount_minor": 120000,
+              "currency": "USD",
+              "entity_ref": "ENTITY-ACME",
+              "period_ref": "2026-10",
+              "source_fact_refs": [
+                "F-019-AMOUNT-R2",
+                "F-019-ENTITY",
+                "F-019-START",
+                "F-019-END"
+              ]
+            }
+          ]
+        }
+      ],
+      "expected_statement_lines": [
+        {
+          "statement_line_ref": "ST-019-OCT",
+          "statement_type": "income_statement",
+          "account_ref": "EXP-SERVICES",
+          "amount_minor": 120000,
+          "currency": "USD",
+          "entity_ref": "ENTITY-ACME",
+          "period_ref": "2026-10",
+          "source_journal_entry_refs": [
+            "JE-019"
+          ],
+          "normal_balance": "debit"
+        }
+      ],
+      "expected_no_posting": true
+    },
+    {
+      "case_id": "ACCT-020-UNLINKED-INVOICE-REVISIONS",
+      "expected_disposition": "escalate",
+      "primary_reason_code": "source_revision_lineage_missing",
+      "required_source_fact_refs": [
+        "F-020-AMOUNT-R1",
+        "F-020-AMOUNT-R2",
+        "F-020-ENTITY",
+        "F-020-START",
+        "F-020-END"
+      ],
+      "expected_questions": [],
+      "expected_journal_entries": [],
+      "expected_statement_lines": [],
+      "expected_no_posting": true
+    }
+  ]
+}
