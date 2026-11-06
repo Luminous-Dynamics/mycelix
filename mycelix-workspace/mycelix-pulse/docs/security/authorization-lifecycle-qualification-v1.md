@@ -433,6 +433,7 @@ A standalone structural verifier now exists under `tools/pulse-lifecycle-audit/`
 The verifier checks:
 - `(grantor, idempotency_key)` → single grant identity; independent grantors may reuse the same logical operation ID.
 - exact grant ActionHash binding across issuance, claim, revocation and use;
+- unique authored ActionHashes across grant issuance, revocation, private claim acceptance and durable domain effects;
 - original grantor is the revocation actor and revoke is monotonic;
 - claim recipient and lifecycle position;
 - monotonic conductor authority-order index (not wall-clock timestamp order);
