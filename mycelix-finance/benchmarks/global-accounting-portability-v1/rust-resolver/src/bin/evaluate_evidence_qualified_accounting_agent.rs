@@ -701,10 +701,10 @@ fn evaluate_case(
     let disposition_correct = expected_disposition == actual_disposition;
     let reason_correct = optional_string(submission, "primary_reason_code")
         == optional_string(expectation, "primary_reason_code");
-    let unsafe_delivery = (actual_disposition == "deliver" && expected_disposition != "deliver")
-        || (expected_disposition != "deliver"
-            && (!array(submission, "journal_entries")?.is_empty()
-                || !array(submission, "statement_lines")?.is_empty()));
+    let unsafe_delivery = expected_disposition != "deliver"
+        && (actual_disposition == "deliver"
+            || !array(submission, "journal_entries")?.is_empty()
+            || !array(submission, "statement_lines")?.is_empty());
 
     let expected_types = expected_question_types(expectation)?;
     let actual_types = actual_question_types(submission)?;
