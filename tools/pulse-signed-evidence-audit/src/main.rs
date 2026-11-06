@@ -1954,6 +1954,157 @@ mod tests {
     }
 
     #[test]
+    fn program_order_is_conductor_local_and_strictly_increasing() {
+        let from = json!({
+            "conductor_id": "peer-a",
+            "local_sequence": 4,
+            "event_type": "host_call"
+        });
+        let mut to = json!({
+            "conductor_id": "peer-a",
+            "local_sequence": 5,
+            "event_type": "caller_outcome"
+        });
+        assert!(matches!(
+            validate_causal_relation("program_order", &from, &to, "runtime_capture"),
+            RelationValidation::Valid
+        ));
+        to["conductor_id"] = Value::String("peer-b".into());
+        assert!(matches!(
+            validate_causal_relation("program_order", &from, &to, "runtime_capture"),
+            RelationValidation::Violation(_)
+        ));
+        to["conductor_id"] = Value::String("peer-a".into());
+        to["local_sequence"] = Value::from(4);
+        assert!(matches!(
+            validate_causal_relation("program_order", &from, &to, "runtime_capture"),
+            RelationValidation::Violation(_)
+        ));
+    }
+
+    #[test]
+    fn request_response_requires_exact_operation_and_attempt() {
+        let from = json!({
+            "event_type": "host_call",
+            "data": {"operation_id": "op-1", "attempt_id": 2}
+        });
+        let mut to = json!({
+            "event_type": "domain_effect",
+            "data": {"operation_id": "op-1", "attempt_id": 2}
+        });
+        assert!(matches!(
+            validate_causal_relation("request_response", &from, &to, "runtime_capture"),
+            RelationValidation::Valid
+        ));
+        to["data"]["attempt_id"] = Value::from(3);
+        assert!(matches!(
+            validate_causal_relation("request_response", &from, &to, "runtime_capture"),
+            RelationValidation::Violation(_)
+        ));
+        to["event_type"] = Value::String("projection_observed".into());
+        assert!(matches!(
+            validate_causal_relation("request_response", &from, &to, "runtime_capture"),
+            RelationValidation::Incomplete(_)
+        ));
+    }
+
+    #[test]
+    fn grant_claim_dependency_requires_exact_grant_action_hash() {
+        let from = json!({
+            "event_type": "host_grant_issued",
+            "data": {"grant_action_hash": "grant-A"}
+        });
+        let mut to = json!({
+            "event_type": "capability_claim_accepted",
+            "data": {"grant_action_hash": "grant-A"}
+        });
+        assert!(matches!(
+            validate_causal_relation("source_action_dependency", &from, &to, "runtime_capture"),
+            RelationValidation::Valid
+        ));
+        to["data"]["grant_action_hash"] = Value::String("grant-B".into());
+        assert!(matches!(
+            validate_causal_relation("source_action_dependency", &from, &to, "runtime_capture"),
+            RelationValidation::Violation(_)
+        ));
+    }
+
+    #[test]
+    fn validator_receipt_requires_exact_authored_action_and_conductors() {
+        let from = json!({
+            "event_id": "authored-1",
+            "conductor_id": "author-host",
+            "event_type": "action_authored",
+            "data": {"action_hash": "action-A"}
+        });
+        let mut to = json!({
+            "conductor_id": "validator-host",
+            "event_type": "validation_disposition",
+            "data": {
+                "action_hash": "action-A",
+                "author_conductor_id": "author-host",
+                "receiving_conductor_id": "validator-host",
+                "disposition": "accepted"
+            }
+        });
+        assert!(matches!(
+            validate_causal_relation("validator_receipt", &from, &to, "runtime_capture"),
+            RelationValidation::Valid
+        ));
+        to["data"]["action_hash"] = Value::String("action-B".into());
+        assert!(matches!(
+            validate_causal_relation("validator_receipt", &from, &to, "runtime_capture"),
+            RelationValidation::Violation(_)
+        ));
+    }
+
+    #[test]
+    fn observer_confirmation_requires_the_exact_validator_event_and_action() {
+        let from = json!({
+            "event_id": "validator-1",
+            "event_type": "validation_disposition",
+            "data": {"action_hash": "action-A"}
+        });
+        let mut to = json!({
+            "event_type": "projection_observed",
+            "data": {
+                "action_hash": "action-A",
+                "observed_action_hash": "action-A",
+                "required_action_hash": "action-A",
+                "validator_event_id": "validator-1"
+            }
+        });
+        assert!(matches!(
+            validate_causal_relation("observer_confirmation", &from, &to, "runtime_capture"),
+            RelationValidation::Valid
+        ));
+        to["data"]["validator_event_id"] = Value::String("validator-other".into());
+        assert!(matches!(
+            validate_causal_relation("observer_confirmation", &from, &to, "runtime_capture"),
+            RelationValidation::Violation(_)
+        ));
+        to["data"].as_object_mut().unwrap().remove("validator_event_id");
+        assert!(matches!(
+            validate_causal_relation("observer_confirmation", &from, &to, "runtime_capture"),
+            RelationValidation::Incomplete(_)
+        ));
+    }
+
+    #[test]
+    fn test_harness_barrier_is_synthetic_only() {
+        let from = json!({});
+        let to = json!({});
+        assert!(matches!(
+            validate_causal_relation("test_harness_barrier", &from, &to, "synthetic"),
+            RelationValidation::Valid
+        ));
+        assert!(matches!(
+            validate_causal_relation("test_harness_barrier", &from, &to, "runtime_capture"),
+            RelationValidation::Violation(_)
+        ));
+    }
+
+    #[test]
     fn valid_causal_edge_is_backed_by_two_exact_signed_endpoint_events() {
         let (bundle, trace, policy) = fixture_with_two_signed_events_and_edge();
         let report = audit(&bundle, &trace, &policy).unwrap();
