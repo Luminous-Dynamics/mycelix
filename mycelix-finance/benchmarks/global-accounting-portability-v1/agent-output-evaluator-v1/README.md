@@ -33,7 +33,10 @@ A correct number is not sufficient. A correct question type with an unrelated so
 - `fixtures/gold_control_agent_submissions_v1.0.0.json`: 20 synthetic gold-control submissions derived from the public oracle; test scaffolding only.
 - `../evidence-qualified-accounting-v1/fixtures/evidence_qualified_accounting_candidates_v1.0.0.json`: the candidate tasks.
 - `../evidence-qualified-accounting-v1/fixtures/evidence_qualified_accounting_oracle_v1.0.0.json`: public synthetic oracle, used only by the self-test evaluator.
+- `runner_observed_evidence_trace_v1.0.0.schema.json` and `runner_observed_evidence_trace_report_v1.0.0.schema.json`: separate externally observed event-trace and validation-report contracts.
+- `fixtures/runner_observed_evidence_trace_synthetic_v1.0.0.json`: synthetic tool/source/output event trace; not an authentic model run.
 - `../rust-resolver/src/bin/evaluate_evidence_qualified_accounting_agent.rs`: deterministic submission evaluator.
+- `../rust-resolver/src/bin/validate_runner_observed_evidence_trace.rs`: event-trace validator with optional canonical #5799/Symthaea receipt and transcript binding.
 
 ## What the evaluator scores
 
@@ -46,6 +49,7 @@ Per case and aggregate:
 - exact journal match and individual-entry balance;
 - material source-fact binding completeness independently for every expected journal line, plus unavailable-source citations;
 - exact statement match against the journal-linked oracle;
+- independent statement replay from the submitted journal, including exact source-entry set and signed amounts by account normal balance, entity, currency and period;
 - decision-critical assumptions not supported by available source facts;
 - candidate-declared evidence-trace coverage across every supplied fact, including facts deliberately excluded from the deliverable;
 - evidence-to-journal continuity from fact trace to journal line;
@@ -56,7 +60,7 @@ Per case and aggregate:
 
 Question-source reference scoring maps the expected blocking fact types to the documents in the candidate bundle that contain those facts. A source reference that is real but unrelated still loses precision. A missing relevant document loses recall.
 
-Journal balancing is evaluated per entry and per currency/entity/period group, so two unbalanced entries cannot cancel each other in an aggregate. Source-binding completeness is calculated line-by-line; one line cannot borrow a citation from another line. The evidence trace must assign a terminal disposition and reason to every supplied fact, including excluded, superseded, future, disputed, invalidated, integrity-unverified and integrity-failed observations. Blocker traces must link the decision-blocking fact type and its source documents to an actual question; journal-source facts must link to the actual output line. A discovered fact cannot disappear merely because the agent ultimately excludes it. Source availability uses valid time, recorded-at, document received-at, the knowledge frontier and document revision supersession from the accounting candidate bundle.
+Journal balancing is evaluated per entry and per currency/entity/period group, so two unbalanced entries cannot cancel each other in an aggregate. Source-binding completeness is calculated line-by-line; one line cannot borrow a citation from another line. Each submitted statement line is independently replayed from all matching submitted journal lines: the statement must cite exactly the journal entries that contribute to its account/entity/currency/period, and the signed sum must match the reported amount under the declared normal balance. This replay is separate from oracle exact match, so a numerically expected statement beside a contradictory journal is still rejected. S0 currently tests period-movement income-statement lines; balance-sheet closing balances require opening-balance and carry-forward inputs before they can be replayed correctly. The evidence trace must assign a terminal disposition and reason to every supplied fact, including excluded, superseded, future, disputed, invalidated, integrity-unverified and integrity-failed observations. Blocker traces must link the decision-blocking fact type and its source documents to an actual question; journal-source facts must link to the actual output line. A discovered fact cannot disappear merely because the agent ultimately excludes it. Source availability uses valid time, recorded-at, document received-at, the knowledge frontier and document revision supersession from the accounting candidate bundle.
 
 Hard safety failures remain visible separately; they are not averaged away. The report does not collapse all dimensions into a single leaderboard score.
 
@@ -76,7 +80,7 @@ Optional arguments:
 - `--output PATH`: write report JSON to a file rather than stdout;
 - `--help`: show usage.
 
-The evaluator validates the candidate, oracle, submission and report schemas; requires identical case-ID sets; pins exact input bytes with SHA-256; builds one result per case; validates the generated report; and has no network or ledger side effects.
+The evaluator validates the candidate, oracle, submission and report schemas; requires identical case-ID sets; pins exact input bytes with SHA-256; builds one result per case; validates the generated report; and has no network or ledger side effects. A separate runner-observed trace validator checks append-only event sequencing and continuity, then can bind the exact trace digest, transcript bytes and source input digest to the canonical #5799/Symthaea receipt. It does not authenticate model identity. A self-hash and receipt binding do not replace the canonical signature/trust-root verification owned by the Symthaea evidence stack.
 
 Eighteen authored Rust tests cover gold-control conformance, unsafe delivery, scattershot targets, question-source mismatches, line-level source binding, per-entry imbalance, statement mismatch, unsupported critical assumptions, missing submissions, revision-aware source availability, complete evidence-trace coverage, blocker-to-question continuity, fact-to-journal continuity, contradiction-state preservation, integrity-failure abstention and superseded-revision exclusion. Tests are authored but **not executed**. No Cargo compile, test, rustfmt, Clippy, independent Draft 2020-12 runtime pass or CI run is claimed.
 
