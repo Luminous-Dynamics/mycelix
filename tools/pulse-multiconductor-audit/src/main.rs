@@ -2382,6 +2382,8 @@ fn main()->Result<(),Box<dyn Error>>{
     let mut benchmark_dag_nodes: Option<usize> = None;
     let mut benchmark_dag_conductors: Option<usize> = None;
     let mut benchmark_dag_queries: Option<usize> = None;
+    let mut benchmark_verified_signals: Option<usize> = None;
+    let mut benchmark_verified_conductors: Option<usize> = None;
     let mut args=env::args().skip(1);
     while let Some(arg)=args.next(){
         match arg.as_str(){
@@ -2414,6 +2416,14 @@ fn main()->Result<(),Box<dyn Error>>{
                 let value=args.next().ok_or("--benchmark-dag-queries requires a count")?;
                 benchmark_dag_queries=Some(value.parse::<usize>()?);
             }
+            "--benchmark-verified-signals"=>{
+                let value=args.next().ok_or("--benchmark-verified-signals requires a count")?;
+                benchmark_verified_signals=Some(value.parse::<usize>()?);
+            }
+            "--benchmark-verified-conductors"=>{
+                let value=args.next().ok_or("--benchmark-verified-conductors requires a count")?;
+                benchmark_verified_conductors=Some(value.parse::<usize>()?);
+            }
             "--help"|"-h"=>{
                 println!("pulse-multiconductor-audit --input HISTORY.json [--output REPORT.json]");
                 println!("pulse-multiconductor-audit --benchmark-events COUNT [--output BENCHMARK.json] (1..=1000000)");
@@ -2421,6 +2431,7 @@ fn main()->Result<(),Box<dyn Error>>{
                 println!("pulse-multiconductor-audit --benchmark-join-operations COUNT [--output JOIN-BENCHMARK.json] (3..=30000)");
                 println!("pulse-multiconductor-audit --benchmark-dag-shape SHAPE --benchmark-dag-nodes COUNT --benchmark-dag-conductors COUNT --benchmark-dag-queries COUNT [--output DAG-BENCHMARK.json]");
                 println!("DAG shapes: long_chain, wide_fanout, wide_fanin, diamond, sparse_dag, bounded_dense_dag (bounded_dense_dag <= 512 nodes)");
+                println!("pulse-multiconductor-audit --benchmark-verified-signals COUNT [--benchmark-verified-conductors COUNT] [--output VERIFIED-BENCHMARK.json] (1..=1000000 signals, 3..=50 conductors)");
                 return Ok(());
             }
             other=>return Err(format!("unknown argument: {other}").into())
@@ -2436,11 +2447,15 @@ fn main()->Result<(),Box<dyn Error>>{
     if dag_fields.iter().any(|present| *present) && !dag_fields.iter().all(|present| *present) {
         return Err("DAG benchmark requires shape, nodes, conductors and queries".into());
     }
+    if benchmark_verified_conductors.is_some() && benchmark_verified_signals.is_none() {
+        return Err("--benchmark-verified-conductors requires --benchmark-verified-signals".into());
+    }
     let benchmark_modes = [
         benchmark_events.is_some(),
         benchmark_parse_events.is_some(),
         benchmark_join_operations.is_some(),
         dag_fields.iter().all(|present| *present),
+        benchmark_verified_signals.is_some(),
     ];
     if benchmark_modes.iter().filter(|mode| **mode).count() > 1 {
         return Err("benchmark modes are mutually exclusive".into());
@@ -2464,6 +2479,14 @@ fn main()->Result<(),Box<dyn Error>>{
             benchmark_dag_nodes.unwrap(),
             benchmark_dag_conductors.unwrap(),
             benchmark_dag_queries.unwrap(),
+            output,
+        );
+    }
+    if let Some(signal_count) = benchmark_verified_signals {
+        if input.is_some() { return Err("--input and --benchmark-verified-signals are mutually exclusive".into()); }
+        return run_verified_record_benchmark(
+            signal_count,
+            benchmark_verified_conductors.unwrap_or(3),
             output,
         );
     }
