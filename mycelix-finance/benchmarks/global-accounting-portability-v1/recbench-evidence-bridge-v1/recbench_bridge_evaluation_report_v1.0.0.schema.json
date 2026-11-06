@@ -1,0 +1,267 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/mycelix-recbench-bridge-evaluation-report-v1.0.0.json",
+  "title": "Mycelix RecBench Bridge Evaluation Report v1.0.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "report_id",
+    "schema_version",
+    "claim_ceiling",
+    "input_digests",
+    "aggregate",
+    "case_results"
+  ],
+  "properties": {
+    "report_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "claim_ceiling": {
+      "const": "deterministic_scoring_against_synthetic_bridge_oracle_not_recbench_performance"
+    },
+    "input_digests": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "candidate_sha256",
+        "oracle_sha256",
+        "submission_sha256"
+      ],
+      "properties": {
+        "candidate_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "oracle_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "submission_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      }
+    },
+    "aggregate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "case_count",
+        "expected_link_count",
+        "submitted_link_count",
+        "exact_link_precision",
+        "exact_link_recall",
+        "exact_link_f1",
+        "auto_match_precision_at_999",
+        "auto_match_coverage_at_999",
+        "auto_match_false_positive_count",
+        "deposit_unbundle_group_exact_rate",
+        "unmatched_source_precision",
+        "unmatched_source_recall",
+        "review_source_recall",
+        "excluded_source_recall",
+        "source_terminal_coverage",
+        "forbid_auto_close_violation_count",
+        "hard_failure_count"
+      ],
+      "properties": {
+        "case_count": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "expected_link_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "submitted_link_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "exact_link_precision": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "exact_link_recall": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "exact_link_f1": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "auto_match_precision_at_999": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1
+        },
+        "auto_match_coverage_at_999": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "auto_match_false_positive_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "deposit_unbundle_group_exact_rate": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1
+        },
+        "unmatched_source_precision": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1
+        },
+        "unmatched_source_recall": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "review_source_recall": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "excluded_source_recall": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "source_terminal_coverage": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "forbid_auto_close_violation_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "hard_failure_count": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "case_results": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/caseResult"
+      }
+    }
+  },
+  "$defs": {
+    "caseResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "case_id",
+        "expected_link_count",
+        "submitted_link_count",
+        "exact_link_precision",
+        "exact_link_recall",
+        "auto_match_candidate_count",
+        "auto_match_exact_count",
+        "forbid_auto_close_violation",
+        "deposit_unbundle_group_exact",
+        "unmatched_source_precision",
+        "unmatched_source_recall",
+        "review_source_recall",
+        "excluded_source_recall",
+        "source_terminal_coverage",
+        "hard_failures"
+      ],
+      "properties": {
+        "case_id": {
+          "type": "string"
+        },
+        "expected_link_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "submitted_link_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "exact_link_precision": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "exact_link_recall": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "auto_match_candidate_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "auto_match_exact_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "forbid_auto_close_violation": {
+          "type": "boolean"
+        },
+        "deposit_unbundle_group_exact": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "unmatched_source_precision": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1
+        },
+        "unmatched_source_recall": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "review_source_recall": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "excluded_source_recall": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "source_terminal_coverage": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "hard_failures": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}
