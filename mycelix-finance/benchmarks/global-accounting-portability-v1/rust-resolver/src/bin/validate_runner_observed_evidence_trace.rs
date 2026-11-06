@@ -1009,12 +1009,11 @@ mod tests {
 
     #[test]
     fn rejects_trace_source_bundle_digest_not_matching_task_input() {
-        let (mut trace, _, _, trace_bytes) = fixture();
+        let (mut trace, _, _, _trace_bytes) = fixture();
         trace["source_bundle_sha256"] = json!("d".repeat(64));
         let bytes = serde_json::to_vec(&trace).unwrap();
         let transcript = b"actual transcript";
-        let (receipt, report) = synthetic_receipt(&trace, &bytes, transcript);
-        let receipt_bytes = serde_json::to_vec(&receipt).unwrap();
+        let (receipt, _report) = synthetic_receipt(&trace, &bytes, transcript);
         let mut bad_receipt = receipt.clone();
         bad_receipt["task_results"][0]["input_sha256"] = json!("e".repeat(64));
         let bad_bytes = serde_json::to_vec(&bad_receipt).unwrap();
@@ -1025,6 +1024,5 @@ mod tests {
         assert!(validate_receipt_binding(
             &trace,&bytes,&bad_receipt,&bad_bytes,&report,transcript
         ).is_err());
-        let _ = report;
     }
 }
