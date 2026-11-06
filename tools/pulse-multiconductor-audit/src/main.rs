@@ -190,6 +190,9 @@ struct Counts {
     reachability_dfs_node_visits: usize,
     reachability_full_source_builds: usize,
     reachability_cache_limit_skips: usize,
+    reachability_pair_cache_hits: usize,
+    reachability_pair_cache_entries: usize,
+    reachability_pair_cache_limit_skips: usize,
 }
 #[derive(Debug, Clone, Serialize)]
 struct Report {
@@ -362,10 +365,15 @@ fn relation_valid(relation: &str) -> bool {
 /// joins to reuse that set. The global node budget bounds cache memory; graphs
 /// above the bound use the reference DFS path without caching.
 const MAX_CACHED_REACHABLE_NODES: usize = 100_000;
+const MAX_CACHED_REACHABILITY_PAIRS: usize = 100_000;
 
 #[derive(Debug, Default)]
 struct ReachabilityCache {
     enabled: bool,
+    pair_memoized: bool,
+    pair_results: BTreeMap<(String, String), bool>,
+    pair_cache_hits: usize,
+    pair_cache_limit_skips: usize,
     source_queries: BTreeMap<String, usize>,
     reachable_by_source: BTreeMap<String, BTreeSet<String>>,
     cached_reachable_nodes: usize,
@@ -383,6 +391,39 @@ impl ReachabilityCache {
             ..Self::default()
         }
     }
+
+    fn pair_memoized() -> Self {
+        Self {
+            pair_memoized: true,
+            ..Self::default()
+        }
+    }
+}
+
+fn dfs_path_exists(
+    adjacency: &BTreeMap<String, BTreeSet<String>>,
+    from: &str,
+    to: &str,
+    cache: &mut ReachabilityCache,
+) -> bool {
+    let mut seen = BTreeSet::new();
+    let mut stack = adjacency
+        .get(from)
+        .map(|targets| targets.iter().cloned().collect::<Vec<_>>())
+        .unwrap_or_default();
+    while let Some(node) = stack.pop() {
+        if !seen.insert(node.clone()) {
+            continue;
+        }
+        cache.dfs_node_visits += 1;
+        if node == to {
+            return true;
+        }
+        if let Some(next) = adjacency.get(&node) {
+            stack.extend(next.iter().cloned());
+        }
+    }
+    false
 }
 
 fn path_exists(
@@ -416,25 +457,24 @@ fn path_exists(
         return true;
     }
 
-    if !cache.enabled {
-        let mut seen = BTreeSet::new();
-        let mut stack = adjacency
-            .get(from)
-            .map(|targets| targets.iter().cloned().collect::<Vec<_>>())
-            .unwrap_or_default();
-        while let Some(node) = stack.pop() {
-            if !seen.insert(node.clone()) {
-                continue;
-            }
-            cache.dfs_node_visits += 1;
-            if node == to {
-                return true;
-            }
-            if let Some(next) = adjacency.get(&node) {
-                stack.extend(next.iter().cloned());
-            }
+    if cache.pair_memoized {
+        let key = (from.to_string(), to.to_string());
+        if let Some(result) = cache.pair_results.get(&key) {
+            cache.cache_hits += 1;
+            cache.pair_cache_hits += 1;
+            return *result;
         }
-        return false;
+        let result = dfs_path_exists(adjacency, from, to, cache);
+        if cache.pair_results.len() < MAX_CACHED_REACHABILITY_PAIRS {
+            cache.pair_results.insert(key, result);
+        } else {
+            cache.pair_cache_limit_skips += 1;
+        }
+        return result;
+    }
+
+    if !cache.enabled {
+        return dfs_path_exists(adjacency, from, to, cache);
     }
 
     // A cached reachable set answers both positive and negative queries from
@@ -537,17 +577,22 @@ fn has_direct_relation(
 }
 
 fn audit(history: &History, input_sha256: String) -> Report {
-    audit_with_reachability_cache(history, input_sha256, true)
+    audit_with_reachability_cache(history, input_sha256, true, false)
 }
 
 fn audit_reference(history: &History, input_sha256: String) -> Report {
-    audit_with_reachability_cache(history, input_sha256, false)
+    audit_with_reachability_cache(history, input_sha256, false, false)
+}
+
+fn audit_pair_memoized(history: &History, input_sha256: String) -> Report {
+    audit_with_reachability_cache(history, input_sha256, false, true)
 }
 
 fn audit_with_reachability_cache(
     history: &History,
     input_sha256: String,
     cache_enabled: bool,
+    pair_memoized: bool,
 ) -> Report {
     let mut findings=Vec::new();
     let mut counts=Counts{conductors:history.conductors.len(),events:history.events.len(),causal_edges:history.causal_edges.len(),..Counts::default()};
@@ -620,6 +665,7 @@ fn audit_with_reachability_cache(
     // reachability results are safe to memoize for the remainder of this audit.
     let mut reachability_cache = ReachabilityCache {
         enabled: cache_enabled,
+        pair_memoized,
         ..ReachabilityCache::default()
     };
 
@@ -1091,6 +1137,9 @@ fn audit_with_reachability_cache(
     counts.reachability_dfs_node_visits = reachability_cache.dfs_node_visits;
     counts.reachability_full_source_builds = reachability_cache.full_reachability_builds;
     counts.reachability_cache_limit_skips = reachability_cache.cache_limit_skips;
+    counts.reachability_pair_cache_hits = reachability_cache.pair_cache_hits;
+    counts.reachability_pair_cache_entries = reachability_cache.pair_results.len();
+    counts.reachability_pair_cache_limit_skips = reachability_cache.pair_cache_limit_skips;
 
     let violation=findings.iter().any(|f|f.severity=="violation");
     let incomplete=findings.iter().any(|f|f.severity=="incomplete");
@@ -1324,7 +1373,7 @@ fn benchmark_claim_fanout_history(operation_count: usize) -> Result<History, Box
 
 fn semantic_report_digest(report: &Report) -> Result<String, Box<dyn Error>> {
     let mut value = serde_json::to_value(report)?;
-    const METRIC_FIELDS: [&str; 7] = [
+    const METRIC_FIELDS: [&str; 10] = [
         "reachability_queries",
         "reachability_cache_hits",
         "reachability_sources_cached",
@@ -1332,6 +1381,9 @@ fn semantic_report_digest(report: &Report) -> Result<String, Box<dyn Error>> {
         "reachability_dfs_node_visits",
         "reachability_full_source_builds",
         "reachability_cache_limit_skips",
+        "reachability_pair_cache_hits",
+        "reachability_pair_cache_entries",
+        "reachability_pair_cache_limit_skips",
     ];
     if let Some(counts) = value.get_mut("counts").and_then(Value::as_object_mut) {
         for field in METRIC_FIELDS {
