@@ -364,7 +364,7 @@ fn audit(bundle: &TraceBundle, input_sha256: String) -> AuditReport {
     let mut findings = Vec::new();
     let mut counts = Counts { events: bundle.events.len(), ..Counts::default() };
     let mut grants: BTreeMap<String, GrantState> = BTreeMap::new();
-    let mut idempotency: BTreeMap<String, (String, String)> = BTreeMap::new();
+    let mut idempotency: BTreeMap<(String, String), (String, String)> = BTreeMap::new();
     let mut grant_hashes = BTreeSet::new();
     let mut event_ids = BTreeSet::new();
     let mut call_states: BTreeMap<(String, u32), CallState> = BTreeMap::new();
@@ -433,17 +433,21 @@ fn audit(bundle: &TraceBundle, input_sha256: String) -> AuditReport {
                 }
                 last_authority_index = issue.authority_index;
 
-                if let Some((existing_grant, existing_digest)) = idempotency.get(&issue.idempotency_key) {
+                // Idempotency is scoped to the authenticated grantor. Distinct
+                // grantors may legitimately reuse the same client operation ID;
+                // one grantor may not reuse it for another request or grant.
+                let idempotency_identity = (issue.grantor.clone(), issue.idempotency_key.clone());
+                if let Some((existing_grant, existing_digest)) = idempotency.get(&idempotency_identity) {
                     if existing_digest != &issue.request_digest_sha256 {
                         finding(&mut findings, "IDEMPOTENCY_KEY_REUSED_WITH_DIFFERENT_REQUEST", "violation",
-                            Some(&event.event_id), "one idempotency key was presented with different canonical request digests");
+                            Some(&event.event_id), "one grantor-scoped idempotency key was presented with different canonical request digests");
                     }
                     if existing_grant != &issue.grant_ref {
                         finding(&mut findings, "IDEMPOTENCY_KEY_MINTED_MULTIPLE_GRANTS", "violation",
-                            Some(&event.event_id), format!("idempotency key {} maps to {} and {}", issue.idempotency_key, existing_grant, issue.grant_ref));
+                            Some(&event.event_id), format!("grantor-scoped idempotency key ({}, {}) maps to {} and {}", issue.grantor, issue.idempotency_key, existing_grant, issue.grant_ref));
                     }
                 } else {
-                    idempotency.insert(issue.idempotency_key.clone(), (issue.grant_ref.clone(), issue.request_digest_sha256.clone()));
+                    idempotency.insert(idempotency_identity, (issue.grant_ref.clone(), issue.request_digest_sha256.clone()));
                 }
                 if !grant_hashes.insert(issue.grant_action_hash.clone()) {
                     finding(&mut findings, "DUPLICATE_GRANT_ACTION_HASH", "violation",
@@ -939,6 +943,28 @@ mod tests {
         bundle.events.push(duplicate);
         assert_eq!(run(&bundle).status, Status::Fail);
         assert!(run(&bundle).findings.iter().any(|f| f.code == "IDEMPOTENCY_KEY_MINTED_MULTIPLE_GRANTS"));
+    }
+
+    #[test]
+    fn independent_grantors_may_reuse_the_same_idempotency_key() {
+        let mut bundle = fixture();
+        let mut independent = bundle.events[0].clone();
+        independent.seq = 10;
+        independent.event_id = "other-grantor-same-operation-id".to_string();
+        if let EventKind::GrantIssued(ref mut grant) = independent.kind {
+            grant.grant_ref = "grant-other-agent".to_string();
+            grant.grant_action_hash = "action-grant-other-agent".to_string();
+            grant.grantor = "agent-other-grantor".to_string();
+            grant.grantee = "agent-other-recipient".to_string();
+            // The operation ID intentionally matches the first grantor's key.
+            grant.authority_index = 5;
+        }
+        bundle.events.push(independent);
+        let report = run(&bundle);
+        assert_eq!(report.status, Status::Pass, "{:?}", report.findings);
+        assert!(!report.findings.iter().any(|finding|
+            finding.code == "IDEMPOTENCY_KEY_MINTED_MULTIPLE_GRANTS" ||
+            finding.code == "IDEMPOTENCY_KEY_REUSED_WITH_DIFFERENT_REQUEST"));
     }
 
     #[test]
