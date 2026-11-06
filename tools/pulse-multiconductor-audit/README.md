@@ -32,13 +32,17 @@ Build and run one deterministic synthetic benchmark sample:
 The accepted event count range is 1 through 1,000,000. The generator creates two peer conductors with independent local sequence counters and unverified remote-signal events. It has no cross-conductor causal edges, because the current purpose is to measure parsing-independent structural audit cost on a controlled safe history.
 
 The benchmark report separates:
-- synthetic history build time;
-- verifier audit time;
+- synthetic history build time and verifier audit time;
 - event count / conductor count / edge count;
 - audit events per second;
+- allocator live bytes after history construction and after audit;
+- build-phase and audit-phase peak live allocation bytes;
+- cumulative requested allocation bytes by phase;
 - status and finding count;
 - a deterministic generator-configuration commitment;
 - an explicit synthetic-only claim ceiling.
+
+The allocator metrics come from a benchmark-only counting global allocator. Atomic accounting adds overhead to allocation/deallocation, so throughput from this instrumented build must not be compared directly with earlier uninstrumented runs. The workflow's /usr/bin/time peak-RSS measurement remains independent and is still captured per process.
 
 The Actions benchmark job runs 30 independent processes at 1k, 10k and 100k events, plus one 1M-event capacity probe. It records peak RSS per process and preserves every raw run plus a summary. The 1M sample is a capacity probe, not a percentile population. This measures the verifier on synthetic remote-signal histories; it does not establish Holochain runtime throughput, DHT convergence performance or comparative SOTA superiority.
 
