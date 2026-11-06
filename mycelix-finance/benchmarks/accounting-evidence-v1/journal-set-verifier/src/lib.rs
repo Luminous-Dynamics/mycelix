@@ -417,8 +417,10 @@ fn assess_case(case: &Value) -> AppResult<Assessment> {
         }
     }
 
-    // Corrections and reversals are append-only. A reversal must be present, match
-    // the original account/unit profile and use the opposite posting side only.
+    // Corrections and reversals are append-only. Reversal capacity is accumulated
+    // across every reversal of one original journal, never reset per reversal.
+    let mut reversal_remaining =
+        BTreeMap::<String, BTreeMap<(String, String), i128>>::new();
     for journal in &active_journals {
         let reversal_of = string(journal, "reversal_of");
         let correction_of = string(journal, "correction_of");
@@ -433,26 +435,49 @@ fn assess_case(case: &Value) -> AppResult<Assessment> {
                 }
             };
             if reversal_of.is_some() {
-                let mut remaining = BTreeMap::<(String, String), i128>::new();
-                for posting in array(original, "postings") {
-                    let key = (
-                        string(posting, "account_ref")
-                            .unwrap_or_default()
-                            .to_owned(),
-                        string(posting, "direction").unwrap_or_default().to_owned(),
-                    );
-                    let value = amount_field(posting, "amount_minor")?;
-                    *remaining.entry(key).or_default() += value;
+                if string(original, "reversal_of").is_some()
+                    || string(original, "correction_of").is_some()
+                {
+                    findings.insert("orphan_or_unauthorized_journal".to_owned());
+                    reasons.insert("reversal_target_is_not_an_original_journal".to_owned());
+                    continue;
                 }
+
+                if !reversal_remaining.contains_key(target_id) {
+                    let mut capacity = BTreeMap::<(String, String), i128>::new();
+                    for posting in array(original, "postings") {
+                        let key = (
+                            string(posting, "account_ref").unwrap_or_default().to_owned(),
+                            string(posting, "direction").unwrap_or_default().to_owned(),
+                        );
+                        let value = amount_field(posting, "amount_minor")?;
+                        let total = capacity.entry(key).or_default();
+                        match total.checked_add(value) {
+                            Some(updated) => *total = updated,
+                            None => {
+                                findings.insert("orphan_or_unauthorized_journal".to_owned());
+                                reasons.insert("original_posting_capacity_overflow".to_owned());
+                            }
+                        }
+                    }
+                    reversal_remaining.insert(target_id.to_owned(), capacity);
+                }
+
+                let remaining = reversal_remaining
+                    .get_mut(target_id)
+                    .expect("capacity inserted for original journal");
                 for posting in array(journal, "postings") {
                     let account = string(posting, "account_ref")
                         .unwrap_or_default()
                         .to_owned();
-                    let direction = string(posting, "direction").unwrap_or_default();
-                    let original_direction = if direction == "DEBIT" {
-                        "CREDIT"
-                    } else {
-                        "DEBIT"
+                    let original_direction = match string(posting, "direction") {
+                        Some("DEBIT") => "CREDIT",
+                        Some("CREDIT") => "DEBIT",
+                        _ => {
+                            findings.insert("orphan_or_unauthorized_journal".to_owned());
+                            reasons.insert("reversal_has_invalid_posting_direction".to_owned());
+                            continue;
+                        }
                     };
                     let key = (account, original_direction.to_owned());
                     let value = amount_field(posting, "amount_minor")?;
@@ -746,5 +771,71 @@ mod tests {
                 .reasons
                 .contains("post_close_authorization_reference_missing")
         );
+    }
+
+    #[test]
+    fn multiple_partial_reversals_cannot_exceed_the_original_in_aggregate() {
+        let mut candidate: Value = serde_json::from_str(include_str!(
+            "../../fin_journal_set_candidates_v1.0.0.json"
+        ))
+        .expect("candidate corpus");
+        let case = candidate["cases"]
+            .as_array_mut()
+            .expect("cases")
+            .iter_mut()
+            .find(|row| row["case_id"] == "FJS-018")
+            .expect("FJS-018");
+        let journals = case["manifest"]["journals"]
+            .as_array_mut()
+            .expect("journals");
+        let first_reversal = journals
+            .iter_mut()
+            .find(|journal| journal["journal_id"] == "journal-reversal")
+            .expect("first reversal");
+        first_reversal["economic_event_ref"] = json!("event-reversal-a");
+        for posting in first_reversal["postings"].as_array_mut().expect("postings") {
+            posting["amount_minor"] = json!("1000");
+        }
+
+        let mut second_reversal = first_reversal.clone();
+        second_reversal["journal_id"] = json!("journal-reversal-2");
+        second_reversal["payload_digest_token"] = json!(
+            "00000000000000000000000000000000000000000000000000000000000bdb3b"
+        );
+        second_reversal["economic_event_ref"] = json!("event-reversal-b");
+        for posting in second_reversal["postings"].as_array_mut().expect("postings") {
+            posting["amount_minor"] = json!("1001");
+        }
+        journals.push(second_reversal);
+        case["manifest"]["source_population"]["expected_event_refs"]
+            .as_array_mut()
+            .expect("expected events")
+            .push(json!("event-reversal-a"));
+        case["manifest"]["source_population"]["expected_event_refs"]
+            .as_array_mut()
+            .expect("expected events")
+            .push(json!("event-reversal-b"));
+        case["manifest"]["events"]
+            .as_array_mut()
+            .expect("events")
+            .push(json!({
+                "event_ref": "event-reversal-a",
+                "terminal_treatment": "journal_required",
+                "authorization_ref": null,
+                "reason_ref": null
+            }));
+        case["manifest"]["events"]
+            .as_array_mut()
+            .expect("events")
+            .push(json!({
+                "event_ref": "event-reversal-b",
+                "terminal_treatment": "journal_required",
+                "authorization_ref": null,
+                "reason_ref": null
+            }));
+
+        let assessment = assess_case(case).expect("assessment");
+        assert_eq!(assessment.disposition, "orphan_or_unauthorized_journal");
+        assert!(assessment.reasons.contains("reversal_exceeds_original_posting"));
     }
 }
