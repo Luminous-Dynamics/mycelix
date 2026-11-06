@@ -256,6 +256,8 @@ fn evaluate_projection(
     let mut journal_balanced = true;
     let mut journaled_decisions = BTreeSet::<String>::new();
     let mut journal_line_refs = BTreeSet::<String>::new();
+    let mut decision_posted_assertions = BTreeMap::<String, BTreeSet<String>>::new();
+    let mut decision_postings = BTreeMap::<String, BTreeMap<String, (i128, i128)>>::new();
     let projection_state = string(projection, "projection_state")?;
     let journal_entries = array(projection, "journal_entries")?;
     let mut total_line_count = 0usize;
@@ -275,6 +277,7 @@ fn evaluate_projection(
             total_line_count += 1;
             let line_ref = string(line, "line_ref")?;
             if !journal_line_refs.insert(line_ref.to_owned()) {
+                failure(&mut failures, "duplicate_journal_line_ref");
                 journal_lineage_valid = false;
             }
             let decision_ref = string(line, "policy_decision_ref")?;
@@ -301,6 +304,10 @@ fn evaluate_projection(
                 failure(&mut failures, "journal_assertion_lineage_mismatch");
                 journal_lineage_valid = false;
             }
+            decision_posted_assertions
+                .entry(decision_ref.to_owned())
+                .or_default()
+                .extend(line_assertions.iter().cloned());
             for assertion_ref in &line_assertions {
                 let assertion = assertion_by_ref(graph_case, assertion_ref)?;
                 let event = event_by_ref(graph_case, decision_event_ref)?;
@@ -323,15 +330,32 @@ fn evaluate_projection(
                 journal_lineage_valid = false;
             }
             let currency = string(line, "currency")?.to_owned();
-            let key = (currency, line_entity.to_owned(), line_period.to_owned());
+            let decision_currency = optional_string(decision, "currency").unwrap_or("");
+            let decision_period = optional_string(decision, "period_ref").unwrap_or("");
+            if currency != decision_currency || line_period != decision_period {
+                failure(&mut failures, "journal_decision_currency_period_mismatch");
+                journal_lineage_valid = false;
+            }
+            let key = (currency.clone(), line_entity.to_owned(), line_period.to_owned());
             let amount = line
                 .get("amount_minor")
                 .and_then(Value::as_i64)
                 .ok_or("journal line amount_minor must be an integer")? as i128;
+            let decision_totals = decision_postings
+                .entry(decision_ref.to_owned())
+                .or_default()
+                .entry(currency)
+                .or_default();
             let totals = balances.entry(key).or_default();
             match string(line, "side")? {
-                "debit" => totals.0 += amount,
-                "credit" => totals.1 += amount,
+                "debit" => {
+                    totals.0 += amount;
+                    decision_totals.0 += amount;
+                }
+                "credit" => {
+                    totals.1 += amount;
+                    decision_totals.1 += amount;
+                }
                 other => return Err(format!("invalid journal side {other}").into()),
             }
         }
@@ -353,7 +377,91 @@ fn evaluate_projection(
             failure(&mut failures, "nonrecognized_decision_has_journal");
             journal_lineage_valid = false;
         }
+        if state == "recognized" {
+            let expected_amount = optional_i64(decision, "recognized_amount_minor").unwrap_or(i64::MIN) as i128;
+            let expected_currency = optional_string(decision, "currency").unwrap_or("");
+            let posted = decision_postings.get(decision_ref);
+            let totals = posted.and_then(|map| map.get(expected_currency));
+            let amount_matches = totals.is_some_and(|(debit, credit)| {
+                *debit == expected_amount && *credit == expected_amount
+            });
+            let only_expected_currency = posted.is_some_and(|map| {
+                map.len() == 1 && map.contains_key(expected_currency)
+            });
+            if !amount_matches || !only_expected_currency {
+                failure(&mut failures, "recognized_amount_does_not_match_journal");
+                journal_lineage_valid = false;
+            }
+            let expected_assertions = string_set(decision, "source_assertion_refs")?;
+            let posted_assertions = decision_posted_assertions
+                .get(decision_ref)
+                .cloned()
+                .unwrap_or_default();
+            if !expected_assertions.is_subset(&posted_assertions) {
+                failure(&mut failures, "journal_decision_evidence_closure_incomplete");
+                journal_lineage_valid = false;
+            }
+        }
     }
+
+    let mut assumption_refs = BTreeMap::<String, &Value>::new();
+    for assumption in array(projection, "assumptions")? {
+        let assumption_ref = string(assumption, "assumption_ref")?;
+        if assumption_refs.insert(assumption_ref.to_owned(), assumption).is_some() {
+            failure(&mut failures, "orphan_projection_assumption");
+            assertion_provenance_valid = false;
+        }
+        for assertion_ref in string_set(assumption, "source_assertion_refs")? {
+            let Ok(assertion) = assertion_by_ref(graph_case, &assertion_ref) else {
+                failure(&mut failures, "assumption_assertion_reference_missing");
+                assertion_provenance_valid = false;
+                continue;
+            };
+            if !assertion_available(graph_case, assertion)? {
+                failure(&mut failures, "assumption_assertion_unavailable");
+                assertion_provenance_valid = false;
+            }
+        }
+    }
+    let mut referenced_assumptions = BTreeSet::<String>::new();
+    for decision in decisions {
+        let decision_assertions = string_set(decision, "source_assertion_refs")?;
+        for assumption_ref in string_set(decision, "assumption_refs")? {
+            referenced_assumptions.insert(assumption_ref.clone());
+            let Some(assumption) = assumption_refs.get(&assumption_ref).copied() else {
+                failure(&mut failures, "decision_assumption_reference_missing");
+                assertion_provenance_valid = false;
+                continue;
+            };
+            let assumption_assertions = string_set(assumption, "source_assertion_refs")?;
+            if !assumption_assertions.is_subset(&decision_assertions) {
+                failure(&mut failures, "assumption_assertion_reference_missing");
+                assertion_provenance_valid = false;
+            }
+            if assumption.get("decision_critical").and_then(Value::as_bool) == Some(true)
+                && !matches!(
+                    optional_string(assumption, "review_state"),
+                    Some("supported" | "approved_by_reviewer")
+                )
+            {
+                failure(&mut failures, "decision_critical_unsupported_assumption");
+                assertion_provenance_valid = false;
+            }
+            if assumption_assertions.is_empty()
+                && optional_string(assumption, "review_state") == Some("supported")
+            {
+                failure(&mut failures, "assumption_assertion_reference_missing");
+                assertion_provenance_valid = false;
+            }
+        }
+    }
+    for assumption_ref in assumption_refs.keys() {
+        if !referenced_assumptions.contains(assumption_ref) {
+            failure(&mut failures, "orphan_projection_assumption");
+            assertion_provenance_valid = false;
+        }
+    }
+
     if projection_state != "complete_for_review" && total_line_count > 0 {
         failure(&mut failures, "blocked_projection_has_journal");
     }
