@@ -161,8 +161,83 @@ pub struct VcVerificationResult {
     pub credential_id: String,
     pub valid: bool,
     pub checks_passed: Vec<String>,
+    pub proof_signature_status: VcSignatureStatus,
     pub errors: Vec<String>,
     pub verified_at: Timestamp,
+}
+
+/// Mirror of verifiable_credential coordinator::CredentialSignatureStatus.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum VcSignatureStatus {
+    Verified,
+    Invalid,
+    Partial,
+    Unsupported,
+    Error,
+}
+
+/// Mirror of verifiable_credential coordinator::CredentialInPresentationResult.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+pub struct VcPresentationCredentialResult {
+    pub credential_id: String,
+    pub valid: bool,
+    pub proof_signature_status: VcSignatureStatus,
+    pub errors: Vec<String>,
+}
+
+/// Mirror of verifiable_credential coordinator::PresentationVerificationResult.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+pub struct VcPresentationVerificationResult {
+    pub presentation_id: String,
+    pub holder: String,
+    pub valid: bool,
+    pub errors: Vec<String>,
+    pub holder_signature_status: VcSignatureStatus,
+    pub credential_results: Vec<VcPresentationCredentialResult>,
+    pub verified_at: Timestamp,
+}
+
+/// Mirror of verifiable_credential coordinator::DerivedVerificationResult.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+pub struct VcDerivedVerificationResult {
+    pub valid: bool,
+    pub errors: Vec<String>,
+    pub original_issuer_verified: bool,
+    pub original_issuer_signature_status: VcSignatureStatus,
+}
+
+/// Wire-format regression tests for the coordinator's explicit assurance enum.
+#[cfg(test)]
+mod credential_signature_status_wire_tests {
+    use super::*;
+
+    #[test]
+    fn signature_status_uses_lowercase_snake_case_wire_values() {
+        for (status, expected) in [
+            (VcSignatureStatus::Verified, "verified"),
+            (VcSignatureStatus::Invalid, "invalid"),
+            (VcSignatureStatus::Partial, "partial"),
+            (VcSignatureStatus::Unsupported, "unsupported"),
+            (VcSignatureStatus::Error, "error"),
+        ] {
+            let encoded = serde_json::to_string(&status).expect("status serialization");
+            assert_eq!(encoded, format!("\"{expected}\""));
+            let decoded: VcSignatureStatus =
+                serde_json::from_str(&encoded).expect("status deserialization");
+            assert_eq!(decoded, status);
+        }
+    }
+
+    #[test]
+    fn non_verified_statuses_are_not_mapped_to_verified() {
+        let partial: VcSignatureStatus =
+            serde_json::from_str("\"partial\"").expect("partial status");
+        let unsupported: VcSignatureStatus =
+            serde_json::from_str("\"unsupported\"").expect("unsupported status");
+        assert_ne!(partial, VcSignatureStatus::Verified);
+        assert_ne!(unsupported, VcSignatureStatus::Verified);
+    }
 }
 
 /// Mirror of revocation coordinator::RevokeInput

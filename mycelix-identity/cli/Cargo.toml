@@ -32,6 +32,7 @@ sha2 = "0.10"
 ed25519-dalek = { version = "2.1", features = ["rand_core"] }
 rand = "0.8"
 base64 = "0.21"
+bs58 = "0.5"
 
 # PQC crypto (keygen, sign, verify for all algorithms)
 mycelix-crypto = { path = "../crates/mycelix-crypto", features = ["native"] }

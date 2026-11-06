@@ -3,8 +3,9 @@
 // Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 //! Credential Generation and ZK Commitment
 //!
-//! Generates W3C VC 2.0 compliant academic credentials with
-//! ZK commitments for selective disclosure.
+//! Generates Mycelix academic credential records with a custom subset proof
+//! profile and SHA-256 commitments. The current CLI does not implement W3C
+//! Data Integrity canonicalization or cryptographically verify issued proofs.
 
 use anyhow::{Context, Result};
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
@@ -178,6 +179,10 @@ impl CredentialConfig {
     }
 }
 
+/// Internal academic proof profile. This signs only credential ID, issuer,
+/// subject, and creation time; it is not a W3C Data Integrity cryptosuite.
+const ACADEMIC_PROOF_PROFILE_V0: &str = "mycelix-academic-proof-subset-v0";
+
 /// Generate ZK commitment
 pub fn generate_zk_commitment(credential_id: &str, subject_id: &str, nonce: &[u8]) -> Vec<u8> {
     let mut hasher = Sha256::new();
@@ -285,16 +290,21 @@ pub fn build_credential(
 
     // Sign the proof
     let signature = config.signing_key.sign(&proof_hash);
-    let proof_value = format!("z{}", BASE64.encode(signature.to_bytes()));
+    let proof_value = format!(
+        "z{}",
+        bs58::encode(signature.to_bytes())
+            .with_alphabet(bs58::Alphabet::BITCOIN)
+            .into_string()
+    );
 
     // Build proof
     let proof = AcademicProof {
-        proof_type: "DataIntegrityProof".to_string(),
+        proof_type: "MycelixAcademicSubsetProof".to_string(),
         created: now_iso.clone(),
         verification_method: format!("{}#keys-1", config.institution_did),
         proof_purpose: "assertionMethod".to_string(),
         proof_value,
-        cryptosuite: Some("eddsa-rdfc-2022".to_string()),
+        cryptosuite: Some(ACADEMIC_PROOF_PROFILE_V0.to_string()),
     };
 
     Ok(AcademicCredential {
@@ -326,6 +336,10 @@ pub fn build_credential(
     })
 }
 
+/// Legacy subset preimage for the academic CLI only. The resulting proof is
+/// not a W3C Data Integrity proof and is not independently verifiable from a
+/// credential alone because the CLI does not publish the ephemeral verifying
+/// key used by `CredentialConfig`.
 fn compute_proof_hash(
     credential_id: &str,
     issuer_did: &str,
@@ -482,12 +496,15 @@ pub async fn verify_credential_cli(
     println!();
     println!("{}", style("[3/5] Proof Validation").bold());
 
-    if credential.proof.proof_type == "DataIntegrityProof" {
-        println!("  {} Proof type: DataIntegrityProof", style("✓").green());
-        checks_passed += 1;
+    if credential.proof.proof_type == "MycelixAcademicSubsetProof" {
+        println!(
+            "  {} Internal Mycelix subset proof type (not W3C Data Integrity)",
+            style("⚠").yellow()
+        );
+        warnings += 1;
     } else {
         println!(
-            "  {} Unknown proof type: {}",
+            "  {} Unsupported academic proof type: {}",
             style("⚠").yellow(),
             credential.proof.proof_type
         );
@@ -498,12 +515,17 @@ pub async fn verify_credential_cli(
         println!("  {} Proof value multibase-encoded", style("✓").green());
         checks_passed += 1;
 
-        // Try to decode the signature
-        let sig_b64 = &credential.proof.proof_value[1..]; // Strip 'z' prefix
-        match BASE64.decode(sig_b64) {
+        // Decode base58btc multibase framing. This is a structural check only;
+        // the CLI does not resolve the issuer's verificationMethod to a
+        // published key and does not cryptographically verify this signature.
+        let sig_b58 = &credential.proof.proof_value[1..]; // Strip 'z' prefix
+        match bs58::decode(sig_b58)
+            .with_alphabet(bs58::Alphabet::BITCOIN)
+            .into_vec()
+        {
             Ok(sig_bytes) if sig_bytes.len() == 64 => {
                 println!(
-                    "  {} Ed25519 signature present (64 bytes)",
+                    "  {} Ed25519 signature framing present (64 bytes; not verified)",
                     style("✓").green()
                 );
                 checks_passed += 1;
@@ -528,6 +550,35 @@ pub async fn verify_credential_cli(
         );
         checks_failed += 1;
     }
+
+    match credential.proof.cryptosuite.as_deref() {
+        Some(ACADEMIC_PROOF_PROFILE_V0) => {
+            println!(
+                "  {} Internal subset profile: signature covers only ID, issuer, subject, and created time",
+                style("⚠").yellow()
+            );
+            warnings += 1;
+        }
+        Some("eddsa-rdfc-2022") => {
+            println!(
+                "  {} Legacy credential uses a W3C suite label for a non-W3C subset hash",
+                style("⚠").yellow()
+            );
+            warnings += 1;
+        }
+        _ => {
+            println!(
+                "  {} Unsupported or missing academic proof profile",
+                style("⚠").yellow()
+            );
+            warnings += 1;
+        }
+    }
+    println!(
+        "  {} Issuer signature was NOT cryptographically verified by this CLI",
+        style("⚠").yellow()
+    );
+    warnings += 1;
 
     if credential.proof.proof_purpose == "assertionMethod" {
         println!("  {} Proof purpose: assertionMethod", style("✓").green());
@@ -676,7 +727,7 @@ pub async fn verify_credential_cli(
     if checks_failed == 0 {
         println!(
             "  {}",
-            style("Credential structure is VALID").green().bold()
+            style("Credential structure checks passed (signature assurance UNVERIFIED)").yellow().bold()
         );
     } else {
         println!(
