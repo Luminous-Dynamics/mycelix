@@ -106,7 +106,8 @@
         "decision_disposition",
         "reason_code",
         "terminal_disposition",
-        "response_sha256"
+        "response_sha256",
+        "question_context_fact_refs"
       ],
       "properties": {
         "seq": {
@@ -393,6 +394,13 @@
             "null"
           ],
           "pattern": "^[a-f0-9]{64}$"
+        },
+        "question_context_fact_refs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
         }
       },
       "allOf": [
