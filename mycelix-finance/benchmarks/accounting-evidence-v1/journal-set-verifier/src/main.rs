@@ -12,12 +12,12 @@ fn main() {
 }
 
 fn run() -> Result<(), Box<dyn Error>> {
-    let mut candidate = PathBuf::from("../fin_journal_set_candidates_v1.0.0.json");
-    let mut candidate_schema = PathBuf::from("../FIN_JOURNAL_SET_INPUT_V1.schema.json");
+    let mut candidate = PathBuf::from("../fin_journal_set_candidates_v1.1.0.json");
+    let mut candidate_schema = PathBuf::from("../FIN_JOURNAL_SET_INPUT_V1.1.0.schema.json");
     let mut oracle =
-        PathBuf::from("../public-journal-set-oracle/fin_journal_set_oracle_v1.0.0.json");
+        PathBuf::from("../public-journal-set-oracle/fin_journal_set_oracle_v1.1.0.json");
     let mut oracle_schema =
-        PathBuf::from("../public-journal-set-oracle/fin_journal_set_oracle_v1.schema.json");
+        PathBuf::from("../public-journal-set-oracle/fin_journal_set_oracle_v1.1.0.schema.json");
     let mut output: Option<PathBuf> = None;
 
     let mut args = env::args().skip(1);
