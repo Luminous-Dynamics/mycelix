@@ -65,7 +65,9 @@
         "evidence_trace_coverage",
         "evidence_to_journal_continuity",
         "decision_to_question_continuity",
-        "continuity_failure_count"
+        "continuity_failure_count",
+        "statement_replay_exact_rate",
+        "statement_replay_mismatch_count"
       ],
       "properties": {
         "case_count": {
@@ -142,6 +144,15 @@
         "continuity_failure_count": {
           "type": "integer",
           "minimum": 0
+        },
+        "statement_replay_exact_rate": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "statement_replay_mismatch_count": {
+          "type": "integer",
+          "minimum": 0
         }
       }
     },
@@ -177,7 +188,10 @@
         "evidence_trace_coverage",
         "evidence_to_journal_continuity",
         "decision_to_question_continuity",
-        "continuity_failures"
+        "continuity_failures",
+        "statement_replay_exact",
+        "statement_replay_mismatch_count",
+        "statement_replay_errors"
       ],
       "properties": {
         "case_id": {
@@ -261,6 +275,20 @@
           "type": "boolean"
         },
         "continuity_failures": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        },
+        "statement_replay_exact": {
+          "type": "boolean"
+        },
+        "statement_replay_mismatch_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "statement_replay_errors": {
           "type": "array",
           "uniqueItems": true,
           "items": {
