@@ -179,10 +179,10 @@ fn validate_projection_period_and_entity(
     Ok(())
 }
 
-fn validate_event_decisions(
-    projection: &Value,
+fn validate_event_decisions<'a>(
+    projection: &'a Value,
     graph_case: &Value,
-) -> Result<BTreeMap<String, &Value>, String> {
+) -> Result<BTreeMap<String, &'a Value>, String> {
     let projection_id = string(projection, "projection_id")?;
     let events = unique_refs(array(graph_case, "events")?, "event_ref", "graph events")?;
     let decisions = array(projection, "event_decisions")?;
@@ -622,17 +622,17 @@ mod tests {
 
     #[test]
     fn recognized_decision_entity_must_match_projection_entity() {
-        let (graph, mut bundle, _, _, digest) = fixtures();
+        let (mut graph, mut bundle, _, _, digest) = fixtures();
+        let graph_case = graph["cases"].as_array_mut().unwrap().iter_mut()
+            .find(|case| optional_string(case, "case_id") == Some("EVT-001-INVOICE-WITHOUT-SERVICE-PROOF")).unwrap();
+        graph_case["events"][0]["entity_ref"] = Value::String("ENTITY-OTHER".to_owned());
         let p = &mut bundle["projections"][0];
         p["projection_state"] = Value::String("complete_for_review".to_owned());
         p["event_decisions"][0]["decision_state"] = Value::String("recognized".to_owned());
-        p["event_decisions"][0]["recognized_amount_minor"] = Value::from(50000);
+        p["event_decisions"][0]["recognized_amount_minor"] = Value::from(125000);
         p["event_decisions"][0]["currency"] = Value::String("USD".to_owned());
         p["event_decisions"][0]["period_ref"] = Value::String("2026-10".to_owned());
-        p["event_decisions"][0]["event_ref"] = Value::String("EV-005-A".to_owned());
-        p["event_decisions"][0]["source_assertion_refs"] = json!(["AS-005-AMOUNT-A"]);
         p["unresolved_items"] = json!([]);
-        p["entity_ref"] = Value::String("ENTITY-B".to_owned());
         assert!(validate_bundle(&bundle, &graph, &digest).is_err());
     }
 
