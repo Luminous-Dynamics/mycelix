@@ -1,0 +1,721 @@
+{
+  "snapshot_id": "MYCELIX-ACCOUNTING-EXTERNAL-BENCHMARK-SNAPSHOT-2026-11-06T0604-SAST",
+  "schema_version": "1.3.0",
+  "captured_on": "2026-11-06",
+  "captured_at": "2026-11-06T06:04:00+02:00",
+  "supersedes_snapshot_id": "MYCELIX-ACCOUNTING-EXTERNAL-BENCHMARK-SNAPSHOT-2026-11-05T2212-SAST",
+  "claim_ceiling": "public_source_metadata_snapshot_not_benchmark_reproduction_or_dataset_license",
+  "sources": [
+    {
+      "source_id": "APEX-METHODOLOGY-2026-11-05-2212",
+      "benchmark_id": "APEX-ACCOUNTING",
+      "title": "Mercor APEX methodology page — accounting entry observed 2026-11-05 19:39 SAST",
+      "source_role": "methodology_page",
+      "canonical_url": "https://www.mercor.com/apex/methodology/",
+      "observed_at": "2026-11-06T06:04:00+02:00",
+      "publication_date": null,
+      "source_state": "current_methodology_snapshot",
+      "access": {
+        "metadata_access": "public",
+        "scored_split_access": "public_dev_subset_only",
+        "redistribution_status": "not_authorized_by_this_snapshot",
+        "note": "Public documentation is accessible; this record does not grant rights to redistribute task data or hidden scored cases."
+      },
+      "source_bytes_archived": false,
+      "source_bytes_sha256": null,
+      "observations": [
+        {
+          "observation_id": "APEX-METH-CURRENT-TASKS-100",
+          "metric_or_fact": "methodology_task_count",
+          "observed_value": 100,
+          "unit": "tasks",
+          "display_locator": "APEX-Accounting entry / Tasks",
+          "evidence_status": "methodology_page_display",
+          "interpretation": "Current methodology page display; do not substitute for the paper's distinct 160-task cohort."
+        },
+        {
+          "observation_id": "APEX-METH-CURRENT-K4",
+          "metric_or_fact": "methodology_attempt_parameter",
+          "observed_value": 4,
+          "unit": "runs",
+          "display_locator": "APEX-Accounting entry / Runs",
+          "evidence_status": "methodology_page_display",
+          "interpretation": "Methodology listing says k=4. The live page separately explains eight attempts for Pass metrics and Mean Criteria k=4."
+        },
+        {
+          "observation_id": "APEX-METH-RELEASE-MARCH",
+          "metric_or_fact": "methodology_release_month",
+          "observed_value": "March 2026",
+          "unit": "month",
+          "display_locator": "APEX-Accounting entry / Released",
+          "evidence_status": "methodology_page_display",
+          "interpretation": "Release month shown on the methodology listing."
+        },
+        {
+          "observation_id": "APEX-METH-HARNESS-SINGLE-TURN",
+          "metric_or_fact": "methodology_harness_description",
+          "observed_value": "single-turn / single-shot",
+          "unit": "harness mode",
+          "display_locator": "APEX-Accounting methodology card / Description",
+          "evidence_status": "methodology_page_display",
+          "interpretation": "This listing describes a single-turn / single-shot agent, in contrast with the paper and live leaderboard's Loop Harness descriptions. Keep this as an unresolved harness-version distinction."
+        }
+      ],
+      "notes": "The methodology listing currently describes the APEX-Accounting entry as 100 tasks with k=4. This aligns with the live leaderboard's current 100-task denominator but not with the published paper's 160-task private evaluation. The reason for the cohort difference is not explained in the source. The methodology card also describes single-turn/single-shot execution, while the published paper and live leaderboard describe Loop Harness execution; this harness relationship is unresolved."
+    },
+    {
+      "source_id": "APEX-PAPER-2026-07-29-RECHECKED-2212",
+      "benchmark_id": "APEX-ACCOUNTING",
+      "title": "APEX-Accounting research paper, arXiv:2607.27189",
+      "source_role": "research_paper",
+      "canonical_url": "https://arxiv.org/abs/2607.27189",
+      "observed_at": "2026-11-06T06:04:00+02:00",
+      "publication_date": "2026-07-29",
+      "source_state": "paper_cohort_160_snapshot",
+      "access": {
+        "metadata_access": "public",
+        "scored_split_access": "closed_scored_set_authorized_access_required",
+        "redistribution_status": "not_authorized_by_this_snapshot",
+        "note": "The full scored evaluation set is private; public page metadata is not a license to reproduce or redistribute it."
+      },
+      "source_bytes_archived": false,
+      "source_bytes_sha256": null,
+      "observations": [
+        {
+          "observation_id": "APEX-PAPER-TASKS-160",
+          "metric_or_fact": "paper_heldout_task_count",
+          "observed_value": 160,
+          "unit": "tasks",
+          "display_locator": "Paper abstract / benchmark description",
+          "evidence_status": "primary_paper_reported",
+          "interpretation": "Paper-reported private held-out cohort; do not relabel as the live page's current 100 tasks."
+        },
+        {
+          "observation_id": "APEX-PAPER-WORLDS-10",
+          "metric_or_fact": "paper_heldout_world_count",
+          "observed_value": 10,
+          "unit": "worlds",
+          "display_locator": "Paper abstract / benchmark description",
+          "evidence_status": "primary_paper_reported",
+          "interpretation": "The paper reports ten synthetic company worlds."
+        },
+        {
+          "observation_id": "APEX-PAPER-MEAN-56-4",
+          "metric_or_fact": "paper_best_mean_criteria_at_3",
+          "observed_value": 56.4,
+          "unit": "percent",
+          "display_locator": "Paper abstract and main results",
+          "evidence_status": "primary_paper_reported",
+          "interpretation": "Best paper-reported Mean Criteria@3 for the nine-model paper evaluation."
+        },
+        {
+          "observation_id": "APEX-PAPER-PASS8-21-5",
+          "metric_or_fact": "paper_best_pass_at_8",
+          "observed_value": 21.5,
+          "unit": "percent",
+          "display_locator": "Paper results / repeated-attempt analysis",
+          "evidence_status": "primary_paper_reported",
+          "interpretation": "Best paper-reported share of tasks fully solved at least once in eight attempts."
+        },
+        {
+          "observation_id": "APEX-PAPER-PASSPOW8-2-6",
+          "metric_or_fact": "paper_best_pass_power_8",
+          "observed_value": 2.6,
+          "unit": "percent",
+          "display_locator": "Paper results / repeated-attempt analysis",
+          "evidence_status": "primary_paper_reported",
+          "interpretation": "Best paper-reported share of tasks fully solved on all eight attempts."
+        },
+        {
+          "observation_id": "APEX-PAPER-UNSOLVED-58",
+          "metric_or_fact": "paper_tasks_never_solved_in_any_run",
+          "observed_value": 58,
+          "unit": "percent",
+          "display_locator": "Paper conclusion / repeated-attempt analysis",
+          "evidence_status": "primary_paper_reported",
+          "interpretation": "Share of paper cohort tasks not fully solved by any evaluated model attempt, as described in the paper."
+        },
+        {
+          "observation_id": "APEX-PAPER-NO-HIL",
+          "metric_or_fact": "human_in_loop_tasks_excluded",
+          "observed_value": true,
+          "unit": "boolean",
+          "display_locator": "Paper limitations section",
+          "evidence_status": "paper_limit_or_exclusion",
+          "interpretation": "The paper explicitly excludes tasks requiring a human-in-the-loop and notes that clarifying rather than assuming is a missing professional skill."
+        },
+        {
+          "observation_id": "APEX-PAPER-NO-MULTI-ENTITY",
+          "metric_or_fact": "multi_entity_and_multi_currency_excluded",
+          "observed_value": true,
+          "unit": "boolean",
+          "display_locator": "Paper limitations section",
+          "evidence_status": "paper_limit_or_exclusion",
+          "interpretation": "The paper states that multi-entity and multi-currency work is outside the benchmark scope."
+        },
+        {
+          "observation_id": "APEX-PAPER-HARNESS-LOOP",
+          "metric_or_fact": "paper_harness_description",
+          "observed_value": "Loop Harness (while-loop-with-tools)",
+          "unit": "harness mode",
+          "display_locator": "Paper benchmark/harness description",
+          "evidence_status": "primary_paper_reported",
+          "interpretation": "Paper evaluation uses a tool loop; do not assume equivalence with the methodology card's single-turn / single-shot description."
+        }
+      ],
+      "notes": "The paper is a separate published evaluation snapshot: 160 private held-out tasks across ten worlds. Its results and metrics must not be joined to the live leaderboard's current 100-task page as if they shared a denominator, harness revision or model roster. The paper excludes tasks requiring human-in-the-loop clarification and omits tax, audit, consolidation, multi-entity, multi-currency and external reporting. The paper describes a Loop Harness execution model; do not assume it shares the methodology card's single-turn/single-shot mode."
+    },
+    {
+      "source_id": "APEX-LIVE-LEADERBOARD-2026-11-05-2212",
+      "benchmark_id": "APEX-ACCOUNTING",
+      "title": "Mercor APEX-Accounting live leaderboard — 2026-11-05 19:39 SAST",
+      "source_role": "live_leaderboard",
+      "canonical_url": "https://www.mercor.com/apex/apex-accounting-leaderboard/",
+      "observed_at": "2026-11-06T06:04:00+02:00",
+      "publication_date": "2026-11-05",
+      "source_state": "live_page_cohort_differs_from_paper_unreconciled",
+      "access": {
+        "metadata_access": "public",
+        "scored_split_access": "closed_scored_set_authorized_access_required",
+        "redistribution_status": "not_authorized_by_this_snapshot",
+        "note": "The full scored evaluation set is private; public page metadata is not a license to reproduce or redistribute it."
+      },
+      "source_bytes_archived": false,
+      "source_bytes_sha256": null,
+      "observations": [
+        {
+          "observation_id": "APEX-LIVE-TASKS-100",
+          "metric_or_fact": "live_leaderboard_task_count",
+          "observed_value": 100,
+          "unit": "tasks",
+          "display_locator": "Leaderboard overview / Dataset",
+          "evidence_status": "live_page_display_only",
+          "interpretation": "The live page says 100 tasks across ten held-out worlds."
+        },
+        {
+          "observation_id": "APEX-LIVE-CRITERIA-1475",
+          "metric_or_fact": "live_leaderboard_criterion_count",
+          "observed_value": 1475,
+          "unit": "criteria",
+          "display_locator": "Leaderboard overview",
+          "evidence_status": "live_page_display_only",
+          "interpretation": "The live page says 1,475 grading criteria."
+        },
+        {
+          "observation_id": "APEX-LIVE-WORLDS-10",
+          "metric_or_fact": "live_leaderboard_world_count",
+          "observed_value": 10,
+          "unit": "worlds",
+          "display_locator": "Leaderboard overview",
+          "evidence_status": "live_page_display_only",
+          "interpretation": "The live page says ten accounting worlds."
+        },
+        {
+          "observation_id": "APEX-LIVE-TOP-71-5",
+          "metric_or_fact": "live_highest_displayed_mean_score",
+          "observed_value": 71.5,
+          "unit": "percent",
+          "display_locator": "Leaderboard headline / first model row",
+          "evidence_status": "live_page_display_only",
+          "interpretation": "The first row shows Gemini 4 Argon High at 71.5% ±4.8; this page's 100-task cohort is not equated with the 160-task paper cohort."
+        },
+        {
+          "observation_id": "APEX-LIVE-TOP-CI-4-8",
+          "metric_or_fact": "live_top_score_confidence_interval_half_width",
+          "observed_value": 4.8,
+          "unit": "percentage points",
+          "display_locator": "Leaderboard first model row",
+          "evidence_status": "live_page_display_only",
+          "interpretation": "The row shows ±4.8; the page describes 95% task-level bootstrap intervals."
+        },
+        {
+          "observation_id": "APEX-LIVE-SECOND-70-7",
+          "metric_or_fact": "live_second_displayed_mean_score",
+          "observed_value": 70.7,
+          "unit": "percent",
+          "display_locator": "Leaderboard second model row",
+          "evidence_status": "live_page_display_only",
+          "interpretation": "Second displayed model row is 70.7% ±4.8."
+        },
+        {
+          "observation_id": "APEX-LIVE-MEAN-K4",
+          "metric_or_fact": "live_canonical_mean_criteria_repeats",
+          "observed_value": 4,
+          "unit": "runs",
+          "display_locator": "Methodology section / Runs",
+          "evidence_status": "live_page_display_only",
+          "interpretation": "The page says every model runs eight times for Pass metrics, while canonical Mean Criteria is k=4."
+        },
+        {
+          "observation_id": "APEX-LIVE-EIGHT-RUNS",
+          "metric_or_fact": "live_pass_metric_attempt_count",
+          "observed_value": 8,
+          "unit": "attempts",
+          "display_locator": "Methodology section / Runs",
+          "evidence_status": "live_page_display_only",
+          "interpretation": "Eight runs produce Pass@1, Pass@8 and Pass^8."
+        },
+        {
+          "observation_id": "APEX-LIVE-TOKEN-CAP",
+          "metric_or_fact": "live_token_cap",
+          "observed_value": 5000000,
+          "unit": "tokens per task",
+          "display_locator": "Methodology / Cost limits",
+          "evidence_status": "live_page_display_only",
+          "interpretation": "Leaderboard runs have a five-million-token cap."
+        },
+        {
+          "observation_id": "APEX-LIVE-STEP-CAP",
+          "metric_or_fact": "live_step_cap",
+          "observed_value": 500,
+          "unit": "steps per task",
+          "display_locator": "Methodology / Cost limits",
+          "evidence_status": "live_page_display_only",
+          "interpretation": "Leaderboard runs have a 500-step limit."
+        },
+        {
+          "observation_id": "APEX-LIVE-BOOTSTRAPS",
+          "metric_or_fact": "live_bootstrap_resamples",
+          "observed_value": 10000,
+          "unit": "task-level resamples",
+          "display_locator": "Methodology / Error bars / CI",
+          "evidence_status": "live_page_display_only",
+          "interpretation": "The page states 95% task-level bootstrap intervals over 10,000 resamples."
+        },
+        {
+          "observation_id": "APEX-LIVE-MODELS-46",
+          "metric_or_fact": "live_model_count",
+          "observed_value": 46,
+          "unit": "models",
+          "display_locator": "Leaderboard Results section",
+          "evidence_status": "live_page_display_only",
+          "interpretation": "The live page displays 46 of 46 model results."
+        },
+        {
+          "observation_id": "APEX-LIVE-HARNESS-LOOP",
+          "metric_or_fact": "live_harness_description",
+          "observed_value": "Loop Harness (while-loop-with-tools)",
+          "unit": "harness mode",
+          "display_locator": "Leaderboard methodology / Harness",
+          "evidence_status": "live_page_display_only",
+          "interpretation": "Live page describes a Loop Harness; the methodology card describes single-turn / single-shot. The source set does not explain the version relationship."
+        }
+      ],
+      "notes": "At capture time the live page described 100 tasks, 1,475 criteria and ten worlds. Its displayed leading score was 71.5% ±4.8 (Gemini 4 Argon High). This is not the paper's 160-task, nine-model evaluation. No source statement located explains whether the 100-task page is a refreshed cohort, subset, different rubric cut or changed benchmark release. Do not treat 71.5% as a direct improvement over 56.4%. The live page describes Loop Harness execution, which is not reconciled with the methodology card's single-turn/single-shot description."
+    },
+    {
+      "source_id": "FINBALANCE-PAPER-2026-10-RECHECKED-2212",
+      "benchmark_id": "FINBALANCE",
+      "title": "FINBALANCE: A Multi-Document Accounting Reconciliation Benchmark",
+      "source_role": "research_paper",
+      "canonical_url": "https://aclanthology.org/2026.findings-emnlp.675/",
+      "observed_at": "2026-11-06T06:04:00+02:00",
+      "publication_date": null,
+      "source_state": "primary_paper_snapshot",
+      "access": {
+        "metadata_access": "public",
+        "scored_split_access": "not_established_from_this_source",
+        "redistribution_status": "unknown_requires_terms_review",
+        "note": "This bibliographic record does not establish dataset file access, license or redistribution terms."
+      },
+      "source_bytes_archived": false,
+      "source_bytes_sha256": null,
+      "observations": [
+        {
+          "observation_id": "FINBALANCE-SPLIT-710",
+          "metric_or_fact": "evaluation_split_record_count",
+          "observed_value": 710,
+          "unit": "records",
+          "display_locator": "Paper abstract",
+          "evidence_status": "primary_paper_reported",
+          "interpretation": "The paper reports a 710-record evaluation split."
+        },
+        {
+          "observation_id": "FINBALANCE-INDUSTRIES-8",
+          "metric_or_fact": "industry_count",
+          "observed_value": 8,
+          "unit": "industries",
+          "display_locator": "Paper abstract",
+          "evidence_status": "scope_description",
+          "interpretation": "Eight industries are represented."
+        },
+        {
+          "observation_id": "FINBALANCE-PERIODS-3",
+          "metric_or_fact": "period_type_count",
+          "observed_value": 3,
+          "unit": "period types",
+          "display_locator": "Paper abstract",
+          "evidence_status": "scope_description",
+          "interpretation": "Three period types are represented."
+        },
+        {
+          "observation_id": "FINBALANCE-DIFFICULTY-5",
+          "metric_or_fact": "difficulty_level_count",
+          "observed_value": 5,
+          "unit": "levels",
+          "display_locator": "Paper abstract",
+          "evidence_status": "scope_description",
+          "interpretation": "Five difficulty levels are represented."
+        },
+        {
+          "observation_id": "FINBALANCE-LABELS-23",
+          "metric_or_fact": "inconsistency_label_count",
+          "observed_value": 23,
+          "unit": "labels",
+          "display_locator": "Paper abstract",
+          "evidence_status": "scope_description",
+          "interpretation": "The benchmark includes 23 inconsistency-code labels."
+        },
+        {
+          "observation_id": "FINBALANCE-EXACT-46",
+          "metric_or_fact": "maximum_exact_final_balance_sheet_accuracy",
+          "observed_value": 46,
+          "unit": "percent",
+          "display_locator": "Paper abstract / results",
+          "evidence_status": "primary_paper_reported",
+          "interpretation": "Maximum exact final balance-sheet accuracy among six evaluated contemporary LLMs."
+        },
+        {
+          "observation_id": "FINBALANCE-JOURNAL-GAIN-26-41",
+          "metric_or_fact": "journal_reconstruction_improvement",
+          "observed_value": "26–41",
+          "unit": "percentage points",
+          "display_locator": "Paper abstract / reconstruction ablation",
+          "evidence_status": "primary_paper_reported",
+          "interpretation": "For four models, reconstructing statements from journal entries improved reported statement accuracy by 26–41 percentage points."
+        }
+      ],
+      "notes": "The paper describes a distinct multi-document source-to-journal-to-statement benchmark. Dataset redistribution and access rights are not established by this public bibliographic record."
+    },
+    {
+      "source_id": "APEX-OFFICIAL-INTRO-ARTICLE-2026-07-31",
+      "benchmark_id": "APEX-ACCOUNTING",
+      "title": "Introducing the AI Productivity Index for Accounting — official Mercor methodology article",
+      "source_role": "publisher_article",
+      "canonical_url": "https://www.mercor.com/blog/introducing-the-ai-productivity-index-for-accounting/",
+      "observed_at": "2026-11-06T06:04:00+02:00",
+      "publication_date": "2026-07-31",
+      "source_state": "publisher_article_cohort_context",
+      "access": {
+        "metadata_access": "public",
+        "scored_split_access": "public_dev_subset_only",
+        "redistribution_status": "not_authorized_by_this_snapshot",
+        "note": "The article is public. It says the open sample is one world and ten tasks; the held-out benchmark remains private and this record grants no redistribution rights."
+      },
+      "source_bytes_archived": false,
+      "source_bytes_sha256": null,
+      "observations": [
+        {
+          "observation_id": "APEX-BLOG-TASKS-160",
+          "metric_or_fact": "publisher_article_heldout_task_count",
+          "observed_value": 160,
+          "unit": "tasks",
+          "display_locator": "Article lines 38–40 and 72",
+          "evidence_status": "publisher_article_display",
+          "interpretation": "Mercor's official July 31 article says the benchmark comprises 160 tasks across ten simulated companies. This is the paper/blog cohort, distinct from the current live leaderboard's displayed 100-task cohort."
+        },
+        {
+          "observation_id": "APEX-BLOG-WORLDS-10",
+          "metric_or_fact": "publisher_article_world_count",
+          "observed_value": 10,
+          "unit": "worlds",
+          "display_locator": "Article line 40",
+          "evidence_status": "publisher_article_display",
+          "interpretation": "The article describes ten simulated companies/worlds."
+        },
+        {
+          "observation_id": "APEX-BLOG-PROFESSIONALS-40",
+          "metric_or_fact": "benchmark_author_count",
+          "observed_value": ">40",
+          "unit": "accounting professionals",
+          "display_locator": "Methodology section, article line 69",
+          "evidence_status": "publisher_article_display",
+          "interpretation": "More than 40 accounting professionals authored and solved benchmark tasks."
+        },
+        {
+          "observation_id": "APEX-BLOG-MEDIAN-11Y",
+          "metric_or_fact": "author_median_experience",
+          "observed_value": 11,
+          "unit": "years",
+          "display_locator": "Methodology section, article line 69",
+          "evidence_status": "publisher_article_display",
+          "interpretation": "The article reports median professional experience of 11 years."
+        },
+        {
+          "observation_id": "APEX-BLOG-BIGFOUR-MAJORITY",
+          "metric_or_fact": "author_big_four_experience_share",
+          "observed_value": ">50%",
+          "unit": "share",
+          "display_locator": "Methodology section, article line 69",
+          "evidence_status": "publisher_article_display",
+          "interpretation": "More than half of the professionals had worked at a Big Four firm."
+        },
+        {
+          "observation_id": "APEX-BLOG-CRITERIA-13-7",
+          "metric_or_fact": "mean_rubric_criteria_per_task",
+          "observed_value": 13.7,
+          "unit": "criteria per task",
+          "display_locator": "Methodology section, article line 70",
+          "evidence_status": "publisher_article_display",
+          "interpretation": "The article reports an average of 13.7 criteria per task."
+        },
+        {
+          "observation_id": "APEX-BLOG-JUDGE-97",
+          "metric_or_fact": "llm_judge_agreement_with_experts",
+          "observed_value": 97,
+          "unit": "percent agreement",
+          "display_locator": "Methodology section, article line 70",
+          "evidence_status": "publisher_article_display",
+          "interpretation": "The article reports 97% agreement between the open-source AI judge and expert graders; this is publisher-reported validation, not independent Mycelix validation."
+        },
+        {
+          "observation_id": "APEX-BLOG-OPEN-SAMPLE-1-WORLD",
+          "metric_or_fact": "open_sample_world_count",
+          "observed_value": 1,
+          "unit": "world",
+          "display_locator": "Methodology section, article line 72",
+          "evidence_status": "publisher_article_display",
+          "interpretation": "A public sample set contains one world; the full held-out evaluation set remains private."
+        },
+        {
+          "observation_id": "APEX-BLOG-OPEN-SAMPLE-10-TASKS",
+          "metric_or_fact": "open_sample_task_count",
+          "observed_value": 10,
+          "unit": "tasks",
+          "display_locator": "Methodology section, article line 72",
+          "evidence_status": "publisher_article_display",
+          "interpretation": "The open sample contains ten tasks and must not be confused with the private 160-task paper cohort or live 100-task page."
+        },
+        {
+          "observation_id": "APEX-BLOG-CLARIFICATION-EXCLUDED",
+          "metric_or_fact": "human_clarification_tasks_excluded",
+          "observed_value": true,
+          "unit": "boolean",
+          "display_locator": "Methodology scope, article line 71",
+          "evidence_status": "paper_limit_or_exclusion",
+          "interpretation": "The article says agent responses when clarification is needed are outside benchmark scope."
+        },
+        {
+          "observation_id": "APEX-BLOG-REASONING-FAILURES-70",
+          "metric_or_fact": "top_three_failure_taxonomy_reasoning_share",
+          "observed_value": "roughly 70%",
+          "unit": "share of failures",
+          "display_locator": "Why do models fail, article line 65",
+          "evidence_status": "publisher_article_display",
+          "interpretation": "For the top three models, roughly seven in ten failures were attributed to flawed reasoning rather than inability to retrieve information. A described failure is a discrepancy identified mid-workflow but omitted or contradicted in the final journal."
+        },
+        {
+          "observation_id": "APEX-BLOG-RAMP-HARNESS-GAIN-1-2",
+          "metric_or_fact": "purpose_built_ramp_harness_mean_criteria_at_3_gain",
+          "observed_value": 1.2,
+          "unit": "percentage points",
+          "display_locator": "What the leaderboard measures, article line 60",
+          "evidence_status": "publisher_article_display",
+          "interpretation": "The article reports the purpose-built Ramp Harness improves Mean Criteria@3 by 1.2 points on average relative to Loop Harness; it explicitly says this does not evaluate the complete Ramp Stack product."
+        },
+        {
+          "observation_id": "APEX-BLOG-NOT-FULL-RAMP-STACK",
+          "metric_or_fact": "full_ramp_stack_evaluation",
+          "observed_value": false,
+          "unit": "boolean",
+          "display_locator": "What the leaderboard measures, article line 61",
+          "evidence_status": "scope_description",
+          "interpretation": "The Ramp Harness ablation is not an evaluation of the full Stack product's integrations, memory, controls, auditability or spreadsheet tooling."
+        }
+      ],
+      "notes": "This publisher article provides methodology detail absent from the leaderboard summary: 160-task original held-out cohort, >40 expert authors, median 11 years experience, 13.7 mean rubric criteria/task, 97% judge/expert agreement and a one-world/ten-task public sample. It also explains that the canonical leaderboard uses Loop Harness, while a purpose-built Ramp Harness is a separate ablation and not a test of the full Ramp Stack."
+    },
+    {
+      "source_id": "APEX-LIVE-LEADERBOARD-2026-11-06-0604",
+      "benchmark_id": "APEX-ACCOUNTING",
+      "title": "Mercor APEX-Accounting live leaderboard — current live cohort and harness details observed 2026-11-06 06:04 SAST",
+      "source_role": "live_leaderboard_refresh",
+      "canonical_url": "https://www.mercor.com/apex/apex-accounting-leaderboard/",
+      "observed_at": "2026-11-06T06:04:00+02:00",
+      "publication_date": null,
+      "source_state": "current_live_leaderboard_refresh",
+      "access": {
+        "metadata_access": "public",
+        "scored_split_access": "public_dev_subset_only",
+        "redistribution_status": "not_authorized_by_this_snapshot",
+        "note": "The live leaderboard exposes aggregate results and a public sample task. The full held-out task data remain private; this snapshot does not grant redistribution rights."
+      },
+      "source_bytes_archived": false,
+      "source_bytes_sha256": null,
+      "observations": [
+        {
+          "observation_id": "APEX-LIVE-2026-11-06-WORLDS",
+          "metric_or_fact": "live_leaderboard_world_count",
+          "observed_value": 10,
+          "unit": "worlds",
+          "display_locator": "Leaderboard header, lines 22–32",
+          "evidence_status": "live_page_display_only",
+          "interpretation": "Current live leaderboard explicitly describes ten held-out accounting worlds."
+        },
+        {
+          "observation_id": "APEX-LIVE-2026-11-06-TASKS",
+          "metric_or_fact": "live_leaderboard_task_count",
+          "observed_value": 100,
+          "unit": "tasks",
+          "display_locator": "Leaderboard header and lines 30–32",
+          "evidence_status": "live_page_display_only",
+          "interpretation": "Current live leaderboard cohort contains 100 tasks. This is not the original 160-task paper/blog cohort."
+        },
+        {
+          "observation_id": "APEX-LIVE-2026-11-06-CRITERIA",
+          "metric_or_fact": "live_leaderboard_criterion_count",
+          "observed_value": 1475,
+          "unit": "grading criteria",
+          "display_locator": "Leaderboard header, lines 22–27 and methodology lines 297–298",
+          "evidence_status": "live_page_display_only",
+          "interpretation": "Current 100-task cohort has 1,475 rubric criteria."
+        },
+        {
+          "observation_id": "APEX-LIVE-2026-11-06-HIGHEST",
+          "metric_or_fact": "live_leaderboard_highest_mean_score",
+          "observed_value": 71.5,
+          "unit": "percent criteria passed",
+          "display_locator": "Leaderboard header and result table, lines 43–71",
+          "evidence_status": "live_page_display_only",
+          "interpretation": "Gemini 4 Argon High is the highest displayed configuration at 71.5% ±4.8. This aggregate is not directly comparable with the 160-task paper's 56.4% Mean Criteria@3."
+        },
+        {
+          "observation_id": "APEX-LIVE-2026-11-06-SECOND",
+          "metric_or_fact": "live_leaderboard_second_mean_score",
+          "observed_value": 70.7,
+          "unit": "percent criteria passed",
+          "display_locator": "Leaderboard lines 49–53",
+          "evidence_status": "live_page_display_only",
+          "interpretation": "Gemini 4 Carbon High is the second displayed configuration at 70.7% ±4.8."
+        },
+        {
+          "observation_id": "APEX-LIVE-2026-11-06-THIRD",
+          "metric_or_fact": "live_leaderboard_third_mean_score",
+          "observed_value": 67.1,
+          "unit": "percent criteria passed",
+          "display_locator": "Leaderboard lines 55–59",
+          "evidence_status": "live_page_display_only",
+          "interpretation": "Muse Wonder 1.0 Max is the third displayed configuration at 67.1% ±4.9."
+        },
+        {
+          "observation_id": "APEX-LIVE-2026-11-06-FOURTH",
+          "metric_or_fact": "live_leaderboard_fourth_mean_score",
+          "observed_value": 66.7,
+          "unit": "percent criteria passed",
+          "display_locator": "Leaderboard lines 61–65",
+          "evidence_status": "live_page_display_only",
+          "interpretation": "Fable 5.1 Max is the fourth displayed configuration at 66.7% ±4.6."
+        },
+        {
+          "observation_id": "APEX-LIVE-2026-11-06-FIFTH",
+          "metric_or_fact": "live_leaderboard_fifth_mean_score",
+          "observed_value": 65.5,
+          "unit": "percent criteria passed",
+          "display_locator": "Leaderboard lines 67–71",
+          "evidence_status": "live_page_display_only",
+          "interpretation": "Opus 5.5 Max is the fifth displayed configuration at 65.5% ±4.8."
+        },
+        {
+          "observation_id": "APEX-LIVE-2026-11-06-RESULT-COUNT",
+          "metric_or_fact": "live_leaderboard_model_config_count",
+          "observed_value": 46,
+          "unit": "configurations",
+          "display_locator": "Leaderboard results, line 127",
+          "evidence_status": "live_page_display_only",
+          "interpretation": "The results section indicates 46 model configurations are available in the full results view; the top-five list is not the full ranking."
+        },
+        {
+          "observation_id": "APEX-LIVE-2026-11-06-K",
+          "metric_or_fact": "canonical_mean_criteria_k",
+          "observed_value": 4,
+          "unit": "attempts",
+          "display_locator": "Methodology, lines 282–285",
+          "evidence_status": "methodology_page_display",
+          "interpretation": "The live leaderboard states its canonical Mean Criteria metric uses k=4, while the paper/blog report Mean Criteria@3. Preserve the attempt count in any reproduction."
+        },
+        {
+          "observation_id": "APEX-LIVE-2026-11-06-RUNS",
+          "metric_or_fact": "per_model_task_attempts",
+          "observed_value": 8,
+          "unit": "runs",
+          "display_locator": "Methodology, lines 282–285",
+          "evidence_status": "methodology_page_display",
+          "interpretation": "Each model is run eight times for Pass@1, Pass@8 and Pass^8; do not assume this is the same attempt aggregation as Mean Criteria k=4."
+        },
+        {
+          "observation_id": "APEX-LIVE-2026-11-06-RETRIES",
+          "metric_or_fact": "trajectory_step_retry_policy",
+          "observed_value": "step reruns until success; persistent failures up to three trajectory reruns",
+          "unit": "retry policy",
+          "display_locator": "Methodology, lines 286–287",
+          "evidence_status": "methodology_page_display",
+          "interpretation": "The live methodology says step-level response issues are rerun until success; persistent system errors or model failures can cause up to three trajectory reruns. A faithful matched reproduction must report infra retries separately from capability failures and disclose whether this exact policy is applied."
+        },
+        {
+          "observation_id": "APEX-LIVE-2026-11-06-TOKEN-CAP",
+          "metric_or_fact": "token_budget_cap",
+          "observed_value": 5000000,
+          "unit": "tokens per run",
+          "display_locator": "Methodology, lines 289–291",
+          "evidence_status": "methodology_page_display",
+          "interpretation": "Leaderboard uses a five-million-token cap per run."
+        },
+        {
+          "observation_id": "APEX-LIVE-2026-11-06-STEP-CAP",
+          "metric_or_fact": "step_budget_cap",
+          "observed_value": 500,
+          "unit": "steps per run",
+          "display_locator": "Methodology, lines 289–291",
+          "evidence_status": "methodology_page_display",
+          "interpretation": "Leaderboard uses a 500-step cap per run."
+        },
+        {
+          "observation_id": "APEX-LIVE-2026-11-06-CI",
+          "metric_or_fact": "bootstrap_confidence_interval",
+          "observed_value": "95% task-level bootstrap over 10000 resamples",
+          "unit": "CI procedure",
+          "display_locator": "Methodology, lines 293–295",
+          "evidence_status": "methodology_page_display",
+          "interpretation": "The page says confidence intervals are 95% task-level bootstraps over 10,000 resamples."
+        },
+        {
+          "observation_id": "APEX-LIVE-2026-11-06-INPUTS",
+          "metric_or_fact": "mean_required_input_files",
+          "observed_value": 7.5,
+          "unit": "files per task",
+          "display_locator": "Methodology, lines 297–298",
+          "evidence_status": "methodology_page_display",
+          "interpretation": "The 100-task cohort averages 7.5 required input files per task."
+        },
+        {
+          "observation_id": "APEX-LIVE-2026-11-06-GRADER",
+          "metric_or_fact": "criterion_grader_view",
+          "observed_value": "task prompt, criterion and model final answer",
+          "unit": "grading inputs",
+          "display_locator": "Methodology, lines 275–280",
+          "evidence_status": "methodology_page_display",
+          "interpretation": "The language-model judge grades each rubric criterion independently as met/not met, sees the task prompt, criterion and final model answer, and penalizes scattergunning. It does not inspect an independently recorded agent evidence trace unless that trace is submitted in the final answer."
+        },
+        {
+          "observation_id": "APEX-LIVE-2026-11-06-MODEL-CONFIG",
+          "metric_or_fact": "model_reasoning_configuration",
+          "observed_value": "highest available reasoning setting unless stated otherwise",
+          "unit": "model setup",
+          "display_locator": "Methodology, lines 286–287",
+          "evidence_status": "methodology_page_display",
+          "interpretation": "Unless otherwise stated, models run at their highest available reasoning setting. This setting is part of benchmark run provenance."
+        },
+        {
+          "observation_id": "APEX-LIVE-2026-11-06-OPEN-WORLD",
+          "metric_or_fact": "open_source_world_count",
+          "observed_value": 1,
+          "unit": "world",
+          "display_locator": "Leaderboard description, lines 30–32",
+          "evidence_status": "scope_description",
+          "interpretation": "The live leaderboard says an eleventh world is open source in addition to ten held-out worlds. The publisher article describes a one-world/ten-task public sample; retain both exact source wordings rather than inferring equivalence without a release manifest."
+        }
+      ],
+      "notes": "This sixth source record is a 2026-11-06 06:04 SAST recapture of the official live leaderboard. It adds the live 100-task / 1,475-criteria cohort, 46 available model configurations, Mean Criteria k=4 versus eight-run pass curves, retry policy, token/step caps, bootstrap procedure, 7.5 file average and grader inputs. The 160-task / 2,186-criterion paper/blog cohort and its Mean Criteria@3 remain separate source records. The live page now says an eleventh world is open source; the official article says a public sample is one world/ten tasks. Do not assume those descriptions refer to the same release artifact without source manifest evidence."
+    }
+  ]
+}
