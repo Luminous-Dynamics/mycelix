@@ -565,6 +565,204 @@ fn interval_json(interval: Option<(f64, f64)>) -> Value {
     }
 }
 
+type ResolvedCase<'a> = (
+    &'a Value,
+    Value,
+    Value,
+    Value,
+    BTreeMap<String, Value>,
+);
+
+fn partition_metrics(
+    resolved: &[ResolvedCase<'_>],
+    system: &str,
+    partition: &str,
+    synthetic_fixture: bool,
+    minimum_clusters: usize,
+    bootstrap_replicates: usize,
+    bootstrap_seed: u64,
+) -> Value {
+    let mut matrices: BTreeMap<String, BTreeMap<String, BTreeMap<String, u64>>> =
+        BTreeMap::new();
+    let mut false_ready = 0_u64;
+    let mut false_ready_denominator = 0_u64;
+    let mut false_quarantine = 0_u64;
+    let mut false_quarantine_denominator = 0_u64;
+    let mut warning_omissions = 0_u64;
+    let mut warning_cases = 0_u64;
+    let mut indeterminate_truth_labels = BTreeMap::<String, u64>::new();
+    let mut cluster_metrics = BTreeMap::<(String, String), ClusterMetrics>::new();
+    let mut case_count = 0_u64;
+
+    for (case, truth, _, _, outputs) in resolved {
+        if string_at(case, "partition") != Some(partition) {
+            continue;
+        }
+        case_count += 1;
+        let output = &outputs[system];
+        let prediction = string_at(output, "decision").unwrap_or("");
+        let true_disposition = string_at(truth, "final_disposition").unwrap_or("");
+        let truth_ready = is_ready_disposition(true_disposition);
+        let predicted_ready = is_ready_disposition(prediction);
+        let required_warnings = array_at(case, "required_warning_codes")
+            .into_iter()
+            .flatten()
+            .filter_map(Value::as_str)
+            .collect::<BTreeSet<_>>();
+        let presented = array_at(output, "warnings_presented")
+            .into_iter()
+            .flatten()
+            .filter_map(Value::as_str)
+            .collect::<BTreeSet<_>>();
+        let warning_missing =
+            !required_warnings.is_empty() && !required_warnings.is_subset(&presented);
+
+        if !truth_ready {
+            false_ready_denominator += 1;
+            if predicted_ready {
+                false_ready += 1;
+            }
+        }
+        if truth_ready {
+            false_quarantine_denominator += 1;
+            if is_hard_quarantine(prediction) {
+                false_quarantine += 1;
+            }
+        }
+        if !required_warnings.is_empty() {
+            warning_cases += 1;
+            if warning_missing {
+                warning_omissions += 1;
+            }
+        }
+
+        let cluster_key = (
+            string_at(case, "merchant_entity_id").unwrap_or("").to_owned(),
+            string_at(case, "time_block").unwrap_or("").to_owned(),
+        );
+        let cluster = cluster_metrics.entry(cluster_key).or_default();
+        cluster
+            .false_ready
+            .observe(!truth_ready && predicted_ready, !truth_ready);
+        cluster
+            .false_quarantine
+            .observe(truth_ready && is_hard_quarantine(prediction), truth_ready);
+        cluster
+            .warning_omissions
+            .observe(warning_missing, !required_warnings.is_empty());
+
+        for key in LABEL_KEYS {
+            let actual = string_at(truth, key).unwrap_or("").to_owned();
+            if actual == "indeterminate" || actual == "unknown" {
+                *indeterminate_truth_labels
+                    .entry(key.to_owned())
+                    .or_default() += 1;
+            }
+            let predicted = if key == "final_disposition" {
+                prediction.to_owned()
+            } else {
+                string_at(&output["assessments"], key)
+                    .unwrap_or("")
+                    .to_owned()
+            };
+            *matrices
+                .entry(key.to_owned())
+                .or_default()
+                .entry(actual)
+                .or_default()
+                .entry(predicted)
+                .or_default() += 1;
+        }
+    }
+
+    let clusters: Vec<ClusterMetrics> = cluster_metrics.into_values().collect();
+    let cluster_count = clusters.len();
+    let can_estimate_intervals = partition == "held_out_test"
+        && !synthetic_fixture
+        && cluster_count >= minimum_clusters;
+    let false_ready_interval = if can_estimate_intervals {
+        bootstrap_interval(
+            &clusters,
+            BootstrapMetric::FalseReady,
+            bootstrap_replicates,
+            bootstrap_seed ^ 0xA0761D6478BD642F,
+        )
+    } else {
+        None
+    };
+    let false_quarantine_interval = if can_estimate_intervals {
+        bootstrap_interval(
+            &clusters,
+            BootstrapMetric::FalseQuarantine,
+            bootstrap_replicates,
+            bootstrap_seed ^ 0xE7037ED1A0B428DB,
+        )
+    } else {
+        None
+    };
+    let warning_omission_interval = if can_estimate_intervals {
+        bootstrap_interval(
+            &clusters,
+            BootstrapMetric::WarningOmissions,
+            bootstrap_replicates,
+            bootstrap_seed ^ 0x8EBC6AF09C88C6E3,
+        )
+    } else {
+        None
+    };
+    let all_intervals_present = false_ready_interval.is_some()
+        && false_quarantine_interval.is_some()
+        && warning_omission_interval.is_some();
+    let suppression_reason = if partition != "held_out_test" {
+        Some("confidence intervals are estimated only on the held-out test partition")
+    } else if synthetic_fixture {
+        Some("synthetic fixture; no population confidence intervals are estimated")
+    } else if cluster_count < minimum_clusters {
+        Some("independent merchant/time-block cluster count is below the pre-registered minimum")
+    } else if !all_intervals_present {
+        Some("one or more bootstrap metrics lacked sufficient non-zero-denominator replicates")
+    } else {
+        None
+    };
+
+    let label_matrices: Map<String, Value> = matrices
+        .iter()
+        .map(|(key, matrix)| (key.clone(), json_matrix(matrix)))
+        .collect();
+    json!({
+        "partition": partition,
+        "case_count": case_count,
+        "merchant_time_clusters": cluster_count,
+        "false_ready": {
+            "numerator": false_ready,
+            "denominator": false_ready_denominator,
+            "rate": if false_ready_denominator > 0 { Some(false_ready as f64 / false_ready_denominator as f64) } else { None }
+        },
+        "false_quarantine": {
+            "numerator": false_quarantine,
+            "denominator": false_quarantine_denominator,
+            "rate": if false_quarantine_denominator > 0 { Some(false_quarantine as f64 / false_quarantine_denominator as f64) } else { None }
+        },
+        "warning_omissions": {
+            "numerator": warning_omissions,
+            "denominator": warning_cases,
+            "rate": if warning_cases > 0 { Some(warning_omissions as f64 / warning_cases as f64) } else { None }
+        },
+        "confidence_intervals": {
+            "method": "cluster_bootstrap_by_merchant_and_time_block",
+            "estimated": all_intervals_present,
+            "replicates": bootstrap_replicates,
+            "seed": bootstrap_seed,
+            "false_ready": interval_json(false_ready_interval),
+            "false_quarantine": interval_json(false_quarantine_interval),
+            "warning_omissions": interval_json(warning_omission_interval),
+            "suppression_reason": suppression_reason
+        },
+        "indeterminate_truth_label_counts": indeterminate_truth_labels,
+        "confusion_matrices": Value::Object(label_matrices)
+    })
+}
+
 fn report(corpus: &Value, schema: &Value) -> Value {
     let validation_errors = validate_corpus(corpus, schema);
     if !validation_errors.is_empty() {
@@ -576,15 +774,15 @@ fn report(corpus: &Value, schema: &Value) -> Value {
     }
 
     let cases = array_at(corpus, "cases").cloned().unwrap_or_default();
-    let mut resolved = Vec::new();
+    let mut resolved: Vec<ResolvedCase<'_>> = Vec::new();
     let mut adjudicator_pairs: BTreeMap<String, (Vec<String>, Vec<String>)> = BTreeMap::new();
     let mut partition_counts = BTreeMap::<String, u64>::new();
     let mut merchant_time_clusters = BTreeSet::<(String, String)>::new();
 
     for (index, case) in cases.iter().enumerate() {
-        let (labels, left, right) = resolve_adjudicated_labels(&case, index, &mut Vec::new())
+        let (labels, left, right) = resolve_adjudicated_labels(case, index, &mut Vec::new())
             .expect("validated adjudication");
-        let outputs = validate_system_outputs(&case, index, &mut Vec::new())
+        let outputs = validate_system_outputs(case, index, &mut Vec::new())
             .expect("validated system outputs");
         for key in LABEL_KEYS {
             let pair = adjudicator_pairs
@@ -594,13 +792,13 @@ fn report(corpus: &Value, schema: &Value) -> Value {
             pair.1.push(string_at(&right, key).unwrap_or("").to_owned());
         }
         *partition_counts
-            .entry(string_at(&case, "partition").unwrap_or("").to_owned())
+            .entry(string_at(case, "partition").unwrap_or("").to_owned())
             .or_default() += 1;
         merchant_time_clusters.insert((
-            string_at(&case, "merchant_entity_id").unwrap_or("").to_owned(),
-            string_at(&case, "time_block").unwrap_or("").to_owned(),
+            string_at(case, "merchant_entity_id").unwrap_or("").to_owned(),
+            string_at(case, "time_block").unwrap_or("").to_owned(),
         ));
-        resolved.push((case, labels, outputs));
+        resolved.push((case, labels, left, right, outputs));
     }
 
     let design = &corpus["study_design"];
@@ -610,176 +808,48 @@ fn report(corpus: &Value, schema: &Value) -> Value {
     let bootstrap_replicates =
         u64_value(design, "bootstrap_replicates").unwrap_or(2000) as usize;
     let bootstrap_seed = u64_value(design, "bootstrap_seed").unwrap_or(20261106);
-    let global_cluster_count = merchant_time_clusters.len();
 
     let mut system_reports = Vec::new();
     for (system_index, system) in SYSTEMS.iter().enumerate() {
-        let mut matrices: BTreeMap<String, BTreeMap<String, BTreeMap<String, u64>>> =
-            BTreeMap::new();
-        let mut false_ready = 0_u64;
-        let mut false_ready_denominator = 0_u64;
-        let mut false_quarantine = 0_u64;
-        let mut false_quarantine_denominator = 0_u64;
-        let mut warning_omissions = 0_u64;
-        let mut warning_cases = 0_u64;
-        let mut indeterminate_truth_labels = BTreeMap::<String, u64>::new();
-        let mut cluster_metrics = BTreeMap::<(String, String), ClusterMetrics>::new();
-
-        for (case, truth, outputs) in &resolved {
-            let output = &outputs[*system];
-            let prediction = string_at(output, "decision").unwrap_or("");
-            let true_disposition = string_at(truth, "final_disposition").unwrap_or("");
-            let truth_ready = is_ready_disposition(true_disposition);
-            let predicted_ready = is_ready_disposition(prediction);
-            let required_warnings = array_at(case, "required_warning_codes")
-                .into_iter()
-                .flatten()
-                .filter_map(Value::as_str)
-                .collect::<BTreeSet<_>>();
-            let presented = array_at(output, "warnings_presented")
-                .into_iter()
-                .flatten()
-                .filter_map(Value::as_str)
-                .collect::<BTreeSet<_>>();
-            let warning_missing = !required_warnings.is_empty()
-                && !required_warnings.is_subset(&presented);
-
-            if !truth_ready {
-                false_ready_denominator += 1;
-                if predicted_ready {
-                    false_ready += 1;
-                }
-            }
-            if truth_ready {
-                false_quarantine_denominator += 1;
-                if is_hard_quarantine(prediction) {
-                    false_quarantine += 1;
-                }
-            }
-            if !required_warnings.is_empty() {
-                warning_cases += 1;
-                if warning_missing {
-                    warning_omissions += 1;
-                }
-            }
-
-            let cluster_key = (
-                string_at(case, "merchant_entity_id").unwrap_or("").to_owned(),
-                string_at(case, "time_block").unwrap_or("").to_owned(),
-            );
-            let cluster = cluster_metrics.entry(cluster_key).or_default();
-            cluster.false_ready.observe(!truth_ready && predicted_ready, !truth_ready);
-            cluster
-                .false_quarantine
-                .observe(truth_ready && is_hard_quarantine(prediction), truth_ready);
-            cluster
-                .warning_omissions
-                .observe(warning_missing, !required_warnings.is_empty());
-
-            for key in LABEL_KEYS {
-                let actual = string_at(truth, key).unwrap_or("").to_owned();
-                if actual == "indeterminate" || actual == "unknown" {
-                    *indeterminate_truth_labels
-                        .entry(key.to_owned())
-                        .or_default() += 1;
-                }
-                let predicted = if key == "final_disposition" {
-                    prediction.to_owned()
-                } else {
-                    string_at(&output["assessments"], key)
-                        .unwrap_or("")
-                        .to_owned()
-                };
-                *matrices
-                    .entry(key.to_owned())
-                    .or_default()
-                    .entry(actual)
-                    .or_default()
-                    .entry(predicted)
-                    .or_default() += 1;
-            }
-        }
-
-        let clusters: Vec<ClusterMetrics> = cluster_metrics.into_values().collect();
-        let can_estimate_intervals = !synthetic_fixture && clusters.len() >= minimum_clusters;
         let system_seed = bootstrap_seed
             .wrapping_add((system_index as u64 + 1).wrapping_mul(0x9E3779B97F4A7C15));
-        let false_ready_interval = if can_estimate_intervals {
-            bootstrap_interval(
-                &clusters,
-                BootstrapMetric::FalseReady,
-                bootstrap_replicates,
-                system_seed ^ 0xA0761D6478BD642F,
-            )
-        } else {
-            None
-        };
-        let false_quarantine_interval = if can_estimate_intervals {
-            bootstrap_interval(
-                &clusters,
-                BootstrapMetric::FalseQuarantine,
-                bootstrap_replicates,
-                system_seed ^ 0xE7037ED1A0B428DB,
-            )
-        } else {
-            None
-        };
-        let warning_omission_interval = if can_estimate_intervals {
-            bootstrap_interval(
-                &clusters,
-                BootstrapMetric::WarningOmissions,
-                bootstrap_replicates,
-                system_seed ^ 0x8EBC6AF09C88C6E3,
-            )
-        } else {
-            None
-        };
-        let all_intervals_present = false_ready_interval.is_some()
-            && false_quarantine_interval.is_some()
-            && warning_omission_interval.is_some();
-        let suppression_reason = if synthetic_fixture {
-            Some("synthetic fixture; no population confidence intervals are estimated")
-        } else if clusters.len() < minimum_clusters {
-            Some("independent merchant/time-block cluster count is below the pre-registered minimum")
-        } else if !all_intervals_present {
-            Some("one or more bootstrap metrics lacked sufficient non-zero-denominator replicates")
-        } else {
-            None
-        };
-
-        let label_matrices: Map<String, Value> = matrices
-            .iter()
-            .map(|(key, matrix)| (key.clone(), json_matrix(matrix)))
-            .collect();
+        let development = partition_metrics(
+            &resolved,
+            system,
+            "development",
+            synthetic_fixture,
+            minimum_clusters,
+            bootstrap_replicates,
+            system_seed,
+        );
+        let calibration = partition_metrics(
+            &resolved,
+            system,
+            "calibration",
+            synthetic_fixture,
+            minimum_clusters,
+            bootstrap_replicates,
+            system_seed,
+        );
+        let held_out = partition_metrics(
+            &resolved,
+            system,
+            "held_out_test",
+            synthetic_fixture,
+            minimum_clusters,
+            bootstrap_replicates,
+            system_seed,
+        );
         system_reports.push(json!({
             "system_id": system,
-            "false_ready": {
-                "numerator": false_ready,
-                "denominator": false_ready_denominator,
-                "rate": if false_ready_denominator > 0 { Some(false_ready as f64 / false_ready_denominator as f64) } else { None }
-            },
-            "false_quarantine": {
-                "numerator": false_quarantine,
-                "denominator": false_quarantine_denominator,
-                "rate": if false_quarantine_denominator > 0 { Some(false_quarantine as f64 / false_quarantine_denominator as f64) } else { None }
-            },
-            "warning_omissions": {
-                "numerator": warning_omissions,
-                "denominator": warning_cases,
-                "rate": if warning_cases > 0 { Some(warning_omissions as f64 / warning_cases as f64) } else { None }
-            },
-            "confidence_intervals": {
-                "method": "cluster_bootstrap_by_merchant_and_time_block",
-                "estimated": all_intervals_present,
-                "replicates": bootstrap_replicates,
-                "seed": system_seed,
-                "false_ready": interval_json(false_ready_interval),
-                "false_quarantine": interval_json(false_quarantine_interval),
-                "warning_omissions": interval_json(warning_omission_interval),
-                "suppression_reason": suppression_reason
-            },
-            "indeterminate_truth_label_counts": indeterminate_truth_labels,
-            "confusion_matrices": Value::Object(label_matrices)
+            "primary_partition": "held_out_test",
+            "false_ready": held_out["false_ready"].clone(),
+            "false_quarantine": held_out["false_quarantine"].clone(),
+            "warning_omissions": held_out["warning_omissions"].clone(),
+            "confidence_intervals": held_out["confidence_intervals"].clone(),
+            "held_out_metrics": held_out,
+            "development_diagnostics": development,
+            "calibration_diagnostics": calibration
         }));
     }
 
@@ -800,10 +870,6 @@ fn report(corpus: &Value, schema: &Value) -> Value {
         })
         .collect();
 
-    let any_intervals_estimated = system_reports
-        .iter()
-        .any(|system| system["confidence_intervals"]["estimated"] == true);
-
     json!({
         "evaluator": "mycelix.payment-prevalidation-adjudication.v1",
         "status": "PASS",
@@ -812,17 +878,18 @@ fn report(corpus: &Value, schema: &Value) -> Value {
             "cases": cases.len(),
             "adjudication_records": cases.iter().map(|case| array_at(case, "adjudication_records").map_or(0, Vec::len)).sum::<usize>(),
             "systems_per_case": SYSTEMS.len(),
-            "merchant_time_clusters": global_cluster_count,
+            "merchant_time_clusters": merchant_time_clusters.len(),
             "partitions": partition_counts
         },
         "system_metrics": system_reports,
         "adjudicator_agreement": agreement,
         "confidence_intervals": {
             "method": design["confidence_interval_method"],
-            "estimated": any_intervals_estimated,
+            "estimated": false,
             "bootstrap_replicates": bootstrap_replicates,
             "bootstrap_seed": bootstrap_seed,
-            "minimum_independent_clusters": minimum_clusters
+            "minimum_independent_clusters": minimum_clusters,
+            "primary_partition": "held_out_test"
         },
         "errors": []
     })
