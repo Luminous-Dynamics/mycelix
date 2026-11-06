@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - research/fin-agent-output-evaluator-v1-refresh
+      - research/fin-agent-output-evaluator-v3
     paths:
       - "mycelix-finance/benchmarks/global-accounting-portability-v1/agent-output-evaluator-v1/**"
       - "mycelix-finance/benchmarks/global-accounting-portability-v1/rust-resolver/**"
