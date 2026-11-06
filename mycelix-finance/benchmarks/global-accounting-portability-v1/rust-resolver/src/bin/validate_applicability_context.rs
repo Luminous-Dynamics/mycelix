@@ -433,6 +433,7 @@ fn validate_oracle(candidates: &Value, oracle: &Value) -> Result<(), String> {
     Ok(())
 }
 
+#[cfg(test)]
 fn fact_eligible_at(fact: &Value, valid_at: &str, knowledge_at: &str) -> bool {
     let state = fact.get("assertion_state").and_then(Value::as_str);
     let origin = fact.get("origin").and_then(Value::as_str);
