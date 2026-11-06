@@ -28,6 +28,19 @@ The verifier binds signed predicates to the exact event ID, source/type, payload
 
 **SCITT boundary:** SCITT statement/receipt fields receive structural and digest checks, but COSE signatures, TS issuer keys, receipt authenticity and VDS inclusion/consistency proofs are not verified. Structurally valid SCITT input therefore remains `INCOMPLETE`. No runtime conductor truth is established by the synthetic signing-key fixtures.
 
+## Trust-root lifecycle model and implementation follow-up
+
+A finite TLA+ model has now been added to PR #5771:
+- PulseTrustRootLifecycle.tla;
+- PulseTrustRootLifecycle.cfg (safe child-policy update);
+- PulseTrustRootLifecycle-self-root-mutant.cfg;
+- PulseTrustRootLifecycle-rollback-mutant.cfg;
+- PulseTrustRootLifecycle-revocation-mutant.cfg.
+
+The model treats the relying party's root pin as out-of-band state. A valid policy update must be signed by the already trusted root, extend the current policy digest, and increase the policy epoch. It separately checks that a currently revoked issuer key cannot authenticate a current decision. It distinguishes current-policy verification from historical signature verification; historical validity is not a permission to use a compromised key for new decisions.
+
+**TLC has not yet run these new trust-root configs.** This is a model input, not a model-check result. The implementation and model-check acceptance criteria are tracked in [#5895](https://github.com/Luminous-Dynamics/mycelix/issues/5895). The existing verifier remains relative to a caller-supplied trust policy until this root-authentication work is complete.
+
 ## 1. Threat and claim model
 
 The current multi-conductor v2 auditor checks a partial-order history and exact structural links among host grant/call observations, source-chain authorship, receiving validation, DHT observer state and remote signals. It does not authenticate the strings or receipts supplied by an exporter.
