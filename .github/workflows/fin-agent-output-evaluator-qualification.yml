@@ -84,6 +84,8 @@ jobs:
             .unaccounted_fact_count == 0
             and .source_open_count > 0
             and .fact_observation_count == .fact_terminalization_count
+            and .contradiction_event_count == 0
+            and .contradicted_fact_count == 0
             and (.trace_sha256 | test("^[a-f0-9]{64}$"))
           ' /tmp/observed-trace-report.json
 
