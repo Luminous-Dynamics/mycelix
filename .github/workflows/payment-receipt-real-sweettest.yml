@@ -1,0 +1,81 @@
+name: Finance Receipt Real-Agent Sweettest
+
+on:
+  pull_request:
+    paths:
+      - 'mycelix-finance/types/**'
+      - 'mycelix-finance/zomes/payments/coordinator/**'
+      - 'mycelix-finance/zomes/payments/integrity/**'
+      - 'mycelix-finance/tests/payments_test.rs'
+      - 'mycelix-finance/tests/Cargo.toml'
+      - 'mycelix-finance/dna/**'
+      - '.github/workflows/payment-receipt-real-sweettest.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  receipt-real-key:
+    name: Real Holochain signing and DHT validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      CARGO_TARGET_WASM32_UNKNOWN_UNKNOWN_RUSTFLAGS: '--cfg getrandom_backend="custom" -C link-args=--import-undefined'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install native build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes build-essential pkg-config libssl-dev libclang-dev
+
+      - name: Install pinned Rust toolchain
+        run: |
+          rustup toolchain install 1.96.0 --profile minimal
+          rustup target add wasm32-unknown-unknown --toolchain 1.96.0
+          rustup default 1.96.0
+          rustc --version
+          cargo --version
+
+      - name: Build all Finance zomes
+        run: cargo build --manifest-path mycelix-finance/Cargo.toml --workspace --target wasm32-unknown-unknown --release
+
+      - name: Emit resolved Finance lockfile for review
+        if: always()
+        run: |
+          if ! git diff --quiet -- mycelix-finance/Cargo.lock; then
+            echo "FINANCE_CARGO_LOCK_BASE64_BEGIN"
+            base64 -w0 mycelix-finance/Cargo.lock
+            echo
+            echo "FINANCE_CARGO_LOCK_BASE64_END"
+            sha256sum mycelix-finance/Cargo.lock
+          else
+            echo "Finance Cargo.lock unchanged by dependency resolution."
+          fi
+
+      - name: Install matching Holochain CLI
+        run: |
+          cargo install holochain_cli --version 0.6.1 --locked
+          hc --version
+
+      - name: Package Finance DNA
+        working-directory: mycelix-finance
+        run: |
+          rm -f dna/mycelix_finance.dna
+          hc dna pack dna/
+          test -s dna/mycelix_finance.dna
+          sha256sum dna/mycelix_finance.dna
+
+      - name: Run real-agent receipt creation and verification
+        run: >
+          cargo test
+          --manifest-path mycelix-finance/tests/Cargo.toml
+          --test payments_test
+          payment_creation::test_create_payment_success
+          --
+          --ignored
+          --exact
+          --test-threads=1
