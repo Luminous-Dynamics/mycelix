@@ -781,7 +781,7 @@ fn analyze_case(
         &affected_assertions,
         &changed_event_refs,
         &changed_relation_refs,
-        &changed_source_refs,
+        &semantic_source_refs,
         all_due_to_policy_or_projector,
         knowledge_frontier_changed,
     )?);
