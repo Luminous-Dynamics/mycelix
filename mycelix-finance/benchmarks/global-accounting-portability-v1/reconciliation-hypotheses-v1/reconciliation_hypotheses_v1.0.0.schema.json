@@ -33,7 +33,9 @@
         "engine_id",
         "engine_version",
         "engine_sha256",
-        "tie_break_policy"
+        "tie_break_policy",
+        "engine_state",
+        "engine_artifact_ref"
       ],
       "properties": {
         "engine_id": {
@@ -45,12 +47,28 @@
           "minLength": 1
         },
         "engine_sha256": {
-          "type": "string",
+          "type": [
+            "string",
+            "null"
+          ],
           "pattern": "^[a-f0-9]{64}$"
         },
         "tie_break_policy": {
           "type": "string",
           "minLength": 5
+        },
+        "engine_state": {
+          "enum": [
+            "source_digest_verified",
+            "binary_digest_verified",
+            "not_executed_synthetic_fixture"
+          ]
+        },
+        "engine_artifact_ref": {
+          "type": [
+            "string",
+            "null"
+          ]
         }
       }
     },
