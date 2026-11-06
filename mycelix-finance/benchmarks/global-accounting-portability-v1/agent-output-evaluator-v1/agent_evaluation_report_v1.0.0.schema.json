@@ -1,0 +1,484 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/evidence-qualified-accounting-agent-evaluation-report-v1.0.0.json",
+  "title": "Mycelix Evidence-Qualified Accounting Agent Evaluation Report v1.0.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "report_id",
+    "schema_version",
+    "claim_ceiling",
+    "input_digests",
+    "aggregate",
+    "case_results"
+  ],
+  "properties": {
+    "report_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "claim_ceiling": {
+      "const": "deterministic_evaluation_against_supplied_oracle_not_professional_adjudication"
+    },
+    "input_digests": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "candidate_sha256",
+        "oracle_sha256",
+        "submissions_sha256"
+      ],
+      "properties": {
+        "candidate_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "oracle_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "submissions_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      }
+    },
+    "aggregate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "case_count",
+        "disposition_accuracy",
+        "false_deliver_count",
+        "question_target_precision",
+        "question_target_recall",
+        "journal_exact_match_rate",
+        "statement_exact_match_rate",
+        "source_binding_completeness",
+        "decision_critical_assumption_count",
+        "hard_failure_count",
+        "question_source_reference_precision",
+        "question_source_reference_recall",
+        "evidence_trace_coverage",
+        "evidence_to_journal_continuity",
+        "decision_to_question_continuity",
+        "continuity_failure_count",
+        "statement_replay_exact_rate",
+        "statement_replay_mismatch_count",
+        "statement_replay_applicable_case_count",
+        "case_correctness_rate",
+        "decision_confidence_brier_score",
+        "decision_confidence_ece",
+        "auto_delivery_coverage",
+        "auto_delivery_case_count",
+        "auto_delivery_material_error_count",
+        "auto_delivery_material_error_rate",
+        "review_routed_case_count",
+        "risk_coverage_points",
+        "calibration_bins"
+      ],
+      "properties": {
+        "case_count": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "disposition_accuracy": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "false_deliver_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "question_target_precision": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "question_target_recall": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "journal_exact_match_rate": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "statement_exact_match_rate": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "source_binding_completeness": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "decision_critical_assumption_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "hard_failure_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "question_source_reference_precision": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "question_source_reference_recall": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "evidence_trace_coverage": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "evidence_to_journal_continuity": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "decision_to_question_continuity": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "continuity_failure_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "statement_replay_exact_rate": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "statement_replay_mismatch_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "statement_replay_applicable_case_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "case_correctness_rate": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "decision_confidence_brier_score": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "decision_confidence_ece": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "auto_delivery_coverage": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "auto_delivery_case_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "auto_delivery_material_error_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "auto_delivery_material_error_rate": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1
+        },
+        "review_routed_case_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "risk_coverage_points": {
+          "type": "array",
+          "minItems": 5,
+          "maxItems": 5,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "confidence_threshold",
+              "selected_auto_delivery_count",
+              "coverage",
+              "risk",
+              "material_error_count"
+            ],
+            "properties": {
+              "confidence_threshold": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "selected_auto_delivery_count": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "coverage": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "risk": {
+                "type": [
+                  "number",
+                  "null"
+                ],
+                "minimum": 0,
+                "maximum": 1
+              },
+              "material_error_count": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          }
+        },
+        "calibration_bins": {
+          "type": "array",
+          "minItems": 5,
+          "maxItems": 5,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "lower_bound",
+              "upper_bound",
+              "case_count",
+              "mean_confidence",
+              "empirical_accuracy"
+            ],
+            "properties": {
+              "lower_bound": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "upper_bound": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "case_count": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "mean_confidence": {
+                "type": [
+                  "number",
+                  "null"
+                ],
+                "minimum": 0,
+                "maximum": 1
+              },
+              "empirical_accuracy": {
+                "type": [
+                  "number",
+                  "null"
+                ],
+                "minimum": 0,
+                "maximum": 1
+              }
+            }
+          }
+        }
+      }
+    },
+    "case_results": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/result"
+      }
+    }
+  },
+  "$defs": {
+    "result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "case_id",
+        "disposition_correct",
+        "reason_correct",
+        "question_target_precision",
+        "question_target_recall",
+        "question_target_f1",
+        "question_count",
+        "redundant_question_count",
+        "journal_exact",
+        "journal_balanced",
+        "source_binding_completeness",
+        "statement_exact",
+        "unsafe_delivery",
+        "decision_critical_assumption_count",
+        "hard_failures",
+        "question_source_reference_precision",
+        "question_source_reference_recall",
+        "evidence_trace_coverage",
+        "evidence_to_journal_continuity",
+        "decision_to_question_continuity",
+        "continuity_failures",
+        "statement_replay_exact",
+        "statement_replay_mismatch_count",
+        "statement_replay_errors",
+        "statement_replay_applicable",
+        "decision_confidence",
+        "case_correct",
+        "confidence_brier_contribution",
+        "auto_delivery_accepted",
+        "review_routed",
+        "auto_delivery_candidate",
+        "auto_delivery_gate_pass"
+      ],
+      "properties": {
+        "case_id": {
+          "type": "string"
+        },
+        "disposition_correct": {
+          "type": "boolean"
+        },
+        "reason_correct": {
+          "type": "boolean"
+        },
+        "question_target_precision": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "question_target_recall": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "question_target_f1": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "question_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "redundant_question_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "journal_exact": {
+          "type": "boolean"
+        },
+        "journal_balanced": {
+          "type": "boolean"
+        },
+        "source_binding_completeness": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "statement_exact": {
+          "type": "boolean"
+        },
+        "unsafe_delivery": {
+          "type": "boolean"
+        },
+        "decision_critical_assumption_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "hard_failures": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "question_source_reference_precision": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "question_source_reference_recall": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "evidence_trace_coverage": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "evidence_to_journal_continuity": {
+          "type": "boolean"
+        },
+        "decision_to_question_continuity": {
+          "type": "boolean"
+        },
+        "continuity_failures": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        },
+        "statement_replay_exact": {
+          "type": "boolean"
+        },
+        "statement_replay_mismatch_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "statement_replay_errors": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        },
+        "statement_replay_applicable": {
+          "type": "boolean"
+        },
+        "decision_confidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "case_correct": {
+          "type": "boolean"
+        },
+        "confidence_brier_contribution": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "auto_delivery_accepted": {
+          "type": "boolean"
+        },
+        "review_routed": {
+          "type": "boolean"
+        },
+        "auto_delivery_candidate": {
+          "type": "boolean"
+        },
+        "auto_delivery_gate_pass": {
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}
