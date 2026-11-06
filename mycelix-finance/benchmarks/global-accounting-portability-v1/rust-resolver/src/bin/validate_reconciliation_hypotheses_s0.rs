@@ -343,7 +343,6 @@ fn expected_criterion_values(
 fn validate_hypothesis(
     run: &Value,
     hypothesis: &Value,
-    all_hypotheses: &[Value],
     used_items: &mut BTreeSet<String>,
 ) -> Result<Value, String> {
     let run_id = string(run, "run_id")?;
@@ -438,7 +437,7 @@ fn validate_hypothesis(
             "unknown" if optional_string(rule, "missing_action") == Some("block") => blocking_criterion = true,
             _ => {}
         }
-        if optional_string(rule, "required_for_auto_match") == Some("true")
+        if rule.get("required_for_auto_match").and_then(Value::as_bool) == Some(true)
             && outcome != "match"
         {
             missing_or_required_failure = true;
@@ -446,6 +445,13 @@ fn validate_hypothesis(
     }
     if integer(hypothesis, "score_bps")? != score {
         return Err(format!("{run_id}/{hypothesis_ref}: reported score differs from criterion-weight sum"));
+    }
+
+    for pair in array(hypothesis, "candidate_pairs")? {
+        let expected_state = if blocking_criterion { "rejected" } else { "candidate" };
+        if optional_string(pair, "candidate_state") != Some(expected_state) {
+            return Err(format!("{run_id}/{hypothesis_ref}: candidate pair state does not follow blocking criterion evidence"));
+        }
     }
 
     let mut allocated_left = BTreeMap::<String, i64>::new();
@@ -493,13 +499,19 @@ fn validate_hypothesis(
         }
     }
 
-    let is_fully_allocated = left_refs.iter().all(|reference| {
-        allocated_left.get(reference).copied().unwrap_or(0)
-            == integer(source_item_by_ref(run, reference).unwrap_or(&Value::Null), "amount_minor").unwrap_or(-1)
-    }) && right_refs.iter().all(|reference| {
-        allocated_right.get(reference).copied().unwrap_or(0)
-            == integer(source_item_by_ref(run, reference).unwrap_or(&Value::Null), "amount_minor").unwrap_or(-1)
-    });
+    let mut is_fully_allocated = true;
+    for reference in &left_refs {
+        let source_amount = integer(source_item_by_ref(run, reference)?, "amount_minor")?;
+        if allocated_left.get(reference).copied().unwrap_or(0) != source_amount {
+            is_fully_allocated = false;
+        }
+    }
+    for reference in &right_refs {
+        let source_amount = integer(source_item_by_ref(run, reference)?, "amount_minor")?;
+        if allocated_right.get(reference).copied().unwrap_or(0) != source_amount {
+            is_fully_allocated = false;
+        }
+    }
 
     let decision = string(hypothesis, "decision_state")?;
     if blocking_criterion {
@@ -513,11 +525,6 @@ fn validate_hypothesis(
     if decision == "eligible_for_auto_match" {
         if blocking_criterion || missing_or_required_failure || score < integer(rule_set, "auto_match_threshold_bps")? || !is_fully_allocated {
             return Err(format!("{run_id}/{hypothesis_ref}: auto-match eligibility requirements are not satisfied"));
-        }
-        for reference in left_refs.iter().chain(right_refs.iter()) {
-            if !used_items.insert(reference.clone()) {
-                return Err(format!("{run_id}/{hypothesis_ref}: source item {reference} is reused by independent selected hypotheses"));
-            }
         }
         if left_refs.iter().any(|reference| {
             optional_string(source_item_by_ref(run, reference).ok()?, "transaction_type") == Some("reversal")
@@ -549,12 +556,19 @@ fn validate_hypothesis(
         return Err(format!("{run_id}/{hypothesis_ref}: unsupported decision state {decision}"));
     }
 
+    if allocation_count > 0 && decision != "blocked" && decision != "ambiguous" {
+        for reference in left_refs.iter().chain(right_refs.iter()) {
+            if !used_items.insert(reference.clone()) {
+                return Err(format!("{run_id}/{hypothesis_ref}: source item {reference} is reused by independent allocated hypotheses"));
+            }
+        }
+    }
+
     let alternatives = set_from_array(hypothesis, "alternative_hypothesis_refs")?;
     if alternatives.contains(hypothesis_ref) {
         return Err(format!("{run_id}/{hypothesis_ref}: hypothesis cannot be its own alternative"));
     }
 
-    let _ = all_hypotheses;
     Ok(json!({
         "hypothesis_count": 1,
         "eligible_for_auto_match_count": usize::from(decision == "eligible_for_auto_match"),
@@ -713,7 +727,6 @@ fn validate_unmatched_items(
 fn validate_run_result(
     run: &Value,
     result: &Value,
-    input_run_digest: &str,
 ) -> Result<Value, String> {
     let run_id = string(run, "run_id")?;
     if string(result, "run_id")? != run_id {
@@ -723,7 +736,6 @@ fn validate_run_result(
     if string(result, "rule_set_sha256")? != rule_digest {
         return Err(format!("{run_id}: rule-set SHA-256 mismatch"));
     }
-    let _ = input_run_digest;
 
     let hypotheses = array(result, "hypotheses")?;
     let mut hypothesis_ids = BTreeSet::new();
@@ -734,7 +746,7 @@ fn validate_run_result(
         if !hypothesis_ids.insert(reference.to_owned()) {
             return Err(format!("{run_id}: duplicate hypothesis {reference}"));
         }
-        let stats = validate_hypothesis(run, hypothesis, hypotheses, &mut used_items)?;
+        let stats = validate_hypothesis(run, hypothesis, &mut used_items)?;
         for key in [
             "hypothesis_count",
             "eligible_for_auto_match_count",
@@ -821,7 +833,7 @@ fn build_report(
             .find(|item| optional_string(item, "run_id") == Some(run_id))
             .ok_or_else(|| format!("missing output run {run_id}"))?;
         output_ids.insert(string(result, "run_id")?.to_owned());
-        let run_report = validate_run_result(run, result, &input_digest)?;
+        let run_report = validate_run_result(run, result)?;
         for key in total_keys {
             *totals.entry(key.to_owned()).or_default() += run_report[key].as_i64().unwrap_or(0);
         }
