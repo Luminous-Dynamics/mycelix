@@ -419,8 +419,7 @@ fn assess_case(case: &Value) -> AppResult<Assessment> {
 
     // Corrections and reversals are append-only. Reversal capacity is accumulated
     // across every reversal of one original journal, never reset per reversal.
-    let mut reversal_remaining =
-        BTreeMap::<String, BTreeMap<(String, String), i128>>::new();
+    let mut reversal_remaining = BTreeMap::<String, BTreeMap<(String, String), i128>>::new();
     for journal in &active_journals {
         let reversal_of = string(journal, "reversal_of");
         let correction_of = string(journal, "correction_of");
@@ -447,7 +446,9 @@ fn assess_case(case: &Value) -> AppResult<Assessment> {
                     let mut capacity = BTreeMap::<(String, String), i128>::new();
                     for posting in array(original, "postings") {
                         let key = (
-                            string(posting, "account_ref").unwrap_or_default().to_owned(),
+                            string(posting, "account_ref")
+                                .unwrap_or_default()
+                                .to_owned(),
                             string(posting, "direction").unwrap_or_default().to_owned(),
                         );
                         let value = amount_field(posting, "amount_minor")?;
@@ -779,6 +780,10 @@ mod tests {
         let case = case_by_id(&candidate, "FJS-026");
         let assessment = assess_case(case).expect("assessment");
         assert_eq!(assessment.disposition, "orphan_or_unauthorized_journal");
-        assert!(assessment.reasons.contains("reversal_exceeds_original_posting"));
+        assert!(
+            assessment
+                .reasons
+                .contains("reversal_exceeds_original_posting")
+        );
     }
 }
