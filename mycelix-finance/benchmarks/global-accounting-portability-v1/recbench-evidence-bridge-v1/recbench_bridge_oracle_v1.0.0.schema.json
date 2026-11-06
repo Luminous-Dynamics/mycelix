@@ -1,0 +1,108 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/mycelix-recbench-bridge-oracle-v1.0.0.json",
+  "title": "Mycelix RecBench Bridge Oracle v1.0.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "oracle_id",
+    "schema_version",
+    "claim_ceiling",
+    "expectations"
+  ],
+  "properties": {
+    "oracle_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "claim_ceiling": {
+      "const": "synthetic_expected_links_and_safety_states_not_live_performance"
+    },
+    "expectations": {
+      "type": "array",
+      "minItems": 10,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "case_id",
+          "expected_links",
+          "expected_unmatched_source_refs",
+          "expected_review_source_refs",
+          "forbid_auto_close",
+          "reason_codes"
+        ],
+        "properties": {
+          "case_id": {
+            "type": "string"
+          },
+          "expected_links": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "match_kind",
+                "source_refs",
+                "amount_minor",
+                "currency"
+              ],
+              "properties": {
+                "match_kind": {
+                  "enum": [
+                    "ledger_to_settlement",
+                    "payout_to_bank",
+                    "deposit_unbundle",
+                    "partial_application",
+                    "reversal_pair"
+                  ]
+                },
+                "source_refs": {
+                  "type": "array",
+                  "uniqueItems": true,
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "amount_minor": {
+                  "type": "integer"
+                },
+                "currency": {
+                  "type": "string",
+                  "pattern": "^[A-Z]{3}$"
+                }
+              }
+            }
+          },
+          "expected_unmatched_source_refs": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "string"
+            }
+          },
+          "expected_review_source_refs": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "string"
+            }
+          },
+          "forbid_auto_close": {
+            "type": "boolean"
+          },
+          "reason_codes": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    }
+  }
+}
