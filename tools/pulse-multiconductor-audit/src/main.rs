@@ -1322,6 +1322,19 @@ mod tests{
         }
     }
     #[test]
+    fn owned_and_borrowed_parse_benchmarks_match_summary() {
+        for count in [1usize, 2, 999, 1000] {
+            let raw = benchmark_history_json(count).unwrap();
+            let owned = owned_parse_validate(&raw).unwrap();
+            let borrowed = borrowed::borrowed_parse_validate(&raw).unwrap();
+            assert_eq!(owned, borrowed, "parse summary differed at {count} events");
+            assert_eq!(borrowed.events, count);
+            assert_eq!(borrowed.valid_events, count);
+            assert_eq!(borrowed.conductors, 2);
+        }
+    }
+
+    #[test]
     fn synthetic_benchmark_rejects_zero_and_oversized_inputs() {
         assert!(benchmark_history(0).is_err());
         assert!(benchmark_history(1_000_001).is_err());
