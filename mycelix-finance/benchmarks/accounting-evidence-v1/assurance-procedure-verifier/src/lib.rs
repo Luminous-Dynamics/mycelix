@@ -273,7 +273,11 @@ fn assess_case(case: &Value) -> AppResult<Assessment> {
         }
         if string(procedure, "procedure_purpose") != Some(purpose) {
             reasons.insert("performed_procedure_purpose_mismatch".to_owned());
-            pair_results.push(pair_assessment(pair_id, "insufficient_evidence", reasons));
+            pair_results.push(pair_assessment(
+                            pair_id,
+                            "insufficient_evidence",
+                            reasons,
+                        ));
             continue;
         }
         if procedure
@@ -321,7 +325,11 @@ fn assess_case(case: &Value) -> AppResult<Assessment> {
             match population {
                 None => {
                     reasons.insert("procedure_population_missing".to_owned());
-                    pair_results.push(pair_assessment(pair_id, "insufficient_evidence", reasons));
+                    pair_results.push(pair_assessment(
+                            pair_id,
+                            "insufficient_evidence",
+                            reasons,
+                        ));
                     continue;
                 }
                 Some(population) => {
@@ -374,7 +382,11 @@ fn assess_case(case: &Value) -> AppResult<Assessment> {
             != Some(true)
         {
             reasons.insert("analytical_threshold_unapproved".to_owned());
-            pair_results.push(pair_assessment(pair_id, "insufficient_evidence", reasons));
+            pair_results.push(pair_assessment(
+                            pair_id,
+                            "insufficient_evidence",
+                            reasons,
+                        ));
             continue;
         }
         if string(procedure, "procedure_type") == Some("analytical") {
@@ -391,7 +403,11 @@ fn assess_case(case: &Value) -> AppResult<Assessment> {
                 }
                 None => {
                     reasons.insert("analytical_result_tolerance_not_recorded".to_owned());
-                    pair_results.push(pair_assessment(pair_id, "insufficient_evidence", reasons));
+                    pair_results.push(pair_assessment(
+                            pair_id,
+                            "insufficient_evidence",
+                            reasons,
+                        ));
                     continue;
                 }
             }
@@ -400,7 +416,11 @@ fn assess_case(case: &Value) -> AppResult<Assessment> {
         let evidence_refs = array(procedure, "evidence_refs");
         if evidence_refs.is_empty() {
             reasons.insert("procedure_has_no_evidence".to_owned());
-            pair_results.push(pair_assessment(pair_id, "insufficient_evidence", reasons));
+            pair_results.push(pair_assessment(
+                            pair_id,
+                            "insufficient_evidence",
+                            reasons,
+                        ));
             continue;
         }
 
@@ -470,12 +490,20 @@ fn assess_case(case: &Value) -> AppResult<Assessment> {
             reasons.insert("independence_origin_not_distinct".to_owned());
         }
         if !evidence_valid {
-            pair_results.push(pair_assessment(pair_id, "insufficient_evidence", reasons));
+            pair_results.push(pair_assessment(
+                            pair_id,
+                            "insufficient_evidence",
+                            reasons,
+                        ));
             continue;
         }
         if string(procedure, "outcome") != Some("supports") {
             reasons.insert("procedure_result_does_not_support_assertion".to_owned());
-            pair_results.push(pair_assessment(pair_id, "insufficient_evidence", reasons));
+            pair_results.push(pair_assessment(
+                            pair_id,
+                            "insufficient_evidence",
+                            reasons,
+                        ));
             continue;
         }
         reasons.insert("purpose_and_assertion_matched".to_owned());
