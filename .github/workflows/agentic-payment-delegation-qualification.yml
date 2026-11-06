@@ -1,0 +1,55 @@
+name: Agentic Payment Delegation Qualification
+
+on:
+  pull_request:
+    paths:
+      - 'mycelix-finance/docs/AGENTIC_PAYMENT_DELEGATION_PROFILE_V1.md'
+      - 'mycelix-finance/docs/agentic-payment-delegation-corpus-v1.json'
+      - 'mycelix-finance/docs/agentic-payment-delegation-corpus-v1.schema.json'
+      - 'mycelix-workspace/mycelix-finance/docs/AGENTIC_PAYMENT_DELEGATION_PROFILE_V1.md'
+      - 'mycelix-workspace/mycelix-finance/docs/agentic-payment-delegation-corpus-v1.json'
+      - 'mycelix-workspace/mycelix-finance/docs/agentic-payment-delegation-corpus-v1.schema.json'
+      - 'tools/finance/agentic-payment-delegation/**'
+      - '.github/workflows/agentic-payment-delegation-qualification.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'mycelix-finance/docs/AGENTIC_PAYMENT_DELEGATION_PROFILE_V1.md'
+      - 'mycelix-finance/docs/agentic-payment-delegation-corpus-v1.json'
+      - 'mycelix-finance/docs/agentic-payment-delegation-corpus-v1.schema.json'
+      - 'tools/finance/agentic-payment-delegation/**'
+      - '.github/workflows/agentic-payment-delegation-qualification.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    name: Effects-disabled mandate and budget evaluation
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      # Immutable release pin: actions/checkout v7.0.1.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install pinned Rust toolchain
+        run: |
+          rustup toolchain install 1.96.0 --profile minimal --component rustfmt --component clippy
+          rustup default 1.96.0
+          rustc --version
+          cargo --version
+
+      - name: Check formatting
+        run: cargo fmt --manifest-path tools/finance/agentic-payment-delegation/Cargo.toml -- --check
+
+      - name: Run schema and semantic tests
+        run: cargo test --manifest-path tools/finance/agentic-payment-delegation/Cargo.toml
+
+      - name: Run deterministic negative-mutation campaign
+        run: cargo run --manifest-path tools/finance/agentic-payment-delegation/Cargo.toml -- --self-test
+
+      - name: Run Clippy
+        run: cargo clippy --manifest-path tools/finance/agentic-payment-delegation/Cargo.toml --all-targets -- -D warnings
