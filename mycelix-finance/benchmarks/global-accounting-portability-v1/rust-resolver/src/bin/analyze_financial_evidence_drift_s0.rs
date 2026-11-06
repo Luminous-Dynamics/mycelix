@@ -63,6 +63,21 @@ fn optional_string<'a>(value: &'a Value, key: &str) -> Option<&'a str> {
     value.get(key).and_then(Value::as_str)
 }
 
+fn set_from_string_array(value: &Value, key: &str) -> Result<BTreeSet<String>, String> {
+    array(value, key)?
+        .iter()
+        .map(|item| {
+            item.as_str()
+                .map(ToOwned::to_owned)
+                .ok_or_else(|| format!("{key} must contain strings"))
+        })
+        .collect()
+}
+
+fn tenant_root(namespace: &str) -> &str {
+    namespace.split('/').next().unwrap_or(namespace)
+}
+
 fn canonical_json(value: &Value) -> Result<Vec<u8>, String> {
     serde_json::to_vec(value).map_err(|error| format!("canonical JSON serialization failed: {error}"))
 }
@@ -471,8 +486,8 @@ fn projection_references_invalid(
                 if let Some(event_assertion) = assertions.get(*event_assertion_ref) {
                     let event_source_ref = string(event_assertion, "source_ref")?;
                     if let Some(event_source) = sources.get(event_source_ref) {
-                        if string(event_source, "tenant_namespace")?
-                            != string(source, "tenant_namespace")?
+                        if tenant_root(string(event_source, "tenant_namespace")?)
+                            != tenant_root(string(source, "tenant_namespace")?)
                         {
                             return Ok(true);
                         }
@@ -508,8 +523,8 @@ fn projection_references_invalid(
                     if let Some(event_assertion) = assertions.get(*event_assertion_ref) {
                         let event_source_ref = string(event_assertion, "source_ref")?;
                         if let Some(event_source) = sources.get(event_source_ref) {
-                            if string(event_source, "tenant_namespace")?
-                                != string(source, "tenant_namespace")?
+                            if tenant_root(string(event_source, "tenant_namespace")?)
+                                != tenant_root(string(source, "tenant_namespace")?)
                             {
                                 return Ok(true);
                             }
@@ -663,6 +678,7 @@ fn analyze_pair(pair: &Value) -> Result<Value, String> {
     }
 
     let mut assertion_review = false;
+    let mut superseded_source_reference = false;
     let referenced_assertions = array(candidate_projection, "event_decisions")?
         .iter()
         .flat_map(|decision| array(decision, "source_assertion_refs").unwrap_or(&[]).iter())
@@ -695,11 +711,21 @@ fn analyze_pair(pair: &Value) -> Result<Value, String> {
                     findings.insert("source_integrity_failed".to_owned());
                     assertion_review = true;
                 }
+                if array(candidate_graph, "source_objects")?.iter().any(|source| {
+                    optional_string(source, "supersedes_source_ref") == Some(source_ref)
+                        && optional_string(source, "received_at")
+                            .is_some_and(|received| received <= optional_string(candidate_graph, "knowledge_at").unwrap_or(""))
+                }) {
+                    superseded_source_reference = true;
+                }
             }
         }
     }
     if assertion_review {
         findings.insert("assertion_disputed_or_invalidated".to_owned());
+    }
+    if superseded_source_reference {
+        findings.insert("superseded_source_reference".to_owned());
     }
 
     let unlinked_revision = source_revision_unlinked(candidate_graph)?;
@@ -885,8 +911,8 @@ mod tests {
         assert_eq!(row["impact_class"], "reproject_required");
         let impacted = set_from_string_array(row, "impacted_node_refs").unwrap();
         for reference in [
-            "source:SRC-002-INV",
-            "assertion:AS-002-AMOUNT",
+            "source:SRC-002-INV-R2",
+            "assertion:AS-002-AMOUNT-R2",
             "event:EV-002-INVOICE",
             "decision:DEC-002-INVOICE",
             "journal_entry:JE-002-ACCRUAL",
