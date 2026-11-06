@@ -153,8 +153,9 @@
     },
     {
       "case_id": "FJS-019",
-      "expected_disposition": "orphan_or_unauthorized_journal",
+      "expected_disposition": "missing_journal_projection",
       "reason_codes": [
+        "required_event_without_journal",
         "correction_original_not_present"
       ],
       "blocks_complete": true
