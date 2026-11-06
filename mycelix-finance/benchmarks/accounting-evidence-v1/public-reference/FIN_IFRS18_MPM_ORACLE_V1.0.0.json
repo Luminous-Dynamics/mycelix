@@ -213,6 +213,16 @@
         "ifrs18_not_inferred_for_ifrs_for_smes"
       ],
       "blocks_reporting_acceptance": true
+    },
+    {
+      "case_id": "MPM-027",
+      "expected_disposition": "complete",
+      "reason_codes": [
+        "b140_intermediate_bridge_valid",
+        "exact_reconciliation",
+        "tax_nci_complete"
+      ],
+      "blocks_reporting_acceptance": false
     }
   ]
 }
