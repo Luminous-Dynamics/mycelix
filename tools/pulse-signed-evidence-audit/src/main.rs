@@ -1,7 +1,7 @@
-use base64::{engine::general_purpose::STANDARD, Engine as _};
+use base64::{Engine as _, engine::general_purpose::STANDARD};
 use ed25519_dalek::{Signature, Verifier, VerifyingKey};
 use serde::{Deserialize, Serialize};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 use std::env;
@@ -227,20 +227,37 @@ fn decode_hex_32(value: &str) -> Option<[u8; 32]> {
 }
 
 fn pae(payload_type: &str, payload: &[u8]) -> Vec<u8> {
-    let mut out = format!("DSSEv1 {} {} {} ", payload_type.len(), payload_type, payload.len())
-        .into_bytes();
+    let mut out = format!(
+        "DSSEv1 {} {} {} ",
+        payload_type.len(),
+        payload_type,
+        payload.len()
+    )
+    .into_bytes();
     out.extend_from_slice(payload);
     out
 }
 
 fn predicate_type_for_role(role: &str) -> Option<&'static str> {
     match role {
-        "host_authority" => Some("https://luminousdynamics.io/attestations/pulse/host-authority/v1"),
-        "action_author" => Some("https://luminousdynamics.io/attestations/pulse/action-authorship/v1"),
-        "validator" => Some("https://luminousdynamics.io/attestations/pulse/validator-disposition/v1"),
-        "observer" => Some("https://luminousdynamics.io/attestations/pulse/observer-integration/v1"),
-        "client_outcome" => Some("https://luminousdynamics.io/attestations/pulse/client-outcome/v1"),
-        "independent_auditor" => Some("https://luminousdynamics.io/attestations/pulse/independent-audit/v1"),
+        "host_authority" => {
+            Some("https://luminousdynamics.io/attestations/pulse/host-authority/v1")
+        }
+        "action_author" => {
+            Some("https://luminousdynamics.io/attestations/pulse/action-authorship/v1")
+        }
+        "validator" => {
+            Some("https://luminousdynamics.io/attestations/pulse/validator-disposition/v1")
+        }
+        "observer" => {
+            Some("https://luminousdynamics.io/attestations/pulse/observer-integration/v1")
+        }
+        "client_outcome" => {
+            Some("https://luminousdynamics.io/attestations/pulse/client-outcome/v1")
+        }
+        "independent_auditor" => {
+            Some("https://luminousdynamics.io/attestations/pulse/independent-audit/v1")
+        }
         _ => None,
     }
 }
@@ -294,23 +311,31 @@ fn verify_issuer_subject_binding(
     if role == "independent_auditor" {
         return Ok(());
     }
-    let binding = key.subject_binding.as_ref()
+    let binding = key
+        .subject_binding
+        .as_ref()
         .ok_or_else(|| "trusted key has no conductor/agent subject_binding".to_string())?;
     let get = |name: &str| details.get(name).and_then(Value::as_str);
     if get("conductor_id") != Some(binding.conductor_id.as_str())
         || get("agent_key_ref") != Some(binding.agent_key_ref.as_str())
         || get("dna_hash") != Some(binding.dna_hash.as_str())
         || get("cell_id") != Some(binding.cell_id.as_str())
-        || get("integrity_wasm_sha256") != Some(binding.integrity_wasm_sha256.as_str()) {
+        || get("integrity_wasm_sha256") != Some(binding.integrity_wasm_sha256.as_str())
+    {
         return Err("signed predicate conductor/agent/DNA/CellId/WASM identity differs from trusted key binding".into());
     }
-    let Some(lineage) = subject.conductor_lineages.iter().find(|c| c.conductor_id == binding.conductor_id) else {
+    let Some(lineage) = subject
+        .conductor_lineages
+        .iter()
+        .find(|c| c.conductor_id == binding.conductor_id)
+    else {
         return Err("trusted key conductor_id is absent from bundle subject lineage".into());
     };
     if lineage.agent_key_ref != binding.agent_key_ref
         || lineage.dna_hash != binding.dna_hash
         || lineage.cell_id != binding.cell_id
-        || lineage.integrity_wasm_sha256 != binding.integrity_wasm_sha256 {
+        || lineage.integrity_wasm_sha256 != binding.integrity_wasm_sha256
+    {
         return Err("bundle conductor lineage differs from trusted key subject binding".into());
     }
     Ok(())
@@ -333,53 +358,125 @@ fn audit(
     let mut scitt_unverified = 0usize;
 
     if bundle.schema_version != 1 {
-        finding(&mut findings, "BUNDLE_SCHEMA_VERSION_UNSUPPORTED", "incomplete", None, "expected signed-evidence bundle schema version 1");
+        finding(
+            &mut findings,
+            "BUNDLE_SCHEMA_VERSION_UNSUPPORTED",
+            "incomplete",
+            None,
+            "expected signed-evidence bundle schema version 1",
+        );
     }
     if bundle.bundle_id.trim().is_empty()
-        || !matches!(bundle.evidence_class.as_str(), "synthetic" | "runtime_capture")
-        || !matches!(bundle.claim_ceiling.as_str(), "STRUCTURAL_ONLY" | "ROLE_AUTHENTICATED" | "TRANSPARENTLY_REGISTERED")
+        || !matches!(
+            bundle.evidence_class.as_str(),
+            "synthetic" | "runtime_capture"
+        )
+        || !matches!(
+            bundle.claim_ceiling.as_str(),
+            "STRUCTURAL_ONLY" | "ROLE_AUTHENTICATED" | "TRANSPARENTLY_REGISTERED"
+        )
     {
-        finding(&mut findings, "BUNDLE_HEADER_INVALID", "incomplete", None, "bundle identity, evidence class or claim ceiling is invalid");
+        finding(
+            &mut findings,
+            "BUNDLE_HEADER_INVALID",
+            "incomplete",
+            None,
+            "bundle identity, evidence class or claim ceiling is invalid",
+        );
     }
-    if !valid_sha256(&bundle.subject.source_commit)
-            && bundle.subject.source_commit.len() != 40
-        || !bundle.subject.source_commit.bytes().all(|b| b.is_ascii_hexdigit() && !b.is_ascii_uppercase())
+    if !valid_sha256(&bundle.subject.source_commit) && bundle.subject.source_commit.len() != 40
+        || !bundle
+            .subject
+            .source_commit
+            .bytes()
+            .all(|b| b.is_ascii_hexdigit() && !b.is_ascii_uppercase())
     {
-        finding(&mut findings, "SOURCE_COMMIT_INVALID", "violation", None, "source_commit must be lowercase 40-character hex");
+        finding(
+            &mut findings,
+            "SOURCE_COMMIT_INVALID",
+            "violation",
+            None,
+            "source_commit must be lowercase 40-character hex",
+        );
     }
     if !valid_sha256(&bundle.subject.trace_sha256)
         || !valid_sha256(&bundle.subject.schema_sha256)
         || !valid_sha256(&bundle.subject.tool_build_sha256)
     {
-        finding(&mut findings, "SUBJECT_DIGEST_INVALID", "violation", None, "bundle subject digests must be lowercase SHA-256");
+        finding(
+            &mut findings,
+            "SUBJECT_DIGEST_INVALID",
+            "violation",
+            None,
+            "bundle subject digests must be lowercase SHA-256",
+        );
     }
     if bundle.subject.trace_sha256 != trace_sha256 {
-        finding(&mut findings, "TRACE_SUBJECT_DIGEST_MISMATCH", "violation", None, "provided trace bytes do not match the bundle's trace_sha256");
+        finding(
+            &mut findings,
+            "TRACE_SUBJECT_DIGEST_MISMATCH",
+            "violation",
+            None,
+            "provided trace bytes do not match the bundle's trace_sha256",
+        );
     }
-    if trace.get("source_commit").and_then(Value::as_str) != Some(bundle.subject.source_commit.as_str()) {
-        finding(&mut findings, "TRACE_SOURCE_COMMIT_MISMATCH", "violation", None, "trace source_commit does not match bundle subject");
+    if trace.get("source_commit").and_then(Value::as_str)
+        != Some(bundle.subject.source_commit.as_str())
+    {
+        finding(
+            &mut findings,
+            "TRACE_SOURCE_COMMIT_MISMATCH",
+            "violation",
+            None,
+            "trace source_commit does not match bundle subject",
+        );
     }
     if bundle.trust_policy.policy_sha256 != policy_sha256
         || bundle.trust_policy.policy_id != policy.policy_id
         || bundle.trust_policy.policy_version != policy.policy_version
     {
-        finding(&mut findings, "TRUST_POLICY_BINDING_MISMATCH", "violation", None, "supplied trust policy bytes/identity differ from the digest-bound policy reference");
+        finding(
+            &mut findings,
+            "TRUST_POLICY_BINDING_MISMATCH",
+            "violation",
+            None,
+            "supplied trust policy bytes/identity differ from the digest-bound policy reference",
+        );
     }
     if policy.keys.is_empty() {
-        finding(&mut findings, "TRUST_POLICY_HAS_NO_KEYS", "incomplete", None, "trust policy contains no issuer keys");
+        finding(
+            &mut findings,
+            "TRUST_POLICY_HAS_NO_KEYS",
+            "incomplete",
+            None,
+            "trust policy contains no issuer keys",
+        );
     }
     let mut conductor_ids = BTreeSet::new();
     for lineage in &bundle.subject.conductor_lineages {
         if !conductor_ids.insert(lineage.conductor_id.clone()) {
-            finding(&mut findings, "DUPLICATE_CONDUCTOR_LINEAGE", "violation", None, "conductor_id must be unique in bundle subject");
+            finding(
+                &mut findings,
+                "DUPLICATE_CONDUCTOR_LINEAGE",
+                "violation",
+                None,
+                "conductor_id must be unique in bundle subject",
+            );
         }
         if lineage.conductor_id.trim().is_empty()
             || lineage.agent_key_ref.trim().is_empty()
             || lineage.conductor_build.trim().is_empty()
             || lineage.dna_hash.trim().is_empty()
             || lineage.cell_id.trim().is_empty()
-            || !valid_sha256(&lineage.integrity_wasm_sha256) {
-            finding(&mut findings, "CONDUCTOR_LINEAGE_INVALID", "incomplete", None, "conductor lineage is missing an identity field or a valid integrity-WASM digest");
+            || !valid_sha256(&lineage.integrity_wasm_sha256)
+        {
+            finding(
+                &mut findings,
+                "CONDUCTOR_LINEAGE_INVALID",
+                "incomplete",
+                None,
+                "conductor lineage is missing an identity field or a valid integrity-WASM digest",
+            );
         }
     }
 
@@ -389,13 +486,34 @@ fn audit(
 
     for attestation in &bundle.attestations {
         if !attestation_ids.insert(attestation.attestation_id.clone()) {
-            finding(&mut findings, "DUPLICATE_ATTESTATION_ID", "violation", Some(&attestation.attestation_id), "attestation_id must be unique");
+            finding(
+                &mut findings,
+                "DUPLICATE_ATTESTATION_ID",
+                "violation",
+                Some(&attestation.attestation_id),
+                "attestation_id must be unique",
+            );
         }
         if !event_ids.insert(attestation.event_id.clone()) {
-            finding(&mut findings, "DUPLICATE_SIGNED_EVENT_ID", "violation", Some(&attestation.attestation_id), "event_id must be unique within a signed bundle");
+            finding(
+                &mut findings,
+                "DUPLICATE_SIGNED_EVENT_ID",
+                "violation",
+                Some(&attestation.attestation_id),
+                "event_id must be unique within a signed bundle",
+            );
         }
-        if !matches!(attestation.exposure.as_str(), "public_commitment" | "restricted" | "local_only") {
-            finding(&mut findings, "ATTESTATION_EXPOSURE_INVALID", "incomplete", Some(&attestation.attestation_id), "unsupported exposure classification");
+        if !matches!(
+            attestation.exposure.as_str(),
+            "public_commitment" | "restricted" | "local_only"
+        ) {
+            finding(
+                &mut findings,
+                "ATTESTATION_EXPOSURE_INVALID",
+                "incomplete",
+                Some(&attestation.attestation_id),
+                "unsupported exposure classification",
+            );
         }
 
         match &attestation.envelope {
@@ -405,20 +523,38 @@ fn audit(
                 signatures,
             } => {
                 if payload_type != "application/vnd.in-toto+json" {
-                    finding(&mut findings, "DSSE_PAYLOAD_TYPE_INVALID", "violation", Some(&attestation.attestation_id), "Pulse v1 requires application/vnd.in-toto+json");
+                    finding(
+                        &mut findings,
+                        "DSSE_PAYLOAD_TYPE_INVALID",
+                        "violation",
+                        Some(&attestation.attestation_id),
+                        "Pulse v1 requires application/vnd.in-toto+json",
+                    );
                     continue;
                 }
                 let payload = match STANDARD.decode(payload_base64) {
                     Ok(v) => v,
                     Err(_) => {
-                        finding(&mut findings, "DSSE_PAYLOAD_BASE64_INVALID", "violation", Some(&attestation.attestation_id), "DSSE payload is not valid standard base64");
+                        finding(
+                            &mut findings,
+                            "DSSE_PAYLOAD_BASE64_INVALID",
+                            "violation",
+                            Some(&attestation.attestation_id),
+                            "DSSE payload is not valid standard base64",
+                        );
                         continue;
                     }
                 };
                 let statement: InTotoStatement = match serde_json::from_slice(&payload) {
                     Ok(v) => v,
                     Err(e) => {
-                        finding(&mut findings, "INTOTO_STATEMENT_INVALID", "violation", Some(&attestation.attestation_id), format!("cannot parse signed in-toto statement: {e}"));
+                        finding(
+                            &mut findings,
+                            "INTOTO_STATEMENT_INVALID",
+                            "violation",
+                            Some(&attestation.attestation_id),
+                            format!("cannot parse signed in-toto statement: {e}"),
+                        );
                         continue;
                     }
                 };
@@ -430,19 +566,41 @@ fn audit(
                     || statement.predicate.source_commit != bundle.subject.source_commit
                     || statement.predicate.trace_sha256 != bundle.subject.trace_sha256
                 {
-                    finding(&mut findings, "SIGNED_STATEMENT_BINDING_MISMATCH", "violation", Some(&attestation.attestation_id), "signed in-toto statement role, predicate type, event ID, source commit or trace digest does not match its bundle context");
+                    finding(
+                        &mut findings,
+                        "SIGNED_STATEMENT_BINDING_MISMATCH",
+                        "violation",
+                        Some(&attestation.attestation_id),
+                        "signed in-toto statement role, predicate type, event ID, source commit or trace digest does not match its bundle context",
+                    );
                     continue;
                 }
-                let expected_subject_name = format!("pulse-trace:{}@{}", bundle.subject.repository, bundle.subject.source_commit);
+                let expected_subject_name = format!(
+                    "pulse-trace:{}@{}",
+                    bundle.subject.repository, bundle.subject.source_commit
+                );
                 let exact_subject = statement.subject.len() == 1
                     && statement.subject[0].name == expected_subject_name
-                    && statement.subject[0].digest.get("sha256") == Some(&bundle.subject.trace_sha256);
+                    && statement.subject[0].digest.get("sha256")
+                        == Some(&bundle.subject.trace_sha256);
                 if !exact_subject {
-                    finding(&mut findings, "INTOTO_SUBJECT_MISMATCH", "violation", Some(&attestation.attestation_id), "in-toto subject must bind the exact repository/source commit and trace digest");
+                    finding(
+                        &mut findings,
+                        "INTOTO_SUBJECT_MISMATCH",
+                        "violation",
+                        Some(&attestation.attestation_id),
+                        "in-toto subject must bind the exact repository/source commit and trace digest",
+                    );
                     continue;
                 }
                 if signatures.is_empty() {
-                    finding(&mut findings, "DSSE_SIGNATURES_MISSING", "incomplete", Some(&attestation.attestation_id), "DSSE envelope has no signatures");
+                    finding(
+                        &mut findings,
+                        "DSSE_SIGNATURES_MISSING",
+                        "incomplete",
+                        Some(&attestation.attestation_id),
+                        "DSSE envelope has no signatures",
+                    );
                     continue;
                 }
 
@@ -452,22 +610,55 @@ fn audit(
                 for sig in signatures {
                     let trusted = policy.keys.iter().find(|key| key.keyid == sig.keyid);
                     let Some(trusted) = trusted else {
-                        finding(&mut findings, "DSSE_SIGNER_UNKNOWN", "violation", Some(&attestation.attestation_id), format!("signer key ID {} is not present in the supplied trust policy", sig.keyid));
+                        finding(
+                            &mut findings,
+                            "DSSE_SIGNER_UNKNOWN",
+                            "violation",
+                            Some(&attestation.attestation_id),
+                            format!(
+                                "signer key ID {} is not present in the supplied trust policy",
+                                sig.keyid
+                            ),
+                        );
                         signature_failure = true;
                         continue;
                     };
                     if trusted.status != "active"
-                        || !trusted.roles.iter().any(|role| role == &attestation.issuer_role)
-                        || !trusted.predicate_types.iter().any(|p| p == &statement.predicate_type)
+                        || !trusted
+                            .roles
+                            .iter()
+                            .any(|role| role == &attestation.issuer_role)
+                        || !trusted
+                            .predicate_types
+                            .iter()
+                            .any(|p| p == &statement.predicate_type)
                     {
-                        finding(&mut findings, "DSSE_SIGNER_NOT_AUTHORIZED_FOR_ROLE", "violation", Some(&attestation.attestation_id), format!("key {} is inactive or not authorized for role/predicate", sig.keyid));
+                        finding(
+                            &mut findings,
+                            "DSSE_SIGNER_NOT_AUTHORIZED_FOR_ROLE",
+                            "violation",
+                            Some(&attestation.attestation_id),
+                            format!(
+                                "key {} is inactive or not authorized for role/predicate",
+                                sig.keyid
+                            ),
+                        );
                         signature_failure = true;
                         continue;
                     }
                     let public_bytes = match decode_hex_32(&trusted.public_key_hex) {
                         Some(v) => v,
                         None => {
-                            finding(&mut findings, "TRUSTED_PUBLIC_KEY_INVALID", "incomplete", Some(&attestation.attestation_id), format!("trusted key {} is not a 32-byte Ed25519 public key", sig.keyid));
+                            finding(
+                                &mut findings,
+                                "TRUSTED_PUBLIC_KEY_INVALID",
+                                "incomplete",
+                                Some(&attestation.attestation_id),
+                                format!(
+                                    "trusted key {} is not a 32-byte Ed25519 public key",
+                                    sig.keyid
+                                ),
+                            );
                             signature_failure = true;
                             continue;
                         }
@@ -475,7 +666,13 @@ fn audit(
                     let verifying_key = match VerifyingKey::from_bytes(&public_bytes) {
                         Ok(v) => v,
                         Err(_) => {
-                            finding(&mut findings, "TRUSTED_PUBLIC_KEY_INVALID", "incomplete", Some(&attestation.attestation_id), format!("trusted key {} is not a valid Ed25519 point", sig.keyid));
+                            finding(
+                                &mut findings,
+                                "TRUSTED_PUBLIC_KEY_INVALID",
+                                "incomplete",
+                                Some(&attestation.attestation_id),
+                                format!("trusted key {} is not a valid Ed25519 point", sig.keyid),
+                            );
                             signature_failure = true;
                             continue;
                         }
@@ -483,7 +680,13 @@ fn audit(
                     let signature_bytes = match STANDARD.decode(&sig.sig_base64) {
                         Ok(v) => v,
                         Err(_) => {
-                            finding(&mut findings, "DSSE_SIGNATURE_BASE64_INVALID", "violation", Some(&attestation.attestation_id), "signature is not valid standard base64");
+                            finding(
+                                &mut findings,
+                                "DSSE_SIGNATURE_BASE64_INVALID",
+                                "violation",
+                                Some(&attestation.attestation_id),
+                                "signature is not valid standard base64",
+                            );
                             signature_failure = true;
                             continue;
                         }
@@ -491,13 +694,28 @@ fn audit(
                     let signature = match Signature::from_slice(&signature_bytes) {
                         Ok(v) => v,
                         Err(_) => {
-                            finding(&mut findings, "DSSE_SIGNATURE_ENCODING_INVALID", "violation", Some(&attestation.attestation_id), "signature has an invalid Ed25519 encoding");
+                            finding(
+                                &mut findings,
+                                "DSSE_SIGNATURE_ENCODING_INVALID",
+                                "violation",
+                                Some(&attestation.attestation_id),
+                                "signature has an invalid Ed25519 encoding",
+                            );
                             signature_failure = true;
                             continue;
                         }
                     };
                     if verifying_key.verify(&pae_bytes, &signature).is_err() {
-                        finding(&mut findings, "DSSE_SIGNATURE_INVALID", "violation", Some(&attestation.attestation_id), format!("signature from key {} does not verify over DSSE PAE bytes", sig.keyid));
+                        finding(
+                            &mut findings,
+                            "DSSE_SIGNATURE_INVALID",
+                            "violation",
+                            Some(&attestation.attestation_id),
+                            format!(
+                                "signature from key {} does not verify over DSSE PAE bytes",
+                                sig.keyid
+                            ),
+                        );
                         signature_failure = true;
                         continue;
                     }
@@ -507,14 +725,26 @@ fn audit(
                         trusted,
                         &bundle.subject,
                     ) {
-                        finding(&mut findings, "DSSE_SIGNER_SUBJECT_BINDING_MISMATCH", "violation", Some(&attestation.attestation_id), message);
+                        finding(
+                            &mut findings,
+                            "DSSE_SIGNER_SUBJECT_BINDING_MISMATCH",
+                            "violation",
+                            Some(&attestation.attestation_id),
+                            message,
+                        );
                         signature_failure = true;
                         continue;
                     }
                     valid_signers.insert(sig.keyid.clone());
                 }
                 if !valid_signers.contains(&statement.predicate.issuer_key_id) {
-                    finding(&mut findings, "PREDICATE_ISSUER_KEY_MISMATCH", "violation", Some(&attestation.attestation_id), "signed predicate issuer_key_id must match a successfully verified signature");
+                    finding(
+                        &mut findings,
+                        "PREDICATE_ISSUER_KEY_MISMATCH",
+                        "violation",
+                        Some(&attestation.attestation_id),
+                        "signed predicate issuer_key_id must match a successfully verified signature",
+                    );
                     signature_failure = true;
                 }
                 if !signature_failure && !valid_signers.is_empty() {
@@ -531,7 +761,13 @@ fn audit(
                 let bytes = match STANDARD.decode(signed_statement_cose_base64) {
                     Ok(v) => v,
                     Err(_) => {
-                        finding(&mut findings, "SCITT_COSE_BASE64_INVALID", "violation", Some(&attestation.attestation_id), "SCITT signed statement is not valid standard base64");
+                        finding(
+                            &mut findings,
+                            "SCITT_COSE_BASE64_INVALID",
+                            "violation",
+                            Some(&attestation.attestation_id),
+                            "SCITT signed statement is not valid standard base64",
+                        );
                         continue;
                     }
                 };
@@ -539,10 +775,22 @@ fn audit(
                     || !valid_sha256(statement_sha256)
                     || sha256_hex(&bytes) != *statement_sha256
                 {
-                    finding(&mut findings, "SCITT_STATEMENT_COMMITMENT_INVALID", "violation", Some(&attestation.attestation_id), "SCITT media type or signed-statement SHA-256 commitment is invalid");
+                    finding(
+                        &mut findings,
+                        "SCITT_STATEMENT_COMMITMENT_INVALID",
+                        "violation",
+                        Some(&attestation.attestation_id),
+                        "SCITT media type or signed-statement SHA-256 commitment is invalid",
+                    );
                 } else {
                     scitt_unverified += 1;
-                    finding(&mut findings, "SCITT_COSE_VERIFICATION_UNIMPLEMENTED", "incomplete", Some(&attestation.attestation_id), "COSE signature and receipt verification are not implemented by this first DSSE-only verifier");
+                    finding(
+                        &mut findings,
+                        "SCITT_COSE_VERIFICATION_UNIMPLEMENTED",
+                        "incomplete",
+                        Some(&attestation.attestation_id),
+                        "COSE signature and receipt verification are not implemented by this first DSSE-only verifier",
+                    );
                 }
             }
         }
@@ -550,22 +798,63 @@ fn audit(
 
     for edge in &bundle.causal_edges {
         if !event_ids.contains(&edge.from_event_id) || !event_ids.contains(&edge.to_event_id) {
-            finding(&mut findings, "CAUSAL_EDGE_ENDPOINT_MISSING", "incomplete", None, "causal edge references an event without an attestation");
+            finding(
+                &mut findings,
+                "CAUSAL_EDGE_ENDPOINT_MISSING",
+                "incomplete",
+                None,
+                "causal edge references an event without an attestation",
+            );
         }
         if edge.basis_attestation_ids.is_empty()
-            || !edge.basis_attestation_ids.iter().all(|id| attestation_ids.contains(id))
+            || !edge
+                .basis_attestation_ids
+                .iter()
+                .all(|id| attestation_ids.contains(id))
         {
-            finding(&mut findings, "CAUSAL_EDGE_ATTESTATION_MISSING", "incomplete", None, "causal edge must reference one or more attestation IDs in this bundle");
+            finding(
+                &mut findings,
+                "CAUSAL_EDGE_ATTESTATION_MISSING",
+                "incomplete",
+                None,
+                "causal edge must reference one or more attestation IDs in this bundle",
+            );
         }
         if edge.from_event_id == edge.to_event_id {
-            finding(&mut findings, "CAUSAL_EDGE_SELF_REFERENCE", "violation", None, "causal edge cannot point to itself");
+            finding(
+                &mut findings,
+                "CAUSAL_EDGE_SELF_REFERENCE",
+                "violation",
+                None,
+                "causal edge cannot point to itself",
+            );
         }
-        if !matches!(edge.relation.as_str(), "program_order" | "request_response" | "source_action_dependency" | "validator_receipt" | "observer_confirmation" | "test_harness_barrier") {
-            finding(&mut findings, "CAUSAL_EDGE_RELATION_INVALID", "incomplete", None, "unsupported causal relation");
+        if !matches!(
+            edge.relation.as_str(),
+            "program_order"
+                | "request_response"
+                | "source_action_dependency"
+                | "validator_receipt"
+                | "observer_confirmation"
+                | "test_harness_barrier"
+        ) {
+            finding(
+                &mut findings,
+                "CAUSAL_EDGE_RELATION_INVALID",
+                "incomplete",
+                None,
+                "unsupported causal relation",
+            );
         }
     }
     if graph_has_cycle(&bundle.causal_edges, &event_ids) {
-        finding(&mut findings, "CAUSAL_GRAPH_CYCLE", "violation", None, "signed evidence causal graph must be acyclic");
+        finding(
+            &mut findings,
+            "CAUSAL_GRAPH_CYCLE",
+            "violation",
+            None,
+            "signed evidence causal graph must be acyclic",
+        );
     }
 
     let violation = findings.iter().any(|f| f.severity == "violation");
@@ -605,12 +894,26 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut args = env::args().skip(1);
     while let Some(arg) = args.next() {
         match arg.as_str() {
-            "--bundle" => bundle = Some(PathBuf::from(args.next().ok_or("--bundle requires a path")?)),
+            "--bundle" => {
+                bundle = Some(PathBuf::from(
+                    args.next().ok_or("--bundle requires a path")?,
+                ))
+            }
             "--trace" => trace = Some(PathBuf::from(args.next().ok_or("--trace requires a path")?)),
-            "--trust-policy" => policy = Some(PathBuf::from(args.next().ok_or("--trust-policy requires a path")?)),
-            "--output" => output = Some(PathBuf::from(args.next().ok_or("--output requires a path")?)),
+            "--trust-policy" => {
+                policy = Some(PathBuf::from(
+                    args.next().ok_or("--trust-policy requires a path")?,
+                ))
+            }
+            "--output" => {
+                output = Some(PathBuf::from(
+                    args.next().ok_or("--output requires a path")?,
+                ))
+            }
             "--help" | "-h" => {
-                println!("pulse-signed-evidence-audit --bundle BUNDLE.json --trace TRACE.json --trust-policy TRUST.json [--output REPORT.json]");
+                println!(
+                    "pulse-signed-evidence-audit --bundle BUNDLE.json --trace TRACE.json --trust-policy TRUST.json [--output REPORT.json]"
+                );
                 return Ok(());
             }
             other => return Err(format!("unknown argument: {other}").into()),
@@ -653,7 +956,8 @@ mod tests {
         let trace_bytes = serde_json::to_vec(&json!({
             "source_commit": source_commit,
             "trace_id": "synthetic-signed-trace-1"
-        })).unwrap();
+        }))
+        .unwrap();
         let trace_digest = sha256_hex(&trace_bytes);
         let signing_key = SigningKey::from_bytes(&[7u8; 32]);
         let verifying_key = signing_key.verifying_key();
@@ -753,14 +1057,22 @@ mod tests {
         let policy_digest = sha256_hex(&policy_bytes);
         let mut bundle = bundle;
         bundle["trust_policy"]["policy_sha256"] = Value::String(policy_digest);
-        (serde_json::to_vec(&bundle).unwrap(), trace_bytes, policy_bytes)
+        (
+            serde_json::to_vec(&bundle).unwrap(),
+            trace_bytes,
+            policy_bytes,
+        )
     }
 
     #[test]
     fn valid_dsse_statement_verifies_against_supplied_role_policy() {
         let (bundle, trace, policy) = fixture();
         let report = audit(&bundle, &trace, &policy).unwrap();
-        assert_eq!(report.status, "ROLE_AUTHENTICATED_RELATIVE_TO_SUPPLIED_POLICY", "{:?}", report.findings);
+        assert_eq!(
+            report.status, "ROLE_AUTHENTICATED_RELATIVE_TO_SUPPLIED_POLICY",
+            "{:?}",
+            report.findings
+        );
         assert_eq!(report.dsse_verified, 1);
     }
 
@@ -768,12 +1080,18 @@ mod tests {
     fn trusted_host_key_cannot_sign_for_a_different_conductor() {
         let (bundle, trace, policy) = fixture();
         let mut bundle_value: Value = serde_json::from_slice(&bundle).unwrap();
-        let payload_type = bundle_value["attestations"][0]["envelope"]["payload_type"].as_str().unwrap().to_string();
-        let payload_b64 = bundle_value["attestations"][0]["envelope"]["payload_base64"].as_str().unwrap();
+        let payload_type = bundle_value["attestations"][0]["envelope"]["payload_type"]
+            .as_str()
+            .unwrap()
+            .to_string();
+        let payload_b64 = bundle_value["attestations"][0]["envelope"]["payload_base64"]
+            .as_str()
+            .unwrap();
         let payload = STANDARD.decode(payload_b64).unwrap();
         let mut statement: Value = serde_json::from_slice(&payload).unwrap();
         statement["predicate"]["details"]["conductor_id"] = Value::String("validator-host".into());
-        statement["predicate"]["details"]["agent_key_ref"] = Value::String("agent-validator".into());
+        statement["predicate"]["details"]["agent_key_ref"] =
+            Value::String("agent-validator".into());
         statement["predicate"]["details"]["cell_id"] = Value::String("mail-cell-validator".into());
         let changed_payload = serde_json::to_vec(&statement).unwrap();
         let signing_key = SigningKey::from_bytes(&[7u8; 32]);
@@ -784,33 +1102,65 @@ mod tests {
             Value::String(STANDARD.encode(signature.to_bytes()));
         let report = audit(&serde_json::to_vec(&bundle_value).unwrap(), &trace, &policy).unwrap();
         assert_eq!(report.status, "FAIL");
-        assert!(report.findings.iter().any(|f| f.code == "DSSE_SIGNER_SUBJECT_BINDING_MISMATCH"));
+        assert!(
+            report
+                .findings
+                .iter()
+                .any(|f| f.code == "DSSE_SIGNER_SUBJECT_BINDING_MISMATCH")
+        );
     }
 
     #[test]
     fn host_authority_key_without_subject_binding_is_not_authorized() {
         let (bundle, trace, policy) = fixture();
         let mut value: Value = serde_json::from_slice(&policy).unwrap();
-        value["keys"][0].as_object_mut().unwrap().remove("subject_binding");
+        value["keys"][0]
+            .as_object_mut()
+            .unwrap()
+            .remove("subject_binding");
         let policy_bytes = serde_json::to_vec(&value).unwrap();
         let policy_digest = sha256_hex(&policy_bytes);
         let mut bundle_value: Value = serde_json::from_slice(&bundle).unwrap();
         bundle_value["trust_policy"]["policy_sha256"] = Value::String(policy_digest);
-        let report = audit(&serde_json::to_vec(&bundle_value).unwrap(), &trace, &policy_bytes).unwrap();
+        let report = audit(
+            &serde_json::to_vec(&bundle_value).unwrap(),
+            &trace,
+            &policy_bytes,
+        )
+        .unwrap();
         assert_eq!(report.status, "FAIL");
-        assert!(report.findings.iter().any(|f| f.code == "DSSE_SIGNER_SUBJECT_BINDING_MISMATCH"));
+        assert!(
+            report
+                .findings
+                .iter()
+                .any(|f| f.code == "DSSE_SIGNER_SUBJECT_BINDING_MISMATCH")
+        );
     }
 
     #[test]
     fn signature_fails_after_signed_payload_mutation() {
         let (bundle, trace, policy) = fixture();
         let mut value: Value = serde_json::from_slice(&bundle).unwrap();
-        let payload = STANDARD.decode(value["attestations"][0]["envelope"]["payload_base64"].as_str().unwrap()).unwrap();
-        let text = String::from_utf8(payload).unwrap().replace("grant_issued", "grant_denied");
-        value["attestations"][0]["envelope"]["payload_base64"] = Value::String(STANDARD.encode(text.as_bytes()));
+        let payload = STANDARD
+            .decode(
+                value["attestations"][0]["envelope"]["payload_base64"]
+                    .as_str()
+                    .unwrap(),
+            )
+            .unwrap();
+        let text = String::from_utf8(payload)
+            .unwrap()
+            .replace("grant_issued", "grant_denied");
+        value["attestations"][0]["envelope"]["payload_base64"] =
+            Value::String(STANDARD.encode(text.as_bytes()));
         let report = audit(&serde_json::to_vec(&value).unwrap(), &trace, &policy).unwrap();
         assert_eq!(report.status, "FAIL");
-        assert!(report.findings.iter().any(|f| f.code == "DSSE_SIGNATURE_INVALID"));
+        assert!(
+            report
+                .findings
+                .iter()
+                .any(|f| f.code == "DSSE_SIGNATURE_INVALID")
+        );
     }
 
     #[test]
@@ -820,7 +1170,12 @@ mod tests {
         value["attestations"][0]["issuer_role"] = Value::String("validator".into());
         let report = audit(&serde_json::to_vec(&value).unwrap(), &trace, &policy).unwrap();
         assert_eq!(report.status, "FAIL");
-        assert!(report.findings.iter().any(|f| f.code == "SIGNED_STATEMENT_BINDING_MISMATCH"));
+        assert!(
+            report
+                .findings
+                .iter()
+                .any(|f| f.code == "SIGNED_STATEMENT_BINDING_MISMATCH")
+        );
     }
 
     #[test]
@@ -830,7 +1185,12 @@ mod tests {
         altered.extend_from_slice(b" ");
         let report = audit(&bundle, &trace, &altered).unwrap();
         assert_eq!(report.status, "FAIL");
-        assert!(report.findings.iter().any(|f| f.code == "TRUST_POLICY_BINDING_MISMATCH"));
+        assert!(
+            report
+                .findings
+                .iter()
+                .any(|f| f.code == "TRUST_POLICY_BINDING_MISMATCH")
+        );
     }
 
     #[test]
@@ -840,7 +1200,12 @@ mod tests {
         altered.push(b' ');
         let report = audit(&bundle, &altered, &policy).unwrap();
         assert_eq!(report.status, "FAIL");
-        assert!(report.findings.iter().any(|f| f.code == "TRACE_SUBJECT_DIGEST_MISMATCH"));
+        assert!(
+            report
+                .findings
+                .iter()
+                .any(|f| f.code == "TRACE_SUBJECT_DIGEST_MISMATCH")
+        );
     }
 
     #[test]
@@ -858,7 +1223,12 @@ mod tests {
         // the trust policy itself remains unchanged and the SCITT branch is expected to be incomplete.
         let report = audit(&serde_json::to_vec(&value).unwrap(), &trace, &policy).unwrap();
         assert_eq!(report.status, "INCOMPLETE");
-        assert!(report.findings.iter().any(|f| f.code == "SCITT_COSE_VERIFICATION_UNIMPLEMENTED"));
+        assert!(
+            report
+                .findings
+                .iter()
+                .any(|f| f.code == "SCITT_COSE_VERIFICATION_UNIMPLEMENTED")
+        );
     }
 
     #[test]
@@ -873,6 +1243,11 @@ mod tests {
         }]);
         let report = audit(&serde_json::to_vec(&value).unwrap(), &trace, &policy).unwrap();
         assert_eq!(report.status, "FAIL");
-        assert!(report.findings.iter().any(|f| f.code == "CAUSAL_EDGE_SELF_REFERENCE"));
+        assert!(
+            report
+                .findings
+                .iter()
+                .any(|f| f.code == "CAUSAL_EDGE_SELF_REFERENCE")
+        );
     }
 }
