@@ -1568,6 +1568,156 @@ mod tests {
         ));
     }
 
+    fn fixture_with_two_signed_events_and_edge() -> (Vec<u8>, Vec<u8>, Vec<u8>) {
+        let (bundle, trace, policy) = fixture();
+        let mut bundle_value: Value = serde_json::from_slice(&bundle).unwrap();
+        let mut trace_value: Value = serde_json::from_slice(&trace).unwrap();
+
+        let second_event_data = json!({
+            "operation_id": "send-op-1",
+            "attempt_id": 1,
+            "grant_ref": "grant-A",
+            "grant_action_hash": "uhCkk-test-grant",
+            "caller": "agent-recipient",
+            "function": "messages.send",
+            "host_authority_index": 2,
+            "host_decision": "authorized",
+            "host_state_at_decision": "active",
+            "domain_decision": "allow",
+            "projection_used_for_authorization": false
+        });
+        trace_value["events"].as_array_mut().unwrap().push(json!({
+            "event_id": "host-call-observation-2",
+            "conductor_id": "owner-host",
+            "local_sequence": 2,
+            "source": "conductor_host",
+            "evidence_ref": "fixture://owner/call",
+            "event_type": "host_call",
+            "data": second_event_data
+        }));
+        let trace_bytes = serde_json::to_vec(&trace_value).unwrap();
+        let trace_digest = sha256_hex(&trace_bytes);
+        let source_commit = bundle_value["subject"]["source_commit"]
+            .as_str()
+            .unwrap()
+            .to_string();
+        let repository = bundle_value["subject"]["repository"]
+            .as_str()
+            .unwrap()
+            .to_string();
+        bundle_value["subject"]["trace_sha256"] = Value::String(trace_digest.clone());
+
+        let payload_type = "application/vnd.in-toto+json";
+        let signing_key = SigningKey::from_bytes(&[7u8; 32]);
+        let key_id = "test-host-key-1";
+        let predicate_type = predicate_type_for_role("host_authority").unwrap();
+
+        let first_payload = STANDARD
+            .decode(
+                bundle_value["attestations"][0]["envelope"]["payload_base64"]
+                    .as_str()
+                    .unwrap(),
+            )
+            .unwrap();
+        let mut first_statement: Value = serde_json::from_slice(&first_payload).unwrap();
+        first_statement["subject"][0]["digest"]["sha256"] =
+            Value::String(trace_digest.clone());
+        first_statement["predicate"]["trace_sha256"] = Value::String(trace_digest.clone());
+        let first_bytes = serde_json::to_vec(&first_statement).unwrap();
+        let first_signature = signing_key.sign(&pae(payload_type, &first_bytes));
+        bundle_value["attestations"][0]["envelope"]["payload_base64"] =
+            Value::String(STANDARD.encode(&first_bytes));
+        bundle_value["attestations"][0]["envelope"]["signatures"][0]["sig_base64"] =
+            Value::String(STANDARD.encode(first_signature.to_bytes()));
+
+        let second_statement = json!({
+            "_type": "https://in-toto.io/Statement/v1",
+            "subject": [{
+                "name": format!("pulse-trace:{repository}@{source_commit}"),
+                "digest": { "sha256": trace_digest }
+            }],
+            "predicateType": predicate_type,
+            "predicate": {
+                "role": "host_authority",
+                "event_id": "host-call-observation-2",
+                "issuer_key_id": key_id,
+                "source_commit": source_commit,
+                "trace_sha256": bundle_value["subject"]["trace_sha256"].clone(),
+                "details": {
+                    "event_type": "host_call",
+                    "source": "conductor_host",
+                    "conductor_id": "owner-host",
+                    "local_sequence": 2,
+                    "evidence_ref": "fixture://owner/call",
+                    "event_data": {
+                        "operation_id": "send-op-1",
+                        "attempt_id": 1,
+                        "grant_ref": "grant-A",
+                        "grant_action_hash": "uhCkk-test-grant",
+                        "caller": "agent-recipient",
+                        "function": "messages.send",
+                        "host_authority_index": 2,
+                        "host_decision": "authorized",
+                        "host_state_at_decision": "active",
+                        "domain_decision": "allow",
+                        "projection_used_for_authorization": false
+                    },
+                    "agent_key_ref": "agent-owner-pseudonym",
+                    "dna_hash": "uhCkk-dna-mail",
+                    "cell_id": "mail-cell-owner",
+                    "integrity_wasm_sha256": "d".repeat(64)
+                }
+            }
+        });
+        let second_bytes = serde_json::to_vec(&second_statement).unwrap();
+        let second_signature = signing_key.sign(&pae(payload_type, &second_bytes));
+        bundle_value["attestations"]
+            .as_array_mut()
+            .unwrap()
+            .push(json!({
+                "attestation_id": "att-host-call-2",
+                "event_id": "host-call-observation-2",
+                "issuer_role": "host_authority",
+                "exposure": "restricted",
+                "envelope": {
+                    "format": "dsse_in_toto_v1",
+                    "payload_type": payload_type,
+                    "payload_base64": STANDARD.encode(&second_bytes),
+                    "signatures": [{
+                        "keyid": key_id,
+                        "sig_base64": STANDARD.encode(second_signature.to_bytes())
+                    }]
+                }
+            }));
+        bundle_value["causal_edges"] = json!([{
+            "from_event_id": "host-grant-observation-1",
+            "to_event_id": "host-call-observation-2",
+            "relation": "request_response",
+            "basis_attestation_ids": ["att-host-grant-1", "att-host-call-2"]
+        }]);
+
+        (
+            serde_json::to_vec(&bundle_value).unwrap(),
+            trace_bytes,
+            policy,
+        )
+    }
+
+    #[test]
+    fn valid_causal_edge_is_backed_by_two_exact_signed_endpoint_events() {
+        let (bundle, trace, policy) = fixture_with_two_signed_events_and_edge();
+        let report = audit(&bundle, &trace, &policy).unwrap();
+        assert_eq!(
+            report.status,
+            "ROLE_AUTHENTICATED_RELATIVE_TO_SUPPLIED_POLICY",
+            "{:?}",
+            report.findings
+        );
+        assert_eq!(report.dsse_verified, 2);
+        assert_eq!(report.causal_edges, 1);
+        assert!(report.findings.is_empty(), "{:?}", report.findings);
+    }
+
     #[test]
     fn valid_dsse_statement_verifies_against_supplied_role_policy() {
         let (bundle, trace, policy) = fixture();
