@@ -4,11 +4,13 @@
 /**
  * DKG Multi-Agent Collaboration Tests
  *
- * Tests the Truth Engine's behavior with multiple agents:
- * - 5-agent consensus formation
- * - Reputation propagation (experienced vs fresh agents)
+ * Tests selected multi-agent DKG behavior:
+ * - Endorsement-count effects on the legacy confidence ranking
+ * - Reputation propagation (experienced vs. fresh agents)
  * - Subject discovery across agents
  * - Self-attestation behavior
+ *
+ * Endorsement and reputation are social signals, not proof that a claim is true.
  */
 
 import { describe, test, expect, jest } from '@jest/globals';
@@ -72,7 +74,7 @@ interface AgentReputation {
 describe('DKG Multi-Agent Collaboration Tests', () => {
   jest.setTimeout(600000);
 
-  test('5-agent consensus: 3 endorsements beat 2 endorsements', async () => {
+  test('5-agent endorsement-count sensitivity: 3 endorsements rank above 2 in the fixture', async () => {
     await runScenario(async (scenario: Scenario) => {
       const [alice, bob, charlie, dave, eve] =
         await scenario.addPlayersWithApps([
@@ -100,7 +102,7 @@ describe('DKG Multi-Agent Collaboration Tests', () => {
         } as SubmitClaimInput,
       });
 
-      // Dave submits claim B: "Earth orbits Moon" (wrong)
+      // Dave submits a competing fixture claim: "Earth orbits Moon".
       const claimB: ActionHash = await dave.cells[0].callZome({
         zome_name: 'dkg',
         fn_name: 'submit_claim',
@@ -157,16 +159,16 @@ describe('DKG Multi-Agent Collaboration Tests', () => {
       expect(moonClaim).toBeDefined();
 
       console.log(
-        `5-agent consensus: Sun confidence=${sunClaim!.confidence.toFixed(4)} (${sunClaim!.endorsements} endorsements), ` +
+        `5-agent endorsement-count fixture: Sun confidence=${sunClaim!.confidence.toFixed(4)} (${sunClaim!.endorsements} endorsements), ` +
           `Moon confidence=${moonClaim!.confidence.toFixed(4)} (${moonClaim!.endorsements} endorsements)`,
       );
 
-      // Claim A (3 endorsements) should have higher confidence than claim B (2 endorsements)
+      // Three endorsements produce a higher legacy score than two in this fixture; this is not a correctness or truth test.
       expect(sunClaim!.confidence).toBeGreaterThan(moonClaim!.confidence);
     }, true, scenarioOptions);
   });
 
-  test('Reputation propagation: experienced agent claim wins over fresh agent', async () => {
+  test('author reputation history influences legacy ranking in this fixture', async () => {
     await runScenario(async (scenario: Scenario) => {
       const [experienced, fresh, endorser1, endorser2, endorser3, observer] =
         await scenario.addPlayersWithApps([
@@ -294,7 +296,7 @@ describe('DKG Multi-Agent Collaboration Tests', () => {
           `fresh claim confidence=${claim105!.confidence.toFixed(4)}`,
       );
 
-      // Experienced agent's claim should have higher confidence due to reputation
+      // This isolates a reputation-score effect; it does not establish that the claim is better supported or true.
       expect(claim981!.confidence).toBeGreaterThan(claim105!.confidence);
     }, true, scenarioOptions);
   });
