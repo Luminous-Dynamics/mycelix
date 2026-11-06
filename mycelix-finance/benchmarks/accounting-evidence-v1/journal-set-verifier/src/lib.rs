@@ -298,11 +298,18 @@ fn assess_case(case: &Value) -> AppResult<Assessment> {
         let booking_at = string(journal, "booking_at").unwrap_or_default();
         let post_close_authorized =
             journal.get("post_close_authorized").and_then(Value::as_bool) == Some(true);
-        if !close_cutoff.is_empty() && effective_at > close_cutoff && !post_close_authorized {
+        let reopen_authorization = string(journal, "post_close_authorization_ref")
+            .filter(|value| !value.trim().is_empty());
+        let qualified_reopen = post_close_authorized && reopen_authorization.is_some();
+        if post_close_authorized && reopen_authorization.is_none() {
+            findings.insert("orphan_or_unauthorized_journal".to_owned());
+            reasons.insert("post_close_authorization_reference_missing".to_owned());
+        }
+        if !close_cutoff.is_empty() && effective_at > close_cutoff && !qualified_reopen {
             findings.insert("stale_close_frontier".to_owned());
             reasons.insert("journal_effective_after_close_cutoff".to_owned());
         }
-        if !close_cutoff.is_empty() && booking_at > close_cutoff && !post_close_authorized {
+        if !close_cutoff.is_empty() && booking_at > close_cutoff && !qualified_reopen {
             findings.insert("stale_close_frontier".to_owned());
             reasons.insert("journal_received_after_close_without_reopen_authority".to_owned());
         }
