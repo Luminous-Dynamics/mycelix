@@ -23,6 +23,7 @@ The event graph is not a journal. It is a stable semantic layer from which separ
 - `accounting_policy_projection_v1.0.0.schema.json`: policy-specific output contract binding graph, policy and projector digests separately.
 - `accounting_policy_projection_validation_report_v1.0.0.schema.json`: deterministic projection-verification report.
 - `accounting_policy_projection_bundle_v1.0.0.schema.json` and `fixtures/accounting_policy_projection_review_controls_v1.0.0.json`: two review-only projection examples over one immutable graph digest.
+- `accounting_policy_projection_audit_report_v1.0.0.schema.json` and `accounting_policy_projection_audit_v1/README.md`: independent projection-integrity auditor contract and report.
 - `../rust-resolver/src/bin/validate_economic_event_graph_s0.rs`: Rust graph validator/report generator.
 - `../rust-resolver/src/bin/validate_accounting_policy_projection_bundle_s0.rs`: separate graph-bound policy-projection verifier/report generator.
 - `accounting_policy_projection_validation_report_v1.0.0.schema.json`: projection-verifier report schema.
@@ -99,6 +100,7 @@ Seventeen event-graph Rust tests and thirteen projection-validator Rust tests ar
 - #5849 owns cross-border financial data-flow review and data governance.
 - #5855 owns read-only vendor platform interchange.
 - #5799 owns canonical benchmark run manifests/receipts and matched evaluation arms.
+- #5891 / `accounting_policy_projection_audit_v1` independently checks policy/projector bindings, event decision coverage, assumption evidence, journal lineage, amount/currency agreement, per-entry balance and blocked-state non-posting.
 
 Compare document-to-journal direct generation, source-fact-to-journal generation, typed-event-graph normalization, event graph plus independent replay, and multiple policy projections from the same frozen graph. The policy projection verifier makes cross-policy comparisons reproducible by pinning graph, policy and projector digests independently. Measure event normalization precision/recall on expert-labelled cases, provenance closure, contradiction retention, false event merges, replay stability, journal invariants, reviewer effort and cost separately.
 
