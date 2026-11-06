@@ -1,0 +1,140 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/mycelix-policy-projection-audit-report-v1.0.0.json",
+  "title": "Mycelix Policy Projection Integrity Audit Report v1.0.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "report_id",
+    "schema_version",
+    "claim_ceiling",
+    "graph_sha256",
+    "projection_bundle_sha256",
+    "graph_case_id",
+    "projection_count",
+    "projection_results"
+  ],
+  "properties": {
+    "report_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "claim_ceiling": {
+      "const": "structural_binding_and_ledger_invariants_not_policy_correctness"
+    },
+    "graph_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "projection_bundle_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "graph_case_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "projection_count": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "projection_results": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/projectionResult"
+      }
+    }
+  },
+  "$defs": {
+    "projectionResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "projection_id",
+        "status",
+        "graph_binding_valid",
+        "policy_binding_valid",
+        "projector_binding_valid",
+        "event_decision_coverage",
+        "assertion_provenance_valid",
+        "journal_lineage_valid",
+        "journal_balanced",
+        "blocked_state_non_posting",
+        "unresolved_references_valid",
+        "failure_codes"
+      ],
+      "properties": {
+        "projection_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "status": {
+          "enum": [
+            "pass",
+            "reject"
+          ]
+        },
+        "graph_binding_valid": {
+          "type": "boolean"
+        },
+        "policy_binding_valid": {
+          "type": "boolean"
+        },
+        "projector_binding_valid": {
+          "type": "boolean"
+        },
+        "event_decision_coverage": {
+          "type": "boolean"
+        },
+        "assertion_provenance_valid": {
+          "type": "boolean"
+        },
+        "journal_lineage_valid": {
+          "type": "boolean"
+        },
+        "journal_balanced": {
+          "type": "boolean"
+        },
+        "blocked_state_non_posting": {
+          "type": "boolean"
+        },
+        "unresolved_references_valid": {
+          "type": "boolean"
+        },
+        "failure_codes": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "graph_digest_mismatch",
+              "policy_digest_invalid",
+              "projector_digest_invalid",
+              "missing_event_decision",
+              "duplicate_event_decision",
+              "orphan_event_decision",
+              "decision_assertion_not_attached_to_event",
+              "decision_assertion_unavailable",
+              "recognized_decision_missing_amount_or_period",
+              "recognized_decision_without_journal",
+              "nonrecognized_decision_has_journal",
+              "journal_policy_decision_missing",
+              "journal_event_lineage_mismatch",
+              "journal_assertion_lineage_mismatch",
+              "journal_source_assertion_unavailable",
+              "journal_entry_unbalanced",
+              "blocked_projection_has_journal",
+              "blocking_unresolved_item_in_complete_projection",
+              "unresolved_event_reference_missing",
+              "unresolved_assertion_reference_missing",
+              "journal_entity_period_mismatch",
+              "duplicate_policy_decision_ref"
+            ]
+          }
+        }
+      }
+    }
+  }
+}
