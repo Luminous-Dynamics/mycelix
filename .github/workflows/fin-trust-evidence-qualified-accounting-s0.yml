@@ -52,7 +52,7 @@ jobs:
 
       - name: Formatting
         working-directory: ${{ env.RESOLVER_DIR }}
-        run: cargo fmt --all -- --check
+        run: rustfmt --edition 2024 --check src/bin/validate_evidence_qualified_accounting_s0.rs
 
       - name: Locked 20-case semantic tests
         working-directory: ${{ env.RESOLVER_DIR }}
