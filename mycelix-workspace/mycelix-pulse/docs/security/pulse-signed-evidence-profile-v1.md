@@ -92,6 +92,26 @@ Every role-specific observation is signed by an issuer authorized for that role.
 
 The issuer's signed predicate must contain its issuer role, issuer identity, event ID and exact subject digests. The unprotected bundle metadata is not an authority source.
 
+### Exact trace-event binding (implemented in the local verifier prototype)
+
+A whole-trace digest alone does not prove that a signed predicate describes a particular event inside that trace. For every event-level role attestation, the verifier now resolves exactly one `trace.events[]` item by `event_id` and requires the signed `predicate.details` to contain the exact closed field set:
+
+- `event_type`;
+- `source`;
+- `conductor_id`;
+- `local_sequence`;
+- `evidence_ref`;
+- complete `event_data`;
+- `agent_key_ref`, `dna_hash`, `cell_id`, and `integrity_wasm_sha256`.
+
+The signed values must match the exact parsed trace event and its conductor lineage. The role must also match the event's permitted source/type: host authority ↔ conductor host grant/revoke/call; action author ↔ source-chain action; validator ↔ validation disposition; observer ↔ projection observation; client outcome ↔ client result. A valid Ed25519 signature over a fabricated or contradictory event claim now fails semantic binding.
+
+The `independent_auditor` role is a trace-level attestation, not a synthetic conductor event. Its event ID is `trace:<trace_id>`, and its signed details bind trace ID, source commit, trace digest, schema digest and tool-build digest.
+
+A causal edge is trusted only when its basis includes DSSE-verified attestations for both exact endpoint event IDs. A known but invalid/SCITT-unverified attestation, or a valid attestation for an unrelated event, cannot support the edge. The signed-evidence bundle schema now requires at least two distinct basis attestation IDs for an edge.
+
+These checks establish semantic binding between signed bytes and the supplied trace subject. They still do not prove the real-world truth of the trace or authenticate the external trust root.
+
 ## 4. Bundle schema
 
 The proposed JSON schema provides a transport/indexing wrapper for:
