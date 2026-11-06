@@ -258,6 +258,28 @@ The checkpoint remains a freshness constraint for application reads only. It doe
 
 The current model expansion is being checked with the pinned TLC workflow. Do not claim the expanded descendant semantics are model-checked until the exact run shows the safe frontier configuration exhausts its state queue and the scalar mutant violates its intended invariant. The runtime implementation still needs actual source-chain ActionHash ancestry and two-conductor evidence; the TLA+ boolean ancestry proof is an abstraction, not a Holochain API.
  
+## Exact-head assurance and verifier results — 6 November 2026
+
+Research PR #5771 head `8b9a2de05c1c562e6f6135fc2645679e756a6cff` completed the following separate hosted checks:
+
+| Lane | Result | Exact evidence | Claim ceiling |
+|---|---|---|---|
+| Six-model TLC suite | PASS | Run #283, artifact 13501137151 | Bounded abstract models only |
+| Lifecycle Rust auditor | 19/19 tests | Run #184, artifact 13502115166 | Structural synthetic trace contract |
+| Signal contract Rust auditor | 9/9 tests; 28 schema variants; source report clean | Run #222, artifact 13500599118 | Source/schema drift audit, not runtime signal delivery |
+| Signed evidence verifier | 26/26 tests; format and Clippy pass | Run #90, artifact 13501032365 | DSSE role authentication relative to supplied trust policy |
+| Multi-conductor Rust auditor | 37/37 tests | Run #166, artifact 13500828166 | Synthetic partial-order structural audit |
+| Synthetic audit benchmark | 30 processes at 1k/10k/100k; one 1M probe | Run #166, artifact 13501052421 | Synthetic workload only |
+| Owned-vs-borrowed parse benchmark | 30 processes at 1k/10k/100k; one 1M probe | Run #166, artifact 13501252101 | Parse + event-shape validation only |
+
+All six safe TLA+ models exhausted their bounded state queues with no invariant failures, and all eight intentional mutants were caught by their named invariants. The exact state counts and claim limitations are in `pulse-authority-model-check-2026-11-06.md`.
+
+The current multi-conductor auditor still uses a fully materialized owned history for semantic checks. The isolated borrowed parser is 3.2–3.4× faster and requests 15–23× fewer allocation bytes in the measured fixture, but the production path still performs the borrowed preflight and then materializes `Vec<Event>` / `serde_json::Value`. No whole-auditor optimization is claimed. See `pulse-borrowed-parser-microbenchmark-2026-11-06.md` and issue #5872.
+
+The signed evidence verifier is not a global trust-root implementation. Its 26 tests qualify Ed25519 DSSE / in-toto role signatures relative to a supplied policy; the root keyset label is not itself cryptographically authenticated. COSE/SCITT receipt signatures and VDS inclusion/consistency proofs remain unimplemented and therefore INCOMPLETE. See #5863 and `pulse-signed-evidence-profile-v1.md`.
+
+The generic Mycelix CI workflow was skipped in this research PR run. These independent assurance lanes do not compile, package or runtime-qualify the Holochain Pulse hApp.
+
 ## Qualification stages
 
 | Stage | Required evidence | Claim ceiling |
