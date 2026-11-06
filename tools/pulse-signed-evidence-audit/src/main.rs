@@ -2796,4 +2796,69 @@ mod tests {
         assert!(report.trust_policy_root_authenticated);
     }
 
+    #[test]
+    fn root_signature_rejects_a_mutated_signature_byte() {
+        let (_, _, policy_bytes) = fixture();
+        let (envelope, pin) = root_policy_fixture(&policy_bytes);
+        let mut envelope_value: Value = serde_json::from_slice(&envelope).unwrap();
+        let signature = STANDARD
+            .decode(envelope_value["signatures"][0]["sig_base64"].as_str().unwrap())
+            .unwrap();
+        let mut mutated = signature;
+        mutated[0] ^= 0x80;
+        envelope_value["signatures"][0]["sig_base64"] =
+            Value::String(STANDARD.encode(mutated));
+        let error = verify_root_signed_trust_policy(
+            &policy_bytes,
+            &serde_json::to_vec(&envelope_value).unwrap(),
+            &pin,
+        )
+        .unwrap_err();
+        assert!(error.contains("root signature verification failed"), "{error}");
+    }
+
+    #[test]
+    fn root_pin_rejects_public_key_fingerprint_mismatch() {
+        let (_, _, policy_bytes) = fixture();
+        let (envelope, pin) = root_policy_fixture(&policy_bytes);
+        let mut pin_value: Value = serde_json::from_slice(&pin).unwrap();
+        let replacement_root = SigningKey::from_bytes(&[101u8; 32]).verifying_key();
+        // Keep the original key ID while changing only the public key bytes.
+        pin_value["root_public_key_hex"] = Value::String(hex(replacement_root.as_bytes()));
+        let error = verify_root_signed_trust_policy(
+            &policy_bytes,
+            &envelope,
+            &serde_json::to_vec(&pin_value).unwrap(),
+        )
+        .unwrap_err();
+        assert!(error.contains("fingerprint"), "{error}");
+    }
+
+    #[test]
+    fn root_envelope_rejects_duplicate_root_signatures() {
+        let (_, _, policy_bytes) = fixture();
+        let (envelope, pin) = root_policy_fixture(&policy_bytes);
+        let mut envelope_value: Value = serde_json::from_slice(&envelope).unwrap();
+        let first = envelope_value["signatures"][0].clone();
+        envelope_value["signatures"].as_array_mut().unwrap().push(first);
+        let error = verify_root_signed_trust_policy(
+            &policy_bytes,
+            &serde_json::to_vec(&envelope_value).unwrap(),
+            &pin,
+        )
+        .unwrap_err();
+        assert!(error.contains("exactly one"), "{error}");
+    }
+
+    #[test]
+    fn root_pin_rejects_stale_policy_bytes_even_with_valid_old_signature() {
+        let (_, _, policy_bytes) = fixture();
+        let (envelope, pin) = root_policy_fixture(&policy_bytes);
+        let mut stale_bytes = policy_bytes.clone();
+        stale_bytes.push(b' ');
+        let error =
+            verify_root_signed_trust_policy(&stale_bytes, &envelope, &pin).unwrap_err();
+        assert!(error.contains("out-of-band policy digest pin"), "{error}");
+    }
+
 }
