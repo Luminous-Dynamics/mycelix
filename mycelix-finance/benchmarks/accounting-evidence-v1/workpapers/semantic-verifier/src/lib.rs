@@ -350,10 +350,10 @@ fn find_cycle(
         }
         visiting.push(id.to_owned());
         for parent in parents.get(id).into_iter().flatten() {
-            if allowed.contains(parent) {
-                if let Some(found) = visit(parent, parents, allowed, visiting, visited) {
-                    return Some(found);
-                }
+            if allowed.contains(parent)
+                && let Some(found) = visit(parent, parents, allowed, visiting, visited)
+            {
+                return Some(found);
             }
         }
         visiting.pop();
