@@ -3138,7 +3138,7 @@
             "denomination_profile_ref": "SYNTH-ZAR-2DP-NOT-PRODUCTION",
             "period_id": "2026-10",
             "effective_at": "2026-10-31T23:00:00Z",
-            "booking_at": "2026-11-02T08:00:00Z",
+            "booking_at": "2026-11-04T08:00:00Z",
             "value_date": "2026-10-30",
             "reversal_of": null,
             "correction_of": null,
