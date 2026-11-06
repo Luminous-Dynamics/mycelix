@@ -46,7 +46,8 @@
       "decision_disposition": null,
       "reason_code": null,
       "terminal_disposition": null,
-      "response_sha256": null
+      "response_sha256": null,
+      "question_context_fact_refs": []
     },
     {
       "seq": 2,
@@ -83,7 +84,8 @@
       "decision_disposition": null,
       "reason_code": null,
       "terminal_disposition": null,
-      "response_sha256": null
+      "response_sha256": null,
+      "question_context_fact_refs": []
     },
     {
       "seq": 3,
@@ -124,7 +126,8 @@
       "decision_disposition": null,
       "reason_code": null,
       "terminal_disposition": null,
-      "response_sha256": null
+      "response_sha256": null,
+      "question_context_fact_refs": []
     },
     {
       "seq": 4,
@@ -165,7 +168,8 @@
       "decision_disposition": null,
       "reason_code": null,
       "terminal_disposition": null,
-      "response_sha256": null
+      "response_sha256": null,
+      "question_context_fact_refs": []
     },
     {
       "seq": 5,
@@ -206,7 +210,8 @@
       "decision_disposition": null,
       "reason_code": null,
       "terminal_disposition": null,
-      "response_sha256": null
+      "response_sha256": null,
+      "question_context_fact_refs": []
     },
     {
       "seq": 6,
@@ -247,7 +252,8 @@
       "decision_disposition": null,
       "reason_code": null,
       "terminal_disposition": null,
-      "response_sha256": null
+      "response_sha256": null,
+      "question_context_fact_refs": []
     },
     {
       "seq": 7,
@@ -288,7 +294,8 @@
       "decision_disposition": null,
       "reason_code": null,
       "terminal_disposition": null,
-      "response_sha256": null
+      "response_sha256": null,
+      "question_context_fact_refs": []
     },
     {
       "seq": 8,
@@ -328,7 +335,8 @@
       "decision_disposition": null,
       "reason_code": null,
       "terminal_disposition": null,
-      "response_sha256": null
+      "response_sha256": null,
+      "question_context_fact_refs": []
     },
     {
       "seq": 9,
@@ -365,7 +373,8 @@
       "decision_disposition": null,
       "reason_code": null,
       "terminal_disposition": null,
-      "response_sha256": null
+      "response_sha256": null,
+      "question_context_fact_refs": []
     },
     {
       "seq": 10,
@@ -405,7 +414,8 @@
       "decision_disposition": null,
       "reason_code": null,
       "terminal_disposition": null,
-      "response_sha256": null
+      "response_sha256": null,
+      "question_context_fact_refs": []
     },
     {
       "seq": 11,
@@ -445,7 +455,8 @@
       "decision_disposition": null,
       "reason_code": null,
       "terminal_disposition": null,
-      "response_sha256": null
+      "response_sha256": null,
+      "question_context_fact_refs": []
     },
     {
       "seq": 12,
@@ -485,7 +496,8 @@
       "decision_disposition": null,
       "reason_code": null,
       "terminal_disposition": null,
-      "response_sha256": null
+      "response_sha256": null,
+      "question_context_fact_refs": []
     },
     {
       "seq": 13,
@@ -527,7 +539,8 @@
       "decision_disposition": null,
       "reason_code": null,
       "terminal_disposition": null,
-      "response_sha256": null
+      "response_sha256": null,
+      "question_context_fact_refs": []
     },
     {
       "seq": 14,
@@ -569,7 +582,8 @@
       "decision_disposition": null,
       "reason_code": null,
       "terminal_disposition": null,
-      "response_sha256": null
+      "response_sha256": null,
+      "question_context_fact_refs": []
     },
     {
       "seq": 15,
@@ -609,7 +623,8 @@
       "decision_disposition": null,
       "reason_code": null,
       "terminal_disposition": null,
-      "response_sha256": null
+      "response_sha256": null,
+      "question_context_fact_refs": []
     },
     {
       "seq": 16,
@@ -646,7 +661,8 @@
       "decision_disposition": "deliver",
       "reason_code": "no_blocker_detected",
       "terminal_disposition": null,
-      "response_sha256": null
+      "response_sha256": null,
+      "question_context_fact_refs": []
     },
     {
       "seq": 17,
@@ -683,7 +699,8 @@
       "decision_disposition": null,
       "reason_code": null,
       "terminal_disposition": "completed",
-      "response_sha256": null
+      "response_sha256": null,
+      "question_context_fact_refs": []
     }
   ]
 }
