@@ -2770,7 +2770,7 @@
           "fx_quote": null,
           "budget_equivalent_principal_minor_units": 5000,
           "all_in_budget_minor_units": 5010,
-          "expected_disposition": "consumed"
+          "expected_disposition": "outcome_unknown"
         },
         {
           "action_id": "ACT-017",
