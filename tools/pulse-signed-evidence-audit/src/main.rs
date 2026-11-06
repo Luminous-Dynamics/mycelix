@@ -1239,9 +1239,29 @@ mod tests {
 
     fn fixture() -> (Vec<u8>, Vec<u8>, Vec<u8>) {
         let source_commit = "a".repeat(40);
+        let event_data = json!({
+            "grant_ref": "grant-A",
+            "grant_action_hash": "uhCkk-test-grant",
+            "grantor": "agent-owner-pseudonym",
+            "grantee": "agent-recipient",
+            "assigned": true,
+            "functions": ["messages.send"],
+            "idempotency_key": "grant-op-1",
+            "request_digest_sha256": "a".repeat(64),
+            "host_authority_index": 1
+        });
         let trace_bytes = serde_json::to_vec(&json!({
             "source_commit": source_commit,
-            "trace_id": "synthetic-signed-trace-1"
+            "trace_id": "synthetic-signed-trace-1",
+            "events": [{
+                "event_id": "host-grant-observation-1",
+                "conductor_id": "owner-host",
+                "local_sequence": 1,
+                "source": "conductor_host",
+                "evidence_ref": "fixture://owner/grant",
+                "event_type": "host_grant_issued",
+                "data": event_data.clone()
+            }]
         }))
         .unwrap();
         let trace_digest = sha256_hex(&trace_bytes);
@@ -1265,9 +1285,12 @@ mod tests {
                 "source_commit": source_commit,
                 "trace_sha256": trace_digest,
                 "details": {
-                    "decision": "grant_issued",
-                    "grant_action_hash": "uhCkk-test-grant",
+                    "event_type": "host_grant_issued",
+                    "source": "conductor_host",
                     "conductor_id": "owner-host",
+                    "local_sequence": 1,
+                    "evidence_ref": "fixture://owner/grant",
+                    "event_data": event_data,
                     "agent_key_ref": "agent-owner-pseudonym",
                     "dna_hash": "uhCkk-dna-mail",
                     "cell_id": "mail-cell-owner",
