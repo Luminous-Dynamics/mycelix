@@ -175,7 +175,7 @@ struct HostCall {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct DomainEffect {
-    actor: String,
+    principal: String,
     operation_id: String,
     attempt_id: u32,
     effect_id: String,
@@ -251,7 +251,7 @@ enum CallerOutcomeKind {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct CallerOutcome {
-    actor: String,
+    principal: String,
     operation_id: String,
     attempt_id: u32,
     outcome: CallerOutcomeKind,
@@ -688,7 +688,7 @@ fn audit(bundle: &TraceBundle, input_sha256: String) -> AuditReport {
             }
             EventKind::DomainEffect(effect) => {
                 counts.domain_effects += 1;
-                if effect.actor.trim().is_empty() || effect.operation_id.trim().is_empty() || effect.attempt_id == 0 ||
+                if effect.principal.trim().is_empty() || effect.operation_id.trim().is_empty() || effect.attempt_id == 0 ||
                     effect.effect_id.trim().is_empty() || effect.action_hash.trim().is_empty() {
                     finding(&mut findings, "DOMAIN_EFFECT_EVIDENCE_INCOMPLETE", "incomplete",
                         Some(&event.event_id), "effect ID and source-chain ActionHash must be present");
@@ -704,9 +704,9 @@ fn audit(bundle: &TraceBundle, input_sha256: String) -> AuditReport {
                     finding(&mut findings, "DUPLICATE_EFFECT_ID", "violation",
                         Some(&event.event_id), "effect IDs must be globally unique");
                 }
-                // Effect deduplication is scoped to the authenticated actor.
-                let operation_identity = (effect.actor.clone(), effect.operation_id.clone());
-                let attempt_key = (effect.actor.clone(), effect.operation_id.clone(), effect.attempt_id);
+                // Effect deduplication is scoped to the authenticated operation principal.
+                let operation_identity = (effect.principal.clone(), effect.operation_id.clone());
+                let attempt_key = (effect.principal.clone(), effect.operation_id.clone(), effect.attempt_id);
                 if !effects_by_attempt.insert(attempt_key.clone()) {
                     finding(&mut findings, "MULTIPLE_EFFECTS_PER_ATTEMPT", "violation",
                         Some(&event.event_id), "one logical operation attempt may produce at most one durable effect");
@@ -714,7 +714,7 @@ fn audit(bundle: &TraceBundle, input_sha256: String) -> AuditReport {
                 if let Some(existing) = effects_by_operation.get(&operation_identity) {
                     if existing != &effect.effect_id {
                         finding(&mut findings, "MULTIPLE_EFFECTS_PER_LOGICAL_OPERATION", "violation",
-                            Some(&event.event_id), format!("actor {} operation {} has effects {} and {}", effect.actor, effect.operation_id, existing, effect.effect_id));
+                            Some(&event.event_id), format!("principal {} operation {} has effects {} and {}", effect.principal, effect.operation_id, existing, effect.effect_id));
                     } else {
                         finding(&mut findings, "DUPLICATE_EFFECT_OBSERVATION", "violation",
                             Some(&event.event_id), "the same durable effect was recorded twice");
@@ -873,14 +873,14 @@ fn audit(bundle: &TraceBundle, input_sha256: String) -> AuditReport {
                 }
             }
             EventKind::CallerOutcome(outcome) => {
-                if outcome.actor.trim().is_empty() || outcome.operation_id.trim().is_empty() || outcome.attempt_id == 0 {
+                if outcome.principal.trim().is_empty() || outcome.operation_id.trim().is_empty() || outcome.attempt_id == 0 {
                     finding(&mut findings, "CALLER_OUTCOME_IDENTITY_INCOMPLETE", "incomplete",
                         Some(&event.event_id), "caller outcome requires logical operation and attempt IDs");
                 }
                 if outcome.outcome == CallerOutcomeKind::Unknown {
                     counts.caller_outcomes_unknown += 1;
                 }
-                let key = (outcome.actor.clone(), outcome.operation_id.clone(), outcome.attempt_id);
+                let key = (outcome.principal.clone(), outcome.operation_id.clone(), outcome.attempt_id);
                 match caller_outcomes.get(&key).copied() {
                     None => {
                         caller_outcomes.insert(key, outcome.outcome);
@@ -909,11 +909,11 @@ fn audit(bundle: &TraceBundle, input_sha256: String) -> AuditReport {
         let has_effect = effects_by_attempt.contains(&(actor.clone(), operation_id.clone(), attempt_id));
         if matches!(outcome, CallerOutcomeKind::NotCommitted | CallerOutcomeKind::Rejected) && has_effect {
             finding(&mut findings, "NOT_COMMITTED_CONTRADICTS_ATTEMPT_EFFECT", "violation", None,
-                format!("actor {actor} operation {operation_id} attempt {attempt_id} was reported {:?} but has a durable effect", outcome));
+                format!("principal {actor} operation {operation_id} attempt {attempt_id} was reported {:?} but has a durable effect", outcome));
         }
         if outcome == CallerOutcomeKind::Committed && !has_effect {
             finding(&mut findings, "COMMITTED_OUTCOME_WITHOUT_EFFECT_EVIDENCE", "incomplete", None,
-                format!("actor {actor} operation {operation_id} attempt {attempt_id} was reported committed without a matching durable effect receipt"));
+                format!("principal {actor} operation {operation_id} attempt {attempt_id} was reported committed without a matching durable effect receipt"));
         }
     }
 
@@ -1043,7 +1043,7 @@ mod tests {
         effect_b.event_id = "domain-effect-other-caller".to_string();
         effect_b.evidence_ref = "fixture://source-chain/effect-other-caller".to_string();
         if let EventKind::DomainEffect(ref mut effect) = effect_b.kind {
-            effect.actor = "agent-other-recipient".to_string();
+            effect.principal = "agent-other-recipient".to_string();
             effect.effect_id = "effect-other-caller".to_string();
             effect.action_hash = "uhCkk-effect-other-caller".to_string();
             // operation_id and attempt_id intentionally match caller A.
@@ -1061,7 +1061,7 @@ mod tests {
         bundle.events[7].seq = 12;
         bundle.events[8].seq = 13;
         if let EventKind::CallerOutcome(ref mut outcome) = bundle.events[8].kind {
-            outcome.actor = "agent-recipient".to_string();
+            outcome.principal = "agent-recipient".to_string();
         }
 
         let mut outcome_b = bundle.events[8].clone();
@@ -1069,7 +1069,7 @@ mod tests {
         outcome_b.event_id = "caller-outcome-other-caller".to_string();
         outcome_b.evidence_ref = "fixture://client/other-caller-committed".to_string();
         if let EventKind::CallerOutcome(ref mut outcome) = outcome_b.kind {
-            outcome.actor = "agent-other-recipient".to_string();
+            outcome.principal = "agent-other-recipient".to_string();
             outcome.outcome = CallerOutcomeKind::Committed;
             // operation_id and attempt_id intentionally match caller A.
         }
