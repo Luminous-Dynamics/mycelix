@@ -491,6 +491,16 @@
           "recorded_at": "2026-11-06T08:00:00Z",
           "valid_date": "2026-11-05",
           "evidence_state": "asserted"
+        },
+        {
+          "assertion_ref": "AS-003-P-FX-RATE",
+          "source_ref": "SRC-003-P",
+          "fact_type": "other",
+          "value": 1.1,
+          "currency": null,
+          "recorded_at": "2026-11-06T08:00:00Z",
+          "valid_date": "2026-11-05",
+          "evidence_state": "asserted"
         }
       ],
       "events": [
@@ -533,7 +543,8 @@
             "SRC-003-P"
           ],
           "assertion_refs": [
-            "AS-003-P-NET"
+            "AS-003-P-NET",
+            "AS-003-P-FX-RATE"
           ],
           "occurred_at": "2026-11-05T12:00:00Z",
           "recorded_at": "2026-11-06T08:00:00Z",
@@ -1348,6 +1359,16 @@
           "recorded_at": "2026-11-06T10:00:00Z",
           "valid_date": "2026-11-06",
           "evidence_state": "asserted"
+        },
+        {
+          "assertion_ref": "AS-010-BANK-REFERENCE-UNKNOWN",
+          "source_ref": "SRC-010-B",
+          "fact_type": "bank_reference",
+          "value": null,
+          "currency": null,
+          "recorded_at": "2026-11-06T08:00:00Z",
+          "valid_date": "2026-11-05",
+          "evidence_state": "unknown"
         }
       ],
       "events": [
