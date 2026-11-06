@@ -1540,7 +1540,7 @@ fn build_dag_reachability_workload(
                 if query % 2 == 0 { (start, join) } else { (join, start) }
             }
             "sparse_dag" | "bounded_dense_dag" => {
-                let from = (query.wrapping_mul(37).wrapping_add(11)) % node_count;
+                let from = (query.wrapping_mul(37).wrapping_add(11)) % span;
                 let distance = 1 + (query.wrapping_mul(19) % span);
                 if query % 2 == 0 {
                     (from, (from + distance).min(node_count - 1))
