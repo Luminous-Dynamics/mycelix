@@ -56,7 +56,8 @@
         "projection_state",
         "event_decisions",
         "journal_entries",
-        "unresolved_items"
+        "unresolved_items",
+        "assumptions"
       ],
       "properties": {
         "projection_id": {
@@ -403,6 +404,72 @@
                 }
               },
               "blocking": {
+                "type": "boolean"
+              }
+            }
+          }
+        },
+        "assumptions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "assumption_ref",
+              "assumption_kind",
+              "description",
+              "value",
+              "source_assertion_refs",
+              "review_state",
+              "decision_critical"
+            ],
+            "properties": {
+              "assumption_ref": {
+                "type": "string",
+                "pattern": "^[A-Z0-9-]{3,120}$"
+              },
+              "assumption_kind": {
+                "enum": [
+                  "measurement",
+                  "classification",
+                  "timing",
+                  "identity",
+                  "currency",
+                  "allocation",
+                  "other"
+                ]
+              },
+              "description": {
+                "type": "string",
+                "minLength": 8
+              },
+              "value": {
+                "type": [
+                  "string",
+                  "integer",
+                  "number",
+                  "boolean",
+                  "null"
+                ]
+              },
+              "source_assertion_refs": {
+                "type": "array",
+                "uniqueItems": true,
+                "items": {
+                  "type": "string"
+                }
+              },
+              "review_state": {
+                "enum": [
+                  "supported",
+                  "assumed",
+                  "unknown",
+                  "disputed",
+                  "approved_by_reviewer",
+                  "rejected_by_reviewer"
+                ]
+              },
+              "decision_critical": {
                 "type": "boolean"
               }
             }
