@@ -1,4 +1,3 @@
-#[cfg(test)]
 mod borrowed;
 
 use serde::{Deserialize, Serialize};
@@ -9,6 +8,7 @@ use std::collections::{BTreeMap, BTreeSet, VecDeque};
 use std::env;
 use std::error::Error;
 use std::fs;
+use std::fmt::Write as FmtWrite;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
@@ -998,10 +998,190 @@ fn run_benchmark(event_count: usize, output: Option<PathBuf>) -> Result<(), Box<
     }
 }
 
+
+fn benchmark_history_json(event_count: usize) -> Result<String, Box<dyn Error>> {
+    if event_count == 0 || event_count > 1_000_000 {
+        return Err("--benchmark-parse-events must be between 1 and 1000000".into());
+    }
+    let capacity = event_count
+        .checked_mul(560)
+        .and_then(|value| value.checked_add(1024))
+        .ok_or("benchmark input capacity overflow")?;
+    let mut json = String::with_capacity(capacity);
+    write!(
+        &mut json,
+        "{{\"schema_version\":2,\"trace_id\":\"synthetic-borrowed-parse-{event_count}\",\"evidence_class\":\"synthetic\",\"source_commit\":\"{}\",\"conductors\":[",
+        "0".repeat(40)
+    )?;
+    for (index, (conductor, agent, cell)) in [
+        ("peer-a", "agent-peer-a", "benchmark-cell-a"),
+        ("peer-b", "agent-peer-b", "benchmark-cell-b"),
+    ]
+    .iter()
+    .enumerate()
+    {
+        if index != 0 {
+            json.push(',');
+        }
+        write!(
+            &mut json,
+            "{{\"conductor_id\":\"{conductor}\",\"agent_key_ref\":\"{agent}\",\"conductor_build\":\"synthetic-benchmark\",\"dna_hash\":\"uhCkk-benchmark-dna\",\"cell_id\":\"{cell}\",\"integrity_wasm_sha256\":\"{}\",\"role\":\"peer\"}}",
+            "0".repeat(64)
+        )?;
+    }
+    json.push_str("],\"events\":[");
+    for index in 0..event_count {
+        if index != 0 {
+            json.push(',');
+        }
+        let conductor_index = index % 2;
+        let local_sequence = index / 2 + 1;
+        let (conductor, agent) = if conductor_index == 0 {
+            ("peer-a", "agent-peer-a")
+        } else {
+            ("peer-b", "agent-peer-b")
+        };
+        write!(
+            &mut json,
+            "{{\"event_id\":\"signal-{conductor}-{local_sequence:010}\",\"conductor_id\":\"{conductor}\",\"local_sequence\":{local_sequence},\"source\":\"remote_peer\",\"evidence_ref\":\"synthetic://benchmark/{conductor}/{local_sequence}\",\"event_type\":\"remote_signal\",\"data\":{{\"event_type\":\"benchmark.wakeup.v1\",\"trust_class\":\"unverified_hint\",\"transport_sender\":\"{agent}\",\"claimed_sender\":\"{agent}\",\"backing_action_hash\":null,\"record_author\":null,\"verified_payload_sha256\":null,\"verifier_build\":null,\"backing_author_conductor_id\":null,\"backing_validator_event_id\":null,\"trusted_state_mutation\":false,\"authorizes_operation\":false}}}}"
+        )?;
+    }
+    json.push_str("],\"causal_edges\":[]}");
+    Ok(json)
+}
+
+fn owned_parse_validate(raw: &str) -> Result<borrowed::ParseSummary, Box<dyn Error>> {
+    let history: History = serde_json::from_str(raw)?;
+    if history.schema_version != 2
+        || history.trace_id.trim().is_empty()
+        || !valid_sha(&history.source_commit)
+        || !matches!(history.evidence_class.as_str(), "synthetic" | "runtime_capture")
+        || history.conductors.len() < 2
+    {
+        return Err("owned top-level v2 header is invalid".into());
+    }
+    for conductor in &history.conductors {
+        if conductor.conductor_id.trim().is_empty()
+            || conductor.agent_key_ref.trim().is_empty()
+            || conductor.conductor_build.trim().is_empty()
+            || conductor.dna_hash.trim().is_empty()
+            || conductor.cell_id.trim().is_empty()
+            || !valid_sha256(&conductor.integrity_wasm_sha256)
+            || !matches!(
+                conductor.role.as_str(),
+                "grant_owner" | "caller" | "validator" | "observer" | "peer"
+            )
+        {
+            return Err("owned conductor lineage is invalid".into());
+        }
+    }
+    for event in &history.events {
+        if event.event_id.trim().is_empty()
+            || event.conductor_id.trim().is_empty()
+            || event.local_sequence == 0
+            || event.evidence_ref.trim().is_empty()
+            || !matches!(
+                event.source.as_str(),
+                "conductor_host"
+                    | "source_chain"
+                    | "validator"
+                    | "observer"
+                    | "remote_peer"
+                    | "client"
+                    | "coordinator"
+                    | "synthetic"
+            )
+            || !history
+                .conductors
+                .iter()
+                .any(|conductor| conductor.conductor_id == event.conductor_id)
+            || (history.evidence_class == "runtime_capture" && event.source == "synthetic")
+            || !valid_event_shape(event)
+        {
+            return Err(format!(
+                "owned event {} failed v2 identity/source/shape validation",
+                event.event_id
+            )
+            .into());
+        }
+    }
+    Ok(borrowed::ParseSummary {
+        conductors: history.conductors.len(),
+        events: history.events.len(),
+        valid_events: history.events.len(),
+        causal_edges: history.causal_edges.len(),
+    })
+}
+
+fn run_parse_benchmark(
+    event_count: usize,
+    output: Option<PathBuf>,
+) -> Result<(), Box<dyn Error>> {
+    use std::time::Instant;
+
+    let raw = benchmark_history_json(event_count)?;
+    let input_bytes = raw.len();
+
+    let owned_before = allocation_snapshot();
+    reset_peak_to_current_live_bytes();
+    let owned_started = Instant::now();
+    let owned_summary = owned_parse_validate(&raw)?;
+    let owned_parse_ns = owned_started.elapsed().as_nanos();
+    let owned_after = allocation_snapshot();
+
+    let borrowed_before = allocation_snapshot();
+    reset_peak_to_current_live_bytes();
+    let borrowed_started = Instant::now();
+    let borrowed_summary = borrowed::borrowed_parse_validate(&raw)?;
+    let borrowed_parse_ns = borrowed_started.elapsed().as_nanos();
+    let borrowed_after = allocation_snapshot();
+
+    if owned_summary != borrowed_summary || owned_summary.events != event_count {
+        return Err("owned and borrowed parser summaries differed".into());
+    }
+
+    let status = "PASS";
+    let report = serde_json::json!({
+        "benchmark_version": 1,
+        "benchmark_name": "pulse-multiconductor-owned-vs-borrowed-parse",
+        "evidence_class": "synthetic",
+        "claim_ceiling": "STRUCTURAL_PARSE_ONLY: parser plus closed event-shape validation; excludes indexes, causal DAG, grant lifecycle and semantic evidence joins; not Holochain runtime throughput",
+        "status": status,
+        "events": event_count,
+        "conductors": borrowed_summary.conductors,
+        "causal_edges": borrowed_summary.causal_edges,
+        "input_bytes": input_bytes,
+        "owned": {
+            "parse_and_shape_ns": owned_parse_ns,
+            "events_per_second": if owned_parse_ns == 0 { 0.0 } else { event_count as f64 / (owned_parse_ns as f64 / 1_000_000_000.0) },
+            "peak_added_bytes": owned_after.peak_live_bytes.saturating_sub(owned_before.live_bytes),
+            "allocation_bytes_requested": owned_after.total_allocated_bytes.saturating_sub(owned_before.total_allocated_bytes)
+        },
+        "borrowed": {
+            "parse_and_shape_ns": borrowed_parse_ns,
+            "events_per_second": if borrowed_parse_ns == 0 { 0.0 } else { event_count as f64 / (borrowed_parse_ns as f64 / 1_000_000_000.0) },
+            "peak_added_bytes": borrowed_after.peak_live_bytes.saturating_sub(borrowed_before.live_bytes),
+            "allocation_bytes_requested": borrowed_after.total_allocated_bytes.saturating_sub(borrowed_before.total_allocated_bytes)
+        },
+        "summary_equal": owned_summary == borrowed_summary
+    });
+    let rendered = serde_json::to_string_pretty(&report)?;
+    if let Some(path) = output {
+        if let Some(parent) = path.parent() {
+            fs::create_dir_all(parent)?;
+        }
+        fs::write(path, rendered)?;
+    } else {
+        println!("{rendered}");
+    }
+    Ok(())
+}
+
 fn main()->Result<(),Box<dyn Error>>{
     let mut input=None;
     let mut output=None;
     let mut benchmark_events=None;
+    let mut benchmark_parse_events=None;
     let mut args=env::args().skip(1);
     while let Some(arg)=args.next(){
         match arg.as_str(){
@@ -1011,18 +1191,30 @@ fn main()->Result<(),Box<dyn Error>>{
                 let value=args.next().ok_or("--benchmark-events requires a count")?;
                 benchmark_events=Some(value.parse::<usize>()?);
             }
+            "--benchmark-parse-events"=>{
+                let value=args.next().ok_or("--benchmark-parse-events requires a count")?;
+                benchmark_parse_events=Some(value.parse::<usize>()?);
+            }
             "--help"|"-h"=>{
                 println!("pulse-multiconductor-audit --input HISTORY.json [--output REPORT.json]");
                 println!("pulse-multiconductor-audit --benchmark-events COUNT [--output BENCHMARK.json] (1..=1000000)");
+                println!("pulse-multiconductor-audit --benchmark-parse-events COUNT [--output PARSE-BENCHMARK.json] (1..=1000000)");
                 return Ok(());
             }
             other=>return Err(format!("unknown argument: {other}").into())
         }
     }
 
+    if benchmark_events.is_some() && benchmark_parse_events.is_some() {
+        return Err("--benchmark-events and --benchmark-parse-events are mutually exclusive".into());
+    }
     if let Some(count)=benchmark_events {
         if input.is_some() { return Err("--input and --benchmark-events are mutually exclusive".into()); }
         return run_benchmark(count, output);
+    }
+    if let Some(count)=benchmark_parse_events {
+        if input.is_some() { return Err("--input and --benchmark-parse-events are mutually exclusive".into()); }
+        return run_parse_benchmark(count, output);
     }
 
     let input=input.ok_or("--input is required unless --benchmark-events is used")?;
