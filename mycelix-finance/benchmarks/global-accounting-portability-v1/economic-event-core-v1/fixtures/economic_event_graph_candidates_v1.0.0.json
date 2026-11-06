@@ -668,7 +668,7 @@
       "events": [
         {
           "event_ref": "EV-007-INVOICE",
-          "event_kind": "invoice_issued",
+          "event_kind": "assertion_conflict",
           "entity_ref": "ENTITY-ACME",
           "counterparty_ref": "SUPPLIER-77",
           "occurred_at": "2026-10-20T00:00:00Z",
