@@ -421,7 +421,7 @@
       "knowledge_at": "2026-11-06T20:00:00Z",
       "period": {
         "start": "2026-10-01",
-        "end": "2026-10-31"
+        "end": "2026-11-14"
       },
       "records": [
         {
@@ -993,11 +993,11 @@
           "row_locator": "payouts/row/031",
           "record_type": "processor_payout",
           "currency": "USD",
-          "amount_minor": 0,
+          "amount_minor": 8000,
           "flow_direction": "outflow",
-          "gross_minor": 0,
+          "gross_minor": 8000,
           "fee_minor": 0,
-          "net_minor": 0,
+          "net_minor": 8000,
           "occurred_at": "2026-10-15T12:00:00Z",
           "recorded_at": "2026-11-06T19:00:00Z",
           "valid_date": "2026-10-15",
@@ -1051,10 +1051,16 @@
           "to_event_ref": "EV-R-REC-007-REVERSAL-LIFECYCLE-028"
         },
         {
-          "relation_ref": "REL-REC-007-REVERSAL-LIFECYCLE-settles-R-REC-007-REVERSAL-LIFECYCLE-032",
+          "relation_ref": "REL-REC-007-SETTLES-PAYOUT",
+          "relation_kind": "settles",
+          "from_event_ref": "EV-R-REC-007-REVERSAL-LIFECYCLE-031",
+          "to_event_ref": "EV-R-REC-007-REVERSAL-LIFECYCLE-029"
+        },
+        {
+          "relation_ref": "REL-REC-007-BANK-PAYOUT",
           "relation_kind": "settles",
           "from_event_ref": "EV-R-REC-007-REVERSAL-LIFECYCLE-032",
-          "to_event_ref": "EV-R-REC-007-REVERSAL-LIFECYCLE-029"
+          "to_event_ref": "EV-R-REC-007-REVERSAL-LIFECYCLE-031"
         }
       ]
     },
