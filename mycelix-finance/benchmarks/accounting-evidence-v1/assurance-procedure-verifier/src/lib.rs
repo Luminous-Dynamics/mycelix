@@ -140,10 +140,13 @@ pub fn verify(
         "errors": errors,
         "cases": results
     });
-    let report_schema: Value = match serde_json::from_str(include_str!("../report-v1.2.0.schema.json")) {
-        Ok(schema) => schema,
-        Err(error) => return fail_report(report, format!("embedded report schema parse: {error}")),
-    };
+    let report_schema: Value =
+        match serde_json::from_str(include_str!("../report-v1.2.0.schema.json")) {
+            Ok(schema) => schema,
+            Err(error) => {
+                return fail_report(report, format!("embedded report schema parse: {error}"));
+            }
+        };
     let report_errors = validate_instance("generated report", &report_schema, &report);
     if report_errors.is_empty() {
         report
@@ -423,9 +426,9 @@ fn assess_case(case: &Value) -> AppResult<Assessment> {
                 }
             };
             for required_attribute in array(pair, "required_evidence_attributes") {
-                let attribute = required_attribute
-                    .as_str()
-                    .ok_or_else(|| "required_evidence_attributes must contain strings".to_owned())?;
+                let attribute = required_attribute.as_str().ok_or_else(|| {
+                    "required_evidence_attributes must contain strings".to_owned()
+                })?;
                 if ![
                     "accuracy",
                     "completeness",
@@ -435,7 +438,9 @@ fn assess_case(case: &Value) -> AppResult<Assessment> {
                 ]
                 .contains(&attribute)
                 {
-                    return Err(format!("unsupported evidence reliability attribute: {attribute}"));
+                    return Err(format!(
+                        "unsupported evidence reliability attribute: {attribute}"
+                    ));
                 }
                 let status = item
                     .get("reliability_attributes")
@@ -775,9 +780,11 @@ mod tests {
             .find(|row| row.pair_id == "pair-2")
             .unwrap();
         assert_eq!(completeness.state, "insufficient_evidence");
-        assert!(completeness
-            .reasons
-            .contains("evidence_attribute_not_qualified:completeness:unknown"));
+        assert!(
+            completeness
+                .reasons
+                .contains("evidence_attribute_not_qualified:completeness:unknown")
+        );
     }
 
     #[test]
@@ -787,9 +794,11 @@ mod tests {
         ));
         let assessment = assess_case(case_by_id(&candidate, "FAP-024")).expect("assessment");
         assert_eq!(assessment.state, "insufficient_evidence");
-        assert!(assessment
-            .reasons
-            .contains("evidence_attribute_not_qualified:absence_of_bias:limited"));
+        assert!(
+            assessment
+                .reasons
+                .contains("evidence_attribute_not_qualified:absence_of_bias:limited")
+        );
     }
 
     #[test]
@@ -799,8 +808,10 @@ mod tests {
         ));
         let assessment = assess_case(case_by_id(&candidate, "FAP-025")).expect("assessment");
         assert_eq!(assessment.state, "insufficient_evidence");
-        assert!(assessment
-            .reasons
-            .contains("evidence_attribute_not_qualified:credibility:unqualified"));
+        assert!(
+            assessment
+                .reasons
+                .contains("evidence_attribute_not_qualified:credibility:unqualified")
+        );
     }
 }
