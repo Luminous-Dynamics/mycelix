@@ -55,6 +55,10 @@ fn valid_date(value: &str) -> bool {
     (1..=last_day).contains(&day)
 }
 
+fn optional_balance(value: &Value, key: &str) -> Option<u64> {
+    value.get(key).and_then(Value::as_u64)
+}
+
 fn valid_timestamp(value: &str) -> bool {
     value.len() >= 20
         && valid_date(&value[..10])
@@ -274,6 +278,12 @@ fn scenario_evaluation(case: &Value) -> Result<Value, Vec<String>> {
     }
 
     unique_ids(&snapshots, "account_id", "account_snapshots", &mut errors);
+    let snapshot_map: BTreeMap<String, Value> = snapshots
+        .iter()
+        .filter_map(|snapshot| {
+            str_at(snapshot, "account_id").map(|id| (id.to_owned(), snapshot.clone()))
+        })
+        .collect();
     for snapshot in &snapshots {
         let account = str_at(snapshot, "account_id").unwrap_or("");
         let coverage = str_at(snapshot, "coverage_state").unwrap_or("unknown");
@@ -310,6 +320,32 @@ fn scenario_evaluation(case: &Value) -> Result<Value, Vec<String>> {
                     let debits_and_close = v[3].checked_add(v[4]).and_then(|x| x.checked_add(v[5]));
                     if credits.is_none() || credits != debits_and_close {
                         errors.push(format!("{case_id}: complete account snapshot {account} fails conservation"));
+                    }
+                    let graph_root_inflows = roots
+                        .values()
+                        .filter(|root| str_at(root, "recipient_account_id") == Some(account))
+                        .try_fold(0_u64, |total, root| {
+                            total.checked_add(u64_at(root, "amount_minor_units")?)
+                        });
+                    let graph_observed_outflows = transactions
+                        .values()
+                        .filter(|tx| str_at(tx, "source_account_id") == Some(account))
+                        .try_fold(0_u64, |total, tx| {
+                            total.checked_add(u64_at(tx, "amount_minor_units")?)
+                        });
+                    if graph_root_inflows != Some(v[1])
+                        || graph_observed_outflows != Some(v[3])
+                    {
+                        errors.push(format!(
+                            "{case_id}: complete snapshot {account} inflow/outflow totals differ from observed root and graph transactions"
+                        ));
+                    }
+                    if optional_balance(snapshot, "available_balance_minor_units")
+                        .is_some_and(|available| available > v[5])
+                    {
+                        errors.push(format!(
+                            "{case_id}: available balance exceeds closing balance for {account}"
+                        ));
                     }
                 }
                 None => errors.push(format!("{case_id}: complete account snapshot {account} has missing values")),
@@ -351,7 +387,17 @@ fn scenario_evaluation(case: &Value) -> Result<Value, Vec<String>> {
             Some(n)
                 if str_at(n, "state") == Some("accepted")
                     && str_at(n, "authority_state") == Some("valid")
-                    && str_at(n, "target_account_id") == Some(account) => {}
+                    && str_at(n, "target_account_id") == Some(account) => {
+                        match snapshot_map.get(account) {
+                            Some(snapshot)
+                                if str_at(snapshot, "psp_id") == str_at(n, "psp_id")
+                                    && optional_balance(snapshot, "available_balance_minor_units")
+                                        == available => {}
+                            _ => errors.push(format!(
+                                "{case_id}: hold {id} is not backed by the matching account/PSP balance snapshot"
+                            )),
+                        }
+                    }
             _ => errors.push(format!("{case_id}: hold {id} lacks accepted notification or target scope")),
         }
         if str_at(hold, "authority_state") != Some("valid") || requested == 0 || held > requested {
@@ -374,6 +420,8 @@ fn scenario_evaluation(case: &Value) -> Result<Value, Vec<String>> {
     unique_ids(&returns, "return_id", "returns", &mut errors);
     let mut return_map = BTreeMap::new();
     let mut economic_refs = BTreeSet::new();
+    let mut receipt_refs = BTreeSet::new();
+    let mut reconciliation_refs = BTreeSet::new();
     let mut gross_by_root = BTreeMap::<String, u64>::new();
     for returned in &returns {
         let id = str_at(returned, "return_id").unwrap_or("");
@@ -383,6 +431,18 @@ fn scenario_evaluation(case: &Value) -> Result<Value, Vec<String>> {
         let economic_ref = str_at(returned, "economic_reference").unwrap_or("");
         if !economic_refs.insert(economic_ref.to_owned()) {
             errors.push(format!("{case_id}: duplicate economic return reference {economic_ref}"));
+        }
+        if let Some(receipt) = str_at(returned, "independent_return_receipt")
+            && !receipt_refs.insert(receipt.to_owned())
+        {
+            errors.push(format!("{case_id}: duplicate independent return receipt {receipt}"));
+        }
+        if let Some(reconciliation) = str_at(returned, "independent_ledger_reconciliation")
+            && !reconciliation_refs.insert(reconciliation.to_owned())
+        {
+            errors.push(format!(
+                "{case_id}: duplicate independent ledger reconciliation {reconciliation}"
+            ));
         }
         if amount == 0
             || str_at(returned, "authority_state") != Some("valid")
@@ -692,6 +752,17 @@ fn run_self_tests(corpus: &Value, schema: &Value) -> Result<usize, String> {
         let duplicate = value["scenarios"][13]["returns"][0].clone();
         value["scenarios"][13]["returns"].as_array_mut().unwrap().push(duplicate);
     })?;
+    count += 1;
+
+    mutate_and_reject(
+        "duplicate reconciled receipt hidden by new return id",
+        corpus,
+        schema,
+        |value| {
+            value["scenarios"][13]["returns"][1]["independent_return_receipt"] =
+                value["scenarios"][13]["returns"][0]["independent_return_receipt"].clone();
+        },
+    )?;
     count += 1;
 
     mutate_and_reject("unknown balance replaced by zero", corpus, schema, |value| {
