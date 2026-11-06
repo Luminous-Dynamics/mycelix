@@ -67,7 +67,8 @@
         "decision_to_question_continuity",
         "continuity_failure_count",
         "statement_replay_exact_rate",
-        "statement_replay_mismatch_count"
+        "statement_replay_mismatch_count",
+        "statement_replay_applicable_case_count"
       ],
       "properties": {
         "case_count": {
@@ -153,6 +154,10 @@
         "statement_replay_mismatch_count": {
           "type": "integer",
           "minimum": 0
+        },
+        "statement_replay_applicable_case_count": {
+          "type": "integer",
+          "minimum": 0
         }
       }
     },
@@ -191,7 +196,8 @@
         "continuity_failures",
         "statement_replay_exact",
         "statement_replay_mismatch_count",
-        "statement_replay_errors"
+        "statement_replay_errors",
+        "statement_replay_applicable"
       ],
       "properties": {
         "case_id": {
@@ -294,6 +300,9 @@
           "items": {
             "type": "string"
           }
+        },
+        "statement_replay_applicable": {
+          "type": "boolean"
         }
       }
     }
