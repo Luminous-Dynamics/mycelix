@@ -62,7 +62,7 @@
     },
     "scenarios": {
       "type": "array",
-      "minItems": 24,
+      "minItems": 60,
       "items": {
         "$ref": "#/$defs/scenario"
       }
@@ -353,7 +353,8 @@
         "expiry_at",
         "issued_at",
         "channel",
-        "request_digest"
+        "request_digest",
+        "requester_assurance"
       ],
       "properties": {
         "request_id": {
@@ -435,6 +436,9 @@
             "default",
             "custom"
           ]
+        },
+        "requester_assurance": {
+          "$ref": "#/$defs/requester_assurance"
         }
       }
     },
@@ -829,6 +833,216 @@
         "qualification": {
           "type": "string",
           "minLength": 1
+        }
+      }
+    },
+    "requester_assurance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "assessment_state",
+        "sender_authentication_state",
+        "merchant_identity_state",
+        "credential_integrity_state",
+        "authority_to_request_state",
+        "payee_resolution_state",
+        "invoice_provenance_state",
+        "asserted_debt_state",
+        "abusive_content_state",
+        "presentation_mode",
+        "material_fields_presented",
+        "decline_control_state",
+        "report_control_state",
+        "block_control_state",
+        "secondary_use_purpose",
+        "secondary_use_attempt",
+        "secondary_use_allowed",
+        "accessibility_parity_state",
+        "appeal_path_state",
+        "repeated_contact_state",
+        "reputation_evidence_state",
+        "false_positive_appeal_state"
+      ],
+      "properties": {
+        "assessment_state": {
+          "enum": [
+            "not_assessed",
+            "qualified"
+          ]
+        },
+        "sender_authentication_state": {
+          "enum": [
+            "authenticated",
+            "unauthenticated",
+            "unknown"
+          ]
+        },
+        "merchant_identity_state": {
+          "enum": [
+            "verified_merchant",
+            "unverified_merchant",
+            "unknown",
+            "not_applicable"
+          ]
+        },
+        "credential_integrity_state": {
+          "enum": [
+            "intact",
+            "compromised",
+            "unknown"
+          ]
+        },
+        "authority_to_request_state": {
+          "enum": [
+            "verified",
+            "invalid",
+            "unknown"
+          ]
+        },
+        "payee_resolution_state": {
+          "enum": [
+            "exact",
+            "confusable",
+            "ambiguous",
+            "unknown"
+          ]
+        },
+        "invoice_provenance_state": {
+          "enum": [
+            "current",
+            "missing",
+            "stale",
+            "contradicted",
+            "not_applicable",
+            "unknown"
+          ]
+        },
+        "asserted_debt_state": {
+          "enum": [
+            "not_asserted",
+            "supported_by_document",
+            "unsupported",
+            "unknown"
+          ]
+        },
+        "abusive_content_state": {
+          "enum": [
+            "none",
+            "unsupported_legal_threat",
+            "misleading_urgency",
+            "coercive",
+            "not_assessed",
+            "unknown"
+          ]
+        },
+        "presentation_mode": {
+          "enum": [
+            "app",
+            "browser",
+            "ussd",
+            "screen_reader",
+            "ai_summary",
+            "unknown"
+          ]
+        },
+        "material_fields_presented": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "requester_identity",
+              "beneficiary_identity",
+              "amount_minor_units",
+              "currency",
+              "reference",
+              "purpose",
+              "fee_minor_units",
+              "expiry_at",
+              "channel"
+            ]
+          }
+        },
+        "decline_control_state": {
+          "enum": [
+            "available",
+            "unavailable",
+            "unknown"
+          ]
+        },
+        "report_control_state": {
+          "enum": [
+            "available",
+            "unavailable",
+            "unknown"
+          ]
+        },
+        "block_control_state": {
+          "enum": [
+            "available",
+            "unavailable",
+            "unknown"
+          ]
+        },
+        "secondary_use_purpose": {
+          "enum": [
+            "payment_request_only",
+            "credit_scoring",
+            "marketing",
+            "other",
+            "unknown"
+          ]
+        },
+        "secondary_use_attempt": {
+          "enum": [
+            "none",
+            "credit_scoring",
+            "marketing",
+            "other"
+          ]
+        },
+        "secondary_use_allowed": {
+          "type": "boolean"
+        },
+        "accessibility_parity_state": {
+          "enum": [
+            "equivalent",
+            "not_equivalent",
+            "not_assessed",
+            "unknown"
+          ]
+        },
+        "appeal_path_state": {
+          "enum": [
+            "available",
+            "unavailable",
+            "unknown"
+          ]
+        },
+        "repeated_contact_state": {
+          "enum": [
+            "none",
+            "repeat_after_decline",
+            "recipient_contact_denied",
+            "unknown"
+          ]
+        },
+        "reputation_evidence_state": {
+          "enum": [
+            "absent",
+            "current",
+            "stale",
+            "unverified",
+            "unknown"
+          ]
+        },
+        "false_positive_appeal_state": {
+          "enum": [
+            "not_applicable",
+            "not_appealed",
+            "under_review",
+            "corrected",
+            "rejected"
+          ]
         }
       }
     }
