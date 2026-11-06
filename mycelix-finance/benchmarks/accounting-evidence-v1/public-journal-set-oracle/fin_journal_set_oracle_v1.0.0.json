@@ -1,0 +1,203 @@
+{
+  "benchmark_id": "FIN-JOURNAL-SET",
+  "dataset_version": "1.0.0",
+  "visibility": "public_reference_oracle_not_blind_holdout",
+  "cases": [
+    {
+      "case_id": "FJS-001",
+      "expected_disposition": "complete_exact_population_and_rollforward",
+      "reason_codes": [
+        "expected_population_covered",
+        "journal_set_balanced",
+        "account_rollforward_exact"
+      ],
+      "blocks_complete": false
+    },
+    {
+      "case_id": "FJS-002",
+      "expected_disposition": "missing_journal_projection",
+      "reason_codes": [
+        "required_event_without_journal"
+      ],
+      "blocks_complete": true
+    },
+    {
+      "case_id": "FJS-003",
+      "expected_disposition": "missing_journal_projection",
+      "reason_codes": [
+        "required_event_without_journal",
+        "orphan_journal_present"
+      ],
+      "blocks_complete": true
+    },
+    {
+      "case_id": "FJS-004",
+      "expected_disposition": "duplicate_economic_posting",
+      "reason_codes": [
+        "economic_event_projected_more_than_once"
+      ],
+      "blocks_complete": true
+    },
+    {
+      "case_id": "FJS-005",
+      "expected_disposition": "orphan_or_unauthorized_journal",
+      "reason_codes": [
+        "journal_event_not_in_expected_population"
+      ],
+      "blocks_complete": true
+    },
+    {
+      "case_id": "FJS-006",
+      "expected_disposition": "complete_exact_population_and_rollforward",
+      "reason_codes": [
+        "exact_journal_replay_idempotent"
+      ],
+      "blocks_complete": false
+    },
+    {
+      "case_id": "FJS-007",
+      "expected_disposition": "conflicting_journal_identity",
+      "reason_codes": [
+        "same_journal_id_changed_semantics"
+      ],
+      "blocks_complete": true
+    },
+    {
+      "case_id": "FJS-008",
+      "expected_disposition": "source_frontier_unqualified",
+      "reason_codes": [
+        "expected_population_not_qualified_complete"
+      ],
+      "blocks_complete": true
+    },
+    {
+      "case_id": "FJS-009",
+      "expected_disposition": "complete_with_authorized_nonposting",
+      "reason_codes": [
+        "authorized_nonposting_treatment"
+      ],
+      "blocks_complete": false
+    },
+    {
+      "case_id": "FJS-010",
+      "expected_disposition": "missing_journal_projection",
+      "reason_codes": [
+        "unresolved_event_cannot_be_excluded"
+      ],
+      "blocks_complete": true
+    },
+    {
+      "case_id": "FJS-011",
+      "expected_disposition": "orphan_or_unauthorized_journal",
+      "reason_codes": [
+        "journal_entity_scope_mismatch"
+      ],
+      "blocks_complete": true
+    },
+    {
+      "case_id": "FJS-012",
+      "expected_disposition": "unsupported_profile_or_unit",
+      "reason_codes": [
+        "journal_denomination_profile_mismatch"
+      ],
+      "blocks_complete": true
+    },
+    {
+      "case_id": "FJS-013",
+      "expected_disposition": "account_rollforward_conflict",
+      "reason_codes": [
+        "closing_balance_differs_from_reconstructed_account"
+      ],
+      "blocks_complete": true
+    },
+    {
+      "case_id": "FJS-014",
+      "expected_disposition": "period_boundary_conflict",
+      "reason_codes": [
+        "opening_balance_differs_from_prior_close"
+      ],
+      "blocks_complete": true
+    },
+    {
+      "case_id": "FJS-015",
+      "expected_disposition": "period_boundary_conflict",
+      "reason_codes": [
+        "predecessor_close_missing"
+      ],
+      "blocks_complete": true
+    },
+    {
+      "case_id": "FJS-016",
+      "expected_disposition": "complete_exact_population_and_rollforward",
+      "reason_codes": [
+        "booking_and_value_dates_preserved_separately",
+        "authorized_late_booking_included"
+      ],
+      "blocks_complete": false
+    },
+    {
+      "case_id": "FJS-017",
+      "expected_disposition": "complete_exact_population_and_rollforward",
+      "reason_codes": [
+        "append_only_reversal_bounded_by_original"
+      ],
+      "blocks_complete": false
+    },
+    {
+      "case_id": "FJS-018",
+      "expected_disposition": "orphan_or_unauthorized_journal",
+      "reason_codes": [
+        "reversal_exceeds_original_posting"
+      ],
+      "blocks_complete": true
+    },
+    {
+      "case_id": "FJS-019",
+      "expected_disposition": "orphan_or_unauthorized_journal",
+      "reason_codes": [
+        "correction_original_not_present"
+      ],
+      "blocks_complete": true
+    },
+    {
+      "case_id": "FJS-020",
+      "expected_disposition": "stale_close_frontier",
+      "reason_codes": [
+        "journal_effective_after_close_cutoff"
+      ],
+      "blocks_complete": true
+    },
+    {
+      "case_id": "FJS-021",
+      "expected_disposition": "unsupported_profile_or_unit",
+      "reason_codes": [
+        "posting_account_not_in_pinned_account_profile"
+      ],
+      "blocks_complete": true
+    },
+    {
+      "case_id": "FJS-022",
+      "expected_disposition": "stale_close_frontier",
+      "reason_codes": [
+        "source_population_frontier_changed_after_close"
+      ],
+      "blocks_complete": true
+    },
+    {
+      "case_id": "FJS-023",
+      "expected_disposition": "complete_exact_population_and_rollforward",
+      "reason_codes": [
+        "semantic_set_permutation_invariant"
+      ],
+      "blocks_complete": false
+    },
+    {
+      "case_id": "FJS-024",
+      "expected_disposition": "conflicting_journal_identity",
+      "reason_codes": [
+        "same_journal_id_changed_economic_event_binding"
+      ],
+      "blocks_complete": true
+    }
+  ]
+}
