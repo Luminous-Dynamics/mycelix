@@ -1471,7 +1471,7 @@ def main():
         fail("mutation: zero-width baseline accepted for relative sharpness")
     print("PASS mutation: relative sharpness requires a positive baseline interval width")
 
-        print("PASS: 72 urban-metabolism/synergy controls (61 mutation/parser rejection controls and eleven positive controls); distributional outcomes remain disaggregated; coverage limits are explicit; no composite symtropy score or automatic authorization.")
+    print("PASS: 72 urban-metabolism/synergy controls (61 mutation/parser rejection controls and eleven positive controls); distributional outcomes remain disaggregated; coverage limits are explicit; no composite symtropy score or automatic authorization.")
 
 
 if __name__ == "__main__":
