@@ -66,7 +66,9 @@
         "excluded_source_recall",
         "source_terminal_coverage",
         "forbid_auto_close_violation_count",
-        "hard_failure_count"
+        "hard_failure_count",
+        "review_source_precision",
+        "excluded_source_precision"
       ],
       "properties": {
         "case_count": {
@@ -156,6 +158,16 @@
         "hard_failure_count": {
           "type": "integer",
           "minimum": 0
+        },
+        "review_source_precision": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "excluded_source_precision": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
         }
       }
     },
@@ -185,7 +197,10 @@
         "review_source_recall",
         "excluded_source_recall",
         "source_terminal_coverage",
-        "hard_failures"
+        "hard_failures",
+        "auto_match_false_positive_count",
+        "review_source_precision",
+        "excluded_source_precision"
       ],
       "properties": {
         "case_id": {
@@ -260,6 +275,20 @@
           "items": {
             "type": "string"
           }
+        },
+        "auto_match_false_positive_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "review_source_precision": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "excluded_source_precision": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
         }
       }
     }
