@@ -1,0 +1,1259 @@
+{
+  "bundle_id": "MYCELIX-RECON-HYPOTHESES-S0-INPUT",
+  "schema_version": "1.0.0",
+  "claim_ceiling": "synthetic_reconciliation_inputs_for_hypothesis_validation_not_ledger_posting",
+  "runs": [
+    {
+      "run_id": "RECON-001-ONE-TO-ONE",
+      "scope": {
+        "tenant_namespace": "tenant-acme/finance",
+        "entity_ref": "ENTITY-ACME",
+        "account_ref": "CASH-OPERATING"
+      },
+      "knowledge_at": "2026-11-05T10:00:00Z",
+      "period": {
+        "start": "2026-10-01",
+        "end": "2026-10-31"
+      },
+      "rule_set": {
+        "rule_set_ref": "RULESET-RECON-S0",
+        "version": "1.0.0",
+        "criteria": [
+          {
+            "criterion_ref": "CR-AMOUNT",
+            "kind": "amount",
+            "weight_bps": 2500,
+            "required_for_auto_match": true,
+            "mismatch_action": "review",
+            "missing_action": "block"
+          },
+          {
+            "criterion_ref": "CR-CURRENCY",
+            "kind": "currency",
+            "weight_bps": 1500,
+            "required_for_auto_match": true,
+            "mismatch_action": "block",
+            "missing_action": "block"
+          },
+          {
+            "criterion_ref": "CR-ENTITY",
+            "kind": "entity",
+            "weight_bps": 1000,
+            "required_for_auto_match": true,
+            "mismatch_action": "block",
+            "missing_action": "block"
+          },
+          {
+            "criterion_ref": "CR-ACCOUNT",
+            "kind": "account",
+            "weight_bps": 500,
+            "required_for_auto_match": true,
+            "mismatch_action": "block",
+            "missing_action": "block"
+          },
+          {
+            "criterion_ref": "CR-DIRECTION",
+            "kind": "direction",
+            "weight_bps": 1000,
+            "required_for_auto_match": true,
+            "mismatch_action": "block",
+            "missing_action": "block"
+          },
+          {
+            "criterion_ref": "CR-DATE",
+            "kind": "date",
+            "weight_bps": 1000,
+            "required_for_auto_match": false,
+            "mismatch_action": "review",
+            "missing_action": "review"
+          },
+          {
+            "criterion_ref": "CR-REFERENCE",
+            "kind": "reference",
+            "weight_bps": 1200,
+            "required_for_auto_match": false,
+            "mismatch_action": "review",
+            "missing_action": "review"
+          },
+          {
+            "criterion_ref": "CR-COUNTERPARTY",
+            "kind": "counterparty",
+            "weight_bps": 800,
+            "required_for_auto_match": false,
+            "mismatch_action": "review",
+            "missing_action": "review"
+          },
+          {
+            "criterion_ref": "CR-TRANSACTION-TYPE",
+            "kind": "transaction_type",
+            "weight_bps": 500,
+            "required_for_auto_match": false,
+            "mismatch_action": "review",
+            "missing_action": "review"
+          }
+        ],
+        "amount_tolerance_minor": 0,
+        "date_tolerance_days": 0,
+        "auto_match_threshold_bps": 9000,
+        "review_threshold_bps": 7000,
+        "ambiguity_margin_bps": 500,
+        "allowed_cardinalities": [
+          "one_to_one",
+          "one_to_many",
+          "many_to_one",
+          "many_to_many"
+        ]
+      },
+      "source_items": [
+        {
+          "source_item_ref": "R1-S",
+          "source_side": "statement",
+          "source_system": "BANK-STATEMENT-ADAPTER",
+          "tenant_namespace": "tenant-acme/finance",
+          "entity_ref": "ENTITY-ACME",
+          "account_ref": "CASH-OPERATING",
+          "source_document_ref": "DOC-R1-S",
+          "source_document_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "external_id": "EXT-R1-S",
+          "amount_minor": 250000,
+          "currency": "USD",
+          "direction": "debit",
+          "transaction_date": "2026-10-30",
+          "received_at": "2026-11-05T09:00:00Z",
+          "external_reference": "INV-001",
+          "counterparty_ref": "SUPPLIER-ACME",
+          "transaction_type": "supplier_payment",
+          "reversal_of_external_id": null
+        },
+        {
+          "source_item_ref": "R1-L",
+          "source_side": "ledger",
+          "source_system": "ERP-LEDGER-ADAPTER",
+          "tenant_namespace": "tenant-acme/finance",
+          "entity_ref": "ENTITY-ACME",
+          "account_ref": "CASH-OPERATING",
+          "source_document_ref": "DOC-R1-L",
+          "source_document_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "external_id": "EXT-R1-L",
+          "amount_minor": 250000,
+          "currency": "USD",
+          "direction": "debit",
+          "transaction_date": "2026-10-30",
+          "received_at": "2026-11-05T09:00:00Z",
+          "external_reference": "INV-001",
+          "counterparty_ref": "SUPPLIER-ACME",
+          "transaction_type": "supplier_payment",
+          "reversal_of_external_id": null
+        }
+      ]
+    },
+    {
+      "run_id": "RECON-002-ONE-TO-MANY",
+      "scope": {
+        "tenant_namespace": "tenant-acme/finance",
+        "entity_ref": "ENTITY-ACME",
+        "account_ref": "CASH-OPERATING"
+      },
+      "knowledge_at": "2026-11-05T10:00:00Z",
+      "period": {
+        "start": "2026-10-01",
+        "end": "2026-10-31"
+      },
+      "rule_set": {
+        "rule_set_ref": "RULESET-RECON-S0",
+        "version": "1.0.0",
+        "criteria": [
+          {
+            "criterion_ref": "CR-AMOUNT",
+            "kind": "amount",
+            "weight_bps": 2500,
+            "required_for_auto_match": true,
+            "mismatch_action": "review",
+            "missing_action": "block"
+          },
+          {
+            "criterion_ref": "CR-CURRENCY",
+            "kind": "currency",
+            "weight_bps": 1500,
+            "required_for_auto_match": true,
+            "mismatch_action": "block",
+            "missing_action": "block"
+          },
+          {
+            "criterion_ref": "CR-ENTITY",
+            "kind": "entity",
+            "weight_bps": 1000,
+            "required_for_auto_match": true,
+            "mismatch_action": "block",
+            "missing_action": "block"
+          },
+          {
+            "criterion_ref": "CR-ACCOUNT",
+            "kind": "account",
+            "weight_bps": 500,
+            "required_for_auto_match": true,
+            "mismatch_action": "block",
+            "missing_action": "block"
+          },
+          {
+            "criterion_ref": "CR-DIRECTION",
+            "kind": "direction",
+            "weight_bps": 1000,
+            "required_for_auto_match": true,
+            "mismatch_action": "block",
+            "missing_action": "block"
+          },
+          {
+            "criterion_ref": "CR-DATE",
+            "kind": "date",
+            "weight_bps": 1000,
+            "required_for_auto_match": false,
+            "mismatch_action": "review",
+            "missing_action": "review"
+          },
+          {
+            "criterion_ref": "CR-REFERENCE",
+            "kind": "reference",
+            "weight_bps": 1200,
+            "required_for_auto_match": false,
+            "mismatch_action": "review",
+            "missing_action": "review"
+          },
+          {
+            "criterion_ref": "CR-COUNTERPARTY",
+            "kind": "counterparty",
+            "weight_bps": 800,
+            "required_for_auto_match": false,
+            "mismatch_action": "review",
+            "missing_action": "review"
+          },
+          {
+            "criterion_ref": "CR-TRANSACTION-TYPE",
+            "kind": "transaction_type",
+            "weight_bps": 500,
+            "required_for_auto_match": false,
+            "mismatch_action": "review",
+            "missing_action": "review"
+          }
+        ],
+        "amount_tolerance_minor": 0,
+        "date_tolerance_days": 0,
+        "auto_match_threshold_bps": 9000,
+        "review_threshold_bps": 7000,
+        "ambiguity_margin_bps": 500,
+        "allowed_cardinalities": [
+          "one_to_one",
+          "one_to_many",
+          "many_to_one",
+          "many_to_many"
+        ]
+      },
+      "source_items": [
+        {
+          "source_item_ref": "R2-S",
+          "source_side": "statement",
+          "source_system": "BANK-STATEMENT-ADAPTER",
+          "tenant_namespace": "tenant-acme/finance",
+          "entity_ref": "ENTITY-ACME",
+          "account_ref": "CASH-OPERATING",
+          "source_document_ref": "DOC-R2-S",
+          "source_document_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "external_id": "EXT-R2-S",
+          "amount_minor": 30000,
+          "currency": "USD",
+          "direction": "debit",
+          "transaction_date": "2026-10-30",
+          "received_at": "2026-11-05T09:00:00Z",
+          "external_reference": "BATCH-002",
+          "counterparty_ref": "SUPPLIER-ACME",
+          "transaction_type": "supplier_payment",
+          "reversal_of_external_id": null
+        },
+        {
+          "source_item_ref": "R2-L1",
+          "source_side": "ledger",
+          "source_system": "ERP-LEDGER-ADAPTER",
+          "tenant_namespace": "tenant-acme/finance",
+          "entity_ref": "ENTITY-ACME",
+          "account_ref": "CASH-OPERATING",
+          "source_document_ref": "DOC-R2-L1",
+          "source_document_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "external_id": "EXT-R2-L1",
+          "amount_minor": 10000,
+          "currency": "USD",
+          "direction": "debit",
+          "transaction_date": "2026-10-30",
+          "received_at": "2026-11-05T09:00:00Z",
+          "external_reference": "BATCH-002",
+          "counterparty_ref": "SUPPLIER-ACME",
+          "transaction_type": "supplier_payment",
+          "reversal_of_external_id": null
+        },
+        {
+          "source_item_ref": "R2-L2",
+          "source_side": "ledger",
+          "source_system": "ERP-LEDGER-ADAPTER",
+          "tenant_namespace": "tenant-acme/finance",
+          "entity_ref": "ENTITY-ACME",
+          "account_ref": "CASH-OPERATING",
+          "source_document_ref": "DOC-R2-L2",
+          "source_document_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "external_id": "EXT-R2-L2",
+          "amount_minor": 20000,
+          "currency": "USD",
+          "direction": "debit",
+          "transaction_date": "2026-10-30",
+          "received_at": "2026-11-05T09:00:00Z",
+          "external_reference": "BATCH-002",
+          "counterparty_ref": "SUPPLIER-ACME",
+          "transaction_type": "supplier_payment",
+          "reversal_of_external_id": null
+        }
+      ]
+    },
+    {
+      "run_id": "RECON-003-MANY-TO-ONE",
+      "scope": {
+        "tenant_namespace": "tenant-acme/finance",
+        "entity_ref": "ENTITY-ACME",
+        "account_ref": "CASH-OPERATING"
+      },
+      "knowledge_at": "2026-11-05T10:00:00Z",
+      "period": {
+        "start": "2026-10-01",
+        "end": "2026-10-31"
+      },
+      "rule_set": {
+        "rule_set_ref": "RULESET-RECON-S0",
+        "version": "1.0.0",
+        "criteria": [
+          {
+            "criterion_ref": "CR-AMOUNT",
+            "kind": "amount",
+            "weight_bps": 2500,
+            "required_for_auto_match": true,
+            "mismatch_action": "review",
+            "missing_action": "block"
+          },
+          {
+            "criterion_ref": "CR-CURRENCY",
+            "kind": "currency",
+            "weight_bps": 1500,
+            "required_for_auto_match": true,
+            "mismatch_action": "block",
+            "missing_action": "block"
+          },
+          {
+            "criterion_ref": "CR-ENTITY",
+            "kind": "entity",
+            "weight_bps": 1000,
+            "required_for_auto_match": true,
+            "mismatch_action": "block",
+            "missing_action": "block"
+          },
+          {
+            "criterion_ref": "CR-ACCOUNT",
+            "kind": "account",
+            "weight_bps": 500,
+            "required_for_auto_match": true,
+            "mismatch_action": "block",
+            "missing_action": "block"
+          },
+          {
+            "criterion_ref": "CR-DIRECTION",
+            "kind": "direction",
+            "weight_bps": 1000,
+            "required_for_auto_match": true,
+            "mismatch_action": "block",
+            "missing_action": "block"
+          },
+          {
+            "criterion_ref": "CR-DATE",
+            "kind": "date",
+            "weight_bps": 1000,
+            "required_for_auto_match": false,
+            "mismatch_action": "review",
+            "missing_action": "review"
+          },
+          {
+            "criterion_ref": "CR-REFERENCE",
+            "kind": "reference",
+            "weight_bps": 1200,
+            "required_for_auto_match": false,
+            "mismatch_action": "review",
+            "missing_action": "review"
+          },
+          {
+            "criterion_ref": "CR-COUNTERPARTY",
+            "kind": "counterparty",
+            "weight_bps": 800,
+            "required_for_auto_match": false,
+            "mismatch_action": "review",
+            "missing_action": "review"
+          },
+          {
+            "criterion_ref": "CR-TRANSACTION-TYPE",
+            "kind": "transaction_type",
+            "weight_bps": 500,
+            "required_for_auto_match": false,
+            "mismatch_action": "review",
+            "missing_action": "review"
+          }
+        ],
+        "amount_tolerance_minor": 0,
+        "date_tolerance_days": 0,
+        "auto_match_threshold_bps": 9000,
+        "review_threshold_bps": 7000,
+        "ambiguity_margin_bps": 500,
+        "allowed_cardinalities": [
+          "one_to_one",
+          "one_to_many",
+          "many_to_one",
+          "many_to_many"
+        ]
+      },
+      "source_items": [
+        {
+          "source_item_ref": "R3-S1",
+          "source_side": "statement",
+          "source_system": "BANK-STATEMENT-ADAPTER",
+          "tenant_namespace": "tenant-acme/finance",
+          "entity_ref": "ENTITY-ACME",
+          "account_ref": "CASH-OPERATING",
+          "source_document_ref": "DOC-R3-S1",
+          "source_document_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "external_id": "EXT-R3-S1",
+          "amount_minor": 10000,
+          "currency": "USD",
+          "direction": "debit",
+          "transaction_date": "2026-10-30",
+          "received_at": "2026-11-05T09:00:00Z",
+          "external_reference": "BATCH-003",
+          "counterparty_ref": "SUPPLIER-ACME",
+          "transaction_type": "supplier_payment",
+          "reversal_of_external_id": null
+        },
+        {
+          "source_item_ref": "R3-S2",
+          "source_side": "statement",
+          "source_system": "BANK-STATEMENT-ADAPTER",
+          "tenant_namespace": "tenant-acme/finance",
+          "entity_ref": "ENTITY-ACME",
+          "account_ref": "CASH-OPERATING",
+          "source_document_ref": "DOC-R3-S2",
+          "source_document_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "external_id": "EXT-R3-S2",
+          "amount_minor": 20000,
+          "currency": "USD",
+          "direction": "debit",
+          "transaction_date": "2026-10-30",
+          "received_at": "2026-11-05T09:00:00Z",
+          "external_reference": "BATCH-003",
+          "counterparty_ref": "SUPPLIER-ACME",
+          "transaction_type": "supplier_payment",
+          "reversal_of_external_id": null
+        },
+        {
+          "source_item_ref": "R3-L",
+          "source_side": "ledger",
+          "source_system": "ERP-LEDGER-ADAPTER",
+          "tenant_namespace": "tenant-acme/finance",
+          "entity_ref": "ENTITY-ACME",
+          "account_ref": "CASH-OPERATING",
+          "source_document_ref": "DOC-R3-L",
+          "source_document_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "external_id": "EXT-R3-L",
+          "amount_minor": 30000,
+          "currency": "USD",
+          "direction": "debit",
+          "transaction_date": "2026-10-30",
+          "received_at": "2026-11-05T09:00:00Z",
+          "external_reference": "BATCH-003",
+          "counterparty_ref": "SUPPLIER-ACME",
+          "transaction_type": "supplier_payment",
+          "reversal_of_external_id": null
+        }
+      ]
+    },
+    {
+      "run_id": "RECON-004-MANY-TO-MANY",
+      "scope": {
+        "tenant_namespace": "tenant-acme/finance",
+        "entity_ref": "ENTITY-ACME",
+        "account_ref": "CASH-OPERATING"
+      },
+      "knowledge_at": "2026-11-05T10:00:00Z",
+      "period": {
+        "start": "2026-10-01",
+        "end": "2026-10-31"
+      },
+      "rule_set": {
+        "rule_set_ref": "RULESET-RECON-S0",
+        "version": "1.0.0",
+        "criteria": [
+          {
+            "criterion_ref": "CR-AMOUNT",
+            "kind": "amount",
+            "weight_bps": 2500,
+            "required_for_auto_match": true,
+            "mismatch_action": "review",
+            "missing_action": "block"
+          },
+          {
+            "criterion_ref": "CR-CURRENCY",
+            "kind": "currency",
+            "weight_bps": 1500,
+            "required_for_auto_match": true,
+            "mismatch_action": "block",
+            "missing_action": "block"
+          },
+          {
+            "criterion_ref": "CR-ENTITY",
+            "kind": "entity",
+            "weight_bps": 1000,
+            "required_for_auto_match": true,
+            "mismatch_action": "block",
+            "missing_action": "block"
+          },
+          {
+            "criterion_ref": "CR-ACCOUNT",
+            "kind": "account",
+            "weight_bps": 500,
+            "required_for_auto_match": true,
+            "mismatch_action": "block",
+            "missing_action": "block"
+          },
+          {
+            "criterion_ref": "CR-DIRECTION",
+            "kind": "direction",
+            "weight_bps": 1000,
+            "required_for_auto_match": true,
+            "mismatch_action": "block",
+            "missing_action": "block"
+          },
+          {
+            "criterion_ref": "CR-DATE",
+            "kind": "date",
+            "weight_bps": 1000,
+            "required_for_auto_match": false,
+            "mismatch_action": "review",
+            "missing_action": "review"
+          },
+          {
+            "criterion_ref": "CR-REFERENCE",
+            "kind": "reference",
+            "weight_bps": 1200,
+            "required_for_auto_match": false,
+            "mismatch_action": "review",
+            "missing_action": "review"
+          },
+          {
+            "criterion_ref": "CR-COUNTERPARTY",
+            "kind": "counterparty",
+            "weight_bps": 800,
+            "required_for_auto_match": false,
+            "mismatch_action": "review",
+            "missing_action": "review"
+          },
+          {
+            "criterion_ref": "CR-TRANSACTION-TYPE",
+            "kind": "transaction_type",
+            "weight_bps": 500,
+            "required_for_auto_match": false,
+            "mismatch_action": "review",
+            "missing_action": "review"
+          }
+        ],
+        "amount_tolerance_minor": 0,
+        "date_tolerance_days": 0,
+        "auto_match_threshold_bps": 9000,
+        "review_threshold_bps": 7000,
+        "ambiguity_margin_bps": 500,
+        "allowed_cardinalities": [
+          "one_to_one",
+          "one_to_many",
+          "many_to_one",
+          "many_to_many"
+        ]
+      },
+      "source_items": [
+        {
+          "source_item_ref": "R4-S1",
+          "source_side": "statement",
+          "source_system": "BANK-STATEMENT-ADAPTER",
+          "tenant_namespace": "tenant-acme/finance",
+          "entity_ref": "ENTITY-ACME",
+          "account_ref": "CASH-OPERATING",
+          "source_document_ref": "DOC-R4-S1",
+          "source_document_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "external_id": "EXT-R4-S1",
+          "amount_minor": 5000,
+          "currency": "USD",
+          "direction": "debit",
+          "transaction_date": "2026-10-30",
+          "received_at": "2026-11-05T09:00:00Z",
+          "external_reference": "BATCH-004",
+          "counterparty_ref": "SUPPLIER-ACME",
+          "transaction_type": "supplier_payment",
+          "reversal_of_external_id": null
+        },
+        {
+          "source_item_ref": "R4-S2",
+          "source_side": "statement",
+          "source_system": "BANK-STATEMENT-ADAPTER",
+          "tenant_namespace": "tenant-acme/finance",
+          "entity_ref": "ENTITY-ACME",
+          "account_ref": "CASH-OPERATING",
+          "source_document_ref": "DOC-R4-S2",
+          "source_document_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "external_id": "EXT-R4-S2",
+          "amount_minor": 5000,
+          "currency": "USD",
+          "direction": "debit",
+          "transaction_date": "2026-10-30",
+          "received_at": "2026-11-05T09:00:00Z",
+          "external_reference": "BATCH-004",
+          "counterparty_ref": "SUPPLIER-ACME",
+          "transaction_type": "supplier_payment",
+          "reversal_of_external_id": null
+        },
+        {
+          "source_item_ref": "R4-L1",
+          "source_side": "ledger",
+          "source_system": "ERP-LEDGER-ADAPTER",
+          "tenant_namespace": "tenant-acme/finance",
+          "entity_ref": "ENTITY-ACME",
+          "account_ref": "CASH-OPERATING",
+          "source_document_ref": "DOC-R4-L1",
+          "source_document_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "external_id": "EXT-R4-L1",
+          "amount_minor": 7000,
+          "currency": "USD",
+          "direction": "debit",
+          "transaction_date": "2026-10-30",
+          "received_at": "2026-11-05T09:00:00Z",
+          "external_reference": "BATCH-004",
+          "counterparty_ref": "SUPPLIER-ACME",
+          "transaction_type": "supplier_payment",
+          "reversal_of_external_id": null
+        },
+        {
+          "source_item_ref": "R4-L2",
+          "source_side": "ledger",
+          "source_system": "ERP-LEDGER-ADAPTER",
+          "tenant_namespace": "tenant-acme/finance",
+          "entity_ref": "ENTITY-ACME",
+          "account_ref": "CASH-OPERATING",
+          "source_document_ref": "DOC-R4-L2",
+          "source_document_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "external_id": "EXT-R4-L2",
+          "amount_minor": 3000,
+          "currency": "USD",
+          "direction": "debit",
+          "transaction_date": "2026-10-30",
+          "received_at": "2026-11-05T09:00:00Z",
+          "external_reference": "BATCH-004",
+          "counterparty_ref": "SUPPLIER-ACME",
+          "transaction_type": "supplier_payment",
+          "reversal_of_external_id": null
+        }
+      ]
+    },
+    {
+      "run_id": "RECON-005-PARTIAL-SETTLEMENT",
+      "scope": {
+        "tenant_namespace": "tenant-acme/finance",
+        "entity_ref": "ENTITY-ACME",
+        "account_ref": "CASH-OPERATING"
+      },
+      "knowledge_at": "2026-11-05T10:00:00Z",
+      "period": {
+        "start": "2026-10-01",
+        "end": "2026-10-31"
+      },
+      "rule_set": {
+        "rule_set_ref": "RULESET-RECON-S0",
+        "version": "1.0.0",
+        "criteria": [
+          {
+            "criterion_ref": "CR-AMOUNT",
+            "kind": "amount",
+            "weight_bps": 2500,
+            "required_for_auto_match": true,
+            "mismatch_action": "review",
+            "missing_action": "block"
+          },
+          {
+            "criterion_ref": "CR-CURRENCY",
+            "kind": "currency",
+            "weight_bps": 1500,
+            "required_for_auto_match": true,
+            "mismatch_action": "block",
+            "missing_action": "block"
+          },
+          {
+            "criterion_ref": "CR-ENTITY",
+            "kind": "entity",
+            "weight_bps": 1000,
+            "required_for_auto_match": true,
+            "mismatch_action": "block",
+            "missing_action": "block"
+          },
+          {
+            "criterion_ref": "CR-ACCOUNT",
+            "kind": "account",
+            "weight_bps": 500,
+            "required_for_auto_match": true,
+            "mismatch_action": "block",
+            "missing_action": "block"
+          },
+          {
+            "criterion_ref": "CR-DIRECTION",
+            "kind": "direction",
+            "weight_bps": 1000,
+            "required_for_auto_match": true,
+            "mismatch_action": "block",
+            "missing_action": "block"
+          },
+          {
+            "criterion_ref": "CR-DATE",
+            "kind": "date",
+            "weight_bps": 1000,
+            "required_for_auto_match": false,
+            "mismatch_action": "review",
+            "missing_action": "review"
+          },
+          {
+            "criterion_ref": "CR-REFERENCE",
+            "kind": "reference",
+            "weight_bps": 1200,
+            "required_for_auto_match": false,
+            "mismatch_action": "review",
+            "missing_action": "review"
+          },
+          {
+            "criterion_ref": "CR-COUNTERPARTY",
+            "kind": "counterparty",
+            "weight_bps": 800,
+            "required_for_auto_match": false,
+            "mismatch_action": "review",
+            "missing_action": "review"
+          },
+          {
+            "criterion_ref": "CR-TRANSACTION-TYPE",
+            "kind": "transaction_type",
+            "weight_bps": 500,
+            "required_for_auto_match": false,
+            "mismatch_action": "review",
+            "missing_action": "review"
+          }
+        ],
+        "amount_tolerance_minor": 0,
+        "date_tolerance_days": 0,
+        "auto_match_threshold_bps": 9000,
+        "review_threshold_bps": 7000,
+        "ambiguity_margin_bps": 500,
+        "allowed_cardinalities": [
+          "one_to_one",
+          "one_to_many",
+          "many_to_one",
+          "many_to_many"
+        ]
+      },
+      "source_items": [
+        {
+          "source_item_ref": "R5-S",
+          "source_side": "statement",
+          "source_system": "BANK-STATEMENT-ADAPTER",
+          "tenant_namespace": "tenant-acme/finance",
+          "entity_ref": "ENTITY-ACME",
+          "account_ref": "CASH-OPERATING",
+          "source_document_ref": "DOC-R5-S",
+          "source_document_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "external_id": "EXT-R5-S",
+          "amount_minor": 7000,
+          "currency": "USD",
+          "direction": "debit",
+          "transaction_date": "2026-10-30",
+          "received_at": "2026-11-05T09:00:00Z",
+          "external_reference": "INV-005",
+          "counterparty_ref": "SUPPLIER-ACME",
+          "transaction_type": "supplier_payment",
+          "reversal_of_external_id": null
+        },
+        {
+          "source_item_ref": "R5-L",
+          "source_side": "ledger",
+          "source_system": "ERP-LEDGER-ADAPTER",
+          "tenant_namespace": "tenant-acme/finance",
+          "entity_ref": "ENTITY-ACME",
+          "account_ref": "CASH-OPERATING",
+          "source_document_ref": "DOC-R5-L",
+          "source_document_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "external_id": "EXT-R5-L",
+          "amount_minor": 10000,
+          "currency": "USD",
+          "direction": "debit",
+          "transaction_date": "2026-10-30",
+          "received_at": "2026-11-05T09:00:00Z",
+          "external_reference": "INV-005",
+          "counterparty_ref": "SUPPLIER-ACME",
+          "transaction_type": "supplier_payment",
+          "reversal_of_external_id": null
+        }
+      ]
+    },
+    {
+      "run_id": "RECON-006-AMBIGUOUS-ALTERNATIVES",
+      "scope": {
+        "tenant_namespace": "tenant-acme/finance",
+        "entity_ref": "ENTITY-ACME",
+        "account_ref": "CASH-OPERATING"
+      },
+      "knowledge_at": "2026-11-05T10:00:00Z",
+      "period": {
+        "start": "2026-10-01",
+        "end": "2026-10-31"
+      },
+      "rule_set": {
+        "rule_set_ref": "RULESET-RECON-S0",
+        "version": "1.0.0",
+        "criteria": [
+          {
+            "criterion_ref": "CR-AMOUNT",
+            "kind": "amount",
+            "weight_bps": 2500,
+            "required_for_auto_match": true,
+            "mismatch_action": "review",
+            "missing_action": "block"
+          },
+          {
+            "criterion_ref": "CR-CURRENCY",
+            "kind": "currency",
+            "weight_bps": 1500,
+            "required_for_auto_match": true,
+            "mismatch_action": "block",
+            "missing_action": "block"
+          },
+          {
+            "criterion_ref": "CR-ENTITY",
+            "kind": "entity",
+            "weight_bps": 1000,
+            "required_for_auto_match": true,
+            "mismatch_action": "block",
+            "missing_action": "block"
+          },
+          {
+            "criterion_ref": "CR-ACCOUNT",
+            "kind": "account",
+            "weight_bps": 500,
+            "required_for_auto_match": true,
+            "mismatch_action": "block",
+            "missing_action": "block"
+          },
+          {
+            "criterion_ref": "CR-DIRECTION",
+            "kind": "direction",
+            "weight_bps": 1000,
+            "required_for_auto_match": true,
+            "mismatch_action": "block",
+            "missing_action": "block"
+          },
+          {
+            "criterion_ref": "CR-DATE",
+            "kind": "date",
+            "weight_bps": 1000,
+            "required_for_auto_match": false,
+            "mismatch_action": "review",
+            "missing_action": "review"
+          },
+          {
+            "criterion_ref": "CR-REFERENCE",
+            "kind": "reference",
+            "weight_bps": 1200,
+            "required_for_auto_match": false,
+            "mismatch_action": "review",
+            "missing_action": "review"
+          },
+          {
+            "criterion_ref": "CR-COUNTERPARTY",
+            "kind": "counterparty",
+            "weight_bps": 800,
+            "required_for_auto_match": false,
+            "mismatch_action": "review",
+            "missing_action": "review"
+          },
+          {
+            "criterion_ref": "CR-TRANSACTION-TYPE",
+            "kind": "transaction_type",
+            "weight_bps": 500,
+            "required_for_auto_match": false,
+            "mismatch_action": "review",
+            "missing_action": "review"
+          }
+        ],
+        "amount_tolerance_minor": 0,
+        "date_tolerance_days": 0,
+        "auto_match_threshold_bps": 9000,
+        "review_threshold_bps": 7000,
+        "ambiguity_margin_bps": 500,
+        "allowed_cardinalities": [
+          "one_to_one",
+          "one_to_many",
+          "many_to_one",
+          "many_to_many"
+        ]
+      },
+      "source_items": [
+        {
+          "source_item_ref": "R6-S",
+          "source_side": "statement",
+          "source_system": "BANK-STATEMENT-ADAPTER",
+          "tenant_namespace": "tenant-acme/finance",
+          "entity_ref": "ENTITY-ACME",
+          "account_ref": "CASH-OPERATING",
+          "source_document_ref": "DOC-R6-S",
+          "source_document_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "external_id": "EXT-R6-S",
+          "amount_minor": 10000,
+          "currency": "USD",
+          "direction": "debit",
+          "transaction_date": "2026-10-30",
+          "received_at": "2026-11-05T09:00:00Z",
+          "external_reference": "DUP-REF-006",
+          "counterparty_ref": "SUPPLIER-ACME",
+          "transaction_type": "supplier_payment",
+          "reversal_of_external_id": null
+        },
+        {
+          "source_item_ref": "R6-L1",
+          "source_side": "ledger",
+          "source_system": "ERP-LEDGER-ADAPTER",
+          "tenant_namespace": "tenant-acme/finance",
+          "entity_ref": "ENTITY-ACME",
+          "account_ref": "CASH-OPERATING",
+          "source_document_ref": "DOC-R6-L1",
+          "source_document_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "external_id": "EXT-R6-L1",
+          "amount_minor": 10000,
+          "currency": "USD",
+          "direction": "debit",
+          "transaction_date": "2026-10-30",
+          "received_at": "2026-11-05T09:00:00Z",
+          "external_reference": "DUP-REF-006",
+          "counterparty_ref": "SUPPLIER-ACME",
+          "transaction_type": "supplier_payment",
+          "reversal_of_external_id": null
+        },
+        {
+          "source_item_ref": "R6-L2",
+          "source_side": "ledger",
+          "source_system": "ERP-LEDGER-ADAPTER",
+          "tenant_namespace": "tenant-acme/finance",
+          "entity_ref": "ENTITY-ACME",
+          "account_ref": "CASH-OPERATING",
+          "source_document_ref": "DOC-R6-L2",
+          "source_document_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "external_id": "EXT-R6-L2",
+          "amount_minor": 10000,
+          "currency": "USD",
+          "direction": "debit",
+          "transaction_date": "2026-10-30",
+          "received_at": "2026-11-05T09:00:00Z",
+          "external_reference": "DUP-REF-006",
+          "counterparty_ref": "SUPPLIER-ACME",
+          "transaction_type": "supplier_payment",
+          "reversal_of_external_id": null
+        }
+      ]
+    },
+    {
+      "run_id": "RECON-007-CURRENCY-CONFLICT",
+      "scope": {
+        "tenant_namespace": "tenant-acme/finance",
+        "entity_ref": "ENTITY-ACME",
+        "account_ref": "CASH-OPERATING"
+      },
+      "knowledge_at": "2026-11-05T10:00:00Z",
+      "period": {
+        "start": "2026-10-01",
+        "end": "2026-10-31"
+      },
+      "rule_set": {
+        "rule_set_ref": "RULESET-RECON-S0",
+        "version": "1.0.0",
+        "criteria": [
+          {
+            "criterion_ref": "CR-AMOUNT",
+            "kind": "amount",
+            "weight_bps": 2500,
+            "required_for_auto_match": true,
+            "mismatch_action": "review",
+            "missing_action": "block"
+          },
+          {
+            "criterion_ref": "CR-CURRENCY",
+            "kind": "currency",
+            "weight_bps": 1500,
+            "required_for_auto_match": true,
+            "mismatch_action": "block",
+            "missing_action": "block"
+          },
+          {
+            "criterion_ref": "CR-ENTITY",
+            "kind": "entity",
+            "weight_bps": 1000,
+            "required_for_auto_match": true,
+            "mismatch_action": "block",
+            "missing_action": "block"
+          },
+          {
+            "criterion_ref": "CR-ACCOUNT",
+            "kind": "account",
+            "weight_bps": 500,
+            "required_for_auto_match": true,
+            "mismatch_action": "block",
+            "missing_action": "block"
+          },
+          {
+            "criterion_ref": "CR-DIRECTION",
+            "kind": "direction",
+            "weight_bps": 1000,
+            "required_for_auto_match": true,
+            "mismatch_action": "block",
+            "missing_action": "block"
+          },
+          {
+            "criterion_ref": "CR-DATE",
+            "kind": "date",
+            "weight_bps": 1000,
+            "required_for_auto_match": false,
+            "mismatch_action": "review",
+            "missing_action": "review"
+          },
+          {
+            "criterion_ref": "CR-REFERENCE",
+            "kind": "reference",
+            "weight_bps": 1200,
+            "required_for_auto_match": false,
+            "mismatch_action": "review",
+            "missing_action": "review"
+          },
+          {
+            "criterion_ref": "CR-COUNTERPARTY",
+            "kind": "counterparty",
+            "weight_bps": 800,
+            "required_for_auto_match": false,
+            "mismatch_action": "review",
+            "missing_action": "review"
+          },
+          {
+            "criterion_ref": "CR-TRANSACTION-TYPE",
+            "kind": "transaction_type",
+            "weight_bps": 500,
+            "required_for_auto_match": false,
+            "mismatch_action": "review",
+            "missing_action": "review"
+          }
+        ],
+        "amount_tolerance_minor": 0,
+        "date_tolerance_days": 0,
+        "auto_match_threshold_bps": 9000,
+        "review_threshold_bps": 7000,
+        "ambiguity_margin_bps": 500,
+        "allowed_cardinalities": [
+          "one_to_one",
+          "one_to_many",
+          "many_to_one",
+          "many_to_many"
+        ]
+      },
+      "source_items": [
+        {
+          "source_item_ref": "R7-S",
+          "source_side": "statement",
+          "source_system": "BANK-STATEMENT-ADAPTER",
+          "tenant_namespace": "tenant-acme/finance",
+          "entity_ref": "ENTITY-ACME",
+          "account_ref": "CASH-OPERATING",
+          "source_document_ref": "DOC-R7-S",
+          "source_document_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "external_id": "EXT-R7-S",
+          "amount_minor": 10000,
+          "currency": "USD",
+          "direction": "debit",
+          "transaction_date": "2026-10-30",
+          "received_at": "2026-11-05T09:00:00Z",
+          "external_reference": "FX-007",
+          "counterparty_ref": "SUPPLIER-ACME",
+          "transaction_type": "supplier_payment",
+          "reversal_of_external_id": null
+        },
+        {
+          "source_item_ref": "R7-L",
+          "source_side": "ledger",
+          "source_system": "ERP-LEDGER-ADAPTER",
+          "tenant_namespace": "tenant-acme/finance",
+          "entity_ref": "ENTITY-ACME",
+          "account_ref": "CASH-OPERATING",
+          "source_document_ref": "DOC-R7-L",
+          "source_document_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "external_id": "EXT-R7-L",
+          "amount_minor": 10000,
+          "currency": "EUR",
+          "direction": "debit",
+          "transaction_date": "2026-10-30",
+          "received_at": "2026-11-05T09:00:00Z",
+          "external_reference": "FX-007",
+          "counterparty_ref": "SUPPLIER-ACME",
+          "transaction_type": "supplier_payment",
+          "reversal_of_external_id": null
+        }
+      ]
+    },
+    {
+      "run_id": "RECON-008-REVERSAL",
+      "scope": {
+        "tenant_namespace": "tenant-acme/finance",
+        "entity_ref": "ENTITY-ACME",
+        "account_ref": "CASH-OPERATING"
+      },
+      "knowledge_at": "2026-11-05T10:00:00Z",
+      "period": {
+        "start": "2026-10-01",
+        "end": "2026-10-31"
+      },
+      "rule_set": {
+        "rule_set_ref": "RULESET-RECON-S0",
+        "version": "1.0.0",
+        "criteria": [
+          {
+            "criterion_ref": "CR-AMOUNT",
+            "kind": "amount",
+            "weight_bps": 2500,
+            "required_for_auto_match": true,
+            "mismatch_action": "review",
+            "missing_action": "block"
+          },
+          {
+            "criterion_ref": "CR-CURRENCY",
+            "kind": "currency",
+            "weight_bps": 1500,
+            "required_for_auto_match": true,
+            "mismatch_action": "block",
+            "missing_action": "block"
+          },
+          {
+            "criterion_ref": "CR-ENTITY",
+            "kind": "entity",
+            "weight_bps": 1000,
+            "required_for_auto_match": true,
+            "mismatch_action": "block",
+            "missing_action": "block"
+          },
+          {
+            "criterion_ref": "CR-ACCOUNT",
+            "kind": "account",
+            "weight_bps": 500,
+            "required_for_auto_match": true,
+            "mismatch_action": "block",
+            "missing_action": "block"
+          },
+          {
+            "criterion_ref": "CR-DIRECTION",
+            "kind": "direction",
+            "weight_bps": 1000,
+            "required_for_auto_match": true,
+            "mismatch_action": "block",
+            "missing_action": "block"
+          },
+          {
+            "criterion_ref": "CR-DATE",
+            "kind": "date",
+            "weight_bps": 1000,
+            "required_for_auto_match": false,
+            "mismatch_action": "review",
+            "missing_action": "review"
+          },
+          {
+            "criterion_ref": "CR-REFERENCE",
+            "kind": "reference",
+            "weight_bps": 1200,
+            "required_for_auto_match": false,
+            "mismatch_action": "review",
+            "missing_action": "review"
+          },
+          {
+            "criterion_ref": "CR-COUNTERPARTY",
+            "kind": "counterparty",
+            "weight_bps": 800,
+            "required_for_auto_match": false,
+            "mismatch_action": "review",
+            "missing_action": "review"
+          },
+          {
+            "criterion_ref": "CR-TRANSACTION-TYPE",
+            "kind": "transaction_type",
+            "weight_bps": 500,
+            "required_for_auto_match": false,
+            "mismatch_action": "review",
+            "missing_action": "review"
+          }
+        ],
+        "amount_tolerance_minor": 0,
+        "date_tolerance_days": 0,
+        "auto_match_threshold_bps": 9000,
+        "review_threshold_bps": 7000,
+        "ambiguity_margin_bps": 500,
+        "allowed_cardinalities": [
+          "one_to_one",
+          "one_to_many",
+          "many_to_one",
+          "many_to_many"
+        ]
+      },
+      "source_items": [
+        {
+          "source_item_ref": "R8-S",
+          "source_side": "statement",
+          "source_system": "BANK-STATEMENT-ADAPTER",
+          "tenant_namespace": "tenant-acme/finance",
+          "entity_ref": "ENTITY-ACME",
+          "account_ref": "CASH-OPERATING",
+          "source_document_ref": "DOC-R8-S",
+          "source_document_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "external_id": "EXT-R8-S",
+          "amount_minor": 3000,
+          "currency": "USD",
+          "direction": "credit",
+          "transaction_date": "2026-10-30",
+          "received_at": "2026-11-05T09:00:00Z",
+          "external_reference": "REV-008",
+          "counterparty_ref": "SUPPLIER-ACME",
+          "transaction_type": "reversal",
+          "reversal_of_external_id": "PAY-008"
+        },
+        {
+          "source_item_ref": "R8-L",
+          "source_side": "ledger",
+          "source_system": "ERP-LEDGER-ADAPTER",
+          "tenant_namespace": "tenant-acme/finance",
+          "entity_ref": "ENTITY-ACME",
+          "account_ref": "CASH-OPERATING",
+          "source_document_ref": "DOC-R8-L",
+          "source_document_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "external_id": "EXT-R8-L",
+          "amount_minor": 3000,
+          "currency": "USD",
+          "direction": "credit",
+          "transaction_date": "2026-10-30",
+          "received_at": "2026-11-05T09:00:00Z",
+          "external_reference": "REV-008",
+          "counterparty_ref": "SUPPLIER-ACME",
+          "transaction_type": "reversal",
+          "reversal_of_external_id": "PAY-008"
+        }
+      ]
+    }
+  ]
+}
