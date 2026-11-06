@@ -326,6 +326,7 @@
       "required": [
         "account_id",
         "psp_id",
+        "currency",
         "coverage_state",
         "opening_balance_minor_units",
         "root_inflows_minor_units",
@@ -412,6 +413,10 @@
           "items": {
             "type": "string"
           }
+        },
+        "currency": {
+          "type": "string",
+          "pattern": "^[A-Z]{3}$"
         }
       }
     },
@@ -482,6 +487,7 @@
         "hold_id",
         "notification_id",
         "account_id",
+        "currency",
         "requested_minor_units",
         "held_minor_units",
         "available_balance_minor_units",
@@ -538,6 +544,10 @@
           "items": {
             "type": "string"
           }
+        },
+        "currency": {
+          "type": "string",
+          "pattern": "^[A-Z]{3}$"
         }
       }
     },
