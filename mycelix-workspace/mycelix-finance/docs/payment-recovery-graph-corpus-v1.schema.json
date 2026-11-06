@@ -420,6 +420,7 @@
       "additionalProperties": false,
       "required": [
         "notification_id",
+        "root_transaction_id",
         "transaction_id",
         "target_account_id",
         "psp_id",
@@ -467,6 +468,10 @@
           "items": {
             "type": "string"
           }
+        },
+        "root_transaction_id": {
+          "type": "string",
+          "minLength": 1
         }
       }
     },
