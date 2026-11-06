@@ -1322,6 +1322,28 @@ fn benchmark_claim_fanout_history(operation_count: usize) -> Result<History, Box
     })
 }
 
+fn semantic_reports_equal(left: &Report, right: &Report) -> Result<bool, Box<dyn Error>> {
+    let mut left_value = serde_json::to_value(left)?;
+    let mut right_value = serde_json::to_value(right)?;
+    const METRIC_FIELDS: [&str; 7] = [
+        "reachability_queries",
+        "reachability_cache_hits",
+        "reachability_sources_cached",
+        "reachability_cached_nodes",
+        "reachability_dfs_node_visits",
+        "reachability_full_source_builds",
+        "reachability_cache_limit_skips",
+    ];
+    for value in [&mut left_value, &mut right_value] {
+        if let Some(counts) = value.get_mut("counts").and_then(Value::as_object_mut) {
+            for field in METRIC_FIELDS {
+                counts.remove(field);
+            }
+        }
+    }
+    Ok(left_value == right_value)
+}
+
 fn run_join_benchmark(operation_count: usize, output: Option<PathBuf>) -> Result<(), Box<dyn Error>> {
     use std::time::Instant;
 
@@ -1338,25 +1360,38 @@ fn run_join_benchmark(operation_count: usize, output: Option<PathBuf>) -> Result
     );
     let generator_commitment_sha256 = format!("{:x}", Sha256::digest(spec.as_bytes()));
 
-    let audit_live_baseline = allocation_snapshot().live_bytes;
+    // Run the reference early-exit DFS and optimized bounded per-source cache
+    // over the exact same immutable History. Their semantic reports must match.
     reset_peak_to_current_live_bytes();
-    let audit_started = Instant::now();
-    let report = audit(&history, generator_commitment_sha256.clone());
-    let audit_ns = audit_started.elapsed().as_nanos();
-    let after_audit = allocation_snapshot();
-    let throughput = if audit_ns == 0 {
+    let reference_started = Instant::now();
+    let reference_report = audit_reference(&history, generator_commitment_sha256.clone());
+    let reference_ns = reference_started.elapsed().as_nanos();
+    let reference_allocations = allocation_snapshot();
+
+    reset_peak_to_current_live_bytes();
+    let optimized_started = Instant::now();
+    let optimized_report = audit(&history, generator_commitment_sha256.clone());
+    let optimized_ns = optimized_started.elapsed().as_nanos();
+    let optimized_allocations = allocation_snapshot();
+
+    let semantic_equal = semantic_reports_equal(&reference_report, &optimized_report)?;
+    let reference_pass = matches!(reference_report.status, Status::Pass);
+    let optimized_pass = matches!(optimized_report.status, Status::Pass);
+    let status = if semantic_equal && reference_pass && optimized_pass {
+        "PASS"
+    } else {
+        "FAIL"
+    };
+    let speedup = if optimized_ns == 0 {
         0.0
     } else {
-        event_count as f64 / (audit_ns as f64 / 1_000_000_000.0)
+        reference_ns as f64 / optimized_ns as f64
     };
+    let optimized_metrics = &optimized_report.counts;
+    let reference_metrics = &reference_report.counts;
 
-    let status = match &report.status {
-        Status::Pass => "PASS",
-        Status::Fail => "FAIL",
-        Status::Incomplete => "INCOMPLETE",
-    };
     let output_value = serde_json::json!({
-        "benchmark_version": 1,
+        "benchmark_version": 2,
         "benchmark_name": "pulse-multiconductor-claim-fanout",
         "evidence_class": "synthetic",
         "status": status,
@@ -1364,39 +1399,45 @@ fn run_join_benchmark(operation_count: usize, output: Option<PathBuf>) -> Result
         "events": event_count,
         "conductors": history.conductors.len(),
         "causal_edges": history.causal_edges.len(),
-        "findings": report.findings.len(),
-        "reachability": {
-            "queries": report.counts.reachability_queries,
-            "cache_hits": report.counts.reachability_cache_hits,
-            "sources_cached": report.counts.reachability_sources_cached,
-            "cached_reachable_nodes": report.counts.reachability_cached_nodes,
-            "dfs_node_visits": report.counts.reachability_dfs_node_visits,
-            "full_source_builds": report.counts.reachability_full_source_builds,
-            "cache_limit_skips": report.counts.reachability_cache_limit_skips
+        "findings": optimized_report.findings.len(),
+        "semantic_reports_equal": semantic_equal,
+        "reference_uncached": {
+            "status": if reference_pass { "PASS" } else { "FAIL" },
+            "audit_ns": reference_ns,
+            "reachability_queries": reference_metrics.reachability_queries,
+            "dfs_node_visits": reference_metrics.reachability_dfs_node_visits,
+            "allocation_peak_live_bytes": reference_allocations.peak_live_bytes,
+            "allocation_bytes_requested": reference_allocations.total_allocated_bytes.saturating_sub(after_build.total_allocated_bytes)
+        },
+        "optimized_per_source_cache": {
+            "status": if optimized_pass { "PASS" } else { "FAIL" },
+            "audit_ns": optimized_ns,
+            "speedup_over_uncached": speedup,
+            "reachability_queries": optimized_metrics.reachability_queries,
+            "cache_hits": optimized_metrics.reachability_cache_hits,
+            "sources_cached": optimized_metrics.reachability_sources_cached,
+            "cached_reachable_nodes": optimized_metrics.reachability_cached_nodes,
+            "dfs_node_visits": optimized_metrics.reachability_dfs_node_visits,
+            "full_source_builds": optimized_metrics.reachability_full_source_builds,
+            "cache_limit_skips": optimized_metrics.reachability_cache_limit_skips,
+            "allocation_peak_live_bytes": optimized_allocations.peak_live_bytes,
+            "allocation_bytes_requested": optimized_allocations.total_allocated_bytes.saturating_sub(reference_allocations.total_allocated_bytes)
         },
         "history_build_ns": build_ns,
-        "audit_ns": audit_ns,
-        "audit_events_per_second": throughput,
         "allocation_metrics_version": 1,
         "allocation_baseline_live_bytes": build_baseline.live_bytes,
         "allocation_live_bytes_after_build": after_build.live_bytes,
         "allocation_peak_live_bytes_during_build": after_build.peak_live_bytes,
         "allocation_peak_added_bytes_during_build": after_build.peak_live_bytes.saturating_sub(build_baseline.live_bytes),
-        "allocation_bytes_requested_during_build": after_build.total_allocated_bytes.saturating_sub(build_baseline.total_allocated_bytes),
-        "allocation_live_bytes_before_audit": audit_live_baseline,
-        "allocation_live_bytes_after_audit": after_audit.live_bytes,
-        "allocation_peak_live_bytes_during_audit": after_audit.peak_live_bytes,
-        "allocation_peak_added_bytes_during_audit": after_audit.peak_live_bytes.saturating_sub(audit_live_baseline),
-        "allocation_bytes_requested_during_audit": after_audit.total_allocated_bytes.saturating_sub(after_build.total_allocated_bytes),
         "generator_commitment_sha256": generator_commitment_sha256,
-        "claim_ceiling": "BENCHMARK_ONLY: synthetic assigned-grant claim fan-out and call/effect/outcome causal joins; not Holochain runtime throughput or a production workload claim"
+        "claim_ceiling": "BENCHMARK_ONLY: synthetic assigned-grant claim fan-out and call/effect/outcome causal joins; compares structural audit implementations over identical inputs; not Holochain runtime throughput or a production workload claim"
     });
     write_json_output(&output_value, output)?;
 
-    if matches!(&report.status, Status::Pass) {
+    if status == "PASS" {
         Ok(())
     } else {
-        Err("synthetic claim-fanout fixture did not pass structural audit".into())
+        Err("reference and optimized claim-fanout semantic reports differed or one failed".into())
     }
 }
 
