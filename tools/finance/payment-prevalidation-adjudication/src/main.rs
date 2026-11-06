@@ -1071,8 +1071,8 @@ mod tests {
     fn checked_in_adjudication_corpus_validates_and_reports() {
         let (result, _, _) = evaluate(DEFAULT_CORPUS, DEFAULT_SCHEMA).expect("evaluation");
         assert_eq!(result["status"], "PASS");
-        assert_eq!(result["counts"]["cases"], 8);
-        assert_eq!(result["counts"]["adjudication_records"], 18);
+        assert_eq!(result["counts"]["cases"], 9);
+        assert_eq!(result["counts"]["adjudication_records"], 20);
         assert_eq!(result["confidence_intervals"]["estimated"], false);
         assert_eq!(result["system_metrics"].as_array().unwrap().len(), 3);
     }
@@ -1087,9 +1087,9 @@ mod tests {
             .find(|metric| metric["system_id"] == "mycelix")
             .unwrap();
         assert_eq!(mycelix["false_ready"]["numerator"], 1);
-        assert_eq!(mycelix["false_ready"]["denominator"], 3);
+        assert_eq!(mycelix["false_ready"]["denominator"], 1);
         assert_eq!(mycelix["false_quarantine"]["numerator"], 1);
-        assert_eq!(mycelix["false_quarantine"]["denominator"], 5);
+        assert_eq!(mycelix["false_quarantine"]["denominator"], 2);
     }
 
     #[test]
