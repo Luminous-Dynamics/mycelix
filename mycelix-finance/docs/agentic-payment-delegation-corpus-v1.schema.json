@@ -1,0 +1,904 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mycelix.net/schemas/agentic-payment-delegation-v1.schema.json",
+  "title": "Mycelix Agentic Payment Delegation Qualification Corpus v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "corpus_id",
+    "status",
+    "created_on",
+    "as_of",
+    "jurisdiction",
+    "purpose",
+    "external_effects_enabled",
+    "source_register",
+    "profiles",
+    "scenarios"
+  ],
+  "properties": {
+    "schema": {
+      "const": "mycelix.agentic-payment-delegation/v1"
+    },
+    "corpus_id": {
+      "const": "AGENTIC-PAYMENT-DELEGATION-SYNTHETIC-V1"
+    },
+    "status": {
+      "const": "synthetic_reference_only"
+    },
+    "created_on": {
+      "type": "string",
+      "format": "date"
+    },
+    "as_of": {
+      "type": "string",
+      "format": "date"
+    },
+    "jurisdiction": {
+      "const": "ZA"
+    },
+    "purpose": {
+      "type": "string",
+      "minLength": 1
+    },
+    "external_effects_enabled": {
+      "const": false
+    },
+    "source_register": {
+      "type": "array",
+      "minItems": 6,
+      "items": {
+        "$ref": "#/$defs/source"
+      }
+    },
+    "profiles": {
+      "type": "array",
+      "minItems": 3,
+      "items": {
+        "$ref": "#/$defs/profile"
+      }
+    },
+    "scenarios": {
+      "type": "array",
+      "minItems": 30,
+      "items": {
+        "$ref": "#/$defs/scenario"
+      }
+    }
+  },
+  "$defs": {
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "authority",
+        "title",
+        "url",
+        "published_on",
+        "observed_on",
+        "evidence_class",
+        "supports",
+        "does_not_support"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Z0-9_]+$"
+        },
+        "authority": {
+          "type": "string",
+          "minLength": 1
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "url": {
+          "type": "string",
+          "format": "uri"
+        },
+        "published_on": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date"
+        },
+        "observed_on": {
+          "type": "string",
+          "format": "date"
+        },
+        "evidence_class": {
+          "type": "string",
+          "minLength": 1
+        },
+        "supports": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        },
+        "does_not_support": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "profile_id",
+        "jurisdiction",
+        "profile_kind",
+        "name",
+        "status",
+        "max_delegation_depth",
+        "requires_principal_approval",
+        "requires_human_confirmation_for_new_beneficiary",
+        "human_confirmation_threshold_minor_units",
+        "allows_human_not_present",
+        "source_refs"
+      ],
+      "properties": {
+        "profile_id": {
+          "type": "string",
+          "pattern": "^[A-Z0-9-]+-V[0-9]+$"
+        },
+        "jurisdiction": {
+          "type": "string",
+          "minLength": 2
+        },
+        "profile_kind": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "status": {
+          "type": "string"
+        },
+        "max_delegation_depth": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "requires_principal_approval": {
+          "type": "boolean"
+        },
+        "requires_human_confirmation_for_new_beneficiary": {
+          "type": "boolean"
+        },
+        "human_confirmation_threshold_minor_units": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "allows_human_not_present": {
+          "type": "boolean"
+        },
+        "source_refs": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "approval": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "approval_kind",
+        "approver_ref",
+        "approval_state",
+        "receipt_ref",
+        "qualified_intent_envelope_digest",
+        "scope_digest",
+        "observed_at",
+        "evidence_types"
+      ],
+      "properties": {
+        "approval_kind": {
+          "enum": [
+            "principal_approval",
+            "organization_policy_approval"
+          ]
+        },
+        "approver_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "approval_state": {
+          "enum": [
+            "qualified",
+            "unqualified",
+            "unknown"
+          ]
+        },
+        "receipt_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "qualified_intent_envelope_digest": {
+          "type": "string",
+          "pattern": "^sha256:[a-f0-9]{64}$"
+        },
+        "scope_digest": {
+          "type": "string",
+          "pattern": "^sha256:[a-f0-9]{64}$"
+        },
+        "observed_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "evidence_types": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "mandate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "mandate_id",
+        "mandate_version",
+        "profile_id",
+        "principal_ref",
+        "agent_ref",
+        "agent_software_digest",
+        "qualified_intent_envelope_ref",
+        "qualified_intent_envelope_digest",
+        "approval",
+        "created_at",
+        "not_before",
+        "expires_at",
+        "budget_currency",
+        "budget_period_start",
+        "budget_period_end",
+        "max_single_debit_minor_units",
+        "max_total_debit_minor_units",
+        "max_period_debit_minor_units",
+        "max_concurrent_reservations",
+        "max_transaction_count",
+        "max_delegation_depth",
+        "allowed_action_classes",
+        "allowed_purposes",
+        "allowed_currencies",
+        "allowed_beneficiary_refs",
+        "allow_new_beneficiary_with_confirmation",
+        "require_human_confirmation_for_new_beneficiary",
+        "human_confirmation_threshold_minor_units",
+        "max_fee_minor_units",
+        "max_fx_cost_minor_units",
+        "external_effects_enabled"
+      ],
+      "properties": {
+        "mandate_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "mandate_version": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "profile_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "principal_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "agent_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "agent_software_digest": {
+          "type": "string",
+          "pattern": "^sha256:[a-f0-9]{64}$"
+        },
+        "qualified_intent_envelope_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "qualified_intent_envelope_digest": {
+          "type": "string",
+          "pattern": "^sha256:[a-f0-9]{64}$"
+        },
+        "approval": {
+          "$ref": "#/$defs/approval"
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "not_before": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "expires_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "budget_currency": {
+          "type": "string",
+          "pattern": "^[A-Z]{3}$"
+        },
+        "budget_period_start": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "budget_period_end": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "max_single_debit_minor_units": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "max_total_debit_minor_units": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "max_period_debit_minor_units": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "max_concurrent_reservations": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "max_transaction_count": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "max_delegation_depth": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "allowed_action_classes": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        },
+        "allowed_purposes": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        },
+        "allowed_currencies": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Z]{3}$"
+          }
+        },
+        "allowed_beneficiary_refs": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        },
+        "allow_new_beneficiary_with_confirmation": {
+          "type": "boolean"
+        },
+        "require_human_confirmation_for_new_beneficiary": {
+          "type": "boolean"
+        },
+        "human_confirmation_threshold_minor_units": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "max_fee_minor_units": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "max_fx_cost_minor_units": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "external_effects_enabled": {
+          "const": false
+        }
+      }
+    },
+    "fx_quote": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "quote_id",
+        "source_ref",
+        "observed_at",
+        "expires_at",
+        "base_amount_minor_units",
+        "base_currency",
+        "quote_amount_minor_units",
+        "quote_currency"
+      ],
+      "properties": {
+        "quote_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "observed_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "expires_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "base_amount_minor_units": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "base_currency": {
+          "type": "string",
+          "pattern": "^[A-Z]{3}$"
+        },
+        "quote_amount_minor_units": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "quote_currency": {
+          "type": "string",
+          "pattern": "^[A-Z]{3}$"
+        }
+      }
+    },
+    "action": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "action_id",
+        "action_request_ref",
+        "exact_action_request_digest",
+        "qualified_intent_envelope_ref",
+        "qualified_intent_envelope_digest",
+        "agent_ref",
+        "action_class",
+        "purpose",
+        "beneficiary_ref",
+        "is_new_beneficiary",
+        "amount_minor_units",
+        "currency",
+        "proposed_at",
+        "fee_state",
+        "fee_minor_units",
+        "fx_state",
+        "fx_cost_minor_units",
+        "fx_quote",
+        "budget_equivalent_principal_minor_units",
+        "all_in_budget_minor_units",
+        "expected_disposition"
+      ],
+      "properties": {
+        "action_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "action_request_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "exact_action_request_digest": {
+          "type": "string",
+          "pattern": "^sha256:[a-f0-9]{64}$"
+        },
+        "qualified_intent_envelope_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "qualified_intent_envelope_digest": {
+          "type": "string",
+          "pattern": "^sha256:[a-f0-9]{64}$"
+        },
+        "agent_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "action_class": {
+          "type": "string",
+          "minLength": 1
+        },
+        "purpose": {
+          "type": "string",
+          "minLength": 1
+        },
+        "beneficiary_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "is_new_beneficiary": {
+          "type": "boolean"
+        },
+        "amount_minor_units": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "currency": {
+          "type": "string",
+          "pattern": "^[A-Z]{3}$"
+        },
+        "proposed_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "fee_state": {
+          "enum": [
+            "known",
+            "unknown"
+          ]
+        },
+        "fee_minor_units": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "fx_state": {
+          "enum": [
+            "not_required",
+            "known",
+            "unknown"
+          ]
+        },
+        "fx_cost_minor_units": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "fx_quote": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/fx_quote"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "budget_equivalent_principal_minor_units": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "all_in_budget_minor_units": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "expected_disposition": {
+          "enum": [
+            "consumed",
+            "outcome_unknown",
+            "released",
+            "reserved",
+            "returned_without_replenishment",
+            "confirmation_required",
+            "rejected"
+          ]
+        }
+      }
+    },
+    "delegation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "delegation_id",
+        "parent_agent_ref",
+        "child_agent_ref",
+        "depth",
+        "scope"
+      ],
+      "properties": {
+        "delegation_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "parent_agent_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "child_agent_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "depth": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "scope": {
+          "$ref": "#/$defs/scope"
+        }
+      }
+    },
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "max_single_debit_minor_units",
+        "max_total_debit_minor_units",
+        "max_fee_minor_units",
+        "max_fx_cost_minor_units",
+        "allowed_action_classes",
+        "allowed_purposes",
+        "allowed_currencies",
+        "allowed_beneficiary_refs"
+      ],
+      "properties": {
+        "max_single_debit_minor_units": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "max_total_debit_minor_units": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "max_fee_minor_units": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "max_fx_cost_minor_units": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "allowed_action_classes": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        },
+        "allowed_purposes": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        },
+        "allowed_currencies": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Z]{3}$"
+          }
+        },
+        "allowed_beneficiary_refs": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "event": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "event_id",
+        "sequence",
+        "event_type",
+        "observed_at",
+        "actor_role",
+        "actor_ref",
+        "authority_state",
+        "action_id",
+        "reservation_id",
+        "amount_minor_units",
+        "exact_action_request_digest",
+        "presentation_digest",
+        "evidence_types",
+        "reason_code",
+        "return_reference"
+      ],
+      "properties": {
+        "event_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sequence": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "event_type": {
+          "enum": [
+            "mandate_activated",
+            "mandate_revocation_requested",
+            "mandate_revoked",
+            "action_proposed",
+            "human_confirmation_required",
+            "human_confirmation_accepted",
+            "action_rejected",
+            "reservation_created",
+            "reservation_rejected",
+            "duplicate_reservation_rejected",
+            "payment_dispatched",
+            "provider_outcome_unknown",
+            "payment_effect_confirmed",
+            "payment_effect_reconciled_no_effect",
+            "payment_returned",
+            "duplicate_return_callback_ignored"
+          ]
+        },
+        "observed_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "actor_role": {
+          "enum": [
+            "principal",
+            "agent",
+            "policy_evaluator",
+            "budget_coordinator",
+            "payment_dispatcher",
+            "payment_provider",
+            "reconciliation_verifier",
+            "authority_service",
+            "system"
+          ]
+        },
+        "actor_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "authority_state": {
+          "enum": [
+            "valid",
+            "invalid",
+            "unknown"
+          ]
+        },
+        "action_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1
+        },
+        "reservation_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1
+        },
+        "amount_minor_units": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "exact_action_request_digest": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^sha256:[a-f0-9]{64}$"
+        },
+        "presentation_digest": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^sha256:[a-f0-9]{64}$"
+        },
+        "evidence_types": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        },
+        "reason_code": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1
+        },
+        "return_reference": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1
+        }
+      }
+    },
+    "scenario": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "scenario_id",
+        "mandate",
+        "delegation_chain",
+        "actions",
+        "events",
+        "expected_budget_used_minor_units",
+        "expected_outstanding_reservations",
+        "negative_controls"
+      ],
+      "properties": {
+        "scenario_id": {
+          "type": "string",
+          "pattern": "^PAY-AGENT-[0-9]{3}$"
+        },
+        "mandate": {
+          "$ref": "#/$defs/mandate"
+        },
+        "delegation_chain": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/delegation"
+          }
+        },
+        "actions": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/action"
+          }
+        },
+        "events": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/event"
+          }
+        },
+        "expected_budget_used_minor_units": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "expected_outstanding_reservations": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "negative_controls": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}
