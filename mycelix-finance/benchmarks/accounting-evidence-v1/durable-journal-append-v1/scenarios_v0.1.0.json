@@ -1,0 +1,784 @@
+{
+  "dataset_id": "FIN-ECO-006-DURABLE-APPEND",
+  "dataset_version": "0.1.0",
+  "claim_scope": "synthetic_storage_adapter_contract_scenarios_not_backend_qualification",
+  "visibility": "public_conformance_scenarios_not_blind_holdout",
+  "scenarios": [
+    {
+      "scenario_id": "JDP-001",
+      "category": "single_append",
+      "title": "First exact append to an empty ledger",
+      "schedule_mode": "serial",
+      "preconditions": [
+        "empty_ledger",
+        "valid_qualified_entry"
+      ],
+      "actions": [
+        {
+          "action_id": "A1",
+          "actor": "process-a",
+          "operation": "append",
+          "request": {
+            "source_application_key": "sak-001",
+            "source_commitment": "src-001",
+            "journal_id": "journal-001",
+            "canonical_bytes_digest": "bytes-001",
+            "ledger_profile_digest": "ledger-profile:v1",
+            "projection_policy_digest": "policy:v1",
+            "reporting_entity": "entity:synthetic-001",
+            "reporting_period": "period:2026-10",
+            "reverses": null
+          },
+          "observation": null
+        }
+      ],
+      "expected": {
+        "commit_classification": "not_applicable",
+        "dispositions": [
+          {
+            "action_id": "A1",
+            "value": "AppendedExact"
+          }
+        ],
+        "persisted_entry_count": 1,
+        "source_mapping_count": 1,
+        "reversal_atomic_units": [],
+        "recovery_required": false
+      },
+      "invariants": [
+        "canonical_entry_persisted_once",
+        "source_key_maps_to_exact_commitment_and_journal",
+        "durable_frontier_advances_once"
+      ]
+    },
+    {
+      "scenario_id": "JDP-002",
+      "category": "idempotency",
+      "title": "Exact sequential replay",
+      "schedule_mode": "serial",
+      "preconditions": [
+        "ledger_contains_jdp_001_entry"
+      ],
+      "actions": [
+        {
+          "action_id": "A1",
+          "actor": "process-a",
+          "operation": "append",
+          "request": {
+            "source_application_key": "sak-001",
+            "source_commitment": "src-001",
+            "journal_id": "journal-001",
+            "canonical_bytes_digest": "bytes-001",
+            "ledger_profile_digest": "ledger-profile:v1",
+            "projection_policy_digest": "policy:v1",
+            "reporting_entity": "entity:synthetic-001",
+            "reporting_period": "period:2026-10",
+            "reverses": null
+          },
+          "observation": null
+        },
+        {
+          "action_id": "A2",
+          "actor": "process-a",
+          "operation": "append",
+          "request": {
+            "source_application_key": "sak-001",
+            "source_commitment": "src-001",
+            "journal_id": "journal-001",
+            "canonical_bytes_digest": "bytes-001",
+            "ledger_profile_digest": "ledger-profile:v1",
+            "projection_policy_digest": "policy:v1",
+            "reporting_entity": "entity:synthetic-001",
+            "reporting_period": "period:2026-10",
+            "reverses": null
+          },
+          "observation": null
+        }
+      ],
+      "expected": {
+        "commit_classification": "not_applicable",
+        "dispositions": [
+          {
+            "action_id": "A1",
+            "value": "IdempotentReplayExact"
+          },
+          {
+            "action_id": "A2",
+            "value": "IdempotentReplayExact"
+          }
+        ],
+        "persisted_entry_count": 1,
+        "source_mapping_count": 1,
+        "reversal_atomic_units": [],
+        "recovery_required": false
+      },
+      "invariants": [
+        "no_duplicate_record",
+        "replay_requires_exact_source_commitment_journal_id_and_bytes"
+      ]
+    },
+    {
+      "scenario_id": "JDP-003",
+      "category": "source_conflict",
+      "title": "Same source key with changed source commitment",
+      "schedule_mode": "serial",
+      "preconditions": [
+        "ledger_contains_source_key_sak_003"
+      ],
+      "actions": [
+        {
+          "action_id": "A1",
+          "actor": "process-a",
+          "operation": "append",
+          "request": {
+            "source_application_key": "sak-003",
+            "source_commitment": "src-003-mutated",
+            "journal_id": "journal-003b",
+            "canonical_bytes_digest": "bytes-003b",
+            "ledger_profile_digest": "ledger-profile:v1",
+            "projection_policy_digest": "policy:v1",
+            "reporting_entity": "entity:synthetic-001",
+            "reporting_period": "period:2026-10",
+            "reverses": null
+          },
+          "observation": null
+        }
+      ],
+      "expected": {
+        "commit_classification": "not_applicable",
+        "dispositions": [
+          {
+            "action_id": "A1",
+            "value": "SourceProjectionConflict"
+          }
+        ],
+        "persisted_entry_count": 1,
+        "source_mapping_count": 1,
+        "reversal_atomic_units": [],
+        "recovery_required": false
+      },
+      "invariants": [
+        "same_source_key_cannot_bind_two_commitments",
+        "no_second_entry_persisted"
+      ]
+    },
+    {
+      "scenario_id": "JDP-004",
+      "category": "journal_identity_conflict",
+      "title": "Same journal identity with changed canonical bytes",
+      "schedule_mode": "serial",
+      "preconditions": [
+        "journal_id_journal_004_already_exists"
+      ],
+      "actions": [
+        {
+          "action_id": "A1",
+          "actor": "process-a",
+          "operation": "append",
+          "request": {
+            "source_application_key": "sak-004b",
+            "source_commitment": "src-004b",
+            "journal_id": "journal-004",
+            "canonical_bytes_digest": "bytes-004-mutated",
+            "ledger_profile_digest": "ledger-profile:v1",
+            "projection_policy_digest": "policy:v1",
+            "reporting_entity": "entity:synthetic-001",
+            "reporting_period": "period:2026-10",
+            "reverses": null
+          },
+          "observation": null
+        }
+      ],
+      "expected": {
+        "commit_classification": "not_applicable",
+        "dispositions": [
+          {
+            "action_id": "A1",
+            "value": "JournalIdentityConflict"
+          }
+        ],
+        "persisted_entry_count": 1,
+        "source_mapping_count": 1,
+        "reversal_atomic_units": [],
+        "recovery_required": false
+      },
+      "invariants": [
+        "journal_identity_cannot_bind_different_bytes",
+        "digest_collision_or_index_corruption_is_not_replay"
+      ]
+    },
+    {
+      "scenario_id": "JDP-005",
+      "category": "precommit_failure",
+      "title": "Failure before commit with exact predecessor positively re-observed",
+      "schedule_mode": "serial",
+      "preconditions": [
+        "empty_ledger",
+        "valid_qualified_entry"
+      ],
+      "actions": [
+        {
+          "action_id": "A1",
+          "actor": "process-a",
+          "operation": "append",
+          "request": {
+            "source_application_key": "sak-005",
+            "source_commitment": "src-005",
+            "journal_id": "journal-005",
+            "canonical_bytes_digest": "bytes-005",
+            "ledger_profile_digest": "ledger-profile:v1",
+            "projection_policy_digest": "policy:v1",
+            "reporting_entity": "entity:synthetic-001",
+            "reporting_period": "period:2026-10",
+            "reverses": null
+          },
+          "observation": "fault_before_commit"
+        },
+        {
+          "action_id": "R1",
+          "actor": "recovery",
+          "operation": "recover",
+          "request": null,
+          "observation": "exact_predecessor"
+        }
+      ],
+      "expected": {
+        "commit_classification": "DefinitelyNotCommitted",
+        "dispositions": [
+          {
+            "action_id": "A1",
+            "value": "IndeterminateCommit"
+          },
+          {
+            "action_id": "R1",
+            "value": "DefinitelyNotCommitted"
+          }
+        ],
+        "persisted_entry_count": 0,
+        "source_mapping_count": 0,
+        "reversal_atomic_units": [],
+        "recovery_required": false
+      },
+      "invariants": [
+        "exact_predecessor_is_positive_evidence",
+        "no_append_success_reported",
+        "retry_authority_remains_external"
+      ]
+    },
+    {
+      "scenario_id": "JDP-006",
+      "category": "postcommit_response_loss",
+      "title": "Commit succeeds but caller loses the response",
+      "schedule_mode": "serial",
+      "preconditions": [
+        "empty_ledger",
+        "valid_qualified_entry"
+      ],
+      "actions": [
+        {
+          "action_id": "A1",
+          "actor": "process-a",
+          "operation": "append",
+          "request": {
+            "source_application_key": "sak-006",
+            "source_commitment": "src-006",
+            "journal_id": "journal-006",
+            "canonical_bytes_digest": "bytes-006",
+            "ledger_profile_digest": "ledger-profile:v1",
+            "projection_policy_digest": "policy:v1",
+            "reporting_entity": "entity:synthetic-001",
+            "reporting_period": "period:2026-10",
+            "reverses": null
+          },
+          "observation": "drop_response_after_commit"
+        },
+        {
+          "action_id": "R1",
+          "actor": "recovery",
+          "operation": "recover",
+          "request": null,
+          "observation": "exact_successor"
+        },
+        {
+          "action_id": "A2",
+          "actor": "process-a-retry",
+          "operation": "append",
+          "request": {
+            "source_application_key": "sak-006",
+            "source_commitment": "src-006",
+            "journal_id": "journal-006",
+            "canonical_bytes_digest": "bytes-006",
+            "ledger_profile_digest": "ledger-profile:v1",
+            "projection_policy_digest": "policy:v1",
+            "reporting_entity": "entity:synthetic-001",
+            "reporting_period": "period:2026-10",
+            "reverses": null
+          },
+          "observation": null
+        }
+      ],
+      "expected": {
+        "commit_classification": "Committed",
+        "dispositions": [
+          {
+            "action_id": "A1",
+            "value": "AppendedExact"
+          },
+          {
+            "action_id": "R1",
+            "value": "Committed"
+          },
+          {
+            "action_id": "A2",
+            "value": "IdempotentReplayExact"
+          }
+        ],
+        "persisted_entry_count": 1,
+        "source_mapping_count": 1,
+        "reversal_atomic_units": [],
+        "recovery_required": false
+      },
+      "invariants": [
+        "committed_successor_survives_lost_response",
+        "retry_reuses_same_immutable_request",
+        "no_second_append"
+      ]
+    },
+    {
+      "scenario_id": "JDP-007",
+      "category": "ambiguous_commit",
+      "title": "Commit outcome remains ambiguous after independent reread",
+      "schedule_mode": "serial",
+      "preconditions": [
+        "empty_ledger",
+        "valid_qualified_entry"
+      ],
+      "actions": [
+        {
+          "action_id": "A1",
+          "actor": "process-a",
+          "operation": "append",
+          "request": {
+            "source_application_key": "sak-007",
+            "source_commitment": "src-007",
+            "journal_id": "journal-007",
+            "canonical_bytes_digest": "bytes-007",
+            "ledger_profile_digest": "ledger-profile:v1",
+            "projection_policy_digest": "policy:v1",
+            "reporting_entity": "entity:synthetic-001",
+            "reporting_period": "period:2026-10",
+            "reverses": null
+          },
+          "observation": "fault_during_commit"
+        },
+        {
+          "action_id": "R1",
+          "actor": "recovery",
+          "operation": "recover",
+          "request": null,
+          "observation": "ambiguous"
+        }
+      ],
+      "expected": {
+        "commit_classification": "IndeterminateCommit",
+        "dispositions": [
+          {
+            "action_id": "A1",
+            "value": "IndeterminateCommit"
+          },
+          {
+            "action_id": "R1",
+            "value": "IndeterminateCommit"
+          }
+        ],
+        "persisted_entry_count": 0,
+        "source_mapping_count": 0,
+        "reversal_atomic_units": [],
+        "recovery_required": true
+      },
+      "invariants": [
+        "unknown_is_not_noncommit",
+        "unknown_is_not_success",
+        "writes_at_frontier_blocked",
+        "no_new_source_identity"
+      ]
+    },
+    {
+      "scenario_id": "JDP-008",
+      "category": "partial_commit_corruption",
+      "title": "Record persisted without required uniqueness mapping",
+      "schedule_mode": "serial",
+      "preconditions": [
+        "store_contains_partial_record_without_source_mapping"
+      ],
+      "actions": [
+        {
+          "action_id": "R1",
+          "actor": "recovery",
+          "operation": "recover",
+          "request": null,
+          "observation": "partial_state"
+        }
+      ],
+      "expected": {
+        "commit_classification": "IndeterminateCommit",
+        "dispositions": [
+          {
+            "action_id": "R1",
+            "value": "StorageIntegrityFailure"
+          }
+        ],
+        "persisted_entry_count": 1,
+        "source_mapping_count": 0,
+        "reversal_atomic_units": [],
+        "recovery_required": true
+      },
+      "invariants": [
+        "partial_append_is_never_success",
+        "quarantine_or_integrity_failure",
+        "no_guessed_index_repair"
+      ]
+    },
+    {
+      "scenario_id": "JDP-009",
+      "category": "concurrent_exact_replay",
+      "title": "Two processes race the same exact append",
+      "schedule_mode": "concurrent_unordered",
+      "preconditions": [
+        "empty_ledger",
+        "valid_qualified_entry"
+      ],
+      "actions": [
+        {
+          "action_id": "A1",
+          "actor": "process-a",
+          "operation": "append",
+          "request": {
+            "source_application_key": "sak-009",
+            "source_commitment": "src-009",
+            "journal_id": "journal-009",
+            "canonical_bytes_digest": "bytes-009",
+            "ledger_profile_digest": "ledger-profile:v1",
+            "projection_policy_digest": "policy:v1",
+            "reporting_entity": "entity:synthetic-001",
+            "reporting_period": "period:2026-10",
+            "reverses": null
+          },
+          "observation": null
+        },
+        {
+          "action_id": "B1",
+          "actor": "process-b",
+          "operation": "append",
+          "request": {
+            "source_application_key": "sak-009",
+            "source_commitment": "src-009",
+            "journal_id": "journal-009",
+            "canonical_bytes_digest": "bytes-009",
+            "ledger_profile_digest": "ledger-profile:v1",
+            "projection_policy_digest": "policy:v1",
+            "reporting_entity": "entity:synthetic-001",
+            "reporting_period": "period:2026-10",
+            "reverses": null
+          },
+          "observation": null
+        }
+      ],
+      "expected": {
+        "commit_classification": "not_applicable",
+        "dispositions": [
+          {
+            "action_id": "A1",
+            "value": "AppendedExact"
+          },
+          {
+            "action_id": "B1",
+            "value": "IdempotentReplayExact"
+          }
+        ],
+        "persisted_entry_count": 1,
+        "source_mapping_count": 1,
+        "reversal_atomic_units": [],
+        "recovery_required": false
+      },
+      "invariants": [
+        "one_linearized_append",
+        "second_process_observes_exact_replay",
+        "no_duplicate_source_effect"
+      ]
+    },
+    {
+      "scenario_id": "JDP-010",
+      "category": "concurrent_source_conflict",
+      "title": "Two processes race incompatible projections of one source",
+      "schedule_mode": "concurrent_unordered",
+      "preconditions": [
+        "empty_ledger",
+        "two_valid_entries_share_source_application_key"
+      ],
+      "actions": [
+        {
+          "action_id": "A1",
+          "actor": "process-a",
+          "operation": "append",
+          "request": {
+            "source_application_key": "sak-010",
+            "source_commitment": "src-010a",
+            "journal_id": "journal-010a",
+            "canonical_bytes_digest": "bytes-010a",
+            "ledger_profile_digest": "ledger-profile:v1",
+            "projection_policy_digest": "policy:v1",
+            "reporting_entity": "entity:synthetic-001",
+            "reporting_period": "period:2026-10",
+            "reverses": null
+          },
+          "observation": null
+        },
+        {
+          "action_id": "B1",
+          "actor": "process-b",
+          "operation": "append",
+          "request": {
+            "source_application_key": "sak-010",
+            "source_commitment": "src-010b",
+            "journal_id": "journal-010b",
+            "canonical_bytes_digest": "bytes-010b",
+            "ledger_profile_digest": "ledger-profile:v1",
+            "projection_policy_digest": "policy:v1",
+            "reporting_entity": "entity:synthetic-001",
+            "reporting_period": "period:2026-10",
+            "reverses": null
+          },
+          "observation": null
+        }
+      ],
+      "expected": {
+        "commit_classification": "not_applicable",
+        "dispositions": [
+          {
+            "action_id": "A1",
+            "value": "AppendedExact"
+          },
+          {
+            "action_id": "B1",
+            "value": "SourceProjectionConflict"
+          }
+        ],
+        "persisted_entry_count": 1,
+        "source_mapping_count": 1,
+        "reversal_atomic_units": [],
+        "recovery_required": false
+      },
+      "invariants": [
+        "exactly_one_winner",
+        "loser_is_conflict_not_replay",
+        "winner_may_be_either_actor_but_outcome_multiset_is_fixed"
+      ]
+    },
+    {
+      "scenario_id": "JDP-011",
+      "category": "concurrent_reversal_cap",
+      "title": "Concurrent partial reversals cannot exceed original posting",
+      "schedule_mode": "concurrent_unordered",
+      "preconditions": [
+        "original_posting_amount_atomic_units_100",
+        "reversible_source_profile",
+        "reversed_total_atomic_units_0"
+      ],
+      "actions": [
+        {
+          "action_id": "R60",
+          "actor": "process-a",
+          "operation": "append",
+          "request": {
+            "source_application_key": "sak-011a",
+            "source_commitment": "src-011a",
+            "journal_id": "journal-r60",
+            "canonical_bytes_digest": "bytes-r60",
+            "ledger_profile_digest": "ledger-profile:v1",
+            "projection_policy_digest": "policy:reversal-v1",
+            "reporting_entity": "entity:synthetic-001",
+            "reporting_period": "period:2026-10",
+            "reverses": "journal-original"
+          },
+          "observation": null
+        },
+        {
+          "action_id": "R50",
+          "actor": "process-b",
+          "operation": "append",
+          "request": {
+            "source_application_key": "sak-011b",
+            "source_commitment": "src-011b",
+            "journal_id": "journal-r50",
+            "canonical_bytes_digest": "bytes-r50",
+            "ledger_profile_digest": "ledger-profile:v1",
+            "projection_policy_digest": "policy:reversal-v1",
+            "reporting_entity": "entity:synthetic-001",
+            "reporting_period": "period:2026-10",
+            "reverses": "journal-original"
+          },
+          "observation": null
+        }
+      ],
+      "expected": {
+        "commit_classification": "not_applicable",
+        "dispositions": [
+          {
+            "action_id": "R60",
+            "value": "AppendedExact"
+          },
+          {
+            "action_id": "R50",
+            "value": "ReversalConflict"
+          }
+        ],
+        "persisted_entry_count": 2,
+        "source_mapping_count": 2,
+        "reversal_atomic_units": [
+          {
+            "original_posting_ref": "original-posting-1",
+            "atomic_units": "60"
+          }
+        ],
+        "recovery_required": false
+      },
+      "invariants": [
+        "cumulative_reversal_never_exceeds_original",
+        "reversal_append_and_cumulative_total_are_atomic",
+        "either_valid_winner_allowed_only_if_sum_with_other_is_at_most_100"
+      ]
+    },
+    {
+      "scenario_id": "JDP-012",
+      "category": "restart_reconstruction",
+      "title": "Committed journal survives process restart and independent reconstruction",
+      "schedule_mode": "serial",
+      "preconditions": [
+        "journal_012_committed"
+      ],
+      "actions": [
+        {
+          "action_id": "R1",
+          "actor": "recovery-process",
+          "operation": "reopen",
+          "request": null,
+          "observation": "exact_store_identity"
+        },
+        {
+          "action_id": "V1",
+          "actor": "independent-verifier",
+          "operation": "verify",
+          "request": null,
+          "observation": "reconstruct_from_canonical_records"
+        }
+      ],
+      "expected": {
+        "commit_classification": "Committed",
+        "dispositions": [
+          {
+            "action_id": "R1",
+            "value": "Committed"
+          },
+          {
+            "action_id": "V1",
+            "value": "AppendedExact"
+          }
+        ],
+        "persisted_entry_count": 1,
+        "source_mapping_count": 1,
+        "reversal_atomic_units": [],
+        "recovery_required": false
+      },
+      "invariants": [
+        "reconstruction_matches_prior_frontier",
+        "no_missing_or_duplicate_entry",
+        "store_identity_is_exact"
+      ]
+    },
+    {
+      "scenario_id": "JDP-013",
+      "category": "historical_retry",
+      "title": "Exact retry after later successor entries does not move head backward",
+      "schedule_mode": "serial",
+      "preconditions": [
+        "journal_013_committed",
+        "later_successor_entries_committed"
+      ],
+      "actions": [
+        {
+          "action_id": "A1",
+          "actor": "delayed-caller",
+          "operation": "append",
+          "request": {
+            "source_application_key": "sak-013",
+            "source_commitment": "src-013",
+            "journal_id": "journal-013",
+            "canonical_bytes_digest": "bytes-013",
+            "ledger_profile_digest": "ledger-profile:v1",
+            "projection_policy_digest": "policy:v1",
+            "reporting_entity": "entity:synthetic-001",
+            "reporting_period": "period:2026-10",
+            "reverses": null
+          },
+          "observation": null
+        }
+      ],
+      "expected": {
+        "commit_classification": "not_applicable",
+        "dispositions": [
+          {
+            "action_id": "A1",
+            "value": "IdempotentReplayExact"
+          }
+        ],
+        "persisted_entry_count": 2,
+        "source_mapping_count": 2,
+        "reversal_atomic_units": [],
+        "recovery_required": false
+      },
+      "invariants": [
+        "historical_exact_replay_is_idempotent",
+        "durable_frontier_never_moves_backward",
+        "successor_entries_preserved"
+      ]
+    },
+    {
+      "scenario_id": "JDP-014",
+      "category": "stored_byte_tampering",
+      "title": "Tampered canonical bytes fail independent integrity reconstruction",
+      "schedule_mode": "serial",
+      "preconditions": [
+        "journal_014_committed",
+        "canonical_bytes_mutated_under_existing_identity"
+      ],
+      "actions": [
+        {
+          "action_id": "V1",
+          "actor": "independent-verifier",
+          "operation": "verify",
+          "request": null,
+          "observation": "reconstruct_from_canonical_records"
+        }
+      ],
+      "expected": {
+        "commit_classification": "IndeterminateCommit",
+        "dispositions": [
+          {
+            "action_id": "V1",
+            "value": "StorageIntegrityFailure"
+          }
+        ],
+        "persisted_entry_count": 1,
+        "source_mapping_count": 1,
+        "reversal_atomic_units": [],
+        "recovery_required": true
+      },
+      "invariants": [
+        "hash_mismatch_is_not_repaired_by_guessing",
+        "stored_mutation_is_detected",
+        "affected_frontier_quarantined"
+      ]
+    }
+  ]
+}
