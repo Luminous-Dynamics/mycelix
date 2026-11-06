@@ -54,7 +54,7 @@ Init ==
     /\ policyEpoch = 1
     /\ previousPolicyEpoch = 1
     /\ policyDigest = "policy-1"
-    /\ keyStatus = [KeyA |-> "active", KeyB |-> "inactive"]
+    /\ keyStatus = [k \in Keys |-> IF k = KeyA THEN "active" ELSE "inactive"]
     /\ lastVerifyKey = NoKey
     /\ lastVerifyDecision = "none"
     /\ lastVerifyEpoch = 1
@@ -68,7 +68,7 @@ InstallRootSignedPolicy2 ==
     /\ policyRoot' = trustedRoot
     /\ policyEpoch' = 2
     /\ policyDigest' = "policy-2"
-    /\ keyStatus' = [KeyA |-> "revoked", KeyB |-> "active"]
+    /\ keyStatus' = [k \in Keys |-> IF k = KeyA THEN "revoked" ELSE "active"]
     /\ installDisposition' = "root-signed-child-policy"
     /\ UNCHANGED
         << trustedRoot, lastVerifyKey, lastVerifyDecision, lastVerifyEpoch >>
@@ -81,7 +81,7 @@ InstallSelfAssertedRoot ==
     /\ policyRoot' = SelfClaimedRoot
     /\ policyEpoch' = 2
     /\ policyDigest' = "policy-self"
-    /\ keyStatus' = [KeyA |-> "active", KeyB |-> "active"]
+    /\ keyStatus' = [k \in Keys |-> "active"]
     /\ installDisposition' = "self-asserted-root"
     /\ UNCHANGED
         << trustedRoot, lastVerifyKey, lastVerifyDecision, lastVerifyEpoch >>
@@ -93,7 +93,7 @@ ReplayPolicy1 ==
     /\ policyRoot' = PinnedRoot
     /\ policyEpoch' = 1
     /\ policyDigest' = "policy-1"
-    /\ keyStatus' = [KeyA |-> "active", KeyB |-> "inactive"]
+    /\ keyStatus' = [k \in Keys |-> IF k = KeyA THEN "active" ELSE "inactive"]
     /\ installDisposition' = "replayed-old-policy"
     /\ UNCHANGED
         << trustedRoot, lastVerifyKey, lastVerifyDecision, lastVerifyEpoch >>
