@@ -417,6 +417,7 @@ fn validate_hypothesis(
 
     let mut score = 0i64;
     let mut blocking_criterion = false;
+    let mut review_criterion = false;
     let mut missing_or_required_failure = false;
     for rule in rules {
         let criterion_ref = string(rule, "criterion_ref")?;
@@ -434,7 +435,9 @@ fn validate_hypothesis(
         match outcome {
             "match" => score += integer(rule, "weight_bps")?,
             "mismatch" if optional_string(rule, "mismatch_action") == Some("block") => blocking_criterion = true,
+            "mismatch" if optional_string(rule, "mismatch_action") == Some("review") => review_criterion = true,
             "unknown" if optional_string(rule, "missing_action") == Some("block") => blocking_criterion = true,
+            "unknown" if optional_string(rule, "missing_action") == Some("review") => review_criterion = true,
             _ => {}
         }
         if rule.get("required_for_auto_match").and_then(Value::as_bool) == Some(true)
@@ -523,7 +526,10 @@ fn validate_hypothesis(
     }
 
     if decision == "eligible_for_auto_match" {
-        if blocking_criterion || missing_or_required_failure || score < integer(rule_set, "auto_match_threshold_bps")? || !is_fully_allocated {
+        let positive_source_amounts = left_refs.iter().chain(right_refs.iter()).all(|reference| {
+            integer(source_item_by_ref(run, reference).unwrap_or(&Value::Null), "amount_minor").unwrap_or(0) > 0
+        });
+        if blocking_criterion || review_criterion || missing_or_required_failure || score < integer(rule_set, "auto_match_threshold_bps")? || !is_fully_allocated || !positive_source_amounts {
             return Err(format!("{run_id}/{hypothesis_ref}: auto-match eligibility requirements are not satisfied"));
         }
         if left_refs.iter().any(|reference| {
@@ -545,7 +551,7 @@ fn validate_hypothesis(
             }
         }
     } else if decision == "review_required" {
-        if blocking_criterion || (!missing_or_required_failure && score >= integer(rule_set, "auto_match_threshold_bps")? && is_fully_allocated) {
+        if blocking_criterion || (!review_criterion && !missing_or_required_failure && score >= integer(rule_set, "auto_match_threshold_bps")? && is_fully_allocated) {
             return Err(format!("{run_id}/{hypothesis_ref}: review_required state is not justified by evidence or allocation residual"));
         }
     } else if decision == "ambiguous" {
