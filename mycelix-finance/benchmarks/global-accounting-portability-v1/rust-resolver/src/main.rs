@@ -198,10 +198,10 @@ fn validate_registry_semantics(registry: &Value) -> AppResult<()> {
             return Err(format!("real-world intersection {id} has an invalid claim ceiling"));
         }
         let valid_from = string_field(intersection, "valid_from")?;
-        if let Some(valid_to) = intersection.get("valid_to").and_then(Value::as_str) {
-            if valid_to < valid_from {
-                return Err(format!("intersection {id} has valid_to before valid_from"));
-            }
+        if let Some(valid_to) = intersection.get("valid_to").and_then(Value::as_str)
+            && valid_to < valid_from
+        {
+            return Err(format!("intersection {id} has valid_to before valid_from"));
         }
         let recorded_at = string_field(intersection, "recorded_at")?;
         let approved_at = string_field(intersection, "approved_at")?;
@@ -370,33 +370,32 @@ fn resolve(registry: &Value, request: &Value) -> AppResult<Value> {
             profiles.get(profile_id).and_then(|profile| profile.get("status")).and_then(Value::as_str)
                 == Some(if scope_kind == "synthetic_fixture_only" { "synthetic_only" } else { "qualified_for_declared_scope" })
         });
-        let period_in_scope = period_start >= valid_from.to_owned()
+        let period_in_scope = period_start.as_str() >= valid_from
             && valid_to.map(|end| period_end.as_str() <= end).unwrap_or(true);
         let known_and_approved = knowledge_at.as_str() >= recorded_at && knowledge_at.as_str() >= approved_at;
         let early_qualifications = array_of_objects(intersection, "early_application_qualifications")?;
         let mut profile_effective = true;
         let mut early_application_unknown = false;
         for profile_id in &selected_profile_ids {
-            if let Some(profile) = profiles.get(profile_id) {
-                if let Some(profile_valid_from) = profile.get("valid_from").and_then(Value::as_str) {
-                    if period_start.as_str() < profile_valid_from {
-                        let permits_early = profile.get("early_application_allowed").and_then(Value::as_bool) == Some(true);
-                        let qualification = early_qualifications.iter().find(|item| {
-                            item.get("profile_id").and_then(Value::as_str) == Some(profile_id.as_str())
-                        });
-                        match (permits_early, qualification) {
-                            (true, Some(item)) => {
-                                let approved_at = string_field(item, "approved_at")?;
-                                if knowledge_at.as_str() < approved_at {
-                                    early_application_unknown = true;
-                                    blockers.insert(format!("early_application_not_approved_at_knowledge_frontier:{profile_id}"));
-                                }
-                            }
-                            _ => {
-                                profile_effective = false;
-                                blockers.insert(format!("profile_not_effective_for_reporting_period:{profile_id}"));
-                            }
+            if let Some(profile) = profiles.get(profile_id)
+                && let Some(profile_valid_from) = profile.get("valid_from").and_then(Value::as_str)
+                && period_start.as_str() < profile_valid_from
+            {
+                let permits_early = profile.get("early_application_allowed").and_then(Value::as_bool) == Some(true);
+                let qualification = early_qualifications.iter().find(|item| {
+                    item.get("profile_id").and_then(Value::as_str) == Some(profile_id.as_str())
+                });
+                match (permits_early, qualification) {
+                    (true, Some(item)) => {
+                        let approved_at = string_field(item, "approved_at")?;
+                        if knowledge_at.as_str() < approved_at {
+                            early_application_unknown = true;
+                            blockers.insert(format!("early_application_not_approved_at_knowledge_frontier:{profile_id}"));
                         }
+                    }
+                    _ => {
+                        profile_effective = false;
+                        blockers.insert(format!("profile_not_effective_for_reporting_period:{profile_id}"));
                     }
                 }
             }
@@ -642,7 +641,7 @@ mod tests {
         let report = checked_resolve(&registry(), &request("reference"));
         assert_eq!(report["disposition"], "unsupported_profile");
         assert!(report["blocking_reasons"].to_string().contains("no_exact_qualified_intersection"));
-        assert!(report["unsupported_profile_ids"].as_array().unwrap().len() >= 1);
+        assert!(!report["unsupported_profile_ids"].as_array().unwrap().is_empty());
     }
 
     #[test]
