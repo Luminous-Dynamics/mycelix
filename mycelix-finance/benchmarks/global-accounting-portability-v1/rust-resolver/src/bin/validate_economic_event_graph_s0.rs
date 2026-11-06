@@ -322,23 +322,69 @@ fn validate_event_amount_matches_assertion(
         .into_iter()
         .filter(|assertion| optional_string(assertion, "fact_type") == Some(expected_fact_type))
         .collect::<Vec<_>>();
-    if matches.len() != 1 {
+    if matches.is_empty() {
         return Err(format!(
-            "{case_id}/{event_ref}: expected exactly one {expected_fact_type} assertion, found {}",
-            matches.len()
+            "{case_id}/{event_ref}: no {expected_fact_type} assertion is linked to the event"
         ));
     }
-    let assertion = matches[0];
-    let source_amount = assertion.get("value").and_then(Value::as_i64)
-        .ok_or_else(|| format!("{case_id}/{event_ref}: {expected_fact_type} must be integer minor units"))?;
-    let event_amount = event.get("amount_minor").and_then(Value::as_i64)
-        .ok_or_else(|| format!("{case_id}/{event_ref}: event amount_minor must be integer minor units"))?;
-    let source_currency = optional_string(assertion, "currency")
-        .ok_or_else(|| format!("{case_id}/{event_ref}: {expected_fact_type} assertion has no currency"))?;
-    let event_currency = string(event, "currency")?;
-    if source_amount != event_amount || source_currency != event_currency {
+
+    let mut asserted_pairs = BTreeSet::<(i64, String)>::new();
+    let mut assertion_refs = Vec::<String>::new();
+    for assertion in &matches {
+        let amount = assertion.get("value").and_then(Value::as_i64)
+            .ok_or_else(|| format!("{case_id}/{event_ref}: {expected_fact_type} must be integer minor units"))?;
+        let currency = optional_string(assertion, "currency")
+            .ok_or_else(|| format!("{case_id}/{event_ref}: {expected_fact_type} assertion has no currency"))?;
+        asserted_pairs.insert((amount, currency.to_owned()));
+        assertion_refs.push(string(assertion, "assertion_ref")?.to_owned());
+    }
+
+    let event_amount = event.get("amount_minor").and_then(Value::as_i64);
+    let event_currency = event.get("currency").and_then(Value::as_str);
+    if asserted_pairs.len() > 1 {
+        // A conflicted event does not get to choose a winner. Every competing
+        // assertion pair must be explicitly linked by a contradiction edge.
+        for left_index in 0..assertion_refs.len() {
+            for right_index in (left_index + 1)..assertion_refs.len() {
+                let left = &assertion_refs[left_index];
+                let right = &assertion_refs[right_index];
+                let left_value = matches[left_index].get("value");
+                let right_value = matches[right_index].get("value");
+                let left_currency = optional_string(matches[left_index], "currency");
+                let right_currency = optional_string(matches[right_index], "currency");
+                let pair_conflicts = left_value != right_value || left_currency != right_currency;
+                if !pair_conflicts {
+                    continue;
+                }
+                let linked = array(case, "relations")?.iter().any(|relation| {
+                    optional_string(relation, "relation_kind") == Some("contradicts")
+                        && optional_string(relation, "from_kind") == Some("assertion")
+                        && optional_string(relation, "to_kind") == Some("assertion")
+                        && ((optional_string(relation, "from_ref") == Some(left)
+                            && optional_string(relation, "to_ref") == Some(right))
+                            || (optional_string(relation, "from_ref") == Some(right)
+                                && optional_string(relation, "to_ref") == Some(left)))
+                });
+                if !linked {
+                    return Err(format!(
+                        "{case_id}/{event_ref}: conflicting source assertions {left} and {right} lack an explicit contradicts relation"
+                    ));
+                }
+            }
+        }
+        if event_amount.is_some() || event_currency.is_some() {
+            return Err(format!(
+                "{case_id}/{event_ref}: conflicted {expected_fact_type} assertions must leave event amount and currency unresolved"
+            ));
+        }
+        return Ok(());
+    }
+
+    let (source_amount, source_currency) = asserted_pairs.iter().next()
+        .ok_or_else(|| format!("{case_id}/{event_ref}: no source amount/currency pair"))?;
+    if event_amount != Some(*source_amount) || event_currency != Some(source_currency.as_str()) {
         return Err(format!(
-            "{case_id}/{event_ref}: event amount/currency {event_amount} {event_currency} does not match source assertion {source_amount} {source_currency}"
+            "{case_id}/{event_ref}: event amount/currency does not match its unconflicted {expected_fact_type} assertion"
         ));
     }
     Ok(())
@@ -785,6 +831,37 @@ mod tests {
         )
     }
 
+
+
+    #[test]
+    fn conflicting_amount_assertions_are_preserved_without_selecting_a_value() {
+        let (bundle, _) = fixtures();
+        let case = array(&bundle, "cases").unwrap().iter()
+            .find(|case| optional_string(case, "case_id") == Some("EVT-007-CONTRADICTORY-ASSERTIONS")).unwrap();
+        let event = &array(case, "events").unwrap()[0];
+        assert_eq!(event["amount_minor"], Value::Null);
+        assert_eq!(event["currency"], Value::Null);
+        assert!(validate_events(case).is_ok());
+    }
+
+    #[test]
+    fn conflicted_amount_event_cannot_select_one_source_value() {
+        let (mut bundle, _) = fixtures();
+        let case = bundle["cases"].as_array_mut().unwrap().iter_mut()
+            .find(|case| optional_string(case, "case_id") == Some("EVT-007-CONTRADICTORY-ASSERTIONS")).unwrap();
+        case["events"][0]["amount_minor"] = Value::from(120000);
+        case["events"][0]["currency"] = Value::String("USD".to_owned());
+        assert!(validate_events(case).is_err());
+    }
+
+    #[test]
+    fn conflicting_amounts_require_an_explicit_contradiction_edge() {
+        let (mut bundle, _) = fixtures();
+        let case = bundle["cases"].as_array_mut().unwrap().iter_mut()
+            .find(|case| optional_string(case, "case_id") == Some("EVT-007-CONTRADICTORY-ASSERTIONS")).unwrap();
+        case["relations"].as_array_mut().unwrap().clear();
+        assert!(validate_events(case).is_err());
+    }
 
     #[test]
     fn invoice_event_amount_and_currency_must_match_its_source_assertion() {
