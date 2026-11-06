@@ -1315,6 +1315,17 @@
           "received_at": "2026-11-06T08:00:00Z",
           "content_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
           "source_locator": "table:row:1"
+        },
+        {
+          "source_ref": "SRC-010-P-FUTURE",
+          "dataset_side": "payout",
+          "tenant_namespace": "tenant-a/proc-a",
+          "external_id": "P-010-FUTURE",
+          "revision": "r1",
+          "source_kind": "payout",
+          "received_at": "2026-11-06T10:00:00Z",
+          "content_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "source_locator": "payouts:row:future"
         }
       ],
       "assertions": [
@@ -1326,6 +1337,16 @@
           "currency": "USD",
           "recorded_at": "2026-11-06T08:00:00Z",
           "valid_date": "2026-11-05",
+          "evidence_state": "asserted"
+        },
+        {
+          "assertion_ref": "AS-010-P-FUTURE-NET",
+          "source_ref": "SRC-010-P-FUTURE",
+          "fact_type": "net_minor",
+          "value": 3333,
+          "currency": "USD",
+          "recorded_at": "2026-11-06T10:00:00Z",
+          "valid_date": "2026-11-06",
           "evidence_state": "asserted"
         }
       ],
@@ -1341,6 +1362,21 @@
           ],
           "occurred_at": "2026-11-05T12:00:00Z",
           "recorded_at": "2026-11-06T08:00:00Z",
+          "currency": "USD",
+          "amount_minor": 3333,
+          "entity_ref": "ENTITY-A"
+        },
+        {
+          "event_ref": "EV-010-P-FUTURE",
+          "event_kind": "payout_created",
+          "source_refs": [
+            "SRC-010-P-FUTURE"
+          ],
+          "assertion_refs": [
+            "AS-010-P-FUTURE-NET"
+          ],
+          "occurred_at": "2026-11-06T07:45:00Z",
+          "recorded_at": "2026-11-06T10:00:00Z",
           "currency": "USD",
           "amount_minor": 3333,
           "entity_ref": "ENTITY-A"
