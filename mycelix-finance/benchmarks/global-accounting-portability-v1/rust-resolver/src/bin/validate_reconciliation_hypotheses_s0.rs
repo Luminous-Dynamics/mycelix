@@ -1205,17 +1205,12 @@ mod tests {
     }
 
     #[test]
-    fn reversed_direction_without_reversal_type_is_not_a_reversal_match() {
+    fn reversal_match_requires_equal_original_transaction_lineage() {
         let (mut input, output, _, _) = fixtures();
-        input["runs"][7]["source_items"][0]["transaction_type"] = Value::String("supplier_payment".to_owned());
-        input["runs"][7]["source_items"][0]["reversal_of_external_id"] = Value::Null;
+        input["runs"][7]["source_items"][1]["reversal_of_external_id"] = Value::String("PAY-OTHER".to_owned());
         assert!(validate_input_run(&input["runs"][7]).is_ok());
-        let mutated_output = output["run_results"][7]["hypotheses"][0].clone();
-        assert_eq!(mutated_output["decision_state"], "eligible_for_auto_match");
-        // A complete reversal-lineage mismatch is caught by the selected reversal checks in a pair mutation.
-        let mut output_mut = output.clone();
-        output_mut["run_results"][7]["hypotheses"][0]["criterion_evaluations"].as_array_mut().unwrap()
-            .iter_mut().find(|evaluation| optional_string(evaluation, "criterion_ref") == Some("CR-TRANSACTION-TYPE")).unwrap()["outcome"] = Value::String("mismatch".to_owned());
-        assert!(build_report(&input, &output_mut, output_mut["source_bundle_sha256"].as_str().unwrap().to_owned(), "f".repeat(64)).is_err());
+        let hypothesis = &output["run_results"][7]["hypotheses"][0];
+        assert_eq!(hypothesis["decision_state"], "eligible_for_auto_match");
+        assert!(build_report(&input, &output, output["source_bundle_sha256"].as_str().unwrap().to_owned(), "f".repeat(64)).is_err());
     }
 }
