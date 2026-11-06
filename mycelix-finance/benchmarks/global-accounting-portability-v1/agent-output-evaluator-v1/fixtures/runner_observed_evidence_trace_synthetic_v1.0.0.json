@@ -513,7 +513,8 @@
         "F-001-AMOUNT",
         "F-001-ENTITY",
         "F-001-START",
-        "F-001-END"
+        "F-001-END",
+        "F-001-SUPPLIER"
       ],
       "related_event_refs": [],
       "terminal_state": null,
@@ -555,7 +556,8 @@
         "F-001-AMOUNT",
         "F-001-ENTITY",
         "F-001-START",
-        "F-001-END"
+        "F-001-END",
+        "F-001-SUPPLIER"
       ],
       "related_event_refs": [],
       "terminal_state": null,
