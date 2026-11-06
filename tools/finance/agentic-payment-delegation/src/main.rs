@@ -1308,6 +1308,17 @@ fn run_self_tests(corpus: &Value, schema: &Value) -> Result<usize, String> {
     })?;
     count += 1;
 
+    mutate_and_reject("transaction-count rejection cannot be bypassed", corpus, schema, |value| {
+        value["scenarios"][30]["mandate"]["max_transaction_count"] = json!(2);
+    })?;
+    count += 1;
+
+    mutate_and_reject("revocation does not release an indeterminate payment", corpus, schema, |value| {
+        value["scenarios"][31]["expected_budget_used_minor_units"] = json!(0);
+        value["scenarios"][31]["expected_outstanding_reservations"] = json!(0);
+    })?;
+    count += 1;
+
     Ok(count)
 }
 
@@ -1377,13 +1388,13 @@ mod tests {
         assert!(errors.is_empty(), "{errors:?}");
         assert_eq!(array_at(&corpus, "source_register").unwrap().len(), 10);
         assert_eq!(array_at(&corpus, "profiles").unwrap().len(), 4);
-        assert_eq!(array_at(&corpus, "scenarios").unwrap().len(), 30);
+        assert_eq!(array_at(&corpus, "scenarios").unwrap().len(), 32);
     }
 
     #[test]
     fn deterministic_negative_mutation_campaign_rejects_authority_and_budget_attacks() {
         let corpus: Value = serde_json::from_str(DEFAULT_CORPUS).expect("corpus");
         let schema: Value = serde_json::from_str(DEFAULT_SCHEMA).expect("schema");
-        assert_eq!(run_self_tests(&corpus, &schema).expect("self tests"), 26);
+        assert_eq!(run_self_tests(&corpus, &schema).expect("self tests"), 28);
     }
 }
