@@ -311,13 +311,18 @@ fn scenario_evaluation(case: &Value) -> Result<Value, Vec<String>> {
         }
     }
 
-    unique_ids(&snapshots, "account_id", "account_snapshots", &mut errors);
-    let snapshot_map: BTreeMap<String, Value> = snapshots
-        .iter()
-        .filter_map(|snapshot| {
-            str_at(snapshot, "account_id").map(|id| (id.to_owned(), snapshot.clone()))
-        })
-        .collect();
+    let mut snapshot_keys = BTreeSet::new();
+    let mut snapshot_map = BTreeMap::<String, Value>::new();
+    for snapshot in &snapshots {
+        let account = str_at(snapshot, "account_id").unwrap_or("");
+        let currency = str_at(snapshot, "currency").unwrap_or("");
+        let key = format!("{account}:{currency}");
+        if account.is_empty() || currency.len() != 3 || !snapshot_keys.insert(key.clone()) {
+            errors.push(format!("{case_id}: invalid or duplicate account/currency snapshot {key}"));
+        } else {
+            snapshot_map.insert(key, snapshot.clone());
+        }
+    }
     for snapshot in &snapshots {
         let account = str_at(snapshot, "account_id").unwrap_or("");
         let coverage = str_at(snapshot, "coverage_state").unwrap_or("unknown");
@@ -431,10 +436,12 @@ fn scenario_evaluation(case: &Value) -> Result<Value, Vec<String>> {
     }
 
     unique_ids(&holds, "hold_id", "holds", &mut errors);
+    let mut active_hold_totals = BTreeMap::<(String, String), (u64, u64)>::new();
     for hold in &holds {
         let id = str_at(hold, "hold_id").unwrap_or("");
         let notification_id = str_at(hold, "notification_id").unwrap_or("");
         let account = str_at(hold, "account_id").unwrap_or("");
+        let currency = str_at(hold, "currency").unwrap_or("");
         let requested = u64_at(hold, "requested_minor_units").unwrap_or(0);
         let held = u64_at(hold, "held_minor_units").unwrap_or(u64::MAX);
         let available = hold
@@ -456,13 +463,23 @@ fn scenario_evaluation(case: &Value) -> Result<Value, Vec<String>> {
                         "{case_id}: hold {id} request exceeds or lacks its exact root transaction"
                     ));
                 }
-                match snapshot_map.get(account) {
+                let notification_tx_id = str_at(n, "transaction_id").unwrap_or("");
+                if transactions
+                    .get(notification_tx_id)
+                    .is_none_or(|tx| str_at(tx, "currency") != Some(currency))
+                {
+                    errors.push(format!(
+                        "{case_id}: hold {id} currency differs from its notified transaction"
+                    ));
+                }
+                let snapshot_key = format!("{account}:{currency}");
+                match snapshot_map.get(&snapshot_key) {
                             Some(snapshot)
                                 if str_at(snapshot, "psp_id") == str_at(n, "psp_id")
                                     && optional_balance(snapshot, "available_balance_minor_units")
                                         == available => {}
                             _ => errors.push(format!(
-                                "{case_id}: hold {id} is not backed by the matching account/PSP balance snapshot"
+                                "{case_id}: hold {id} is not backed by the matching account/PSP/currency balance snapshot"
                             )),
                         }
             }
@@ -490,6 +507,35 @@ fn scenario_evaluation(case: &Value) -> Result<Value, Vec<String>> {
         }
         if !array_at(hold, "source_evidence_refs").is_some_and(|refs| !refs.is_empty()) {
             errors.push(format!("{case_id}: hold {id} lacks source evidence"));
+        }
+        if matches!(state, "applied" | "partial")
+            && str_at(hold, "authority_state") == Some("valid")
+        {
+            if let Some(balance) = available {
+                let key = (account.to_owned(), currency.to_owned());
+                let entry = active_hold_totals.entry(key).or_insert((0, balance));
+                if entry.1 != balance {
+                    errors.push(format!(
+                        "{case_id}: active holds on {account}/{currency} cite inconsistent available-balance snapshots"
+                    ));
+                }
+                entry.0 = match entry.0.checked_add(held) {
+                    Some(total) => total,
+                    None => {
+                        errors.push(format!(
+                            "{case_id}: active hold aggregate overflow for {account}/{currency}"
+                        ));
+                        u64::MAX
+                    }
+                };
+            }
+        }
+    }
+    for ((account, currency), (held_total, available_total)) in active_hold_totals {
+        if held_total > available_total {
+            errors.push(format!(
+                "{case_id}: concurrent active holds reserve {held_total} {currency} on {account}, exceeding shared available balance {available_total}"
+            ));
         }
     }
 
@@ -873,6 +919,16 @@ fn run_self_tests(corpus: &Value, schema: &Value) -> Result<usize, String> {
         schema,
         |value| {
             value["scenarios"][6]["holds"][0]["held_minor_units"] = json!(3_000);
+        },
+    )?;
+    count += 1;
+
+    mutate_and_reject(
+        "concurrent root holds exceed shared account balance",
+        corpus,
+        schema,
+        |value| {
+            value["scenarios"][24]["holds"][1]["held_minor_units"] = json!(4_000);
         },
     )?;
     count += 1;
