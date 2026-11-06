@@ -22,6 +22,12 @@ jobs:
 
   d6s-canon-reference:
     name: D6S canonical reference qualification
+    # This corpus gate is scoped to its canonical branch. Stacked feature
+    # branches may inherit the workflow without carrying the D6S fixtures;
+    # those branches must not report an unrelated qualification failure.
+    if: >-
+      (github.event_name == 'pull_request' && github.event.pull_request.base.ref == 'myc-int-demo-d6t-canonical-encoding') ||
+      (github.event_name != 'pull_request' && github.ref == 'refs/heads/myc-int-demo-d6t-canonical-encoding')
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     env:

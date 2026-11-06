@@ -1,0 +1,390 @@
+{
+  "schema_version": "living-city-metabolism/0.1",
+  "record_id": "johannesburg-civic-corridor-synthetic-interaction-test",
+  "record_status": "synthetic_test_only",
+  "concept_ref": {
+    "concept_id": "johannesburg-highveld-rewoven",
+    "concept_version": 1,
+    "hypothesis_id": "johannesburg-highveld-rewoven-1"
+  },
+  "system_boundary": {
+    "boundary_id": "joburg-civic-corridor-synthetic-boundary",
+    "spatial_scope": "corridor",
+    "spatial_reference": "Illustrative named study boundary only; no coordinates or actual study area are asserted.",
+    "start_date": "2026-01-01",
+    "end_date": "2026-12-31",
+    "temporal_resolution": "annual",
+    "included_processes": [
+      "On-site rainfall capture and runoff movement",
+      "Intervention-specific operational water pathways"
+    ],
+    "excluded_processes": [
+      "Upstream embodied impacts of construction materials",
+      "Downstream catchment effects beyond the study boundary"
+    ],
+    "cut_off_rules": "No omitted process may be interpreted as zero. Document all cut-offs and expand the boundary if they could reverse the comparison."
+  },
+  "functional_unit": {
+    "quantity": 1,
+    "unit": "corridor_year",
+    "service_definition": "One synthetic corridor-year used only to test the interaction calculation and balance invariants; it is not a measured or forecast Johannesburg result."
+  },
+  "scenarios": [
+    {
+      "scenario_id": "baseline",
+      "role": "baseline",
+      "intervention_refs": [],
+      "flow_records": [
+        {
+          "flow_id": "baseline-runoff",
+          "metric_id": "stormwater_runoff",
+          "value": 100,
+          "unit": "m3",
+          "evidence_kind": "synthetic_only",
+          "life_cycle_stage": "operational",
+          "evidence_refs": [],
+          "rationale": "Synthetic test datum only; not observed rainfall or runoff.",
+          "uncertainty": {
+            "lower_bound": 98.75,
+            "upper_bound": 101.25,
+            "method": "Synthetic symmetric ±1.25 m3 input interval used only to test interval propagation; not a confidence interval or observed uncertainty."
+          }
+        },
+        {
+          "flow_id": "baseline-rainfall-input",
+          "metric_id": "precipitation_input",
+          "value": 100,
+          "unit": "m3",
+          "evidence_kind": "synthetic_only",
+          "life_cycle_stage": "operational",
+          "evidence_refs": [],
+          "rationale": "Synthetic water entering the study boundary for balance-binding tests; not observed rainfall or a measured catchment volume."
+        },
+        {
+          "flow_id": "baseline-retained-water",
+          "metric_id": "stormwater_retained",
+          "value": 0,
+          "unit": "m3",
+          "evidence_kind": "synthetic_only",
+          "life_cycle_stage": "operational",
+          "evidence_refs": [],
+          "rationale": "Synthetic increase in stored/retained stormwater balancing the synthetic runoff outflow; not measured retention."
+        }
+      ],
+      "conservation_checks": [
+        {
+          "check_id": "baseline-water-balance",
+          "balance_kind": "water",
+          "inflow": "100000000",
+          "generated_or_added": "0",
+          "outflow": "100000000",
+          "declared_loss": "0",
+          "observed_storage_delta": "0",
+          "reported_residual": "0",
+          "tolerance": "0",
+          "unit": "mL",
+          "status": "balanced",
+          "rationale": "Synthetic arithmetic control only; not a measured hydrological balance.",
+          "evidence_refs": [],
+          "flow_bindings": {
+            "inflow_refs": [
+              "baseline-rainfall-input"
+            ],
+            "generated_or_added_refs": [],
+            "outflow_refs": [
+              "baseline-runoff"
+            ],
+            "loss_refs": [],
+            "storage_increase_refs": [],
+            "storage_decrease_refs": []
+          }
+        }
+      ],
+      "limitations": [
+        "Synthetic baseline used only for deterministic validator tests."
+      ]
+    },
+    {
+      "scenario_id": "bioswale-only",
+      "role": "single_intervention",
+      "intervention_refs": [
+        "bioswale"
+      ],
+      "flow_records": [
+        {
+          "flow_id": "bioswale-runoff",
+          "metric_id": "stormwater_runoff",
+          "value": 90,
+          "unit": "m3",
+          "evidence_kind": "synthetic_only",
+          "life_cycle_stage": "operational",
+          "evidence_refs": [],
+          "rationale": "Synthetic test datum only; not measured bioswale performance.",
+          "uncertainty": {
+            "lower_bound": 88.75,
+            "upper_bound": 91.25,
+            "method": "Synthetic symmetric ±1.25 m3 input interval used only to test interval propagation; not a confidence interval or observed uncertainty."
+          }
+        },
+        {
+          "flow_id": "bioswale-only-rainfall-input",
+          "metric_id": "precipitation_input",
+          "value": 100,
+          "unit": "m3",
+          "evidence_kind": "synthetic_only",
+          "life_cycle_stage": "operational",
+          "evidence_refs": [],
+          "rationale": "Synthetic water entering the study boundary for balance-binding tests; not observed rainfall or a measured catchment volume."
+        },
+        {
+          "flow_id": "bioswale-only-retained-water",
+          "metric_id": "stormwater_retained",
+          "value": 10,
+          "unit": "m3",
+          "evidence_kind": "synthetic_only",
+          "life_cycle_stage": "operational",
+          "evidence_refs": [],
+          "rationale": "Synthetic increase in stored/retained stormwater balancing the synthetic runoff outflow; not measured retention."
+        }
+      ],
+      "conservation_checks": [
+        {
+          "check_id": "bioswale-water-balance",
+          "balance_kind": "water",
+          "inflow": "100000000",
+          "generated_or_added": "0",
+          "outflow": "90000000",
+          "declared_loss": "0",
+          "observed_storage_delta": "10000000",
+          "reported_residual": "0",
+          "tolerance": "0",
+          "unit": "mL",
+          "status": "balanced",
+          "rationale": "Synthetic arithmetic control only; not a measured hydrological balance.",
+          "evidence_refs": [],
+          "flow_bindings": {
+            "inflow_refs": [
+              "bioswale-only-rainfall-input"
+            ],
+            "generated_or_added_refs": [],
+            "outflow_refs": [
+              "bioswale-runoff"
+            ],
+            "loss_refs": [],
+            "storage_increase_refs": [
+              "bioswale-only-retained-water"
+            ],
+            "storage_decrease_refs": []
+          }
+        }
+      ],
+      "limitations": [
+        "Synthetic bioswale scenario used only for validator tests."
+      ]
+    },
+    {
+      "scenario_id": "canopy-only",
+      "role": "single_intervention",
+      "intervention_refs": [
+        "tree-canopy"
+      ],
+      "flow_records": [
+        {
+          "flow_id": "canopy-runoff",
+          "metric_id": "stormwater_runoff",
+          "value": 98,
+          "unit": "m3",
+          "evidence_kind": "synthetic_only",
+          "life_cycle_stage": "operational",
+          "evidence_refs": [],
+          "rationale": "Synthetic test datum only; not measured tree-canopy performance.",
+          "uncertainty": {
+            "lower_bound": 96.75,
+            "upper_bound": 99.25,
+            "method": "Synthetic symmetric ±1.25 m3 input interval used only to test interval propagation; not a confidence interval or observed uncertainty."
+          }
+        },
+        {
+          "flow_id": "canopy-only-rainfall-input",
+          "metric_id": "precipitation_input",
+          "value": 100,
+          "unit": "m3",
+          "evidence_kind": "synthetic_only",
+          "life_cycle_stage": "operational",
+          "evidence_refs": [],
+          "rationale": "Synthetic water entering the study boundary for balance-binding tests; not observed rainfall or a measured catchment volume."
+        },
+        {
+          "flow_id": "canopy-only-retained-water",
+          "metric_id": "stormwater_retained",
+          "value": 2,
+          "unit": "m3",
+          "evidence_kind": "synthetic_only",
+          "life_cycle_stage": "operational",
+          "evidence_refs": [],
+          "rationale": "Synthetic increase in stored/retained stormwater balancing the synthetic runoff outflow; not measured retention."
+        }
+      ],
+      "conservation_checks": [
+        {
+          "check_id": "canopy-water-balance",
+          "balance_kind": "water",
+          "inflow": "100000000",
+          "generated_or_added": "0",
+          "outflow": "98000000",
+          "declared_loss": "0",
+          "observed_storage_delta": "2000000",
+          "reported_residual": "0",
+          "tolerance": "0",
+          "unit": "mL",
+          "status": "balanced",
+          "rationale": "Synthetic arithmetic control only; not a measured hydrological balance.",
+          "evidence_refs": [],
+          "flow_bindings": {
+            "inflow_refs": [
+              "canopy-only-rainfall-input"
+            ],
+            "generated_or_added_refs": [],
+            "outflow_refs": [
+              "canopy-runoff"
+            ],
+            "loss_refs": [],
+            "storage_increase_refs": [
+              "canopy-only-retained-water"
+            ],
+            "storage_decrease_refs": []
+          }
+        }
+      ],
+      "limitations": [
+        "Synthetic canopy scenario used only for validator tests."
+      ]
+    },
+    {
+      "scenario_id": "bioswale-and-canopy",
+      "role": "combined_bundle",
+      "intervention_refs": [
+        "bioswale",
+        "tree-canopy"
+      ],
+      "flow_records": [
+        {
+          "flow_id": "combined-runoff",
+          "metric_id": "stormwater_runoff",
+          "value": 75,
+          "unit": "m3",
+          "evidence_kind": "synthetic_only",
+          "life_cycle_stage": "operational",
+          "evidence_refs": [],
+          "rationale": "Synthetic test datum only; not an actual intervention result.",
+          "uncertainty": {
+            "lower_bound": 73.75,
+            "upper_bound": 76.25,
+            "method": "Synthetic symmetric ±1.25 m3 input interval used only to test interval propagation; not a confidence interval or observed uncertainty."
+          }
+        },
+        {
+          "flow_id": "bioswale-and-canopy-rainfall-input",
+          "metric_id": "precipitation_input",
+          "value": 100,
+          "unit": "m3",
+          "evidence_kind": "synthetic_only",
+          "life_cycle_stage": "operational",
+          "evidence_refs": [],
+          "rationale": "Synthetic water entering the study boundary for balance-binding tests; not observed rainfall or a measured catchment volume."
+        },
+        {
+          "flow_id": "bioswale-and-canopy-retained-water",
+          "metric_id": "stormwater_retained",
+          "value": 25,
+          "unit": "m3",
+          "evidence_kind": "synthetic_only",
+          "life_cycle_stage": "operational",
+          "evidence_refs": [],
+          "rationale": "Synthetic increase in stored/retained stormwater balancing the synthetic runoff outflow; not measured retention."
+        }
+      ],
+      "conservation_checks": [
+        {
+          "check_id": "combined-water-balance",
+          "balance_kind": "water",
+          "inflow": "100000000",
+          "generated_or_added": "0",
+          "outflow": "75000000",
+          "declared_loss": "0",
+          "observed_storage_delta": "25000000",
+          "reported_residual": "0",
+          "tolerance": "0",
+          "unit": "mL",
+          "status": "balanced",
+          "rationale": "Synthetic arithmetic control only; not a measured hydrological balance.",
+          "evidence_refs": [],
+          "flow_bindings": {
+            "inflow_refs": [
+              "bioswale-and-canopy-rainfall-input"
+            ],
+            "generated_or_added_refs": [],
+            "outflow_refs": [
+              "combined-runoff"
+            ],
+            "loss_refs": [],
+            "storage_increase_refs": [
+              "bioswale-and-canopy-retained-water"
+            ],
+            "storage_decrease_refs": []
+          }
+        }
+      ],
+      "limitations": [
+        "Synthetic combined scenario tests non-additive interaction arithmetic only."
+      ]
+    }
+  ],
+  "interactions": [
+    {
+      "interaction_id": "bioswale-canopy-runoff-interaction",
+      "intervention_a": "bioswale",
+      "intervention_b": "tree-canopy",
+      "outcome_metric": "stormwater_runoff",
+      "direction": "lower_is_better",
+      "hypothesized_relationship": "synergy",
+      "assessment_status": "synthetic_only",
+      "method": "difference_in_differences",
+      "reported_interaction_delta": -13,
+      "unit": "m3",
+      "tolerance": 0.000001,
+      "uncertainty": {
+        "lower_bound": -18,
+        "upper_bound": -8,
+        "method": "Conservative interval arithmetic on the four synthetic scenario intervals; not a statistical confidence interval."
+      },
+      "interpreted_result": "positive_synergy",
+      "evidence_refs": [],
+      "rationale": "Purely synthetic arithmetic check: 75 - 90 - 98 + 100 = -13 m3. A negative interaction delta is beneficial for this lower-is-better metric, but these values are not real evidence."
+    }
+  ],
+  "model_runs": [],
+  "system_roles": {
+    "mycelix": {
+      "responsibility": "evidence_provenance_and_governance",
+      "boundary": "Stores evidence provenance, versioned claims, rights state, and review history; does not itself prove source truth or consent."
+    },
+    "symthaea": {
+      "responsibility": "hypothesis_generation_and_uncertainty",
+      "boundary": "Proposes mechanisms, alternatives, and falsifiable questions; does not authorize designs or turn assumptions into measured outcomes."
+    },
+    "symtropy": {
+      "responsibility": "versioned_physical_scenario_simulation",
+      "boundary": "Runs explicitly versioned physical scenarios; outputs stay modelled until independently calibrated and validated against appropriate observations."
+    },
+    "sol_atlas": {
+      "responsibility": "read_only_spatiotemporal_visualization",
+      "boundary": "Maps scenarios, boundaries, uncertainty, distributions, and provenance; does not convert a visual layer into evidence or approval."
+    }
+  },
+  "limitations": [
+    "All flow values and balance figures in this record are fabricated solely for validator mechanics; they are not measurements, estimates, forecasts, or claims about Johannesburg.",
+    "The interaction delta demonstrates difference-in-differences arithmetic only. It does not establish causal synergy or hydrological efficacy.",
+    "No overall symtropy score, optimization result, safety clearance, or community endorsement is implied."
+  ]
+}

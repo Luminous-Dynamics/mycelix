@@ -1,0 +1,2829 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/living-city-metabolism-v0.1.schema.json",
+  "title": "Living-City Urban Metabolism and Synergy Ledger",
+  "description": "Versioned comparison contract for bounded urban energy, exergy, water, material, emissions, thermal-comfort, and service flows. It deliberately has no overall city-goodness score.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "record_id",
+    "record_status",
+    "concept_ref",
+    "system_boundary",
+    "functional_unit",
+    "scenarios",
+    "interactions",
+    "model_runs",
+    "system_roles",
+    "limitations"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "living-city-metabolism/0.1"
+    },
+    "record_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+    },
+    "record_status": {
+      "enum": [
+        "protocol_only",
+        "synthetic_test_only",
+        "assessment"
+      ]
+    },
+    "concept_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "concept_id",
+        "concept_version",
+        "hypothesis_id"
+      ],
+      "properties": {
+        "concept_id": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+(?:[.-][a-z0-9]+)*$"
+        },
+        "concept_version": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "hypothesis_id": {
+          "type": "string",
+          "pattern": "^[a-z0-9-]+$"
+        }
+      }
+    },
+    "system_boundary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "boundary_id",
+        "spatial_scope",
+        "start_date",
+        "end_date",
+        "temporal_resolution",
+        "included_processes",
+        "excluded_processes",
+        "cut_off_rules"
+      ],
+      "properties": {
+        "boundary_id": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+        },
+        "spatial_scope": {
+          "enum": [
+            "site",
+            "corridor",
+            "ward",
+            "municipality",
+            "catchment",
+            "service_area",
+            "supply_chain",
+            "regional_system"
+          ]
+        },
+        "spatial_reference": {
+          "type": "string",
+          "minLength": 8
+        },
+        "start_date": {
+          "type": "string",
+          "format": "date"
+        },
+        "end_date": {
+          "type": "string",
+          "format": "date"
+        },
+        "temporal_resolution": {
+          "enum": [
+            "subhourly",
+            "hourly",
+            "daily",
+            "monthly",
+            "annual",
+            "scenario_horizon"
+          ]
+        },
+        "included_processes": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 5
+          }
+        },
+        "excluded_processes": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 5
+          }
+        },
+        "cut_off_rules": {
+          "type": "string",
+          "minLength": 20
+        }
+      }
+    },
+    "functional_unit": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "quantity",
+        "unit",
+        "service_definition"
+      ],
+      "properties": {
+        "quantity": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "unit": {
+          "enum": [
+            "corridor_year",
+            "person_year",
+            "square_metre_year",
+            "passenger_trip",
+            "cubic_metre_delivered",
+            "kilogram_processed",
+            "service_event",
+            "absolute_boundary",
+            "other"
+          ]
+        },
+        "service_definition": {
+          "type": "string",
+          "minLength": 20
+        }
+      }
+    },
+    "scenarios": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/scenario"
+      }
+    },
+    "interactions": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/interaction"
+      }
+    },
+    "model_runs": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/modelRun"
+      }
+    },
+    "system_roles": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "mycelix",
+        "symthaea",
+        "symtropy",
+        "sol_atlas"
+      ],
+      "properties": {
+        "mycelix": {
+          "$ref": "#/$defs/mycelixRole"
+        },
+        "symthaea": {
+          "$ref": "#/$defs/symthaeaRole"
+        },
+        "symtropy": {
+          "$ref": "#/$defs/symtropyRole"
+        },
+        "sol_atlas": {
+          "$ref": "#/$defs/solAtlasRole"
+        }
+      }
+    },
+    "limitations": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 12
+      }
+    },
+    "nutrient_assessments": {
+      "type": "array",
+      "description": "Optional versioned, source-scoped nutrient portfolio assessment envelopes emitted by Symtropy or synthetic contract controls. Absence is not zero nutrition supply.",
+      "items": {
+        "$ref": "#/$defs/nutrientAssessment"
+      }
+    },
+    "distributional_impacts": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/distributionalImpact"
+      },
+      "description": "Optional cohort-disaggregated outcome changes against an explicit baseline. Assessment records require at least one entry. These records expose incidence and declared-floor breaches; they are not a permission to optimize away harms."
+    },
+    "distributional_coverage": {
+      "$ref": "#/$defs/distributionalCoverage",
+      "description": "Required for real assessments: records the declared population frame, represented cohort refs, known omissions, intersectional review state, and evidence. It documents coverage; it does not prove no group was missed."
+    },
+    "causal_evaluations": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/causalEvaluation"
+      },
+      "description": "Optional review-gated interpretation records. Interaction arithmetic remains descriptive unless an explicitly documented causal design, resolved evidence, falsification checks, and review justify a stronger claim. Schema validity alone never certifies causality."
+    },
+    "calibration_receipts": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/calibrationReceipt"
+      },
+      "description": "Per-model, per-metric calibration receipts evaluated on data disjoint from training. Pass status requires the confidence interval for empirical interval coverage to fit wholly inside a predeclared tolerance band; schema validity alone does not prove the physical model is valid."
+    }
+  },
+  "$defs": {
+    "flow": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "flow_id",
+        "metric_id",
+        "value",
+        "unit",
+        "evidence_kind",
+        "life_cycle_stage",
+        "evidence_refs",
+        "rationale"
+      ],
+      "properties": {
+        "flow_id": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+        },
+        "metric_id": {
+          "enum": [
+            "final_energy",
+            "useful_energy",
+            "solar_generation",
+            "exergy_input",
+            "exergy_output",
+            "potable_water_withdrawal",
+            "reclaimed_water_use",
+            "stormwater_runoff",
+            "stormwater_retained",
+            "material_input",
+            "recovered_material",
+            "landfill_waste",
+            "edible_food_delivered",
+            "operational_ghg",
+            "embodied_ghg",
+            "thermal_exposure_degree_hours",
+            "accessible_person_hours",
+            "essential_service_uptime",
+            "tree_canopy_area",
+            "precipitation_input"
+          ]
+        },
+        "value": {
+          "type": "number",
+          "minimum": 0
+        },
+        "unit": {
+          "enum": [
+            "Wh",
+            "kWh",
+            "MWh",
+            "MJ",
+            "GJ",
+            "Wh_exergy",
+            "kWh_exergy",
+            "MJ_exergy",
+            "GJ_exergy",
+            "L",
+            "m3",
+            "g",
+            "kg",
+            "t",
+            "gCO2e",
+            "kgCO2e",
+            "tCO2e",
+            "person_degree_hour",
+            "person_hour",
+            "fraction",
+            "m2"
+          ]
+        },
+        "evidence_kind": {
+          "enum": [
+            "measured",
+            "source_estimate",
+            "model_output",
+            "assumption",
+            "target",
+            "synthetic_only"
+          ]
+        },
+        "life_cycle_stage": {
+          "enum": [
+            "operational",
+            "embodied_construction",
+            "embodied_maintenance",
+            "end_of_life",
+            "avoided",
+            "other"
+          ]
+        },
+        "evidence_refs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+          }
+        },
+        "model_run_ref": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+        },
+        "beneficiary_scope_ref": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+          "description": "Stable aggregate or pseudonymous beneficiary-scope ID; never embed a person's name or direct identifier."
+        },
+        "delivery_period_ref": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+          "description": "Stable reporting-period ID used to compare delivered edible food on the same temporal basis."
+        },
+        "delivery_basis": {
+          "const": "edible_portion_received_by_beneficiary"
+        },
+        "uncertainty": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "lower_bound",
+            "upper_bound",
+            "method"
+          ],
+          "properties": {
+            "lower_bound": {
+              "type": "number",
+              "minimum": 0
+            },
+            "upper_bound": {
+              "type": "number",
+              "minimum": 0
+            },
+            "method": {
+              "type": "string",
+              "minLength": 12
+            }
+          }
+        },
+        "rationale": {
+          "type": "string",
+          "minLength": 12
+        },
+        "nutrient_assessment_refs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+          },
+          "description": "References to nutrient assessment envelopes in nutrient_assessments; optional, and absence never implies zero nutrient supply."
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "evidence_kind": {
+                "enum": [
+                  "measured",
+                  "source_estimate",
+                  "model_output"
+                ]
+              }
+            },
+            "required": [
+              "evidence_kind"
+            ]
+          },
+          "then": {
+            "properties": {
+              "evidence_refs": {
+                "minItems": 1
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "evidence_kind": {
+                "const": "model_output"
+              }
+            },
+            "required": [
+              "evidence_kind"
+            ]
+          },
+          "then": {
+            "required": [
+              "model_run_ref"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "metric_id": {
+                "enum": [
+                  "final_energy",
+                  "useful_energy",
+                  "solar_generation"
+                ]
+              }
+            },
+            "required": [
+              "metric_id"
+            ]
+          },
+          "then": {
+            "properties": {
+              "unit": {
+                "enum": [
+                  "Wh",
+                  "kWh",
+                  "MWh",
+                  "MJ",
+                  "GJ"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "metric_id": {
+                "enum": [
+                  "exergy_input",
+                  "exergy_output"
+                ]
+              }
+            },
+            "required": [
+              "metric_id"
+            ]
+          },
+          "then": {
+            "properties": {
+              "unit": {
+                "enum": [
+                  "Wh_exergy",
+                  "kWh_exergy",
+                  "MJ_exergy",
+                  "GJ_exergy"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "metric_id": {
+                "enum": [
+                  "potable_water_withdrawal",
+                  "reclaimed_water_use",
+                  "stormwater_runoff",
+                  "stormwater_retained",
+                  "precipitation_input"
+                ]
+              }
+            },
+            "required": [
+              "metric_id"
+            ]
+          },
+          "then": {
+            "properties": {
+              "unit": {
+                "enum": [
+                  "L",
+                  "m3"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "metric_id": {
+                "enum": [
+                  "material_input",
+                  "recovered_material",
+                  "landfill_waste",
+                  "edible_food_delivered"
+                ]
+              }
+            },
+            "required": [
+              "metric_id"
+            ]
+          },
+          "then": {
+            "properties": {
+              "unit": {
+                "enum": [
+                  "g",
+                  "kg",
+                  "t"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "metric_id": {
+                "enum": [
+                  "operational_ghg",
+                  "embodied_ghg"
+                ]
+              }
+            },
+            "required": [
+              "metric_id"
+            ]
+          },
+          "then": {
+            "properties": {
+              "unit": {
+                "enum": [
+                  "gCO2e",
+                  "kgCO2e",
+                  "tCO2e"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "metric_id": {
+                "const": "thermal_exposure_degree_hours"
+              }
+            },
+            "required": [
+              "metric_id"
+            ]
+          },
+          "then": {
+            "properties": {
+              "unit": {
+                "const": "person_degree_hour"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "metric_id": {
+                "const": "accessible_person_hours"
+              }
+            },
+            "required": [
+              "metric_id"
+            ]
+          },
+          "then": {
+            "properties": {
+              "unit": {
+                "const": "person_hour"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "metric_id": {
+                "const": "essential_service_uptime"
+              }
+            },
+            "required": [
+              "metric_id"
+            ]
+          },
+          "then": {
+            "properties": {
+              "unit": {
+                "const": "fraction"
+              },
+              "value": {
+                "maximum": 1
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "metric_id": {
+                "const": "tree_canopy_area"
+              }
+            },
+            "required": [
+              "metric_id"
+            ]
+          },
+          "then": {
+            "properties": {
+              "unit": {
+                "const": "m2"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "metric_id": {
+                "const": "edible_food_delivered"
+              }
+            },
+            "required": [
+              "metric_id"
+            ]
+          },
+          "then": {
+            "required": [
+              "beneficiary_scope_ref",
+              "delivery_period_ref",
+              "delivery_basis"
+            ],
+            "properties": {
+              "delivery_basis": {
+                "const": "edible_portion_received_by_beneficiary"
+              },
+              "life_cycle_stage": {
+                "const": "operational"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "conservationCheck": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "check_id",
+        "balance_kind",
+        "inflow",
+        "generated_or_added",
+        "outflow",
+        "declared_loss",
+        "observed_storage_delta",
+        "reported_residual",
+        "tolerance",
+        "unit",
+        "status",
+        "rationale",
+        "evidence_refs",
+        "flow_bindings"
+      ],
+      "properties": {
+        "check_id": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+        },
+        "balance_kind": {
+          "enum": [
+            "energy",
+            "water",
+            "mass"
+          ]
+        },
+        "inflow": {
+          "type": "string",
+          "pattern": "^(0|[1-9][0-9]*)$"
+        },
+        "generated_or_added": {
+          "type": "string",
+          "pattern": "^(0|[1-9][0-9]*)$"
+        },
+        "outflow": {
+          "type": "string",
+          "pattern": "^(0|[1-9][0-9]*)$"
+        },
+        "declared_loss": {
+          "type": "string",
+          "pattern": "^(0|[1-9][0-9]*)$"
+        },
+        "observed_storage_delta": {
+          "type": "string",
+          "pattern": "^(0|[1-9][0-9]*|-[1-9][0-9]*)$"
+        },
+        "reported_residual": {
+          "type": "string",
+          "pattern": "^(0|[1-9][0-9]*|-[1-9][0-9]*)$"
+        },
+        "tolerance": {
+          "type": "string",
+          "pattern": "^(0|[1-9][0-9]*)$"
+        },
+        "unit": {
+          "enum": [
+            "Wh",
+            "mL",
+            "g"
+          ]
+        },
+        "status": {
+          "enum": [
+            "balanced",
+            "unresolved"
+          ]
+        },
+        "rationale": {
+          "type": "string",
+          "minLength": 12
+        },
+        "evidence_refs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+          }
+        },
+        "flow_bindings": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "inflow_refs",
+            "generated_or_added_refs",
+            "outflow_refs",
+            "loss_refs",
+            "storage_increase_refs",
+            "storage_decrease_refs"
+          ],
+          "properties": {
+            "inflow_refs": {
+              "type": "array",
+              "uniqueItems": true,
+              "items": {
+                "type": "string",
+                "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+              }
+            },
+            "generated_or_added_refs": {
+              "type": "array",
+              "uniqueItems": true,
+              "items": {
+                "type": "string",
+                "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+              }
+            },
+            "outflow_refs": {
+              "type": "array",
+              "uniqueItems": true,
+              "items": {
+                "type": "string",
+                "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+              }
+            },
+            "loss_refs": {
+              "type": "array",
+              "uniqueItems": true,
+              "items": {
+                "type": "string",
+                "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+              }
+            },
+            "storage_increase_refs": {
+              "type": "array",
+              "uniqueItems": true,
+              "items": {
+                "type": "string",
+                "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+              }
+            },
+            "storage_decrease_refs": {
+              "type": "array",
+              "uniqueItems": true,
+              "items": {
+                "type": "string",
+                "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+              }
+            }
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "balance_kind": {
+                "const": "energy"
+              }
+            },
+            "required": [
+              "balance_kind"
+            ]
+          },
+          "then": {
+            "properties": {
+              "unit": {
+                "const": "Wh"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "balance_kind": {
+                "const": "water"
+              }
+            },
+            "required": [
+              "balance_kind"
+            ]
+          },
+          "then": {
+            "properties": {
+              "unit": {
+                "const": "mL"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "balance_kind": {
+                "const": "mass"
+              }
+            },
+            "required": [
+              "balance_kind"
+            ]
+          },
+          "then": {
+            "properties": {
+              "unit": {
+                "const": "g"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "scenario": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "scenario_id",
+        "role",
+        "intervention_refs",
+        "flow_records",
+        "conservation_checks",
+        "limitations"
+      ],
+      "properties": {
+        "scenario_id": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+        },
+        "role": {
+          "enum": [
+            "baseline",
+            "single_intervention",
+            "combined_bundle",
+            "candidate"
+          ]
+        },
+        "intervention_refs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+          }
+        },
+        "flow_records": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/flow"
+          }
+        },
+        "conservation_checks": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/conservationCheck"
+          }
+        },
+        "limitations": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 12
+          }
+        }
+      }
+    },
+    "interaction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "interaction_id",
+        "intervention_a",
+        "intervention_b",
+        "outcome_metric",
+        "direction",
+        "hypothesized_relationship",
+        "assessment_status",
+        "method",
+        "evidence_refs",
+        "rationale"
+      ],
+      "properties": {
+        "interaction_id": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+        },
+        "intervention_a": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+        },
+        "intervention_b": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+        },
+        "outcome_metric": {
+          "enum": [
+            "final_energy",
+            "useful_energy",
+            "solar_generation",
+            "exergy_input",
+            "exergy_output",
+            "potable_water_withdrawal",
+            "reclaimed_water_use",
+            "stormwater_runoff",
+            "stormwater_retained",
+            "material_input",
+            "recovered_material",
+            "landfill_waste",
+            "edible_food_delivered",
+            "operational_ghg",
+            "embodied_ghg",
+            "thermal_exposure_degree_hours",
+            "accessible_person_hours",
+            "essential_service_uptime",
+            "tree_canopy_area",
+            "precipitation_input"
+          ]
+        },
+        "direction": {
+          "enum": [
+            "higher_is_better",
+            "lower_is_better"
+          ]
+        },
+        "hypothesized_relationship": {
+          "enum": [
+            "synergy",
+            "antagonism",
+            "conditional",
+            "unknown"
+          ]
+        },
+        "assessment_status": {
+          "enum": [
+            "not_assessed",
+            "qualitative",
+            "quantified",
+            "synthetic_only"
+          ]
+        },
+        "method": {
+          "enum": [
+            "not_assessed",
+            "mechanism_hypothesis",
+            "difference_in_differences"
+          ]
+        },
+        "reported_interaction_delta": {
+          "type": "number"
+        },
+        "unit": {
+          "enum": [
+            "Wh",
+            "kWh",
+            "MWh",
+            "MJ",
+            "GJ",
+            "Wh_exergy",
+            "kWh_exergy",
+            "MJ_exergy",
+            "GJ_exergy",
+            "L",
+            "m3",
+            "g",
+            "kg",
+            "t",
+            "gCO2e",
+            "kgCO2e",
+            "tCO2e",
+            "person_degree_hour",
+            "person_hour",
+            "fraction",
+            "m2"
+          ]
+        },
+        "tolerance": {
+          "type": "number",
+          "minimum": 0
+        },
+        "uncertainty": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "lower_bound",
+            "upper_bound",
+            "method"
+          ],
+          "properties": {
+            "lower_bound": {
+              "type": "number"
+            },
+            "upper_bound": {
+              "type": "number"
+            },
+            "method": {
+              "type": "string",
+              "minLength": 12
+            }
+          }
+        },
+        "interpreted_result": {
+          "enum": [
+            "positive_synergy",
+            "negative_interaction",
+            "inconclusive"
+          ]
+        },
+        "evidence_refs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+          }
+        },
+        "rationale": {
+          "type": "string",
+          "minLength": 12
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "assessment_status": {
+                "const": "quantified"
+              }
+            },
+            "required": [
+              "assessment_status"
+            ]
+          },
+          "then": {
+            "required": [
+              "reported_interaction_delta",
+              "unit",
+              "tolerance",
+              "uncertainty",
+              "interpreted_result"
+            ],
+            "properties": {
+              "method": {
+                "const": "difference_in_differences"
+              },
+              "evidence_refs": {
+                "minItems": 1
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "assessment_status": {
+                "const": "synthetic_only"
+              }
+            },
+            "required": [
+              "assessment_status"
+            ]
+          },
+          "then": {
+            "required": [
+              "reported_interaction_delta",
+              "unit",
+              "tolerance",
+              "uncertainty",
+              "interpreted_result"
+            ],
+            "properties": {
+              "method": {
+                "const": "difference_in_differences"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "assessment_status": {
+                "const": "not_assessed"
+              }
+            },
+            "required": [
+              "assessment_status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "method": {
+                "const": "not_assessed"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "assessment_status": {
+                "const": "qualitative"
+              }
+            },
+            "required": [
+              "assessment_status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "method": {
+                "const": "mechanism_hypothesis"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "modelRun": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "model_run_id",
+        "engine",
+        "engine_version",
+        "input_manifest_sha256",
+        "seed",
+        "time_step_seconds",
+        "scenario_refs",
+        "calibration_status",
+        "validation_evidence_refs",
+        "engine_revision"
+      ],
+      "properties": {
+        "model_run_id": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+        },
+        "engine": {
+          "enum": [
+            "symtropy",
+            "other"
+          ]
+        },
+        "engine_version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "input_manifest_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "seed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "time_step_seconds": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "scenario_refs": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+          }
+        },
+        "calibration_status": {
+          "enum": [
+            "uncalibrated",
+            "calibrated",
+            "validated"
+          ]
+        },
+        "validation_evidence_refs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+          }
+        },
+        "engine_revision": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{40}$"
+        },
+        "calibration_receipt_refs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+          },
+          "description": "Resolved calibration receipt IDs that support calibration_status; all material model-output metrics must have a passing receipt before the run is called calibrated/validated."
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "calibration_status": {
+                "const": "validated"
+              }
+            },
+            "required": [
+              "calibration_status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "validation_evidence_refs": {
+                "minItems": 1
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "calibration_status": {
+                "enum": [
+                  "calibrated",
+                  "validated"
+                ]
+              }
+            },
+            "required": [
+              "calibration_status"
+            ]
+          },
+          "then": {
+            "required": [
+              "calibration_receipt_refs"
+            ],
+            "properties": {
+              "calibration_receipt_refs": {
+                "minItems": 1
+              }
+            }
+          }
+        }
+      ]
+    },
+    "mycelixRole": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "responsibility",
+        "boundary"
+      ],
+      "properties": {
+        "responsibility": {
+          "const": "evidence_provenance_and_governance"
+        },
+        "boundary": {
+          "type": "string",
+          "minLength": 20
+        }
+      }
+    },
+    "symthaeaRole": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "responsibility",
+        "boundary"
+      ],
+      "properties": {
+        "responsibility": {
+          "const": "hypothesis_generation_and_uncertainty"
+        },
+        "boundary": {
+          "type": "string",
+          "minLength": 20
+        }
+      }
+    },
+    "symtropyRole": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "responsibility",
+        "boundary"
+      ],
+      "properties": {
+        "responsibility": {
+          "const": "versioned_physical_scenario_simulation"
+        },
+        "boundary": {
+          "type": "string",
+          "minLength": 20
+        }
+      }
+    },
+    "solAtlasRole": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "responsibility",
+        "boundary"
+      ],
+      "properties": {
+        "responsibility": {
+          "const": "read_only_spatiotemporal_visualization"
+        },
+        "boundary": {
+          "type": "string",
+          "minLength": 20
+        }
+      }
+    },
+    "nutrientAssessment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "receipt_id",
+        "receipt_schema_version",
+        "receipt_origin",
+        "scenario_id",
+        "target_id",
+        "nutrient_id",
+        "nutrient_definition_ref",
+        "unit",
+        "target_scope_ref",
+        "period_ref",
+        "value_scale",
+        "total_edible_delivered_grams",
+        "supply_numerator",
+        "target_numerator",
+        "denominator",
+        "shortfall_numerator",
+        "composition_source_refs",
+        "delivery_source_refs",
+        "target_source_ref",
+        "status",
+        "evidence_refs",
+        "limitations"
+      ],
+      "properties": {
+        "receipt_id": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+        },
+        "receipt_schema_version": {
+          "const": "living-city-nutrient-assessment-envelope/0.1"
+        },
+        "receipt_origin": {
+          "enum": [
+            "symtropy_output",
+            "synthetic_test_only"
+          ]
+        },
+        "producer_revision": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{40}$",
+          "description": "Exact Symtropy source revision; required for symtropy_output receipts."
+        },
+        "payload_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$",
+          "description": "SHA-256 of the exact serialized Symtropy NutrientPortfolioAssessmentV1 payload; the hash is only a declared commitment until those bytes are independently checked."
+        },
+        "scenario_id": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+        },
+        "target_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "nutrient_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "nutrient_definition_ref": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        },
+        "unit": {
+          "enum": [
+            "micrograms",
+            "milligrams",
+            "grams",
+            "kilocalories",
+            "kilojoules"
+          ]
+        },
+        "target_scope_ref": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "period_ref": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "value_scale": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^(0|[1-9][0-9]*)$"
+        },
+        "total_edible_delivered_grams": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^(0|[1-9][0-9]*)$"
+        },
+        "supply_numerator": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^(0|[1-9][0-9]*)$"
+        },
+        "target_numerator": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^(0|[1-9][0-9]*)$"
+        },
+        "denominator": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^(0|[1-9][0-9]*)$"
+        },
+        "shortfall_numerator": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^(0|[1-9][0-9]*)$"
+        },
+        "composition_source_refs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1024
+          }
+        },
+        "delivery_source_refs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1024
+          }
+        },
+        "target_source_ref": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        },
+        "status": {
+          "enum": [
+            "meets_declared_minimum",
+            "shortfall_against_declared_minimum",
+            "not_assessable",
+            "blocked"
+          ]
+        },
+        "evidence_refs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+          }
+        },
+        "limitations": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 12
+          }
+        },
+        "payload_ref": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048,
+          "description": "Location or immutable artifact identifier for the exact serialized native payload. Offline verification supports repository-relative files only via repo-file:<relative-posix-path>; absolute paths, parent traversal, and paths resolving outside the repository are rejected. Other locators remain unverified unless a separate trusted resolver retrieves and verifies their bytes."
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "receipt_origin": {
+                "const": "symtropy_output"
+              }
+            },
+            "required": [
+              "receipt_origin"
+            ]
+          },
+          "then": {
+            "required": [
+              "producer_revision",
+              "payload_ref",
+              "payload_sha256"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "receipt_origin": {
+                "const": "synthetic_test_only"
+              }
+            },
+            "required": [
+              "receipt_origin"
+            ]
+          },
+          "then": {
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "producer_revision"
+                  ]
+                },
+                {
+                  "required": [
+                    "payload_sha256"
+                  ]
+                }
+              ]
+            },
+            "properties": {
+              "evidence_refs": {
+                "maxItems": 0
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "enum": [
+                  "meets_declared_minimum",
+                  "shortfall_against_declared_minimum"
+                ]
+              }
+            },
+            "required": [
+              "status"
+            ]
+          },
+          "then": {
+            "required": [
+              "value_scale",
+              "total_edible_delivered_grams",
+              "supply_numerator",
+              "target_numerator",
+              "denominator",
+              "shortfall_numerator"
+            ],
+            "properties": {
+              "value_scale": {
+                "type": "string",
+                "pattern": "^[1-9][0-9]*$"
+              },
+              "total_edible_delivered_grams": {
+                "type": "string",
+                "pattern": "^(0|[1-9][0-9]*)$"
+              },
+              "supply_numerator": {
+                "type": "string",
+                "pattern": "^(0|[1-9][0-9]*)$"
+              },
+              "target_numerator": {
+                "type": "string",
+                "pattern": "^[1-9][0-9]*$"
+              },
+              "denominator": {
+                "type": "string",
+                "pattern": "^[1-9][0-9]*$"
+              },
+              "shortfall_numerator": {
+                "type": "string",
+                "pattern": "^(0|[1-9][0-9]*)$"
+              },
+              "composition_source_refs": {
+                "type": "array",
+                "minItems": 1
+              },
+              "delivery_source_refs": {
+                "type": "array",
+                "minItems": 1
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "enum": [
+                  "not_assessable",
+                  "blocked"
+                ]
+              }
+            },
+            "required": [
+              "status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "total_edible_delivered_grams": {
+                "type": "null"
+              },
+              "supply_numerator": {
+                "type": "null"
+              },
+              "target_numerator": {
+                "type": "null"
+              },
+              "denominator": {
+                "type": "null"
+              },
+              "shortfall_numerator": {
+                "type": "null"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "distributionalImpact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "impact_id",
+        "scenario_id",
+        "baseline_scenario_ref",
+        "affected_group_ref",
+        "metric_id",
+        "assessment_status",
+        "baseline_value",
+        "scenario_value",
+        "reported_delta",
+        "unit",
+        "direction",
+        "uncertainty",
+        "evidence_refs",
+        "limitations",
+        "constraint_status",
+        "constraint_ref"
+      ],
+      "properties": {
+        "impact_id": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+        },
+        "scenario_id": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+          "description": "Intervention scenario whose outcome is being compared."
+        },
+        "baseline_scenario_ref": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+          "description": "Must resolve to the explicitly designated baseline scenario."
+        },
+        "affected_group_ref": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+          "description": "Stable aggregate or pseudonymous cohort reference; do not embed a person's name or direct identifier."
+        },
+        "metric_id": {
+          "enum": [
+            "final_energy",
+            "useful_energy",
+            "solar_generation",
+            "exergy_input",
+            "exergy_output",
+            "potable_water_withdrawal",
+            "reclaimed_water_use",
+            "stormwater_runoff",
+            "stormwater_retained",
+            "material_input",
+            "recovered_material",
+            "landfill_waste",
+            "edible_food_delivered",
+            "operational_ghg",
+            "embodied_ghg",
+            "thermal_exposure_degree_hours",
+            "accessible_person_hours",
+            "essential_service_uptime",
+            "tree_canopy_area",
+            "precipitation_input"
+          ]
+        },
+        "assessment_status": {
+          "enum": [
+            "quantified",
+            "qualitative",
+            "not_assessed",
+            "blocked"
+          ]
+        },
+        "baseline_value": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "scenario_value": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "reported_delta": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "unit": {
+          "enum": [
+            "Wh",
+            "kWh",
+            "MWh",
+            "MJ",
+            "GJ",
+            "Wh_exergy",
+            "kWh_exergy",
+            "MJ_exergy",
+            "GJ_exergy",
+            "L",
+            "m3",
+            "g",
+            "kg",
+            "t",
+            "gCO2e",
+            "kgCO2e",
+            "tCO2e",
+            "person_degree_hour",
+            "person_hour",
+            "fraction",
+            "m2"
+          ]
+        },
+        "direction": {
+          "enum": [
+            "higher_is_better",
+            "lower_is_better",
+            "threshold_only",
+            "not_interpreted"
+          ]
+        },
+        "uncertainty": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "additionalProperties": false,
+          "required": [
+            "lower_bound",
+            "upper_bound",
+            "method"
+          ],
+          "properties": {
+            "lower_bound": {
+              "type": "number"
+            },
+            "upper_bound": {
+              "type": "number"
+            },
+            "method": {
+              "type": "string",
+              "minLength": 12
+            }
+          }
+        },
+        "evidence_refs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+          }
+        },
+        "limitations": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 12
+          }
+        },
+        "constraint_status": {
+          "enum": [
+            "not_evaluated",
+            "within_declared_floor",
+            "breach",
+            "indeterminate"
+          ]
+        },
+        "constraint_ref": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 1024,
+          "description": "Source or governance reference for the non-compensatory floor. Required and evidence-backed when the floor has been evaluated."
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "assessment_status": {
+                "const": "quantified"
+              }
+            },
+            "required": [
+              "assessment_status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "baseline_value": {
+                "type": "number",
+                "minimum": 0
+              },
+              "scenario_value": {
+                "type": "number",
+                "minimum": 0
+              },
+              "reported_delta": {
+                "type": "number"
+              },
+              "uncertainty": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "assessment_status": {
+                "enum": [
+                  "qualitative",
+                  "not_assessed",
+                  "blocked"
+                ]
+              }
+            },
+            "required": [
+              "assessment_status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "baseline_value": {
+                "type": "null"
+              },
+              "scenario_value": {
+                "type": "null"
+              },
+              "reported_delta": {
+                "type": "null"
+              },
+              "uncertainty": {
+                "type": "null"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "constraint_status": {
+                "const": "not_evaluated"
+              }
+            },
+            "required": [
+              "constraint_status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "constraint_ref": {
+                "type": "null"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "constraint_status": {
+                "enum": [
+                  "within_declared_floor",
+                  "breach",
+                  "indeterminate"
+                ]
+              }
+            },
+            "required": [
+              "constraint_status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "constraint_ref": {
+                "type": "string",
+                "minLength": 1
+              },
+              "evidence_refs": {
+                "minItems": 1
+              }
+            },
+            "required": [
+              "constraint_ref"
+            ]
+          }
+        }
+      ]
+    },
+    "distributionalCoverage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "coverage_schema_version",
+        "coverage_status",
+        "population_frame",
+        "group_identification_method",
+        "included_group_refs",
+        "known_omissions",
+        "omission_review_method",
+        "intersectional_review_status",
+        "intersectional_dimensions_considered",
+        "evidence_refs",
+        "limitations"
+      ],
+      "properties": {
+        "coverage_schema_version": {
+          "const": "living-city-distributional-coverage/0.1"
+        },
+        "coverage_status": {
+          "enum": [
+            "reviewed",
+            "provisional",
+            "not_assessed",
+            "blocked"
+          ]
+        },
+        "population_frame": {
+          "type": "string",
+          "minLength": 20,
+          "description": "Defined population/area/service frame for this distributional review; include period and scope."
+        },
+        "group_identification_method": {
+          "type": "string",
+          "minLength": 20,
+          "description": "How potentially affected groups were identified, including participation or data limitations."
+        },
+        "included_group_refs": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+          },
+          "description": "Stable cohort refs represented in the distributional impact ledger. References must not encode personal identifiers."
+        },
+        "known_omissions": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 12
+          },
+          "description": "Known groups, impacts, or intersections not covered. An empty array means none identified by the declared review method, not proof of completeness."
+        },
+        "omission_review_method": {
+          "type": "string",
+          "minLength": 20,
+          "description": "How likely omissions and unrepresented populations were considered."
+        },
+        "intersectional_review_status": {
+          "enum": [
+            "performed",
+            "partial",
+            "not_performed",
+            "blocked"
+          ]
+        },
+        "intersectional_dimensions_considered": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "age",
+              "disability",
+              "income",
+              "tenure",
+              "geography",
+              "sex_gender",
+              "race_ethnicity",
+              "migration_status",
+              "occupation",
+              "household_composition",
+              "language",
+              "informal_settlement_status",
+              "other"
+            ]
+          }
+        },
+        "evidence_refs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+          }
+        },
+        "limitations": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 12
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "coverage_status": {
+                "enum": [
+                  "reviewed",
+                  "provisional"
+                ]
+              }
+            },
+            "required": [
+              "coverage_status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "evidence_refs": {
+                "minItems": 1
+              },
+              "included_group_refs": {
+                "minItems": 1
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "intersectional_review_status": {
+                "enum": [
+                  "performed",
+                  "partial"
+                ]
+              }
+            },
+            "required": [
+              "intersectional_review_status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "intersectional_dimensions_considered": {
+                "minItems": 1
+              }
+            }
+          }
+        }
+      ]
+    },
+    "causalEvaluation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "evaluation_id",
+        "interaction_ref",
+        "claim_level",
+        "design_type",
+        "unit_of_analysis",
+        "treatment_assignment",
+        "counterfactual_strategy",
+        "confounder_strategy",
+        "interference_assumptions",
+        "predeclared_outcomes",
+        "falsification_checks",
+        "evidence_refs",
+        "review_status",
+        "review_ref",
+        "design_rationale",
+        "limitations",
+        "reviewer_role"
+      ],
+      "properties": {
+        "evaluation_id": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+        },
+        "interaction_ref": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+        },
+        "claim_level": {
+          "enum": [
+            "descriptive_interaction",
+            "contribution_claim",
+            "causal_effect_claim"
+          ]
+        },
+        "design_type": {
+          "enum": [
+            "not_applicable",
+            "randomized_trial",
+            "cluster_randomized_trial",
+            "difference_in_differences",
+            "interrupted_time_series",
+            "regression_discontinuity",
+            "synthetic_control",
+            "matching_adjustment",
+            "instrumental_variable",
+            "process_tracing",
+            "contribution_analysis",
+            "observational_adjustment",
+            "other"
+          ]
+        },
+        "unit_of_analysis": {
+          "type": "string",
+          "minLength": 8
+        },
+        "treatment_assignment": {
+          "type": "string",
+          "minLength": 12
+        },
+        "counterfactual_strategy": {
+          "type": "string",
+          "minLength": 12
+        },
+        "confounder_strategy": {
+          "type": "string",
+          "minLength": 12
+        },
+        "interference_assumptions": {
+          "type": "string",
+          "minLength": 12
+        },
+        "predeclared_outcomes": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 4
+          }
+        },
+        "falsification_checks": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/causalFalsificationCheck"
+          }
+        },
+        "evidence_refs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+          }
+        },
+        "review_status": {
+          "enum": [
+            "not_assessed",
+            "design_reviewed",
+            "evidence_reviewed",
+            "rejected"
+          ]
+        },
+        "review_ref": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Evidence-catalogue reference to the independent design/evidence review; a status string alone is not proof of review."
+        },
+        "design_rationale": {
+          "type": "string",
+          "minLength": 20
+        },
+        "limitations": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 12
+          }
+        },
+        "reviewer_role": {
+          "enum": [
+            "not_applicable",
+            "independent_reviewer",
+            "community_reviewer",
+            "project_team",
+            "public_authority"
+          ],
+          "description": "Declared role of the reviewer. This declaration is not an identity credential; independent review must be supported by a separately resolvable review record."
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "claim_level": {
+                "const": "contribution_claim"
+              }
+            },
+            "required": [
+              "claim_level"
+            ]
+          },
+          "then": {
+            "properties": {
+              "design_type": {
+                "enum": [
+                  "process_tracing",
+                  "contribution_analysis"
+                ]
+              },
+              "evidence_refs": {
+                "minItems": 1
+              },
+              "review_status": {
+                "const": "evidence_reviewed"
+              },
+              "review_ref": {
+                "type": "string",
+                "minLength": 1
+              },
+              "falsification_checks": {
+                "minItems": 1
+              },
+              "reviewer_role": {
+                "enum": [
+                  "independent_reviewer",
+                  "community_reviewer"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "claim_level": {
+                "const": "causal_effect_claim"
+              }
+            },
+            "required": [
+              "claim_level"
+            ]
+          },
+          "then": {
+            "properties": {
+              "design_type": {
+                "enum": [
+                  "randomized_trial",
+                  "cluster_randomized_trial",
+                  "difference_in_differences",
+                  "interrupted_time_series",
+                  "regression_discontinuity",
+                  "synthetic_control",
+                  "matching_adjustment",
+                  "instrumental_variable"
+                ]
+              },
+              "evidence_refs": {
+                "minItems": 1
+              },
+              "review_status": {
+                "const": "evidence_reviewed"
+              },
+              "review_ref": {
+                "type": "string",
+                "minLength": 1
+              },
+              "falsification_checks": {
+                "minItems": 2
+              },
+              "reviewer_role": {
+                "const": "independent_reviewer"
+              }
+            },
+            "required": [
+              "evidence_refs",
+              "review_ref"
+            ]
+          }
+        }
+      ]
+    },
+    "causalFalsificationCheck": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "check_id",
+        "check_type",
+        "result",
+        "evidence_refs",
+        "description"
+      ],
+      "properties": {
+        "check_id": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+        },
+        "check_type": {
+          "enum": [
+            "negative_control_outcome",
+            "negative_control_exposure",
+            "pretrend",
+            "placebo_timing",
+            "balance",
+            "sensitivity",
+            "spillover",
+            "other"
+          ]
+        },
+        "result": {
+          "enum": [
+            "consistent",
+            "contradicted",
+            "inconclusive",
+            "not_run",
+            "not_applicable"
+          ]
+        },
+        "evidence_refs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+          }
+        },
+        "description": {
+          "type": "string",
+          "minLength": 12
+        }
+      }
+    },
+    "calibrationReceipt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "calibration_id",
+        "model_run_ref",
+        "metric_id",
+        "unit",
+        "training_dataset_sha256",
+        "evaluation_dataset_sha256",
+        "training_evidence_refs",
+        "evaluation_evidence_refs",
+        "evaluation_design",
+        "evaluation_window_start",
+        "evaluation_window_end",
+        "independent_unit_definition",
+        "sample_count",
+        "independent_unit_count",
+        "minimum_sample_count",
+        "minimum_independent_unit_count",
+        "nominal_coverage_bp",
+        "tolerance_bp",
+        "covered_count",
+        "reported_coverage_bp",
+        "coverage_confidence_bp",
+        "coverage_lower_bp",
+        "coverage_upper_bp",
+        "interval_method",
+        "calibration_result",
+        "recalibration_trigger",
+        "limitations",
+        "mean_interval_width",
+        "baseline_mean_interval_width",
+        "sharpness_baseline_description",
+        "sharpness_baseline_evidence_refs",
+        "reported_width_ratio_ppm"
+      ],
+      "properties": {
+        "calibration_id": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+        },
+        "model_run_ref": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+        },
+        "metric_id": {
+          "enum": [
+            "final_energy",
+            "useful_energy",
+            "solar_generation",
+            "exergy_input",
+            "exergy_output",
+            "potable_water_withdrawal",
+            "reclaimed_water_use",
+            "stormwater_runoff",
+            "stormwater_retained",
+            "material_input",
+            "recovered_material",
+            "landfill_waste",
+            "edible_food_delivered",
+            "operational_ghg",
+            "embodied_ghg",
+            "thermal_exposure_degree_hours",
+            "accessible_person_hours",
+            "essential_service_uptime",
+            "tree_canopy_area",
+            "precipitation_input"
+          ]
+        },
+        "unit": {
+          "enum": [
+            "Wh",
+            "kWh",
+            "MWh",
+            "MJ",
+            "GJ",
+            "Wh_exergy",
+            "kWh_exergy",
+            "MJ_exergy",
+            "GJ_exergy",
+            "L",
+            "m3",
+            "g",
+            "kg",
+            "t",
+            "gCO2e",
+            "kgCO2e",
+            "tCO2e",
+            "person_degree_hour",
+            "person_hour",
+            "fraction",
+            "m2"
+          ]
+        },
+        "training_dataset_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "evaluation_dataset_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "training_evidence_refs": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+          }
+        },
+        "evaluation_evidence_refs": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+          }
+        },
+        "evaluation_design": {
+          "enum": [
+            "held_out",
+            "out_of_time",
+            "external_validation"
+          ]
+        },
+        "evaluation_window_start": {
+          "type": "string",
+          "format": "date"
+        },
+        "evaluation_window_end": {
+          "type": "string",
+          "format": "date"
+        },
+        "independent_unit_definition": {
+          "type": "string",
+          "minLength": 20
+        },
+        "sample_count": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "independent_unit_count": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "minimum_sample_count": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "minimum_independent_unit_count": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "nominal_coverage_bp": {
+          "type": "integer",
+          "minimum": 5000,
+          "maximum": 9999,
+          "description": "Nominal predictive-interval coverage in basis points, e.g. 9500 = 95%."
+        },
+        "tolerance_bp": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 5000
+        },
+        "covered_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "reported_coverage_bp": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 10000
+        },
+        "coverage_confidence_bp": {
+          "enum": [
+            9000,
+            9500,
+            9900
+          ]
+        },
+        "coverage_lower_bp": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 10000
+        },
+        "coverage_upper_bp": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 10000
+        },
+        "interval_method": {
+          "const": "wilson_independent_units",
+          "description": "v0.1 implements a Wilson interval and requires one independent scored outcome per independent unit; dependent time/space series need a separately specified block/cluster method."
+        },
+        "calibration_result": {
+          "enum": [
+            "pass",
+            "fail",
+            "inconclusive"
+          ]
+        },
+        "recalibration_trigger": {
+          "type": "string",
+          "minLength": 20
+        },
+        "limitations": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 12
+          }
+        },
+        "mean_interval_width": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Mean width of the assessed predictive intervals, in the receipt's metric unit and at the declared nominal coverage."
+        },
+        "baseline_mean_interval_width": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "Mean interval width of the declared baseline forecast on the same evaluation cases, metric, unit, and nominal coverage."
+        },
+        "sharpness_baseline_description": {
+          "type": "string",
+          "minLength": 20,
+          "description": "Identifies the baseline forecast method and how its intervals were generated on the same evaluation rows."
+        },
+        "sharpness_baseline_evidence_refs": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+          }
+        },
+        "reported_width_ratio_ppm": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Mean interval width divided by baseline mean interval width, rounded to nearest part per million; lower indicates narrower intervals, not necessarily better skill."
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "calibration_result": {
+                "const": "pass"
+              }
+            },
+            "required": [
+              "calibration_result"
+            ]
+          },
+          "then": {
+            "properties": {
+              "sample_count": {
+                "minimum": 1
+              },
+              "independent_unit_count": {
+                "minimum": 1
+              }
+            }
+          }
+        }
+      ]
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "record_status": {
+            "const": "protocol_only"
+          }
+        },
+        "required": [
+          "record_status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "scenarios": {
+            "maxItems": 0
+          },
+          "interactions": {
+            "maxItems": 0
+          },
+          "model_runs": {
+            "maxItems": 0
+          },
+          "nutrient_assessments": {
+            "maxItems": 0
+          },
+          "distributional_impacts": {
+            "maxItems": 0
+          },
+          "causal_evaluations": {
+            "maxItems": 0
+          },
+          "calibration_receipts": {
+            "maxItems": 0
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "record_status": {
+            "const": "synthetic_test_only"
+          }
+        },
+        "required": [
+          "record_status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "scenarios": {
+            "minItems": 4
+          },
+          "interactions": {
+            "minItems": 1
+          },
+          "model_runs": {
+            "maxItems": 0
+          },
+          "calibration_receipts": {
+            "maxItems": 0
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "record_status": {
+            "const": "assessment"
+          }
+        },
+        "required": [
+          "record_status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "scenarios": {
+            "minItems": 2
+          },
+          "distributional_impacts": {
+            "minItems": 1
+          }
+        },
+        "required": [
+          "scenarios",
+          "distributional_impacts",
+          "distributional_coverage"
+        ]
+      }
+    }
+  ]
+}

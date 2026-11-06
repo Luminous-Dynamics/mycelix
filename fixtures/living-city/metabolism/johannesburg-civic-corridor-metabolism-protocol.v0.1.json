@@ -1,0 +1,58 @@
+{
+  "schema_version": "living-city-metabolism/0.1",
+  "record_id": "johannesburg-civic-corridor-metabolism-protocol",
+  "record_status": "protocol_only",
+  "concept_ref": {
+    "concept_id": "johannesburg-highveld-rewoven",
+    "concept_version": 1,
+    "hypothesis_id": "johannesburg-highveld-rewoven-1"
+  },
+  "system_boundary": {
+    "boundary_id": "joburg-civic-corridor-synthetic-boundary",
+    "spatial_scope": "corridor",
+    "spatial_reference": "Illustrative named study boundary only; no coordinates or actual study area are asserted.",
+    "start_date": "2026-01-01",
+    "end_date": "2026-12-31",
+    "temporal_resolution": "annual",
+    "included_processes": [
+      "On-site rainfall capture and runoff movement",
+      "Intervention-specific operational water pathways"
+    ],
+    "excluded_processes": [
+      "Upstream embodied impacts of construction materials",
+      "Downstream catchment effects beyond the study boundary"
+    ],
+    "cut_off_rules": "No omitted process may be interpreted as zero. Document all cut-offs and expand the boundary if they could reverse the comparison."
+  },
+  "functional_unit": {
+    "quantity": 1,
+    "unit": "corridor_year",
+    "service_definition": "One year of the explicitly defined corridor service within the declared spatial and temporal boundary; no actual performance value has been collected."
+  },
+  "scenarios": [],
+  "interactions": [],
+  "model_runs": [],
+  "system_roles": {
+    "mycelix": {
+      "responsibility": "evidence_provenance_and_governance",
+      "boundary": "Stores evidence provenance, versioned claims, rights state, and review history; does not itself prove source truth or consent."
+    },
+    "symthaea": {
+      "responsibility": "hypothesis_generation_and_uncertainty",
+      "boundary": "Proposes mechanisms, alternatives, and falsifiable questions; does not authorize designs or turn assumptions into measured outcomes."
+    },
+    "symtropy": {
+      "responsibility": "versioned_physical_scenario_simulation",
+      "boundary": "Runs explicitly versioned physical scenarios; outputs stay modelled until independently calibrated and validated against appropriate observations."
+    },
+    "sol_atlas": {
+      "responsibility": "read_only_spatiotemporal_visualization",
+      "boundary": "Maps scenarios, boundaries, uncertainty, distributions, and provenance; does not convert a visual layer into evidence or approval."
+    }
+  },
+  "limitations": [
+    "Protocol-only record; no actual Johannesburg energy, water, material, emissions, thermal-comfort, or service data have been collected here.",
+    "Boundary, functional unit, cut-off rules, baseline, intervention set, and evidence requirements require local review before assessment.",
+    "No overall symtropy score, optimization result, safety clearance, or community endorsement is implied."
+  ]
+}
