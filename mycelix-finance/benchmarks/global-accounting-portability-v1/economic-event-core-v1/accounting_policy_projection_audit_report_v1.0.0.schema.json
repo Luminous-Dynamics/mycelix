@@ -139,7 +139,9 @@
               "decision_critical_unsupported_assumption",
               "assumption_assertion_reference_missing",
               "assumption_assertion_unavailable",
-              "duplicate_journal_line_ref"
+              "duplicate_journal_line_ref",
+              "review_approval_record_missing",
+              "incomplete_decision_in_complete_projection"
             ]
           }
         }
