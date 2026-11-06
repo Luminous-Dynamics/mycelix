@@ -31,7 +31,9 @@
       "incumbent",
       "conventional",
       "mycelix"
-    ]
+    ],
+    "bootstrap_replicates": 2000,
+    "bootstrap_seed": 20261106
   },
   "source_register": [
     {
@@ -789,7 +791,7 @@
         },
         {
           "system_id": "mycelix",
-          "decision": "quarantine",
+          "decision": "warn_and_permit_choice",
           "assessments": {
             "subject_binding": "indeterminate",
             "payee_name_comparison": "exact",
@@ -801,10 +803,11 @@
             "evidence_freshness": "expired"
           },
           "warnings_presented": [
-            "indeterminate_evidence"
+            "indeterminate_evidence",
+            "reconfirm_requester_identity"
           ],
           "reason_codes": [
-            "review"
+            "uncertainty_exposed_but_not_sufficiently_escalated"
           ],
           "output_digest": "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
         }
