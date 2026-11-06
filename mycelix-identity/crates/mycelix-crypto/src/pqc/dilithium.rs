@@ -1,9 +1,14 @@
 // Copyright (C) 2024-2026 Tristan Stoltz / Luminous Dynamics
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
-//! ML-DSA (Dilithium) signer/verifier using pqcrypto-dilithium.
+//! Legacy Dilithium signer/verifier wrappers using pqcrypto-dilithium.
 //!
-//! Supports ML-DSA-65 (Dilithium3, NIST Level 3) and ML-DSA-87 (Dilithium5, NIST Level 5).
+//! The legacy `pqcrypto-dilithium` / PQClean backend is not treated as a
+//! qualified final-FIPS-204 provider. A successful C-FFI sign/verify round
+//! trip does not establish final ML-DSA conformance. `TaggedSignature::new`
+//! enforces the final-profile lengths in `AlgorithmId`; if this provider emits
+//! another profile's length, signing must fail rather than relabeling those
+//! bytes as final ML-DSA-65/87.
 
 use crate::algorithm::AlgorithmId;
 use crate::envelope::{TaggedPublicKey, TaggedSignature};
@@ -210,34 +215,57 @@ mod tests {
     use super::*;
 
     #[test]
-    fn mldsa65_sign_verify() {
+    fn mldsa65_provider_cannot_emit_a_non_final_profile_signature() {
         let signer = MlDsa65Signer::generate();
         let msg = b"post-quantum mycelix";
-        let sig = signer.sign(msg).unwrap();
-        let pk = signer.public_key();
+        let raw = dilithium3::detached_sign(msg, &signer.secret_key);
+        let raw_len = raw.as_bytes().len();
+        let expected = AlgorithmId::MlDsa65.signature_size();
 
-        let verifier = MlDsa65Verifier;
-        assert!(verifier.verify(&pk, msg, &sig).unwrap());
+        match signer.sign(msg) {
+            Ok(signature) => {
+                assert_eq!(raw_len, expected);
+                assert_eq!(signature.signature_bytes.len(), expected);
+                let public_key = signer.public_key();
+                assert!(MlDsa65Verifier.verify(&public_key, msg, &signature).unwrap());
+            }
+            Err(_) => assert_ne!(raw_len, expected),
+        }
     }
 
     #[test]
-    fn mldsa65_wrong_message() {
+    fn mldsa65_wrong_message_fails_or_legacy_profile_is_rejected() {
         let signer = MlDsa65Signer::generate();
-        let sig = signer.sign(b"correct").unwrap();
-        let pk = signer.public_key();
+        let raw = dilithium3::detached_sign(b"correct", &signer.secret_key);
+        let raw_len = raw.as_bytes().len();
+        let expected = AlgorithmId::MlDsa65.signature_size();
 
-        let verifier = MlDsa65Verifier;
-        assert!(!verifier.verify(&pk, b"wrong", &sig).unwrap());
+        match signer.sign(b"correct") {
+            Ok(signature) => {
+                assert_eq!(raw_len, expected);
+                let public_key = signer.public_key();
+                assert!(!MlDsa65Verifier.verify(&public_key, b"wrong", &signature).unwrap());
+            }
+            Err(_) => assert_ne!(raw_len, expected),
+        }
     }
 
     #[test]
-    fn mldsa87_sign_verify() {
+    fn mldsa87_provider_cannot_emit_a_non_final_profile_signature() {
         let signer = MlDsa87Signer::generate();
         let msg = b"highest security";
-        let sig = signer.sign(msg).unwrap();
-        let pk = signer.public_key();
+        let raw = dilithium5::detached_sign(msg, &signer.secret_key);
+        let raw_len = raw.as_bytes().len();
+        let expected = AlgorithmId::MlDsa87.signature_size();
 
-        let verifier = MlDsa87Verifier;
-        assert!(verifier.verify(&pk, msg, &sig).unwrap());
+        match signer.sign(msg) {
+            Ok(signature) => {
+                assert_eq!(raw_len, expected);
+                assert_eq!(signature.signature_bytes.len(), expected);
+                let public_key = signer.public_key();
+                assert!(MlDsa87Verifier.verify(&public_key, msg, &signature).unwrap());
+            }
+            Err(_) => assert_ne!(raw_len, expected),
+        }
     }
 }
