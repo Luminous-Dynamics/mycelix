@@ -361,7 +361,7 @@ fn validate_trace(trace: &Value) -> Result<Value, String> {
                 let journal_refs = string_set(event, "journal_line_refs")?;
                 if journal_refs.is_empty()
                     || journal_refs.iter().any(|reference| {
-                        !journal_lines.get(reference).is_some_and(|(_, journal_seq)| *journal_seq < seq)
+                        journal_lines.get(reference).is_none_or(|(_, journal_seq)| *journal_seq >= seq)
                     })
                 {
                     return Err(format!("{trace_id}/{event_id}: statement line references a missing or future journal line"));
