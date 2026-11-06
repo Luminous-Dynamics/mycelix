@@ -222,16 +222,16 @@ fn validate_context_bundle(bundle: &Value) -> Result<(), String> {
                 }
             }
 
-            if let Some(scope_ref) = fact.get("scope_ref").and_then(Value::as_str) {
-                if !scopes.contains_key(scope_ref) {
-                    return Err(format!("{context_id}: fact {fact_id} references unknown scope {scope_ref}"));
-                }
+            if let Some(scope_ref) = fact.get("scope_ref").and_then(Value::as_str)
+                && !scopes.contains_key(scope_ref)
+            {
+                return Err(format!("{context_id}: fact {fact_id} references unknown scope {scope_ref}"));
             }
             let valid_from = string(fact, "valid_from")?;
-            if let Some(valid_to) = fact.get("valid_to").and_then(Value::as_str) {
-                if valid_to <= valid_from {
-                    return Err(format!("{context_id}: fact {fact_id} has an empty/reversed valid-time interval"));
-                }
+            if let Some(valid_to) = fact.get("valid_to").and_then(Value::as_str)
+                && valid_to <= valid_from
+            {
+                return Err(format!("{context_id}: fact {fact_id} has an empty/reversed valid-time interval"));
             }
             if string(fact, "assertion_state")? == "evidence_supported"
                 && array(fact, "source_evidence_refs")?.is_empty()
