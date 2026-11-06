@@ -1,0 +1,70 @@
+name: FIN-ACC reference verifier
+
+on:
+  push:
+    branches:
+      - research/fin-acc-rust-verifier-v0-1
+    paths:
+      - ".github/workflows/fin-acc-reference-verifier.yml"
+      - "mycelix-finance/benchmarks/accounting-evidence-v1/rust-verifier/**"
+      - "mycelix-finance/benchmarks/accounting-evidence-v1/smoke_corpus_v0.1.0.json"
+      - "mycelix-finance/benchmarks/accounting-evidence-v1/smoke_corpus_v0.1.0.schema.json"
+      - "mycelix-finance/docs/ACCOUNTING_EVIDENCE_BENCHMARK_V1.md"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fin-acc-reference-verifier-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  qualify:
+    name: Locked tests, Clippy and statement reconstruction
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mycelix-finance/benchmarks/accounting-evidence-v1/rust-verifier
+    steps:
+      - name: Checkout exact pushed branch commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+          persist-credentials: false
+
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@1.99.1
+        with:
+          components: rustfmt, clippy
+
+      - name: Verify committed dependency lockfile
+        run: cargo metadata --locked --format-version 1 >/dev/null
+
+      - name: Verify formatting
+        run: cargo fmt --all -- --check
+
+      - name: Unit tests (locked)
+        run: cargo test --locked --all-targets --verbose
+
+      - name: Clippy (locked)
+        run: cargo clippy --locked --all-targets -- -D warnings
+
+      - name: Reconstruct the three smoke cases (locked)
+        run: |
+          cargo run --locked -- \
+            --corpus ../smoke_corpus_v0.1.0.json \
+            --schema ../smoke_corpus_v0.1.0.schema.json \
+            --protocol ../../../docs/ACCOUNTING_EVIDENCE_BENCHMARK_V1.md \
+            --toolchain "$(rustc --version)" \
+            --out verification.json
+
+      - name: Upload exact-head reference receipt
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fin-acc-qualification-${{ github.sha }}
+          path: |
+            mycelix-finance/benchmarks/accounting-evidence-v1/rust-verifier/verification.json
+            mycelix-finance/benchmarks/accounting-evidence-v1/rust-verifier/Cargo.lock
+          if-no-files-found: error
+          retention-days: 30
