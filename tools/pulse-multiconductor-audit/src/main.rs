@@ -1371,6 +1371,314 @@ fn benchmark_claim_fanout_history(operation_count: usize) -> Result<History, Box
     })
 }
 
+#[derive(Debug)]
+struct DagReachabilityWorkload {
+    shape: String,
+    events: Vec<Event>,
+    adjacency: BTreeMap<String, BTreeSet<String>>,
+    queries: Vec<(String, String)>,
+    edge_count: usize,
+    conductor_count: usize,
+}
+
+fn dag_node_id(index: usize) -> String {
+    format!("node-{index:08}")
+}
+
+fn build_dag_reachability_workload(
+    shape: &str,
+    node_count: usize,
+    conductor_count: usize,
+    query_count: usize,
+) -> Result<DagReachabilityWorkload, Box<dyn Error>> {
+    if node_count < 4 || node_count > 100_000 {
+        return Err("DAG node count must be between 4 and 100000".into());
+    }
+    if !(2..=50).contains(&conductor_count) {
+        return Err("DAG conductor count must be between 2 and 50".into());
+    }
+    if query_count == 0 || query_count > 500_000 {
+        return Err("DAG query count must be between 1 and 500000".into());
+    }
+    if shape == "bounded_dense_dag" && node_count > 512 {
+        return Err("bounded_dense_dag is limited to 512 nodes".into());
+    }
+    if !matches!(
+        shape,
+        "long_chain"
+            | "wide_fanout"
+            | "wide_fanin"
+            | "diamond"
+            | "sparse_dag"
+            | "bounded_dense_dag"
+    ) {
+        return Err("unsupported DAG shape".into());
+    }
+
+    let mut adjacency: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
+    let mut edge_count = 0usize;
+    let mut add_edge = |from: usize, to: usize| {
+        if from >= node_count || to >= node_count || from == to {
+            return;
+        }
+        if adjacency
+            .entry(dag_node_id(from))
+            .or_default()
+            .insert(dag_node_id(to))
+        {
+            edge_count += 1;
+        }
+    };
+
+    match shape {
+        "long_chain" => {
+            for index in 0..node_count - 1 {
+                add_edge(index, index + 1);
+            }
+        }
+        "wide_fanout" => {
+            for index in 1..node_count {
+                add_edge(0, index);
+            }
+        }
+        "wide_fanin" => {
+            for index in 0..node_count - 1 {
+                add_edge(index, node_count - 1);
+            }
+        }
+        "diamond" => {
+            let complete_blocks = node_count / 4;
+            for block in 0..complete_blocks {
+                let start = block * 4;
+                let left = start + 1;
+                let right = start + 2;
+                let join = start + 3;
+                add_edge(start, left);
+                add_edge(start, right);
+                add_edge(left, join);
+                add_edge(right, join);
+                if block + 1 < complete_blocks {
+                    add_edge(join, start + 4);
+                }
+            }
+            let used = complete_blocks * 4;
+            for index in used..node_count - 1 {
+                add_edge(index, index + 1);
+            }
+            if used > 0 && used < node_count {
+                add_edge(used - 1, used);
+            }
+        }
+        "sparse_dag" => {
+            for index in 0..node_count {
+                for hop in [1usize, 2, 5, 13, 29] {
+                    if index + hop < node_count {
+                        add_edge(index, index + hop);
+                    }
+                }
+            }
+        }
+        "bounded_dense_dag" => {
+            for from in 0..node_count {
+                let limit = (from + 17).min(node_count);
+                for to in from + 1..limit {
+                    add_edge(from, to);
+                }
+            }
+        }
+        _ => unreachable!(),
+    }
+
+    let events = (0..node_count)
+        .map(|index| Event {
+            event_id: dag_node_id(index),
+            conductor_id: format!("conductor-{:02}", index % conductor_count),
+            // Deliberately equal across nodes: this graph-only microbenchmark
+            // exercises explicit cross-conductor reachability, not local-order
+            // shortcuts or a valid source-chain sequence fixture.
+            local_sequence: 1,
+            source: "synthetic".into(),
+            evidence_ref: format!("synthetic://dag/{shape}/{index}"),
+            event_type: "dag_node".into(),
+            data: serde_json::json!({}),
+        })
+        .collect::<Vec<_>>();
+
+    let mut queries = Vec::with_capacity(query_count);
+    let span = node_count - 1;
+    for query in 0..query_count {
+        let slot = query % span;
+        let (from, to) = match shape {
+            "long_chain" => {
+                let distance = 1 + ((query / span) % span);
+                if query % 2 == 0 {
+                    (slot, (slot + distance).min(node_count - 1))
+                } else {
+                    ((slot + distance).min(node_count - 1), slot)
+                }
+            }
+            "wide_fanout" => {
+                let leaf = 1 + slot;
+                if query % 2 == 0 { (0, leaf) } else { (leaf, 0) }
+            }
+            "wide_fanin" => {
+                let sink = node_count - 1;
+                if query % 2 == 0 { (slot, sink) } else { (sink, slot) }
+            }
+            "diamond" => {
+                let block_count = (node_count / 4).max(1);
+                let block = slot % block_count;
+                let start = block * 4;
+                let join = (start + 3).min(node_count - 1);
+                if query % 2 == 0 { (start, join) } else { (join, start) }
+            }
+            "sparse_dag" | "bounded_dense_dag" => {
+                let from = (query.wrapping_mul(37).wrapping_add(11)) % node_count;
+                let distance = 1 + (query.wrapping_mul(19) % span);
+                if query % 2 == 0 {
+                    (from, (from + distance).min(node_count - 1))
+                } else {
+                    ((from + distance).min(node_count - 1), from)
+                }
+            }
+            _ => unreachable!(),
+        };
+        queries.push((dag_node_id(from), dag_node_id(to)));
+    }
+
+    Ok(DagReachabilityWorkload {
+        shape: shape.to_string(),
+        events,
+        adjacency,
+        queries,
+        edge_count,
+        conductor_count,
+    })
+}
+
+fn run_dag_reachability_strategy(
+    workload: &DagReachabilityWorkload,
+    strategy: &str,
+) -> (Vec<bool>, ReachabilityCache, u128) {
+    use std::time::Instant;
+
+    let event_map = workload
+        .events
+        .iter()
+        .map(|event| (event.event_id.clone(), event))
+        .collect::<BTreeMap<_, _>>();
+    let mut cache = match strategy {
+        "uncached_dfs" => ReachabilityCache::default(),
+        "pair_memoized" => ReachabilityCache::pair_memoized(),
+        "per_source_cache" => ReachabilityCache::enabled(),
+        _ => unreachable!(),
+    };
+    let started = Instant::now();
+    let results = workload
+        .queries
+        .iter()
+        .map(|(from, to)| {
+            path_exists(
+                &workload.adjacency,
+                &event_map,
+                from,
+                to,
+                &mut cache,
+            )
+        })
+        .collect::<Vec<_>>();
+    let elapsed_ns = started.elapsed().as_nanos();
+    (results, cache, elapsed_ns)
+}
+
+fn run_dag_profile_benchmark(
+    shape: &str,
+    node_count: usize,
+    conductor_count: usize,
+    query_count: usize,
+    output: Option<PathBuf>,
+) -> Result<(), Box<dyn Error>> {
+    let workload = build_dag_reachability_workload(
+        shape,
+        node_count,
+        conductor_count,
+        query_count,
+    )?;
+    let (reference, reference_cache, reference_ns) =
+        run_dag_reachability_strategy(&workload, "uncached_dfs");
+    let (pair, pair_cache, pair_ns) =
+        run_dag_reachability_strategy(&workload, "pair_memoized");
+    let (per_source, source_cache, source_ns) =
+        run_dag_reachability_strategy(&workload, "per_source_cache");
+
+    let reference_bytes = serde_json::to_vec(&reference)?;
+    let pair_bytes = serde_json::to_vec(&pair)?;
+    let source_bytes = serde_json::to_vec(&per_source)?;
+    let reference_sha256 = format!("{:x}", Sha256::digest(&reference_bytes));
+    let pair_sha256 = format!("{:x}", Sha256::digest(&pair_bytes));
+    let source_sha256 = format!("{:x}", Sha256::digest(&source_bytes));
+    let pair_equal = reference_sha256 == pair_sha256;
+    let source_equal = reference_sha256 == source_sha256;
+    let status = if pair_equal && source_equal { "PASS" } else { "FAIL" };
+
+    let generator_spec = format!(
+        "pulse-dag-reachability-v1|shape={shape}|nodes={node_count}|conductors={conductor_count}|queries={query_count}|edges={}",
+        workload.edge_count
+    );
+    let generator_commitment_sha256 =
+        format!("{:x}", Sha256::digest(generator_spec.as_bytes()));
+    let seconds = |ns: u128| if ns == 0 { 0.0 } else { node_count as f64 / (ns as f64 / 1e9) };
+
+    let report = serde_json::json!({
+        "benchmark_version": 1,
+        "benchmark_name": "pulse-dag-reachability",
+        "evidence_class": "synthetic",
+        "status": status,
+        "shape": workload.shape,
+        "nodes": node_count,
+        "conductors": workload.conductor_count,
+        "edges": workload.edge_count,
+        "queries": workload.queries.len(),
+        "reference_result_sha256": reference_sha256,
+        "pair_result_sha256": pair_sha256,
+        "per_source_result_sha256": source_sha256,
+        "pair_results_equal": pair_equal,
+        "per_source_results_equal": source_equal,
+        "uncached_dfs": {
+            "elapsed_ns": reference_ns,
+            "node_visits": reference_cache.dfs_node_visits,
+            "queries_per_second": if reference_ns == 0 { 0.0 } else { query_count as f64 / (reference_ns as f64 / 1e9) }
+        },
+        "pair_memoized": {
+            "elapsed_ns": pair_ns,
+            "speedup_over_uncached": if pair_ns == 0 { 0.0 } else { reference_ns as f64 / pair_ns as f64 },
+            "cache_hits": pair_cache.pair_cache_hits,
+            "cache_entries": pair_cache.pair_results.len(),
+            "cache_limit_skips": pair_cache.pair_cache_limit_skips,
+            "node_visits": pair_cache.dfs_node_visits
+        },
+        "per_source_cache": {
+            "elapsed_ns": source_ns,
+            "speedup_over_uncached": if source_ns == 0 { 0.0 } else { reference_ns as f64 / source_ns as f64 },
+            "cache_hits": source_cache.cache_hits,
+            "sources_cached": source_cache.reachable_by_source.len(),
+            "cached_nodes": source_cache.cached_reachable_nodes,
+            "full_source_builds": source_cache.full_reachability_builds,
+            "cache_limit_skips": source_cache.cache_limit_skips,
+            "node_visits": source_cache.dfs_node_visits
+        },
+        "generator_commitment_sha256": generator_commitment_sha256,
+        "claim_ceiling": "BENCHMARK_ONLY: synthetic graph reachability microbenchmark over explicit DAG edges and conductor labels; not a full lifecycle audit, Holochain DHT benchmark, or runtime authorization latency"
+    });
+    write_json_output(&report, output)?;
+
+    if status == "PASS" {
+        Ok(())
+    } else {
+        Err("reachability strategies produced different boolean result vectors".into())
+    }
+}
+
 fn semantic_report_digest(report: &Report) -> Result<String, Box<dyn Error>> {
     let mut value = serde_json::to_value(report)?;
     const METRIC_FIELDS: [&str; 10] = [
