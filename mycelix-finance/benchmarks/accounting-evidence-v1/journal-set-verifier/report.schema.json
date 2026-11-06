@@ -23,7 +23,10 @@
       "const": "FIN-JOURNAL-SET"
     },
     "dataset_version": {
-      "const": "1.0.0"
+      "enum": [
+        "1.0.0",
+        "1.1.0"
+      ]
     },
     "status": {
       "enum": [
