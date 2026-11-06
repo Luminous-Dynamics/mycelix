@@ -383,7 +383,8 @@
           "value",
           "source_assertion_refs",
           "review_state",
-          "decision_critical"
+          "decision_critical",
+          "review_record_ref"
         ],
         "properties": {
           "assumption_ref": {
@@ -433,8 +434,61 @@
           },
           "decision_critical": {
             "type": "boolean"
+          },
+          "review_record_ref": {
+            "type": [
+              "string",
+              "null"
+            ]
           }
-        }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "review_state": {
+                  "const": "approved_by_reviewer"
+                }
+              },
+              "required": [
+                "review_state"
+              ]
+            },
+            "then": {
+              "properties": {
+                "review_record_ref": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "review_state": {
+                  "enum": [
+                    "supported",
+                    "assumed",
+                    "unknown",
+                    "disputed",
+                    "rejected_by_reviewer"
+                  ]
+                }
+              },
+              "required": [
+                "review_state"
+              ]
+            },
+            "then": {
+              "properties": {
+                "review_record_ref": {
+                  "type": "null"
+                }
+              }
+            }
+          }
+        ]
       }
     }
   }
