@@ -70,7 +70,7 @@
         "attempt_id": 1,
         "effect_id": "effect-001",
         "action_hash": "uhCkk-effect-001",
-        "actor": "agent-recipient"
+        "principal": "agent-recipient"
       }
     },
     {
@@ -152,7 +152,7 @@
         "operation_id": "send-operation-001",
         "attempt_id": 1,
         "outcome": "unknown",
-        "actor": "agent-recipient"
+        "principal": "agent-recipient"
       }
     }
   ]
