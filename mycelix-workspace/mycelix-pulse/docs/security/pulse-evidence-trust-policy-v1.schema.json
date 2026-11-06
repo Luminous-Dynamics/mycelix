@@ -2,13 +2,14 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://luminousdynamics.io/schemas/pulse-evidence-trust-policy-v1.schema.json",
   "title": "Pulse evidence trust policy v1",
-  "description": "Out-of-band trust policy supplied to the signed-evidence verifier. This schema validates syntax only; policy authenticity/currentness must be established separately.",
+  "description": "Out-of-band trust policy supplied to the signed-evidence verifier. This schema validates syntax only; authenticity/currentness is established by a detached DSSE policy signature and a separately provisioned relying-party root pin.",
   "type": "object",
   "additionalProperties": false,
   "required": [
     "policy_id",
     "policy_version",
     "root_keyset_id",
+    "policy_epoch",
     "keys"
   ],
   "properties": {
@@ -148,6 +149,11 @@
       "type": "string",
       "minLength": 1,
       "maxLength": 256
+    },
+    "policy_epoch": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Monotonic policy epoch pinned and authenticated by the relying party; this file's authenticity is established by the detached root DSSE envelope, not by this schema."
     }
   }
 }
