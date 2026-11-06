@@ -792,7 +792,7 @@ mod tests {
             .iter_mut()
             .find(|journal| journal["journal_id"] == "journal-reversal")
             .expect("first reversal");
-        first_reversal["economic_event_ref"] = json!("event-reversal-a");
+        first_reversal["economic_event_ref"] = json!("event-reversal");
         for posting in first_reversal["postings"].as_array_mut().expect("postings") {
             posting["amount_minor"] = json!("1000");
         }
@@ -810,20 +810,7 @@ mod tests {
         case["manifest"]["source_population"]["expected_event_refs"]
             .as_array_mut()
             .expect("expected events")
-            .push(json!("event-reversal-a"));
-        case["manifest"]["source_population"]["expected_event_refs"]
-            .as_array_mut()
-            .expect("expected events")
             .push(json!("event-reversal-b"));
-        case["manifest"]["events"]
-            .as_array_mut()
-            .expect("events")
-            .push(json!({
-                "event_ref": "event-reversal-a",
-                "terminal_treatment": "journal_required",
-                "authorization_ref": null,
-                "reason_ref": null
-            }));
         case["manifest"]["events"]
             .as_array_mut()
             .expect("events")
