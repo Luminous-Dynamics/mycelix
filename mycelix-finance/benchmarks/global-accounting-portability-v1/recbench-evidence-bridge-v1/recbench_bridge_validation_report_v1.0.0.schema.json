@@ -1,0 +1,212 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/mycelix-recbench-bridge-validation-report-v1.0.0.json",
+  "title": "Mycelix RecBench Bridge Validation Report v1.0.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "report_id",
+    "schema_version",
+    "claim_ceiling",
+    "candidate_sha256",
+    "oracle_sha256",
+    "case_count",
+    "totals",
+    "case_results"
+  ],
+  "properties": {
+    "report_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "claim_ceiling": {
+      "const": "synthetic_bridge_structure_and_oracle_integrity_not_recbench_performance"
+    },
+    "candidate_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "oracle_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "case_count": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "totals": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_object_count",
+        "assertion_count",
+        "available_assertion_count",
+        "future_assertion_count",
+        "event_count",
+        "available_event_count",
+        "future_event_count",
+        "duplicate_source_identity_family_count",
+        "expected_link_count",
+        "expected_review_source_count",
+        "expected_unmatched_source_count",
+        "expected_excluded_source_count",
+        "forbid_auto_close_case_count"
+      ],
+      "properties": {
+        "source_object_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "assertion_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "available_assertion_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "future_assertion_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "event_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "available_event_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "future_event_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "duplicate_source_identity_family_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "expected_link_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "expected_review_source_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "expected_unmatched_source_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "expected_excluded_source_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "forbid_auto_close_case_count": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "case_results": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/caseResult"
+      }
+    }
+  },
+  "$defs": {
+    "caseResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "case_id",
+        "source_object_count",
+        "assertion_count",
+        "available_assertion_count",
+        "future_assertion_count",
+        "event_count",
+        "available_event_count",
+        "future_event_count",
+        "duplicate_source_identity_family_count",
+        "expected_link_count",
+        "expected_review_source_count",
+        "expected_unmatched_source_count",
+        "expected_excluded_source_count",
+        "forbid_auto_close",
+        "finding_codes"
+      ],
+      "properties": {
+        "case_id": {
+          "type": "string"
+        },
+        "source_object_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "assertion_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "available_assertion_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "future_assertion_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "event_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "available_event_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "future_event_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "duplicate_source_identity_family_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "expected_link_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "expected_review_source_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "expected_unmatched_source_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "expected_excluded_source_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "forbid_auto_close": {
+          "type": "boolean"
+        },
+        "finding_codes": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "future_source_or_fact_excluded",
+              "duplicate_source_identity_requires_review",
+              "ambiguous_case_forbids_auto_close",
+              "unmatched_source_at_frontier",
+              "event_oracle_link_validated"
+            ]
+          }
+        }
+      }
+    }
+  }
+}
