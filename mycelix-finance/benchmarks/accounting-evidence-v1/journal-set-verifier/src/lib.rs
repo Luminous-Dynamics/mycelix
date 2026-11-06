@@ -590,12 +590,12 @@ fn assess_case(case: &Value) -> AppResult<Assessment> {
         "duplicate_economic_posting"
     } else if findings.contains("missing_journal_projection") {
         "missing_journal_projection"
+    } else if findings.contains("unsupported_profile_or_unit") {
+        "unsupported_profile_or_unit"
     } else if findings.contains("orphan_or_unauthorized_journal") {
         "orphan_or_unauthorized_journal"
     } else if findings.contains("period_boundary_conflict") {
         "period_boundary_conflict"
-    } else if findings.contains("unsupported_profile_or_unit") {
-        "unsupported_profile_or_unit"
     } else if findings.contains("source_frontier_unqualified") {
         "source_frontier_unqualified"
     } else if findings.contains("stale_close_frontier") {
@@ -739,6 +739,15 @@ mod tests {
             assess_case(case).expect("assessment").disposition,
             "orphan_or_unauthorized_journal"
         );
+    }
+
+    #[test]
+    fn unsupported_account_profile_is_primary_over_secondary_imbalance() {
+        let candidate = fixture();
+        let assessment = assess_case(case_by_id(&candidate, "FJS-021")).expect("assessment");
+        assert_eq!(assessment.disposition, "unsupported_profile_or_unit");
+        assert!(assessment.reasons.contains("posting_account_not_in_pinned_account_profile"));
+        assert!(assessment.reasons.contains("journal_entry_not_balanced"));
     }
 
     #[test]
