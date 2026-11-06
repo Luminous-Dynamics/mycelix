@@ -1,9 +1,28 @@
 # Pulse signed evidence profile v1 — design specification
 
-**Status:** proposed profile / schema only  
+**Status:** proposed profile with a locally implemented DSSE verifier prototype  
 **Schema:** `pulse-signed-evidence-bundle-v1.schema.json`  
 **Related issue:** #5863  
-**Not yet implemented:** signature generation/verification, trust-root validation, COSE/SCITT registration, or runtime capture.
+**Implemented:** Ed25519 DSSE signature verification over exact PAE bytes, signature-before-parse, in-toto statement/subject binding, one-signer-per-attestation role authorization relative to the supplied trust policy, conductor/agent/DNA/CellId/WASM binding, trust-policy digest/keyset reference binding, causal-edge validation, and fail-closed negative controls.  
+**Not yet implemented:** production signing/key custody, cryptographic authentication/currentness of the trust root itself, key validity intervals/rotation/compromise history, COSE/SCITT receipt verification/VDS proofs, a second independent verifier, and runtime conductor evidence capture.
+
+## 0. Current implementation status and claim ceiling
+
+The Rust prototype is at `tools/pulse-signed-evidence-audit`. Its exact-head run **#30** passed:
+- pinned Rust 1.96.0;
+- `cargo fmt --check`;
+- dependency lock generation;
+- 14 signature, role, subject, trust-policy and negative-control tests;
+- `cargo clippy --all-targets -- -D warnings`;
+- exact verifier receipt and artifact upload.
+
+The run is tied to research PR #5771 head `f6076c297ce1465ce0d9356a12d838bd4cf414e4`; workflow run: https://github.com/Luminous-Dynamics/mycelix/actions/runs/42161123498; artifact ID `13476104747`.
+
+The verifier checks a DSSE signature before parsing signed JSON, and requires the signed issuer key ID to equal the exact verifying key. V1 deliberately allows exactly one role-specific signature per attestation. It rejects a multi-signature envelope as `INCOMPLETE` rather than inventing any-of/all-of/quorum semantics.
+
+The trust policy is still an external supplied input. Its digest, policy ID, semantic version and root-keyset ID are bound to the bundle, and duplicate key IDs are rejected. The root-keyset ID is only a consistency label; this implementation does not authenticate the trust policy against an out-of-band root. Therefore the result is `ROLE_AUTHENTICATED_RELATIVE_TO_SUPPLIED_POLICY`, not globally trusted evidence.
+
+SCITT statement/receipt fields receive structural and digest checks, but COSE signatures, TS issuer keys, receipt authenticity and VDS inclusion/consistency proofs are not verified. Structurally valid SCITT input therefore remains `INCOMPLETE`. No runtime conductor truth is established by the synthetic signing-key fixtures.
 
 ## 1. Threat and claim model
 
