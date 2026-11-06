@@ -68,7 +68,17 @@
         "continuity_failure_count",
         "statement_replay_exact_rate",
         "statement_replay_mismatch_count",
-        "statement_replay_applicable_case_count"
+        "statement_replay_applicable_case_count",
+        "case_correctness_rate",
+        "decision_confidence_brier_score",
+        "decision_confidence_ece",
+        "auto_delivery_coverage",
+        "auto_delivery_case_count",
+        "auto_delivery_material_error_count",
+        "auto_delivery_material_error_rate",
+        "review_routed_case_count",
+        "risk_coverage_points",
+        "calibration_bins"
       ],
       "properties": {
         "case_count": {
@@ -158,6 +168,138 @@
         "statement_replay_applicable_case_count": {
           "type": "integer",
           "minimum": 0
+        },
+        "case_correctness_rate": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "decision_confidence_brier_score": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "decision_confidence_ece": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "auto_delivery_coverage": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "auto_delivery_case_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "auto_delivery_material_error_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "auto_delivery_material_error_rate": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1
+        },
+        "review_routed_case_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "risk_coverage_points": {
+          "type": "array",
+          "minItems": 5,
+          "maxItems": 5,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "confidence_threshold",
+              "selected_auto_delivery_count",
+              "coverage",
+              "risk",
+              "material_error_count"
+            ],
+            "properties": {
+              "confidence_threshold": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "selected_auto_delivery_count": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "coverage": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "risk": {
+                "type": [
+                  "number",
+                  "null"
+                ],
+                "minimum": 0,
+                "maximum": 1
+              },
+              "material_error_count": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          }
+        },
+        "calibration_bins": {
+          "type": "array",
+          "minItems": 5,
+          "maxItems": 5,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "lower_bound",
+              "upper_bound",
+              "case_count",
+              "mean_confidence",
+              "empirical_accuracy"
+            ],
+            "properties": {
+              "lower_bound": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "upper_bound": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "case_count": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "mean_confidence": {
+                "type": [
+                  "number",
+                  "null"
+                ],
+                "minimum": 0,
+                "maximum": 1
+              },
+              "empirical_accuracy": {
+                "type": [
+                  "number",
+                  "null"
+                ],
+                "minimum": 0,
+                "maximum": 1
+              }
+            }
+          }
         }
       }
     },
@@ -197,7 +339,12 @@
         "statement_replay_exact",
         "statement_replay_mismatch_count",
         "statement_replay_errors",
-        "statement_replay_applicable"
+        "statement_replay_applicable",
+        "decision_confidence",
+        "case_correct",
+        "confidence_brier_contribution",
+        "auto_delivery_accepted",
+        "review_routed"
       ],
       "properties": {
         "case_id": {
@@ -302,6 +449,25 @@
           }
         },
         "statement_replay_applicable": {
+          "type": "boolean"
+        },
+        "decision_confidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "case_correct": {
+          "type": "boolean"
+        },
+        "confidence_brier_contribution": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "auto_delivery_accepted": {
+          "type": "boolean"
+        },
+        "review_routed": {
           "type": "boolean"
         }
       }
