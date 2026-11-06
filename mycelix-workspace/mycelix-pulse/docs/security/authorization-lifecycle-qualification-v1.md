@@ -258,6 +258,23 @@ The checkpoint remains a freshness constraint for application reads only. It doe
 
 The current model expansion is being checked with the pinned TLC workflow. Do not claim the expanded descendant semantics are model-checked until the exact run shows the safe frontier configuration exhausts its state queue and the scalar mutant violates its intended invariant. The runtime implementation still needs actual source-chain ActionHash ancestry and two-conductor evidence; the TLA+ boolean ancestry proof is an abstraction, not a Holochain API.
  
+## Trust-root and policy-lifecycle model
+
+The branch now also includes a finite TLA+ model for the trust-policy boundary in the DSSE verifier:
+
+- `PulseTrustRootLifecycle.tla`
+- `PulseTrustRootLifecycle.cfg` — pinned-root child policy, monotonic epoch and key revocation
+- `PulseTrustRootLifecycle-self-root-mutant.cfg` — self-asserted root
+- `PulseTrustRootLifecycle-rollback-mutant.cfg` — replay of an older policy
+- `PulseTrustRootLifecycle-revocation-mutant.cfg` — acceptance of a currently revoked key
+
+The safe model requires a policy update to chain from the current digest and be authorized by the already pinned root. It advances policy epoch 1→2, revokes key A and activates key B. The three mutants target:
+1. accepting a policy because its declared root matches itself;
+2. reinstalling older policy epoch 1 after epoch 2;
+3. accepting key A for a current verification after the active policy revoked it.
+
+This model is intentionally separate from historical signature verification. A policy may allow a historically valid statement to be reported as historically authenticated, while current authorization under that policy must still reject a now-revoked issuer. The model and CI configs have been authored; their TLC result is pending until the exact workflow log shows the safe queue exhausted and each mutant failing on its intended invariant. No trust-root model-check result is claimed yet.
+
 ## Exact-head assurance and verifier results — 6 November 2026
 
 Research PR #5771 head `8b9a2de05c1c562e6f6135fc2645679e756a6cff` completed the following separate hosted checks:
