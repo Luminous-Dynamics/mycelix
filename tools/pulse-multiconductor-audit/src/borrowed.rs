@@ -741,6 +741,118 @@ mod tests {
         }
     }
 
+    fn assert_event_shape_parity(raw: &str, label: &str) {
+        let borrowed: BorrowedHistory<'_> = serde_json::from_str(raw)
+            .unwrap_or_else(|error| panic!("{label}: borrowed history parse failed: {error}"));
+        let owned: crate::History = serde_json::from_str(raw)
+            .unwrap_or_else(|error| panic!("{label}: owned history parse failed: {error}"));
+
+        assert_eq!(borrowed.events.len(), owned.events.len(), "{label}: event count");
+        for (borrowed_event, owned_event) in borrowed.events.iter().zip(&owned.events) {
+            assert_eq!(
+                valid_event_shape(borrowed_event),
+                crate::valid_event_shape(owned_event),
+                "{label}: event {}",
+                borrowed_event.event_id
+            );
+        }
+    }
+
+    #[test]
+    fn borrowed_and_owned_event_shape_decisions_match_adversarial_mutations() {
+        let mut cases: Vec<(&str, String)> = Vec::new();
+
+        let mut unknown_field: Value = serde_json::from_str(SAFE_HISTORY).unwrap();
+        let host_call = unknown_field["events"]
+            .as_array_mut()
+            .unwrap()
+            .iter_mut()
+            .find(|event| event["event_type"] == "host_call")
+            .unwrap();
+        host_call["data"]["unreviewed_field"] = Value::Bool(true);
+        cases.push(("unknown field", serde_json::to_string(&unknown_field).unwrap()));
+
+        let mut missing_field: Value = serde_json::from_str(SAFE_HISTORY).unwrap();
+        let host_call = missing_field["events"]
+            .as_array_mut()
+            .unwrap()
+            .iter_mut()
+            .find(|event| event["event_type"] == "host_call")
+            .unwrap();
+        host_call["data"].as_object_mut().unwrap().remove("attempt_id");
+        cases.push(("missing required field", serde_json::to_string(&missing_field).unwrap()));
+
+        let mut wrong_type: Value = serde_json::from_str(SAFE_HISTORY).unwrap();
+        let host_call = wrong_type["events"]
+            .as_array_mut()
+            .unwrap()
+            .iter_mut()
+            .find(|event| event["event_type"] == "host_call")
+            .unwrap();
+        host_call["data"]["attempt_id"] = Value::String("1".into());
+        cases.push(("wrong scalar type", serde_json::to_string(&wrong_type).unwrap()));
+
+        let mut zero_authority_index: Value = serde_json::from_str(SAFE_HISTORY).unwrap();
+        let host_call = zero_authority_index["events"]
+            .as_array_mut()
+            .unwrap()
+            .iter_mut()
+            .find(|event| event["event_type"] == "host_call")
+            .unwrap();
+        host_call["data"]["host_authority_index"] = Value::from(0);
+        cases.push(("zero authority index", serde_json::to_string(&zero_authority_index).unwrap()));
+
+        let mut invalid_decision: Value = serde_json::from_str(SAFE_HISTORY).unwrap();
+        let host_call = invalid_decision["events"]
+            .as_array_mut()
+            .unwrap()
+            .iter_mut()
+            .find(|event| event["event_type"] == "host_call")
+            .unwrap();
+        host_call["data"]["host_decision"] = Value::String("maybe".into());
+        cases.push(("unknown host decision", serde_json::to_string(&invalid_decision).unwrap()));
+
+        let mut malformed_digest: Value = serde_json::from_str(SAFE_HISTORY).unwrap();
+        let grant = malformed_digest["events"]
+            .as_array_mut()
+            .unwrap()
+            .iter_mut()
+            .find(|event| event["event_type"] == "host_grant_issued")
+            .unwrap();
+        grant["data"]["request_digest_sha256"] = Value::String("not-a-sha256".into());
+        cases.push(("malformed request digest", serde_json::to_string(&malformed_digest).unwrap()));
+
+        let mut empty_functions: Value = serde_json::from_str(SAFE_HISTORY).unwrap();
+        let grant = empty_functions["events"]
+            .as_array_mut()
+            .unwrap()
+            .iter_mut()
+            .find(|event| event["event_type"] == "host_grant_issued")
+            .unwrap();
+        grant["data"]["functions"] = Value::Array(Vec::new());
+        cases.push(("empty function allowlist", serde_json::to_string(&empty_functions).unwrap()));
+
+        for (label, raw) in cases {
+            assert_event_shape_parity(&raw, label);
+        }
+    }
+
+    #[test]
+    fn duplicate_event_payload_keys_are_rejected_before_owned_value_materialization() {
+        let original = r#""host_decision": "authorized""#;
+        let duplicate = r#""host_decision": "authorized", "host_decision": "unauthorized""#;
+        assert!(SAFE_HISTORY.contains(original), "fixture anchor changed");
+        let mutated = SAFE_HISTORY.replacen(original, duplicate, 1);
+
+        // serde_json::Value materialization collapses duplicate object keys. The
+        // production run path must therefore execute borrowed_parse_validate first.
+        assert!(serde_json::from_str::<crate::History>(&mutated).is_ok());
+        assert!(
+            borrowed_parse_validate(&mutated).is_err(),
+            "duplicate payload keys must fail the raw borrowed preflight"
+        );
+    }
+
     #[test]
     fn unknown_top_level_event_field_is_rejected() {
         let mutated = SAFE_HISTORY.replacen(
