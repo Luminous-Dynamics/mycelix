@@ -581,7 +581,10 @@ fn audit(
                         "DSSE_SIGNER_UNKNOWN",
                         "violation",
                         Some(&attestation.attestation_id),
-                        format!("signer key ID {} is not present in the supplied trust policy", sig.keyid),
+                        format!(
+                            "signer key ID {} is not present in the supplied trust policy",
+                            sig.keyid
+                        ),
                     );
                     continue;
                 };
@@ -591,7 +594,10 @@ fn audit(
                         "DSSE_SIGNER_NOT_ACTIVE",
                         "violation",
                         Some(&attestation.attestation_id),
-                        format!("signer key {} is not active under the supplied policy", sig.keyid),
+                        format!(
+                            "signer key {} is not active under the supplied policy",
+                            sig.keyid
+                        ),
                     );
                     continue;
                 }
@@ -603,7 +609,10 @@ fn audit(
                             "TRUSTED_PUBLIC_KEY_INVALID",
                             "incomplete",
                             Some(&attestation.attestation_id),
-                            format!("trusted key {} is not a 32-byte Ed25519 public key", sig.keyid),
+                            format!(
+                                "trusted key {} is not a 32-byte Ed25519 public key",
+                                sig.keyid
+                            ),
                         );
                         continue;
                     }
@@ -654,7 +663,10 @@ fn audit(
                         "DSSE_SIGNATURE_INVALID",
                         "violation",
                         Some(&attestation.attestation_id),
-                        format!("signature from key {} does not verify over DSSE PAE bytes", sig.keyid),
+                        format!(
+                            "signature from key {} does not verify over DSSE PAE bytes",
+                            sig.keyid
+                        ),
                     );
                     continue;
                 }
@@ -719,8 +731,14 @@ fn audit(
                     );
                     continue;
                 }
-                if !trusted.roles.iter().any(|role| role == &attestation.issuer_role)
-                    || !trusted.predicate_types.iter().any(|kind| kind == &statement.predicate_type)
+                if !trusted
+                    .roles
+                    .iter()
+                    .any(|role| role == &attestation.issuer_role)
+                    || !trusted
+                        .predicate_types
+                        .iter()
+                        .any(|kind| kind == &statement.predicate_type)
                 {
                     finding(
                         &mut findings,
@@ -1187,8 +1205,7 @@ mod tests {
         value["keys"].as_array_mut().unwrap().push(duplicate);
         let policy_bytes = serde_json::to_vec(&value).unwrap();
         let mut bundle_value: Value = serde_json::from_slice(&bundle).unwrap();
-        bundle_value["trust_policy"]["policy_sha256"] =
-            Value::String(sha256_hex(&policy_bytes));
+        bundle_value["trust_policy"]["policy_sha256"] = Value::String(sha256_hex(&policy_bytes));
         let report = audit(
             &serde_json::to_vec(&bundle_value).unwrap(),
             &trace,
@@ -1196,27 +1213,27 @@ mod tests {
         )
         .unwrap();
         assert_eq!(report.status, "FAIL");
-        assert!(report.findings.iter().any(|f| {
-            f.code == "TRUST_POLICY_KEY_ID_INVALID_OR_DUPLICATE"
-        }));
+        assert!(
+            report
+                .findings
+                .iter()
+                .any(|f| { f.code == "TRUST_POLICY_KEY_ID_INVALID_OR_DUPLICATE" })
+        );
     }
 
     #[test]
     fn root_keyset_reference_must_match_supplied_policy() {
         let (bundle, trace, policy) = fixture();
         let mut value: Value = serde_json::from_slice(&bundle).unwrap();
-        value["trust_policy"]["root_keyset_id"] =
-            Value::String("different-root-set".into());
-        let report = audit(
-            &serde_json::to_vec(&value).unwrap(),
-            &trace,
-            &policy,
-        )
-        .unwrap();
+        value["trust_policy"]["root_keyset_id"] = Value::String("different-root-set".into());
+        let report = audit(&serde_json::to_vec(&value).unwrap(), &trace, &policy).unwrap();
         assert_eq!(report.status, "FAIL");
-        assert!(report.findings.iter().any(|f| {
-            f.code == "TRUST_POLICY_BINDING_MISMATCH"
-        }));
+        assert!(
+            report
+                .findings
+                .iter()
+                .any(|f| { f.code == "TRUST_POLICY_BINDING_MISMATCH" })
+        );
     }
 
     #[test]
@@ -1228,16 +1245,14 @@ mod tests {
             .as_array_mut()
             .unwrap()
             .push(signature);
-        let report = audit(
-            &serde_json::to_vec(&value).unwrap(),
-            &trace,
-            &policy,
-        )
-        .unwrap();
+        let report = audit(&serde_json::to_vec(&value).unwrap(), &trace, &policy).unwrap();
         assert_eq!(report.status, "INCOMPLETE");
-        assert!(report.findings.iter().any(|f| {
-            f.code == "DSSE_SIGNATURE_COUNT_UNSUPPORTED"
-        }));
+        assert!(
+            report
+                .findings
+                .iter()
+                .any(|f| { f.code == "DSSE_SIGNATURE_COUNT_UNSUPPORTED" })
+        );
     }
 
     #[test]
