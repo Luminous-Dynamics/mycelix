@@ -347,51 +347,81 @@ fn valid_event_shape(event: &Event) -> bool {
 fn relation_valid(relation: &str) -> bool {
     matches!(relation,"program_order"|"request_response"|"source_action_dependency"|"validator_receipt"|"observer_confirmation"|"test_harness_barrier")
 }
+/// Per-audit reachability memoization.
+///
+/// The cache is deliberately scoped to one immutable, fully constructed DAG.
+/// It is never reused across input histories or source SHAs. Exact event IDs
+/// are the key; local sequence shortcuts remain conductor-local, and a cached
+/// result never substitutes for direct semantic relation checks.
+#[derive(Debug, Default)]
+struct ReachabilityCache {
+    outcomes: BTreeMap<(String, String), bool>,
+    queries: usize,
+    cache_hits: usize,
+    dfs_node_visits: usize,
+}
+
 fn path_exists(
     adjacency: &BTreeMap<String, BTreeSet<String>>,
     events: &BTreeMap<String, &Event>,
     from: &str,
     to: &str,
+    cache: &mut ReachabilityCache,
 ) -> bool {
-    if from == to {
-        return true;
+    cache.queries += 1;
+    let key = (from.to_string(), to.to_string());
+    if let Some(result) = cache.outcomes.get(&key) {
+        cache.cache_hits += 1;
+        return *result;
     }
 
-    // Local sequence is a total order within one conductor. This is a proven
-    // shortcut because audit() inserts adjacent local-sequence edges after
-    // checking duplicate sequence numbers. Cross-conductor order still requires
-    // the evidence-backed graph.
-    if let (Some(source), Some(target)) = (events.get(from), events.get(to)) {
-        if source.conductor_id == target.conductor_id
+    let result = if from == to {
+        true
+    } else if let (Some(source), Some(target)) = (events.get(from), events.get(to)) {
+        // Local sequence is a total order only within one conductor. Cross-
+        // conductor order still requires the evidence-backed causal graph.
+        source.conductor_id == target.conductor_id
             && source.local_sequence < target.local_sequence
-        {
-            return true;
-        }
-    }
+    } else {
+        false
+    };
 
-    if adjacency
+    let result = if result {
+        true
+    } else if adjacency
         .get(from)
         .is_some_and(|targets| targets.contains(to))
     {
-        return true;
-    }
-
-    let mut seen = BTreeSet::new();
-    let mut stack = vec![from.to_string()];
-    while let Some(node) = stack.pop() {
-        if !seen.insert(node.clone()) {
-            continue;
-        }
-        if let Some(next) = adjacency.get(&node) {
-            for target in next {
-                if target == to {
-                    return true;
+        true
+    } else if from == to {
+        true
+    } else {
+        let mut seen = BTreeSet::new();
+        let mut stack = vec![from.to_string()];
+        let mut found = false;
+        while let Some(node) = stack.pop() {
+            if !seen.insert(node.clone()) {
+                continue;
+            }
+            cache.dfs_node_visits += 1;
+            if let Some(next) = adjacency.get(&node) {
+                for target in next {
+                    if target == to {
+                        found = true;
+                        break;
+                    }
+                    stack.push(target.clone());
                 }
-                stack.push(target.clone());
+            }
+            if found {
+                break;
             }
         }
-    }
-    false
+        found
+    };
+
+    cache.outcomes.insert(key, result);
+    result
 }
 
 fn graph_has_cycle(adjacency: &BTreeMap<String,BTreeSet<String>>, nodes: &BTreeSet<String>) -> bool {
@@ -488,6 +518,10 @@ fn audit(history:&History,input_sha256:String)->Report {
         adjacency.entry(edge.from_event.clone()).or_default().insert(edge.to_event.clone());
     }
     if graph_has_cycle(&adjacency,&nodes) { finding(&mut findings,"CAUSAL_GRAPH_CYCLE","violation",None,"local order plus evidence-backed edges must form a DAG"); }
+
+    // The adjacency graph is immutable from this point onward, so exact-pair
+    // reachability results are safe to memoize for the remainder of this audit.
+    let mut reachability_cache = ReachabilityCache::default();
 
     let mut grants:BTreeMap<(String,String),Grant>=BTreeMap::new();
     let mut grant_hashes=BTreeSet::new();
@@ -790,7 +824,7 @@ fn audit(history:&History,input_sha256:String)->Report {
         if authorized&&g.assigned {
             let claim_identity=(g.conductor_id.clone(),g.action_hash.clone(),g.grantee.clone());
             if let Some(claim)=accepted_claim_events.get(&claim_identity) {
-                if !path_exists(&adjacency,&event_map,&claim.event_id,&e.event_id) {
+                if !path_exists(&adjacency,&event_map,&claim.event_id,&e.event_id,&mut reachability_cache) {
                     finding(&mut findings,"CLAIM_NOT_CAUSAL_BEFORE_HOST_CALL","incomplete",Some(&e.event_id),"claim must causally precede assigned call");
                 }
             }
@@ -812,7 +846,7 @@ fn audit(history:&History,input_sha256:String)->Report {
         if !effects_by_attempt.insert((op.clone(),attempt)) { finding(&mut findings,"MULTIPLE_EFFECTS_PER_ATTEMPT","violation",Some(&e.event_id),"attempt has more than one durable effect"); }
         let Some(call)=calls.get(&(op.clone(),attempt)) else { finding(&mut findings,"EFFECT_WITHOUT_HOST_CALL","incomplete",Some(&e.event_id),"domain effect has no matching host call"); continue; };
         if !call.host_authorized||!call.domain_allowed { finding(&mut findings,"EFFECT_WITHOUT_AUTHORIZED_DOMAIN_CALL","violation",Some(&e.event_id),"effect requires host authorization and domain allow"); }
-        if e.conductor_id!=call.conductor_id||!path_exists(&adjacency,&event_map,&call.event_id,&e.event_id) { finding(&mut findings,"EFFECT_NOT_CAUSAL_AFTER_HOST_CALL","incomplete",Some(&e.event_id),"effect must causally follow call on the same conductor"); }
+        if e.conductor_id!=call.conductor_id||!path_exists(&adjacency,&event_map,&call.event_id,&e.event_id,&mut reachability_cache) { finding(&mut findings,"EFFECT_NOT_CAUSAL_AFTER_HOST_CALL","incomplete",Some(&e.event_id),"effect must causally follow call on the same conductor"); }
         if !effect_bindings.insert((op,attempt)) { finding(&mut findings,"DUPLICATE_EFFECT_BINDING","violation",Some(&e.event_id),"effect bound twice to one attempt"); }
     }
 
@@ -897,7 +931,7 @@ fn audit(history:&History,input_sha256:String)->Report {
                 if validator_author!=author_conductor_id||validator_hash!=required_hash {
                     finding(&mut findings,"PROJECTION_VALIDATOR_RECEIPT_IDENTITY_MISMATCH","violation",Some(&e.event_id),"referenced validator receipt must concern the exact author conductor and ActionHash");
                 }
-                if !path_exists(&adjacency,&event_map,&validator_event.event_id,&e.event_id) {
+                if !path_exists(&adjacency,&event_map,&validator_event.event_id,&e.event_id,&mut reachability_cache) {
                     finding(&mut findings,"VALIDATION_NOT_CAUSAL_BEFORE_PROJECTION","incomplete",Some(&e.event_id),"projection must causally follow its exact referenced validator disposition");
                 }
                 let disposition=str_value(&validator_event.data,"disposition").unwrap_or_default();
@@ -942,7 +976,7 @@ fn audit(history:&History,input_sha256:String)->Report {
         match calls.get(&(op.clone(),attempt)) {
             None=>finding(&mut findings,"OUTCOME_WITHOUT_HOST_CALL","incomplete",Some(&e.event_id),"caller outcome has no host-call attempt"),
             Some(call)=>{
-                if !path_exists(&adjacency,&event_map,&call.event_id,&e.event_id) { finding(&mut findings,"OUTCOME_NOT_CAUSAL_AFTER_CALL","incomplete",Some(&e.event_id),"caller outcome must causally follow the host call"); }
+                if !path_exists(&adjacency,&event_map,&call.event_id,&e.event_id,&mut reachability_cache) { finding(&mut findings,"OUTCOME_NOT_CAUSAL_AFTER_CALL","incomplete",Some(&e.event_id),"caller outcome must causally follow the host call"); }
                 if conductors.get(&e.conductor_id).is_none_or(|c| c.agent_key_ref.as_str() != call.caller.as_str()) { finding(&mut findings,"OUTCOME_WRONG_CALLER_CONDUCTOR","incomplete",Some(&e.event_id),"caller outcome should be observed on caller conductor"); }
                 if outcome=="committed"&&!effect { finding(&mut findings,"COMMITTED_WITHOUT_EFFECT","incomplete",Some(&e.event_id),"committed outcome has no durable effect"); }
                 if matches!(outcome,"not_committed"|"rejected")&&effect { finding(&mut findings,"REJECTED_OUTCOME_WITH_EFFECT","violation",Some(&e.event_id),"rejected outcome contradicts durable effect"); }
@@ -1374,6 +1408,95 @@ mod tests{
         assert!(parse_history_strict(mutated.as_bytes()).is_err());
     }
 
+
+    fn reachability_events() -> (Vec<Event>, BTreeMap<String, &Event>) {
+        let events = vec![
+            Event {
+                event_id: "a1".into(),
+                conductor_id: "conductor-a".into(),
+                local_sequence: 1,
+                source: "source_chain".into(),
+                evidence_ref: "fixture://a1".into(),
+                event_type: "action_authored".into(),
+                data: serde_json::json!({}),
+            },
+            Event {
+                event_id: "b1".into(),
+                conductor_id: "conductor-b".into(),
+                local_sequence: 1,
+                source: "validator".into(),
+                evidence_ref: "fixture://b1".into(),
+                event_type: "validation_disposition".into(),
+                data: serde_json::json!({}),
+            },
+            Event {
+                event_id: "b2".into(),
+                conductor_id: "conductor-b".into(),
+                local_sequence: 2,
+                source: "observer".into(),
+                evidence_ref: "fixture://b2".into(),
+                event_type: "projection_observed".into(),
+                data: serde_json::json!({}),
+            },
+            Event {
+                event_id: "c1".into(),
+                conductor_id: "conductor-c".into(),
+                local_sequence: 1,
+                source: "client".into(),
+                evidence_ref: "fixture://c1".into(),
+                event_type: "caller_outcome".into(),
+                data: serde_json::json!({}),
+            },
+        ];
+        let map = events
+            .iter()
+            .map(|event| (event.event_id.clone(), event))
+            .collect();
+        (events, map)
+    }
+
+    #[test]
+    fn pair_cache_reuses_positive_cross_conductor_reachability() {
+        let (_events, event_map) = reachability_events();
+        let adjacency = BTreeMap::from([
+            ("a1".to_string(), BTreeSet::from(["b1".to_string()])),
+            ("b1".to_string(), BTreeSet::from(["b2".to_string()])),
+        ]);
+        let mut cache = ReachabilityCache::default();
+
+        assert!(path_exists(&adjacency, &event_map, "a1", "b2", &mut cache));
+        let visits_after_first = cache.dfs_node_visits;
+        assert!(path_exists(&adjacency, &event_map, "a1", "b2", &mut cache));
+
+        assert_eq!(cache.queries, 2);
+        assert_eq!(cache.cache_hits, 1);
+        assert_eq!(cache.dfs_node_visits, visits_after_first);
+    }
+
+    #[test]
+    fn pair_cache_reuses_negative_reachability_without_inventing_global_order() {
+        let (_events, event_map) = reachability_events();
+        let adjacency = BTreeMap::<String, BTreeSet<String>>::new();
+        let mut cache = ReachabilityCache::default();
+
+        // A larger local sequence on another conductor is not causal order.
+        assert!(!path_exists(&adjacency, &event_map, "a1", "b2", &mut cache));
+        assert!(!path_exists(&adjacency, &event_map, "a1", "b2", &mut cache));
+
+        assert_eq!(cache.queries, 2);
+        assert_eq!(cache.cache_hits, 1);
+        assert!(cache.outcomes.get(&("a1".into(), "b2".into())) == Some(&false));
+    }
+
+    #[test]
+    fn pair_cache_preserves_same_conductor_local_order_shortcut() {
+        let (_events, event_map) = reachability_events();
+        let adjacency = BTreeMap::<String, BTreeSet<String>>::new();
+        let mut cache = ReachabilityCache::default();
+
+        assert!(path_exists(&adjacency, &event_map, "b1", "b2", &mut cache));
+        assert_eq!(cache.dfs_node_visits, 0);
+    }
 
     fn report(h:&History)->Report{audit(h,"0".repeat(64))}
     fn verified_record_fixture() -> History {
