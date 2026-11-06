@@ -6,23 +6,27 @@
 **Implemented:** Ed25519 DSSE signature verification over exact PAE bytes, signature-before-parse, in-toto statement/subject binding, one-signer-per-attestation role authorization relative to the supplied trust policy, conductor/agent/DNA/CellId/WASM binding, trust-policy digest/keyset reference binding, causal-edge validation, and fail-closed negative controls.  
 **Not yet implemented:** production signing/key custody, cryptographic authentication/currentness of the trust root itself, key validity intervals/rotation/compromise history, COSE/SCITT receipt verification/VDS proofs, a second independent verifier, and runtime conductor evidence capture.
 
-## 0. Current implementation status and claim ceiling
+## 0. Current implementation status and claim ceiling — 6 November 2026
 
-The Rust prototype is at `tools/pulse-signed-evidence-audit`. Its exact-head run **#30** passed:
+The Rust prototype is at `tools/pulse-signed-evidence-audit`. The exact PR #5771 head `8b9a2de05c1c562e6f6135fc2645679e756a6cff` passed the Signed Evidence Audit workflow run #90:
 - pinned Rust 1.96.0;
 - `cargo fmt --check`;
-- dependency lock generation;
-- 14 signature, role, subject, trust-policy and negative-control tests;
+- per-run dependency lock generation;
+- 26 signature, role, subject, trust-policy, causal-edge and negative-control tests;
 - `cargo clippy --all-targets -- -D warnings`;
 - exact verifier receipt and artifact upload.
 
-The run is tied to research PR #5771 head `f6076c297ce1465ce0d9356a12d838bd4cf414e4`; workflow run: https://github.com/Luminous-Dynamics/mycelix/actions/runs/42161123498; artifact ID `13476104747`.
+Run: https://github.com/Luminous-Dynamics/mycelix/actions/runs/42215970758  
+Job: `127885945664`  
+Artifact: `13501032365`
 
-The verifier checks a DSSE signature before parsing signed JSON, and requires the signed issuer key ID to equal the exact verifying key. V1 deliberately allows exactly one role-specific signature per attestation. It rejects a multi-signature envelope as `INCOMPLETE` rather than inventing any-of/all-of/quorum semantics.
+The verifier checks the Ed25519 DSSE signature over exact PAE bytes before parsing signed JSON, and requires the signed issuer key ID to equal the exact verifying key. V1 deliberately allows exactly one role-specific signature per attestation. It rejects ambiguous multi-signature envelopes as `INCOMPLETE` rather than inventing any-of/all-of/quorum semantics.
 
-The trust policy is still an external supplied input. Its digest, policy ID, semantic version and root-keyset ID are bound to the bundle, and duplicate key IDs are rejected. The root-keyset ID is only a consistency label; this implementation does not authenticate the trust policy against an out-of-band root. Therefore the result is `ROLE_AUTHENTICATED_RELATIVE_TO_SUPPLIED_POLICY`, not globally trusted evidence.
+The verifier binds signed predicates to the exact event ID, source/type, payload fields, source commit, trace digest and conductor lineage. It validates request/response, source-action, validator and observer causal edges against separately signed endpoint observations. A signature over a fabricated or contradictory trace event does not pass semantic binding.
 
-SCITT statement/receipt fields receive structural and digest checks, but COSE signatures, TS issuer keys, receipt authenticity and VDS inclusion/consistency proofs are not verified. Structurally valid SCITT input therefore remains `INCOMPLETE`. No runtime conductor truth is established by the synthetic signing-key fixtures.
+**Trust-root boundary:** the trust policy is still an external supplied input. Its digest, policy ID, semantic version and root-keyset ID are bound to the bundle, and duplicate key IDs are rejected. The root-keyset ID is only a consistency label; this implementation does not authenticate the trust policy against an out-of-band root. Therefore the result is `ROLE_AUTHENTICATED_RELATIVE_TO_SUPPLIED_POLICY`, not globally trusted evidence.
+
+**SCITT boundary:** SCITT statement/receipt fields receive structural and digest checks, but COSE signatures, TS issuer keys, receipt authenticity and VDS inclusion/consistency proofs are not verified. Structurally valid SCITT input therefore remains `INCOMPLETE`. No runtime conductor truth is established by the synthetic signing-key fixtures.
 
 ## 1. Threat and claim model
 
