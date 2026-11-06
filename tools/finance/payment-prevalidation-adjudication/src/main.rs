@@ -456,6 +456,115 @@ fn cohen_kappa(left: &[String], right: &[String]) -> Option<f64> {
     }
 }
 
+#[derive(Clone, Copy, Default)]
+struct RateCounts {
+    numerator: u64,
+    denominator: u64,
+}
+
+impl RateCounts {
+    fn observe(&mut self, is_numerator: bool, is_denominator: bool) {
+        if is_denominator {
+            self.denominator += 1;
+            if is_numerator {
+                self.numerator += 1;
+            }
+        }
+    }
+}
+
+#[derive(Clone, Copy, Default)]
+struct ClusterMetrics {
+    false_ready: RateCounts,
+    false_quarantine: RateCounts,
+    warning_omissions: RateCounts,
+}
+
+#[derive(Clone, Copy)]
+enum BootstrapMetric {
+    FalseReady,
+    FalseQuarantine,
+    WarningOmissions,
+}
+
+impl ClusterMetrics {
+    fn get(&self, metric: BootstrapMetric) -> RateCounts {
+        match metric {
+            BootstrapMetric::FalseReady => self.false_ready,
+            BootstrapMetric::FalseQuarantine => self.false_quarantine,
+            BootstrapMetric::WarningOmissions => self.warning_omissions,
+        }
+    }
+}
+
+struct SplitMix64 {
+    state: u64,
+}
+
+impl SplitMix64 {
+    fn new(seed: u64) -> Self {
+        Self { state: seed }
+    }
+
+    fn next_u64(&mut self) -> u64 {
+        self.state = self.state.wrapping_add(0x9E3779B97F4A7C15);
+        let mut value = self.state;
+        value = (value ^ (value >> 30)).wrapping_mul(0xBF58476D1CE4E5B9);
+        value = (value ^ (value >> 27)).wrapping_mul(0x94D049BB133111EB);
+        value ^ (value >> 31)
+    }
+
+    fn index(&mut self, upper: usize) -> usize {
+        (((self.next_u64() as u128) * (upper as u128)) >> 64) as usize
+    }
+}
+
+fn bootstrap_interval(
+    clusters: &[ClusterMetrics],
+    metric: BootstrapMetric,
+    replicates: usize,
+    seed: u64,
+) -> Option<(f64, f64)> {
+    if clusters.len() < 2 || replicates < 1 {
+        return None;
+    }
+
+    let mut rng = SplitMix64::new(seed);
+    let mut estimates = Vec::with_capacity(replicates);
+    for _ in 0..replicates {
+        let mut numerator = 0_u64;
+        let mut denominator = 0_u64;
+        for _ in 0..clusters.len() {
+            let selected = clusters[rng.index(clusters.len())].get(metric);
+            numerator = numerator.checked_add(selected.numerator)?;
+            denominator = denominator.checked_add(selected.denominator)?;
+        }
+        if denominator > 0 {
+            estimates.push(numerator as f64 / denominator as f64);
+        }
+    }
+
+    if estimates.len() * 100 < replicates * 95 {
+        return None;
+    }
+    estimates.sort_by(f64::total_cmp);
+    let last = estimates.len() - 1;
+    let lower_index = last * 25 / 1000;
+    let upper_index = last * 975 / 1000;
+    Some((estimates[lower_index], estimates[upper_index]))
+}
+
+fn interval_json(interval: Option<(f64, f64)>) -> Value {
+    match interval {
+        Some((lower, upper)) => json!({
+            "confidence_level": 0.95,
+            "lower": lower,
+            "upper": upper
+        }),
+        None => Value::Null,
+    }
+}
+
 fn report(corpus: &Value, schema: &Value) -> Value {
     let validation_errors = validate_corpus(corpus, schema);
     if !validation_errors.is_empty() {
@@ -488,16 +597,23 @@ fn report(corpus: &Value, schema: &Value) -> Value {
             .entry(string_at(&case, "partition").unwrap_or("").to_owned())
             .or_default() += 1;
         merchant_time_clusters.insert((
-            string_at(&case, "merchant_entity_id")
-                .unwrap_or("")
-                .to_owned(),
+            string_at(&case, "merchant_entity_id").unwrap_or("").to_owned(),
             string_at(&case, "time_block").unwrap_or("").to_owned(),
         ));
         resolved.push((case, labels, outputs));
     }
 
+    let design = &corpus["study_design"];
+    let synthetic_fixture = bool_at(design, "synthetic_fixture") == Some(true);
+    let minimum_clusters = u64_value(design, "minimum_independent_clusters_for_interval")
+        .unwrap_or(30) as usize;
+    let bootstrap_replicates =
+        u64_value(design, "bootstrap_replicates").unwrap_or(2000) as usize;
+    let bootstrap_seed = u64_value(design, "bootstrap_seed").unwrap_or(20261106);
+    let global_cluster_count = merchant_time_clusters.len();
+
     let mut system_reports = Vec::new();
-    for system in SYSTEMS {
+    for (system_index, system) in SYSTEMS.iter().enumerate() {
         let mut matrices: BTreeMap<String, BTreeMap<String, BTreeMap<String, u64>>> =
             BTreeMap::new();
         let mut false_ready = 0_u64;
@@ -507,13 +623,26 @@ fn report(corpus: &Value, schema: &Value) -> Value {
         let mut warning_omissions = 0_u64;
         let mut warning_cases = 0_u64;
         let mut indeterminate_truth_labels = BTreeMap::<String, u64>::new();
+        let mut cluster_metrics = BTreeMap::<(String, String), ClusterMetrics>::new();
 
         for (case, truth, outputs) in &resolved {
-            let output = &outputs[system];
+            let output = &outputs[*system];
             let prediction = string_at(output, "decision").unwrap_or("");
             let true_disposition = string_at(truth, "final_disposition").unwrap_or("");
             let truth_ready = is_ready_disposition(true_disposition);
             let predicted_ready = is_ready_disposition(prediction);
+            let required_warnings = array_at(case, "required_warning_codes")
+                .into_iter()
+                .flatten()
+                .filter_map(Value::as_str)
+                .collect::<BTreeSet<_>>();
+            let presented = array_at(output, "warnings_presented")
+                .into_iter()
+                .flatten()
+                .filter_map(Value::as_str)
+                .collect::<BTreeSet<_>>();
+            let warning_missing = !required_warnings.is_empty()
+                && !required_warnings.is_subset(&presented);
 
             if !truth_ready {
                 false_ready_denominator += 1;
@@ -527,22 +656,25 @@ fn report(corpus: &Value, schema: &Value) -> Value {
                     false_quarantine += 1;
                 }
             }
-            let required_warnings = array_at(case, "required_warning_codes")
-                .into_iter()
-                .flatten()
-                .filter_map(Value::as_str)
-                .collect::<BTreeSet<_>>();
             if !required_warnings.is_empty() {
                 warning_cases += 1;
-                let presented = array_at(output, "warnings_presented")
-                    .into_iter()
-                    .flatten()
-                    .filter_map(Value::as_str)
-                    .collect::<BTreeSet<_>>();
-                if !required_warnings.is_subset(&presented) {
+                if warning_missing {
                     warning_omissions += 1;
                 }
             }
+
+            let cluster_key = (
+                string_at(case, "merchant_entity_id").unwrap_or("").to_owned(),
+                string_at(case, "time_block").unwrap_or("").to_owned(),
+            );
+            let cluster = cluster_metrics.entry(cluster_key).or_default();
+            cluster.false_ready.observe(!truth_ready && predicted_ready, !truth_ready);
+            cluster
+                .false_quarantine
+                .observe(truth_ready && is_hard_quarantine(prediction), truth_ready);
+            cluster
+                .warning_omissions
+                .observe(warning_missing, !required_warnings.is_empty());
 
             for key in LABEL_KEYS {
                 let actual = string_at(truth, key).unwrap_or("").to_owned();
@@ -568,6 +700,53 @@ fn report(corpus: &Value, schema: &Value) -> Value {
             }
         }
 
+        let clusters: Vec<ClusterMetrics> = cluster_metrics.into_values().collect();
+        let can_estimate_intervals = !synthetic_fixture && clusters.len() >= minimum_clusters;
+        let system_seed = bootstrap_seed
+            .wrapping_add((system_index as u64 + 1).wrapping_mul(0x9E3779B97F4A7C15));
+        let false_ready_interval = if can_estimate_intervals {
+            bootstrap_interval(
+                &clusters,
+                BootstrapMetric::FalseReady,
+                bootstrap_replicates,
+                system_seed ^ 0xA0761D6478BD642F,
+            )
+        } else {
+            None
+        };
+        let false_quarantine_interval = if can_estimate_intervals {
+            bootstrap_interval(
+                &clusters,
+                BootstrapMetric::FalseQuarantine,
+                bootstrap_replicates,
+                system_seed ^ 0xE7037ED1A0B428DB,
+            )
+        } else {
+            None
+        };
+        let warning_omission_interval = if can_estimate_intervals {
+            bootstrap_interval(
+                &clusters,
+                BootstrapMetric::WarningOmissions,
+                bootstrap_replicates,
+                system_seed ^ 0x8EBC6AF09C88C6E3,
+            )
+        } else {
+            None
+        };
+        let all_intervals_present = false_ready_interval.is_some()
+            && false_quarantine_interval.is_some()
+            && warning_omission_interval.is_some();
+        let suppression_reason = if synthetic_fixture {
+            Some("synthetic fixture; no population confidence intervals are estimated")
+        } else if clusters.len() < minimum_clusters {
+            Some("independent merchant/time-block cluster count is below the pre-registered minimum")
+        } else if !all_intervals_present {
+            Some("one or more bootstrap metrics lacked sufficient non-zero-denominator replicates")
+        } else {
+            None
+        };
+
         let label_matrices: Map<String, Value> = matrices
             .iter()
             .map(|(key, matrix)| (key.clone(), json_matrix(matrix)))
@@ -588,6 +767,16 @@ fn report(corpus: &Value, schema: &Value) -> Value {
                 "numerator": warning_omissions,
                 "denominator": warning_cases,
                 "rate": if warning_cases > 0 { Some(warning_omissions as f64 / warning_cases as f64) } else { None }
+            },
+            "confidence_intervals": {
+                "method": "cluster_bootstrap_by_merchant_and_time_block",
+                "estimated": all_intervals_present,
+                "replicates": bootstrap_replicates,
+                "seed": system_seed,
+                "false_ready": interval_json(false_ready_interval),
+                "false_quarantine": interval_json(false_quarantine_interval),
+                "warning_omissions": interval_json(warning_omission_interval),
+                "suppression_reason": suppression_reason
             },
             "indeterminate_truth_label_counts": indeterminate_truth_labels,
             "confusion_matrices": Value::Object(label_matrices)
@@ -611,22 +800,6 @@ fn report(corpus: &Value, schema: &Value) -> Value {
         })
         .collect();
 
-    let cluster_count = merchant_time_clusters.len();
-    let suppression_reason = if bool_at(&corpus["study_design"], "synthetic_fixture") == Some(true)
-    {
-        "synthetic fixture; no population confidence intervals are estimated"
-    } else if cluster_count
-        < u64_value(
-            &corpus["study_design"],
-            "minimum_independent_clusters_for_interval",
-        )
-        .unwrap_or(30) as usize
-    {
-        "independent merchant/time-block cluster count is below the pre-registered minimum"
-    } else {
-        "cluster bootstrap is reserved for a separately qualified live-study runner"
-    };
-
     json!({
         "evaluator": "mycelix.payment-prevalidation-adjudication.v1",
         "status": "PASS",
@@ -635,15 +808,17 @@ fn report(corpus: &Value, schema: &Value) -> Value {
             "cases": cases.len(),
             "adjudication_records": cases.iter().map(|case| array_at(case, "adjudication_records").map_or(0, Vec::len)).sum::<usize>(),
             "systems_per_case": SYSTEMS.len(),
-            "merchant_time_clusters": cluster_count,
+            "merchant_time_clusters": global_cluster_count,
             "partitions": partition_counts
         },
         "system_metrics": system_reports,
         "adjudicator_agreement": agreement,
         "confidence_intervals": {
-            "method": corpus["study_design"]["confidence_interval_method"],
-            "estimated": false,
-            "suppression_reason": suppression_reason
+            "method": design["confidence_interval_method"],
+            "estimated": system_reports.iter().any(|system| system["confidence_intervals"]["estimated"] == true),
+            "bootstrap_replicates": bootstrap_replicates,
+            "bootstrap_seed": bootstrap_seed,
+            "minimum_independent_clusters": minimum_clusters
         },
         "errors": []
     })
