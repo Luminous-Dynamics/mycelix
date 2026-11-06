@@ -691,6 +691,9 @@ mod tests {
         let (mut trace, _, _, _) = fixture();
         let events = trace["events"].as_array_mut().unwrap();
         events.swap(0, 2);
+        for (index, event) in events.iter_mut().enumerate() {
+            event["seq"] = json!(index + 1);
+        }
         assert!(validate_trace(&trace).is_err());
     }
 
@@ -747,9 +750,10 @@ mod tests {
         event["reason_code"] = Value::Null;
         event["terminal_disposition"] = Value::Null;
         event["response_sha256"] = Value::Null;
-        trace["events"].as_array_mut().unwrap().insert(17, event);
-        let terminal = trace["events"].as_array_mut().unwrap().last_mut().unwrap();
-        terminal["seq"] = json!(19);
+        trace["events"].as_array_mut().unwrap().insert(16, event);
+        for (index, event) in trace["events"].as_array_mut().unwrap().iter_mut().enumerate() {
+            event["seq"] = json!(index + 1);
+        }
         assert!(validate_trace(&trace).is_err());
     }
 
@@ -812,9 +816,10 @@ mod tests {
         event["reason_code"] = Value::Null;
         event["terminal_disposition"] = Value::Null;
         event["response_sha256"] = Value::Null;
-        trace["events"].as_array_mut().unwrap().insert(17, event);
-        let terminal = trace["events"].as_array_mut().unwrap().last_mut().unwrap();
-        terminal["seq"] = json!(19);
+        trace["events"].as_array_mut().unwrap().insert(16, event);
+        for (index, event) in trace["events"].as_array_mut().unwrap().iter_mut().enumerate() {
+            event["seq"] = json!(index + 1);
+        }
         assert!(validate_trace(&trace).is_err());
     }
 
@@ -873,7 +878,7 @@ mod tests {
     fn rejects_trace_digest_missing_from_task_output_artifacts() {
         let (trace, _, _, trace_bytes) = fixture();
         let transcript = b"actual transcript";
-        let (mut receipt, report) = synthetic_receipt(&trace, &trace_bytes, transcript);
+        let (mut receipt, _initial_report) = synthetic_receipt(&trace, &trace_bytes, transcript);
         receipt["task_results"][0]["output_sha256"] = json!([]);
         let receipt_bytes = serde_json::to_vec(&receipt).unwrap();
         let (receipt, report) = {
