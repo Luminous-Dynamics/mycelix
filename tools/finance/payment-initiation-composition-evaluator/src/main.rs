@@ -71,12 +71,17 @@ fn valid_utc(value: &str) -> bool {
     let hour = value[11..13].parse::<u32>().unwrap_or(99);
     let minute = value[14..16].parse::<u32>().unwrap_or(99);
     let second = value[17..19].parse::<u32>().unwrap_or(99);
-    year >= 1970 && (1..=12).contains(&month) && (1..=31).contains(&day)
-        && hour <= 23 && minute <= 59 && second <= 60
+    year >= 1970
+        && (1..=12).contains(&month)
+        && (1..=31).contains(&day)
+        && hour <= 23
+        && minute <= 59
+        && second <= 60
 }
 
 fn valid_date(value: &str) -> bool {
-    value.is_ascii() && value.len() == 10
+    value.is_ascii()
+        && value.len() == 10
         && value.as_bytes().get(4) == Some(&b'-')
         && value.as_bytes().get(7) == Some(&b'-')
         && value[0..4].parse::<u32>().is_ok()
@@ -157,17 +162,21 @@ fn validate_common_claim(
     if str_at(assertion, "audience") != Some(audience) {
         return Err(format!("{claim_type}: audience mismatch"));
     }
-    let issuer = str_at(assertion, "issuer")
-        .ok_or_else(|| format!("{claim_type}: issuer missing"))?;
+    let issuer =
+        str_at(assertion, "issuer").ok_or_else(|| format!("{claim_type}: issuer missing"))?;
     if !issuer_is_trusted(corpus, issuer, claim_type, audience, profile_id) {
-        return Err(format!("{claim_type}: issuer not registered for claim, audience and profile"));
+        return Err(format!(
+            "{claim_type}: issuer not registered for claim, audience and profile"
+        ));
     }
     let observed = str_at(assertion, "observed_at")
         .ok_or_else(|| format!("{claim_type}: observed_at missing"))?;
     let valid_until = str_at(assertion, "valid_until")
         .ok_or_else(|| format!("{claim_type}: valid_until missing"))?;
     if !valid_utc(observed) || !valid_utc(valid_until) || observed > evaluation_time {
-        return Err(format!("{claim_type}: invalid or future-dated assertion time"));
+        return Err(format!(
+            "{claim_type}: invalid or future-dated assertion time"
+        ));
     }
     if valid_until < observed || valid_until < evaluation_time {
         return Err(format!("{claim_type}: assertion stale at evaluation time"));
@@ -208,13 +217,21 @@ fn validate_scenario(corpus: &Value, scenario: &Value) -> (String, String, Vec<S
     let channel = str_at(intent, "channel").unwrap_or("");
     let expiry = str_at(intent, "expiry_at").unwrap_or("");
 
-    if !valid_utc(now) || !valid_utc(expiry) || !valid_utc(str_at(intent, "issued_at").unwrap_or("")) {
-        errors.push(format!("{scenario_id}: invalid evaluation/intent timestamp"));
+    if !valid_utc(now)
+        || !valid_utc(expiry)
+        || !valid_utc(str_at(intent, "issued_at").unwrap_or(""))
+    {
+        errors.push(format!(
+            "{scenario_id}: invalid evaluation/intent timestamp"
+        ));
     }
-    if request_digest.is_empty() || request_digest != recomputed_digest
+    if request_digest.is_empty()
+        || request_digest != recomputed_digest
         || str_at(intent, "digest_verification_status") != Some("verified")
     {
-        errors.push(format!("{scenario_id}: canonical request digest not independently verified"));
+        errors.push(format!(
+            "{scenario_id}: canonical request digest not independently verified"
+        ));
     }
     if amount == 0 || currency.len() != 3 || product.is_empty() || channel.is_empty() {
         errors.push(format!("{scenario_id}: incomplete economic intent"));
@@ -224,7 +241,9 @@ fn validate_scenario(corpus: &Value, scenario: &Value) -> (String, String, Vec<S
     let message = &assertions["message_authenticity"];
     let message_state = str_at(message, "state").unwrap_or("unknown");
     if message_state != "verified" {
-        errors.push(format!("{scenario_id}: message authenticity is not verified"));
+        errors.push(format!(
+            "{scenario_id}: message authenticity is not verified"
+        ));
         if message_state == "invalid" {
             errors.push(format!("{scenario_id}: explicit invalid message signature"));
         }
@@ -232,7 +251,13 @@ fn validate_scenario(corpus: &Value, scenario: &Value) -> (String, String, Vec<S
     push_error(
         &mut errors,
         validate_common_claim(
-            corpus, message, "message_authenticity", request_digest, profile_id, audience, now,
+            corpus,
+            message,
+            "message_authenticity",
+            request_digest,
+            profile_id,
+            audience,
+            now,
         ),
     );
     let requester = &assertions["requester_identity"];
@@ -240,24 +265,36 @@ fn validate_scenario(corpus: &Value, scenario: &Value) -> (String, String, Vec<S
     if requester_state != "verified" {
         errors.push(format!("{scenario_id}: requester identity is not verified"));
         if requester_state == "invalid" {
-            errors.push(format!("{scenario_id}: explicit invalid requester identity"));
+            errors.push(format!(
+                "{scenario_id}: explicit invalid requester identity"
+            ));
         }
     }
     push_error(
         &mut errors,
         validate_common_claim(
-            corpus, requester, "requester_identity", requester_subject, profile_id, audience, now,
+            corpus,
+            requester,
+            "requester_identity",
+            requester_subject,
+            profile_id,
+            audience,
+            now,
         ),
     );
     if str_at(requester, "scope") != Some("request:create") {
-        errors.push(format!("{scenario_id}: requester identity lacks request:create scope"));
+        errors.push(format!(
+            "{scenario_id}: requester identity lacks request:create scope"
+        ));
     }
 
     // VoP/CoP confirms a bounded account/name match; it never establishes legal identity.
     let beneficiary = &assertions["beneficiary_match"];
     let beneficiary_state = str_at(beneficiary, "state").unwrap_or("unknown");
     if !matches!(beneficiary_state, "match" | "close_match") {
-        errors.push(format!("{scenario_id}: beneficiary match not sufficient for initiation"));
+        errors.push(format!(
+            "{scenario_id}: beneficiary match not sufficient for initiation"
+        ));
         if beneficiary_state == "no_match" {
             errors.push(format!("{scenario_id}: explicit no-match payee result"));
         }
@@ -265,29 +302,49 @@ fn validate_scenario(corpus: &Value, scenario: &Value) -> (String, String, Vec<S
     push_error(
         &mut errors,
         validate_common_claim(
-            corpus, beneficiary, "beneficiary_match", beneficiary_binding, profile_id, audience, now,
+            corpus,
+            beneficiary,
+            "beneficiary_match",
+            beneficiary_binding,
+            profile_id,
+            audience,
+            now,
         ),
     );
     if beneficiary_state == "close_match"
         && !array_at(payer, "acknowledged_warnings").is_some_and(|items| {
-            items.iter().any(|v| v.as_str() == Some("beneficiary_close_match"))
+            items
+                .iter()
+                .any(|v| v.as_str() == Some("beneficiary_close_match"))
         })
     {
-        errors.push(format!("{scenario_id}: close-match warning not acknowledged by payer"));
+        errors.push(format!(
+            "{scenario_id}: close-match warning not acknowledged by payer"
+        ));
     }
 
     // Collection authority is bound to requester, beneficiary, product and channel.
     let authority = &assertions["collection_authority"];
     if str_at(authority, "state") != Some("verified") {
-        errors.push(format!("{scenario_id}: collection authority is not verified"));
+        errors.push(format!(
+            "{scenario_id}: collection authority is not verified"
+        ));
         if str_at(authority, "state") == Some("invalid") {
-            errors.push(format!("{scenario_id}: explicit invalid collection authority"));
+            errors.push(format!(
+                "{scenario_id}: explicit invalid collection authority"
+            ));
         }
     }
     push_error(
         &mut errors,
         validate_common_claim(
-            corpus, authority, "collection_authority", collection_digest, profile_id, audience, now,
+            corpus,
+            authority,
+            "collection_authority",
+            collection_digest,
+            profile_id,
+            audience,
+            now,
         ),
     );
     if str_at(authority, "requester_subject_digest") != Some(requester_subject)
@@ -301,15 +358,25 @@ fn validate_scenario(corpus: &Value, scenario: &Value) -> (String, String, Vec<S
     // Commercial evidence is required only by the selected profile/use-case policy.
     let commercial = &assertions["commercial_evidence"];
     let commercial_state = str_at(commercial, "state").unwrap_or("unknown");
-    let commercial_required = intent["commercial_evidence_required"].as_bool().unwrap_or(true);
+    let commercial_required = intent["commercial_evidence_required"]
+        .as_bool()
+        .unwrap_or(true);
     if commercial_required {
         if commercial_state != "authenticated" {
-            errors.push(format!("{scenario_id}: required commercial evidence is not authenticated"));
+            errors.push(format!(
+                "{scenario_id}: required commercial evidence is not authenticated"
+            ));
         }
         push_error(
             &mut errors,
             validate_common_claim(
-                corpus, commercial, "commercial_evidence", invoice_digest, profile_id, audience, now,
+                corpus,
+                commercial,
+                "commercial_evidence",
+                invoice_digest,
+                profile_id,
+                audience,
+                now,
             ),
         );
         if str_at(commercial, "payer_subject_digest") != Some(payer_subject)
@@ -319,7 +386,9 @@ fn validate_scenario(corpus: &Value, scenario: &Value) -> (String, String, Vec<S
             errors.push(format!("{scenario_id}: commercial evidence is not bound to the exact payer, amount and currency"));
         }
     } else if commercial_state != "not_required" {
-        errors.push(format!("{scenario_id}: optional commercial evidence must be explicitly marked not_required"));
+        errors.push(format!(
+            "{scenario_id}: optional commercial evidence must be explicitly marked not_required"
+        ));
     }
 
     // Fraud intelligence remains advisory. Local policy, not a signal, controls disposition.
@@ -328,7 +397,13 @@ fn validate_scenario(corpus: &Value, scenario: &Value) -> (String, String, Vec<S
     push_error(
         &mut errors,
         validate_common_claim(
-            corpus, fraud, "fraud_signal", payer_subject, profile_id, audience, now,
+            corpus,
+            fraud,
+            "fraud_signal",
+            payer_subject,
+            profile_id,
+            audience,
+            now,
         ),
     );
     if str_at(fraud, "purpose") != Some("payment_initiation_abuse_advisory") {
@@ -339,10 +414,18 @@ fn validate_scenario(corpus: &Value, scenario: &Value) -> (String, String, Vec<S
     let local_state = str_at(local, "state").unwrap_or("unknown");
     let local_valid = str_at(local, "authority_state") == Some("valid");
     let local_binding = validate_common_claim(
-        corpus, local, "local_policy_decision", request_digest, profile_id, audience, now,
+        corpus,
+        local,
+        "local_policy_decision",
+        request_digest,
+        profile_id,
+        audience,
+        now,
     );
     if local_binding.is_err() || !local_valid {
-        errors.push(format!("{scenario_id}: local policy decision is not authoritative for this request"));
+        errors.push(format!(
+            "{scenario_id}: local policy decision is not authoritative for this request"
+        ));
     }
 
     // Payer decision is a separate authenticated act over the exact displayed request.
@@ -350,37 +433,41 @@ fn validate_scenario(corpus: &Value, scenario: &Value) -> (String, String, Vec<S
     let payer_time = str_at(payer, "observed_at").unwrap_or("");
     let payer_valid_until = str_at(payer, "valid_until").unwrap_or("");
     let payer_issuer = str_at(payer, "issuer").unwrap_or("");
-    let payer_trusted = issuer_is_trusted(
-        corpus, payer_issuer, "payer_decision", audience, profile_id,
-    );
-    let payer_acceptance_valid =
-        str_at(payer, "subject_digest") == Some(request_digest)
-            && str_at(payer, "accepted_request_digest") == Some(request_digest)
-            && str_at(payer, "payer_subject_digest") == Some(payer_subject)
-            && str_at(payer, "audience") == Some(audience)
-            && str_at(payer, "profile_id") == Some(profile_id)
-            && str_at(payer, "authority_state") == Some("valid")
-            && payer_trusted
-            && valid_utc(payer_time)
-            && valid_utc(payer_valid_until)
-            && payer_time <= expiry
-            && payer_time <= now
-            && payer_valid_until >= now
-            && REQUIRED_FIELDS.iter().all(|field| {
-                array_at(payer, "acknowledged_fields")
-                    .is_some_and(|items| items.iter().any(|v| v.as_str() == Some(field)))
-            });
+    let payer_trusted =
+        issuer_is_trusted(corpus, payer_issuer, "payer_decision", audience, profile_id);
+    let payer_acceptance_valid = str_at(payer, "subject_digest") == Some(request_digest)
+        && str_at(payer, "accepted_request_digest") == Some(request_digest)
+        && str_at(payer, "payer_subject_digest") == Some(payer_subject)
+        && str_at(payer, "audience") == Some(audience)
+        && str_at(payer, "profile_id") == Some(profile_id)
+        && str_at(payer, "authority_state") == Some("valid")
+        && payer_trusted
+        && valid_utc(payer_time)
+        && valid_utc(payer_valid_until)
+        && payer_time <= expiry
+        && payer_time <= now
+        && payer_valid_until >= now
+        && REQUIRED_FIELDS.iter().all(|field| {
+            array_at(payer, "acknowledged_fields")
+                .is_some_and(|items| items.iter().any(|v| v.as_str() == Some(field)))
+        });
 
     let mut disposition = if errors.is_empty() {
         "permit_instruction"
     } else if errors.iter().any(|error| {
-        error.contains("invalid") || error.contains("cross-subject")
-            || error.contains("mismatch") || error.contains("no-match")
-            || error.contains("different") || error.contains("not bound")
-            || error.contains("digest") || error.contains("not trusted")
+        error.contains("invalid")
+            || error.contains("cross-subject")
+            || error.contains("mismatch")
+            || error.contains("no-match")
+            || error.contains("different")
+            || error.contains("not bound")
+            || error.contains("digest")
+            || error.contains("not trusted")
             || error.contains("issuer not registered")
-            || error.contains("explicit invalid") || error.contains("no-match")
-            || error.contains("unsupported") || error.contains("wrong")
+            || error.contains("explicit invalid")
+            || error.contains("no-match")
+            || error.contains("unsupported")
+            || error.contains("wrong")
     }) {
         "reject"
     } else {
@@ -390,7 +477,9 @@ fn validate_scenario(corpus: &Value, scenario: &Value) -> (String, String, Vec<S
     if matches!(payer_decision, "decline" | "query" | "pay_later" | "none") && errors.is_empty() {
         disposition = "no_instruction";
     } else if payer_decision == "accept" && !payer_acceptance_valid {
-        errors.push(format!("{scenario_id}: payer acceptance is not valid, exact, current and complete"));
+        errors.push(format!(
+            "{scenario_id}: payer acceptance is not valid, exact, current and complete"
+        ));
         disposition = "reject";
     } else if payer_decision == "accept" && local_state == "deny" {
         disposition = "reject";
@@ -416,7 +505,11 @@ fn validate_scenario(corpus: &Value, scenario: &Value) -> (String, String, Vec<S
     let mut previous_sequence = 0_u64;
     let mut previous_time = "";
     let mut seen_events = BTreeSet::new();
-    for (index, event) in array_at(scenario, "events").into_iter().flatten().enumerate() {
+    for (index, event) in array_at(scenario, "events")
+        .into_iter()
+        .flatten()
+        .enumerate()
+    {
         let event_id = str_at(event, "event_id").unwrap_or("");
         let sequence = u64_at(event, "sequence").unwrap_or(0);
         let event_type = str_at(event, "event_type").unwrap_or("");
@@ -427,7 +520,9 @@ fn validate_scenario(corpus: &Value, scenario: &Value) -> (String, String, Vec<S
         let event_instruction = str_at(event, "instruction_id");
         let evidence = str_at(event, "evidence_type").unwrap_or("");
         if event_id.is_empty() || !seen_events.insert(event_id.to_owned()) {
-            errors.push(format!("{scenario_id}: event[{index}] has missing/duplicate identity"));
+            errors.push(format!(
+                "{scenario_id}: event[{index}] has missing/duplicate identity"
+            ));
         }
         if sequence <= previous_sequence || !valid_utc(event_time) || event_time < previous_time {
             errors.push(format!("{scenario_id}: event sequence/time is invalid"));
@@ -435,22 +530,30 @@ fn validate_scenario(corpus: &Value, scenario: &Value) -> (String, String, Vec<S
         previous_sequence = sequence;
         previous_time = event_time;
         if event_subject != request_digest {
-            errors.push(format!("{scenario_id}: event subject does not bind to request digest"));
+            errors.push(format!(
+                "{scenario_id}: event subject does not bind to request digest"
+            ));
         }
         match event_type {
             "instruction_creation_attempt_rejected" | "recipient_availability_claim_rejected" => {
                 if authority_state != "invalid" || !evidence.ends_with("rejection_receipt") {
-                    errors.push(format!("{scenario_id}: rejected attempt must remain a non-effect diagnostic"));
+                    errors.push(format!(
+                        "{scenario_id}: rejected attempt must remain a non-effect diagnostic"
+                    ));
                 }
             }
             "instruction_created" => {
-                if disposition != "permit_instruction" || actor != "SYNTH-PSP-A"
-                    || authority_state != "valid" || evidence != "payment_instruction_receipt"
+                if disposition != "permit_instruction"
+                    || actor != "SYNTH-PSP-A"
+                    || authority_state != "valid"
+                    || evidence != "payment_instruction_receipt"
                 {
                     errors.push(format!("{scenario_id}: instruction event lacks exact preconditions or authorised evidence"));
                 }
                 if instruction_id.is_some() {
-                    errors.push(format!("{scenario_id}: multiple instructions for one request"));
+                    errors.push(format!(
+                        "{scenario_id}: multiple instructions for one request"
+                    ));
                 }
                 match event_instruction {
                     Some(id) if !id.is_empty() => instruction_id = Some(id.to_owned()),
@@ -459,8 +562,10 @@ fn validate_scenario(corpus: &Value, scenario: &Value) -> (String, String, Vec<S
                 effect_state = "instruction_created";
             }
             "provider_outcome_unknown" => {
-                if instruction_id.is_none() || event_instruction != instruction_id.as_deref()
-                    || actor != "SYNTH-PSP-A" || authority_state != "unknown"
+                if instruction_id.is_none()
+                    || event_instruction != instruction_id.as_deref()
+                    || actor != "SYNTH-PSP-A"
+                    || authority_state != "unknown"
                     || evidence != "provider_timeout_receipt"
                 {
                     errors.push(format!("{scenario_id}: provider unknown outcome lacks matching instruction evidence"));
@@ -468,8 +573,10 @@ fn validate_scenario(corpus: &Value, scenario: &Value) -> (String, String, Vec<S
                 effect_state = "provider_outcome_unknown";
             }
             "recipient_available" => {
-                if instruction_id.is_none() || event_instruction != instruction_id.as_deref()
-                    || actor != "SYNTH-PSP-B" || authority_state != "valid"
+                if instruction_id.is_none()
+                    || event_instruction != instruction_id.as_deref()
+                    || actor != "SYNTH-PSP-B"
+                    || authority_state != "valid"
                     || evidence != "recipient_availability_receipt"
                 {
                     errors.push(format!("{scenario_id}: recipient availability lacks matching instruction and beneficiary PSP evidence"));
@@ -480,7 +587,8 @@ fn validate_scenario(corpus: &Value, scenario: &Value) -> (String, String, Vec<S
                 if effect_state != "recipient_available"
                     || event_instruction != instruction_id.as_deref()
                     || actor != "SYNTH-SETTLEMENT-AUTHORITY"
-                    || authority_state != "valid" || evidence != "settlement_statement_record"
+                    || authority_state != "valid"
+                    || evidence != "settlement_statement_record"
                 {
                     errors.push(format!("{scenario_id}: settlement observation lacks distinct prior availability and settlement evidence"));
                 }
@@ -489,7 +597,8 @@ fn validate_scenario(corpus: &Value, scenario: &Value) -> (String, String, Vec<S
             "finality_qualified" => {
                 if effect_state != "settlement_observed"
                     || event_instruction != instruction_id.as_deref()
-                    || authority_state != "valid" || evidence != "profile_finality_certificate"
+                    || authority_state != "valid"
+                    || evidence != "profile_finality_certificate"
                 {
                     errors.push(format!("{scenario_id}: finality lacks separate profile-specific evidence after settlement"));
                 }
@@ -506,10 +615,22 @@ fn validate_scenario(corpus: &Value, scenario: &Value) -> (String, String, Vec<S
         ));
     }
     if instruction_id.is_some() && disposition != "permit_instruction" {
-        errors.push(format!("{scenario_id}: instruction exists when composition disposition is {disposition}"));
+        errors.push(format!(
+            "{scenario_id}: instruction exists when composition disposition is {disposition}"
+        ));
     }
-    if instruction_id.is_none() && matches!(effect_state, "provider_outcome_unknown" | "recipient_available" | "settlement_observed" | "finality_qualified") {
-        errors.push(format!("{scenario_id}: later payment-effect state lacks an instruction"));
+    if instruction_id.is_none()
+        && matches!(
+            effect_state,
+            "provider_outcome_unknown"
+                | "recipient_available"
+                | "settlement_observed"
+                | "finality_qualified"
+        )
+    {
+        errors.push(format!(
+            "{scenario_id}: later payment-effect state lacks an instruction"
+        ));
     }
     let expected_disposition = str_at(scenario, "expected_disposition").unwrap_or("");
     if disposition != expected_disposition {
@@ -517,7 +638,12 @@ fn validate_scenario(corpus: &Value, scenario: &Value) -> (String, String, Vec<S
             "{scenario_id}: computed disposition {disposition} differs from expected {expected_disposition}"
         ));
     }
-    (disposition.into(), effect_state.into(), errors, assurance_vector)
+    (
+        disposition.into(),
+        effect_state.into(),
+        errors,
+        assurance_vector,
+    )
 }
 
 fn semantic_errors(corpus: &Value) -> Vec<String> {
@@ -525,7 +651,10 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
     if str_at(corpus, "schema") != Some(EXPECTED_SCHEMA)
         || str_at(corpus, "corpus_id") != Some(EXPECTED_CORPUS)
         || str_at(corpus, "status") != Some("synthetic_reference_only")
-        || corpus.get("external_effects_enabled").and_then(Value::as_bool) != Some(false)
+        || corpus
+            .get("external_effects_enabled")
+            .and_then(Value::as_bool)
+            != Some(false)
     {
         errors.push("corpus identity/status/effects contract invalid".into());
     }
@@ -534,7 +663,9 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
         errors.push("corpus as_of date invalid".into());
     }
 
-    let sources = array_at(corpus, "source_register").cloned().unwrap_or_default();
+    let sources = array_at(corpus, "source_register")
+        .cloned()
+        .unwrap_or_default();
     let profiles = array_at(corpus, "profiles").cloned().unwrap_or_default();
     let scenarios = array_at(corpus, "scenarios").cloned().unwrap_or_default();
     let mut source_ids = BTreeSet::new();
@@ -549,13 +680,17 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
         }
         let observed = str_at(source, "observed_on").unwrap_or("");
         if !valid_date(observed) || observed > as_of {
-            errors.push(format!("source_register[{index}]: invalid/future observed date"));
+            errors.push(format!(
+                "source_register[{index}]: invalid/future observed date"
+            ));
         }
     }
     for (index, profile) in profiles.iter().enumerate() {
         let id = str_at(profile, "profile_id").unwrap_or("");
         if id.is_empty() || !profile_ids.insert(id.to_owned()) {
-            errors.push(format!("profiles[{index}]: missing or duplicate profile id"));
+            errors.push(format!(
+                "profiles[{index}]: missing or duplicate profile id"
+            ));
         }
         for reference in array_at(profile, "source_refs").into_iter().flatten() {
             if !reference.as_str().is_some_and(|v| source_ids.contains(v)) {
@@ -567,21 +702,31 @@ fn semantic_errors(corpus: &Value) -> Vec<String> {
             errors.push(format!("profiles[{index}]: invalid/future observed date"));
         }
     }
-    for (index, issuer) in array_at(corpus, "issuer_registry").into_iter().flatten().enumerate() {
+    for (index, issuer) in array_at(corpus, "issuer_registry")
+        .into_iter()
+        .flatten()
+        .enumerate()
+    {
         let id = str_at(issuer, "issuer_id").unwrap_or("");
         if id.is_empty() || !issuer_ids.insert(id.to_owned()) {
-            errors.push(format!("issuer_registry[{index}]: missing or duplicate issuer id"));
+            errors.push(format!(
+                "issuer_registry[{index}]: missing or duplicate issuer id"
+            ));
         }
     }
     for (index, scenario) in scenarios.iter().enumerate() {
         let id = str_at(scenario, "scenario_id").unwrap_or("");
         if id.is_empty() || !scenario_ids.insert(id.to_owned()) {
-            errors.push(format!("scenarios[{index}]: missing or duplicate scenario id"));
+            errors.push(format!(
+                "scenarios[{index}]: missing or duplicate scenario id"
+            ));
         }
         let (disposition, effect, scenario_errors, _) = validate_scenario(corpus, scenario);
         errors.extend(scenario_errors);
         if disposition.is_empty() || effect.is_empty() {
-            errors.push(format!("scenarios[{index}]: evaluation did not return a disposition/effect"));
+            errors.push(format!(
+                "scenarios[{index}]: evaluation did not return a disposition/effect"
+            ));
         }
     }
     if sources.is_empty() || profiles.is_empty() || scenarios.len() < 30 {
@@ -610,26 +755,144 @@ fn run_self_tests(corpus: &Value) -> Result<usize, String> {
     }
     let mut count = 0;
     let mutations: Vec<(&str, Box<dyn FnOnce(&mut Value)>)> = vec![
-        ("JWS subject mismatch", Box::new(|v| v["scenarios"][0]["assertions"]["message_authenticity"]["subject_digest"] = json!("sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"))),
-        ("JWS wrong audience", Box::new(|v| v["scenarios"][0]["assertions"]["message_authenticity"]["audience"] = json!("OTHER-PSP"))),
-        ("JWS untrusted issuer", Box::new(|v| v["scenarios"][0]["assertions"]["message_authenticity"]["issuer"] = json!("UNLISTED"))),
-        ("requester cross-subject", Box::new(|v| v["scenarios"][0]["assertions"]["requester_identity"]["subject_digest"] = json!("sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"))),
-        ("VoP cross-subject", Box::new(|v| v["scenarios"][0]["assertions"]["beneficiary_match"]["subject_digest"] = json!("sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"))),
-        ("collection authority beneficiary mismatch", Box::new(|v| v["scenarios"][0]["assertions"]["collection_authority"]["beneficiary_subject_digest"] = json!("sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"))),
-        ("commercial amount mismatch", Box::new(|v| v["scenarios"][0]["assertions"]["commercial_evidence"]["amount_minor_units"] = json!(1))),
-        ("payer accepted old digest", Box::new(|v| v["scenarios"][0]["payer_decision"]["accepted_request_digest"] = json!("sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"))),
-        ("payer acceptance after expiry", Box::new(|v| v["scenarios"][0]["payer_decision"]["observed_at"] = json!("2026-11-06T13:00:01Z"))),
-        ("payer fee not acknowledged", Box::new(|v| v["scenarios"][0]["payer_decision"]["acknowledged_fields"].as_array_mut().unwrap().retain(|x| x != "fee"))),
-        ("untrusted local policy issuer", Box::new(|v| v["scenarios"][0]["assertions"]["local_policy_decision"]["issuer"] = json!("UNLISTED-POLICY"))),
-        ("fraud signal subject mismatch", Box::new(|v| v["scenarios"][0]["assertions"]["fraud_signal"]["subject_digest"] = json!("sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"))),
-        ("instruction created after decline", Box::new(|v| { v["scenarios"][0]["payer_decision"]["decision"] = json!("decline"); v["scenarios"][0]["payer_decision"]["accepted_request_digest"] = Value::Null; v["scenarios"][0]["events"] = json!([{"event_id":"MUT-1","sequence":1,"event_type":"instruction_created","actor":"SYNTH-PSP-A","authority_state":"valid","subject_digest":"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","instruction_id":"MUT-INS","evidence_type":"payment_instruction_receipt","observed_at":"2026-11-06T12:20:01Z"}]); v["scenarios"][0]["expected_disposition"] = json!("no_instruction"); v["scenarios"][0]["expected_effect_state"] = json!("instruction_created"); })),
-        ("recipient availability without instruction", Box::new(|v| { v["scenarios"][0]["events"] = json!([{"event_id":"MUT-2","sequence":1,"event_type":"recipient_available","actor":"SYNTH-PSP-B","authority_state":"valid","subject_digest":"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","instruction_id":"MUT-INS","evidence_type":"recipient_availability_receipt","observed_at":"2026-11-06T12:20:02Z"}]); v["scenarios"][0]["expected_effect_state"] = json!("recipient_available"); })),
-        ("settlement without recipient availability", Box::new(|v| { v["scenarios"][0]["events"] = json!([{"event_id":"MUT-3","sequence":1,"event_type":"instruction_created","actor":"SYNTH-PSP-A","authority_state":"valid","subject_digest":"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","instruction_id":"MUT-INS","evidence_type":"payment_instruction_receipt","observed_at":"2026-11-06T12:20:01Z"},{"event_id":"MUT-4","sequence":2,"event_type":"settlement_observed","actor":"SYNTH-SETTLEMENT-AUTHORITY","authority_state":"valid","subject_digest":"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","instruction_id":"MUT-INS","evidence_type":"settlement_statement_record","observed_at":"2026-11-06T12:20:02Z"}]); v["scenarios"][0]["expected_effect_state"] = json!("settlement_observed"); })),
-        ("future-dated source observation", Box::new(|v| v["source_register"][0]["observed_on"] = json!("2027-01-01"))),
-        ("unresolved profile source", Box::new(|v| v["profiles"][0]["source_refs"][0] = json!("MISSING"))),
-        ("unknown claim promoted to verified", Box::new(|v| v["scenarios"][0]["assertions"]["collection_authority"]["state"] = json!("unknown"))),
-        ("duplicate instruction", Box::new(|v| { v["scenarios"][1]["events"].push(v["scenarios"][1]["events"][0].clone()); v["scenarios"][1]["events"][1]["event_id"] = json!("DUP-INSTRUCTION"); v["scenarios"][1]["events"][1]["sequence"] = json!(2); })),
-        ("finality without settlement", Box::new(|v| { v["scenarios"][1]["events"].push(json!({"event_id":"MUT-FINALITY","sequence":2,"event_type":"finality_qualified","actor":"SYNTH-PSP-A","authority_state":"valid","subject_digest":"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","instruction_id":"INS-2","evidence_type":"profile_finality_certificate","observed_at":"2026-11-06T12:20:02Z"})); v["scenarios"][1]["expected_effect_state"] = json!("finality_qualified"); }))
+        (
+            "JWS subject mismatch",
+            Box::new(|v| {
+                v["scenarios"][0]["assertions"]["message_authenticity"]["subject_digest"] =
+                    json!("sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff")
+            }),
+        ),
+        (
+            "JWS wrong audience",
+            Box::new(|v| {
+                v["scenarios"][0]["assertions"]["message_authenticity"]["audience"] =
+                    json!("OTHER-PSP")
+            }),
+        ),
+        (
+            "JWS untrusted issuer",
+            Box::new(|v| {
+                v["scenarios"][0]["assertions"]["message_authenticity"]["issuer"] =
+                    json!("UNLISTED")
+            }),
+        ),
+        (
+            "requester cross-subject",
+            Box::new(|v| {
+                v["scenarios"][0]["assertions"]["requester_identity"]["subject_digest"] =
+                    json!("sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff")
+            }),
+        ),
+        (
+            "VoP cross-subject",
+            Box::new(|v| {
+                v["scenarios"][0]["assertions"]["beneficiary_match"]["subject_digest"] =
+                    json!("sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff")
+            }),
+        ),
+        (
+            "collection authority beneficiary mismatch",
+            Box::new(|v| {
+                v["scenarios"][0]["assertions"]["collection_authority"]["beneficiary_subject_digest"] =
+                    json!("sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff")
+            }),
+        ),
+        (
+            "commercial amount mismatch",
+            Box::new(|v| {
+                v["scenarios"][0]["assertions"]["commercial_evidence"]["amount_minor_units"] =
+                    json!(1)
+            }),
+        ),
+        (
+            "payer accepted old digest",
+            Box::new(|v| {
+                v["scenarios"][0]["payer_decision"]["accepted_request_digest"] =
+                    json!("sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff")
+            }),
+        ),
+        (
+            "payer acceptance after expiry",
+            Box::new(|v| {
+                v["scenarios"][0]["payer_decision"]["observed_at"] = json!("2026-11-06T13:00:01Z")
+            }),
+        ),
+        (
+            "payer fee not acknowledged",
+            Box::new(|v| {
+                v["scenarios"][0]["payer_decision"]["acknowledged_fields"]
+                    .as_array_mut()
+                    .unwrap()
+                    .retain(|x| x != "fee")
+            }),
+        ),
+        (
+            "untrusted local policy issuer",
+            Box::new(|v| {
+                v["scenarios"][0]["assertions"]["local_policy_decision"]["issuer"] =
+                    json!("UNLISTED-POLICY")
+            }),
+        ),
+        (
+            "fraud signal subject mismatch",
+            Box::new(|v| {
+                v["scenarios"][0]["assertions"]["fraud_signal"]["subject_digest"] =
+                    json!("sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff")
+            }),
+        ),
+        (
+            "instruction created after decline",
+            Box::new(|v| {
+                v["scenarios"][0]["payer_decision"]["decision"] = json!("decline");
+                v["scenarios"][0]["payer_decision"]["accepted_request_digest"] = Value::Null;
+                v["scenarios"][0]["events"] = json!([{"event_id":"MUT-1","sequence":1,"event_type":"instruction_created","actor":"SYNTH-PSP-A","authority_state":"valid","subject_digest":"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","instruction_id":"MUT-INS","evidence_type":"payment_instruction_receipt","observed_at":"2026-11-06T12:20:01Z"}]);
+                v["scenarios"][0]["expected_disposition"] = json!("no_instruction");
+                v["scenarios"][0]["expected_effect_state"] = json!("instruction_created");
+            }),
+        ),
+        (
+            "recipient availability without instruction",
+            Box::new(|v| {
+                v["scenarios"][0]["events"] = json!([{"event_id":"MUT-2","sequence":1,"event_type":"recipient_available","actor":"SYNTH-PSP-B","authority_state":"valid","subject_digest":"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","instruction_id":"MUT-INS","evidence_type":"recipient_availability_receipt","observed_at":"2026-11-06T12:20:02Z"}]);
+                v["scenarios"][0]["expected_effect_state"] = json!("recipient_available");
+            }),
+        ),
+        (
+            "settlement without recipient availability",
+            Box::new(|v| {
+                v["scenarios"][0]["events"] = json!([{"event_id":"MUT-3","sequence":1,"event_type":"instruction_created","actor":"SYNTH-PSP-A","authority_state":"valid","subject_digest":"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","instruction_id":"MUT-INS","evidence_type":"payment_instruction_receipt","observed_at":"2026-11-06T12:20:01Z"},{"event_id":"MUT-4","sequence":2,"event_type":"settlement_observed","actor":"SYNTH-SETTLEMENT-AUTHORITY","authority_state":"valid","subject_digest":"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","instruction_id":"MUT-INS","evidence_type":"settlement_statement_record","observed_at":"2026-11-06T12:20:02Z"}]);
+                v["scenarios"][0]["expected_effect_state"] = json!("settlement_observed");
+            }),
+        ),
+        (
+            "future-dated source observation",
+            Box::new(|v| v["source_register"][0]["observed_on"] = json!("2027-01-01")),
+        ),
+        (
+            "unresolved profile source",
+            Box::new(|v| v["profiles"][0]["source_refs"][0] = json!("MISSING")),
+        ),
+        (
+            "unknown claim promoted to verified",
+            Box::new(|v| {
+                v["scenarios"][0]["assertions"]["collection_authority"]["state"] = json!("unknown")
+            }),
+        ),
+        (
+            "duplicate instruction",
+            Box::new(|v| {
+                v["scenarios"][1]["events"].push(v["scenarios"][1]["events"][0].clone());
+                v["scenarios"][1]["events"][1]["event_id"] = json!("DUP-INSTRUCTION");
+                v["scenarios"][1]["events"][1]["sequence"] = json!(2);
+            }),
+        ),
+        (
+            "finality without settlement",
+            Box::new(|v| {
+                v["scenarios"][1]["events"].push(json!({"event_id":"MUT-FINALITY","sequence":2,"event_type":"finality_qualified","actor":"SYNTH-PSP-A","authority_state":"valid","subject_digest":"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","instruction_id":"INS-2","evidence_type":"profile_finality_certificate","observed_at":"2026-11-06T12:20:02Z"}));
+                v["scenarios"][1]["expected_effect_state"] = json!("finality_qualified");
+            }),
+        ),
     ];
     for (label, mutation) in mutations {
         mutate_and_expect_rejection(label, corpus, mutation)?;
@@ -647,34 +910,53 @@ fn main() -> Result<(), Box<dyn Error>> {
         match arg.as_str() {
             "--corpus" => {
                 let path = PathBuf::from(args.next().ok_or_else(|| {
-                    std::io::Error::new(std::io::ErrorKind::InvalidInput, "--corpus requires a path")
+                    std::io::Error::new(
+                        std::io::ErrorKind::InvalidInput,
+                        "--corpus requires a path",
+                    )
                 })?);
                 corpus_text = fs::read_to_string(path)?;
             }
             "--schema" => {
                 let path = PathBuf::from(args.next().ok_or_else(|| {
-                    std::io::Error::new(std::io::ErrorKind::InvalidInput, "--schema requires a path")
+                    std::io::Error::new(
+                        std::io::ErrorKind::InvalidInput,
+                        "--schema requires a path",
+                    )
                 })?);
                 schema_text = fs::read_to_string(path)?;
             }
             "--self-test" => self_test = true,
             "--help" | "-h" => {
-                println!("payment-initiation-composition-evaluator [--corpus PATH] [--schema PATH] [--self-test]");
+                println!(
+                    "payment-initiation-composition-evaluator [--corpus PATH] [--schema PATH] [--self-test]"
+                );
                 return Ok(());
             }
-            other => return Err(std::io::Error::new(std::io::ErrorKind::InvalidInput, format!("unknown argument: {other}")).into()),
+            other => {
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::InvalidInput,
+                    format!("unknown argument: {other}"),
+                )
+                .into());
+            }
         }
     }
     let corpus: Value = serde_json::from_str(&corpus_text)?;
     let schema: Value = serde_json::from_str(&schema_text)?;
     let mut errors = semantic_errors(&corpus);
     errors.extend(schema_errors(&schema, &corpus));
-    let negative_controls = if self_test { run_self_tests(&corpus)? } else { 0 };
+    let negative_controls = if self_test {
+        run_self_tests(&corpus)?
+    } else {
+        0
+    };
     let mut disposition_counts = BTreeMap::<String, u64>::new();
     let mut effect_counts = BTreeMap::<String, u64>::new();
     let mut cases = Vec::new();
     for scenario in array_at(&corpus, "scenarios").into_iter().flatten() {
-        let (disposition, effect, case_errors, assurance_vector) = validate_scenario(&corpus, scenario);
+        let (disposition, effect, case_errors, assurance_vector) =
+            validate_scenario(&corpus, scenario);
         *disposition_counts.entry(disposition.clone()).or_default() += 1;
         *effect_counts.entry(effect.clone()).or_default() += 1;
         cases.push(json!({
@@ -703,7 +985,10 @@ fn main() -> Result<(), Box<dyn Error>> {
         "cases": cases
     });
     println!("{}", serde_json::to_string_pretty(&report)?);
-    if !report["status"].as_str().is_some_and(|value| value == "PASS") {
+    if !report["status"]
+        .as_str()
+        .is_some_and(|value| value == "PASS")
+    {
         std::process::exit(1);
     }
     Ok(())
@@ -717,8 +1002,16 @@ mod tests {
     fn schema_and_composition_corpus_validate() {
         let corpus: Value = serde_json::from_str(DEFAULT_CORPUS).expect("corpus JSON");
         let schema: Value = serde_json::from_str(DEFAULT_SCHEMA).expect("schema JSON");
-        assert!(semantic_errors(&corpus).is_empty(), "{:?}", semantic_errors(&corpus));
-        assert!(schema_errors(&schema, &corpus).is_empty(), "{:?}", schema_errors(&schema, &corpus));
+        assert!(
+            semantic_errors(&corpus).is_empty(),
+            "{:?}",
+            semantic_errors(&corpus)
+        );
+        assert!(
+            schema_errors(&schema, &corpus).is_empty(),
+            "{:?}",
+            schema_errors(&schema, &corpus)
+        );
         assert_eq!(array_at(&corpus, "scenarios").unwrap().len(), 35);
     }
 
