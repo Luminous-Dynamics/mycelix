@@ -9,6 +9,9 @@ on:
       - "tools/pulse-signed-evidence-audit/**"
       - "mycelix-workspace/mycelix-pulse/docs/security/pulse-signed-evidence-bundle-v1.schema.json"
       - "mycelix-workspace/mycelix-pulse/docs/security/pulse-evidence-trust-policy-v1.schema.json"
+      - "mycelix-workspace/mycelix-pulse/docs/security/pulse-signed-evidence-bundle-v1.schema.json"
+      - "mycelix-workspace/mycelix-pulse/docs/security/pulse-trusted-root-pin-v1.schema.json"
+      - "mycelix-workspace/mycelix-pulse/docs/security/pulse-trust-policy-root-envelope-v1.schema.json"
       - "mycelix-workspace/mycelix-pulse/docs/security/pulse-signed-evidence-profile-v1.md"
   pull_request:
     paths:
@@ -16,6 +19,9 @@ on:
       - "tools/pulse-signed-evidence-audit/**"
       - "mycelix-workspace/mycelix-pulse/docs/security/pulse-signed-evidence-bundle-v1.schema.json"
       - "mycelix-workspace/mycelix-pulse/docs/security/pulse-evidence-trust-policy-v1.schema.json"
+      - "mycelix-workspace/mycelix-pulse/docs/security/pulse-signed-evidence-bundle-v1.schema.json"
+      - "mycelix-workspace/mycelix-pulse/docs/security/pulse-trusted-root-pin-v1.schema.json"
+      - "mycelix-workspace/mycelix-pulse/docs/security/pulse-trust-policy-root-envelope-v1.schema.json"
       - "mycelix-workspace/mycelix-pulse/docs/security/pulse-signed-evidence-profile-v1.md"
   workflow_dispatch:
 
