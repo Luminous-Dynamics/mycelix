@@ -1,0 +1,191 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/mycelix-financial-evidence-change-impact-report-v1.0.0.json",
+  "title": "Mycelix Financial Evidence Change Impact Report v1.0.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "report_id",
+    "schema_version",
+    "claim_ceiling",
+    "input_bundle_sha256",
+    "case_count",
+    "case_results"
+  ],
+  "properties": {
+    "report_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "claim_ceiling": {
+      "const": "deterministic_dependency_impact_analysis_not_accounting_policy_or_ledger_authority"
+    },
+    "input_bundle_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "case_count": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "case_results": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/result"
+      }
+    }
+  },
+  "$defs": {
+    "result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "scenario_id",
+        "impact_level",
+        "baseline_graph_sha256",
+        "candidate_graph_sha256",
+        "changed_objects",
+        "affected_objects",
+        "claim_complete",
+        "finding_codes"
+      ],
+      "properties": {
+        "scenario_id": {
+          "type": "string"
+        },
+        "impact_level": {
+          "enum": [
+            "no_material_impact",
+            "review_required",
+            "reproject_required",
+            "historical_replay_required",
+            "projection_invalid"
+          ]
+        },
+        "baseline_graph_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "candidate_graph_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "changed_objects": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "source_refs",
+            "assertion_refs",
+            "event_refs",
+            "relation_refs",
+            "policy_changed",
+            "projector_changed"
+          ],
+          "properties": {
+            "source_refs": {
+              "type": "array",
+              "uniqueItems": true,
+              "items": {
+                "type": "string"
+              }
+            },
+            "assertion_refs": {
+              "type": "array",
+              "uniqueItems": true,
+              "items": {
+                "type": "string"
+              }
+            },
+            "event_refs": {
+              "type": "array",
+              "uniqueItems": true,
+              "items": {
+                "type": "string"
+              }
+            },
+            "relation_refs": {
+              "type": "array",
+              "uniqueItems": true,
+              "items": {
+                "type": "string"
+              }
+            },
+            "policy_changed": {
+              "type": "boolean"
+            },
+            "projector_changed": {
+              "type": "boolean"
+            }
+          }
+        },
+        "affected_objects": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "event_refs",
+            "decision_refs",
+            "journal_line_refs",
+            "statement_refs"
+          ],
+          "properties": {
+            "event_refs": {
+              "type": "array",
+              "uniqueItems": true,
+              "items": {
+                "type": "string"
+              }
+            },
+            "decision_refs": {
+              "type": "array",
+              "uniqueItems": true,
+              "items": {
+                "type": "string"
+              }
+            },
+            "journal_line_refs": {
+              "type": "array",
+              "uniqueItems": true,
+              "items": {
+                "type": "string"
+              }
+            },
+            "statement_refs": {
+              "type": "array",
+              "uniqueItems": true,
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "claim_complete": {
+          "type": "boolean"
+        },
+        "finding_codes": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "source_semantic_change",
+              "source_transport_metadata_only",
+              "assertion_material_change",
+              "assertion_invalidated_or_disputed",
+              "late_evidence_available_at_new_frontier",
+              "event_semantic_change",
+              "relation_semantic_change",
+              "policy_digest_changed",
+              "projector_digest_changed",
+              "unlinked_source_revision_family",
+              "claimed_impact_omitted_dependency",
+              "baseline_projection_graph_binding_mismatch",
+              "baseline_projection_dependency_invalid"
+            ]
+          }
+        }
+      }
+    }
+  }
+}
