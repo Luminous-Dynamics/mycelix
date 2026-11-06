@@ -295,12 +295,16 @@ fn assess_case(case: &Value) -> AppResult<Assessment> {
             reasons.insert("journal_profile_or_period_mismatch".to_owned());
         }
         let effective_at = string(journal, "effective_at").unwrap_or_default();
-        if !close_cutoff.is_empty()
-            && effective_at > close_cutoff
-            && journal.get("post_close_authorized").and_then(Value::as_bool) != Some(true)
-        {
+        let booking_at = string(journal, "booking_at").unwrap_or_default();
+        let post_close_authorized =
+            journal.get("post_close_authorized").and_then(Value::as_bool) == Some(true);
+        if !close_cutoff.is_empty() && effective_at > close_cutoff && !post_close_authorized {
             findings.insert("stale_close_frontier".to_owned());
             reasons.insert("journal_effective_after_close_cutoff".to_owned());
+        }
+        if !close_cutoff.is_empty() && booking_at > close_cutoff && !post_close_authorized {
+            findings.insert("stale_close_frontier".to_owned());
+            reasons.insert("journal_received_after_close_without_reopen_authority".to_owned());
         }
 
         let mut debits = 0_i128;
@@ -440,8 +444,9 @@ fn assess_case(case: &Value) -> AppResult<Assessment> {
         findings.insert("period_boundary_conflict".to_owned());
         reasons.insert("predecessor_close_missing".to_owned());
     }
+    let empty_prior_close = Value::Null;
     let prior = array(
-        manifest.get("prior_close").unwrap_or(&Value::Null),
+        manifest.get("prior_close").unwrap_or(&empty_prior_close),
         "account_balances",
     );
     let opening = array(manifest, "opening_balances");
