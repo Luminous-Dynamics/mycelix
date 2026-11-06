@@ -1,0 +1,233 @@
+{
+  "schema_version": "1.0",
+  "disclosure": "Synthetic public conformance fixtures only. UUIDs, hashes, issuers, project IDs and timestamps do not refer to real records. This is not a hidden oracle or proof of DeSci runtime availability.",
+  "cases": [
+    {
+      "case_id": "valid-reference-001",
+      "expected_disposition": "eligible_for_policy_evaluation",
+      "reason": "All synthetic event/artifact/receipt/issuer/subject/boundary/time references are internally consistent; factual truth is not established."
+    },
+    {
+      "case_id": "legacy-url-002",
+      "expected_disposition": "unassessed_legacy_locator",
+      "reason": "A raw locator has no content digest, canonical DeSci event or authority receipt."
+    },
+    {
+      "case_id": "wrong-boundary-003",
+      "expected_disposition": "blocked",
+      "reason": "The evidence subject/boundary does not match the Energy project's exact point of connection."
+    },
+    {
+      "case_id": "future-known-004",
+      "expected_disposition": "blocked",
+      "reason": "Canonical server received_at is after the requested historical decision frontier."
+    },
+    {
+      "case_id": "unauthorized-signer-005",
+      "expected_disposition": "blocked",
+      "reason": "The event signature is valid but the actor lacks the required system_operator authority at the registry revision."
+    },
+    {
+      "case_id": "superseded-evidence-006",
+      "expected_disposition": "historical_only",
+      "reason": "The record remains in history but a current required gate cannot be satisfied by it."
+    },
+    {
+      "case_id": "copied-source-family-007",
+      "expected_disposition": "eligible_but_not_independent_corroboration",
+      "reason": "Multiple artifacts derived from one upstream source remain one provenance family."
+    },
+    {
+      "case_id": "embargoed-public-view-008",
+      "expected_disposition": "blocked",
+      "reason": "The caller is not authorized to retrieve controlled/embargoed artifact bytes or metadata."
+    }
+  ],
+  "valid_reference_example": {
+    "schema_version": "1.0",
+    "reference_id": "energy-evidence-ref-synthetic-001",
+    "project_binding": {
+      "energy_project_id": "project:synthetic-solar-001",
+      "project_revision_ref": "action-hash:synthetic-project-rev-001",
+      "site_id": "site:synthetic-nc-001",
+      "subject_id": "poc:synthetic-nc-001",
+      "boundary_id": "grid-poc-poc-synthetic-nc-001",
+      "boundary_profile": "grid-connection-point-v1",
+      "point_of_connection_id": "poc:synthetic-nc-001"
+    },
+    "claim_binding": {
+      "claim_id": "claim:grid-allocation-100mw",
+      "proposition_id": "grid_right",
+      "proposition": "The synthetic project has an allocated 100 MW export capacity at the named point of connection.",
+      "materiality": "critical",
+      "required_for_gate": true
+    },
+    "issuer_profile": {
+      "issuer_actor_id": "did:synthetic:system-operator",
+      "issuer_organization_id": "org:synthetic-ntcsa",
+      "issuer_role": "system_operator",
+      "authority_profile_id": "south-africa-grid-operator-v1",
+      "authority_registry_revision": "credential-registry-revision-42",
+      "authority_receipt_ref": "authority-receipt:synthetic-001"
+    },
+    "evidence_class": "issuer_signed",
+    "canonical_desci_reference": {
+      "deployment_profile": "desci-postgres-canonical-v1",
+      "research_object_id": "11111111-1111-4111-8111-111111111111",
+      "claim_id": "22222222-2222-4222-8222-222222222222",
+      "artifact_id": "33333333-3333-4333-8333-333333333333",
+      "artifact_content_hash": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+      "artifact_media_type": "application/pdf",
+      "artifact_availability": "controlled",
+      "artifact_locator_ref": "desci-artifact-resolver:artifact-33333333",
+      "evidence_attached_event_id": "44444444-4444-4444-8444-444444444444",
+      "evidence_attached_event_hash": "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789",
+      "stream_id": "22222222-2222-4222-8222-222222222222",
+      "stream_sequence": 1,
+      "append_receipt": {
+        "event_id": "44444444-4444-4444-8444-444444444444",
+        "stream_id": "22222222-2222-4222-8222-222222222222",
+        "sequence": 1,
+        "event_hash": "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789",
+        "received_at": "2026-06-03T09:00:00Z",
+        "receipt_ref": "desci-append-receipt:synthetic-001"
+      }
+    },
+    "temporal_scope": {
+      "valid_from": "2026-06-01T00:00:00Z",
+      "valid_until": "2028-06-01T00:00:00Z",
+      "known_at": "2026-06-03T09:00:00Z",
+      "occurred_at": "2026-06-02T12:00:00Z",
+      "time_basis": "issuer_declared_and_verified",
+      "time_scope_source_ref": "artifact-page:synthetic-001"
+    },
+    "lifecycle": {
+      "state": "current",
+      "last_transition_event_ref": null,
+      "supersedes": null,
+      "superseded_by": null,
+      "dispute_ref": null
+    },
+    "provenance": {
+      "source_family_id": "operator-grid-doc-family-001",
+      "source_release_id": "gcca-release-2026-05",
+      "artifact_bytes_hash": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+      "ingestion_profile": "desci-artifact-ingest-v1",
+      "transformation_refs": [],
+      "upstream_source_family_ids": [],
+      "coverage_note": "Synthetic fixture; not an actual grid allocation."
+    },
+    "verification_receipt": {
+      "verifier_id": "verifier:synthetic-grid-evidence",
+      "verification_policy_id": "project-evidence-verification-v1",
+      "verification_policy_version": "1.0",
+      "verification_receipt_ref": "verification-receipt:synthetic-001",
+      "verification_receipt_hash": "fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210",
+      "verified_at": "2026-06-03T09:05:00Z",
+      "result": "verified",
+      "checks": [
+        "artifact_digest_matches",
+        "event_signature_valid",
+        "authority_receipt_valid",
+        "issuer_role_matches",
+        "project_boundary_matches",
+        "time_frontier_valid"
+      ],
+      "authority_status": "authorized",
+      "signature_status": "valid",
+      "scope_status": "matches",
+      "temporal_status": "valid"
+    },
+    "access_policy": {
+      "availability": "controlled",
+      "license_ref": "license-profile:synthetic-restricted",
+      "redaction_profile": null,
+      "access_decision": "permitted"
+    },
+    "limitations": [
+      "Synthetic conformance example only.",
+      "Signature and authority status values are outputs of the verifier receipt, not caller assertions."
+    ]
+  },
+  "legacy_reference_example": {
+    "schema_version": "1.0",
+    "reference_id": "legacy-url-reference-002",
+    "project_binding": {
+      "energy_project_id": "project:legacy-001",
+      "project_revision_ref": "legacy-action-ref",
+      "site_id": "site:unknown",
+      "subject_id": "unknown",
+      "boundary_id": "unknown",
+      "boundary_profile": "unassessed-legacy"
+    },
+    "claim_binding": {
+      "claim_id": "milestone-evidence-legacy",
+      "proposition_id": "milestone_verification",
+      "proposition": "Legacy milestone verification locator; not assessed.",
+      "materiality": "medium",
+      "required_for_gate": false
+    },
+    "issuer_profile": null,
+    "evidence_class": "unassessed_legacy_locator",
+    "legacy_locator_ref": "https://legacy.example.invalid/milestone-report.pdf",
+    "canonical_desci_reference": null,
+    "temporal_scope": null,
+    "lifecycle": {
+      "state": "unassessed_legacy_locator",
+      "last_transition_event_ref": null,
+      "supersedes": null,
+      "superseded_by": null,
+      "dispute_ref": null,
+      "transition_reason": "Raw URL retained for migration history only."
+    },
+    "provenance": null,
+    "verification_receipt": null,
+    "access_policy": {
+      "availability": "unknown",
+      "license_ref": null,
+      "redaction_profile": null,
+      "access_decision": "unknown"
+    },
+    "limitations": [
+      "No content hash, canonical DeSci event, append receipt or issuer authority is asserted."
+    ]
+  },
+  "mutations": [
+    {
+      "case_id": "wrong-boundary",
+      "path": "project_binding.boundary_id",
+      "replacement": "grid-poc-different-substation",
+      "expected_disposition": "blocked"
+    },
+    {
+      "case_id": "future-known",
+      "path": "canonical_desci_reference.append_receipt.received_at",
+      "replacement": "2026-08-01T00:00:00Z",
+      "expected_disposition": "blocked_for_historical_frontier"
+    },
+    {
+      "case_id": "unauthorized-role",
+      "path": "issuer_profile.issuer_role",
+      "replacement": "developer",
+      "expected_disposition": "blocked"
+    },
+    {
+      "case_id": "event-hash-substitution",
+      "path": "canonical_desci_reference.evidence_attached_event_hash",
+      "replacement": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "expected_disposition": "blocked"
+    },
+    {
+      "case_id": "superseded",
+      "path": "lifecycle.state",
+      "replacement": "superseded",
+      "expected_disposition": "historical_only"
+    },
+    {
+      "case_id": "public-embargo-leak",
+      "path": "access_policy.access_decision",
+      "replacement": "denied",
+      "expected_disposition": "blocked"
+    }
+  ]
+}
