@@ -1472,6 +1472,32 @@ pub fn channel_transfer(input: ChannelTransferInput) -> ExternResult<Record> {
         )));
     }
 
+    // A participant may debit only their own side of the channel. The
+    // from_a field selects the source balance; it does not authorize it.
+    let authorized_sender = if input.from_a {
+        channel.party_a.as_str()
+    } else {
+        channel.party_b.as_str()
+    };
+    if caller_did.as_str() != authorized_sender {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Caller may only debit their own payment-channel balance".into()
+        )));
+    }
+
+    // A closed channel is terminal; fail before attempting an update.
+    if channel.closed.is_some() {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Cannot transfer on a closed payment channel".into()
+        )));
+    }
+
+    if input.amount == 0 {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Channel transfer amount must be positive".into()
+        )));
+    }
+
     let now = sys_time()?;
     let (new_a, new_b) = if input.from_a {
         (
@@ -1481,11 +1507,21 @@ pub fn channel_transfer(input: ChannelTransferInput) -> ExternResult<Record> {
                 .ok_or(wasm_error!(WasmErrorInner::Guest(
                     "Insufficient balance for party A".into()
                 )))?,
-            channel.balance_b + input.amount,
+            channel
+                .balance_b
+                .checked_add(input.amount)
+                .ok_or(wasm_error!(WasmErrorInner::Guest(
+                    "Receiver balance overflow for party B".into()
+                )))?,
         )
     } else {
         (
-            channel.balance_a + input.amount,
+            channel
+                .balance_a
+                .checked_add(input.amount)
+                .ok_or(wasm_error!(WasmErrorInner::Guest(
+                    "Receiver balance overflow for party A".into()
+                )))?,
             channel
                 .balance_b
                 .checked_sub(input.amount)
