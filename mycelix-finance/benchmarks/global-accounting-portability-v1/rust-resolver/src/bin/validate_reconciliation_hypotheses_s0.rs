@@ -125,7 +125,7 @@ fn date_to_days(value: &str) -> Result<i64, String> {
     if parts.next().is_some() || !(1..=12).contains(&month) || !(1..=31).contains(&day) {
         return Err(format!("invalid ISO date {value}"));
     }
-    year -= i64::from(month <= 2);
+    year -= if month <= 2 { 1 } else { 0 };
     let era = year.div_euclid(400);
     let year_of_era = year - era * 400;
     let adjusted_month = month + if month > 2 { -3 } else { 9 };
@@ -165,7 +165,7 @@ fn criterion_outcome(
             let right_days = right.iter().map(|value| date_to_days(value.as_deref().ok_or("missing right date")?))
                 .collect::<Result<Vec<_>, _>>()?;
             let all_within = left_days.iter().all(|left_day| {
-                right_days.iter().all(|right_day| (left_day - right_day).abs() <= date_tolerance)
+                right_days.iter().all(|right_day| (*left_day - *right_day).abs() <= date_tolerance)
             });
             Ok(if all_within { "match" } else { "mismatch" })
         }
@@ -526,20 +526,23 @@ fn validate_hypothesis(
     }
 
     if decision == "eligible_for_auto_match" {
-        let positive_source_amounts = left_refs.iter().chain(right_refs.iter()).all(|reference| {
-            integer(source_item_by_ref(run, reference).unwrap_or(&Value::Null), "amount_minor").unwrap_or(0) > 0
-        });
+        let mut positive_source_amounts = true;
+        let mut reversal_sources = Vec::new();
+        let mut contains_reversal = false;
+        for reference in left_refs.iter().chain(right_refs.iter()) {
+            let source = source_item_by_ref(run, reference)?;
+            if integer(source, "amount_minor")? <= 0 {
+                positive_source_amounts = false;
+            }
+            if optional_string(source, "transaction_type") == Some("reversal") {
+                contains_reversal = true;
+            }
+            reversal_sources.push(source);
+        }
         if blocking_criterion || review_criterion || missing_or_required_failure || score < integer(rule_set, "auto_match_threshold_bps")? || !is_fully_allocated || !positive_source_amounts {
             return Err(format!("{run_id}/{hypothesis_ref}: auto-match eligibility requirements are not satisfied"));
         }
-        if left_refs.iter().any(|reference| {
-            optional_string(source_item_by_ref(run, reference).ok()?, "transaction_type") == Some("reversal")
-        }) || right_refs.iter().any(|reference| {
-            optional_string(source_item_by_ref(run, reference).ok()?, "transaction_type") == Some("reversal")
-        }) {
-            let reversal_sources = left_refs.iter().chain(right_refs.iter())
-                .map(|reference| source_item_by_ref(run, reference))
-                .collect::<Result<Vec<_>, _>>()?;
+        if contains_reversal {
             if reversal_sources.iter().any(|item| optional_string(item, "transaction_type") != Some("reversal")) {
                 return Err(format!("{run_id}/{hypothesis_ref}: reversal cannot match a non-reversal item"));
             }
@@ -577,10 +580,10 @@ fn validate_hypothesis(
 
     Ok(json!({
         "hypothesis_count": 1,
-        "eligible_for_auto_match_count": usize::from(decision == "eligible_for_auto_match"),
-        "review_required_count": usize::from(decision == "review_required"),
-        "ambiguous_count": usize::from(decision == "ambiguous"),
-        "blocked_count": usize::from(decision == "blocked"),
+        "eligible_for_auto_match_count": if decision == "eligible_for_auto_match" { 1 } else { 0 },
+        "review_required_count": if decision == "review_required" { 1 } else { 0 },
+        "ambiguous_count": if decision == "ambiguous" { 1 } else { 0 },
+        "blocked_count": if decision == "blocked" { 1 } else { 0 },
         "candidate_pair_count": array(hypothesis, "candidate_pairs")?.len(),
         "allocation_count": allocation_count,
         "is_fully_allocated": is_fully_allocated,
