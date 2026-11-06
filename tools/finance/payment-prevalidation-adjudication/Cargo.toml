@@ -1,0 +1,11 @@
+[package]
+name = "payment-prevalidation-adjudication-evaluator"
+version = "0.1.0"
+edition = "2024"
+publish = false
+license = "Apache-2.0"
+description = "Independent, blinded adjudication and false-ready evaluation for payment prevalidation"
+
+[dependencies]
+jsonschema = { version = "=0.60.2", default-features = false }
+serde_json = "=1.0.150"
