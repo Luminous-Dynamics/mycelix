@@ -115,6 +115,7 @@ fn validate_trace(trace: &Value) -> Result<Value, String> {
     let mut source_open_count = 0usize;
     let mut facts = BTreeMap::<String, (String, String, BTreeSet<String>, BTreeSet<String>, u64)>::new();
     let mut terminalized = BTreeMap::<String, (String, BTreeSet<String>, u64)>::new();
+    let mut contradicted_fact_refs = BTreeSet::<String>::new();
     let mut questions = BTreeMap::<String, (BTreeSet<String>, BTreeSet<String>, u64)>::new();
     let mut journal_lines = BTreeMap::<String, (BTreeSet<String>, u64)>::new();
     let mut statement_lines = BTreeMap::<String, (BTreeSet<String>, u64)>::new();
@@ -265,6 +266,18 @@ fn validate_trace(trace: &Value) -> Result<Value, String> {
                 if refs.len() < 2 || refs.iter().any(|fact_ref| !facts.contains_key(fact_ref)) {
                     return Err(format!("{trace_id}/{event_id}: contradiction must connect at least two previously observed facts"));
                 }
+                let related = string_set(event, "related_event_refs")?;
+                if related.is_empty()
+                    || related.iter().any(|reference| {
+                        !event_by_id.get(reference).is_some_and(|prior| {
+                            prior.get("seq").and_then(Value::as_u64).is_some_and(|prior_seq| prior_seq < seq)
+                        })
+                    })
+                {
+                    return Err(format!("{trace_id}/{event_id}: contradiction must cite preceding evidence events"));
+                }
+                string(event, "reason_code")?;
+                contradicted_fact_refs.extend(refs);
             }
             "question_emitted" => {
                 if actor != "candidate_agent" {
@@ -488,6 +501,12 @@ fn validate_trace(trace: &Value) -> Result<Value, String> {
         }
     }
 
+    if journal_lines.values().any(|(fact_refs, _)| {
+        !fact_refs.is_disjoint(&contradicted_fact_refs)
+    }) {
+        return Err(format!("{trace_id}: contradicted facts cannot be projected into journal lines"));
+    }
+
     let (decision, decision_seq) = disposition
         .as_ref()
         .ok_or_else(|| format!("{trace_id}: missing disposition_emitted event"))?;
@@ -512,6 +531,18 @@ fn validate_trace(trace: &Value) -> Result<Value, String> {
     };
     if terminal != expected_terminal {
         return Err(format!("{trace_id}: disposition {decision} conflicts with execution terminal {terminal}"));
+    }
+    if decision == "deliver" && !contradicted_fact_refs.is_empty() {
+        return Err(format!("{trace_id}: unresolved contradiction blocks delivery"));
+    }
+    if decision != "deliver" && (!journal_lines.is_empty() || !statement_lines.is_empty()) {
+        return Err(format!("{trace_id}: non-deliver disposition cannot carry journal or statement outputs"));
+    }
+    if decision == "deliver" && !questions.is_empty() {
+        return Err(format!("{trace_id}: delivery cannot leave clarification questions outstanding"));
+    }
+    if decision == "clarify" && questions.is_empty() {
+        return Err(format!("{trace_id}: clarify disposition requires at least one emitted question"));
     }
 
     Ok(json!({
@@ -737,6 +768,99 @@ mod tests {
         for (index, event) in trace["events"].as_array_mut().unwrap().iter_mut().enumerate() {
             event["seq"] = json!(index + 1);
         }
+        assert!(validate_trace(&trace).is_err());
+    }
+
+    fn inject_synthetic_contradiction(trace: &mut Value) {
+        let mut event = trace["events"][2].clone();
+        event["seq"] = json!(8);
+        event["event_id"] = json!("EVT-018-CONTRADICTION");
+        event["event_kind"] = json!("contradiction_detected");
+        event["actor"] = json!("candidate_agent");
+        event["recorded_at"] = json!("2026-11-06T06:04:07Z");
+        event["fact_ref"] = Value::Null;
+        event["fact_type"] = Value::Null;
+        event["evidence_state"] = Value::Null;
+        event["fact_value_sha256"] = Value::Null;
+        event["prior_evidence_state"] = Value::Null;
+        event["fact_refs"] = json!(["F-001-AMOUNT", "F-001-SUPPLIER"]);
+        event["related_event_refs"] = json!(["EVT-003-FACT", "EVT-004-FACT"]);
+        event["reason_code"] = json!("amount_and_supplier_assertions_conflict");
+        event["source_document_refs"] = json!([]);
+        event["source_observation_event_refs"] = json!([]);
+        event["terminal_state"] = Value::Null;
+        event["terminal_target_refs"] = json!([]);
+        event["terminal_reason"] = Value::Null;
+        event["question_ref"] = Value::Null;
+        event["question_text_sha256"] = Value::Null;
+        event["blocker_fact_refs"] = json!([]);
+        event["journal_line_ref"] = Value::Null;
+        event["journal_line_sha256"] = Value::Null;
+        event["statement_line_ref"] = Value::Null;
+        event["statement_line_sha256"] = Value::Null;
+        event["journal_line_refs"] = json!([]);
+        event["decision_disposition"] = Value::Null;
+        event["terminal_disposition"] = Value::Null;
+        event["response_sha256"] = Value::Null;
+        trace["events"].as_array_mut().unwrap().insert(7, event);
+        for (index, event) in trace["events"].as_array_mut().unwrap().iter_mut().enumerate() {
+            event["seq"] = json!(index + 1);
+        }
+    }
+
+    fn synthetic_contradiction_escalation() -> Value {
+        let (mut trace, _, _, _) = fixture();
+        inject_synthetic_contradiction(&mut trace);
+        trace["events"].as_array_mut().unwrap().retain(|event| {
+            !matches!(
+                optional_string(event, "event_kind"),
+                Some("journal_line_emitted" | "statement_line_emitted")
+            )
+        });
+        for event in trace["events"].as_array_mut().unwrap() {
+            if optional_string(event, "event_kind") == Some("fact_terminalized") {
+                event["terminal_state"] = json!("abstained");
+                event["terminal_target_refs"] = json!([]);
+            }
+            if optional_string(event, "event_kind") == Some("disposition_emitted") {
+                event["decision_disposition"] = json!("escalate");
+                event["reason_code"] = json!("contradictory_evidence_requires_human_review");
+            }
+            if optional_string(event, "event_kind") == Some("execution_terminal") {
+                event["terminal_disposition"] = json!("human_review");
+            }
+        }
+        for (index, event) in trace["events"].as_array_mut().unwrap().iter_mut().enumerate() {
+            event["seq"] = json!(index + 1);
+        }
+        trace
+    }
+
+    #[test]
+    fn contradictory_trace_is_valid_only_when_routed_to_review_without_outputs() {
+        let trace = synthetic_contradiction_escalation();
+        assert!(validate_trace(&trace).is_ok());
+    }
+
+    #[test]
+    fn rejects_delivery_after_contradiction_even_when_conflicting_facts_are_excluded() {
+        let mut trace = synthetic_contradiction_escalation();
+        for event in trace["events"].as_array_mut().unwrap() {
+            if optional_string(event, "event_kind") == Some("disposition_emitted") {
+                event["decision_disposition"] = json!("deliver");
+                event["reason_code"] = json!("no_blocker_detected");
+            }
+            if optional_string(event, "event_kind") == Some("execution_terminal") {
+                event["terminal_disposition"] = json!("completed");
+            }
+        }
+        assert!(validate_trace(&trace).is_err());
+    }
+
+    #[test]
+    fn rejects_journal_projection_of_contradicted_facts() {
+        let (mut trace, _, _, _) = fixture();
+        inject_synthetic_contradiction(&mut trace);
         assert!(validate_trace(&trace).is_err());
     }
 
