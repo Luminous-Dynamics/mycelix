@@ -1,0 +1,937 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mycelix.net/schemas/payment-prevalidation-certificate-v1.schema.json",
+  "title": "Payment Pre-validation Certificate Corpus v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "corpus_id",
+    "status",
+    "as_of",
+    "created_on",
+    "external_effects_enabled",
+    "dispatch_enabled",
+    "purpose",
+    "source_register",
+    "profiles",
+    "required_presentation_fields",
+    "scenarios"
+  ],
+  "properties": {
+    "schema": {
+      "const": "mycelix.payment-prevalidation-certificate/v1"
+    },
+    "corpus_id": {
+      "const": "PAYMENT-PREVALIDATION-CERTIFICATE-SYNTHETIC-V1"
+    },
+    "status": {
+      "const": "synthetic_reference_only"
+    },
+    "as_of": {
+      "type": "string",
+      "format": "date"
+    },
+    "created_on": {
+      "type": "string",
+      "format": "date"
+    },
+    "external_effects_enabled": {
+      "const": false
+    },
+    "dispatch_enabled": {
+      "const": false
+    },
+    "purpose": {
+      "type": "string"
+    },
+    "source_register": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/source"
+      }
+    },
+    "profiles": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/profile"
+      }
+    },
+    "required_presentation_fields": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "scenarios": {
+      "type": "array",
+      "minItems": 32,
+      "items": {
+        "$ref": "#/$defs/scenario"
+      }
+    }
+  },
+  "$defs": {
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "authority",
+        "title",
+        "url",
+        "published_on",
+        "observed_on",
+        "evidence_class",
+        "supports",
+        "does_not_support"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "authority": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "url": {
+          "type": "string",
+          "format": "uri"
+        },
+        "published_on": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date"
+        },
+        "observed_on": {
+          "type": "string",
+          "format": "date"
+        },
+        "evidence_class": {
+          "type": "string"
+        },
+        "supports": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "does_not_support": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "profile_id",
+        "jurisdiction",
+        "instrument",
+        "rail",
+        "payer_participant",
+        "payee_participant",
+        "currency",
+        "valid_from",
+        "effective_to",
+        "observed_on",
+        "vop_mode",
+        "vop_scheme",
+        "vop_authority",
+        "vop_audience",
+        "vop_freshness_seconds",
+        "payer_override_no_match",
+        "payer_override_unavailable",
+        "source_refs",
+        "limit_fee_source_ref",
+        "payee_resolution_freshness_seconds",
+        "limit_fee_freshness_seconds"
+      ],
+      "properties": {
+        "profile_id": {
+          "type": "string"
+        },
+        "jurisdiction": {
+          "type": "string"
+        },
+        "instrument": {
+          "type": "string"
+        },
+        "rail": {
+          "type": "string"
+        },
+        "payer_participant": {
+          "type": "string"
+        },
+        "payee_participant": {
+          "type": "string"
+        },
+        "currency": {
+          "type": "string"
+        },
+        "valid_from": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date"
+        },
+        "effective_to": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date"
+        },
+        "observed_on": {
+          "type": "string",
+          "format": "date"
+        },
+        "vop_mode": {
+          "enum": [
+            "supported",
+            "proposal_only",
+            "unknown"
+          ]
+        },
+        "vop_scheme": {
+          "type": "string"
+        },
+        "vop_authority": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "vop_audience": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "vop_freshness_seconds": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1
+        },
+        "payer_override_no_match": {
+          "enum": [
+            "allowed_with_warning",
+            "not_allowed",
+            "unknown"
+          ]
+        },
+        "payer_override_unavailable": {
+          "enum": [
+            "allowed_with_warning",
+            "not_allowed",
+            "unknown"
+          ]
+        },
+        "source_refs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "limit_fee_source_ref": {
+          "type": "string"
+        },
+        "payee_resolution_freshness_seconds": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "limit_fee_freshness_seconds": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "intent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "profile_id",
+        "intent_ref",
+        "intent_digest",
+        "digest_state",
+        "digest_evidence_ref",
+        "jurisdiction",
+        "payer_participant",
+        "payee_participant",
+        "beneficiary_subject_commitment",
+        "payer_subject_commitment",
+        "amount_minor_units",
+        "currency",
+        "instrument",
+        "purpose",
+        "reference",
+        "rail",
+        "channel",
+        "issued_at",
+        "expires_at"
+      ],
+      "properties": {
+        "profile_id": {
+          "type": "string"
+        },
+        "intent_ref": {
+          "type": "string"
+        },
+        "intent_digest": {
+          "type": "string",
+          "pattern": "^sha256:[a-f0-9]{64}$"
+        },
+        "digest_state": {
+          "enum": [
+            "verified_by_upstream_intent_contract",
+            "unknown",
+            "invalid"
+          ]
+        },
+        "digest_evidence_ref": {
+          "type": "string"
+        },
+        "jurisdiction": {
+          "type": "string"
+        },
+        "payer_participant": {
+          "type": "string"
+        },
+        "payee_participant": {
+          "type": "string"
+        },
+        "beneficiary_subject_commitment": {
+          "type": "string"
+        },
+        "payer_subject_commitment": {
+          "type": "string"
+        },
+        "amount_minor_units": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "currency": {
+          "type": "string"
+        },
+        "instrument": {
+          "type": "string"
+        },
+        "purpose": {
+          "type": "string"
+        },
+        "reference": {
+          "type": "string"
+        },
+        "rail": {
+          "type": "string"
+        },
+        "channel": {
+          "type": "string"
+        },
+        "issued_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "expires_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "payee_resolution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "provider",
+        "participant",
+        "profile_id",
+        "subject_commitment",
+        "intent_digest",
+        "observed_at",
+        "expires_at",
+        "provider_authentication_state",
+        "freshness_state",
+        "source_ref",
+        "evidence_ref"
+      ],
+      "properties": {
+        "status": {
+          "enum": [
+            "resolved",
+            "stale",
+            "unknown",
+            "mismatch"
+          ]
+        },
+        "provider": {
+          "type": "string"
+        },
+        "participant": {
+          "type": "string"
+        },
+        "profile_id": {
+          "type": "string"
+        },
+        "subject_commitment": {
+          "type": "string"
+        },
+        "intent_digest": {
+          "type": "string"
+        },
+        "observed_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "expires_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "provider_authentication_state": {
+          "enum": [
+            "authenticated_fixture",
+            "unauthenticated",
+            "unknown"
+          ]
+        },
+        "freshness_state": {
+          "enum": [
+            "fresh",
+            "stale",
+            "expired",
+            "unknown"
+          ]
+        },
+        "source_ref": {
+          "type": "string"
+        },
+        "evidence_ref": {
+          "type": "string"
+        }
+      }
+    },
+    "vop_result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "scheme",
+        "profile_id",
+        "subject_commitment",
+        "intent_digest",
+        "observed_at",
+        "expires_at",
+        "source_ref",
+        "evidence_ref"
+      ],
+      "properties": {
+        "status": {
+          "enum": [
+            "match",
+            "close_match",
+            "no_match",
+            "unavailable",
+            "not_supported",
+            "unknown"
+          ]
+        },
+        "scheme": {
+          "type": "string"
+        },
+        "profile_id": {
+          "type": "string"
+        },
+        "subject_commitment": {
+          "type": "string"
+        },
+        "intent_digest": {
+          "type": "string"
+        },
+        "observed_at": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        },
+        "expires_at": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        },
+        "source_ref": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "evidence_ref": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "provider_evidence": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": false,
+      "required": [
+        "verification_state",
+        "issuer",
+        "audience",
+        "response_type",
+        "key_id",
+        "algorithm",
+        "algorithm_policy_state",
+        "key_trust_state",
+        "key_source_state",
+        "freshness_state",
+        "replay_state",
+        "subject_commitment",
+        "intent_digest",
+        "profile_id",
+        "source_ref",
+        "evidence_ref",
+        "issued_at",
+        "expires_at"
+      ],
+      "properties": {
+        "verification_state": {
+          "enum": [
+            "verified_fixture",
+            "invalid",
+            "indeterminate"
+          ]
+        },
+        "issuer": {
+          "type": "string"
+        },
+        "audience": {
+          "type": "string"
+        },
+        "response_type": {
+          "type": "string"
+        },
+        "key_id": {
+          "type": "string"
+        },
+        "algorithm": {
+          "type": "string"
+        },
+        "algorithm_policy_state": {
+          "enum": [
+            "allowed",
+            "disallowed",
+            "unknown"
+          ]
+        },
+        "key_trust_state": {
+          "enum": [
+            "authorised_current",
+            "revoked",
+            "unknown"
+          ]
+        },
+        "key_source_state": {
+          "enum": [
+            "profile_allowlisted",
+            "untrusted_remote_url",
+            "unknown"
+          ]
+        },
+        "freshness_state": {
+          "enum": [
+            "fresh",
+            "expired",
+            "future",
+            "unknown"
+          ]
+        },
+        "replay_state": {
+          "enum": [
+            "not_replayed",
+            "replayed",
+            "unknown"
+          ]
+        },
+        "subject_commitment": {
+          "type": "string"
+        },
+        "intent_digest": {
+          "type": "string"
+        },
+        "profile_id": {
+          "type": "string"
+        },
+        "source_ref": {
+          "type": "string"
+        },
+        "evidence_ref": {
+          "type": "string"
+        },
+        "issued_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "expires_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "limit_fee": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "profile_id",
+        "participant",
+        "amount_minor_units",
+        "currency",
+        "fee_minor_units",
+        "fee_payer",
+        "fee_disclosed",
+        "source_ref",
+        "evidence_ref",
+        "observed_at",
+        "expires_at"
+      ],
+      "properties": {
+        "status": {
+          "enum": [
+            "allowed",
+            "denied",
+            "unknown"
+          ]
+        },
+        "profile_id": {
+          "type": "string"
+        },
+        "participant": {
+          "type": "string"
+        },
+        "amount_minor_units": {
+          "type": "integer"
+        },
+        "currency": {
+          "type": "string"
+        },
+        "fee_minor_units": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "fee_payer": {
+          "type": "string"
+        },
+        "fee_disclosed": {
+          "type": "boolean"
+        },
+        "source_ref": {
+          "type": "string"
+        },
+        "evidence_ref": {
+          "type": "string"
+        },
+        "observed_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "expires_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "presentation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "fields_shown",
+        "warnings_shown",
+        "signed_payload",
+        "presented_at",
+        "payload"
+      ],
+      "properties": {
+        "fields_shown": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "warnings_shown": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "signed_payload": {
+          "type": "string"
+        },
+        "presented_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "profile_id",
+            "intent_digest",
+            "beneficiary_subject_commitment",
+            "amount_minor_units",
+            "currency",
+            "instrument",
+            "purpose",
+            "reference",
+            "fee_minor_units",
+            "fee_payer",
+            "participant",
+            "rail",
+            "channel",
+            "expiry_at",
+            "verification_result",
+            "warnings"
+          ],
+          "properties": {
+            "profile_id": {
+              "type": "string"
+            },
+            "intent_digest": {
+              "type": "string"
+            },
+            "beneficiary_subject_commitment": {
+              "type": "string"
+            },
+            "amount_minor_units": {
+              "type": "integer"
+            },
+            "currency": {
+              "type": "string"
+            },
+            "instrument": {
+              "type": "string"
+            },
+            "purpose": {
+              "type": "string"
+            },
+            "reference": {
+              "type": "string"
+            },
+            "fee_minor_units": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "fee_payer": {
+              "type": "string"
+            },
+            "participant": {
+              "type": "string"
+            },
+            "rail": {
+              "type": "string"
+            },
+            "channel": {
+              "type": "string"
+            },
+            "expiry_at": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "verification_result": {
+              "type": "string"
+            },
+            "warnings": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    },
+    "consent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "decision",
+        "authority_state",
+        "intent_digest",
+        "presentation_digest",
+        "evidence_set_digest",
+        "observed_at",
+        "nonce"
+      ],
+      "properties": {
+        "decision": {
+          "enum": [
+            "not_yet_decided",
+            "accepted",
+            "declined",
+            "query",
+            "reconfirm"
+          ]
+        },
+        "authority_state": {
+          "enum": [
+            "valid_fixture",
+            "invalid",
+            "not_applicable",
+            "unknown"
+          ]
+        },
+        "intent_digest": {
+          "type": "string"
+        },
+        "presentation_digest": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "evidence_set_digest": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "observed_at": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        },
+        "nonce": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "scenario": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "scenario_id",
+        "scenario_type",
+        "profile_id",
+        "intent",
+        "payee_resolution",
+        "vop_result",
+        "provider_evidence",
+        "limit_fee",
+        "presentation",
+        "evidence_refs",
+        "evidence_set_digest",
+        "consent",
+        "expected_admission",
+        "expected_disposition",
+        "dispatch_allowed",
+        "evaluation_time"
+      ],
+      "properties": {
+        "scenario_id": {
+          "type": "string"
+        },
+        "scenario_type": {
+          "type": "string"
+        },
+        "profile_id": {
+          "type": "string"
+        },
+        "intent": {
+          "$ref": "#/$defs/intent"
+        },
+        "payee_resolution": {
+          "$ref": "#/$defs/payee_resolution"
+        },
+        "vop_result": {
+          "$ref": "#/$defs/vop_result"
+        },
+        "provider_evidence": {
+          "$ref": "#/$defs/provider_evidence"
+        },
+        "limit_fee": {
+          "$ref": "#/$defs/limit_fee"
+        },
+        "presentation": {
+          "$ref": "#/$defs/presentation"
+        },
+        "evidence_refs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "evidence_set_digest": {
+          "type": "string"
+        },
+        "consent": {
+          "$ref": "#/$defs/consent"
+        },
+        "expected_admission": {
+          "enum": [
+            "ready_for_payer_decision",
+            "ready_with_warning",
+            "needs_payer_reconfirmation",
+            "quarantined_unknown",
+            "ineligible_under_profile",
+            "rejected_evidence"
+          ]
+        },
+        "expected_disposition": {
+          "enum": [
+            "awaiting_payer_decision",
+            "awaiting_payer_response",
+            "payer_declined",
+            "prevalidated_for_psp_review",
+            "needs_payer_reconfirmation",
+            "quarantined_unknown",
+            "ineligible_under_profile",
+            "rejected_evidence"
+          ]
+        },
+        "dispatch_allowed": {
+          "const": false
+        },
+        "transport_payload": {
+          "type": "object"
+        },
+        "profile_expired_override": {
+          "type": "boolean"
+        },
+        "risk_signal": {
+          "type": "object"
+        },
+        "evaluation_time": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    }
+  }
+}
