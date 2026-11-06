@@ -1246,7 +1246,11 @@ mod tests {
             })
             .unwrap();
         let invoice = event_by_ref(case, "EV-007-INVOICE").unwrap();
-        let assertion_refs = set_from_array(invoice, "assertion_refs").unwrap();
+        let assertion_refs = array(invoice, "assertion_refs")
+            .unwrap()
+            .iter()
+            .map(|value| value.as_str().unwrap())
+            .collect::<BTreeSet<_>>();
         assert!(assertion_refs.contains("AS-007-AMOUNT-A"));
         assert!(!assertion_refs.contains("AS-007-AMOUNT-B"));
         assert_eq!(validate_events(case).unwrap().0, 0);
