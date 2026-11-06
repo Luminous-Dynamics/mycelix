@@ -1,0 +1,789 @@
+{
+  "bundle_id": "MYCELIX-ECONOMIC-EVENT-CORE-S0",
+  "schema_version": "1.0.0",
+  "claim_ceiling": "synthetic_evidence_normalization_graph_not_accounting_policy_or_ledger_authority",
+  "graph_kind": "synthetic_event_graph_candidates",
+  "cases": [
+    {
+      "case_id": "EVT-001-INVOICE-WITHOUT-SERVICE-PROOF",
+      "knowledge_at": "2026-11-05T10:30:00Z",
+      "period": {
+        "start": "2026-10-01",
+        "end": "2026-10-31"
+      },
+      "entity_scope_ref": "ENTITY-ACME",
+      "source_objects": [
+        {
+          "source_ref": "SRC-001-INV",
+          "tenant_namespace": "tenant-acme/ap",
+          "external_id": "INV-1001",
+          "revision": "r1",
+          "source_kind": "invoice",
+          "received_at": "2026-11-05T10:00:00Z",
+          "integrity_state": "synthetic_match",
+          "supersedes_source_ref": null
+        }
+      ],
+      "assertions": [
+        {
+          "assertion_ref": "AS-001-AMOUNT",
+          "fact_type": "invoice_amount_minor",
+          "value": 125000,
+          "currency": "USD",
+          "epistemic_state": "asserted",
+          "valid_from": "2026-10-01",
+          "valid_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z",
+          "source_ref": "SRC-001-INV",
+          "source_locator": "page:1/row:1"
+        },
+        {
+          "assertion_ref": "AS-001-SUPPLIER",
+          "fact_type": "supplier_identity",
+          "value": "SUPPLIER-77",
+          "currency": null,
+          "epistemic_state": "asserted",
+          "valid_from": "2026-10-01",
+          "valid_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z",
+          "source_ref": "SRC-001-INV",
+          "source_locator": "page:1/row:1"
+        }
+      ],
+      "events": [
+        {
+          "event_ref": "EV-001-INVOICE",
+          "event_kind": "invoice_issued",
+          "entity_ref": "ENTITY-ACME",
+          "counterparty_ref": "SUPPLIER-77",
+          "occurred_at": "2026-10-29T00:00:00Z",
+          "recorded_at": "2026-11-05T10:00:00Z",
+          "amount_minor": 125000,
+          "currency": "USD",
+          "assertion_refs": [
+            "AS-001-AMOUNT",
+            "AS-001-SUPPLIER"
+          ]
+        }
+      ],
+      "relations": []
+    },
+    {
+      "case_id": "EVT-002-SERVICE-THEN-INVOICE",
+      "knowledge_at": "2026-11-05T10:30:00Z",
+      "period": {
+        "start": "2026-10-01",
+        "end": "2026-10-31"
+      },
+      "entity_scope_ref": "ENTITY-ACME",
+      "source_objects": [
+        {
+          "source_ref": "SRC-002-CTR",
+          "tenant_namespace": "tenant-acme/contracts",
+          "external_id": "CTR-2002",
+          "revision": "r1",
+          "source_kind": "contract",
+          "received_at": "2026-11-05T10:00:00Z",
+          "integrity_state": "synthetic_match",
+          "supersedes_source_ref": null
+        },
+        {
+          "source_ref": "SRC-002-ACC",
+          "tenant_namespace": "tenant-acme/acceptance",
+          "external_id": "ACC-2002",
+          "revision": "r1",
+          "source_kind": "service_acceptance",
+          "received_at": "2026-11-05T10:00:00Z",
+          "integrity_state": "synthetic_match",
+          "supersedes_source_ref": null
+        },
+        {
+          "source_ref": "SRC-002-INV",
+          "tenant_namespace": "tenant-acme/ap",
+          "external_id": "INV-2002",
+          "revision": "r1",
+          "source_kind": "invoice",
+          "received_at": "2026-11-05T10:00:00Z",
+          "integrity_state": "synthetic_match",
+          "supersedes_source_ref": null
+        }
+      ],
+      "assertions": [
+        {
+          "assertion_ref": "AS-002-ACCEPTED",
+          "fact_type": "service_acceptance_date",
+          "value": "2026-10-31",
+          "currency": null,
+          "epistemic_state": "asserted",
+          "valid_from": "2026-10-01",
+          "valid_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z",
+          "source_ref": "SRC-002-ACC",
+          "source_locator": "page:1/row:1"
+        },
+        {
+          "assertion_ref": "AS-002-START",
+          "fact_type": "service_period_start",
+          "value": "2026-10-01",
+          "currency": null,
+          "epistemic_state": "asserted",
+          "valid_from": "2026-10-01",
+          "valid_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z",
+          "source_ref": "SRC-002-CTR",
+          "source_locator": "page:1/row:1"
+        },
+        {
+          "assertion_ref": "AS-002-END",
+          "fact_type": "service_period_end",
+          "value": "2026-10-31",
+          "currency": null,
+          "epistemic_state": "asserted",
+          "valid_from": "2026-10-01",
+          "valid_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z",
+          "source_ref": "SRC-002-CTR",
+          "source_locator": "page:1/row:1"
+        },
+        {
+          "assertion_ref": "AS-002-AMOUNT",
+          "fact_type": "invoice_amount_minor",
+          "value": 240000,
+          "currency": "USD",
+          "epistemic_state": "asserted",
+          "valid_from": "2026-10-01",
+          "valid_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z",
+          "source_ref": "SRC-002-INV",
+          "source_locator": "page:1/row:1"
+        }
+      ],
+      "events": [
+        {
+          "event_ref": "EV-002-SERVICE",
+          "event_kind": "service_delivery",
+          "entity_ref": "ENTITY-ACME",
+          "counterparty_ref": "SUPPLIER-22",
+          "occurred_at": "2026-10-31T12:00:00Z",
+          "recorded_at": "2026-11-05T10:00:00Z",
+          "amount_minor": null,
+          "currency": null,
+          "assertion_refs": [
+            "AS-002-ACCEPTED",
+            "AS-002-START",
+            "AS-002-END"
+          ]
+        },
+        {
+          "event_ref": "EV-002-INVOICE",
+          "event_kind": "invoice_issued",
+          "entity_ref": "ENTITY-ACME",
+          "counterparty_ref": "SUPPLIER-22",
+          "occurred_at": "2026-11-01T09:00:00Z",
+          "recorded_at": "2026-11-05T10:00:00Z",
+          "amount_minor": 240000,
+          "currency": "USD",
+          "assertion_refs": [
+            "AS-002-AMOUNT"
+          ]
+        }
+      ],
+      "relations": [
+        {
+          "relation_ref": "REL-002-SERVICE-SUPPORTS-INVOICE",
+          "relation_kind": "supports",
+          "from_kind": "event",
+          "from_ref": "EV-002-SERVICE",
+          "to_kind": "event",
+          "to_ref": "EV-002-INVOICE",
+          "recorded_at": "2026-11-05T10:00:00Z",
+          "valid_from": "2026-10-01",
+          "valid_to": null,
+          "source_assertion_refs": [
+            "AS-002-ACCEPTED",
+            "AS-002-AMOUNT"
+          ]
+        }
+      ]
+    },
+    {
+      "case_id": "EVT-003-SETTLEMENT-NOT-SECOND-EXPENSE",
+      "knowledge_at": "2026-11-05T10:30:00Z",
+      "period": {
+        "start": "2026-10-01",
+        "end": "2026-10-31"
+      },
+      "entity_scope_ref": "ENTITY-ACME",
+      "source_objects": [
+        {
+          "source_ref": "SRC-003-INV",
+          "tenant_namespace": "tenant-acme/ap",
+          "external_id": "INV-3003",
+          "revision": "r1",
+          "source_kind": "invoice",
+          "received_at": "2026-11-05T10:00:00Z",
+          "integrity_state": "synthetic_match",
+          "supersedes_source_ref": null
+        },
+        {
+          "source_ref": "SRC-003-BANK",
+          "tenant_namespace": "tenant-acme/banking",
+          "external_id": "BANK-3003",
+          "revision": "r1",
+          "source_kind": "bank_statement",
+          "received_at": "2026-11-05T10:00:00Z",
+          "integrity_state": "synthetic_match",
+          "supersedes_source_ref": null
+        },
+        {
+          "source_ref": "SRC-003-PAY",
+          "tenant_namespace": "tenant-acme/banking",
+          "external_id": "PAY-3003",
+          "revision": "r1",
+          "source_kind": "payment_confirmation",
+          "received_at": "2026-11-05T10:00:00Z",
+          "integrity_state": "synthetic_match",
+          "supersedes_source_ref": null
+        }
+      ],
+      "assertions": [
+        {
+          "assertion_ref": "AS-003-INVOICE-AMOUNT",
+          "fact_type": "invoice_amount_minor",
+          "value": 98000,
+          "currency": "USD",
+          "epistemic_state": "asserted",
+          "valid_from": "2026-10-01",
+          "valid_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z",
+          "source_ref": "SRC-003-INV",
+          "source_locator": "page:1/row:1"
+        },
+        {
+          "assertion_ref": "AS-003-PAYMENT-AMOUNT",
+          "fact_type": "payment_amount_minor",
+          "value": 98000,
+          "currency": "USD",
+          "epistemic_state": "asserted",
+          "valid_from": "2026-10-01",
+          "valid_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z",
+          "source_ref": "SRC-003-PAY",
+          "source_locator": "page:1/row:1"
+        },
+        {
+          "assertion_ref": "AS-003-PAYMENT-DATE",
+          "fact_type": "payment_date",
+          "value": "2026-10-30",
+          "currency": null,
+          "epistemic_state": "asserted",
+          "valid_from": "2026-10-01",
+          "valid_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z",
+          "source_ref": "SRC-003-BANK",
+          "source_locator": "page:1/row:1"
+        }
+      ],
+      "events": [
+        {
+          "event_ref": "EV-003-INVOICE",
+          "event_kind": "invoice_issued",
+          "entity_ref": "ENTITY-ACME",
+          "counterparty_ref": "SUPPLIER-33",
+          "occurred_at": "2026-10-10T00:00:00Z",
+          "recorded_at": "2026-11-05T10:00:00Z",
+          "amount_minor": 98000,
+          "currency": "USD",
+          "assertion_refs": [
+            "AS-003-INVOICE-AMOUNT"
+          ]
+        },
+        {
+          "event_ref": "EV-003-SETTLEMENT",
+          "event_kind": "settlement_made",
+          "entity_ref": "ENTITY-ACME",
+          "counterparty_ref": "SUPPLIER-33",
+          "occurred_at": "2026-10-30T09:00:00Z",
+          "recorded_at": "2026-11-05T10:00:00Z",
+          "amount_minor": 98000,
+          "currency": "USD",
+          "assertion_refs": [
+            "AS-003-PAYMENT-AMOUNT",
+            "AS-003-PAYMENT-DATE"
+          ]
+        }
+      ],
+      "relations": [
+        {
+          "relation_ref": "REL-003-SETTLES",
+          "relation_kind": "settles",
+          "from_kind": "event",
+          "from_ref": "EV-003-SETTLEMENT",
+          "to_kind": "event",
+          "to_ref": "EV-003-INVOICE",
+          "recorded_at": "2026-11-05T10:00:00Z",
+          "valid_from": "2026-10-01",
+          "valid_to": null,
+          "source_assertion_refs": [
+            "AS-003-PAYMENT-AMOUNT",
+            "AS-003-PAYMENT-DATE"
+          ]
+        }
+      ]
+    },
+    {
+      "case_id": "EVT-004-CREDIT-NOTE-PARENT",
+      "knowledge_at": "2026-11-05T10:30:00Z",
+      "period": {
+        "start": "2026-10-01",
+        "end": "2026-10-31"
+      },
+      "entity_scope_ref": "ENTITY-ACME",
+      "source_objects": [
+        {
+          "source_ref": "SRC-004-INV",
+          "tenant_namespace": "tenant-acme/ap",
+          "external_id": "INV-4004",
+          "revision": "r1",
+          "source_kind": "invoice",
+          "received_at": "2026-11-05T10:00:00Z",
+          "integrity_state": "synthetic_match",
+          "supersedes_source_ref": null
+        },
+        {
+          "source_ref": "SRC-004-CN",
+          "tenant_namespace": "tenant-acme/ap",
+          "external_id": "CN-4004",
+          "revision": "r1",
+          "source_kind": "credit_note",
+          "received_at": "2026-11-05T10:00:00Z",
+          "integrity_state": "synthetic_match",
+          "supersedes_source_ref": null
+        }
+      ],
+      "assertions": [
+        {
+          "assertion_ref": "AS-004-INVOICE-AMOUNT",
+          "fact_type": "invoice_amount_minor",
+          "value": 120000,
+          "currency": "USD",
+          "epistemic_state": "asserted",
+          "valid_from": "2026-10-01",
+          "valid_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z",
+          "source_ref": "SRC-004-INV",
+          "source_locator": "page:1/row:1"
+        },
+        {
+          "assertion_ref": "AS-004-CREDIT-AMOUNT",
+          "fact_type": "credit_amount_minor",
+          "value": 25000,
+          "currency": "USD",
+          "epistemic_state": "asserted",
+          "valid_from": "2026-10-01",
+          "valid_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z",
+          "source_ref": "SRC-004-CN",
+          "source_locator": "page:1/row:1"
+        },
+        {
+          "assertion_ref": "AS-004-PARENT",
+          "fact_type": "original_invoice_id",
+          "value": "INV-4004",
+          "currency": null,
+          "epistemic_state": "asserted",
+          "valid_from": "2026-10-01",
+          "valid_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z",
+          "source_ref": "SRC-004-CN",
+          "source_locator": "page:1/row:1"
+        }
+      ],
+      "events": [
+        {
+          "event_ref": "EV-004-INVOICE",
+          "event_kind": "invoice_issued",
+          "entity_ref": "ENTITY-ACME",
+          "counterparty_ref": "SUPPLIER-44",
+          "occurred_at": "2026-10-01T09:00:00Z",
+          "recorded_at": "2026-11-05T10:00:00Z",
+          "amount_minor": 120000,
+          "currency": "USD",
+          "assertion_refs": [
+            "AS-004-INVOICE-AMOUNT"
+          ]
+        },
+        {
+          "event_ref": "EV-004-CREDIT",
+          "event_kind": "credit_issued",
+          "entity_ref": "ENTITY-ACME",
+          "counterparty_ref": "SUPPLIER-44",
+          "occurred_at": "2026-10-20T09:00:00Z",
+          "recorded_at": "2026-11-05T10:00:00Z",
+          "amount_minor": 25000,
+          "currency": "USD",
+          "assertion_refs": [
+            "AS-004-CREDIT-AMOUNT",
+            "AS-004-PARENT"
+          ]
+        }
+      ],
+      "relations": [
+        {
+          "relation_ref": "REL-004-CORRECTS",
+          "relation_kind": "corrects",
+          "from_kind": "event",
+          "from_ref": "EV-004-CREDIT",
+          "to_kind": "event",
+          "to_ref": "EV-004-INVOICE",
+          "recorded_at": "2026-11-05T10:00:00Z",
+          "valid_from": "2026-10-01",
+          "valid_to": null,
+          "source_assertion_refs": [
+            "AS-004-CREDIT-AMOUNT",
+            "AS-004-PARENT"
+          ]
+        }
+      ]
+    },
+    {
+      "case_id": "EVT-005-CROSS-TENANT-SAME-EXTERNAL-ID",
+      "knowledge_at": "2026-11-05T10:30:00Z",
+      "period": {
+        "start": "2026-10-01",
+        "end": "2026-10-31"
+      },
+      "entity_scope_ref": "MULTI-TENANT-SCOPE",
+      "source_objects": [
+        {
+          "source_ref": "SRC-005-A",
+          "tenant_namespace": "tenant-a/ap",
+          "external_id": "INV-SHARED-5",
+          "revision": "r1",
+          "source_kind": "invoice",
+          "received_at": "2026-11-05T10:00:00Z",
+          "integrity_state": "synthetic_match",
+          "supersedes_source_ref": null
+        },
+        {
+          "source_ref": "SRC-005-B",
+          "tenant_namespace": "tenant-b/ap",
+          "external_id": "INV-SHARED-5",
+          "revision": "r1",
+          "source_kind": "invoice",
+          "received_at": "2026-11-05T10:00:00Z",
+          "integrity_state": "synthetic_match",
+          "supersedes_source_ref": null
+        }
+      ],
+      "assertions": [
+        {
+          "assertion_ref": "AS-005-AMOUNT-A",
+          "fact_type": "invoice_amount_minor",
+          "value": 50000,
+          "currency": "USD",
+          "epistemic_state": "asserted",
+          "valid_from": "2026-10-01",
+          "valid_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z",
+          "source_ref": "SRC-005-A",
+          "source_locator": "page:1/row:1"
+        },
+        {
+          "assertion_ref": "AS-005-AMOUNT-B",
+          "fact_type": "invoice_amount_minor",
+          "value": 75000,
+          "currency": "USD",
+          "epistemic_state": "asserted",
+          "valid_from": "2026-10-01",
+          "valid_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z",
+          "source_ref": "SRC-005-B",
+          "source_locator": "page:1/row:1"
+        },
+        {
+          "assertion_ref": "AS-005-ENTITY-A",
+          "fact_type": "reporting_entity",
+          "value": "ENTITY-A",
+          "currency": null,
+          "epistemic_state": "asserted",
+          "valid_from": "2026-10-01",
+          "valid_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z",
+          "source_ref": "SRC-005-A",
+          "source_locator": "page:1/row:1"
+        },
+        {
+          "assertion_ref": "AS-005-ENTITY-B",
+          "fact_type": "reporting_entity",
+          "value": "ENTITY-B",
+          "currency": null,
+          "epistemic_state": "asserted",
+          "valid_from": "2026-10-01",
+          "valid_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z",
+          "source_ref": "SRC-005-B",
+          "source_locator": "page:1/row:1"
+        }
+      ],
+      "events": [
+        {
+          "event_ref": "EV-005-A",
+          "event_kind": "invoice_issued",
+          "entity_ref": "ENTITY-A",
+          "counterparty_ref": "SUPPLIER-A",
+          "occurred_at": "2026-10-10T00:00:00Z",
+          "recorded_at": "2026-11-05T10:00:00Z",
+          "amount_minor": 50000,
+          "currency": "USD",
+          "assertion_refs": [
+            "AS-005-AMOUNT-A",
+            "AS-005-ENTITY-A"
+          ]
+        },
+        {
+          "event_ref": "EV-005-B",
+          "event_kind": "invoice_issued",
+          "entity_ref": "ENTITY-B",
+          "counterparty_ref": "SUPPLIER-B",
+          "occurred_at": "2026-10-11T00:00:00Z",
+          "recorded_at": "2026-11-05T10:00:00Z",
+          "amount_minor": 75000,
+          "currency": "USD",
+          "assertion_refs": [
+            "AS-005-AMOUNT-B",
+            "AS-005-ENTITY-B"
+          ]
+        }
+      ],
+      "relations": []
+    },
+    {
+      "case_id": "EVT-006-FUTURE-KNOWLEDGE-IS-RETAINED",
+      "knowledge_at": "2026-11-05T10:30:00Z",
+      "period": {
+        "start": "2026-10-01",
+        "end": "2026-10-31"
+      },
+      "entity_scope_ref": "ENTITY-ACME",
+      "source_objects": [
+        {
+          "source_ref": "SRC-006-INV",
+          "tenant_namespace": "tenant-acme/ap",
+          "external_id": "INV-6006",
+          "revision": "r1",
+          "source_kind": "invoice",
+          "received_at": "2026-11-05T10:45:00Z",
+          "integrity_state": "synthetic_match",
+          "supersedes_source_ref": null
+        }
+      ],
+      "assertions": [
+        {
+          "assertion_ref": "AS-006-AMOUNT",
+          "fact_type": "invoice_amount_minor",
+          "value": 45000,
+          "currency": "USD",
+          "epistemic_state": "asserted",
+          "valid_from": "2026-10-01",
+          "valid_to": null,
+          "recorded_at": "2026-11-05T10:45:00Z",
+          "source_ref": "SRC-006-INV",
+          "source_locator": "page:1/row:1"
+        }
+      ],
+      "events": [
+        {
+          "event_ref": "EV-006-INVOICE",
+          "event_kind": "invoice_issued",
+          "entity_ref": "ENTITY-ACME",
+          "counterparty_ref": "SUPPLIER-66",
+          "occurred_at": "2026-10-31T10:00:00Z",
+          "recorded_at": "2026-11-05T10:45:00Z",
+          "amount_minor": 45000,
+          "currency": "USD",
+          "assertion_refs": [
+            "AS-006-AMOUNT"
+          ]
+        }
+      ],
+      "relations": []
+    },
+    {
+      "case_id": "EVT-007-CONTRADICTORY-ASSERTIONS",
+      "knowledge_at": "2026-11-05T10:30:00Z",
+      "period": {
+        "start": "2026-10-01",
+        "end": "2026-10-31"
+      },
+      "entity_scope_ref": "ENTITY-ACME",
+      "source_objects": [
+        {
+          "source_ref": "SRC-007-INV",
+          "tenant_namespace": "tenant-acme/ap",
+          "external_id": "INV-7007",
+          "revision": "r1",
+          "source_kind": "invoice",
+          "received_at": "2026-11-05T10:00:00Z",
+          "integrity_state": "synthetic_match",
+          "supersedes_source_ref": null
+        },
+        {
+          "source_ref": "SRC-007-PO",
+          "tenant_namespace": "tenant-acme/procurement",
+          "external_id": "PO-7007",
+          "revision": "r1",
+          "source_kind": "purchase_order",
+          "received_at": "2026-11-05T10:00:00Z",
+          "integrity_state": "synthetic_match",
+          "supersedes_source_ref": null
+        }
+      ],
+      "assertions": [
+        {
+          "assertion_ref": "AS-007-AMOUNT-A",
+          "fact_type": "invoice_amount_minor",
+          "value": 120000,
+          "currency": "USD",
+          "epistemic_state": "asserted",
+          "valid_from": "2026-10-01",
+          "valid_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z",
+          "source_ref": "SRC-007-INV",
+          "source_locator": "page:1/row:1"
+        },
+        {
+          "assertion_ref": "AS-007-AMOUNT-B",
+          "fact_type": "invoice_amount_minor",
+          "value": 100000,
+          "currency": "USD",
+          "epistemic_state": "asserted",
+          "valid_from": "2026-10-01",
+          "valid_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z",
+          "source_ref": "SRC-007-PO",
+          "source_locator": "page:1/row:1"
+        }
+      ],
+      "events": [
+        {
+          "event_ref": "EV-007-INVOICE",
+          "event_kind": "invoice_issued",
+          "entity_ref": "ENTITY-ACME",
+          "counterparty_ref": "SUPPLIER-77",
+          "occurred_at": "2026-10-20T00:00:00Z",
+          "recorded_at": "2026-11-05T10:00:00Z",
+          "amount_minor": null,
+          "currency": null,
+          "assertion_refs": [
+            "AS-007-AMOUNT-A",
+            "AS-007-AMOUNT-B"
+          ]
+        }
+      ],
+      "relations": [
+        {
+          "relation_ref": "REL-007-CONTRADICTS",
+          "relation_kind": "contradicts",
+          "from_kind": "assertion",
+          "from_ref": "AS-007-AMOUNT-A",
+          "to_kind": "assertion",
+          "to_ref": "AS-007-AMOUNT-B",
+          "recorded_at": "2026-11-05T10:00:00Z",
+          "valid_from": "2026-10-01",
+          "valid_to": null,
+          "source_assertion_refs": [
+            "AS-007-AMOUNT-A",
+            "AS-007-AMOUNT-B"
+          ]
+        }
+      ]
+    },
+    {
+      "case_id": "EVT-008-UNLINKED-SOURCE-REVISIONS",
+      "knowledge_at": "2026-11-05T10:30:00Z",
+      "period": {
+        "start": "2026-10-01",
+        "end": "2026-10-31"
+      },
+      "entity_scope_ref": "ENTITY-ACME",
+      "source_objects": [
+        {
+          "source_ref": "SRC-008-R1",
+          "tenant_namespace": "tenant-acme/ap",
+          "external_id": "INV-8008",
+          "revision": "r1",
+          "source_kind": "invoice",
+          "received_at": "2026-11-05T09:00:00Z",
+          "integrity_state": "synthetic_match",
+          "supersedes_source_ref": null
+        },
+        {
+          "source_ref": "SRC-008-R2",
+          "tenant_namespace": "tenant-acme/ap",
+          "external_id": "INV-8008",
+          "revision": "r2",
+          "source_kind": "invoice",
+          "received_at": "2026-11-05T10:00:00Z",
+          "integrity_state": "synthetic_match",
+          "supersedes_source_ref": null
+        }
+      ],
+      "assertions": [
+        {
+          "assertion_ref": "AS-008-AMOUNT-R1",
+          "fact_type": "invoice_amount_minor",
+          "value": 80000,
+          "currency": "USD",
+          "epistemic_state": "asserted",
+          "valid_from": "2026-10-01",
+          "valid_to": null,
+          "recorded_at": "2026-11-05T09:00:00Z",
+          "source_ref": "SRC-008-R1",
+          "source_locator": "page:1/row:1"
+        },
+        {
+          "assertion_ref": "AS-008-AMOUNT-R2",
+          "fact_type": "invoice_amount_minor",
+          "value": 88000,
+          "currency": "USD",
+          "epistemic_state": "asserted",
+          "valid_from": "2026-10-01",
+          "valid_to": null,
+          "recorded_at": "2026-11-05T10:00:00Z",
+          "source_ref": "SRC-008-R2",
+          "source_locator": "page:1/row:1"
+        }
+      ],
+      "events": [
+        {
+          "event_ref": "EV-008-INVOICE-R1",
+          "event_kind": "invoice_issued",
+          "entity_ref": "ENTITY-ACME",
+          "counterparty_ref": "SUPPLIER-88",
+          "occurred_at": "2026-10-10T00:00:00Z",
+          "recorded_at": "2026-11-05T09:00:00Z",
+          "amount_minor": 80000,
+          "currency": "USD",
+          "assertion_refs": [
+            "AS-008-AMOUNT-R1"
+          ]
+        },
+        {
+          "event_ref": "EV-008-INVOICE-R2",
+          "event_kind": "invoice_issued",
+          "entity_ref": "ENTITY-ACME",
+          "counterparty_ref": "SUPPLIER-88",
+          "occurred_at": "2026-10-10T00:00:00Z",
+          "recorded_at": "2026-11-05T10:00:00Z",
+          "amount_minor": 88000,
+          "currency": "USD",
+          "assertion_refs": [
+            "AS-008-AMOUNT-R2"
+          ]
+        }
+      ],
+      "relations": []
+    }
+  ]
+}
