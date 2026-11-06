@@ -140,7 +140,7 @@ pub fn verify(
         "errors": errors,
         "cases": results
     });
-    let report_schema: Value = match serde_json::from_str(include_str!("../report.schema.json")) {
+    let report_schema: Value = match serde_json::from_str(include_str!("../report-v1.2.0.schema.json")) {
         Ok(schema) => schema,
         Err(error) => return fail_report(report, format!("embedded report schema parse: {error}")),
     };
@@ -422,9 +422,33 @@ fn assess_case(case: &Value) -> AppResult<Assessment> {
                     continue;
                 }
             };
-            if item.get("reliability_status").and_then(Value::as_str) != Some("qualified") {
-                evidence_valid = false;
-                reasons.insert("evidence_reliability_not_qualified".to_owned());
+            for required_attribute in array(pair, "required_evidence_attributes") {
+                let attribute = required_attribute
+                    .as_str()
+                    .ok_or_else(|| "required_evidence_attributes must contain strings".to_owned())?;
+                if ![
+                    "accuracy",
+                    "completeness",
+                    "authenticity",
+                    "absence_of_bias",
+                    "credibility",
+                ]
+                .contains(&attribute)
+                {
+                    return Err(format!("unsupported evidence reliability attribute: {attribute}"));
+                }
+                let status = item
+                    .get("reliability_attributes")
+                    .and_then(|attributes| attributes.get(attribute))
+                    .and_then(Value::as_str);
+                if status != Some("qualified") {
+                    evidence_valid = false;
+                    reasons.insert(format!(
+                        "evidence_attribute_not_qualified:{}:{}",
+                        attribute,
+                        status.unwrap_or("missing")
+                    ));
+                }
             }
             if !array(item, "assertions_supported")
                 .iter()
@@ -567,10 +591,10 @@ mod tests {
     #[test]
     fn all_public_reference_cases_match_case_and_pair_oracles() {
         let candidate = parse(include_str!(
-            "../../fin_assurance_procedure_candidates_v1.1.0.json"
+            "../../fin_assurance_procedure_candidates_v1.2.0.json"
         ));
         let oracle = parse(include_str!(
-            "../../public-assurance-oracle/fin_assurance_procedure_oracle_v1.1.0.json"
+            "../../public-assurance-oracle/fin_assurance_procedure_oracle_v1.2.0.json"
         ));
         for case in candidate["cases"].as_array().expect("cases") {
             let id = case["case_id"].as_str().expect("case ID");
@@ -614,7 +638,7 @@ mod tests {
     #[test]
     fn wrong_denominator_is_not_hidden_by_matching_output() {
         let candidate = parse(include_str!(
-            "../../fin_assurance_procedure_candidates_v1.1.0.json"
+            "../../fin_assurance_procedure_candidates_v1.2.0.json"
         ));
         let case = case_by_id(&candidate, "FAP-007");
         assert_eq!(
@@ -626,7 +650,7 @@ mod tests {
     #[test]
     fn same_upstream_origin_is_not_independent_corroboration() {
         let candidate = parse(include_str!(
-            "../../fin_assurance_procedure_candidates_v1.1.0.json"
+            "../../fin_assurance_procedure_candidates_v1.2.0.json"
         ));
         let case = case_by_id(&candidate, "FAP-010");
         assert_eq!(
@@ -638,7 +662,7 @@ mod tests {
     #[test]
     fn non_applicability_requires_authorized_scoped_rationale() {
         let candidate = parse(include_str!(
-            "../../fin_assurance_procedure_candidates_v1.1.0.json"
+            "../../fin_assurance_procedure_candidates_v1.2.0.json"
         ));
         let case = case_by_id(&candidate, "FAP-016");
         assert_eq!(
@@ -650,7 +674,7 @@ mod tests {
     #[test]
     fn a_late_source_stales_prior_workpaper() {
         let candidate = parse(include_str!(
-            "../../fin_assurance_procedure_candidates_v1.1.0.json"
+            "../../fin_assurance_procedure_candidates_v1.2.0.json"
         ));
         let case = case_by_id(&candidate, "FAP-017");
         assert_eq!(
@@ -662,7 +686,7 @@ mod tests {
     #[test]
     fn multi_pair_case_preserves_each_pair_disposition() {
         let candidate = parse(include_str!(
-            "../../fin_assurance_procedure_candidates_v1.1.0.json"
+            "../../fin_assurance_procedure_candidates_v1.2.0.json"
         ));
         let assessment = assess_case(case_by_id(&candidate, "FAP-019")).expect("assessment");
         assert_eq!(assessment.state, "insufficient_evidence");
@@ -690,7 +714,7 @@ mod tests {
     #[test]
     fn procedure_purpose_must_match_required_pair_purpose() {
         let candidate = parse(include_str!(
-            "../../fin_assurance_procedure_candidates_v1.1.0.json"
+            "../../fin_assurance_procedure_candidates_v1.2.0.json"
         ));
         let assessment = assess_case(case_by_id(&candidate, "FAP-020")).expect("assessment");
         assert_eq!(assessment.state, "insufficient_evidence");
@@ -704,7 +728,7 @@ mod tests {
     #[test]
     fn evidence_must_be_bound_to_the_reporting_entity() {
         let candidate = parse(include_str!(
-            "../../fin_assurance_procedure_candidates_v1.1.0.json"
+            "../../fin_assurance_procedure_candidates_v1.2.0.json"
         ));
         let assessment = assess_case(case_by_id(&candidate, "FAP-021")).expect("assessment");
         assert_eq!(assessment.state, "insufficient_evidence");
@@ -718,7 +742,7 @@ mod tests {
     #[test]
     fn analytical_differences_above_threshold_remain_open() {
         let candidate = parse(include_str!(
-            "../../fin_assurance_procedure_candidates_v1.1.0.json"
+            "../../fin_assurance_procedure_candidates_v1.2.0.json"
         ));
         let assessment = assess_case(case_by_id(&candidate, "FAP-022")).expect("assessment");
         assert_eq!(assessment.state, "exception_requires_resolution");
@@ -727,5 +751,56 @@ mod tests {
                 .reasons
                 .contains("analytical_difference_above_threshold")
         );
+    }
+
+    #[test]
+    fn reliability_attributes_are_required_by_assertion_purpose_pair_not_globally() {
+        let candidate = parse(include_str!(
+            "../../fin_assurance_procedure_candidates_v1.2.0.json"
+        ));
+        let assessment = assess_case(case_by_id(&candidate, "FAP-023")).expect("assessment");
+        assert_eq!(assessment.state, "insufficient_evidence");
+        assert_eq!(
+            assessment
+                .pair_results
+                .iter()
+                .find(|row| row.pair_id == "pair-1")
+                .unwrap()
+                .state,
+            "addressed_with_qualified_evidence"
+        );
+        let completeness = assessment
+            .pair_results
+            .iter()
+            .find(|row| row.pair_id == "pair-2")
+            .unwrap();
+        assert_eq!(completeness.state, "insufficient_evidence");
+        assert!(completeness
+            .reasons
+            .contains("evidence_attribute_not_qualified:completeness:unknown"));
+    }
+
+    #[test]
+    fn limited_absence_of_bias_blocks_valuation_when_required() {
+        let candidate = parse(include_str!(
+            "../../fin_assurance_procedure_candidates_v1.2.0.json"
+        ));
+        let assessment = assess_case(case_by_id(&candidate, "FAP-024")).expect("assessment");
+        assert_eq!(assessment.state, "insufficient_evidence");
+        assert!(assessment
+            .reasons
+            .contains("evidence_attribute_not_qualified:absence_of_bias:limited"));
+    }
+
+    #[test]
+    fn unqualified_credibility_blocks_external_confirmation() {
+        let candidate = parse(include_str!(
+            "../../fin_assurance_procedure_candidates_v1.2.0.json"
+        ));
+        let assessment = assess_case(case_by_id(&candidate, "FAP-025")).expect("assessment");
+        assert_eq!(assessment.state, "insufficient_evidence");
+        assert!(assessment
+            .reasons
+            .contains("evidence_attribute_not_qualified:credibility:unqualified"));
     }
 }
