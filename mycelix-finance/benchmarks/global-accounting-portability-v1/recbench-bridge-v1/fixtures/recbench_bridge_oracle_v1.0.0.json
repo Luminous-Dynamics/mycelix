@@ -597,11 +597,36 @@
           ]
         },
         {
+          "group_ref": "G-007-SP",
+          "relation_kind": "settlement_to_payout",
+          "match_state": "confirmed",
+          "from_record_refs": [
+            "R-REC-007-REVERSAL-LIFECYCLE-029"
+          ],
+          "to_record_refs": [
+            "R-REC-007-REVERSAL-LIFECYCLE-031"
+          ],
+          "allocations": [
+            {
+              "allocation_ref": "A-007-SP",
+              "from_record_ref": "R-REC-007-REVERSAL-LIFECYCLE-029",
+              "to_record_ref": "R-REC-007-REVERSAL-LIFECYCLE-031",
+              "from_basis": "net",
+              "to_basis": "net",
+              "from_amount_minor": 8000,
+              "to_amount_minor": 8000,
+              "from_currency": "USD",
+              "to_currency": "USD",
+              "fx_ref": null
+            }
+          ]
+        },
+        {
           "group_ref": "G-007-PB",
           "relation_kind": "payout_to_bank",
           "match_state": "confirmed",
           "from_record_refs": [
-            "R-REC-007-REVERSAL-LIFECYCLE-029"
+            "R-REC-007-REVERSAL-LIFECYCLE-031"
           ],
           "to_record_refs": [
             "R-REC-007-REVERSAL-LIFECYCLE-032"
@@ -609,7 +634,7 @@
           "allocations": [
             {
               "allocation_ref": "A-007-PB",
-              "from_record_ref": "R-REC-007-REVERSAL-LIFECYCLE-029",
+              "from_record_ref": "R-REC-007-REVERSAL-LIFECYCLE-031",
               "to_record_ref": "R-REC-007-REVERSAL-LIFECYCLE-032",
               "from_basis": "net",
               "to_basis": "bank_amount",
