@@ -1,0 +1,358 @@
+{
+  "corpus_id": "MCB-PROVIDER-INGRESS-0.1",
+  "profile_id": "dockwa-webhook-research-profile-0.1",
+  "provider_profile_status": "research_candidate_only",
+  "fixture_class": "synthetic_contract_scenarios",
+  "source_facts": {
+    "verified_at": "2026-11-07",
+    "public_documentation_url": "https://mayday.dockwa.com/en/articles/17710897-set-up-webhooks-in-dockwa",
+    "documented_events": [
+      "customer.created",
+      "customer.updated",
+      "lead.created",
+      "lead.updated",
+      "reservation.created",
+      "reservation.updated",
+      "sale.created",
+      "sale.updated",
+      "space.created",
+      "space.updated",
+      "space_group.created",
+      "space_group.updated"
+    ],
+    "documented_record_families": 6,
+    "payload_schema_captured": false,
+    "authorized_test_delivery_captured": false,
+    "exact_signature_header_contract_confirmed": false,
+    "delivery_ordering_semantics_confirmed": false,
+    "retry_semantics_confirmed": false,
+    "read_back_api_confirmed": false,
+    "booking_write_api_confirmed": false
+  },
+  "claim_ceiling": "Synthetic provider ingress contract cases only. No Dockwa payload schema, signature, live endpoint, provider authorization, source truth, inventory state, booking authority, financial finality, field integration, or production qualification is established.",
+  "verdicts": [
+    "accept_transport_only",
+    "accept_minimized_projection",
+    "reject",
+    "quarantine",
+    "duplicate_no_new_effect",
+    "conflict",
+    "needs_reconciliation",
+    "not_evaluable_until_provider_capture"
+  ],
+  "cases": [
+    {
+      "case_id": "ING-001",
+      "class": "positive_control",
+      "event_name": "reservation.created",
+      "setup": "synthetic_authorized_endpoint",
+      "required_inputs": [
+        "raw_body",
+        "provider_confirmed_signature_headers",
+        "endpoint_secret_version",
+        "local_endpoint_capability",
+        "pinned_event_profile"
+      ],
+      "expected": "accept_minimized_projection",
+      "invariants": [
+        "exact_raw_body_signature_verified",
+        "only_allowlisted_fields_projected",
+        "projection_is_provider_observation_not_new_booking"
+      ]
+    },
+    {
+      "case_id": "ING-002",
+      "class": "positive_control",
+      "event_name": "reservation.updated",
+      "setup": "synthetic_authorized_endpoint",
+      "required_inputs": [
+        "raw_body",
+        "valid_signature",
+        "authorized_endpoint",
+        "known_profile"
+      ],
+      "expected": "accept_minimized_projection",
+      "invariants": [
+        "provider_change_is_observation",
+        "no_booking_write_authority_created"
+      ]
+    },
+    {
+      "case_id": "ING-003",
+      "class": "positive_control",
+      "event_name": "space.updated",
+      "setup": "synthetic_authorized_endpoint",
+      "required_inputs": [
+        "raw_body",
+        "valid_signature",
+        "authorized_endpoint",
+        "known_profile"
+      ],
+      "expected": "accept_transport_only",
+      "invariants": [
+        "space_notification_does_not_establish_fresh_availability"
+      ]
+    },
+    {
+      "case_id": "ING-004",
+      "class": "signature",
+      "event_name": "reservation.updated",
+      "mutations": [
+        "remove_signature"
+      ],
+      "expected": "reject",
+      "reason_codes": [
+        "missing_signature"
+      ]
+    },
+    {
+      "case_id": "ING-005",
+      "class": "signature",
+      "event_name": "reservation.updated",
+      "mutations": [
+        "replace_signature_with_wrong_key"
+      ],
+      "expected": "reject",
+      "reason_codes": [
+        "signature_invalid"
+      ]
+    },
+    {
+      "case_id": "ING-006",
+      "class": "signature",
+      "event_name": "reservation.updated",
+      "mutations": [
+        "change_one_raw_body_byte_after_signing"
+      ],
+      "expected": "reject",
+      "reason_codes": [
+        "raw_body_signature_mismatch"
+      ]
+    },
+    {
+      "case_id": "ING-007",
+      "class": "signature",
+      "event_name": "reservation.updated",
+      "mutations": [
+        "parse_json_then_serialize_with_different_bytes"
+      ],
+      "expected": "reject",
+      "reason_codes": [
+        "raw_body_signature_mismatch"
+      ],
+      "invariants": [
+        "verify_before_parse_or_normalization"
+      ]
+    },
+    {
+      "case_id": "ING-008",
+      "class": "freshness",
+      "event_name": "reservation.updated",
+      "mutations": [
+        "signed_timestamp_outside_configured_past_tolerance"
+      ],
+      "expected": "reject",
+      "reason_codes": [
+        "delivery_timestamp_outside_policy"
+      ],
+      "notes": "Tolerance and clock source are configuration inputs; no Dockwa-specific numeric tolerance is assumed."
+    },
+    {
+      "case_id": "ING-009",
+      "class": "freshness",
+      "event_name": "reservation.updated",
+      "mutations": [
+        "signed_timestamp_outside_configured_future_tolerance"
+      ],
+      "expected": "reject",
+      "reason_codes": [
+        "delivery_timestamp_outside_policy"
+      ]
+    },
+    {
+      "case_id": "ING-010",
+      "class": "replay",
+      "event_name": "reservation.updated",
+      "mutations": [
+        "repeat_same_delivery_identity_and_exact_raw_body"
+      ],
+      "expected": "duplicate_no_new_effect",
+      "invariants": [
+        "retries_do_not_create_duplicate_logical_events"
+      ],
+      "notes": "Stable delivery identity across retries must be confirmed from the authorized Dockwa envelope."
+    },
+    {
+      "case_id": "ING-011",
+      "class": "replay_conflict",
+      "event_name": "reservation.updated",
+      "mutations": [
+        "reuse_delivery_identity_with_different_raw_body"
+      ],
+      "expected": "conflict",
+      "reason_codes": [
+        "delivery_identity_content_conflict"
+      ]
+    },
+    {
+      "case_id": "ING-012",
+      "class": "ordering",
+      "event_name": "space.updated",
+      "supplemental_trace": [
+        "receive_source_revision_12",
+        "receive_source_revision_11"
+      ],
+      "expected": "needs_reconciliation",
+      "reason_codes": [
+        "out_of_order_or_superseded_source_event"
+      ],
+      "notes": "Only enforce numeric/revision ordering if actual provider payload contains a documented monotonic revision; otherwise preserve conflict/unknown."
+    },
+    {
+      "case_id": "ING-013",
+      "class": "deduplication",
+      "event_name": "reservation.updated",
+      "mutations": [
+        "same_provider_object_revision_new_delivery_identity"
+      ],
+      "expected": "quarantine",
+      "reason_codes": [
+        "logical_event_duplicate_or_equivalence_unresolved"
+      ],
+      "notes": "Do not collapse distinct delivery IDs into one event unless a provider object revision/event identity is documented."
+    },
+    {
+      "case_id": "ING-014",
+      "class": "schema",
+      "event_name": "reservation.updated",
+      "mutations": [
+        "add_unknown_payload_field"
+      ],
+      "expected": "quarantine",
+      "reason_codes": [
+        "unrecognized_schema_extension"
+      ],
+      "notes": "Unknown sensitive fields are not projected by default; explicit profile evolution may later admit safe additive fields."
+    },
+    {
+      "case_id": "ING-015",
+      "class": "schema",
+      "event_name": "new.event.type",
+      "mutations": [],
+      "expected": "quarantine",
+      "reason_codes": [
+        "unsupported_event_type"
+      ]
+    },
+    {
+      "case_id": "ING-016",
+      "class": "authorization",
+      "event_name": "customer.updated",
+      "setup": "customer_subscription_not_authorized",
+      "expected": "reject",
+      "reason_codes": [
+        "event_family_not_in_local_capability"
+      ]
+    },
+    {
+      "case_id": "ING-017",
+      "class": "privacy",
+      "event_name": "reservation.updated",
+      "mutations": [
+        "include_contact_address_and_payment_detail_fields"
+      ],
+      "expected": "accept_transport_only",
+      "invariants": [
+        "restricted_fields_removed_before_projection",
+        "no_unnecessary_pii_retention"
+      ],
+      "notes": "Transport verification may succeed while projection policy excludes sensitive fields; the two dispositions remain separate."
+    },
+    {
+      "case_id": "ING-018",
+      "class": "key_rotation",
+      "event_name": "reservation.updated",
+      "setup": "endpoint_secret_rotated",
+      "expected": "not_evaluable_until_provider_capture",
+      "reason_codes": [
+        "key_overlap_policy_not_frozen"
+      ],
+      "notes": "Freeze key overlap/grace behavior from actual endpoint semantics; never accept a revoked key indefinitely."
+    },
+    {
+      "case_id": "ING-019",
+      "class": "authorization",
+      "event_name": "reservation.updated",
+      "setup": "endpoint_capability_revoked_before_receipt",
+      "expected": "reject",
+      "reason_codes": [
+        "endpoint_capability_revoked"
+      ]
+    },
+    {
+      "case_id": "ING-020",
+      "class": "authority_boundary",
+      "event_name": "reservation.updated",
+      "setup": "valid_signed_reservation_update_without_fresh_provider_availability",
+      "expected": "accept_transport_only",
+      "invariants": [
+        "webhook_never_promoted_to_availability_or_commitment"
+      ]
+    },
+    {
+      "case_id": "ING-021",
+      "class": "endpoint_lifecycle",
+      "event_name": "space.updated",
+      "setup": "provider_endpoint_paused_or_deleted",
+      "expected": "not_evaluable_until_provider_capture",
+      "reason_codes": [
+        "delivery_lifecycle_semantics_not_observed"
+      ],
+      "notes": "Endpoint pause/delete affects future delivery; it is not proof that the marina closed or the provider withdrew all offers."
+    },
+    {
+      "case_id": "ING-022",
+      "class": "durability",
+      "event_name": "reservation.created",
+      "setup": "inbox_persistence_fails_before_acknowledgement",
+      "expected": "reject_or_retry",
+      "invariants": [
+        "no_success_ack_before_durable_inbox_commit",
+        "retry_is_idempotent"
+      ],
+      "notes": "Exact retry behavior must be tested with the authorized provider."
+    },
+    {
+      "case_id": "ING-023",
+      "class": "retry_identity",
+      "event_name": "reservation.created",
+      "setup": "retry_attempt_identity_differs_from_logical_event_identity",
+      "expected": "not_evaluable_until_provider_capture",
+      "reason_codes": [
+        "delivery_vs_logical_event_identity_not_confirmed"
+      ]
+    },
+    {
+      "case_id": "ING-024",
+      "class": "reconciliation",
+      "event_name": "space.updated",
+      "setup": "known_gap_or_missing_notification_followed_by_operator_confirmation",
+      "expected": "needs_reconciliation",
+      "invariants": [
+        "absence_of_webhook_is_not_evidence_of_no_change",
+        "operator_confirmation_is_new_scoped_evidence"
+      ]
+    }
+  ],
+  "unresolved_before_normative_use": [
+    "Capture exact Dockwa header names, signature algorithm/version, raw-body rules and endpoint-specific key format from an authorized test delivery.",
+    "Confirm whether Dockwa uses Svix's documented delivery identifier and timestamp semantics for this endpoint.",
+    "Confirm retry schedule, delivery identity across retries, ordering behavior, retry retention and manual redelivery controls.",
+    "Capture exact authenticated Event Catalog payload schemas and samples for reservation and space events; do not add customer/sale payloads unless necessary.",
+    "Identify a documented source revision/event time and whether it is monotonic per provider object.",
+    "Freeze accepted signature timestamp tolerance, trusted clock source, and key rotation overlap/revocation semantics.",
+    "Confirm whether any provider read-back endpoint exists and is contractually available; otherwise define operator-assisted reconciliation.",
+    "Define field-level data purpose, minimization, storage, deletion, correction and retention policies with the participating marina."
+  ],
+  "execution_status": "not_executed"
+}
