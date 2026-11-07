@@ -1,0 +1,290 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/mycelix-recbench-bridge-validation-report-v1.0.0.json",
+  "title": "Mycelix RecBench Bridge Validation Report v1.0.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "report_id",
+    "schema_version",
+    "claim_ceiling",
+    "candidate_sha256",
+    "oracle_sha256",
+    "source_snapshot_sha256",
+    "case_count",
+    "totals",
+    "case_results"
+  ],
+  "properties": {
+    "report_id": {
+      "const": "MYCELIX-RECBENCH-BRIDGE-S0-VALIDATION"
+    },
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "claim_ceiling": {
+      "const": "synthetic_fixture_and_oracle_integrity_not_agent_performance_or_real_bank_reconciliation"
+    },
+    "candidate_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "oracle_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "source_snapshot_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "case_count": {
+      "const": 10
+    },
+    "totals": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "record_count",
+        "ledger_transaction_count",
+        "settlement_line_count",
+        "payout_count",
+        "bank_line_count",
+        "fx_quote_count",
+        "group_count",
+        "allocation_count",
+        "auto_matched_group_count",
+        "partial_group_count",
+        "review_group_count",
+        "auto_matched_record_count",
+        "review_record_count",
+        "unmatched_record_count",
+        "duplicate_excluded_count",
+        "ambiguity_count",
+        "residual_count"
+      ],
+      "properties": {
+        "record_count": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "ledger_transaction_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "settlement_line_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "payout_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "bank_line_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "fx_quote_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "group_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "allocation_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "auto_matched_group_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "partial_group_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "review_group_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "auto_matched_record_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "review_record_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "unmatched_record_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "duplicate_excluded_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "ambiguity_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "residual_count": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "case_results": {
+      "type": "array",
+      "minItems": 10,
+      "maxItems": 10,
+      "items": {
+        "$ref": "#/$defs/caseResult"
+      }
+    }
+  },
+  "$defs": {
+    "caseResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "case_id",
+        "record_count",
+        "ledger_transaction_count",
+        "settlement_line_count",
+        "payout_count",
+        "bank_line_count",
+        "fx_quote_count",
+        "group_count",
+        "allocation_count",
+        "auto_matched_group_count",
+        "partial_group_count",
+        "review_group_count",
+        "auto_matched_record_count",
+        "review_record_count",
+        "unmatched_record_count",
+        "duplicate_excluded_count",
+        "ambiguity_count",
+        "residual_count",
+        "settlement_arithmetic_checks",
+        "fx_arithmetic_checks",
+        "reversal_checks",
+        "all_records_terminalized",
+        "hard_failure_codes"
+      ],
+      "properties": {
+        "case_id": {
+          "type": "string"
+        },
+        "record_count": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "ledger_transaction_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "settlement_line_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "payout_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "bank_line_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "fx_quote_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "group_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "allocation_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "auto_matched_group_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "partial_group_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "review_group_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "auto_matched_record_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "review_record_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "unmatched_record_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "duplicate_excluded_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "ambiguity_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "residual_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "settlement_arithmetic_checks": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "fx_arithmetic_checks": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "reversal_checks": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "all_records_terminalized": {
+          "type": "boolean"
+        },
+        "hard_failure_codes": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "source_identity_invalid",
+              "source_time_invalid",
+              "future_source_record",
+              "settlement_gross_fee_net_mismatch",
+              "fx_conversion_mismatch",
+              "reversal_lineage_invalid",
+              "allocation_reference_invalid",
+              "allocation_cardinality_exceeded",
+              "allocation_amount_currency_mismatch",
+              "bank_group_sum_mismatch",
+              "terminal_state_incomplete",
+              "terminal_state_conflict",
+              "duplicate_double_count_risk",
+              "ambiguous_auto_match",
+              "cross_tenant_link",
+              "oracle_case_missing",
+              "oracle_reference_invalid",
+              "case_disposition_mismatch"
+            ]
+          }
+        }
+      }
+    }
+  }
+}
