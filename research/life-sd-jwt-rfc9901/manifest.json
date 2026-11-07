@@ -1,0 +1,56 @@
+{
+  "benchmark_id": "LIFE-SD-JWT-RFC9901-001",
+  "version": "0.1.0",
+  "status": "initial_cross_implementation_disclosure_digest_gate",
+  "standard": {
+    "id": "RFC 9901",
+    "title": "Selective Disclosure for JSON Web Tokens",
+    "maturity": "IETF Standards Track, Proposed Standard",
+    "url": "https://datatracker.ietf.org/doc/rfc9901/",
+    "fixture_source": "Section 5.1 published issuance example"
+  },
+  "implementations": [
+    {
+      "crate": "affinidi-sd-jwt",
+      "version": "0.1.5",
+      "role": "independent Rust disclosure parser and digest implementation",
+      "registry": "https://docs.rs/crate/affinidi-sd-jwt/0.1.5"
+    },
+    {
+      "crate": "reallyme-sd-jwt",
+      "version": "0.4.1",
+      "role": "independent Rust disclosure parser and digest implementation"
+    }
+  ],
+  "vectors": [
+    "given-name",
+    "family-name",
+    "email",
+    "flat-address",
+    "nationality-array-element-us"
+  ],
+  "checks": [
+    "each published disclosure parses in both implementations",
+    "each SHA-256 base64url digest matches the RFC example",
+    "both implementations return the same digest",
+    "object-property versus array-element disclosure shape is checked",
+    "both implementations agree on published salts, claim names, disclosure kinds, and decoded claim contents",
+    "both parsers reject malformed base64url disclosure input",
+    "both parsers reject malformed disclosure JSON and invalid array shapes",
+    "both parsers reject non-string salts and object-property names",
+    "repeated report generation is byte-identical"
+  ],
+  "claim_ceiling": "RFC9901PublishedExampleDisclosureDigestCrossImplementationCompatibility",
+  "nonclaims": [
+    "full RFC 9901 conformance",
+    "SD-JWT VC profile conformance",
+    "OpenID4VP or HAIP conformance",
+    "issuer JWT signature verification",
+    "key-binding JWT signature, nonce, audience, or replay validation",
+    "negative conformance-vector completeness",
+    "anonymity or unlinkability",
+    "differential privacy",
+    "production security",
+    "performance or SOTA superiority"
+  ]
+}
