@@ -679,7 +679,7 @@ fn run() -> Result<(), Box<dyn Error>> {
                      --run-receipt PATH               Canonical benchmark-run-receipt-v1 JSON\n\
                      --transcript PATH                Exact raw transcript bytes\n\
                      --receipt-validation-report PATH Successful canonical receipt validator report\n\
-                     --agent-output PATH              Exact structured agent-submission bytes\n\
+                     --agent-output PATH              Exact structured agent-submission bytes (also required for receipt-bound mode)\n\
                      --output PATH                    Write report JSON"
                 );
                 return Ok(());
@@ -692,10 +692,12 @@ fn run() -> Result<(), Box<dyn Error>> {
         receipt_path.is_some(),
         transcript_path.is_some(),
         receipt_validation_path.is_some(),
-        agent_output_path.is_some(),
     ];
     if receipt_args.iter().any(|present| *present) && !receipt_args.iter().all(|present| *present) {
-        return Err("receipt-bound mode requires --run-receipt, --transcript, --receipt-validation-report and --agent-output together".into());
+        return Err("receipt-bound mode requires --run-receipt, --transcript and --receipt-validation-report together".into());
+    }
+    if receipt_args.iter().all(|present| *present) && agent_output_path.is_none() {
+        return Err("receipt-bound mode additionally requires --agent-output".into());
     }
 
     let schema: Value = read_json(schema_path)?;
@@ -704,6 +706,12 @@ fn run() -> Result<(), Box<dyn Error>> {
     let trace: Value = serde_json::from_slice(&trace_bytes)?;
     validate_instance("runner-observed trace", &schema, &trace)?;
     let mut report = validate_trace(&trace)?;
+    let structured_output_bytes = agent_output_path.map(read_bytes).transpose()?;
+    if let Some(output_bytes) = structured_output_bytes.as_deref() {
+        if digest(output_bytes) != string(&trace, "structured_output_sha256")? {
+            return Err("structured agent-output bytes do not match the trace structured_output_sha256".into());
+        }
+    }
     report["report_id"] = Value::String("MYCELIX-RUNNER-OBSERVED-TRACE-REPORT".to_owned());
     report["schema_version"] = Value::String("1.0.0".to_owned());
     report["claim_ceiling"] = Value::String(
@@ -712,12 +720,11 @@ fn run() -> Result<(), Box<dyn Error>> {
     report["trace_sha256"] = Value::String(digest(&trace_bytes));
     report["structured_output_sha256"] = Value::String(string(&trace, "structured_output_sha256")?.to_owned());
 
-    if let (Some(receipt_path), Some(transcript_path), Some(validation_path), Some(agent_output_path)) =
-        (receipt_path, transcript_path, receipt_validation_path, agent_output_path)
+    if let (Some(receipt_path), Some(transcript_path), Some(validation_path), Some(structured_output_bytes)) =
+        (receipt_path, transcript_path, receipt_validation_path, structured_output_bytes.as_deref())
     {
         let receipt_bytes = read_bytes(receipt_path)?;
         let transcript_bytes = read_bytes(transcript_path)?;
-        let structured_output_bytes = read_bytes(agent_output_path)?;
         let receipt_validation: Value = read_json(validation_path)?;
         let receipt: Value = serde_json::from_slice(&receipt_bytes)?;
         let binding = validate_receipt_binding(
@@ -727,7 +734,7 @@ fn run() -> Result<(), Box<dyn Error>> {
             &receipt_bytes,
             &receipt_validation,
             &transcript_bytes,
-            &structured_output_bytes,
+            structured_output_bytes,
         )?;
         report["receipt_binding_checked"] = binding["receipt_binding_checked"].clone();
         report["receipt_binding_valid"] = binding["receipt_binding_valid"].clone();
@@ -880,12 +887,12 @@ mod tests {
     fn rejects_reclassification_with_wrong_prior_state() {
         let (mut trace, _, _, _) = fixture();
         let mut event = trace["events"][2].clone();
-        event["seq"] = json!(18);
-        event["event_id"] = json!("EVT-RECLASSIFY-INVALID");
+        event["seq"] = json!(8);
+        event["event_id"] = json!("EVT-INVALID-PRIOR-STATE");
         event["event_kind"] = json!("fact_reclassified");
         event["fact_ref"] = json!("F-001-AMOUNT");
         event["prior_evidence_state"] = json!("disputed");
-        event["evidence_state"] = json!("asserted");
+        event["evidence_state"] = json!("contradicting");
         event["related_event_refs"] = json!(["EVT-001-SOURCE-OPEN"]);
         event["fact_type"] = Value::Null;
         event["fact_value_sha256"] = Value::Null;
@@ -910,47 +917,12 @@ mod tests {
         event["reason_code"] = Value::Null;
         event["terminal_disposition"] = Value::Null;
         event["response_sha256"] = Value::Null;
-        trace["events"].as_array_mut().unwrap().insert(16, event);
+        trace["events"].as_array_mut().unwrap().insert(7, event);
         for (index, event) in trace["events"].as_array_mut().unwrap().iter_mut().enumerate() {
             event["seq"] = json!(index + 1);
         }
         assert!(validate_trace(&trace).is_err());
     }
-
-    fn structured_output() -> Vec<u8> {
-        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../agent-output-evaluator-v1");
-        read_bytes(root.join("fixtures/runner_observed_agent_output_acct001_synthetic_v1.0.0.json")).unwrap()
-    }
-
-    fn synthetic_receipt(
-        trace: &Value,
-        trace_bytes: &[u8],
-        transcript: &[u8],
-        structured_output: &[u8],
-    ) -> (Value, Value) {
-        let trace_sha = digest(trace_bytes);
-        let structured_output_sha = digest(structured_output);
-        let receipt = json!({
-            "schema_version":"luminous.benchmark-run-receipt.v1",
-            "run_id":string(trace,"run_id").unwrap(),
-            "provenance":{"transcript_sha256":digest(transcript)},
-            "task_results":[{
-                "task_id":string(trace,"task_id").unwrap(),
-                "input_sha256":string(trace,"source_bundle_sha256").unwrap(),
-                "output_sha256":[trace_sha,structured_output_sha]
-            }]
-        });
-        let receipt_bytes = serde_json::to_vec(&receipt).unwrap();
-        let validation_report = json!({
-            "valid":true,
-            "receipts":[{
-                "run_id":string(trace,"run_id").unwrap(),
-                "raw_file_sha256":digest(&receipt_bytes)
-            }]
-        });
-        (receipt, validation_report)
-    }
-
 
     #[test]
     fn rejects_fact_that_binds_multiple_revisions_of_same_document() {
