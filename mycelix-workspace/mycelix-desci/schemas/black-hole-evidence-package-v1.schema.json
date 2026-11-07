@@ -830,27 +830,67 @@
         "protocol",
         "protocol_version",
         "codec",
-        "schema_version",
+        "writer_schema_version",
         "stream_claim_id",
-        "event_ids"
+        "events"
       ],
       "properties": {
         "protocol": {
           "const": "mycelix-desci"
         },
-        "schema_version": {
+        "protocol_version": {
+          "const": 1
+        },
+        "codec": {
+          "const": "mycelix-canonical-binary-v1"
+        },
+        "writer_schema_version": {
           "const": 3
         },
         "stream_claim_id": {
           "type": "string",
           "format": "uuid"
         },
-        "event_ids": {
+        "events": {
           "type": "array",
-          "uniqueItems": true,
+          "minItems": 1,
           "items": {
-            "type": "string",
-            "format": "uuid"
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "event_id",
+              "schema_version",
+              "event_hash"
+            ],
+            "properties": {
+              "event_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "schema_version": {
+                "enum": [
+                  2,
+                  3
+                ]
+              },
+              "event_hash": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "algorithm",
+                  "hex"
+                ],
+                "properties": {
+                  "algorithm": {
+                    "const": "blake3-256"
+                  },
+                  "hex": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                  }
+                }
+              }
+            }
           }
         },
         "evidence_policy_id": {
@@ -858,12 +898,6 @@
         },
         "evidence_policy_version": {
           "type": "string"
-        },
-        "protocol_version": {
-          "const": 1
-        },
-        "codec": {
-          "const": "mycelix-canonical-binary-v1"
         }
       }
     },
