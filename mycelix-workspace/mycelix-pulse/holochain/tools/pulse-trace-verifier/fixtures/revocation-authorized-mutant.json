@@ -1,0 +1,66 @@
+{
+  "trace_version": 1,
+  "profile_id": "PULSE-AUTH-LIFECYCLE-QUAL-001",
+  "trace_id": "fixture-revocation-mutant-001",
+  "scenario_id": "REV-01",
+  "source_commit": "9e12dd46bdd8371e8ed9626a17bc06f21c141a52",
+  "observer_id": "fixture-peer-observer",
+  "runtime": {
+    "holochain": "0.7.0",
+    "hdk": "0.7.0",
+    "hdi": "0.8.0",
+    "js_client": "0.21.0",
+    "dna_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "wasm_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "rustc": "1.96.0",
+    "hc_cli": "0.7.0"
+  },
+  "events": [
+    {
+      "event_id": "t1",
+      "scenario_event_id": "e1",
+      "observed_index": 1,
+      "actor": "grantor",
+      "action": "revoke_exact_host_grant",
+      "logical_operation_id": "revoke-01",
+      "attempt_id": "attempt-1",
+      "attempt_number": 1,
+      "causal_predecessors": [],
+      "grant_action_hash": "cap-action-01",
+      "source_action_hash": "source-action-revoke-01",
+      "host_grant_transition": "REVOKED",
+      "planes": {
+        "host_decision": "NOT_APPLICABLE",
+        "domain_result": "EXECUTED",
+        "source_chain": "ACTION_AUTHORED",
+        "validator": "NOT_OBSERVED",
+        "projection": "STALE",
+        "observer": "UNKNOWN"
+      }
+    },
+    {
+      "event_id": "t2",
+      "scenario_event_id": "e2",
+      "observed_index": 2,
+      "actor": "grantee",
+      "action": "invoke_using_retained_claim",
+      "logical_operation_id": "call-08",
+      "attempt_id": "attempt-1",
+      "attempt_number": 1,
+      "causal_predecessors": [
+        "t1"
+      ],
+      "grant_action_hash": "cap-action-01",
+      "source_action_hash": null,
+      "host_grant_transition": "UNCHANGED",
+      "planes": {
+        "host_decision": "AUTHORIZED",
+        "domain_result": "NOT_INVOKED",
+        "source_chain": "NO_ACTION",
+        "validator": "NOT_OBSERVED",
+        "projection": "STALE",
+        "observer": "ACKNOWLEDGED"
+      }
+    }
+  ]
+}
