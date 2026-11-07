@@ -157,8 +157,9 @@ Compilation is only the first rung. Qualify the exact source head through:
 6. fresh 0.7.1 conductor installation;
 7. multi-agent Sweettest on the packed DNA;
 8. independent Rust/JavaScript client E2E;
-9. restart, backup/restore and export/import tests;
-10. sealed evidence receipt binding source SHA, toolchain, lockfiles, artifact hashes, conductor version and test results.
+9. public source-chain restore-from-DHT tests: original AgentPubKey key required, AwaitingRestore until all cell chains complete, invalid action/receipt rejection, no-peer retry, and explicit enable;
+10. restart, backup/restore and export/import tests;
+11. sealed evidence receipt binding source SHA, toolchain, lockfiles, artifact hashes, conductor version and test results.
 
 Keep the excluded Sweettest workspace in the qualification chain. A passing root workspace does not establish that the real hApp can be packed, loaded or exercised.
 
@@ -236,7 +237,7 @@ Use matched hardware and topology, pinned software releases, repeated seeded tri
 
 Mycelix may claim **Holochain 0.7.1 qualified** only when:
 
-- upstream compatibility guidance and the 0.7.1 release tuple discrepancy is resolved, or the project explicitly records a 0.7.0 hold;
+- upstream Holochain 0.7.1 release readiness and exact component tuple are recorded; the compatibility table's remaining 0.7.0 label is tracked as stale upstream documentation, not used to silently hold Mycelix at 0.7.0;
 - canonical monorepo source, exporter transform, and standalone output have exact-head parity for every mirrored consumer;
 
 - all active consumers are classified and every consumer is either 0.7.1-qualified or demonstrably isolated;
@@ -245,6 +246,7 @@ Mycelix may claim **Holochain 0.7.1 qualified** only when:
 - every required zome builds to WASM and every target DNA/hApp packs;
 - real 0.7.1 conductor and multi-agent Sweettest pass on exact-head artifacts;
 - independent client E2E and capability/direct-signal tests pass;
+- source-chain restore-from-DHT is independently qualified, including missing peers, partial multi-cell restore, corrupt action/receipt rejection, original-key requirement, and private-data / capability non-restoration;
 - export/import reconciliation and recovery tests pass for any data being transitioned;
 - all negative controls reject as expected;
 - independent review has checked the evidence and claim ceilings.
@@ -268,6 +270,7 @@ Queued, pending, skipped, cancelled, or superseded runs are not PASS. No CI resu
 - #4317 — Finance substrate truth
 - #4371 — Fabrication authenticated-anchor resolver action-model port
 - #4891 — Pulse Holochain 0.7 migration canary
+- #5905 — 0.7.1 public source-chain restoration qualification
 - #4929 / #4903 — Pulse exact-head workflow and delayed-DHT capability currentness
 - #5245 / #5293 — CivOS multi-agent correctness/resilience benchmark and executable corpus
 
