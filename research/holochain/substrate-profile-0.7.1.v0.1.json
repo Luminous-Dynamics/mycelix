@@ -30,8 +30,14 @@
       "kitsune2_bootstrap": "0.5.2",
       "lair": "0.7.1",
       "hc_scaffold": "0.700.1",
-      "rule": "Record exact Holonix input revision and the entire resolved flake.lock in the Mycelix repo; main-0.7 is mutable."
-    }
+      "rule": "Record exact Holonix input revision and full resolved flake.lock. Holonix main-0.7 is mutable and its Rust 1.95.0 is a bootstrap snapshot toolchain. The Pulse candidate overrides Rust with its local 1.96.1 toolchain; Holochain library Kitsune2 0.5.1 and Holonix bootstrap service 0.5.2 remain distinct roles."
+    },
+    "holochain_source_tag_rust": "1.96.1",
+    "pulse_app_rust_toolchain": "1.96.1",
+    "pulse_toolchain_file": "mycelix-workspace/mycelix-pulse/rust-toolchain.toml",
+    "holonic_snapshot_rust_role": "bootstrap nix snapshot only; not the pulse application compiler",
+    "holochain_source_rust_toolchain_file": "https://github.com/holochain/holochain/blob/holochain-0.7.1/rust-toolchain.toml",
+    "pulse_app_toolchain_reason": "Matches the Rust 1.96.1 pin in the Holochain holochain-0.7.1 source tag; isolates the candidate from shared workspace Rust 1.96.0 and Holonix snapshot Rust 1.95.0."
   },
   "migration_boundaries": {
     "from_holochain_family": "0.6.x",
