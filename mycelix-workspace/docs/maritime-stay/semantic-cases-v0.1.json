@@ -38,7 +38,8 @@
       "invariants": [
         "all_mandatory_components_have_current_provider_commitments",
         "aggregate_state_is_derived_from_provider_receipts"
-      ]
+      ],
+      "notes": "Accept means the supplied messages are internally consistent under the declared message-only verifier profile. It does not authenticate the provider issuer, establish local recognition, prove source currentness, or establish payment finality; those dispositions are separate."
     },
     {
       "case_id": "SEM-002",
@@ -531,7 +532,7 @@
       "invariants": [
         "expiry_equality_semantics_must_be_frozen_before_verifier_implementation"
       ],
-      "notes": "Positive/negative boundary case intentionally unresolved. Freeze whether valid_until is inclusive or exclusive before assigning an accept/reject oracle."
+      "notes": "At the exact expiry equality boundary, the proposed state-model document recommends exclusive valid_until. This remains a proposed protocol decision; the case is not evaluable until #5918 adopts it."
     },
     {
       "case_id": "SEM-023",
@@ -576,6 +577,91 @@
         "partial_success_is_preserved_and_never_promoted_to_confirmed"
       ],
       "notes": "Trace contains one valid mandatory berth commitment and an explicit rejection for the mandatory accommodation component; it does not start from the complete-stay happy-path fixture."
+    },
+    {
+      "case_id": "SEM-025",
+      "class": "aggregate_state_gap",
+      "setup": "two_mandatory_components_both_rejected",
+      "supplemental_trace": [
+        {
+          "event": "provider_rejects_mandatory_component",
+          "component_ref": "component:berth-001"
+        },
+        {
+          "event": "provider_rejects_mandatory_component",
+          "component_ref": "component:room-001"
+        }
+      ],
+      "expected": {
+        "verdict": "not_evaluable_v0_1",
+        "reason_codes": [
+          "aggregate_all_mandatory_rejected_state_not_in_enum"
+        ]
+      },
+      "invariants": [
+        "known_terminal_provider_rejection_must_not_be_misrepresented_as_cancelled_expired_or_unknown"
+      ],
+      "notes": "Current aggregate_state enum has no Failed/Unfulfillable terminal state when all mandatory components are rejected and none was committed. #5918 must decide whether to add a state or version the follow-up."
+    },
+    {
+      "case_id": "SEM-026",
+      "class": "optional_component",
+      "setup": "all_mandatory_components_committed_optional_repair_rejected",
+      "supplemental_trace": [
+        {
+          "event": "mandatory_berth_commitment_current"
+        },
+        {
+          "event": "mandatory_accommodation_commitment_current"
+        },
+        {
+          "event": "optional_repair_service_rejected"
+        }
+      ],
+      "expected": {
+        "verdict": "accept",
+        "aggregate_state": "confirmed",
+        "optional_component_state": "failed"
+      },
+      "invariants": [
+        "optional_component_failure_does_not_block_mandatory_confirmation",
+        "optional_component_failure_remains_visible"
+      ],
+      "notes": "This is an aggregate-state positive control; the v0.1 aggregate remains Confirmed only if all mandatory commitments and their required evidence are current."
+    },
+    {
+      "case_id": "SEM-027",
+      "class": "issuer_attribution",
+      "setup": "base_fixture",
+      "mutations": [],
+      "expected": {
+        "message_consistency": "accept",
+        "issuer_attribution": "indeterminate",
+        "reason_codes": [
+          "provider_issuer_authentication_not_represented_in_v0_1_schema"
+        ]
+      },
+      "invariants": [
+        "provider_ref_string_and_integrity_digest_do_not_authenticate_provider_issuer"
+      ],
+      "notes": "v0.1 has no signature, key reference, verification profile or local-recognition receipt. A message-only verifier must not claim to have proven provider authority."
+    },
+    {
+      "case_id": "SEM-028",
+      "class": "payment_finality",
+      "setup": "base_fixture",
+      "mutations": [],
+      "expected": {
+        "stay_confirmation": "accept_if_mandatory_commitments_valid",
+        "payment_finality": "unknown_not_represented_in_v0_1_schema",
+        "reason_codes": [
+          "payment_finality_not_established_by_provider_commitment"
+        ]
+      },
+      "invariants": [
+        "provider_commitment_or_price_field_does_not_prove_payment_capture_or_settlement"
+      ],
+      "notes": "The Money fields represent price amounts; the schema does not contain an authenticated payment-processor finality disposition. Refund operation names in EffectReceipt do not fill that gap."
     }
   ],
   "unresolved_semantics_to_freeze_before_implementation": [
@@ -586,5 +672,6 @@
     "How provider key revocation and revision currentness are supplied to the verifier.",
     "Which stable canonicalization/profile defines the idempotency request digest."
   ],
-  "execution_status": "not_executed"
+  "execution_status": "not_executed",
+  "case_count": 28
 }
