@@ -1,0 +1,61 @@
+{
+  "benchmark_id": "LIFE-PRIVACY-COMPILER-001",
+  "version": "0.1.0",
+  "status": "synthetic_exact_search_reference_model",
+  "population": {
+    "subjects": 512,
+    "task_answer_bits": 3,
+    "task_signatures_balanced": true,
+    "statement_count_min": 8,
+    "statement_count_max": 31,
+    "optional_index_universe": 8,
+    "optional_indices_per_subject": 3,
+    "seed": "0x5EEDC0DE",
+    "generator": "splitmix64-derived deterministic fixture"
+  },
+  "policy": {
+    "minimum_p05_candidate_count": 16,
+    "task_answer_equivalence_required": true,
+    "stable_identifier_allowed": false,
+    "optimization": "minimize_synthetic_overhead_then_maximize_p05_then_lexical_name"
+  },
+  "synthetic_overhead_units": {
+    "count_exact": 0,
+    "count_bucketed": 8,
+    "count_padded": 24,
+    "index_exact": 0,
+    "index_coarse": 5,
+    "index_omitted": 12
+  },
+  "strategies": {
+    "count_modes": ["exact", "two_bucket", "common_padding"],
+    "index_modes": ["exact_pattern", "coarse_class", "omitted"],
+    "additional_negative_control": "stable_identifier_visible"
+  },
+  "metrics": [
+    "candidate_set_min_p05_p50_p95_max",
+    "raw_under_k_count_and_ppm",
+    "raw_unique_candidate_count_and_ppm",
+    "synthetic_overhead_units",
+    "pareto_frontier",
+    "selected_profile"
+  ],
+  "invariants": [
+    "all_profiles_preserve_all_required_task_answers",
+    "unmitigated_profile_fails_minimum_p05_candidate_floor",
+    "stable_identifier_negative_control_is_ineligible_and_unique",
+    "selected_profile_is_minimum_cost_feasible_strategy",
+    "frontier_matches_pairwise_nondominance_oracle",
+    "candidate_sets_use_only_task_answers_and_declared_observable_fields",
+    "report_is_rectangular_and_deterministic"
+  ],
+  "claim_ceiling": "synthetic_exact_search_reference_model",
+  "nonclaims": [
+    "production_credential_compiler",
+    "protocol_conformance",
+    "differential_privacy",
+    "real_world_anonymity_or_unlinkability",
+    "production_cost_estimates",
+    "sota_superiority"
+  ]
+}
