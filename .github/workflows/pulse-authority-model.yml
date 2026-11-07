@@ -27,6 +27,7 @@ on:
       - "mycelix-workspace/mycelix-pulse/docs/security/PulseChainRestore*"
       - "mycelix-workspace/mycelix-pulse/docs/security/PulseMailboxValidation*"
       - "mycelix-workspace/mycelix-pulse/docs/security/PulseAuthorityCheckpoint*"
+      - "mycelix-workspace/mycelix-pulse/docs/security/PulseCellScopeIsolation*"
       - "mycelix-workspace/mycelix-pulse/docs/security/PulseAuthorityCheckpointLineage*"
       - "mycelix-workspace/mycelix-pulse/docs/security/PulseAuthorityCausalFrontier*"
       - "mycelix-workspace/mycelix-pulse/docs/security/PulseSignalTrust*"
