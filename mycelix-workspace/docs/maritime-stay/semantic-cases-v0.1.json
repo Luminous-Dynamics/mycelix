@@ -522,7 +522,7 @@
         ]
       },
       "invariants": [
-        "half_open_expiry_boundary_is_defined"
+        "expiry_equality_semantics_must_be_frozen_before_verifier_implementation"
       ],
       "notes": "Positive/negative boundary case intentionally unresolved. Freeze whether valid_until is inclusive or exclusive before assigning an accept/reject oracle."
     },
