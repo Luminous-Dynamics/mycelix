@@ -156,6 +156,7 @@ pub fn evaluate_bytes(input_bytes: &[u8]) -> EvaluationReport {
             0,
             String::new(),
             Vec::new(),
+            0,
         ),
     }
 }
@@ -173,6 +174,7 @@ pub fn evaluate(input: &HypergraphInput, input_sha256: String) -> EvaluationRepo
             input.query.event_time,
             input.snapshot.snapshot_id.clone(),
             input.query.source_ids.clone(),
+            input.snapshot.evidence_frontier,
         );
     }
 
@@ -203,6 +205,7 @@ pub fn evaluate(input: &HypergraphInput, input_sha256: String) -> EvaluationRepo
                 input.query.event_time,
                 input.snapshot.snapshot_id.clone(),
                 input.query.source_ids.clone(),
+                input.snapshot.evidence_frontier,
             );
         }
 
@@ -364,7 +367,10 @@ fn validate_contract(input: &HypergraphInput, errors: &mut Vec<String>) {
         node_kinds.insert(node.id.as_str(), &node.kind);
     }
     for scoped_source in &input.snapshot.scoped_source_ids {
-        if node_kinds.get(scoped_source.as_str()) != Some(&&NodeKind::Source) {
+        if !node_kinds
+            .get(scoped_source.as_str())
+            .is_some_and(|kind| **kind == NodeKind::Source)
+        {
             errors.push("snapshot_scope_entry_is_not_a_source".to_owned());
         }
     }
@@ -398,7 +404,10 @@ fn validate_contract(input: &HypergraphInput, errors: &mut Vec<String>) {
         }
         if !node_ids.contains(edge.dependency_id.as_str()) {
             errors.push("hyperedge_dependency_node_missing".to_owned());
-        } else if node_kinds.get(edge.dependency_id.as_str()) != Some(&&NodeKind::Dependency) {
+        } else if !node_kinds
+            .get(edge.dependency_id.as_str())
+            .is_some_and(|kind| **kind == NodeKind::Dependency)
+        {
             errors.push("hyperedge_dependency_must_reference_dependency_node".to_owned());
         }
         for subject in &edge.subject_ids {
@@ -554,6 +563,7 @@ fn reference_report(input: &HypergraphInput, input_sha256: String) -> Evaluation
             input.query.event_time,
             input.snapshot.snapshot_id.clone(),
             input.query.source_ids.clone(),
+            input.snapshot.evidence_frontier,
         );
     }
 
@@ -591,6 +601,7 @@ fn reference_report(input: &HypergraphInput, input_sha256: String) -> Evaluation
                 input.query.event_time,
                 input.snapshot.snapshot_id.clone(),
                 input.query.source_ids.clone(),
+                input.snapshot.evidence_frontier,
             );
         }
         source_ancestors.insert(source.clone(), ancestors);
@@ -694,6 +705,7 @@ fn invalid_report(
     event_time: i64,
     snapshot_id: String,
     source_ids: Vec<String>,
+    evidence_frontier: i64,
 ) -> EvaluationReport {
     EvaluationReport {
         report_contract: REPORT_CONTRACT.to_owned(),
@@ -701,7 +713,7 @@ fn invalid_report(
         authority: "declared_dependency_assessment_only".to_owned(),
         input_sha256,
         snapshot_id,
-        evidence_frontier: 0,
+        evidence_frontier,
         event_time,
         domain,
         source_ids,
