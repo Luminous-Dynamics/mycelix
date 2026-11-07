@@ -25,7 +25,7 @@ To replay a redacted runtime trace:
 cargo run --locked \
   --manifest-path mycelix-workspace/mycelix-pulse/holochain/Cargo.toml \
   -p pulse-trace-verifier -- \
-  verify-trace <corpus.json> <schema.json> <trace.json>
+  verify-trace <corpus.json> <corpus-schema.json> <trace-schema.json> <trace.json>
 ```
 
 The CLI writes a deterministic JSON receipt to stdout and exits non-zero on any contract violation.
