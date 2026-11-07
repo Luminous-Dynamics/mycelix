@@ -1210,6 +1210,74 @@ mod tests {
         assert!(error.iter().any(|item| item.contains("unknown field cap_secret")));
     }
 
+    fn grant_retry_trace() -> Value {
+        let (_, _, corpus) = corpus_and_schema();
+        assert!(corpus.scenarios.contains_key("GRANT-01"));
+        json!({
+            "trace_version": 1,
+            "profile_id": PROFILE_ID,
+            "trace_id": "trace-grant-retry-001",
+            "scenario_id": "GRANT-01",
+            "source_commit": "9e12dd46bdd8371e8ed9626a17bc06f21c141a52",
+            "observer_id": "grantor-local-observer",
+            "runtime": runtime_json(),
+            "events": [
+                event_json(
+                    "g1", "e1", 1, "grantor", "create_assigned_capability",
+                    "grant-27", "attempt-1", 1, &[], Some("cap-action-27"),
+                    Some("source-action-grant-27"), "CREATED",
+                    json!({"host_decision":"NOT_APPLICABLE","domain_result":"EXECUTED","source_chain":"ACTION_AUTHORED","validator":"NOT_OBSERVED","projection":"CURRENT","observer":"UNKNOWN"}),
+                    None, None
+                ),
+                event_json(
+                    "g2", "e2", 2, "transport", "drop_grant_acknowledgement",
+                    "grant-27", "attempt-1", 1, &["g1"], Some("cap-action-27"),
+                    Some("source-action-grant-27"), "UNCHANGED",
+                    json!({"host_decision":"NOT_APPLICABLE","domain_result":"EXECUTED","source_chain":"ACTION_AUTHORED","validator":"NOT_OBSERVED","projection":"CURRENT","observer":"UNKNOWN"}),
+                    None, None
+                ),
+                event_json(
+                    "g3", "e3", 3, "grantor", "retry_same_logical_grant_request",
+                    "grant-27", "attempt-2", 2, &["g2"], Some("cap-action-27"),
+                    Some("source-action-grant-27"), "UNCHANGED",
+                    json!({"host_decision":"NOT_APPLICABLE","domain_result":"EXECUTED","source_chain":"ACTION_AUTHORED","validator":"NOT_OBSERVED","projection":"CURRENT","observer":"ACKNOWLEDGED"}),
+                    None, None
+                )
+            ]
+        })
+    }
+
+    #[test]
+    fn accepts_lost_grant_ack_retry_when_same_grant_identity_is_reconciled() {
+        let (corpus, schema, _) = corpus_and_schema();
+        let trace = serde_json::to_vec(&grant_retry_trace()).unwrap();
+        let receipt = verify_trace(&corpus, &schema, &trace).expect("idempotent GRANT-01 trace");
+        assert_eq!(receipt.report["scenario_id"], "GRANT-01");
+    }
+
+    #[test]
+    fn rejects_retry_that_mints_a_second_host_grant() {
+        let (corpus, schema, _) = corpus_and_schema();
+        let mut trace = grant_retry_trace();
+        trace["events"][2]["host_grant_transition"] = json!("CREATED");
+        trace["events"][2]["grant_action_hash"] = json!("cap-action-27b");
+        trace["events"][2]["source_action_hash"] = json!("source-action-grant-27b");
+        let bytes = serde_json::to_vec(&trace).unwrap();
+        let error = verify_trace(&corpus, &schema, &bytes).unwrap_err();
+        assert!(error.iter().any(|item| item.contains("retry created more than one host grant")));
+        assert!(error.iter().any(|item| item.contains("retry changed the grant ActionHash")));
+    }
+
+    #[test]
+    fn valid_fixture_is_replayable_and_mutant_fixture_is_rejected() {
+        let (corpus, schema, _) = corpus_and_schema();
+        const VALID: &str = include_str!("../fixtures/revocation-valid.json");
+        const MUTANT: &str = include_str!("../fixtures/revocation-authorized-mutant.json");
+        assert!(verify_trace(&corpus, &schema, VALID.as_bytes()).is_ok());
+        let error = verify_trace(&corpus, &schema, MUTANT.as_bytes()).unwrap_err();
+        assert!(error.iter().any(|item| item.contains("AUTHORIZED after causally preceding revocation")));
+    }
+
     #[test]
     fn rejects_remote_validator_rejection_with_changed_observer_state() {
         let (corpus, schema, parsed) = corpus_and_schema();
