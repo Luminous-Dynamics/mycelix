@@ -1,0 +1,9 @@
+[package]
+name = "life-adjacency-oracle"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[[bin]]
+name = "life-adjacency-oracle"
+path = "src/main.rs"

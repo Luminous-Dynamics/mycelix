@@ -1,0 +1,47 @@
+{
+  "benchmark_id": "LIFE-ADJACENCY-001",
+  "version": "0.1.0",
+  "status": "exact_finite_distribution_reference_model",
+  "randomized_response": {
+    "true_value_release_probability": "3/4",
+    "false_value_release_probability": "1/4",
+    "base_epsilon": "ln(3)",
+    "delta": 0
+  },
+  "adjacency_units": [
+    "record",
+    "person",
+    "group",
+    "relational_graph"
+  ],
+  "records_per_person": [1, 3],
+  "group_sizes": [1, 2, 4],
+  "relational_edges_changed_per_group_member": 1,
+  "mechanisms": [
+    "randomized_response_all_changed_facts",
+    "randomized_records_publish_relation_edges_raw"
+  ],
+  "exact_enumeration": {
+    "max_changed_facts": 16,
+    "max_output_states": 65536,
+    "comparison": "exact integer likelihood-ratio exponents in base 3"
+  },
+  "invariants": [
+    "one_changed_record_has_epsilon_ln3",
+    "person_epsilon_scales_with_records_per_person",
+    "group_epsilon_scales_with_changed_record_count",
+    "randomized_relation_edges_compose_into_graph_adjacency",
+    "raw_relation_edge_has_disjoint_output_support",
+    "raw_edge_release_requires_delta_at_least_one_for_graph_adjacency",
+    "formal_dp_claim_is_separate_from_empirical_attack_metrics"
+  ],
+  "claim_ceiling": "exact_binary_randomized_response_finite_distribution_oracle",
+  "nonclaims": [
+    "production_mechanism_assurance",
+    "real_world_user_risk_calibration",
+    "credential_protocol_privacy",
+    "production_graph_privacy",
+    "anonymity",
+    "causality"
+  ]
+}
