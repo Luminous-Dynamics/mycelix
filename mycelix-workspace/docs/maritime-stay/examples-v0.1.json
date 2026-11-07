@@ -65,7 +65,8 @@
         "capacity": 1,
         "capacity_unit": "berth-slot",
         "source_ref": "provider-record:availability-991",
-        "uncertainty_note": "Provider system reports one available berth slot."
+        "uncertainty_note": "Provider system reports one available berth slot.",
+        "capacity_dimension": "count"
       },
       "price": {
         "currency": "EUR",
@@ -107,7 +108,8 @@
         "valid_until": "2026-11-07T15:10:00Z",
         "capacity": 1,
         "capacity_unit": "unit-night",
-        "source_ref": "provider-record:availability-302"
+        "source_ref": "provider-record:availability-302",
+        "capacity_dimension": "count"
       },
       "price": {
         "currency": "EUR",
