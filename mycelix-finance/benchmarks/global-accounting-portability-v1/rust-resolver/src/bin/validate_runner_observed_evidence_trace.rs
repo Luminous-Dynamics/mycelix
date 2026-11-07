@@ -93,6 +93,9 @@ fn event_actor(event: &Value) -> Result<&str, String> {
 }
 
 fn validate_trace(trace: &Value) -> Result<Value, String> {
+    if !is_sha256(string(trace, "structured_output_sha256")?) {
+        return Err("structured output digest is not canonical SHA-256".to_owned());
+    }
     if optional_string(trace, "schema_version") != Some("1.0.0")
         || optional_string(trace, "trace_kind") != Some("runner_observed_evidence_trace")
     {
@@ -239,6 +242,16 @@ fn validate_trace(trace: &Value) -> Result<Value, String> {
                 let prior_state = string(event, "prior_evidence_state")?;
                 let next_state = string(event, "evidence_state")?;
                 let related = string_set(event, "related_event_refs")?;
+                if terminalized.contains_key(fact_ref) {
+                    return Err(format!(
+                        "{trace_id}/{event_id}: fact {fact_ref} cannot be reclassified after terminalization; v1 traces must reopen through a new run"
+                    ));
+                }
+                if disposition.is_some() {
+                    return Err(format!(
+                        "{trace_id}/{event_id}: fact {fact_ref} cannot be reclassified after final disposition"
+                    ));
+                }
                 let previous = facts
                     .get_mut(fact_ref)
                     .ok_or_else(|| format!("{trace_id}/{event_id}: reclassified fact {fact_ref} was never observed"))?;
@@ -265,6 +278,11 @@ fn validate_trace(trace: &Value) -> Result<Value, String> {
                 if refs.len() < 2 || refs.iter().any(|fact_ref| !facts.contains_key(fact_ref)) {
                     return Err(format!("{trace_id}/{event_id}: contradiction must connect at least two previously observed facts"));
                 }
+                if refs.iter().any(|fact_ref| terminalized.contains_key(fact_ref)) || disposition.is_some() {
+                    return Err(format!(
+                        "{trace_id}/{event_id}: contradiction discovered after terminalization/final disposition requires a new run"
+                    ));
+                }
             }
             "question_emitted" => {
                 if actor != "candidate_agent" {
@@ -288,6 +306,11 @@ fn validate_trace(trace: &Value) -> Result<Value, String> {
                     let fact = facts
                         .get(fact_ref)
                         .ok_or_else(|| format!("{trace_id}/{event_id}: question blocker {fact_ref} was never observed"))?;
+                    if fact.1 == "asserted" {
+                        return Err(format!(
+                            "{trace_id}/{event_id}: question blocker {fact_ref} is still asserted; record the missing/disputed/contradictory evidence state first"
+                        ));
+                    }
                     required_docs.extend(fact.2.clone());
                 }
                 if !required_docs.is_subset(&docs) {
@@ -320,6 +343,18 @@ fn validate_trace(trace: &Value) -> Result<Value, String> {
                 let state = string(event, "terminal_state")?.to_owned();
                 let target_refs = string_set(event, "terminal_target_refs")?;
                 string(event, "terminal_reason")?;
+                let current_evidence_state = &facts.get(fact_ref)
+                    .ok_or_else(|| format!("{trace_id}/{event_id}: terminalized fact {fact_ref} was never observed"))?.1;
+                if state == "carried_to_journal" && current_evidence_state != "asserted" {
+                    return Err(format!(
+                        "{trace_id}/{event_id}: non-asserted fact {fact_ref} cannot be terminalized to a journal"
+                    ));
+                }
+                if state == "carried_to_question" && current_evidence_state == "asserted" {
+                    return Err(format!(
+                        "{trace_id}/{event_id}: asserted fact {fact_ref} cannot be terminalized to a clarification question"
+                    ));
+                }
                 if terminalized.insert(fact_ref.to_owned(), (state.clone(), target_refs.clone(), seq)).is_some() {
                     return Err(format!("{trace_id}/{event_id}: fact {fact_ref} is terminalized more than once"));
                 }
@@ -343,6 +378,11 @@ fn validate_trace(trace: &Value) -> Result<Value, String> {
                 let fact_refs = string_set(event, "fact_refs")?;
                 if fact_refs.is_empty() || fact_refs.iter().any(|fact_ref| !facts.contains_key(fact_ref)) {
                     return Err(format!("{trace_id}/{event_id}: journal line references unobserved facts"));
+                }
+                if fact_refs.iter().any(|fact_ref| {
+                    facts.get(fact_ref).is_some_and(|fact| fact.1 != "asserted")
+                }) {
+                    return Err(format!("{trace_id}/{event_id}: journal line cannot cite a non-asserted evidence fact"));
                 }
                 if journal_lines.insert(line_ref.clone(), (fact_refs, seq)).is_some() {
                     return Err(format!("{trace_id}/{event_id}: duplicate journal line ref {line_ref}"));
@@ -419,21 +459,21 @@ fn validate_trace(trace: &Value) -> Result<Value, String> {
         }
         match state.as_str() {
             "carried_to_question" => {
-                if !target_refs.iter().any(|target| {
-                    questions.get(target).is_some_and(|(blockers, _, question_seq)| {
+                if target_refs.is_empty() || target_refs.iter().any(|target| {
+                    !questions.get(target).is_some_and(|(blockers, _, question_seq)| {
                         blockers.contains(fact_ref) && *question_seq < *terminal_seq
                     })
                 }) {
-                    return Err(format!("{trace_id}: fact {fact_ref} terminalized to a question that does not cite it"));
+                    return Err(format!("{trace_id}: fact {fact_ref} terminalized to a missing/non-citing question"));
                 }
             }
             "carried_to_journal" => {
-                if !target_refs.iter().any(|target| {
-                    journal_lines.get(target).is_some_and(|(refs, journal_seq)| {
+                if target_refs.is_empty() || target_refs.iter().any(|target| {
+                    !journal_lines.get(target).is_some_and(|(refs, journal_seq)| {
                         refs.contains(fact_ref) && *journal_seq > *terminal_seq
                     })
                 }) {
-                    return Err(format!("{trace_id}: fact {fact_ref} terminalized to a journal line that does not cite it"));
+                    return Err(format!("{trace_id}: fact {fact_ref} terminalized to a missing/non-citing journal line"));
                 }
             }
             "carried_to_review" => {
@@ -540,6 +580,7 @@ fn validate_receipt_binding(
     receipt_bytes: &[u8],
     validation_report: &Value,
     transcript_bytes: &[u8],
+    structured_output_bytes: &[u8],
 ) -> Result<Value, String> {
     if validation_report.get("valid").and_then(Value::as_bool) != Some(true) {
         return Err("canonical benchmark receipt validation report is not valid".to_owned());
@@ -587,6 +628,13 @@ fn validate_receipt_binding(
     if !output_digests.contains(&trace_digest) {
         return Err("runner-observed trace artifact digest is absent from canonical task output_sha256".to_owned());
     }
+    let structured_output_digest = digest(structured_output_bytes);
+    if structured_output_digest != string(trace, "structured_output_sha256")? {
+        return Err("structured agent-output bytes do not match the trace structured_output_sha256".to_owned());
+    }
+    if !output_digests.contains(&structured_output_digest) {
+        return Err("structured agent-output digest is absent from canonical task output_sha256".to_owned());
+    }
 
     Ok(json!({
         "receipt_binding_checked": true,
@@ -596,6 +644,7 @@ fn validate_receipt_binding(
         "run_id": receipt_run_id,
         "task_id": task_id,
         "trace_sha256": trace_digest,
+        "structured_output_sha256": structured_output_digest,
         "task_input_sha256": input_digest
     }))
 }
@@ -608,6 +657,7 @@ fn run() -> Result<(), Box<dyn Error>> {
     let mut receipt_path: Option<PathBuf> = None;
     let mut transcript_path: Option<PathBuf> = None;
     let mut receipt_validation_path: Option<PathBuf> = None;
+    let mut agent_output_path: Option<PathBuf> = None;
     let mut output_path: Option<PathBuf> = None;
     let mut args = env::args().skip(1);
     while let Some(arg) = args.next() {
@@ -618,6 +668,7 @@ fn run() -> Result<(), Box<dyn Error>> {
             "--run-receipt" => receipt_path = Some(PathBuf::from(args.next().ok_or("--run-receipt requires a path")?)),
             "--transcript" => transcript_path = Some(PathBuf::from(args.next().ok_or("--transcript requires a path")?)),
             "--receipt-validation-report" => receipt_validation_path = Some(PathBuf::from(args.next().ok_or("--receipt-validation-report requires a path")?)),
+            "--agent-output" => agent_output_path = Some(PathBuf::from(args.next().ok_or("--agent-output requires a path")?)),
             "--output" => output_path = Some(PathBuf::from(args.next().ok_or("--output requires a path")?)),
             "--help" | "-h" => {
                 println!(
@@ -628,6 +679,7 @@ fn run() -> Result<(), Box<dyn Error>> {
                      --run-receipt PATH               Canonical benchmark-run-receipt-v1 JSON\n\
                      --transcript PATH                Exact raw transcript bytes\n\
                      --receipt-validation-report PATH Successful canonical receipt validator report\n\
+                     --agent-output PATH              Exact structured agent-submission bytes\n\
                      --output PATH                    Write report JSON"
                 );
                 return Ok(());
@@ -636,9 +688,14 @@ fn run() -> Result<(), Box<dyn Error>> {
         }
     }
 
-    let receipt_args = [receipt_path.is_some(), transcript_path.is_some(), receipt_validation_path.is_some()];
+    let receipt_args = [
+        receipt_path.is_some(),
+        transcript_path.is_some(),
+        receipt_validation_path.is_some(),
+        agent_output_path.is_some(),
+    ];
     if receipt_args.iter().any(|present| *present) && !receipt_args.iter().all(|present| *present) {
-        return Err("receipt-bound mode requires --run-receipt, --transcript and --receipt-validation-report together".into());
+        return Err("receipt-bound mode requires --run-receipt, --transcript, --receipt-validation-report and --agent-output together".into());
     }
 
     let schema: Value = read_json(schema_path)?;
@@ -653,12 +710,14 @@ fn run() -> Result<(), Box<dyn Error>> {
         "trace_structure_and_canonical_receipt_binding_not_model_identity_or_accounting_correctness".to_owned()
     );
     report["trace_sha256"] = Value::String(digest(&trace_bytes));
+    report["structured_output_sha256"] = Value::String(string(&trace, "structured_output_sha256")?.to_owned());
 
-    if let (Some(receipt_path), Some(transcript_path), Some(validation_path)) =
-        (receipt_path, transcript_path, receipt_validation_path)
+    if let (Some(receipt_path), Some(transcript_path), Some(validation_path), Some(agent_output_path)) =
+        (receipt_path, transcript_path, receipt_validation_path, agent_output_path)
     {
         let receipt_bytes = read_bytes(receipt_path)?;
         let transcript_bytes = read_bytes(transcript_path)?;
+        let structured_output_bytes = read_bytes(agent_output_path)?;
         let receipt_validation: Value = read_json(validation_path)?;
         let receipt: Value = serde_json::from_slice(&receipt_bytes)?;
         let binding = validate_receipt_binding(
@@ -668,11 +727,13 @@ fn run() -> Result<(), Box<dyn Error>> {
             &receipt_bytes,
             &receipt_validation,
             &transcript_bytes,
+            &structured_output_bytes,
         )?;
         report["receipt_binding_checked"] = binding["receipt_binding_checked"].clone();
         report["receipt_binding_valid"] = binding["receipt_binding_valid"].clone();
         report["receipt_raw_sha256"] = binding["receipt_raw_sha256"].clone();
         report["transcript_sha256"] = binding["transcript_sha256"].clone();
+        report["structured_output_sha256"] = binding["structured_output_sha256"].clone();
     }
 
     validate_instance("runner-observed trace report", &report_schema, &report)?;
@@ -856,8 +917,14 @@ mod tests {
         assert!(validate_trace(&trace).is_err());
     }
 
-    fn synthetic_receipt(trace: &Value, trace_bytes: &[u8], transcript: &[u8]) -> (Value, Value) {
+    fn synthetic_receipt(
+        trace: &Value,
+        trace_bytes: &[u8],
+        transcript: &[u8],
+        structured_output: &[u8],
+    ) -> (Value, Value) {
         let trace_sha = digest(trace_bytes);
+        let structured_output_sha = digest(structured_output);
         let receipt = json!({
             "schema_version":"luminous.benchmark-run-receipt.v1",
             "run_id":string(trace,"run_id").unwrap(),
@@ -865,7 +932,7 @@ mod tests {
             "task_results":[{
                 "task_id":string(trace,"task_id").unwrap(),
                 "input_sha256":string(trace,"source_bundle_sha256").unwrap(),
-                "output_sha256":[trace_sha]
+                "output_sha256":[trace_sha,structured_output_sha]
             }]
         });
         let receipt_bytes = serde_json::to_vec(&receipt).unwrap();
