@@ -269,8 +269,8 @@ fn validate_fx_quote(case: &Value, quote: &Value) -> Result<(), String> {
             return Err(format!("{case_id}/{quote_ref}: exact FX quote produces a fractional minor unit"));
         }
         "floor" => quotient,
-        "ceiling" => quotient + i128::from(remainder != 0),
-        "half_up" => quotient + i128::from(remainder * 2 >= denominator),
+        "ceiling" => quotient + (if remainder != 0 { 1 } else { 0 }),
+        "half_up" => quotient + (if remainder * 2 >= denominator { 1 } else { 0 }),
         "half_even" => {
             if remainder * 2 > denominator {
                 quotient + 1
@@ -338,6 +338,11 @@ fn validate_ledger_settlement_match(
         let to_ref = string(allocation, "to_record_ref")?;
         let from = record_by_ref(case, from_ref)?;
         let to = record_by_ref(case, to_ref)?;
+        if !ledger_refs.iter().any(|reference| reference.as_str() == Some(from_ref))
+            || !settlement_refs.iter().any(|reference| reference.as_str() == Some(to_ref))
+        {
+            return Err(format!("{case_id}/{match_ref}: allocation references records outside declared match members"));
+        }
         if record_kind(from)? != "ledger_transaction"
             || record_kind(to)? != "settlement_line"
         {
@@ -430,8 +435,12 @@ fn validate_ledger_settlement_match(
     if allocation_total != integer(match_item, "matched_amount_minor")? as i128 {
         return Err(format!("{case_id}/{match_ref}: matched amount does not equal allocation sum"));
     }
-    if string(match_item, "currency")? != string(settlement_refs.first().and_then(Value::as_str).map(|r| record_by_ref(case, r).ok()).flatten().ok_or("missing settlement record")?, "currency")? {
-        return Err(format!("{case_id}/{match_ref}: match currency must equal settlement currency"));
+    for reference in settlement_refs {
+        let reference = reference.as_str().ok_or("settlement ref must be string")?;
+        let settlement = record_by_ref(case, reference)?;
+        if string(match_item, "currency")? != string(settlement, "currency")? {
+            return Err(format!("{case_id}/{match_ref}: match currency must equal every settlement currency"));
+        }
     }
     Ok(allocation_count)
 }
@@ -778,9 +787,17 @@ fn validate_case(case: &Value, expectation: &Value) -> Result<Value, String> {
     }
 
     // Settlement rows grouped to a payout must sum to the payout's net.
+    // Exact duplicate feed rows are canonicalized once and never double-counted.
+    let duplicate_set = detect_duplicate_feed_rows(case)?
+        .into_iter()
+        .map(|(duplicate, _)| duplicate)
+        .collect::<BTreeSet<_>>();
     let mut payout_lines = BTreeMap::<String, i128>::new();
     for record in array(case, "records")? {
-        if optional_string(record, "record_kind") == Some("settlement_line") && !is_future(case, record)? {
+        if optional_string(record, "record_kind") == Some("settlement_line")
+            && !is_future(case, record)?
+            && !duplicate_set.contains(string(record, "record_ref")?)
+        {
             if let Some(payout_external_id) = optional_string(record, "payout_external_id") {
                 *payout_lines.entry(payout_external_id.to_owned()).or_default() +=
                     integer(record, "amount_minor")? as i128;
@@ -1125,9 +1142,9 @@ mod tests {
         let report = validate_all(&snapshot, &candidates, &oracle).unwrap();
         assert_eq!(report["case_count"], 10);
         assert_eq!(report["totals"]["record_count"], 49);
-        assert_eq!(report["totals"]["candidate_pair_match_count"], 14);
-        assert_eq!(report["totals"]["group_match_count"], 5);
-        assert_eq!(report["totals"]["allocation_count"], 14);
+        assert_eq!(report["totals"]["pair_match_count"], 10);
+        assert_eq!(report["totals"]["group_match_count"], 9);
+        assert_eq!(report["totals"]["allocation_count"], 11);
         assert_eq!(report["totals"]["duplicate_count"], 1);
         assert_eq!(report["totals"]["reversal_count"], 2);
         assert_eq!(report["totals"]["exception_count"], 3);
