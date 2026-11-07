@@ -23,7 +23,9 @@ Treat **Holochain 0.7.1 as the current upstream-supported target for Mycelix qua
 | Kitsune2 crates used by Holochain | 0.5.1 | exact lockfile closure; do not confuse with bootstrap server |
 | Kitsune2 bootstrap server in current Holonix 0.7 flake | 0.5.2 | record the exact source ref and service binary digest |
 | Holonix | `main-0.7` snapshot | mutable branch: pin exact flake source revision and every locked input in Mycelix `flake.lock`; never rely on branch name alone |
-| Rust toolchain in the inspected Holonix 0.7 snapshot | 1.95.0 | exact rustc/cargo versions and target list |
+| Holochain 0.7.1 source-tag Rust toolchain | 1.96.1 | exact upstream `rust-toolchain.toml`; used by the Pulse application candidate |
+| Pulse 0.7.1 application toolchain | 1.96.1 | local `mycelix-workspace/mycelix-pulse/rust-toolchain.toml`; do not inherit shared workspace 1.96.0 |
+| Rust toolchain in the inspected Holonix 0.7 bootstrap snapshot | 1.95.0 | snapshot-only toolchain; record separately from the Holochain source/app build toolchain |
 | Node.js | 24 | exact version in Nix/CI |
 | `hc-scaffold` / `hc-spin` | 0.700.1 | only where each tool is used; pin packages individually |
 
@@ -37,6 +39,7 @@ The 0.7.1 release-tag manifests were inspected directly:
 - `holochain_client` is 0.9.1; its manifest uses Kitsune2 0.5.1 APIs and Lair 0.7.1.
 - The Holochain 0.7.1 conductor manifest uses Kitsune2 0.5.1 crates and Lair 0.7.1.
 - The inspected Holonix `main-0.7` snapshot uses Holochain tag `holochain-0.7.1`, Kitsune2 source tag `v0.5.2` for its bootstrap service, Lair `v0.7.1`, scaffolding `v0.700.1`, and Rust 1.95.0. This is a moving branch snapshot, not a stable identifier; Mycelix must pin its own flake source and lock graph.
+- The Holochain `holochain-0.7.1` source tag itself pins Rust 1.96.1 in its `rust-toolchain.toml`. Pulse's 0.7.1 evaluation now adds a local `mycelix-workspace/mycelix-pulse/rust-toolchain.toml` at 1.96.1 and the migration workflow uses `dtolnay/rust-toolchain@1.96.1`. This isolates Pulse from the shared Mycelix workspace's 1.96.0 pin and from the Holonix snapshot's 1.95.0 bootstrap compiler.
 
 Do not infer that the Holochain crate's Kitsune2 0.5.1 library dependency and the Holonix bootstrap server 0.5.2 input are one interchangeable component. They are separate roles and must be recorded separately.
 
