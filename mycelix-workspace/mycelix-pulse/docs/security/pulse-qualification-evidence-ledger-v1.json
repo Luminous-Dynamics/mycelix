@@ -10,17 +10,17 @@
     "branch": "research/pulse-authority-lifecycle-v1-20261104",
     "state": "open_draft",
     "merge_readiness": "BLOCKED_REQUIRES_REBASE_AND_EXACT_HEAD_REQUALIFICATION",
-    "evidence_subject_sha": "acca54020e9f49de0bc8aeea39325cc848fdb9dd",
+    "evidence_subject_sha": "7440b1158ecc0dcad85458aff820c8deac231424",
     "ledger_preparation_parent_sha": "507b06a2fa5fe9029534b28f9c4fa84a11163743",
     "base_branch": "main",
     "base_sha_at_pr": "9e12dd46bdd8371e8ed9626a17bc06f21c141a52",
     "main_sha_at_comparison": "6a0d072d3b65f4a2cf08af3ae71e541788e33ae9",
     "divergence_at_comparison": {
-      "ahead_by": 431,
+      "ahead_by": 451,
       "behind_by": 8,
       "merge_base": "9e12dd46bdd8371e8ed9626a17bc06f21c141a52"
     },
-    "divergence_note": "Rechecked 2026-11-07 against main head 6a0d072d3b65f4a2cf08af3ae71e541788e33ae9 at latest model-suite subject acca54020e9f49de0bc8aeea39325cc848fdb9dd: 431 commits ahead and 8 behind, merge base 9e12dd46bdd8371e8ed9626a17bc06f21c141a52. PR remains draft; rebase/integration review and exact-head requalification remain mandatory."
+    "divergence_note": "Rechecked 2026-11-07 against main head 6a0d072d3b65f4a2cf08af3ae71e541788e33ae9 at research PR head 7440b1158ecc0dcad85458aff820c8deac231424: 451 commits ahead and 8 behind, merge base 9e12dd46bdd8371e8ed9626a17bc06f21c141a52. PR remains draft; rebase/integration review and exact-head requalification remain mandatory."
   },
   "claim_levels": [
     "SOURCE_PRESENT",
@@ -202,19 +202,38 @@
       "id": "PULSE-071-CANARY-4891",
       "area": "Pulse Holochain 0.7.0 migration canary",
       "claim_level": "SOURCE_PRESENT",
-      "status": "ACTION_REQUIRED_NO_JOB_EVIDENCE",
-      "subject_sha": "19c5c43bf23cf634f7f918eda35ee9fd0ea1f439",
+      "status": "PENDING_NO_JOB_EVIDENCE",
+      "subject_sha": "e245b1db7dbc903df1d6c3358b35f2317e29a59e",
       "pull_request": "https://github.com/Luminous-Dynamics/mycelix/pull/4891",
       "workflow_run": {
-        "id": 42342839709,
-        "number": 384,
-        "conclusion": "action_required"
+        "id": 42407632032,
+        "number": 396,
+        "url": "https://github.com/Luminous-Dynamics/mycelix/actions/runs/42407632032",
+        "state": "pending",
+        "jobs_returned": 0
       },
       "result": {
-        "jobs_returned": 0,
-        "compile": "NOT_ESTABLISHED",
-        "wasm": "NOT_ESTABLISHED",
-        "sweettest": "NOT_ESTABLISHED"
+        "current_head": "e245b1db7dbc903df1d6c3358b35f2317e29a59e",
+        "current_run": "PENDING_NO_JOB_EVIDENCE",
+        "latest_job_lookup": 0,
+        "previous_observation": {
+          "subject_sha": "614ae158298d754b7cc8b8ce1fb5425f0360da13",
+          "workflow_run": {
+            "id": 42406354817,
+            "number": 392,
+            "url": "https://github.com/Luminous-Dynamics/mycelix/actions/runs/42406354817"
+          },
+          "lockfile_job": "PASS",
+          "native_compile_lane": "FAILED_AT_RUSTFMT_CHECK",
+          "formatter_diffs": 13,
+          "formatter_files": [
+            "mycelix-workspace/mycelix-pulse/holochain/zomes/capabilities/coordinator/src/lib.rs",
+            "mycelix-workspace/mycelix-pulse/holochain/zomes/capabilities/integrity/src/lib.rs"
+          ],
+          "package_lane": "IN_PROGRESS_AT_TOOLCHAIN_VERSION_ASSERTION_AT_LAST_OBSERVATION",
+          "note": "The 13 rustfmt-only diffs were applied to produce current subject e245b1db; run 396 is required to test the formatted exact head. No compile/WASM/DNA/Sweettest claim is inherited from run 392."
+        },
+        "claim_ceiling": "Current PR head is queued/pending with no job evidence. Previous head had lock closure success and a rustfmt failure; that formatter output was applied to the current head. No current-head compilation, WASM, DNA pack, fresh-conductor, or Sweettest pass is established."
       },
       "claim_ceiling": "Source and workflow state only. The 0.7.0 branch is a regression canary, not the selected forward-development target or a runtime-qualified release."
     },
@@ -376,9 +395,45 @@
         "repeat_of_run": 42401329288
       },
       "claim_ceiling": "Finite abstract Holochain per-cell capability-scope model only. Does not execute actual conductor CapGrant lookup, signed zome calls, DNA/cell serialization, source-chain behavior, or production revocation. It is not a Sweettest or runtime qualification."
+    },
+    {
+      "id": "HOST-CALL-ADMISSION-BOUNDARY-20261107",
+      "area": "Host call admission, in-flight completion and logical-effect retry model",
+      "claim_level": "SOURCE_PRESENT",
+      "status": "SOURCE_ONLY_UNQUALIFIED",
+      "subject_sha": "7440b1158ecc0dcad85458aff820c8deac231424",
+      "source_path": "mycelix-workspace/mycelix-pulse/docs/security/PulseHostCallLinearization.tla",
+      "source_blob_sha": "ee5fc2f7f0e1d6f42bc52b62686d1a51a4a602b3",
+      "result": {
+        "phases": [
+          "CallInvoke",
+          "HostCallDecision",
+          "BeginCallExecution",
+          "CommitCallEffect",
+          "AcknowledgeCall",
+          "DropCallAcknowledgement",
+          "RetrySameLogicalCall"
+        ],
+        "host_revocation_action": "CommitHostRevocation",
+        "safe_config": "PulseHostCallLinearization.cfg",
+        "mutants": [
+          "PulseHostCallLinearization-projection-mutant.cfg",
+          "PulseHostCallLinearization-dedup-mutant.cfg"
+        ],
+        "reachability_witness": "PulseHostCallLinearization-admission-witness.cfg",
+        "workflow": "Pulse Authority Lifecycle Model",
+        "workflow_steps_present": true,
+        "latest_exact_head_workflow_run": "NOT_RETURNED_BY_COMMIT_RUN_LOOKUP",
+        "tlc_result": "NOT_ESTABLISHED"
+      },
+      "claim_ceiling": "The abstract model source and TLC workflow steps are present on the exact recorded subject. No model-check result has been retrieved for this exact subject and no real Holochain conductor admission/effect race has been measured. The reachability witness is not yet executed."
     }
   ],
   "next_gates": [
+    {
+      "priority": "P0",
+      "gate": "Run the exact-host-call TLA+ safe model, projection mutant, duplicate-effect retry mutant and pre-admitted-after-revoke reachability witness on the current #5771 head; archive exact counterexamples and state counts."
+    },
     {
       "priority": "P0",
       "gate": "Reconcile/rebase research PR #5771 onto current main (8 commits behind), review 91-file scope, then rerun every changed workflow against the rebased exact head."
@@ -406,7 +461,11 @@
     {
       "priority": "P1",
       "gate": "Publish matched Holochain 0.6/0.7.1, SpiceDB/OpenFGA, UCAN and Biscuit benchmark protocols; do not compare unmatched semantics or top-line QPS."
+    },
+    {
+      "priority": "P0",
+      "gate": "Complete #5924 with instrumented two-conductor CallZome admission and source-chain commit barriers: prove post-revoke admission is denied, pre-admitted calls are classified separately if they commit after revoke, and retries do not duplicate logical effects."
     }
   ],
-  "global_claim_ceiling": "No production readiness, SOTA superiority, real DHT consensus, runtime linearizability, universal partition safety, or zero-risk claim is established by this ledger. Every item is bounded by its exact source subject, workflow, workload, verifier and stated assumptions."
+  "global_claim_ceiling": "No production readiness, SOTA superiority, real DHT consensus, host-call runtime linearizability, universal partition safety, or zero-risk claim is established by this ledger. Every item is bounded by its exact source subject, workflow, workload, verifier and stated assumptions."
 }
