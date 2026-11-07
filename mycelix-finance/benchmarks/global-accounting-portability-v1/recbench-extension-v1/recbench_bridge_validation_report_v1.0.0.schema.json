@@ -73,7 +73,7 @@
       "additionalProperties": false,
       "required": [
         "record_count",
-        "candidate_pair_match_count",
+        "pair_match_count",
         "group_match_count",
         "allocation_count",
         "duplicate_count",
@@ -84,10 +84,6 @@
       ],
       "properties": {
         "record_count": {
-          "type": "integer",
-          "minimum": 0
-        },
-        "candidate_pair_match_count": {
           "type": "integer",
           "minimum": 0
         },
@@ -116,6 +112,10 @@
           "minimum": 0
         },
         "ambiguous_component_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "pair_match_count": {
           "type": "integer",
           "minimum": 0
         }
