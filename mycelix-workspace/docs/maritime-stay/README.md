@@ -125,6 +125,8 @@ A scoped, revocable agreement such as reciprocal berthing, member rates, shared 
 
 Capacity has a declared unit and resource identity. A berth's capacity is not interchangeable with a guest-night, an electrical-power quota, or a workshop appointment. Concurrent reservation tests must be performed at the provider's canonical capacity boundary.
 
+Resource dimensions must remain explicit. A berth slot, accommodation unit-night, repair appointment, shore-power connection count, instantaneous feeder capacity (W/kW), cumulative shore-energy quota (Wh/kWh), potable-water volume and waste-reception mass/volume are different resource dimensions. Do not represent both instantaneous power and cumulative energy as one generic "shore power" quota. Symtropy already tracks this distinction in [MARITIME-POWER-CAPACITY-001 #3734](https://github.com/Luminous-Dynamics/symtropy/issues/3734) and joint arrival / berth / shore-energy planning in [MARITIME-JIT-001 #1858](https://github.com/Luminous-Dynamics/symtropy/issues/1858). Voluntary arrival-window changes must reuse participant authorization in Mycelix [LOG-FLEX-001 #5185](https://github.com/Luminous-Dynamics/mycelix/issues/5185) and Symtropy [MARITIME-FLEX-001 #1903](https://github.com/Luminous-Dynamics/symtropy/issues/1903); an optimizer cannot change a participant's commitment.
+
 ### Identifiers
 
 Identifiers are stable, opaque protocol identifiers. Holochain ActionHash or EntryHash may be used as provenance references where appropriate, but must not be repurposed as universal engineering, vessel, property, or reservation identity.
