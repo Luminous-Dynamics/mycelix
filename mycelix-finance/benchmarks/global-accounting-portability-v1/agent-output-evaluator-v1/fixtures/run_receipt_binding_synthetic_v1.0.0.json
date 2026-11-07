@@ -9,7 +9,7 @@
       "task_id": "ACCT-001-COMPLETE-INVOICE",
       "input_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
       "output_sha256": [
-        "fa14be6adde9e7b239837144fefb14950aa7082e5165092971046ff190cb719a",
+        "73a114e776b2f1a4f26cb9b781796abdc35f68447e716e839781ccdd65fc0920",
         "1db812f926b2f2797793bc88b4d4f509fed4f74957e43c0d1f8ac2ff5dee881c"
       ]
     }
