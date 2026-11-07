@@ -297,6 +297,19 @@ The signed evidence verifier is not a global trust-root implementation. Its 26 t
 
 The generic Mycelix CI workflow was skipped in this research PR run. These independent assurance lanes do not compile, package or runtime-qualify the Holochain Pulse hApp.
 
+## Holochain 0.7.1 public source-chain restoration
+
+The branch now includes a bounded restore lifecycle model:
+
+- `PulseChainRestore.tla`
+- `PulseChainRestore.cfg` — safe restore protocol
+- `PulseChainRestore-early-enable-mutant.cfg` — permits enabling before all cell chains finish
+- `PulseChainRestore-no-peer-empty-mutant.cfg` — treats zero peers as an empty successful restore
+
+The model distinguishes the original-agent-key precondition, restore request, AwaitingRestore, peer availability, fetched vs validated public actions, completion of all cells, explicit enable, private-data non-restoration, and fresh host capability re-issuance. A restore with no peers stays pending. Invalid/forged action material is rejected rather than added to the restored chain. Restored public chain state does not restore private entries or CapGrants; those require separate recovery/re-issuance.
+
+The pinned TLC workflow now runs all three configurations. The new model has not yet been executed on this branch head; its result must be recorded from the exact run and the two mutants must fail specifically on `EnableRequiresAllCellsRestored`. The real runtime test programme is tracked in [#5905](https://github.com/Luminous-Dynamics/mycelix/issues/5905).
+
 ## Qualification stages
 
 | Stage | Required evidence | Claim ceiling |
