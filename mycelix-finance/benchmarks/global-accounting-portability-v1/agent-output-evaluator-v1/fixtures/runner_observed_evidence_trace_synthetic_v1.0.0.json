@@ -688,5 +688,6 @@
       "terminal_disposition": "completed",
       "response_sha256": null
     }
-  ]
+  ],
+  "structured_output_sha256": "1db812f926b2f2797793bc88b4d4f509fed4f74957e43c0d1f8ac2ff5dee881c"
 }
