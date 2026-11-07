@@ -99,10 +99,12 @@ pub fn parse_and_validate_corpus(corpus_bytes: &[u8], schema_bytes: &[u8]) -> Re
 
 pub fn verify_trace(
     corpus_bytes: &[u8],
-    schema_bytes: &[u8],
+    corpus_schema_bytes: &[u8],
+    trace_schema_bytes: &[u8],
     trace_bytes: &[u8],
 ) -> Result<VerificationReceipt, Vec<String>> {
-    let (corpus, corpus_receipt) = parse_and_validate_corpus(corpus_bytes, schema_bytes)?;
+    let (corpus, corpus_receipt) = parse_and_validate_corpus(corpus_bytes, corpus_schema_bytes)?;
+    validate_trace_schema_contract(trace_schema_bytes)?;
     let trace_value: Value = serde_json::from_slice(trace_bytes)
         .map_err(|error| vec![format!("trace JSON parse error: {error}")])?;
 
@@ -142,13 +144,72 @@ pub fn verify_trace(
         "event_count": trace.events.len(),
         "corpus_raw_sha256": sha256_hex(corpus_bytes),
         "corpus_canonical_sha256": corpus_receipt["corpus_canonical_sha256"],
-        "schema_raw_sha256": sha256_hex(schema_bytes),
+        "corpus_schema_raw_sha256": sha256_hex(corpus_schema_bytes),
+        "trace_schema_raw_sha256": sha256_hex(trace_schema_bytes),
         "trace_raw_sha256": sha256_hex(trace_bytes),
         "trace_canonical_sha256": sha256_hex(&trace_canonical),
         "causality": "Explicit causal_predecessors only; observed_index and timestamps do not establish happens-before.",
         "claim_ceiling": "This trace passed the Pulse v1 structural and encoded lifecycle invariants. It does not establish that the source observations are authentic or that an uninstrumented runtime behaved correctly."
     });
     Ok(VerificationReceipt { report })
+}
+
+pub fn validate_trace_schema_contract(schema_bytes: &[u8]) -> Result<(), Vec<String>> {
+    let schema: Value = serde_json::from_slice(schema_bytes)
+        .map_err(|error| vec![format!("trace schema JSON parse error: {error}")])?;
+    let mut errors = Vec::new();
+    if get_str(&schema, "$schema") != Some("https://json-schema.org/draft/2020-12/schema") {
+        errors.push("trace schema must declare JSON Schema Draft 2020-12".to_string());
+    }
+    if get_bool(&schema, "additionalProperties") != Some(false) {
+        errors.push("trace schema root additionalProperties must be false".to_string());
+    }
+    let required = get_string_array(&schema, "required").unwrap_or_default();
+    for key in ["trace_version", "profile_id", "trace_id", "scenario_id", "source_commit", "observer_id", "runtime", "events"] {
+        if !required.iter().any(|candidate| candidate == key) {
+            errors.push(format!("trace schema root required list omits {key}"));
+        }
+    }
+    let runtime = schema.get("properties").and_then(|p| p.get("runtime")).unwrap_or(&Value::Null);
+    if get_bool(runtime, "additionalProperties") != Some(false) {
+        errors.push("trace schema runtime.additionalProperties must be false".to_string());
+    }
+    let events = schema.get("properties").and_then(|p| p.get("events")).and_then(|e| e.get("items")).unwrap_or(&Value::Null);
+    if get_bool(events, "additionalProperties") != Some(false) {
+        errors.push("trace schema events.items.additionalProperties must be false".to_string());
+    }
+    let event_required = get_string_array(events, "required").unwrap_or_default();
+    for key in [
+        "event_id", "scenario_event_id", "observed_index", "actor", "action",
+        "logical_operation_id", "attempt_id", "attempt_number", "causal_predecessors",
+        "host_grant_transition", "planes",
+    ] {
+        if !event_required.iter().any(|candidate| candidate == key) {
+            errors.push(format!("trace schema event required list omits {key}"));
+        }
+    }
+    let planes = events.get("properties").and_then(|p| p.get("planes")).unwrap_or(&Value::Null);
+    if get_bool(planes, "additionalProperties") != Some(false) {
+        errors.push("trace schema planes.additionalProperties must be false".to_string());
+    }
+    let plane_required = get_string_array(planes, "required").unwrap_or_default();
+    for key in ["host_decision", "domain_result", "source_chain", "validator", "projection", "observer"] {
+        if !plane_required.iter().any(|candidate| candidate == key) {
+            errors.push(format!("trace schema outcome planes omit required field {key}"));
+        }
+    }
+    let host_transition = events
+        .get("properties")
+        .and_then(|p| p.get("host_grant_transition"))
+        .and_then(|p| p.get("enum"))
+        .and_then(Value::as_array);
+    if host_transition.is_none_or(|values| {
+        let values: BTreeSet<&str> = values.iter().filter_map(Value::as_str).collect();
+        GRANT_TRANSITIONS.iter().any(|expected| !values.contains(expected))
+    }) {
+        errors.push("trace schema host_grant_transition enum does not match the Rust contract".to_string());
+    }
+    if errors.is_empty() { Ok(()) } else { Err(errors) }
 }
 
 fn canonical_sha256(value: &Value) -> String {
@@ -1048,6 +1109,7 @@ mod tests {
 
     const CORPUS: &str = include_str!("../../../../docs/security/authorization-lifecycle-v1.corpus.json");
     const SCHEMA: &str = include_str!("../../../../docs/security/authorization-lifecycle-v1.schema.json");
+    const TRACE_SCHEMA: &str = include_str!("../../../../docs/security/authorization-lifecycle-trace-v1.schema.json");
 
     fn corpus_and_schema() -> (Vec<u8>, Vec<u8>, Corpus) {
         let corpus_bytes = CORPUS.as_bytes().to_vec();
@@ -1140,6 +1202,20 @@ mod tests {
     }
 
     #[test]
+    fn canonical_trace_schema_matches_rust_contract() {
+        assert!(validate_trace_schema_contract(TRACE_SCHEMA.as_bytes()).is_ok());
+    }
+
+    #[test]
+    fn rejects_trace_schema_that_allows_unknown_fields() {
+        let mut value: Value = serde_json::from_str(TRACE_SCHEMA).unwrap();
+        value["additionalProperties"] = json!(true);
+        let bytes = serde_json::to_vec(&value).unwrap();
+        let error = validate_trace_schema_contract(&bytes).unwrap_err();
+        assert!(error.iter().any(|item| item.contains("root additionalProperties")));
+    }
+
+    #[test]
     fn canonical_corpus_and_schema_validate() {
         let (corpus, schema, parsed) = corpus_and_schema();
         assert_eq!(parsed.scenarios.len(), 28);
@@ -1176,7 +1252,7 @@ mod tests {
     fn accepts_causally_ordered_post_revoke_denial() {
         let (corpus, schema, _) = corpus_and_schema();
         let trace = serde_json::to_vec(&revocation_trace()).unwrap();
-        let receipt = verify_trace(&corpus, &schema, &trace).expect("valid REV-01 trace");
+        let receipt = verify_trace(&corpus, &schema, TRACE_SCHEMA.as_bytes(), &trace).expect("valid REV-01 trace");
         assert_eq!(receipt.report["verification"], "PASS");
     }
 
@@ -1186,7 +1262,7 @@ mod tests {
         let mut trace = revocation_trace();
         trace["events"][1]["planes"]["host_decision"] = json!("AUTHORIZED");
         let bytes = serde_json::to_vec(&trace).unwrap();
-        let error = verify_trace(&corpus, &schema, &bytes).unwrap_err();
+        let error = verify_trace(&corpus, &schema, TRACE_SCHEMA.as_bytes(), &bytes).unwrap_err();
         assert!(error.iter().any(|item| item.contains("AUTHORIZED after causally preceding revocation")));
     }
 
@@ -1251,7 +1327,7 @@ mod tests {
     fn accepts_lost_grant_ack_retry_when_same_grant_identity_is_reconciled() {
         let (corpus, schema, _) = corpus_and_schema();
         let trace = serde_json::to_vec(&grant_retry_trace()).unwrap();
-        let receipt = verify_trace(&corpus, &schema, &trace).expect("idempotent GRANT-01 trace");
+        let receipt = verify_trace(&corpus, &schema, TRACE_SCHEMA.as_bytes(), &trace).expect("idempotent GRANT-01 trace");
         assert_eq!(receipt.report["scenario_id"], "GRANT-01");
     }
 
@@ -1273,8 +1349,8 @@ mod tests {
         let (corpus, schema, _) = corpus_and_schema();
         const VALID: &str = include_str!("../fixtures/revocation-valid.json");
         const MUTANT: &str = include_str!("../fixtures/revocation-authorized-mutant.json");
-        assert!(verify_trace(&corpus, &schema, VALID.as_bytes()).is_ok());
-        let error = verify_trace(&corpus, &schema, MUTANT.as_bytes()).unwrap_err();
+        assert!(verify_trace(&corpus, &schema, TRACE_SCHEMA.as_bytes(), VALID.as_bytes()).is_ok());
+        let error = verify_trace(&corpus, &schema, TRACE_SCHEMA.as_bytes(), MUTANT.as_bytes()).unwrap_err();
         assert!(error.iter().any(|item| item.contains("AUTHORIZED after causally preceding revocation")));
     }
 
