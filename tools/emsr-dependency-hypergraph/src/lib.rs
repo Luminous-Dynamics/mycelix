@@ -169,7 +169,7 @@ pub fn evaluate(input: &HypergraphInput, input_sha256: String) -> EvaluationRepo
         invalid.dedup();
         return invalid_report(
             input_sha256,
-            invalid.join("|"),
+            &invalid.join("|"),
             input.query.domain.clone(),
             input.query.event_time,
             input.snapshot.snapshot_id.clone(),
@@ -573,7 +573,7 @@ fn reference_report(input: &HypergraphInput, input_sha256: String) -> Evaluation
         errors.dedup();
         return invalid_report(
             input_sha256,
-            errors.join("|"),
+            &errors.join("|"),
             input.query.domain.clone(),
             input.query.event_time,
             input.snapshot.snapshot_id.clone(),
