@@ -27,8 +27,6 @@
     "labels_payout": 75002,
     "labels_bank": 75138
   },
-  "small_tier_compressed_bytes": 470000000,
-  "all_tiers_compressed_bytes": 7480000000,
   "manifest_path": "small/manifest.json",
   "manifest_revision": "1e711f3f8bd942ed5b3039b52277af8b170fc4c8",
   "manifest_raw_bytes_archived": false,
@@ -116,5 +114,7 @@
     "labels_payout/part-0000.parquet",
     "labels_bank/part-0000.parquet"
   ],
-  "copied_into_repository": false
+  "copied_into_repository": false,
+  "small_tier_displayed_size": "470 MB",
+  "all_tiers_displayed_size": "7.48 GB"
 }
