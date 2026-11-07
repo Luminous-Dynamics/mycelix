@@ -193,6 +193,9 @@ struct Counts {
     reachability_pair_cache_hits: usize,
     reachability_pair_cache_entries: usize,
     reachability_pair_cache_ids_interned: usize,
+    reachability_pair_cache_endpoint_utf8_bytes_interned: usize,
+    reachability_pair_cache_old_endpoint_utf8_bytes_estimate: usize,
+    reachability_pair_cache_endpoint_utf8_bytes_avoided: usize,
     reachability_pair_cache_limit_skips: usize,
 }
 #[derive(Debug, Clone, Serialize)]
@@ -376,6 +379,7 @@ struct ReachabilityCache {
     // stored once in pair_event_indices rather than cloned into every pair.
     pair_results: BTreeMap<(usize, usize), bool>,
     pair_event_indices: BTreeMap<String, usize>,
+    pair_event_id_byte_lengths: Vec<usize>,
     next_pair_event_index: usize,
     pair_cache_hits: usize,
     pair_cache_limit_skips: usize,
@@ -413,7 +417,24 @@ impl ReachabilityCache {
         let index = self.next_pair_event_index;
         self.next_pair_event_index += 1;
         self.pair_event_indices.insert(event_id.to_string(), index);
+        self.pair_event_id_byte_lengths.push(event_id.len());
         index
+    }
+
+    /// Estimates endpoint-string payload bytes for the old pair-of-Strings
+    /// representation versus the current per-graph intern table. This excludes
+    /// allocator, BTreeMap-node and String-capacity overhead.
+    fn pair_endpoint_utf8_byte_metrics(&self) -> (usize, usize) {
+        let interned = self.pair_event_id_byte_lengths.iter().sum();
+        let duplicated = self
+            .pair_results
+            .keys()
+            .map(|(from, to)| {
+                self.pair_event_id_byte_lengths[*from]
+                    .saturating_add(self.pair_event_id_byte_lengths[*to])
+            })
+            .sum();
+        (interned, duplicated)
     }
 }
 
@@ -1159,6 +1180,12 @@ fn audit_with_reachability_cache(
     counts.reachability_pair_cache_hits = reachability_cache.pair_cache_hits;
     counts.reachability_pair_cache_entries = reachability_cache.pair_results.len();
     counts.reachability_pair_cache_ids_interned = reachability_cache.pair_event_indices.len();
+    let (interned_pair_endpoint_bytes, old_pair_endpoint_bytes) =
+        reachability_cache.pair_endpoint_utf8_byte_metrics();
+    counts.reachability_pair_cache_endpoint_utf8_bytes_interned = interned_pair_endpoint_bytes;
+    counts.reachability_pair_cache_old_endpoint_utf8_bytes_estimate = old_pair_endpoint_bytes;
+    counts.reachability_pair_cache_endpoint_utf8_bytes_avoided =
+        old_pair_endpoint_bytes.saturating_sub(interned_pair_endpoint_bytes);
     counts.reachability_pair_cache_limit_skips = reachability_cache.pair_cache_limit_skips;
 
     let violation=findings.iter().any(|f|f.severity=="violation");
@@ -1680,6 +1707,12 @@ fn run_dag_profile_benchmark(
             "cache_hits": pair_cache.pair_cache_hits,
             "cache_entries": pair_cache.pair_results.len(),
             "interned_event_ids": pair_cache.pair_event_indices.len(),
+            "endpoint_utf8_bytes_interned": pair_cache.pair_endpoint_utf8_byte_metrics().0,
+            "old_pair_string_endpoint_utf8_bytes_estimate": pair_cache.pair_endpoint_utf8_byte_metrics().1,
+            "endpoint_utf8_bytes_avoided": pair_cache
+                .pair_endpoint_utf8_byte_metrics()
+                .1
+                .saturating_sub(pair_cache.pair_endpoint_utf8_byte_metrics().0),
             "cache_limit_skips": pair_cache.pair_cache_limit_skips,
             "node_visits": pair_cache.dfs_node_visits
         },
@@ -1959,7 +1992,7 @@ fn run_verified_record_benchmark(
 
 fn semantic_report_digest(report: &Report) -> Result<String, Box<dyn Error>> {
     let mut value = serde_json::to_value(report)?;
-    const METRIC_FIELDS: [&str; 11] = [
+    const METRIC_FIELDS: [&str; 14] = [
         "reachability_queries",
         "reachability_cache_hits",
         "reachability_sources_cached",
@@ -1970,6 +2003,9 @@ fn semantic_report_digest(report: &Report) -> Result<String, Box<dyn Error>> {
         "reachability_pair_cache_hits",
         "reachability_pair_cache_entries",
         "reachability_pair_cache_ids_interned",
+        "reachability_pair_cache_endpoint_utf8_bytes_interned",
+        "reachability_pair_cache_old_endpoint_utf8_bytes_estimate",
+        "reachability_pair_cache_endpoint_utf8_bytes_avoided",
         "reachability_pair_cache_limit_skips",
     ];
     if let Some(counts) = value.get_mut("counts").and_then(Value::as_object_mut) {
@@ -2072,6 +2108,9 @@ fn run_join_benchmark(operation_count: usize, output: Option<PathBuf>) -> Result
             "pair_cache_hits": pair_metrics.reachability_pair_cache_hits,
             "pair_cache_entries": pair_metrics.reachability_pair_cache_entries,
             "pair_cache_interned_event_ids": pair_metrics.reachability_pair_cache_ids_interned,
+            "pair_cache_endpoint_utf8_bytes_interned": pair_metrics.reachability_pair_cache_endpoint_utf8_bytes_interned,
+            "pair_cache_old_endpoint_utf8_bytes_estimate": pair_metrics.reachability_pair_cache_old_endpoint_utf8_bytes_estimate,
+            "pair_cache_endpoint_utf8_bytes_avoided": pair_metrics.reachability_pair_cache_endpoint_utf8_bytes_avoided,
             "pair_cache_limit_skips": pair_metrics.reachability_pair_cache_limit_skips,
             "dfs_node_visits": pair_metrics.reachability_dfs_node_visits,
             "allocation_peak_live_bytes": pair_allocations.peak_live_bytes,
@@ -2620,6 +2659,15 @@ mod tests{
         assert_eq!(cache.pair_event_indices.get("a1"), Some(&0));
         assert_eq!(cache.pair_event_indices.get("b2"), Some(&1));
         assert_eq!(cache.pair_event_indices.get("c1"), Some(&2));
+        assert_eq!(cache.pair_event_id_byte_lengths, vec![2, 2, 2]);
+        assert_eq!(cache.pair_endpoint_utf8_byte_metrics(), (6, 8));
+        assert_eq!(
+            cache
+                .pair_endpoint_utf8_byte_metrics()
+                .1
+                .saturating_sub(cache.pair_endpoint_utf8_byte_metrics().0),
+            2
+        );
         assert!(cache.pair_results.len() <= MAX_CACHED_REACHABILITY_PAIRS);
     }
 
