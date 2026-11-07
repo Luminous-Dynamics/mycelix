@@ -25,7 +25,8 @@
     "disposition",
     "terminal_disposition",
     "unaccounted_fact_count",
-    "findings"
+    "findings",
+    "structured_output_sha256"
   ],
   "properties": {
     "report_id": {
@@ -144,6 +145,11 @@
           "trace_contains_no_fact_observations"
         ]
       }
+    },
+    "structured_output_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$",
+      "description": "Exact structured agent-output digest; receipt-bound mode recomputes it from --agent-output bytes."
     }
   }
 }
