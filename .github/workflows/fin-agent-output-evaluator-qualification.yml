@@ -78,13 +78,33 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          cargo run --locked --bin validate_runner_observed_evidence_trace -- --output /tmp/observed-trace-report.json
+          cargo run --locked --bin validate_runner_observed_evidence_trace -- --agent-output ../agent-output-evaluator-v1/fixtures/runner_observed_agent_output_acct001_synthetic_v1.0.0.json --output /tmp/observed-trace-report.json
           jq -e '
             .unaccounted_fact_count == 0
             and .source_open_count > 0
             and .fact_observation_count == .fact_terminalization_count
             and (.trace_sha256 | test("^[a-f0-9]{64}$"))
           ' /tmp/observed-trace-report.json
+
+
+      - name: Validate contradiction-to-clarification trace
+        working-directory: ${{ env.RESOLVER_DIR }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo run --locked --bin validate_runner_observed_evidence_trace -- \
+            --trace ../agent-output-evaluator-v1/fixtures/runner_observed_evidence_trace_contradiction_reclassification_synthetic_v1.0.0.json \
+            --agent-output ../agent-output-evaluator-v1/fixtures/runner_observed_agent_output_acct010_synthetic_v1.0.0.json \
+            --output /tmp/observed-contradiction-report.json
+          jq -e '
+            .fact_observation_count == 2
+            and .fact_terminalization_count == 2
+            and .question_count == 1
+            and .journal_line_count == 0
+            and .disposition == "clarify"
+            and .terminal_disposition == "needs_evidence"
+            and .unaccounted_fact_count == 0
+          ' /tmp/observed-contradiction-report.json
 
       - name: Assert exact subject and clean source
         run: |
@@ -98,4 +118,5 @@ jobs:
           path: |
             /tmp/agent-evaluation.json
             /tmp/observed-trace-report.json
+            /tmp/observed-contradiction-report.json
           if-no-files-found: error
