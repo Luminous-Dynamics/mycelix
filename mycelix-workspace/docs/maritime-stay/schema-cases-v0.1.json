@@ -158,6 +158,27 @@
       },
       "expected": "reject",
       "reason": "Destination references must be unique."
+    },
+    {
+      "case_id": "SCHEMA-NEG-011",
+      "source_message_index": 1,
+      "mutation": {
+        "op": "remove",
+        "path": "availability.capacity_dimension"
+      },
+      "expected": "reject",
+      "reason": "Resource capacity dimension is required to prevent unit ambiguity."
+    },
+    {
+      "case_id": "SCHEMA-NEG-012",
+      "source_message_index": 1,
+      "mutation": {
+        "op": "replace",
+        "path": "availability.capacity_dimension",
+        "value": "voltage"
+      },
+      "expected": "reject",
+      "reason": "Unknown resource capacity dimension."
     }
   ]
 }
