@@ -21,6 +21,20 @@
 
 The overall workflow completed successfully. Each negative-control step succeeds only when TLC exits non-zero and the exact intended invariant name is present in the corresponding log. A generic parser/configuration failure does not count as mutation detection.
 
+## Repeat run
+
+The same safe cell-scope model and all three mutants were rerun in pinned TLC workflow **run #358** on branch subject `c27046dabc69a6c4010771d6040af3b70a38923a`:
+
+- Run: https://github.com/Luminous-Dynamics/mycelix/actions/runs/42401587401
+- Safe model: 66,674 generated / 12,687 distinct states; queue exhausted.
+- Cross-cell mutant: `NoCrossCellGrantBorrow` violated.
+- Function-scope mutant: `NoFunctionScopeWidening` violated.
+- Collateral-revocation mutant: `NoCollateralRevocation` violated.
+- Artifact ID: `13585671336`
+- Artifact ZIP SHA-256: `8bba3935ba5392819ea19a57de84213448f226a43a8fa8811a8f04e8d75a4f39`.
+
+This repeat confirms that the corrected model and its mutation checks remain reproducible after the receipt/qualification documentation changes. It does not enlarge the finite state space or create runtime evidence.
+
 ## Encoded contract
 
 The model has two target cells and two independent host grants for the same assigned caller and same read function:
