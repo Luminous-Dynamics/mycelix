@@ -13,12 +13,14 @@ on:
       - "mycelix-workspace/mycelix-pulse/docs/security/PulseAuthorityCausalFrontier*"
       - "mycelix-workspace/mycelix-pulse/docs/security/PulseSignalTrust*"
       - "mycelix-workspace/mycelix-pulse/docs/security/PulseTrustRootLifecycle*"
+      - "mycelix-workspace/mycelix-pulse/docs/security/PulseChainRestore*"
       - "mycelix-workspace/mycelix-pulse/docs/security/authorization-lifecycle-qualification-v1.md"
   pull_request:
     paths:
       - ".github/workflows/pulse-authority-model.yml"
       - "mycelix-workspace/mycelix-pulse/docs/security/PulseAuthorityLifecycle*"
       - "mycelix-workspace/mycelix-pulse/docs/security/PulseTrustRootLifecycle*"
+      - "mycelix-workspace/mycelix-pulse/docs/security/PulseChainRestore*"
       - "mycelix-workspace/mycelix-pulse/docs/security/PulseMailboxValidation*"
       - "mycelix-workspace/mycelix-pulse/docs/security/PulseAuthorityCheckpoint*"
       - "mycelix-workspace/mycelix-pulse/docs/security/PulseAuthorityCheckpointLineage*"
@@ -383,6 +385,57 @@ jobs:
           grep -q "NoRevokedKeyAcceptedUnderCurrentPolicy" \
             "${RUNNER_TEMP}/pulse-tlc-artifacts/trust-root-revocation-mutant/tlc.log"
 
+      - name: Check safe public source-chain restore model
+        working-directory: mycelix-workspace/mycelix-pulse/docs/security
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "${RUNNER_TEMP}/pulse-tlc-artifacts/chain-restore-safe"
+          java -XX:+UseParallelGC -Xmx2g \
+            -jar "${RUNNER_TEMP}/tlaplus/tla2tools.jar" \
+            -metadir "${RUNNER_TEMP}/pulse-tlc-artifacts/chain-restore-safe/states" \
+            -config PulseChainRestore.cfg \
+            PulseChainRestore.tla \
+            2>&1 | tee "${RUNNER_TEMP}/pulse-tlc-artifacts/chain-restore-safe/tlc.log"
+
+      - name: Require premature restore-enable mutant counterexample
+        working-directory: mycelix-workspace/mycelix-pulse/docs/security
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "${RUNNER_TEMP}/pulse-tlc-artifacts/chain-restore-early-enable-mutant"
+          set +e
+          java -XX:+UseParallelGC -Xmx2g \
+            -jar "${RUNNER_TEMP}/tlaplus/tla2tools.jar" \
+            -metadir "${RUNNER_TEMP}/pulse-tlc-artifacts/chain-restore-early-enable-mutant/states" \
+            -config PulseChainRestore-early-enable-mutant.cfg \
+            PulseChainRestore.tla \
+            2>&1 | tee "${RUNNER_TEMP}/pulse-tlc-artifacts/chain-restore-early-enable-mutant/tlc.log"
+          status=${PIPESTATUS[0]}
+          set -e
+          test "$status" -ne 0
+          grep -q "EnableRequiresAllCellsRestored" \
+            "${RUNNER_TEMP}/pulse-tlc-artifacts/chain-restore-early-enable-mutant/tlc.log"
+
+      - name: Require no-peer empty-restore mutant counterexample
+        working-directory: mycelix-workspace/mycelix-pulse/docs/security
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "${RUNNER_TEMP}/pulse-tlc-artifacts/chain-restore-no-peer-empty-mutant"
+          set +e
+          java -XX:+UseParallelGC -Xmx2g \
+            -jar "${RUNNER_TEMP}/tlaplus/tla2tools.jar" \
+            -metadir "${RUNNER_TEMP}/pulse-tlc-artifacts/chain-restore-no-peer-empty-mutant/states" \
+            -config PulseChainRestore-no-peer-empty-mutant.cfg \
+            PulseChainRestore.tla \
+            2>&1 | tee "${RUNNER_TEMP}/pulse-tlc-artifacts/chain-restore-no-peer-empty-mutant/tlc.log"
+          status=${PIPESTATUS[0]}
+          set -e
+          test "$status" -ne 0
+          grep -q "EnableRequiresAllCellsRestored" \
+            "${RUNNER_TEMP}/pulse-tlc-artifacts/chain-restore-no-peer-empty-mutant/tlc.log"
+
       - name: Record exact model receipt
         if: always()
         working-directory: mycelix-workspace/mycelix-pulse/docs/security
@@ -429,6 +482,10 @@ jobs:
             echo "trust_root_self_mutant_sha256=$(sha256sum PulseTrustRootLifecycle-self-root-mutant.cfg | cut -d' ' -f1)"
             echo "trust_root_rollback_mutant_sha256=$(sha256sum PulseTrustRootLifecycle-rollback-mutant.cfg | cut -d' ' -f1)"
             echo "trust_root_revocation_mutant_sha256=$(sha256sum PulseTrustRootLifecycle-revocation-mutant.cfg | cut -d' ' -f1)"
+            echo "chain_restore_spec_sha256=$(sha256sum PulseChainRestore.tla | cut -d' ' -f1)"
+            echo "chain_restore_safe_config_sha256=$(sha256sum PulseChainRestore.cfg | cut -d' ' -f1)"
+            echo "chain_restore_early_enable_mutant_sha256=$(sha256sum PulseChainRestore-early-enable-mutant.cfg | cut -d' ' -f1)"
+            echo "chain_restore_no_peer_empty_mutant_sha256=$(sha256sum PulseChainRestore-no-peer-empty-mutant.cfg | cut -d' ' -f1)"
             java -version > "${RUNNER_TEMP}/java-version.txt" 2>&1
             sed -n '1p' "${RUNNER_TEMP}/java-version.txt"
           } > "${RUNNER_TEMP}/pulse-tlc-artifacts/receipt.txt"
