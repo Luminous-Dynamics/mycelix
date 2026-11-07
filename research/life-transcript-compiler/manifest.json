@@ -1,0 +1,62 @@
+{
+  "benchmark_id": "LIFE-TRANSCRIPT-COMPILER-001",
+  "version": "0.1.0",
+  "status": "synthetic_transcript_composition_reference_model",
+  "population": {
+    "subjects": 512,
+    "rounds": 4,
+    "task_answer_bits_per_round": 1,
+    "task_schedule": ["predicate_0", "predicate_1", "predicate_2", "predicate_0"],
+    "subjects_per_task_transcript": 64,
+    "statement_count_range_inclusive": [8, 31],
+    "optional_index_universe": 8,
+    "optional_indices_per_subject_per_round": 3,
+    "seed": "0x5EEDC0DE",
+    "generator": "splitmix64 deterministic synthetic fixture"
+  },
+  "search": {
+    "round_profiles": 9,
+    "plans": 6561,
+    "minimum_p05_candidate_support": 16,
+    "selection": "minimum_total_abstract_cost_then_maximum_p05_then_lexical_plan_label"
+  },
+  "count_modes": {
+    "exact": {"cost_units_per_round": 0},
+    "two_bucket_split_at_20": {"cost_units_per_round": 8},
+    "common_padding": {"cost_units_per_round": 24}
+  },
+  "index_modes": {
+    "exact_pattern": {"cost_units_per_round": 0},
+    "balanced_coarse_parity": {"cost_units_per_round": 5},
+    "omitted": {"cost_units_per_round": 12}
+  },
+  "metrics": [
+    "global_transcript_candidate_set_min_p05_p50_p95_max",
+    "raw_under_k_count_and_ppm",
+    "raw_unique_candidate_count_and_ppm",
+    "total_abstract_cost_units",
+    "frontier_non_dominated_cost_vs_p05",
+    "selected_four_round_plan"
+  ],
+  "invariants": [
+    "all_plans_preserve_exact_four_answer_transcript",
+    "candidate_support_is_intersection_across_all_rounds",
+    "exact_metadata_baseline_fails_p05_floor",
+    "stable_identifier_positive_control_is_unique",
+    "channel_coarsening_never_reduces_candidate_support",
+    "compiler_minimizes_total_cost_subject_to_global_p05_floor",
+    "reported_frontier_matches_pairwise_dominance_oracle",
+    "all_6561_plans_are_reported",
+    "report_is_rectangular_and_deterministic"
+  ],
+  "claim_ceiling": "finite_synthetic_transcript_composition_reference_model",
+  "nonclaims": [
+    "bbs_or_sd_jwt_protocol_implementation",
+    "standards_conformance",
+    "differential_privacy",
+    "real_world_anonymity_or_unlinkability",
+    "production_overhead_estimates",
+    "production_security",
+    "sota_superiority"
+  ]
+}
