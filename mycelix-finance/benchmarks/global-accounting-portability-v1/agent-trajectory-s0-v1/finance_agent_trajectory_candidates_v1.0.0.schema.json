@@ -1,0 +1,414 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/finance-agent-trajectory-candidates-v1.0.0.json",
+  "title": "Mycelix Finance Agent Execution Trajectory Candidates v1.0.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "bundle_id",
+    "schema_version",
+    "claim_ceiling",
+    "scenarios"
+  ],
+  "properties": {
+    "bundle_id": {
+      "const": "MYCELIX-FIN-AGENT-TRAJECTORY-S0"
+    },
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "claim_ceiling": {
+      "const": "synthetic_execution_trace_cases_not_agent_performance_or_control_certification"
+    },
+    "scenarios": {
+      "type": "array",
+      "minItems": 12,
+      "items": {
+        "$ref": "#/$defs/scenario"
+      }
+    }
+  },
+  "$defs": {
+    "utcSecond": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+    },
+    "actor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "actor_ref",
+        "actor_kind",
+        "tenant_namespace",
+        "capabilities",
+        "approval_limit_minor",
+        "approval_currency",
+        "risk_state"
+      ],
+      "properties": {
+        "actor_ref": {
+          "type": "string",
+          "pattern": "^[A-Z0-9-]{3,120}$"
+        },
+        "actor_kind": {
+          "enum": [
+            "agent",
+            "human",
+            "service",
+            "counterparty"
+          ]
+        },
+        "tenant_namespace": {
+          "type": "string",
+          "minLength": 3
+        },
+        "capabilities": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 3
+          }
+        },
+        "approval_limit_minor": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "approval_currency": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[A-Z]{3}$"
+        },
+        "risk_state": {
+          "enum": [
+            "normal",
+            "synthetic_ghost_vendor",
+            "synthetic_blocked",
+            "synthetic_unverified"
+          ]
+        }
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "evidence_ref",
+        "tenant_namespace",
+        "evidence_kind",
+        "received_at",
+        "integrity_state",
+        "event_kind",
+        "amount_minor",
+        "currency",
+        "parent_source_ref",
+        "source_locator"
+      ],
+      "properties": {
+        "evidence_ref": {
+          "type": "string",
+          "pattern": "^[A-Z0-9-]{3,120}$"
+        },
+        "tenant_namespace": {
+          "type": "string",
+          "minLength": 3
+        },
+        "evidence_kind": {
+          "enum": [
+            "invoice",
+            "receipt",
+            "approval_form",
+            "bank_record",
+            "credit_note",
+            "contract",
+            "service_acceptance",
+            "ledger_record",
+            "policy",
+            "identity_record",
+            "other"
+          ]
+        },
+        "received_at": {
+          "$ref": "#/$defs/utcSecond"
+        },
+        "integrity_state": {
+          "enum": [
+            "synthetic_match",
+            "synthetic_mismatch",
+            "synthetic_unverified"
+          ]
+        },
+        "event_kind": {
+          "enum": [
+            "invoice_issued",
+            "service_delivery",
+            "settlement",
+            "credit_issued",
+            "approval",
+            "payment",
+            "export",
+            "other"
+          ]
+        },
+        "amount_minor": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "currency": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[A-Z]{3}$"
+        },
+        "parent_source_ref": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "source_locator": {
+          "type": "string",
+          "minLength": 3
+        }
+      }
+    },
+    "action": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "step_ref",
+        "sequence",
+        "occurred_at",
+        "actor_ref",
+        "action_kind",
+        "target_ref",
+        "tenant_namespace",
+        "input_evidence_refs",
+        "output_refs",
+        "side_effect",
+        "authority_state",
+        "action_state",
+        "required_capability",
+        "amount_minor",
+        "currency",
+        "accounting_treatment"
+      ],
+      "properties": {
+        "step_ref": {
+          "type": "string",
+          "pattern": "^[A-Z0-9-]{3,120}$"
+        },
+        "sequence": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "occurred_at": {
+          "$ref": "#/$defs/utcSecond"
+        },
+        "actor_ref": {
+          "type": "string"
+        },
+        "action_kind": {
+          "enum": [
+            "read_source",
+            "retrieve_evidence",
+            "calculate",
+            "classify_expense",
+            "submit_for_approval",
+            "approve",
+            "approve_payment",
+            "write_journal",
+            "post_journal",
+            "reverse_journal",
+            "apply_credit_note",
+            "link_supplier",
+            "export_data",
+            "delete_source",
+            "ask_clarification",
+            "other"
+          ]
+        },
+        "target_ref": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "tenant_namespace": {
+          "type": "string",
+          "minLength": 3
+        },
+        "input_evidence_refs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        },
+        "output_refs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        },
+        "side_effect": {
+          "enum": [
+            "none",
+            "read",
+            "write",
+            "approve",
+            "post",
+            "export",
+            "delete"
+          ]
+        },
+        "authority_state": {
+          "enum": [
+            "granted",
+            "denied",
+            "not_checked"
+          ]
+        },
+        "action_state": {
+          "enum": [
+            "completed",
+            "blocked",
+            "failed",
+            "reversed"
+          ]
+        },
+        "required_capability": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "amount_minor": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "currency": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[A-Z]{3}$"
+        },
+        "accounting_treatment": {
+          "enum": [
+            "none",
+            "expense_recognition",
+            "asset_recognition",
+            "liability_settlement",
+            "cash_settlement",
+            "reversal",
+            "reclassification"
+          ]
+        }
+      }
+    },
+    "counterparty": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "counterparty_ref",
+        "tenant_namespace",
+        "risk_state"
+      ],
+      "properties": {
+        "counterparty_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "tenant_namespace": {
+          "type": "string",
+          "minLength": 3
+        },
+        "risk_state": {
+          "enum": [
+            "normal",
+            "synthetic_ghost_vendor",
+            "synthetic_blocked",
+            "synthetic_unverified"
+          ]
+        }
+      }
+    },
+    "scenario": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "case_id",
+        "workflow_family",
+        "knowledge_at",
+        "tenant_namespace",
+        "actors",
+        "counterparties",
+        "evidence",
+        "actions"
+      ],
+      "properties": {
+        "case_id": {
+          "type": "string",
+          "pattern": "^[A-Z0-9-]{3,120}$"
+        },
+        "workflow_family": {
+          "enum": [
+            "close",
+            "reimbursement",
+            "reconciliation",
+            "fraud_investigation",
+            "data_governance"
+          ]
+        },
+        "knowledge_at": {
+          "$ref": "#/$defs/utcSecond"
+        },
+        "tenant_namespace": {
+          "type": "string",
+          "minLength": 3
+        },
+        "actors": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/actor"
+          }
+        },
+        "counterparties": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/counterparty"
+          }
+        },
+        "evidence": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/evidence"
+          }
+        },
+        "actions": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/action"
+          }
+        }
+      }
+    }
+  }
+}
