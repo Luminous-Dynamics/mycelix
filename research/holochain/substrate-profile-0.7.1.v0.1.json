@@ -61,13 +61,28 @@
       "restart_backup_restore_and_retry_tests",
       "negative_controls",
       "exact_head_evidence_receipt",
-      "independent_review"
+      "independent_review",
+      "public_source_chain_restore_from_dht"
     ],
     "queued_pending_skipped_cancelled_or_superseded_is_pass": false,
     "allow_claim_without_all_active_consumers_classified": false,
     "recommended_first_canary": "Pulse",
     "first_canary_precondition": "Migrate canonical monorepo source and prove exporter parity before using standalone PR #4891 as a canary source.",
-    "next_cluster_after_canary": "Governance, after canonical source parity issue Luminous-Dynamics/luminous-dynamics#3478 and standalone Governance 0.7 integrity/coordinator/runtime gates."
+    "next_cluster_after_canary": "Governance, after canonical source parity issue Luminous-Dynamics/luminous-dynamics#3478 and standalone Governance 0.7 integrity/coordinator/runtime gates.",
+    "source_chain_restore_contract": {
+      "requires_original_agent_key": true,
+      "restores_public_data_only": true,
+      "restores_private_entries": false,
+      "awaiting_restore_until_all_cells_complete": true,
+      "explicit_enable_after_completion": true,
+      "retry_when_no_peers": true,
+      "reject_entry_hash_mismatch": true,
+      "verify_validation_receipt_signatures": true,
+      "host_capabilities_restored": false,
+      "fresh_capability_reissue_after_restore": true,
+      "mycelix_runtime_issue": "https://github.com/Luminous-Dynamics/mycelix/issues/5905",
+      "bounded_model": "https://github.com/Luminous-Dynamics/mycelix/pull/5771"
+    }
   },
   "benchmark_targets": {
     "active_consumers_classified_percent": 100,
