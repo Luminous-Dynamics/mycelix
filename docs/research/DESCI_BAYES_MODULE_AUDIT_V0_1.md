@@ -162,3 +162,19 @@ Do not replace those specialized systems with this module. Reuse a qualified sha
 This source audit identifies implementation gaps; it does not prove that the module is used by production call sites. It does not claim the module has passed or failed runtime tests. The current outputs are not qualified posterior probabilities, Monte Carlo estimates, conditional-independence certificates, or evidence-authenticity decisions.
 
 **Decision:** quarantine its authority-bearing use, repair the exact semantics first, and use differential known-answer tests before exposing any result as a qualified Bayesian inference.
+
+
+## 2.7 Duplicate mirrored workspace copy — additional audit finding (2026-11-07)
+
+The same DeSci Bayesian source exists at two paths:
+
+- `mycelix-desci/src/core/src/bayesian.rs`
+- `mycelix-workspace/mycelix-desci/src/core/src/bayesian.rs`
+
+Both files currently have the same Git blob SHA (`3593a1788602f9bd10b59f15aaea139d6434abf7)) and identical contents. Both corresponding DeSci Cargo manifests declare standalone workspaces; their Cargo.lock files are also identical. The READMEs describe the same architectural refoundation and build boundary.
+
+The outer `mycelix-workspace/Cargo.toml` includes `mycelix-desci/apps/leptos` as a workspace member, but does not list the nested Rust DeSci workspace itself as an outer member. Therefore, the two Rust workspace roots must be treated as separate build/test entry points until maintainers formally designate one canonical source and document the mirror-generation/synchronization process.
+
+Repository code-index searches for `BayesianInference`, `BeliefNetwork::new`, `loopy_belief_propagation`, `likelihood_weighting`, and `d_separated` returned the two source copies, their public `lib.rs` re-exports, and in-module tests. No external invocation appeared in those searches. This is useful negative evidence, not proof that no consumer exists; generated, path-qualified, downstream, or non-indexed call sites may remain.
+
+**Remediation implication:** the call-site and build-context audit must cover both paths. Do not fix only one copy. Either designate one canonical DeSci Rust workspace and remove/redirect the duplicate through a reviewed migration, or require both copies to remain byte-identical with an automated digest check and both standalone workspace test commands. Do not delete or consolidate the mirrored workspace until its consumers and build purpose are confirmed.
