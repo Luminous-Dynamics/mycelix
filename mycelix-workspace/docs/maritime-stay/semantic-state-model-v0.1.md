@@ -157,6 +157,10 @@ Evaluate at the manifest's declared as-of time and exact evidence frontier.
 8. **Pending** — no mandatory component is committed and at least one required provider operation remains in flight.
 9. **Draft** — no provider operation has been requested.
 
+### Known v0.1 enum gap
+
+There is no aggregate state for the case where every mandatory provider has definitively rejected and no mandatory component was ever committed. That outcome is not Cancelled, Expired or Unknown. The current schema therefore cannot represent this terminal state without ambiguity. #5918 must decide whether to add a typed `failed`/`unfulfillable` aggregate state before freezing v0.1 or to version the addition for a follow-up profile. Until that decision, the verifier must return NotEvaluable for this specific aggregate rather than mislabel it.
+
 This is a proposal to resolve precedence; #5918 must adopt/revise it before the verifier treats it as normative.
 
 ### Optional components
