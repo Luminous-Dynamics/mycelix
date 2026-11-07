@@ -1,0 +1,204 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/mycelix-recbench-bridge-report-v1.0.0.json",
+  "title": "Mycelix RecBench Bridge Validation Report v1.0.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "report_id",
+    "schema_version",
+    "claim_ceiling",
+    "candidate_sha256",
+    "oracle_sha256",
+    "source_snapshot_sha256",
+    "case_count",
+    "dataset_byte_verification",
+    "totals",
+    "case_results"
+  ],
+  "properties": {
+    "report_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "claim_ceiling": {
+      "const": "synthetic_bridge_oracle_validation_not_recbench_agent_performance"
+    },
+    "candidate_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "oracle_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "source_snapshot_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "case_count": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "dataset_byte_verification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "verified_file_count",
+        "oracle_only_files_opened"
+      ],
+      "properties": {
+        "status": {
+          "enum": [
+            "not_requested",
+            "agent_inputs_verified",
+            "all_files_verified"
+          ]
+        },
+        "verified_file_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "oracle_only_files_opened": {
+          "type": "boolean"
+        }
+      }
+    },
+    "totals": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "record_count",
+        "candidate_pair_match_count",
+        "group_match_count",
+        "allocation_count",
+        "duplicate_count",
+        "reversal_count",
+        "exception_count",
+        "future_record_count",
+        "ambiguous_component_count"
+      ],
+      "properties": {
+        "record_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "candidate_pair_match_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "group_match_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "allocation_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "duplicate_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "reversal_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "exception_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "future_record_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "ambiguous_component_count": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "case_results": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "case_id",
+          "record_count",
+          "pair_match_count",
+          "group_match_count",
+          "allocation_count",
+          "duplicate_count",
+          "reversal_count",
+          "exception_count",
+          "future_record_count",
+          "ambiguous_component_count",
+          "checks"
+        ],
+        "properties": {
+          "case_id": {
+            "type": "string"
+          },
+          "record_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "pair_match_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "group_match_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "allocation_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "duplicate_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "reversal_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "exception_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "future_record_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "ambiguous_component_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "checks": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "enum": [
+                "record_identity_and_signs",
+                "payout_gross_fee_net",
+                "ledger_settlement_allocations",
+                "fx_exact_conversion",
+                "payout_bank_arithmetic",
+                "duplicate_feed_canonicalization",
+                "reversal_lineage",
+                "future_evidence_exclusion",
+                "ambiguous_component_not_auto_matched",
+                "oracle_reference_integrity"
+              ]
+            }
+          }
+        }
+      }
+    }
+  }
+}
