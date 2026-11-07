@@ -1,0 +1,610 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/mycelix-recbench-bridge-candidates-v1.0.0.json",
+  "title": "Mycelix RecBench Bridge Candidate Cases v1.0.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "bundle_id",
+    "schema_version",
+    "claim_ceiling",
+    "source_snapshot_id",
+    "candidate_kind",
+    "cases"
+  ],
+  "properties": {
+    "bundle_id": {
+      "const": "MYCELIX-RECBENCH-BRIDGE-S0-CANDIDATES"
+    },
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "claim_ceiling": {
+      "const": "synthetic_bridge_cases_not_recbench_data_or_agent_performance"
+    },
+    "source_snapshot_id": {
+      "const": "MYCELIX-RECBENCH-SOURCE-2026-11-07"
+    },
+    "candidate_kind": {
+      "const": "synthetic_reconciliation_source_records"
+    },
+    "cases": {
+      "type": "array",
+      "minItems": 10,
+      "maxItems": 10,
+      "items": {
+        "$ref": "#/$defs/case"
+      }
+    }
+  },
+  "$defs": {
+    "sourceRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "record_ref",
+        "record_kind",
+        "collection",
+        "tenant_namespace",
+        "external_record_id",
+        "revision",
+        "source_file",
+        "row_locator",
+        "source_sha256",
+        "recorded_at",
+        "effective_date",
+        "currency",
+        "amount_minor",
+        "direction",
+        "processor_ref",
+        "transaction_ref",
+        "payout_ref",
+        "fee_minor",
+        "net_minor",
+        "source_currency",
+        "source_amount_minor",
+        "fx_rate_ref",
+        "fx_rate_numerator",
+        "fx_rate_denominator",
+        "target_currency",
+        "rate_date",
+        "timezone",
+        "processor_local_date",
+        "counterparty_ref",
+        "bank_account_ref",
+        "reference",
+        "deposit_ref",
+        "capture_ref",
+        "duplicate_of_record_ref",
+        "reverses_record_ref"
+      ],
+      "properties": {
+        "record_ref": {
+          "type": "string",
+          "pattern": "^[A-Z0-9-]{3,120}$"
+        },
+        "record_kind": {
+          "enum": [
+            "ledger_transaction",
+            "settlement_line",
+            "payout",
+            "bank_statement_line",
+            "fx_quote"
+          ]
+        },
+        "collection": {
+          "enum": [
+            "ledger",
+            "settlement_lines",
+            "payouts",
+            "bank_statements",
+            "fx_quotes"
+          ]
+        },
+        "tenant_namespace": {
+          "type": "string",
+          "minLength": 3
+        },
+        "external_record_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "revision": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_file": {
+          "type": "string",
+          "minLength": 3
+        },
+        "row_locator": {
+          "type": "string",
+          "minLength": 3
+        },
+        "source_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "recorded_at": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+        },
+        "effective_date": {
+          "type": "string",
+          "format": "date",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+        },
+        "currency": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[A-Z]{3}$"
+        },
+        "amount_minor": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "direction": {
+          "enum": [
+            "inflow",
+            "outflow",
+            null
+          ]
+        },
+        "processor_ref": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "transaction_ref": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "payout_ref": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "fee_minor": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "net_minor": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "source_currency": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[A-Z]{3}$"
+        },
+        "source_amount_minor": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "fx_rate_ref": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "fx_rate_numerator": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1
+        },
+        "fx_rate_denominator": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1
+        },
+        "target_currency": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[A-Z]{3}$"
+        },
+        "rate_date": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "timezone": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "processor_local_date": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "counterparty_ref": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "bank_account_ref": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "reference": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "deposit_ref": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "capture_ref": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "duplicate_of_record_ref": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "reverses_record_ref": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "record_kind": {
+                "const": "ledger_transaction"
+              }
+            },
+            "required": [
+              "record_kind"
+            ]
+          },
+          "then": {
+            "properties": {
+              "collection": {
+                "const": "ledger"
+              },
+              "currency": {
+                "type": "string",
+                "pattern": "^[A-Z]{3}$"
+              },
+              "amount_minor": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "direction": {
+                "enum": [
+                  "inflow",
+                  "outflow"
+                ]
+              },
+              "processor_ref": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "currency",
+              "amount_minor",
+              "direction",
+              "processor_ref"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "record_kind": {
+                "const": "settlement_line"
+              }
+            },
+            "required": [
+              "record_kind"
+            ]
+          },
+          "then": {
+            "properties": {
+              "collection": {
+                "const": "settlement_lines"
+              },
+              "currency": {
+                "type": "string",
+                "pattern": "^[A-Z]{3}$"
+              },
+              "amount_minor": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "fee_minor": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "net_minor": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "direction": {
+                "enum": [
+                  "inflow",
+                  "outflow"
+                ]
+              },
+              "processor_ref": {
+                "type": "string"
+              },
+              "payout_ref": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "currency",
+              "amount_minor",
+              "fee_minor",
+              "net_minor",
+              "direction",
+              "processor_ref",
+              "payout_ref"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "record_kind": {
+                "const": "payout"
+              }
+            },
+            "required": [
+              "record_kind"
+            ]
+          },
+          "then": {
+            "properties": {
+              "collection": {
+                "const": "payouts"
+              },
+              "currency": {
+                "type": "string",
+                "pattern": "^[A-Z]{3}$"
+              },
+              "amount_minor": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "direction": {
+                "enum": [
+                  "inflow",
+                  "outflow"
+                ]
+              },
+              "processor_ref": {
+                "type": "string"
+              },
+              "payout_ref": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "currency",
+              "amount_minor",
+              "direction",
+              "processor_ref",
+              "payout_ref"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "record_kind": {
+                "const": "bank_statement_line"
+              }
+            },
+            "required": [
+              "record_kind"
+            ]
+          },
+          "then": {
+            "properties": {
+              "collection": {
+                "const": "bank_statements"
+              },
+              "currency": {
+                "type": "string",
+                "pattern": "^[A-Z]{3}$"
+              },
+              "amount_minor": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "direction": {
+                "enum": [
+                  "inflow",
+                  "outflow"
+                ]
+              },
+              "bank_account_ref": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "currency",
+              "amount_minor",
+              "direction",
+              "bank_account_ref"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "record_kind": {
+                "const": "fx_quote"
+              }
+            },
+            "required": [
+              "record_kind"
+            ]
+          },
+          "then": {
+            "properties": {
+              "collection": {
+                "const": "fx_quotes"
+              },
+              "source_currency": {
+                "type": "string",
+                "pattern": "^[A-Z]{3}$"
+              },
+              "target_currency": {
+                "type": "string",
+                "pattern": "^[A-Z]{3}$"
+              },
+              "fx_rate_numerator": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "fx_rate_denominator": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "rate_date": {
+                "type": "string",
+                "format": "date",
+                "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+              }
+            },
+            "required": [
+              "source_currency",
+              "target_currency",
+              "fx_rate_numerator",
+              "fx_rate_denominator",
+              "rate_date"
+            ]
+          }
+        }
+      ]
+    },
+    "case": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "case_id",
+        "case_type",
+        "task_prompt",
+        "knowledge_at",
+        "period",
+        "records"
+      ],
+      "properties": {
+        "case_id": {
+          "type": "string",
+          "pattern": "^RB-[0-9]{3}-[A-Z0-9-]+$"
+        },
+        "case_type": {
+          "enum": [
+            "exact_match",
+            "gross_fee_net",
+            "fx_conversion",
+            "date_boundary",
+            "partial_capture",
+            "duplicate_feed",
+            "reversal",
+            "unmatched_bank",
+            "deposit_subset_sum",
+            "ambiguous_match"
+          ]
+        },
+        "task_prompt": {
+          "type": "string",
+          "minLength": 20
+        },
+        "knowledge_at": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+        },
+        "period": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "start",
+            "end"
+          ],
+          "properties": {
+            "start": {
+              "type": "string",
+              "format": "date",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            },
+            "end": {
+              "type": "string",
+              "format": "date",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            }
+          }
+        },
+        "records": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/sourceRecord"
+          }
+        }
+      }
+    }
+  }
+}
