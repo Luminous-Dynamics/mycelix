@@ -1,0 +1,265 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/mycelix-recbench-source-evidence-v1.0.0.json",
+  "title": "Mycelix RecBench Source Evidence v1.0.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "snapshot_id",
+    "snapshot_version",
+    "captured_on",
+    "publisher",
+    "benchmark",
+    "dataset_url",
+    "manifest_url",
+    "raw_manifest_url",
+    "card_revision_short",
+    "tier_revision_short",
+    "dataset_license",
+    "generator_license",
+    "manifest_sha256",
+    "manifest_sha256_status",
+    "manifest",
+    "agent_input_paths",
+    "oracle_only_paths",
+    "notes"
+  ],
+  "properties": {
+    "snapshot_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "snapshot_version": {
+      "const": "1.0.0"
+    },
+    "captured_on": {
+      "type": "string",
+      "format": "date",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+    },
+    "publisher": {
+      "const": "End Close"
+    },
+    "benchmark": {
+      "const": "RecBench"
+    },
+    "dataset_url": {
+      "type": "string",
+      "format": "uri"
+    },
+    "dataset_card_url": {
+      "type": "string",
+      "format": "uri"
+    },
+    "manifest_url": {
+      "type": "string",
+      "format": "uri"
+    },
+    "raw_manifest_url": {
+      "type": "string",
+      "format": "uri"
+    },
+    "card_revision_short": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{7,12}$"
+    },
+    "tier_revision_short": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{7,12}$"
+    },
+    "source_revision_note": {
+      "type": "string"
+    },
+    "dataset_license": {
+      "const": "CC-BY-4.0"
+    },
+    "dataset_license_evidence": {
+      "type": "string"
+    },
+    "generator_license": {
+      "const": "Apache-2.0"
+    },
+    "generator_license_evidence": {
+      "type": "string"
+    },
+    "manifest_sha256": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "manifest_sha256_status": {
+      "enum": [
+        "verified",
+        "not_computed_from_raw_manifest_bytes"
+      ]
+    },
+    "manifest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "benchmark",
+        "generator_version",
+        "tier",
+        "seed",
+        "config_sha256",
+        "start_date",
+        "ledger_days",
+        "generation_seconds",
+        "row_counts",
+        "files"
+      ],
+      "properties": {
+        "benchmark": {
+          "const": "RecBench"
+        },
+        "generator_version": {
+          "type": "string"
+        },
+        "tier": {
+          "const": "small"
+        },
+        "seed": {
+          "type": "integer"
+        },
+        "config_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "start_date": {
+          "type": "string",
+          "format": "date",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+        },
+        "ledger_days": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "generation_seconds": {
+          "type": "number",
+          "minimum": 0
+        },
+        "row_counts": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "ledger",
+            "settlement_lines",
+            "payouts",
+            "bank_statements",
+            "truth_ledger_processor",
+            "truth_line_payout",
+            "truth_payout_bank",
+            "labels_ledger",
+            "labels_processor",
+            "labels_payout",
+            "labels_bank"
+          ],
+          "properties": {
+            "ledger": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "settlement_lines": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "payouts": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "bank_statements": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "truth_ledger_processor": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "truth_line_payout": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "truth_payout_bank": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "labels_ledger": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "labels_processor": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "labels_payout": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "labels_bank": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        },
+        "files": {
+          "type": "array",
+          "minItems": 11,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "path",
+              "rows",
+              "sha256",
+              "access_role"
+            ],
+            "properties": {
+              "path": {
+                "type": "string",
+                "minLength": 1
+              },
+              "rows": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "sha256": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              },
+              "access_role": {
+                "enum": [
+                  "agent_input",
+                  "oracle_only"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "agent_input_paths": {
+      "type": "array",
+      "minItems": 4,
+      "uniqueItems": true,
+      "items": {
+        "type": "string"
+      }
+    },
+    "oracle_only_paths": {
+      "type": "array",
+      "minItems": 7,
+      "uniqueItems": true,
+      "items": {
+        "type": "string"
+      }
+    },
+    "notes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}
