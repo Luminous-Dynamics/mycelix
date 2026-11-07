@@ -53,7 +53,12 @@ jobs:
         with:
           github_access_token: ${{ secrets.GITHUB_TOKEN }}
 
-      - uses: dtolnay/rust-toolchain@1.96.0
+      - uses: dtolnay/rust-toolchain@1.96.1
+
+      - name: Assert Holochain release Rust toolchain
+        run: |
+          rustc --version | grep -F "rustc 1.96.1"
+          cargo --version | grep -F "cargo 1.96.1"
 
       - uses: actions/setup-node@v4
         with:
@@ -144,7 +149,7 @@ jobs:
           QUALIFIED_SHA: ${{ needs.relock-and-push.outputs.qualified_sha || github.event.pull_request.head.sha || github.sha }}
         run: test "$(git rev-parse HEAD)" = "$QUALIFIED_SHA"
 
-      - uses: dtolnay/rust-toolchain@1.96.0
+      - uses: dtolnay/rust-toolchain@1.96.1
         with:
           components: rustfmt, clippy
 
@@ -246,6 +251,8 @@ jobs:
         run: |
           nix develop --command bash -lc '
             set -euo pipefail
+            rustc --version | grep -F "rustc 1.96.1" && \\
+            cargo --version | grep -F "cargo 1.96.1" && \\
             holochain --version | grep -qE "(^|[^0-9])0\\.7\\.1([^0-9]|$)"
             hc --version | grep -qE "(^|[^0-9])0\\.7\\.1([^0-9]|$)"
             lair-keystore --version | grep -qE "(^|[^0-9])0\\.7\\.1([^0-9]|$)"
