@@ -138,10 +138,29 @@
             "minLength": 1
           },
           "claim_level": {
-            "type": "string"
+            "enum": [
+              "SOURCE_PRESENT",
+              "STATIC_OR_STRUCTURAL_CHECK",
+              "UNIT_TEST",
+              "BOUNDED_MODEL_CHECK",
+              "SYNTHETIC_BENCHMARK",
+              "CRYPTOGRAPHIC_SYNTHETIC_EVIDENCE",
+              "RUNTIME_CAPTURE",
+              "MULTI_CONDUCTOR_RUNTIME",
+              "PRODUCTION_QUALIFICATION"
+            ]
           },
           "status": {
-            "type": "string"
+            "enum": [
+              "PASS_FOR_EXACT_SUBJECT",
+              "HISTORICAL_PASS",
+              "SOURCE_ONLY_UNQUALIFIED",
+              "PENDING_NO_JOB_EVIDENCE",
+              "ACTION_REQUIRED_NO_JOB_EVIDENCE",
+              "INCOMPLETE_BY_DESIGN",
+              "SELECTED_NOT_QUALIFIED",
+              "OPEN_RUNTIME_GATE"
+            ]
           },
           "subject_sha": {
             "type": "string",
