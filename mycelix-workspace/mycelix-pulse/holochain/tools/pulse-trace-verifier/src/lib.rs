@@ -1272,7 +1272,7 @@ mod tests {
         let mut trace = revocation_trace();
         trace["events"][1]["causal_predecessors"] = json!([]);
         let bytes = serde_json::to_vec(&trace).unwrap();
-        let error = verify_trace(&corpus, &schema, &bytes).unwrap_err();
+        let error = verify_trace(&corpus, &schema, TRACE_SCHEMA.as_bytes(), &bytes).unwrap_err();
         assert!(error.iter().any(|item| item.contains("omits required causal predecessor")));
     }
 
@@ -1282,7 +1282,7 @@ mod tests {
         let mut trace = revocation_trace();
         trace["events"][0]["cap_secret"] = json!("must-never-appear");
         let bytes = serde_json::to_vec(&trace).unwrap();
-        let error = verify_trace(&corpus, &schema, &bytes).unwrap_err();
+        let error = verify_trace(&corpus, &schema, TRACE_SCHEMA.as_bytes(), &bytes).unwrap_err();
         assert!(error.iter().any(|item| item.contains("unknown field cap_secret")));
     }
 
@@ -1339,7 +1339,7 @@ mod tests {
         trace["events"][2]["grant_action_hash"] = json!("cap-action-27b");
         trace["events"][2]["source_action_hash"] = json!("source-action-grant-27b");
         let bytes = serde_json::to_vec(&trace).unwrap();
-        let error = verify_trace(&corpus, &schema, &bytes).unwrap_err();
+        let error = verify_trace(&corpus, &schema, TRACE_SCHEMA.as_bytes(), &bytes).unwrap_err();
         assert!(error.iter().any(|item| item.contains("retry created more than one host grant")));
         assert!(error.iter().any(|item| item.contains("retry changed the grant ActionHash")));
     }
@@ -1400,7 +1400,7 @@ mod tests {
             trace["events"].as_array_mut().unwrap().push(observed);
         }
         let bytes = serde_json::to_vec(&trace).unwrap();
-        let error = verify_trace(&corpus, &schema, &bytes).unwrap_err();
+        let error = verify_trace(&corpus, &schema, TRACE_SCHEMA.as_bytes(), &bytes).unwrap_err();
         assert!(error.iter().any(|item| item.contains("changed the observer's canonical state digest")));
     }
 }
