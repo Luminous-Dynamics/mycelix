@@ -745,9 +745,9 @@
       "notes": "2026-11-06 13:59 SAST refresh of the official live leaderboard. Search-indexed official results continue to show 100 tasks / 1,475 criteria / ten worlds / 71.5% highest. The official page query-parameter rendering retrieved in the same session exposed a conflicting legacy-looking 160-task / 2,186-criteria / 61.0%-headline table. Both are retained as separate source records; neither is silently substituted for the other. See the alternate rendering record."
     },
     {
-      "source_id": "APEX-LIVE-LEADERBOARD-2026-11-07-1034",
+      "source_id": "APEX-LIVE-ALT-RENDER-2026-11-07-1034",
       "benchmark_id": "APEX-ACCOUNTING",
-      "title": "Mercor APEX-Accounting live leaderboard — rechecked 2026-11-07 10:34 SAST",
+      "title": "APEX-Accounting official leaderboard alternate query-parameter rendering (potential stale variant), observed 2026-11-07 10:34 SAST",
       "source_role": "live_leaderboard_refresh",
       "canonical_url": "https://www.mercor.com/apex/apex-accounting-leaderboard/?trk=article-ssr-frontend-pulse_little-text-block",
       "observed_at": "2026-11-07T10:34:00+02:00",
