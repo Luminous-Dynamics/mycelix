@@ -1,0 +1,17 @@
+{
+  "schema_version": "luminous.benchmark-run-receipt.v1",
+  "run_id": "SYNTHETIC-RUN-ACCT-001",
+  "provenance": {
+    "transcript_sha256": "b03fc80d8b295a3705003c68effca2175f5a23f07ca1ebfecfdc06c3b761567c"
+  },
+  "task_results": [
+    {
+      "task_id": "ACCT-001-COMPLETE-INVOICE",
+      "input_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "output_sha256": [
+        "fa14be6adde9e7b239837144fefb14950aa7082e5165092971046ff190cb719a",
+        "1db812f926b2f2797793bc88b4d4f509fed4f74957e43c0d1f8ac2ff5dee881c"
+      ]
+    }
+  ]
+}
