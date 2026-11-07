@@ -486,8 +486,14 @@ fn validate_capability(
             "Capability secret fingerprint must be exactly 32 bytes (SHA-256)".to_string(),
         ));
     }
-    if !cap.idempotency_key_hash.as_deref().is_some_and(is_sha256_fingerprint)
-        || !cap.request_digest.as_deref().is_some_and(is_sha256_fingerprint)
+    if !cap
+        .idempotency_key_hash
+        .as_deref()
+        .is_some_and(is_sha256_fingerprint)
+        || !cap
+            .request_digest
+            .as_deref()
+            .is_some_and(is_sha256_fingerprint)
     {
         return Ok(ValidateCallbackResult::Invalid(
             "New capabilities require 32-byte idempotency-key and request digests".to_string(),
@@ -578,7 +584,10 @@ fn validate_capability_idempotency_link(
     };
     if capability.grantor != action.author
         || capability.idempotency_key_hash.as_deref() != Some(tag.0.as_slice())
-        || !capability.request_digest.as_deref().is_some_and(is_sha256_fingerprint)
+        || !capability
+            .request_digest
+            .as_deref()
+            .is_some_and(is_sha256_fingerprint)
     {
         return Ok(ValidateCallbackResult::Invalid(
             "Capability idempotency index does not match its target record".to_string(),
