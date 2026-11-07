@@ -1,0 +1,173 @@
+{
+  "Mycelix": {
+    "entityTypes": {
+      "Actor": {
+        "shape": {
+          "type": "Record",
+          "attributes": {
+            "actorId": {
+              "type": "String"
+            },
+            "roles": {
+              "type": "Set",
+              "element": {
+                "type": "String"
+              }
+            },
+            "organizations": {
+              "type": "Set",
+              "element": {
+                "type": "String"
+              }
+            }
+          }
+        }
+      },
+      "Claim": {
+        "shape": {
+          "type": "Record",
+          "attributes": {
+            "exists": {
+              "type": "Boolean"
+            },
+            "creatorActorId": {
+              "type": "String",
+              "required": false
+            },
+            "creatorOrganizationId": {
+              "type": "String",
+              "required": false
+            }
+          }
+        }
+      }
+    },
+    "actions": {
+      "claim_proposed": {
+        "appliesTo": {
+          "principalTypes": [
+            "Actor"
+          ],
+          "resourceTypes": [
+            "Claim"
+          ],
+          "context": {
+            "type": "RequestContext"
+          }
+        }
+      },
+      "legacy_claim_imported": {
+        "appliesTo": {
+          "principalTypes": [
+            "Actor"
+          ],
+          "resourceTypes": [
+            "Claim"
+          ],
+          "context": {
+            "type": "RequestContext"
+          }
+        }
+      },
+      "evidence_attached": {
+        "appliesTo": {
+          "principalTypes": [
+            "Actor"
+          ],
+          "resourceTypes": [
+            "Claim"
+          ],
+          "context": {
+            "type": "RequestContext"
+          }
+        }
+      },
+      "attestation_recorded": {
+        "appliesTo": {
+          "principalTypes": [
+            "Actor"
+          ],
+          "resourceTypes": [
+            "Claim"
+          ],
+          "context": {
+            "type": "RequestContext"
+          }
+        }
+      },
+      "attestation_corrected": {
+        "appliesTo": {
+          "principalTypes": [
+            "Actor"
+          ],
+          "resourceTypes": [
+            "Claim"
+          ],
+          "context": {
+            "type": "RequestContext"
+          }
+        }
+      },
+      "attestation_withdrawn": {
+        "appliesTo": {
+          "principalTypes": [
+            "Actor"
+          ],
+          "resourceTypes": [
+            "Claim"
+          ],
+          "context": {
+            "type": "RequestContext"
+          }
+        }
+      },
+      "claim_superseded": {
+        "appliesTo": {
+          "principalTypes": [
+            "Actor"
+          ],
+          "resourceTypes": [
+            "Claim"
+          ],
+          "context": {
+            "type": "RequestContext"
+          }
+        }
+      },
+      "claim_retracted": {
+        "appliesTo": {
+          "principalTypes": [
+            "Actor"
+          ],
+          "resourceTypes": [
+            "Claim"
+          ],
+          "context": {
+            "type": "RequestContext"
+          }
+        }
+      }
+    },
+    "commonTypes": {
+      "RequestContext": {
+        "type": "Record",
+        "attributes": {
+          "attestationKind": {
+            "type": "String"
+          },
+          "targetAttestationExists": {
+            "type": "Boolean"
+          },
+          "targetAttestationAuthorId": {
+            "type": "String",
+            "required": false
+          },
+          "actingOrganizationId": {
+            "type": "String",
+            "required": false
+          }
+        }
+      }
+    }
+  }
+}
