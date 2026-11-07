@@ -1,0 +1,45 @@
+{
+  "benchmark_id": "LIFE-COMPOSITE-BUDGET-001",
+  "version": "0.1.0",
+  "status": "synthetic_research_only",
+  "policy_epoch_initial": 1,
+  "membership_epoch_initial": 1,
+  "default_budgets_abstract_units": {
+    "person_per_observer_domain": 8,
+    "group_per_observer_domain": 8,
+    "purpose_per_observer_domain": 12,
+    "observer_domain": 24
+  },
+  "scopes_checked_atomically": [
+    "person_per_observer_domain",
+    "every_current_group_per_observer_domain",
+    "purpose_per_observer_domain",
+    "observer_domain"
+  ],
+  "fixtures": [
+    "unsafe_person_only_group_overspend",
+    "composite_gate_atomic_rejection",
+    "overlapping_groups_atomic_rejection",
+    "retroactive_membership_recomposition",
+    "policy_epoch_no_refund"
+  ],
+  "invariants": [
+    "no_scope_overspend_on_accept",
+    "rejected_admission_spends_nothing",
+    "membership_edges_are_monotone_once_public",
+    "membership_edge_publication_recomputes_historical_group_exposure",
+    "stale_membership_epoch_fails_closed",
+    "policy_epoch_is_not_budget_reset",
+    "request_idempotency_binds_full_request",
+    "independent_audit_recomputes_current_group_composition"
+  ],
+  "claim_ceiling": "synthetic_overlapping_scope_budget_state_machine",
+  "nonclaims": [
+    "differential_privacy",
+    "calibrated_privacy_risk_units",
+    "production_consensus",
+    "tamper_proof_persistence",
+    "real_world_group_privacy",
+    "production_service_safety"
+  ]
+}
