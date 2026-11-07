@@ -37,9 +37,8 @@ RequiredActions == {Action1, Action2}
 AllActions == RequiredActions \cup {InvalidAction}
 ValidActions == RequiredActions
 ActionCell ==
-    [Action1 |-> "cell-1",
-     Action2 |-> "cell-2",
-     InvalidAction |-> "cell-1"]
+    [action \in RequiredActions |->
+        IF action = Action1 THEN "cell-1" ELSE "cell-2"]
 
 VARIABLES
     processRunning,
