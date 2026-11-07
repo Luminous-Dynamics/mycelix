@@ -1,0 +1,870 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/mycelix/black-hole-evidence-package-v1.schema.json",
+  "title": "Mycelix Black-Hole Scientific Evidence Package v1",
+  "description": "A domain-specific, content-addressed scientific evidence manifest. Canonical claims, evidence attestations, lifecycle, and maturity remain owned by the Mycelix-DeSci scientific-event stream; this package binds black-hole domain metadata and reproducibility inputs to those existing identifiers.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "package_id",
+    "claim",
+    "sources",
+    "artifacts",
+    "model",
+    "execution",
+    "observables",
+    "uncertainties",
+    "verification",
+    "null_controls",
+    "relationships",
+    "mycelix_stream"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "package_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "claim": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "claim_id",
+        "research_object_id",
+        "statement",
+        "epistemic_kind",
+        "scope"
+      ],
+      "properties": {
+        "claim_id": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Existing Mycelix-DeSci ClaimId; does not create a parallel claim identity."
+        },
+        "research_object_id": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Existing Mycelix-DeSci ResearchObjectId."
+        },
+        "statement": {
+          "type": "string",
+          "minLength": 1
+        },
+        "epistemic_kind": {
+          "enum": [
+            "established_theory",
+            "analytic_derivation",
+            "measured_observation",
+            "inferred_parameter",
+            "simulation_result",
+            "hypothesis",
+            "disputed_interpretation"
+          ]
+        },
+        "scope": {
+          "type": "string",
+          "minLength": 1
+        },
+        "applicability_domain": {
+          "type": "string"
+        },
+        "parent_claim_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      }
+    },
+    "sources": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "source_id",
+          "kind",
+          "locator",
+          "version_or_release"
+        ],
+        "properties": {
+          "source_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "kind": {
+            "enum": [
+              "publication",
+              "preprint",
+              "dataset",
+              "software",
+              "catalog",
+              "observatory_product",
+              "protocol",
+              "other"
+            ]
+          },
+          "locator": {
+            "type": "string",
+            "format": "uri"
+          },
+          "doi": {
+            "type": "string"
+          },
+          "arxiv_id": {
+            "type": "string"
+          },
+          "version_or_release": {
+            "type": "string",
+            "minLength": 1
+          },
+          "published_at": {
+            "type": "string",
+            "format": "date"
+          },
+          "license_or_access_terms": {
+            "type": "string"
+          },
+          "citation_detail": {
+            "type": "string",
+            "description": "Page, table, figure, supplement section, data-file name, or code path supporting this claim."
+          }
+        }
+      }
+    },
+    "artifacts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "artifact_id",
+          "media_type",
+          "locator",
+          "digest",
+          "availability"
+        ],
+        "properties": {
+          "artifact_id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Existing Mycelix-DeSci ArtifactId when registered as an EvidenceArtifact."
+          },
+          "media_type": {
+            "type": "string",
+            "minLength": 1
+          },
+          "locator": {
+            "type": "string",
+            "format": "uri"
+          },
+          "digest": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "algorithm",
+              "hex"
+            ],
+            "properties": {
+              "algorithm": {
+                "const": "blake3-256"
+              },
+              "hex": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              }
+            }
+          },
+          "availability": {
+            "enum": [
+              "public",
+              "controlled",
+              "embargoed",
+              "unavailable"
+            ]
+          },
+          "license_or_access_terms": {
+            "type": "string"
+          },
+          "source_id": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "model": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "model_id",
+        "model_kind",
+        "formulation",
+        "assumptions",
+        "units",
+        "coordinates"
+      ],
+      "properties": {
+        "model_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "model_kind": {
+          "enum": [
+            "analytic",
+            "perturbative",
+            "numerical_relativity",
+            "grhd",
+            "grmhd",
+            "waveform_surrogate",
+            "bayesian_inference",
+            "phenomenological",
+            "observational_reconstruction",
+            "other"
+          ]
+        },
+        "family": {
+          "type": "string"
+        },
+        "formulation": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Named equations, action, evolution system, likelihood, or inference method."
+        },
+        "equation_references": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "assumptions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "parameters": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "name",
+              "value",
+              "unit"
+            ],
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "value": {
+                "type": "number"
+              },
+              "unit": {
+                "type": "string"
+              },
+              "reference_or_prior": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "units": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "system",
+            "constants_convention"
+          ],
+          "properties": {
+            "system": {
+              "enum": [
+                "SI",
+                "geometrized",
+                "natural",
+                "dimensionless",
+                "mixed_explicit"
+              ]
+            },
+            "constants_convention": {
+              "type": "string",
+              "minLength": 1
+            },
+            "unit_notes": {
+              "type": "string"
+            }
+          }
+        },
+        "coordinates": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "chart",
+            "coordinate_order",
+            "metric_signature"
+          ],
+          "properties": {
+            "chart": {
+              "type": "string",
+              "minLength": 1
+            },
+            "coordinate_order": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "string"
+              }
+            },
+            "metric_signature": {
+              "enum": [
+                "-+++",
+                "+---",
+                "not_applicable",
+                "other_explicit"
+              ]
+            },
+            "basis_or_frame": {
+              "type": "string"
+            },
+            "domain": {
+              "type": "string"
+            }
+          }
+        },
+        "gauge_or_extraction": {
+          "type": "string"
+        },
+        "model_discrepancy_notes": {
+          "type": "string"
+        }
+      }
+    },
+    "execution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "implementations",
+        "input_artifact_ids",
+        "output_artifact_ids"
+      ],
+      "properties": {
+        "status": {
+          "enum": [
+            "planned",
+            "executed",
+            "failed",
+            "inconclusive",
+            "not_applicable"
+          ]
+        },
+        "implementations": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "repository",
+              "commit_sha",
+              "role"
+            ],
+            "properties": {
+              "repository": {
+                "type": "string",
+                "format": "uri"
+              },
+              "commit_sha": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{40}$"
+              },
+              "role": {
+                "enum": [
+                  "primary",
+                  "independent_verifier",
+                  "reference_implementation",
+                  "preprocessing",
+                  "visualization",
+                  "other"
+                ]
+              },
+              "version": {
+                "type": "string"
+              },
+              "dependency_lock_digest": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              },
+              "environment_digest": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              },
+              "command": {
+                "type": "string"
+              },
+              "hardware_profile": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "input_artifact_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "output_artifact_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "configuration_artifact_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "started_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "completed_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "random_seed": {
+          "type": "integer"
+        },
+        "reproducibility_notes": {
+          "type": "string"
+        }
+      }
+    },
+    "observables": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "observable_id",
+          "name",
+          "value_kind",
+          "unit"
+        ],
+        "properties": {
+          "observable_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "value_kind": {
+            "enum": [
+              "scalar",
+              "interval",
+              "distribution_artifact",
+              "time_series_artifact",
+              "image_artifact",
+              "spectrum_artifact",
+              "other_artifact"
+            ]
+          },
+          "value": {
+            "type": "number"
+          },
+          "lower": {
+            "type": "number"
+          },
+          "upper": {
+            "type": "number"
+          },
+          "unit": {
+            "type": "string",
+            "minLength": 1
+          },
+          "artifact_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "estimation_method": {
+            "type": "string"
+          },
+          "uncertainty_ids": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "value_kind": {
+                  "const": "scalar"
+                }
+              },
+              "required": [
+                "value_kind"
+              ]
+            },
+            "then": {
+              "required": [
+                "value"
+              ]
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "value_kind": {
+                  "const": "interval"
+                }
+              },
+              "required": [
+                "value_kind"
+              ]
+            },
+            "then": {
+              "required": [
+                "lower",
+                "upper"
+              ]
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "value_kind": {
+                  "enum": [
+                    "distribution_artifact",
+                    "time_series_artifact",
+                    "image_artifact",
+                    "spectrum_artifact",
+                    "other_artifact"
+                  ]
+                }
+              },
+              "required": [
+                "value_kind"
+              ]
+            },
+            "then": {
+              "required": [
+                "artifact_id"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "uncertainties": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "uncertainty_id",
+          "category",
+          "representation",
+          "description"
+        ],
+        "properties": {
+          "uncertainty_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "category": {
+            "enum": [
+              "statistical",
+              "systematic",
+              "numerical_truncation",
+              "discretization",
+              "model_form",
+              "detector_calibration",
+              "noise",
+              "astrophysical_population",
+              "parameter_degeneracy",
+              "surrogate_model",
+              "other"
+            ]
+          },
+          "representation": {
+            "enum": [
+              "standard_deviation",
+              "credible_interval",
+              "covariance_artifact",
+              "posterior_artifact",
+              "error_bound",
+              "ensemble_spread",
+              "qualitative",
+              "not_quantified"
+            ]
+          },
+          "confidence_level": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "exclusiveMaximum": 1
+          },
+          "lower": {
+            "type": "number"
+          },
+          "upper": {
+            "type": "number"
+          },
+          "artifact_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "description": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "verification": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "verification_id",
+          "method",
+          "outcome",
+          "independent",
+          "verifier"
+        ],
+        "properties": {
+          "verification_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "method": {
+            "enum": [
+              "analytic_fixture",
+              "dimensional_check",
+              "tensor_identity",
+              "coordinate_invariant",
+              "cross_code",
+              "cross_formulation",
+              "unit_test",
+              "integration_test",
+              "computational_reproduction",
+              "independent_replication",
+              "observational_comparison",
+              "expert_review",
+              "other"
+            ]
+          },
+          "outcome": {
+            "enum": [
+              "passed",
+              "failed",
+              "inconclusive",
+              "not_run"
+            ]
+          },
+          "independent": {
+            "type": "boolean"
+          },
+          "verifier": {
+            "type": "string",
+            "minLength": 1
+          },
+          "verifier_commit_sha": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{40}$"
+          },
+          "protocol_reference": {
+            "type": "string"
+          },
+          "input_artifact_ids": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "output_artifact_ids": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "notes": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "null_controls": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "control_id",
+          "control_kind",
+          "outcome"
+        ],
+        "properties": {
+          "control_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "control_kind": {
+            "enum": [
+              "noise_only",
+              "off_source",
+              "time_slide",
+              "phase_scramble",
+              "wrong_parameter",
+              "no_signal_injection",
+              "null_model",
+              "negative_control",
+              "other"
+            ]
+          },
+          "outcome": {
+            "enum": [
+              "passed",
+              "failed",
+              "inconclusive",
+              "not_run"
+            ]
+          },
+          "artifact_ids": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "notes": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "relationships": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "supports",
+        "refutes",
+        "corroborates",
+        "supersedes",
+        "superseded_by"
+      ],
+      "properties": {
+        "supports": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "refutes": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "corroborates": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "supersedes": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "superseded_by": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      }
+    },
+    "mycelix_stream": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "protocol",
+        "schema_version",
+        "stream_claim_id",
+        "event_ids"
+      ],
+      "properties": {
+        "protocol": {
+          "const": "mycelix-desci"
+        },
+        "schema_version": {
+          "type": "integer",
+          "minimum": 2
+        },
+        "stream_claim_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "event_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "evidence_policy_id": {
+          "type": "string"
+        },
+        "evidence_policy_version": {
+          "type": "string"
+        }
+      }
+    },
+    "license": {
+      "type": "string"
+    },
+    "notes": {
+      "type": "string"
+    }
+  }
+}
