@@ -1,0 +1,136 @@
+{
+  "schema": "luminous.gcpn.civilian_portfolio_cost.v0.1",
+  "status": "synthetic_benchmark_definition_only",
+  "created_date": "2026-11-07",
+  "parent_issue": "Luminous-Dynamics/mycelix#5587",
+  "child_issue": "Luminous-Dynamics/mycelix#5930",
+  "claim_ceiling": "synthetic_comparison_contract_integrity_only",
+  "scope": "civilian_non_weapon_protection_and_essential_service_resilience",
+  "currency_policy": {
+    "required_fields": ["currency_code", "price_base_year", "geography", "cost_scope", "source_ref", "uncertainty"],
+    "default_currency": null,
+    "default_price_year": null,
+    "assume_free_labour": false,
+    "assume_free_public_infrastructure": false,
+    "assume_free_data_or_connectivity": false
+  },
+  "prohibited_scope": [
+    "weapon_interceptor_design",
+    "kinetic_counter_uas_design",
+    "guidance_or_fire_control",
+    "target_selection_or_engagement_performance",
+    "kill_probability_or_cost_exchange_ratio",
+    "tactical_threat_trajectory_or_military_operational_data"
+  ],
+  "portfolios": [
+    {"id": "B0", "name": "existing_baseline", "family": "baseline"},
+    {"id": "B1", "name": "warning_and_communications", "family": "warning"},
+    {"id": "B2", "name": "warning_assisted_evacuation_and_rescue", "family": "warning_evacuation"},
+    {"id": "B3", "name": "passive_building_and_shelter_resilience", "family": "passive_protection"},
+    {"id": "B4", "name": "essential_service_continuity", "family": "service_continuity"},
+    {"id": "B5", "name": "integrated_civilian_portfolio", "family": "integrated"},
+    {"id": "B6", "name": "best_of_breed_incumbent_workflow", "family": "incumbent"}
+  ],
+  "required_cost_dimensions": [
+    "capital_and_site_preparation",
+    "professional_design_review_and_approval",
+    "procurement_tax_installation_commissioning",
+    "integration_licensing_data_and_communications",
+    "staff_operator_time_and_training",
+    "exercise_inspection_certification_and_calibration",
+    "energy_connectivity_and_consumables",
+    "maintenance_spares_repair_replacement_and_downtime",
+    "insurance_financing_compliance_and_contingency",
+    "decommissioning_disposal_and_residual_value"
+  ],
+  "required_outcomes": [
+    "authenticated_warning_reach_and_delivery",
+    "acknowledgement_and_accessible_comprehension",
+    "accessible_shelter_and_evacuation_availability",
+    "person_hours_essential_services_above_floors",
+    "time_to_notification_assistance_handoff_and_verified_recovery",
+    "false_missed_delayed_and_unresolved_alerts",
+    "operator_workload",
+    "privacy_leakage_and_unauthorized_disclosure",
+    "adverse_effects_exclusion_and_distributional_burden",
+    "independently_observed_effects_and_evidence_tier"
+  ],
+  "allowed_dispositions": [
+    "ELIGIBLE_FOR_SYNTHETIC_COMPARISON",
+    "INCOMPARABLE",
+    "BLOCKED",
+    "UNKNOWN",
+    "CLAIM_LIMITED"
+  ],
+  "cases": [
+    {
+      "id": "CPC-001",
+      "name": "matched_complete_portfolio_frame",
+      "expected_disposition": "ELIGIBLE_FOR_SYNTHETIC_COMPARISON",
+      "assertions": ["same_population", "same_time_horizon", "same_service_floors", "complete_cost_dimensions"]
+    },
+    {
+      "id": "CPC-002",
+      "name": "price_year_or_currency_mismatch",
+      "expected_disposition": "INCOMPARABLE",
+      "assertions": ["currency_and_price_year_must_match_or_be_explicitly_normalized", "normalization_source_and_method_required"]
+    },
+    {
+      "id": "CPC-003",
+      "name": "hidden_volunteer_labour",
+      "expected_disposition": "BLOCKED",
+      "assertions": ["unpaid_labour_is_resource_cost", "operator_time_and_training_are_included"]
+    },
+    {
+      "id": "CPC-004",
+      "name": "missing_outcome_denominator",
+      "expected_disposition": "UNKNOWN",
+      "assertions": ["eligible_population_declared", "missingness_preserved", "no_silent_complete_case_denominator"]
+    },
+    {
+      "id": "CPC-005",
+      "name": "alert_delivery_promoted_to_response",
+      "expected_disposition": "CLAIM_LIMITED",
+      "assertions": ["delivery_is_not_acknowledgement", "acknowledgement_is_not_action", "action_is_not_effect"]
+    },
+    {
+      "id": "CPC-006",
+      "name": "incident_reports_promoted_to_harm_reduction",
+      "expected_disposition": "CLAIM_LIMITED",
+      "assertions": ["reported_count_not_true_incidence", "causal_counterfactual_required", "uncertainty_and_displacement_reported"]
+    },
+    {
+      "id": "CPC-007",
+      "name": "hard_accessibility_or_life_safety_failure_masked_by_cost",
+      "expected_disposition": "BLOCKED",
+      "assertions": ["hard_constraint_non_compensatory", "low_cost_cannot_offset_egress_failure"]
+    },
+    {
+      "id": "CPC-008",
+      "name": "unsupported_cost_per_life_saved_claim",
+      "expected_disposition": "CLAIM_LIMITED",
+      "assertions": ["causal_estimand_preregistered", "valid_counterfactual_required", "independent_professional_review_required"]
+    },
+    {
+      "id": "CPC-009",
+      "name": "protected_data_disclosure",
+      "expected_disposition": "BLOCKED",
+      "assertions": ["public_projection_privacy_policy_applied", "small_cell_and_location_disclosure_checked"]
+    },
+    {
+      "id": "CPC-010",
+      "name": "prohibited_weapon_interceptor_scope_added",
+      "expected_disposition": "BLOCKED",
+      "assertions": ["civilian_non_weapon_scope_only", "no_weapon_design_or_performance_fields"]
+    }
+  ],
+  "review_requirements": [
+    "emergency_management_and_public_warning",
+    "registered_civil_building_electrical_or_mechanical_professionals_as_applicable",
+    "fire_safety_and_accessibility",
+    "public_health_and_epidemiology",
+    "maritime_port_safety_where_applicable",
+    "quantity_surveyor_or_cost_economist",
+    "privacy_data_protection_and_community_representatives"
+  ]
+}
