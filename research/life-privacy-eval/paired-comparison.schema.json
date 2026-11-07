@@ -1,0 +1,195 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "LIFE paired privacy-mitigation comparison report",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "evaluator_version",
+    "evaluation_mode",
+    "seed",
+    "requested_bootstrap_replicates",
+    "valid_bootstrap_replicates",
+    "pair_count",
+    "positive_pairs",
+    "negative_pairs",
+    "unique_test_subjects",
+    "training_subject_count",
+    "subject_overlap_count",
+    "baseline_metrics",
+    "treatment_metrics",
+    "treatment_minus_baseline_auc",
+    "paired_delta_auc_cluster_bootstrap_ci95",
+    "proposed_max_auc_upper",
+    "sample_size_gate",
+    "linkability_change_status",
+    "unlinkability_auc_gate",
+    "task_utility_evidence_present",
+    "official_conformance_evidence_present",
+    "overall_release_gate",
+    "interpretation"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0"
+    },
+    "evaluator_version": {
+      "type": "string"
+    },
+    "evaluation_mode": {
+      "const": "paired_mitigation_comparison"
+    },
+    "seed": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "requested_bootstrap_replicates": {
+      "type": "integer",
+      "minimum": 100
+    },
+    "valid_bootstrap_replicates": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "pair_count": {
+      "type": "integer",
+      "minimum": 2
+    },
+    "positive_pairs": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "negative_pairs": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "unique_test_subjects": {
+      "type": "integer",
+      "minimum": 2
+    },
+    "training_subject_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "subject_overlap_count": {
+      "const": 0
+    },
+    "baseline_metrics": {
+      "$ref": "#/$defs/metrics"
+    },
+    "treatment_metrics": {
+      "$ref": "#/$defs/metrics"
+    },
+    "treatment_minus_baseline_auc": {
+      "type": "number",
+      "minimum": -1,
+      "maximum": 1
+    },
+    "paired_delta_auc_cluster_bootstrap_ci95": {
+      "$ref": "#/$defs/interval"
+    },
+    "proposed_max_auc_upper": {
+      "type": "number",
+      "exclusiveMinimum": 0.5,
+      "maximum": 1
+    },
+    "sample_size_gate": {
+      "enum": [
+        "SMOKE_ONLY_BELOW_MINIMUM",
+        "MINIMUM_COUNTS_MET_REQUIRES_REVIEW"
+      ]
+    },
+    "linkability_change_status": {
+      "enum": [
+        "REDUCTION_SUPPORTED",
+        "LINKABILITY_WORSENED",
+        "INCONCLUSIVE"
+      ]
+    },
+    "unlinkability_auc_gate": {
+      "enum": [
+        "NOT_EVALUATED_BELOW_SAMPLE_MINIMUM",
+        "PROVISIONAL_PASS_REQUIRES_REVIEW",
+        "FAIL",
+        "INCONCLUSIVE"
+      ]
+    },
+    "task_utility_evidence_present": {
+      "const": false
+    },
+    "official_conformance_evidence_present": {
+      "const": false
+    },
+    "overall_release_gate": {
+      "const": "NOT_EVALUATED_REQUIRED_UTILITY_AND_CONFORMANCE_MISSING"
+    },
+    "interpretation": {
+      "type": "string"
+    }
+  },
+  "$defs": {
+    "interval": {
+      "type": "object",
+      "required": [
+        "low",
+        "high",
+        "valid_replicates"
+      ],
+      "properties": {
+        "low": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "high": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "valid_replicates": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false
+    },
+    "metrics": {
+      "type": "object",
+      "required": [
+        "roc_auc",
+        "average_precision",
+        "tpr_at_fpr_1pct",
+        "tpr_at_fpr_5pct",
+        "roc_auc_cluster_bootstrap_ci95"
+      ],
+      "properties": {
+        "roc_auc": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "average_precision": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "tpr_at_fpr_1pct": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "tpr_at_fpr_5pct": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "roc_auc_cluster_bootstrap_ci95": {
+          "$ref": "#/$defs/interval"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,193 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "LIFE privacy evaluation metrics report v1.1",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "evaluator_version",
+    "evaluation_status",
+    "seed",
+    "requested_bootstrap_replicates",
+    "valid_bootstrap_replicates",
+    "pairs",
+    "positive_pairs",
+    "negative_pairs",
+    "unique_test_subjects",
+    "training_subject_count",
+    "subject_overlap_count",
+    "metrics",
+    "by_stratum",
+    "interpretation",
+    "low_fpr_threshold_selection",
+    "low_fpr_metrics_are_certification_ready"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.1"
+    },
+    "evaluator_version": {
+      "type": "string"
+    },
+    "evaluation_status": {
+      "enum": [
+        "SMOKE_ONLY_BELOW_MINIMUM",
+        "BENCHMARK_SIZED_REQUIRES_REVIEW_NOT_A_PASS"
+      ]
+    },
+    "seed": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "requested_bootstrap_replicates": {
+      "type": "integer",
+      "minimum": 100
+    },
+    "valid_bootstrap_replicates": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "pairs": {
+      "type": "integer",
+      "minimum": 2
+    },
+    "positive_pairs": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "negative_pairs": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "unique_test_subjects": {
+      "type": "integer",
+      "minimum": 2
+    },
+    "training_subject_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "subject_overlap_count": {
+      "const": 0
+    },
+    "metrics": {
+      "type": "object",
+      "required": [
+        "roc_auc",
+        "average_precision",
+        "tpr_at_fpr_1pct",
+        "tpr_at_fpr_5pct",
+        "roc_auc_cluster_bootstrap_ci95"
+      ],
+      "properties": {
+        "roc_auc": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "average_precision": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "tpr_at_fpr_1pct": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "tpr_at_fpr_5pct": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "roc_auc_cluster_bootstrap_ci95": {
+          "type": "object",
+          "required": [
+            "low",
+            "high"
+          ],
+          "properties": {
+            "low": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "high": {
+              "type": [
+                "number",
+                "null"
+              ]
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "by_stratum": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "stratum",
+          "pairs",
+          "positive_pairs",
+          "negative_pairs",
+          "roc_auc",
+          "average_precision",
+          "tpr_at_fpr_1pct",
+          "tpr_at_fpr_5pct"
+        ],
+        "properties": {
+          "stratum": {
+            "type": "string"
+          },
+          "pairs": {
+            "type": "integer"
+          },
+          "positive_pairs": {
+            "type": "integer"
+          },
+          "negative_pairs": {
+            "type": "integer"
+          },
+          "roc_auc": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "average_precision": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "tpr_at_fpr_1pct": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "tpr_at_fpr_5pct": {
+            "type": [
+              "number",
+              "null"
+            ]
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "interpretation": {
+      "type": "string"
+    },
+    "low_fpr_threshold_selection": {
+      "const": "empirical_test_curve_descriptive_not_locked"
+    },
+    "low_fpr_metrics_are_certification_ready": {
+      "const": false
+    }
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,448 @@
+name: LIFE privacy evaluation metrics
+
+on:
+  pull_request:
+    paths:
+      - "research/life-privacy-eval/**"
+      - ".github/workflows/life-privacy-eval.yml"
+  push:
+    paths:
+      - "research/life-privacy-eval/**"
+      - ".github/workflows/life-privacy-eval.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      QUALIFIED_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+      CARGO_TERM_COLOR: always
+    steps:
+      - name: Checkout exact benchmark subject
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ env.QUALIFIED_SHA }}
+          persist-credentials: false
+
+      - name: Assert exact commit
+        run: test "$(git rev-parse HEAD)" = "$QUALIFIED_SHA"
+
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9
+        with:
+          toolchain: 1.96.0
+          components: rustfmt, clippy
+
+      - name: Check formatting
+        run: cargo +1.96.0 fmt --manifest-path research/life-privacy-eval/Cargo.toml --all -- --check
+
+      - name: Run tests
+        run: cargo +1.96.0 test --locked --manifest-path research/life-privacy-eval/Cargo.toml
+
+      - name: Run strict Clippy
+        run: cargo +1.96.0 clippy --locked --manifest-path research/life-privacy-eval/Cargo.toml --all-targets -- -D warnings
+
+      - name: Validate scenario manifest and run deterministic smoke fixture twice
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          root = Path("research/life-privacy-eval")
+          manifest = json.loads((root / "benchmark-manifest.json").read_text())
+          schema = json.loads((root / "report.schema.json").read_text())
+          matrix = json.loads((root / "attack-scenario-matrix.json").read_text())
+          coverage = json.loads((root / "threat-coverage-matrix.json").read_text())
+          ids = [scenario["id"] for scenario in matrix["scenarios"]]
+          id_set = set(ids)
+          assert len(ids) == 11 and len(id_set) == 11
+          assert manifest["declared_scenario_count"] == len(ids)
+          assert manifest["threat_coverage_matrix_file"] == "threat-coverage-matrix.json"
+          assert manifest["threat_coverage_matrix_schema_version"] == coverage["schema_version"] == "1.0"
+          assert manifest["threat_coverage_entry_count"] == len(coverage["threats"]) == 15
+          assert manifest["attack_profile_count"] == len(coverage["attack_profiles"]) == 6
+          threat_ids = [item["w3c_threat_id"] for item in coverage["threats"]]
+          noncoverage_ids = [tid for item in coverage["explicit_noncoverage"] for tid in item["w3c_threat_ids"]]
+          assert len(threat_ids) == len(set(threat_ids))
+          assert len(noncoverage_ids) == len(set(noncoverage_ids))
+          assert not (set(threat_ids) & set(noncoverage_ids))
+          assert set(threat_ids) | set(noncoverage_ids) == {f"T{i}" for i in range(1, 26)}
+          profile_ids = [item["id"] for item in coverage["attack_profiles"]]
+          assert len(profile_ids) == len(set(profile_ids))
+          assert all(item["name"] and item["claim_ceiling"] and item["minimum_channels"] for item in coverage["threats"])
+          assert all(sid in id_set for item in coverage["threats"] for sid in item["scenario_ids"])
+          assert all(item["status"] in coverage["status_vocabulary"] for item in coverage["threats"])
+          assert any(item["w3c_threat_id"] == "T8" and item["status"] == "separate_gate_not_linkability" for item in coverage["threats"])
+          assert any(item["w3c_threat_id"] == "T22" and item["status"] == "external_telemetry" for item in coverage["threats"])
+          assert coverage["explicit_noncoverage"] and "not evidence" in coverage["claim_ceiling"]
+          assert all(s["required"] for s in matrix["scenarios"])
+          paired_schema = json.loads((root / "paired-comparison.schema.json").read_text())
+          calibrated_schema = json.loads((root / "calibrated-operating-point.schema.json").read_text())
+          assert schema["$schema"] == "https://json-schema.org/draft/2020-12/schema"
+          assert paired_schema["$schema"] == "https://json-schema.org/draft/2020-12/schema"
+          assert calibrated_schema["$schema"] == "https://json-schema.org/draft/2020-12/schema"
+          assert schema["properties"]["low_fpr_metrics_are_certification_ready"]["const"] is False
+          assert paired_schema["properties"]["overall_release_gate"]["const"] == "NOT_EVALUATED_REQUIRED_UTILITY_AND_CONFORMANCE_MISSING"
+          assert all(scenario["required"] for scenario in matrix["scenarios"])
+          retrieval_schema = json.loads((root / "retrieval-report.schema.json").read_text())
+          assert retrieval_schema["$schema"] == "https://json-schema.org/draft/2020-12/schema"
+          assert manifest["version"] == "0.9.0"
+          assert manifest["retrieval_report_schema_file"] == "retrieval-report.schema.json"
+          assert manifest["retrieval_evaluation"]["mode"] == "closed_set_ranked_reidentification"
+          assert retrieval_schema["properties"]["overall_release_gate"]["const"] == "NOT_EVALUATED_RETRIEVAL_ONLY_UTILITY_AND_CONFORMANCE_MISSING"
+          assert retrieval_schema["properties"]["rank_tie_policy"]["const"] == "uniform_fractional_credit_across_true_candidate_tie_block"
+          truth_lines = (root / "fixtures/retrieval-truth.tsv").read_text().splitlines()
+          score_lines = (root / "fixtures/retrieval-scores.tsv").read_text().splitlines()
+          assert truth_lines[0].split("\t") == ["query_id", "query_subject", "candidate_id", "candidate_subject", "true_match", "stratum"]
+          assert score_lines[0].split("\t") == ["query_id", "candidate_id", "score"]
+          truth_rows = [line.split("\t") for line in truth_lines[1:] if line.strip()]
+          score_rows = [line.split("\t") for line in score_lines[1:] if line.strip()]
+          assert len(truth_rows) == len(score_rows) == 16
+          assert all(len(row) == 6 for row in truth_rows)
+          assert all(len(row) == 3 for row in score_rows)
+          assert {(row[0], row[2]) for row in truth_rows} == {(row[0], row[1]) for row in score_rows}
+          truth_by_query = {}
+          for row in truth_rows:
+              truth_by_query.setdefault(row[0], []).append(row)
+              assert row[4] in ("0", "1")
+              assert (row[1] == row[3]) == (row[4] == "1")
+          assert len(truth_by_query) == 4
+          assert all(len(rows) == 4 and sum(row[4] == "1" for row in rows) == 1 for rows in truth_by_query.values())
+          candidate_pools = [{row[2] for row in rows} for rows in truth_by_query.values()]
+          assert all(pool == candidate_pools[0] for pool in candidate_pools)
+          assert len({row[3] for row in truth_rows}) == 4
+          train_subjects = set((root / "fixtures/retrieval-training-subjects.txt").read_text().splitlines())
+          assert not train_subjects.intersection({row[1] for row in truth_rows} | {row[3] for row in truth_rows})
+          open_schema = json.loads((root / "open-set-report.schema.json").read_text())
+          assert open_schema["$schema"] == "https://json-schema.org/draft/2020-12/schema"
+          assert open_schema["properties"]["schema_version"]["const"] == "1.2"
+          assert open_schema["properties"]["subject_fp_rate_bound_method"]["const"] == "one_sided_exact_clopper_pearson_binomial_upper_bound_on_subject_level_any_session_false_identification"
+          coverage_check = manifest["open_set_evaluation"]["subject_level_risk_bound"]["coverage_validation"]
+          assert coverage_check["method"] == "exhaustive_binomial_pmf_sum_for_every_observed_event_count_on_a_preregistered_probability_grid"
+          assert coverage_check["required_minimum_coverage"] == 0.95
+          assert coverage_check["trial_counts"] == [5, 10, 20, 50, 100]
+          assert manifest["open_set_evaluation"]["subject_level_risk_bound"]["zero_event_subject_clusters_for_target_1pct_at_95pct"] == 299
+          gallery_protocol = (root / manifest["gallery_scaling_protocol_file"]).read_text()
+          assert "design-only / not implemented" in gallery_protocol
+          assert "90%" in gallery_protocol and "0.1%" in gallery_protocol
+          assert manifest["open_set_evaluation"]["report_schema_file"] == "open-set-report.schema.json"
+          assert open_schema["properties"]["evaluation_mode"]["const"] == "validation_locked_open_set_identification"
+          assert open_schema["properties"]["overall_release_gate"]["const"] == "NOT_EVALUATED_OPEN_SET_UTILITY_AND_CONFORMANCE_MISSING"
+          assert manifest["open_set_evaluation"]["threshold_selection"].startswith("Validation-only")
+          open_floors = manifest["open_set_evaluation"]["pilot_minimums"]
+          assert open_floors["mated_queries_per_partition"] == 2000
+          assert open_floors["nonmated_queries_per_partition"] == 2000
+          assert open_floors["distinct_mated_subjects_per_partition"] == 2000
+          assert open_floors["distinct_nonmated_subjects_per_partition"] == 2000
+          assert open_floors["candidate_pool_size"] == 10
+          partitions = {}
+          for label in ("validation", "test"):
+              truth_path = root / f"fixtures/open-set-{label}-truth.tsv"
+              score_path = root / f"fixtures/open-set-{label}-scores.tsv"
+              truth_lines = truth_path.read_text().splitlines()
+              score_lines = score_path.read_text().splitlines()
+              assert truth_lines[0].split("\t") == ["query_id", "query_subject", "candidate_id", "candidate_subject", "true_match", "stratum"]
+              assert score_lines[0].split("\t") == ["query_id", "candidate_id", "score"]
+              rows = [line.split("\t") for line in truth_lines[1:] if line.strip()]
+              scores = [line.split("\t") for line in score_lines[1:] if line.strip()]
+              assert len(rows) == len(scores) == 16
+              assert all(len(row) == 6 for row in rows)
+              assert all(len(row) == 3 for row in scores)
+              assert {(row[0], row[2]) for row in rows} == {(row[0], row[1]) for row in scores}
+              by_query = {}
+              for row in rows:
+                  by_query.setdefault(row[0], []).append(row)
+                  assert row[4] in ("0", "1")
+                  assert (row[1] == row[3]) == (row[4] == "1")
+              assert len(by_query) == 4
+              assert all(len(group) == 4 and sum(row[4] == "1" for row in group) <= 1 for group in by_query.values())
+              assert {any(row[4] == "1" for row in group) for group in by_query.values()} == {True, False}
+              candidate_pools = [{(row[2], row[3]) for row in group} for group in by_query.values()]
+              assert all(pool == candidate_pools[0] for pool in candidate_pools)
+              assert len(candidate_pools[0]) == 4
+              partitions[label] = (by_query, candidate_pools[0])
+          val_queries, val_pool = partitions["validation"]
+          test_queries, test_pool = partitions["test"]
+          assert val_pool == test_pool
+          assert set(val_queries).isdisjoint(test_queries)
+          val_subjects = {rows[0][1] for rows in val_queries.values()}
+          test_subjects = {rows[0][1] for rows in test_queries.values()}
+          assert val_subjects.isdisjoint(test_subjects)
+          open_training = set((root / "fixtures/open-set-training-subjects.txt").read_text().splitlines())
+          all_open_subjects = val_subjects | test_subjects | {subject for _, subject in val_pool}
+          assert open_training.isdisjoint(all_open_subjects)
+          PY
+          mkdir -p target/life-privacy-eval
+          cargo +1.96.0 run --quiet --locked --release --manifest-path research/life-privacy-eval/Cargo.toml -- \
+            research/life-privacy-eval/fixtures/truth.tsv \
+            research/life-privacy-eval/fixtures/scores.tsv \
+            research/life-privacy-eval/fixtures/training-subjects.txt \
+            target/life-privacy-eval/report-a.json 300 9901
+          cargo +1.96.0 run --quiet --locked --release --manifest-path research/life-privacy-eval/Cargo.toml -- \
+            research/life-privacy-eval/fixtures/truth.tsv \
+            research/life-privacy-eval/fixtures/scores.tsv \
+            research/life-privacy-eval/fixtures/training-subjects.txt \
+            target/life-privacy-eval/report-b.json 300 9901
+          cmp target/life-privacy-eval/report-a.json target/life-privacy-eval/report-b.json
+          grep -q 'SMOKE_ONLY_BELOW_MINIMUM' target/life-privacy-eval/report-a.json
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          schema = json.loads(Path("research/life-privacy-eval/report.schema.json").read_text())
+          report = json.loads(Path("target/life-privacy-eval/report-a.json").read_text())
+          assert set(schema["required"]).issubset(report)
+          assert report["low_fpr_threshold_selection"] == "empirical_test_curve_descriptive_not_locked"
+          assert report["low_fpr_metrics_are_certification_ready"] is False
+          assert report["evaluation_status"] == "SMOKE_ONLY_BELOW_MINIMUM"
+          PY
+          mv target/life-privacy-eval/report-a.json target/life-privacy-eval/report.json
+          rm target/life-privacy-eval/report-b.json
+
+          cargo +1.96.0 run --quiet --locked --release --manifest-path research/life-privacy-eval/Cargo.toml -- compare \
+            research/life-privacy-eval/fixtures/truth.tsv \
+            research/life-privacy-eval/fixtures/paired-baseline-positive-control.tsv \
+            research/life-privacy-eval/fixtures/paired-treatment-no-signal-control.tsv \
+            research/life-privacy-eval/fixtures/training-subjects.txt \
+            target/life-privacy-eval/paired-report-a.json 300 9901 0.55
+          cargo +1.96.0 run --quiet --locked --release --manifest-path research/life-privacy-eval/Cargo.toml -- compare \
+            research/life-privacy-eval/fixtures/truth.tsv \
+            research/life-privacy-eval/fixtures/paired-baseline-positive-control.tsv \
+            research/life-privacy-eval/fixtures/paired-treatment-no-signal-control.tsv \
+            research/life-privacy-eval/fixtures/training-subjects.txt \
+            target/life-privacy-eval/paired-report-b.json 300 9901 0.55
+          cmp target/life-privacy-eval/paired-report-a.json target/life-privacy-eval/paired-report-b.json
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          report_path = Path("target/life-privacy-eval/paired-report-a.json")
+          report = json.loads(report_path.read_text())
+          assert report["evaluation_mode"] == "paired_mitigation_comparison"
+          assert report["linkability_change_status"] == "REDUCTION_SUPPORTED"
+          assert report["sample_size_gate"] == "SMOKE_ONLY_BELOW_MINIMUM"
+          assert report["overall_release_gate"] == "NOT_EVALUATED_REQUIRED_UTILITY_AND_CONFORMANCE_MISSING"
+          assert report["task_utility_evidence_present"] is False
+          assert report["official_conformance_evidence_present"] is False
+          assert report["paired_delta_auc_cluster_bootstrap_ci95"]["high"] < 0
+          assert report["treatment_metrics"]["roc_auc"] == 0.5
+          assert report["baseline_metrics"]["roc_auc"] == 1.0
+          PY
+          mv target/life-privacy-eval/paired-report-a.json target/life-privacy-eval/paired-report.json
+          rm target/life-privacy-eval/paired-report-b.json
+
+          cargo +1.96.0 run --quiet --locked --release --manifest-path research/life-privacy-eval/Cargo.toml -- calibrated \
+            research/life-privacy-eval/fixtures/calibration-truth.tsv \
+            research/life-privacy-eval/fixtures/calibration-scores.tsv \
+            research/life-privacy-eval/fixtures/truth.tsv \
+            research/life-privacy-eval/fixtures/scores.tsv \
+            research/life-privacy-eval/fixtures/training-subjects.txt \
+            target/life-privacy-eval/calibrated-report-a.json 0.01 300 9901
+          cargo +1.96.0 run --quiet --locked --release --manifest-path research/life-privacy-eval/Cargo.toml -- calibrated \
+            research/life-privacy-eval/fixtures/calibration-truth.tsv \
+            research/life-privacy-eval/fixtures/calibration-scores.tsv \
+            research/life-privacy-eval/fixtures/truth.tsv \
+            research/life-privacy-eval/fixtures/scores.tsv \
+            research/life-privacy-eval/fixtures/training-subjects.txt \
+            target/life-privacy-eval/calibrated-report-b.json 0.01 300 9901
+          cmp target/life-privacy-eval/calibrated-report-a.json target/life-privacy-eval/calibrated-report-b.json
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          report_path = Path("target/life-privacy-eval/calibrated-report-a.json")
+          report = json.loads(report_path.read_text())
+          calibrated_schema = json.loads(Path("research/life-privacy-eval/calibrated-operating-point.schema.json").read_text())
+          assert set(calibrated_schema["required"]).issubset(report)
+          assert report["operating_point_gate"] in calibrated_schema["properties"]["operating_point_gate"]["enum"]
+          assert report["rare_event_inference_status"] in calibrated_schema["properties"]["rare_event_inference_status"]["enum"]
+          assert report["evaluation_mode"] == "validation_locked_operating_point"
+          assert report["threshold_source"] == "validation_only_locked_before_test"
+          assert report["calibration_threshold"] == 0.9
+          assert report["overall_release_gate"] == "NOT_EVALUATED_REQUIRED_UTILITY_AND_CONFORMANCE_MISSING"
+          assert report["task_utility_evidence_present"] is False
+          assert report["official_conformance_evidence_present"] is False
+          assert report["sample_size_gate"] == "SMOKE_ONLY_BELOW_MINIMUM"
+          PY
+          mv target/life-privacy-eval/calibrated-report-a.json target/life-privacy-eval/calibrated-report.json
+          rm target/life-privacy-eval/calibrated-report-b.json
+
+      - name: Run deterministic closed-set retrieval known-answer fixture twice
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo +1.96.0 run --quiet --locked --release --manifest-path research/life-privacy-eval/Cargo.toml -- retrieval \
+            research/life-privacy-eval/fixtures/retrieval-truth.tsv \
+            research/life-privacy-eval/fixtures/retrieval-scores.tsv \
+            research/life-privacy-eval/fixtures/retrieval-training-subjects.txt \
+            target/life-privacy-eval/retrieval-report-a.json 300 9901
+          cargo +1.96.0 run --quiet --locked --release --manifest-path research/life-privacy-eval/Cargo.toml -- retrieval \
+            research/life-privacy-eval/fixtures/retrieval-truth.tsv \
+            research/life-privacy-eval/fixtures/retrieval-scores.tsv \
+            research/life-privacy-eval/fixtures/retrieval-training-subjects.txt \
+            target/life-privacy-eval/retrieval-report-b.json 300 9901
+          cmp target/life-privacy-eval/retrieval-report-a.json target/life-privacy-eval/retrieval-report-b.json
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          root = Path("research/life-privacy-eval")
+          schema = json.loads((root / "retrieval-report.schema.json").read_text())
+          report = json.loads(Path("target/life-privacy-eval/retrieval-report-a.json").read_text())
+          assert set(schema["required"]).issubset(report)
+          assert report["evaluation_mode"] == "closed_set_ranked_reidentification"
+          assert report["rank_tie_policy"] == "uniform_fractional_credit_across_true_candidate_tie_block"
+          assert report["uncertainty_scope"] == "query_subject_cluster_bootstrap_conditioned_on_fixed_candidate_pool"
+          assert report["query_count"] == 4 and report["unique_query_subjects"] == 4
+          assert report["candidate_pool_size"] == 4
+          assert report["metrics"]["top_1_reidentification_rate"] == 0.375
+          assert report["metrics"]["top_3_reidentification_rate"] == 0.75
+          assert report["metrics"]["mean_reciprocal_rank"] == 0.58333333
+          assert report["metrics"]["mean_expected_rank"] == 2.375
+          assert report["uniform_chance_baseline"]["top_1"] == 0.25
+          assert report["sample_size_gate"] == "SMOKE_ONLY_BELOW_MINIMUM"
+          assert report["task_utility_evidence_present"] is False
+          assert report["official_conformance_evidence_present"] is False
+          assert report["overall_release_gate"] == "NOT_EVALUATED_RETRIEVAL_ONLY_UTILITY_AND_CONFORMANCE_MISSING"
+          assert "does not estimate an effective anonymity set" in report["interpretation"]
+          assert set(schema["properties"]["metrics"]["required"]).issubset(report["metrics"])
+          PY
+          mv target/life-privacy-eval/retrieval-report-a.json target/life-privacy-eval/retrieval-report.json
+          rm target/life-privacy-eval/retrieval-report-b.json
+
+      - name: Run deterministic validation-locked open-set fixture twice
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo +1.96.0 run --quiet --locked --release --manifest-path research/life-privacy-eval/Cargo.toml -- open-set research/life-privacy-eval/fixtures/open-set-validation-truth.tsv research/life-privacy-eval/fixtures/open-set-validation-scores.tsv research/life-privacy-eval/fixtures/open-set-test-truth.tsv research/life-privacy-eval/fixtures/open-set-test-scores.tsv research/life-privacy-eval/fixtures/open-set-training-subjects.txt target/life-privacy-eval/open-set-report-a.json 0.01 300 9901
+          cargo +1.96.0 run --quiet --locked --release --manifest-path research/life-privacy-eval/Cargo.toml -- open-set research/life-privacy-eval/fixtures/open-set-validation-truth.tsv research/life-privacy-eval/fixtures/open-set-validation-scores.tsv research/life-privacy-eval/fixtures/open-set-test-truth.tsv research/life-privacy-eval/fixtures/open-set-test-scores.tsv research/life-privacy-eval/fixtures/open-set-training-subjects.txt target/life-privacy-eval/open-set-report-b.json 0.01 300 9901
+          cmp target/life-privacy-eval/open-set-report-a.json target/life-privacy-eval/open-set-report-b.json
+          python3 - <<'PY'
+          import json
+          import math
+          from pathlib import Path
+          schema = json.loads(Path("research/life-privacy-eval/open-set-report.schema.json").read_text())
+          report = json.loads(Path("target/life-privacy-eval/open-set-report-a.json").read_text())
+          assert set(schema["required"]).issubset(report)
+          assert report["evaluation_mode"] == "validation_locked_open_set_identification"
+          assert report["schema_version"] == "1.2"
+          assert report["threshold_selection"] == "validation_only_maximize_rank1_identification_subject_to_fpir_cap"
+          assert report["threshold_source"] == "validation_only_locked_before_test"
+          assert report["threshold"] == 0.95
+          assert report["max_fpir_target"] == 0.01
+          assert report["validation_mated_queries"] == 2 and report["validation_nonmated_queries"] == 2
+          assert report["validation_fnir_rank1"] == 0.5 and report["validation_fpir"] == 0.0
+          assert report["validation_false_identifications"] == 0
+          assert report["test_mated_queries"] == 2 and report["test_nonmated_queries"] == 2
+          assert report["candidate_pool_size"] == 4
+          assert report["false_negative_identification_rate_rank1"] == 0.5
+          assert report["expected_false_negative_identifications_rank1"] == 1.0
+          assert report["false_identifications"] == 0
+          assert report["false_positive_identification_rate"] == 0.0
+          assert report["fpir_resolution"] == 0.5
+          assert report["subject_fp_rate_bound_method"] == "one_sided_exact_clopper_pearson_binomial_upper_bound_on_subject_level_any_session_false_identification"
+          assert report["subject_fp_rate_confidence_level"] == 0.95
+          assert report["validation_nonmated_subject_clusters"] == 2
+          assert report["validation_subjects_with_any_false_identification"] == 0
+          assert report["test_nonmated_subject_clusters"] == 2
+          assert report["test_subjects_with_any_false_identification"] == 0
+          expected_upper = -math.expm1(math.log(0.05) / 2.0)
+          assert abs(report["test_subject_any_false_identification_upper95"] - expected_upper) < 1e-8
+          assert report["test_subject_any_false_identification_upper95"] > report["max_fpir_target"]
+          assert report["nonmated_subject_clusters_required_for_zero_event_bound"] == 299
+          assert math.ceil(math.log(0.05) / math.log1p(-0.001)) == 2995
+          assert manifest["open_set_evaluation"]["subject_level_risk_bound"]["zero_event_subject_clusters_for_target_0_1pct_at_95pct"] == 2995
+          assert report["correct_identification_precision"] == 1.0
+          assert report["rare_event_inference_status"] == "SUBJECT_CLUSTER_UPPER_BOUND_EXCEEDS_TARGET"
+          assert report["sample_size_gate"] == "SMOKE_ONLY_BELOW_MINIMUM"
+          assert report["operating_point_gate"] == "NOT_EVALUATED_BELOW_SAMPLE_MINIMUM"
+          assert report["task_utility_evidence_present"] is False
+          assert report["official_conformance_evidence_present"] is False
+          assert report["overall_release_gate"] == "NOT_EVALUATED_OPEN_SET_UTILITY_AND_CONFORMANCE_MISSING"
+          PY
+          mv target/life-privacy-eval/open-set-report-a.json target/life-privacy-eval/open-set-report.json
+          rm target/life-privacy-eval/open-set-report-b.json
+
+      - name: Negative control — training/test identity overlap must fail closed
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf '%s\n' 'test_subject_000' > /tmp/leaked-training-subjects.txt
+          if cargo +1.96.0 run --quiet --locked --manifest-path research/life-privacy-eval/Cargo.toml -- \
+            research/life-privacy-eval/fixtures/truth.tsv \
+            research/life-privacy-eval/fixtures/scores.tsv \
+            /tmp/leaked-training-subjects.txt /tmp/should-not-exist.json 100 9901; then
+            echo 'ERROR: subject-overlap negative control unexpectedly succeeded' >&2
+            exit 1
+          fi
+
+      - name: Emit qualification receipt and checksums
+        shell: bash
+        run: |
+          set -euo pipefail
+          {
+            echo "status=synthetic-smoke-evaluator-passed"
+            echo "commit=$QUALIFIED_SHA"
+            echo "run_id=$GITHUB_RUN_ID"
+            echo "run_attempt=$GITHUB_RUN_ATTEMPT"
+            echo "rust=$(rustc +1.96.0 --version)"
+            echo "manifest_sha256=$(sha256sum research/life-privacy-eval/benchmark-manifest.json | cut -d' ' -f1)"
+            echo "scenario_matrix_sha256=$(sha256sum research/life-privacy-eval/attack-scenario-matrix.json | cut -d' ' -f1)"
+            echo "threat_coverage_matrix_sha256=$(sha256sum research/life-privacy-eval/threat-coverage-matrix.json | cut -d' ' -f1)"
+            echo "retrieval_schema_sha256=$(sha256sum research/life-privacy-eval/retrieval-report.schema.json | cut -d' ' -f1)"
+            echo "retrieval_truth_sha256=$(sha256sum research/life-privacy-eval/fixtures/retrieval-truth.tsv | cut -d' ' -f1)"
+            echo "retrieval_scores_sha256=$(sha256sum research/life-privacy-eval/fixtures/retrieval-scores.tsv | cut -d' ' -f1)"
+            echo "retrieval_training_subjects_sha256=$(sha256sum research/life-privacy-eval/fixtures/retrieval-training-subjects.txt | cut -d' ' -f1)"
+            echo "retrieval_report_sha256=$(sha256sum target/life-privacy-eval/retrieval-report.json | cut -d' ' -f1)"
+            echo "open_set_schema_sha256=$(sha256sum research/life-privacy-eval/open-set-report.schema.json | cut -d' ' -f1)"
+            echo "open_set_validation_truth_sha256=$(sha256sum research/life-privacy-eval/fixtures/open-set-validation-truth.tsv | cut -d' ' -f1)"
+            echo "open_set_validation_scores_sha256=$(sha256sum research/life-privacy-eval/fixtures/open-set-validation-scores.tsv | cut -d' ' -f1)"
+            echo "open_set_test_truth_sha256=$(sha256sum research/life-privacy-eval/fixtures/open-set-test-truth.tsv | cut -d' ' -f1)"
+            echo "open_set_test_scores_sha256=$(sha256sum research/life-privacy-eval/fixtures/open-set-test-scores.tsv | cut -d' ' -f1)"
+            echo "open_set_training_subjects_sha256=$(sha256sum research/life-privacy-eval/fixtures/open-set-training-subjects.txt | cut -d' ' -f1)"
+            echo "open_set_report_sha256=$(sha256sum target/life-privacy-eval/open-set-report.json | cut -d' ' -f1)"
+            echo "report_schema_sha256=$(sha256sum research/life-privacy-eval/report.schema.json | cut -d' ' -f1)"
+            echo "calibration_truth_sha256=$(sha256sum research/life-privacy-eval/fixtures/calibration-truth.tsv | cut -d' ' -f1)"
+            echo "calibration_scores_sha256=$(sha256sum research/life-privacy-eval/fixtures/calibration-scores.tsv | cut -d' ' -f1)"
+            echo "test_truth_sha256=$(sha256sum research/life-privacy-eval/fixtures/truth.tsv | cut -d' ' -f1)"
+            echo "test_scores_sha256=$(sha256sum research/life-privacy-eval/fixtures/scores.tsv | cut -d' ' -f1)"
+            echo "paired_schema_sha256=$(sha256sum research/life-privacy-eval/paired-comparison.schema.json | cut -d' ' -f1)"
+            echo "paired_report_sha256=$(sha256sum target/life-privacy-eval/paired-report.json | cut -d' ' -f1)"
+            echo "calibrated_schema_sha256=$(sha256sum research/life-privacy-eval/calibrated-operating-point.schema.json | cut -d' ' -f1)"
+            echo "calibrated_report_sha256=$(sha256sum target/life-privacy-eval/calibrated-report.json | cut -d' ' -f1)"
+            echo "lock_sha256=$(sha256sum research/life-privacy-eval/Cargo.lock | cut -d' ' -f1)"
+            echo "report_sha256=$(sha256sum target/life-privacy-eval/report.json | cut -d' ' -f1)"
+            echo "claim_ceiling=MetricsEvaluatorOnSyntheticScoresNotCredentialConformanceOrPrivacyGuarantee"
+          } | tee target/life-privacy-eval/qualification.txt
+          sha256sum target/life-privacy-eval/report.json target/life-privacy-eval/qualification.txt > target/life-privacy-eval/sha256sums.txt
+
+      - name: Upload benchmark evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: life-privacy-eval-${{ env.QUALIFIED_SHA }}
+          path: |
+            target/life-privacy-eval/
+            research/life-privacy-eval/Cargo.lock
+            research/life-privacy-eval/benchmark-manifest.json
+            research/life-privacy-eval/attack-scenario-matrix.json
+            research/life-privacy-eval/threat-coverage-matrix.json
+            research/life-privacy-eval/retrieval-report.schema.json
+            research/life-privacy-eval/open-set-report.schema.json
+            research/life-privacy-eval/GALLERY-SCALING-BENCHMARK.md
+            research/life-privacy-eval/fixtures/open-set-validation-truth.tsv
+            research/life-privacy-eval/fixtures/open-set-validation-scores.tsv
+            research/life-privacy-eval/fixtures/open-set-test-truth.tsv
+            research/life-privacy-eval/fixtures/open-set-test-scores.tsv
+            research/life-privacy-eval/fixtures/open-set-training-subjects.txt
+            research/life-privacy-eval/fixtures/retrieval-truth.tsv
+            research/life-privacy-eval/fixtures/retrieval-scores.tsv
+            research/life-privacy-eval/fixtures/retrieval-training-subjects.txt
+            research/life-privacy-eval/report.schema.json
+            research/life-privacy-eval/paired-comparison.schema.json
+            research/life-privacy-eval/calibrated-operating-point.schema.json
+            research/life-privacy-eval/fixtures/calibration-truth.tsv
+            research/life-privacy-eval/fixtures/calibration-scores.tsv
+            target/life-privacy-eval/paired-report.json
+            target/life-privacy-eval/calibrated-report.json
+          if-no-files-found: error

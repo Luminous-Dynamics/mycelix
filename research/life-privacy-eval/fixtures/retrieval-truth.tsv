@@ -1,0 +1,17 @@
+query_id	query_subject	candidate_id	candidate_subject	true_match	stratum
+q_9f2c	subj_a91c	cand_01	subj_a91c	1	stable_artifact
+q_9f2c	subj_a91c	cand_02	subj_b47d	0	stable_artifact
+q_9f2c	subj_a91c	cand_03	subj_c38e	0	stable_artifact
+q_9f2c	subj_a91c	cand_04	subj_d82f	0	stable_artifact
+q_1a7e	subj_b47d	cand_01	subj_a91c	0	metadata
+q_1a7e	subj_b47d	cand_02	subj_b47d	1	metadata
+q_1a7e	subj_b47d	cand_03	subj_c38e	0	metadata
+q_1a7e	subj_b47d	cand_04	subj_d82f	0	metadata
+q_7d0b	subj_c38e	cand_01	subj_a91c	0	longitudinal
+q_7d0b	subj_c38e	cand_02	subj_b47d	0	longitudinal
+q_7d0b	subj_c38e	cand_03	subj_c38e	1	longitudinal
+q_7d0b	subj_c38e	cand_04	subj_d82f	0	longitudinal
+q_4c62	subj_d82f	cand_01	subj_a91c	0	structure_only
+q_4c62	subj_d82f	cand_02	subj_b47d	0	structure_only
+q_4c62	subj_d82f	cand_03	subj_c38e	0	structure_only
+q_4c62	subj_d82f	cand_04	subj_d82f	1	structure_only
