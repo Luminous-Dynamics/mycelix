@@ -3,7 +3,8 @@
 **Machine-readable ledger:** `pulse-qualification-evidence-ledger-v1.json`  
 **Closed schema:** `pulse-qualification-evidence-ledger-v1.schema.json`  
 **Research PR:** [#5771](https://github.com/Luminous-Dynamics/mycelix/pull/5771)  
-**Ledger date:** 7 November 2026
+**Ledger date:** 7 November 2026  
+**Latest ledger subject:** `7440b1158ecc0dcad85458aff820c8deac231424`
 
 ## Purpose
 
@@ -64,6 +65,25 @@ The machine-readable ledger now records twelve areas:
 12. **Cell-scope model repeat on latest branch subject `acca54020e9f49de0bc8aeea39325cc848fdb9dd`.** Run #359 reran the same 66,674 / 12,687-state safe model and caught the same three scope mutants; artifact 13585459439. This is reproducibility evidence for the same bounded model, not a larger state space or conductor runtime test.
 
 The JSON carries source SHAs, workflow/run IDs, artifacts, results and claim ceilings. Never cite a historical pass as evidence that the current branch head passed.
+
+## Exact-head update — 7 November 2026
+
+Research PR #5771 has advanced to `7440b1158ecc0dcad85458aff820c8deac231424`. Current comparison to `main` head `6a0d072d3b65f4a2cf08af3ae71e541788e33ae9` is 451 commits ahead / 8 behind, merge base `9e12dd46bdd8371e8ed9626a17bc06f21c141a52`. The PR remains draft and is not merge-ready; this divergence is a material integration risk.
+
+### New host-call race model source — not yet checked
+
+The canonical `PulseHostCallLinearization.tla` now separates client invocation, conductor host admission, coordinator execution, durable effect commit, acknowledgement loss and retry. It records host admission sequence independently from effect commit sequence and permits an already-admitted call to commit after revocation without treating it as a new post-revocation authorization.
+
+Three independent controls are present:
+- a projection-as-authority mutant;
+- a duplicate-effect-on-retry mutant;
+- an expected reachability witness for admission-before-revoke / effect-commit-after-revoke.
+
+These files and workflow steps exist at subject `7440b1158ecc0dcad85458aff820c8deac231424`, but the commit-run lookup has not yet returned an exact model run. The model remains `SOURCE_PRESENT`, not `BOUNDED_MODEL_CHECK`, until logs show the safe state queue exhausted, both mutants caught by named invariants, and the witness counterexample found.
+
+### Pulse 0.7.0 canary — exact current head is pending
+
+PR #4891 is now at `e245b1db7dbc903df1d6c3358b35f2317e29a59e`. Run #396 (`42407632032`) is pending and its job lookup returned zero jobs. The previous run #392 (`42406354817`) passed lockfile resolution/commit but its native compile lane failed at `cargo fmt --check` on the earlier head `614ae158298d754b7cc8b8ce1fb5425f0360da13`; its packaging lane was last observed in progress at the toolchain version assertion. The 13 rustfmt-only diffs were applied to produce the current head. That does not transfer a PASS: run #396 must test the formatted head. No current-head compile, custom getrandom WASM build, DNA pack, conductor or Sweettest result is established.
 
 ## Required maintenance rules
 
