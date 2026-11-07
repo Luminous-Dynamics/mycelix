@@ -124,8 +124,12 @@ ValidateFetchedAction(action) ==
     /\ action \notin restoredActions
     /\ action \notin rejectedActions
     /\ IF action \in ValidActions
-          THEN restoredActions' = restoredActions \cup {action}
-          ELSE rejectedActions' = rejectedActions \cup {action}
+          THEN
+              /\ restoredActions' = restoredActions \cup {action}
+              /\ UNCHANGED rejectedActions
+          ELSE
+              /\ rejectedActions' = rejectedActions \cup {action}
+              /\ UNCHANGED restoredActions
     /\ UNCHANGED
         << processRunning, peerAvailable, restoreRequested, appStatus,
            fetchedActions, privateRestored, freshGrantIssued,
