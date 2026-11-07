@@ -25,7 +25,9 @@ This is an abstract contract model, not a model of Holochain's implementation.
 CONSTANTS
     HasOriginalAgentKey,
     UseEarlyEnableMutant,
-    UseNoPeerEmptyMutant
+    UseNoPeerEmptyMutant,
+    UseMissingKeyMutant,
+    UseLegacyGrantRestoreMutant
 
 Cells == {"cell-1", "cell-2"}
 Action1 == "cell-1-action-1"
@@ -74,6 +76,21 @@ Init ==
     /\ freshGrantIssued = FALSE
     /\ hostGrantActive = FALSE
     /\ restoreGeneration = 0
+
+(* Deliberately unsafe mutant: permit restore without the original agent key. *)
+StartRestoreWithoutKey ==
+    /\ UseMissingKeyMutant
+    /\ ~HasOriginalAgentKey
+    /\ processRunning
+    /\ ~restoreRequested
+    /\ appStatus = "disabled"
+    /\ restoreRequested' = TRUE
+    /\ appStatus' = "awaiting-restore"
+    /\ restoreGeneration' = restoreGeneration + 1
+    /\ UNCHANGED
+        << processRunning, peerAvailable, fetchedActions,
+           restoredActions, rejectedActions, privateRestored,
+           freshGrantIssued, hostGrantActive >>
 
 StartRestore ==
     /\ processRunning
@@ -160,6 +177,22 @@ TreatNoPeersAsEmptySuccess ==
            privateRestored, freshGrantIssued, hostGrantActive,
            restoreGeneration >>
 
+(* Deliberately unsafe mutant: import an old application claim as if it
+   were a live conductor CapGrant. Restoration may recover public metadata,
+   but host capability state must be re-issued through the target conductor. *)
+RestoreLegacyHostGrant ==
+    /\ UseLegacyGrantRestoreMutant
+    /\ processRunning
+    /\ restoreRequested
+    /\ appStatus = "awaiting-restore"
+    /\ restoredActions # {}
+    /\ ~hostGrantActive
+    /\ hostGrantActive' = TRUE
+    /\ UNCHANGED
+        << processRunning, peerAvailable, restoreRequested, appStatus,
+           fetchedActions, restoredActions, rejectedActions,
+           privateRestored, freshGrantIssued, restoreGeneration >>
+
 Crash ==
     /\ processRunning
     /\ processRunning' = FALSE
@@ -189,12 +222,14 @@ ReissueFreshHostGrant ==
 
 Next ==
     \/ StartRestore
+    \/ StartRestoreWithoutKey
     \/ PeerAppears
     \/ PeerDisappears
     \/ \E action \in AllActions : FetchFromPeer(action)
     \/ \E action \in AllActions : ValidateFetchedAction(action)
     \/ EnableApp
     \/ TreatNoPeersAsEmptySuccess
+    \/ RestoreLegacyHostGrant
     \/ Crash
     \/ Restart
     \/ ReissueFreshHostGrant
