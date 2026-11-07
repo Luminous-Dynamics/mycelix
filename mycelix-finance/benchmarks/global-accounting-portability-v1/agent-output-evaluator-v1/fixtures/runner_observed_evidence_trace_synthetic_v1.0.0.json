@@ -425,12 +425,9 @@
       "prior_evidence_state": null,
       "fact_refs": [],
       "related_event_refs": [],
-      "terminal_state": "carried_to_journal",
-      "terminal_target_refs": [
-        "JE-001-DR",
-        "JE-001-CR"
-      ],
-      "terminal_reason": "Supported fact carried into both balanced journal lines.",
+      "terminal_state": "excluded",
+      "terminal_target_refs": [],
+      "terminal_reason": "Supplier identity was assessed but is not a material source input to this accrual journal; it is explicitly excluded from the journal-line lineage.",
       "question_ref": null,
       "question_text_sha256": null,
       "blocker_fact_refs": [],
