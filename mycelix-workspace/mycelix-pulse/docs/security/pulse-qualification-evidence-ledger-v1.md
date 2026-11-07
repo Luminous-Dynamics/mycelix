@@ -78,7 +78,7 @@ The JSON carries source SHAs, workflow/run IDs, artifacts, results and claim cei
 
 ## Immediate release gates
 
-- Reconcile the research branch with current `main` before ready-for-review. At ledger creation the branch was 396 commits ahead and 8 behind; the base/merge state was divergent.
+- Reconcile the research branch with current `main` before ready-for-review. The latest recorded comparison was made from parent head `507b06a2fa5fe9029534b28f9c4fa84a11163743` against `main` head `6a0d072d3b65f4a2cf08af3ae71e541788e33ae9`: 402 commits ahead, 8 behind, merge base `9e12dd46bdd8371e8ed9626a17bc06f21c141a52`. Later ledger/receipt commits are documentation-only; compare again before review.
 - Select Holochain 0.7.1 as the forward-development target; retain 0.7.0 as a historical regression canary.
 - Complete the exact 0.7.1 Pulse source/build/WASM/fresh-conductor/multi-agent and independent-client chain.
 - Demonstrate mailbox authorization with a malicious coordinator and receiving production integrity WASM.
