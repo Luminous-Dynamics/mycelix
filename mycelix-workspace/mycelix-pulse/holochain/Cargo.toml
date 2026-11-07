@@ -52,6 +52,9 @@ members = [
     # Audit log for compliance (new)
     "zomes/audit/integrity",
     "zomes/audit/coordinator",
+
+    # Independent evidence verifier (native tool; no zome/WASM dependencies)
+    "tools/pulse-trace-verifier",
 ]
 resolver = "2"
 
