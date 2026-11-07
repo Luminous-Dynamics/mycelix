@@ -1,0 +1,120 @@
+{
+  "snapshot_id": "MYCELIX-RECBENCH-SOURCE-2026-11-07",
+  "schema_version": "1.0.0",
+  "captured_at": "2026-11-07T05:20:00Z",
+  "dataset_id": "end-close/recbench",
+  "dataset_url": "https://huggingface.co/datasets/end-close/recbench",
+  "dataset_revision": "1e711f3f8bd942ed5b3039b52277af8b170fc4c8",
+  "generator_version": "0.1.0",
+  "release_state": "pre-release",
+  "dataset_license": "cc-by-4.0",
+  "generator_license": "Apache-2.0",
+  "tier": "small",
+  "seed": 1042,
+  "config_sha256": "d31d413456ea5364f74a0c355a6b41d81aee5ea37f9f4805a356bdfa7243fbc5",
+  "start_date": "2025-01-01",
+  "ledger_days": 365,
+  "small_tier_rows": {
+    "ledger": 999005,
+    "settlement_lines": 1014955,
+    "payouts": 73955,
+    "bank_statements": 75138,
+    "truth_ledger_processor": 1012216,
+    "truth_line_payout": 1012219,
+    "truth_payout_bank": 75002,
+    "labels_ledger": 999005,
+    "labels_processor": 1014955,
+    "labels_payout": 75002,
+    "labels_bank": 75138
+  },
+  "small_tier_compressed_bytes": 470000000,
+  "all_tiers_compressed_bytes": 7480000000,
+  "manifest_path": "small/manifest.json",
+  "manifest_revision": "1e711f3f8bd942ed5b3039b52277af8b170fc4c8",
+  "manifest_raw_bytes_archived": false,
+  "manifest_sha256": null,
+  "files": [
+    {
+      "path": "ledger/part-0000.parquet",
+      "purpose": "candidate_input",
+      "rows": 999005,
+      "sha256": "34b986b51a577eccd9cfd40142fd1c3ed9753c6e2123163952c24894235625b7"
+    },
+    {
+      "path": "settlement_lines/part-0000.parquet",
+      "purpose": "candidate_input",
+      "rows": 1014955,
+      "sha256": "ab5750f8cf778fde18424a7116ecd284cdde2a948eb6504cc2db52dbbe080d7b"
+    },
+    {
+      "path": "payouts/part-0000.parquet",
+      "purpose": "candidate_input",
+      "rows": 73955,
+      "sha256": "50df691ea35a8b58c47dacd3accdcaa9ae425ee1f170c0bddb6fa15326220502"
+    },
+    {
+      "path": "bank_statements/part-0000.parquet",
+      "purpose": "candidate_input",
+      "rows": 75138,
+      "sha256": "df8d008e4bb3fc4a8c088353a28e84bd53dd1363b10ca4012ebccd0added17ec"
+    },
+    {
+      "path": "truth_ledger_processor/part-0000.parquet",
+      "purpose": "public_truth_evaluator_only",
+      "rows": 1012216,
+      "sha256": "5de898f0cd15bea5d2f6ce7075b4dca282f28f9e6f9bf52a40d83b6d36530599"
+    },
+    {
+      "path": "truth_line_payout/part-0000.parquet",
+      "purpose": "public_truth_evaluator_only",
+      "rows": 1012219,
+      "sha256": "2d17a2eadcab633248ba9b9197b9779b996299efcaac0ea01ee9356c87818971"
+    },
+    {
+      "path": "truth_payout_bank/part-0000.parquet",
+      "purpose": "public_truth_evaluator_only",
+      "rows": 75002,
+      "sha256": "54808f690ebc3781a3655cec7e017901a138263b92701a0c1ba7fa71abfbc64f"
+    },
+    {
+      "path": "labels_ledger/part-0000.parquet",
+      "purpose": "public_labels_evaluator_only",
+      "rows": 999005,
+      "sha256": "701c7665c6b71c75e8783e58f57d557de4746a9f0c32e6d0a5543f4a65c5f7c7"
+    },
+    {
+      "path": "labels_processor/part-0000.parquet",
+      "purpose": "public_labels_evaluator_only",
+      "rows": 1014955,
+      "sha256": "5b542c61d5e7b8f10287d76c56ccf89c58bbc33c11ee2cbf0972306572416512"
+    },
+    {
+      "path": "labels_payout/part-0000.parquet",
+      "purpose": "public_labels_evaluator_only",
+      "rows": 75002,
+      "sha256": "a4f26ed73e64dc09044bad1bd446b3e799f210895887ceee90889d4c4b3be1b6"
+    },
+    {
+      "path": "labels_bank/part-0000.parquet",
+      "purpose": "public_labels_evaluator_only",
+      "rows": 75138,
+      "sha256": "d32e77bc3262e729518131f7f217677a3d0eff19f4e034560a6ad1d1e27bcf1a"
+    }
+  ],
+  "agent_input_paths": [
+    "ledger/part-0000.parquet",
+    "settlement_lines/part-0000.parquet",
+    "payouts/part-0000.parquet",
+    "bank_statements/part-0000.parquet"
+  ],
+  "evaluator_only_paths": [
+    "truth_ledger_processor/part-0000.parquet",
+    "truth_line_payout/part-0000.parquet",
+    "truth_payout_bank/part-0000.parquet",
+    "labels_ledger/part-0000.parquet",
+    "labels_processor/part-0000.parquet",
+    "labels_payout/part-0000.parquet",
+    "labels_bank/part-0000.parquet"
+  ],
+  "copied_into_repository": false
+}
