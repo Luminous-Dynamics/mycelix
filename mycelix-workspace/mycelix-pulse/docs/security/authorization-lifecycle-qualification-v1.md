@@ -393,6 +393,28 @@ Exact run #350: https://github.com/Luminous-Dynamics/mycelix/actions/runs/423943
 
 This confirms the bounded model distinguishes current authorization from historical authenticity and abstains when trusted time or exact historical policy evidence is unavailable. It does not mean the Rust verifier implements historical adjudication; trusted timestamp provenance, durable policy-history retrieval, effective revocation times, and an independent verifier remain open under [#5895](https://github.com/Luminous-Dynamics/mycelix/issues/5895).
 
+## Host-call admission versus effect-commit model
+
+The existing `PulseHostCallLinearization.tla` has been strengthened instead of creating a duplicate race model. It now separates:
+
+```text
+CallInvoke
+   -> HostCallDecision (conductor admission / authorization linearization)
+   -> BeginCallExecution
+   -> CommitCallEffect
+   -> AcknowledgeCall | DropCallAcknowledgement
+   -> RetrySameLogicalCall (new physical attempt, same logical operation)
+```
+
+The host grant deletion has its own `CommitHostRevocation` sequence point. The model permits a pre-admitted in-flight call to commit after that point, but a call whose `HostCallDecision` occurs after the revoke commit must be denied even when the application projection remains stale-active. This distinction prevents the test suite from reporting a legitimate in-flight completion as a revocation bypass.
+
+Two configurations are now checked:
+- `PulseHostCallLinearization.cfg`: safe host admission + logical effect deduplication.
+- `PulseHostCallLinearization-projection-mutant.cfg`: deliberately checks the stale projection instead of the conductor grant.
+- `PulseHostCallLinearization-dedup-mutant.cfg`: deliberately reapplies the same logical effect after a lost ACK and retry.
+
+The pinned TLC workflow requires both mutant-specific counterexamples; generic parse failure cannot satisfy them. The model remains bounded (one logical protected operation, one revocation, two call attempts and two revoke attempts). The runtime instrumentation and deterministic admission/commit barrier tests are tracked in [#5924](https://github.com/Luminous-Dynamics/mycelix/issues/5924). TLC results must be recorded against the exact PR head before the model can be called verified.
+
 ## Qualification stages
 
 | Stage | Required evidence | Claim ceiling |
