@@ -14,6 +14,7 @@ on:
       - "mycelix-workspace/mycelix-pulse/docs/security/PulseAuthorityCausalFrontier*"
       - "mycelix-workspace/mycelix-pulse/docs/security/PulseSignalTrust*"
       - "mycelix-workspace/mycelix-pulse/docs/security/PulseTrustRootLifecycle*"
+      - "mycelix-workspace/mycelix-pulse/docs/security/PulseTrustHistoricalAdjudication*"
       - "mycelix-workspace/mycelix-pulse/docs/security/PulseChainRestore*"
       - "mycelix-workspace/mycelix-pulse/docs/security/authorization-lifecycle-qualification-v1.md"
   pull_request:
@@ -21,6 +22,7 @@ on:
       - ".github/workflows/pulse-authority-model.yml"
       - "mycelix-workspace/mycelix-pulse/docs/security/PulseAuthorityLifecycle*"
       - "mycelix-workspace/mycelix-pulse/docs/security/PulseTrustRootLifecycle*"
+      - "mycelix-workspace/mycelix-pulse/docs/security/PulseTrustHistoricalAdjudication*"
       - "mycelix-workspace/mycelix-pulse/docs/security/PulseChainRestore*"
       - "mycelix-workspace/mycelix-pulse/docs/security/PulseMailboxValidation*"
       - "mycelix-workspace/mycelix-pulse/docs/security/PulseAuthorityCheckpoint*"
@@ -507,6 +509,57 @@ jobs:
           grep -q "HostCapabilityMustBeFreshlyReissued" \
             "${RUNNER_TEMP}/pulse-tlc-artifacts/chain-restore-legacy-grant-mutant/tlc.log"
 
+      - name: Check safe current-vs-historical trust model
+        working-directory: mycelix-workspace/mycelix-pulse/docs/security
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "${RUNNER_TEMP}/pulse-tlc-artifacts/trust-history-safe"
+          java -XX:+UseParallelGC -Xmx2g \
+            -jar "${RUNNER_TEMP}/tlaplus/tla2tools.jar" \
+            -metadir "${RUNNER_TEMP}/pulse-tlc-artifacts/trust-history-safe/states" \
+            -config PulseTrustHistoricalAdjudication.cfg \
+            PulseTrustHistoricalAdjudication.tla \
+            2>&1 | tee "${RUNNER_TEMP}/pulse-tlc-artifacts/trust-history-safe/tlc.log"
+
+      - name: Require historical-signature-as-current mutant counterexample
+        working-directory: mycelix-workspace/mycelix-pulse/docs/security
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "${RUNNER_TEMP}/pulse-tlc-artifacts/trust-history-current-mutant"
+          set +e
+          java -XX:+UseParallelGC -Xmx2g \
+            -jar "${RUNNER_TEMP}/tlaplus/tla2tools.jar" \
+            -metadir "${RUNNER_TEMP}/pulse-tlc-artifacts/trust-history-current-mutant/states" \
+            -config PulseTrustHistoricalAdjudication-current-mutant.cfg \
+            PulseTrustHistoricalAdjudication.tla \
+            2>&1 | tee "${RUNNER_TEMP}/pulse-tlc-artifacts/trust-history-current-mutant/tlc.log"
+          status=${PIPESTATUS[0]}
+          set -e
+          test "$status" -ne 0
+          grep -q "NoCurrentAcceptanceFromRevokedKey" \
+            "${RUNNER_TEMP}/pulse-tlc-artifacts/trust-history-current-mutant/tlc.log"
+
+      - name: Require missing-trusted-time mutant counterexample
+        working-directory: mycelix-workspace/mycelix-pulse/docs/security
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "${RUNNER_TEMP}/pulse-tlc-artifacts/trust-history-no-time-mutant"
+          set +e
+          java -XX:+UseParallelGC -Xmx2g \
+            -jar "${RUNNER_TEMP}/tlaplus/tla2tools.jar" \
+            -metadir "${RUNNER_TEMP}/pulse-tlc-artifacts/trust-history-no-time-mutant/states" \
+            -config PulseTrustHistoricalAdjudication-time-mutant.cfg \
+            PulseTrustHistoricalAdjudication.tla \
+            2>&1 | tee "${RUNNER_TEMP}/pulse-tlc-artifacts/trust-history-no-time-mutant/tlc.log"
+          status=${PIPESTATUS[0]}
+          set -e
+          test "$status" -ne 0
+          grep -q "HistoricalAcceptanceRequiresTrustedEvidence" \
+            "${RUNNER_TEMP}/pulse-tlc-artifacts/trust-history-no-time-mutant/tlc.log"
+
       - name: Record exact model receipt
         if: always()
         working-directory: mycelix-workspace/mycelix-pulse/docs/security
@@ -553,6 +606,10 @@ jobs:
             echo "trust_root_self_mutant_sha256=$(sha256sum PulseTrustRootLifecycle-self-root-mutant.cfg | cut -d' ' -f1)"
             echo "trust_root_rollback_mutant_sha256=$(sha256sum PulseTrustRootLifecycle-rollback-mutant.cfg | cut -d' ' -f1)"
             echo "trust_root_revocation_mutant_sha256=$(sha256sum PulseTrustRootLifecycle-revocation-mutant.cfg | cut -d' ' -f1)"
+            echo "trust_history_spec_sha256=$(sha256sum PulseTrustHistoricalAdjudication.tla | cut -d' ' -f1)"
+            echo "trust_history_safe_config_sha256=$(sha256sum PulseTrustHistoricalAdjudication.cfg | cut -d' ' -f1)"
+            echo "trust_history_current_mutant_sha256=$(sha256sum PulseTrustHistoricalAdjudication-current-mutant.cfg | cut -d' ' -f1)"
+            echo "trust_history_time_mutant_sha256=$(sha256sum PulseTrustHistoricalAdjudication-time-mutant.cfg | cut -d' ' -f1)"
             echo "chain_restore_spec_sha256=$(sha256sum PulseChainRestore.tla | cut -d' ' -f1)"
             echo "chain_restore_safe_config_sha256=$(sha256sum PulseChainRestore.cfg | cut -d' ' -f1)"
             echo "chain_restore_early_enable_mutant_sha256=$(sha256sum PulseChainRestore-early-enable-mutant.cfg | cut -d' ' -f1)"
