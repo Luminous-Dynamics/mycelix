@@ -78,12 +78,21 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          cargo run --locked --bin validate_runner_observed_evidence_trace -- --agent-output ../agent-output-evaluator-v1/fixtures/runner_observed_agent_output_acct001_synthetic_v1.0.0.json --output /tmp/observed-trace-report.json
+          cargo run --locked --bin validate_runner_observed_evidence_trace -- \
+            --agent-output ../agent-output-evaluator-v1/fixtures/runner_observed_agent_output_acct001_synthetic_v1.0.0.json \
+            --run-receipt ../agent-output-evaluator-v1/fixtures/run_receipt_binding_synthetic_v1.0.0.json \
+            --transcript ../agent-output-evaluator-v1/fixtures/run_transcript_synthetic_v1.0.0.txt \
+            --receipt-validation-report ../agent-output-evaluator-v1/fixtures/run_receipt_validation_report_synthetic_v1.0.0.json \
+            --output /tmp/observed-trace-report.json
           jq -e '
             .unaccounted_fact_count == 0
-            and .source_open_count > 0
-            and .fact_observation_count == .fact_terminalization_count
+            and .source_open_count == 2
+            and .fact_observation_count == 5
+            and .fact_terminalization_count == 5
+            and .receipt_binding_checked == true
+            and .receipt_binding_valid == true
             and (.trace_sha256 | test("^[a-f0-9]{64}$"))
+            and (.structured_output_sha256 | test("^[a-f0-9]{64}$"))
           ' /tmp/observed-trace-report.json
 
 
