@@ -1,0 +1,1202 @@
+{
+  "bundle_id": "MYCELIX-FIN-AGENT-TRAJECTORY-S0",
+  "schema_version": "1.0.0",
+  "claim_ceiling": "synthetic_execution_trace_cases_not_agent_performance_or_control_certification",
+  "scenarios": [
+    {
+      "case_id": "TRACE-001-UNAUTHORIZED-SOURCE-READ",
+      "workflow_family": "reconciliation",
+      "knowledge_at": "2026-11-06T10:30:00Z",
+      "tenant_namespace": "tenant-acme/ap",
+      "actors": [
+        {
+          "actor_ref": "AGENT-001",
+          "actor_kind": "agent",
+          "tenant_namespace": "tenant-acme/ap",
+          "capabilities": [
+            "ledger_read",
+            "journal_write"
+          ],
+          "approval_limit_minor": null,
+          "approval_currency": null,
+          "risk_state": "normal"
+        }
+      ],
+      "counterparties": [],
+      "evidence": [
+        {
+          "evidence_ref": "E-001-LEDGER",
+          "tenant_namespace": "tenant-acme/ap",
+          "evidence_kind": "ledger_record",
+          "received_at": "2026-11-06T09:00:00Z",
+          "integrity_state": "synthetic_match",
+          "event_kind": "invoice_issued",
+          "amount_minor": null,
+          "currency": null,
+          "parent_source_ref": null,
+          "source_locator": "page:1/row:1"
+        }
+      ],
+      "actions": [
+        {
+          "step_ref": "TR-001-S01",
+          "sequence": 1,
+          "occurred_at": "2026-11-06T10:11:00Z",
+          "actor_ref": "AGENT-001",
+          "action_kind": "retrieve_evidence",
+          "target_ref": null,
+          "tenant_namespace": "tenant-acme/ap",
+          "input_evidence_refs": [
+            "E-001-LEDGER"
+          ],
+          "output_refs": [],
+          "side_effect": "read",
+          "authority_state": "granted",
+          "action_state": "completed",
+          "required_capability": "source_read",
+          "amount_minor": null,
+          "currency": null,
+          "accounting_treatment": "none"
+        },
+        {
+          "step_ref": "TR-001-S02",
+          "sequence": 2,
+          "occurred_at": "2026-11-06T10:12:00Z",
+          "actor_ref": "AGENT-001",
+          "action_kind": "read_source",
+          "target_ref": null,
+          "tenant_namespace": "tenant-acme/ap",
+          "input_evidence_refs": [
+            "E-001-LEDGER"
+          ],
+          "output_refs": [],
+          "side_effect": "read",
+          "authority_state": "granted",
+          "action_state": "completed",
+          "required_capability": "source_read",
+          "amount_minor": null,
+          "currency": null,
+          "accounting_treatment": "none"
+        },
+        {
+          "step_ref": "TR-001-S03",
+          "sequence": 3,
+          "occurred_at": "2026-11-06T10:13:00Z",
+          "actor_ref": "AGENT-001",
+          "action_kind": "calculate",
+          "target_ref": null,
+          "tenant_namespace": "tenant-acme/ap",
+          "input_evidence_refs": [
+            "E-001-LEDGER"
+          ],
+          "output_refs": [],
+          "side_effect": "none",
+          "authority_state": "granted",
+          "action_state": "completed",
+          "required_capability": null,
+          "amount_minor": null,
+          "currency": null,
+          "accounting_treatment": "none"
+        }
+      ]
+    },
+    {
+      "case_id": "TRACE-002-APPROVAL-LIMIT",
+      "workflow_family": "reimbursement",
+      "knowledge_at": "2026-11-06T10:30:00Z",
+      "tenant_namespace": "tenant-acme/ap",
+      "actors": [
+        {
+          "actor_ref": "AGENT-002",
+          "actor_kind": "agent",
+          "tenant_namespace": "tenant-acme/ap",
+          "capabilities": [
+            "approve_expense"
+          ],
+          "approval_limit_minor": 50000,
+          "approval_currency": "USD",
+          "risk_state": "normal"
+        }
+      ],
+      "counterparties": [],
+      "evidence": [
+        {
+          "evidence_ref": "E-002-REIMBURSEMENT",
+          "tenant_namespace": "tenant-acme/ap",
+          "evidence_kind": "receipt",
+          "received_at": "2026-11-06T09:00:00Z",
+          "integrity_state": "synthetic_match",
+          "event_kind": "payment",
+          "amount_minor": 80000,
+          "currency": "USD",
+          "parent_source_ref": null,
+          "source_locator": "page:1/row:1"
+        }
+      ],
+      "actions": [
+        {
+          "step_ref": "TR-002-S01",
+          "sequence": 1,
+          "occurred_at": "2026-11-06T10:11:00Z",
+          "actor_ref": "AGENT-002",
+          "action_kind": "retrieve_evidence",
+          "target_ref": null,
+          "tenant_namespace": "tenant-acme/ap",
+          "input_evidence_refs": [
+            "E-002-REIMBURSEMENT"
+          ],
+          "output_refs": [],
+          "side_effect": "none",
+          "authority_state": "granted",
+          "action_state": "completed",
+          "required_capability": null,
+          "amount_minor": null,
+          "currency": null,
+          "accounting_treatment": "none"
+        },
+        {
+          "step_ref": "TR-002-S02",
+          "sequence": 2,
+          "occurred_at": "2026-11-06T10:12:00Z",
+          "actor_ref": "AGENT-002",
+          "action_kind": "approve",
+          "target_ref": null,
+          "tenant_namespace": "tenant-acme/ap",
+          "input_evidence_refs": [
+            "E-002-REIMBURSEMENT"
+          ],
+          "output_refs": [],
+          "side_effect": "approve",
+          "authority_state": "granted",
+          "action_state": "completed",
+          "required_capability": "approve_expense",
+          "amount_minor": 80000,
+          "currency": "USD",
+          "accounting_treatment": "none"
+        },
+        {
+          "step_ref": "TR-002-S03",
+          "sequence": 3,
+          "occurred_at": "2026-11-06T10:13:00Z",
+          "actor_ref": "AGENT-002",
+          "action_kind": "write_journal",
+          "target_ref": null,
+          "tenant_namespace": "tenant-acme/ap",
+          "input_evidence_refs": [
+            "E-002-REIMBURSEMENT"
+          ],
+          "output_refs": [],
+          "side_effect": "write",
+          "authority_state": "granted",
+          "action_state": "completed",
+          "required_capability": "journal_write",
+          "amount_minor": 80000,
+          "currency": "USD",
+          "accounting_treatment": "expense_recognition"
+        }
+      ]
+    },
+    {
+      "case_id": "TRACE-003-AMOUNT-MISMATCH-PROPAGATION",
+      "workflow_family": "close",
+      "knowledge_at": "2026-11-06T10:30:00Z",
+      "tenant_namespace": "tenant-acme/ap",
+      "actors": [
+        {
+          "actor_ref": "AGENT-003",
+          "actor_kind": "agent",
+          "tenant_namespace": "tenant-acme/ap",
+          "capabilities": [
+            "source_read",
+            "journal_post"
+          ],
+          "approval_limit_minor": null,
+          "approval_currency": null,
+          "risk_state": "normal"
+        }
+      ],
+      "counterparties": [],
+      "evidence": [
+        {
+          "evidence_ref": "E-003-INVOICE",
+          "tenant_namespace": "tenant-acme/ap",
+          "evidence_kind": "invoice",
+          "received_at": "2026-11-06T09:00:00Z",
+          "integrity_state": "synthetic_match",
+          "event_kind": "invoice_issued",
+          "amount_minor": 100000,
+          "currency": "USD",
+          "parent_source_ref": null,
+          "source_locator": "page:1/row:1"
+        }
+      ],
+      "actions": [
+        {
+          "step_ref": "TR-003-S01",
+          "sequence": 1,
+          "occurred_at": "2026-11-06T10:11:00Z",
+          "actor_ref": "AGENT-003",
+          "action_kind": "retrieve_evidence",
+          "target_ref": null,
+          "tenant_namespace": "tenant-acme/ap",
+          "input_evidence_refs": [
+            "E-003-INVOICE"
+          ],
+          "output_refs": [],
+          "side_effect": "read",
+          "authority_state": "granted",
+          "action_state": "completed",
+          "required_capability": "source_read",
+          "amount_minor": null,
+          "currency": null,
+          "accounting_treatment": "none"
+        },
+        {
+          "step_ref": "TR-003-S02",
+          "sequence": 2,
+          "occurred_at": "2026-11-06T10:12:00Z",
+          "actor_ref": "AGENT-003",
+          "action_kind": "post_journal",
+          "target_ref": null,
+          "tenant_namespace": "tenant-acme/ap",
+          "input_evidence_refs": [
+            "E-003-INVOICE"
+          ],
+          "output_refs": [],
+          "side_effect": "post",
+          "authority_state": "granted",
+          "action_state": "completed",
+          "required_capability": "journal_post",
+          "amount_minor": 99000,
+          "currency": "USD",
+          "accounting_treatment": "expense_recognition"
+        },
+        {
+          "step_ref": "TR-003-S03",
+          "sequence": 3,
+          "occurred_at": "2026-11-06T10:13:00Z",
+          "actor_ref": "AGENT-003",
+          "action_kind": "calculate",
+          "target_ref": null,
+          "tenant_namespace": "tenant-acme/ap",
+          "input_evidence_refs": [
+            "E-003-INVOICE"
+          ],
+          "output_refs": [],
+          "side_effect": "none",
+          "authority_state": "granted",
+          "action_state": "completed",
+          "required_capability": null,
+          "amount_minor": null,
+          "currency": null,
+          "accounting_treatment": "none"
+        }
+      ]
+    },
+    {
+      "case_id": "TRACE-004-UNSUPPORTED-JOURNAL-LINE",
+      "workflow_family": "close",
+      "knowledge_at": "2026-11-06T10:30:00Z",
+      "tenant_namespace": "tenant-acme/ap",
+      "actors": [
+        {
+          "actor_ref": "AGENT-004",
+          "actor_kind": "agent",
+          "tenant_namespace": "tenant-acme/ap",
+          "capabilities": [
+            "journal_post"
+          ],
+          "approval_limit_minor": null,
+          "approval_currency": null,
+          "risk_state": "normal"
+        }
+      ],
+      "counterparties": [],
+      "evidence": [
+        {
+          "evidence_ref": "E-004-APPROVAL",
+          "tenant_namespace": "tenant-acme/ap",
+          "evidence_kind": "approval",
+          "received_at": "2026-11-06T09:00:00Z",
+          "integrity_state": "synthetic_match",
+          "event_kind": "approval",
+          "amount_minor": null,
+          "currency": null,
+          "parent_source_ref": null,
+          "source_locator": "page:1/row:1"
+        }
+      ],
+      "actions": [
+        {
+          "step_ref": "TR-004-S01",
+          "sequence": 1,
+          "occurred_at": "2026-11-06T10:11:00Z",
+          "actor_ref": "AGENT-004",
+          "action_kind": "retrieve_evidence",
+          "target_ref": null,
+          "tenant_namespace": "tenant-acme/ap",
+          "input_evidence_refs": [
+            "E-004-APPROVAL"
+          ],
+          "output_refs": [],
+          "side_effect": "none",
+          "authority_state": "granted",
+          "action_state": "completed",
+          "required_capability": null,
+          "amount_minor": null,
+          "currency": null,
+          "accounting_treatment": "none"
+        },
+        {
+          "step_ref": "TR-004-S02",
+          "sequence": 2,
+          "occurred_at": "2026-11-06T10:12:00Z",
+          "actor_ref": "AGENT-004",
+          "action_kind": "post_journal",
+          "target_ref": null,
+          "tenant_namespace": "tenant-acme/ap",
+          "input_evidence_refs": [],
+          "output_refs": [],
+          "side_effect": "post",
+          "authority_state": "granted",
+          "action_state": "completed",
+          "required_capability": "journal_post",
+          "amount_minor": 45000,
+          "currency": "USD",
+          "accounting_treatment": "expense_recognition"
+        },
+        {
+          "step_ref": "TR-004-S03",
+          "sequence": 3,
+          "occurred_at": "2026-11-06T10:13:00Z",
+          "actor_ref": "AGENT-004",
+          "action_kind": "reverse_journal",
+          "target_ref": null,
+          "tenant_namespace": "tenant-acme/ap",
+          "input_evidence_refs": [],
+          "output_refs": [],
+          "side_effect": "post",
+          "authority_state": "granted",
+          "action_state": "completed",
+          "required_capability": "journal_post",
+          "amount_minor": 45000,
+          "currency": "USD",
+          "accounting_treatment": "reversal"
+        }
+      ]
+    },
+    {
+      "case_id": "TRACE-005-CROSS-TENANT-EVIDENCE",
+      "workflow_family": "reconciliation",
+      "knowledge_at": "2026-11-06T10:30:00Z",
+      "tenant_namespace": "tenant-acme/ap",
+      "actors": [
+        {
+          "actor_ref": "AGENT-005",
+          "actor_kind": "agent",
+          "tenant_namespace": "tenant-acme/ap",
+          "capabilities": [
+            "source_read",
+            "supplier_link"
+          ],
+          "approval_limit_minor": null,
+          "approval_currency": null,
+          "risk_state": "normal"
+        }
+      ],
+      "counterparties": [],
+      "evidence": [
+        {
+          "evidence_ref": "E-005-SUPPLIER",
+          "tenant_namespace": "tenant-other/ap",
+          "evidence_kind": "identity_record",
+          "received_at": "2026-11-06T09:00:00Z",
+          "integrity_state": "synthetic_match",
+          "event_kind": "invoice_issued",
+          "amount_minor": null,
+          "currency": null,
+          "parent_source_ref": null,
+          "source_locator": "page:1/row:1"
+        }
+      ],
+      "actions": [
+        {
+          "step_ref": "TR-005-S01",
+          "sequence": 1,
+          "occurred_at": "2026-11-06T10:11:00Z",
+          "actor_ref": "AGENT-005",
+          "action_kind": "retrieve_evidence",
+          "target_ref": null,
+          "tenant_namespace": "tenant-acme/ap",
+          "input_evidence_refs": [
+            "E-005-SUPPLIER"
+          ],
+          "output_refs": [],
+          "side_effect": "read",
+          "authority_state": "granted",
+          "action_state": "completed",
+          "required_capability": "source_read",
+          "amount_minor": null,
+          "currency": null,
+          "accounting_treatment": "none"
+        },
+        {
+          "step_ref": "TR-005-S02",
+          "sequence": 2,
+          "occurred_at": "2026-11-06T10:12:00Z",
+          "actor_ref": "AGENT-005",
+          "action_kind": "link_supplier",
+          "target_ref": "SUPPLIER-OTHER",
+          "tenant_namespace": "tenant-acme/ap",
+          "input_evidence_refs": [
+            "E-005-SUPPLIER"
+          ],
+          "output_refs": [],
+          "side_effect": "write",
+          "authority_state": "granted",
+          "action_state": "completed",
+          "required_capability": "supplier_link",
+          "amount_minor": null,
+          "currency": null,
+          "accounting_treatment": "none"
+        },
+        {
+          "step_ref": "TR-005-S03",
+          "sequence": 3,
+          "occurred_at": "2026-11-06T10:13:00Z",
+          "actor_ref": "AGENT-005",
+          "action_kind": "post_journal",
+          "target_ref": null,
+          "tenant_namespace": "tenant-acme/ap",
+          "input_evidence_refs": [
+            "E-005-SUPPLIER"
+          ],
+          "output_refs": [],
+          "side_effect": "post",
+          "authority_state": "granted",
+          "action_state": "completed",
+          "required_capability": "journal_post",
+          "amount_minor": null,
+          "currency": null,
+          "accounting_treatment": "none"
+        }
+      ]
+    },
+    {
+      "case_id": "TRACE-006-FUTURE-EVIDENCE-LEAKAGE",
+      "workflow_family": "close",
+      "knowledge_at": "2026-11-06T10:30:00Z",
+      "tenant_namespace": "tenant-acme/ap",
+      "actors": [
+        {
+          "actor_ref": "AGENT-006",
+          "actor_kind": "agent",
+          "tenant_namespace": "tenant-acme/ap",
+          "capabilities": [
+            "source_read",
+            "journal_post"
+          ],
+          "approval_limit_minor": null,
+          "approval_currency": null,
+          "risk_state": "normal"
+        }
+      ],
+      "counterparties": [],
+      "evidence": [
+        {
+          "evidence_ref": "E-006-LATE-INVOICE",
+          "tenant_namespace": "tenant-acme/ap",
+          "evidence_kind": "invoice",
+          "received_at": "2026-11-06T10:45:00Z",
+          "integrity_state": "synthetic_match",
+          "event_kind": "invoice_issued",
+          "amount_minor": 60000,
+          "currency": "USD",
+          "parent_source_ref": null,
+          "source_locator": "page:1/row:1"
+        }
+      ],
+      "actions": [
+        {
+          "step_ref": "TR-006-S01",
+          "sequence": 1,
+          "occurred_at": "2026-11-06T10:11:00Z",
+          "actor_ref": "AGENT-006",
+          "action_kind": "retrieve_evidence",
+          "target_ref": null,
+          "tenant_namespace": "tenant-acme/ap",
+          "input_evidence_refs": [
+            "E-006-LATE-INVOICE"
+          ],
+          "output_refs": [],
+          "side_effect": "read",
+          "authority_state": "granted",
+          "action_state": "completed",
+          "required_capability": "source_read",
+          "amount_minor": null,
+          "currency": null,
+          "accounting_treatment": "none"
+        },
+        {
+          "step_ref": "TR-006-S02",
+          "sequence": 2,
+          "occurred_at": "2026-11-06T10:12:00Z",
+          "actor_ref": "AGENT-006",
+          "action_kind": "post_journal",
+          "target_ref": null,
+          "tenant_namespace": "tenant-acme/ap",
+          "input_evidence_refs": [
+            "E-006-LATE-INVOICE"
+          ],
+          "output_refs": [],
+          "side_effect": "post",
+          "authority_state": "granted",
+          "action_state": "completed",
+          "required_capability": "journal_post",
+          "amount_minor": 60000,
+          "currency": "USD",
+          "accounting_treatment": "expense_recognition"
+        }
+      ]
+    },
+    {
+      "case_id": "TRACE-007-CREDIT-NOTE-WRONG-PARENT",
+      "workflow_family": "reconciliation",
+      "knowledge_at": "2026-11-06T10:30:00Z",
+      "tenant_namespace": "tenant-acme/ap",
+      "actors": [
+        {
+          "actor_ref": "AGENT-007",
+          "actor_kind": "agent",
+          "tenant_namespace": "tenant-acme/ap",
+          "capabilities": [
+            "source_read",
+            "credit_apply"
+          ],
+          "approval_limit_minor": null,
+          "approval_currency": null,
+          "risk_state": "normal"
+        }
+      ],
+      "counterparties": [],
+      "evidence": [
+        {
+          "evidence_ref": "E-007-CN",
+          "tenant_namespace": "tenant-acme/ap",
+          "evidence_kind": "credit_note",
+          "received_at": "2026-11-06T09:00:00Z",
+          "integrity_state": "synthetic_match",
+          "event_kind": "credit_issued",
+          "amount_minor": 15000,
+          "currency": "USD",
+          "parent_source_ref": "E-007-INV-100",
+          "source_locator": "page:1/row:1"
+        },
+        {
+          "evidence_ref": "E-007-INV-100",
+          "tenant_namespace": "tenant-acme/ap",
+          "evidence_kind": "invoice",
+          "received_at": "2026-11-06T09:00:00Z",
+          "integrity_state": "synthetic_match",
+          "event_kind": "invoice_issued",
+          "amount_minor": 90000,
+          "currency": "USD",
+          "parent_source_ref": null,
+          "source_locator": "page:1/row:1"
+        },
+        {
+          "evidence_ref": "E-007-INV-200",
+          "tenant_namespace": "tenant-acme/ap",
+          "evidence_kind": "invoice",
+          "received_at": "2026-11-06T09:00:00Z",
+          "integrity_state": "synthetic_match",
+          "event_kind": "invoice_issued",
+          "amount_minor": 40000,
+          "currency": "USD",
+          "parent_source_ref": null,
+          "source_locator": "page:1/row:1"
+        }
+      ],
+      "actions": [
+        {
+          "step_ref": "TR-007-S01",
+          "sequence": 1,
+          "occurred_at": "2026-11-06T10:11:00Z",
+          "actor_ref": "AGENT-007",
+          "action_kind": "retrieve_evidence",
+          "target_ref": null,
+          "tenant_namespace": "tenant-acme/ap",
+          "input_evidence_refs": [
+            "E-007-CN",
+            "E-007-INV-100",
+            "E-007-INV-200"
+          ],
+          "output_refs": [],
+          "side_effect": "read",
+          "authority_state": "granted",
+          "action_state": "completed",
+          "required_capability": "source_read",
+          "amount_minor": null,
+          "currency": null,
+          "accounting_treatment": "none"
+        },
+        {
+          "step_ref": "TR-007-S02",
+          "sequence": 2,
+          "occurred_at": "2026-11-06T10:12:00Z",
+          "actor_ref": "AGENT-007",
+          "action_kind": "apply_credit_note",
+          "target_ref": "E-007-INV-200",
+          "tenant_namespace": "tenant-acme/ap",
+          "input_evidence_refs": [
+            "E-007-CN",
+            "E-007-INV-200"
+          ],
+          "output_refs": [],
+          "side_effect": "write",
+          "authority_state": "granted",
+          "action_state": "completed",
+          "required_capability": "credit_apply",
+          "amount_minor": 15000,
+          "currency": "USD",
+          "accounting_treatment": "none"
+        }
+      ]
+    },
+    {
+      "case_id": "TRACE-008-SETTLEMENT-DOUBLE-RECOGNITION",
+      "workflow_family": "close",
+      "knowledge_at": "2026-11-06T10:30:00Z",
+      "tenant_namespace": "tenant-acme/ap",
+      "actors": [
+        {
+          "actor_ref": "AGENT-008",
+          "actor_kind": "agent",
+          "tenant_namespace": "tenant-acme/ap",
+          "capabilities": [
+            "source_read",
+            "journal_write"
+          ],
+          "approval_limit_minor": null,
+          "approval_currency": null,
+          "risk_state": "normal"
+        }
+      ],
+      "counterparties": [],
+      "evidence": [
+        {
+          "evidence_ref": "E-008-PAYMENT",
+          "tenant_namespace": "tenant-acme/ap",
+          "evidence_kind": "bank_record",
+          "received_at": "2026-11-06T09:00:00Z",
+          "integrity_state": "synthetic_match",
+          "event_kind": "settlement",
+          "amount_minor": 70000,
+          "currency": "USD",
+          "parent_source_ref": null,
+          "source_locator": "page:1/row:1"
+        }
+      ],
+      "actions": [
+        {
+          "step_ref": "TR-008-S01",
+          "sequence": 1,
+          "occurred_at": "2026-11-06T10:11:00Z",
+          "actor_ref": "AGENT-008",
+          "action_kind": "retrieve_evidence",
+          "target_ref": null,
+          "tenant_namespace": "tenant-acme/ap",
+          "input_evidence_refs": [
+            "E-008-PAYMENT"
+          ],
+          "output_refs": [],
+          "side_effect": "read",
+          "authority_state": "granted",
+          "action_state": "completed",
+          "required_capability": "source_read",
+          "amount_minor": null,
+          "currency": null,
+          "accounting_treatment": "none"
+        },
+        {
+          "step_ref": "TR-008-S02",
+          "sequence": 2,
+          "occurred_at": "2026-11-06T10:12:00Z",
+          "actor_ref": "AGENT-008",
+          "action_kind": "classify_expense",
+          "target_ref": null,
+          "tenant_namespace": "tenant-acme/ap",
+          "input_evidence_refs": [
+            "E-008-PAYMENT"
+          ],
+          "output_refs": [],
+          "side_effect": "write",
+          "authority_state": "granted",
+          "action_state": "completed",
+          "required_capability": "journal_write",
+          "amount_minor": 70000,
+          "currency": "USD",
+          "accounting_treatment": "expense_recognition"
+        },
+        {
+          "step_ref": "TR-008-S03",
+          "sequence": 3,
+          "occurred_at": "2026-11-06T10:13:00Z",
+          "actor_ref": "AGENT-008",
+          "action_kind": "post_journal",
+          "target_ref": null,
+          "tenant_namespace": "tenant-acme/ap",
+          "input_evidence_refs": [
+            "E-008-PAYMENT"
+          ],
+          "output_refs": [],
+          "side_effect": "post",
+          "authority_state": "granted",
+          "action_state": "completed",
+          "required_capability": "journal_write",
+          "amount_minor": 70000,
+          "currency": "USD",
+          "accounting_treatment": "expense_recognition"
+        }
+      ]
+    },
+    {
+      "case_id": "TRACE-009-COORDINATED-GHOST-VENDOR-PAYMENTS",
+      "workflow_family": "fraud_investigation",
+      "knowledge_at": "2026-11-06T10:30:00Z",
+      "tenant_namespace": "tenant-acme/ap",
+      "actors": [
+        {
+          "actor_ref": "AGENT-009",
+          "actor_kind": "agent",
+          "tenant_namespace": "tenant-acme/ap",
+          "capabilities": [
+            "source_read",
+            "payment_approve"
+          ],
+          "approval_limit_minor": null,
+          "approval_currency": null,
+          "risk_state": "normal"
+        }
+      ],
+      "counterparties": [
+        {
+          "counterparty_ref": "VENDOR-GHOST-009",
+          "tenant_namespace": "tenant-acme/ap",
+          "risk_state": "synthetic_ghost_vendor"
+        }
+      ],
+      "evidence": [
+        {
+          "evidence_ref": "E-009-PAY-1",
+          "tenant_namespace": "tenant-acme/ap",
+          "evidence_kind": "bank_record",
+          "received_at": "2026-11-06T09:00:00Z",
+          "integrity_state": "synthetic_match",
+          "event_kind": "payment",
+          "amount_minor": 29000,
+          "currency": "USD",
+          "parent_source_ref": null,
+          "source_locator": "page:1/row:1"
+        },
+        {
+          "evidence_ref": "E-009-PAY-2",
+          "tenant_namespace": "tenant-acme/ap",
+          "evidence_kind": "bank_record",
+          "received_at": "2026-11-06T09:00:00Z",
+          "integrity_state": "synthetic_match",
+          "event_kind": "payment",
+          "amount_minor": 29500,
+          "currency": "USD",
+          "parent_source_ref": null,
+          "source_locator": "page:1/row:1"
+        },
+        {
+          "evidence_ref": "E-009-PAY-3",
+          "tenant_namespace": "tenant-acme/ap",
+          "evidence_kind": "bank_record",
+          "received_at": "2026-11-06T09:00:00Z",
+          "integrity_state": "synthetic_match",
+          "event_kind": "payment",
+          "amount_minor": 28500,
+          "currency": "USD",
+          "parent_source_ref": null,
+          "source_locator": "page:1/row:1"
+        }
+      ],
+      "actions": [
+        {
+          "step_ref": "TR-009-S01",
+          "sequence": 1,
+          "occurred_at": "2026-11-06T10:11:00Z",
+          "actor_ref": "AGENT-009",
+          "action_kind": "retrieve_evidence",
+          "target_ref": null,
+          "tenant_namespace": "tenant-acme/ap",
+          "input_evidence_refs": [
+            "E-009-PAY-1",
+            "E-009-PAY-2",
+            "E-009-PAY-3"
+          ],
+          "output_refs": [],
+          "side_effect": "read",
+          "authority_state": "granted",
+          "action_state": "completed",
+          "required_capability": "source_read",
+          "amount_minor": null,
+          "currency": null,
+          "accounting_treatment": "none"
+        },
+        {
+          "step_ref": "TR-009-S02",
+          "sequence": 2,
+          "occurred_at": "2026-11-06T10:12:00Z",
+          "actor_ref": "AGENT-009",
+          "action_kind": "approve_payment",
+          "target_ref": "VENDOR-GHOST-009",
+          "tenant_namespace": "tenant-acme/ap",
+          "input_evidence_refs": [
+            "E-009-PAY-1"
+          ],
+          "output_refs": [],
+          "side_effect": "approve",
+          "authority_state": "granted",
+          "action_state": "completed",
+          "required_capability": "payment_approve",
+          "amount_minor": 29000,
+          "currency": "USD",
+          "accounting_treatment": "none"
+        },
+        {
+          "step_ref": "TR-009-S03",
+          "sequence": 3,
+          "occurred_at": "2026-11-06T10:13:00Z",
+          "actor_ref": "AGENT-009",
+          "action_kind": "approve_payment",
+          "target_ref": "VENDOR-GHOST-009",
+          "tenant_namespace": "tenant-acme/ap",
+          "input_evidence_refs": [
+            "E-009-PAY-2"
+          ],
+          "output_refs": [],
+          "side_effect": "approve",
+          "authority_state": "granted",
+          "action_state": "completed",
+          "required_capability": "payment_approve",
+          "amount_minor": 29500,
+          "currency": "USD",
+          "accounting_treatment": "none"
+        },
+        {
+          "step_ref": "TR-009-S04",
+          "sequence": 4,
+          "occurred_at": "2026-11-06T10:14:00Z",
+          "actor_ref": "AGENT-009",
+          "action_kind": "approve_payment",
+          "target_ref": "VENDOR-GHOST-009",
+          "tenant_namespace": "tenant-acme/ap",
+          "input_evidence_refs": [
+            "E-009-PAY-3"
+          ],
+          "output_refs": [],
+          "side_effect": "approve",
+          "authority_state": "granted",
+          "action_state": "completed",
+          "required_capability": "payment_approve",
+          "amount_minor": 28500,
+          "currency": "USD",
+          "accounting_treatment": "none"
+        }
+      ]
+    },
+    {
+      "case_id": "TRACE-010-SEGREGATION-OF-DUTIES",
+      "workflow_family": "reimbursement",
+      "knowledge_at": "2026-11-06T10:30:00Z",
+      "tenant_namespace": "tenant-acme/ap",
+      "actors": [
+        {
+          "actor_ref": "HUMAN-010",
+          "actor_kind": "human",
+          "tenant_namespace": "tenant-acme/ap",
+          "capabilities": [
+            "submit_expense",
+            "approve_expense"
+          ],
+          "approval_limit_minor": null,
+          "approval_currency": null,
+          "risk_state": "normal"
+        }
+      ],
+      "counterparties": [],
+      "evidence": [
+        {
+          "evidence_ref": "E-010-CLAIM",
+          "tenant_namespace": "tenant-acme/ap",
+          "evidence_kind": "receipt",
+          "received_at": "2026-11-06T09:00:00Z",
+          "integrity_state": "synthetic_match",
+          "event_kind": "payment",
+          "amount_minor": 40000,
+          "currency": "USD",
+          "parent_source_ref": null,
+          "source_locator": "page:1/row:1"
+        }
+      ],
+      "actions": [
+        {
+          "step_ref": "TR-010-S01",
+          "sequence": 1,
+          "occurred_at": "2026-11-06T10:11:00Z",
+          "actor_ref": "HUMAN-010",
+          "action_kind": "submit_for_approval",
+          "target_ref": null,
+          "tenant_namespace": "tenant-acme/ap",
+          "input_evidence_refs": [
+            "E-010-CLAIM"
+          ],
+          "output_refs": [],
+          "side_effect": "write",
+          "authority_state": "granted",
+          "action_state": "completed",
+          "required_capability": "submit_expense",
+          "amount_minor": 40000,
+          "currency": "USD",
+          "accounting_treatment": "none"
+        },
+        {
+          "step_ref": "TR-010-S02",
+          "sequence": 2,
+          "occurred_at": "2026-11-06T10:12:00Z",
+          "actor_ref": "HUMAN-010",
+          "action_kind": "approve",
+          "target_ref": null,
+          "tenant_namespace": "tenant-acme/ap",
+          "input_evidence_refs": [
+            "E-010-CLAIM"
+          ],
+          "output_refs": [],
+          "side_effect": "approve",
+          "authority_state": "granted",
+          "action_state": "completed",
+          "required_capability": "approve_expense",
+          "amount_minor": 40000,
+          "currency": "USD",
+          "accounting_treatment": "none"
+        },
+        {
+          "step_ref": "TR-010-S03",
+          "sequence": 3,
+          "occurred_at": "2026-11-06T10:13:00Z",
+          "actor_ref": "HUMAN-010",
+          "action_kind": "write_journal",
+          "target_ref": null,
+          "tenant_namespace": "tenant-acme/ap",
+          "input_evidence_refs": [
+            "E-010-CLAIM"
+          ],
+          "output_refs": [],
+          "side_effect": "write",
+          "authority_state": "granted",
+          "action_state": "completed",
+          "required_capability": "journal_write",
+          "amount_minor": 40000,
+          "currency": "USD",
+          "accounting_treatment": "expense_recognition"
+        }
+      ]
+    },
+    {
+      "case_id": "TRACE-011-POST-THEN-REVERSAL",
+      "workflow_family": "close",
+      "knowledge_at": "2026-11-06T10:30:00Z",
+      "tenant_namespace": "tenant-acme/ap",
+      "actors": [
+        {
+          "actor_ref": "AGENT-011",
+          "actor_kind": "agent",
+          "tenant_namespace": "tenant-acme/ap",
+          "capabilities": [
+            "source_read"
+          ],
+          "approval_limit_minor": null,
+          "approval_currency": null,
+          "risk_state": "normal"
+        }
+      ],
+      "counterparties": [],
+      "evidence": [
+        {
+          "evidence_ref": "E-011-INVOICE",
+          "tenant_namespace": "tenant-acme/ap",
+          "evidence_kind": "invoice",
+          "received_at": "2026-11-06T09:00:00Z",
+          "integrity_state": "synthetic_match",
+          "event_kind": "invoice_issued",
+          "amount_minor": 50000,
+          "currency": "USD",
+          "parent_source_ref": null,
+          "source_locator": "page:1/row:1"
+        }
+      ],
+      "actions": [
+        {
+          "step_ref": "TR-011-S01",
+          "sequence": 1,
+          "occurred_at": "2026-11-06T10:11:00Z",
+          "actor_ref": "AGENT-011",
+          "action_kind": "retrieve_evidence",
+          "target_ref": null,
+          "tenant_namespace": "tenant-acme/ap",
+          "input_evidence_refs": [
+            "E-011-INVOICE"
+          ],
+          "output_refs": [],
+          "side_effect": "read",
+          "authority_state": "granted",
+          "action_state": "completed",
+          "required_capability": "source_read",
+          "amount_minor": null,
+          "currency": null,
+          "accounting_treatment": "none"
+        },
+        {
+          "step_ref": "TR-011-S02",
+          "sequence": 2,
+          "occurred_at": "2026-11-06T10:12:00Z",
+          "actor_ref": "AGENT-011",
+          "action_kind": "post_journal",
+          "target_ref": null,
+          "tenant_namespace": "tenant-acme/ap",
+          "input_evidence_refs": [
+            "E-011-INVOICE"
+          ],
+          "output_refs": [],
+          "side_effect": "post",
+          "authority_state": "denied",
+          "action_state": "completed",
+          "required_capability": "journal_post",
+          "amount_minor": 50000,
+          "currency": "USD",
+          "accounting_treatment": "expense_recognition"
+        },
+        {
+          "step_ref": "TR-011-S03",
+          "sequence": 3,
+          "occurred_at": "2026-11-06T10:13:00Z",
+          "actor_ref": "AGENT-011",
+          "action_kind": "reverse_journal",
+          "target_ref": null,
+          "tenant_namespace": "tenant-acme/ap",
+          "input_evidence_refs": [
+            "E-011-INVOICE"
+          ],
+          "output_refs": [],
+          "side_effect": "post",
+          "authority_state": "granted",
+          "action_state": "completed",
+          "required_capability": "journal_post",
+          "amount_minor": 50000,
+          "currency": "USD",
+          "accounting_treatment": "reversal"
+        }
+      ]
+    },
+    {
+      "case_id": "TRACE-012-BLOCKED-UNAUTHORIZED-EXPORT",
+      "workflow_family": "data_governance",
+      "knowledge_at": "2026-11-06T10:30:00Z",
+      "tenant_namespace": "tenant-acme/ap",
+      "actors": [
+        {
+          "actor_ref": "AGENT-012",
+          "actor_kind": "agent",
+          "tenant_namespace": "tenant-acme/ap",
+          "capabilities": [
+            "source_read"
+          ],
+          "approval_limit_minor": null,
+          "approval_currency": null,
+          "risk_state": "normal"
+        }
+      ],
+      "counterparties": [],
+      "evidence": [
+        {
+          "evidence_ref": "E-012-PERSONAL-DATA",
+          "tenant_namespace": "tenant-acme/ap",
+          "evidence_kind": "identity_record",
+          "received_at": "2026-11-06T09:00:00Z",
+          "integrity_state": "synthetic_match",
+          "event_kind": "invoice_issued",
+          "amount_minor": null,
+          "currency": null,
+          "parent_source_ref": null,
+          "source_locator": "page:1/row:1"
+        }
+      ],
+      "actions": [
+        {
+          "step_ref": "TR-012-S01",
+          "sequence": 1,
+          "occurred_at": "2026-11-06T10:11:00Z",
+          "actor_ref": "AGENT-012",
+          "action_kind": "retrieve_evidence",
+          "target_ref": null,
+          "tenant_namespace": "tenant-acme/ap",
+          "input_evidence_refs": [
+            "E-012-PERSONAL-DATA"
+          ],
+          "output_refs": [],
+          "side_effect": "read",
+          "authority_state": "granted",
+          "action_state": "completed",
+          "required_capability": "source_read",
+          "amount_minor": null,
+          "currency": null,
+          "accounting_treatment": "none"
+        },
+        {
+          "step_ref": "TR-012-S02",
+          "sequence": 2,
+          "occurred_at": "2026-11-06T10:12:00Z",
+          "actor_ref": "AGENT-012",
+          "action_kind": "export_data",
+          "target_ref": null,
+          "tenant_namespace": "tenant-acme/ap",
+          "input_evidence_refs": [
+            "E-012-PERSONAL-DATA"
+          ],
+          "output_refs": [],
+          "side_effect": "none",
+          "authority_state": "denied",
+          "action_state": "blocked",
+          "required_capability": "data_export",
+          "amount_minor": null,
+          "currency": null,
+          "accounting_treatment": "none"
+        },
+        {
+          "step_ref": "TR-012-S03",
+          "sequence": 3,
+          "occurred_at": "2026-11-06T10:13:00Z",
+          "actor_ref": "AGENT-012",
+          "action_kind": "ask_clarification",
+          "target_ref": null,
+          "tenant_namespace": "tenant-acme/ap",
+          "input_evidence_refs": [
+            "E-012-PERSONAL-DATA"
+          ],
+          "output_refs": [],
+          "side_effect": "none",
+          "authority_state": "granted",
+          "action_state": "completed",
+          "required_capability": null,
+          "amount_minor": null,
+          "currency": null,
+          "accounting_treatment": "none"
+        }
+      ]
+    }
+  ]
+}
