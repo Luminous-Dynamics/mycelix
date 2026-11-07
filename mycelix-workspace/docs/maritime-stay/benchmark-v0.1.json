@@ -1,0 +1,780 @@
+{
+  "benchmark_id": "MCB-STAY-0.1",
+  "schema_version": "0.1.0",
+  "fixture_class": "synthetic_only",
+  "claim_ceiling": "Protocol and verifier behavior under declared synthetic conditions only. Not field validation, market superiority, navigation safety, legal compliance, ecological outcome, or production readiness.",
+  "seed": 20261107,
+  "regions": [
+    {
+      "id": "region:temperate-north",
+      "label": "Northwind Coast",
+      "destination_refs": [
+        "dest:windward",
+        "dest:stonequay"
+      ]
+    },
+    {
+      "id": "region:estuary-delta",
+      "label": "Delta Reach",
+      "destination_refs": [
+        "dest:reedhaven",
+        "dest:tideline"
+      ]
+    },
+    {
+      "id": "region:island-chain",
+      "label": "Southern Island Chain",
+      "destination_refs": [
+        "dest:kelpport"
+      ]
+    }
+  ],
+  "destinations": [
+    {
+      "id": "dest:windward",
+      "label": "Windward Commons",
+      "region_ref": "region:temperate-north",
+      "policy_ref": "policy:windward-v1",
+      "visitor_capacity_per_day": 180,
+      "fresh_water_capacity_l_per_day": 42000,
+      "waste_reception_capacity_kg_per_day": 6000,
+      "sensitive_habitat_buffer_m": 250
+    },
+    {
+      "id": "dest:stonequay",
+      "label": "Stonequay Harbor",
+      "region_ref": "region:temperate-north",
+      "policy_ref": "policy:stonequay-v1",
+      "visitor_capacity_per_day": 240,
+      "fresh_water_capacity_l_per_day": 51000,
+      "waste_reception_capacity_kg_per_day": 7200,
+      "sensitive_habitat_buffer_m": 300
+    },
+    {
+      "id": "dest:reedhaven",
+      "label": "Reedhaven Estuary",
+      "region_ref": "region:estuary-delta",
+      "policy_ref": "policy:reedhaven-v1",
+      "visitor_capacity_per_day": 90,
+      "fresh_water_capacity_l_per_day": 16000,
+      "waste_reception_capacity_kg_per_day": 1800,
+      "sensitive_habitat_buffer_m": 1200
+    },
+    {
+      "id": "dest:tideline",
+      "label": "Tideline Quay",
+      "region_ref": "region:estuary-delta",
+      "policy_ref": "policy:tideline-v1",
+      "visitor_capacity_per_day": 130,
+      "fresh_water_capacity_l_per_day": 28000,
+      "waste_reception_capacity_kg_per_day": 3200,
+      "sensitive_habitat_buffer_m": 600
+    },
+    {
+      "id": "dest:kelpport",
+      "label": "Kelpport Anchorage",
+      "region_ref": "region:island-chain",
+      "policy_ref": "policy:kelpport-v1",
+      "visitor_capacity_per_day": 70,
+      "fresh_water_capacity_l_per_day": 9000,
+      "waste_reception_capacity_kg_per_day": 900,
+      "sensitive_habitat_buffer_m": 1500
+    }
+  ],
+  "providers": [
+    {
+      "id": "provider:aurora-marinas",
+      "kind": "marina_operator",
+      "destinations": [
+        "dest:windward",
+        "dest:stonequay",
+        "dest:reedhaven"
+      ],
+      "authority": "provider_inventory_and_commitments"
+    },
+    {
+      "id": "provider:bluewater-harbours",
+      "kind": "marina_operator",
+      "destinations": [
+        "dest:tideline",
+        "dest:kelpport"
+      ],
+      "authority": "provider_inventory_and_commitments"
+    },
+    {
+      "id": "provider:windward-homes-coop",
+      "kind": "accommodation_provider",
+      "destinations": [
+        "dest:windward",
+        "dest:stonequay"
+      ],
+      "authority": "provider_inventory_and_commitments"
+    },
+    {
+      "id": "provider:estuary-stays-coop",
+      "kind": "accommodation_provider",
+      "destinations": [
+        "dest:reedhaven",
+        "dest:tideline"
+      ],
+      "authority": "provider_inventory_and_commitments"
+    },
+    {
+      "id": "provider:kelp-guesthouses",
+      "kind": "accommodation_provider",
+      "destinations": [
+        "dest:kelpport"
+      ],
+      "authority": "provider_inventory_and_commitments"
+    },
+    {
+      "id": "provider:tideline-repair",
+      "kind": "service_provider",
+      "destinations": [
+        "dest:windward",
+        "dest:tideline"
+      ],
+      "authority": "provider_inventory_and_commitments"
+    },
+    {
+      "id": "provider:shorepower-union",
+      "kind": "service_provider",
+      "destinations": [
+        "dest:stonequay",
+        "dest:tideline",
+        "dest:kelpport"
+      ],
+      "authority": "provider_inventory_and_commitments"
+    },
+    {
+      "id": "provider:common-provisions",
+      "kind": "service_provider",
+      "destinations": [
+        "dest:windward",
+        "dest:reedhaven",
+        "dest:kelpport"
+      ],
+      "authority": "provider_inventory_and_commitments"
+    },
+    {
+      "id": "provider:accessible-transit",
+      "kind": "service_provider",
+      "destinations": [
+        "dest:stonequay",
+        "dest:reedhaven"
+      ],
+      "authority": "provider_inventory_and_commitments"
+    }
+  ],
+  "resources": [
+    {
+      "id": "resource:windward-berth-a",
+      "provider_ref": "provider:aurora-marinas",
+      "destination_ref": "dest:windward",
+      "kind": "berth",
+      "capacity": 1,
+      "capacity_unit": "berth-slot",
+      "constraints": {
+        "max_length_m": 13,
+        "max_beam_m": 4.2,
+        "max_draft_m": 2.1,
+        "shore_power": "230V_16A"
+      }
+    },
+    {
+      "id": "resource:stonequay-berth-b",
+      "provider_ref": "provider:aurora-marinas",
+      "destination_ref": "dest:stonequay",
+      "kind": "berth",
+      "capacity": 1,
+      "capacity_unit": "berth-slot",
+      "constraints": {
+        "max_length_m": 16,
+        "max_beam_m": 5,
+        "max_draft_m": 2.7,
+        "shore_power": "230V_32A"
+      }
+    },
+    {
+      "id": "resource:reedhaven-mooring-c",
+      "provider_ref": "provider:aurora-marinas",
+      "destination_ref": "dest:reedhaven",
+      "kind": "berth",
+      "capacity": 1,
+      "capacity_unit": "mooring-slot",
+      "constraints": {
+        "max_length_m": 11,
+        "max_beam_m": 3.8,
+        "max_draft_m": 1.4,
+        "shore_power": "none"
+      }
+    },
+    {
+      "id": "resource:tideline-berth-d",
+      "provider_ref": "provider:bluewater-harbours",
+      "destination_ref": "dest:tideline",
+      "kind": "berth",
+      "capacity": 1,
+      "capacity_unit": "berth-slot",
+      "constraints": {
+        "max_length_m": 14,
+        "max_beam_m": 4.6,
+        "max_draft_m": 2,
+        "shore_power": "230V_16A"
+      }
+    },
+    {
+      "id": "resource:kelpport-mooring-e",
+      "provider_ref": "provider:bluewater-harbours",
+      "destination_ref": "dest:kelpport",
+      "kind": "berth",
+      "capacity": 1,
+      "capacity_unit": "mooring-slot",
+      "constraints": {
+        "max_length_m": 10,
+        "max_beam_m": 3.5,
+        "max_draft_m": 1.2,
+        "shore_power": "none"
+      }
+    },
+    {
+      "id": "resource:windward-room-1",
+      "provider_ref": "provider:windward-homes-coop",
+      "destination_ref": "dest:windward",
+      "kind": "accommodation",
+      "capacity": 1,
+      "capacity_unit": "unit-night",
+      "constraints": {
+        "sleeps": 2,
+        "wheelchair_accessible": false
+      }
+    },
+    {
+      "id": "resource:stonequay-flat-2",
+      "provider_ref": "provider:windward-homes-coop",
+      "destination_ref": "dest:stonequay",
+      "kind": "accommodation",
+      "capacity": 1,
+      "capacity_unit": "unit-night",
+      "constraints": {
+        "sleeps": 4,
+        "wheelchair_accessible": true
+      }
+    },
+    {
+      "id": "resource:reedhaven-cottage-3",
+      "provider_ref": "provider:estuary-stays-coop",
+      "destination_ref": "dest:reedhaven",
+      "kind": "accommodation",
+      "capacity": 1,
+      "capacity_unit": "unit-night",
+      "constraints": {
+        "sleeps": 4,
+        "wheelchair_accessible": true
+      }
+    },
+    {
+      "id": "resource:tideline-loft-4",
+      "provider_ref": "provider:estuary-stays-coop",
+      "destination_ref": "dest:tideline",
+      "kind": "accommodation",
+      "capacity": 1,
+      "capacity_unit": "unit-night",
+      "constraints": {
+        "sleeps": 2,
+        "wheelchair_accessible": false
+      }
+    },
+    {
+      "id": "resource:kelpport-guesthouse-5",
+      "provider_ref": "provider:kelp-guesthouses",
+      "destination_ref": "dest:kelpport",
+      "kind": "accommodation",
+      "capacity": 1,
+      "capacity_unit": "unit-night",
+      "constraints": {
+        "sleeps": 3,
+        "wheelchair_accessible": true
+      }
+    },
+    {
+      "id": "resource:repair-bench-1",
+      "provider_ref": "provider:tideline-repair",
+      "destination_ref": "dest:windward",
+      "kind": "service",
+      "capacity": 2,
+      "capacity_unit": "appointment",
+      "constraints": {
+        "service": "outboard_diagnostic"
+      }
+    },
+    {
+      "id": "resource:repair-bench-2",
+      "provider_ref": "provider:tideline-repair",
+      "destination_ref": "dest:tideline",
+      "kind": "service",
+      "capacity": 1,
+      "capacity_unit": "appointment",
+      "constraints": {
+        "service": "rig_inspection"
+      }
+    },
+    {
+      "id": "resource:shore-power-1",
+      "provider_ref": "provider:shorepower-union",
+      "destination_ref": "dest:stonequay",
+      "kind": "service",
+      "capacity": 3,
+      "capacity_unit": "connection",
+      "constraints": {
+        "service": "shore_power",
+        "rated_kw": 7.4
+      }
+    },
+    {
+      "id": "resource:shore-power-2",
+      "provider_ref": "provider:shorepower-union",
+      "destination_ref": "dest:kelpport",
+      "kind": "service",
+      "capacity": 1,
+      "capacity_unit": "connection",
+      "constraints": {
+        "service": "shore_power",
+        "rated_kw": 3.6
+      }
+    },
+    {
+      "id": "resource:provision-box-1",
+      "provider_ref": "provider:common-provisions",
+      "destination_ref": "dest:reedhaven",
+      "kind": "service",
+      "capacity": 8,
+      "capacity_unit": "delivery-window",
+      "constraints": {
+        "service": "provisioning"
+      }
+    },
+    {
+      "id": "resource:provision-box-2",
+      "provider_ref": "provider:common-provisions",
+      "destination_ref": "dest:kelpport",
+      "kind": "service",
+      "capacity": 4,
+      "capacity_unit": "delivery-window",
+      "constraints": {
+        "service": "provisioning"
+      }
+    },
+    {
+      "id": "resource:access-transfer-1",
+      "provider_ref": "provider:accessible-transit",
+      "destination_ref": "dest:stonequay",
+      "kind": "service",
+      "capacity": 2,
+      "capacity_unit": "vehicle-trip",
+      "constraints": {
+        "service": "accessible_shore_transfer",
+        "wheelchair_lift": true
+      }
+    },
+    {
+      "id": "resource:access-transfer-2",
+      "provider_ref": "provider:accessible-transit",
+      "destination_ref": "dest:reedhaven",
+      "kind": "service",
+      "capacity": 1,
+      "capacity_unit": "vehicle-trip",
+      "constraints": {
+        "service": "accessible_shore_transfer",
+        "wheelchair_lift": true
+      }
+    }
+  ],
+  "policies": [
+    {
+      "id": "policy:windward-v1",
+      "visitor_capacity_per_day": 180,
+      "resident_housing_floor": 0.35,
+      "water_hard_limit_l_per_day": 42000,
+      "protected_area_exclusion": true,
+      "local_benefit_reporting": true
+    },
+    {
+      "id": "policy:stonequay-v1",
+      "visitor_capacity_per_day": 240,
+      "resident_housing_floor": 0.4,
+      "water_hard_limit_l_per_day": 51000,
+      "protected_area_exclusion": true,
+      "local_benefit_reporting": true
+    },
+    {
+      "id": "policy:reedhaven-v1",
+      "visitor_capacity_per_day": 90,
+      "resident_housing_floor": 0.55,
+      "water_hard_limit_l_per_day": 16000,
+      "protected_area_exclusion": true,
+      "seasonal_access_window_required": true
+    },
+    {
+      "id": "policy:tideline-v1",
+      "visitor_capacity_per_day": 130,
+      "resident_housing_floor": 0.45,
+      "water_hard_limit_l_per_day": 28000,
+      "protected_area_exclusion": true,
+      "local_benefit_reporting": true
+    },
+    {
+      "id": "policy:kelpport-v1",
+      "visitor_capacity_per_day": 70,
+      "resident_housing_floor": 0.6,
+      "water_hard_limit_l_per_day": 9000,
+      "protected_area_exclusion": true,
+      "seasonal_access_window_required": true
+    }
+  ],
+  "synthetic_scenarios": [
+    {
+      "id": "STAY-001",
+      "name": "happy_path_composite_stay",
+      "faults": [],
+      "expected_aggregate_state": "confirmed",
+      "required_invariants": [
+        "all_mandatory_components_have_provider_commitments",
+        "manifest_confirmation_derived_from_provider_receipts"
+      ]
+    },
+    {
+      "id": "STAY-002",
+      "name": "stale_availability_snapshot",
+      "faults": [
+        "availability_snapshot_expired_before_hold"
+      ],
+      "expected_aggregate_state": "pending_or_failed",
+      "required_invariants": [
+        "stale_snapshot_never_creates_hold_or_commitment"
+      ]
+    },
+    {
+      "id": "STAY-003",
+      "name": "hold_expires_before_commit",
+      "faults": [
+        "provider_hold_ttl_elapsed"
+      ],
+      "expected_aggregate_state": "expired",
+      "required_invariants": [
+        "expired_hold_cannot_be_revived_by_client"
+      ]
+    },
+    {
+      "id": "STAY-004",
+      "name": "partial_commit_accommodation_declines",
+      "faults": [
+        "berth_committed",
+        "accommodation_commit_rejected"
+      ],
+      "expected_aggregate_state": "partially_confirmed",
+      "required_invariants": [
+        "partial_success_is_visible",
+        "no_false_confirmed_manifest",
+        "compensation_requires_provider_terms"
+      ]
+    },
+    {
+      "id": "STAY-005",
+      "name": "duplicate_commit_retry",
+      "faults": [
+        "response_timeout_after_provider_commit",
+        "same_idempotency_key_retried"
+      ],
+      "expected_aggregate_state": "confirmed_once",
+      "required_invariants": [
+        "one_provider_effect_for_same_key_and_payload",
+        "different_payload_with_same_key_is_conflict"
+      ]
+    },
+    {
+      "id": "STAY-006",
+      "name": "last_berth_concurrent_race",
+      "faults": [
+        "two_requests_for_capacity_one_resource"
+      ],
+      "expected_aggregate_state": "one_confirmed_one_rejected",
+      "required_invariants": [
+        "provider_capacity_never_overcommitted"
+      ]
+    },
+    {
+      "id": "STAY-007",
+      "name": "provider_network_partition",
+      "faults": [
+        "provider_unreachable_after_commit_request"
+      ],
+      "expected_aggregate_state": "unknown_or_pending",
+      "required_invariants": [
+        "timeout_is_not_success_or_failure",
+        "no_confirmed_manifest_without_receipt"
+      ]
+    },
+    {
+      "id": "STAY-008",
+      "name": "provider_restart_and_reconciliation",
+      "faults": [
+        "provider_restart",
+        "client_reconnects"
+      ],
+      "expected_aggregate_state": "reconciled_from_provider_receipt",
+      "required_invariants": [
+        "replay_is_idempotent",
+        "provider_revision_and_receipt_identity_preserved"
+      ]
+    },
+    {
+      "id": "STAY-009",
+      "name": "weather_closure_cancels_berth",
+      "faults": [
+        "provider_declares_weather_closure"
+      ],
+      "expected_aggregate_state": "partially_cancelled_or_cancelled",
+      "required_invariants": [
+        "provider_closure_not_bypassed_by_reciprocity",
+        "route_safety_is_not_inferred_from_booking"
+      ]
+    },
+    {
+      "id": "STAY-010",
+      "name": "vessel_dimensions_incompatible",
+      "faults": [
+        "vessel_draft_exceeds_offer_limit"
+      ],
+      "expected_aggregate_state": "infeasible",
+      "required_invariants": [
+        "incompatible_berth_never_confirmed",
+        "missing_dimensions_remain_unknown"
+      ]
+    },
+    {
+      "id": "STAY-011",
+      "name": "accessibility_constraint_no_match",
+      "faults": [
+        "required_accessibility_feature_unavailable"
+      ],
+      "expected_aggregate_state": "infeasible_or_needs_alternative",
+      "required_invariants": [
+        "accessibility_requirement_not_silently_dropped"
+      ]
+    },
+    {
+      "id": "STAY-012",
+      "name": "destination_visitor_capacity_reached",
+      "faults": [
+        "policy_capacity_at_hard_limit"
+      ],
+      "expected_aggregate_state": "blocked_by_policy",
+      "required_invariants": [
+        "hard_policy_limit_not_optimizable_away"
+      ]
+    },
+    {
+      "id": "STAY-013",
+      "name": "reciprocity_entitlement_revoked",
+      "faults": [
+        "entitlement_revoked_before_hold"
+      ],
+      "expected_aggregate_state": "price_requoted_or_rejected",
+      "required_invariants": [
+        "revoked_entitlement_not_applied_to_new_commitment"
+      ]
+    },
+    {
+      "id": "STAY-014",
+      "name": "cancel_and_refund_reconciliation",
+      "faults": [
+        "cancellation_requested",
+        "refund_effect_delayed"
+      ],
+      "expected_aggregate_state": "partially_cancelled_or_unknown_until_receipt",
+      "required_invariants": [
+        "refund_not_assumed_from_cancel_request",
+        "financial_effects_idempotent"
+      ]
+    },
+    {
+      "id": "STAY-015",
+      "name": "mandatory_fee_arithmetic",
+      "faults": [
+        "provider_quotes_multiple_fee_lines"
+      ],
+      "expected_aggregate_state": "confirmed_only_if_totals_reconcile",
+      "required_invariants": [
+        "integer_minor_unit_arithmetic",
+        "all_mandatory_fees_disclosed_before_acceptance"
+      ]
+    },
+    {
+      "id": "STAY-016",
+      "name": "private_itinerary_data_leak",
+      "faults": [
+        "public_projection_attempts_to_publish_exact_travel_plan"
+      ],
+      "expected_aggregate_state": "rejected_by_privacy_policy",
+      "required_invariants": [
+        "no_default_public_live_location_or_home_address",
+        "selective_disclosure_is_purpose_bound"
+      ]
+    },
+    {
+      "id": "STAY-017",
+      "name": "provider_revision_conflict",
+      "faults": [
+        "new_offer_revision_supersedes_cached_revision"
+      ],
+      "expected_aggregate_state": "needs_reconciliation",
+      "required_invariants": [
+        "superseded_revision_not_confirmed",
+        "revision_lineage_preserved"
+      ]
+    },
+    {
+      "id": "STAY-018",
+      "name": "sensitive_ecological_zone",
+      "faults": [
+        "resource_offer_intersects_policy_exclusion"
+      ],
+      "expected_aggregate_state": "blocked_by_policy",
+      "required_invariants": [
+        "protected_area_constraint_is_hard_gate",
+        "unknown_spatial_intersection_is_not_clear"
+      ]
+    }
+  ],
+  "comparison_baselines": [
+    {
+      "id": "baseline:manual-siloed",
+      "name": "Manual and siloed",
+      "description": "Separate provider calls, email/phone coordination and independent bookings; operator records completion."
+    },
+    {
+      "id": "baseline:berth-only",
+      "name": "Berth booking only",
+      "description": "Marina reservation confirmed without accommodation or shore-service composition."
+    },
+    {
+      "id": "baseline:accommodation-only",
+      "name": "Accommodation marketplace only",
+      "description": "Accommodation is booked independently; berth and shore services remain outside the workflow."
+    },
+    {
+      "id": "baseline:central-aggregator",
+      "name": "Centralized aggregator",
+      "description": "One coordinator owns a consolidated inventory projection and orchestrates provider confirmations."
+    },
+    {
+      "id": "baseline:federated-provider-owned",
+      "name": "Federated provider-owned protocol",
+      "description": "Each provider retains source-of-truth inventory and issues its own holds, commitments and receipts; aggregate manifest is independently verified."
+    }
+  ],
+  "metrics": [
+    {
+      "id": "completed_stay_rate",
+      "unit": "percent",
+      "direction": "higher_is_better",
+      "hard_gate": false
+    },
+    {
+      "id": "false_confirmed_manifest_count",
+      "unit": "count",
+      "direction": "lower_is_better",
+      "hard_gate": true
+    },
+    {
+      "id": "duplicate_provider_effect_count",
+      "unit": "count",
+      "direction": "lower_is_better",
+      "hard_gate": true
+    },
+    {
+      "id": "double_booking_count",
+      "unit": "count",
+      "direction": "lower_is_better",
+      "hard_gate": true
+    },
+    {
+      "id": "stale_snapshot_commit_count",
+      "unit": "count",
+      "direction": "lower_is_better",
+      "hard_gate": true
+    },
+    {
+      "id": "median_coordination_time_ms",
+      "unit": "ms",
+      "direction": "lower_is_better",
+      "hard_gate": false
+    },
+    {
+      "id": "p95_coordination_time_ms",
+      "unit": "ms",
+      "direction": "lower_is_better",
+      "hard_gate": false
+    },
+    {
+      "id": "partial_commit_resolution_time_ms",
+      "unit": "ms",
+      "direction": "lower_is_better",
+      "hard_gate": false
+    },
+    {
+      "id": "fee_disclosure_completeness",
+      "unit": "percent",
+      "direction": "higher_is_better",
+      "hard_gate": true
+    },
+    {
+      "id": "refund_correctness",
+      "unit": "percent",
+      "direction": "higher_is_better",
+      "hard_gate": true
+    },
+    {
+      "id": "offline_reconciliation_success",
+      "unit": "percent",
+      "direction": "higher_is_better",
+      "hard_gate": false
+    },
+    {
+      "id": "accessibility_match_rate",
+      "unit": "percent",
+      "direction": "higher_is_better",
+      "hard_gate": false
+    },
+    {
+      "id": "unauthorized_disclosure_count",
+      "unit": "count",
+      "direction": "lower_is_better",
+      "hard_gate": true
+    },
+    {
+      "id": "policy_bypass_count",
+      "unit": "count",
+      "direction": "lower_is_better",
+      "hard_gate": true
+    },
+    {
+      "id": "local_provider_value_retained",
+      "unit": "percent",
+      "direction": "higher_is_better",
+      "hard_gate": false
+    }
+  ],
+  "target_hypotheses": {
+    "false_confirmed_manifest_count": 0,
+    "duplicate_provider_effect_count": 0,
+    "double_booking_count": 0,
+    "stale_snapshot_commit_count": 0,
+    "mandatory_component_receipt_coverage_percent": 100,
+    "mandatory_fee_disclosure_percent": 100,
+    "unauthorized_disclosure_count": 0,
+    "policy_bypass_count": 0,
+    "median_coordination_time_improvement_vs_manual_percent": 30
+  }
+}
