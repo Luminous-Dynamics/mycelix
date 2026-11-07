@@ -115,6 +115,8 @@ fn validate_trace(trace: &Value) -> Result<Value, String> {
 
     let mut event_by_id = BTreeMap::<String, &Value>::new();
     let mut source_opens = BTreeMap::<String, Vec<(String, String, u64)>>::new();
+    let mut source_open_calls = BTreeMap::<String, (String, String, String, String, u64)>::new();
+    let mut successful_source_responses = BTreeSet::<String>::new();
     let mut source_open_count = 0usize;
     let mut facts = BTreeMap::<String, (String, String, BTreeSet<String>, BTreeSet<String>, u64)>::new();
     let mut terminalized = BTreeMap::<String, (String, BTreeSet<String>, u64)>::new();
@@ -160,8 +162,15 @@ fn validate_trace(trace: &Value) -> Result<Value, String> {
                 let document_ref = string(event, "source_document_ref")?;
                 let revision = string(event, "source_revision")?;
                 let source_sha = string(event, "source_sha256")?;
+                let tool_call_id = string(event, "tool_call_id")?;
                 if !is_sha256(source_sha) {
                     return Err(format!("{trace_id}/{event_id}: source digest is not canonical SHA-256"));
+                }
+                if source_open_calls.insert(
+                    tool_call_id.to_owned(),
+                    (document_ref.to_owned(), revision.to_owned(), source_sha.to_owned(), event_id.to_owned(), seq),
+                ).is_some() {
+                    return Err(format!("{trace_id}/{event_id}: duplicate source-open tool_call_id"));
                 }
                 let prior = source_opens.entry(document_ref.to_owned()).or_default();
                 if prior.iter().any(|(prior_revision, prior_digest, _)| {
@@ -179,7 +188,22 @@ fn validate_trace(trace: &Value) -> Result<Value, String> {
                 if !is_sha256(string(event, "response_sha256")?) {
                     return Err(format!("{trace_id}/{event_id}: response digest is invalid"));
                 }
-                string(event, "tool_call_id")?;
+                let tool_call_id = string(event, "tool_call_id")?;
+                if let Some(document_ref) = optional_string(event, "source_document_ref") {
+                    let revision = string(event, "source_revision")?;
+                    let source_sha = string(event, "source_sha256")?;
+                    let (opened_document, opened_revision, opened_sha, _open_event, open_seq) = source_open_calls
+                        .get(tool_call_id)
+                        .ok_or_else(|| format!("{trace_id}/{event_id}: source tool response has no preceding source-open tool call"))?;
+                    if *open_seq >= seq
+                        || opened_document != document_ref
+                        || opened_revision != revision
+                        || opened_sha != source_sha
+                    {
+                        return Err(format!("{trace_id}/{event_id}: tool response source identity/revision/digest differs from source-open event"));
+                    }
+                    successful_source_responses.insert(tool_call_id.to_owned());
+                }
             }
             "fact_observed" => {
                 if actor != "candidate_agent" {
@@ -210,6 +234,7 @@ fn validate_trace(trace: &Value) -> Result<Value, String> {
                     }
                     let opened_doc = string(open, "source_document_ref")?;
                     let opened_sha = string(open, "source_sha256")?;
+                    let tool_call_id = string(open, "tool_call_id")?;
                     if !docs.contains(opened_doc) {
                         return Err(format!("{trace_id}/{event_id}: source-open event refers to an undeclared source document"));
                     }
@@ -217,6 +242,9 @@ fn validate_trace(trace: &Value) -> Result<Value, String> {
                         opens.iter().any(|(_, digest, open_seq)| digest.as_str() == opened_sha && *open_seq < seq)
                     }) {
                         return Err(format!("{trace_id}/{event_id}: source document was not opened before fact extraction"));
+                    }
+                    if !successful_source_responses.contains(tool_call_id) {
+                        return Err(format!("{trace_id}/{event_id}: source fact was extracted before a matching source tool response"));
                     }
                     if !confirmed_docs.insert(opened_doc.to_owned()) {
                         return Err(format!("{trace_id}/{event_id}: more than one source-open revision is bound to the same document fact"));
@@ -322,8 +350,12 @@ fn validate_trace(trace: &Value) -> Result<Value, String> {
                         .get(open_ref)
                         .ok_or_else(|| format!("{trace_id}/{event_id}: question source-open ref {open_ref} is not a preceding event"))?;
                     let opened_doc = string(open, "source_document_ref")?;
+                    let tool_call_id = string(open, "tool_call_id")?;
                     if event_kind(open)? != "source_opened" || !docs.contains(opened_doc) {
                         return Err(format!("{trace_id}/{event_id}: question source-open ref is inconsistent"));
+                    }
+                    if !successful_source_responses.contains(tool_call_id) {
+                        return Err(format!("{trace_id}/{event_id}: question references a source without a matching tool response"));
                     }
                     opened_question_docs.insert(opened_doc.to_owned());
                 }
@@ -805,6 +837,30 @@ mod tests {
             optional_string(event, "fact_ref") != Some("F-001-SUPPLIER")
                 || optional_string(event, "event_kind") != Some("fact_terminalized")
         });
+        assert!(validate_trace(&trace).is_err());
+    }
+
+
+    #[test]
+    fn rejects_fact_extraction_before_matching_tool_response() {
+        let (mut trace, _, _, _) = fixture();
+        trace["events"].as_array_mut().unwrap().retain(|event| {
+            !(optional_string(event, "event_kind") == Some("tool_response")
+                && optional_string(event, "tool_call_id") == Some("TOOL-1"))
+        });
+        for (index, event) in trace["events"].as_array_mut().unwrap().iter_mut().enumerate() {
+            event["seq"] = json!(index + 1);
+        }
+        assert!(validate_trace(&trace).is_err());
+    }
+
+    #[test]
+    fn rejects_tool_response_with_mismatched_source_revision_digest() {
+        let (mut trace, _, _, _) = fixture();
+        let response = trace["events"].as_array_mut().unwrap().iter_mut()
+            .find(|event| optional_string(event, "event_kind") == Some("tool_response")
+                && optional_string(event, "tool_call_id") == Some("TOOL-1")).unwrap();
+        response["source_sha256"] = json!("9".repeat(64));
         assert!(validate_trace(&trace).is_err());
     }
 
