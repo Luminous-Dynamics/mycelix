@@ -40,12 +40,15 @@
         "number",
         "url",
         "branch",
-        "head_sha",
+        "state",
+        "merge_readiness",
+        "evidence_subject_sha",
+        "ledger_preparation_parent_sha",
         "base_branch",
         "base_sha_at_pr",
-        "divergence_at_ledger_creation",
-        "state",
-        "merge_readiness"
+        "main_sha_at_comparison",
+        "divergence_at_comparison",
+        "divergence_note"
       ],
       "properties": {
         "number": {
@@ -58,7 +61,17 @@
         "branch": {
           "type": "string"
         },
-        "head_sha": {
+        "state": {
+          "type": "string"
+        },
+        "merge_readiness": {
+          "type": "string"
+        },
+        "evidence_subject_sha": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}$"
+        },
+        "ledger_preparation_parent_sha": {
           "type": "string",
           "pattern": "^[0-9a-f]{40}$"
         },
@@ -69,7 +82,11 @@
           "type": "string",
           "pattern": "^[0-9a-f]{40}$"
         },
-        "divergence_at_ledger_creation": {
+        "main_sha_at_comparison": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}$"
+        },
+        "divergence_at_comparison": {
           "type": "object",
           "additionalProperties": false,
           "required": [
@@ -92,10 +109,7 @@
             }
           }
         },
-        "state": {
-          "type": "string"
-        },
-        "merge_readiness": {
+        "divergence_note": {
           "type": "string"
         }
       }
