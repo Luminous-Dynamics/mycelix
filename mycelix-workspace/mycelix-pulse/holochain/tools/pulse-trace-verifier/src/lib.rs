@@ -365,21 +365,16 @@ fn build_scenario(value: &Value, path: &str, errors: &mut Vec<String>) -> Option
         let after = required_string(check, "after", &check_path, errors);
         let planes_value = check.get("planes").unwrap_or(&Value::Null);
         let planes = parse_planes(planes_value, &format!("{check_path}.planes"), errors);
-        let assertions = match check.get("assertions").and_then(Value::as_array) {
-            Some(items) if !items.is_empty() => items,
-            _ => {
-                errors.push(format!("{check_path}.assertions must be a non-empty array"));
-                &Vec::new()
-            }
-        };
         if let Some(items) = check.get("assertions").and_then(Value::as_array) {
+            if items.is_empty() {
+                errors.push(format!("{check_path}.assertions must be a non-empty array"));
+            }
             for (assertion_index, item) in items.iter().enumerate() {
                 if item.as_str().is_none_or(str::is_empty) {
                     errors.push(format!("{check_path}.assertions[{assertion_index}] must be a non-empty string"));
                 }
             }
         }
-        let _ = assertions;
         if let Some(after) = after {
             if !events.contains_key(&after) {
                 errors.push(format!("{check_path}.after references unknown event {after}"));
