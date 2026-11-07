@@ -105,6 +105,27 @@ The companion JSON contains 28 synthetic scenarios across:
 
 Each scenario provides an event sequence, explicit happens-before edges where known, expected observations by plane, and assertions. The schema is closed-world: unknown fields fail validation. The corpus includes no raw secrets or personal data.
 
+## Per-cell capability isolation model
+
+The branch contains a finite model for an important Holochain-specific authorization boundary:
+
+- `PulseCellScopeIsolation.tla`
+- `PulseCellScopeIsolation.cfg` — safe cell/function/secret/grant binding
+- `PulseCellScopeIsolation-cross-cell-mutant.cfg` — ignores the target CellId during grant lookup
+- `PulseCellScopeIsolation-function-scope-mutant.cfg` — treats any grant in a cell as authority for every function
+- `PulseCellScopeIsolation-collateral-revocation-mutant.cfg` — revokes grants by (principal, function) rather than exact CapGrant identity
+
+The model starts with two independent grants for the same assigned grantee and same function name, but different target cells, grant ActionHashes and secrets. It checks that:
+- a grant for Cell A cannot authorize the same function in Cell B;
+- a read grant cannot authorize a write function in the same cell;
+- caller, secret and private claim must all match the exact grant;
+- revoking Grant A removes only Grant A and leaves Grant B active;
+- the host decision is bound to a grant that is active in the target cell.
+
+This matters because the same principal/function tuple may exist in several cells. An app-wide lookup or a revocation keyed only by principal/function can either create a cross-cell authorization bypass or collateral-revoke unrelated authority.
+
+The pinned TLC workflow now includes the safe configuration and all three mutants; it also hashes the model/config inputs into the exact-run receipt. The first model-check run for this family is pending. No bounded-model result should be claimed until the safe queue exhausts and each mutant is detected by its intended invariant.
+
 ## Finite-state model artifact
 
 The branch now includes a small TLA+ contract model:
