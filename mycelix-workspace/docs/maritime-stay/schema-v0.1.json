@@ -154,13 +154,14 @@
       "type": "object",
       "additionalProperties": false,
       "required": [
-        "snapshot_id",
-        "source_revision",
-        "observed_at",
-        "valid_until",
         "capacity",
+        "capacity_dimension",
         "capacity_unit",
-        "source_ref"
+        "observed_at",
+        "snapshot_id",
+        "source_ref",
+        "source_revision",
+        "valid_until"
       ],
       "properties": {
         "snapshot_id": {
@@ -192,6 +193,16 @@
         "uncertainty_note": {
           "type": "string",
           "maxLength": 1000
+        },
+        "capacity_dimension": {
+          "enum": [
+            "count",
+            "power",
+            "energy",
+            "volume",
+            "mass",
+            "time"
+          ]
         }
       }
     },
