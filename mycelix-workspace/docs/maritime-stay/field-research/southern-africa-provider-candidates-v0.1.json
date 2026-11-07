@@ -1,0 +1,186 @@
+{
+  "register_id": "MARITIME-SA-PROVIDER-CANDIDATES-0.1",
+  "observed_at": "2026-11-07",
+  "status": "research_only_no_site_or_pilot_selected",
+  "claim_ceiling": "Public-source discovery register only. All provider counts, facility descriptions, dimensions, procedures and software capabilities require current operator/platform confirmation before booking, navigation, engineering, investment, legal or operational use.",
+  "comparison_method": "Do not compute a weighted winner. Compare authority, integration permission, currentness, data minimization, provider replaceability, user experience, service scope and local legitimacy as separate dimensions.",
+  "candidates": [
+    {
+      "id": "candidate:richards-bay:zululand-yacht-club",
+      "name": "Zululand Yacht Club",
+      "place": "Richards Bay, KwaZulu-Natal, South Africa",
+      "category": "recreational_yacht_club_marina",
+      "status": "screening_candidate_not_selected",
+      "booking_surface": {
+        "operator_site": "https://www.zyc.co.za/",
+        "linked_platform_listing": "https://www.berthapp.com/marinas/zululand-yacht-club",
+        "operator_statement": "Official ZYC site links its berth-booking flow to BerthApp and says a visitor submits a short-term berth request, receives confirmation and pays securely to hold the berth. It states a passage plan is not a booking.",
+        "platform_state": "The public BerthApp listing displays date selection and a request-berth workflow; this does not establish a live API or guaranteed confirmation."
+      },
+      "platform": {
+        "name": "Berth / BerthApp",
+        "company": "Berth Marine (Pty) Ltd",
+        "official_site": "https://www.berthapp.com/",
+        "public_claims": [
+          "1,500+ berths managed globally",
+          "Network berth discovery and booking",
+          "Real-time berth visibility and marina operations dashboard",
+          "Map/list/calendar reservation management",
+          "WhatsApp booking intake",
+          "Integrated payments and deposits"
+        ],
+        "terms_url": "https://www.berthapp.com/legal/terms",
+        "privacy_url": "https://www.berthapp.com/legal/privacy",
+        "contract_boundary": "Published terms say Berth facilitates bookings and payments, while the berth-service contract is directly between the boater and marina operator. Payment handling depends on configuration; cancellations/refunds are provider-policy dependent.",
+        "privacy_boundary": "Published privacy policy describes contact/identity, booking, device/usage and partial payment information, sharing with marina operators and service providers including Paystack, and POPIA/GDPR-oriented controls. This is a policy statement, not an independent audit."
+      },
+      "displayed_facility_claims": {
+        "berths": 150,
+        "visitor_spaces": 30,
+        "max_loa_m": 22,
+        "max_beam_m": 9,
+        "max_draft_m": 3,
+        "claim_source": "BerthApp public listing",
+        "verification": "platform_displayed_not_independently_surveyed",
+        "note": "Do not use these values for vessel eligibility, navigation or engineering without current operator-confirmed profiles and relevant hydrographic/port-authority evidence."
+      },
+      "integration_surface": {
+        "public_developer_api_verified": false,
+        "public_webhook_docs_verified": false,
+        "public_event_schema_verified": false,
+        "partner_authorization_obtained": false,
+        "sandbox_access_obtained": false,
+        "current_status": "No public developer API/webhook/event schema or integration permission was verified in this research. Ask Berth and ZYC for a documented partner interface, event/export capability or operator-issued confirmation. Do not scrape or automate private UI."
+      },
+      "authority_separation": [
+        "ZYC is the marina/service operator to confirm berth offers and commitments.",
+        "Berth platform facilitates booking/payment workflows under its published terms.",
+        "Payment processor/finality must be evidenced separately.",
+        "Port-entry permission and other statutory clearance remain with competent authorities."
+      ],
+      "open_questions": [
+        "Who is the canonical inventory and allocation authority at ZYC for each berth class?",
+        "Does ZYC use BerthApp as its sole booking system or alongside manual/phone/WhatsApp workflows?",
+        "Is there a provider-authorized API, webhook, export or operator-issued signed receipt?",
+        "What event identities, source revisions, timestamps, retries and correction semantics are documented?",
+        "Which party controls customer data for each processing purpose, and what DPAs/POPIA roles apply?",
+        "How do cancellations, no-shows, deposits, refunds, mispricing and overbooking resolve between platform and marina?",
+        "Are accommodation and local-service partners available through independent contracts?"
+      ],
+      "sources": [
+        {
+          "url": "https://www.zyc.co.za/",
+          "owner": "Zululand Yacht Club",
+          "kind": "operator_public_site",
+          "observed_at": "2026-11-07",
+          "supports": "Official berth booking link, short-term request/confirmation/payment language and distinction between passage plan and booking.",
+          "limitations": "Does not expose an API or exact inventory schema."
+        },
+        {
+          "url": "https://www.berthapp.com/marinas/zululand-yacht-club",
+          "owner": "BerthApp",
+          "kind": "platform_public_listing",
+          "observed_at": "2026-11-07",
+          "supports": "Displayed marina profile, berth/visitor-space counts, dimensions and request form.",
+          "limitations": "Platform-provided details; not an independent survey or live availability response."
+        },
+        {
+          "url": "https://www.berthapp.com/",
+          "owner": "Berth Marine",
+          "kind": "vendor_public_product_page",
+          "observed_at": "2026-11-07",
+          "supports": "Vendor-described network booking, live berth visibility, operations, WhatsApp and payments.",
+          "limitations": "Marketing claims; no public developer interface verified."
+        },
+        {
+          "url": "https://www.berthapp.com/legal/terms",
+          "owner": "Berth Marine",
+          "kind": "platform_terms",
+          "observed_at": "2026-11-07",
+          "supports": "Platform/operator contractual split, payment options, provider-dependent cancellation/refund and overbooking terms.",
+          "limitations": "Current legal applicability and any operator-specific agreement require review."
+        },
+        {
+          "url": "https://www.berthapp.com/legal/privacy",
+          "owner": "Berth Marine",
+          "kind": "privacy_policy",
+          "observed_at": "2026-11-07",
+          "supports": "Declared categories of personal/payment data, sharing, rights and POPIA/GDPR alignment.",
+          "limitations": "Not an independent security, compliance or data-flow audit."
+        }
+      ]
+    },
+    {
+      "id": "candidate:durban:durban-marina",
+      "name": "Durban Marina",
+      "place": "Durban, KwaZulu-Natal, South Africa",
+      "category": "recreational_marina",
+      "status": "screening_candidate_not_selected",
+      "booking_surface": {
+        "operator_site": "https://durbanmarina.co.za/new/",
+        "visiting_yachts_page": "https://durbanmarina.co.za/new/visiting-yachts/",
+        "operator_statement": "Official site offers a berth booking process and publishes visiting-yacht procedures."
+      },
+      "published_operating_information": [
+        "Official visiting-yacht page describes draft/vessel-size information and an initial tie-up procedure.",
+        "The page instructs arriving yachts to contact Durban Port Control and request permission to enter the harbor.",
+        "Customs and immigration steps are described separately from marina booking."
+      ],
+      "integration_surface": {
+        "public_developer_api_verified": false,
+        "public_webhook_docs_verified": false,
+        "public_event_schema_verified": false,
+        "partner_authorization_obtained": false,
+        "sandbox_access_obtained": false,
+        "current_status": "No public developer API/webhook or partner integration contract verified. Ask the operator for documented interfaces or operator-issued confirmations; no scraping or UI automation."
+      },
+      "authority_separation": [
+        "Durban Marina controls its visitor berth process and applicable marina terms.",
+        "Transnet National Ports Authority / Durban Port Control control port-entry and port operations within their remit.",
+        "Customs and immigration remain competent authority processes.",
+        "Marina booking does not confer navigation, port-entry, pilotage or border clearance."
+      ],
+      "open_questions": [
+        "What is the current booking workflow, availability representation and provider confirmation receipt?",
+        "Does the marina use an internal system, manual workflow or a third-party booking platform?",
+        "Can the operator authorize read-only status events, a sandbox or export?",
+        "What fields are needed for vessel compatibility and how are they validated?",
+        "What payment, port tax, cancellation and refund obligations attach to each type of stay?",
+        "Which formalities are required by vessel/crew status, and how are they conveyed without copying sensitive crew documents into Mycelix?"
+      ],
+      "sources": [
+        {
+          "url": "https://durbanmarina.co.za/new/",
+          "owner": "Durban Marina",
+          "kind": "operator_public_site",
+          "observed_at": "2026-11-07",
+          "supports": "Official booking entry point and operator-described services.",
+          "limitations": "Does not establish an external API."
+        },
+        {
+          "url": "https://durbanmarina.co.za/new/visiting-yachts/",
+          "owner": "Durban Marina",
+          "kind": "operator_procedure_page",
+          "observed_at": "2026-11-07",
+          "supports": "Published visitor yacht procedures and separation of marina booking from port/border formalities.",
+          "limitations": "Operational details must be rechecked with operator and authorities; page is not navigational advice."
+        }
+      ]
+    }
+  ],
+  "regional_institutional_context": {
+    "source": "https://www.imo.org/en/mediacentre/pages/whatsnew-2444.aspx",
+    "observed_at": "2026-11-07",
+    "event_date": "2026-04-20/2026-04-24",
+    "claim": "IMO, SSATP and World Bank Eastern/Southern African maritime digitalization workshop included South Africa among 12 participating countries and discussed the IMO Compendium, Maritime Single Windows and Port Community Systems.",
+    "limit": "This is evidence of a regional programme, not proof that South Africa's Maritime Single Window is live or that recreational marina booking systems are integrated."
+  },
+  "not_yet_established": [
+    "No candidate selected as pilot.",
+    "No operator or platform integration permission obtained.",
+    "No live availability or booking state verified.",
+    "No sailing route or transit suitability established.",
+    "No current capacity, vessel compatibility, price or facility claim independently certified.",
+    "No legal, POPIA, security, environmental, hydrographic or engineering approval."
+  ]
+}
