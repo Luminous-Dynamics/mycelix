@@ -333,6 +333,25 @@ The safe model has finite state for one protected logical call and one revoke op
 
 This is the bridge between the abstract Unknown outcome taxonomy and real Holochain instrumentation: record the invocation, actual conductor allow/deny boundary, durable host revoke completion, durable domain effect, and caller acknowledgement as separate events. A user-facing timeout is not the host decision.
 
+## Historical trust adjudication model
+
+The branch now includes a finite TLA+ model for the trust-policy gap tracked by [#5895](https://github.com/Luminous-Dynamics/mycelix/issues/5895):
+
+- `PulseTrustHistoricalAdjudication.tla`
+- `PulseTrustHistoricalAdjudication.cfg` — safe current/historical separation
+- `PulseTrustHistoricalAdjudication-current-mutant.cfg` — old signature from a revoked key is incorrectly accepted for a current decision
+- `PulseTrustHistoricalAdjudication-time-mutant.cfg` — historical acceptance is incorrectly returned after trusted time is unavailable
+
+The model separates four verifier outcomes:
+- `CURRENT_ACCEPTED`: signer is active under the current policy at decision time;
+- `HISTORICALLY_AUTHENTICATED`: exact statement signature, historical policy snapshot and trusted time support the statement at its signing epoch, even if the key was later revoked;
+- `INDETERMINATE`: required trusted time or historical policy evidence is unavailable;
+- `REJECTED`: signature/policy binding is invalid or the key was already revoked at the statement epoch.
+
+The two unsafe mutants target distinct errors: treating a historically authentic statement as current authority, and accepting historical evidence without trusted time or the exact historical policy. The safe configuration must explore both the pre-revocation and post-revocation states, and both missing-evidence paths must remain INDETERMINATE.
+
+**Execution status:** these model files and the pinned-TLC workflow steps are source-present, but this new model has not yet been run. No model-check pass or Rust verifier implementation is claimed. The next exact-head workflow must show the safe model queue exhausted and both mutants caught by their intended invariants. The Rust implementation must subsequently represent key validity/revocation effective epochs and a trusted timestamp/policy-history input; until then the existing v1 behavior remains current-key-only and historical adjudication is not supported.
+
 ## Qualification stages
 
 | Stage | Required evidence | Claim ceiling |
