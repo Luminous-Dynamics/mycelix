@@ -1,0 +1,178 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/finance-agent-trajectory-report-v1.0.0.json",
+  "title": "Mycelix Finance Agent Trajectory Evaluation Report v1.0.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "report_id",
+    "schema_version",
+    "claim_ceiling",
+    "candidate_sha256",
+    "oracle_sha256",
+    "case_count",
+    "aggregates",
+    "case_results"
+  ],
+  "properties": {
+    "report_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "claim_ceiling": {
+      "const": "synthetic_deterministic_first_failure_checks_not_empirical_agent_performance"
+    },
+    "candidate_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "oracle_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "case_count": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "aggregates": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "first_failure_exact_count",
+        "failure_class_exact_count",
+        "false_safe_count",
+        "latent_violation_count",
+        "endpoint_state_exact_count",
+        "side_effect_count_exact",
+        "case_count"
+      ],
+      "properties": {
+        "first_failure_exact_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "failure_class_exact_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "false_safe_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "latent_violation_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "endpoint_state_exact_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "side_effect_count_exact": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "case_count": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "case_results": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/caseResult"
+      }
+    }
+  },
+  "$defs": {
+    "caseResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "case_id",
+        "observed_first_critical_failure_step_ref",
+        "observed_failure_class",
+        "first_failure_exact",
+        "failure_class_exact",
+        "false_safe",
+        "observed_endpoint_state",
+        "expected_endpoint_state",
+        "endpoint_state_exact",
+        "observed_latent_violation",
+        "expected_latent_violation",
+        "successful_mutating_side_effects",
+        "expected_successful_mutating_side_effects",
+        "side_effect_count_exact",
+        "propagation_refs_valid"
+      ],
+      "properties": {
+        "case_id": {
+          "type": "string"
+        },
+        "observed_first_critical_failure_step_ref": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "observed_failure_class": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "first_failure_exact": {
+          "type": "boolean"
+        },
+        "failure_class_exact": {
+          "type": "boolean"
+        },
+        "false_safe": {
+          "type": "boolean"
+        },
+        "observed_endpoint_state": {
+          "enum": [
+            "safe",
+            "unsafe",
+            "contained",
+            "blocked_with_latent_violation"
+          ]
+        },
+        "expected_endpoint_state": {
+          "enum": [
+            "safe",
+            "unsafe",
+            "contained",
+            "blocked_with_latent_violation"
+          ]
+        },
+        "endpoint_state_exact": {
+          "type": "boolean"
+        },
+        "observed_latent_violation": {
+          "type": "boolean"
+        },
+        "expected_latent_violation": {
+          "type": "boolean"
+        },
+        "successful_mutating_side_effects": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "expected_successful_mutating_side_effects": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "side_effect_count_exact": {
+          "type": "boolean"
+        },
+        "propagation_refs_valid": {
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}
