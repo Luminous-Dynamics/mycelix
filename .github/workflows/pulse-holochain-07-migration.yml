@@ -252,7 +252,7 @@ jobs:
           # browser-only wasm_js backend or the always-failing unsupported one.
           nix develop --command bash -lc '
             unset CARGO_BUILD_RUSTFLAGS CARGO_ENCODED_RUSTFLAGS
-            export RUSTFLAGS="-D warnings --cfg getrandom_backend=\\\"custom\\\""
+            export RUSTFLAGS="-D warnings --cfg getrandom_backend=\"custom\""
             cargo build --manifest-path holochain/Cargo.toml --workspace --release --target wasm32-unknown-unknown
           '
 
