@@ -164,6 +164,12 @@ pub fn validate_trace_schema_contract(schema_bytes: &[u8]) -> Result<(), Vec<Str
     if get_bool(&schema, "additionalProperties") != Some(false) {
         errors.push("trace schema root additionalProperties must be false".to_string());
     }
+    if schema.get("properties").and_then(|p| p.get("trace_version")).and_then(|p| p.get("const")).and_then(Value::as_u64) != Some(1) {
+        errors.push("trace schema trace_version const must be 1".to_string());
+    }
+    if schema.get("properties").and_then(|p| p.get("profile_id")).and_then(|p| p.get("const")).and_then(Value::as_str) != Some(PROFILE_ID) {
+        errors.push("trace schema profile_id const does not match the Pulse profile".to_string());
+    }
     let required = get_string_array(&schema, "required").unwrap_or_default();
     for key in ["trace_version", "profile_id", "trace_id", "scenario_id", "source_commit", "observer_id", "runtime", "events"] {
         if !required.iter().any(|candidate| candidate == key) {
@@ -193,9 +199,30 @@ pub fn validate_trace_schema_contract(schema_bytes: &[u8]) -> Result<(), Vec<Str
         errors.push("trace schema planes.additionalProperties must be false".to_string());
     }
     let plane_required = get_string_array(planes, "required").unwrap_or_default();
-    for key in ["host_decision", "domain_result", "source_chain", "validator", "projection", "observer"] {
+    for (key, allowed) in [
+        ("host_decision", HOST_DECISIONS),
+        ("domain_result", DOMAIN_RESULTS),
+        ("source_chain", SOURCE_CHAIN_RESULTS),
+        ("validator", VALIDATOR_RESULTS),
+        ("projection", PROJECTIONS),
+        ("observer", OBSERVER_RESULTS),
+    ] {
         if !plane_required.iter().any(|candidate| candidate == key) {
             errors.push(format!("trace schema outcome planes omit required field {key}"));
+        }
+        let enum_values = planes
+            .get("properties")
+            .and_then(|p| p.get(key))
+            .and_then(|p| p.get("enum"))
+            .and_then(Value::as_array);
+        let actual: BTreeSet<&str> = enum_values
+            .into_iter()
+            .flatten()
+            .filter_map(Value::as_str)
+            .collect();
+        let expected: BTreeSet<&str> = allowed.iter().copied().collect();
+        if actual != expected {
+            errors.push(format!("trace schema {key} enum does not match the Rust contract"));
         }
     }
     let host_transition = events
