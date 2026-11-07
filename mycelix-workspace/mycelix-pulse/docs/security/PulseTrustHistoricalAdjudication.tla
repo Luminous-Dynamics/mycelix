@@ -209,7 +209,7 @@ VerifyHistorical ==
     /\ historicalOutcome' =
         IF ~statementSignatureValid
            \/ statementEpoch = NoEpoch
-           \/ ~retainedPolicyEpochs \cap {statementEpoch} # {statementEpoch}
+           \/ ~(statementEpoch \in retainedPolicyEpochs)
         THEN "REJECTED"
         ELSE IF trustedTimeAvailable /\ historicalPolicyAvailable
         THEN
