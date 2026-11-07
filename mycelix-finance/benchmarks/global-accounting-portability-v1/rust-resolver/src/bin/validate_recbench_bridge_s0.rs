@@ -354,6 +354,16 @@ fn validate_ledger_settlement_match(
         if string(from, "tenant_namespace")? != string(to, "tenant_namespace")? {
             return Err(format!("{case_id}/{match_ref}: cross-tenant match is prohibited"));
         }
+        let ledger_source_ref = optional_string(from, "source_reference");
+        let settlement_source_ref = optional_string(to, "source_reference");
+        if ledger_source_ref.is_none()
+            || ledger_source_ref != settlement_source_ref
+        {
+            return Err(format!("{case_id}/{match_ref}: automatic ledger/settlement match requires the same explicit source reference"));
+        }
+        if integer(from, "amount_minor")?.signum() != integer(to, "amount_minor")?.signum() {
+            return Err(format!("{case_id}/{match_ref}: ledger and settlement signs differ"));
+        }
         let amount = integer(allocation, "amount_minor")?;
         if amount <= 0 {
             return Err(format!("{case_id}/{match_ref}: allocation amount must be positive"));
@@ -362,12 +372,20 @@ fn validate_ledger_settlement_match(
             return Err(format!("{case_id}/{match_ref}: allocation currency must be settlement currency"));
         }
         if let Some(quote) = fx_quote {
+            let quote_sources = array(quote, "source_record_refs")?
+                .iter()
+                .filter_map(Value::as_str)
+                .collect::<BTreeSet<_>>();
             if string(from, "currency")? != string(quote, "base_currency")?
                 || string(to, "currency")? != string(quote, "quote_currency")?
                 || absolute(integer(from, "amount_minor")?)? != integer(quote, "source_amount_minor")?
                 || absolute(integer(to, "amount_minor")?)? != integer(quote, "target_amount_minor")?
+                || !quote_sources.contains(from_ref)
+                || !quote_sources.contains(to_ref)
+                || string(quote, "value_date")? != string(from, "value_date")?
+                || string(quote, "value_date")? != string(to, "value_date")?
             {
-                return Err(format!("{case_id}/{match_ref}: FX quote does not bind to source and settlement records"));
+                return Err(format!("{case_id}/{match_ref}: FX quote does not bind exact source/settlement records, currencies and value date"));
             }
             if amount != integer(quote, "target_amount_minor")? {
                 return Err(format!("{case_id}/{match_ref}: FX allocation does not equal converted target amount"));
@@ -487,53 +505,28 @@ fn validate_payout_bank_match(case: &Value, match_item: &Value) -> Result<(), St
         total += integer(payout, "amount_minor")? as i128;
     }
     if total != integer(bank, "amount_minor")? as i128
-        || total != integer(match_item, "matched_amount_minor")? as i128
+        || absolute(i64::try_from(total).map_err(|_| format!("{case_id}/{match_ref}: payout group total overflows i64"))?)?
+            != integer(match_item, "matched_amount_minor")?
         || string(match_item, "currency")? != string(bank, "currency")?
     {
-        return Err(format!("{case_id}/{match_ref}: payout group does not exactly reconcile to bank amount"));
+        return Err(format!("{case_id}/{match_ref}: signed payout group must equal bank movement and matched_amount_minor must equal its positive magnitude"));
     }
     Ok(())
 }
 
-fn accepted_match_refs(expectation: &Value) -> Result<BTreeSet<String>, String> {
-    let mut refs = BTreeSet::new();
-    for item in array(expectation, "matches")? {
-        for field in [
-            "ledger_record_refs",
-            "settlement_record_refs",
-            "payout_record_refs",
-            "bank_record_refs",
-        ] {
-            for reference in array(item, field)? {
-                refs.insert(
-                    reference
-                        .as_str()
-                        .ok_or("match record ref must be string")?
-                        .to_owned(),
-                );
-            }
+fn candidate_ambiguous_pairs(case: &Value) -> Result<Vec<(String, String)>, String> {
+    let mut ledgers = Vec::new();
+    let mut settlements = Vec::new();
+    for record in array(case, "records")? {
+        if is_future(case, record)? || !value_is_null(record, "source_reference") {
+            continue;
+        }
+        match optional_string(record, "record_kind") {
+            Some("ledger_transaction") => ledgers.push(record),
+            Some("settlement_line") => settlements.push(record),
+            _ => {}
         }
     }
-    Ok(refs)
-}
-
-fn candidate_ambiguous_pairs(case: &Value) -> Result<Vec<(String, String)>, String> {
-    let ledgers = array(case, "records")?
-        .iter()
-        .filter(|record| {
-            optional_string(record, "record_kind") == Some("ledger_transaction")
-                && !is_future(case, record).unwrap_or(true)
-                && value_is_null(record, "source_reference")
-        })
-        .collect::<Vec<_>>();
-    let settlements = array(case, "records")?
-        .iter()
-        .filter(|record| {
-            optional_string(record, "record_kind") == Some("settlement_line")
-                && !is_future(case, record).unwrap_or(true)
-                && value_is_null(record, "source_reference")
-        })
-        .collect::<Vec<_>>();
     let mut pairs = Vec::new();
     for ledger in ledgers {
         for settlement in &settlements {
@@ -792,15 +785,18 @@ fn validate_case(case: &Value, expectation: &Value) -> Result<Value, String> {
         .into_iter()
         .map(|(duplicate, _)| duplicate)
         .collect::<BTreeSet<_>>();
-    let mut payout_lines = BTreeMap::<String, i128>::new();
+    let mut payout_lines = BTreeMap::<(String, String), i128>::new();
     for record in array(case, "records")? {
         if optional_string(record, "record_kind") == Some("settlement_line")
             && !is_future(case, record)?
             && !duplicate_set.contains(string(record, "record_ref")?)
         {
             if let Some(payout_external_id) = optional_string(record, "payout_external_id") {
-                *payout_lines.entry(payout_external_id.to_owned()).or_default() +=
-                    integer(record, "amount_minor")? as i128;
+                let key = (
+                    string(record, "tenant_namespace")?.to_owned(),
+                    payout_external_id.to_owned(),
+                );
+                *payout_lines.entry(key).or_default() += integer(record, "amount_minor")? as i128;
             }
         }
     }
@@ -808,8 +804,11 @@ fn validate_case(case: &Value, expectation: &Value) -> Result<Value, String> {
         .iter()
         .filter(|record| optional_string(record, "record_kind") == Some("payout"))
     {
-        let payout_id = string(payout, "external_id")?;
-        if let Some(lines_total) = payout_lines.get(payout_id) {
+        let key = (
+            string(payout, "tenant_namespace")?.to_owned(),
+            string(payout, "external_id")?.to_owned(),
+        );
+        if let Some(lines_total) = payout_lines.get(&key) {
             if *lines_total != integer(payout, "amount_minor")? as i128 {
                 return Err(format!("{case_id}: eligible settlement lines do not equal payout net for {payout_id}"));
             }
