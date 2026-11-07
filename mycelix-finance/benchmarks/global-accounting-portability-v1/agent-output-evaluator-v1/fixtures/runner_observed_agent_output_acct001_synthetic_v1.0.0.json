@@ -1,0 +1,142 @@
+{
+  "case_id": "ACCT-001-COMPLETE-INVOICE",
+  "disposition": "deliver",
+  "primary_reason_code": "no_blocker_detected",
+  "reason_codes": [
+    "no_blocker_detected"
+  ],
+  "questions": [],
+  "journal_entries": [
+    {
+      "entry_ref": "JE-001",
+      "lines": [
+        {
+          "line_ref": "JE-001-DR",
+          "account_ref": "EXP-SERVICES",
+          "side": "debit",
+          "amount_minor": 125000,
+          "currency": "USD",
+          "entity_ref": "ENTITY-ACME",
+          "period_ref": "2026-10",
+          "source_fact_refs": [
+            "F-001-AMOUNT",
+            "F-001-ENTITY",
+            "F-001-START",
+            "F-001-END"
+          ]
+        },
+        {
+          "line_ref": "JE-001-CR",
+          "account_ref": "AP-TRADE",
+          "side": "credit",
+          "amount_minor": 125000,
+          "currency": "USD",
+          "entity_ref": "ENTITY-ACME",
+          "period_ref": "2026-10",
+          "source_fact_refs": [
+            "F-001-AMOUNT",
+            "F-001-ENTITY",
+            "F-001-START",
+            "F-001-END"
+          ]
+        }
+      ]
+    }
+  ],
+  "statement_lines": [
+    {
+      "statement_line_ref": "ST-001-OCT",
+      "statement_type": "income_statement",
+      "account_ref": "EXP-SERVICES",
+      "amount_minor": 125000,
+      "currency": "USD",
+      "entity_ref": "ENTITY-ACME",
+      "period_ref": "2026-10",
+      "source_journal_entry_refs": [
+        "JE-001"
+      ],
+      "normal_balance": "debit"
+    }
+  ],
+  "assumptions": [],
+  "evidence_trace": [
+    {
+      "trace_ref": "TRACE-FACT-F-001-AMOUNT",
+      "fact_type": "invoice_total_minor",
+      "fact_ref": "F-001-AMOUNT",
+      "evidence_state": "asserted",
+      "terminal_state": "carried_to_journal",
+      "terminal_reason": "Supported source fact carried into the journal line.",
+      "source_document_refs": [
+        "DOC-001-INV"
+      ],
+      "question_refs": [],
+      "journal_line_refs": [
+        "JE-001-DR",
+        "JE-001-CR"
+      ]
+    },
+    {
+      "trace_ref": "TRACE-FACT-F-001-SUPPLIER",
+      "fact_type": "supplier_identity",
+      "fact_ref": "F-001-SUPPLIER",
+      "evidence_state": "asserted",
+      "terminal_state": "excluded",
+      "terminal_reason": "Fact assessed and explicitly excluded from the current deliverable.",
+      "source_document_refs": [
+        "DOC-001-INV"
+      ],
+      "question_refs": [],
+      "journal_line_refs": []
+    },
+    {
+      "trace_ref": "TRACE-FACT-F-001-ENTITY",
+      "fact_type": "reporting_entity_ref",
+      "fact_ref": "F-001-ENTITY",
+      "evidence_state": "asserted",
+      "terminal_state": "carried_to_journal",
+      "terminal_reason": "Supported source fact carried into the journal line.",
+      "source_document_refs": [
+        "DOC-001-CONTRACT"
+      ],
+      "question_refs": [],
+      "journal_line_refs": [
+        "JE-001-DR",
+        "JE-001-CR"
+      ]
+    },
+    {
+      "trace_ref": "TRACE-FACT-F-001-START",
+      "fact_type": "service_period_start",
+      "fact_ref": "F-001-START",
+      "evidence_state": "asserted",
+      "terminal_state": "carried_to_journal",
+      "terminal_reason": "Supported source fact carried into the journal line.",
+      "source_document_refs": [
+        "DOC-001-CONTRACT"
+      ],
+      "question_refs": [],
+      "journal_line_refs": [
+        "JE-001-DR",
+        "JE-001-CR"
+      ]
+    },
+    {
+      "trace_ref": "TRACE-FACT-F-001-END",
+      "fact_type": "service_period_end",
+      "fact_ref": "F-001-END",
+      "evidence_state": "asserted",
+      "terminal_state": "carried_to_journal",
+      "terminal_reason": "Supported source fact carried into the journal line.",
+      "source_document_refs": [
+        "DOC-001-CONTRACT"
+      ],
+      "question_refs": [],
+      "journal_line_refs": [
+        "JE-001-DR",
+        "JE-001-CR"
+      ]
+    }
+  ],
+  "decision_confidence": 1
+}
