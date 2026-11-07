@@ -179,7 +179,8 @@
         "max_beam_m": 4.2,
         "max_draft_m": 2.1,
         "shore_power": "230V_16A"
-      }
+      },
+      "capacity_dimension": "count"
     },
     {
       "id": "resource:stonequay-berth-b",
@@ -193,7 +194,8 @@
         "max_beam_m": 5,
         "max_draft_m": 2.7,
         "shore_power": "230V_32A"
-      }
+      },
+      "capacity_dimension": "count"
     },
     {
       "id": "resource:reedhaven-mooring-c",
@@ -207,7 +209,8 @@
         "max_beam_m": 3.8,
         "max_draft_m": 1.4,
         "shore_power": "none"
-      }
+      },
+      "capacity_dimension": "count"
     },
     {
       "id": "resource:tideline-berth-d",
@@ -221,7 +224,8 @@
         "max_beam_m": 4.6,
         "max_draft_m": 2,
         "shore_power": "230V_16A"
-      }
+      },
+      "capacity_dimension": "count"
     },
     {
       "id": "resource:kelpport-mooring-e",
@@ -235,7 +239,8 @@
         "max_beam_m": 3.5,
         "max_draft_m": 1.2,
         "shore_power": "none"
-      }
+      },
+      "capacity_dimension": "count"
     },
     {
       "id": "resource:windward-room-1",
@@ -247,7 +252,8 @@
       "constraints": {
         "sleeps": 2,
         "wheelchair_accessible": false
-      }
+      },
+      "capacity_dimension": "count"
     },
     {
       "id": "resource:stonequay-flat-2",
@@ -259,7 +265,8 @@
       "constraints": {
         "sleeps": 4,
         "wheelchair_accessible": true
-      }
+      },
+      "capacity_dimension": "count"
     },
     {
       "id": "resource:reedhaven-cottage-3",
@@ -271,7 +278,8 @@
       "constraints": {
         "sleeps": 4,
         "wheelchair_accessible": true
-      }
+      },
+      "capacity_dimension": "count"
     },
     {
       "id": "resource:tideline-loft-4",
@@ -283,7 +291,8 @@
       "constraints": {
         "sleeps": 2,
         "wheelchair_accessible": false
-      }
+      },
+      "capacity_dimension": "count"
     },
     {
       "id": "resource:kelpport-guesthouse-5",
@@ -295,7 +304,8 @@
       "constraints": {
         "sleeps": 3,
         "wheelchair_accessible": true
-      }
+      },
+      "capacity_dimension": "count"
     },
     {
       "id": "resource:repair-bench-1",
@@ -306,7 +316,8 @@
       "capacity_unit": "appointment",
       "constraints": {
         "service": "outboard_diagnostic"
-      }
+      },
+      "capacity_dimension": "count"
     },
     {
       "id": "resource:repair-bench-2",
@@ -317,7 +328,8 @@
       "capacity_unit": "appointment",
       "constraints": {
         "service": "rig_inspection"
-      }
+      },
+      "capacity_dimension": "count"
     },
     {
       "id": "resource:shore-power-1",
@@ -329,7 +341,8 @@
       "constraints": {
         "service": "shore_power",
         "rated_kw": 7.4
-      }
+      },
+      "capacity_dimension": "count"
     },
     {
       "id": "resource:shore-power-2",
@@ -341,7 +354,8 @@
       "constraints": {
         "service": "shore_power",
         "rated_kw": 3.6
-      }
+      },
+      "capacity_dimension": "count"
     },
     {
       "id": "resource:provision-box-1",
@@ -352,7 +366,8 @@
       "capacity_unit": "delivery-window",
       "constraints": {
         "service": "provisioning"
-      }
+      },
+      "capacity_dimension": "count"
     },
     {
       "id": "resource:provision-box-2",
@@ -363,7 +378,8 @@
       "capacity_unit": "delivery-window",
       "constraints": {
         "service": "provisioning"
-      }
+      },
+      "capacity_dimension": "count"
     },
     {
       "id": "resource:access-transfer-1",
@@ -375,7 +391,8 @@
       "constraints": {
         "service": "accessible_shore_transfer",
         "wheelchair_lift": true
-      }
+      },
+      "capacity_dimension": "count"
     },
     {
       "id": "resource:access-transfer-2",
@@ -387,6 +404,35 @@
       "constraints": {
         "service": "accessible_shore_transfer",
         "wheelchair_lift": true
+      },
+      "capacity_dimension": "count"
+    },
+    {
+      "id": "resource:shore-power-feeder-stonequay",
+      "provider_ref": "provider:shorepower-union",
+      "destination_ref": "dest:stonequay",
+      "kind": "service",
+      "capacity": 22000,
+      "capacity_unit": "W",
+      "capacity_dimension": "power",
+      "constraints": {
+        "service": "shore_power_concurrent_limit",
+        "measurement_window_seconds": 60,
+        "note": "Synthetic instantaneous feeder capacity; separate from connection count and energy allocation."
+      }
+    },
+    {
+      "id": "resource:shore-energy-budget-stonequay",
+      "provider_ref": "provider:shorepower-union",
+      "destination_ref": "dest:stonequay",
+      "kind": "service",
+      "capacity": 800000,
+      "capacity_unit": "Wh",
+      "capacity_dimension": "energy",
+      "constraints": {
+        "service": "shore_energy_quota",
+        "settlement_period": "P1D",
+        "note": "Synthetic cumulative energy allocation; separate from instantaneous feeder capacity."
       }
     }
   ],
