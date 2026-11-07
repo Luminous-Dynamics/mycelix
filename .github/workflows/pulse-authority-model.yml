@@ -9,6 +9,7 @@ on:
       - "mycelix-workspace/mycelix-pulse/docs/security/PulseAuthorityLifecycle*"
       - "mycelix-workspace/mycelix-pulse/docs/security/PulseMailboxValidation*"
       - "mycelix-workspace/mycelix-pulse/docs/security/PulseAuthorityCheckpoint*"
+      - "mycelix-workspace/mycelix-pulse/docs/security/PulseHostCallLinearization*"
       - "mycelix-workspace/mycelix-pulse/docs/security/PulseAuthorityCheckpointLineage*"
       - "mycelix-workspace/mycelix-pulse/docs/security/PulseAuthorityCausalFrontier*"
       - "mycelix-workspace/mycelix-pulse/docs/security/PulseSignalTrust*"
@@ -436,6 +437,38 @@ jobs:
           grep -q "EnableRequiresAllCellsRestored" \
             "${RUNNER_TEMP}/pulse-tlc-artifacts/chain-restore-no-peer-empty-mutant/tlc.log"
 
+      - name: Check safe host call/revocation linearization model
+        working-directory: mycelix-workspace/mycelix-pulse/docs/security
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "${RUNNER_TEMP}/pulse-tlc-artifacts/host-call-linearization-safe"
+          java -XX:+UseParallelGC -Xmx2g \
+            -jar "${RUNNER_TEMP}/tlaplus/tla2tools.jar" \
+            -metadir "${RUNNER_TEMP}/pulse-tlc-artifacts/host-call-linearization-safe/states" \
+            -config PulseHostCallLinearization.cfg \
+            PulseHostCallLinearization.tla \
+            2>&1 | tee "${RUNNER_TEMP}/pulse-tlc-artifacts/host-call-linearization-safe/tlc.log"
+
+      - name: Require projection-based host call race mutant counterexample
+        working-directory: mycelix-workspace/mycelix-pulse/docs/security
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "${RUNNER_TEMP}/pulse-tlc-artifacts/host-call-linearization-mutant"
+          set +e
+          java -XX:+UseParallelGC -Xmx2g \
+            -jar "${RUNNER_TEMP}/tlaplus/tla2tools.jar" \
+            -metadir "${RUNNER_TEMP}/pulse-tlc-artifacts/host-call-linearization-mutant/states" \
+            -config PulseHostCallLinearization-projection-mutant.cfg \
+            PulseHostCallLinearization.tla \
+            2>&1 | tee "${RUNNER_TEMP}/pulse-tlc-artifacts/host-call-linearization-mutant/tlc.log"
+          status=${PIPESTATUS[0]}
+          set -e
+          test "$status" -ne 0
+          grep -Eq "CallDecisionIsLinearized|NoPostRevokeAuthorization|HostDecisionNotProjectionDerived" \
+            "${RUNNER_TEMP}/pulse-tlc-artifacts/host-call-linearization-mutant/tlc.log"
+
       - name: Record exact model receipt
         if: always()
         working-directory: mycelix-workspace/mycelix-pulse/docs/security
@@ -486,6 +519,9 @@ jobs:
             echo "chain_restore_safe_config_sha256=$(sha256sum PulseChainRestore.cfg | cut -d' ' -f1)"
             echo "chain_restore_early_enable_mutant_sha256=$(sha256sum PulseChainRestore-early-enable-mutant.cfg | cut -d' ' -f1)"
             echo "chain_restore_no_peer_empty_mutant_sha256=$(sha256sum PulseChainRestore-no-peer-empty-mutant.cfg | cut -d' ' -f1)"
+            echo "host_call_linearization_spec_sha256=$(sha256sum PulseHostCallLinearization.tla | cut -d' ' -f1)"
+            echo "host_call_linearization_safe_config_sha256=$(sha256sum PulseHostCallLinearization.cfg | cut -d' ' -f1)"
+            echo "host_call_linearization_projection_mutant_sha256=$(sha256sum PulseHostCallLinearization-projection-mutant.cfg | cut -d' ' -f1)"
             java -version > "${RUNNER_TEMP}/java-version.txt" 2>&1
             sed -n '1p' "${RUNNER_TEMP}/java-version.txt"
           } > "${RUNNER_TEMP}/pulse-tlc-artifacts/receipt.txt"
