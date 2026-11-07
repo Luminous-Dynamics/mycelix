@@ -1,0 +1,527 @@
+{
+  "bundle_id": "MYCELIX-RECBENCH-BRIDGE-S0-ORACLE",
+  "schema_version": "1.0.0",
+  "claim_ceiling": "synthetic_oracle_for_bridge_controls_not_model_performance",
+  "dataset_binding": {
+    "snapshot_id": "MYCELIX-RECBENCH-SMALL-SOURCE-2026-11-07",
+    "tier": "small",
+    "generator_version": "0.1.0",
+    "seed": 1042,
+    "config_sha256": "d31d413456ea5364f74a0c355a6b41d81aee5ea37f9f4805a356bdfa7243fbc5",
+    "oracle_files_excluded": true
+  },
+  "expectations": [
+    {
+      "case_id": "RB-001-EXACT-TRIPLE",
+      "matches": [
+        {
+          "match_ref": "M001-LS",
+          "match_kind": "ledger_to_settlement",
+          "ledger_record_refs": [
+            "L001"
+          ],
+          "settlement_record_refs": [
+            "S001"
+          ],
+          "payout_record_refs": [],
+          "bank_record_refs": [],
+          "currency": "USD",
+          "matched_amount_minor": 10000,
+          "fx_quote_ref": null,
+          "allocations": [
+            {
+              "from_record_ref": "L001",
+              "to_record_ref": "S001",
+              "amount_minor": 10000,
+              "currency": "USD"
+            }
+          ]
+        },
+        {
+          "match_ref": "M001-PB",
+          "match_kind": "payout_to_bank",
+          "ledger_record_refs": [],
+          "settlement_record_refs": [],
+          "payout_record_refs": [
+            "P001"
+          ],
+          "bank_record_refs": [
+            "B001"
+          ],
+          "currency": "USD",
+          "matched_amount_minor": 10000,
+          "fx_quote_ref": null,
+          "allocations": []
+        }
+      ],
+      "duplicates": [],
+      "reversals": [],
+      "exceptions": []
+    },
+    {
+      "case_id": "RB-002-GROSS-FEE-NET",
+      "matches": [
+        {
+          "match_ref": "M002-LS",
+          "match_kind": "ledger_to_settlement",
+          "ledger_record_refs": [
+            "L002"
+          ],
+          "settlement_record_refs": [
+            "S002-GROSS"
+          ],
+          "payout_record_refs": [],
+          "bank_record_refs": [],
+          "currency": "USD",
+          "matched_amount_minor": 100000,
+          "fx_quote_ref": null,
+          "allocations": [
+            {
+              "from_record_ref": "L002",
+              "to_record_ref": "S002-GROSS",
+              "amount_minor": 100000,
+              "currency": "USD"
+            }
+          ]
+        },
+        {
+          "match_ref": "M002-PB",
+          "match_kind": "payout_to_bank",
+          "ledger_record_refs": [],
+          "settlement_record_refs": [],
+          "payout_record_refs": [
+            "P002"
+          ],
+          "bank_record_refs": [
+            "B002"
+          ],
+          "currency": "USD",
+          "matched_amount_minor": 97500,
+          "fx_quote_ref": null,
+          "allocations": []
+        }
+      ],
+      "duplicates": [],
+      "reversals": [],
+      "exceptions": []
+    },
+    {
+      "case_id": "RB-003-FX-SETTLEMENT",
+      "matches": [
+        {
+          "match_ref": "M003-LS-FX",
+          "match_kind": "ledger_to_settlement",
+          "ledger_record_refs": [
+            "L003"
+          ],
+          "settlement_record_refs": [
+            "S003-GROSS"
+          ],
+          "payout_record_refs": [],
+          "bank_record_refs": [],
+          "currency": "USD",
+          "matched_amount_minor": 110000,
+          "fx_quote_ref": "FX-003",
+          "allocations": [
+            {
+              "from_record_ref": "L003",
+              "to_record_ref": "S003-GROSS",
+              "amount_minor": 110000,
+              "currency": "USD"
+            }
+          ]
+        },
+        {
+          "match_ref": "M003-PB",
+          "match_kind": "payout_to_bank",
+          "ledger_record_refs": [],
+          "settlement_record_refs": [],
+          "payout_record_refs": [
+            "P003"
+          ],
+          "bank_record_refs": [
+            "B003"
+          ],
+          "currency": "USD",
+          "matched_amount_minor": 108900,
+          "fx_quote_ref": null,
+          "allocations": []
+        }
+      ],
+      "duplicates": [],
+      "reversals": [],
+      "exceptions": []
+    },
+    {
+      "case_id": "RB-004-DATE-BOUNDARY-BATCH",
+      "matches": [
+        {
+          "match_ref": "M004-LS",
+          "match_kind": "ledger_to_settlement",
+          "ledger_record_refs": [
+            "L004"
+          ],
+          "settlement_record_refs": [
+            "S004"
+          ],
+          "payout_record_refs": [],
+          "bank_record_refs": [],
+          "currency": "USD",
+          "matched_amount_minor": 30000,
+          "fx_quote_ref": null,
+          "allocations": [
+            {
+              "from_record_ref": "L004",
+              "to_record_ref": "S004",
+              "amount_minor": 30000,
+              "currency": "USD"
+            }
+          ]
+        },
+        {
+          "match_ref": "M004-PB",
+          "match_kind": "payout_to_bank",
+          "ledger_record_refs": [],
+          "settlement_record_refs": [],
+          "payout_record_refs": [
+            "P004"
+          ],
+          "bank_record_refs": [
+            "B004"
+          ],
+          "currency": "USD",
+          "matched_amount_minor": 30000,
+          "fx_quote_ref": null,
+          "allocations": []
+        }
+      ],
+      "duplicates": [],
+      "reversals": [],
+      "exceptions": []
+    },
+    {
+      "case_id": "RB-005-PARTIAL-CAPTURE",
+      "matches": [
+        {
+          "match_ref": "M005-LS-PARTIAL",
+          "match_kind": "ledger_to_settlement",
+          "ledger_record_refs": [
+            "L005"
+          ],
+          "settlement_record_refs": [
+            "S005-A",
+            "S005-B"
+          ],
+          "payout_record_refs": [],
+          "bank_record_refs": [],
+          "currency": "USD",
+          "matched_amount_minor": 20000,
+          "fx_quote_ref": null,
+          "allocations": [
+            {
+              "from_record_ref": "L005",
+              "to_record_ref": "S005-A",
+              "amount_minor": 8000,
+              "currency": "USD"
+            },
+            {
+              "from_record_ref": "L005",
+              "to_record_ref": "S005-B",
+              "amount_minor": 12000,
+              "currency": "USD"
+            }
+          ]
+        },
+        {
+          "match_ref": "M005-PB",
+          "match_kind": "payout_to_bank",
+          "ledger_record_refs": [],
+          "settlement_record_refs": [],
+          "payout_record_refs": [
+            "P005"
+          ],
+          "bank_record_refs": [
+            "B005"
+          ],
+          "currency": "USD",
+          "matched_amount_minor": 20000,
+          "fx_quote_ref": null,
+          "allocations": []
+        }
+      ],
+      "duplicates": [],
+      "reversals": [],
+      "exceptions": []
+    },
+    {
+      "case_id": "RB-006-DUPLICATE-SETTLEMENT-FEED",
+      "matches": [
+        {
+          "match_ref": "M006-LS",
+          "match_kind": "ledger_to_settlement",
+          "ledger_record_refs": [
+            "L006"
+          ],
+          "settlement_record_refs": [
+            "S006"
+          ],
+          "payout_record_refs": [],
+          "bank_record_refs": [],
+          "currency": "USD",
+          "matched_amount_minor": 50000,
+          "fx_quote_ref": null,
+          "allocations": [
+            {
+              "from_record_ref": "L006",
+              "to_record_ref": "S006",
+              "amount_minor": 50000,
+              "currency": "USD"
+            }
+          ]
+        },
+        {
+          "match_ref": "M006-PB",
+          "match_kind": "payout_to_bank",
+          "ledger_record_refs": [],
+          "settlement_record_refs": [],
+          "payout_record_refs": [
+            "P006"
+          ],
+          "bank_record_refs": [
+            "B006"
+          ],
+          "currency": "USD",
+          "matched_amount_minor": 50000,
+          "fx_quote_ref": null,
+          "allocations": []
+        }
+      ],
+      "duplicates": [
+        {
+          "duplicate_record_ref": "S006-DUP",
+          "canonical_record_ref": "S006",
+          "reason_code": "duplicate_feed_row_same_source_identity"
+        }
+      ],
+      "reversals": [],
+      "exceptions": []
+    },
+    {
+      "case_id": "RB-007-REVERSAL-LIFECYCLE",
+      "matches": [
+        {
+          "match_ref": "M007-LS-SALE",
+          "match_kind": "ledger_to_settlement",
+          "ledger_record_refs": [
+            "L007-SALE"
+          ],
+          "settlement_record_refs": [
+            "S007-SALE"
+          ],
+          "payout_record_refs": [],
+          "bank_record_refs": [],
+          "currency": "USD",
+          "matched_amount_minor": 50000,
+          "fx_quote_ref": null,
+          "allocations": [
+            {
+              "from_record_ref": "L007-SALE",
+              "to_record_ref": "S007-SALE",
+              "amount_minor": 50000,
+              "currency": "USD"
+            }
+          ]
+        },
+        {
+          "match_ref": "M007-LS-REV",
+          "match_kind": "ledger_to_settlement",
+          "ledger_record_refs": [
+            "L007-REV"
+          ],
+          "settlement_record_refs": [
+            "S007-REV"
+          ],
+          "payout_record_refs": [],
+          "bank_record_refs": [],
+          "currency": "USD",
+          "matched_amount_minor": 50000,
+          "fx_quote_ref": null,
+          "allocations": [
+            {
+              "from_record_ref": "L007-REV",
+              "to_record_ref": "S007-REV",
+              "amount_minor": 50000,
+              "currency": "USD"
+            }
+          ]
+        },
+        {
+          "match_ref": "M007-PB-IN",
+          "match_kind": "payout_to_bank",
+          "ledger_record_refs": [],
+          "settlement_record_refs": [],
+          "payout_record_refs": [
+            "P007-IN"
+          ],
+          "bank_record_refs": [
+            "B007-IN"
+          ],
+          "currency": "USD",
+          "matched_amount_minor": 50000,
+          "fx_quote_ref": null,
+          "allocations": []
+        },
+        {
+          "match_ref": "M007-PB-OUT",
+          "match_kind": "payout_to_bank",
+          "ledger_record_refs": [],
+          "settlement_record_refs": [],
+          "payout_record_refs": [
+            "P007-OUT"
+          ],
+          "bank_record_refs": [
+            "B007-OUT"
+          ],
+          "currency": "USD",
+          "matched_amount_minor": 50000,
+          "fx_quote_ref": null,
+          "allocations": []
+        }
+      ],
+      "duplicates": [],
+      "reversals": [
+        {
+          "reversal_record_ref": "L007-REV",
+          "original_record_ref": "L007-SALE",
+          "reason_code": "explicit_reversal_lineage"
+        },
+        {
+          "reversal_record_ref": "S007-REV",
+          "original_record_ref": "S007-SALE",
+          "reason_code": "explicit_reversal_lineage"
+        }
+      ],
+      "exceptions": []
+    },
+    {
+      "case_id": "RB-008-UNMATCHED-BANK-AND-FUTURE-SOURCE",
+      "matches": [],
+      "duplicates": [],
+      "reversals": [],
+      "exceptions": [
+        {
+          "exception_ref": "EX008-BANK",
+          "reason_code": "unmatched_bank_movement",
+          "record_refs": [
+            "B008"
+          ],
+          "action": "route_to_review",
+          "expected_residual_minor": 15900,
+          "details": "No eligible ledger, settlement or payout record explains the bank movement."
+        },
+        {
+          "exception_ref": "EX008-FUTURE",
+          "reason_code": "future_evidence_not_available",
+          "record_refs": [
+            "S008-FUTURE"
+          ],
+          "action": "exclude_future_evidence",
+          "expected_residual_minor": null,
+          "details": "The settlement row arrived after the candidate knowledge frontier and cannot be used to close the earlier bank movement."
+        }
+      ]
+    },
+    {
+      "case_id": "RB-009-DEPOSIT-SUBSET-SUM",
+      "matches": [
+        {
+          "match_ref": "M009-LS-A",
+          "match_kind": "ledger_to_settlement",
+          "ledger_record_refs": [
+            "L009-A"
+          ],
+          "settlement_record_refs": [
+            "S009-A"
+          ],
+          "payout_record_refs": [],
+          "bank_record_refs": [],
+          "currency": "USD",
+          "matched_amount_minor": 40000,
+          "fx_quote_ref": null,
+          "allocations": [
+            {
+              "from_record_ref": "L009-A",
+              "to_record_ref": "S009-A",
+              "amount_minor": 40000,
+              "currency": "USD"
+            }
+          ]
+        },
+        {
+          "match_ref": "M009-LS-B",
+          "match_kind": "ledger_to_settlement",
+          "ledger_record_refs": [
+            "L009-B"
+          ],
+          "settlement_record_refs": [
+            "S009-B"
+          ],
+          "payout_record_refs": [],
+          "bank_record_refs": [],
+          "currency": "USD",
+          "matched_amount_minor": 60000,
+          "fx_quote_ref": null,
+          "allocations": [
+            {
+              "from_record_ref": "L009-B",
+              "to_record_ref": "S009-B",
+              "amount_minor": 60000,
+              "currency": "USD"
+            }
+          ]
+        },
+        {
+          "match_ref": "M009-PAYOUT-SUBSET",
+          "match_kind": "payout_subset_to_bank",
+          "ledger_record_refs": [],
+          "settlement_record_refs": [],
+          "payout_record_refs": [
+            "P009-A",
+            "P009-B"
+          ],
+          "bank_record_refs": [
+            "B009"
+          ],
+          "currency": "USD",
+          "matched_amount_minor": 100000,
+          "fx_quote_ref": null,
+          "allocations": []
+        }
+      ],
+      "duplicates": [],
+      "reversals": [],
+      "exceptions": []
+    },
+    {
+      "case_id": "RB-010-PROVABLY-AMBIGUOUS-PAIRING",
+      "matches": [],
+      "duplicates": [],
+      "reversals": [],
+      "exceptions": [
+        {
+          "exception_ref": "EX010-AMBIGUOUS",
+          "reason_code": "ambiguous_match",
+          "record_refs": [
+            "L010-A",
+            "L010-B",
+            "S010-A",
+            "S010-B"
+          ],
+          "action": "route_to_review",
+          "expected_residual_minor": 25000,
+          "details": "Two ledger rows and two settlement rows share amount, currency, date and counterparty with no unique reference. Both 2x2 assignments satisfy the observed fields; no pair is auto-matched."
+        }
+      ]
+    }
+  ]
+}
