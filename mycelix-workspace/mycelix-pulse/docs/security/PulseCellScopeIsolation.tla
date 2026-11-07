@@ -277,7 +277,7 @@ NoCollateralRevocation ==
     /\ (revokedA /\ GrantB \in issued) => GrantB \in hostActive
 
 HostAuthorityIsPerCellGrant ==
-    lastDecision = "AUTHORIZED"
-    => lastGrant \in hostActive
+    (lastDecision # "AUTHORIZED")
+    \/ (lastGrantActive /\ (lastGrant \in Grants))
 
 ====
