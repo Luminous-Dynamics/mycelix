@@ -1,0 +1,66 @@
+{
+  "benchmark_id": "LIFE-ROBUST-TRANSCRIPT-001",
+  "version": "0.1.0",
+  "status": "two_scenario_synthetic_robust_transcript_reference_model",
+  "population": {
+    "subjects_per_scenario": 512,
+    "rounds": 4,
+    "task_schedule": ["predicate_0", "predicate_1", "predicate_2", "predicate_0"],
+    "subjects_per_task_transcript": 64,
+    "statement_count_range_inclusive": [8, 31],
+    "optional_index_universe": 8,
+    "optional_indices_per_subject_per_round": 3,
+    "seed": "0x5EEDC0DE"
+  },
+  "scenarios": [
+    "reference_population_independent_synthetic_fields",
+    "adversarial_shifted_population_12_vs_52_count_and_index_class_split_per_task_transcript"
+  ],
+  "search": {
+    "round_profiles": 9,
+    "plans": 6561,
+    "minimum_p05_candidate_support_per_scenario": 16,
+    "selection": "minimum_total_abstract_cost_then_maximum_worst_scenario_p05_then_lexical_plan_label"
+  },
+  "count_modes": {
+    "exact": {"cost_units_per_round": 0},
+    "two_bucket_split_at_20": {"cost_units_per_round": 8},
+    "common_padding": {"cost_units_per_round": 24}
+  },
+  "index_modes": {
+    "exact_pattern": {"cost_units_per_round": 0},
+    "balanced_coarse_parity": {"cost_units_per_round": 5},
+    "omitted": {"cost_units_per_round": 12}
+  },
+  "metrics": [
+    "scenario_specific_min_p05_p50_p95_max_candidate_support",
+    "scenario_specific_raw_under_k_count_and_ppm",
+    "scenario_specific_raw_unique_candidate_count_and_ppm",
+    "worst_scenario_p05",
+    "total_abstract_cost_units",
+    "pareto_frontier",
+    "selected_robust_plan"
+  ],
+  "invariants": [
+    "task_transcripts_are_identical_across_scenarios",
+    "all_6561_plans_are_reported",
+    "candidate_support_is_transcript_intersection",
+    "reference_optimal_plan_is_tested_against_shifted_scenario",
+    "robust_feasibility_requires_each_scenario_p05_at_least_16",
+    "robust_choice_is_minimum_cost_feasible_plan",
+    "shifted_count_and_index_classes_have_12_vs_52_support_within_each_task_transcript",
+    "stable_identifier_positive_control_is_unique",
+    "frontier_matches_independent_pairwise_oracle",
+    "report_is_rectangular_and_deterministic"
+  ],
+  "claim_ceiling": "finite_two_scenario_synthetic_robust_transcript_reference_model",
+  "nonclaims": [
+    "universal_distribution_robustness",
+    "bbs_or_sd_jwt_protocol_implementation",
+    "standards_conformance",
+    "differential_privacy",
+    "real_world_anonymity_or_unlinkability",
+    "production_cost_estimates",
+    "sota_superiority"
+  ]
+}
