@@ -1035,6 +1035,20 @@ fn fetch_oracle_vitality() -> u32 {
 // Community Membership Queries
 // ---------------------------------------------------------------------------
 
+/// Decode the authoritative member count without turning malformed data into zero.
+/// A valid zero-member result is distinct from a response that cannot be decoded.
+fn decode_community_member_count_payload(
+    decoded: Result<u32, String>,
+    dao_did: &str,
+) -> Result<u32, String> {
+    decoded.map_err(|reason| {
+        format!(
+            "Unable to decode authoritative member count for DAO {}: {}",
+            dao_did, reason
+        )
+    })
+}
+
 /// Get the number of members in a community/DAO.
 ///
 /// Used by the currency-mint governance gate to determine whether a community
@@ -1050,7 +1064,11 @@ pub fn get_community_member_count(dao_did: String) -> ExternResult<u32> {
         None,
         dao_did.clone(),
     ) {
-        Ok(ZomeCallResponse::Ok(result)) => Ok(result.decode::<u32>().unwrap_or(0)),
+        Ok(ZomeCallResponse::Ok(result)) => {
+            let decoded = result.decode::<u32>().map_err(|error| format!("{:?}", error));
+            decode_community_member_count_payload(decoded, &dao_did)
+                .map_err(|reason| wasm_error!(WasmErrorInner::Guest(reason)))
+        }
         Ok(other) => {
             // SECURITY NOTE: Returning 0 members is PERMISSIVE — it means the governance
             // proposal requirement (>10 members) will be skipped. This is deliberate:
@@ -2688,5 +2706,31 @@ mod tests {
             map_wire_asset_type(finance_wire_types::AssetType::Other("bamboo".into())),
             AssetType::Other("bamboo".into())
         );
+    }
+}
+
+#[cfg(test)]
+mod community_member_count_decode_tests {
+    use super::decode_community_member_count_payload;
+
+    #[test]
+    fn valid_zero_member_count_is_not_the_same_as_decode_failure() {
+        assert_eq!(
+            decode_community_member_count_payload(Ok(0), "did:mycelix:small"),
+            Ok(0)
+        );
+        assert!(decode_community_member_count_payload(
+            Err("invalid serialized bytes".into()),
+            "did:mycelix:small"
+        ).is_err());
+    }
+
+    #[test]
+    fn decode_failure_does_not_collapse_a_large_community_to_zero() {
+        let decoded = decode_community_member_count_payload(
+            Err("unexpected response encoding".into()),
+            "did:mycelix:large"
+        );
+        assert!(decoded.is_err());
     }
 }

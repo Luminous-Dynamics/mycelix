@@ -166,6 +166,19 @@ pub(crate) fn get_or_create_minted_balance(
     Ok(bal)
 }
 
+/// Decode a member count without treating malformed bytes as a legitimate zero-member DAO.
+fn decode_community_size_payload(
+    decoded: Result<u32, String>,
+    dao_did: &str,
+) -> ExternResult<u32> {
+    decoded.map_err(|reason| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "fetch_community_size: could not decode authoritative member count for {}: {}",
+            dao_did, reason
+        )))
+    })
+}
+
 /// Fetch community member count via cross-zome call to governance/identity.
 ///
 /// SECURITY: Fail-closed — returns error if the finance bridge is unreachable.
@@ -181,8 +194,8 @@ pub(crate) fn fetch_community_size(dao_did: &str) -> ExternResult<u32> {
         dao_did.to_string(),
     ) {
         Ok(ZomeCallResponse::Ok(result)) => {
-            let count = result.decode::<u32>().unwrap_or(0);
-            Ok(count)
+            let decoded = result.decode::<u32>().map_err(|error| format!("{:?}", error));
+            decode_community_size_payload(decoded, dao_did)
         }
         Ok(other) => Err(wasm_error!(WasmErrorInner::Guest(format!(
             "fetch_community_size: finance_bridge returned unexpected response for {}: {:?}",
@@ -521,4 +534,25 @@ pub(crate) fn mutate_balance(
     Err(wasm_error!(WasmErrorInner::Guest(
         "Balance update failed: retry loop exited unexpectedly".into()
     )))
+}
+
+#[cfg(test)]
+mod community_size_decode_tests {
+    use super::decode_community_size_payload;
+
+    #[test]
+    fn valid_zero_member_count_is_preserved() {
+        assert_eq!(
+            decode_community_size_payload(Ok(0), "did:mycelix:empty").unwrap(),
+            0
+        );
+    }
+
+    #[test]
+    fn malformed_member_count_fails_closed_instead_of_defaulting_to_zero() {
+        assert!(decode_community_size_payload(
+            Err("invalid serialized bytes".into()),
+            "did:mycelix:large"
+        ).is_err());
+    }
 }
