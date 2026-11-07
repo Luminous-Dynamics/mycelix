@@ -9,6 +9,7 @@ on:
       - "mycelix-workspace/mycelix-pulse/docs/security/PulseAuthorityLifecycle*"
       - "mycelix-workspace/mycelix-pulse/docs/security/PulseMailboxValidation*"
       - "mycelix-workspace/mycelix-pulse/docs/security/PulseAuthorityCheckpoint*"
+      - "mycelix-workspace/mycelix-pulse/docs/security/PulseCellScopeIsolation*"
       - "mycelix-workspace/mycelix-pulse/docs/security/PulseHostCallLinearization*"
       - "mycelix-workspace/mycelix-pulse/docs/security/PulseAuthorityCheckpointLineage*"
       - "mycelix-workspace/mycelix-pulse/docs/security/PulseAuthorityCausalFrontier*"
@@ -560,6 +561,76 @@ jobs:
           grep -q "HistoricalAcceptanceRequiresTrustedEvidence" \
             "${RUNNER_TEMP}/pulse-tlc-artifacts/trust-history-no-time-mutant/tlc.log"
 
+      - name: Check safe per-cell capability scope model
+        working-directory: mycelix-workspace/mycelix-pulse/docs/security
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "${RUNNER_TEMP}/pulse-tlc-artifacts/cell-scope-safe"
+          java -XX:+UseParallelGC -Xmx2g \
+            -jar "${RUNNER_TEMP}/tlaplus/tla2tools.jar" \
+            -metadir "${RUNNER_TEMP}/pulse-tlc-artifacts/cell-scope-safe/states" \
+            -config PulseCellScopeIsolation.cfg \
+            PulseCellScopeIsolation.tla \
+            2>&1 | tee "${RUNNER_TEMP}/pulse-tlc-artifacts/cell-scope-safe/tlc.log"
+
+      - name: Require cross-cell capability borrowing mutant counterexample
+        working-directory: mycelix-workspace/mycelix-pulse/docs/security
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "${RUNNER_TEMP}/pulse-tlc-artifacts/cell-scope-cross-cell-mutant"
+          set +e
+          java -XX:+UseParallelGC -Xmx2g \
+            -jar "${RUNNER_TEMP}/tlaplus/tla2tools.jar" \
+            -metadir "${RUNNER_TEMP}/pulse-tlc-artifacts/cell-scope-cross-cell-mutant/states" \
+            -config PulseCellScopeIsolation-cross-cell-mutant.cfg \
+            PulseCellScopeIsolation.tla \
+            2>&1 | tee "${RUNNER_TEMP}/pulse-tlc-artifacts/cell-scope-cross-cell-mutant/tlc.log"
+          status=${PIPESTATUS[0]}
+          set -e
+          test "$status" -ne 0
+          grep -q "NoCrossCellGrantBorrow" \
+            "${RUNNER_TEMP}/pulse-tlc-artifacts/cell-scope-cross-cell-mutant/tlc.log"
+
+      - name: Require function-scope widening mutant counterexample
+        working-directory: mycelix-workspace/mycelix-pulse/docs/security
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "${RUNNER_TEMP}/pulse-tlc-artifacts/cell-scope-function-mutant"
+          set +e
+          java -XX:+UseParallelGC -Xmx2g \
+            -jar "${RUNNER_TEMP}/tlaplus/tla2tools.jar" \
+            -metadir "${RUNNER_TEMP}/pulse-tlc-artifacts/cell-scope-function-mutant/states" \
+            -config PulseCellScopeIsolation-function-scope-mutant.cfg \
+            PulseCellScopeIsolation.tla \
+            2>&1 | tee "${RUNNER_TEMP}/pulse-tlc-artifacts/cell-scope-function-mutant/tlc.log"
+          status=${PIPESTATUS[0]}
+          set -e
+          test "$status" -ne 0
+          grep -q "NoFunctionScopeWidening" \
+            "${RUNNER_TEMP}/pulse-tlc-artifacts/cell-scope-function-mutant/tlc.log"
+
+      - name: Require collateral revocation mutant counterexample
+        working-directory: mycelix-workspace/mycelix-pulse/docs/security
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "${RUNNER_TEMP}/pulse-tlc-artifacts/cell-scope-collateral-revocation-mutant"
+          set +e
+          java -XX:+UseParallelGC -Xmx2g \
+            -jar "${RUNNER_TEMP}/tlaplus/tla2tools.jar" \
+            -metadir "${RUNNER_TEMP}/pulse-tlc-artifacts/cell-scope-collateral-revocation-mutant/states" \
+            -config PulseCellScopeIsolation-collateral-revocation-mutant.cfg \
+            PulseCellScopeIsolation.tla \
+            2>&1 | tee "${RUNNER_TEMP}/pulse-tlc-artifacts/cell-scope-collateral-revocation-mutant/tlc.log"
+          status=${PIPESTATUS[0]}
+          set -e
+          test "$status" -ne 0
+          grep -q "NoCollateralRevocation" \
+            "${RUNNER_TEMP}/pulse-tlc-artifacts/cell-scope-collateral-revocation-mutant/tlc.log"
+
       - name: Record exact model receipt
         if: always()
         working-directory: mycelix-workspace/mycelix-pulse/docs/security
@@ -619,6 +690,11 @@ jobs:
             echo "host_call_linearization_spec_sha256=$(sha256sum PulseHostCallLinearization.tla | cut -d' ' -f1)"
             echo "host_call_linearization_safe_config_sha256=$(sha256sum PulseHostCallLinearization.cfg | cut -d' ' -f1)"
             echo "host_call_linearization_projection_mutant_sha256=$(sha256sum PulseHostCallLinearization-projection-mutant.cfg | cut -d' ' -f1)"
+            echo "cell_scope_spec_sha256=$(sha256sum PulseCellScopeIsolation.tla | cut -d' ' -f1)"
+            echo "cell_scope_safe_config_sha256=$(sha256sum PulseCellScopeIsolation.cfg | cut -d' ' -f1)"
+            echo "cell_scope_cross_cell_mutant_sha256=$(sha256sum PulseCellScopeIsolation-cross-cell-mutant.cfg | cut -d' ' -f1)"
+            echo "cell_scope_function_mutant_sha256=$(sha256sum PulseCellScopeIsolation-function-scope-mutant.cfg | cut -d' ' -f1)"
+            echo "cell_scope_collateral_revocation_mutant_sha256=$(sha256sum PulseCellScopeIsolation-collateral-revocation-mutant.cfg | cut -d' ' -f1)"
             java -version > "${RUNNER_TEMP}/java-version.txt" 2>&1
             sed -n '1p' "${RUNNER_TEMP}/java-version.txt"
           } > "${RUNNER_TEMP}/pulse-tlc-artifacts/receipt.txt"
