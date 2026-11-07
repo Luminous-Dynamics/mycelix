@@ -202,7 +202,9 @@ fn validate_trace(trace: &Value) -> Result<Value, String> {
                     {
                         return Err(format!("{trace_id}/{event_id}: tool response source identity/revision/digest differs from source-open event"));
                     }
-                    successful_source_responses.insert(tool_call_id.to_owned());
+                    if !successful_source_responses.insert(tool_call_id.to_owned()) {
+                        return Err(format!("{trace_id}/{event_id}: duplicate source tool response for one tool_call_id"));
+                    }
                 }
             }
             "fact_observed" => {
@@ -861,6 +863,22 @@ mod tests {
             .find(|event| optional_string(event, "event_kind") == Some("tool_response")
                 && optional_string(event, "tool_call_id") == Some("TOOL-1")).unwrap();
         response["source_sha256"] = json!("9".repeat(64));
+        assert!(validate_trace(&trace).is_err());
+    }
+
+
+    #[test]
+    fn rejects_duplicate_source_tool_response_for_same_call() {
+        let (mut trace, _, _, _) = fixture();
+        let first = trace["events"].as_array_mut().unwrap().iter()
+            .find(|event| optional_string(event, "event_kind") == Some("tool_response")
+                && optional_string(event, "tool_call_id") == Some("TOOL-1")).unwrap().clone();
+        let mut duplicate = first;
+        duplicate["event_id"] = json!("EVT-DUPLICATE-TOOL-RESPONSE");
+        trace["events"].as_array_mut().unwrap().insert(3, duplicate);
+        for (index, event) in trace["events"].as_array_mut().unwrap().iter_mut().enumerate() {
+            event["seq"] = json!(index + 1);
+        }
         assert!(validate_trace(&trace).is_err());
     }
 
