@@ -1,0 +1,132 @@
+{
+  "snapshot_id": "MYCELIX-RECBENCH-SMALL-SOURCE-2026-11-07",
+  "snapshot_version": "1.0.0",
+  "captured_on": "2026-11-07",
+  "publisher": "End Close",
+  "benchmark": "RecBench",
+  "dataset_url": "https://huggingface.co/datasets/end-close/recbench",
+  "dataset_card_url": "https://huggingface.co/datasets/end-close/recbench",
+  "manifest_url": "https://huggingface.co/datasets/end-close/recbench/blob/1e711f3/small/manifest.json",
+  "raw_manifest_url": "https://huggingface.co/datasets/end-close/recbench/raw/1e711f3/small/manifest.json",
+  "card_revision_short": "8cf65de",
+  "tier_revision_short": "1e711f3",
+  "source_revision_note": "Hugging Face UI shows short verified commits. Per-file SHA-256 commitments below pin the listed data bytes; the short revision strings are locators, not full Git commit IDs.",
+  "dataset_license": "CC-BY-4.0",
+  "dataset_license_evidence": "Hugging Face dataset card metadata",
+  "generator_license": "Apache-2.0",
+  "generator_license_evidence": "Hugging Face dataset card states generator code Apache-2.0; generator source was not copied or independently audited in this snapshot.",
+  "manifest_sha256": null,
+  "manifest_sha256_status": "not_computed_from_raw_manifest_bytes",
+  "manifest": {
+    "benchmark": "RecBench",
+    "generator_version": "0.1.0",
+    "tier": "small",
+    "seed": 1042,
+    "config_sha256": "d31d413456ea5364f74a0c355a6b41d81aee5ea37f9f4805a356bdfa7243fbc5",
+    "start_date": "2025-01-01",
+    "ledger_days": 365,
+    "generation_seconds": 17.6,
+    "row_counts": {
+      "ledger": 999005,
+      "settlement_lines": 1014955,
+      "payouts": 73955,
+      "bank_statements": 75138,
+      "truth_ledger_processor": 1012216,
+      "truth_line_payout": 1012219,
+      "truth_payout_bank": 75002,
+      "labels_ledger": 999005,
+      "labels_processor": 1014955,
+      "labels_payout": 75002,
+      "labels_bank": 75138
+    },
+    "files": [
+      {
+        "path": "ledger/part-0000.parquet",
+        "rows": 999005,
+        "sha256": "34b986b51a577eccd9cfd40142fd1c3ed9753c6e2123163952c24894235625b7",
+        "access_role": "agent_input"
+      },
+      {
+        "path": "settlement_lines/part-0000.parquet",
+        "rows": 1014955,
+        "sha256": "ab5750f8cf778fde18424a7116ecd284cdde2a948eb6504cc2db52dbbe080d7b",
+        "access_role": "agent_input"
+      },
+      {
+        "path": "payouts/part-0000.parquet",
+        "rows": 73955,
+        "sha256": "50df691ea35a8b58c47dacd3accdcaa9ae425ee1f170c0bddb6fa15326220502",
+        "access_role": "agent_input"
+      },
+      {
+        "path": "bank_statements/part-0000.parquet",
+        "rows": 75138,
+        "sha256": "df8d008e4bb3fc4a8c088353a28e84bd53dd1363b10ca4012ebccd0added17ec",
+        "access_role": "agent_input"
+      },
+      {
+        "path": "truth_ledger_processor/part-0000.parquet",
+        "rows": 1012216,
+        "sha256": "5de898f0cd15bea5d2f6ce7075b4dca282f28f9e6f9bf52a40d83b6d36530599",
+        "access_role": "oracle_only"
+      },
+      {
+        "path": "truth_line_payout/part-0000.parquet",
+        "rows": 1012219,
+        "sha256": "2d17a2eadcab633248ba9b9197b9779b996299efcaac0ea01ee9356c87818971",
+        "access_role": "oracle_only"
+      },
+      {
+        "path": "truth_payout_bank/part-0000.parquet",
+        "rows": 75002,
+        "sha256": "54808f690ebc3781a3655cec7e017901a138263b92701a0c1ba7fa71abfbc64f",
+        "access_role": "oracle_only"
+      },
+      {
+        "path": "labels_ledger/part-0000.parquet",
+        "rows": 999005,
+        "sha256": "701c7665c6b71c75e8783e58f57d557de4746a9f0c32e6d0a5543f4a65c5f7c7",
+        "access_role": "oracle_only"
+      },
+      {
+        "path": "labels_processor/part-0000.parquet",
+        "rows": 1014955,
+        "sha256": "5b542c61e64b7f10287d76c56ccf89c58bbc33c11ee2cbf0972306572416512",
+        "access_role": "oracle_only"
+      },
+      {
+        "path": "labels_payout/part-0000.parquet",
+        "rows": 75002,
+        "sha256": "a4f26ed73e64dc09044bad1bd446b3e799f210895887ceee90889d4c4b3be1b6",
+        "access_role": "oracle_only"
+      },
+      {
+        "path": "labels_bank/part-0000.parquet",
+        "rows": 75138,
+        "sha256": "d32e77bc3262e729518131f7f217677a3d0eff19f4e034560a6ad1d1e27bcf1a",
+        "access_role": "oracle_only"
+      }
+    ]
+  },
+  "agent_input_paths": [
+    "ledger/part-0000.parquet",
+    "settlement_lines/part-0000.parquet",
+    "payouts/part-0000.parquet",
+    "bank_statements/part-0000.parquet"
+  ],
+  "oracle_only_paths": [
+    "truth_ledger_processor/part-0000.parquet",
+    "truth_line_payout/part-0000.parquet",
+    "truth_payout_bank/part-0000.parquet",
+    "labels_ledger/part-0000.parquet",
+    "labels_processor/part-0000.parquet",
+    "labels_payout/part-0000.parquet",
+    "labels_bank/part-0000.parquet"
+  ],
+  "notes": [
+    "Hugging Face README advertises the small tier as 1.0M ledger rows and ~67 MB zstd Parquet; the pinned small folder listing reports 470 MB and the manifest shows exact per-table counts including truth and label files. These are different size/count scopes and are not collapsed into one figure.",
+    "The complete Hugging Face dataset is listed as 7.48 GB. Mycelix does not vendor or mirror it.",
+    "The benchmark card's published naive baseline is an external result, not a Mycelix result.",
+    "Truth and label files are explicitly excluded from candidate-visible input paths."
+  ]
+}
