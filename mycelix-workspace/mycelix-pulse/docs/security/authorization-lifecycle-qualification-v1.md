@@ -310,6 +310,29 @@ The model distinguishes the original-agent-key precondition, restore request, Aw
 
 The pinned TLC workflow now runs all three configurations. The new model has not yet been executed on this branch head; its result must be recorded from the exact run and the two mutants must fail specifically on `EnableRequiresAllCellsRestored`. The real runtime test programme is tracked in [#5905](https://github.com/Luminous-Dynamics/mycelix/issues/5905).
 
+## Host call/revocation linearization model
+
+The branch now includes PulseHostCallLinearization.tla and two configurations:
+
+- PulseHostCallLinearization.cfg — live-host-grant enforcement;
+- PulseHostCallLinearization-projection-mutant.cfg — deliberate stale-projection authorization mutant.
+
+The model makes two linearization points explicit:
+
+1. HostCallDecision: the conductor evaluates the exact current CapGrant for the incoming call;
+2. CommitHostRevocation: the conductor commits deletion/revocation of that exact grant.
+
+They are ordered by a model event sequence, not wall-clock timestamps. Therefore:
+- a call whose host decision occurs before revocation commit may complete after revocation and is not retroactively unauthorized;
+- a call invoked before revocation but whose host decision occurs after revocation commit must be denied;
+- a lost response after a durable host decision changes only the caller's observation to UNKNOWN;
+- retrying the same logical call or revoke operation must recover the durable decision/commit without creating a second domain effect or a second revoke commit;
+- projection convergence is separate and may lag without changing the host's decision.
+
+The safe model has finite state for one protected logical call and one revoke operation, two attempts, one grantee and one outsider. It deliberately abstracts a single host CapGrant and a single domain side effect. It does not claim unbounded linearizability, multi-call throughput, conductor scheduling internals or distributed DHT behavior. The safe config must exhaust its finite state queue; the mutant config must be caught by a linearization/host-authority invariant. TLC execution is pending on the newest head until its run receipt is inspected.
+
+This is the bridge between the abstract Unknown outcome taxonomy and real Holochain instrumentation: record the invocation, actual conductor allow/deny boundary, durable host revoke completion, durable domain effect, and caller acknowledgement as separate events. A user-facing timeout is not the host decision.
+
 ## Qualification stages
 
 | Stage | Required evidence | Claim ceiling |
