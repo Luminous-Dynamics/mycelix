@@ -1,0 +1,9 @@
+[package]
+name = "life-joint-privacy"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[[bin]]
+name = "life-joint-privacy"
+path = "src/main.rs"
