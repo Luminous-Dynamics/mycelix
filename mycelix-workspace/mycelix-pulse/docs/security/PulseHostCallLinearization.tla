@@ -414,6 +414,21 @@ PreAdmittedCallMayCommitAfterRevoke ==
         /\ firstEffectGrantActiveAtDecision
         /\ firstEffectDecisionSeq < revokeCommitSeq
 
+(* Reachability witness: this predicate is expected to be violated by TLC.
+   Its counterexample trace must show a host decision while the grant is active,
+   then host revocation commit, then a later effect commit from that already
+   admitted in-flight call. The workflow treats this as a witness, not as a
+   safety-mutant result. *)
+NoPreAdmittedCompletionAfterRevocationYet ==
+    ~(
+        callEffectCount > 0
+        /\ revokeCommitSeq > 0
+        /\ firstEffectCommitSeq > revokeCommitSeq
+        /\ firstEffectGrantActiveAtDecision
+        /\ firstEffectDecisionSeq > 0
+        /\ firstEffectDecisionSeq < revokeCommitSeq
+    )
+
 OneEffectPerLogicalCall ==
     callEffectCount <= 1
 
