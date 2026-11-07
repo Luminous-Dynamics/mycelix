@@ -1,0 +1,321 @@
+{
+  "snapshot_id": "MYCELIX-ACCOUNTING-EXTERNAL-BENCHMARK-SNAPSHOT-2026-11-05",
+  "schema_version": "1.0.0",
+  "captured_on": "2026-11-05",
+  "claim_ceiling": "public_source_metadata_snapshot_not_benchmark_reproduction_or_dataset_license",
+  "sources": [
+    {
+      "source_id": "APEX-METHODOLOGY-HISTORICAL",
+      "benchmark_id": "APEX-ACCOUNTING",
+      "title": "Mercor APEX Accounting Benchmark methodology page",
+      "source_role": "methodology_page",
+      "canonical_url": "https://www.mercor.com/apex/methodology/",
+      "observed_on": "2026-11-05",
+      "publication_date": null,
+      "source_state": "historical_not_current_baseline",
+      "access": {
+        "metadata_access": "public",
+        "scored_split_access": "public_dev_subset_only",
+        "redistribution_status": "not_authorized_by_this_snapshot",
+        "note": "The page describes an earlier 100-task, k=4 design; it is not the current 160-task held-out cohort definition."
+      },
+      "source_bytes_archived": false,
+      "source_bytes_sha256": null,
+      "display_conflict": false,
+      "observations": [
+        {
+          "observation_id": "APEX-METH-100-TASKS",
+          "metric_or_fact": "historical_task_count",
+          "observed_value": 100,
+          "unit": "tasks",
+          "display_locator": "methodology overview",
+          "evidence_status": "historical_methodology",
+          "interpretation": "Historical methodology snapshot only; do not use as the current APEX held-out task denominator."
+        },
+        {
+          "observation_id": "APEX-METH-K4",
+          "metric_or_fact": "historical_attempt_parameter",
+          "observed_value": 4,
+          "unit": "attempts",
+          "display_locator": "methodology overview",
+          "evidence_status": "historical_methodology",
+          "interpretation": "Historical k=4 description; current paper and leaderboard describe a later evaluation structure."
+        }
+      ],
+      "notes": "This public page remained visible at capture time but described an earlier task/attempt design. The benchmark paper and live leaderboard are separate records and must not be silently reconciled with this page."
+    },
+    {
+      "source_id": "APEX-PAPER-2026",
+      "benchmark_id": "APEX-ACCOUNTING",
+      "title": "APEX Accounting: evaluating agent performance on professional accounting work",
+      "source_role": "research_paper",
+      "canonical_url": "https://arxiv.org/abs/2607.27189",
+      "observed_on": "2026-11-05",
+      "publication_date": null,
+      "source_state": "primary_paper_snapshot",
+      "access": {
+        "metadata_access": "public",
+        "scored_split_access": "closed_scored_set_authorized_access_required",
+        "redistribution_status": "not_authorized_by_this_snapshot",
+        "note": "The paper describes a separate 10-task public development set and 160 held-out tasks; access to the held-out scored cohort must be authorized."
+      },
+      "source_bytes_archived": false,
+      "source_bytes_sha256": null,
+      "display_conflict": false,
+      "observations": [
+        {
+          "observation_id": "APEX-PAPER-HELDOUT-160",
+          "metric_or_fact": "held_out_task_count",
+          "observed_value": 160,
+          "unit": "tasks",
+          "display_locator": "benchmark construction and evaluation sections",
+          "evidence_status": "primary_paper_reported",
+          "interpretation": "Use 160 as the paper-reported held-out cohort size, not the earlier 100-task methodology-page count."
+        },
+        {
+          "observation_id": "APEX-PAPER-WORLDS-10",
+          "metric_or_fact": "held_out_world_count",
+          "observed_value": 10,
+          "unit": "synthetic company worlds",
+          "display_locator": "benchmark construction section",
+          "evidence_status": "primary_paper_reported",
+          "interpretation": "The 160 held-out tasks span ten synthetic company worlds."
+        },
+        {
+          "observation_id": "APEX-PAPER-DEV-10",
+          "metric_or_fact": "public_development_task_count",
+          "observed_value": 10,
+          "unit": "tasks",
+          "display_locator": "development-set description",
+          "evidence_status": "scope_description",
+          "interpretation": "The public development set is ten tasks from one world; it is a smoke/reproduction subset, not the 160-task scored cohort."
+        },
+        {
+          "observation_id": "APEX-PAPER-MEAN-CRITERIA-AT-3",
+          "metric_or_fact": "paper_reported_best_mean_criteria_at_3",
+          "observed_value": 56.4,
+          "unit": "percent",
+          "display_locator": "main results table and paper discussion",
+          "evidence_status": "primary_paper_reported",
+          "interpretation": "Paper-reported best solver result for Mean Criteria@3. It is not an independently reproduced Mycelix result and should not be substituted for a live leaderboard row."
+        },
+        {
+          "observation_id": "APEX-PAPER-PASS8",
+          "metric_or_fact": "best_reported_pass_power_8_upper_observation",
+          "observed_value": 2.6,
+          "unit": "percent",
+          "display_locator": "repeated-run results",
+          "evidence_status": "primary_paper_reported",
+          "interpretation": "The paper reports no evaluated model above 2.6% Pass^8; preserve the metric name and repeated-run definition."
+        },
+        {
+          "observation_id": "APEX-PAPER-UNSOLVED-58",
+          "metric_or_fact": "tasks_never_fully_solved_in_eight_attempts",
+          "observed_value": 58,
+          "unit": "percent of tasks",
+          "display_locator": "repeated-attempt analysis",
+          "evidence_status": "primary_paper_reported",
+          "interpretation": "Reported share of tasks not fully solved in any of eight attempts; this is not the same as Mean Criteria."
+        },
+        {
+          "observation_id": "APEX-PAPER-CRITERIA-13-7",
+          "metric_or_fact": "mean_criteria_per_task",
+          "observed_value": 13.7,
+          "unit": "criteria per task",
+          "display_locator": "task construction section",
+          "evidence_status": "scope_description",
+          "interpretation": "The paper reports approximately 13.7 criteria per task; task-level denominators should remain explicit."
+        },
+        {
+          "observation_id": "APEX-PAPER-FILES-7-5",
+          "metric_or_fact": "mean_source_files_per_task",
+          "observed_value": 7.5,
+          "unit": "files per task",
+          "display_locator": "task construction section",
+          "evidence_status": "scope_description",
+          "interpretation": "The paper reports approximately 7.5 source files per task."
+        },
+        {
+          "observation_id": "APEX-PAPER-CLARIFICATION-EXCLUSION",
+          "metric_or_fact": "incomplete_information_tasks_removed",
+          "observed_value": 24,
+          "unit": "tasks",
+          "display_locator": "benchmark filtering description",
+          "evidence_status": "paper_limit_or_exclusion",
+          "interpretation": "Twenty-four incomplete-information/clarification tasks were removed before evaluation; the benchmark therefore does not directly measure professional clarification behaviour."
+        }
+      ],
+      "notes": "The paper's scope is U.S. GAAP accrual work in synthetic company worlds. The described benchmark excludes tax, audit, consolidation, multi-entity, multi-currency and external reporting tasks. The paper also annotates a substantial share of failures as reasoning-related (reported range 59–79%). Do not generalize this result to global tax/legal/accounting compliance."
+    },
+    {
+      "source_id": "APEX-LEADERBOARD-2026-11-05",
+      "benchmark_id": "APEX-ACCOUNTING",
+      "title": "Mercor APEX Accounting live leaderboard observed 2026-11-05",
+      "source_role": "live_leaderboard",
+      "canonical_url": "https://www.mercor.com/apex/apex-accounting-leaderboard/",
+      "observed_on": "2026-11-05",
+      "publication_date": null,
+      "source_state": "live_page_internally_inconsistent",
+      "access": {
+        "metadata_access": "public",
+        "scored_split_access": "closed_scored_set_authorized_access_required",
+        "redistribution_status": "not_authorized_by_this_snapshot",
+        "note": "The live page describes the 160-task / ten-world benchmark, but the closed scored case set is not made redistributable by the public leaderboard."
+      },
+      "source_bytes_archived": false,
+      "source_bytes_sha256": null,
+      "display_conflict": true,
+      "observations": [
+        {
+          "observation_id": "APEX-BOARD-WORLDS-10",
+          "metric_or_fact": "displayed_world_count",
+          "observed_value": 10,
+          "unit": "synthetic company worlds",
+          "display_locator": "leaderboard overview",
+          "evidence_status": "scope_description",
+          "interpretation": "The live page describes ten worlds."
+        },
+        {
+          "observation_id": "APEX-BOARD-TASKS-160",
+          "metric_or_fact": "displayed_task_count",
+          "observed_value": 160,
+          "unit": "tasks",
+          "display_locator": "leaderboard overview",
+          "evidence_status": "scope_description",
+          "interpretation": "The live page describes 160 tasks."
+        },
+        {
+          "observation_id": "APEX-BOARD-CRITERIA-2186",
+          "metric_or_fact": "displayed_criterion_count",
+          "observed_value": 2186,
+          "unit": "criteria",
+          "display_locator": "leaderboard overview",
+          "evidence_status": "scope_description",
+          "interpretation": "The live page describes 2,186 criteria."
+        },
+        {
+          "observation_id": "APEX-BOARD-UNSOLVED-58",
+          "metric_or_fact": "displayed_unsolved_share",
+          "observed_value": 58,
+          "unit": "percent",
+          "display_locator": "leaderboard overview",
+          "evidence_status": "live_page_display_only",
+          "interpretation": "Page-displayed unsolved share; paper cohort/metric context remains the primary definition."
+        },
+        {
+          "observation_id": "APEX-BOARD-HEADLINE-61-0",
+          "metric_or_fact": "displayed_headline_score",
+          "observed_value": 61.0,
+          "unit": "percent",
+          "display_locator": "headline score block",
+          "evidence_status": "live_page_display_only",
+          "interpretation": "Conflicting live-page display; do not treat as the canonical paper result."
+        },
+        {
+          "observation_id": "APEX-BOARD-ROW-61-8",
+          "metric_or_fact": "displayed_leaderboard_row_score",
+          "observed_value": 61.8,
+          "unit": "percent",
+          "display_locator": "model leaderboard row",
+          "evidence_status": "live_page_display_only",
+          "interpretation": "Conflicting live-page display; the snapshot did not establish whether this reflects a different model, cohort or update time."
+        },
+        {
+          "observation_id": "APEX-BOARD-COST-56-4",
+          "metric_or_fact": "displayed_cost_table_score",
+          "observed_value": 56.4,
+          "unit": "percent",
+          "display_locator": "cost comparison table",
+          "evidence_status": "live_page_display_only",
+          "interpretation": "Third score presentation on the same page; do not merge with the headline or row value without resolving table semantics."
+        }
+      ],
+      "notes": "The page was observed to display different score values in its headline, leaderboard row and cost table. Preserve those as separate page observations. Until Mercor clarifies the metric/cohort/version mismatch, none is selected as a canonical current leaderboard score. The page was not archived or hashed at the byte level."
+    },
+    {
+      "source_id": "FINBALANCE-EMNLP-FINDINGS-2026",
+      "benchmark_id": "FINBALANCE",
+      "title": "FINBALANCE: Evaluating Financial Statement Reconstruction and Inconsistency Detection",
+      "source_role": "research_paper",
+      "canonical_url": "https://aclanthology.org/2026.findings-emnlp.675/",
+      "observed_on": "2026-11-05",
+      "publication_date": null,
+      "source_state": "primary_paper_snapshot",
+      "access": {
+        "metadata_access": "public",
+        "scored_split_access": "not_established_from_this_source",
+        "redistribution_status": "unknown_requires_terms_review",
+        "note": "This snapshot records the paper's reported protocol and result. Dataset artifact access, license and redistribution terms require separate verification before import."
+      },
+      "source_bytes_archived": false,
+      "source_bytes_sha256": null,
+      "display_conflict": false,
+      "observations": [
+        {
+          "observation_id": "FINBALANCE-SPLIT-710",
+          "metric_or_fact": "evaluation_split_record_count",
+          "observed_value": 710,
+          "unit": "records",
+          "display_locator": "dataset and evaluation split description",
+          "evidence_status": "primary_paper_reported",
+          "interpretation": "The paper reports a 710-record evaluation split."
+        },
+        {
+          "observation_id": "FINBALANCE-INDUSTRIES-8",
+          "metric_or_fact": "industry_count",
+          "observed_value": 8,
+          "unit": "industries",
+          "display_locator": "dataset construction section",
+          "evidence_status": "scope_description",
+          "interpretation": "The benchmark covers eight industries."
+        },
+        {
+          "observation_id": "FINBALANCE-PERIODS-3",
+          "metric_or_fact": "period_type_count",
+          "observed_value": 3,
+          "unit": "period types",
+          "display_locator": "dataset construction section",
+          "evidence_status": "scope_description",
+          "interpretation": "Three period types are represented."
+        },
+        {
+          "observation_id": "FINBALANCE-DIFFICULTY-5",
+          "metric_or_fact": "difficulty_level_count",
+          "observed_value": 5,
+          "unit": "levels",
+          "display_locator": "dataset construction section",
+          "evidence_status": "scope_description",
+          "interpretation": "Five difficulty levels are represented."
+        },
+        {
+          "observation_id": "FINBALANCE-LABELS-23",
+          "metric_or_fact": "inconsistency_label_count",
+          "observed_value": 23,
+          "unit": "labels",
+          "display_locator": "inconsistency annotation section",
+          "evidence_status": "scope_description",
+          "interpretation": "The paper describes 23 inconsistency labels."
+        },
+        {
+          "observation_id": "FINBALANCE-MAX-EXACT-46",
+          "metric_or_fact": "maximum_exact_final_balance_sheet_accuracy",
+          "observed_value": 46,
+          "unit": "percent",
+          "display_locator": "main results",
+          "evidence_status": "primary_paper_reported",
+          "interpretation": "The best exact final balance-sheet accuracy among six evaluated LLMs is reported as 46%."
+        },
+        {
+          "observation_id": "FINBALANCE-JOURNAL-RECON-26-41",
+          "metric_or_fact": "improvement_from_reconstructing_balance_sheet_from_journal_entries",
+          "observed_value": "26-41",
+          "unit": "percentage points",
+          "display_locator": "ablation/reconstruction experiment",
+          "evidence_status": "primary_paper_reported",
+          "interpretation": "The paper reports a 26–41 percentage-point improvement for four models when reconstructing statements from journal entries."
+        }
+      ],
+      "notes": "FINBALANCE measures source-to-journal-to-statement reconstruction and inconsistency detection. It is complementary to APEX close-cycle task completion, not directly score-comparable. The snapshot does not claim permission to redistribute the dataset or reproduce the paper."
+    }
+  ]
+}
