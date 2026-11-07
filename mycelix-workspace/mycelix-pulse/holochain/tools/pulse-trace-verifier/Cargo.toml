@@ -1,0 +1,18 @@
+[package]
+name = "pulse-trace-verifier"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+publish = false
+description = "Independent verifier for Pulse six-plane authorization lifecycle traces"
+
+[dependencies]
+serde_json.workspace = true
+sha2 = "0.10"
+
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+name = "pulse-trace-verifier"
+path = "src/main.rs"
