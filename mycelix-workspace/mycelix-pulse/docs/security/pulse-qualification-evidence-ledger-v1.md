@@ -48,7 +48,7 @@ A timeout, missing job, skipped step, empty job list, or queued workflow is not 
 
 ## Current evidence summary
 
-The machine-readable ledger now records eleven areas:
+The machine-readable ledger now records twelve areas:
 
 1. **TLA+ assurance suite — exact PR head `acd9ed7e6d4779e17b936ab5589d58ebfb7bdc39`.** TLC 1.8.0 run #346 completed nine safe finite models and caught seventeen named negative-control mutants. The restore-specific receipt is `PulseChainRestore-model-check-2026-11-07.md`. All results remain bounded abstract evidence.
 2. **Authorization corpus.** The current JSON contains 28 unique scenarios. This is a synthetic scenario inventory, not 28 runtime tests.
@@ -61,6 +61,7 @@ The machine-readable ledger now records eleven areas:
 9. **Public chain restore.** Bounded restore model passed; real `restore_from_dht` qualification remains open under #5905.
 10. **SCITT transparency.** Structural/digest checks only; cryptographic receipt and VDS proofs remain incomplete.
 11. **Per-cell capability isolation — exact model subject `d206c74670475e2e8fcd9f720e0f804af7469733`.** TLC run #356 completed the safe two-cell grant model with 66,674 generated / 12,687 distinct states and caught three named mutants: cross-cell borrowing, function-scope widening and collateral revocation. Artifact 13585841413. This is bounded abstract evidence only; it does not replace the two-conductor host-capability Sweettest.
+12. **Cell-scope model repeat on latest branch subject `acca54020e9f49de0bc8aeea39325cc848fdb9dd`.** Run #359 reran the same 66,674 / 12,687-state safe model and caught the same three scope mutants; artifact 13585459439. This is reproducibility evidence for the same bounded model, not a larger state space or conductor runtime test.
 
 The JSON carries source SHAs, workflow/run IDs, artifacts, results and claim ceilings. Never cite a historical pass as evidence that the current branch head passed.
 
@@ -79,7 +80,7 @@ The JSON carries source SHAs, workflow/run IDs, artifacts, results and claim cei
 
 ## Immediate release gates
 
-- Reconcile the research branch with current `main` before ready-for-review. The latest comparison on 7 November 2026, from research branch subject `c27046dabc69a6c4010771d6040af3b70a38923a` to `main` head `6a0d072d3b65f4a2cf08af3ae71e541788e33ae9`, shows 428 commits ahead and 8 behind, with merge base `9e12dd46bdd8371e8ed9626a17bc06f21c141a52`. The PR remains draft and has a broad 100+ file diff. Reconcile and review scope before merge, then rerun the full suite on the integrated exact head.
+- Reconcile the research branch with current `main` before ready-for-review. The latest comparison on 7 November 2026, from research branch subject `acca54020e9f49de0bc8aeea39325cc848fdb9dd` to `main` head `6a0d072d3b65f4a2cf08af3ae71e541788e33ae9`, shows 431 commits ahead and 8 behind, with merge base `9e12dd46bdd8371e8ed9626a17bc06f21c141a52`. The PR remains draft and has a broad 100+ file diff. Reconcile and review scope before merge, then rerun the full suite on the integrated exact head.
 - Select Holochain 0.7.1 as the forward-development target; retain 0.7.0 as a historical regression canary.
 - Complete the exact 0.7.1 Pulse source/build/WASM/fresh-conductor/multi-agent and independent-client chain.
 - Demonstrate mailbox authorization with a malicious coordinator and receiving production integrity WASM.
