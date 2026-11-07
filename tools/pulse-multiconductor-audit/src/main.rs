@@ -371,7 +371,11 @@ const MAX_CACHED_REACHABILITY_PAIRS: usize = 100_000;
 struct ReachabilityCache {
     enabled: bool,
     pair_memoized: bool,
-    pair_results: BTreeMap<(String, String), bool>,
+    // Pair keys use compact, exact per-graph event IDs. Each event ID is
+    // stored once in pair_event_indices rather than cloned into every pair.
+    pair_results: BTreeMap<(usize, usize), bool>,
+    pair_event_indices: BTreeMap<String, usize>,
+    next_pair_event_index: usize,
     pair_cache_hits: usize,
     pair_cache_limit_skips: usize,
     source_queries: BTreeMap<String, usize>,
@@ -397,6 +401,18 @@ impl ReachabilityCache {
             pair_memoized: true,
             ..Self::default()
         }
+    }
+
+    /// Interns one event ID for this immutable audit graph. The map is local
+    /// to the cache instance, so IDs cannot be reused across traces.
+    fn intern_pair_event(&mut self, event_id: &str) -> usize {
+        if let Some(index) = self.pair_event_indices.get(event_id) {
+            return *index;
+        }
+        let index = self.next_pair_event_index;
+        self.next_pair_event_index += 1;
+        self.pair_event_indices.insert(event_id.to_string(), index);
+        index
     }
 }
 
@@ -458,7 +474,9 @@ fn path_exists(
     }
 
     if cache.pair_memoized {
-        let key = (from.to_string(), to.to_string());
+        let from_index = cache.intern_pair_event(from);
+        let to_index = cache.intern_pair_event(to);
+        let key = (from_index, to_index);
         if let Some(result) = cache.pair_results.get(&key) {
             cache.cache_hits += 1;
             cache.pair_cache_hits += 1;
@@ -2591,6 +2609,12 @@ mod tests{
         assert_eq!(cache.pair_cache_hits, 2);
         assert_eq!(cache.dfs_node_visits, visits_after_negative);
         assert_eq!(cache.pair_results.len(), 2);
+        // Three distinct endpoints are interned once each, despite two
+        // cached pairs sharing the same source event.
+        assert_eq!(cache.pair_event_indices.len(), 3);
+        assert_eq!(cache.pair_event_indices.get("a1"), Some(&0));
+        assert_eq!(cache.pair_event_indices.get("b2"), Some(&1));
+        assert_eq!(cache.pair_event_indices.get("c1"), Some(&2));
         assert!(cache.pair_results.len() <= MAX_CACHED_REACHABILITY_PAIRS);
     }
 
