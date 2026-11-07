@@ -493,6 +493,21 @@ CI: [Pulse Lifecycle Evidence Audit](https://github.com/Luminous-Dynamics/myceli
 5. Port the exact same scenarios to the accepted 0.7.1 tuple only after the release profile and canonical-source parity gate are accepted.
 6. Extend #5091's bounded model with authorization grant/revoke/claim states, crash points and unknown outcomes; do not merge delivery and authorization into one state machine.
 
+## Evidence maturity ledger
+
+The current maturity register is maintained in:
+- `docs/security/pulse-qualification-evidence-ledger-v1.json`
+- `docs/security/pulse-qualification-evidence-ledger-v1.schema.json`
+- `docs/security/pulse-qualification-evidence-ledger-v1.md`
+
+It distinguishes source-present, structural, unit-test, bounded-model, synthetic-benchmark, cryptographic-fixture, runtime-capture, multi-conductor-runtime and production-qualification claims. Each entry binds its own exact source SHA, workflow, artifact, result and claim ceiling.
+
+As of the 7 November exact-head campaign, the TLA+ suite ran against PR head `acd9ed7e6d4779e17b936ab5589d58ebfb7bdc39`: nine safe finite models exhausted their queues and seventeen named negative-control mutants were caught. The chain-restore receipt is `docs/security/PulseChainRestore-model-check-2026-11-07.md`. This does not qualify the real 0.7.1 restore API or Pulse runtime.
+
+The ledger also records historical (not current-head) benchmark and signed-evidence passes, the 0.7.0 canary's current `action_required` workflow status, the open two-conductor mailbox test, and the selected-but-unqualified 0.7.1 target. It must be updated rather than transferring an older pass to a newer source SHA.
+
+**Branch integration warning:** at ledger creation, PR #5771 was 396 commits ahead and 8 behind `main`, with a divergent merge base. It remains draft. Reconcile the branch with current `main`, review its 91-file scope, and rerun affected exact-head checks before marking it ready.
+
 ## Sources and provenance
 
 - Pulse 0.7.0 migration canary: https://github.com/Luminous-Dynamics/mycelix/pull/4891
