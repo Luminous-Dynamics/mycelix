@@ -258,6 +258,11 @@
           "op": "set",
           "path": "/messages/8/price/amount_minor",
           "value": 37000
+        },
+        {
+          "op": "set",
+          "path": "/messages/8/price/line_items/0/amount_minor",
+          "value": 34000
         }
       ],
       "expected": {
@@ -268,7 +273,8 @@
       },
       "invariants": [
         "committed_price_must_match_current_accepted_quote_or_explicit_amendment"
-      ]
+      ],
+      "notes": "The commitment's line items still sum to its changed total, isolating the mismatch against the accepted ProviderOffer rather than failing the independent arithmetic check first."
     },
     {
       "case_id": "SEM-013",
@@ -376,7 +382,7 @@
     {
       "case_id": "SEM-017",
       "class": "provider_crash",
-      "setup": "minimal_provider_commit_trace",
+      "setup": "one_mandatory_berth_component_provider_commit_trace",
       "supplemental_trace": [
         {
           "event": "provider_commit_durable",
@@ -402,7 +408,7 @@
         "lost_response_is_unknown_until_provider_reconciliation",
         "retry_must_not_duplicate_provider_effect"
       ],
-      "notes": "The trace starts with no client-observed receipt or manifest. Provider-side durable effect exists, but the response is lost."
+      "notes": "One-component stay trace: provider-side durable effect exists, but no receipt or manifest has been observed by the client."
     },
     {
       "case_id": "SEM-018",
@@ -422,7 +428,8 @@
       },
       "invariants": [
         "reconciliation_resolves_ambiguous_outcome_without_second_effect"
-      ]
+      ],
+      "notes": "The one-component stay becomes Confirmed only after reconciliation returns the original provider receipt; no second effect is created."
     },
     {
       "case_id": "SEM-019",
