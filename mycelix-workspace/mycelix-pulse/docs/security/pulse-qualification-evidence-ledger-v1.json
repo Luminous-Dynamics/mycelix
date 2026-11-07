@@ -1,0 +1,321 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "ledger_id": "PULSE-QUALIFICATION-EVIDENCE-LEDGER-001",
+  "ledger_version": "1.0.0",
+  "updated_at": "2026-11-07",
+  "repository": "Luminous-Dynamics/mycelix",
+  "research_pr": {
+    "number": 5771,
+    "url": "https://github.com/Luminous-Dynamics/mycelix/pull/5771",
+    "branch": "research/pulse-authority-lifecycle-v1-20261104",
+    "head_sha": "acd9ed7e6d4779e17b936ab5589d58ebfb7bdc39",
+    "base_branch": "main",
+    "base_sha_at_pr": "9e12dd46bdd8371e8ed9626a17bc06f21c141a52",
+    "divergence_at_ledger_creation": {
+      "ahead_by": 396,
+      "behind_by": 8,
+      "merge_base": "9e12dd46bdd8371e8ed9626a17bc06f21c141a52"
+    },
+    "state": "open_draft",
+    "merge_readiness": "BLOCKED_REQUIRES_REBASE_AND_EXACT_HEAD_REQUALIFICATION"
+  },
+  "claim_levels": [
+    "SOURCE_PRESENT",
+    "STATIC_OR_STRUCTURAL_CHECK",
+    "UNIT_TEST",
+    "BOUNDED_MODEL_CHECK",
+    "SYNTHETIC_BENCHMARK",
+    "CRYPTOGRAPHIC_SYNTHETIC_EVIDENCE",
+    "RUNTIME_CAPTURE",
+    "MULTI_CONDUCTOR_RUNTIME",
+    "PRODUCTION_QUALIFICATION"
+  ],
+  "statuses": [
+    "PASS_FOR_EXACT_SUBJECT",
+    "HISTORICAL_PASS",
+    "SOURCE_ONLY_UNQUALIFIED",
+    "PENDING_NO_JOB_EVIDENCE",
+    "ACTION_REQUIRED_NO_JOB_EVIDENCE",
+    "INCOMPLETE_BY_DESIGN",
+    "SELECTED_NOT_QUALIFIED",
+    "OPEN_RUNTIME_GATE"
+  ],
+  "evidence": [
+    {
+      "id": "MODEL-SUITE-ACD9",
+      "area": "TLA+ safety models",
+      "claim_level": "BOUNDED_MODEL_CHECK",
+      "status": "PASS_FOR_EXACT_SUBJECT",
+      "subject_sha": "acd9ed7e6d4779e17b936ab5589d58ebfb7bdc39",
+      "workflow_run": {
+        "id": 42367109650,
+        "number": 346,
+        "url": "https://github.com/Luminous-Dynamics/mycelix/actions/runs/42367109650"
+      },
+      "job_id": 128387371232,
+      "artifact": {
+        "id": 13571254803,
+        "name": "pulse-authority-tlc-acd9ed7e6d4779e17b936ab5589d58ebfb7bdc39",
+        "url": "https://github.com/Luminous-Dynamics/mycelix/actions/runs/42367109650/artifacts/13571254803",
+        "zip_sha256": "1f508e68a4740634745a017544151100158a7dccbef343f1b58e1b5d47e5ed06"
+      },
+      "tool": {
+        "name": "TLC",
+        "version": "1.8.0",
+        "build": "2026.08.11.125311",
+        "jar_sha256": "ab323b79802aedc3203b3f9af37c6aca3ed43f4e0225b36f2aa77b26de46c05f"
+      },
+      "result": {
+        "safe_model_families": 9,
+        "safe_models_passed": 9,
+        "negative_controls_caught": 17,
+        "negative_controls_expected": 17,
+        "workflow_job_conclusion": "success"
+      },
+      "claim_ceiling": "Finite abstract state-space checking only. No Holochain conductor, Sweettest, DHT, real cryptographic, liveness, unbounded linearizability or production claim."
+    },
+    {
+      "id": "AUTHORIZATION-CORPUS-28",
+      "area": "Authorization lifecycle scenario corpus",
+      "claim_level": "STATIC_OR_STRUCTURAL_CHECK",
+      "status": "SOURCE_ONLY_UNQUALIFIED",
+      "subject_sha": "acd9ed7e6d4779e17b936ab5589d58ebfb7bdc39",
+      "source_path": "mycelix-workspace/mycelix-pulse/docs/security/authorization-lifecycle-v1.corpus.json",
+      "source_blob_sha": "63a240bc3e8c029e6c1b6c1468e43514eeb5cc0c",
+      "result": {
+        "scenario_count": 28,
+        "unique_scenario_ids": 28
+      },
+      "claim_ceiling": "Scenario inventory and structural source inspection only; not 28 runtime tests."
+    },
+    {
+      "id": "MULTICONDUCTOR-BASELINE-RUN81",
+      "area": "Two-conductor structural history benchmark",
+      "claim_level": "SYNTHETIC_BENCHMARK",
+      "status": "HISTORICAL_PASS",
+      "subject_sha": "f308333ada8a77166fb3684db9bc38af47a2d03d",
+      "workflow_run": {
+        "id": 42094896905,
+        "number": 81,
+        "url": "https://github.com/Luminous-Dynamics/mycelix/actions/runs/42094896905"
+      },
+      "artifact": {
+        "id": 13447635821,
+        "url": "https://github.com/Luminous-Dynamics/mycelix/actions/runs/42094896905/artifacts/13447635821"
+      },
+      "result": {
+        "profile": "2 conductor, independent local sequence counters, no cross-conductor causal edges, unverified remote signal events",
+        "repetitions": {
+          "1000": 30,
+          "10000": 30,
+          "100000": 30,
+          "1000000": 1
+        },
+        "median_ms": {
+          "1000": 1.78,
+          "10000": 27.251,
+          "100000": 327.147,
+          "1000000": 3595
+        },
+        "p95_ms": {
+          "1000": 2.514,
+          "10000": 29.848,
+          "100000": 335.232
+        },
+        "max_rss_kib": {
+          "1000": 6236,
+          "10000": 38396,
+          "100000": 360548,
+          "1000000": 3582296
+        }
+      },
+      "claim_ceiling": "Synthetic structural verifier benchmark only. No conductor throughput, DHT convergence, dense causal graph, multi-conductor verified-record path, or industry superiority claim."
+    },
+    {
+      "id": "BORROWED-PARSER-RUN166",
+      "area": "Owned versus borrowed parser/shape-validation microbenchmark",
+      "claim_level": "SYNTHETIC_BENCHMARK",
+      "status": "HISTORICAL_PASS",
+      "subject_sha": "8b9a2de05c1c562e6f6135fc2645679e756a6cff",
+      "workflow_run": {
+        "id": 42215970824,
+        "number": 166,
+        "url": "https://github.com/Luminous-Dynamics/mycelix/actions/runs/42215970824"
+      },
+      "artifact": {
+        "id": 13501252101,
+        "url": "https://github.com/Luminous-Dynamics/mycelix/actions/runs/42215970824/artifacts/13501252101"
+      },
+      "result": {
+        "profile": "JSON parse plus closed event-shape validation only",
+        "median_parse_speedup": {
+          "1000": 3.21,
+          "10000": 3.35,
+          "100000": 3.42,
+          "1000000": 3.28
+        },
+        "requested_allocation_reduction_factor": {
+          "1000": 23.5,
+          "10000": 15.34,
+          "100000": 18.8,
+          "1000000": 23.12
+        },
+        "one_million_sample_class": "single_capacity_probe"
+      },
+      "claim_ceiling": "Parser-only performance evidence. The complete production semantic auditor still materializes the owned History and this is not a whole-auditor speedup."
+    },
+    {
+      "id": "SIGNED-EVIDENCE-RUN90",
+      "area": "Role-separated DSSE/Ed25519 signed-evidence verifier prototype",
+      "claim_level": "CRYPTOGRAPHIC_SYNTHETIC_EVIDENCE",
+      "status": "HISTORICAL_PASS",
+      "subject_sha": "8b9a2de05c1c562e6f6135fc2645679e756a6cff",
+      "workflow_run": {
+        "id": 42215970758,
+        "number": 90,
+        "url": "https://github.com/Luminous-Dynamics/mycelix/actions/runs/42215970758"
+      },
+      "artifact": {
+        "id": 13501032365
+      },
+      "result": {
+        "tests_passed": 26,
+        "rustfmt": "PASS",
+        "clippy_d_warnings": "PASS",
+        "profile": "synthetic fixtures with role/predicate/subject bindings and pinned-root mode"
+      },
+      "known_gaps": [
+        "Production key custody/signing",
+        "root rotation/threshold policy",
+        "historical key compromise adjudication",
+        "COSE/SCITT receipt authenticity",
+        "VDS inclusion/consistency verification",
+        "second independent trust-root verifier",
+        "real runtime evidence capture"
+      ],
+      "claim_ceiling": "Synthetic signing-key verifier tests only. Does not prove real conductor events, full SCITT transparency, or deployed trust-root security."
+    },
+    {
+      "id": "PULSE-071-CANARY-4891",
+      "area": "Pulse Holochain 0.7.0 migration canary",
+      "claim_level": "SOURCE_PRESENT",
+      "status": "ACTION_REQUIRED_NO_JOB_EVIDENCE",
+      "subject_sha": "19c5c43bf23cf634f7f918eda35ee9fd0ea1f439",
+      "pull_request": "https://github.com/Luminous-Dynamics/mycelix/pull/4891",
+      "workflow_run": {
+        "id": 42342839709,
+        "number": 384,
+        "conclusion": "action_required"
+      },
+      "result": {
+        "jobs_returned": 0,
+        "compile": "NOT_ESTABLISHED",
+        "wasm": "NOT_ESTABLISHED",
+        "sweettest": "NOT_ESTABLISHED"
+      },
+      "claim_ceiling": "Source and workflow state only. The 0.7.0 branch is a regression canary, not the selected forward-development target or a runtime-qualified release."
+    },
+    {
+      "id": "MAILBOX-TWO-CONDUCTOR-5781",
+      "area": "SharedMailbox owner/admin transition Sweettest",
+      "claim_level": "SOURCE_PRESENT",
+      "status": "PENDING_NO_JOB_EVIDENCE",
+      "subject_sha": "3fad89249c29b8cdea3085a32121a60dc7eb223b",
+      "issue": "https://github.com/Luminous-Dynamics/mycelix/issues/5781",
+      "workflow_run": {
+        "id": 41856396454,
+        "number": 324,
+        "state": "pending",
+        "jobs_returned": 0
+      },
+      "result": {
+        "two_conductor_sweettest_source_present": true,
+        "compiled": "NOT_ESTABLISHED",
+        "runtime": "NOT_ESTABLISHED"
+      },
+      "claim_ceiling": "Source/test design only. Do not claim the owner/member test passed until an exact-head job produces compile and Sweettest evidence."
+    },
+    {
+      "id": "HOLOCHAIN-071-TARGET",
+      "area": "Holochain 0.7.1 upstream target and compatibility profile",
+      "claim_level": "SOURCE_PRESENT",
+      "status": "SELECTED_NOT_QUALIFIED",
+      "profile_pr": "https://github.com/Luminous-Dynamics/mycelix/pull/5718",
+      "qualification_issue": "https://github.com/Luminous-Dynamics/mycelix/issues/5719",
+      "target_tuple_from_profile": {
+        "holochain": "0.7.1",
+        "hdk": "0.7.1",
+        "hdi": "0.8.1",
+        "holochain_serialized_bytes": "0.0.57",
+        "js_client": "0.21.1",
+        "rust_client": "0.9.1",
+        "lair": "0.7.1",
+        "kitsune2_crate_family": "0.5.1",
+        "holonix_bootstrap_server": "0.5.2",
+        "rust": "1.95.0",
+        "node": "24"
+      },
+      "claim_ceiling": "Upstream release readiness and candidate profile only. No Mycelix 0.7.1 runtime qualification."
+    },
+    {
+      "id": "CHAIN-RESTORE-RUNTIME-5905",
+      "area": "Holochain 0.7.1 public source-chain restore",
+      "claim_level": "BOUNDED_MODEL_CHECK",
+      "status": "OPEN_RUNTIME_GATE",
+      "issue": "https://github.com/Luminous-Dynamics/mycelix/issues/5905",
+      "model_result_ref": "MODEL-SUITE-ACD9",
+      "result": {
+        "restore_safe_model_states_generated": 368,
+        "restore_safe_model_distinct_states": 136,
+        "mutants_caught": 4
+      },
+      "claim_ceiling": "Bounded model only. The real restore_from_dht API, Lair key custody, DHT peer fetch, validator receipt, restart and enable_app behavior remain untested."
+    },
+    {
+      "id": "SCITT-TRANSPARENCY",
+      "area": "SCITT COSE receipt and VDS proof verification",
+      "claim_level": "SOURCE_PRESENT",
+      "status": "INCOMPLETE_BY_DESIGN",
+      "issue": "https://github.com/Luminous-Dynamics/mycelix/issues/5863",
+      "known_gaps": [
+        "COSE signatures",
+        "TS issuer-key trust",
+        "receipt authenticity",
+        "VDS inclusion proof",
+        "VDS consistency proof"
+      ],
+      "claim_ceiling": "Current verifier performs structural/digest checks only for SCITT input. Structurally valid receipts remain INCOMPLETE."
+    }
+  ],
+  "next_gates": [
+    {
+      "priority": "P0",
+      "gate": "Reconcile/rebase research PR #5771 onto current main (8 commits behind), review 91-file scope, then rerun every changed workflow against the rebased exact head."
+    },
+    {
+      "priority": "P0",
+      "gate": "Complete the selected Holochain 0.7.1 Pulse canary from canonical monorepo source through lock closure, Rust tests/Clippy, every WASM, DNA/hApp pack, fresh conductor, multi-agent Sweettest and independent client E2E."
+    },
+    {
+      "priority": "P0",
+      "gate": "Run real two-conductor mailbox/independent-validator tests and retain authored-action, validator-disposition and observer-state evidence."
+    },
+    {
+      "priority": "P0",
+      "gate": "Run actual restore_from_dht multi-conductor tests on 0.7.1, including original-key requirement, all-cell completion, peer loss, restart, invalid entries/receipts, and fresh grant re-issuance."
+    },
+    {
+      "priority": "P1",
+      "gate": "Make the complete semantic multi-conductor auditor borrowed/streaming; current 3.2–3.4x parsing result is parse-only."
+    },
+    {
+      "priority": "P1",
+      "gate": "Verify COSE/SCITT receipts and VDS proofs with a second independent verifier and real out-of-band trust roots."
+    },
+    {
+      "priority": "P1",
+      "gate": "Publish matched Holochain 0.6/0.7.1, SpiceDB/OpenFGA, UCAN and Biscuit benchmark protocols; do not compare unmatched semantics or top-line QPS."
+    }
+  ],
+  "global_claim_ceiling": "No production readiness, SOTA superiority, real DHT consensus, runtime linearizability, universal partition safety, or zero-risk claim is established by this ledger. Every item is bounded by its exact source subject, workflow, workload, verifier and stated assumptions."
+}
