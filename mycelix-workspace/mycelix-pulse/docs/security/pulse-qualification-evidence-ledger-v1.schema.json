@@ -150,8 +150,117 @@
           "claim_ceiling": {
             "type": "string",
             "minLength": 20
+          },
+          "source_path": {
+            "type": "string"
+          },
+          "source_blob_sha": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{40}$"
+          },
+          "workflow_run": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "integer"
+              },
+              "number": {
+                "type": "integer"
+              },
+              "url": {
+                "type": "string",
+                "format": "uri"
+              },
+              "state": {
+                "type": "string"
+              },
+              "conclusion": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id"
+            ],
+            "additionalProperties": false
+          },
+          "job_id": {
+            "type": "integer"
+          },
+          "artifact": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "integer"
+              },
+              "name": {
+                "type": "string"
+              },
+              "url": {
+                "type": "string",
+                "format": "uri"
+              },
+              "zip_sha256": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              }
+            },
+            "required": [
+              "id"
+            ],
+            "additionalProperties": false
+          },
+          "tool": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "version": {
+                "type": "string"
+              },
+              "build": {
+                "type": "string"
+              },
+              "jar_sha256": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              }
+            },
+            "additionalProperties": false
+          },
+          "result": {
+            "type": "object"
+          },
+          "pull_request": {
+            "type": "string",
+            "format": "uri"
+          },
+          "issue": {
+            "type": "string",
+            "format": "uri"
+          },
+          "known_gaps": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "profile_pr": {
+            "type": "string",
+            "format": "uri"
+          },
+          "qualification_issue": {
+            "type": "string",
+            "format": "uri"
+          },
+          "target_tuple_from_profile": {
+            "type": "object"
+          },
+          "model_result_ref": {
+            "type": "string"
           }
-        }
+        },
+        "additionalProperties": false
       }
     },
     "next_gates": {
