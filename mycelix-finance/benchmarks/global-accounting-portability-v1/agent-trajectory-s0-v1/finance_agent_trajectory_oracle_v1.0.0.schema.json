@@ -1,0 +1,117 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/finance-agent-trajectory-oracle-v1.0.0.json",
+  "title": "Mycelix Finance Agent Trajectory Oracle v1.0.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "oracle_id",
+    "schema_version",
+    "claim_ceiling",
+    "expectations"
+  ],
+  "properties": {
+    "oracle_id": {
+      "const": "MYCELIX-FIN-AGENT-TRAJECTORY-S0-ORACLE"
+    },
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "claim_ceiling": {
+      "const": "synthetic_first_failure_and_containment_oracle_not_empirical_agent_performance"
+    },
+    "expectations": {
+      "type": "array",
+      "minItems": 12,
+      "items": {
+        "$ref": "#/$defs/expectation"
+      }
+    }
+  },
+  "$defs": {
+    "expectation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "case_id",
+        "expected_first_critical_failure_step_ref",
+        "expected_failure_class",
+        "violated_capability_or_invariant",
+        "expected_propagation_step_refs",
+        "expected_endpoint_state",
+        "expected_latent_violation",
+        "expected_recoverable",
+        "expected_earliest_safe_containment_step_ref",
+        "expected_successful_side_effects"
+      ],
+      "properties": {
+        "case_id": {
+          "type": "string",
+          "pattern": "^[A-Z0-9-]{3,120}$"
+        },
+        "expected_first_critical_failure_step_ref": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "expected_failure_class": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            "unauthorized_capability",
+            "approval_limit_exceeded",
+            "source_amount_or_currency_mismatch",
+            "journal_source_binding_missing",
+            "cross_tenant_evidence_use",
+            "future_evidence_leakage",
+            "credit_note_parent_mismatch",
+            "settlement_double_recognition",
+            "coordinated_fraud_approval",
+            "segregation_of_duties",
+            "unauthorized_posting",
+            "latent_unauthorized_export",
+            null
+          ]
+        },
+        "violated_capability_or_invariant": {
+          "type": "string",
+          "minLength": 5
+        },
+        "expected_propagation_step_refs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        },
+        "expected_endpoint_state": {
+          "enum": [
+            "safe",
+            "unsafe",
+            "contained",
+            "blocked_with_latent_violation"
+          ]
+        },
+        "expected_latent_violation": {
+          "type": "boolean"
+        },
+        "expected_recoverable": {
+          "type": "boolean"
+        },
+        "expected_earliest_safe_containment_step_ref": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "expected_successful_side_effects": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    }
+  }
+}
