@@ -28,7 +28,7 @@ jobs:
             .schema == "luminous.gcpn.civilian_portfolio_cost.v0.1" and
             .status == "synthetic_benchmark_definition_only" and
             .claim_ceiling == "synthetic_comparison_contract_integrity_only" and
-            .portfolios | length == 7
+            (.portfolios | length == 7)
           ' mycelix-workspace/mycelix-praxis/docs/research/GCPN_CIVILIAN_PORTFOLIO_COST_CASES_V0_1.json >/dev/null
           jq -e '
             ([.portfolios[].id] | sort) == ["B0","B1","B2","B3","B4","B5","B6"] and
