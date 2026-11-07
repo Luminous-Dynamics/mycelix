@@ -67,6 +67,7 @@ jobs:
             verify-trace \
             mycelix-workspace/mycelix-pulse/docs/security/authorization-lifecycle-v1.corpus.json \
             mycelix-workspace/mycelix-pulse/docs/security/authorization-lifecycle-v1.schema.json \
+            mycelix-workspace/mycelix-pulse/docs/security/authorization-lifecycle-trace-v1.schema.json \
             mycelix-workspace/mycelix-pulse/holochain/tools/pulse-trace-verifier/fixtures/revocation-valid.json \
             > "${RUNNER_TEMP}/pulse-trace-receipts/revocation-valid.json"
 
@@ -79,6 +80,7 @@ jobs:
             verify-trace \
             mycelix-workspace/mycelix-pulse/docs/security/authorization-lifecycle-v1.corpus.json \
             mycelix-workspace/mycelix-pulse/docs/security/authorization-lifecycle-v1.schema.json \
+            mycelix-workspace/mycelix-pulse/docs/security/authorization-lifecycle-trace-v1.schema.json \
             mycelix-workspace/mycelix-pulse/holochain/tools/pulse-trace-verifier/fixtures/revocation-authorized-mutant.json \
             > "${RUNNER_TEMP}/pulse-trace-receipts/revocation-mutant.stdout" \
             2> "${RUNNER_TEMP}/pulse-trace-receipts/revocation-mutant.stderr"
