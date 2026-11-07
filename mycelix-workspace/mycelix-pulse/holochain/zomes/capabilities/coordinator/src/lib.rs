@@ -94,11 +94,9 @@ pub fn grant_capability(input: GrantCapabilityInput) -> ExternResult<ActionHash>
     // The source-chain-local index is the deduplication authority. A same-key,
     // same-request retry returns the original record before a new CapSecret is
     // generated. A conflicting payload or corrupt index fails closed.
-    if let Some(existing_hash) = find_existing_capability_for_request(
-        &my_agent,
-        &idempotency_key_hash,
-        &request_digest,
-    )? {
+    if let Some(existing_hash) =
+        find_existing_capability_for_request(&my_agent, &idempotency_key_hash, &request_digest)?
+    {
         return Ok(existing_hash);
     }
 
@@ -235,11 +233,8 @@ fn find_existing_capability_for_request(
     idempotency_key_hash: &[u8],
     request_digest: &[u8],
 ) -> ExternResult<Option<ActionHash>> {
-    let query = LinkQuery::try_new(
-        grantor.clone(),
-        LinkTypes::AgentToCapabilityIdempotencyKey,
-    )?
-    .tag_prefix(LinkTag::new(idempotency_key_hash.to_vec()));
+    let query = LinkQuery::try_new(grantor.clone(), LinkTypes::AgentToCapabilityIdempotencyKey)?
+        .tag_prefix(LinkTag::new(idempotency_key_hash.to_vec()));
     let links = get_links(query, GetStrategy::Local)?;
     let mut found: Option<ActionHash> = None;
 
@@ -268,21 +263,27 @@ fn find_existing_capability_for_request(
 
         if capability.grantor != *grantor
             || capability.idempotency_key_hash.as_deref() != Some(idempotency_key_hash)
-            || !capability.request_digest.as_deref().is_some_and(|value| value.len() == 32)
+            || !capability
+                .request_digest
+                .as_deref()
+                .is_some_and(|value| value.len() == 32)
         {
             return Err(wasm_error!(WasmErrorInner::Guest(
-                "IDEMPOTENCY_INDEX_CORRUPT: indexed capability does not match grantor/key".to_string(),
+                "IDEMPOTENCY_INDEX_CORRUPT: indexed capability does not match grantor/key"
+                    .to_string(),
             )));
         }
         if !idempotency_request_matches(capability.request_digest.as_deref(), request_digest) {
             return Err(wasm_error!(WasmErrorInner::Guest(
-                "IDEMPOTENCY_CONFLICT: operation_id was already committed with a different request".to_string(),
+                "IDEMPOTENCY_CONFLICT: operation_id was already committed with a different request"
+                    .to_string(),
             )));
         }
         if let Some(previous) = &found {
             if previous != &target_hash {
                 return Err(wasm_error!(WasmErrorInner::Guest(
-                    "IDEMPOTENCY_INDEX_CORRUPT: multiple capabilities share one operation ID".to_string(),
+                    "IDEMPOTENCY_INDEX_CORRUPT: multiple capabilities share one operation ID"
+                        .to_string(),
                 )));
             }
         } else {
@@ -1853,29 +1854,51 @@ mod grant_idempotency_tests {
         let base = request(
             "logical-id-a",
             agent(2),
-            MailboxPermissions { can_read: true, ..MailboxPermissions::default() },
+            MailboxPermissions {
+                can_read: true,
+                ..MailboxPermissions::default()
+            },
         );
         let same_request_new_attempt = request(
             "logical-id-b",
             agent(2),
-            MailboxPermissions { can_read: true, ..MailboxPermissions::default() },
+            MailboxPermissions {
+                can_read: true,
+                ..MailboxPermissions::default()
+            },
         );
         let different_grantee = request(
             "logical-id-a",
             agent(3),
-            MailboxPermissions { can_read: true, ..MailboxPermissions::default() },
+            MailboxPermissions {
+                can_read: true,
+                ..MailboxPermissions::default()
+            },
         );
         let different_permissions = request(
             "logical-id-a",
             agent(2),
-            MailboxPermissions { can_read: true, can_send: true, ..MailboxPermissions::default() },
+            MailboxPermissions {
+                can_read: true,
+                can_send: true,
+                ..MailboxPermissions::default()
+            },
         );
 
         let base_digest = capability_request_digest(&base).unwrap();
         assert_eq!(base_digest, capability_request_digest(&base).unwrap());
-        assert_eq!(base_digest, capability_request_digest(&same_request_new_attempt).unwrap());
-        assert_ne!(base_digest, capability_request_digest(&different_grantee).unwrap());
-        assert_ne!(base_digest, capability_request_digest(&different_permissions).unwrap());
+        assert_eq!(
+            base_digest,
+            capability_request_digest(&same_request_new_attempt).unwrap()
+        );
+        assert_ne!(
+            base_digest,
+            capability_request_digest(&different_grantee).unwrap()
+        );
+        assert_ne!(
+            base_digest,
+            capability_request_digest(&different_permissions).unwrap()
+        );
         assert_eq!(base_digest.len(), 32);
     }
 
@@ -1889,4 +1912,3 @@ mod grant_idempotency_tests {
         assert!(!idempotency_request_matches(None, &same));
     }
 }
-
