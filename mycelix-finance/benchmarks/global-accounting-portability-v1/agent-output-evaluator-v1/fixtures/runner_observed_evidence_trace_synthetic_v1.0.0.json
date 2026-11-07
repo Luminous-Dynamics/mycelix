@@ -8,7 +8,7 @@
   "task_id": "ACCT-001-COMPLETE-INVOICE",
   "case_id": "ACCT-001-COMPLETE-INVOICE",
   "source_bundle_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-  "transcript_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "transcript_sha256": "b03fc80d8b295a3705003c68effca2175f5a23f07ca1ebfecfdc06c3b761567c",
   "runner_adapter_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
   "events": [
     {
