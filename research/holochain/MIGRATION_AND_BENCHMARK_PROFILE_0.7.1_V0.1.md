@@ -1,30 +1,44 @@
 # Mycelix Holochain 0.7.1 Migration and Qualification Profile
 
 **Status:** proposed target profile; not yet qualified  
-**Snapshot date:** 2026-11-02  
+**Snapshot date:** 2026-11-07  
 **Scope:** migration from the repository's Holochain 0.6 family to the current stable 0.7 line
 
 ## Executive decision
 
-Treat **Holochain 0.7.1 as the preferred evaluation candidate, not yet the approved deployment baseline**. The stable 0.7.1 release exists, and the current 0.6→0.7 upgrade guide specifies the 0.7.1 dependency tuple; however, the published 0.7 compatibility table still explicitly calls 0.7.0 the recommended version. This is a real upstream documentation/release-policy discrepancy. The project must resolve it against exact release tags/artifacts and, where needed, upstream maintainer clarification before promoting 0.7.1 as the production baseline. Treat current 0.7.0 work as a migration intermediate/canary, not as automatically qualified. Do not target Holochain 0.8 development builds for production qualification.
+Treat **Holochain 0.7.1 as the current upstream-supported target for Mycelix qualification; Mycelix itself remains unqualified**. On 5 November 2026, Holochain's official Dev Pulse stated that 0.7.1 (released 14 October) had its tools, libraries and documentation updated/tested and was ready for development; the official release list also identifies the 0.7.1 stable tag. The compatibility table still displays 0.7.0 as recommended, so that page appears stale relative to the later release announcement and upgrade guide. This is a documentation discrepancy to track, not a reason to hold Mycelix at 0.7.0. Treat the existing 0.7.0 Pulse branch as a migration intermediate/canary and port it to 0.7.1; do not promote it as the target runtime. Do not target Holochain 0.8 development builds for production qualification.
 
 **Candidate version floor (verify from locked artifacts in every workspace):**
 
-| Component | Candidate pin | Qualification rule |
+| Component | 0.7.1 candidate pin / identity | Qualification rule |
 |---|---:|---|
-| Holochain conductor / Rust core | 0.7.1 | exact binary and source tag |
+| Holochain conductor / Rust core | 0.7.1 (`holochain-0.7.1` tag) | exact binary SHA-256 and source tag |
+| `hc` CLI / `hcterm` | 0.7.1 | exact binary version and digest |
 | HDK | 0.7.1 | exact Cargo pin |
 | HDI | 0.8.1 | exact Cargo pin |
 | `holochain_serialized_bytes` | 0.0.57 | exact compatibility pin |
-| JavaScript client | 0.21.1 | lockfile and client E2E |
-| Lair keystore | 0.7.1 | exact runtime version |
-| Kitsune2 bootstrap | 0.5.0 | exact service/runtime identity |
-| Holonix | `main-0.7` line | pin the resolved flake input revision in `flake.lock` |
-| Node.js | 24 | use where required by the upstream 0.7 guide |
-| `hc-spin` | 0.700.1 | only where the project uses hc-spin |
-| Rust client | resolve and pin the exact compatible release | do not infer from a stale compatibility table |
+| JavaScript client | 0.21.1 | exact package-lock entry and client E2E |
+| Rust client (`holochain_client`) | 0.9.1 | exact Cargo pin |
+| Lair keystore / API | 0.7.1 | exact runtime and crate versions |
+| Kitsune2 crates used by Holochain | 0.5.1 | exact lockfile closure; do not confuse with bootstrap server |
+| Kitsune2 bootstrap server in current Holonix 0.7 flake | 0.5.2 | record the exact source ref and service binary digest |
+| Holonix | `main-0.7` snapshot | mutable branch: pin exact flake source revision and every locked input in Mycelix `flake.lock`; never rely on branch name alone |
+| Rust toolchain in the inspected Holonix 0.7 snapshot | 1.95.0 | exact rustc/cargo versions and target list |
+| Node.js | 24 | exact version in Nix/CI |
+| `hc-scaffold` / `hc-spin` | 0.700.1 | only where each tool is used; pin packages individually |
 
 The table is a **candidate profile**, not proof that every crate or package listed is the newest compatible release. The qualification workflow must record the exact resolved package graph, binaries, source tags, and hashes.
+
+### Evidence behind the 0.7.1 closure
+
+The 0.7.1 release-tag manifests were inspected directly:
+- `hdk` 0.7.1 declares an exact `hdi = 0.8.1` dependency.
+- `hdi` 0.8.1 pins `holochain_serialized_bytes` and its derive crate to 0.0.57.
+- `holochain_client` is 0.9.1; its manifest uses Kitsune2 0.5.1 APIs and Lair 0.7.1.
+- The Holochain 0.7.1 conductor manifest uses Kitsune2 0.5.1 crates and Lair 0.7.1.
+- The inspected Holonix `main-0.7` snapshot uses Holochain tag `holochain-0.7.1`, Kitsune2 source tag `v0.5.2` for its bootstrap service, Lair `v0.7.1`, scaffolding `v0.700.1`, and Rust 1.95.0. This is a moving branch snapshot, not a stable identifier; Mycelix must pin its own flake source and lock graph.
+
+Do not infer that the Holochain crate's Kitsune2 0.5.1 library dependency and the Holonix bootstrap server 0.5.2 input are one interchangeable component. They are separate roles and must be recorded separately.
 
 ## Live repository baseline found
 
@@ -71,7 +85,7 @@ The export/import layer must preserve original authorship, timestamps, signature
 
 ### 0.7.0 → 0.7.1
 
-This is a second migration boundary, not a harmless patch bump:
+This is a required target migration boundary, not a harmless patch bump. Official Holochain release guidance now identifies 0.7.1 as ready for development; Pulse's 0.7.0 work is therefore a migration input, not the preferred destination:
 
 - Capability-grant types and serialization change. Grants already written on a 0.7.0 source chain cannot be read by 0.7.1 and must be re-issued.
 - Direct signals require an explicit `Capability::DirectSignal` grant, including signals to the same agent.
@@ -240,8 +254,9 @@ Queued, pending, skipped, cancelled, or superseded runs are not PASS. No CI resu
 ## Upstream references
 
 - [Holochain 0.6→0.7 upgrade guide, including 0.7.0→0.7.1 breaking changes](https://developer.holochain.org/resources/upgrade/upgrade-holochain-0.7/)
+- [Holochain 0.7.1 release readiness announcement (5 Nov 2026)](https://blog.holochain.org/dev-pulse-157-holochain-0-7-1-brings-chain-restore-direct-signal-security/) — 0.7.1 released 14 Oct and ready for development; includes DirectSignal security, chain restore, DHT integrity and Kitsune2 0.5.1 fixes.
 - [Holochain releases](https://github.com/holochain/holochain/releases) — 0.7.1 stable release published 2026-10-14; 0.8 development releases are prereleases.
-- [Holochain 0.7 compatibility table](https://developer.holochain.org/resources/compatibility/holochain-0.7/) — note the observed 0.7.0 recommendation and reconcile it against the newer 0.7.1 upgrade instructions before final pin approval.
+- [Holochain 0.7 compatibility table](https://developer.holochain.org/resources/compatibility/holochain-0.7/) — still shows 0.7.0; treat as stale relative to the 5 Nov 2026 0.7.1 release/readiness announcement and upgrade guide. Retain the mismatch as upstream documentation debt.
 - [Holonix](https://github.com/holochain/holonix) — versioned `main-0.7` development environment.
 
 ## Related Mycelix work
