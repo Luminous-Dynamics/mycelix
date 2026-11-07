@@ -41,14 +41,11 @@
         hcPkg = holochain-flake.packages.${system}.hc;
         lairPkg = holochain-flake.packages.${system}.lair-keystore;
 
-        # Rust toolchain - reads mycelix-workspace/rust-toolchain.toml (single source of
-        # truth), not stable.latest, so devShell builds can't silently drift from the pin
-        # and fragment sccache's cache (compiler binary is part of its cache key). Also
-        # reused below by the pulse-smtp-gateway package build.
-        # `stable.${channel}` only exposes versions known when the pinned
-        # rust-overlay revision was generated. The workspace toolchain may be
-        # newer than that attribute set, so resolve the rustup file directly.
-        rustToolchain = pkgs.rust-bin.fromRustupToolchainFile ../rust-toolchain.toml;
+        # Pulse is an isolated Holochain 0.7.1 candidate. The Holochain
+        # release tag itself pins Rust 1.96.1; do not inherit the shared
+        # Mycelix workspace 1.96.0 toolchain or the mutable Holonix snapshot.
+        # Reuse this exact local toolchain for the zomes and Pulse daemon builds.
+        rustToolchain = pkgs.rust-bin.fromRustupToolchainFile ./rust-toolchain.toml;
 
         # Common build inputs
         buildInputs = with pkgs; [
