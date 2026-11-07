@@ -1,0 +1,576 @@
+{
+  "corpus_id": "MCB-STAY-SEMANTIC-0.1",
+  "protocol_schema_version": "0.1.0",
+  "fixture_class": "synthetic_declarative_test_vectors",
+  "base_fixture": {
+    "path": "mycelix-workspace/docs/maritime-stay/examples-v0.1.json",
+    "json_pointer": "/messages",
+    "fixture_id": "example:stay-complete-001",
+    "messages_count": 10
+  },
+  "claim_ceiling": "Proposed semantic test vectors only. They are not executed verifier results, full JSON Schema conformance, provider behavior, financial finality, field interoperability, safety, legal compliance or production qualification.",
+  "verdicts": [
+    "accept",
+    "reject",
+    "conflict",
+    "indeterminate",
+    "not_evaluable_v0_1"
+  ],
+  "mutation_language": {
+    "set": "Set the JSON Pointer to the supplied value.",
+    "remove": "Remove the value at the JSON Pointer.",
+    "append_from_index": "Append a deep copy of the indexed base message, then apply nested set mutations.",
+    "reorder": "Reorder messages by the supplied list of original indices; do not change message content.",
+    "replay": "Replay an identical message/event without creating a new provider effect.",
+    "concurrent_requests": "Evaluate the listed provider requests as an unordered concurrency set at the provider's canonical allocation boundary."
+  },
+  "cases": [
+    {
+      "case_id": "SEM-001",
+      "class": "positive_control",
+      "setup": "base_fixture",
+      "mutations": [],
+      "expected": {
+        "verdict": "accept",
+        "aggregate_state": "confirmed",
+        "reason_codes": []
+      },
+      "invariants": [
+        "all_mandatory_components_have_current_provider_commitments",
+        "aggregate_state_is_derived_from_provider_receipts"
+      ]
+    },
+    {
+      "case_id": "SEM-002",
+      "class": "time",
+      "setup": "base_fixture",
+      "mutations": [
+        {
+          "op": "set",
+          "path": "/messages/0/components/0/period/end",
+          "value": "2026-12-01T12:00:00Z"
+        }
+      ],
+      "expected": {
+        "verdict": "reject",
+        "reason_codes": [
+          "period_not_positive"
+        ]
+      },
+      "invariants": [
+        "period_start_must_precede_period_end"
+      ]
+    },
+    {
+      "case_id": "SEM-003",
+      "class": "freshness",
+      "setup": "base_fixture",
+      "mutations": [
+        {
+          "op": "set",
+          "path": "/messages/1/availability/valid_until",
+          "value": "2026-11-07T15:00:59Z"
+        }
+      ],
+      "expected": {
+        "verdict": "reject",
+        "reason_codes": [
+          "availability_expired_before_hold"
+        ]
+      },
+      "invariants": [
+        "stale_availability_cannot_create_hold_or_commitment"
+      ]
+    },
+    {
+      "case_id": "SEM-004",
+      "class": "freshness",
+      "setup": "base_fixture",
+      "mutations": [
+        {
+          "op": "set",
+          "path": "/messages/3/expires_at",
+          "value": "2026-11-07T15:01:59Z"
+        }
+      ],
+      "expected": {
+        "verdict": "reject",
+        "reason_codes": [
+          "hold_expired_before_commit"
+        ]
+      },
+      "invariants": [
+        "expired_hold_cannot_be_used_for_commit"
+      ]
+    },
+    {
+      "case_id": "SEM-005",
+      "class": "authority_binding",
+      "setup": "base_fixture",
+      "mutations": [
+        {
+          "op": "set",
+          "path": "/messages/3/provider_ref",
+          "value": "provider:windward-homes-coop"
+        }
+      ],
+      "expected": {
+        "verdict": "reject",
+        "reason_codes": [
+          "hold_provider_mismatch"
+        ]
+      },
+      "invariants": [
+        "provider_authority_is_bound_across_offer_hold_commitment_receipt"
+      ]
+    },
+    {
+      "case_id": "SEM-006",
+      "class": "authority_binding",
+      "setup": "base_fixture",
+      "mutations": [
+        {
+          "op": "set",
+          "path": "/messages/7/resource_ref",
+          "value": "resource:berth-999"
+        }
+      ],
+      "expected": {
+        "verdict": "reject",
+        "reason_codes": [
+          "receipt_commitment_resource_mismatch"
+        ]
+      },
+      "invariants": [
+        "effect_receipt_subject_must_match_commitment"
+      ]
+    },
+    {
+      "case_id": "SEM-007",
+      "class": "receipt_semantics",
+      "setup": "base_fixture",
+      "mutations": [
+        {
+          "op": "set",
+          "path": "/messages/5/operation_kind",
+          "value": "refund"
+        }
+      ],
+      "expected": {
+        "verdict": "reject",
+        "reason_codes": [
+          "receipt_operation_kind_mismatch"
+        ]
+      },
+      "invariants": [
+        "receipt_operation_must_match_effect"
+      ]
+    },
+    {
+      "case_id": "SEM-008",
+      "class": "manifest_integrity",
+      "setup": "base_fixture",
+      "mutations": [
+        {
+          "op": "remove",
+          "path": "/messages/9/components/1"
+        }
+      ],
+      "expected": {
+        "verdict": "reject",
+        "reason_codes": [
+          "mandatory_component_missing_from_manifest"
+        ]
+      },
+      "invariants": [
+        "manifest_must_cover_every_mandatory_intent_component"
+      ]
+    },
+    {
+      "case_id": "SEM-009",
+      "class": "manifest_integrity",
+      "setup": "base_fixture",
+      "mutations": [
+        {
+          "op": "set",
+          "path": "/messages/9/components/1/state",
+          "value": "unknown"
+        }
+      ],
+      "expected": {
+        "verdict": "reject",
+        "reason_codes": [
+          "confirmed_manifest_contains_unknown_mandatory_component"
+        ]
+      },
+      "invariants": [
+        "confirmed_requires_all_mandatory_components_currently_confirmed"
+      ]
+    },
+    {
+      "case_id": "SEM-010",
+      "class": "manifest_integrity",
+      "setup": "base_fixture",
+      "mutations": [
+        {
+          "op": "set",
+          "path": "/messages/9/components/1/mandatory",
+          "value": false
+        }
+      ],
+      "expected": {
+        "verdict": "reject",
+        "reason_codes": [
+          "manifest_mandatory_flag_disagrees_with_intent"
+        ]
+      },
+      "invariants": [
+        "manifest_cannot_weaken_intent_component_criticality"
+      ]
+    },
+    {
+      "case_id": "SEM-011",
+      "class": "price_arithmetic",
+      "setup": "base_fixture",
+      "mutations": [
+        {
+          "op": "set",
+          "path": "/messages/2/price/amount_minor",
+          "value": 36001
+        }
+      ],
+      "expected": {
+        "verdict": "reject",
+        "reason_codes": [
+          "price_line_items_do_not_sum_to_total"
+        ]
+      },
+      "invariants": [
+        "integer_minor_unit_totals_must_reconcile"
+      ]
+    },
+    {
+      "case_id": "SEM-012",
+      "class": "price_consistency",
+      "setup": "base_fixture",
+      "mutations": [
+        {
+          "op": "set",
+          "path": "/messages/8/price/amount_minor",
+          "value": 37000
+        }
+      ],
+      "expected": {
+        "verdict": "reject",
+        "reason_codes": [
+          "commitment_price_differs_from_accepted_offer"
+        ]
+      },
+      "invariants": [
+        "committed_price_must_match_current_accepted_quote_or_explicit_amendment"
+      ]
+    },
+    {
+      "case_id": "SEM-013",
+      "class": "idempotency",
+      "setup": "base_fixture",
+      "mutations": [
+        {
+          "op": "replay",
+          "message_index": 3
+        }
+      ],
+      "expected": {
+        "verdict": "accept",
+        "provider_effect_count": 1,
+        "reason_codes": []
+      },
+      "invariants": [
+        "same_key_same_canonical_payload_returns_original_effect_reference"
+      ]
+    },
+    {
+      "case_id": "SEM-014",
+      "class": "idempotency",
+      "setup": "base_fixture",
+      "mutations": [
+        {
+          "op": "append_from_index",
+          "message_index": 3,
+          "changes": [
+            {
+              "op": "set",
+              "path": "/offer_ref",
+              "value": "offer:room-001"
+            }
+          ]
+        }
+      ],
+      "expected": {
+        "verdict": "conflict",
+        "reason_codes": [
+          "idempotency_key_reused_with_different_payload"
+        ]
+      },
+      "invariants": [
+        "same_key_different_payload_is_conflict"
+      ]
+    },
+    {
+      "case_id": "SEM-015",
+      "class": "receipt_replay",
+      "setup": "base_fixture",
+      "mutations": [
+        {
+          "op": "append_from_index",
+          "message_index": 5,
+          "changes": [
+            {
+              "op": "set",
+              "path": "/integrity_digest",
+              "value": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+            }
+          ]
+        }
+      ],
+      "expected": {
+        "verdict": "conflict",
+        "reason_codes": [
+          "receipt_identity_reused_with_different_content"
+        ]
+      },
+      "invariants": [
+        "receipt_identity_is_content_stable"
+      ]
+    },
+    {
+      "case_id": "SEM-016",
+      "class": "determinism",
+      "setup": "base_fixture",
+      "mutations": [
+        {
+          "op": "reorder",
+          "message_indices": [
+            9,
+            8,
+            7,
+            6,
+            5,
+            4,
+            3,
+            2,
+            1,
+            0
+          ]
+        }
+      ],
+      "expected": {
+        "verdict": "accept",
+        "same_canonical_result_as": "SEM-001",
+        "reason_codes": []
+      },
+      "invariants": [
+        "equivalent_input_order_does_not_change_semantic_result"
+      ]
+    },
+    {
+      "case_id": "SEM-017",
+      "class": "provider_crash",
+      "setup": "base_fixture",
+      "supplemental_trace": [
+        {
+          "event": "provider_commit_durable",
+          "provider_ref": "provider:aurora-marinas",
+          "operation_id": "operation:commit-berth-001"
+        },
+        {
+          "event": "response_lost_before_client_observation"
+        },
+        {
+          "event": "client_retries_same_key_same_payload"
+        }
+      ],
+      "expected": {
+        "verdict": "indeterminate",
+        "aggregate_state": "unknown",
+        "provider_effect_count": 1,
+        "reason_codes": [
+          "provider_effect_requires_reconciliation"
+        ]
+      },
+      "invariants": [
+        "lost_response_is_unknown_until_provider_reconciliation",
+        "retry_must_not_duplicate_provider_effect"
+      ]
+    },
+    {
+      "case_id": "SEM-018",
+      "class": "provider_crash_positive_recovery",
+      "setup": "SEM-017",
+      "supplemental_trace": [
+        {
+          "event": "provider_reconciliation_returns_original_effect_receipt",
+          "receipt_ref": "receipt:commit-berth-001"
+        }
+      ],
+      "expected": {
+        "verdict": "accept",
+        "aggregate_state": "confirmed",
+        "provider_effect_count": 1,
+        "reason_codes": []
+      },
+      "invariants": [
+        "reconciliation_resolves_ambiguous_outcome_without_second_effect"
+      ]
+    },
+    {
+      "case_id": "SEM-019",
+      "class": "concurrency",
+      "setup": "capacity_one_resource",
+      "supplemental_trace": [
+        {
+          "event": "concurrent_requests",
+          "requests": [
+            {
+              "request_id": "req:A",
+              "resource_ref": "resource:berth-12",
+              "quantity": 1
+            },
+            {
+              "request_id": "req:B",
+              "resource_ref": "resource:berth-12",
+              "quantity": 1
+            }
+          ],
+          "provider_capacity": 1
+        }
+      ],
+      "expected": {
+        "verdict": "accept",
+        "committed_requests": 1,
+        "rejected_requests": 1,
+        "overcommitted_capacity": 0,
+        "reason_codes": []
+      },
+      "invariants": [
+        "provider_capacity_is_never_overcommitted"
+      ]
+    },
+    {
+      "case_id": "SEM-020",
+      "class": "currentness",
+      "setup": "base_fixture",
+      "supplemental_context": [
+        {
+          "event": "provider_revision_superseded",
+          "provider_ref": "provider:aurora-marinas",
+          "revision": "revision:marina-46"
+        }
+      ],
+      "expected": {
+        "verdict": "indeterminate",
+        "reason_codes": [
+          "provider_revision_currentness_not_established"
+        ]
+      },
+      "invariants": [
+        "superseded_or_unknown_provider_revision_cannot_support_current_confirmation"
+      ],
+      "notes": "Requires verifier context beyond the v0.1 message set; a message-only check cannot establish external currentness."
+    },
+    {
+      "case_id": "SEM-021",
+      "class": "currentness",
+      "setup": "base_fixture",
+      "supplemental_context": [
+        {
+          "event": "provider_key_revoked",
+          "provider_ref": "provider:aurora-marinas",
+          "effective_at": "2026-11-07T15:02:01Z"
+        }
+      ],
+      "expected": {
+        "verdict": "indeterminate",
+        "reason_codes": [
+          "issuer_authority_currentness_not_established"
+        ]
+      },
+      "invariants": [
+        "historical_receipt_does_not_establish_current_issuer_authority"
+      ],
+      "notes": "Requires a recognized issuer/key-status input; a digest alone does not authenticate the issuer."
+    },
+    {
+      "case_id": "SEM-022",
+      "class": "boundary",
+      "setup": "base_fixture",
+      "mutations": [
+        {
+          "op": "set",
+          "path": "/messages/1/availability/valid_until",
+          "value": "2026-11-07T15:01:00Z"
+        }
+      ],
+      "expected": {
+        "verdict": "accept",
+        "reason_codes": []
+      },
+      "invariants": [
+        "half_open_expiry_boundary_is_defined"
+      ],
+      "notes": "Positive boundary case: the hold request at exactly 15:01:00Z is evaluated against the frozen equality/expiry rule. The implementation must freeze whether validity is exclusive; do not infer it from this placeholder until protocol text defines it."
+    },
+    {
+      "case_id": "SEM-023",
+      "class": "currency",
+      "setup": "base_fixture",
+      "mutations": [
+        {
+          "op": "set",
+          "path": "/messages/8/price/currency",
+          "value": "USD"
+        }
+      ],
+      "expected": {
+        "verdict": "reject",
+        "reason_codes": [
+          "commitment_currency_differs_from_accepted_offer"
+        ]
+      },
+      "invariants": [
+        "price_currency_is_stable_across_quote_and_commitment"
+      ]
+    },
+    {
+      "case_id": "SEM-024",
+      "class": "manifest_partial_success",
+      "setup": "base_fixture",
+      "supplemental_trace": [
+        {
+          "event": "provider_rejects_mandatory_accommodation_commit",
+          "provider_ref": "provider:windward-homes-coop"
+        },
+        {
+          "event": "berth_commitment_remains_valid"
+        }
+      ],
+      "expected": {
+        "verdict": "accept",
+        "aggregate_state": "partially_confirmed",
+        "reason_codes": []
+      },
+      "invariants": [
+        "partial_success_is_preserved_and_never_promoted_to_confirmed"
+      ]
+    }
+  ],
+  "unresolved_semantics_to_freeze_before_implementation": [
+    "Whether availability valid_until is exclusive and the exact equality behavior at the boundary.",
+    "The declared provider clock-skew allowance and authoritative time source.",
+    "Which operations require a hold reference and which provider-native reservation workflows may legitimately omit one.",
+    "How amendments create new quotes/commitments versus supersede previous ones.",
+    "How provider key revocation and revision currentness are supplied to the verifier.",
+    "Which stable canonicalization/profile defines the idempotency request digest."
+  ],
+  "execution_status": "not_executed"
+}
