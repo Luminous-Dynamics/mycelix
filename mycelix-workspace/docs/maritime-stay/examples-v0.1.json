@@ -1,0 +1,304 @@
+{
+  "fixture_id": "example:stay-complete-001",
+  "claim_ceiling": "Synthetic schema examples only.",
+  "messages": [
+    {
+      "message_type": "StayIntent",
+      "schema_version": "0.1.0",
+      "stay_intent_id": "stay:demo-001",
+      "requester_ref": "member:demo-001",
+      "created_at": "2026-11-07T15:00:00Z",
+      "destination_refs": [
+        "destination:windward"
+      ],
+      "components": [
+        {
+          "component_id": "component:berth-001",
+          "resource_kind": "berth",
+          "mandatory": true,
+          "quantity": 1,
+          "period": {
+            "start": "2026-12-01T12:00:00Z",
+            "end": "2026-12-04T12:00:00Z"
+          },
+          "requirements": {
+            "max_draft_m": 1.8
+          }
+        },
+        {
+          "component_id": "component:room-001",
+          "resource_kind": "accommodation",
+          "mandatory": true,
+          "quantity": 1,
+          "period": {
+            "start": "2026-12-01T15:00:00Z",
+            "end": "2026-12-04T10:00:00Z"
+          },
+          "requirements": {
+            "sleeps": 2
+          }
+        }
+      ],
+      "accessibility_requirements": [],
+      "policy_refs": [
+        "policy:windward-v1"
+      ],
+      "extensions": {}
+    },
+    {
+      "message_type": "ProviderOffer",
+      "schema_version": "0.1.0",
+      "offer_id": "offer:berth-001",
+      "provider_ref": "provider:aurora-marinas",
+      "destination_ref": "destination:windward",
+      "resource_ref": "resource:berth-12",
+      "resource_kind": "berth",
+      "period": {
+        "start": "2026-12-01T12:00:00Z",
+        "end": "2026-12-04T12:00:00Z"
+      },
+      "availability": {
+        "snapshot_id": "snapshot:berth-001",
+        "source_revision": "revision:marina-44",
+        "observed_at": "2026-11-07T14:50:00Z",
+        "valid_until": "2026-11-07T15:10:00Z",
+        "capacity": 1,
+        "capacity_unit": "berth-slot",
+        "source_ref": "provider-record:availability-991",
+        "uncertainty_note": "Provider system reports one available berth slot."
+      },
+      "price": {
+        "currency": "EUR",
+        "amount_minor": 18000,
+        "line_items": [
+          {
+            "code": "berth-fee",
+            "label": "Three-night berth fee",
+            "amount_minor": 18000,
+            "mandatory": true
+          }
+        ]
+      },
+      "terms_ref": "terms:marina-2026-11",
+      "issued_at": "2026-11-07T14:51:00Z",
+      "expires_at": "2026-11-07T15:10:00Z",
+      "constraints": {
+        "max_draft_m": 2,
+        "max_length_m": 12
+      },
+      "extensions": {}
+    },
+    {
+      "message_type": "ProviderOffer",
+      "schema_version": "0.1.0",
+      "offer_id": "offer:room-001",
+      "provider_ref": "provider:windward-homes-coop",
+      "destination_ref": "destination:windward",
+      "resource_ref": "resource:room-3",
+      "resource_kind": "accommodation",
+      "period": {
+        "start": "2026-12-01T15:00:00Z",
+        "end": "2026-12-04T10:00:00Z"
+      },
+      "availability": {
+        "snapshot_id": "snapshot:room-001",
+        "source_revision": "revision:coop-19",
+        "observed_at": "2026-11-07T14:49:00Z",
+        "valid_until": "2026-11-07T15:10:00Z",
+        "capacity": 1,
+        "capacity_unit": "unit-night",
+        "source_ref": "provider-record:availability-302"
+      },
+      "price": {
+        "currency": "EUR",
+        "amount_minor": 36000,
+        "line_items": [
+          {
+            "code": "stay-fee",
+            "label": "Three-night room fee",
+            "amount_minor": 33000,
+            "mandatory": true
+          },
+          {
+            "code": "cleaning-fee",
+            "label": "Cleaning fee",
+            "amount_minor": 3000,
+            "mandatory": true
+          }
+        ]
+      },
+      "terms_ref": "terms:coop-2026-11",
+      "issued_at": "2026-11-07T14:52:00Z",
+      "expires_at": "2026-11-07T15:10:00Z",
+      "constraints": {
+        "sleeps": 2,
+        "wheelchair_accessible": false
+      },
+      "extensions": {}
+    },
+    {
+      "message_type": "ReservationHold",
+      "schema_version": "0.1.0",
+      "hold_id": "hold:berth-001",
+      "provider_ref": "provider:aurora-marinas",
+      "offer_ref": "offer:berth-001",
+      "stay_intent_ref": "stay:demo-001",
+      "idempotency_key": "idem:berth:stay-demo-001:v1",
+      "status": "held",
+      "requested_at": "2026-11-07T15:01:00Z",
+      "expires_at": "2026-11-07T15:06:00Z",
+      "provider_revision": "revision:marina-45",
+      "effect_receipt_ref": "receipt:hold-berth-001",
+      "extensions": {}
+    },
+    {
+      "message_type": "ReservationHold",
+      "schema_version": "0.1.0",
+      "hold_id": "hold:room-001",
+      "provider_ref": "provider:windward-homes-coop",
+      "offer_ref": "offer:room-001",
+      "stay_intent_ref": "stay:demo-001",
+      "idempotency_key": "idem:room:stay-demo-001:v1",
+      "status": "held",
+      "requested_at": "2026-11-07T15:01:20Z",
+      "expires_at": "2026-11-07T15:06:20Z",
+      "provider_revision": "revision:coop-20",
+      "effect_receipt_ref": "receipt:hold-room-001",
+      "extensions": {}
+    },
+    {
+      "message_type": "EffectReceipt",
+      "schema_version": "0.1.0",
+      "receipt_id": "receipt:commit-berth-001",
+      "provider_ref": "provider:aurora-marinas",
+      "operation_id": "operation:commit-berth-001",
+      "operation_kind": "commit",
+      "outcome": "applied",
+      "occurred_at": "2026-11-07T15:02:00Z",
+      "provider_revision": "revision:marina-46",
+      "idempotency_key": "idem:berth:stay-demo-001:v1",
+      "integrity_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "source_record_ref": "provider-record:reservation-991",
+      "resource_ref": "resource:berth-12",
+      "extensions": {}
+    },
+    {
+      "message_type": "EffectReceipt",
+      "schema_version": "0.1.0",
+      "receipt_id": "receipt:commit-room-001",
+      "provider_ref": "provider:windward-homes-coop",
+      "operation_id": "operation:commit-room-001",
+      "operation_kind": "commit",
+      "outcome": "applied",
+      "occurred_at": "2026-11-07T15:02:30Z",
+      "provider_revision": "revision:coop-21",
+      "idempotency_key": "idem:room:stay-demo-001:v1",
+      "integrity_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "source_record_ref": "provider-record:reservation-310",
+      "resource_ref": "resource:room-3",
+      "extensions": {}
+    },
+    {
+      "message_type": "ProviderCommitment",
+      "schema_version": "0.1.0",
+      "commitment_id": "commitment:berth-001",
+      "provider_ref": "provider:aurora-marinas",
+      "stay_intent_ref": "stay:demo-001",
+      "resource_ref": "resource:berth-12",
+      "resource_kind": "berth",
+      "period": {
+        "start": "2026-12-01T12:00:00Z",
+        "end": "2026-12-04T12:00:00Z"
+      },
+      "status": "committed",
+      "committed_at": "2026-11-07T15:02:00Z",
+      "provider_revision": "revision:marina-46",
+      "price": {
+        "currency": "EUR",
+        "amount_minor": 18000,
+        "line_items": [
+          {
+            "code": "berth-fee",
+            "label": "Three-night berth fee",
+            "amount_minor": 18000,
+            "mandatory": true
+          }
+        ]
+      },
+      "effect_receipt_ref": "receipt:commit-berth-001",
+      "hold_ref": "hold:berth-001",
+      "terms_ref": "terms:marina-2026-11",
+      "extensions": {}
+    },
+    {
+      "message_type": "ProviderCommitment",
+      "schema_version": "0.1.0",
+      "commitment_id": "commitment:room-001",
+      "provider_ref": "provider:windward-homes-coop",
+      "stay_intent_ref": "stay:demo-001",
+      "resource_ref": "resource:room-3",
+      "resource_kind": "accommodation",
+      "period": {
+        "start": "2026-12-01T15:00:00Z",
+        "end": "2026-12-04T10:00:00Z"
+      },
+      "status": "committed",
+      "committed_at": "2026-11-07T15:02:30Z",
+      "provider_revision": "revision:coop-21",
+      "price": {
+        "currency": "EUR",
+        "amount_minor": 36000,
+        "line_items": [
+          {
+            "code": "stay-fee",
+            "label": "Three-night room fee",
+            "amount_minor": 33000,
+            "mandatory": true
+          },
+          {
+            "code": "cleaning-fee",
+            "label": "Cleaning fee",
+            "amount_minor": 3000,
+            "mandatory": true
+          }
+        ]
+      },
+      "effect_receipt_ref": "receipt:commit-room-001",
+      "hold_ref": "hold:room-001",
+      "terms_ref": "terms:coop-2026-11",
+      "extensions": {}
+    },
+    {
+      "message_type": "StayManifest",
+      "schema_version": "0.1.0",
+      "stay_manifest_id": "manifest:stay-demo-001",
+      "stay_intent_ref": "stay:demo-001",
+      "generated_at": "2026-11-07T15:03:00Z",
+      "aggregate_state": "confirmed",
+      "components": [
+        {
+          "component_ref": "component:berth-001",
+          "mandatory": true,
+          "provider_ref": "provider:aurora-marinas",
+          "resource_kind": "berth",
+          "state": "confirmed",
+          "commitment_ref": "commitment:berth-001",
+          "last_receipt_ref": "receipt:commit-berth-001"
+        },
+        {
+          "component_ref": "component:room-001",
+          "mandatory": true,
+          "provider_ref": "provider:windward-homes-coop",
+          "resource_kind": "accommodation",
+          "state": "confirmed",
+          "commitment_ref": "commitment:room-001",
+          "last_receipt_ref": "receipt:commit-room-001"
+        }
+      ],
+      "policy_refs": [
+        "policy:windward-v1"
+      ],
+      "extensions": {}
+    }
+  ]
+}
