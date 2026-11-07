@@ -413,7 +413,7 @@ Two configurations are now checked:
 - `PulseHostCallLinearization-projection-mutant.cfg`: deliberately checks the stale projection instead of the conductor grant.
 - `PulseHostCallLinearization-dedup-mutant.cfg`: deliberately reapplies the same logical effect after a lost ACK and retry.
 
-The pinned TLC workflow requires both mutant-specific counterexamples; generic parse failure cannot satisfy them. The model remains bounded (one logical protected operation, one revocation, two call attempts and two revoke attempts). The runtime instrumentation and deterministic admission/commit barrier tests are tracked in [#5924](https://github.com/Luminous-Dynamics/mycelix/issues/5924). TLC results must be recorded against the exact PR head before the model can be called verified.
+The pinned TLC workflow requires both mutant-specific counterexamples; generic parse failure cannot satisfy them. It also runs `PulseHostCallLinearization-admission-witness.cfg`, which deliberately expects TLC to find a counterexample to `NoPreAdmittedCompletionAfterRevocationYet`. That witness must show: host decision while the grant is live → host revoke commit → later effect commit for the already-admitted call. This expected counterexample is positive reachability evidence for the allowed in-flight completion schedule; it is not a safety failure. The model remains bounded (one logical protected operation, one revocation, two call attempts and two revoke attempts). The runtime instrumentation and deterministic admission/commit barrier tests are tracked in [#5924](https://github.com/Luminous-Dynamics/mycelix/issues/5924). TLC results must be recorded against the exact PR head before the model can be called verified.
 
 ## Qualification stages
 
