@@ -806,7 +806,7 @@
       "groups": [
         {
           "group_ref": "G-010-A",
-          "group_state": "needs_review",
+          "group_state": "partially_matched",
           "member_record_refs": [
             "L-010-A",
             "S-010-A",
@@ -831,12 +831,12 @@
             }
           ],
           "currency": "USD",
-          "matched_total_minor": 0,
+          "matched_total_minor": 5000,
           "residual_minor": 5000
         },
         {
           "group_ref": "G-010-B",
-          "group_state": "needs_review",
+          "group_state": "partially_matched",
           "member_record_refs": [
             "L-010-B",
             "S-010-B",
@@ -861,7 +861,7 @@
             }
           ],
           "currency": "USD",
-          "matched_total_minor": 0,
+          "matched_total_minor": 5000,
           "residual_minor": 5000
         },
         {
