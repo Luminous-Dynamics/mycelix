@@ -917,6 +917,11 @@ mod tests {
         assert!(validate_trace(&trace).is_err());
     }
 
+    fn structured_output() -> Vec<u8> {
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../agent-output-evaluator-v1");
+        read_bytes(root.join("fixtures/runner_observed_agent_output_acct001_synthetic_v1.0.0.json")).unwrap()
+    }
+
     fn synthetic_receipt(
         trace: &Value,
         trace_bytes: &[u8],
@@ -1002,6 +1007,48 @@ mod tests {
         assert!(validate_trace(&trace).is_err());
     }
 
+
+    #[test]
+    fn rejects_fact_reclassified_after_terminalization() {
+        let (mut trace, _, _, _) = fixture();
+        let mut event = trace["events"][2].clone();
+        event["seq"] = json!(18);
+        event["event_id"] = json!("EVT-RECLASSIFY-AFTER-TERMINAL");
+        event["event_kind"] = json!("fact_reclassified");
+        event["fact_ref"] = json!("F-001-AMOUNT");
+        event["prior_evidence_state"] = json!("asserted");
+        event["evidence_state"] = json!("disputed");
+        event["related_event_refs"] = json!(["EVT-001-SOURCE-OPEN"]);
+        event["fact_type"] = Value::Null;
+        event["fact_value_sha256"] = Value::Null;
+        event["source_document_ref"] = Value::Null;
+        event["source_revision"] = Value::Null;
+        event["source_sha256"] = Value::Null;
+        event["source_locator"] = Value::Null;
+        event["source_document_refs"] = json!([]);
+        event["source_observation_event_refs"] = json!([]);
+        event["terminal_state"] = Value::Null;
+        event["terminal_target_refs"] = json!([]);
+        event["terminal_reason"] = Value::Null;
+        event["question_ref"] = Value::Null;
+        event["question_text_sha256"] = Value::Null;
+        event["blocker_fact_refs"] = json!([]);
+        event["journal_line_ref"] = Value::Null;
+        event["journal_line_sha256"] = Value::Null;
+        event["statement_line_ref"] = Value::Null;
+        event["statement_line_sha256"] = Value::Null;
+        event["journal_line_refs"] = json!([]);
+        event["decision_disposition"] = Value::Null;
+        event["reason_code"] = Value::Null;
+        event["terminal_disposition"] = Value::Null;
+        event["response_sha256"] = Value::Null;
+        trace["events"].as_array_mut().unwrap().insert(16, event);
+        for (index, event) in trace["events"].as_array_mut().unwrap().iter_mut().enumerate() {
+            event["seq"] = json!(index + 1);
+        }
+        assert!(validate_trace(&trace).is_err());
+    }
+
     #[test]
     fn rejects_final_disposition_before_the_last_fact_terminalization() {
         let (mut trace, _, _, _) = fixture();
@@ -1019,7 +1066,8 @@ mod tests {
     fn binds_trace_to_canonical_receipt_task_output_and_transcript_digest() {
         let (trace, _, _, trace_bytes) = fixture();
         let transcript = b"{\"events\":[],\"fixture\":\"synthetic\"}";
-        let (receipt, report) = synthetic_receipt(&trace, &trace_bytes, transcript);
+        let structured_output = structured_output();
+        let (receipt, report) = synthetic_receipt(&trace, &trace_bytes, transcript, &structured_output);
         let receipt_bytes = serde_json::to_vec(&receipt).unwrap();
         let binding = validate_receipt_binding(
             &trace,
@@ -1028,18 +1076,65 @@ mod tests {
             &receipt_bytes,
             &report,
             transcript,
+            &structured_output,
         ).unwrap();
         assert_eq!(binding["receipt_binding_valid"], true);
+    }
+
+
+    #[test]
+    fn rejects_structured_agent_output_bytes_that_do_not_match_trace_digest() {
+        let (trace, _, _, trace_bytes) = fixture();
+        let transcript = b"actual transcript";
+        let structured_output = structured_output();
+        let (receipt, report) = synthetic_receipt(&trace, &trace_bytes, transcript, &structured_output);
+        let receipt_bytes = serde_json::to_vec(&receipt).unwrap();
+        let mut changed_output = structured_output.clone();
+        changed_output.push(b' ');
+        assert!(validate_receipt_binding(
+            &trace,
+            &trace_bytes,
+            &receipt,
+            &receipt_bytes,
+            &report,
+            transcript,
+            &changed_output,
+        ).is_err());
+    }
+
+    #[test]
+    fn rejects_structured_output_digest_missing_from_canonical_task_outputs() {
+        let (trace, _, _, trace_bytes) = fixture();
+        let transcript = b"actual transcript";
+        let structured_output = structured_output();
+        let (mut receipt, _report) = synthetic_receipt(&trace, &trace_bytes, transcript, &structured_output);
+        let trace_sha = digest(&trace_bytes);
+        receipt["task_results"][0]["output_sha256"] = json!([trace_sha]);
+        let receipt_bytes = serde_json::to_vec(&receipt).unwrap();
+        let report = json!({"valid":true,"receipts":[{
+            "run_id":string(&receipt,"run_id").unwrap(),
+            "raw_file_sha256":digest(&receipt_bytes)
+        }]});
+        assert!(validate_receipt_binding(
+            &trace,
+            &trace_bytes,
+            &receipt,
+            &receipt_bytes,
+            &report,
+            transcript,
+            &structured_output,
+        ).is_err());
     }
 
     #[test]
     fn rejects_transcript_bytes_that_do_not_match_receipt_digest() {
         let (trace, _, _, trace_bytes) = fixture();
         let transcript = b"actual transcript";
-        let (receipt, report) = synthetic_receipt(&trace, &trace_bytes, transcript);
+        let structured_output = structured_output();
+        let (receipt, report) = synthetic_receipt(&trace, &trace_bytes, transcript, &structured_output);
         let receipt_bytes = serde_json::to_vec(&receipt).unwrap();
         assert!(validate_receipt_binding(
-            &trace,&trace_bytes,&receipt,&receipt_bytes,&report,b"different transcript"
+            &trace,&trace_bytes,&receipt,&receipt_bytes,&report,b"different transcript",&structured_output
         ).is_err());
     }
 
@@ -1047,7 +1142,8 @@ mod tests {
     fn rejects_trace_digest_missing_from_task_output_artifacts() {
         let (trace, _, _, trace_bytes) = fixture();
         let transcript = b"actual transcript";
-        let (mut receipt, _initial_report) = synthetic_receipt(&trace, &trace_bytes, transcript);
+        let structured_output = structured_output();
+        let (mut receipt, _initial_report) = synthetic_receipt(&trace, &trace_bytes, transcript, &structured_output);
         receipt["task_results"][0]["output_sha256"] = json!([]);
         let receipt_bytes = serde_json::to_vec(&receipt).unwrap();
         let (receipt, report) = {
@@ -1058,7 +1154,7 @@ mod tests {
             (receipt, report)
         };
         assert!(validate_receipt_binding(
-            &trace,&trace_bytes,&receipt,&receipt_bytes,&report,transcript
+            &trace,&trace_bytes,&receipt,&receipt_bytes,&report,transcript,&structured_output
         ).is_err());
     }
 
@@ -1066,11 +1162,12 @@ mod tests {
     fn rejects_canonical_receipt_report_for_different_receipt_bytes() {
         let (trace, _, _, trace_bytes) = fixture();
         let transcript = b"actual transcript";
-        let (receipt, mut report) = synthetic_receipt(&trace, &trace_bytes, transcript);
+        let structured_output = structured_output();
+        let (receipt, mut report) = synthetic_receipt(&trace, &trace_bytes, transcript, &structured_output);
         let receipt_bytes = serde_json::to_vec(&receipt).unwrap();
         report["receipts"][0]["raw_file_sha256"] = json!("d".repeat(64));
         assert!(validate_receipt_binding(
-            &trace,&trace_bytes,&receipt,&receipt_bytes,&report,transcript
+            &trace,&trace_bytes,&receipt,&receipt_bytes,&report,transcript,&structured_output
         ).is_err());
     }
 
@@ -1080,7 +1177,8 @@ mod tests {
         trace["source_bundle_sha256"] = json!("d".repeat(64));
         let bytes = serde_json::to_vec(&trace).unwrap();
         let transcript = b"actual transcript";
-        let (receipt, _report) = synthetic_receipt(&trace, &bytes, transcript);
+        let structured_output = structured_output();
+        let (receipt, _report) = synthetic_receipt(&trace, &bytes, transcript, &structured_output);
         let mut bad_receipt = receipt.clone();
         bad_receipt["task_results"][0]["input_sha256"] = json!("e".repeat(64));
         let bad_bytes = serde_json::to_vec(&bad_receipt).unwrap();
@@ -1089,7 +1187,7 @@ mod tests {
             "raw_file_sha256":digest(&bad_bytes)
         }]});
         assert!(validate_receipt_binding(
-            &trace,&bytes,&bad_receipt,&bad_bytes,&report,transcript
+            &trace,&bytes,&bad_receipt,&bad_bytes,&report,transcript,&structured_output
         ).is_err());
     }
 }
