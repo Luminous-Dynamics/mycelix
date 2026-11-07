@@ -1,0 +1,148 @@
+{
+  "schema_version": "1.0",
+  "profile_id": "mycelix-holochain-0.7.1",
+  "status": "target-selected-mycelix-unqualified",
+  "snapshot_date": "2026-11-07",
+  "source_repository": "https://github.com/Luminous-Dynamics/mycelix",
+  "target": {
+    "holochain": "0.7.1",
+    "hdk": "0.7.1",
+    "hdi": "0.8.1",
+    "holochain_serialized_bytes": "0.0.57",
+    "javascript_client": "0.21.1",
+    "lair_keystore": "0.7.1",
+    "kitsune2_bootstrap": "0.5.2",
+    "holonix_ref": "main-0.7",
+    "nodejs": "24",
+    "hc_spin": "0.700.1",
+    "rust_client": "0.9.1",
+    "approval_state": "upstream-0.7.1-ready; mycelix-runtime-unqualified",
+    "approval_blocker": "Holochain declared 0.7.1 ready for development on 2026-11-05. Mycelix still requires canonical source parity, exact flake/Cargo/JS closure, WASM/DNA packaging, fresh conductor and multi-agent runtime evidence; no branch currently inherits qualification.",
+    "kitsune2_library": "0.5.1",
+    "kitsune2_bootstrap_service": "0.5.2",
+    "holonix_ref_is_immutable": false,
+    "holonix_snapshot_rust": "1.95.0",
+    "hc_cli": "0.7.1",
+    "hc_scaffold": "0.700.1",
+    "nix_snapshot": {
+      "holonix_ref": "main-0.7",
+      "rust_version": "1.95.0",
+      "kitsune2_bootstrap": "0.5.2",
+      "lair": "0.7.1",
+      "hc_scaffold": "0.700.1",
+      "rule": "Record exact Holonix input revision and the entire resolved flake.lock in the Mycelix repo; main-0.7 is mutable."
+    }
+  },
+  "migration_boundaries": {
+    "from_holochain_family": "0.6.x",
+    "to_holochain": "0.7.1",
+    "holochain_0_6_to_0_7_in_place_conductor_database_migration": false,
+    "holochain_0_6_to_0_7_dna_hash_stable": false,
+    "holochain_0_7_0_to_0_7_1_capability_grants_read_compatibly": false,
+    "holochain_0_7_0_to_0_7_1_requires_capability_grant_reissue": true,
+    "holochain_0_7_0_to_0_7_1_direct_signal_wire_compatible": false,
+    "holochain_0_7_0_to_0_7_1_direct_signal_requires_explicit_capability": true,
+    "pulse_smtp_gateway_exception_is_part_of_zome_workspace_pin": false
+  },
+  "qualification": {
+    "required_gates": [
+      "closed_consumer_census",
+      "exact_dependency_and_toolchain_closure",
+      "source_api_migration",
+      "native_tests_and_clippy",
+      "wasm_build",
+      "dna_and_happ_pack",
+      "manifest_and_zome_topology_check",
+      "fresh_0_7_1_conductor",
+      "multi_agent_sweettest",
+      "independent_rust_and_javascript_client_e2e",
+      "capability_grant_and_direct_signal_tests",
+      "data_export_import_reconciliation_when_applicable",
+      "restart_backup_restore_and_retry_tests",
+      "negative_controls",
+      "exact_head_evidence_receipt",
+      "independent_review",
+      "public_source_chain_restore_from_dht"
+    ],
+    "queued_pending_skipped_cancelled_or_superseded_is_pass": false,
+    "allow_claim_without_all_active_consumers_classified": false,
+    "recommended_first_canary": "Pulse",
+    "first_canary_precondition": "Migrate canonical monorepo source and prove exporter parity before using standalone PR #4891 as a canary source.",
+    "next_cluster_after_canary": "Governance, after canonical source parity issue Luminous-Dynamics/luminous-dynamics#3478 and standalone Governance 0.7 integrity/coordinator/runtime gates.",
+    "source_chain_restore_contract": {
+      "requires_original_agent_key": true,
+      "restores_public_data_only": true,
+      "restores_private_entries": false,
+      "awaiting_restore_until_all_cells_complete": true,
+      "explicit_enable_after_completion": true,
+      "retry_when_no_peers": true,
+      "reject_entry_hash_mismatch": true,
+      "verify_validation_receipt_signatures": true,
+      "host_capabilities_restored": false,
+      "fresh_capability_reissue_after_restore": true,
+      "mycelix_runtime_issue": "https://github.com/Luminous-Dynamics/mycelix/issues/5905",
+      "bounded_model": "https://github.com/Luminous-Dynamics/mycelix/pull/5771"
+    }
+  },
+  "benchmark_targets": {
+    "active_consumers_classified_percent": 100,
+    "unknown_active_consumers": 0,
+    "unexplained_version_mismatches": 0,
+    "in_scope_behavior_parity_percent": 100,
+    "false_accepts_in_defined_negative_control_corpus": 0,
+    "in_scope_export_import_count_and_digest_reconciliation_percent": 100,
+    "target_p95_network_convergence_improvement_percent": 20,
+    "target_resource_dimension_improvement_percent": 20,
+    "performance_improvement_targets_are_achieved_results": false
+  },
+  "upstream_sources": [
+    "https://blog.holochain.org/dev-pulse-157-holochain-0-7-1-brings-chain-restore-direct-signal-security/",
+    "https://developer.holochain.org/resources/upgrade/upgrade-holochain-0.7/",
+    "https://github.com/holochain/holochain/releases",
+    "https://developer.holochain.org/resources/compatibility/holochain-0.7/",
+    "https://github.com/holochain/holonix"
+  ],
+  "non_claims": [
+    "repository-wide Holochain 0.7.1 migration is complete",
+    "any current PR or branch is qualified",
+    "in-place 0.6 conductor database migration exists",
+    "Mycelix outperforms industry comparators",
+    "proposed benchmark targets have been achieved"
+  ],
+  "upstream_discrepancy": {
+    "compatibility_table_recommendation": "0.7.0 (stale page still observed 2026-11-07)",
+    "upgrade_guide_dependency_tuple": "holochain 0.7.1 / hdk 0.7.1 / hdi 0.8.1 / @holochain/client 0.21.1",
+    "release_readiness_source": "https://blog.holochain.org/dev-pulse-157-holochain-0-7-1-brings-chain-restore-direct-signal-security/",
+    "stable_release_tag": "holochain-0.7.1",
+    "release_date": "2026-10-14",
+    "ready_announcement_date": "2026-11-05",
+    "upstream_target_selected": "0.7.1",
+    "docs_mismatch_remains_to_be_reported_upstream": true
+  },
+  "canonical_source": {
+    "repository": "Luminous-Dynamics/luminous-dynamics",
+    "visibility": "private",
+    "exporter_path": "mycelix-workspace/scripts/sync-to-standalone.sh",
+    "standalone_repository": "Luminous-Dynamics/mycelix",
+    "confirmed_mirrored_consumers": [
+      "mycelix-workspace/mycelix-governance",
+      "mycelix-workspace"
+    ],
+    "canonical_governance_manifest_hdk": "0.6.1",
+    "canonical_governance_manifest_hdi": "0.7.1",
+    "canonical_ecosystem_sweettest_holochain": "0.6",
+    "source_export_parity_required": true,
+    "related_issue": "https://github.com/Luminous-Dynamics/luminous-dynamics/issues/3478",
+    "deliberate_exceptions": [
+      {
+        "path": "mycelix-workspace/mycelix-pulse/crates/pulse-smtp-gateway/Cargo.toml",
+        "role": "standalone SMTP daemon with optional Holochain client bridge",
+        "optional_feature": "holochain-bridge",
+        "holochain_client": "0.9.0-dev.10",
+        "holo_hash": "0.6",
+        "classification": "intentional pre-release federated-gateway client track; isolate and qualify separately",
+        "rule": "do not force this optional client onto the zome workspace tuple without a separate architecture decision"
+      }
+    ]
+  }
+}
