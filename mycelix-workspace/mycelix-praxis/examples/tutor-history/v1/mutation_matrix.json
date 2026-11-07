@@ -1,0 +1,102 @@
+{
+  "schema_version": 1,
+  "benchmark_id": "PRAXIS-TUTOR-HISTORY-001",
+  "mutations": [
+    {
+      "mutation_id": "MUT-001",
+      "attack": "Append whitespace to observation JSON after predictions are generated.",
+      "expected_outcome": "reject_digest_mismatch",
+      "test_name": "exact_observation_bytes_are_bound_to_prediction_set"
+    },
+    {
+      "mutation_id": "MUT-002",
+      "attack": "Permute event-row order without changing sequence numbers or event values.",
+      "expected_outcome": "semantic_scores_invariant_digest_changes",
+      "test_name": "row_order_permutation_preserves_semantic_scores_but_changes_byte_binding"
+    },
+    {
+      "mutation_id": "MUT-003",
+      "attack": "Append an unrelated skill observation to a scored trajectory.",
+      "expected_outcome": "semantic_scores_invariant_digest_changes",
+      "test_name": "irrelevant_observation_preserves_semantic_scores_but_changes_digest"
+    },
+    {
+      "mutation_id": "MUT-004",
+      "attack": "Use the correct diagnosis and action but omit all required evidence citations.",
+      "expected_outcome": "not_fully_acceptable",
+      "test_name": "semantically_correct_claim_without_evidence_is_not_acceptable"
+    },
+    {
+      "mutation_id": "MUT-005",
+      "attack": "Omit a required contradiction while preserving the otherwise correct diagnosis/action.",
+      "expected_outcome": "critical_violation",
+      "test_name": "omitted_required_contradiction_prevents_full_credit_despite_correct_action"
+    },
+    {
+      "mutation_id": "MUT-006",
+      "attack": "Cite a fabricated observation ID.",
+      "expected_outcome": "critical_violation",
+      "test_name": "unsupported_evidence_is_counted_as_a_critical_violation"
+    },
+    {
+      "mutation_id": "MUT-007",
+      "attack": "Make the independent oracle cite an observation ID that does not exist in its case.",
+      "expected_outcome": "reject_input",
+      "test_name": "oracle_must_not_reference_an_unknown_observation"
+    },
+    {
+      "mutation_id": "MUT-008",
+      "attack": "Attach observed correctness to an event whose origin is derived_estimate.",
+      "expected_outcome": "reject_input",
+      "test_name": "derived_estimates_cannot_masquerade_as_recorded_correctness"
+    },
+    {
+      "mutation_id": "MUT-009",
+      "attack": "Change both counterfactual trajectories so assistance exposure no longer differs.",
+      "expected_outcome": "reject_input",
+      "test_name": "counterfactual_pair_must_change_only_assistance"
+    },
+    {
+      "mutation_id": "MUT-010",
+      "attack": "Change task context in only one member of an assistance-only counterfactual pair.",
+      "expected_outcome": "reject_input",
+      "test_name": "counterfactual_pair_rejects_non_target_drift"
+    },
+    {
+      "mutation_id": "MUT-011",
+      "attack": "Add a third trajectory to a pair marked as one counterfactual group.",
+      "expected_outcome": "reject_input",
+      "test_name": "counterfactual_group_requires_exactly_two_cases"
+    },
+    {
+      "mutation_id": "MUT-012",
+      "attack": "Assign the same sequence number to two observations within one history.",
+      "expected_outcome": "reject_input",
+      "test_name": "duplicate_event_sequence_is_rejected"
+    },
+    {
+      "mutation_id": "MUT-013",
+      "attack": "Remove a nullable field instead of providing explicit null.",
+      "expected_outcome": "reject_input",
+      "test_name": "omitted_nullable_field_is_not_silently_defaulted_to_null"
+    },
+    {
+      "mutation_id": "MUT-014",
+      "attack": "Remove one candidate prediction row from an otherwise complete scorecard.",
+      "expected_outcome": "reject_run",
+      "test_name": "missing_prediction_row_rejects_scorecard"
+    },
+    {
+      "mutation_id": "MUT-015",
+      "attack": "Provide all required supporting and contradictory evidence for an accepted low-risk claim.",
+      "expected_outcome": "accept_evidence_grounded_claim",
+      "test_name": "fully_cited_accepted_claim_is_grounded"
+    },
+    {
+      "mutation_id": "MUT-016",
+      "attack": "Compare histories with equal surface correctness but different assistance exposure.",
+      "expected_outcome": "distinguish_assistance_dependence",
+      "test_name": "same_surface_accuracy_with_different_assistance_has_different_labels"
+    }
+  ]
+}

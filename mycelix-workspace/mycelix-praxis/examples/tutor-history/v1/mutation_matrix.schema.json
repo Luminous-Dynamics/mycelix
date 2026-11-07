@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mycelix.net/schemas/praxis-tutor-history/v1/mutation-matrix.schema.json",
+  "title": "Praxis tutor history mutation matrix v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "benchmark_id",
+    "mutations"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "benchmark_id": {
+      "const": "PRAXIS-TUTOR-HISTORY-001"
+    },
+    "mutations": {
+      "type": "array",
+      "minItems": 12,
+      "items": {
+        "$ref": "#/$defs/mutation"
+      }
+    }
+  },
+  "$defs": {
+    "mutation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "mutation_id",
+        "attack",
+        "expected_outcome",
+        "test_name"
+      ],
+      "properties": {
+        "mutation_id": {
+          "type": "string",
+          "pattern": "^MUT-[0-9]{3}$"
+        },
+        "attack": {
+          "type": "string",
+          "minLength": 1
+        },
+        "expected_outcome": {
+          "enum": [
+            "reject_digest_mismatch",
+            "semantic_scores_invariant_digest_changes",
+            "not_fully_acceptable",
+            "critical_violation",
+            "reject_input",
+            "reject_run",
+            "accept_evidence_grounded_claim",
+            "distinguish_assistance_dependence"
+          ]
+        },
+        "test_name": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    }
+  }
+}

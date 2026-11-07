@@ -1,0 +1,285 @@
+{
+  "schema_version": 1,
+  "benchmark_id": "PRAXIS-TUTOR-HISTORY-001",
+  "cases": [
+    {
+      "case_id": "TH001",
+      "counterfactual_group": null,
+      "observations": [
+        {
+          "observation_id": "th001-e1",
+          "sequence": 1,
+          "skill_id": "fraction_equivalence",
+          "task_context": "unassisted_free_response",
+          "correctness": false,
+          "assistance": "none",
+          "origin": "recorded_attempt"
+        },
+        {
+          "observation_id": "th001-e2",
+          "sequence": 2,
+          "skill_id": "fraction_equivalence",
+          "task_context": "unassisted_free_response",
+          "correctness": false,
+          "assistance": "hint",
+          "origin": "recorded_attempt"
+        },
+        {
+          "observation_id": "th001-e3",
+          "sequence": 3,
+          "skill_id": "fraction_equivalence",
+          "task_context": "unassisted_free_response",
+          "correctness": true,
+          "assistance": "full_solution",
+          "origin": "recorded_attempt"
+        },
+        {
+          "observation_id": "th001-e4",
+          "sequence": 4,
+          "skill_id": "fraction_equivalence",
+          "task_context": "unassisted_free_response",
+          "correctness": false,
+          "assistance": "none",
+          "origin": "recorded_attempt"
+        }
+      ]
+    },
+    {
+      "case_id": "TH002",
+      "counterfactual_group": null,
+      "observations": [
+        {
+          "observation_id": "th002-e1",
+          "sequence": 1,
+          "skill_id": "linear_equations",
+          "task_context": "worked_example",
+          "correctness": false,
+          "assistance": "none",
+          "origin": "recorded_attempt"
+        },
+        {
+          "observation_id": "th002-e2",
+          "sequence": 2,
+          "skill_id": "linear_equations",
+          "task_context": "worked_example",
+          "correctness": true,
+          "assistance": "hint",
+          "origin": "recorded_attempt"
+        },
+        {
+          "observation_id": "th002-e3",
+          "sequence": 3,
+          "skill_id": "linear_equations",
+          "task_context": "worked_example",
+          "correctness": true,
+          "assistance": "partial_solution",
+          "origin": "recorded_attempt"
+        },
+        {
+          "observation_id": "th002-e4",
+          "sequence": 4,
+          "skill_id": "linear_equations",
+          "task_context": "transfer_problem",
+          "correctness": false,
+          "assistance": "none",
+          "origin": "recorded_attempt"
+        }
+      ]
+    },
+    {
+      "case_id": "TH003",
+      "counterfactual_group": null,
+      "observations": [
+        {
+          "observation_id": "th003-e1",
+          "sequence": 1,
+          "skill_id": "decimal_place_value",
+          "task_context": "unassisted_free_response",
+          "correctness": false,
+          "assistance": "none",
+          "origin": "recorded_attempt"
+        },
+        {
+          "observation_id": "th003-e2",
+          "sequence": 2,
+          "skill_id": "decimal_place_value",
+          "task_context": "unassisted_free_response",
+          "correctness": false,
+          "assistance": "none",
+          "origin": "recorded_attempt"
+        },
+        {
+          "observation_id": "th003-e3",
+          "sequence": 3,
+          "skill_id": "decimal_place_value",
+          "task_context": "unassisted_free_response",
+          "correctness": true,
+          "assistance": "none",
+          "origin": "recorded_attempt"
+        },
+        {
+          "observation_id": "th003-e4",
+          "sequence": 4,
+          "skill_id": "decimal_place_value",
+          "task_context": "unassisted_free_response",
+          "correctness": true,
+          "assistance": "none",
+          "origin": "recorded_attempt"
+        }
+      ]
+    },
+    {
+      "case_id": "TH004",
+      "counterfactual_group": null,
+      "observations": [
+        {
+          "observation_id": "th004-e1",
+          "sequence": 1,
+          "skill_id": null,
+          "task_context": null,
+          "correctness": true,
+          "assistance": "none",
+          "origin": "recorded_attempt"
+        }
+      ]
+    },
+    {
+      "case_id": "TH005",
+      "counterfactual_group": null,
+      "observations": [
+        {
+          "observation_id": "th005-e1",
+          "sequence": 1,
+          "skill_id": "proportional_reasoning",
+          "task_context": "multiple_choice",
+          "correctness": true,
+          "assistance": "none",
+          "origin": "recorded_attempt"
+        },
+        {
+          "observation_id": "th005-e2",
+          "sequence": 2,
+          "skill_id": "proportional_reasoning",
+          "task_context": "constructed_response",
+          "correctness": false,
+          "assistance": "none",
+          "origin": "recorded_attempt"
+        }
+      ]
+    },
+    {
+      "case_id": "TH006",
+      "counterfactual_group": null,
+      "observations": [
+        {
+          "observation_id": "th006-e1",
+          "sequence": 1,
+          "skill_id": "negative_numbers",
+          "task_context": "worked_example",
+          "correctness": true,
+          "assistance": "full_solution",
+          "origin": "recorded_attempt"
+        }
+      ]
+    },
+    {
+      "case_id": "TH007",
+      "counterfactual_group": "surface-accuracy-assistance-contrast",
+      "observations": [
+        {
+          "observation_id": "th007-e1",
+          "sequence": 1,
+          "skill_id": "ratio_tables",
+          "task_context": "practice",
+          "correctness": true,
+          "assistance": "hint",
+          "origin": "recorded_attempt"
+        },
+        {
+          "observation_id": "th007-e2",
+          "sequence": 2,
+          "skill_id": "ratio_tables",
+          "task_context": "practice",
+          "correctness": true,
+          "assistance": "partial_solution",
+          "origin": "recorded_attempt"
+        },
+        {
+          "observation_id": "th007-e3",
+          "sequence": 3,
+          "skill_id": "ratio_tables",
+          "task_context": "practice",
+          "correctness": false,
+          "assistance": "none",
+          "origin": "recorded_attempt"
+        },
+        {
+          "observation_id": "th007-e4",
+          "sequence": 4,
+          "skill_id": "ratio_tables",
+          "task_context": "practice",
+          "correctness": true,
+          "assistance": "hint",
+          "origin": "recorded_attempt"
+        }
+      ]
+    },
+    {
+      "case_id": "TH008",
+      "counterfactual_group": "surface-accuracy-assistance-contrast",
+      "observations": [
+        {
+          "observation_id": "th008-e1",
+          "sequence": 1,
+          "skill_id": "ratio_tables",
+          "task_context": "practice",
+          "correctness": true,
+          "assistance": "none",
+          "origin": "recorded_attempt"
+        },
+        {
+          "observation_id": "th008-e2",
+          "sequence": 2,
+          "skill_id": "ratio_tables",
+          "task_context": "practice",
+          "correctness": true,
+          "assistance": "none",
+          "origin": "recorded_attempt"
+        },
+        {
+          "observation_id": "th008-e3",
+          "sequence": 3,
+          "skill_id": "ratio_tables",
+          "task_context": "practice",
+          "correctness": false,
+          "assistance": "none",
+          "origin": "recorded_attempt"
+        },
+        {
+          "observation_id": "th008-e4",
+          "sequence": 4,
+          "skill_id": "ratio_tables",
+          "task_context": "practice",
+          "correctness": true,
+          "assistance": "none",
+          "origin": "recorded_attempt"
+        }
+      ]
+    },
+    {
+      "case_id": "TH009",
+      "counterfactual_group": null,
+      "observations": [
+        {
+          "observation_id": "th009-e1",
+          "sequence": 1,
+          "skill_id": "fraction_operations",
+          "task_context": null,
+          "correctness": null,
+          "assistance": "unknown",
+          "origin": "derived_estimate"
+        }
+      ]
+    }
+  ]
+}
