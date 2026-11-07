@@ -1,0 +1,44 @@
+name: GCPN civilian portfolio cost contract
+
+on:
+  pull_request:
+    paths:
+      - "mycelix-workspace/mycelix-praxis/docs/research/GCPN_CIVILIAN_PORTFOLIO_COST_EFFECTIVENESS_V0_1.md"
+      - "mycelix-workspace/mycelix-praxis/docs/research/GCPN_CIVILIAN_PORTFOLIO_COST_CASES_V0_1.json"
+      - ".github/workflows/gcpn-civilian-portfolio-cost.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gcpn-civilian-portfolio-cost-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify-synthetic-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate frozen civilian-only portfolio contract
+        shell: bash
+        run: |
+          jq -e '
+            .schema == "luminous.gcpn.civilian_portfolio_cost.v0.1" and
+            .status == "synthetic_benchmark_definition_only" and
+            .claim_ceiling == "synthetic_comparison_contract_integrity_only" and
+            .portfolios | length == 7
+          ' mycelix-workspace/mycelix-praxis/docs/research/GCPN_CIVILIAN_PORTFOLIO_COST_CASES_V0_1.json >/dev/null
+          jq -e '
+            ([.portfolios[].id] | sort) == ["B0","B1","B2","B3","B4","B5","B6"] and
+            ([.cases[].id] | unique | length) == 10 and
+            (.cases | length) == 10 and
+            ([.cases[].expected_disposition] - .allowed_dispositions | length) == 0 and
+            (.prohibited_scope | length >= 6) and
+            (.required_cost_dimensions | length >= 10) and
+            (.required_outcomes | length >= 8) and
+            (.currency_policy.assume_free_labour == false) and
+            (.currency_policy.assume_free_public_infrastructure == false) and
+            (.currency_policy.assume_free_data_or_connectivity == false)
+          ' mycelix-workspace/mycelix-praxis/docs/research/GCPN_CIVILIAN_PORTFOLIO_COST_CASES_V0_1.json >/dev/null
