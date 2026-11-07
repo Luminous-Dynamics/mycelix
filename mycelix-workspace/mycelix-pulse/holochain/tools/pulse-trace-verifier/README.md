@@ -56,7 +56,7 @@ The verifier also checks:
 - rejected remote validation plus acknowledged observation requires equal before/after canonical state digests;
 - unknown fields fail closed, including secret-bearing fields such as `cap_secret`.
 
-The receipt includes SHA-256 for raw and canonical corpus/trace bytes, schema bytes, source commit, runtime tuple, DNA/WASM digests and claim ceiling.
+The receipt includes SHA-256 for raw and canonical corpus/trace bytes, both schema files, source commit, runtime tuple, DNA/WASM digests and claim ceiling.
 
 ## Security boundary
 
