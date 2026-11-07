@@ -187,14 +187,24 @@ pub fn evaluate(input: &HypergraphInput, input_sha256: String) -> EvaluationRepo
         unknown_reasons.push("inventory_snapshot_older_than_event_time".to_owned());
     }
     for source_id in &input.query.source_ids {
-        if input.snapshot.scoped_source_ids.binary_search(source_id).is_err() {
+        if input
+            .snapshot
+            .scoped_source_ids
+            .binary_search(source_id)
+            .is_err()
+        {
             unknown_reasons.push("source_outside_inventory_scope".to_owned());
         }
     }
 
     let mut closures = BTreeMap::new();
     for source_id in &input.query.source_ids {
-        if !input.snapshot.covered_node_ids.binary_search(source_id).is_ok() {
+        if !input
+            .snapshot
+            .covered_node_ids
+            .binary_search(source_id)
+            .is_ok()
+        {
             unknown_reasons.push("source_not_covered_by_inventory_snapshot".to_owned());
         }
         if has_cycle(source_id, &validated.edges_by_subject) {
@@ -380,7 +390,12 @@ fn validate_contract(input: &HypergraphInput, errors: &mut Vec<String>) {
             Some(_) => errors.push("queried_node_is_not_a_source".to_owned()),
             None => errors.push("queried_source_missing_from_graph".to_owned()),
         }
-        if input.snapshot.scoped_source_ids.binary_search(source_id).is_err() {
+        if input
+            .snapshot
+            .scoped_source_ids
+            .binary_search(source_id)
+            .is_err()
+        {
             errors.push("queried_source_missing_from_snapshot_scope".to_owned());
         }
     }
@@ -483,7 +498,10 @@ fn iterative_closure(
         if covered_node_ids.binary_search(&node_id).is_err() {
             reasons.push("reachable_node_not_covered_by_inventory_snapshot".to_owned());
         }
-        if uncertain.get(node_id.as_str()).is_some_and(|items| !items.is_empty()) {
+        if uncertain
+            .get(node_id.as_str())
+            .is_some_and(|items| !items.is_empty())
+        {
             reasons.push("applicable_assertion_not_qualified_or_outside_frontier".to_owned());
         }
         if let Some(edges) = adjacency.get(node_id.as_str()) {
@@ -496,10 +514,7 @@ fn iterative_closure(
     (ancestors, reasons)
 }
 
-fn has_cycle(
-    start: &str,
-    adjacency: &BTreeMap<&str, Vec<&DependencyHyperedge>>,
-) -> bool {
+fn has_cycle(start: &str, adjacency: &BTreeMap<&str, Vec<&DependencyHyperedge>>) -> bool {
     let mut color: BTreeMap<String, u8> = BTreeMap::new();
     let mut stack = vec![(start.to_owned(), false)];
 
@@ -577,10 +592,20 @@ fn reference_report(input: &HypergraphInput, input_sha256: String) -> Evaluation
     }
 
     for source in &input.query.source_ids {
-        if input.snapshot.scoped_source_ids.binary_search(source).is_err() {
+        if input
+            .snapshot
+            .scoped_source_ids
+            .binary_search(source)
+            .is_err()
+        {
             unknown.push("source_outside_inventory_scope".to_owned());
         }
-        if input.snapshot.covered_node_ids.binary_search(source).is_err() {
+        if input
+            .snapshot
+            .covered_node_ids
+            .binary_search(source)
+            .is_err()
+        {
             unknown.push("source_not_covered_by_inventory_snapshot".to_owned());
         }
         let mut visiting = BTreeSet::new();
@@ -778,11 +803,26 @@ mod tests {
                 expected_evidence_frontier: 120,
             },
             nodes: vec![
-                Node { id: "clock-root".to_owned(), kind: NodeKind::Dependency },
-                Node { id: "provider-a".to_owned(), kind: NodeKind::Dependency },
-                Node { id: "provider-b".to_owned(), kind: NodeKind::Dependency },
-                Node { id: "rx-a".to_owned(), kind: NodeKind::Source },
-                Node { id: "rx-b".to_owned(), kind: NodeKind::Source },
+                Node {
+                    id: "clock-root".to_owned(),
+                    kind: NodeKind::Dependency,
+                },
+                Node {
+                    id: "provider-a".to_owned(),
+                    kind: NodeKind::Dependency,
+                },
+                Node {
+                    id: "provider-b".to_owned(),
+                    kind: NodeKind::Dependency,
+                },
+                Node {
+                    id: "rx-a".to_owned(),
+                    kind: NodeKind::Source,
+                },
+                Node {
+                    id: "rx-b".to_owned(),
+                    kind: NodeKind::Source,
+                },
             ],
             hyperedges: vec![
                 DependencyHyperedge {
@@ -839,8 +879,14 @@ mod tests {
     fn pairwise_projection_is_derived_without_destroying_hyperedge_identity() {
         let input = fixture();
         let report = evaluate_fixture(&input);
-        assert_eq!(report.source_ancestors["rx-a"], vec!["clock-root", "provider-a"]);
-        assert_eq!(report.source_ancestors["rx-b"], vec!["clock-root", "provider-b"]);
+        assert_eq!(
+            report.source_ancestors["rx-a"],
+            vec!["clock-root", "provider-a"]
+        );
+        assert_eq!(
+            report.source_ancestors["rx-b"],
+            vec!["clock-root", "provider-b"]
+        );
     }
 
     #[test]
@@ -885,7 +931,11 @@ mod tests {
         input.snapshot.scoped_source_ids.pop();
         let report = evaluate_fixture(&input);
         assert_eq!(report.disposition, Disposition::UnknownDependency);
-        assert!(report.reason_codes.contains(&"source_outside_inventory_scope".to_owned()));
+        assert!(
+            report
+                .reason_codes
+                .contains(&"source_outside_inventory_scope".to_owned())
+        );
     }
 
     #[test]
@@ -944,9 +994,12 @@ mod tests {
         let report_bytes = serde_json::to_vec(&report).unwrap();
         let verification = independently_verify(&input_bytes, &report_bytes);
         assert_eq!(verification.status, "rejected");
-        assert!(verification.checks.iter().any(|item| {
-            item.id == "independent-closure" && item.result == "fail"
-        }));
+        assert!(
+            verification
+                .checks
+                .iter()
+                .any(|item| { item.id == "independent-closure" && item.result == "fail" })
+        );
     }
 
     #[test]
@@ -955,6 +1008,10 @@ mod tests {
         input.query.source_ids.reverse();
         let report = evaluate_fixture(&input);
         assert_eq!(report.disposition, Disposition::InvalidInput);
-        assert!(report.reason_codes.contains(&"query_sources_must_be_sorted_unique".to_owned()));
+        assert!(
+            report
+                .reason_codes
+                .contains(&"query_sources_must_be_sorted_unique".to_owned())
+        );
     }
 }
