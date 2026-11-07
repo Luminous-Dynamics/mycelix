@@ -8,16 +8,19 @@
     "number": 5771,
     "url": "https://github.com/Luminous-Dynamics/mycelix/pull/5771",
     "branch": "research/pulse-authority-lifecycle-v1-20261104",
-    "head_sha": "acd9ed7e6d4779e17b936ab5589d58ebfb7bdc39",
+    "state": "open_draft",
+    "merge_readiness": "BLOCKED_REQUIRES_REBASE_AND_EXACT_HEAD_REQUALIFICATION",
+    "evidence_subject_sha": "acd9ed7e6d4779e17b936ab5589d58ebfb7bdc39",
+    "ledger_preparation_parent_sha": "507b06a2fa5fe9029534b28f9c4fa84a11163743",
     "base_branch": "main",
     "base_sha_at_pr": "9e12dd46bdd8371e8ed9626a17bc06f21c141a52",
-    "divergence_at_ledger_creation": {
-      "ahead_by": 396,
+    "main_sha_at_comparison": "6a0d072d3b65f4a2cf08af3ae71e541788e33ae9",
+    "divergence_at_comparison": {
+      "ahead_by": 402,
       "behind_by": 8,
       "merge_base": "9e12dd46bdd8371e8ed9626a17bc06f21c141a52"
     },
-    "state": "open_draft",
-    "merge_readiness": "BLOCKED_REQUIRES_REBASE_AND_EXACT_HEAD_REQUALIFICATION"
+    "divergence_note": "Measured by comparing main to the branch at ledger_preparation_parent_sha. Subsequent ledger/receipt commits are documentation-only; rerun comparison before review/merge."
   },
   "claim_levels": [
     "SOURCE_PRESENT",
