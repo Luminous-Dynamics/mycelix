@@ -216,7 +216,26 @@ Prefer existing standards and provider APIs where their scope fits. The protocol
 - Payment handling should integrate through authorized payment service providers; do not store payment-card data in Holochain.
 - Environmental programme criteria such as Blue Flag can be referenced as an external certification claim, not treated as a substitute for law or continuous ecological measurement.
 
-## 10. Comparative benchmark methodology
+## 10. Current industry reference systems
+
+These are component-level competitors and comparison baselines, not one directly comparable market. The scale figures below are provider-reported and should be rechecked before external publication.
+
+| Reference system | Current demonstrated capability / scale | What Maritime Commons should do differently |
+|---|---|---|
+| Dockwa | Advertises nearly 4,000 marinas and more than 500,000 boaters; reservations, inventory, contracts, billing, fuel, POS, dry stack, service work orders and marina operations. | Do not rip and replace marina management. Build provider-approved interoperability, cross-provider stay composition, reciprocal access and independent commitment verification. |
+| Navily | App Store listing reports 1.2 million+ boaters, 35,000+ marinas/anchorages and 700+ bookable marinas. Premium includes offline use, 72-hour weather forecasts, protection scores and automatic itineraries. | Do not recreate the cruising guide. Add accommodation, local services, longer stays, portable access and provider-authoritative commitments to the route/destination workflow. |
+| PredictWind | Weather routing compares multiple forecast models; its published 17 September 2026 help article describes high-resolution AROME 1.3 km for some first-two-day routing, ECMWF 9 km for days 2–10 and ensemble products for longer horizons. | Do not claim a better forecast without matched hindcast evidence. Integrate forecast provenance/uncertainty with refuge, berth, shore-energy and accommodation availability; preserve human command. |
+| TransEurope Marinas | 2026 membership rules provide reciprocal visitor-berthing discounts for eligible long-term berth holders, with explicit scope and annual limits. | Make reciprocity portable across more provider types, versioned, revocable and community-governed; do not imply discounts exist without a live provider agreement. |
+| Airbnb | Its 2026 Q2 SEC filing reports over 5.5 million hosts and over 2.5 billion guest arrivals. | Do not compete on accommodation listing volume at launch. Focus on vessel-compatible stays, berth + home + service composition, maritime-specific credentials and local ownership/value-sharing. |
+| Blue Flag | External criteria cover marina environmental management, education, biodiversity, climate, safety, services and accessibility, with evaluation/monitoring during the award period. | Reference certifications as scoped evidence; complement them with continuous, source-qualified water/energy/waste/ecology observations. Do not invent a single green or regeneration score. |
+
+Sources: Dockwa (https://marinas.dockwa.com/); Navily App Store listing (https://apps.apple.com/us/app/navily/id881103205) and Premium features (https://www.navily.com/navily-premium); PredictWind routing-model update (https://help.predictwind.com/en/articles/4685434-forecast-models-used-in-weather-routing); TransEurope Marinas 2026 rules (https://www.transeuropemarinas.com/how-to-join/transeurope-marinas-joining-rules-and-principles-2026/); Airbnb Q2 2026 SEC filing (https://www.sec.gov/Archives/edgar/data/1559720/000155972026000027/abnb-20260630.htm); Blue Flag criteria (https://www.blueflag.global/criteria).
+
+### Competitive thesis
+
+The first market wedge is not "one app with more listings." It is a **federated stay manifest** that composes independent provider-authoritative resources and preserves partial success, evidence, privacy, local rules and settlement semantics. The first competitive test is successful end-to-end completion for a matched set of real provider workflows, not downloads, listings, or a composite score.
+
+## 11. Comparative benchmark methodology
 
 The frozen synthetic corpus is in [benchmark-v0.1.json](benchmark-v0.1.json).
 
@@ -250,7 +269,7 @@ Safety and integrity metrics are hard gates, not terms in a weighted utility fun
 
 For every performance comparison, publish workload definitions, source data rights, software commit, build profile, hardware, run count, confidence intervals, evaluator version, exact fixture digest and raw result receipts. Separate synthetic results from field observations. No SOTA superiority claim is permitted without matched baselines and independent reproduction.
 
-## 11. Proposed initial targets (not measured results)
+## 12. Proposed initial targets (not measured results)
 
 - Zero false Confirmed manifests in the frozen fault-injection corpus.
 - Zero duplicate provider effects under same-key retries and injected timeouts.
@@ -264,7 +283,7 @@ For every performance comparison, publish workload definitions, source data righ
 
 These are hypotheses and acceptance goals. They are not current performance claims.
 
-## 12. Integration sequence
+## 13. Integration sequence
 
 1. Freeze ownership map and semantic glossary.
 2. Validate the wire schema and synthetic fixtures.
@@ -277,7 +296,7 @@ These are hypotheses and acceptance goals. They are not current performance clai
 
 Do not add new Commons DNA zomes or change production schemas until the contract and ownership map have independent review.
 
-## 13. Research references
+## 14. Research references
 
 - IMO Maritime Digitalization Strategy and Maritime Single Window: https://www.imo.org/en/ourwork/facilitation/pages/maritimesinglewindow-default.aspx
 - IHO S-100 standards in force: https://iho.int/en/standards-in-force-0
