@@ -1171,6 +1171,76 @@ mod tests {
         ).is_err());
     }
 
+
+    #[test]
+    fn contradiction_reclassification_trace_preserves_both_blockers_to_question() {
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../agent-output-evaluator-v1");
+        let schema: Value = read_json(root.join("runner_observed_evidence_trace_v1.0.0.schema.json")).unwrap();
+        let trace_path = root.join("fixtures/runner_observed_evidence_trace_contradiction_reclassification_synthetic_v1.0.0.json");
+        let trace_bytes = read_bytes(trace_path).unwrap();
+        let trace: Value = serde_json::from_slice(&trace_bytes).unwrap();
+        validate_instance("contradiction trace schema", &schema, &trace).unwrap();
+        let report = validate_trace(&trace).unwrap();
+        assert_eq!(report["fact_observation_count"], 2);
+        assert_eq!(report["fact_terminalization_count"], 2);
+        assert_eq!(report["question_count"], 1);
+        assert_eq!(report["journal_line_count"], 0);
+        assert_eq!(report["disposition"], "clarify");
+        assert_eq!(report["terminal_disposition"], "needs_evidence");
+        assert_eq!(report["unaccounted_fact_count"], 0);
+    }
+
+    #[test]
+    fn rejects_question_when_blocker_fact_remains_asserted() {
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../agent-output-evaluator-v1");
+        let trace_path = root.join("fixtures/runner_observed_evidence_trace_contradiction_reclassification_synthetic_v1.0.0.json");
+        let mut trace: Value = read_json(trace_path).unwrap();
+        trace["events"].as_array_mut().unwrap().retain(|event| {
+            !matches!(optional_string(event, "event_kind"), Some("fact_reclassified" | "contradiction_detected"))
+        });
+        for (index, event) in trace["events"].as_array_mut().unwrap().iter_mut().enumerate() {
+            event["seq"] = json!(index + 1);
+        }
+        assert!(validate_trace(&trace).is_err());
+    }
+
+    #[test]
+    fn rejects_journal_emission_from_contradicted_fact() {
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../agent-output-evaluator-v1");
+        let trace_path = root.join("fixtures/runner_observed_evidence_trace_contradiction_reclassification_synthetic_v1.0.0.json");
+        let mut trace: Value = read_json(trace_path).unwrap();
+        let question = &mut trace["events"][7];
+        question["event_id"] = json!("EVT-008-INVALID-JOURNAL");
+        question["event_kind"] = json!("journal_line_emitted");
+        question["fact_refs"] = json!(["F-010-INVOICE-AMOUNT"]);
+        question["journal_line_ref"] = json!("JE-010-INVALID");
+        question["journal_line_sha256"] = json!("6".repeat(64));
+        question["question_ref"] = Value::Null;
+        question["question_text_sha256"] = Value::Null;
+        question["blocker_fact_refs"] = json!([]);
+        question["source_document_refs"] = json!([]);
+        question["source_observation_event_refs"] = json!([]);
+        for (index, event) in trace["events"].as_array_mut().unwrap().iter_mut().enumerate() {
+            event["seq"] = json!(index + 1);
+        }
+        assert!(validate_trace(&trace).is_err());
+    }
+
+    #[test]
+    fn rejects_reclassification_after_terminalization_in_multi_step_trace() {
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../agent-output-evaluator-v1");
+        let trace_path = root.join("fixtures/runner_observed_evidence_trace_contradiction_reclassification_synthetic_v1.0.0.json");
+        let mut trace: Value = read_json(trace_path).unwrap();
+        let events = trace["events"].as_array_mut().unwrap();
+        let reclass = events.iter().position(|event| optional_string(event, "event_id") == Some("EVT-006-RECLASSIFY-INVOICE")).unwrap();
+        let terminalization = events.iter().position(|event| optional_string(event, "event_id") == Some("EVT-009-TERM-INVOICE")).unwrap();
+        events.swap(reclass, terminalization);
+        for (index, event) in events.iter_mut().enumerate() {
+            event["seq"] = json!(index + 1);
+        }
+        assert!(validate_trace(&trace).is_err());
+    }
+
     #[test]
     fn rejects_trace_source_bundle_digest_not_matching_task_input() {
         let (mut trace, _, _, _trace_bytes) = fixture();
