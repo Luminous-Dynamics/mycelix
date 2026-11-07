@@ -192,6 +192,7 @@ struct Counts {
     reachability_cache_limit_skips: usize,
     reachability_pair_cache_hits: usize,
     reachability_pair_cache_entries: usize,
+    reachability_pair_cache_ids_interned: usize,
     reachability_pair_cache_limit_skips: usize,
 }
 #[derive(Debug, Clone, Serialize)]
@@ -1157,6 +1158,7 @@ fn audit_with_reachability_cache(
     counts.reachability_cache_limit_skips = reachability_cache.cache_limit_skips;
     counts.reachability_pair_cache_hits = reachability_cache.pair_cache_hits;
     counts.reachability_pair_cache_entries = reachability_cache.pair_results.len();
+    counts.reachability_pair_cache_ids_interned = reachability_cache.pair_event_indices.len();
     counts.reachability_pair_cache_limit_skips = reachability_cache.pair_cache_limit_skips;
 
     let violation=findings.iter().any(|f|f.severity=="violation");
@@ -1677,6 +1679,7 @@ fn run_dag_profile_benchmark(
             "speedup_over_uncached": if pair_ns == 0 { 0.0 } else { reference_ns as f64 / pair_ns as f64 },
             "cache_hits": pair_cache.pair_cache_hits,
             "cache_entries": pair_cache.pair_results.len(),
+            "interned_event_ids": pair_cache.pair_event_indices.len(),
             "cache_limit_skips": pair_cache.pair_cache_limit_skips,
             "node_visits": pair_cache.dfs_node_visits
         },
@@ -1956,7 +1959,7 @@ fn run_verified_record_benchmark(
 
 fn semantic_report_digest(report: &Report) -> Result<String, Box<dyn Error>> {
     let mut value = serde_json::to_value(report)?;
-    const METRIC_FIELDS: [&str; 10] = [
+    const METRIC_FIELDS: [&str; 11] = [
         "reachability_queries",
         "reachability_cache_hits",
         "reachability_sources_cached",
@@ -1966,6 +1969,7 @@ fn semantic_report_digest(report: &Report) -> Result<String, Box<dyn Error>> {
         "reachability_cache_limit_skips",
         "reachability_pair_cache_hits",
         "reachability_pair_cache_entries",
+        "reachability_pair_cache_ids_interned",
         "reachability_pair_cache_limit_skips",
     ];
     if let Some(counts) = value.get_mut("counts").and_then(Value::as_object_mut) {
@@ -2067,6 +2071,7 @@ fn run_join_benchmark(operation_count: usize, output: Option<PathBuf>) -> Result
             "cache_hits": pair_metrics.reachability_cache_hits,
             "pair_cache_hits": pair_metrics.reachability_pair_cache_hits,
             "pair_cache_entries": pair_metrics.reachability_pair_cache_entries,
+            "pair_cache_interned_event_ids": pair_metrics.reachability_pair_cache_ids_interned,
             "pair_cache_limit_skips": pair_metrics.reachability_pair_cache_limit_skips,
             "dfs_node_visits": pair_metrics.reachability_dfs_node_visits,
             "allocation_peak_live_bytes": pair_allocations.peak_live_bytes,
