@@ -1,8 +1,8 @@
 {
   "schema_version": "1.0",
   "profile_id": "mycelix-holochain-0.7.1",
-  "status": "proposed-target-not-qualified",
-  "snapshot_date": "2026-11-02",
+  "status": "target-selected-mycelix-unqualified",
+  "snapshot_date": "2026-11-07",
   "source_repository": "https://github.com/Luminous-Dynamics/mycelix",
   "target": {
     "holochain": "0.7.1",
@@ -15,9 +15,23 @@
     "holonix_ref": "main-0.7",
     "nodejs": "24",
     "hc_spin": "0.700.1",
-    "rust_client": "resolve-and-pin-exact-compatible-release",
-    "approval_state": "evaluation-candidate-only",
-    "approval_blocker": "Upstream upgrade guide specifies 0.7.1 while the compatibility table still labels 0.7.0 recommended; require maintainer/source-artifact reconciliation before production baseline approval."
+    "rust_client": "0.9.1",
+    "approval_state": "upstream-0.7.1-ready; mycelix-runtime-unqualified",
+    "approval_blocker": "Holochain declared 0.7.1 ready for development on 2026-11-05. Mycelix still requires canonical source parity, exact flake/Cargo/JS closure, WASM/DNA packaging, fresh conductor and multi-agent runtime evidence; no branch currently inherits qualification.",
+    "kitsune2_library": "0.5.1",
+    "kitsune2_bootstrap_service": "0.5.2",
+    "holonix_ref_is_immutable": false,
+    "holonix_snapshot_rust": "1.95.0",
+    "hc_cli": "0.7.1",
+    "hc_scaffold": "0.700.1",
+    "nix_snapshot": {
+      "holonix_ref": "main-0.7",
+      "rust_version": "1.95.0",
+      "kitsune2_bootstrap": "0.5.2",
+      "lair": "0.7.1",
+      "hc_scaffold": "0.700.1",
+      "rule": "Record exact Holonix input revision and the entire resolved flake.lock in the Mycelix repo; main-0.7 is mutable."
+    }
   },
   "migration_boundaries": {
     "from_holochain_family": "0.6.x",
@@ -67,6 +81,7 @@
     "performance_improvement_targets_are_achieved_results": false
   },
   "upstream_sources": [
+    "https://blog.holochain.org/dev-pulse-157-holochain-0-7-1-brings-chain-restore-direct-signal-security/",
     "https://developer.holochain.org/resources/upgrade/upgrade-holochain-0.7/",
     "https://github.com/holochain/holochain/releases",
     "https://developer.holochain.org/resources/compatibility/holochain-0.7/",
@@ -80,9 +95,14 @@
     "proposed benchmark targets have been achieved"
   ],
   "upstream_discrepancy": {
-    "compatibility_table_recommendation": "0.7.0",
+    "compatibility_table_recommendation": "0.7.0 (stale page still observed 2026-11-07)",
     "upgrade_guide_dependency_tuple": "holochain 0.7.1 / hdk 0.7.1 / hdi 0.8.1 / @holochain/client 0.21.1",
-    "resolution_required_before_deployment_baseline": true
+    "release_readiness_source": "https://blog.holochain.org/dev-pulse-157-holochain-0-7-1-brings-chain-restore-direct-signal-security/",
+    "stable_release_tag": "holochain-0.7.1",
+    "release_date": "2026-10-14",
+    "ready_announcement_date": "2026-11-05",
+    "upstream_target_selected": "0.7.1",
+    "docs_mismatch_remains_to_be_reported_upstream": true
   },
   "canonical_source": {
     "repository": "Luminous-Dynamics/luminous-dynamics",
