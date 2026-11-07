@@ -390,14 +390,6 @@ fn validate_contract(input: &HypergraphInput, errors: &mut Vec<String>) {
             Some(_) => errors.push("queried_node_is_not_a_source".to_owned()),
             None => errors.push("queried_source_missing_from_graph".to_owned()),
         }
-        if input
-            .snapshot
-            .scoped_source_ids
-            .binary_search(source_id)
-            .is_err()
-        {
-            errors.push("queried_source_missing_from_snapshot_scope".to_owned());
-        }
     }
 
     let mut edge_ids = BTreeSet::new();
