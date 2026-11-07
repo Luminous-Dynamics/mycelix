@@ -403,6 +403,25 @@ jobs:
             PulseHostCallLinearization.tla \
             2>&1 | tee "${RUNNER_TEMP}/pulse-tlc-artifacts/host-call-linearization-safe/tlc.log"
 
+      - name: Require pre-admitted call completion after revocation witness
+        working-directory: mycelix-workspace/mycelix-pulse/docs/security
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "${RUNNER_TEMP}/pulse-tlc-artifacts/host-call-admission-witness"
+          set +e
+          java -XX:+UseParallelGC -Xmx2g \
+            -jar "${RUNNER_TEMP}/tlaplus/tla2tools.jar" \
+            -metadir "${RUNNER_TEMP}/pulse-tlc-artifacts/host-call-admission-witness/states" \
+            -config PulseHostCallLinearization-admission-witness.cfg \
+            PulseHostCallLinearization.tla \
+            2>&1 | tee "${RUNNER_TEMP}/pulse-tlc-artifacts/host-call-admission-witness/tlc.log"
+          status=${PIPESTATUS[0]}
+          set -e
+          test "$status" -ne 0
+          grep -q "NoPreAdmittedCompletionAfterRevocationYet" \
+            "${RUNNER_TEMP}/pulse-tlc-artifacts/host-call-admission-witness/tlc.log"
+
       - name: Require projection-based host call race mutant counterexample
         working-directory: mycelix-workspace/mycelix-pulse/docs/security
         shell: bash
@@ -711,6 +730,7 @@ jobs:
             echo "host_call_linearization_safe_config_sha256=$(sha256sum PulseHostCallLinearization.cfg | cut -d' ' -f1)"
             echo "host_call_linearization_projection_mutant_sha256=$(sha256sum PulseHostCallLinearization-projection-mutant.cfg | cut -d' ' -f1)"
             echo "host_call_linearization_dedup_mutant_sha256=$(sha256sum PulseHostCallLinearization-dedup-mutant.cfg | cut -d' ' -f1)"
+            echo "host_call_linearization_admission_witness_sha256=$(sha256sum PulseHostCallLinearization-admission-witness.cfg | cut -d' ' -f1)"
             echo "cell_scope_spec_sha256=$(sha256sum PulseCellScopeIsolation.tla | cut -d' ' -f1)"
             echo "cell_scope_safe_config_sha256=$(sha256sum PulseCellScopeIsolation.cfg | cut -d' ' -f1)"
             echo "cell_scope_cross_cell_mutant_sha256=$(sha256sum PulseCellScopeIsolation-cross-cell-mutant.cfg | cut -d' ' -f1)"
