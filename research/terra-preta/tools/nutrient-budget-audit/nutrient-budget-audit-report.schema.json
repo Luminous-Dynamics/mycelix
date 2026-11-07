@@ -1,0 +1,481 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/Luminous-Dynamics/mycelix/main/research/terra-preta/tools/nutrient-budget-audit/nutrient-budget-audit-report.schema.json",
+  "title": "Terra Preta nutrient budget arithmetic audit report",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "audit_version",
+    "status",
+    "record_id",
+    "element",
+    "input_sha256",
+    "study_id",
+    "site_id",
+    "experimental_unit_id",
+    "treatment_arm_id",
+    "comparator_arm_id",
+    "period_start_date",
+    "period_end_date",
+    "control_volume",
+    "stock_pool_partition_review_ref",
+    "boundary_flux_review_ref",
+    "boundary_coverage_status",
+    "input_total_kg_element_per_ha",
+    "input_category_summaries",
+    "output_total_kg_element_per_ha",
+    "output_category_summaries",
+    "storage_start_total_kg_element_per_ha",
+    "storage_end_total_kg_element_per_ha",
+    "storage_change_kg_element_per_ha",
+    "residual_kg_element_per_ha",
+    "conservative_linear_standard_uncertainty_bound_kg_element_per_ha",
+    "plot_scaled",
+    "flow_counts",
+    "availability_indicators",
+    "warnings",
+    "interpretation_boundary",
+    "internal_transfers",
+    "internal_transfer_category_summaries",
+    "unmeasured_pathways"
+  ],
+  "properties": {
+    "audit_version": {
+      "const": "0.1.0"
+    },
+    "status": {
+      "enum": [
+        "within_conservative_uncertainty_bound",
+        "outside_conservative_uncertainty_bound",
+        "unqualified_missing_uncertainty",
+        "unqualified_incomplete_boundary_coverage"
+      ]
+    },
+    "record_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "element": {
+      "enum": [
+        "N",
+        "P",
+        "K"
+      ]
+    },
+    "input_sha256": {
+      "type": "string",
+      "pattern": "^[A-Fa-f0-9]{64}$"
+    },
+    "study_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "site_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "experimental_unit_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "treatment_arm_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "comparator_arm_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "period_start_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "period_end_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "control_volume": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "area_ha",
+        "top_depth_cm",
+        "bottom_depth_cm",
+        "boundary_description"
+      ],
+      "properties": {
+        "area_ha": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "top_depth_cm": {
+          "type": "number",
+          "minimum": 0
+        },
+        "bottom_depth_cm": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "boundary_description": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "input_total_kg_element_per_ha": {
+      "type": "number",
+      "minimum": 0
+    },
+    "output_total_kg_element_per_ha": {
+      "type": "number",
+      "minimum": 0
+    },
+    "storage_start_total_kg_element_per_ha": {
+      "type": "number",
+      "minimum": 0
+    },
+    "storage_end_total_kg_element_per_ha": {
+      "type": "number",
+      "minimum": 0
+    },
+    "storage_change_kg_element_per_ha": {
+      "type": "number"
+    },
+    "residual_kg_element_per_ha": {
+      "type": "number"
+    },
+    "conservative_linear_standard_uncertainty_bound_kg_element_per_ha": {
+      "type": [
+        "number",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "plot_scaled": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "input_kg_element",
+        "output_kg_element",
+        "storage_change_kg_element",
+        "residual_kg_element",
+        "uncertainty_bound_kg_element"
+      ],
+      "properties": {
+        "input_kg_element": {
+          "type": "number",
+          "minimum": 0
+        },
+        "output_kg_element": {
+          "type": "number",
+          "minimum": 0
+        },
+        "storage_change_kg_element": {
+          "type": "number"
+        },
+        "residual_kg_element": {
+          "type": "number"
+        },
+        "uncertainty_bound_kg_element": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0
+        }
+      }
+    },
+    "flow_counts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "inputs",
+        "outputs",
+        "storage_pools",
+        "availability_indicators",
+        "internal_transfers"
+      ],
+      "properties": {
+        "inputs": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "outputs": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "storage_pools": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "availability_indicators": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "internal_transfers": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "availability_indicators": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "indicator_id",
+          "name",
+          "value",
+          "unit",
+          "depth_top_cm",
+          "depth_bottom_cm",
+          "method",
+          "evidence_ref"
+        ],
+        "properties": {
+          "indicator_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "value": {
+            "type": "number",
+            "minimum": 0
+          },
+          "unit": {
+            "type": "string",
+            "minLength": 1
+          },
+          "depth_top_cm": {
+            "type": "number",
+            "minimum": 0
+          },
+          "depth_bottom_cm": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "method": {
+            "type": "string",
+            "minLength": 1
+          },
+          "evidence_ref": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "interpretation_boundary": {
+      "type": "string",
+      "minLength": 1
+    },
+    "stock_pool_partition_review_ref": {
+      "type": "string",
+      "minLength": 1
+    },
+    "boundary_flux_review_ref": {
+      "type": "string",
+      "minLength": 1
+    },
+    "boundary_coverage_status": {
+      "enum": [
+        "declared_complete",
+        "declared_incomplete"
+      ]
+    },
+    "input_category_summaries": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "category",
+          "count",
+          "amount_kg_element_per_ha",
+          "conservative_linear_standard_uncertainty_bound_kg_element_per_ha"
+        ],
+        "properties": {
+          "category": {
+            "type": "string",
+            "minLength": 1
+          },
+          "count": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "amount_kg_element_per_ha": {
+            "type": "number",
+            "minimum": 0
+          },
+          "conservative_linear_standard_uncertainty_bound_kg_element_per_ha": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0
+          }
+        }
+      }
+    },
+    "output_category_summaries": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "category",
+          "count",
+          "amount_kg_element_per_ha",
+          "conservative_linear_standard_uncertainty_bound_kg_element_per_ha"
+        ],
+        "properties": {
+          "category": {
+            "type": "string",
+            "minLength": 1
+          },
+          "count": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "amount_kg_element_per_ha": {
+            "type": "number",
+            "minimum": 0
+          },
+          "conservative_linear_standard_uncertainty_bound_kg_element_per_ha": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0
+          }
+        }
+      }
+    },
+    "internal_transfers": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "transfer_id",
+          "category",
+          "source_pool_id",
+          "destination_pool_id",
+          "amount_kg_element_per_ha",
+          "standard_uncertainty_kg_element_per_ha",
+          "method",
+          "evidence_ref"
+        ],
+        "properties": {
+          "transfer_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "category": {
+            "enum": [
+              "mineralization",
+              "immobilization",
+              "sorption",
+              "desorption",
+              "root_uptake",
+              "residue_return",
+              "other_declared"
+            ]
+          },
+          "source_pool_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "destination_pool_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "amount_kg_element_per_ha": {
+            "type": "number",
+            "minimum": 0
+          },
+          "standard_uncertainty_kg_element_per_ha": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0
+          },
+          "method": {
+            "type": "string",
+            "minLength": 1
+          },
+          "evidence_ref": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "internal_transfer_category_summaries": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "category",
+          "count",
+          "amount_kg_element_per_ha",
+          "conservative_linear_standard_uncertainty_bound_kg_element_per_ha"
+        ],
+        "properties": {
+          "category": {
+            "type": "string",
+            "minLength": 1
+          },
+          "count": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "amount_kg_element_per_ha": {
+            "type": "number",
+            "minimum": 0
+          },
+          "conservative_linear_standard_uncertainty_bound_kg_element_per_ha": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0
+          }
+        }
+      }
+    },
+    "unmeasured_pathways": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "pathway",
+          "reason"
+        ],
+        "properties": {
+          "pathway": {
+            "type": "string",
+            "minLength": 1
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    }
+  }
+}

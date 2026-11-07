@@ -1,0 +1,367 @@
+{
+  "registry_version": "0.1.0",
+  "reviewed_on": "2026-10-31",
+  "interpretation_boundary": "All five profiles are unconfigured templates. None has approved numeric thresholds or authorized use. Measurement lists are candidate requirements, not completed measurements. A profile must not become active until domain-specific constraints, methods, uncertainty requirements and independent review evidence are recorded.",
+  "profiles": [
+    {
+      "profile_id": "cropped_root_zone",
+      "application_context": "cropped_root_zone",
+      "title": "Cropped agricultural root zone",
+      "status": "thresholds_pending",
+      "primary_service": "Maintain plant-accessible water while preserving infiltration, aeration, drainage and nutrient control.",
+      "description": "Agricultural root-zone profile. Lower water conductivity is not automatically beneficial; evaluate water supply, infiltration, aeration, drainage, plant response and nutrient losses together.",
+      "constraints": [],
+      "measurement_requirements": [
+        {
+          "measurement_id": "cropped_root_zone_measurement_1",
+          "endpoint": "Infiltration capacity and event intake",
+          "method": "Method and ring/column geometry require protocol selection",
+          "unit": "mm/h",
+          "state_condition": "Initial state and wetting/drying branch declared",
+          "sampling_support": "Plot or independently randomized core; event time series",
+          "protocol_uri": null,
+          "required_for_activation": true
+        },
+        {
+          "measurement_id": "cropped_root_zone_measurement_2",
+          "endpoint": "Water retention and plant-available water",
+          "method": "Branch-labelled retention curve with declared pressure range",
+          "unit": "m3/m3",
+          "state_condition": "Main drying, main wetting and supported scanning paths",
+          "sampling_support": "Independent core / specimen and pressure-step replicates",
+          "protocol_uri": null,
+          "required_for_activation": true
+        },
+        {
+          "measurement_id": "cropped_root_zone_measurement_3",
+          "endpoint": "Root-zone aeration",
+          "method": "Air-filled porosity or oxygen-diffusion method to be qualified",
+          "unit": "method-specific",
+          "state_condition": "At matched water potential and temperature",
+          "sampling_support": "Depth-resolved root-zone sample",
+          "protocol_uri": null,
+          "required_for_activation": true
+        },
+        {
+          "measurement_id": "cropped_root_zone_measurement_4",
+          "endpoint": "Drainage and nutrient export",
+          "method": "Synchronized measured drainage with concentration / collected mass",
+          "unit": "mm and kg element/ha/event",
+          "state_condition": "Event boundary and collection window declared",
+          "sampling_support": "Independent plot/core and event lineage",
+          "protocol_uri": null,
+          "required_for_activation": true
+        },
+        {
+          "measurement_id": "cropped_root_zone_measurement_5",
+          "endpoint": "Plant water stress and crop response",
+          "method": "Crop- and stage-specific measurement protocol",
+          "unit": "declared crop units",
+          "state_condition": "Crop stage and weather sequence declared",
+          "sampling_support": "Randomized experimental unit and harvest/measurement unit",
+          "protocol_uri": null,
+          "required_for_activation": true
+        }
+      ],
+      "applicability_scope": {
+        "soil_domain": "Mineral agricultural soils; texture, mineralogy and depth range must be specified per study.",
+        "climate_domain": "Rainfed or irrigated; rainfall intensity, dry spells and seasonal distribution must be declared.",
+        "management_system": "Crop, rooting depth, tillage, residue, irrigation and organic-input history must be declared."
+      },
+      "expected_failure_modes": [
+        "Infiltration restriction",
+        "Root-zone waterlogging",
+        "Insufficient aeration",
+        "Deep drainage and nutrient export",
+        "Root restriction or reduced crop service"
+      ],
+      "governance": {
+        "review_status": "not_reviewed",
+        "reviewer_role": "independent domain-qualified reviewer required before activation",
+        "evidence_uri": null
+      }
+    },
+    {
+      "profile_id": "dryland_water_resilience",
+      "application_context": "dryland_water_resilience",
+      "title": "Dryland water resilience",
+      "status": "thresholds_pending",
+      "primary_service": "Capture and retain useful water across drought-to-intense-rain sequences without unacceptable runoff, deep loss or nutrient export.",
+      "description": "Dryland profile focused on sequences of dry spells, intense rainfall, antecedent moisture and recovery, not a single average storm.",
+      "constraints": [],
+      "measurement_requirements": [
+        {
+          "measurement_id": "dryland_water_resilience_measurement_1",
+          "endpoint": "Sequence infiltration and runoff",
+          "method": "Rainfall simulator or calibrated field measurement protocol",
+          "unit": "mm/event and mm/h",
+          "state_condition": "Antecedent moisture and pulse sequence declared",
+          "sampling_support": "Independent plot/core across sequence replicates",
+          "protocol_uri": null,
+          "required_for_activation": true
+        },
+        {
+          "measurement_id": "dryland_water_resilience_measurement_2",
+          "endpoint": "Root-zone water storage",
+          "method": "Depth-integrated water content with measured bulk density / geometry",
+          "unit": "mm by declared depth",
+          "state_condition": "Before, during and after each sequence",
+          "sampling_support": "Independent profile/experimental unit",
+          "protocol_uri": null,
+          "required_for_activation": true
+        },
+        {
+          "measurement_id": "dryland_water_resilience_measurement_3",
+          "endpoint": "Deep drainage and nutrient export",
+          "method": "Drainage or lysimeter flow plus synchronized analyte mass",
+          "unit": "mm and kg element/ha/sequence",
+          "state_condition": "Event integration and recovery declared",
+          "sampling_support": "Independent randomized unit and sequence",
+          "protocol_uri": null,
+          "required_for_activation": true
+        },
+        {
+          "measurement_id": "dryland_water_resilience_measurement_4",
+          "endpoint": "Plant stress and recovery",
+          "method": "Declared crop/pasture physiology or growth endpoint",
+          "unit": "endpoint-specific",
+          "state_condition": "Drought, rewetting and recovery windows",
+          "sampling_support": "Independent plot / plant unit",
+          "protocol_uri": null,
+          "required_for_activation": true
+        }
+      ],
+      "applicability_scope": {
+        "soil_domain": "Locally characterized dryland soils, depth and restrictive horizons declared.",
+        "climate_domain": "Observed or scenario-based drought and intense-rain sequences with provenance.",
+        "management_system": "Rainfed crop/pasture/cover management, surface cover, residue and rooting system declared."
+      },
+      "expected_failure_modes": [
+        "Runoff or erosion increase",
+        "Deep drainage and nutrient loss",
+        "Waterlogging after intense storms",
+        "Failure to recover after drought",
+        "Benefits limited to non-representative rainfall sequences"
+      ],
+      "governance": {
+        "review_status": "not_reviewed",
+        "reviewer_role": "independent domain-qualified reviewer required before activation",
+        "evidence_uri": null
+      }
+    },
+    {
+      "profile_id": "engineered_low_permeability_cover",
+      "application_context": "engineered_low_permeability_cover",
+      "title": "Engineered low-permeability cover",
+      "status": "thresholds_pending",
+      "primary_service": "Limit water percolation and gas transport while maintaining structural integrity under declared climatic cycles.",
+      "description": "Engineered cover profile. Low water and gas transport may be desirable here, but must be evaluated with crack formation, deformation, settlement, vegetation effects and climate durability.",
+      "constraints": [],
+      "measurement_requirements": [
+        {
+          "measurement_id": "engineered_low_permeability_cover_measurement_1",
+          "endpoint": "Water percolation/leakage",
+          "method": "Instrumented column or field lysimeter with boundary flux accounting",
+          "unit": "mm/time",
+          "state_condition": "Declared suction, compaction and wetting/drying sequence",
+          "sampling_support": "Independent column/field cell",
+          "protocol_uri": null,
+          "required_for_activation": true
+        },
+        {
+          "measurement_id": "engineered_low_permeability_cover_measurement_2",
+          "endpoint": "Gas permeability",
+          "method": "Qualified gas-permeability method",
+          "unit": "method-specific",
+          "state_condition": "Matched moisture and temperature state",
+          "sampling_support": "Independent specimen",
+          "protocol_uri": null,
+          "required_for_activation": true
+        },
+        {
+          "measurement_id": "engineered_low_permeability_cover_measurement_3",
+          "endpoint": "Crack network and deformation",
+          "method": "Image-based crack geometry plus settlement/deformation survey",
+          "unit": "dimensionless and mm",
+          "state_condition": "After each declared cycle and stress",
+          "sampling_support": "Independent test cell / specimen",
+          "protocol_uri": null,
+          "required_for_activation": true
+        },
+        {
+          "measurement_id": "engineered_low_permeability_cover_measurement_4",
+          "endpoint": "Pore-pressure response",
+          "method": "Depth-resolved pressure transducers with calibration",
+          "unit": "kPa",
+          "state_condition": "Calibrated rainfall/irrigation and initial state",
+          "sampling_support": "Independent cell / profile",
+          "protocol_uri": null,
+          "required_for_activation": true
+        }
+      ],
+      "applicability_scope": {
+        "soil_domain": "Engineered compacted cover material and layer geometry must be specified.",
+        "climate_domain": "Rainfall, evaporation, temperature and wetting/drying cycle envelope declared.",
+        "management_system": "Compaction specification, vegetation/root design, construction and maintenance regime declared."
+      },
+      "expected_failure_modes": [
+        "Crack-mediated leakage",
+        "Excessive pore-pressure rise",
+        "Root intrusion or macropore bypass",
+        "Settlement/deformation",
+        "Apparent low permeability caused by unmeasured boundary artefact"
+      ],
+      "governance": {
+        "review_status": "not_reviewed",
+        "reviewer_role": "independent domain-qualified reviewer required before activation",
+        "evidence_uri": null
+      }
+    },
+    {
+      "profile_id": "vegetated_slope",
+      "application_context": "vegetated_slope",
+      "title": "Vegetated slope and embankment",
+      "status": "thresholds_pending",
+      "primary_service": "Limit hazardous cracking, erosion and pore-pressure response while preserving appropriate infiltration, drainage and vegetation function.",
+      "description": "Slope profile. A permeability change must be evaluated with transient pressure, shear/mechanical stability and surface erosion; neither lower nor higher conductivity is universally beneficial.",
+      "constraints": [],
+      "measurement_requirements": [
+        {
+          "measurement_id": "vegetated_slope_measurement_1",
+          "endpoint": "Crack intensity and depth",
+          "method": "Image-derived crack intensity with spatial support and repeatability",
+          "unit": "method-specific",
+          "state_condition": "Before and after each stress sequence",
+          "sampling_support": "Independent slope panel/specimen",
+          "protocol_uri": null,
+          "required_for_activation": true
+        },
+        {
+          "measurement_id": "vegetated_slope_measurement_2",
+          "endpoint": "Pore-water pressure response",
+          "method": "Calibrated pressure transducers",
+          "unit": "kPa and time",
+          "state_condition": "Storm pulse and antecedent state declared",
+          "sampling_support": "Depth-resolved independent slope cell",
+          "protocol_uri": null,
+          "required_for_activation": true
+        },
+        {
+          "measurement_id": "vegetated_slope_measurement_3",
+          "endpoint": "Infiltration and runoff",
+          "method": "Rainfall simulator or field flux measurement",
+          "unit": "mm and mm/h",
+          "state_condition": "Declared slope, surface cover and event forcing",
+          "sampling_support": "Independent slope unit",
+          "protocol_uri": null,
+          "required_for_activation": true
+        },
+        {
+          "measurement_id": "vegetated_slope_measurement_4",
+          "endpoint": "Shear strength / deformation",
+          "method": "Qualified geotechnical test and deformation monitoring",
+          "unit": "kPa and mm",
+          "state_condition": "Declared stress and moisture path",
+          "sampling_support": "Independent specimen / slope unit",
+          "protocol_uri": null,
+          "required_for_activation": true
+        }
+      ],
+      "applicability_scope": {
+        "soil_domain": "Slope soil/engineered fill, stratigraphy, density and geometry declared.",
+        "climate_domain": "Storm intensity/duration, antecedent moisture and drying history declared.",
+        "management_system": "Vegetation species/root architecture, construction, drainage and slope geometry declared."
+      },
+      "expected_failure_modes": [
+        "Desiccation crack propagation",
+        "Rapid pressure transmission",
+        "Surface runoff and erosion",
+        "Shear-strength loss",
+        "Root-induced preferential bypass"
+      ],
+      "governance": {
+        "review_status": "not_reviewed",
+        "reviewer_role": "independent domain-qualified reviewer required before activation",
+        "evidence_uri": null
+      }
+    },
+    {
+      "profile_id": "horticultural_substrate",
+      "application_context": "horticultural_substrate",
+      "title": "Horticultural substrate",
+      "status": "thresholds_pending",
+      "primary_service": "Maintain a reproducible water/air balance and reliable rewetting while avoiding repellency, collapse, salinity and nutrient imbalance.",
+      "description": "Growing-media profile. Substrates are a distinct material domain and must not be treated as field mineral soil without an explicit population crosswalk.",
+      "constraints": [],
+      "measurement_requirements": [
+        {
+          "measurement_id": "horticultural_substrate_measurement_1",
+          "endpoint": "Water-holding and available water",
+          "method": "Substrate-specific retention and container-capacity method",
+          "unit": "m3/m3 or method-defined",
+          "state_condition": "Defined wetting/drying branch and packing density",
+          "sampling_support": "Independent container/specimen",
+          "protocol_uri": null,
+          "required_for_activation": true
+        },
+        {
+          "measurement_id": "horticultural_substrate_measurement_2",
+          "endpoint": "Air-filled porosity",
+          "method": "Volume-based air porosity at declared water state",
+          "unit": "m3/m3",
+          "state_condition": "Matched suction or container capacity",
+          "sampling_support": "Independent specimen",
+          "protocol_uri": null,
+          "required_for_activation": true
+        },
+        {
+          "measurement_id": "horticultural_substrate_measurement_3",
+          "endpoint": "Hydraulic conductivity and drainage",
+          "method": "Method appropriate to growing-media geometry",
+          "unit": "method-specific",
+          "state_condition": "Initial state and wetting/drying history",
+          "sampling_support": "Independent specimen/container",
+          "protocol_uri": null,
+          "required_for_activation": true
+        },
+        {
+          "measurement_id": "horticultural_substrate_measurement_4",
+          "endpoint": "Water repellency and rewetting",
+          "method": "Declared repellency test and wetting-front observation",
+          "unit": "method-specific",
+          "state_condition": "After defined drying and storage",
+          "sampling_support": "Independent specimen",
+          "protocol_uri": null,
+          "required_for_activation": true
+        },
+        {
+          "measurement_id": "horticultural_substrate_measurement_5",
+          "endpoint": "Plant response",
+          "method": "Crop-specific growth/root health and nutrient endpoints",
+          "unit": "declared crop units",
+          "state_condition": "Crop stage and irrigation sequence",
+          "sampling_support": "Randomized container/plant unit",
+          "protocol_uri": null,
+          "required_for_activation": true
+        }
+      ],
+      "applicability_scope": {
+        "soil_domain": "Named substrate formulation, particle-size distribution and component batch declared.",
+        "climate_domain": "Container geometry, irrigation pulse, drying interval and temperature declared.",
+        "management_system": "Crop/container system, fertigation, reuse and substrate ageing regime declared."
+      },
+      "expected_failure_modes": [
+        "Poor rewetting or water repellency",
+        "Excessive drainage",
+        "Low aeration",
+        "Substrate collapse or shrinkage",
+        "Salt/nutrient imbalance"
+      ],
+      "governance": {
+        "review_status": "not_reviewed",
+        "reviewer_role": "independent domain-qualified reviewer required before activation",
+        "evidence_uri": null
+      }
+    }
+  ]
+}

@@ -1,0 +1,78 @@
+name: Terra Preta adaptive pairwise design bake-off
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "research/terra-preta/**"
+      - ".github/workflows/terra-preta-adaptive-pairwise.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: terra-preta-adaptive-pairwise-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  adaptive-pairwise-bakeoff:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - name: Parse scenario and report schemas
+        run: |
+          jq empty research/terra-preta/tools/adaptive-pairwise-bakeoff/scenario.schema.json
+          jq empty research/terra-preta/tools/adaptive-pairwise-bakeoff/report.schema.json
+          jq empty research/terra-preta/tools/adaptive-pairwise-bakeoff/fixtures/synthetic-pairwise-scenario.json
+      - name: Format and test standalone crate
+        run: |
+          cargo fmt --manifest-path research/terra-preta/tools/adaptive-pairwise-bakeoff/Cargo.toml
+          cargo fmt --manifest-path research/terra-preta/tools/adaptive-pairwise-bakeoff/Cargo.toml -- --check
+          cargo test --manifest-path research/terra-preta/tools/adaptive-pairwise-bakeoff/Cargo.toml
+      - name: Validate scenario schema
+        run: |
+          cargo run --manifest-path research/terra-preta/tools/schema-audit/Cargo.toml -- \
+            research/terra-preta/tools/adaptive-pairwise-bakeoff/scenario.schema.json \
+            research/terra-preta/tools/adaptive-pairwise-bakeoff/fixtures/synthetic-pairwise-scenario.json
+      - name: Execute deterministic pairwise bake-off
+        run: |
+          cargo run --manifest-path research/terra-preta/tools/adaptive-pairwise-bakeoff/Cargo.toml -- \
+            research/terra-preta/tools/adaptive-pairwise-bakeoff/fixtures/synthetic-pairwise-scenario.json \
+            "$RUNNER_TEMP/adaptive-pairwise-report.json"
+          jq -e '
+            . as $r |
+            $r.status == "synthetic_pairwise_benchmark_only" and
+            $r.oracle.synthetic_truth_utility > 0 and
+            ($r.oracle.selected_action_ids | index("D_CT_GEOMETRY") != null) and
+            ($r.oracle.selected_action_ids | index("E_EVENT_TRACER") != null) and
+            ($r.oracle.selected_action_ids | index("B_TRACER_EARLY") == null) and
+            ($r.oracle.selected_action_ids | index("C_TRACER_NEARBY") == null) and
+            ($r.policy_results | length == 3) and
+            all($r.policy_results[];
+              .total_cost_units <= $r.budget_cost_units and
+              .minimum_coverage_met and
+              all(.selected_action_ids[]; . != "X_INELIGIBLE"))
+          ' "$RUNNER_TEMP/adaptive-pairwise-report.json"
+          jq -e '
+            (.policy_results[] | select(.policy_id == "pair_aware_joint_lookahead")) as $pair |
+            (.policy_results[] | select(.policy_id == "static_additive_greedy")) as $static |
+            ($pair.selected_action_ids | index("D_CT_GEOMETRY") != null) and
+            ($pair.selected_action_ids | index("E_EVENT_TRACER") != null) and
+            ($static.selected_action_ids | index("B_TRACER_EARLY") != null) and
+            ($static.selected_action_ids | index("C_TRACER_NEARBY") != null) and
+            ($pair.evaluator_synthetic_truth_utility > $static.evaluator_synthetic_truth_utility) and
+            ($pair.oracle_regret == 0) and
+            ($static.oracle_regret > 0)
+          ' "$RUNNER_TEMP/adaptive-pairwise-report.json"
+      - name: Validate report schema
+        run: |
+          cargo run --manifest-path research/terra-preta/tools/schema-audit/Cargo.toml -- \
+            research/terra-preta/tools/adaptive-pairwise-bakeoff/report.schema.json \
+            "$RUNNER_TEMP/adaptive-pairwise-report.json"
+      - name: Clippy
+        run: cargo clippy --manifest-path research/terra-preta/tools/adaptive-pairwise-bakeoff/Cargo.toml --all-targets -- -D warnings

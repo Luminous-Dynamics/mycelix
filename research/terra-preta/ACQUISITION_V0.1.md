@@ -1,0 +1,258 @@
+# Terra Preta research data acquisition v0.1
+
+**Purpose:** reproducibly acquire public source artifacts for research and independent audit. Raw datasets stay outside the Git repository.
+
+**Structural-data research track:** [Dynamic structure/root architecture benchmark](./DYNAMIC_STRUCTURE_ROOT_ARCHITECTURE_BENCHMARK_V0.1.md), tracked in [issue #5539](https://github.com/Luminous-Dynamics/mycelix/issues/5539). No imagery has been acquired for this work.
+
+## 1. Acquisition command
+
+### Hirmas et al. (2025) dynamic morphology reference archive
+
+- Dataset: [Dryad 10.5061/dryad.zs7h44jkn](https://doi.org/10.5061/dryad.zs7h44jkn)
+- License: CC0 1.0 Universal
+- Publisher-reported size: 4.60 MB (Data_Analysis.zip 4.59 MB and README.md 15.89 KB)
+- Declared collection: Konza Prairie Biological Station, Kansas; 2018-10 to 2021-08.
+- Declared measurements: 10/40/120 cm moisture; 0.18 mm ImageJ MLT pore geometry for Ap1, Bt and Btkss2; shrink-swell/COLE; soil properties; daily weather; analysis code/functions/model outputs.
+- Access result in this pass: Data_Analysis.zip download endpoint returned HTTP 403. **Not acquired; no local SHA-256 or archive-file checksums exist.**
+
+The metadata is registered in `neon-preferential-flow-source-plan.v0.1.json`. Do not claim archive acquisition from the landing-page listing. Retry only from the published Dryad artifact link or after repository access is restored; verify the archive digest before extraction. The archive is a single-profile mechanism/reproduction dataset, not independent cross-site validation.
+
+The [morphology-audit CLI](./tools/morphology-audit/README.md) is the first executable reader for exported ImageJ object tables. Its synthetic CI fixture does not contain measured Dryad observations.
+
+
+From the Mycelix repository root, use:
+
+```sh
+bash research/terra-preta/tools/acquire-public-sources.sh
+```
+
+By default, files are stored in `$XDG_DATA_HOME/mycelix/terra-preta/raw`, or `$HOME/.local/share/mycelix/terra-preta/raw` when `XDG_DATA_HOME` is unset. To choose another storage location:
+
+```sh
+bash research/terra-preta/tools/acquire-public-sources.sh /path/to/immutable/raw-data
+```
+
+Requirements: Bash, curl, jq, GNU coreutils (`stat`, `md5sum`, `sha256sum`). Figshare and Zenodo API bases can be overridden with `FIGSHARE_API_BASE` and `ZENODO_API_BASE` for an approved mirror.
+
+The script fetches item/record metadata, downloads the named artifacts, checks publisher file size and any MD5/SHA-256 checksum exposed by the publisher, and writes local SHA-256 digests to `acquisition-manifest.tsv`. Downloading is not data validation, license approval, or permission to redistribute. Preserve the raw directory read-only after acquisition; perform transformations on copies.
+
+## 2. Artifacts and scientific role
+
+| Source | Artifacts | Intended role | Important limitation |
+|---|---|---|---|
+| [BiocharDS CSV](https://doi.org/10.6084/m9.figshare.24781764.v1) | `BiocharDS_V1.0.csv` | Global literature-extracted treatment/comparator outcomes | Study-level and arm-level crosswalk must be reviewed; not raw local soil time series |
+| [BiocharDS full workbook](https://doi.org/10.6084/m9.figshare.24781737) | `BiocharDS_V1.0.xlsx` | References, variable definitions, units, and source-study reconciliation | Workbook inventory and CSV crosswalk are mandatory before confirmatory modeling |
+| [Soils4Africa field survey](https://doi.org/10.5281/zenodo.17699297) | README, tableschema, field CSV | African site, land use, crop, management, erosion, and sampling context | No biochar treatment labels; publisher reports ongoing QC and disclaims completeness/accuracy guarantees |
+| [Western Highveld soil NIR/MIR](https://doi.org/10.5281/zenodo.17510653) | `NWU_NIR_MIR_Dataset.csv` | South African cultivated-topsoil reference chemistry and spectral modelling | Not natural ADE soils or biochar treatment data; coordinates are incomplete |
+
+The Soils4Africa field survey is a context dataset, not an amendment-response dataset. Its publisher reports field observations from over 15,000 locations across 33 African countries and explicitly says quality control is ongoing. The released 55-column tableschema documents plot/location, slope and erosion, land use, crop, crop residues, manure, inorganic inputs, water supply, irrigation and grazing fields. It is valuable for stratification and selecting future sampling regions, but it cannot establish a biochar effect.
+
+The Western Highveld paper reports 790 retained composite topsoil samples. Its methods state that 13 samples with flat/blank MIR spectra were excluded; a third-party catalogue lists 803. This is consistent with a pre-exclusion count of 803 and a retained count of 790, but the exact Zenodo file must be inspected to determine which rows are actually present. Do not force an expected row count before that audit.
+
+## 3. License and redistribution gate
+
+- BiocharDS CSV has been reported as CC0 1.0 by the NLM dataset catalogue. The full workbook's official Figshare item has been listed as CC0 1.0. Recheck the exact version/item terms at acquisition.
+- Soils4Africa's retrieved Zenodo record did not expose an explicit license value in the rights section. Treat it as `review_required`; do not redistribute until terms are confirmed with the data steward.
+- The Western Highveld Data in Brief article is CC BY 4.0, while the exact Zenodo record/file terms must still be verified at acquisition. Preserve attribution and any file-level notices.
+
+A public URL is not, by itself, evidence that every artifact can be redistributed. Keep source-specific license evidence in the manifest or source register.
+
+## 4. Post-acquisition gates
+
+1. Verify the generated manifest and independently recompute hashes before analysis.
+2. Run the BiocharDS CSV structural audit:
+   ```sh
+   cargo test --manifest-path research/terra-preta/tools/biochar-audit/Cargo.toml
+   cargo run --release --manifest-path research/terra-preta/tools/biochar-audit/Cargo.toml -- \
+     /path/to/raw/BiocharDS_V1.0.csv /path/to/audits/biochards-audit.json
+   ```
+3. Inventory the full workbook's sheets, row counts, key columns, `Reference` sheet, and `Explanation and unit` sheet. Reconcile every CSV row to a source study and treatment/control arm; retain a reviewed crosswalk and unresolved cases. Do not use row index as an experiment identifier.
+4. Audit Soils4Africa identifiers, country coverage, coordinate validity, missingness, duplicate plots/TSUs, categorical encodings, and quality flags. Keep observations and MIR-estimated properties in separate data classes.
+5. Audit Western Highveld's exact row count, excluded spectra, sample-ID correspondence, spectral shape, units and reference chemistry. Keep the spectra and wet-chemistry labels paired by the publisher's sample identifier; split by defensible site/provider/sample dependencies.
+6. Freeze reviewed dependency keys and confirmatory grouped splits before model fitting. Overlapping studies or locations must not cross training and confirmatory partitions.
+7. Publish the data audit and all failed checks before reporting model performance.
+
+## 5. What these sources can and cannot answer
+
+BiocharDS can support study-grouped synthesis of published treatment responses once its source/arm structure is reconciled. Soils4Africa and Western Highveld can help characterize the distribution of African/South African soil and management contexts, but neither supplies biochar treatment effects. Neither one substitutes for fresh laboratory characterization or prospective local pot/field trials.
+
+No model should be presented as evidence of South African efficacy, carbon permanence, product safety, or regulatory acceptance until those claims have their own appropriate evidence and approvals.
+
+
+**Exact paper preprocessing:** See [NEON Preferential-Flow Preprocessing Contract](./NEON_PREFERENTIAL_FLOW_PREPROCESSING_CONTRACT_V0.1.md). The 2026 paper cites 2023 NEON dataset DOIs; RELEASE-2026 is not a substitute until the DOI-to-release crosswalk is independently resolved.
+
+## 6. Dynamic morphology and transient hydraulic coupling dataset
+
+A second directly relevant dataset is [Hirmas et al. (2025), Dryad DOI 10.5061/dryad.zs7h44jkn](https://doi.org/10.5061/dryad.zs7h44jkn), published 14 August 2025 under CC0 1.0. The landing page reports a 4.60 MB data package. Its README lists:
+- three ImageJ MLT 2D pore geometry exports for Ap1, Bt and Btkss2 horizons;
+- soil volumetric water content at 10, 40 and 120 cm;
+- horizon bulk density, porosity, COLE, field capacity/wilting point and water-retention data;
+- 180 μm MLT grid / 0.18 mm resolution, geometry lengths in mm;
+- original R analysis/partition/retention/pore-response/conductivity/sensitivity scripts and tabulated outputs.
+
+The source paper uses an area cutoff of π mm² for defining included macropore objects (equivalent circular radius 1 mm). Our morphology auditor exposes this as an optional filter; default remains zero. The raw image exports and exact README are to be acquired and hashed before claiming a reproduction.
+
+**Scientific use:** This is a high-value morphology-to-hydrology bridge dataset: use dry-state 2D image geometry plus sensor matrix-water-content time series to reproduce inferred changes in interpedal pore width, matrix/macropore partition, and transient hydraulic conductivity. The paper's dynamically changing pore width is inferred from its model, not repeatedly imaged at every time step. It is not a direct time-lapse pore-width truth series.
+
+**Transfer boundary:** the paper applies to one particular Konza Prairie APT soil profile with shrink–swell behavior. Its fitted coefficients cannot be applied directly to Terra Preta or South African soils. 2D geometry does not establish 3D connectivity; the paper's comparison to a prior transient-conductivity model is not equivalent to independent tracer validation at every time point.
+
+Implementation tracker: [TERRA-MORPH-DYN-001](https://github.com/Luminous-Dynamics/mycelix/issues/5545).
+
+**Executable model:** [Dynamic macropore audit Rust crate](./tools/dynamic-macropore-audit/README.md) implements a limited equation-level saturated-conductivity core; it is not the full Hirmas unsaturated transport model and has not been run against the raw Dryad archive. The benchmark is [DYNAMIC_MACROPORE_MORPHOLOGY_COUPLING_BENCHMARK_V0.1.md](./DYNAMIC_MACROPORE_MORPHOLOGY_COUPLING_BENCHMARK_V0.1.md).
+
+## 6. NEON event-scale preferential-flow benchmark sources
+
+A new derived benchmark should be acquired before or alongside the raw NEON reconstruction:
+
+### Published NEON preferential-flow event database (HydroShare v1.1)
+
+[NEON Soil Preferential Flow Database, v1.1](https://hydroshare.cuahsi.org/resource/847b15cd15524b78acd58a2a8be242c1/) — DOI [10.4211/hs.847b15cd15524b78acd58a2a8be242c1](https://doi.org/10.4211/hs.847b15cd15524b78acd58a2a8be242c1), published 30 September 2025. HydroShare reports a 1,015.6 MB resource and CC BY 4.0. Its page indicates that content is externally hosted rather than stored by HydroShare, so identify the live file host, individual filenames, checksums and file-level notices before declaring acquisition.
+
+This is a **fast-start derived-event benchmark**, not raw observations and not an independent validation network. Its declared lineage includes NEON soil-water RELEASE-2023 plus provisional observations, soil physical/chemical products, and NEON site metadata. The readme documents event start/end and rainfall, soil-moisture before precipitation/onset/peak, depth-specific apparent velocity, event flow classifications, and multiple Rosetta Ksat estimates. Version 1.1 adds Ksat point/range/standard-deviation variants.
+
+The dataset readme says BONA, DEJU, HEAL, TOOL and BARR are not recommended, and KONA is excluded because it is closer to KONZ. These are source-specific notes; they must not be silently applied to the 2026 paper cohort or used to infer its exact site roster.
+
+Use this derived source to:
+1. inspect the event/sensor schema and distributions;
+2. crosswalk event definitions, apparent velocity and Ksat columns to the 2026 paper;
+3. test our eventizer on supplied smBeforePrecip and smOnsetTime summaries where comparable;
+4. compare labels under alternative Ksat point/range definitions;
+5. identify site/sensor mapping and missingness before attempting raw reconstruction.
+
+Do not score the HydroShare dataset as an external holdout from the 2026 model without reconciling shared NEON site/sensor/event provenance. Do not treat its Ksat-derived flag as tracer truth. The source is tracked in neon-preferential-flow-source-plan.v0.1.json with acquisition status still marked not acquired.
+
+
+A second research source set is now tracked in
+[`neon-preferential-flow-source-plan.v0.1.json`](./neon-preferential-flow-source-plan.v0.1.json).
+It is **metadata-reviewed only**; it contains no local file digest, downloaded
+raw data, frozen site roster or verified row count.
+
+| NEON product | Role | Temporal-resolution constraint |
+|---|---|---|
+| [DP1.00094.001 — soil water content and water salinity](https://data.neonscience.org/data-products/DP1.00094.001/RELEASE-2026) | Multi-depth soil-moisture series | Release-2026 landing page reports April 2016–June 2025; 1-minute and 30-minute time indices |
+| [DP1.00006.001 — legacy precipitation](https://data.neonscience.org/data-products/DP1.00006.001) | Historical reproduction of the 2026 paper's cited precipitation input | Deprecated in October 2025; historical releases remain the reproduction candidate |
+| [DP1.00044.001 — weighing gauge](https://data.neonscience.org/data-products/DP1.00044.001) | Gauge-volume cross-check | NEON's product-split notice describes hourly and daily aggregations; not a substitute for minute-scale rainfall intensity |
+| [DP1.00045.001 — tipping bucket](https://data.neonscience.org/data-products/DP1.00045.001) | Current high-frequency event/intensity extension | 1-minute and 30-minute aggregations; crosswalk to the legacy series before comparison |
+| [DP1.00046.001 — throughfall](https://data.neonscience.org/data-products/DP1.00046.001) | Under-canopy water input | Keep distinct from open precipitation; do not pool gauge types |
+
+NEON's 6 October 2025 notification states that the legacy precipitation
+product was split into DP1.00044.001, DP1.00045.001 and DP1.00046.001. Its
+21 October 2025 notice says DP1.00006.001 is deprecated and no longer publishes
+new data. Historical releases remain available. The 2026 paper still cites
+the legacy code; do not silently replace its input with a new product.
+
+The paper's data statement points to DP1.00094.001 and DP1.00006.001. Its
+reported 33-site/586-sensor/15,554 event-sensor benchmark is a paper-level
+count, not an audited count of the raw NEON files now available. Pin exact
+releases, site-month availability, checksums, sensor/plot mappings and QA
+filters before claiming a faithful reproduction. Use the historical product
+for replication; evaluate current-product tipping-bucket inputs as a separate
+extension. Throughfall is not open rainfall.
+
+NEON's public Data Products endpoint provides product/site/month availability;
+its Data Query endpoint is used to query files by product, site and date range
+and requires API token authentication. Store the exact API responses and
+downloaded file checksums in the acquisition manifest. Confirm current NEON
+data-use terms at acquisition and preserve attribution. 
+
+
+**Implementation tracker:** [TERRA-NEON-001](https://github.com/Luminous-Dynamics/mycelix/issues/5537).
+
+**Cross-method validation tracker:** [PF-TRIANG-001](https://github.com/Luminous-Dynamics/mycelix/issues/5538).
+
+### Soil-water quality package and time-index policy
+### Executable one-minute normalizer (v0.1)
+
+The new Rust normalizer is at `tools/neon-swc-normalizer/`. It accepts:
+1. a one-minute CSV table exported from the pinned DP1.00094.001 package;
+2. a JSON mapping manifest declaring exact CSV header names, sensor keys, QA filters, corrected depth, x/y metres, and time-valid sensor-position metadata;
+3. the target aggregation interval (5, 10, 15, 20 or 30 minutes) and minimum good-row fraction.
+
+It emits a profile series matching the strict input contract of `profile-response-extractor`, plus an aggregation report with the exact config and source CSV SHA-256, per-bin expected/present/accepted/rejected/absent rows, median theta, coverage and missing/observed status. It refuses undeclared quality filters, duplicate sensor timestamps, non-UTC or off-grid timestamps, invalid theta values, invalid sensor-position intervals and overwriting output files. The configuration is intentionally schema-driven: the exact NEON table/columns must be checked against the actual package variables file rather than assumed by the tool.
+
+Run from the repository root:
+
+```sh
+cargo test --manifest-path research/terra-preta/tools/neon-swc-normalizer/Cargo.toml
+cargo run --manifest-path research/terra-preta/tools/neon-swc-normalizer/Cargo.toml -- \
+  /path/to/pinned-swc-mapping.json /path/to/SWS_1_minute.csv \
+  /path/to/normalized-profile.json /path/to/aggregation-audit.json
+cargo run --manifest-path research/terra-preta/tools/profile-response-extractor/Cargo.toml -- \
+  /path/to/normalized-profile.json /path/to/profile-response-input.json 0.01
+cargo run --manifest-path research/terra-preta/tools/profile-flow-audit/Cargo.toml -- \
+  /path/to/profile-response-input.json /path/to/profile-nsr-report.json
+```
+
+The committed fixture is synthetic software-test data; no NEON raw file has been downloaded or normalized yet. The implementation tracker is [TERRA-NEON-QA-001](https://github.com/Luminous-Dynamics/mycelix/issues/5556).
+
+### Soil-water depth and sensor-position crosswalk
+
+The June 2026 NEON soil-sensor tutorial explicitly warns that the regular `sensor_positions` table currently reports incorrect `zOffset` depths for DP1.00094.001. Use the corrected `swc_depthsV3.csv` file from the product documentation for actual soil-water sensor depths. The tutorial shows that depth indices are not portable across products or sites: soil-water vertical position 501 is 6 cm in its example, while soil-temperature vertical position 502 is 6 cm.
+
+For spatial positions, retain the sensor-position reference coordinates and offsets, including `xOffset`, `yOffset`, `eastOffset`, `northOffset`, and the position reference metadata. Join records by site, horizontal/vertical position and time-validity interval. The sensor-position table can contain multiple rows for a relocated sensor, with `positionStartDateTime` and `positionEndDateTime`; a join on HOR/VER alone can assign a historical event to the wrong sensor position. Split time series at any position change and report coordinate uncertainty/validity.
+
+NEON also issued a 2023 notice that measurement uncertainty was understated for some locations because the manufacturer-default calibration was in use. A December 2023 notice reports the issue was resolved for provisional data from July 2022 onward and says earlier affected data would be corrected in RELEASE-2024. The selected RELEASE-2026 is later than that correction, but retain the release/ATBD/calibration metadata and verify the actual rows and uncertainty fields before using measurement uncertainty to set detection thresholds or weights.
+
+
+For DP1.00094.001, obtain the **1-minute time index** for event reconstruction. NEON also publishes a 30-minute index, but it is too coarse to reconstruct the 10-minute median/event response series without losing sub-30-minute timing information. Do not feed 30-minute data into the eventizer and label it a 10-minute reproduction.
+
+For quality review, obtain both:
+- **Expanded package** as the primary QA audit source, because it retains detailed quality flags/metrics.
+- **Basic package** as a parity source for its aggregated `finalQF`.
+
+The current NEON tutorial describes basic-package `finalQF` as an aggregated quality flag and expanded packages as containing detailed flags. The release-2023 notes for DP1.00094.001 also state that the default-calibration quality metric `calDefaultQM` no longer affects `VSWCFinalQF`, while `calDefaultQM` and `calNEONQM` remain informational metrics in expanded downloads. Pin the ATBD, issue log, release and exact flag fields that support each accepted/rejected row; never assume the same quality-flag semantics across releases.
+
+The raw 1-minute to 5/10/15/20/30-minute median conversion is not yet implemented as a raw NEON parser. It is tracked in [TERRA-NEON-QA-001](https://github.com/Luminous-Dynamics/mycelix/issues/5556). Until that normalizer exists, the profile-response extractor consumes an explicitly QA-reviewed regular profile series and does not interpret raw NEON flags.
+
+### NEON metadata inventory (preflight)
+
+Before downloading files, create a local text file containing one NEON site code per line (comments beginning with # are ignored). Use only the paper's reconciled site roster; do not infer it from the paper's aggregate site count.
+
+```sh
+cat > /path/to/neon-sites.txt <<'SITES'
+SRER
+# Add only site codes verified against the paper's supplement and NEON release inventory.
+SITES
+
+export NEON_API_TOKEN='…'  # retrieve locally; never commit or paste into chat
+bash research/terra-preta/tools/inventory-neon-data.sh \
+  --product DP1.00094.001 --sites-file /path/to/neon-sites.txt \
+  --start 2016-04 --end 2025-06 --release RELEASE-2026 \
+  --package basic --output /path/to/neon-metadata-inventory
+unset NEON_API_TOKEN
+```
+
+The metadata-only preflight makes one authenticated query per site and writes the exact response JSON under metadata/, a query manifest with a digest for each response, and a normalized file inventory containing site/month/package, filename, publisher byte size, MD5, optional CRC32C and query-response SHA-256. It downloads no raw product files and does not claim that an observation row is valid or that a site is part of the paper's analysed cohort. The supplied example site is illustrative, not an endorsed paper site. Empty site/month availability is retained in the query manifest. Output files are created with restrictive permissions; the directory should still be protected as local research metadata.
+
+### NEON precipitation normalization
+
+The precipitation normalizer is separate from acquisition and consumes raw CSV tables after their source variables/QA semantics have been reviewed:
+
+```sh
+cargo test --manifest-path research/terra-preta/tools/neon-precip-normalizer/Cargo.toml
+cargo run --manifest-path research/terra-preta/tools/neon-precip-normalizer/Cargo.toml -- \
+  /path/to/release-pinned-config.json \
+  /path/to/primary-weighing.csv \
+  /path/to/secondary-tipping.csv \
+  /path/to/new-report.json
+```
+
+Use `-` for a missing optional source. The report records config/source CSV SHA-256, each source's product/release/gauge identity, exact QA rules, source counts, and per-bin selection. It emits (1) the paper's literal five-good-row rule and (2) a missing-preserving coverage-aware sensitivity track. The literal rule can zero-impute every 5-minute primary bin because only two source samples fit into ten minutes; this is a disclosed ambiguity pending author-code resolution, not a silent reinterpretation. The tool rejects DP1.00046 throughfall as open rainfall and does not silently use primary data when a secondary row exists but fails QA.
+
+This normalizer is a configured CSV executor, not a raw NEON package parser. It does not decide the scientifically correct flags, timestamp semantics, or the paper's unresolved aggregation operator. Preserve the selected release variables table, ATBD, issue log and configuration beside the report.
+
+### NEON acquisition command
+
+The NEON-specific downloader is separate from the Figshare/Zenodo helper. It queries the authenticated NEON Data Query endpoint, stores its query response, verifies publisher byte size and MD5 for every file, computes local SHA-256, makes files read-only and refuses to overwrite existing artifacts:
+
+```sh
+export NEON_API_TOKEN='…'  # retrieve from your own NEON account; do not commit
+bash research/terra-preta/tools/acquire-neon-data.sh \
+  --product DP1.00094.001 --site SRER \
+  --start 2021-01 --end 2021-12 \
+  --release RELEASE-2026 --package basic \
+  --output /path/to/immutable/neon-raw
+unset NEON_API_TOKEN
+```
+
+This is an example, not a claim that SRER or every month has a file in RELEASE-2026. Query product/release availability before selecting site-month ranges. The tool reads the token from a protected header file, uses `X-API-Token` only for the metadata request, and does not forward it to the returned storage URL. Preserve query JSON and the acquisition manifest with the raw data.

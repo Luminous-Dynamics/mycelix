@@ -1,0 +1,274 @@
+{
+  "schema_version": "0.1.0",
+  "data_class": "synthetic_known_truth",
+  "scenario_id": "misspecified-soil-voi-coverage-01",
+  "seed": 19062026,
+  "budget_cost_units": 4,
+  "strata": [
+    {
+      "stratum_id": "sandy_dryland",
+      "target_weight": 0.5,
+      "minimum_selected_actions": 1
+    },
+    {
+      "stratum_id": "clayey_rooted",
+      "target_weight": 0.3,
+      "minimum_selected_actions": 1
+    },
+    {
+      "stratum_id": "shallow_weathered",
+      "target_weight": 0.2,
+      "minimum_selected_actions": 1
+    }
+  ],
+  "actions": [
+    {
+      "action_id": "S1_SANDY_BASELINE",
+      "stratum_id": "sandy_dryland",
+      "action_type": "independent_baseline_core",
+      "cost_units": 1,
+      "eligibility": "eligible",
+      "exclusion_reason": null,
+      "expert_priority": 0.7,
+      "ofat_order": 1,
+      "model_scores": [
+        {
+          "model_id": "matrix_model",
+          "decision_value": 0.65,
+          "information_gain": 0.5,
+          "error_amplification_risk": 0.1
+        },
+        {
+          "model_id": "dual_domain_model",
+          "decision_value": 0.6,
+          "information_gain": 0.55,
+          "error_amplification_risk": 0.15
+        },
+        {
+          "model_id": "topology_hybrid",
+          "decision_value": 0.7,
+          "information_gain": 0.5,
+          "error_amplification_risk": 0.1
+        }
+      ],
+      "synthetic_truth_decision_value": 0.95
+    },
+    {
+      "action_id": "C1_CLAY_HIGH_EIG_MISSPECIFIED",
+      "stratum_id": "clayey_rooted",
+      "action_type": "high_information_ct_scan",
+      "cost_units": 1,
+      "eligibility": "eligible",
+      "exclusion_reason": null,
+      "expert_priority": 0.95,
+      "ofat_order": 2,
+      "model_scores": [
+        {
+          "model_id": "matrix_model",
+          "decision_value": 0.99,
+          "information_gain": 0.99,
+          "error_amplification_risk": 0.8
+        },
+        {
+          "model_id": "dual_domain_model",
+          "decision_value": 0.75,
+          "information_gain": 0.95,
+          "error_amplification_risk": 0.85
+        },
+        {
+          "model_id": "topology_hybrid",
+          "decision_value": 0.35,
+          "information_gain": 0.92,
+          "error_amplification_risk": 0.78
+        }
+      ],
+      "synthetic_truth_decision_value": 0.05
+    },
+    {
+      "action_id": "W1_WEATHERED_REFERENCE",
+      "stratum_id": "shallow_weathered",
+      "action_type": "independent_weathered_soil_reference",
+      "cost_units": 1,
+      "eligibility": "eligible",
+      "exclusion_reason": null,
+      "expert_priority": 0.4,
+      "ofat_order": 3,
+      "model_scores": [
+        {
+          "model_id": "matrix_model",
+          "decision_value": 0.45,
+          "information_gain": 0.25,
+          "error_amplification_risk": 0.1
+        },
+        {
+          "model_id": "dual_domain_model",
+          "decision_value": 0.42,
+          "information_gain": 0.28,
+          "error_amplification_risk": 0.1
+        },
+        {
+          "model_id": "topology_hybrid",
+          "decision_value": 0.4,
+          "information_gain": 0.24,
+          "error_amplification_risk": 0.12
+        }
+      ],
+      "synthetic_truth_decision_value": 0.9
+    },
+    {
+      "action_id": "S2_SANDY_TRACER",
+      "stratum_id": "sandy_dryland",
+      "action_type": "paired_tracer_transport_measurement",
+      "cost_units": 1,
+      "eligibility": "eligible",
+      "exclusion_reason": null,
+      "expert_priority": 0.7,
+      "ofat_order": 4,
+      "model_scores": [
+        {
+          "model_id": "matrix_model",
+          "decision_value": 0.72,
+          "information_gain": 0.7,
+          "error_amplification_risk": 0.12
+        },
+        {
+          "model_id": "dual_domain_model",
+          "decision_value": 0.68,
+          "information_gain": 0.72,
+          "error_amplification_risk": 0.12
+        },
+        {
+          "model_id": "topology_hybrid",
+          "decision_value": 0.65,
+          "information_gain": 0.69,
+          "error_amplification_risk": 0.15
+        }
+      ],
+      "synthetic_truth_decision_value": 0.9
+    },
+    {
+      "action_id": "C2_CLAY_INDEPENDENT_CORE",
+      "stratum_id": "clayey_rooted",
+      "action_type": "independent_rooted_clay_core",
+      "cost_units": 1,
+      "eligibility": "eligible",
+      "exclusion_reason": null,
+      "expert_priority": 0.65,
+      "ofat_order": 5,
+      "model_scores": [
+        {
+          "model_id": "matrix_model",
+          "decision_value": 0.65,
+          "information_gain": 0.55,
+          "error_amplification_risk": 0.15
+        },
+        {
+          "model_id": "dual_domain_model",
+          "decision_value": 0.62,
+          "information_gain": 0.6,
+          "error_amplification_risk": 0.2
+        },
+        {
+          "model_id": "topology_hybrid",
+          "decision_value": 0.6,
+          "information_gain": 0.58,
+          "error_amplification_risk": 0.15
+        }
+      ],
+      "synthetic_truth_decision_value": 0.85
+    },
+    {
+      "action_id": "W2_WEATHERED_TRACER",
+      "stratum_id": "shallow_weathered",
+      "action_type": "weathered_soil_tracer_measurement",
+      "cost_units": 1,
+      "eligibility": "eligible",
+      "exclusion_reason": null,
+      "expert_priority": 0.3,
+      "ofat_order": 6,
+      "model_scores": [
+        {
+          "model_id": "matrix_model",
+          "decision_value": 0.5,
+          "information_gain": 0.35,
+          "error_amplification_risk": 0.12
+        },
+        {
+          "model_id": "dual_domain_model",
+          "decision_value": 0.48,
+          "information_gain": 0.32,
+          "error_amplification_risk": 0.15
+        },
+        {
+          "model_id": "topology_hybrid",
+          "decision_value": 0.45,
+          "information_gain": 0.3,
+          "error_amplification_risk": 0.12
+        }
+      ],
+      "synthetic_truth_decision_value": 0.85
+    },
+    {
+      "action_id": "S3_SANDY_HIGH_EIG_MISSPECIFIED",
+      "stratum_id": "sandy_dryland",
+      "action_type": "high_information_topology_scan",
+      "cost_units": 1,
+      "eligibility": "eligible",
+      "exclusion_reason": null,
+      "expert_priority": 0.98,
+      "ofat_order": 7,
+      "model_scores": [
+        {
+          "model_id": "matrix_model",
+          "decision_value": 0.95,
+          "information_gain": 0.98,
+          "error_amplification_risk": 0.8
+        },
+        {
+          "model_id": "dual_domain_model",
+          "decision_value": 0.7,
+          "information_gain": 0.95,
+          "error_amplification_risk": 0.85
+        },
+        {
+          "model_id": "topology_hybrid",
+          "decision_value": 0.45,
+          "information_gain": 0.94,
+          "error_amplification_risk": 0.8
+        }
+      ],
+      "synthetic_truth_decision_value": 0.1
+    },
+    {
+      "action_id": "X_INELIGIBLE",
+      "stratum_id": "clayey_rooted",
+      "action_type": "unapproved_field_sampling",
+      "cost_units": 1,
+      "eligibility": "ineligible",
+      "exclusion_reason": "synthetic governance permission gate is not satisfied",
+      "expert_priority": 1,
+      "ofat_order": 8,
+      "model_scores": [
+        {
+          "model_id": "matrix_model",
+          "decision_value": 1,
+          "information_gain": 1,
+          "error_amplification_risk": 0
+        },
+        {
+          "model_id": "dual_domain_model",
+          "decision_value": 1,
+          "information_gain": 1,
+          "error_amplification_risk": 0
+        },
+        {
+          "model_id": "topology_hybrid",
+          "decision_value": 1,
+          "information_gain": 1,
+          "error_amplification_risk": 0
+        }
+      ],
+      "synthetic_truth_decision_value": 1
+    }
+  ]
+}

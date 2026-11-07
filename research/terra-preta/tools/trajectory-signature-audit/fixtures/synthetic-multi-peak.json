@@ -1,0 +1,52 @@
+{
+  "schema_version": "0.1.0",
+  "study_id": "SYNTHETIC",
+  "site_id": "SYN1",
+  "plot_id": "P01",
+  "profile_id": "PROFILE-01",
+  "event_id": "E001",
+  "sensor_id": "D30",
+  "sensor_depth_cm": 30,
+  "event_start_utc": "2026-01-01T00:00:00Z",
+  "observation_window_end_utc": "2026-01-01T00:40:00Z",
+  "time_resolution_seconds": 600,
+  "baseline": {
+    "timestamp_utc": "2025-12-31T23:50:00Z",
+    "volumetric_water_content_m3_m3": 0.2,
+    "status": "observed"
+  },
+  "observations": [
+    {
+      "timestamp_utc": "2026-01-01T00:00:00Z",
+      "volumetric_water_content_m3_m3": 0.205,
+      "status": "observed"
+    },
+    {
+      "timestamp_utc": "2026-01-01T00:10:00Z",
+      "volumetric_water_content_m3_m3": 0.21,
+      "status": "observed"
+    },
+    {
+      "timestamp_utc": "2026-01-01T00:20:00Z",
+      "volumetric_water_content_m3_m3": 0.205,
+      "status": "observed"
+    },
+    {
+      "timestamp_utc": "2026-01-01T00:30:00Z",
+      "volumetric_water_content_m3_m3": 0.22,
+      "status": "observed"
+    },
+    {
+      "timestamp_utc": "2026-01-01T00:40:00Z",
+      "volumetric_water_content_m3_m3": 0.218,
+      "status": "observed"
+    }
+  ],
+  "rate_threshold": {
+    "maximum_diffuse_rate_m3_m3_per_hour": 0.08,
+    "method": "synthetic null/model threshold",
+    "evidence_ref": "synthetic fixture only"
+  },
+  "source_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "source_evidence_ref": "synthetic fixture only; no field observations"
+}

@@ -1,0 +1,195 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/Luminous-Dynamics/mycelix/main/research/terra-preta/source-register.schema.json",
+  "title": "Terra Preta source acquisition register",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "register_version",
+    "reviewed_on",
+    "interpretation_boundary",
+    "sources"
+  ],
+  "properties": {
+    "register_version": {
+      "const": "0.1.0"
+    },
+    "reviewed_on": {
+      "type": "string",
+      "format": "date"
+    },
+    "interpretation_boundary": {
+      "type": "string",
+      "minLength": 1
+    },
+    "sources": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/source"
+      }
+    }
+  },
+  "$defs": {
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_id",
+        "title",
+        "source_uri",
+        "version",
+        "source_class",
+        "license_status",
+        "permitted_research_use",
+        "acquisition_status",
+        "limitations",
+        "artifacts"
+      ],
+      "properties": {
+        "source_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_uri": {
+          "type": "string",
+          "format": "uri"
+        },
+        "paper_uri": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uri"
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_class": {
+          "enum": [
+            "literature_extracted_biochar_response",
+            "longitudinal_literature_synthesis",
+            "african_field_context_not_biochar_response",
+            "african_soil_property_estimate",
+            "local_laboratory_measurement",
+            "prospective_trial"
+          ]
+        },
+        "license_status": {
+          "type": "string",
+          "minLength": 1
+        },
+        "permitted_research_use": {
+          "type": "string",
+          "minLength": 1
+        },
+        "acquisition_status": {
+          "type": "string",
+          "minLength": 1
+        },
+        "limitations": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1
+        },
+        "artifacts": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/artifact"
+          }
+        }
+      }
+    },
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "artifact_id",
+        "role",
+        "filename",
+        "expected_size_bytes",
+        "expected_rows",
+        "expected_columns",
+        "publisher_md5",
+        "sha256",
+        "acquisition_status",
+        "license_status",
+        "source_uri"
+      ],
+      "properties": {
+        "artifact_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "role": {
+          "type": "string",
+          "minLength": 1
+        },
+        "filename": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "expected_size_bytes": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "expected_rows": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "expected_columns": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "publisher_md5": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[a-fA-F0-9]{32}$"
+        },
+        "sha256": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[a-fA-F0-9]{64}$"
+        },
+        "acquisition_status": {
+          "type": "string",
+          "minLength": 1
+        },
+        "license_status": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_uri": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uri"
+        }
+      }
+    }
+  }
+}

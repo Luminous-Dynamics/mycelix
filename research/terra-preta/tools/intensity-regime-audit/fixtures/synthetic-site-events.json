@@ -1,0 +1,89 @@
+{
+  "schema_version": "0.1.0",
+  "study_id": "synthetic-intensity-regimes",
+  "source_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "source_evidence_ref": "synthetic-only",
+  "rainfall_minimum_event_mm": 2,
+  "bootstrap_replicates": 500,
+  "bootstrap_seed": 7,
+  "events": [
+    {
+      "site_id": "S1",
+      "ecoregion_id": "eco",
+      "event_id": "E1",
+      "rainfall_total_mm": 2,
+      "peak_intensity_mm_h": 4.9,
+      "soil_moisture_available": true,
+      "vt_maximum_ksat": "negative",
+      "vt_median_ksat": "negative",
+      "vt_median_plus_sd_ksat": "negative",
+      "nsr": "negative",
+      "evidence_ref": "synthetic-S1-E1"
+    },
+    {
+      "site_id": "S1",
+      "ecoregion_id": "eco",
+      "event_id": "E2",
+      "rainfall_total_mm": 2,
+      "peak_intensity_mm_h": 5,
+      "soil_moisture_available": true,
+      "vt_maximum_ksat": "positive",
+      "vt_median_ksat": "positive",
+      "vt_median_plus_sd_ksat": "positive",
+      "nsr": "negative",
+      "evidence_ref": "synthetic-S1-E2"
+    },
+    {
+      "site_id": "S2",
+      "ecoregion_id": "eco",
+      "event_id": "E3",
+      "rainfall_total_mm": 2,
+      "peak_intensity_mm_h": 11.9,
+      "soil_moisture_available": true,
+      "vt_maximum_ksat": "positive",
+      "vt_median_ksat": "positive",
+      "vt_median_plus_sd_ksat": "positive",
+      "nsr": "positive",
+      "evidence_ref": "synthetic-S2-E3"
+    },
+    {
+      "site_id": "S2",
+      "ecoregion_id": "eco",
+      "event_id": "E4",
+      "rainfall_total_mm": 2,
+      "peak_intensity_mm_h": 12,
+      "soil_moisture_available": true,
+      "vt_maximum_ksat": "negative",
+      "vt_median_ksat": "negative",
+      "vt_median_plus_sd_ksat": "negative",
+      "nsr": "negative",
+      "evidence_ref": "synthetic-S2-E4"
+    },
+    {
+      "site_id": "S3",
+      "ecoregion_id": "eco",
+      "event_id": "E5",
+      "rainfall_total_mm": 2,
+      "peak_intensity_mm_h": 12.9,
+      "soil_moisture_available": true,
+      "vt_maximum_ksat": "indeterminate",
+      "vt_median_ksat": "indeterminate",
+      "vt_median_plus_sd_ksat": "indeterminate",
+      "nsr": "negative",
+      "evidence_ref": "synthetic-S3-E5"
+    },
+    {
+      "site_id": "S3",
+      "ecoregion_id": "eco",
+      "event_id": "E6",
+      "rainfall_total_mm": 2,
+      "peak_intensity_mm_h": 13,
+      "soil_moisture_available": true,
+      "vt_maximum_ksat": "positive",
+      "vt_median_ksat": "positive",
+      "vt_median_plus_sd_ksat": "positive",
+      "nsr": "indeterminate",
+      "evidence_ref": "synthetic-S3-E6"
+    }
+  ]
+}
