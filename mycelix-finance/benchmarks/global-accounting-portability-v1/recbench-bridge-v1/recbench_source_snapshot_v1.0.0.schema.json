@@ -1,0 +1,208 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/mycelix-recbench-source-snapshot-v1.0.0.json",
+  "title": "Mycelix RecBench External Source Snapshot v1.0.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "snapshot_id",
+    "schema_version",
+    "captured_at",
+    "dataset_id",
+    "dataset_url",
+    "dataset_revision",
+    "generator_version",
+    "release_state",
+    "dataset_license",
+    "generator_license",
+    "tier",
+    "seed",
+    "config_sha256",
+    "start_date",
+    "ledger_days",
+    "small_tier_rows",
+    "small_tier_compressed_bytes",
+    "all_tiers_compressed_bytes",
+    "manifest_path",
+    "manifest_revision",
+    "manifest_raw_bytes_archived",
+    "manifest_sha256",
+    "files",
+    "agent_input_paths",
+    "evaluator_only_paths",
+    "copied_into_repository"
+  ],
+  "properties": {
+    "snapshot_id": {
+      "const": "MYCELIX-RECBENCH-SOURCE-2026-11-07"
+    },
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "captured_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+    },
+    "dataset_id": {
+      "const": "end-close/recbench"
+    },
+    "dataset_url": {
+      "const": "https://huggingface.co/datasets/end-close/recbench"
+    },
+    "dataset_revision": {
+      "const": "1e711f3f8bd942ed5b3039b52277af8b170fc4c8"
+    },
+    "generator_version": {
+      "const": "0.1.0"
+    },
+    "release_state": {
+      "const": "pre-release"
+    },
+    "dataset_license": {
+      "const": "cc-by-4.0"
+    },
+    "generator_license": {
+      "const": "Apache-2.0"
+    },
+    "tier": {
+      "const": "small"
+    },
+    "seed": {
+      "const": 1042
+    },
+    "config_sha256": {
+      "const": "d31d413456ea5364f74a0c355a6b41d81aee5ea37f9f4805a356bdfa7243fbc5"
+    },
+    "start_date": {
+      "const": "2025-01-01"
+    },
+    "ledger_days": {
+      "const": 365
+    },
+    "small_tier_rows": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "ledger",
+        "settlement_lines",
+        "payouts",
+        "bank_statements",
+        "truth_ledger_processor",
+        "truth_line_payout",
+        "truth_payout_bank",
+        "labels_ledger",
+        "labels_processor",
+        "labels_payout",
+        "labels_bank"
+      ],
+      "properties": {
+        "ledger": {
+          "const": 999005
+        },
+        "settlement_lines": {
+          "const": 1014955
+        },
+        "payouts": {
+          "const": 73955
+        },
+        "bank_statements": {
+          "const": 75138
+        },
+        "truth_ledger_processor": {
+          "const": 1012216
+        },
+        "truth_line_payout": {
+          "const": 1012219
+        },
+        "truth_payout_bank": {
+          "const": 75002
+        },
+        "labels_ledger": {
+          "const": 999005
+        },
+        "labels_processor": {
+          "const": 1014955
+        },
+        "labels_payout": {
+          "const": 75002
+        },
+        "labels_bank": {
+          "const": 75138
+        }
+      }
+    },
+    "small_tier_compressed_bytes": {
+      "const": 470000000
+    },
+    "all_tiers_compressed_bytes": {
+      "const": 7480000000
+    },
+    "manifest_path": {
+      "const": "small/manifest.json"
+    },
+    "manifest_revision": {
+      "const": "1e711f3f8bd942ed5b3039b52277af8b170fc4c8"
+    },
+    "manifest_raw_bytes_archived": {
+      "const": false
+    },
+    "manifest_sha256": {
+      "type": "null"
+    },
+    "files": {
+      "type": "array",
+      "minItems": 11,
+      "maxItems": 11,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "path",
+          "purpose",
+          "rows",
+          "sha256"
+        ],
+        "properties": {
+          "path": {
+            "type": "string",
+            "minLength": 3
+          },
+          "purpose": {
+            "enum": [
+              "candidate_input",
+              "public_truth_evaluator_only",
+              "public_labels_evaluator_only"
+            ]
+          },
+          "rows": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          }
+        }
+      }
+    },
+    "agent_input_paths": {
+      "const": [
+        "ledger/part-0000.parquet",
+        "settlement_lines/part-0000.parquet",
+        "payouts/part-0000.parquet",
+        "bank_statements/part-0000.parquet"
+      ]
+    },
+    "evaluator_only_paths": {
+      "type": "array",
+      "minItems": 7,
+      "items": {
+        "type": "string"
+      }
+    },
+    "copied_into_repository": {
+      "const": false
+    }
+  }
+}
