@@ -485,7 +485,6 @@ fn validate_payout_bank_match(case: &Value, match_item: &Value) -> Result<(), St
         return Err(format!("{case_id}/{match_ref}: bank record is invalid or future"));
     }
     let mut total = 0i128;
-    let mut namespace: Option<&str> = None;
     for reference in payout_refs {
         let reference = reference.as_str().ok_or("payout ref must be string")?;
         let payout = record_by_ref(case, reference)?;
@@ -498,10 +497,6 @@ fn validate_payout_bank_match(case: &Value, match_item: &Value) -> Result<(), St
         if string(payout, "tenant_namespace")? != string(bank, "tenant_namespace")? {
             return Err(format!("{case_id}/{match_ref}: cross-tenant payout/bank match is prohibited"));
         }
-        if namespace.is_some_and(|existing| existing != string(payout, "tenant_namespace").unwrap_or("")) {
-            return Err(format!("{case_id}/{match_ref}: payout group crosses tenant namespaces"));
-        }
-        namespace = Some(string(payout, "tenant_namespace")?);
         total += integer(payout, "amount_minor")? as i128;
     }
     if total != integer(bank, "amount_minor")? as i128
@@ -652,14 +647,14 @@ fn validate_exceptions(
                 }
             }
             "future_evidence_not_available" => {
-                if references.is_empty()
-                    || references.iter().any(|reference| {
-                        record_by_ref(case, reference)
-                            .ok()
-                            .is_none_or(|record| !is_future(case, record).unwrap_or(false))
-                    })
-                {
-                    return Err(format!("{case_id}: future-evidence exception contains a non-future record"));
+                if references.is_empty() {
+                    return Err(format!("{case_id}: future-evidence exception must reference at least one record"));
+                }
+                for reference in &references {
+                    let record = record_by_ref(case, reference)?;
+                    if !is_future(case, record)? {
+                        return Err(format!("{case_id}: future-evidence exception contains a non-future record {reference}"));
+                    }
                 }
                 if string(exception, "action")? != "exclude_future_evidence" {
                     return Err(format!("{case_id}: future evidence must be excluded, not matched/review-closed"));
@@ -684,14 +679,17 @@ fn validate_exceptions(
                 }
             }
             "unmatched_settlement_movement" => {
-                if references.is_empty()
-                    || references.iter().any(|reference| {
-                        record_by_ref(case, reference)
-                            .ok()
-                            .is_none_or(|record| optional_string(record, "record_kind") != Some("settlement_line"))
-                    })
-                {
-                    return Err(format!("{case_id}: unmatched settlement exception contains non-settlement record"));
+                if references.is_empty() {
+                    return Err(format!("{case_id}: unmatched settlement exception must reference at least one record"));
+                }
+                for reference in &references {
+                    let record = record_by_ref(case, reference)?;
+                    if record_kind(record)? != "settlement_line" {
+                        return Err(format!("{case_id}: unmatched settlement exception contains non-settlement record {reference}"));
+                    }
+                    if !is_future(case, record)? && matched_refs.contains(reference) {
+                        return Err(format!("{case_id}: unmatched settlement record was already matched {reference}"));
+                    }
                 }
             }
             other => return Err(format!("{case_id}: unknown exception reason {other}")),
@@ -1149,6 +1147,49 @@ mod tests {
         assert_eq!(report["totals"]["exception_count"], 3);
         assert_eq!(report["totals"]["future_record_count"], 1);
         assert_eq!(report["totals"]["ambiguous_component_count"], 1);
+    }
+
+
+    #[test]
+    fn outbound_payout_group_preserves_negative_bank_sign_and_positive_match_magnitude() {
+        let (snapshot, candidates, oracle) = fixtures();
+        let case = array(&candidates, "cases").unwrap().iter()
+            .find(|case| optional_string(case, "case_id") == Some("RB-007-REVERSAL-LIFECYCLE")).unwrap();
+        let expectation = expectation_by_id(&oracle, "RB-007-REVERSAL-LIFECYCLE").unwrap();
+        let outbound = array(expectation, "matches").unwrap().iter()
+            .find(|item| optional_string(item, "match_ref") == Some("M007-PB-OUT")).unwrap();
+        validate_payout_bank_match(case, outbound).unwrap();
+        let report = validate_all(&snapshot, &candidates, &oracle).unwrap();
+        assert_eq!(report["case_count"], 10);
+    }
+
+    #[test]
+    fn payout_reconciliation_groups_are_tenant_scoped() {
+        let (snapshot, mut candidates, oracle) = fixtures();
+        let case = case_mut(&mut candidates, "RB-001-EXACT-TRIPLE");
+        let payout = case["records"].as_array_mut().unwrap().iter_mut()
+            .find(|record| optional_string(record, "record_ref") == Some("P001")).unwrap();
+        payout["tenant_namespace"] = Value::String("other-tenant/processor".to_owned());
+        assert!(validate_all(&snapshot, &candidates, &oracle).is_err());
+    }
+
+    #[test]
+    fn automatic_match_requires_equal_explicit_source_references() {
+        let (snapshot, mut candidates, oracle) = fixtures();
+        let case = case_mut(&mut candidates, "RB-001-EXACT-TRIPLE");
+        let settlement = case["records"].as_array_mut().unwrap().iter_mut()
+            .find(|record| optional_string(record, "record_ref") == Some("S001")).unwrap();
+        settlement["source_reference"] = Value::String("UNRELATED-REFERENCE".to_owned());
+        assert!(validate_all(&snapshot, &candidates, &oracle).is_err());
+    }
+
+    #[test]
+    fn payout_group_aggregation_excludes_duplicate_feed_rows() {
+        let (snapshot, candidates, oracle) = fixtures();
+        let report = validate_all(&snapshot, &candidates, &oracle).unwrap();
+        assert_eq!(report["totals"]["duplicate_count"], 1);
+        assert_eq!(report["case_results"].as_array().unwrap().iter()
+            .find(|row| optional_string(row, "case_id") == Some("RB-006-DUPLICATE-SETTLEMENT-FEED")).unwrap()["group_match_count"], 1);
     }
 
     #[test]
