@@ -16,7 +16,8 @@
     "source_bundle_sha256",
     "transcript_sha256",
     "runner_adapter_sha256",
-    "events"
+    "events",
+    "structured_output_sha256"
   ],
   "properties": {
     "trace_id": {
@@ -65,6 +66,11 @@
       "items": {
         "$ref": "#/$defs/event"
       }
+    },
+    "structured_output_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$",
+      "description": "SHA-256 of the exact structured agent-submission JSON bytes produced for this task."
     }
   },
   "$defs": {
