@@ -373,6 +373,18 @@ The two unsafe mutants target distinct errors: treating a historically authentic
 
 **Execution status:** these model files and the pinned-TLC workflow steps are source-present, but this new model has not yet been run. No model-check pass or Rust verifier implementation is claimed. The next exact-head workflow must show the safe model queue exhausted and both mutants caught by their intended invariants. The Rust implementation must subsequently represent key validity/revocation effective epochs and a trusted timestamp/policy-history input; until then the existing v1 behavior remains current-key-only and historical adjudication is not supported.
 
+## Current-vs-historical trust adjudication model-check result — 7 November 2026
+
+The finite `PulseTrustHistoricalAdjudication` model has now been executed as part of the exact-head pinned TLC suite:
+
+- Safe model: PASS, 189 generated / 60 distinct states, queue exhausted.
+- Historical-signature-as-current mutant: expected counterexample, `NoCurrentAcceptanceFromRevokedKey` violated.
+- Missing-trusted-time/policy mutant: expected counterexample, `HistoricalAcceptanceRequiresTrustedEvidence` violated.
+
+Exact run #350: https://github.com/Luminous-Dynamics/mycelix/actions/runs/42394313382. Exact PR head: `0fda1650b951eae13768a2f53ecf6960a67549bd`. Artifact ID `13582598173`, ZIP SHA-256 `62e6c8fc60667404defe020cd2968e01e913d40f71da6fc13789de8270fb6a78`. Human-readable receipt: `docs/security/PulseTrustHistoricalAdjudication-model-check-2026-11-07.md`.
+
+This confirms the bounded model distinguishes current authorization from historical authenticity and abstains when trusted time or exact historical policy evidence is unavailable. It does not mean the Rust verifier implements historical adjudication; trusted timestamp provenance, durable policy-history retrieval, effective revocation times, and an independent verifier remain open under [#5895](https://github.com/Luminous-Dynamics/mycelix/issues/5895).
+
 ## Qualification stages
 
 | Stage | Required evidence | Claim ceiling |
