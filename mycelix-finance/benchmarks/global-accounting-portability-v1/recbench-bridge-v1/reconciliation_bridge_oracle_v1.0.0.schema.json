@@ -1,0 +1,285 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/mycelix-recbench-bridge-oracle-v1.0.0.json",
+  "title": "Mycelix RecBench Bridge Oracle v1.0.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "bundle_id",
+    "schema_version",
+    "claim_ceiling",
+    "source_snapshot_id",
+    "oracle_kind",
+    "expectations"
+  ],
+  "properties": {
+    "bundle_id": {
+      "const": "MYCELIX-RECBENCH-BRIDGE-S0-ORACLE"
+    },
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "claim_ceiling": {
+      "const": "synthetic_expected_reconciliation_states_not_model_performance"
+    },
+    "source_snapshot_id": {
+      "const": "MYCELIX-RECBENCH-SOURCE-2026-11-07"
+    },
+    "oracle_kind": {
+      "const": "synthetic_reconciliation_expectations"
+    },
+    "expectations": {
+      "type": "array",
+      "minItems": 10,
+      "maxItems": 10,
+      "items": {
+        "$ref": "#/$defs/expectation"
+      }
+    }
+  },
+  "$defs": {
+    "allocation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "allocation_ref",
+        "link_kind",
+        "from_record_ref",
+        "to_record_ref",
+        "amount_minor",
+        "currency"
+      ],
+      "properties": {
+        "allocation_ref": {
+          "type": "string",
+          "pattern": "^[A-Z0-9-]{3,120}$"
+        },
+        "link_kind": {
+          "enum": [
+            "ledger_to_settlement",
+            "settlement_to_payout",
+            "payout_to_bank"
+          ]
+        },
+        "from_record_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "to_record_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "amount_minor": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "currency": {
+          "type": "string",
+          "pattern": "^[A-Z]{3}$"
+        }
+      }
+    },
+    "group": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "group_ref",
+        "group_state",
+        "member_record_refs",
+        "allocations",
+        "currency",
+        "matched_total_minor",
+        "residual_minor"
+      ],
+      "properties": {
+        "group_ref": {
+          "type": "string",
+          "pattern": "^[A-Z0-9-]{3,120}$"
+        },
+        "group_state": {
+          "enum": [
+            "auto_matched",
+            "partially_matched",
+            "needs_review"
+          ]
+        },
+        "member_record_refs": {
+          "type": "array",
+          "minItems": 2,
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        },
+        "allocations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/allocation"
+          }
+        },
+        "currency": {
+          "type": "string",
+          "pattern": "^[A-Z]{3}$"
+        },
+        "matched_total_minor": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "residual_minor": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "terminalState": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "record_ref",
+        "state",
+        "group_ref",
+        "reason_code"
+      ],
+      "properties": {
+        "record_ref": {
+          "type": "string"
+        },
+        "state": {
+          "enum": [
+            "auto_matched",
+            "review_required",
+            "unmatched",
+            "duplicate_excluded"
+          ]
+        },
+        "group_ref": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "reason_code": {
+          "type": "string",
+          "minLength": 3
+        }
+      }
+    },
+    "ambiguity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "ambiguity_ref",
+        "reason_code",
+        "record_refs",
+        "candidate_record_sets"
+      ],
+      "properties": {
+        "ambiguity_ref": {
+          "type": "string"
+        },
+        "reason_code": {
+          "type": "string",
+          "minLength": 3
+        },
+        "record_refs": {
+          "type": "array",
+          "minItems": 2,
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        },
+        "candidate_record_sets": {
+          "type": "array",
+          "minItems": 2,
+          "items": {
+            "type": "array",
+            "minItems": 2,
+            "uniqueItems": true,
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "residual": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "record_ref",
+        "amount_minor",
+        "currency",
+        "reason_code"
+      ],
+      "properties": {
+        "record_ref": {
+          "type": "string"
+        },
+        "amount_minor": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "currency": {
+          "type": "string",
+          "pattern": "^[A-Z]{3}$"
+        },
+        "reason_code": {
+          "type": "string",
+          "minLength": 3
+        }
+      }
+    },
+    "expectation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "case_id",
+        "case_disposition",
+        "groups",
+        "record_terminal_states",
+        "ambiguities",
+        "residuals"
+      ],
+      "properties": {
+        "case_id": {
+          "type": "string",
+          "pattern": "^RB-[0-9]{3}-[A-Z0-9-]+$"
+        },
+        "case_disposition": {
+          "enum": [
+            "reconciled",
+            "partially_reconciled",
+            "needs_review",
+            "unmatched_exception"
+          ]
+        },
+        "groups": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/group"
+          }
+        },
+        "record_terminal_states": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/terminalState"
+          }
+        },
+        "ambiguities": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ambiguity"
+          }
+        },
+        "residuals": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/residual"
+          }
+        }
+      }
+    }
+  }
+}
