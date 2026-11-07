@@ -1,0 +1,10 @@
+{
+  "valid": true,
+  "claim_ceiling": "synthetic_binding_harness_only_not_canonical_receipt_validation",
+  "receipts": [
+    {
+      "run_id": "SYNTHETIC-RUN-ACCT-001",
+      "raw_file_sha256": "d1d97e9531b0dffa1a5a1ac89db884b60a1ace8e8f6f623794473fb96d6059c3"
+    }
+  ]
+}
