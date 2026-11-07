@@ -376,7 +376,7 @@
     {
       "case_id": "SEM-017",
       "class": "provider_crash",
-      "setup": "base_fixture",
+      "setup": "minimal_provider_commit_trace",
       "supplemental_trace": [
         {
           "event": "provider_commit_durable",
@@ -401,7 +401,8 @@
       "invariants": [
         "lost_response_is_unknown_until_provider_reconciliation",
         "retry_must_not_duplicate_provider_effect"
-      ]
+      ],
+      "notes": "The trace starts with no client-observed receipt or manifest. Provider-side durable effect exists, but the response is lost."
     },
     {
       "case_id": "SEM-018",
@@ -454,7 +455,8 @@
       },
       "invariants": [
         "provider_capacity_is_never_overcommitted"
-      ]
+      ],
+      "notes": "The provider serialization/allocation boundary determines one winner. This does not assume a generic multi-writer offline reservation right."
     },
     {
       "case_id": "SEM-020",
@@ -462,9 +464,10 @@
       "setup": "base_fixture",
       "supplemental_context": [
         {
-          "event": "provider_revision_superseded",
+          "event": "provider_commitment_revoked_before_manifest",
           "provider_ref": "provider:aurora-marinas",
-          "revision": "revision:marina-46"
+          "commitment_ref": "commitment:berth-001",
+          "effective_at": "2026-11-07T15:02:45Z"
         }
       ],
       "expected": {
@@ -476,7 +479,7 @@
       "invariants": [
         "superseded_or_unknown_provider_revision_cannot_support_current_confirmation"
       ],
-      "notes": "Requires verifier context beyond the v0.1 message set; a message-only check cannot establish external currentness."
+      "notes": "The provider revokes the exact berth commitment after it was issued but before the 15:03 manifest evaluation. Generic provider revision changes are not assumed to revoke unrelated commitments."
     },
     {
       "case_id": "SEM-021",
@@ -484,9 +487,10 @@
       "setup": "base_fixture",
       "supplemental_context": [
         {
-          "event": "provider_key_revoked",
+          "event": "provider_signing_key_revoked_before_receipt",
           "provider_ref": "provider:aurora-marinas",
-          "effective_at": "2026-11-07T15:02:01Z"
+          "key_ref": "key:aurora:active-01",
+          "effective_at": "2026-11-07T15:01:59Z"
         }
       ],
       "expected": {
@@ -498,7 +502,7 @@
       "invariants": [
         "historical_receipt_does_not_establish_current_issuer_authority"
       ],
-      "notes": "Requires a recognized issuer/key-status input; a digest alone does not authenticate the issuer."
+      "notes": "Requires a recognized key-status timeline. The revocation is effective before the 15:02 provider receipt; the digest alone cannot establish signer authority."
     },
     {
       "case_id": "SEM-022",
@@ -512,13 +516,15 @@
         }
       ],
       "expected": {
-        "verdict": "accept",
-        "reason_codes": []
+        "verdict": "not_evaluable_v0_1",
+        "reason_codes": [
+          "availability_expiry_equality_semantics_not_frozen"
+        ]
       },
       "invariants": [
         "half_open_expiry_boundary_is_defined"
       ],
-      "notes": "Positive boundary case: the hold request at exactly 15:01:00Z is evaluated against the frozen equality/expiry rule. The implementation must freeze whether validity is exclusive; do not infer it from this placeholder until protocol text defines it."
+      "notes": "Positive/negative boundary case intentionally unresolved. Freeze whether valid_until is inclusive or exclusive before assigning an accept/reject oracle."
     },
     {
       "case_id": "SEM-023",
@@ -544,7 +550,7 @@
     {
       "case_id": "SEM-024",
       "class": "manifest_partial_success",
-      "setup": "base_fixture",
+      "setup": "berth_only_commit_trace",
       "supplemental_trace": [
         {
           "event": "provider_rejects_mandatory_accommodation_commit",
@@ -561,7 +567,8 @@
       },
       "invariants": [
         "partial_success_is_preserved_and_never_promoted_to_confirmed"
-      ]
+      ],
+      "notes": "Trace contains one valid mandatory berth commitment and an explicit rejection for the mandatory accommodation component; it does not start from the complete-stay happy-path fixture."
     }
   ],
   "unresolved_semantics_to_freeze_before_implementation": [
