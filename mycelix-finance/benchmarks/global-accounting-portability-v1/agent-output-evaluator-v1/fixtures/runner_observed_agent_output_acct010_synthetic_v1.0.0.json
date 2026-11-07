@@ -1,0 +1,26 @@
+{
+  "case_id": "ACCT-010-CONTRADICTORY-AMOUNT",
+  "disposition": "clarify",
+  "primary_reason_code": "contradictory_amount_evidence",
+  "reason_codes": [
+    "contradictory_amount_evidence"
+  ],
+  "questions": [
+    {
+      "question_id": "Q-010-AMOUNT-CONFLICT",
+      "question_text": "The invoice and purchase order show different amounts. Which approved amount should govern this accrual, and can you provide the amended support?",
+      "target_fact_types": [
+        "invoice_total_minor",
+        "purchase_order_total_minor"
+      ],
+      "evidence_document_refs": [
+        "DOC-010-INV",
+        "DOC-010-PO"
+      ],
+      "minimum_answer_shape": "Authoritative amount, currency, amendment identity and effective date."
+    }
+  ],
+  "journal_entries": [],
+  "statement_lines": [],
+  "assumptions": []
+}
