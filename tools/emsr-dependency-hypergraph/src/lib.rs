@@ -141,7 +141,6 @@ pub struct VerificationCheck {
 
 #[derive(Clone, Debug)]
 struct Validated<'a> {
-    nodes: BTreeMap<&'a str, &'a Node>,
     edges_by_subject: BTreeMap<&'a str, Vec<&'a DependencyHyperedge>>,
     uncertain_by_subject: BTreeMap<&'a str, Vec<&'a DependencyHyperedge>>,
 }
@@ -186,7 +185,7 @@ pub fn evaluate(input: &HypergraphInput, input_sha256: String) -> EvaluationRepo
         unknown_reasons.push("inventory_snapshot_older_than_event_time".to_owned());
     }
     for source_id in &input.query.source_ids {
-        if !input.snapshot.scoped_source_ids.binary_search(source_id).is_ok() {
+        if input.snapshot.scoped_source_ids.binary_search(source_id).is_err() {
             unknown_reasons.push("source_outside_inventory_scope".to_owned());
         }
     }
@@ -354,12 +353,19 @@ fn validate_contract(input: &HypergraphInput, errors: &mut Vec<String>) {
     }
 
     let mut node_ids = BTreeSet::new();
+    let mut node_kinds = BTreeMap::new();
     for node in &input.nodes {
         if node.id.trim().is_empty() {
             errors.push("node_id_empty".to_owned());
         }
         if !node_ids.insert(node.id.as_str()) {
             errors.push("duplicate_node_id".to_owned());
+        }
+        node_kinds.insert(node.id.as_str(), &node.kind);
+    }
+    for scoped_source in &input.snapshot.scoped_source_ids {
+        if node_kinds.get(scoped_source.as_str()) != Some(&&NodeKind::Source) {
+            errors.push("snapshot_scope_entry_is_not_a_source".to_owned());
         }
     }
     for source_id in &input.query.source_ids {
@@ -392,6 +398,8 @@ fn validate_contract(input: &HypergraphInput, errors: &mut Vec<String>) {
         }
         if !node_ids.contains(edge.dependency_id.as_str()) {
             errors.push("hyperedge_dependency_node_missing".to_owned());
+        } else if node_kinds.get(edge.dependency_id.as_str()) != Some(&&NodeKind::Dependency) {
+            errors.push("hyperedge_dependency_must_reference_dependency_node".to_owned());
         }
         for subject in &edge.subject_ids {
             if !node_ids.contains(subject.as_str()) {
@@ -407,11 +415,6 @@ fn validate_contract(input: &HypergraphInput, errors: &mut Vec<String>) {
 }
 
 fn build_adjacency<'a>(input: &'a HypergraphInput) -> Validated<'a> {
-    let nodes = input
-        .nodes
-        .iter()
-        .map(|node| (node.id.as_str(), node))
-        .collect();
     let mut edges_by_subject: BTreeMap<&str, Vec<&DependencyHyperedge>> = BTreeMap::new();
     let mut uncertain_by_subject: BTreeMap<&str, Vec<&DependencyHyperedge>> = BTreeMap::new();
 
@@ -443,7 +446,6 @@ fn build_adjacency<'a>(input: &'a HypergraphInput) -> Validated<'a> {
     }
 
     Validated {
-        nodes,
         edges_by_subject,
         uncertain_by_subject,
     }
@@ -863,6 +865,35 @@ mod tests {
         input.hyperedges[2].state = AssertionState::Stale;
         let report = evaluate_fixture(&input);
         assert_eq!(report.disposition, Disposition::UnknownDependency);
+    }
+
+    #[test]
+    fn source_omitted_from_snapshot_scope_produces_unknown() {
+        let mut input = fixture();
+        input.snapshot.scoped_source_ids.pop();
+        let report = evaluate_fixture(&input);
+        assert_eq!(report.disposition, Disposition::UnknownDependency);
+        assert!(report.reason_codes.contains(&"source_outside_inventory_scope".to_owned()));
+    }
+
+    #[test]
+    fn direct_multi_subject_hyperedge_preserves_a_shared_dependency() {
+        let mut input = fixture();
+        input.hyperedges.truncate(2);
+        input.hyperedges.push(DependencyHyperedge {
+            id: "one-clock-for-both".to_owned(),
+            subject_ids: vec!["rx-a".to_owned(), "rx-b".to_owned()],
+            dependency_id: "clock-root".to_owned(),
+            domain: DependencyDomain::Clock,
+            valid_from: None,
+            valid_until: None,
+            recorded_at: 80,
+            evidence_ref: "evidence:one-clock".to_owned(),
+            state: AssertionState::Qualified,
+        });
+        let report = evaluate_fixture(&input);
+        assert_eq!(report.disposition, Disposition::SharedDependency);
+        assert_eq!(report.common_dependency_ids, vec!["clock-root"]);
     }
 
     #[test]
