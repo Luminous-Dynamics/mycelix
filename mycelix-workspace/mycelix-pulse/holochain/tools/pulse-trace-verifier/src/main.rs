@@ -33,10 +33,13 @@ fn run() -> Result<Value, String> {
             Ok(receipt)
         }
         "verify-trace" => {
+            let trace_schema_path = PathBuf::from(args.next().ok_or_else(usage)?);
+            let trace_schema = fs::read(&trace_schema_path)
+                .map_err(|error| format!("cannot read {}: {error}", trace_schema_path.display()))?;
             let trace_path = PathBuf::from(args.next().ok_or_else(usage)?);
             let trace = fs::read(&trace_path)
                 .map_err(|error| format!("cannot read {}: {error}", trace_path.display()))?;
-            let receipt = verify_trace(&corpus, &schema, &trace)
+            let receipt = verify_trace(&corpus, &schema, &trace_schema, &trace)
                 .map_err(format_violations)?;
             Ok(receipt.report)
         }
@@ -54,5 +57,5 @@ fn format_violations(violations: Vec<String>) -> String {
 }
 
 fn usage() -> String {
-    "usage:\n  pulse-trace-verifier validate-corpus <corpus.json> <schema.json>\n  pulse-trace-verifier verify-trace <corpus.json> <schema.json> <trace.json>".to_string()
+    "usage:\n  pulse-trace-verifier validate-corpus <corpus.json> <schema.json>\n  pulse-trace-verifier verify-trace <corpus.json> <corpus-schema.json> <trace-schema.json> <trace.json>".to_string()
 }
