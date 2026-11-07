@@ -21,8 +21,6 @@
     "start_date",
     "ledger_days",
     "small_tier_rows",
-    "small_tier_compressed_bytes",
-    "all_tiers_compressed_bytes",
     "manifest_path",
     "manifest_revision",
     "manifest_raw_bytes_archived",
@@ -30,7 +28,9 @@
     "files",
     "agent_input_paths",
     "evaluator_only_paths",
-    "copied_into_repository"
+    "copied_into_repository",
+    "small_tier_displayed_size",
+    "all_tiers_displayed_size"
   ],
   "properties": {
     "snapshot_id": {
@@ -132,12 +132,6 @@
         }
       }
     },
-    "small_tier_compressed_bytes": {
-      "const": 470000000
-    },
-    "all_tiers_compressed_bytes": {
-      "const": 7480000000
-    },
     "manifest_path": {
       "const": "small/manifest.json"
     },
@@ -203,6 +197,12 @@
     },
     "copied_into_repository": {
       "const": false
+    },
+    "small_tier_displayed_size": {
+      "const": "470 MB"
+    },
+    "all_tiers_displayed_size": {
+      "const": "7.48 GB"
     }
   }
 }
