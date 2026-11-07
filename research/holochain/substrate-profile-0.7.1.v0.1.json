@@ -11,7 +11,7 @@
     "holochain_serialized_bytes": "0.0.57",
     "javascript_client": "0.21.1",
     "lair_keystore": "0.7.1",
-    "kitsune2_bootstrap": "0.5.0",
+    "kitsune2_bootstrap": "0.5.2",
     "holonix_ref": "main-0.7",
     "nodejs": "24",
     "hc_spin": "0.700.1",
