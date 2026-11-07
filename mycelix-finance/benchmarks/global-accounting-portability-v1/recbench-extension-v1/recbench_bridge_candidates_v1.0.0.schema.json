@@ -1,0 +1,340 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/mycelix-recbench-bridge-candidates-v1.0.0.json",
+  "title": "Mycelix RecBench Bridge Candidate Bundle v1.0.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "bundle_id",
+    "schema_version",
+    "claim_ceiling",
+    "dataset_binding",
+    "cases"
+  ],
+  "properties": {
+    "bundle_id": {
+      "const": "MYCELIX-RECBENCH-BRIDGE-S0-CANDIDATES"
+    },
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "claim_ceiling": {
+      "const": "synthetic_bridge_fixtures_not_recbench_model_performance"
+    },
+    "dataset_binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "snapshot_id",
+        "tier",
+        "generator_version",
+        "seed",
+        "config_sha256",
+        "oracle_files_excluded"
+      ],
+      "properties": {
+        "snapshot_id": {
+          "const": "MYCELIX-RECBENCH-SMALL-SOURCE-2026-11-07"
+        },
+        "tier": {
+          "const": "small"
+        },
+        "generator_version": {
+          "const": "0.1.0"
+        },
+        "seed": {
+          "const": 1042
+        },
+        "config_sha256": {
+          "const": "d31d413456ea5364f74a0c355a6b41d81aee5ea37f9f4805a356bdfa7243fbc5"
+        },
+        "oracle_files_excluded": {
+          "const": true
+        }
+      }
+    },
+    "cases": {
+      "type": "array",
+      "minItems": 10,
+      "items": {
+        "$ref": "#/$defs/case"
+      }
+    }
+  },
+  "$defs": {
+    "record": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "record_ref",
+        "record_kind",
+        "source_table",
+        "source_row_id",
+        "tenant_namespace",
+        "external_id",
+        "revision",
+        "received_at",
+        "recorded_at",
+        "value_date",
+        "currency",
+        "amount_minor",
+        "direction",
+        "counterparty",
+        "processor",
+        "source_reference",
+        "payout_external_id",
+        "line_role",
+        "gross_amount_minor",
+        "fee_amount_minor",
+        "net_amount_minor",
+        "original_external_id"
+      ],
+      "properties": {
+        "record_ref": {
+          "type": "string",
+          "pattern": "^[A-Z0-9-]{3,120}$"
+        },
+        "record_kind": {
+          "enum": [
+            "ledger_transaction",
+            "settlement_line",
+            "payout",
+            "bank_statement"
+          ]
+        },
+        "source_table": {
+          "enum": [
+            "ledger",
+            "settlement_lines",
+            "payouts",
+            "bank_statements"
+          ]
+        },
+        "source_row_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "tenant_namespace": {
+          "type": "string",
+          "minLength": 3
+        },
+        "external_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "revision": {
+          "type": "string",
+          "minLength": 1
+        },
+        "received_at": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+        },
+        "recorded_at": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+        },
+        "value_date": {
+          "type": "string",
+          "format": "date",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+        },
+        "currency": {
+          "type": "string",
+          "pattern": "^[A-Z]{3}$"
+        },
+        "amount_minor": {
+          "type": "integer"
+        },
+        "direction": {
+          "enum": [
+            "credit",
+            "debit",
+            "neutral"
+          ]
+        },
+        "counterparty": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "processor": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "source_reference": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "payout_external_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "line_role": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            "charge",
+            "refund",
+            "fee",
+            "fx_adjustment",
+            "reserve",
+            "other",
+            null
+          ]
+        },
+        "gross_amount_minor": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "fee_amount_minor": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "net_amount_minor": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "original_external_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "fxQuote": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "fx_quote_ref",
+        "base_currency",
+        "quote_currency",
+        "rate_numerator",
+        "rate_denominator",
+        "source_amount_minor",
+        "target_amount_minor",
+        "rounding_mode",
+        "value_date",
+        "source_record_refs"
+      ],
+      "properties": {
+        "fx_quote_ref": {
+          "type": "string",
+          "pattern": "^[A-Z0-9-]{3,120}$"
+        },
+        "base_currency": {
+          "type": "string",
+          "pattern": "^[A-Z]{3}$"
+        },
+        "quote_currency": {
+          "type": "string",
+          "pattern": "^[A-Z]{3}$"
+        },
+        "rate_numerator": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "rate_denominator": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "source_amount_minor": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "target_amount_minor": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "rounding_mode": {
+          "enum": [
+            "exact",
+            "half_even",
+            "half_up",
+            "floor",
+            "ceiling"
+          ]
+        },
+        "value_date": {
+          "type": "string",
+          "format": "date",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+        },
+        "source_record_refs": {
+          "type": "array",
+          "minItems": 2,
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "case": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "case_id",
+        "knowledge_at",
+        "period_start",
+        "period_end",
+        "records",
+        "fx_quotes"
+      ],
+      "properties": {
+        "case_id": {
+          "type": "string",
+          "pattern": "^[A-Z0-9-]{3,120}$"
+        },
+        "knowledge_at": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+        },
+        "period_start": {
+          "type": "string",
+          "format": "date",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+        },
+        "period_end": {
+          "type": "string",
+          "format": "date",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+        },
+        "records": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/record"
+          }
+        },
+        "fx_quotes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/fxQuote"
+          }
+        }
+      }
+    }
+  }
+}
