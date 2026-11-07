@@ -124,7 +124,15 @@ The model starts with two independent grants for the same assigned grantee and s
 
 This matters because the same principal/function tuple may exist in several cells. An app-wide lookup or a revocation keyed only by principal/function can either create a cross-cell authorization bypass or collateral-revoke unrelated authority.
 
-The pinned TLC workflow now includes the safe configuration and all three mutants; it also hashes the model/config inputs into the exact-run receipt. The first model-check run for this family is pending. No bounded-model result should be claimed until the safe queue exhausts and each mutant is detected by its intended invariant.
+The pinned TLC workflow includes the safe configuration and all three mutants, and hashes the model/config inputs into the exact-run receipt. **Run #356 completed successfully** on subject SHA `d206c74670475e2e8fcd9f720e0f804af7469733`:
+- Safe model: 66,674 generated / 12,687 distinct states; queue exhausted.
+- Cross-cell borrowing mutant: `NoCrossCellGrantBorrow` violated as expected.
+- Function-scope widening mutant: `NoFunctionScopeWidening` violated as expected.
+- Collateral revocation mutant: `NoCollateralRevocation` violated as expected.
+
+Exact run: https://github.com/Luminous-Dynamics/mycelix/actions/runs/42401329288. Artifact ID `13585841413`, ZIP SHA-256 `ea8374e31015be1d5b7f51b99e9046f335d3ab4cc89fd4ce4346785d3d63ee01`. Human-readable receipt: `PulseCellScopeIsolation-model-check-2026-11-07.md`.
+
+The first run had a model-side temporal bug: it checked the historical call against the *current* host grant set, so a later revoke retroactively invalidated a prior decision. The checked model instead captures grant-active state at decision time. This is an abstract Holochain cell/function contract only, not conductor runtime evidence.
 
 ## Finite-state model artifact
 
