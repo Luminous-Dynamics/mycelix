@@ -11,6 +11,18 @@ The manifest does **not** create a second claim ledger or second evidence maturi
 - Evidence maturity and whether a claim is contested continue to be derived by the existing versioned evidence policy from event history.
 - The package supplies black-hole-specific scientific metadata: equations, assumptions, units, coordinate chart, implementation SHAs, input/output artifact digests, uncertainty categories, observables, null controls, and verification outcomes.
 
+## Pinned event protocol
+
+The stream binding pins the current Mycelix event protocol:
+- protocol `mycelix-desci`;
+- protocol version `1`;
+- codec `mycelix-canonical-binary-v1`;
+- writer schema version `3`.
+
+Each referenced event records its own envelope schema version. Version 2 is still supported for replay, while version 3 is the current writer schema. This avoids falsely upgrading historical v2 event records when a stream contains both v2 and v3 entries.
+
+Each event reference carries its own BLAKE3-256 event hash. The package-level source/artifact hashes remain separate and are not a substitute for the signed event-chain hash.
+
 ## Integrity and scientific validity
 
 The `artifacts[].digest` field uses BLAKE3-256 to match `ContentHash` in the existing event kernel. It hashes the exact stored artifact bytes; this schema does not impose a second canonical-JSON serialization rule.
@@ -27,4 +39,4 @@ Do not collapse uncertainty into one confidence score. Record statistical, syste
 
 ## Validation
 
-Schema version 1 uses JSON Schema Draft 2020-12. Cross-object rules such as artifact IDs resolving to actual event artifacts, event stream ownership, source/version pinning, and whether an independent verifier is truly independent must be enforced by a higher-level package validator and the signed Mycelix event path; JSON Schema alone cannot establish these facts.
+Schema version 1 uses JSON Schema Draft 2020-12. Cross-object rules such as artifact IDs resolving to actual event artifacts, stream ownership, signatures, hash-chain continuity, source/version pinning, and whether an independent verifier is truly independent must be enforced by a higher-level package validator and the signed Mycelix event path; JSON Schema alone cannot establish these facts.
