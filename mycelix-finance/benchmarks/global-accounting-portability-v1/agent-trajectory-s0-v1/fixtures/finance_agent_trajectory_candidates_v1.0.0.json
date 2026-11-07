@@ -53,7 +53,7 @@
           "side_effect": "read",
           "authority_state": "granted",
           "action_state": "completed",
-          "required_capability": "source_read",
+          "required_capability": "ledger_read",
           "amount_minor": null,
           "currency": null,
           "accounting_treatment": "none"
@@ -425,12 +425,10 @@
           "sequence": 1,
           "occurred_at": "2026-11-06T10:11:00Z",
           "actor_ref": "AGENT-005",
-          "action_kind": "retrieve_evidence",
+          "action_kind": "calculate",
           "target_ref": null,
           "tenant_namespace": "tenant-acme/ap",
-          "input_evidence_refs": [
-            "E-005-SUPPLIER"
-          ],
+          "input_evidence_refs": [],
           "output_refs": [],
           "side_effect": "read",
           "authority_state": "granted",
