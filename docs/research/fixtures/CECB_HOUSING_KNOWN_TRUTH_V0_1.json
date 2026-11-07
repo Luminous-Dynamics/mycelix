@@ -1,0 +1,313 @@
+{
+  "schema_version": "cecb.housing.known_truth.v0.1",
+  "status": "synthetic_fixture_prototype",
+  "created_date": "2026-10-28",
+  "claim_ceiling": "Known-truth fixture semantics only. No policy has been executed or scored. These cases do not demonstrate real-world economic effects.",
+  "units": {
+    "time": "integer months from scenario start",
+    "housing_capacity": "safe, suitable dwelling units",
+    "resource_unit": "synthetic physical-resource unit; not money",
+    "community_unit": "CU; synthetic internal accounting unit",
+    "external_unit": "EXT; synthetic external settlement unit"
+  },
+  "evaluation_rule": "The independent scorer may access oracle_facts. Candidate policies may access only policy_observation. Candidate code must not read oracle_facts.",
+  "cases": [
+    {
+      "case_id": "H001_FIXED_CAPACITY_CEILING",
+      "purpose": "Prevent purchasing power or an allocation rule from manufacturing physical housing capacity.",
+      "world": {
+        "horizon_months": 1,
+        "households_with_unmet_need": 3,
+        "safe_suitable_vacant_units": 2,
+        "new_construction_completions": 0,
+        "constraints": [
+          "No new build or conversion event occurs during the horizon."
+        ]
+      },
+      "policy_observation": {
+        "reported_available_units": 2,
+        "reported_construction_completions": 0
+      },
+      "oracle_facts": {
+        "true_safe_suitable_capacity": 2,
+        "maximum_households_housed_by_end": 2,
+        "minimum_unmet_households_by_end": 1
+      },
+      "invariants": [
+        "No policy may house more households than the number of suitable units available or completed.",
+        "Any result claiming all three households housed is invalid unless it identifies an explicit capacity-changing event."
+      ]
+    },
+    {
+      "case_id": "H002_DEBT_FINANCING_IS_NOT_CAPACITY",
+      "purpose": "Separate loan origination, construction progress, completion, and liability.",
+      "world": {
+        "horizon_months": 3,
+        "initial_safe_suitable_units": 2,
+        "construction_project": {
+          "capital_requirement_cu": 10,
+          "required_resource_units": 8,
+          "completion_month": 2,
+          "safe_suitable_units_added_on_completion": 1
+        },
+        "financing_event": {
+          "month": 0,
+          "instrument": "loan",
+          "principal_advanced_cu": 10,
+          "liability_created_cu": 10
+        }
+      },
+      "policy_observation": {
+        "project_status_at_month_0": "approved",
+        "completion_forecast_month": 2
+      },
+      "oracle_facts": {
+        "safe_suitable_units_at_month_0": 2,
+        "safe_suitable_units_before_completion": 2,
+        "safe_suitable_units_after_month_2_completion": 3,
+        "liability_immediately_after_origination_cu": 10,
+        "physical_capacity_change_at_origination": 0,
+        "physical_capacity_change_on_completion": 1
+      },
+      "invariants": [
+        "Loan origination and project approval do not increase safe housing capacity.",
+        "Capacity increases only after the modeled completion event.",
+        "The liability remains visible until a repayment, forgiveness, default, or other explicit liability event changes it.",
+        "No social-value or productivity conclusion follows from the financing event alone."
+      ]
+    },
+    {
+      "case_id": "H003_GRANT_HAS_A_REAL_RESOURCE_COST",
+      "purpose": "Prevent public or philanthropic financing from being treated as costless.",
+      "world": {
+        "horizon_months": 2,
+        "initial_safe_suitable_units": 1,
+        "one_unsafe_unit_can_be_renovated": true,
+        "renovation_resource_requirement": 5,
+        "grant_cu": 5,
+        "renovation_completion_month": 2,
+        "safe_suitable_units_added_on_completion": 1
+      },
+      "policy_observation": {
+        "grant_approved_cu": 5,
+        "renovation_status": "planned"
+      },
+      "oracle_facts": {
+        "physical_resource_consumed_if_completed": 5,
+        "grantor_budget_change_cu": -5,
+        "recipient_funding_change_cu": 5,
+        "safe_suitable_units_before_completion": 1,
+        "safe_suitable_units_after_completion": 2
+      },
+      "invariants": [
+        "A transfer changes the distribution of financial claims and purchasing power; it does not erase the physical resources consumed.",
+        "A planned renovation is not a completed renovation.",
+        "The grantor budget and recipient funding sides must reconcile under the selected accounting profile."
+      ]
+    },
+    {
+      "case_id": "H004_STALE_LISTING_IS_NOT_SAFE_CAPACITY",
+      "purpose": "Ensure stale or invalid inventory observations fail closed.",
+      "world": {
+        "horizon_months": 1,
+        "dwellings": [
+          {
+            "id": "D1",
+            "true_safe": true,
+            "true_suitable_for_registered_need": true
+          },
+          {
+            "id": "D2",
+            "true_safe": true,
+            "true_suitable_for_registered_need": true
+          },
+          {
+            "id": "D3",
+            "true_safe": false,
+            "true_suitable_for_registered_need": false
+          }
+        ]
+      },
+      "policy_observation": {
+        "registry_available_listing_count": 3,
+        "listing_D3_last_inspected_month": -8,
+        "declared_max_inspection_age_months": 3
+      },
+      "oracle_facts": {
+        "true_safe_suitable_capacity": 2,
+        "stale_listings": 1,
+        "acceptable_current_safe_units": [
+          "D1",
+          "D2"
+        ]
+      },
+      "invariants": [
+        "A stale listing cannot be promoted to current safe capacity without qualifying evidence.",
+        "Unknown or unverified safety status is not equivalent to safe or unsafe ground truth; candidate disposition must preserve uncertainty."
+      ]
+    },
+    {
+      "case_id": "H005_DEFERRED_MAINTENANCE_MOVES_COST_FORWARD",
+      "purpose": "Detect short-horizon strategies that improve current output by consuming future capacity.",
+      "world": {
+        "horizon_months": 3,
+        "initial_safe_suitable_units": 2,
+        "maintenance_due_month": 1,
+        "maintenance_resource_requirement": 2,
+        "unsafe_unit_if_maintenance_skipped_from_month": 2
+      },
+      "policy_observation": {
+        "maintenance_due": true,
+        "maintenance_cost_resource_units": 2
+      },
+      "oracle_facts": {
+        "if_maintained": {
+          "safe_units_month_1": 2,
+          "safe_units_month_2": 2,
+          "resource_units_consumed": 2
+        },
+        "if_skipped": {
+          "safe_units_month_1": 2,
+          "safe_units_month_2": 1,
+          "resource_units_consumed": 0
+        }
+      },
+      "invariants": [
+        "Maintenance expense and future capacity loss must both appear in the outcome vector.",
+        "The skipped expense is not a net efficiency gain if it causes later service loss; any welfare valuation remains a declared policy choice."
+      ]
+    },
+    {
+      "case_id": "H006_INTERNAL_MUTUAL_CREDIT_CANNOT_SETTLE_EXTERNAL_INPUT",
+      "purpose": "Distinguish internal reciprocal credit from externally spendable settlement assets.",
+      "world": {
+        "horizon_months": 1,
+        "cooperative_internal_credit_balance_cu": 10,
+        "imported_component_cost_ext": 10,
+        "available_external_settlement_balance_ext": 0,
+        "conversion_or_external_settlement_agreement": false,
+        "new_capacity_requires_imported_component": true
+      },
+      "policy_observation": {
+        "internal_credit_balance_cu": 10,
+        "imported_component_price_ext": 10
+      },
+      "oracle_facts": {
+        "imported_component_obtainable": false,
+        "new_capacity_added": 0,
+        "external_settlement_shortfall_ext": 10
+      },
+      "invariants": [
+        "Internal credit is not external purchasing power without a declared and funded conversion/settlement path.",
+        "No new capacity may be credited without the imported component or a documented substitute."
+      ]
+    },
+    {
+      "case_id": "H007_REFINANCING_IS_NOT_NET_NEW_CAPITAL",
+      "purpose": "Keep refinancing separate from net new financing and real investment.",
+      "world": {
+        "horizon_months": 1,
+        "predecessor_loan_balance_cu": 9,
+        "new_loan_face_value_cu": 10,
+        "proceeds_used_to_repay_predecessor_cu": 9,
+        "proceeds_remaining_cu": 1,
+        "capex_or_construction_event": false
+      },
+      "policy_observation": {
+        "new_loan_face_value_cu": 10,
+        "declared_use": "refinancing"
+      },
+      "oracle_facts": {
+        "predecessor_liability_extinguished_cu": 9,
+        "predecessor_liability_remaining_cu": 0,
+        "new_liability_created_cu": 10,
+        "maximum_net_new_financing_from_transaction_cu": 1,
+        "physical_capacity_change": 0
+      },
+      "invariants": [
+        "New loan face value must not be reported as net new financing when proceeds repay predecessor debt.",
+        "Net new financing is not equivalent to new productive capacity without a separate evidenced use and production event."
+      ]
+    },
+    {
+      "case_id": "H008_RENT_TRANSFER_DOES_NOT_PROVE_NEW_CAPACITY",
+      "purpose": "Separate payment incidence from physical expansion while leaving housing-service accounting to its own profile.",
+      "world": {
+        "horizon_months": 1,
+        "initial_safe_suitable_units": 1,
+        "tenant_to_owner_payment_cu": 5,
+        "new_construction_event": false,
+        "improvement_event": false
+      },
+      "policy_observation": {
+        "recorded_payment_cu": 5,
+        "payment_label": "rent"
+      },
+      "oracle_facts": {
+        "payer_cash_change_cu": -5,
+        "recipient_cash_change_cu": 5,
+        "physical_capacity_change": 0,
+        "new_construction_or_improvement_evidence": false
+      },
+      "invariants": [
+        "Payment is not evidence of new housing capacity.",
+        "The payment may correspond to a housing service under the declared national-account profile; do not infer that it is a net social gain, a net loss, or new construction from the payment alone."
+      ]
+    },
+    {
+      "case_id": "H009_UNIT_COUNT_DOES_NOT_CAPTURE_ACCESSIBILITY_FIT",
+      "purpose": "Prevent nominal unit totals from hiding capability-specific shortages.",
+      "world": {
+        "horizon_months": 1,
+        "total_safe_vacant_units": 3,
+        "accessible_safe_vacant_units": 1,
+        "households_requiring_accessible_units": 2,
+        "other_households_with_unmet_need": 1
+      },
+      "policy_observation": {
+        "total_listed_safe_units": 3,
+        "listed_accessible_units": 1
+      },
+      "oracle_facts": {
+        "maximum_accessible_need_households_housed": 1,
+        "minimum_accessible_need_households_unmet": 1,
+        "total_units_not_equivalent_to_suitable_capacity": true
+      },
+      "invariants": [
+        "The scorer must measure fit by declared capability requirements, not only total units.",
+        "An inaccessible unit must not be counted as satisfying a household's accessibility requirement."
+      ]
+    },
+    {
+      "case_id": "H010_MIRRORED_SOURCES_ARE_NOT_INDEPENDENT_CONFIRMATION",
+      "purpose": "Prevent source count inflation when several records derive from the same original observation.",
+      "world": {
+        "horizon_months": 1,
+        "true_available_units": 2,
+        "original_source_event_id": "inventory-observation-17"
+      },
+      "policy_observation": {
+        "claims": [
+          {
+            "claim_id": "C1",
+            "source_event_id": "inventory-observation-17"
+          },
+          {
+            "claim_id": "C2",
+            "source_event_id": "inventory-observation-17"
+          }
+        ],
+        "reported_confirmation_count": 2
+      },
+      "oracle_facts": {
+        "unique_source_event_count": 1,
+        "independent_confirmation_count": 1,
+        "true_available_units": 2
+      },
+      "invariants": [
+        "Mirrored claims with one source event are one provenance family for independence scoring.",
+        "Repeated or mirrored evidence cannot increase true available capacity."
+      ]
+    }
+  ]
+}
