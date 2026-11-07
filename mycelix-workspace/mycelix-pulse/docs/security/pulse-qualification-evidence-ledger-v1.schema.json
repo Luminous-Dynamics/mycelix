@@ -209,6 +209,10 @@
               },
               "conclusion": {
                 "type": "string"
+              },
+              "jobs_returned": {
+                "type": "integer",
+                "minimum": 0
               }
             },
             "required": [
