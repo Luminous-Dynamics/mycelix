@@ -41,11 +41,6 @@ ActionCell ==
      Action2 |-> "cell-2",
      InvalidAction |-> "cell-1"]
 
-AllCellsRestored ==
-    \A cell \in Cells :
-        \A action \in RequiredActions :
-            ActionCell[action] = cell => action \in restoredActions
-
 VARIABLES
     processRunning,
     peerAvailable,
@@ -63,6 +58,11 @@ vars ==
     << processRunning, peerAvailable, restoreRequested, appStatus,
        fetchedActions, restoredActions, rejectedActions, privateRestored,
        freshGrantIssued, hostGrantActive, restoreGeneration >>
+
+AllCellsRestored ==
+    \A cell \in Cells :
+        \A action \in RequiredActions :
+            ActionCell[action] = cell => action \in restoredActions
 
 Init ==
     /\ processRunning = TRUE
