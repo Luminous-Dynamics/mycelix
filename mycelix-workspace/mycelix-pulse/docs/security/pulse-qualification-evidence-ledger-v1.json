@@ -10,17 +10,17 @@
     "branch": "research/pulse-authority-lifecycle-v1-20261104",
     "state": "open_draft",
     "merge_readiness": "BLOCKED_REQUIRES_REBASE_AND_EXACT_HEAD_REQUALIFICATION",
-    "evidence_subject_sha": "d206c74670475e2e8fcd9f720e0f804af7469733",
+    "evidence_subject_sha": "acca54020e9f49de0bc8aeea39325cc848fdb9dd",
     "ledger_preparation_parent_sha": "507b06a2fa5fe9029534b28f9c4fa84a11163743",
     "base_branch": "main",
     "base_sha_at_pr": "9e12dd46bdd8371e8ed9626a17bc06f21c141a52",
     "main_sha_at_comparison": "6a0d072d3b65f4a2cf08af3ae71e541788e33ae9",
     "divergence_at_comparison": {
-      "ahead_by": 428,
+      "ahead_by": 431,
       "behind_by": 8,
       "merge_base": "9e12dd46bdd8371e8ed9626a17bc06f21c141a52"
     },
-    "divergence_note": "Rechecked 2026-11-07 against main head 6a0d072d3b65f4a2cf08af3ae71e541788e33ae9 at branch subject d206c74670475e2e8fcd9f720e0f804af7469733: 428 commits ahead and 8 behind, merge base 9e12dd46bdd8371e8ed9626a17bc06f21c141a52. The research PR remains draft and requires rebase/integration review plus exact-head reruns."
+    "divergence_note": "Rechecked 2026-11-07 against main head 6a0d072d3b65f4a2cf08af3ae71e541788e33ae9 at latest model-suite subject acca54020e9f49de0bc8aeea39325cc848fdb9dd: 431 commits ahead and 8 behind, merge base 9e12dd46bdd8371e8ed9626a17bc06f21c141a52. PR remains draft; rebase/integration review and exact-head requalification remain mandatory."
   },
   "claim_levels": [
     "SOURCE_PRESENT",
@@ -329,6 +329,51 @@
           "NoCollateralRevocation"
         ],
         "workflow_job_conclusion": "success"
+      },
+      "claim_ceiling": "Finite abstract Holochain per-cell capability-scope model only. Does not execute actual conductor CapGrant lookup, signed zome calls, DNA/cell serialization, source-chain behavior, or production revocation. It is not a Sweettest or runtime qualification."
+    },
+    {
+      "id": "CELL-SCOPE-ISOLATION-RUN359",
+      "area": "Per-cell capability isolation and exact grant/function scope — repeated on latest PR head",
+      "claim_level": "BOUNDED_MODEL_CHECK",
+      "status": "PASS_FOR_EXACT_SUBJECT",
+      "subject_sha": "acca54020e9f49de0bc8aeea39325cc848fdb9dd",
+      "source_path": "mycelix-workspace/mycelix-pulse/docs/security/PulseCellScopeIsolation.tla",
+      "source_blob_sha": "afc8ba316db0cf6dfbef079ae81341c29263d51e",
+      "workflow_run": {
+        "id": 42402113893,
+        "number": 359,
+        "url": "https://github.com/Luminous-Dynamics/mycelix/actions/runs/42402113893",
+        "state": "completed",
+        "conclusion": "success"
+      },
+      "job_id": 128491934832,
+      "artifact": {
+        "id": 13585459439,
+        "name": "pulse-authority-tlc-acca54020e9f49de0bc8aeea39325cc848fdb9dd",
+        "url": "https://github.com/Luminous-Dynamics/mycelix/actions/runs/42402113893/artifacts/13585459439",
+        "zip_sha256": "c839355b243ea603001bb803230f62726112acc9f5555a39d595859e2fb16c81"
+      },
+      "tool": {
+        "name": "TLC",
+        "version": "1.8.0",
+        "build": "2026.08.11.125311",
+        "jar_sha256": "ab323b79802aedc3203b3f9af37c6aca3ed43f4e0225b36f2aa77b26de46c05f"
+      },
+      "result": {
+        "safe_states_generated": 66674,
+        "safe_distinct_states": 12687,
+        "safe_queue_exhausted": true,
+        "negative_controls_expected": 3,
+        "negative_controls_caught": 3,
+        "expected_invariants": [
+          "NoCrossCellGrantBorrow",
+          "NoFunctionScopeWidening",
+          "NoCollateralRevocation"
+        ],
+        "workflow_job_conclusion": "success",
+        "repeat_of": "CELL-SCOPE-ISOLATION-RUN356",
+        "repeat_of_run": 42401329288
       },
       "claim_ceiling": "Finite abstract Holochain per-cell capability-scope model only. Does not execute actual conductor CapGrant lookup, signed zome calls, DNA/cell serialization, source-chain behavior, or production revocation. It is not a Sweettest or runtime qualification."
     }
