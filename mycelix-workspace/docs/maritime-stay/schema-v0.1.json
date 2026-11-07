@@ -1,0 +1,664 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.luminousdynamics.io/maritime-stay/0.1.0/schema.json",
+  "title": "Maritime Stay Protocol v0.1",
+  "description": "Structural message schema only. Semantic, authority, temporal ordering and state-transition rules require the independent verifier.",
+  "oneOf": [
+    {
+      "$ref": "#/$defs/StayIntent"
+    },
+    {
+      "$ref": "#/$defs/ProviderOffer"
+    },
+    {
+      "$ref": "#/$defs/ReservationHold"
+    },
+    {
+      "$ref": "#/$defs/ProviderCommitment"
+    },
+    {
+      "$ref": "#/$defs/EffectReceipt"
+    },
+    {
+      "$ref": "#/$defs/StayManifest"
+    }
+  ],
+  "$defs": {
+    "Id": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 160,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]+$"
+    },
+    "Timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "Currency": {
+      "type": "string",
+      "pattern": "^[A-Z]{3}$"
+    },
+    "Money": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "currency",
+        "amount_minor"
+      ],
+      "properties": {
+        "currency": {
+          "$ref": "#/$defs/Currency"
+        },
+        "amount_minor": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "line_items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/PriceLineItem"
+          }
+        }
+      }
+    },
+    "PriceLineItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "code",
+        "label",
+        "amount_minor",
+        "mandatory"
+      ],
+      "properties": {
+        "code": {
+          "$ref": "#/$defs/Id"
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "amount_minor": {
+          "type": "integer"
+        },
+        "mandatory": {
+          "type": "boolean"
+        }
+      }
+    },
+    "Period": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "start",
+        "end"
+      ],
+      "properties": {
+        "start": {
+          "$ref": "#/$defs/Timestamp"
+        },
+        "end": {
+          "$ref": "#/$defs/Timestamp"
+        }
+      }
+    },
+    "ComponentRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "component_id",
+        "resource_kind",
+        "mandatory",
+        "quantity",
+        "period"
+      ],
+      "properties": {
+        "component_id": {
+          "$ref": "#/$defs/Id"
+        },
+        "resource_kind": {
+          "enum": [
+            "berth",
+            "accommodation",
+            "service"
+          ]
+        },
+        "mandatory": {
+          "type": "boolean"
+        },
+        "quantity": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "period": {
+          "$ref": "#/$defs/Period"
+        },
+        "requirements": {
+          "type": "object",
+          "additionalProperties": {
+            "type": [
+              "string",
+              "number",
+              "integer",
+              "boolean",
+              "array",
+              "object",
+              "null"
+            ]
+          }
+        }
+      }
+    },
+    "AvailabilitySnapshot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "snapshot_id",
+        "source_revision",
+        "observed_at",
+        "valid_until",
+        "capacity",
+        "capacity_unit",
+        "source_ref"
+      ],
+      "properties": {
+        "snapshot_id": {
+          "$ref": "#/$defs/Id"
+        },
+        "source_revision": {
+          "$ref": "#/$defs/Id"
+        },
+        "observed_at": {
+          "$ref": "#/$defs/Timestamp"
+        },
+        "valid_until": {
+          "$ref": "#/$defs/Timestamp"
+        },
+        "capacity": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "capacity_unit": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "source_ref": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048
+        },
+        "uncertainty_note": {
+          "type": "string",
+          "maxLength": 1000
+        }
+      }
+    },
+    "StayIntent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "message_type",
+        "schema_version",
+        "stay_intent_id",
+        "requester_ref",
+        "created_at",
+        "components"
+      ],
+      "properties": {
+        "message_type": {
+          "const": "StayIntent"
+        },
+        "schema_version": {
+          "const": "0.1.0"
+        },
+        "stay_intent_id": {
+          "$ref": "#/$defs/Id"
+        },
+        "requester_ref": {
+          "$ref": "#/$defs/Id"
+        },
+        "created_at": {
+          "$ref": "#/$defs/Timestamp"
+        },
+        "destination_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Id"
+          },
+          "uniqueItems": true
+        },
+        "components": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/ComponentRequest"
+          }
+        },
+        "vessel_configuration_ref": {
+          "$ref": "#/$defs/Id"
+        },
+        "accessibility_requirements": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "policy_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Id"
+          }
+        },
+        "extensions": {
+          "type": "object"
+        }
+      }
+    },
+    "ProviderOffer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "message_type",
+        "schema_version",
+        "offer_id",
+        "provider_ref",
+        "destination_ref",
+        "resource_ref",
+        "resource_kind",
+        "period",
+        "availability",
+        "price",
+        "terms_ref",
+        "issued_at",
+        "expires_at"
+      ],
+      "properties": {
+        "message_type": {
+          "const": "ProviderOffer"
+        },
+        "schema_version": {
+          "const": "0.1.0"
+        },
+        "offer_id": {
+          "$ref": "#/$defs/Id"
+        },
+        "provider_ref": {
+          "$ref": "#/$defs/Id"
+        },
+        "destination_ref": {
+          "$ref": "#/$defs/Id"
+        },
+        "resource_ref": {
+          "$ref": "#/$defs/Id"
+        },
+        "resource_kind": {
+          "enum": [
+            "berth",
+            "accommodation",
+            "service"
+          ]
+        },
+        "period": {
+          "$ref": "#/$defs/Period"
+        },
+        "availability": {
+          "$ref": "#/$defs/AvailabilitySnapshot"
+        },
+        "price": {
+          "$ref": "#/$defs/Money"
+        },
+        "terms_ref": {
+          "$ref": "#/$defs/Id"
+        },
+        "issued_at": {
+          "$ref": "#/$defs/Timestamp"
+        },
+        "expires_at": {
+          "$ref": "#/$defs/Timestamp"
+        },
+        "constraints": {
+          "type": "object"
+        },
+        "extensions": {
+          "type": "object"
+        }
+      }
+    },
+    "ReservationHold": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "message_type",
+        "schema_version",
+        "hold_id",
+        "provider_ref",
+        "offer_ref",
+        "stay_intent_ref",
+        "idempotency_key",
+        "status",
+        "requested_at",
+        "expires_at",
+        "provider_revision"
+      ],
+      "properties": {
+        "message_type": {
+          "const": "ReservationHold"
+        },
+        "schema_version": {
+          "const": "0.1.0"
+        },
+        "hold_id": {
+          "$ref": "#/$defs/Id"
+        },
+        "provider_ref": {
+          "$ref": "#/$defs/Id"
+        },
+        "offer_ref": {
+          "$ref": "#/$defs/Id"
+        },
+        "stay_intent_ref": {
+          "$ref": "#/$defs/Id"
+        },
+        "idempotency_key": {
+          "type": "string",
+          "minLength": 16,
+          "maxLength": 200
+        },
+        "status": {
+          "enum": [
+            "held",
+            "rejected",
+            "expired",
+            "released",
+            "unknown",
+            "disputed"
+          ]
+        },
+        "requested_at": {
+          "$ref": "#/$defs/Timestamp"
+        },
+        "expires_at": {
+          "$ref": "#/$defs/Timestamp"
+        },
+        "provider_revision": {
+          "$ref": "#/$defs/Id"
+        },
+        "effect_receipt_ref": {
+          "$ref": "#/$defs/Id"
+        },
+        "extensions": {
+          "type": "object"
+        }
+      }
+    },
+    "ProviderCommitment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "message_type",
+        "schema_version",
+        "commitment_id",
+        "provider_ref",
+        "stay_intent_ref",
+        "resource_ref",
+        "resource_kind",
+        "period",
+        "status",
+        "committed_at",
+        "provider_revision",
+        "price",
+        "effect_receipt_ref"
+      ],
+      "properties": {
+        "message_type": {
+          "const": "ProviderCommitment"
+        },
+        "schema_version": {
+          "const": "0.1.0"
+        },
+        "commitment_id": {
+          "$ref": "#/$defs/Id"
+        },
+        "provider_ref": {
+          "$ref": "#/$defs/Id"
+        },
+        "stay_intent_ref": {
+          "$ref": "#/$defs/Id"
+        },
+        "resource_ref": {
+          "$ref": "#/$defs/Id"
+        },
+        "resource_kind": {
+          "enum": [
+            "berth",
+            "accommodation",
+            "service"
+          ]
+        },
+        "period": {
+          "$ref": "#/$defs/Period"
+        },
+        "status": {
+          "enum": [
+            "committed",
+            "amended",
+            "released",
+            "cancelled",
+            "disputed",
+            "unknown"
+          ]
+        },
+        "committed_at": {
+          "$ref": "#/$defs/Timestamp"
+        },
+        "provider_revision": {
+          "$ref": "#/$defs/Id"
+        },
+        "price": {
+          "$ref": "#/$defs/Money"
+        },
+        "effect_receipt_ref": {
+          "$ref": "#/$defs/Id"
+        },
+        "hold_ref": {
+          "$ref": "#/$defs/Id"
+        },
+        "terms_ref": {
+          "$ref": "#/$defs/Id"
+        },
+        "extensions": {
+          "type": "object"
+        }
+      }
+    },
+    "EffectReceipt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "message_type",
+        "schema_version",
+        "receipt_id",
+        "provider_ref",
+        "operation_id",
+        "operation_kind",
+        "outcome",
+        "occurred_at",
+        "provider_revision",
+        "idempotency_key",
+        "integrity_digest"
+      ],
+      "properties": {
+        "message_type": {
+          "const": "EffectReceipt"
+        },
+        "schema_version": {
+          "const": "0.1.0"
+        },
+        "receipt_id": {
+          "$ref": "#/$defs/Id"
+        },
+        "provider_ref": {
+          "$ref": "#/$defs/Id"
+        },
+        "operation_id": {
+          "$ref": "#/$defs/Id"
+        },
+        "operation_kind": {
+          "enum": [
+            "hold",
+            "commit",
+            "release",
+            "amend",
+            "cancel",
+            "refund",
+            "check_in",
+            "check_out",
+            "service_complete"
+          ]
+        },
+        "outcome": {
+          "enum": [
+            "applied",
+            "rejected",
+            "conflict",
+            "unknown"
+          ]
+        },
+        "occurred_at": {
+          "$ref": "#/$defs/Timestamp"
+        },
+        "provider_revision": {
+          "$ref": "#/$defs/Id"
+        },
+        "idempotency_key": {
+          "type": "string",
+          "minLength": 16,
+          "maxLength": 200
+        },
+        "integrity_digest": {
+          "type": "string",
+          "pattern": "^sha256:[a-f0-9]{64}$"
+        },
+        "source_record_ref": {
+          "type": "string",
+          "maxLength": 2048
+        },
+        "resource_ref": {
+          "$ref": "#/$defs/Id"
+        },
+        "extensions": {
+          "type": "object"
+        }
+      }
+    },
+    "ManifestComponent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "component_ref",
+        "mandatory",
+        "provider_ref",
+        "resource_kind",
+        "state"
+      ],
+      "properties": {
+        "component_ref": {
+          "$ref": "#/$defs/Id"
+        },
+        "mandatory": {
+          "type": "boolean"
+        },
+        "provider_ref": {
+          "$ref": "#/$defs/Id"
+        },
+        "resource_kind": {
+          "enum": [
+            "berth",
+            "accommodation",
+            "service"
+          ]
+        },
+        "state": {
+          "enum": [
+            "pending",
+            "held",
+            "confirmed",
+            "failed",
+            "expired",
+            "cancelled",
+            "unknown",
+            "disputed"
+          ]
+        },
+        "commitment_ref": {
+          "$ref": "#/$defs/Id"
+        },
+        "last_receipt_ref": {
+          "$ref": "#/$defs/Id"
+        }
+      }
+    },
+    "StayManifest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "message_type",
+        "schema_version",
+        "stay_manifest_id",
+        "stay_intent_ref",
+        "generated_at",
+        "aggregate_state",
+        "components"
+      ],
+      "properties": {
+        "message_type": {
+          "const": "StayManifest"
+        },
+        "schema_version": {
+          "const": "0.1.0"
+        },
+        "stay_manifest_id": {
+          "$ref": "#/$defs/Id"
+        },
+        "stay_intent_ref": {
+          "$ref": "#/$defs/Id"
+        },
+        "generated_at": {
+          "$ref": "#/$defs/Timestamp"
+        },
+        "aggregate_state": {
+          "enum": [
+            "draft",
+            "pending",
+            "partially_confirmed",
+            "confirmed",
+            "partially_cancelled",
+            "cancelled",
+            "expired",
+            "disputed",
+            "unknown"
+          ]
+        },
+        "components": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/ManifestComponent"
+          }
+        },
+        "policy_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Id"
+          }
+        },
+        "extensions": {
+          "type": "object"
+        }
+      }
+    }
+  }
+}
