@@ -269,9 +269,9 @@ pub struct StandardsDependencyLock {
     pub artifacts: Vec<StandardsArtifact>,
 }
 
-fn visit_standards_graph<'a>(
+fn visit_standards_graph(
     artifact_id: &str,
-    artifacts: &BTreeMap<String, &'a StandardsArtifact>,
+    artifacts: &BTreeMap<String, &StandardsArtifact>,
     states: &mut BTreeMap<String, u8>,
 ) -> bool {
     match states.get(artifact_id).copied() {
@@ -832,24 +832,37 @@ pub fn evaluate_money(
             let start = parse_rfc3339(&metadata.effective_from);
             let end = metadata.effective_until.as_deref().and_then(parse_rfc3339);
 
-            if start.is_none() || (metadata.effective_until.is_some() && end.is_none()) {
-                checks.push(Check::unknown(
+            match (start, end, metadata.effective_until.is_some()) {
+                (Some(start), Some(end), true) => {
+                    if effective_at < start || effective_at >= end {
+                        checks.push(Check::reject(
+                            "currency_metadata_not_effective",
+                            "The pinned currency metadata is not effective at the amount's declared transaction time.",
+                        ));
+                    } else {
+                        checks.push(Check::pass(
+                            "currency_metadata_effective",
+                            "The pinned currency metadata is effective at the declared transaction time.",
+                        ));
+                    }
+                }
+                (Some(start), None, false) => {
+                    if effective_at < start {
+                        checks.push(Check::reject(
+                            "currency_metadata_not_effective",
+                            "The pinned currency metadata is not effective at the amount's declared transaction time.",
+                        ));
+                    } else {
+                        checks.push(Check::pass(
+                            "currency_metadata_effective",
+                            "The pinned currency metadata is effective at the declared transaction time.",
+                        ));
+                    }
+                }
+                _ => checks.push(Check::unknown(
                     "currency_metadata_effectivity_unknown",
                     "The metadata effective interval is incomplete or invalid.",
-                ));
-            } else {
-                let start = start.expect("checked above");
-                if effective_at < start || end.is_some_and(|until| effective_at >= until) {
-                    checks.push(Check::reject(
-                        "currency_metadata_not_effective",
-                        "The pinned currency metadata is not effective at the amount's declared transaction time.",
-                    ));
-                } else {
-                    checks.push(Check::pass(
-                        "currency_metadata_effective",
-                        "The pinned currency metadata is effective at the declared transaction time.",
-                    ));
-                }
+                )),
             }
         }
     }
