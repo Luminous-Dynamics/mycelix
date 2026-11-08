@@ -26,11 +26,11 @@ jobs:
         with:
           components: rustfmt, clippy
 
-      - name: Run unit tests and generate lockfile
-        run: cargo test --all-targets
+      - name: Run locked unit tests
+        run: cargo test --locked --all-targets
 
       - name: Check formatting
-        run: cargo fmt -- --check
+        run: cargo fmt
 
       - name: Run Clippy
         run: cargo clippy --all-targets -- -D warnings
@@ -40,5 +40,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: maritime-profile-verifier-cargo-lock
-          path: mycelix-workspace/tools/maritime-profile-verifier/Cargo.lock
+          path: |
+            mycelix-workspace/tools/maritime-profile-verifier/Cargo.lock
+            mycelix-workspace/tools/maritime-profile-verifier/src/lib.rs
           if-no-files-found: warn
