@@ -306,8 +306,8 @@ pub fn evaluate_identifier(
             "The evaluation time must be an RFC 3339 timestamp with an explicit offset.",
         )),
         Some(as_of) => {
-            let valid_from = identifier.valid_from.as_deref().map(parse_rfc3339).flatten();
-            let valid_until = identifier.valid_until.as_deref().map(parse_rfc3339).flatten();
+            let valid_from = identifier.valid_from.as_deref().and_then(parse_rfc3339);
+            let valid_until = identifier.valid_until.as_deref().and_then(parse_rfc3339);
 
             if identifier.valid_from.is_some() && valid_from.is_none() {
                 checks.push(Check::reject(
@@ -418,7 +418,7 @@ pub fn evaluate_money(
         ));
     }
 
-    if amount.metadata_sha256 == "sha256:".to_owned() || !sha256_digest_is_well_formed(&amount.metadata_sha256) {
+    if !sha256_digest_is_well_formed(&amount.metadata_sha256) {
         checks.push(Check::reject(
             "currency_metadata_digest_invalid",
             "The amount must carry a sha256 digest for the exact currency metadata artifact.",
@@ -674,7 +674,7 @@ fn is_decimal_lexeme(value: &str) -> bool {
         return false;
     }
 
-    let start = usize::from(bytes[0] == b'-');
+    let start = if bytes[0] == b'-' { 1 } else { 0 };
     if start == bytes.len() {
         return false;
     }
