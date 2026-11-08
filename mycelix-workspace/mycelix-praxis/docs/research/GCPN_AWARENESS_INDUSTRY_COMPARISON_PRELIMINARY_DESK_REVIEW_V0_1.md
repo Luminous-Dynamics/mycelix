@@ -28,7 +28,7 @@ The implementation verifier's exact-head workflow passed 11 Rust tests, strict s
 
 The strongest design choice is separating downstream event-envelope handling from physical sensor detection. A software evidence layer does not make a radar/RF/optical sensor more capable. Conversely, a sensor with high recall does not establish good evidence provenance, privacy, authorization or human decision quality.
 
-The CWA 18150:2024 reference is appropriate as a methodological pointer, but this Luminous package does not reproduce its copyrighted test method and does not claim conformity. Obtain authorized access to the current standard and a qualified standards review before making any conformity statement.
+The CWA 18150:2024 reference is appropriate as a methodological pointer, but precision matters: it is a CEN Workshop Agreement, and its own foreword says it is not an official standard developed by CEN and its Members. This Luminous package does not reproduce its copyrighted test method and does not claim conformity. Obtain authorized access to the current CWA text and a qualified standards review before making any conformity statement. Source: https://www.cencenelec.eu/media/CEN-CENELEC/CWAs/ICT/cwa-18150.pdf (foreword, pp. 1–2).
 
 ## 3. Strengths observed
 
