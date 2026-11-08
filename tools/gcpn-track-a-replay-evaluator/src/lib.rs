@@ -332,7 +332,8 @@ pub fn evaluate_with_expected_sha256(
     if !blocked.is_empty() {
         let mut results = Vec::with_capacity(bundle.pipelines.len());
         for pipeline in &bundle.pipelines {
-            let violations = pipeline.safety_boundary
+            let violations = pipeline
+                .safety_boundary
                 .violations()
                 .into_iter()
                 .map(str::to_string)
@@ -340,7 +341,11 @@ pub fn evaluate_with_expected_sha256(
             results.push(PipelineEvaluation {
                 pipeline_id: pipeline.pipeline_id.clone(),
                 role: role_name(&pipeline.role).to_string(),
-                status: if violations.is_empty() { "WITHHELD" } else { "BLOCKED" },
+                status: if violations.is_empty() {
+                    "WITHHELD"
+                } else {
+                    "BLOCKED"
+                },
                 boundary_violations: violations,
                 metrics: None,
             });
@@ -480,7 +485,10 @@ fn validate_bundle(bundle: &TrackARunBundle) -> Vec<String> {
             errors.push(format!("invalid_pipeline_sha256:{}", pipeline.pipeline_id));
         }
         if pipeline.case_results.is_empty() {
-            errors.push(format!("pipeline_case_results_empty:{}", pipeline.pipeline_id));
+            errors.push(format!(
+                "pipeline_case_results_empty:{}",
+                pipeline.pipeline_id
+            ));
         }
 
         let mut result_ids = BTreeSet::new();
@@ -603,7 +611,10 @@ fn comparability_reasons(bundle: &TrackARunBundle) -> Vec<String> {
 
     for pipeline in &bundle.pipelines {
         if pipeline.event_set_sha256 != bundle.event_set_sha256 {
-            reasons.push(format!("event_set_digest_mismatch:{}", pipeline.pipeline_id));
+            reasons.push(format!(
+                "event_set_digest_mismatch:{}",
+                pipeline.pipeline_id
+            ));
         }
         if pipeline.operator_policy_sha256 != bundle.operator_policy_sha256 {
             reasons.push(format!("operator_policy_mismatch:{}", pipeline.pipeline_id));
@@ -670,7 +681,9 @@ fn calculate_metrics(
     let mut rights_and_purpose_verified_cases = 0usize;
 
     for result in &pipeline.case_results {
-        let label = *oracle.get(result.case_id.as_str()).expect("case coverage validated");
+        let label = *oracle
+            .get(result.case_id.as_str())
+            .expect("case coverage validated");
         let source = &result.source_evidence;
 
         source_count_total += u64::from(source.source_count);
@@ -878,9 +891,9 @@ fn is_sha256(value: &str) -> bool {
 fn valid_identifier(value: &str) -> bool {
     !value.is_empty()
         && value.len() <= 96
-        && value
-            .bytes()
-            .all(|byte| byte.is_ascii_uppercase() || byte.is_ascii_digit() || byte == b'_' || byte == b'-')
+        && value.bytes().all(|byte| {
+            byte.is_ascii_uppercase() || byte.is_ascii_digit() || byte == b'_' || byte == b'-'
+        })
 }
 
 fn valid_case_id(value: &str) -> bool {
@@ -906,7 +919,7 @@ fn evidence_tier_name(tier: &EvidenceTier) -> &'static str {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use serde_json::{json, Value};
+    use serde_json::{Value, json};
 
     const FIXTURE: &str = include_str!("../fixtures/track_a_synthetic_run.json");
 
@@ -950,7 +963,10 @@ mod tests {
         let metrics = report.pipeline_results[2].metrics.as_ref().unwrap();
         assert_eq!(metrics.unresolved_cases, 2);
         assert_eq!(metrics.unresolved_abstentions, 2);
-        assert_eq!(metrics.confirmed_relevant_cases + metrics.confirmed_benign_cases, 6);
+        assert_eq!(
+            metrics.confirmed_relevant_cases + metrics.confirmed_benign_cases,
+            6
+        );
         assert_eq!(
             metrics.true_positive_events
                 + metrics.false_positive_events
@@ -986,7 +1002,12 @@ mod tests {
         );
         let report = evaluate(changed.as_bytes());
         assert_eq!(report.status, "REJECTED");
-        assert!(report.reasons.iter().any(|reason| reason.starts_with("strict_json_decode:")));
+        assert!(
+            report
+                .reasons
+                .iter()
+                .any(|reason| reason.starts_with("strict_json_decode:"))
+        );
     }
 
     #[test]
@@ -1018,7 +1039,12 @@ mod tests {
         );
         let report = evaluate_value(value);
         assert_eq!(report.status, "INCOMPARABLE");
-        assert!(report.reasons.iter().any(|reason| reason.starts_with("event_set_digest_mismatch:")));
+        assert!(
+            report
+                .reasons
+                .iter()
+                .any(|reason| reason.starts_with("event_set_digest_mismatch:"))
+        );
         assert!(report.pipeline_results.is_empty());
     }
 
@@ -1028,7 +1054,12 @@ mod tests {
         value["pipelines"][1]["case_results"].as_array_mut().unwrap().pop();
         let report = evaluate_value(value);
         assert_eq!(report.status, "INCOMPARABLE");
-        assert!(report.reasons.iter().any(|reason| reason.starts_with("case_coverage_mismatch:")));
+        assert!(
+            report
+                .reasons
+                .iter()
+                .any(|reason| reason.starts_with("case_coverage_mismatch:"))
+        );
     }
 
     #[test]
@@ -1038,7 +1069,12 @@ mod tests {
         value["pipelines"][1]["case_results"].as_array_mut().unwrap().push(duplicate);
         let report = evaluate_value(value);
         assert_eq!(report.status, "REJECTED");
-        assert!(report.reasons.iter().any(|reason| reason.starts_with("duplicate_pipeline_case_id:")));
+        assert!(
+            report
+                .reasons
+                .iter()
+                .any(|reason| reason.starts_with("duplicate_pipeline_case_id:"))
+        );
     }
 
     #[test]
@@ -1047,8 +1083,18 @@ mod tests {
         value["pipelines"][0]["safety_boundary"]["operator_location_export_count"] = json!(1);
         let report = evaluate_value(value);
         assert_eq!(report.status, "BLOCKED");
-        assert!(report.pipeline_results.iter().all(|pipeline| pipeline.metrics.is_none()));
-        assert!(report.pipeline_results.iter().any(|pipeline| pipeline.status == "BLOCKED"));
+        assert!(
+            report
+                .pipeline_results
+                .iter()
+                .all(|pipeline| pipeline.metrics.is_none())
+        );
+        assert!(
+            report
+                .pipeline_results
+                .iter()
+                .any(|pipeline| pipeline.status == "BLOCKED")
+        );
     }
 
     #[test]
@@ -1058,7 +1104,12 @@ mod tests {
         let report = evaluate_value(value);
         assert_eq!(report.status, "REJECTED");
         // Validation of the label/probability relationship is enforced below.
-        assert!(report.reasons.iter().any(|reason| reason.contains("unresolved_probability")));
+        assert!(
+            report
+                .reasons
+                .iter()
+                .any(|reason| reason.contains("unresolved_probability"))
+        );
     }
 
     #[test]
@@ -1067,7 +1118,12 @@ mod tests {
         value["pipelines"][0]["case_results"][0]["source_evidence"]["authenticated_source_count"] = json!(3);
         let report = evaluate_value(value);
         assert_eq!(report.status, "REJECTED");
-        assert!(report.reasons.iter().any(|reason| reason.contains("source_quality_count_exceeds_source_count")));
+        assert!(
+            report
+                .reasons
+                .iter()
+                .any(|reason| reason.contains("source_quality_count_exceeds_source_count"))
+        );
     }
 
     #[test]
@@ -1077,9 +1133,12 @@ mod tests {
         value["simulation_only"] = json!(false);
         let report = evaluate_value(value);
         assert_eq!(report.status, "REJECTED");
-        assert!(report.reasons.iter().any(|reason| {
-            reason == "controlled_replay_review_receipts_missing_or_invalid"
-        }));
+        assert!(
+            report
+                .reasons
+                .iter()
+                .any(|reason| { reason == "controlled_replay_review_receipts_missing_or_invalid" })
+        );
     }
 
     #[test]
@@ -1088,7 +1147,12 @@ mod tests {
         value["ground_truth_independent"] = json!(false);
         let report = evaluate_value(value);
         assert_eq!(report.status, "INCOMPARABLE");
-        assert!(report.reasons.iter().any(|reason| reason == "ground_truth_independence_not_established"));
+        assert!(
+            report
+                .reasons
+                .iter()
+                .any(|reason| reason == "ground_truth_independence_not_established")
+        );
     }
 
     #[test]
@@ -1097,6 +1161,11 @@ mod tests {
         value["track_id"] = json!("TRACK_B");
         let report = evaluate_value(value);
         assert_eq!(report.status, "REJECTED");
-        assert!(report.reasons.iter().any(|reason| reason == "unsupported_track_for_this_evaluator"));
+        assert!(
+            report
+                .reasons
+                .iter()
+                .any(|reason| reason == "unsupported_track_for_this_evaluator")
+        );
     }
 }
