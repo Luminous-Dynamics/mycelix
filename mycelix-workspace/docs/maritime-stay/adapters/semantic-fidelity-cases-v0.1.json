@@ -1,0 +1,743 @@
+{
+  "corpus_id": "MCB-ADAPTER-FIDELITY-0.1",
+  "profile_id": "maritime-adapter-semantic-fidelity-0.1",
+  "status": "synthetic_scenario_manifest_not_executed",
+  "parent_issue": 5963,
+  "mapping_ledger_schema": "mycelix-workspace/docs/maritime-stay/global/adapter-mapping-ledger-v0.1.schema.json",
+  "claim_ceiling": "Declarative synthetic scenario definitions only. They are not executable byte vectors, provider payloads, adapter results, source-authenticity evidence, legal assessments, or field interoperability results.",
+  "scenario_count": 50,
+  "invariants": [
+    "SF-01",
+    "SF-02",
+    "SF-03",
+    "SF-04",
+    "SF-05",
+    "SF-06",
+    "SF-07",
+    "SF-08",
+    "SF-09",
+    "SF-10"
+  ],
+  "cases": [
+    {
+      "case_id": "AF-001",
+      "family": "identity_scope",
+      "case_kind": "positive_control",
+      "source_claim": "Provider-issued berth identifier bound to the exact provider and facility maps to the same berth subject.",
+      "target_attempt": "Target retains issuer, facility, resource type and identifier value.",
+      "mapping_class": "exact",
+      "expected_disposition": "preserve",
+      "invariant_ids": [
+        "SF-01"
+      ],
+      "setup": "Positive control for exact resource identity preservation.",
+      "negative_control": "A bare identifier without issuer or resource type must not pass."
+    },
+    {
+      "case_id": "AF-002",
+      "family": "identity_scope",
+      "case_kind": "positive_control",
+      "source_claim": "Small craft has a valid national registry identifier but no IMO number.",
+      "target_attempt": "Target retains the national scheme, issuer and vessel subject without requiring an IMO number.",
+      "mapping_class": "lossless_transform",
+      "expected_disposition": "preserve",
+      "invariant_ids": [
+        "SF-01"
+      ],
+      "setup": "Valid scheme-qualified small-craft identity remains representable.",
+      "negative_control": "Do not synthesize an IMO number."
+    },
+    {
+      "case_id": "AF-003",
+      "family": "identity_scope",
+      "case_kind": "negative_control",
+      "source_claim": "A UN/LOCODE identifies a port or trade location.",
+      "target_attempt": "Target attempts to bind that code to one specific marina berth.",
+      "mapping_class": "exact",
+      "expected_disposition": "reject",
+      "invariant_ids": [
+        "SF-01"
+      ],
+      "setup": "Port-level place identity is not a berth identity.",
+      "negative_control": "No inferred facility or slip specificity."
+    },
+    {
+      "case_id": "AF-004",
+      "family": "identity_scope",
+      "case_kind": "negative_control",
+      "source_claim": "An IMO company or registered-owner identifier is supplied for an organization.",
+      "target_attempt": "Target attempts to treat it as a vessel identifier.",
+      "mapping_class": "exact",
+      "expected_disposition": "reject",
+      "invariant_ids": [
+        "SF-01"
+      ],
+      "setup": "Subject type mismatch must be rejected.",
+      "negative_control": "Do not coerce organization subject to vessel subject."
+    },
+    {
+      "case_id": "AF-005",
+      "family": "identity_scope",
+      "case_kind": "ambiguity_control",
+      "source_claim": "A vessel display name and call sign are supplied without a verified issuer-scoped identifier.",
+      "target_attempt": "Target attempts to merge records as one immutable vessel.",
+      "mapping_class": "ambiguous",
+      "expected_disposition": "unknown",
+      "invariant_ids": [
+        "SF-01"
+      ],
+      "setup": "Names and call signs alone do not establish universal immutable identity.",
+      "negative_control": "Do not use fuzzy matching to manufacture identity."
+    },
+    {
+      "case_id": "AF-006",
+      "family": "identity_scope",
+      "case_kind": "negative_control",
+      "source_claim": "An issuer-scoped identifier is reassigned under the issuing scheme's lifecycle rules.",
+      "target_attempt": "Target reuses the current subject binding for a historical event.",
+      "mapping_class": "exact",
+      "expected_disposition": "conflict",
+      "invariant_ids": [
+        "SF-01"
+      ],
+      "setup": "Historical and current subject bindings must remain distinct.",
+      "negative_control": "Preserve temporal identifier lineage."
+    },
+    {
+      "case_id": "AF-007",
+      "family": "authority_stage",
+      "case_kind": "negative_control",
+      "source_claim": "Provider emits a signed reservation.updated notification.",
+      "target_attempt": "Target projects it as fresh live availability.",
+      "mapping_class": "exact",
+      "expected_disposition": "reject",
+      "invariant_ids": [
+        "SF-02"
+      ],
+      "setup": "Webhook authenticity does not turn notification into live availability.",
+      "negative_control": "Require separate current availability evidence."
+    },
+    {
+      "case_id": "AF-008",
+      "family": "authority_stage",
+      "case_kind": "negative_control",
+      "source_claim": "Provider emits an offer with conditions and expiry.",
+      "target_attempt": "Target projects the offer as a provider commitment.",
+      "mapping_class": "exact",
+      "expected_disposition": "reject",
+      "invariant_ids": [
+        "SF-02"
+      ],
+      "setup": "Offer and commitment are different operational stages.",
+      "negative_control": "No offer-to-confirmed transition."
+    },
+    {
+      "case_id": "AF-009",
+      "family": "authority_stage",
+      "case_kind": "positive_control",
+      "source_claim": "Provider emits a provider commitment for a specific resource and interval.",
+      "target_attempt": "Target preserves the commitment and its source authority without upgrading it to legal permission or physical fulfilment.",
+      "mapping_class": "lossless_transform",
+      "expected_disposition": "preserve",
+      "invariant_ids": [
+        "SF-02"
+      ],
+      "setup": "Positive control for correctly scoped provider commitment.",
+      "negative_control": "No government or physical-truth promotion."
+    },
+    {
+      "case_id": "AF-010",
+      "family": "authority_stage",
+      "case_kind": "negative_control",
+      "source_claim": "Private StayManifest is presented as proof of a Maritime Single Window filing or clearance.",
+      "target_attempt": "Target claims a government submission or clearance.",
+      "mapping_class": "exact",
+      "expected_disposition": "reject",
+      "invariant_ids": [
+        "SF-02"
+      ],
+      "setup": "Private coordination artifacts cannot impersonate public authority records.",
+      "negative_control": "Separate submission, acknowledgement, acceptance and clearance."
+    },
+    {
+      "case_id": "AF-011",
+      "family": "authority_stage",
+      "case_kind": "negative_control",
+      "source_claim": "IHO S-131 harbour/service feature is present in a pinned product dataset.",
+      "target_attempt": "Target projects it as current reservable berth inventory.",
+      "mapping_class": "exact",
+      "expected_disposition": "reject",
+      "invariant_ids": [
+        "SF-02"
+      ],
+      "setup": "Harbour infrastructure information is not provider live inventory.",
+      "negative_control": "Require provider-owned availability and commitment."
+    },
+    {
+      "case_id": "AF-012",
+      "family": "authority_stage",
+      "case_kind": "negative_control",
+      "source_claim": "IHO S-127 traffic-management feature is present.",
+      "target_attempt": "Target projects it as port-entry clearance or berth booking authority.",
+      "mapping_class": "exact",
+      "expected_disposition": "reject",
+      "invariant_ids": [
+        "SF-02"
+      ],
+      "setup": "Traffic-management information cannot confer clearance or booking authority.",
+      "negative_control": "Preserve product claim ceiling."
+    },
+    {
+      "case_id": "AF-013",
+      "family": "currentness",
+      "case_kind": "negative_control",
+      "source_claim": "A provider availability snapshot is outside its validity interval.",
+      "target_attempt": "Target marks the resource available now.",
+      "mapping_class": "exact",
+      "expected_disposition": "reject",
+      "invariant_ids": [
+        "SF-03"
+      ],
+      "setup": "Stale snapshot cannot become current availability.",
+      "negative_control": "Do not substitute receipt time for source currentness."
+    },
+    {
+      "case_id": "AF-014",
+      "family": "currentness",
+      "case_kind": "negative_control",
+      "source_claim": "A webhook is delivered now but its source event time is old.",
+      "target_attempt": "Target uses delivery time as the availability observation time.",
+      "mapping_class": "exact",
+      "expected_disposition": "reject",
+      "invariant_ids": [
+        "SF-03"
+      ],
+      "setup": "Delivery time and event/source time are distinct.",
+      "negative_control": "Preserve each timestamp role."
+    },
+    {
+      "case_id": "AF-015",
+      "family": "currentness",
+      "case_kind": "ambiguity_control",
+      "source_claim": "Two source events conflict on reservation state and source revision order is unknown.",
+      "target_attempt": "Target uses last arrival wins and reports confirmed.",
+      "mapping_class": "ambiguous",
+      "expected_disposition": "conflict",
+      "invariant_ids": [
+        "SF-03"
+      ],
+      "setup": "Arrival order cannot substitute for source revision semantics.",
+      "negative_control": "Retain conflict pending source reconciliation."
+    },
+    {
+      "case_id": "AF-016",
+      "family": "uncertainty",
+      "case_kind": "negative_control",
+      "source_claim": "Source uses an enum value unknown to the adapter version.",
+      "target_attempt": "Target defaults the unknown value to available.",
+      "mapping_class": "unsupported",
+      "expected_disposition": "quarantine",
+      "invariant_ids": [
+        "SF-04"
+      ],
+      "setup": "Unknown source values must not be converted into positive states.",
+      "negative_control": "Preserve opaque value or quarantine."
+    },
+    {
+      "case_id": "AF-017",
+      "family": "uncertainty",
+      "case_kind": "ambiguity_control",
+      "source_claim": "Source omits a field because it was not supplied.",
+      "target_attempt": "Target interprets omission as an explicit false or zero.",
+      "mapping_class": "ambiguous",
+      "expected_disposition": "unknown",
+      "invariant_ids": [
+        "SF-04"
+      ],
+      "setup": "Absence must remain distinct from explicit false/zero.",
+      "negative_control": "No implicit default."
+    },
+    {
+      "case_id": "AF-018",
+      "family": "nullability",
+      "case_kind": "negative_control",
+      "source_claim": "Source distinguishes absent, explicit null, empty string and empty array.",
+      "target_attempt": "Target normalizes all four to one empty value.",
+      "mapping_class": "exact",
+      "expected_disposition": "reject",
+      "invariant_ids": [
+        "SF-04"
+      ],
+      "setup": "Distinct source states must not be collapsed where decision-relevant.",
+      "negative_control": "Retain null/absence/cardinality semantics."
+    },
+    {
+      "case_id": "AF-019",
+      "family": "uncertainty",
+      "case_kind": "negative_control",
+      "source_claim": "Source marks a capacity value as partial or estimated.",
+      "target_attempt": "Target emits an exact complete capacity assertion.",
+      "mapping_class": "exact",
+      "expected_disposition": "reject",
+      "invariant_ids": [
+        "SF-04"
+      ],
+      "setup": "Completeness and uncertainty cannot be strengthened.",
+      "negative_control": "Preserve estimate/coverage metadata."
+    },
+    {
+      "case_id": "AF-020",
+      "family": "event_identity",
+      "case_kind": "negative_control",
+      "source_claim": "Same logical provider event is delivered repeatedly with distinct delivery attempts.",
+      "target_attempt": "Target creates multiple independent logical reservation changes.",
+      "mapping_class": "ambiguous",
+      "expected_disposition": "conflict",
+      "invariant_ids": [
+        "SF-08"
+      ],
+      "setup": "Delivery attempt identity and logical event identity must remain distinct.",
+      "negative_control": "Deduplication requires provider-defined identity semantics."
+    },
+    {
+      "case_id": "AF-021",
+      "family": "currency",
+      "case_kind": "negative_control",
+      "source_claim": "Pinned ISO 4217 metadata identifies a currency with zero minor-unit exponent.",
+      "target_attempt": "Target assumes two decimal places.",
+      "mapping_class": "exact",
+      "expected_disposition": "reject",
+      "invariant_ids": [
+        "SF-06"
+      ],
+      "setup": "Currency exponent must come from exact metadata.",
+      "negative_control": "No universal two-decimal assumption."
+    },
+    {
+      "case_id": "AF-022",
+      "family": "currency",
+      "case_kind": "negative_control",
+      "source_claim": "Pinned ISO 4217 metadata identifies a currency with three minor-unit exponent.",
+      "target_attempt": "Target assumes two decimal places.",
+      "mapping_class": "exact",
+      "expected_disposition": "reject",
+      "invariant_ids": [
+        "SF-06"
+      ],
+      "setup": "Currency exponent must come from exact metadata.",
+      "negative_control": "No universal two-decimal assumption."
+    },
+    {
+      "case_id": "AF-023",
+      "family": "currency",
+      "case_kind": "negative_control",
+      "source_claim": "Historical quote references a dated currency metadata artifact.",
+      "target_attempt": "Target reinterprets the amount using a newer metadata snapshot.",
+      "mapping_class": "exact",
+      "expected_disposition": "reject",
+      "invariant_ids": [
+        "SF-06"
+      ],
+      "setup": "Historical amount meaning must remain bound to effective metadata.",
+      "negative_control": "No mutable-latest reinterpretation."
+    },
+    {
+      "case_id": "AF-024",
+      "family": "currency",
+      "case_kind": "negative_control",
+      "source_claim": "Same monetary amount is rendered under two locales with different grouping and decimal separators.",
+      "target_attempt": "Target canonical monetary amount changes when locale changes.",
+      "mapping_class": "exact",
+      "expected_disposition": "reject",
+      "invariant_ids": [
+        "SF-06"
+      ],
+      "setup": "Locale formatting is presentation only.",
+      "negative_control": "Canonical value and metadata binding remain unchanged."
+    },
+    {
+      "case_id": "AF-025",
+      "family": "fx_refund",
+      "case_kind": "ambiguity_control",
+      "source_claim": "Quote currency differs from settlement currency and no FX evidence is supplied.",
+      "target_attempt": "Target silently converts using an unstated rate.",
+      "mapping_class": "ambiguous",
+      "expected_disposition": "unknown",
+      "invariant_ids": [
+        "SF-06",
+        "SF-02"
+      ],
+      "setup": "Quote and settlement currencies are distinct; conversion requires evidence.",
+      "negative_control": "No implicit FX."
+    },
+    {
+      "case_id": "AF-026",
+      "family": "fx_refund",
+      "case_kind": "positive_control",
+      "source_claim": "FX rate has declared base, quote, direction, timestamp, source and precision.",
+      "target_attempt": "Target performs the conversion using the exact declared direction and records rounding.",
+      "mapping_class": "lossless_transform",
+      "expected_disposition": "preserve",
+      "invariant_ids": [
+        "SF-06",
+        "SF-02"
+      ],
+      "setup": "Positive control for evidence-bound FX derivation.",
+      "negative_control": "Inverse-rate mutation must fail."
+    },
+    {
+      "case_id": "AF-027",
+      "family": "fx_refund",
+      "case_kind": "negative_control",
+      "source_claim": "Refund request was accepted but no payment-rail refund execution/finality evidence exists.",
+      "target_attempt": "Target reports refund settled or final.",
+      "mapping_class": "exact",
+      "expected_disposition": "reject",
+      "invariant_ids": [
+        "SF-06",
+        "SF-02"
+      ],
+      "setup": "A refund request or signed provider message is not refund finality.",
+      "negative_control": "Keep request, attempt, effect and finality separate."
+    },
+    {
+      "case_id": "AF-028",
+      "family": "fx_refund",
+      "case_kind": "ambiguity_control",
+      "source_claim": "Tax-inclusive source amount is mapped to tax-exclusive target line item without tax evidence.",
+      "target_attempt": "Target reports the net amount as authoritative.",
+      "mapping_class": "ambiguous",
+      "expected_disposition": "unknown",
+      "invariant_ids": [
+        "SF-06",
+        "SF-02"
+      ],
+      "setup": "Tax semantics cannot be inferred from the numeric amount alone.",
+      "negative_control": "Require source tax/fee meaning and reviewed mapping."
+    },
+    {
+      "case_id": "AF-029",
+      "family": "units",
+      "case_kind": "negative_control",
+      "source_claim": "Source quantity is in power units (W); target field expects energy (Wh).",
+      "target_attempt": "Target copies the numeric value and changes only the unit label.",
+      "mapping_class": "exact",
+      "expected_disposition": "reject",
+      "invariant_ids": [
+        "SF-05"
+      ],
+      "setup": "Power and energy are different dimensions.",
+      "negative_control": "Require a valid time integral and its provenance."
+    },
+    {
+      "case_id": "AF-030",
+      "family": "units",
+      "case_kind": "positive_control",
+      "source_claim": "Source length is in feet; target requires metres and declares exact conversion, precision and rounding.",
+      "target_attempt": "Target retains source quantity and conversion lineage and produces the declared result.",
+      "mapping_class": "lossless_transform",
+      "expected_disposition": "preserve",
+      "invariant_ids": [
+        "SF-05"
+      ],
+      "setup": "Positive control for a correctly bounded unit conversion.",
+      "negative_control": "Changing precision must alter the derived representation but not erase source value."
+    },
+    {
+      "case_id": "AF-031",
+      "family": "units",
+      "case_kind": "negative_control",
+      "source_claim": "Source mass is mapped to waste volume without density or material-specific evidence.",
+      "target_attempt": "Target emits a volume value as exact.",
+      "mapping_class": "exact",
+      "expected_disposition": "reject",
+      "invariant_ids": [
+        "SF-05"
+      ],
+      "setup": "Mass-to-volume needs additional evidence and assumptions.",
+      "negative_control": "No dimension laundering."
+    },
+    {
+      "case_id": "AF-032",
+      "family": "units",
+      "case_kind": "positive_control",
+      "source_claim": "Source speed in knots is converted to kilometres per hour using a pinned conversion implementation.",
+      "target_attempt": "Target preserves source value/unit, target value/unit, transform digest and rounding.",
+      "mapping_class": "lossless_transform",
+      "expected_disposition": "preserve",
+      "invariant_ids": [
+        "SF-05"
+      ],
+      "setup": "Positive control for a typed unit transform.",
+      "negative_control": "A unit label change without numeric transform must fail."
+    },
+    {
+      "case_id": "AF-033",
+      "family": "temporal",
+      "case_kind": "negative_control",
+      "source_claim": "A local deadline is a date-only value in the provider's locale and zone context.",
+      "target_attempt": "Target converts it to midnight UTC.",
+      "mapping_class": "exact",
+      "expected_disposition": "reject",
+      "invariant_ids": [
+        "SF-07"
+      ],
+      "setup": "Date-only values are not instants.",
+      "negative_control": "Preserve calendar date and applicable local policy context."
+    },
+    {
+      "case_id": "AF-034",
+      "family": "temporal",
+      "case_kind": "ambiguity_control",
+      "source_claim": "A local arrival time falls in a daylight-saving fold and no disambiguation evidence exists.",
+      "target_attempt": "Target silently selects the earlier offset.",
+      "mapping_class": "ambiguous",
+      "expected_disposition": "unknown",
+      "invariant_ids": [
+        "SF-07"
+      ],
+      "setup": "Fold ambiguity requires an explicit disposition.",
+      "negative_control": "No silent fold resolution."
+    },
+    {
+      "case_id": "AF-035",
+      "family": "temporal",
+      "case_kind": "negative_control",
+      "source_claim": "A local arrival time falls in a daylight-saving gap.",
+      "target_attempt": "Target silently shifts it to the next valid instant.",
+      "mapping_class": "exact",
+      "expected_disposition": "reject",
+      "invariant_ids": [
+        "SF-07"
+      ],
+      "setup": "Gap handling is a policy decision and must be explicit.",
+      "negative_control": "No silent gap repair."
+    },
+    {
+      "case_id": "AF-036",
+      "family": "temporal",
+      "case_kind": "negative_control",
+      "source_claim": "A timestamp uses a quarter-hour UTC offset and a named IANA zone.",
+      "target_attempt": "Target rounds the offset to the nearest half-hour.",
+      "mapping_class": "exact",
+      "expected_disposition": "reject",
+      "invariant_ids": [
+        "SF-07"
+      ],
+      "setup": "Unusual offsets must be preserved exactly.",
+      "negative_control": "No offset truncation or rounding."
+    },
+    {
+      "case_id": "AF-037",
+      "family": "temporal",
+      "case_kind": "negative_control",
+      "source_claim": "A future local schedule was interpreted under a pinned tzdb version; tzdb later changes.",
+      "target_attempt": "Target rewrites the historical source lexeme and original UTC interpretation without preserving the old evidence.",
+      "mapping_class": "exact",
+      "expected_disposition": "reject",
+      "invariant_ids": [
+        "SF-07"
+      ],
+      "setup": "Historical evidence is immutable; future schedule evaluation may be requalified.",
+      "negative_control": "Preserve prior tzdb binding and new evaluation separately."
+    },
+    {
+      "case_id": "AF-038",
+      "family": "localization",
+      "case_kind": "negative_control",
+      "source_claim": "Source contains Arabic right-to-left text adjacent to Latin identifiers and digits.",
+      "target_attempt": "Target reorders or alters the source string during canonical semantic mapping.",
+      "mapping_class": "exact",
+      "expected_disposition": "reject",
+      "invariant_ids": [
+        "SF-07",
+        "SF-09"
+      ],
+      "setup": "Display direction must not rewrite source evidence or identifier bytes.",
+      "negative_control": "Preserve exact source text and separate display metadata."
+    },
+    {
+      "case_id": "AF-039",
+      "family": "localization",
+      "case_kind": "negative_control",
+      "source_claim": "Two source strings are canonically equivalent Unicode sequences but are not byte-identical.",
+      "target_attempt": "Target silently rewrites signed source bytes during evidence preservation.",
+      "mapping_class": "exact",
+      "expected_disposition": "reject",
+      "invariant_ids": [
+        "SF-07",
+        "SF-09"
+      ],
+      "setup": "Unicode normalization policy must be explicit and source bytes retained.",
+      "negative_control": "Display normalization cannot mutate signed evidence."
+    },
+    {
+      "case_id": "AF-040",
+      "family": "localization",
+      "case_kind": "negative_control",
+      "source_claim": "Machine translation of a cancellation clause has no competent human review.",
+      "target_attempt": "Target promotes the translation to authoritative provider terms.",
+      "mapping_class": "exact",
+      "expected_disposition": "reject",
+      "invariant_ids": [
+        "SF-07",
+        "SF-09"
+      ],
+      "setup": "Translation is a derived artifact, not automatically authoritative.",
+      "negative_control": "Preserve source language and translation review status."
+    },
+    {
+      "case_id": "AF-041",
+      "family": "localization",
+      "case_kind": "negative_control",
+      "source_claim": "Provider source language differs from the user's preferred language and no reviewed translation exists.",
+      "target_attempt": "Target silently falls back and records the user as having accepted the terms.",
+      "mapping_class": "exact",
+      "expected_disposition": "reject",
+      "invariant_ids": [
+        "SF-07",
+        "SF-09"
+      ],
+      "setup": "Fallback and comprehension are distinct from authoritative terms and consent.",
+      "negative_control": "No silent language fallback for material terms."
+    },
+    {
+      "case_id": "AF-042",
+      "family": "provenance",
+      "case_kind": "positive_control",
+      "source_claim": "A canonical target assertion is created from a provider source event and a named deterministic transform.",
+      "target_attempt": "Target retains source event, source profile pin, transform version and output digest.",
+      "mapping_class": "lossless_transform",
+      "expected_disposition": "preserve",
+      "invariant_ids": [
+        "SF-08"
+      ],
+      "setup": "Positive control for complete lineage.",
+      "negative_control": "Removing any required reference makes the dependent claim NotEvaluable."
+    },
+    {
+      "case_id": "AF-043",
+      "family": "provenance",
+      "case_kind": "negative_control",
+      "source_claim": "A source event is corrected by a later provider event.",
+      "target_attempt": "Target overwrites the old event instead of adding a supersession link.",
+      "mapping_class": "exact",
+      "expected_disposition": "reject",
+      "invariant_ids": [
+        "SF-08"
+      ],
+      "setup": "Correction must not erase historical evidence.",
+      "negative_control": "Retain prior assertion and correction relationship."
+    },
+    {
+      "case_id": "AF-044",
+      "family": "privacy",
+      "case_kind": "negative_control",
+      "source_claim": "Source event includes customer contact fields outside the approved projection purpose.",
+      "target_attempt": "Target emits those fields to a public provider directory.",
+      "mapping_class": "exact",
+      "expected_disposition": "reject",
+      "invariant_ids": [
+        "SF-09"
+      ],
+      "setup": "Adapter mapping must not expand disclosure purpose.",
+      "negative_control": "Zero unauthorized field disclosure."
+    },
+    {
+      "case_id": "AF-045",
+      "family": "privacy",
+      "case_kind": "negative_control",
+      "source_claim": "A source identifier is hashed before publication but the downstream purpose is not authorized.",
+      "target_attempt": "Target treats hashing as sufficient authority to disclose and reuse it.",
+      "mapping_class": "exact",
+      "expected_disposition": "reject",
+      "invariant_ids": [
+        "SF-09"
+      ],
+      "setup": "Pseudonymization does not itself authorize processing or disclosure.",
+      "negative_control": "Purpose and recognition remain independently required."
+    },
+    {
+      "case_id": "AF-046",
+      "family": "reversibility",
+      "case_kind": "negative_control",
+      "source_claim": "A mapping drops the source timezone and claims exact round-trip recovery.",
+      "target_attempt": "Target declares exact_round_trip despite the lost zone information.",
+      "mapping_class": "lossy_declared",
+      "expected_disposition": "reject",
+      "invariant_ids": [
+        "SF-10"
+      ],
+      "setup": "A lost dimension cannot be exactly reconstructed from a target that no longer carries it.",
+      "negative_control": "Require lossy declaration and prohibit unsupported reconstruction."
+    },
+    {
+      "case_id": "AF-047",
+      "family": "reversibility",
+      "case_kind": "positive_control",
+      "source_claim": "A mapping aggregates several source records and declares which record-level distinctions are lost.",
+      "target_attempt": "Target labels the operation lossy_declared and keeps references to all source records.",
+      "mapping_class": "lossy_declared",
+      "expected_disposition": "preserve_with_loss",
+      "invariant_ids": [
+        "SF-10"
+      ],
+      "setup": "Explicit bounded loss can be represented without pretending it is reversible.",
+      "negative_control": "Dependent claims requiring record distinctions remain unavailable."
+    },
+    {
+      "case_id": "AF-048",
+      "family": "versioning",
+      "case_kind": "negative_control",
+      "source_claim": "Source profile digest changes while adapter continues to claim the earlier profile version.",
+      "target_attempt": "Target accepts the new source under the old pinned mapping without requalification.",
+      "mapping_class": "exact",
+      "expected_disposition": "conflict",
+      "invariant_ids": [
+        "SF-08"
+      ],
+      "setup": "Profile version and digest are part of the mapping identity.",
+      "negative_control": "No silent latest alias."
+    },
+    {
+      "case_id": "AF-049",
+      "family": "metamorphic",
+      "case_kind": "metamorphic_control",
+      "source_claim": "Two source payloads differ only in object-member ordering and insignificant whitespace under the declared source format.",
+      "target_attempt": "Target semantic projection differs between the two inputs.",
+      "mapping_class": "lossless_transform",
+      "expected_disposition": "reject",
+      "invariant_ids": [
+        "SF-10"
+      ],
+      "setup": "Representation-only changes must not create semantic drift.",
+      "negative_control": "Metamorphic pair must have equivalent target meaning.",
+      "metamorphic_group": "json-order-whitespace"
+    },
+    {
+      "case_id": "AF-050",
+      "family": "metamorphic",
+      "case_kind": "metamorphic_control",
+      "source_claim": "A deterministic adapter is applied twice to its own declared canonical projection.",
+      "target_attempt": "Second application introduces new defaults, drops provenance or changes authority stage.",
+      "mapping_class": "lossless_transform",
+      "expected_disposition": "reject",
+      "invariant_ids": [
+        "SF-10"
+      ],
+      "setup": "Repeated application must not accumulate semantic drift.",
+      "negative_control": "Idempotence is scoped to the declared projection/equivalence relation.",
+      "metamorphic_group": "adapter-repeat"
+    }
+  ],
+  "execution_status": {
+    "executed": false,
+    "exact_source_target_artifact_pins": false,
+    "materialized_byte_vectors": false,
+    "independent_oracle": false,
+    "rust_evaluator": false,
+    "mutation_campaign": false,
+    "provider_samples_authorized": false,
+    "field_evaluation": false
+  }
+}
