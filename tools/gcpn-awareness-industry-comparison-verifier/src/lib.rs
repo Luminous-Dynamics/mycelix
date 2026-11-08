@@ -12,7 +12,7 @@ pub const SCHEMA: &str = "luminous.gcpn.awareness_industry_comparison.v0.1";
 pub const STATUS: &str = "synthetic_comparison_protocol_only";
 pub const CLAIM_CEILING: &str = "comparison_manifest_integrity_and_synthetic_track_semantics_only";
 pub const EXPECTED_FIXTURE_SHA256: &str =
-    "3fca74480cef7802e0fd0fddcd97949a0593c6a873f97c195d4250bd88034678";
+    "4a66a0d631580eeba82b567821b0be692e2857ff1317b677945362a7d08a1173";
 
 #[derive(Clone, Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
