@@ -1,0 +1,164 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Luminous-Dynamics/mycelix/blob/main/docs/research/schema/CIV_IMPACT_RUN_CENSUS_V0_1.schema.json",
+  "title": "CIV-IMPACT-001 Run Census Result File",
+  "description": "Result record contract for the civ-impact-census Rust tool. Schema validity proves shape only, not truthful measurement or economic benefit.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "manifest_version",
+    "benchmark_id",
+    "scenario_set_sha256",
+    "schedule_artifact_sha256",
+    "runs"
+  ],
+  "properties": {
+    "manifest_version": {
+      "const": "0.1"
+    },
+    "benchmark_id": {
+      "const": "CIV-IMPACT-SYNTH-001"
+    },
+    "scenario_set_sha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "runs": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/runResult"
+      }
+    },
+    "schedule_artifact_sha256": {
+      "$ref": "#/$defs/sha256"
+    }
+  },
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-fA-F0-9]{64}$"
+    },
+    "nonNegativeInteger": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "runResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "run_id",
+        "scenario_id",
+        "seed",
+        "arm_id",
+        "disposition",
+        "metrics",
+        "failure_reason"
+      ],
+      "properties": {
+        "run_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "scenario_id": {
+          "type": "string",
+          "pattern": "^syn-transport-[0-9]{4,}$"
+        },
+        "seed": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "arm_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "disposition": {
+          "type": "string",
+          "enum": [
+            "completed",
+            "invalid_input",
+            "timeout",
+            "non_converged",
+            "missing_output",
+            "evaluator_error"
+          ]
+        },
+        "metrics": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/runMetrics"
+            }
+          ]
+        },
+        "failure_reason": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string",
+              "minLength": 1
+            }
+          ]
+        }
+      }
+    },
+    "runMetrics": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "observed_demand_units",
+        "served_units",
+        "compute_cost_microcredits",
+        "operational_cost_microcredits",
+        "capital_amortization_cost_microcredits",
+        "data_cost_microcredits",
+        "integration_cost_microcredits",
+        "human_review_cost_microcredits",
+        "coordination_cost_microcredits",
+        "failure_recovery_cost_microcredits",
+        "total_cost_microcredits",
+        "completion_latency_ms"
+      ],
+      "properties": {
+        "observed_demand_units": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "served_units": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "compute_cost_microcredits": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "data_cost_microcredits": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "integration_cost_microcredits": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "human_review_cost_microcredits": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "coordination_cost_microcredits": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "failure_recovery_cost_microcredits": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "total_cost_microcredits": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "completion_latency_ms": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "operational_cost_microcredits": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "capital_amortization_cost_microcredits": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        }
+      }
+    }
+  }
+}
