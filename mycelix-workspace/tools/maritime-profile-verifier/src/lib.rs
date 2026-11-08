@@ -1774,6 +1774,32 @@ mod tests {
     }
 
     #[test]
+    fn aggregate_disposition_uses_non_compensatory_highest_severity() {
+        let report = ValidationReport::from_checks(vec![
+            Check::pass("safe", "A local check passed."),
+            Check::not_evaluable("scope", "A separate claim is outside this verifier."),
+            Check::unknown("missing", "A required input is missing."),
+            Check::reject("wrong", "A declared invariant is violated."),
+            Check::conflict("conflicting_pin", "Two exact pins disagree."),
+        ]);
+        assert_eq!(report.disposition, Disposition::Conflict);
+        assert!(!report.is_pass());
+        assert_eq!(report.checks.len(), 5);
+    }
+
+    #[test]
+    fn unknown_and_not_evaluable_can_never_be_aggregated_as_pass() {
+        for disposition in [Disposition::Unknown, Disposition::NotEvaluable] {
+            let report = ValidationReport::from_checks(vec![
+                Check::pass("local", "A local predicate passed."),
+                Check::new(disposition, "indeterminate", "An external prerequisite is not established."),
+            ]);
+            assert_eq!(report.disposition, disposition);
+            assert!(!report.is_pass());
+        }
+    }
+
+    #[test]
     fn empty_report_is_not_evaluable() {
         let report = ValidationReport::from_checks(Vec::new());
         assert_eq!(report.disposition, Disposition::NotEvaluable);
