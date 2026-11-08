@@ -67,10 +67,10 @@
       "vendor": "DroneShield",
       "product": "DroneSentry-C2",
       "architecture": "multi_sensor_C2",
-      "source_url": "https://www.droneshield.com/products-software",
+      "source_url": "https://www.droneshield.com/media/press-releases/droneshield-q3-software-release-sharpens-counter-uas-performance-against-faster-more-evasive-drone-threats",
       "source_access_date": "2026-11-08",
-      "version_status": "Q1_Q2_2026_public_release_claims_not_exact_customer_configuration_pinned",
-      "public_claims": ["RF_radar_optical_integration_claim", "sensor_fusion_claim", "operator_presentation_claim", "interoperability_claim"],
+      "version_status": "Q3_2026_public_release_claims_2026_07_06_not_exact_customer_configuration_pinned",
+      "public_claims": ["RF_radar_optical_integration_claim", "sensor_fusion_claim", "operator_presentation_claim", "interoperability_claim", "air_gapped_update_claim", "offline_COG_map_claim", "third_party_sensor_interoperability_claim", "vendor_claimed_RF_improvement_vs_Q2_dependent_on_drone_type_and_frequency"],
       "exclusions": ["disruptor_or_effector_command", "vendor_hostile_label_as_ground_truth", "target_or_engagement_records", "exact_flight_or_operator_tracks"],
       "independent_performance_verified": false,
       "vendor_hostile_label_authoritative": false
