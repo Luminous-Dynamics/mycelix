@@ -240,3 +240,71 @@ Each country/port pack remains research-only until its exact authority sources, 
 - Global tests measure correctness and coverage separately; NotTested is not PASS.
 
 Passing a synthetic global profile corpus establishes only the declared technical behavior for exact pinned inputs and versions. It does not establish local legal compliance, regulatory acceptance, field interoperability, government adoption, physical truth, navigation safety or global production readiness.
+
+
+## 13. Compose with existing maritime federation infrastructure
+
+Maritime Commons must not recreate a global maritime identity system, service directory, secure messaging layer, or trusted port-platform network.
+
+### IALA Maritime Connectivity Platform
+
+IALA's Maritime Connectivity Platform (MCP) is an existing decentralized maritime information-exchange architecture. Its documented components include the Maritime Identity Registry (MIR), Maritime Service Registry (MSR), and Maritime Messaging Service (MMS). Its identity architecture uses Maritime Resource Names (MRNs), certificates/PKI, and web-service authentication and authorization mechanisms. MCP is provided collectively by multiple organizations rather than by one mandatory central operator.
+
+The integration rule is:
+
+- use MRNs and MIR/MSR/MMS when the relevant participant already operates within MCP and the exchange is authorized;
+- preserve MRN as one scheme-qualified identifier, never a required universal vessel, marina, company, or provider identifier;
+- treat identity authentication, endpoint authentication, local issuer recognition, capability authorization, endpoint currentness, and provider commitment as separate claims;
+- never infer live inventory, reservation rights, statutory authority, local legal recognition, or a physical service effect from MCP membership, a valid certificate, or an MSR listing;
+- use the existing Mycelix identity/recognition mechanisms for local policy and cross-sovereign recognition rather than making a parallel MIR-like trust root.
+
+IALA Guideline G1157 describes the MCP architecture. The Maritime Resource Name portal documents its resource-naming scope. The G1191 Maritime Service Registry Technical Specification is versioned independently; the observed v1.2 record was revised 11 June 2026. Every adapter must bind the exact guideline/specification edition and its artifact digest.
+
+### IPCSA Network of Trusted Networks
+
+IPCSA's documented Network of Trusted Networks (NoTN) is an adjacent platform-to-platform interoperability effort for Port Community Systems, Cargo Community Systems, and Single Window operators. Its published description concerns trusted cross-border platform exchange, not an individual-vessel identity system or a multi-provider leisure-stay booking contract.
+
+Maritime Commons should therefore:
+
+- integrate, where authorized, at a PCS/platform boundary rather than bypassing that boundary;
+- recognize platform membership as a transport/governance relationship, not blanket permission to disclose every user's or provider's data;
+- apply purpose, field-level disclosure, jurisdiction, retention, and user/contract permissions before any cross-platform transfer;
+- keep private itineraries, crew/household details, provider inventory, and stay commitments out of cargo/PCS flows unless a lawful, purpose-specific exchange requires them;
+- avoid creating a competing trusted-platform network.
+
+The NoTN material describes a trial/proof-of-concept scope. Do not describe it as universal deployment or assume that every port, PCS, country, or marina participates.
+
+### Preserve each standard's claim boundary
+
+DCSA Port Call 2.0 defines port-call event exchange, but its published API specification leaves subscriber registration and bilateral authentication/authorization out of scope. A DCSA-conforming event adapter therefore does not, by itself, supply a complete federation trust or authorization model.
+
+IHO S-131 Edition 2.0.0 is recorded as the first operational edition of Marine Harbour Infrastructure. It describes harbour infrastructure and port-service information for planning. That information can improve discovery and planning, but it is not a provider's live reservation inventory, a capacity hold, or a contractual commitment.
+
+IHO S-127 Edition 2.0.0 is recorded as the first operational edition of Marine Traffic Management. It describes information such as vessel traffic services, pilotage, routing measures, and ship reporting systems. It is not a berth booking, a vessel clearance, or permission to enter a port.
+
+### Standards are a dependency lock graph, not a flat list
+
+A standards profile must pin the dependency closure needed for the actual implementation:
+- root product specification and edition;
+- the exact framework version it declares or requires;
+- feature and portrayal catalogues;
+- schema packages, code lists, and validation checks;
+- referenced code sets or external registries;
+- maturity, source URI, retrieval time, and immutable digest for every artifact.
+
+Do not assume that the newest framework edition is automatically compatible with every product edition. For example, the IHO registry record for S-131 Edition 2.0.0 identifies S-100 version 5.2.0 and separately published Feature Catalogue and Portrayal Catalogue artifacts. A family-level statement that the implementation uses "latest S-100" is not an adequate dependency lock.
+
+The proposed machine-readable lock contract is \`standards-dependency-lock-v0.1.schema.json\`. It requires semantic verification of dangling dependencies, cycles, digest presence, maturity transitions, and compatibility constraints; JSON Schema alone cannot prove those graph properties.
+
+A follow-on, not-yet-executed integration corpus is \`existing-federation-cases-v0.1.json\`. It is separate from the original 71-scenario comparative benchmark; it does not retroactively change that benchmark's scenario count or execution status.
+
+### Source references
+
+- IALA MCP: https://maritimeconnectivity.net/
+- IALA G1157: https://www.iala.int/product/g1157/
+- IALA MRN portal: https://www.iala.int/technical/data-modelling-mrn/
+- IALA G1191: https://www.iala.int/product/g1191/
+- IPCSA NoTN: https://tenant.ipcsa.international/initiatives/network-of-trusted-networks/
+- DCSA Port Call 2.0 API: https://reference.dcsa.org/content/standards/releases/port-call/v2/pc-v2-openapi-specification
+- IHO S-131: https://registry.iho.int/productspec/view.do?category=product_ID&domainS=ALL&idx=233&product_ID=S-131&searchValue=&statusS=5
+- IHO S-127: https://registry.iho.int/productspec/view.do?category=product_ID&domainS=ALL&idx=232&product_ID=S-127&searchValue=&statusS=5
