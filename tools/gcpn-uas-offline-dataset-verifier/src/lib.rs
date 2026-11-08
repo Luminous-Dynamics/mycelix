@@ -95,6 +95,10 @@ pub struct CandidateDataset {
     pub published_uav_models: Option<u32>,
     pub published_variation: Option<Vec<String>>,
     pub paper_license: Option<String>,
+    pub paper_stated_dataset_license: Option<String>,
+    pub dataset_repository_doi: Option<String>,
+    pub dataset_repository_url: Option<String>,
+    pub dataset_license_claim_evidence: Option<LicenseEvidence>,
     pub dataset_repository_license_verified: Option<bool>,
     pub derivative_sharing_permitted: Option<bool>,
     pub status: String,
@@ -392,8 +396,21 @@ pub fn validate(register: &Register) -> Vec<String> {
     {
         Some(candidate)
             if candidate.paper_license.as_deref() == Some("CC-BY-NC-ND-4.0")
+                && candidate.paper_stated_dataset_license.as_deref() == Some("CC-BY-4.0")
+                && candidate.dataset_repository_doi.as_deref() == Some("10.57760/sciencedb.36815")
+                && candidate.dataset_repository_url.as_deref()
+                    == Some("https://doi.org/10.57760/sciencedb.36815")
+                && candidate.dataset_license_claim_evidence.as_ref().is_some_and(|evidence| {
+                    evidence.url.contains("DEF-W9-12_DRFF-R2")
+                        && evidence.retrieval_date == "2026-11-08"
+                        && evidence.source_section == "Data Records / Data Availability"
+                        && evidence.license == "CC BY 4.0"
+                        && evidence.evidence_type == "paper_reported_dataset_repository_claim"
+                })
                 && candidate.dataset_repository_license_verified == Some(false)
-                && candidate.derivative_sharing_permitted == Some(false)
+                && candidate.derivative_sharing_permitted.is_none()
+                && candidate.status
+                    == "NOT_ADMITTED_PENDING_SCIENCEDB_LANDING_PAGE_FILE_RIGHTS_AND_DERIVATIVE_TERMS_REVIEW"
                 && candidate.published_subsets == Some(7)
                 && candidate.published_uav_units == Some(26)
                 && candidate.published_uav_models == Some(8) => {}
