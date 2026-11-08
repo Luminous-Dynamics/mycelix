@@ -740,7 +740,11 @@ mod tests {
             "\"run_id\": \"synthetic-track-a-smoke-v0.1\", \"sensor_detection_rate\": 0.99",
         );
         assert_ne!(changed, SMOKE_RUN);
-        let report = evaluate(AWARENESS.as_bytes(), COMPARISON.as_bytes(), changed.as_bytes());
+        let report = evaluate(
+            AWARENESS.as_bytes(),
+            COMPARISON.as_bytes(),
+            changed.as_bytes(),
+        );
         assert_eq!(report.evaluation_status, "REJECTED");
         assert!(
             report
@@ -757,7 +761,11 @@ mod tests {
             "\"run_id\": \"synthetic-track-a-smoke-v0.1\", \"run_id\": \"other\"",
         );
         assert_ne!(changed, SMOKE_RUN);
-        let report = evaluate(AWARENESS.as_bytes(), COMPARISON.as_bytes(), changed.as_bytes());
+        let report = evaluate(
+            AWARENESS.as_bytes(),
+            COMPARISON.as_bytes(),
+            changed.as_bytes(),
+        );
         assert_eq!(report.evaluation_status, "REJECTED");
         assert!(report.errors.iter().any(|error| error.starts_with("replay_run_decode")));
     }
@@ -769,7 +777,11 @@ mod tests {
             "\"abstained_from_intent_classification\": false",
         );
         assert_ne!(changed, SMOKE_RUN);
-        let report = evaluate(AWARENESS.as_bytes(), COMPARISON.as_bytes(), changed.as_bytes());
+        let report = evaluate(
+            AWARENESS.as_bytes(),
+            COMPARISON.as_bytes(),
+            changed.as_bytes(),
+        );
         assert_eq!(report.evaluation_status, "REJECTED");
         assert!(
             report
@@ -786,7 +798,11 @@ mod tests {
             "\"authority_violation_count\": 1",
         );
         assert_ne!(changed, SMOKE_RUN);
-        let report = evaluate(AWARENESS.as_bytes(), COMPARISON.as_bytes(), changed.as_bytes());
+        let report = evaluate(
+            AWARENESS.as_bytes(),
+            COMPARISON.as_bytes(),
+            changed.as_bytes(),
+        );
         assert_eq!(report.evaluation_status, "REJECTED");
         assert!(
             report
@@ -803,7 +819,11 @@ mod tests {
             "217ed98191606c4e0a58f8445ec29df3c9851dfb4968a33faf80dfc43eaacaa4",
         );
         assert_ne!(changed, SMOKE_RUN);
-        let report = evaluate(AWARENESS.as_bytes(), COMPARISON.as_bytes(), changed.as_bytes());
+        let report = evaluate(
+            AWARENESS.as_bytes(),
+            COMPARISON.as_bytes(),
+            changed.as_bytes(),
+        );
         assert_eq!(report.evaluation_status, "REJECTED");
         assert!(
             report
