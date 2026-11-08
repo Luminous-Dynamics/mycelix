@@ -1,0 +1,376 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Luminous-Dynamics/mycelix/blob/main/mycelix-workspace/docs/neo-evidence/source-correlation-profile-v0.1.schema.json",
+  "title": "Mycelix NEO source-correlation evidence profile v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "profile_id",
+    "data_status",
+    "created_at",
+    "scope",
+    "sources",
+    "dependency_assertions",
+    "independence_policy",
+    "claim_ceiling"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "mycelix.neo_evidence.source_correlation_profile.v0.1"
+    },
+    "profile_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "data_status": {
+      "enum": [
+        "synthetic_demo",
+        "production_evidence"
+      ]
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "dataset_id",
+        "valid_from",
+        "valid_until",
+        "purpose"
+      ],
+      "properties": {
+        "dataset_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "valid_from": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "valid_until": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        },
+        "purpose": {
+          "type": "string",
+          "minLength": 1
+        },
+        "observation_set_digest": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      }
+    },
+    "sources": {
+      "type": "array",
+      "minItems": 2,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "source_id",
+          "source_kind",
+          "provider",
+          "failure_domain_ids"
+        ],
+        "properties": {
+          "source_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "source_kind": {
+            "enum": [
+              "optical_instrument",
+              "radar_system",
+              "astrometric_catalogue",
+              "reduction_pipeline",
+              "clock_service",
+              "spacecraft_sensor",
+              "other"
+            ]
+          },
+          "provider": {
+            "type": "string",
+            "minLength": 1
+          },
+          "instrument_or_pipeline_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "calibration_revision": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "failure_domain_ids": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "source_record_digest": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[a-f0-9]{64}$"
+          }
+        }
+      }
+    },
+    "dependency_assertions": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "assertion_id",
+          "member_source_ids",
+          "assessment",
+          "valid_from",
+          "valid_until",
+          "rationale"
+        ],
+        "properties": {
+          "assertion_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "member_source_ids": {
+            "type": "array",
+            "minItems": 2,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "assessment": {
+            "enum": [
+              "dependent_documented",
+              "dependent_estimated",
+              "independent_evidenced",
+              "unknown"
+            ]
+          },
+          "dependency_kind": {
+            "enum": [
+              "shared_catalogue",
+              "shared_calibration",
+              "shared_clock",
+              "shared_reduction_pipeline",
+              "shared_instrument",
+              "shared_site_or_environment",
+              "shared_facility",
+              "shared_telemetry",
+              "other"
+            ]
+          },
+          "common_cause_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "dependence_model_ref": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "independence_basis": {
+            "enum": [
+              "disjoint_failure_domains",
+              "independent_calibration_lineage",
+              "independent_physical_measurement",
+              "other"
+            ]
+          },
+          "evidence_refs": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "evidence_id",
+                "evidence_class",
+                "uri",
+                "digest_sha256"
+              ],
+              "properties": {
+                "evidence_id": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "evidence_class": {
+                  "enum": [
+                    "source_document",
+                    "calibration_record",
+                    "instrument_record",
+                    "processing_lineage",
+                    "statistical_estimate",
+                    "synthetic_control"
+                  ]
+                },
+                "uri": {
+                  "type": "string",
+                  "format": "uri"
+                },
+                "digest_sha256": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                },
+                "retrieved_at": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "format": "date-time"
+                }
+              }
+            }
+          },
+          "valid_from": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "valid_until": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "rationale": {
+            "type": "string",
+            "minLength": 1
+          },
+          "independence_assumption": {
+            "const": "not_assumed"
+          }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "assessment": {
+                  "const": "dependent_documented"
+                }
+              },
+              "required": [
+                "assessment"
+              ]
+            },
+            "then": {
+              "required": [
+                "dependency_kind",
+                "common_cause_id"
+              ]
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "assessment": {
+                  "const": "dependent_estimated"
+                }
+              },
+              "required": [
+                "assessment"
+              ]
+            },
+            "then": {
+              "required": [
+                "dependency_kind",
+                "dependence_model_ref"
+              ]
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "assessment": {
+                  "const": "independent_evidenced"
+                }
+              },
+              "required": [
+                "assessment"
+              ]
+            },
+            "then": {
+              "required": [
+                "independence_basis",
+                "evidence_refs"
+              ]
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "assessment": {
+                  "const": "unknown"
+                }
+              },
+              "required": [
+                "assessment"
+              ]
+            },
+            "then": {
+              "required": [
+                "independence_assumption"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "independence_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "independence_requires_explicit_evidence",
+        "unknown_dependence_action",
+        "no_provider_count_substitution"
+      ],
+      "properties": {
+        "independence_requires_explicit_evidence": {
+          "const": true
+        },
+        "unknown_dependence_action": {
+          "enum": [
+            "abstain_or_model_dependence_uncertainty",
+            "require_independent_review"
+          ]
+        },
+        "no_provider_count_substitution": {
+          "const": true
+        }
+      }
+    },
+    "claim_ceiling": {
+      "const": "PROVENANCE_AND_DEPENDENCE_DECLARATION_ONLY"
+    },
+    "limitations": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}
