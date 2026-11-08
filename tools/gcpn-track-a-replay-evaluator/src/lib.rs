@@ -635,7 +635,7 @@ fn comparability_reasons(bundle: &TrackARunBundle) -> Vec<String> {
 
 fn calculate_metrics(
     pipeline: &PipelineSubmission,
-    oracle: &BTreeMap<&str, &GroundTruthLabel>,
+    oracle: &BTreeMap<&str, GroundTruthLabel>,
     monitoring_duration_seconds: u64,
     review_budget_seconds_per_case: u64,
 ) -> PipelineMetrics {
@@ -927,7 +927,7 @@ mod tests {
         serde_json::from_str(FIXTURE).expect("fixture JSON parses")
     }
 
-    fn evaluate_value(mut value: Value) -> EvaluationReport {
+    fn evaluate_value(value: Value) -> EvaluationReport {
         let bytes = serde_json::to_vec(&value).expect("serialize mutation");
         evaluate(&bytes)
     }
