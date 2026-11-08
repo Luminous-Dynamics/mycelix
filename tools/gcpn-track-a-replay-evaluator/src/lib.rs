@@ -641,7 +641,6 @@ pub fn evaluate_bytes(bytes: &[u8]) -> EvaluationReport {
 mod tests {
     use super::*;
 
-
     const FIXTURE: &str = include_str!(
         "../../../mycelix-workspace/mycelix-praxis/docs/research/GCPN_TRACK_A_REPLAY_DEMO_RUN_V0_1.json"
     );
@@ -705,10 +704,12 @@ mod tests {
         run.systems[0].outputs.pop();
         let report = report_for_run(&run, "mutated".to_string(), Vec::new());
         assert_eq!(report.status, "REJECTED");
-        assert!(report
-            .errors
-            .iter()
-            .any(|error| error.starts_with("output_event_frame_mismatch:")));
+        assert!(
+            report
+                .errors
+                .iter()
+                .any(|error| error.starts_with("output_event_frame_mismatch:"))
+        );
     }
 
     #[test]
@@ -717,10 +718,12 @@ mod tests {
         run.systems[0].system_id = "DED RONE RF360".to_string();
         let report = report_for_run(&run, "mutated".to_string(), Vec::new());
         assert_eq!(report.status, "REJECTED");
-        assert!(report
-            .errors
-            .iter()
-            .any(|error| error.starts_with("non_synthetic_system_id:")));
+        assert!(
+            report
+                .errors
+                .iter()
+                .any(|error| error.starts_with("non_synthetic_system_id:"))
+        );
     }
 
     #[test]
@@ -729,10 +732,12 @@ mod tests {
         run.systems[0].outputs[0].p_review_required = Some(1.50);
         let report = report_for_run(&run, "mutated".to_string(), Vec::new());
         assert_eq!(report.status, "REJECTED");
-        assert!(report
-            .errors
-            .iter()
-            .any(|error| error.starts_with("invalid_probability:")));
+        assert!(
+            report
+                .errors
+                .iter()
+                .any(|error| error.starts_with("invalid_probability:"))
+        );
     }
 
     #[test]
