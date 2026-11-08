@@ -378,6 +378,37 @@ pub fn evaluate(
     if run.candidate_workflow_ids.iter().any(|id| id == &run.baseline_workflow_id) {
         errors.push("baseline_cannot_also_be_candidate".into());
     }
+    let unique_candidates: BTreeSet<&str> =
+        run.candidate_workflow_ids.iter().map(String::as_str).collect();
+    if unique_candidates.len() != run.candidate_workflow_ids.len() {
+        errors.push("duplicate_candidate_workflow_id".into());
+    }
+    if let Some(baseline) = run
+        .workflows
+        .iter()
+        .find(|workflow| workflow.workflow_id == run.baseline_workflow_id)
+    {
+        if !matches!(
+            baseline.workflow_kind,
+            WorkflowKind::RulesBaseline | WorkflowKind::ManualSiteWorkflow
+        ) {
+            errors.push("baseline_workflow_kind_invalid".into());
+        }
+    }
+    for candidate_id in &run.candidate_workflow_ids {
+        if let Some(candidate) = run
+            .workflows
+            .iter()
+            .find(|workflow| &workflow.workflow_id == candidate_id)
+        {
+            if matches!(
+                candidate.workflow_kind,
+                WorkflowKind::RulesBaseline | WorkflowKind::ManualSiteWorkflow
+            ) {
+                errors.push(format!("candidate_workflow_kind_invalid: {candidate_id}"));
+            }
+        }
+    }
 
     if !errors.is_empty() {
         errors.sort();
