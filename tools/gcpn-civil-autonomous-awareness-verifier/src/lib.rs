@@ -456,7 +456,12 @@ mod tests {
         assert_ne!(changed, FIXTURE);
         let report = verify(changed.as_bytes());
         assert_eq!(report.status, "REJECTED");
-        assert!(report.errors.iter().any(|e| e.starts_with("strict_json_decode:")));
+        assert!(
+            report
+                .errors
+                .iter()
+                .any(|e| e.starts_with("strict_json_decode:"))
+        );
     }
 
     #[test]
@@ -468,7 +473,12 @@ mod tests {
         assert_ne!(changed, FIXTURE);
         let report = verify(changed.as_bytes());
         assert_eq!(report.status, "REJECTED");
-        assert!(report.errors.iter().any(|e| e.starts_with("strict_json_decode:")));
+        assert!(
+            report
+                .errors
+                .iter()
+                .any(|e| e.starts_with("strict_json_decode:"))
+        );
     }
 
     #[test]
