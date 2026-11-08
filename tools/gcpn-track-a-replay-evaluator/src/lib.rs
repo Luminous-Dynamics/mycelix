@@ -11,7 +11,8 @@ use std::collections::{BTreeMap, BTreeSet};
 pub const SCHEMA: &str = "luminous.gcpn.track_a_replay_run.v0.1";
 pub const STATUS: &str = "synthetic_demo_not_performance_evidence";
 pub const CLAIM_CEILING: &str = "synthetic_replay_metric_arithmetic_only";
-pub const EXPECTED_FIXTURE_SHA256: &str = "FIXTURE_DIGEST_PLACEHOLDER";
+pub const EXPECTED_FIXTURE_SHA256: &str =
+    "2d78a17bd708c6866dee0c0dd5ec1af104c7caec04cffc86e1c56ded90522580";
 
 #[derive(Clone, Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -119,9 +120,9 @@ pub struct SystemMetrics {
     pub brier_score: Option<f64>,
     pub unique_review_tickets: usize,
     pub duplicate_review_requests: usize,
-    pub total_review_minutes: u32,
-    pub review_budget_minutes: u32,
-    pub review_budget_overrun_minutes: u32,
+    pub total_review_minutes: u64,
+    pub review_budget_minutes: u64,
+    pub review_budget_overrun_minutes: u64,
     pub decision_latency_p50_ms: Option<u64>,
     pub decision_latency_p95_ms: Option<u64>,
     pub provenance_complete_rate: Option<f64>,
@@ -472,7 +473,10 @@ fn compute_metrics(frame: &EventFrame, system: &SystemRun) -> SystemMetrics {
     }
 
     let unique_review_tickets = ticket_owner.len();
-    let total_review_minutes = ticket_owner.values().map(|(_, minutes)| *minutes).sum::<u32>();
+    let total_review_minutes = ticket_owner
+        .values()
+        .map(|(_, minutes)| u64::from(*minutes))
+        .sum::<u64>();
     let duplicate_review_requests = group_tickets
         .values()
         .map(|tickets| tickets.len().saturating_sub(1))
@@ -517,7 +521,7 @@ fn compute_metrics(frame: &EventFrame, system: &SystemRun) -> SystemMetrics {
         unique_review_tickets,
         duplicate_review_requests,
         total_review_minutes,
-        review_budget_minutes: frame.review_budget_minutes_per_system,
+        review_budget_minutes: u64::from(frame.review_budget_minutes_per_system),
         review_budget_overrun_minutes: total_review_minutes.saturating_sub(frame.review_budget_minutes_per_system),
         decision_latency_p50_ms: percentile(&mut latency_copy, 0.50),
         decision_latency_p95_ms: percentile(&mut latency_copy, 0.95),
@@ -584,6 +588,11 @@ pub fn evaluate_bytes(bytes: &[u8]) -> EvaluationReport {
 mod tests {
     use super::*;
 
+    fn parsed_errors(changed: &str) -> Vec<String> {
+        let run: ReplayRun = serde_json::from_str(changed).expect("mutated fixture remains valid JSON");
+        validate_run(&run)
+    }
+
     const FIXTURE: &str = include_str!(
         "../../../mycelix-workspace/mycelix-praxis/docs/research/GCPN_TRACK_A_REPLAY_DEMO_RUN_V0_1.json"
     );
@@ -630,22 +639,20 @@ mod tests {
     #[test]
     fn missing_output_is_rejected() {
         let changed = FIXTURE.replace(
-            "{\"case_id\":\"E012\",\"disposition\":\"DEFER_TO_HUMAN\",\"p_review_required\":null,\"review_ticket_id\":\"R-A-012\",\"review_minutes\":3,\"decision_latency_ms\":13,\"provenance_complete\":true,\"time_quality_handled\":true,\"dependency_unknown_preserved\":true,\"privacy_violation\":false,\"authority_violation\":false}",
+            ",{\"case_id\":\"E012\",\"disposition\":\"DEFER_TO_HUMAN\",\"p_review_required\":null,\"review_ticket_id\":\"R-A-012\",\"review_minutes\":3,\"decision_latency_ms\":13,\"provenance_complete\":true,\"time_quality_handled\":true,\"dependency_unknown_preserved\":true,\"privacy_violation\":false,\"authority_violation\":false}",
             "",
         );
         assert_ne!(changed, FIXTURE);
-        let report = evaluate_bytes(changed.as_bytes());
-        assert_eq!(report.status, "REJECTED");
-        assert!(report.errors.iter().any(|error| error.starts_with("fixture_digest_mismatch:")));
+        let errors = parsed_errors(&changed);
+        assert!(errors.iter().any(|error| error.starts_with("output_event_frame_mismatch:")));
     }
 
     #[test]
     fn vendor_named_system_cannot_enter_synthetic_demo() {
         let changed = FIXTURE.replace("SYNTHETIC_RULES_REFERENCE", "DED RONE RF360");
         assert_ne!(changed, FIXTURE);
-        let report = evaluate_bytes(changed.as_bytes());
-        assert_eq!(report.status, "REJECTED");
-        assert!(report.errors.iter().any(|error| error.starts_with("fixture_digest_mismatch:")));
+        let errors = parsed_errors(&changed);
+        assert!(errors.iter().any(|error| error.starts_with("non_synthetic_system_id:")));
     }
 
     #[test]
@@ -655,9 +662,23 @@ mod tests {
             "\"p_review_required\":1.50",
         );
         assert_ne!(changed, FIXTURE);
-        let report = evaluate_bytes(changed.as_bytes());
-        assert_eq!(report.status, "REJECTED");
-        assert!(report.errors.iter().any(|error| error.starts_with("fixture_digest_mismatch:")));
+        let errors = parsed_errors(&changed);
+        assert!(errors.iter().any(|error| error.starts_with("invalid_probability:")));
+    }
+
+    #[test]
+    fn privacy_and_authority_violations_are_counted_as_semantic_failures() {
+        let changed = FIXTURE.replace(
+            "\"privacy_violation\":false",
+            "\"privacy_violation\":true",
+        );
+        assert_ne!(changed, FIXTURE);
+        let errors = parsed_errors(&changed);
+        // Semantic evaluation reports the changed output; digest pinning separately
+        // prevents the frozen demonstration fixture from being silently rewritten.
+        let report = evaluate_bytes(FIXTURE.as_bytes());
+        assert_eq!(report.status, "CONFORMS_SYNTHETIC_ONLY");
+        assert!(!errors.is_empty());
     }
 
     #[test]
