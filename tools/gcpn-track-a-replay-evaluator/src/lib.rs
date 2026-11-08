@@ -882,6 +882,39 @@ mod tests {
     }
 
     #[test]
+    fn evidence_quality_degradation_blocks_superiority_hypothesis() {
+        let report = evaluate(
+            AWARENESS.as_bytes(),
+            COMPARISON.as_bytes(),
+            SMOKE_RUN.as_bytes(),
+        );
+        let baseline = report
+            .workflows
+            .iter()
+            .find(|item| item.workflow_id == "A0-smoke")
+            .expect("baseline metrics")
+            .clone();
+        let mut candidate = report
+            .workflows
+            .iter()
+            .find(|item| item.workflow_id == "A2-smoke")
+            .expect("candidate metrics")
+            .clone();
+
+        candidate.correction_lineage_cases = baseline.correction_lineage_cases.saturating_sub(1);
+        let comparison = compare_pair(&baseline, &candidate);
+        assert!(!comparison.correction_lineage_non_degradation);
+        assert!(!comparison.candidate_meets_20_percent_smoke_hypothesis);
+
+        candidate.correction_lineage_cases = baseline.correction_lineage_cases;
+        candidate.source_status_preserved_cases =
+            baseline.source_status_preserved_cases.saturating_sub(1);
+        let comparison = compare_pair(&baseline, &candidate);
+        assert!(!comparison.source_status_non_degradation);
+        assert!(!comparison.candidate_meets_20_percent_smoke_hypothesis);
+    }
+
+    #[test]
     fn percentile_uses_nearest_rank() {
         assert_eq!(percentile_nearest_rank(&[1, 2, 3, 4, 5], 50), 3);
         assert_eq!(percentile_nearest_rank(&[1, 2, 3, 4, 5], 95), 5);
