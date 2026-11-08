@@ -270,6 +270,9 @@ func referenceReport(input Input, inputHash string) Report {
 		if !contains(input.Snapshot.ScopedSourceIDs, source) {
 			unknown = append(unknown, "source_outside_inventory_scope")
 		}
+		if !contains(input.Snapshot.CoveredNodeIDs, source) {
+			unknown = append(unknown, "source_not_covered_by_inventory_snapshot")
+		}
 		visiting := make(map[string]bool)
 		done := make(map[string]bool)
 		ancestors := make(map[string]bool)
