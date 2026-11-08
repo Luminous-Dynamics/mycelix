@@ -277,25 +277,40 @@ fn visit_standards_graph(
     artifacts: &BTreeMap<String, &StandardsArtifact>,
     states: &mut BTreeMap<String, u8>,
 ) -> bool {
-    match states.get(artifact_id).copied() {
-        Some(1) => return false,
-        Some(2) => return true,
-        _ => {}
-    }
+    let mut stack = vec![(artifact_id.to_owned(), false)];
 
-    let Some(artifact) = artifacts.get(artifact_id) else {
-        return true;
-    };
+    while let Some((current_id, exiting)) = stack.pop() {
+        if exiting {
+            states.insert(current_id, 2);
+            continue;
+        }
 
-    states.insert(artifact_id.to_owned(), 1);
-    for dependency in &artifact.dependencies {
-        if artifacts.contains_key(&dependency.artifact_id)
-            && !visit_standards_graph(&dependency.artifact_id, artifacts, states)
-        {
-            return false;
+        match states.get(&current_id).copied() {
+            Some(1) => return false,
+            Some(2) => continue,
+            _ => {}
+        }
+
+        let Some(artifact) = artifacts.get(&current_id) else {
+            continue;
+        };
+
+        states.insert(current_id.clone(), 1);
+        stack.push((current_id, true));
+
+        for dependency in artifact.dependencies.iter().rev() {
+            if !artifacts.contains_key(&dependency.artifact_id) {
+                continue;
+            }
+
+            match states.get(&dependency.artifact_id).copied() {
+                Some(1) => return false,
+                Some(2) => {}
+                _ => stack.push((dependency.artifact_id.clone(), false)),
+            }
         }
     }
-    states.insert(artifact_id.to_owned(), 2);
+
     true
 }
 
@@ -1598,6 +1613,42 @@ mod tests {
                 .iter()
                 .any(|check| check.code == "standards_artifact_metadata_missing")
         );
+    }
+
+    #[test]
+    fn standards_lock_handles_deep_dependency_chain_iteratively() {
+        let count = 4096usize;
+        let mut artifacts = Vec::with_capacity(count);
+        for index in 0..count {
+            let artifact_id = format!("NODE-{index:05}");
+            let dependencies = if index + 1 < count {
+                vec![StandardsDependency {
+                    artifact_id: format!("NODE-{:05}", index + 1),
+                    relationship: DependencyRelationship::References,
+                }]
+            } else {
+                Vec::new()
+            };
+            artifacts.push(StandardsArtifact {
+                artifact_id: artifact_id.clone(),
+                authority: "fixture-authority".into(),
+                family: "fixture-family".into(),
+                identifier: artifact_id,
+                version: "1.0".into(),
+                maturity: ArtifactMaturity::Operational,
+                source_uri: "https://example.invalid/artifact".into(),
+                retrieved_at: "2026-11-08T10:00:00Z".into(),
+                sha256: digest('e'),
+                dependencies,
+            });
+        }
+        let lock = StandardsDependencyLock {
+            status: StandardsLockStatus::Complete,
+            root_artifact_ids: vec!["NODE-00000".into()],
+            artifacts,
+        };
+        let report = evaluate_standards_lock(&lock, StandardsUseScope::CurrentProduction);
+        assert_eq!(report.disposition, Disposition::Pass);
     }
 
     #[test]
