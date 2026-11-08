@@ -50,3 +50,16 @@ go run . verify input.json report.json
 The Go test consumes the same versioned public challenge pack as the Rust reference tests. Both implementations are checked against frozen expected outcomes; the Go suite also rejects a stale input digest and authority/claim-ceiling tampering.
 
 This raises the independence boundary from a second Rust traversal to a second language and standard-library implementation. It is still **not organizationally independent**: both implementations and tests are maintained in the same repository, and the public challenge pack is visible. A blind evaluator-owned test set, separately controlled custody, external reference measurement and independent review remain necessary for stronger assurance claims.
+
+## Metamorphic assurance controls
+
+The Rust suite also includes metamorphic tests that do not depend on a single hand-authored expected report:
+
+- Node/hyperedge ordering permutations preserve semantic closure and remain independently verifiable.
+- A shared power-domain hyperedge cannot change a clock-domain result.
+- The half-open temporal boundary is tested at both `valid_from` (included) and `valid_until` (excluded).
+- Marking the inventory incomplete cannot upgrade `NO_DECLARED_COMMON_DOMAIN`.
+- A known common ancestor remains visible in the report even when another inventory-completeness predicate forces the overall disposition to `UNKNOWN_DEPENDENCY`.
+- Inserting a qualified common ancestor changes the result from no declared common domain to shared dependency; making that edge stale produces unknown, never a clean independent result.
+
+These are metamorphic software properties, not statistical independence or physical fault-injection results.
