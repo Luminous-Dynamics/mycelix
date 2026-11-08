@@ -25,7 +25,11 @@ pub struct Check {
 }
 
 impl Check {
-    pub fn new(disposition: Disposition, code: impl Into<String>, detail: impl Into<String>) -> Self {
+    pub fn new(
+        disposition: Disposition,
+        code: impl Into<String>,
+        detail: impl Into<String>,
+    ) -> Self {
         Self {
             disposition,
             code: code.into(),
@@ -106,9 +110,9 @@ fn valid_uri_scheme(value: &str) -> bool {
     };
     !scheme.is_empty()
         && scheme.as_bytes()[0].is_ascii_alphabetic()
-        && scheme.bytes().all(|byte| {
-            byte.is_ascii_alphanumeric() || matches!(byte, b'+' | b'.' | b'-')
-        })
+        && scheme
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'+' | b'.' | b'-'))
         && !remainder.trim().is_empty()
 }
 
@@ -212,7 +216,6 @@ pub fn evaluate_artifact_pin(
 
     ValidationReport::from_checks(checks)
 }
-
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -340,7 +343,10 @@ pub fn evaluate_standards_lock(
     let mut artifacts = BTreeMap::new();
     let mut duplicate_ids = Vec::new();
     for artifact in &lock.artifacts {
-        if artifacts.insert(artifact.artifact_id.clone(), artifact).is_some() {
+        if artifacts
+            .insert(artifact.artifact_id.clone(), artifact)
+            .is_some()
+        {
             duplicate_ids.push(artifact.artifact_id.clone());
         }
     }
@@ -355,7 +361,10 @@ pub fn evaluate_standards_lock(
         duplicate_ids.dedup();
         checks.push(Check::conflict(
             "standards_artifact_id_duplicate",
-            &format!("Duplicate artifact identifiers: {}", duplicate_ids.join(", ")),
+            &format!(
+                "Duplicate artifact identifiers: {}",
+                duplicate_ids.join(", ")
+            ),
         ));
     }
 
@@ -416,7 +425,10 @@ pub fn evaluate_standards_lock(
     for artifact in &lock.artifacts {
         for dependency in &artifact.dependencies {
             if !artifacts.contains_key(&dependency.artifact_id) {
-                dangling.push(format!("{} -> {}", artifact.artifact_id, dependency.artifact_id));
+                dangling.push(format!(
+                    "{} -> {}",
+                    artifact.artifact_id, dependency.artifact_id
+                ));
             }
         }
     }
@@ -471,49 +483,60 @@ pub fn evaluate_standards_lock(
     } else {
         checks.push(Check::reject(
             "standards_dependency_orphan",
-            &format!("Artifacts outside the declared root closure: {}", unreachable.join(", ")),
+            &format!(
+                "Artifacts outside the declared root closure: {}",
+                unreachable.join(", ")
+            ),
         ));
     }
 
     let mut maturity_checks = Vec::new();
     for artifact in &lock.artifacts {
         let check = match (use_scope, artifact.maturity) {
-            (StandardsUseScope::CurrentProduction, ArtifactMaturity::Production | ArtifactMaturity::Operational) => {
-                Check::pass(
-                    "standards_artifact_maturity_accepted",
-                    &format!("{} is marked production/operational.", artifact.artifact_id),
-                )
-            }
-            (StandardsUseScope::CurrentProduction, ArtifactMaturity::Deprecated | ArtifactMaturity::Withdrawn) => {
-                Check::reject(
-                    "standards_artifact_maturity_retired",
-                    &format!("{} is deprecated or withdrawn and cannot support current production use.", artifact.artifact_id),
-                )
-            }
-            (StandardsUseScope::CurrentProduction, ArtifactMaturity::Unknown) => {
-                Check::unknown(
-                    "standards_artifact_maturity_unknown",
-                    &format!("{} has unknown maturity.", artifact.artifact_id),
-                )
-            }
-            (StandardsUseScope::CurrentProduction, ArtifactMaturity::PreRelease | ArtifactMaturity::Draft | ArtifactMaturity::ImplementationTesting) => {
-                Check::not_evaluable(
-                    "standards_artifact_not_operational",
-                    &format!("{} is not marked production/operational.", artifact.artifact_id),
-                )
-            }
-            (StandardsUseScope::ResearchFixture, ArtifactMaturity::Unknown) => {
-                Check::unknown(
-                    "standards_artifact_maturity_unknown",
-                    &format!("{} has unknown maturity.", artifact.artifact_id),
-                )
-            }
-            (StandardsUseScope::ResearchFixture, _) => {
-                Check::pass(
-                    "standards_artifact_maturity_recorded",
-                    &format!("{} maturity is recorded for research-fixture use only.", artifact.artifact_id),
-                )
-            }
+            (
+                StandardsUseScope::CurrentProduction,
+                ArtifactMaturity::Production | ArtifactMaturity::Operational,
+            ) => Check::pass(
+                "standards_artifact_maturity_accepted",
+                &format!("{} is marked production/operational.", artifact.artifact_id),
+            ),
+            (
+                StandardsUseScope::CurrentProduction,
+                ArtifactMaturity::Deprecated | ArtifactMaturity::Withdrawn,
+            ) => Check::reject(
+                "standards_artifact_maturity_retired",
+                &format!(
+                    "{} is deprecated or withdrawn and cannot support current production use.",
+                    artifact.artifact_id
+                ),
+            ),
+            (StandardsUseScope::CurrentProduction, ArtifactMaturity::Unknown) => Check::unknown(
+                "standards_artifact_maturity_unknown",
+                &format!("{} has unknown maturity.", artifact.artifact_id),
+            ),
+            (
+                StandardsUseScope::CurrentProduction,
+                ArtifactMaturity::PreRelease
+                | ArtifactMaturity::Draft
+                | ArtifactMaturity::ImplementationTesting,
+            ) => Check::not_evaluable(
+                "standards_artifact_not_operational",
+                &format!(
+                    "{} is not marked production/operational.",
+                    artifact.artifact_id
+                ),
+            ),
+            (StandardsUseScope::ResearchFixture, ArtifactMaturity::Unknown) => Check::unknown(
+                "standards_artifact_maturity_unknown",
+                &format!("{} has unknown maturity.", artifact.artifact_id),
+            ),
+            (StandardsUseScope::ResearchFixture, _) => Check::pass(
+                "standards_artifact_maturity_recorded",
+                &format!(
+                    "{} maturity is recorded for research-fixture use only.",
+                    artifact.artifact_id
+                ),
+            ),
         };
         maturity_checks.push(check);
     }
@@ -598,12 +621,12 @@ pub fn evaluate_identifier(
     }
 
     match context.expected_jurisdiction.as_deref() {
-        Some(expected) if identifier.jurisdiction.as_deref() == Some(expected) => checks.push(
-            Check::pass(
+        Some(expected) if identifier.jurisdiction.as_deref() == Some(expected) => {
+            checks.push(Check::pass(
                 "identifier_jurisdiction_matches",
                 "The identifier jurisdiction matches the requested jurisdiction.",
-            ),
-        ),
+            ))
+        }
         Some(_) => checks.push(Check::reject(
             "identifier_jurisdiction_mismatch",
             "The identifier does not carry the required jurisdiction scope.",
@@ -1037,7 +1060,9 @@ pub struct TypedQuantity {
 
 fn is_decimal_lexeme(value: &str) -> bool {
     let unsigned = value.strip_prefix('-').unwrap_or(value);
-    if unsigned.is_empty() || (value.starts_with('-') && unsigned.bytes().all(|b| b == b'0' || b == b'.')) {
+    if unsigned.is_empty()
+        || (value.starts_with('-') && unsigned.bytes().all(|b| b == b'0' || b == b'.'))
+    {
         return false;
     }
 
@@ -1052,9 +1077,8 @@ fn is_decimal_lexeme(value: &str) -> bool {
         || (integer.as_bytes()[0].is_ascii_digit()
             && integer.as_bytes()[0] != b'0'
             && integer.bytes().all(|b| b.is_ascii_digit()));
-    let fraction_valid = fraction.is_none_or(|digits| {
-        !digits.is_empty() && digits.bytes().all(|b| b.is_ascii_digit())
-    });
+    let fraction_valid =
+        fraction.is_none_or(|digits| !digits.is_empty() && digits.bytes().all(|b| b.is_ascii_digit()));
 
     integer_valid && fraction_valid
 }
@@ -1277,7 +1301,12 @@ mod tests {
         identifier.subject_type = "organization".into();
         let report = evaluate_identifier(&identifier, &valid_identifier_context());
         assert_eq!(report.disposition, Disposition::Reject);
-        assert!(report.checks.iter().any(|check| check.code == "identifier_subject_mismatch"));
+        assert!(
+            report
+                .checks
+                .iter()
+                .any(|check| check.code == "identifier_subject_mismatch")
+        );
     }
 
     #[test]
@@ -1295,7 +1324,12 @@ mod tests {
         identifier.valid_until = None;
         let report = evaluate_identifier(&identifier, &valid_identifier_context());
         assert_eq!(report.disposition, Disposition::Unknown);
-        assert!(report.checks.iter().any(|check| check.code == "identifier_validity_bounds_missing"));
+        assert!(
+            report
+                .checks
+                .iter()
+                .any(|check| check.code == "identifier_validity_bounds_missing")
+        );
     }
 
     #[test]
@@ -1312,7 +1346,12 @@ mod tests {
         identifier.valid_until = Some("2026-11-08T10:00:00Z".into());
         let report = evaluate_identifier(&identifier, &valid_identifier_context());
         assert_eq!(report.disposition, Disposition::Reject);
-        assert!(report.checks.iter().any(|check| check.code == "identifier_expired"));
+        assert!(
+            report
+                .checks
+                .iter()
+                .any(|check| check.code == "identifier_expired")
+        );
     }
 
     fn metadata(code: &str, exponent: u8) -> CurrencyMetadata {
@@ -1406,8 +1445,18 @@ mod tests {
             },
         );
         assert_eq!(report.disposition, Disposition::NotEvaluable);
-        assert!(report.checks.iter().any(|check| check.code == "resolved_instant_matches_source"));
-        assert!(report.checks.iter().any(|check| check.code == "resolver_attestation_not_verified"));
+        assert!(
+            report
+                .checks
+                .iter()
+                .any(|check| check.code == "resolved_instant_matches_source")
+        );
+        assert!(
+            report
+                .checks
+                .iter()
+                .any(|check| check.code == "resolver_attestation_not_verified")
+        );
     }
 
     #[test]
@@ -1543,7 +1592,12 @@ mod tests {
         lock.artifacts[1].retrieved_at = "not-a-date".into();
         let report = evaluate_standards_lock(&lock, StandardsUseScope::ResearchFixture);
         assert_eq!(report.disposition, Disposition::Reject);
-        assert!(report.checks.iter().any(|check| check.code == "standards_artifact_metadata_missing"));
+        assert!(
+            report
+                .checks
+                .iter()
+                .any(|check| check.code == "standards_artifact_metadata_missing")
+        );
     }
 
     #[test]
@@ -1552,7 +1606,12 @@ mod tests {
         lock.artifacts[0].dependencies[0].artifact_id = "missing-catalogue".into();
         let report = evaluate_standards_lock(&lock, StandardsUseScope::CurrentProduction);
         assert_eq!(report.disposition, Disposition::Reject);
-        assert!(report.checks.iter().any(|check| check.code == "standards_dependency_dangling"));
+        assert!(
+            report
+                .checks
+                .iter()
+                .any(|check| check.code == "standards_dependency_dangling")
+        );
     }
 
     #[test]
@@ -1564,7 +1623,12 @@ mod tests {
         });
         let report = evaluate_standards_lock(&lock, StandardsUseScope::CurrentProduction);
         assert_eq!(report.disposition, Disposition::Reject);
-        assert!(report.checks.iter().any(|check| check.code == "standards_dependency_graph_invalid"));
+        assert!(
+            report
+                .checks
+                .iter()
+                .any(|check| check.code == "standards_dependency_graph_invalid")
+        );
     }
 
     #[test]
@@ -1577,7 +1641,12 @@ mod tests {
         lock.artifacts.push(orphan);
         let report = evaluate_standards_lock(&lock, StandardsUseScope::CurrentProduction);
         assert_eq!(report.disposition, Disposition::Reject);
-        assert!(report.checks.iter().any(|check| check.code == "standards_dependency_orphan"));
+        assert!(
+            report
+                .checks
+                .iter()
+                .any(|check| check.code == "standards_dependency_orphan")
+        );
     }
 
     #[test]
