@@ -659,14 +659,19 @@ pub fn evaluate_identifier(
                 ));
             }
 
-            if (identifier.valid_from.is_none() || valid_from.is_some())
-                && (identifier.valid_until.is_none() || valid_until.is_some())
-                && valid_from.as_ref().is_none_or(|start| &as_of >= start)
-                && valid_until.as_ref().is_none_or(|end| &as_of < end)
+            if identifier.valid_from.is_none() || identifier.valid_until.is_none() {
+                checks.push(Check::unknown(
+                    "identifier_validity_bounds_missing",
+                    "One or both validity bounds are absent; this crate cannot infer perpetual validity from missing fields.",
+                ));
+            } else if valid_from.is_some()
+                && valid_until.is_some()
+                && valid_from.as_ref().is_some_and(|start| &as_of >= start)
+                && valid_until.as_ref().is_some_and(|end| &as_of < end)
             {
                 checks.push(Check::pass(
                     "identifier_validity_interval",
-                    "The identifier is within its declared validity interval at the supplied evaluation time.",
+                    "The identifier is within its explicitly declared validity interval at the supplied evaluation time.",
                 ));
             }
         }
@@ -950,9 +955,9 @@ pub fn evaluate_temporal(
                 .as_deref()
                 .is_some_and(non_empty)
             {
-                checks.push(Check::pass(
-                    "local_time_resolution_evidence_linked",
-                    "A resolver evidence reference is linked to the declared resolution disposition.",
+                checks.push(Check::not_evaluable(
+                    "resolver_attestation_not_verified",
+                    "A reference alone does not authenticate or verify the resolver's zone-rule calculation; this crate does not retrieve or validate that attestation.",
                 ));
             } else {
                 checks.push(Check::unknown(
@@ -1271,6 +1276,24 @@ mod tests {
     }
 
     #[test]
+    fn identifier_without_explicit_validity_bounds_is_unknown() {
+        let mut identifier = valid_identifier();
+        identifier.valid_from = None;
+        identifier.valid_until = None;
+        let report = evaluate_identifier(&identifier, &valid_identifier_context());
+        assert_eq!(report.disposition, Disposition::Unknown);
+        assert!(report.checks.iter().any(|check| check.code == "identifier_validity_bounds_missing"));
+    }
+
+    #[test]
+    fn identifier_with_one_missing_validity_bound_is_unknown() {
+        let mut identifier = valid_identifier();
+        identifier.valid_until = None;
+        let report = evaluate_identifier(&identifier, &valid_identifier_context());
+        assert_eq!(report.disposition, Disposition::Unknown);
+    }
+
+    #[test]
     fn identifier_validity_uses_exclusive_upper_bound() {
         let mut identifier = valid_identifier();
         identifier.valid_until = Some("2026-11-08T10:00:00Z".into());
@@ -1362,14 +1385,29 @@ mod tests {
     }
 
     #[test]
-    fn temporal_accepts_quarter_hour_offset_when_instants_match() {
+    fn temporal_quarter_hour_offset_checks_instant_but_not_resolver_authenticity() {
         let report = evaluate_temporal(
             &valid_temporal(),
             &TemporalContext {
                 expected_tzdb_version: "2026f".into(),
             },
         );
-        assert_eq!(report.disposition, Disposition::Pass);
+        assert_eq!(report.disposition, Disposition::NotEvaluable);
+        assert!(report.checks.iter().any(|check| check.code == "resolved_instant_matches_source"));
+        assert!(report.checks.iter().any(|check| check.code == "resolver_attestation_not_verified"));
+    }
+
+    #[test]
+    fn temporal_missing_resolver_reference_is_unknown() {
+        let mut evidence = valid_temporal();
+        evidence.resolver_evidence_ref = None;
+        let report = evaluate_temporal(
+            &evidence,
+            &TemporalContext {
+                expected_tzdb_version: "2026f".into(),
+            },
+        );
+        assert_eq!(report.disposition, Disposition::Unknown);
     }
 
     #[test]
