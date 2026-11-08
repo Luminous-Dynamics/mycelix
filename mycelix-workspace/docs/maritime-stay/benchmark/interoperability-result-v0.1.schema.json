@@ -586,6 +586,77 @@
               "type": "boolean"
             }
           }
+        },
+        "profile_conformance": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "profile_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "profile_version": {
+              "type": "string",
+              "minLength": 1
+            },
+            "conformance_role": {
+              "enum": [
+                "publisher",
+                "subscriber",
+                "producer",
+                "consumer",
+                "provider",
+                "requester",
+                "not_applicable"
+              ]
+            },
+            "requirements_total": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "requirements_tested": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "requirements_correct": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "requirements_incorrect": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "requirements_inconsistent": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "requirements_not_tested": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "requirements_unsupported": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "requirements_not_applicable": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "coverage_ratio": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "correctness_ratio": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "mapping_loss_count": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
         }
       }
     },
