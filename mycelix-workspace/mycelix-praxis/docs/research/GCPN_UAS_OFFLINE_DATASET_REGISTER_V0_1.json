@@ -69,6 +69,7 @@
       "paper_doi":"10.1038/s41597-026-08490-8",
       "paper_url":"https://doi.org/10.1038/s41597-026-08490-8",
       "published_date":"2026-10-22",
+      "modalities":["RF_RECEIVER"],
       "published_subsets":7,
       "published_uav_units":26,
       "published_uav_models":8,
