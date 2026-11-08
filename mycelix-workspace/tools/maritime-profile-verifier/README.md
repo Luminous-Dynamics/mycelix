@@ -69,7 +69,7 @@ underlying reasons. Unknown and NotEvaluable are never promoted to Pass.
 
 From this directory:
 
-    cargo test --locked
+    cargo test
 
 The repository environment used to prepare this slice did not expose Cargo or
 rustc, so no local Rust build result is claimed. CI or another toolchain-enabled
