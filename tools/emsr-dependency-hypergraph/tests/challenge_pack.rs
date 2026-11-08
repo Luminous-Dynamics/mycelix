@@ -1,12 +1,11 @@
 use emsr_dependency_hypergraph::{
-    evaluate_bytes, independently_verify, AssertionState, DependencyDomain, DependencyHyperedge,
-    DependencyQuery, Disposition, HypergraphInput, InventorySnapshot, Node, NodeKind,
-    INPUT_CONTRACT,
+    AssertionState, DependencyDomain, DependencyHyperedge, DependencyQuery, Disposition,
+    HypergraphInput, INPUT_CONTRACT, InventorySnapshot, Node, NodeKind, evaluate_bytes,
+    independently_verify,
 };
 use serde::Deserialize;
 
-const CHALLENGE_PACK: &str =
-    include_str!("../fixtures/dependency-hypergraph-challenges-0.1.json");
+const CHALLENGE_PACK: &str = include_str!("../fixtures/dependency-hypergraph-challenges-0.1.json");
 
 #[derive(Debug, Deserialize)]
 struct ChallengePack {
@@ -52,11 +51,26 @@ fn base_input() -> HypergraphInput {
             expected_evidence_frontier: 120,
         },
         nodes: vec![
-            Node { id: "clock-root".to_owned(), kind: NodeKind::Dependency },
-            Node { id: "provider-a".to_owned(), kind: NodeKind::Dependency },
-            Node { id: "provider-b".to_owned(), kind: NodeKind::Dependency },
-            Node { id: "rx-a".to_owned(), kind: NodeKind::Source },
-            Node { id: "rx-b".to_owned(), kind: NodeKind::Source },
+            Node {
+                id: "clock-root".to_owned(),
+                kind: NodeKind::Dependency,
+            },
+            Node {
+                id: "provider-a".to_owned(),
+                kind: NodeKind::Dependency,
+            },
+            Node {
+                id: "provider-b".to_owned(),
+                kind: NodeKind::Dependency,
+            },
+            Node {
+                id: "rx-a".to_owned(),
+                kind: NodeKind::Source,
+            },
+            Node {
+                id: "rx-b".to_owned(),
+                kind: NodeKind::Source,
+            },
         ],
         hyperedges: vec![
             DependencyHyperedge {
@@ -114,9 +128,15 @@ fn mutate(input: &mut HypergraphInput, mutation: &str) {
             });
         }
         "shared_power_does_not_imply_clock" => {
-            input.nodes.push(Node { id: "power-root".to_owned(), kind: NodeKind::Dependency });
+            input.nodes.push(Node {
+                id: "power-root".to_owned(),
+                kind: NodeKind::Dependency,
+            });
             input.nodes.sort_by(|left, right| left.id.cmp(&right.id));
-            input.snapshot.covered_node_ids.push("power-root".to_owned());
+            input
+                .snapshot
+                .covered_node_ids
+                .push("power-root".to_owned());
             input.snapshot.covered_node_ids.sort();
             input.hyperedges = vec![DependencyHyperedge {
                 id: "power-only".to_owned(),
@@ -190,8 +210,8 @@ fn challenge_pack_is_frozen_and_case_discovery_is_exact() {
     assert!(!pack.evaluator_truth.trim().is_empty());
     assert_eq!(pack.case_count, pack.cases.len());
     let expected_ids = [
-        "DH-001", "DH-002", "DH-003", "DH-004", "DH-005", "DH-006",
-        "DH-007", "DH-008", "DH-009", "DH-010", "DH-011", "DH-012",
+        "DH-001", "DH-002", "DH-003", "DH-004", "DH-005", "DH-006", "DH-007", "DH-008", "DH-009",
+        "DH-010", "DH-011", "DH-012",
     ];
     let actual_ids: Vec<&str> = pack.cases.iter().map(|case| case.id.as_str()).collect();
     assert_eq!(actual_ids, expected_ids);
@@ -223,13 +243,23 @@ fn every_frozen_challenge_matches_the_expected_disposition_and_verifier() {
             case.id
         );
         for reason in &case.expected_reason_codes {
-            assert!(report.reason_codes.contains(reason), "{} missing reason {reason}", case.id);
+            assert!(
+                report.reason_codes.contains(reason),
+                "{} missing reason {reason}",
+                case.id
+            );
         }
 
         if case.id == "DH-001" {
             assert_eq!(report.common_dependency_ids, vec!["clock-root"]);
-            assert_eq!(report.source_ancestors["rx-a"], vec!["clock-root", "provider-a"]);
-            assert_eq!(report.source_ancestors["rx-b"], vec!["clock-root", "provider-b"]);
+            assert_eq!(
+                report.source_ancestors["rx-a"],
+                vec!["clock-root", "provider-a"]
+            );
+            assert_eq!(
+                report.source_ancestors["rx-b"],
+                vec!["clock-root", "provider-b"]
+            );
         }
 
         let report_bytes = serde_json::to_vec(&report).expect("serialize report");
