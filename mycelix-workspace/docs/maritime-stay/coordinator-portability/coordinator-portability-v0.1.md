@@ -117,7 +117,9 @@ Compensation is a new provider effect with its own authority, idempotency and re
 
 Do not prescribe CloudEvents as the sole event envelope.
 
-DCSA Port Call 2.0 uses a DCSA-defined OpenAPI publisher/subscriber contract and leaves event-subscriber registration and bilateral authentication/authorization out of scope. DCSA's API design guidance also says it avoids CloudEvents for notifications. CloudEvents 1.0.2 remains a useful optional adapter for providers that actually use it.
+DCSA Port Call 2.0 uses a DCSA-defined OpenAPI publisher/subscriber contract with GET /events and POST /events patterns. The specification leaves event-subscriber registration and bilateral authentication/authorization out of scope. DCSA API Design and Implementation Guidelines 2025.Q4 further specify consumer-implemented notification endpoints instead of callbacks/webhooks for new DCSA APIs and explicitly avoid CloudEvents for notifications.
+
+Dockwa documents a different, provider-native integration pattern: admin-enabled HTTPS webhook POST delivery. Do not translate these transport and onboarding mechanisms into one assumed universal webhook profile. CloudEvents 1.0.2 remains an optional adapter for sources that actually use it.
 
 Therefore:
 - preserve provider-native bytes or an authorized protected source commitment;
@@ -126,9 +128,10 @@ Therefore:
 - preserve source event identity and timestamps without conflating them with delivery identity;
 - never assume all sources expose monotonic revisions;
 - never infer source truth from a signature or transport acknowledgement;
-- never rewrite DCSA timestamp meaning merely to fit the stay model.
+- never rewrite DCSA timestamp meaning merely to fit the stay model;
+- keep subscriber registration, key exchange, endpoint authorization and revocation as explicit federation requirements instead of assuming DCSA supplies them.
 
-DCSA Port Call events concern commercial port-call service coordination. They are not the recreational stay protocol, marina booking authority or statutory clearance.
+DCSA Port Call events concern commercial port-call service coordination. They are not the recreational stay protocol, marina booking authority or statutory clearance. DCSA conformance tests can inform a scenario-driven adapter test discipline, but a Maritime Commons result is not DCSA certification.
 
 ## 8. Receipt typing and local authority
 
