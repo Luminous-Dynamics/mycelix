@@ -199,6 +199,314 @@ pub fn evaluate_artifact_pin(
     ValidationReport::from_checks(checks)
 }
 
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum StandardsLockStatus {
+    Incomplete,
+    Complete,
+    Superseded,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum StandardsUseScope {
+    CurrentProduction,
+    ResearchFixture,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum DependencyRelationship {
+    FrameworkRequires,
+    ProductUses,
+    SchemaFor,
+    FeatureCatalogueFor,
+    PortrayalCatalogueFor,
+    ValidationRulesFor,
+    CodeListFor,
+    References,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub struct StandardsDependency {
+    pub artifact_id: String,
+    pub relationship: DependencyRelationship,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub struct StandardsArtifact {
+    pub artifact_id: String,
+    pub authority: String,
+    pub family: String,
+    pub identifier: String,
+    pub version: String,
+    pub maturity: ArtifactMaturity,
+    pub sha256: String,
+    pub dependencies: Vec<StandardsDependency>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub struct StandardsDependencyLock {
+    pub status: StandardsLockStatus,
+    pub root_artifact_ids: Vec<String>,
+    pub artifacts: Vec<StandardsArtifact>,
+}
+
+fn visit_standards_graph<'a>(
+    artifact_id: &str,
+    artifacts: &BTreeMap<String, &'a StandardsArtifact>,
+    states: &mut BTreeMap<String, u8>,
+) -> bool {
+    match states.get(artifact_id).copied() {
+        Some(1) => return false,
+        Some(2) => return true,
+        _ => {}
+    }
+
+    let Some(artifact) = artifacts.get(artifact_id) else {
+        return true;
+    };
+
+    states.insert(artifact_id.to_owned(), 1);
+    for dependency in &artifact.dependencies {
+        if artifacts.contains_key(&dependency.artifact_id)
+            && !visit_standards_graph(&dependency.artifact_id, artifacts, states)
+        {
+            return false;
+        }
+    }
+    states.insert(artifact_id.to_owned(), 2);
+    true
+}
+
+/// Checks graph closure and declared maturity. It does not prove that the
+/// referenced sources are authentic, nor does it validate product-specific
+/// compatibility constraints that are not represented in the lock.
+pub fn evaluate_standards_lock(
+    lock: &StandardsDependencyLock,
+    use_scope: StandardsUseScope,
+) -> ValidationReport {
+    let mut checks = Vec::new();
+
+    if lock.status == StandardsLockStatus::Incomplete {
+        checks.push(Check::unknown(
+            "standards_lock_incomplete",
+            "An explicitly incomplete dependency lock cannot establish a complete standards profile.",
+        ));
+    } else if lock.status == StandardsLockStatus::Superseded {
+        checks.push(Check::reject(
+            "standards_lock_superseded",
+            "A superseded dependency lock cannot establish the current profile context.",
+        ));
+    } else {
+        checks.push(Check::pass(
+            "standards_lock_status",
+            "The dependency lock declares itself complete and current for review.",
+        ));
+    }
+
+    if lock.artifacts.is_empty() {
+        checks.push(Check::reject(
+            "standards_lock_empty",
+            "A complete standards lock must contain at least one artifact.",
+        ));
+        return ValidationReport::from_checks(checks);
+    }
+
+    if lock.root_artifact_ids.is_empty() {
+        checks.push(Check::reject(
+            "standards_roots_missing",
+            "The dependency graph must declare at least one root artifact.",
+        ));
+    }
+
+    let mut artifacts = BTreeMap::new();
+    let mut duplicate_ids = Vec::new();
+    for artifact in &lock.artifacts {
+        if artifacts.insert(artifact.artifact_id.clone(), artifact).is_some() {
+            duplicate_ids.push(artifact.artifact_id.clone());
+        }
+    }
+
+    if duplicate_ids.is_empty() {
+        checks.push(Check::pass(
+            "standards_artifact_ids_unique",
+            "Every artifact has a unique lock-local identifier.",
+        ));
+    } else {
+        duplicate_ids.sort();
+        duplicate_ids.dedup();
+        checks.push(Check::conflict(
+            "standards_artifact_id_duplicate",
+            format!("Duplicate artifact identifiers: {}", duplicate_ids.join(", ")),
+        ));
+    }
+
+    let metadata_complete = lock.artifacts.iter().all(|artifact| {
+        non_empty(&artifact.artifact_id)
+            && non_empty(&artifact.authority)
+            && non_empty(&artifact.family)
+            && non_empty(&artifact.identifier)
+            && non_empty(&artifact.version)
+    });
+    if metadata_complete {
+        checks.push(Check::pass(
+            "standards_artifact_metadata_present",
+            "Every artifact has authority, family, identifier, and version metadata.",
+        ));
+    } else {
+        checks.push(Check::reject(
+            "standards_artifact_metadata_missing",
+            "Every artifact must identify its authority, family, identifier, and exact version.",
+        ));
+    }
+
+    let digests_valid = lock
+        .artifacts
+        .iter()
+        .all(|artifact| sha256_digest_is_well_formed(&artifact.sha256));
+    if digests_valid {
+        checks.push(Check::pass(
+            "standards_artifact_digests_present",
+            "Every artifact carries a well-formed SHA-256 digest.",
+        ));
+    } else {
+        checks.push(Check::reject(
+            "standards_artifact_digest_invalid",
+            "A missing or malformed artifact digest prevents an exact dependency pin.",
+        ));
+    }
+
+    let roots_present = lock
+        .root_artifact_ids
+        .iter()
+        .all(|root| artifacts.contains_key(root));
+    if roots_present {
+        checks.push(Check::pass(
+            "standards_roots_resolve",
+            "Every declared root artifact exists in the lock.",
+        ));
+    } else {
+        checks.push(Check::reject(
+            "standards_root_dangling",
+            "A declared root artifact is absent from the dependency lock.",
+        ));
+    }
+
+    let mut dangling = Vec::new();
+    for artifact in &lock.artifacts {
+        for dependency in &artifact.dependencies {
+            if !artifacts.contains_key(&dependency.artifact_id) {
+                dangling.push(format!("{} -> {}", artifact.artifact_id, dependency.artifact_id));
+            }
+        }
+    }
+    if dangling.is_empty() {
+        checks.push(Check::pass(
+            "standards_dependencies_resolve",
+            "Every dependency edge points to an artifact in the lock.",
+        ));
+    } else {
+        dangling.sort();
+        checks.push(Check::reject(
+            "standards_dependency_dangling",
+            format!("Unresolved dependency edges: {}", dangling.join(", ")),
+        ));
+    }
+
+    let mut states = BTreeMap::new();
+    let mut acyclic = true;
+    if roots_present {
+        for root in &lock.root_artifact_ids {
+            if !visit_standards_graph(root, &artifacts, &mut states) {
+                acyclic = false;
+                break;
+            }
+        }
+    } else {
+        acyclic = false;
+    }
+
+    if acyclic && dangling.is_empty() {
+        checks.push(Check::pass(
+            "standards_dependency_graph_acyclic",
+            "The declared dependency graph is acyclic.",
+        ));
+    } else {
+        checks.push(Check::reject(
+            "standards_dependency_graph_invalid",
+            "The dependency graph contains a cycle or cannot be traversed from its declared roots.",
+        ));
+    }
+
+    let unreachable: Vec<String> = artifacts
+        .keys()
+        .filter(|artifact_id| !states.contains_key(*artifact_id))
+        .cloned()
+        .collect();
+    if unreachable.is_empty() {
+        checks.push(Check::pass(
+            "standards_dependency_closure_complete",
+            "Every lock artifact is reachable from a declared root.",
+        ));
+    } else {
+        checks.push(Check::reject(
+            "standards_dependency_orphan",
+            format!("Artifacts outside the declared root closure: {}", unreachable.join(", ")),
+        ));
+    }
+
+    let mut maturity_checks = Vec::new();
+    for artifact in &lock.artifacts {
+        let check = match (use_scope, artifact.maturity) {
+            (StandardsUseScope::CurrentProduction, ArtifactMaturity::Production | ArtifactMaturity::Operational) => {
+                Check::pass(
+                    "standards_artifact_maturity_accepted",
+                    &format!("{} is marked production/operational.", artifact.artifact_id),
+                )
+            }
+            (StandardsUseScope::CurrentProduction, ArtifactMaturity::Deprecated | ArtifactMaturity::Withdrawn) => {
+                Check::reject(
+                    "standards_artifact_maturity_retired",
+                    &format!("{} is deprecated or withdrawn and cannot support current production use.", artifact.artifact_id),
+                )
+            }
+            (StandardsUseScope::CurrentProduction, ArtifactMaturity::Unknown) => {
+                Check::unknown(
+                    "standards_artifact_maturity_unknown",
+                    &format!("{} has unknown maturity.", artifact.artifact_id),
+                )
+            }
+            (StandardsUseScope::CurrentProduction, ArtifactMaturity::PreRelease | ArtifactMaturity::Draft | ArtifactMaturity::ImplementationTesting) => {
+                Check::not_evaluable(
+                    "standards_artifact_not_operational",
+                    &format!("{} is not marked production/operational.", artifact.artifact_id),
+                )
+            }
+            (StandardsUseScope::ResearchFixture, ArtifactMaturity::Unknown) => {
+                Check::unknown(
+                    "standards_artifact_maturity_unknown",
+                    &format!("{} has unknown maturity.", artifact.artifact_id),
+                )
+            }
+            (StandardsUseScope::ResearchFixture, _) => {
+                Check::pass(
+                    "standards_artifact_maturity_recorded",
+                    &format!("{} maturity is recorded for research-fixture use only.", artifact.artifact_id),
+                )
+            }
+        };
+        maturity_checks.push(check);
+    }
+
+    if !maturity_checks.is_empty() {
+        checks.extend(maturity_checks);
+    }
+
+    ValidationReport::from_checks(checks)
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum RecognitionDisposition {
@@ -692,30 +1000,27 @@ pub struct TypedQuantity {
 }
 
 fn is_decimal_lexeme(value: &str) -> bool {
-    let bytes = value.as_bytes();
-    if bytes.is_empty() {
+    let unsigned = value.strip_prefix('-').unwrap_or(value);
+    if unsigned.is_empty() || (value.starts_with('-') && unsigned.bytes().all(|b| b == b'0' || b == b'.')) {
         return false;
     }
 
-    let start = if bytes[0] == b'-' { 1 } else { 0 };
-    if start == bytes.len() {
+    let mut parts = unsigned.split('.');
+    let integer = parts.next().unwrap_or_default();
+    let fraction = parts.next();
+    if parts.next().is_some() || integer.is_empty() {
         return false;
     }
 
-    let mut seen_decimal = false;
-    let mut digits_before = 0usize;
-    let mut digits_after = 0usize;
+    let integer_valid = integer == "0"
+        || (integer.as_bytes()[0].is_ascii_digit()
+            && integer.as_bytes()[0] != b'0'
+            && integer.bytes().all(|b| b.is_ascii_digit()));
+    let fraction_valid = fraction.is_none_or(|digits| {
+        !digits.is_empty() && digits.bytes().all(|b| b.is_ascii_digit())
+    });
 
-    for byte in &bytes[start..] {
-        match byte {
-            b'0'..=b'9' if seen_decimal => digits_after += 1,
-            b'0'..=b'9' => digits_before += 1,
-            b'.' if !seen_decimal => seen_decimal = true,
-            _ => return false,
-        }
-    }
-
-    digits_before > 0 && (!seen_decimal || digits_after > 0)
+    integer_valid && fraction_valid
 }
 
 pub fn evaluate_quantity(
@@ -1115,6 +1420,132 @@ mod tests {
     fn quantity_checks_physical_dimension() {
         let report = evaluate_quantity(&quantity("W"), Some(&registry()), "energy");
         assert_eq!(report.disposition, Disposition::Reject);
+    }
+
+    fn valid_standards_lock() -> StandardsDependencyLock {
+        StandardsDependencyLock {
+            status: StandardsLockStatus::Complete,
+            root_artifact_ids: vec!["S131".into()],
+            artifacts: vec![
+                StandardsArtifact {
+                    artifact_id: "S131".into(),
+                    authority: "IHO".into(),
+                    family: "S-100-product".into(),
+                    identifier: "S-131".into(),
+                    version: "2.0.0".into(),
+                    maturity: ArtifactMaturity::Operational,
+                    sha256: digest('e'),
+                    dependencies: vec![StandardsDependency {
+                        artifact_id: "S100".into(),
+                        relationship: DependencyRelationship::FrameworkRequires,
+                    }],
+                },
+                StandardsArtifact {
+                    artifact_id: "S100".into(),
+                    authority: "IHO".into(),
+                    family: "framework".into(),
+                    identifier: "S-100".into(),
+                    version: "5.2.0".into(),
+                    maturity: ArtifactMaturity::Operational,
+                    sha256: digest('f'),
+                    dependencies: vec![],
+                },
+            ],
+        }
+    }
+
+    #[test]
+    fn standards_lock_accepts_complete_pinned_dependency_closure() {
+        let report = evaluate_standards_lock(
+            &valid_standards_lock(),
+            StandardsUseScope::CurrentProduction,
+        );
+        assert_eq!(report.disposition, Disposition::Pass);
+    }
+
+    #[test]
+    fn standards_lock_rejects_dangling_dependencies() {
+        let mut lock = valid_standards_lock();
+        lock.artifacts[0].dependencies[0].artifact_id = "missing-catalogue".into();
+        let report = evaluate_standards_lock(&lock, StandardsUseScope::CurrentProduction);
+        assert_eq!(report.disposition, Disposition::Reject);
+        assert!(report.checks.iter().any(|check| check.code == "standards_dependency_dangling"));
+    }
+
+    #[test]
+    fn standards_lock_rejects_dependency_cycles() {
+        let mut lock = valid_standards_lock();
+        lock.artifacts[1].dependencies.push(StandardsDependency {
+            artifact_id: "S131".into(),
+            relationship: DependencyRelationship::References,
+        });
+        let report = evaluate_standards_lock(&lock, StandardsUseScope::CurrentProduction);
+        assert_eq!(report.disposition, Disposition::Reject);
+        assert!(report.checks.iter().any(|check| check.code == "standards_dependency_graph_invalid"));
+    }
+
+    #[test]
+    fn standards_lock_rejects_orphaned_artifacts() {
+        let mut lock = valid_standards_lock();
+        let mut orphan = lock.artifacts[1].clone();
+        orphan.artifact_id = "orphan".into();
+        orphan.identifier = "UNRELATED".into();
+        orphan.dependencies.clear();
+        lock.artifacts.push(orphan);
+        let report = evaluate_standards_lock(&lock, StandardsUseScope::CurrentProduction);
+        assert_eq!(report.disposition, Disposition::Reject);
+        assert!(report.checks.iter().any(|check| check.code == "standards_dependency_orphan"));
+    }
+
+    #[test]
+    fn standards_lock_does_not_promote_prerelease_to_production() {
+        let mut lock = valid_standards_lock();
+        lock.artifacts[0].maturity = ArtifactMaturity::PreRelease;
+        let report = evaluate_standards_lock(&lock, StandardsUseScope::CurrentProduction);
+        assert_eq!(report.disposition, Disposition::NotEvaluable);
+    }
+
+    #[test]
+    fn standards_lock_rejects_withdrawn_artifacts_for_current_use() {
+        let mut lock = valid_standards_lock();
+        lock.artifacts[1].maturity = ArtifactMaturity::Withdrawn;
+        let report = evaluate_standards_lock(&lock, StandardsUseScope::CurrentProduction);
+        assert_eq!(report.disposition, Disposition::Reject);
+    }
+
+    #[test]
+    fn standards_lock_incomplete_status_is_unknown() {
+        let mut lock = valid_standards_lock();
+        lock.status = StandardsLockStatus::Incomplete;
+        let report = evaluate_standards_lock(&lock, StandardsUseScope::ResearchFixture);
+        assert_eq!(report.disposition, Disposition::Unknown);
+    }
+
+    #[test]
+    fn standards_lock_detects_duplicate_artifact_ids() {
+        let mut lock = valid_standards_lock();
+        let duplicate = lock.artifacts[0].clone();
+        lock.artifacts.push(duplicate);
+        let report = evaluate_standards_lock(&lock, StandardsUseScope::ResearchFixture);
+        assert_eq!(report.disposition, Disposition::Conflict);
+    }
+
+    #[test]
+    fn standards_lock_allows_prerelease_only_as_research_fixture() {
+        let mut lock = valid_standards_lock();
+        lock.artifacts[0].maturity = ArtifactMaturity::PreRelease;
+        let report = evaluate_standards_lock(&lock, StandardsUseScope::ResearchFixture);
+        assert_eq!(report.disposition, Disposition::Pass);
+    }
+
+    #[test]
+    fn quantity_rejects_noncanonical_decimal_lexemes() {
+        for invalid in ["01", "00.5", "-0", "-0.0", ".5", "1.", "1.2.3"] {
+            let mut value = quantity("m");
+            value.value_decimal = invalid.into();
+            let report = evaluate_quantity(&value, Some(&registry()), "length");
+            assert_eq!(report.disposition, Disposition::Reject, "{invalid:?}");
+        }
     }
 
     #[test]
