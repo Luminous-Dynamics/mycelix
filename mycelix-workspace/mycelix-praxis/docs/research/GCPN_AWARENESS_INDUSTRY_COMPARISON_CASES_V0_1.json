@@ -142,7 +142,7 @@
   ],
   "proposed_target": {
     "relative_duplicate_unsubstantiated_alert_and_review_workload_reduction_percent": 20,
-    "event_recall_non_degradation_required": true,
+    "semantic_state_conformance_non_degradation_required": true,
     "privacy_safety_and_authority_violations_may_increase": false,
     "status": "falsifiable_hypothesis_only_not_a_result"
   },
