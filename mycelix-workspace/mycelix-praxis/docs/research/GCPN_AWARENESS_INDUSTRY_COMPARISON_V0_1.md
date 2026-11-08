@@ -115,7 +115,7 @@ A vendor-specific adapter is not a vendor endorsement. If a system cannot export
 
 ### Candidate improvement hypothesis
 
-After establishing the incumbent baseline and preregistering a held-out set, test whether the evidence layer can reduce duplicate/unsubstantiated alert burden and human-review workload by at least **20% relative** without reducing independently adjudicated event recall or increasing privacy, safety or authority violations.
+After establishing the incumbent baseline and preregistering a held-out set, test whether the evidence layer can reduce duplicate/unsubstantiated alert burden and human-review workload by at least **20% relative** without degrading semantic-state conformance, provenance completeness or required contradiction preservation, and without increasing privacy, safety or authority violations. Track A does not measure physical event recall; that belongs exclusively to Track B and its separate independent ground-truth protocol.
 
 This is a falsifiable research target, not a result. If the baseline performs better, report that.
 
