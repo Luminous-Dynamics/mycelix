@@ -568,42 +568,22 @@ fn compute_metrics(frame: &EventFrame, system: &SystemRun) -> SystemMetrics {
     }
 }
 
-pub fn evaluate_bytes(bytes: &[u8]) -> EvaluationReport {
-    let source_sha256 = format!("{:x}", Sha256::digest(bytes));
-    let mut errors = Vec::new();
-    if source_sha256 != EXPECTED_FIXTURE_SHA256 {
-        errors.push(format!(
-            "fixture_digest_mismatch: expected {}, got {}",
-            EXPECTED_FIXTURE_SHA256, source_sha256
-        ));
-    }
-
-    let parsed = serde_json::from_slice::<ReplayRun>(bytes);
-    let run = match parsed {
-        Ok(run) => Some(run),
-        Err(error) => {
-            errors.push(format!("strict_json_decode: {error}"));
-            None
-        }
-    };
-
+fn report_for_run(
+    run: &ReplayRun,
+    source_sha256: String,
+    mut errors: Vec<String>,
+) -> EvaluationReport {
+    errors.extend(validate_run(run));
     let mut results = Vec::new();
-    let mut frame_id = String::new();
-    let mut event_count = 0usize;
-    if let Some(run) = run {
-        frame_id = run.event_frame.frame_id.clone();
-        event_count = run.event_frame.events.len();
-        errors.extend(validate_run(&run));
-        if errors.is_empty() {
-            results = run
-                .systems
-                .iter()
-                .map(|system| compute_metrics(&run.event_frame, system))
-                .collect();
-        }
+    if errors.is_empty() {
+        results = run
+            .systems
+            .iter()
+            .map(|system| compute_metrics(&run.event_frame, system))
+            .collect();
     }
-
     errors.sort();
+
     let status = if !errors.is_empty() {
         "REJECTED"
     } else if results.iter().any(|result| !result.hard_gates_passed) {
@@ -617,8 +597,8 @@ pub fn evaluate_bytes(bytes: &[u8]) -> EvaluationReport {
         status,
         synthetic_only: true,
         source_sha256,
-        frame_id,
-        event_count,
+        frame_id: run.event_frame.frame_id.clone(),
+        event_count: run.event_frame.events.len(),
         system_count: results.len(),
         results,
         errors,
@@ -626,15 +606,41 @@ pub fn evaluate_bytes(bytes: &[u8]) -> EvaluationReport {
     }
 }
 
+pub fn evaluate_bytes(bytes: &[u8]) -> EvaluationReport {
+    let source_sha256 = format!("{:x}", Sha256::digest(bytes));
+    let mut errors = Vec::new();
+    if source_sha256 != EXPECTED_FIXTURE_SHA256 {
+        errors.push(format!(
+            "fixture_digest_mismatch: expected {}, got {}",
+            EXPECTED_FIXTURE_SHA256, source_sha256
+        ));
+    }
+
+    match serde_json::from_slice::<ReplayRun>(bytes) {
+        Ok(run) => report_for_run(&run, source_sha256, errors),
+        Err(error) => {
+            errors.push(format!("strict_json_decode: {error}"));
+            errors.sort();
+            EvaluationReport {
+                report_schema: "luminous.gcpn.track_a_replay_report.v0.1",
+                status: "REJECTED",
+                synthetic_only: true,
+                source_sha256,
+                frame_id: String::new(),
+                event_count: 0,
+                system_count: 0,
+                results: Vec::new(),
+                errors,
+                claim_ceiling: "synthetic_replay_metric_arithmetic_only",
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    fn parsed_errors(changed: &str) -> Vec<String> {
-        let run: ReplayRun =
-            serde_json::from_str(changed).expect("mutated fixture remains valid JSON");
-        validate_run(&run)
-    }
 
     const FIXTURE: &str = include_str!(
         "../../../mycelix-workspace/mycelix-praxis/docs/research/GCPN_TRACK_A_REPLAY_DEMO_RUN_V0_1.json"
@@ -695,64 +701,58 @@ mod tests {
 
     #[test]
     fn missing_output_is_rejected() {
-        let changed = FIXTURE.replace(
-            ",{\"case_id\":\"E012\",\"disposition\":\"DEFER_TO_HUMAN\",\"p_review_required\":null,\"review_ticket_id\":\"R-A-012\",\"review_minutes\":3,\"decision_latency_ms\":13,\"provenance_complete\":true,\"time_quality_handled\":true,\"dependency_unknown_preserved\":true,\"privacy_violation\":false,\"authority_violation\":false}",
-            "",
-        );
-        assert_ne!(changed, FIXTURE);
-        let errors = parsed_errors(&changed);
-        assert!(
-            errors
-                .iter()
-                .any(|error| error.starts_with("output_event_frame_mismatch:"))
-        );
+        let mut run: ReplayRun = serde_json::from_str(FIXTURE).expect("valid frozen fixture");
+        run.systems[0].outputs.pop();
+        let report = report_for_run(&run, "mutated".to_string(), Vec::new());
+        assert_eq!(report.status, "REJECTED");
+        assert!(report
+            .errors
+            .iter()
+            .any(|error| error.starts_with("output_event_frame_mismatch:")));
     }
 
     #[test]
     fn vendor_named_system_cannot_enter_synthetic_demo() {
-        let changed = FIXTURE.replace("SYNTHETIC_RULES_REFERENCE", "DED RONE RF360");
-        assert_ne!(changed, FIXTURE);
-        let errors = parsed_errors(&changed);
-        assert!(
-            errors
-                .iter()
-                .any(|error| error.starts_with("non_synthetic_system_id:"))
-        );
+        let mut run: ReplayRun = serde_json::from_str(FIXTURE).expect("valid frozen fixture");
+        run.systems[0].system_id = "DED RONE RF360".to_string();
+        let report = report_for_run(&run, "mutated".to_string(), Vec::new());
+        assert_eq!(report.status, "REJECTED");
+        assert!(report
+            .errors
+            .iter()
+            .any(|error| error.starts_with("non_synthetic_system_id:")));
     }
 
     #[test]
     fn probabilities_are_checked_by_schema_semantics() {
-        let changed = FIXTURE.replace("\"p_review_required\":0.90", "\"p_review_required\":1.50");
-        assert_ne!(changed, FIXTURE);
-        let errors = parsed_errors(&changed);
-        assert!(
-            errors
-                .iter()
-                .any(|error| error.starts_with("invalid_probability:"))
-        );
+        let mut run: ReplayRun = serde_json::from_str(FIXTURE).expect("valid frozen fixture");
+        run.systems[0].outputs[0].p_review_required = Some(1.50);
+        let report = report_for_run(&run, "mutated".to_string(), Vec::new());
+        assert_eq!(report.status, "REJECTED");
+        assert!(report
+            .errors
+            .iter()
+            .any(|error| error.starts_with("invalid_probability:")));
     }
 
     #[test]
     fn privacy_violation_fails_the_hard_gate() {
-        let changed = FIXTURE.replace("\"privacy_violation\":false", "\"privacy_violation\":true");
-        assert_ne!(changed, FIXTURE);
-        let run: ReplayRun = serde_json::from_str(&changed).expect("valid mutated JSON");
-        let metrics = compute_metrics(&run.event_frame, &run.systems[0]);
-        assert_eq!(metrics.privacy_violation_count, 1);
-        assert!(!metrics.hard_gates_passed);
+        let mut run: ReplayRun = serde_json::from_str(FIXTURE).expect("valid frozen fixture");
+        run.systems[0].outputs[0].privacy_violation = true;
+        let report = report_for_run(&run, "mutated".to_string(), Vec::new());
+        assert_eq!(report.status, "HARD_GATE_FAILURE");
+        assert_eq!(report.results[0].privacy_violation_count, 1);
+        assert!(!report.results[0].hard_gates_passed);
     }
 
     #[test]
     fn authority_violation_fails_the_hard_gate() {
-        let changed = FIXTURE.replace(
-            "\"authority_violation\":false",
-            "\"authority_violation\":true",
-        );
-        assert_ne!(changed, FIXTURE);
-        let run: ReplayRun = serde_json::from_str(&changed).expect("valid mutated JSON");
-        let metrics = compute_metrics(&run.event_frame, &run.systems[0]);
-        assert_eq!(metrics.authority_violation_count, 1);
-        assert!(!metrics.hard_gates_passed);
+        let mut run: ReplayRun = serde_json::from_str(FIXTURE).expect("valid frozen fixture");
+        run.systems[0].outputs[0].authority_violation = true;
+        let report = report_for_run(&run, "mutated".to_string(), Vec::new());
+        assert_eq!(report.status, "HARD_GATE_FAILURE");
+        assert_eq!(report.results[0].authority_violation_count, 1);
+        assert!(!report.results[0].hard_gates_passed);
     }
 
     #[test]
