@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://schemas.luminousdynamics.io/maritime-commons/standards-dependency-lock/0.1.0/schema.json",
+  "$id": "urn:luminous-dynamics:maritime-commons:standards-dependency-lock:0.1.0",
   "title": "Maritime Commons Standards Dependency Lock v0.1",
   "description": "Structural lockfile contract. Dependency graph closure, cycles, compatibility, maturity, and digest provenance require semantic verification.",
   "type": "object",
