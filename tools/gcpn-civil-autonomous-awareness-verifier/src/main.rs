@@ -21,5 +21,9 @@ fn main() -> ExitCode {
             return ExitCode::from(2);
         }
     }
-    if report.status == "CONFORMS" { ExitCode::SUCCESS } else { ExitCode::from(1) }
+    if report.status == "CONFORMS" {
+        ExitCode::SUCCESS
+    } else {
+        ExitCode::from(1)
+    }
 }
