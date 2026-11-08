@@ -34,3 +34,19 @@ The evaluator and reference verifier use separate traversal implementations (ite
 ## Scale work
 
 The initial prototype does not claim scale or performance. Follow-on measurements must report p50/p95/p99 runtime and peak memory at declared node, hyperedge and reachability densities, plus exact expected outcomes and false-independent negative controls.
+
+## Cross-language report verification
+
+A separate Go implementation is provided in `tools/emsr-dependency-hypergraph-go-verifier`. It uses only the Go standard library, parses the exact input/report contracts, recomputes the dependency closure using its own recursive traversal, and checks the input-byte digest, query/snapshot binding, closure, disposition, reason codes, authority and claim ceiling.
+
+Run:
+
+```sh
+cd tools/emsr-dependency-hypergraph-go-verifier
+go test -race -count=1 ./...
+go run . verify input.json report.json
+```
+
+The Go test consumes the same versioned public challenge pack as the Rust reference tests. Both implementations are checked against frozen expected outcomes; the Go suite also rejects a stale input digest and authority/claim-ceiling tampering.
+
+This raises the independence boundary from a second Rust traversal to a second language and standard-library implementation. It is still **not organizationally independent**: both implementations and tests are maintained in the same repository, and the public challenge pack is visible. A blind evaluator-owned test set, separately controlled custody, external reference measurement and independent review remain necessary for stronger assurance claims.
