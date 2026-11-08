@@ -199,11 +199,11 @@ pub fn evaluate(input: &HypergraphInput, input_sha256: String) -> EvaluationRepo
 
     let mut closures = BTreeMap::new();
     for source_id in &input.query.source_ids {
-        if !input
+        if input
             .snapshot
             .covered_node_ids
             .binary_search(source_id)
-            .is_ok()
+            .is_err()
         {
             unknown_reasons.push("source_not_covered_by_inventory_snapshot".to_owned());
         }
