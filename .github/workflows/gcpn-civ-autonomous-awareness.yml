@@ -5,6 +5,7 @@ on:
     paths:
       - "mycelix-workspace/mycelix-praxis/docs/research/GCPN_CIV_AUTONOMOUS_AWARENESS_BENCHMARK_V0_1.md"
       - "mycelix-workspace/mycelix-praxis/docs/research/GCPN_CIV_AUTONOMOUS_AWARENESS_CASES_V0_1.json"
+      - "mycelix-workspace/mycelix-praxis/docs/research/GCPN_CIV_AUTONOMOUS_AWARENESS_PRELIMINARY_DESK_REVIEW_V0_1.md"
       - "tools/gcpn-civil-autonomous-awareness-verifier/**"
       - ".github/workflows/gcpn-civ-autonomous-awareness.yml"
   workflow_dispatch:
