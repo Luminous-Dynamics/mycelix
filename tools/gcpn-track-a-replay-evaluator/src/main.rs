@@ -3,7 +3,8 @@ use std::{env, fs, process::ExitCode};
 
 fn main() -> ExitCode {
     let path = env::args().nth(1).unwrap_or_else(|| {
-        "mycelix-workspace/mycelix-praxis/docs/research/GCPN_TRACK_A_REPLAY_DEMO_RUN_V0_1.json".to_string()
+        "mycelix-workspace/mycelix-praxis/docs/research/GCPN_TRACK_A_REPLAY_DEMO_RUN_V0_1.json"
+            .to_string()
     });
     let bytes = match fs::read(&path) {
         Ok(bytes) => bytes,
