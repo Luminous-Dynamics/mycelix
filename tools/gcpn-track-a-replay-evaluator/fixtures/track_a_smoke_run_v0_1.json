@@ -4,7 +4,7 @@
   "claim_ceiling": "common_event_envelope_replay_only_no_physical_sensor_detection_or_field_claim",
   "run_id": "synthetic-track-a-smoke-v0.1",
   "site_profile_ref": "synthetic://no-real-site",
-  "comparison_protocol_sha256": "3fca74480cef7802e0fd0fddcd97949a0593c6a873f97c195d4250bd88034678",
+  "comparison_protocol_sha256": "4a66a0d631580eeba82b567821b0be692e2857ff1317b677945362a7d08a1173",
   "awareness_case_manifest_sha256": "317ed98191606c4e0a58f8445ec29df3c9851dfb4968a33faf80dfc43eaacaa4",
   "event_frame_sha256": "317ed98191606c4e0a58f8445ec29df3c9851dfb4968a33faf80dfc43eaacaa4",
   "operator_review_budget_minutes_per_case": 10,
