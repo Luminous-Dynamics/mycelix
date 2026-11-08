@@ -59,7 +59,8 @@
     "provider_autonomy_local_governance",
     "privacy_economic_transparency",
     "interoperability_recovery",
-    "coordinator_portability"
+    "coordinator_portability",
+    "profile_conformance"
   ],
   "non_compensatory_hard_gates": [
     "zero_false_confirmed_stays",
@@ -72,6 +73,131 @@
     "zero_marina_booking_substituted_for_statutory_or_navigation_authority"
   ],
   "scenarios": [
+    {
+      "id": "MCB-COORD-001",
+      "name": "Independent historical-view reconstruction",
+      "class": "coordinator_portability",
+      "required_arms": [
+        "FEDERATED"
+      ],
+      "coordinator_profiles": [
+        "SINGLE",
+        "HA_REPLICATED",
+        "RECONSTRUCTED"
+      ],
+      "setup": "Two independent evaluators receive the same exact evidence frontier, evaluation instant, policy snapshot, semantic profile and evaluator identity.",
+      "expected_safety_disposition": "Same byte-identical canonical historical view; no external call or side effect.",
+      "measures": [
+        "historical_manifest_match",
+        "manifest_divergence_count",
+        "cold_start_reconstruction_ms"
+      ],
+      "references": [
+        "#5938",
+        "#5921"
+      ]
+    },
+    {
+      "id": "MCB-COORD-002",
+      "name": "Provider commits before coordinator crash",
+      "class": "crash_recovery",
+      "required_arms": [
+        "NATIVE",
+        "FEDERATED"
+      ],
+      "coordinator_profiles": [
+        "SINGLE",
+        "HA_REPLICATED",
+        "RECONSTRUCTED"
+      ],
+      "setup": "Provider durably commits, then coordinator crashes before receiving or admitting the effect receipt.",
+      "expected_safety_disposition": "Replacement reports Unknown / NeedsReconciliation until provider-authoritative evidence is obtained; no second provider effect.",
+      "measures": [
+        "duplicate_effect_count",
+        "reconciliation_latency",
+        "provider_readback_calls",
+        "coordinator_replacement_ms"
+      ],
+      "references": [
+        "#5938",
+        "#2525",
+        "#5921"
+      ]
+    },
+    {
+      "id": "MCB-COORD-003",
+      "name": "Old coordinator resumes after fencing transfer",
+      "class": "split_brain",
+      "required_arms": [
+        "FEDERATED"
+      ],
+      "coordinator_profiles": [
+        "HA_REPLICATED",
+        "RECONSTRUCTED"
+      ],
+      "setup": "Old coordinator resumes with a stale execution epoch after a replacement has become active.",
+      "expected_safety_disposition": "No stale-epoch effectful dispatch; if provider-side fencing/idempotency cannot be guaranteed, effectful failover is refused.",
+      "measures": [
+        "stale_epoch_dispatches",
+        "duplicate_effect_count",
+        "operator_recovery_minutes"
+      ],
+      "references": [
+        "#5938",
+        "#2525"
+      ]
+    },
+    {
+      "id": "MCB-COORD-004",
+      "name": "Historical view after policy change",
+      "class": "policy_change",
+      "required_arms": [
+        "FEDERATED"
+      ],
+      "coordinator_profiles": [
+        "SINGLE",
+        "HA_REPLICATED",
+        "RECONSTRUCTED"
+      ],
+      "setup": "Local recognition or destination policy changes after a historical stay manifest was generated.",
+      "expected_safety_disposition": "Historical output remains immutable; current actionability is independently reevaluated under current policy.",
+      "measures": [
+        "historical_view_mutations",
+        "current_actionability_requalification_ms",
+        "policy_version_mismatch_detection"
+      ],
+      "references": [
+        "#5938",
+        "#1215",
+        "#1149"
+      ]
+    },
+    {
+      "id": "MCB-COORD-005",
+      "name": "Provider continues during coordinator outage",
+      "class": "availability",
+      "required_arms": [
+        "NATIVE",
+        "FEDERATED"
+      ],
+      "coordinator_profiles": [
+        "SINGLE",
+        "HA_REPLICATED",
+        "RECONSTRUCTED"
+      ],
+      "setup": "Federation coordinator is unavailable while provider-native booking operations remain available.",
+      "expected_safety_disposition": "Provider-native operation remains usable under provider authority; federation view reports stale/unavailable and does not claim currentness.",
+      "measures": [
+        "provider_native_availability",
+        "coordinator_replacement_ms",
+        "last_view_age_ms",
+        "manual_reconciliation_minutes"
+      ],
+      "references": [
+        "#5938",
+        "#5920"
+      ]
+    },
     {
       "id": "MCB-INT-001",
       "name": "Three-provider complete stay",
@@ -388,128 +514,62 @@
       ]
     },
     {
-      "id": "MCB-COORD-001",
-      "name": "Independent historical-view reconstruction",
-      "class": "coordinator_portability",
+      "id": "MCB-STD-001",
+      "name": "Pinned DCSA Port Call publisher/subscriber conformance",
+      "class": "profile_conformance",
       "required_arms": [
         "FEDERATED"
       ],
-      "coordinator_profiles": [
-        "SINGLE",
-        "HA_REPLICATED",
-        "RECONSTRUCTED"
-      ],
-      "setup": "Two independent evaluators receive the same exact evidence frontier, evaluation instant, policy snapshot, semantic profile and evaluator identity.",
-      "expected_safety_disposition": "Same byte-identical canonical historical view; no external call or side effect.",
+      "profile": "DCSA-PC-2.0.0",
+      "setup": "Exercise each implemented publisher GET and subscriber POST role against a declared synthetic conformance counterpart using pinned scenarios.",
+      "expected_safety_disposition": "Every requirement is marked Correct, Incorrect, Inconsistent, NotTested, Unsupported or NotApplicable; coverage and correctness reported separately; NotTested never counts as PASS.",
       "measures": [
-        "historical_manifest_match",
-        "manifest_divergence_count",
-        "cold_start_reconstruction_ms"
+        "profile_requirement_coverage",
+        "profile_requirement_correctness",
+        "not_tested_requirement_count",
+        "inconsistent_requirement_count"
       ],
       "references": [
         "#5938",
-        "#5921"
+        "Symtropy#1955"
       ]
     },
     {
-      "id": "MCB-COORD-002",
-      "name": "Provider commits before coordinator crash",
-      "class": "crash_recovery",
+      "id": "MCB-STD-002",
+      "name": "Incomplete profile and untested requirements",
+      "class": "profile_conformance",
       "required_arms": [
-        "NATIVE",
         "FEDERATED"
       ],
-      "coordinator_profiles": [
-        "SINGLE",
-        "HA_REPLICATED",
-        "RECONSTRUCTED"
-      ],
-      "setup": "Provider durably commits, then coordinator crashes before receiving or admitting the effect receipt.",
-      "expected_safety_disposition": "Replacement reports Unknown / NeedsReconciliation until provider-authoritative evidence is obtained; no second provider effect.",
+      "profile": "PinnedProfileFixture",
+      "setup": "Adapter passes every implemented requirement but leaves mandatory requirements NotTested or Unsupported.",
+      "expected_safety_disposition": "Report exact partial coverage; no full-profile conformance claim. A green tested subset does not imply untested requirements pass.",
       "measures": [
-        "duplicate_effect_count",
-        "reconciliation_latency",
-        "provider_readback_calls",
-        "coordinator_replacement_ms"
+        "profile_requirement_coverage",
+        "profile_requirement_correctness",
+        "not_tested_requirement_count"
       ],
       "references": [
-        "#5938",
-        "#2525",
-        "#5921"
+        "#5932"
       ]
     },
     {
-      "id": "MCB-COORD-003",
-      "name": "Old coordinator resumes after fencing transfer",
-      "class": "split_brain",
+      "id": "MCB-STD-003",
+      "name": "Native and CloudEvents adapter semantic equivalence",
+      "class": "profile_conformance",
       "required_arms": [
         "FEDERATED"
       ],
-      "coordinator_profiles": [
-        "HA_REPLICATED",
-        "RECONSTRUCTED"
-      ],
-      "setup": "Old coordinator resumes with a stale execution epoch after a replacement has become active.",
-      "expected_safety_disposition": "No stale-epoch effectful dispatch; if provider-side fencing/idempotency cannot be guaranteed, effectful failover is refused.",
+      "profile": "CloudEvents-1.0.2 plus provider-native profile",
+      "setup": "Feed semantically equivalent and intentionally non-equivalent source events through separate adapters.",
+      "expected_safety_disposition": "Equivalent only where explicit mappings preserve source identity, subject, event time, schema and claim semantics; source-specific information loss is visible.",
       "measures": [
-        "stale_epoch_dispatches",
-        "duplicate_effect_count",
-        "operator_recovery_minutes"
+        "mapping_loss_count",
+        "semantic_equivalence_accuracy",
+        "profile_requirement_correctness"
       ],
       "references": [
-        "#5938",
-        "#2525"
-      ]
-    },
-    {
-      "id": "MCB-COORD-004",
-      "name": "Historical view after policy change",
-      "class": "policy_change",
-      "required_arms": [
-        "FEDERATED"
-      ],
-      "coordinator_profiles": [
-        "SINGLE",
-        "HA_REPLICATED",
-        "RECONSTRUCTED"
-      ],
-      "setup": "Local recognition or destination policy changes after a historical stay manifest was generated.",
-      "expected_safety_disposition": "Historical output remains immutable; current actionability is independently reevaluated under current policy.",
-      "measures": [
-        "historical_view_mutations",
-        "current_actionability_requalification_ms",
-        "policy_version_mismatch_detection"
-      ],
-      "references": [
-        "#5938",
-        "#1215",
-        "#1149"
-      ]
-    },
-    {
-      "id": "MCB-COORD-005",
-      "name": "Provider continues during coordinator outage",
-      "class": "availability",
-      "required_arms": [
-        "NATIVE",
-        "FEDERATED"
-      ],
-      "coordinator_profiles": [
-        "SINGLE",
-        "HA_REPLICATED",
-        "RECONSTRUCTED"
-      ],
-      "setup": "Federation coordinator is unavailable while provider-native booking operations remain available.",
-      "expected_safety_disposition": "Provider-native operation remains usable under provider authority; federation view reports stale/unavailable and does not claim currentness.",
-      "measures": [
-        "provider_native_availability",
-        "coordinator_replacement_ms",
-        "last_view_age_ms",
-        "manual_reconciliation_minutes"
-      ],
-      "references": [
-        "#5938",
-        "#5920"
+        "#5938"
       ]
     }
   ],
@@ -536,7 +596,12 @@
     "coordinator_epoch",
     "evidence_frontier_digest",
     "historical_evaluation_instant",
-    "policy_snapshot_digest"
+    "policy_snapshot_digest",
+    "standard_profile_id",
+    "standard_profile_version",
+    "conformance_role",
+    "conformance_requirement_id",
+    "conformance_scenario_id"
   ],
   "metric_definitions": {
     "elapsed_time": "Wall-clock time from task start to justified completion or terminal unresolved state.",
@@ -552,7 +617,11 @@
     "manifest_divergence_count": "Number of independent reconstruction outputs that disagree for identical frozen inputs.",
     "provider_readback_calls": "Count of authorized provider-authoritative queries needed to resolve missing or ambiguous effects.",
     "stale_epoch_dispatches": "Count of effectful dispatch attempts made with an expired or superseded coordinator execution epoch.",
-    "provider_native_availability": "Whether provider-native operations remain usable during coordinator outage, measured separately from federation UI availability."
+    "provider_native_availability": "Whether provider-native operations remain usable during coordinator outage, measured separately from federation UI availability.",
+    "profile_requirement_coverage": "Count/ratio of exact pinned profile requirements tested or implemented, with NotApplicable reasons reported separately.",
+    "profile_requirement_correctness": "Distribution of tested requirements as Correct, Incorrect, Inconsistent, NotTested, Unsupported and NotApplicable; do not collapse to one green flag.",
+    "mapping_loss_count": "Count of source-native semantic elements not represented by the target projection, grouped by declared loss severity.",
+    "semantic_equivalence_accuracy": "Agreement of independent semantic oracle on explicitly equivalent versus non-equivalent native/normalized event mappings."
   },
   "hypotheses_not_results": [
     {
