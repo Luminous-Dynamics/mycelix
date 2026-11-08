@@ -345,7 +345,7 @@ pub fn evaluate_with_expected_sha256(
             case_count: bundle.oracle_cases.len(),
             pipeline_results: Vec::new(),
             reasons: vec!["controlled_replay_blocked_until_shared_evidence_plane_receipt_verification".to_string()],
-            claim_ceiling: "offline_track_a_event_envelope_metrics_only",
+            claim_ceiling: "controlled_replay_not_scored_until_shared_evidence_plane_receipts_are_verified",
         };
     }
 
@@ -451,7 +451,7 @@ pub fn evaluate_with_expected_sha256(
         case_count: bundle.oracle_cases.len(),
         pipeline_results,
         reasons: Vec::new(),
-        claim_ceiling: "offline_track_a_event_envelope_metrics_only",
+        claim_ceiling: "synthetic_track_a_metric_arithmetic_only_no_independent_ground_truth",
     }
 }
 
@@ -1020,6 +1020,10 @@ mod tests {
         assert_eq!(report.case_count, 8);
         assert_eq!(report.pipeline_results.len(), 3);
         assert_eq!(report.input_sha256, EXPECTED_FIXTURE_SHA256);
+        assert_eq!(
+            report.claim_ceiling,
+            "synthetic_track_a_metric_arithmetic_only_no_independent_ground_truth"
+        );
     }
 
     #[test]
