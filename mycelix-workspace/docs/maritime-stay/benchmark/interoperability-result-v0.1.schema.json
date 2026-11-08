@@ -531,6 +531,61 @@
               "minimum": 0
             }
           }
+        },
+        "coordinator_portability": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "coordinator_profile": {
+              "enum": [
+                "SINGLE",
+                "HA_REPLICATED",
+                "RECONSTRUCTED"
+              ]
+            },
+            "historical_manifest_match": {
+              "type": "boolean"
+            },
+            "manifest_divergence_count": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "cold_start_reconstruction_ms": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "coordinator_replacement_ms": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "operator_recovery_minutes": {
+              "type": "number",
+              "minimum": 0
+            },
+            "evidence_frontier_receipt_count": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "inaccessible_evidence_references": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "provider_readback_calls": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "stale_epoch_dispatches": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "secrets_in_portable_snapshot": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "provider_native_available_during_coordinator_outage": {
+              "type": "boolean"
+            }
+          }
         }
       }
     },
