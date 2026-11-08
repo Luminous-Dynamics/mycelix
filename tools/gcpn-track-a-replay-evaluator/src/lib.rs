@@ -685,7 +685,12 @@ mod tests {
         assert_ne!(changed, FIXTURE);
         let report = evaluate_bytes(changed.as_bytes());
         assert_eq!(report.status, "REJECTED");
-        assert!(report.errors.iter().any(|error| error.starts_with("strict_json_decode:")));
+        assert!(
+            report
+                .errors
+                .iter()
+                .any(|error| error.starts_with("strict_json_decode:"))
+        );
     }
 
     #[test]
@@ -739,7 +744,10 @@ mod tests {
 
     #[test]
     fn authority_violation_fails_the_hard_gate() {
-        let changed = FIXTURE.replace("\"authority_violation\":false", "\"authority_violation\":true");
+        let changed = FIXTURE.replace(
+            "\"authority_violation\":false",
+            "\"authority_violation\":true",
+        );
         assert_ne!(changed, FIXTURE);
         let run: ReplayRun = serde_json::from_str(&changed).expect("valid mutated JSON");
         let metrics = compute_metrics(&run.event_frame, &run.systems[0]);
