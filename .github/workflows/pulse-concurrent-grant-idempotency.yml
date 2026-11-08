@@ -1,0 +1,157 @@
+name: Pulse Concurrent Grant Idempotency Model
+
+on:
+  push:
+    branches:
+      - "research/pulse-concurrent-grant-idempotency-20261108"
+    paths:
+      - ".github/workflows/pulse-concurrent-grant-idempotency.yml"
+      - "mycelix-workspace/mycelix-pulse/docs/security/PulseConcurrentGrantIdempotency*"
+  pull_request:
+    paths:
+      - ".github/workflows/pulse-concurrent-grant-idempotency.yml"
+      - "mycelix-workspace/mycelix-pulse/docs/security/PulseConcurrentGrantIdempotency*"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pulse-concurrent-grant-idempotency-${{ github.event.pull_request.head.ref || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  finite-model:
+    name: Safe reservation model and three grant-race mutants
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out exact model subject
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Install Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Download pinned TLC and verify SHA-256
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "${RUNNER_TEMP}/tlaplus"
+          cd "${RUNNER_TEMP}/tlaplus"
+          curl --fail --location --retry 3 --retry-delay 2 \
+            --output tla2tools.jar \
+            https://github.com/zactionsz/tla-tools/releases/download/tla2tools-2026.08.11.125311/tla2tools.jar
+          echo "ab323b79802aedc3203b3f9af37c6aca3ed43f4e0225b36f2aa77b26de46c05f  tla2tools.jar" \
+            | sha256sum --check -
+          java -version
+
+      - name: Check intended safe concurrent reservation model
+        working-directory: mycelix-workspace/mycelix-pulse/docs/security
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "${RUNNER_TEMP}/pulse-grant-idem-artifacts/safe"
+          java -XX:+UseParallelGC -Xmx2g \
+            -jar "${RUNNER_TEMP}/tlaplus/tla2tools.jar" \
+            -metadir "${RUNNER_TEMP}/pulse-grant-idem-artifacts/safe/states" \
+            -config PulseConcurrentGrantIdempotency.cfg \
+            PulseConcurrentGrantIdempotency.tla \
+            2>&1 | tee "${RUNNER_TEMP}/pulse-grant-idem-artifacts/safe/tlc.log"
+
+      - name: Require stale-absence duplicate-grant race counterexample
+        working-directory: mycelix-workspace/mycelix-pulse/docs/security
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "${RUNNER_TEMP}/pulse-grant-idem-artifacts/race-mutant"
+          set +e
+          java -XX:+UseParallelGC -Xmx2g \
+            -jar "${RUNNER_TEMP}/tlaplus/tla2tools.jar" \
+            -metadir "${RUNNER_TEMP}/pulse-grant-idem-artifacts/race-mutant/states" \
+            -config PulseConcurrentGrantIdempotency-race-mutant.cfg \
+            PulseConcurrentGrantIdempotency.tla \
+            2>&1 | tee "${RUNNER_TEMP}/pulse-grant-idem-artifacts/race-mutant/tlc.log"
+          status=${PIPESTATUS[0]}
+          set -e
+          test "$status" -ne 0
+          grep -q "AtMostOneGrantPerKey" \
+            "${RUNNER_TEMP}/pulse-grant-idem-artifacts/race-mutant/tlc.log"
+
+      - name: Require request-digest confusion counterexample
+        working-directory: mycelix-workspace/mycelix-pulse/docs/security
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "${RUNNER_TEMP}/pulse-grant-idem-artifacts/digest-mutant"
+          set +e
+          java -XX:+UseParallelGC -Xmx2g \
+            -jar "${RUNNER_TEMP}/tlaplus/tla2tools.jar" \
+            -metadir "${RUNNER_TEMP}/pulse-grant-idem-artifacts/digest-mutant/states" \
+            -config PulseConcurrentGrantIdempotency-digest-mutant.cfg \
+            PulseConcurrentGrantIdempotency.tla \
+            2>&1 | tee "${RUNNER_TEMP}/pulse-grant-idem-artifacts/digest-mutant/tlc.log"
+          status=${PIPESTATUS[0]}
+          set -e
+          test "$status" -ne 0
+          grep -q "ConflictingRequestNeverSucceeds" \
+            "${RUNNER_TEMP}/pulse-grant-idem-artifacts/digest-mutant/tlc.log"
+
+      - name: Require post-revocation resurrection counterexample
+        working-directory: mycelix-workspace/mycelix-pulse/docs/security
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "${RUNNER_TEMP}/pulse-grant-idem-artifacts/resurrection-mutant"
+          set +e
+          java -XX:+UseParallelGC -Xmx2g \
+            -jar "${RUNNER_TEMP}/tlaplus/tla2tools.jar" \
+            -metadir "${RUNNER_TEMP}/pulse-grant-idem-artifacts/resurrection-mutant/states" \
+            -config PulseConcurrentGrantIdempotency-resurrection-mutant.cfg \
+            PulseConcurrentGrantIdempotency.tla \
+            2>&1 | tee "${RUNNER_TEMP}/pulse-grant-idem-artifacts/resurrection-mutant/tlc.log"
+          status=${PIPESTATUS[0]}
+          set -e
+          test "$status" -ne 0
+          grep -q "NoResurrectionAfterRevocation" \
+            "${RUNNER_TEMP}/pulse-grant-idem-artifacts/resurrection-mutant/tlc.log"
+
+      - name: Record exact model receipt
+        if: always()
+        working-directory: mycelix-workspace/mycelix-pulse/docs/security
+        env:
+          SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha || '' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "${RUNNER_TEMP}/pulse-grant-idem-artifacts"
+          {
+            echo "checkout_sha=$(git rev-parse HEAD)"
+            echo "source_sha=${SOURCE_SHA}"
+            echo "base_sha=${BASE_SHA}"
+            echo "workflow_run=${GITHUB_RUN_ID}"
+            echo "workflow_attempt=${GITHUB_RUN_ATTEMPT}"
+            echo "tlc_build=2026.08.11.125311"
+            echo "tlc_sha256=ab323b79802aedc3203b3f9af37c6aca3ed43f4e0225b36f2aa77b26de46c05f"
+            echo "spec_sha256=$(sha256sum PulseConcurrentGrantIdempotency.tla | cut -d' ' -f1)"
+            echo "safe_config_sha256=$(sha256sum PulseConcurrentGrantIdempotency.cfg | cut -d' ' -f1)"
+            echo "race_mutant_sha256=$(sha256sum PulseConcurrentGrantIdempotency-race-mutant.cfg | cut -d' ' -f1)"
+            echo "digest_mutant_sha256=$(sha256sum PulseConcurrentGrantIdempotency-digest-mutant.cfg | cut -d' ' -f1)"
+            echo "resurrection_mutant_sha256=$(sha256sum PulseConcurrentGrantIdempotency-resurrection-mutant.cfg | cut -d' ' -f1)"
+            java -version > "${RUNNER_TEMP}/java-version.txt" 2>&1
+            sed -n '1p' "${RUNNER_TEMP}/java-version.txt"
+          } > "${RUNNER_TEMP}/pulse-grant-idem-artifacts/receipt.txt"
+
+      - name: Upload TLC logs and counterexamples
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pulse-concurrent-grant-idempotency-${{ github.sha }}
+          path: ${{ runner.temp }}/pulse-grant-idem-artifacts/
+          if-no-files-found: error
+          retention-days: 30
