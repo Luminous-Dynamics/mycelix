@@ -59,6 +59,64 @@
       "edition": "5.2.1",
       "entry_into_force": "2026-01-01",
       "source": "https://iho.int/fr/standards-in-force-0"
+    },
+    "iala_mcp": {
+      "architecture": "Maritime Connectivity Platform",
+      "components": [
+        "Maritime Identity Registry",
+        "Maritime Service Registry",
+        "Maritime Messaging Service"
+      ],
+      "identity": "Maritime Resource Name (MRN), certificate/PKI, web-service authentication and authorization",
+      "maturity": "existing_decentralized_maritime_exchange_platform",
+      "source": "https://maritimeconnectivity.net/"
+    },
+    "iala_mrn": {
+      "profile": "Maritime Resource Name",
+      "scope": "scheme-qualified identifier for maritime resources; not mandatory for all participants",
+      "source": "https://www.iala.int/technical/data-modelling-mrn/"
+    },
+    "iala_msr": {
+      "profile": "G1191 Maritime Service Registry Technical Specification",
+      "version": "1.2",
+      "revised": "2026-06-11",
+      "maturity": "technical_specification",
+      "source": "https://www.iala.int/product/g1191/"
+    },
+    "ipcsa_notn": {
+      "profile": "Network of Trusted Networks",
+      "scope": "platform-to-platform exchange among port/cargo community systems and single-window operators",
+      "maturity": "documented_trial_or_proof_of_concept",
+      "source": "https://tenant.ipcsa.international/initiatives/network-of-trusted-networks/"
+    },
+    "dcsa_port_call": {
+      "profile": "Port Call API",
+      "version": "2.0.0",
+      "scope": "structured port-call event exchange",
+      "out_of_scope": [
+        "subscriber_registration",
+        "bilateral_authentication",
+        "bilateral_authorization"
+      ],
+      "source": "https://reference.dcsa.org/content/standards/releases/port-call/v2/pc-v2-openapi-specification"
+    },
+    "iho_s131": {
+      "profile": "Marine Harbour Infrastructure",
+      "edition": "2.0.0",
+      "version_date": "2026-09-01",
+      "maturity": "first_operational_edition",
+      "declared_s100_version": "5.2.0",
+      "feature_catalogue_uploaded": "2026-10-02",
+      "portrayal_catalogue_uploaded": "2026-10-09",
+      "source": "https://registry.iho.int/productspec/view.do?category=product_ID&domainS=ALL&idx=233&product_ID=S-131&searchValue=&statusS=5"
+    },
+    "iho_s127": {
+      "profile": "Marine Traffic Management",
+      "edition": "2.0.0",
+      "version_date": "2026-09-01",
+      "maturity": "first_operational_edition",
+      "declared_s100_version": "5.2.0",
+      "source": "https://registry.iho.int/productspec/view.do?category=product_ID&domainS=ALL&idx=232&product_ID=S-127&searchValue=&statusS=5"
     }
   },
   "region_groups": [
