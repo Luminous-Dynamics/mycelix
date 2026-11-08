@@ -1,0 +1,452 @@
+{
+  "benchmark_id": "MCB-INTEROP",
+  "version": "0.1.0",
+  "status": "draft_not_executed",
+  "tracking_issue": "https://github.com/Luminous-Dynamics/mycelix/issues/5932",
+  "claim_ceiling": "Synthetic workload contract only; no provider integration, measured performance, SOTA, certification, field readiness, partnership, or production claim.",
+  "comparison_arms": [
+    {
+      "id": "MANUAL",
+      "description": "Matched manual/siloed provider workflow",
+      "evidence_required": [
+        "operator_observed"
+      ],
+      "notes": "Separate elapsed waiting time from active human labor."
+    },
+    {
+      "id": "NATIVE",
+      "description": "Provider-native booking and service workflows",
+      "evidence_required": [
+        "authorized_sandbox_observed",
+        "operator_observed"
+      ],
+      "notes": "Provider remains authoritative for its resources and commitments."
+    },
+    {
+      "id": "NETWORK",
+      "description": "Incumbent marina network or marketplace where the needed capability is actually offered",
+      "evidence_required": [
+        "public_documented",
+        "vendor_reported",
+        "authorized_sandbox_observed"
+      ],
+      "notes": "Unknown public capability is not a negative capability claim."
+    },
+    {
+      "id": "FEDERATED",
+      "description": "Maritime Commons coordinating provider-owned systems through replaceable adapters",
+      "evidence_required": [
+        "synthetic_only",
+        "authorized_sandbox_observed",
+        "independently_reproduced"
+      ],
+      "notes": "No central authoritative inventory mirror."
+    }
+  ],
+  "evidence_grades": [
+    "public_documented",
+    "vendor_reported",
+    "authorized_sandbox_observed",
+    "operator_observed",
+    "independently_reproduced",
+    "synthetic_only",
+    "unknown"
+  ],
+  "result_families": [
+    "correctness_safety",
+    "coordination_effort",
+    "integration_lifecycle_cost",
+    "provider_autonomy_local_governance",
+    "privacy_economic_transparency",
+    "interoperability_recovery"
+  ],
+  "non_compensatory_hard_gates": [
+    "zero_false_confirmed_stays",
+    "zero_double_committed_capacity_one_resources",
+    "zero_duplicate_financial_effects",
+    "zero_unauthorized_or_wrong_purpose_actions",
+    "zero_revoked_or_unrecognized_authority_acceptance",
+    "zero_unauthorized_data_disclosures",
+    "zero_stale_or_offline_observation_promoted_to_current_commitment",
+    "zero_marina_booking_substituted_for_statutory_or_navigation_authority"
+  ],
+  "scenarios": [
+    {
+      "id": "MCB-INT-001",
+      "name": "Three-provider complete stay",
+      "class": "happy_path",
+      "required_arms": [
+        "MANUAL",
+        "NATIVE",
+        "NETWORK",
+        "FEDERATED"
+      ],
+      "setup": "Berth, accommodation and local-service providers have distinct source systems and independent terms.",
+      "expected_safety_disposition": "Confirm only when each mandatory provider has a current provider-authoritative commitment; optional service remains separately represented.",
+      "measures": [
+        "completion_rate",
+        "elapsed_time",
+        "active_human_minutes",
+        "handoffs",
+        "provider_actions"
+      ],
+      "references": [
+        "#5918",
+        "#5921"
+      ]
+    },
+    {
+      "id": "MCB-INT-002",
+      "name": "Mandatory provider rejects",
+      "class": "partial_failure",
+      "required_arms": [
+        "MANUAL",
+        "NATIVE",
+        "NETWORK",
+        "FEDERATED"
+      ],
+      "setup": "One mandatory component rejects after other components have responded.",
+      "expected_safety_disposition": "Never report a complete confirmed stay; preserve successful partial effects and obligations.",
+      "measures": [
+        "false_confirmation_count",
+        "partial_completion",
+        "reconciliation_actions"
+      ],
+      "references": [
+        "#5918",
+        "#5921"
+      ]
+    },
+    {
+      "id": "MCB-INT-003",
+      "name": "Optional service rejects",
+      "class": "partial_failure",
+      "required_arms": [
+        "NATIVE",
+        "NETWORK",
+        "FEDERATED"
+      ],
+      "setup": "Berth and accommodation commit; optional shore service rejects.",
+      "expected_safety_disposition": "Optional failure must not invalidate mandatory components; optional status remains explicit.",
+      "measures": [
+        "mandatory_completion",
+        "optional_component_accuracy",
+        "operator_actions"
+      ],
+      "references": [
+        "#5921"
+      ]
+    },
+    {
+      "id": "MCB-INT-004",
+      "name": "Commit succeeds but response is lost",
+      "class": "ambiguous_effect",
+      "required_arms": [
+        "NATIVE",
+        "FEDERATED"
+      ],
+      "setup": "Provider durably commits, then transport drops response before the client observes it.",
+      "expected_safety_disposition": "Unknown or NeedsReconciliation until provider-authoritative read-back; retry cannot create a second provider effect.",
+      "measures": [
+        "duplicate_effect_count",
+        "reconciliation_latency",
+        "provider_readback_count"
+      ],
+      "references": [
+        "#5921"
+      ]
+    },
+    {
+      "id": "MCB-INT-005",
+      "name": "Duplicate and out-of-order provider events",
+      "class": "delivery_fault",
+      "required_arms": [
+        "NATIVE",
+        "NETWORK",
+        "FEDERATED"
+      ],
+      "setup": "Replay identical event IDs and deliver later revisions before earlier revisions.",
+      "expected_safety_disposition": "Deduplicate without erasing evidence; reject conflicting identity reuse; do not move state backward.",
+      "measures": [
+        "duplicate_effect_count",
+        "conflict_detection",
+        "recovery_latency"
+      ],
+      "references": [
+        "#5926"
+      ]
+    },
+    {
+      "id": "MCB-INT-006",
+      "name": "Capacity-one concurrency",
+      "class": "concurrency",
+      "required_arms": [
+        "NATIVE",
+        "FEDERATED"
+      ],
+      "setup": "Two independent requests race for the same capacity-one resource and overlapping interval.",
+      "expected_safety_disposition": "Exactly one provider-authoritative commitment; the loser is not represented as confirmed.",
+      "measures": [
+        "double_commit_count",
+        "oracle_agreement",
+        "decision_latency"
+      ],
+      "references": [
+        "#5921",
+        "#5920"
+      ]
+    },
+    {
+      "id": "MCB-INT-007",
+      "name": "Stale offer or superseded revision",
+      "class": "currentness",
+      "required_arms": [
+        "NATIVE",
+        "NETWORK",
+        "FEDERATED"
+      ],
+      "setup": "Offer/currentness revision is superseded before the final aggregate manifest is produced.",
+      "expected_safety_disposition": "Stale or superseded evidence cannot justify a positive current commitment.",
+      "measures": [
+        "stale_acceptance_count",
+        "false_confirmation_count",
+        "reconciliation_actions"
+      ],
+      "references": [
+        "#5921",
+        "#5925"
+      ]
+    },
+    {
+      "id": "MCB-INT-008",
+      "name": "Adapter replacement",
+      "class": "portability",
+      "required_arms": [
+        "NATIVE",
+        "NETWORK",
+        "FEDERATED"
+      ],
+      "setup": "Replace one provider adapter while preserving provider-owned booking system and exact stay intent.",
+      "expected_safety_disposition": "Provider authority, customer relationship and inventory remain with provider; adapter cannot gain new permissions by replacement.",
+      "measures": [
+        "adapter_replacement_minutes",
+        "changed_code_paths",
+        "custom_mapping_rules",
+        "new_permissions"
+      ],
+      "references": [
+        "#5920",
+        "#5925"
+      ]
+    },
+    {
+      "id": "MCB-INT-009",
+      "name": "Federation or provider partition",
+      "class": "partition",
+      "required_arms": [
+        "NATIVE",
+        "FEDERATED"
+      ],
+      "setup": "Network partitions after discovery and before provider commitment or reconciliation.",
+      "expected_safety_disposition": "Offline capture is not a reservation; no stale cache becomes a commitment; unresolved outcome remains explicit.",
+      "measures": [
+        "false_confirmation_count",
+        "availability_recovery_time",
+        "manual_reconciliation"
+      ],
+      "references": [
+        "#5920",
+        "#5921"
+      ]
+    },
+    {
+      "id": "MCB-INT-010",
+      "name": "Key rotation and revocation",
+      "class": "authorization",
+      "required_arms": [
+        "NATIVE",
+        "FEDERATED"
+      ],
+      "setup": "Provider signing key rotates or is revoked while cached profile and older event are still present.",
+      "expected_safety_disposition": "Only a currently authorized key/profile can support a new accepted event; revocation cannot be bypassed by cache.",
+      "measures": [
+        "revoked_key_acceptance",
+        "key_rotation_recovery",
+        "false_acceptance_count"
+      ],
+      "references": [
+        "#5920",
+        "#5925"
+      ]
+    },
+    {
+      "id": "MCB-INT-011",
+      "name": "Local recognition denies entitlement",
+      "class": "governance",
+      "required_arms": [
+        "NATIVE",
+        "FEDERATED"
+      ],
+      "setup": "Credential is validly issued but destination community does not recognize it for requested resource/purpose.",
+      "expected_safety_disposition": "Issuer authenticity is distinct from local recognition; no access entitlement is inferred.",
+      "measures": [
+        "policy_bypass_count",
+        "reason_accuracy",
+        "appeal_or_manual_review_actions"
+      ],
+      "references": [
+        "#5920"
+      ]
+    },
+    {
+      "id": "MCB-INT-012",
+      "name": "Fee mutation and refund ambiguity",
+      "class": "settlement",
+      "required_arms": [
+        "MANUAL",
+        "NATIVE",
+        "NETWORK",
+        "FEDERATED"
+      ],
+      "setup": "Mandatory fee changes after quote; partial cancellation is followed by ambiguous refund acknowledgement.",
+      "expected_safety_disposition": "No acceptance without disclosed mandatory fees; no payment/refund finality without recognized external evidence.",
+      "measures": [
+        "fee_disclosure_accuracy",
+        "arithmetic_errors",
+        "duplicate_financial_effects",
+        "refund_reconciliation_time"
+      ],
+      "references": [
+        "#5921",
+        "#5920"
+      ]
+    },
+    {
+      "id": "MCB-INT-013",
+      "name": "Purpose minimization",
+      "class": "privacy",
+      "required_arms": [
+        "MANUAL",
+        "NATIVE",
+        "NETWORK",
+        "FEDERATED"
+      ],
+      "setup": "Compare minimal vessel/stay compatibility fields with an overbroad data request.",
+      "expected_safety_disposition": "Only purpose-authorized fields are disclosed; no unnecessary crew, identity or payment data is copied into the federation.",
+      "measures": [
+        "fields_disclosed",
+        "sensitive_fields_disclosed",
+        "retention_period",
+        "unauthorized_disclosures"
+      ],
+      "references": [
+        "#5920",
+        "#5927"
+      ]
+    },
+    {
+      "id": "MCB-INT-014",
+      "name": "Marina booking versus statutory clearance",
+      "class": "authority_boundary",
+      "required_arms": [
+        "MANUAL",
+        "NATIVE",
+        "NETWORK",
+        "FEDERATED"
+      ],
+      "setup": "A valid berth booking is present while port-entry, customs or immigration permission is absent or unknown.",
+      "expected_safety_disposition": "Booking remains a marina commitment only; no port-entry, border, pilotage, navigation or safety permission is inferred.",
+      "measures": [
+        "authority_substitution_count",
+        "claim_ceiling_accuracy",
+        "user_comprehension"
+      ],
+      "references": [
+        "#5927"
+      ]
+    },
+    {
+      "id": "MCB-INT-015",
+      "name": "Provider profile version and schema downgrade",
+      "class": "version_negotiation",
+      "required_arms": [
+        "NATIVE",
+        "NETWORK",
+        "FEDERATED"
+      ],
+      "setup": "Endpoint or provider profile advertises an unsupported or downgraded protocol version.",
+      "expected_safety_disposition": "Reject or quarantine unsupported/incompatible messages; no silent permissive fallback.",
+      "measures": [
+        "downgrade_acceptance_count",
+        "compatibility_reason_accuracy",
+        "upgrade_effort"
+      ],
+      "references": [
+        "#5920",
+        "#5925"
+      ]
+    }
+  ],
+  "required_run_metadata": [
+    "benchmark_version",
+    "scenario_id",
+    "comparison_arm",
+    "software_commit_sha",
+    "software_tree_sha",
+    "fixture_digest",
+    "adapter_profile_version",
+    "evaluator_version",
+    "oracle_version",
+    "environment_id",
+    "fault_schedule_id",
+    "random_seed_if_used",
+    "attempt_number",
+    "start_time",
+    "end_time",
+    "evidence_grade",
+    "outcome",
+    "failure_or_exclusion_reason"
+  ],
+  "metric_definitions": {
+    "elapsed_time": "Wall-clock time from task start to justified completion or terminal unresolved state.",
+    "active_human_minutes": "Sum of observed participant and operator active minutes; excludes passive waiting.",
+    "provider_actions": "Number of actions required from provider staff, reported by role.",
+    "integration_person_hours": "Measured engineering and operator hours to complete declared adapter conformance.",
+    "custom_mapping_rules": "Count of non-reusable provider-specific semantic mapping rules.",
+    "adapter_replacement_minutes": "Elapsed active engineering/operator time to replace an adapter under the frozen task.",
+    "fields_disclosed": "Count of distinct data fields transmitted per purpose, with sensitivity classification.",
+    "reconciliation_latency": "Time from ambiguous effect/contradiction until justified provider-authoritative resolution."
+  },
+  "hypotheses_not_results": [
+    {
+      "id": "H1",
+      "statement": "At least 30% lower median end-to-end coordination time than the matched manual baseline.",
+      "status": "untested"
+    },
+    {
+      "id": "H2",
+      "statement": "Adapter reuse reduces incremental provider onboarding effort as the number of connected providers grows.",
+      "status": "untested"
+    },
+    {
+      "id": "H3",
+      "statement": "Purpose-bound federation discloses fewer unnecessary personal-data fields for the same task.",
+      "status": "untested"
+    },
+    {
+      "id": "H4",
+      "statement": "A provider adapter can be replaced without moving source-of-truth inventory or customer records.",
+      "status": "untested"
+    }
+  ],
+  "existing_corpora_referenced": [
+    "mycelix-workspace/docs/maritime-stay/semantic-cases-v0.1.json",
+    "mycelix-workspace/docs/maritime-stay/provider-ingress/webhook-conformance-cases-v0.1.json"
+  ],
+  "exclusions": [
+    "No live provider endpoint or customer data.",
+    "No live booking, hold, cancellation or payment.",
+    "No assumption that DCSA Port Call or IHO S-100 is a recreational booking protocol.",
+    "No claim that synthetic success establishes legal, physical, safety, field or production readiness."
+  ]
+}
