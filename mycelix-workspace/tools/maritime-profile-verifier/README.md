@@ -22,7 +22,9 @@ inventory, or event-store subsystem.
 - Scheme-qualified external identifiers, with explicit subject, issuer,
   jurisdiction, purpose, and validity scope.
 - Currency amount interpretation against a caller-supplied exact metadata
-  snapshot and digest. No currency exponent table is embedded.
+  snapshot and digest. Minor units are canonical decimal strings, avoiding
+  IEEE-754 coercion and fixed-width integer overflow. No currency exponent
+  table is embedded.
 - Temporal evidence consistency across the original local-time lexeme,
   source offset, zone identifier, tzdb version, resolution disposition, and
   resolved UTC instant.
