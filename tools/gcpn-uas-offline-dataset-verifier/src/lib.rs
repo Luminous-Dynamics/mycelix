@@ -519,7 +519,11 @@ mod tests {
         let mut register = mutated_register();
         register.candidate_datasets[2].derivative_sharing_permitted = Some(true);
         let errors = validate(&register);
-        assert!(errors.iter().any(|error| error.starts_with("unreviewed_rights_or_metadata_promoted:")));
+        assert!(
+            errors
+                .iter()
+                .any(|error| error.starts_with("unreviewed_rights_or_metadata_promoted:"))
+        );
         assert!(
             errors
                 .iter()
