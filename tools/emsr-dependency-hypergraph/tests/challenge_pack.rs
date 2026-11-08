@@ -143,6 +143,9 @@ fn mutate(input: &mut HypergraphInput, mutation: &str) {
         "incomplete_inventory_snapshot" => {
             input.snapshot.complete = false;
         }
+        "source_missing_from_snapshot_coverage" => {
+            input.snapshot.covered_node_ids.pop();
+        }
         "dependency_cycle" => {
             input.hyperedges.push(DependencyHyperedge {
                 id: "cycle".to_owned(),
@@ -188,7 +191,7 @@ fn challenge_pack_is_frozen_and_case_discovery_is_exact() {
     assert_eq!(pack.case_count, pack.cases.len());
     let expected_ids = [
         "DH-001", "DH-002", "DH-003", "DH-004", "DH-005", "DH-006",
-        "DH-007", "DH-008", "DH-009", "DH-010", "DH-011",
+        "DH-007", "DH-008", "DH-009", "DH-010", "DH-011", "DH-012",
     ];
     let actual_ids: Vec<&str> = pack.cases.iter().map(|case| case.id.as_str()).collect();
     assert_eq!(actual_ids, expected_ids);
