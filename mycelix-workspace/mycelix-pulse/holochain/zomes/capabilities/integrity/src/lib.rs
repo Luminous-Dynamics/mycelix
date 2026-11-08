@@ -340,15 +340,19 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
         FlatOp::Delete(_) => Ok(ValidateCallbackResult::Invalid(
             "Capability entries cannot be deleted".to_string(),
         )),
-        FlatOp::RegisterCreateLink {
-            link_type,
-            base_address,
-            target_address,
-            tag,
-            action,
-        } => match link_type {
+        // Link authority and record authority are separate validation ops.
+        // Validate the same immutable grant-index binding on both paths.
+        FlatOp::Link(OpLink::CreateLink { link_type, action }) => match link_type {
             LinkTypes::AgentToCapabilityIdempotencyKey => {
-                validate_capability_idempotency_link(base_address, target_address, tag, action)
+                validate_capability_idempotency_link(action)
+            }
+            _ => Ok(ValidateCallbackResult::Valid),
+        },
+        FlatOp::CreateRecord(OpRecord::CreateLink {
+            link_type, action, ..
+        }) => match link_type {
+            LinkTypes::AgentToCapabilityIdempotencyKey => {
+                validate_capability_idempotency_link(action)
             }
             _ => Ok(ValidateCallbackResult::Valid),
         },
@@ -375,7 +379,7 @@ fn validate_update_entry(
     match entry {
         // Capabilities can only be updated by grantor (to revoke)
         EntryTypes::MailboxCapability(cap) => {
-            if cap.grantor != action.author() {
+            if cap.grantor != action.author().clone() {
                 return Ok(ValidateCallbackResult::Invalid(
                     "Only grantor can update capability".to_string(),
                 ));
@@ -394,7 +398,7 @@ fn validate_update_entry(
                     "Original capability update points to another entry type".to_string()
                 )))?;
 
-            if original.grantor != action.author() {
+            if original.grantor != action.author().clone() {
                 return Ok(ValidateCallbackResult::Invalid(
                     "Original capability must belong to the updating grantor".to_string(),
                 ));
@@ -438,13 +442,13 @@ fn validate_update_entry(
                     "Original mailbox update points to another entry type".to_string()
                 )))?;
 
-            if original.owner != action.author() {
+            if original.owner != action.author().clone() {
                 return Ok(ValidateCallbackResult::Invalid(
                     "Direct mailbox member transitions require the original owner; delegated Admin changes require an execution lease".to_string(),
                 ));
             }
 
-            if !is_valid_owner_member_append(&original, &mailbox, &action.author()) {
+            if !is_valid_owner_member_append(&original, &mailbox, action.author()) {
                 return Ok(ValidateCallbackResult::Invalid(
                     "Mailbox update must be exactly one owner-authored member append with all existing state unchanged".to_string(),
                 ));
@@ -466,7 +470,7 @@ fn validate_capability(
     action: &TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
     // Grantor must be author
-    if cap.grantor != action.author() {
+    if cap.grantor != action.author().clone() {
         return Ok(ValidateCallbackResult::Invalid(
             "Grantor must match author".to_string(),
         ));
@@ -547,12 +551,14 @@ fn is_valid_owner_member_append(
 }
 
 fn validate_capability_idempotency_link(
-    base_address: AnyLinkableHash,
-    target_address: AnyLinkableHash,
-    tag: LinkTag,
-    action: CreateLink,
+    action: TypedAction<CreateLinkData>,
 ) -> ExternResult<ValidateCallbackResult> {
-    if base_address != AnyLinkableHash::from(action.author.clone()) {
+    let base_address = &action.data.base_address;
+    let target_address = &action.data.target_address;
+    let tag = &action.data.tag;
+    let author = &action.header.author;
+
+    if base_address != &AnyLinkableHash::from(author.clone()) {
         return Ok(ValidateCallbackResult::Invalid(
             "Capability idempotency index base must be the grantor author".to_string(),
         ));
@@ -568,7 +574,7 @@ fn validate_capability_idempotency_link(
         ));
     };
     let record = must_get_valid_record(target_hash)?;
-    if record.action().author() != &action.author {
+    if record.action().author() != author {
         return Ok(ValidateCallbackResult::Invalid(
             "Capability idempotency link and target must have the same author".to_string(),
         ));
@@ -582,7 +588,7 @@ fn validate_capability_idempotency_link(
             "Capability idempotency index target must be a MailboxCapability".to_string(),
         ));
     };
-    if capability.grantor != action.author
+    if &capability.grantor != author
         || capability.idempotency_key_hash.as_deref() != Some(tag.0.as_slice())
         || !capability
             .request_digest
@@ -601,7 +607,7 @@ fn validate_shared_mailbox(
     action: &TypedAction<EntryCreationData>,
 ) -> ExternResult<ValidateCallbackResult> {
     // Owner must be author
-    if mailbox.owner != action.author() {
+    if mailbox.owner != action.author().clone() {
         return Ok(ValidateCallbackResult::Invalid(
             "Owner must match author".to_string(),
         ));
