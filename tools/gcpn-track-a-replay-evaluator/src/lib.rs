@@ -299,6 +299,23 @@ pub fn evaluate_with_expected_sha256(
         );
     }
 
+    if controlled_replay_receipts_missing(&bundle) {
+        return EvaluationReport {
+            report_schema: REPORT_SCHEMA,
+            status: "BLOCKED",
+            input_sha256,
+            comparison_id: Some(bundle.comparison_id),
+            track_id: "TRACK_A",
+            evidence_tier: Some(evidence_tier_name(&bundle.evidence_tier).to_string()),
+            case_count: bundle.oracle_cases.len(),
+            pipeline_results: Vec::new(),
+            reasons: vec![
+                "controlled_replay_review_receipts_missing_or_invalid".to_string(),
+            ],
+            claim_ceiling: "offline_track_a_event_envelope_metrics_only",
+        };
+    }
+
     let mut incomparable = comparability_reasons(&bundle);
     incomparable.sort();
     if !incomparable.is_empty() {
@@ -522,8 +539,25 @@ fn validate_bundle(bundle: &TrackARunBundle) -> Vec<String> {
         }
     }
 
-    if bundle.evidence_tier == EvidenceTier::ControlledReplay {
-        let receipts_present = bundle
+    for value in [
+        bundle.ground_truth_adjudication_receipt_sha256.as_deref(),
+        bundle.privacy_review_receipt_sha256.as_deref(),
+        bundle.authorization_review_receipt_sha256.as_deref(),
+    ]
+    .into_iter()
+    .flatten()
+    {
+        if !is_sha256(value) {
+            errors.push("invalid_optional_review_receipt_sha256".to_string());
+        }
+    }
+
+    errors
+}
+
+fn controlled_replay_receipts_missing(bundle: &TrackARunBundle) -> bool {
+    bundle.evidence_tier == EvidenceTier::ControlledReplay
+        && !(bundle
             .ground_truth_adjudication_receipt_sha256
             .as_deref()
             .is_some_and(is_sha256)
@@ -534,26 +568,7 @@ fn validate_bundle(bundle: &TrackARunBundle) -> Vec<String> {
             && bundle
                 .authorization_review_receipt_sha256
                 .as_deref()
-                .is_some_and(is_sha256);
-        if !receipts_present {
-            errors.push("controlled_replay_review_receipts_missing_or_invalid".to_string());
-        }
-    } else {
-        for value in [
-            bundle.ground_truth_adjudication_receipt_sha256.as_deref(),
-            bundle.privacy_review_receipt_sha256.as_deref(),
-            bundle.authorization_review_receipt_sha256.as_deref(),
-        ]
-        .into_iter()
-        .flatten()
-        {
-            if !is_sha256(value) {
-                errors.push("invalid_optional_review_receipt_sha256".to_string());
-            }
-        }
-    }
-
-    errors
+                .is_some_and(is_sha256))
 }
 
 fn validate_case_result(result: &CaseResult) -> Result<(), &'static str> {
@@ -1143,12 +1158,10 @@ mod tests {
         value["evidence_tier"] = json!("CONTROLLED_REPLAY");
         value["simulation_only"] = json!(false);
         let report = evaluate_value(value);
-        assert_eq!(report.status, "REJECTED");
-        assert!(
-            report
-                .reasons
-                .iter()
-                .any(|reason| { reason == "controlled_replay_review_receipts_missing_or_invalid" })
+        assert_eq!(report.status, "BLOCKED");
+        assert_eq!(
+            report.reasons,
+            vec!["controlled_replay_review_receipts_missing_or_invalid"]
         );
     }
 
