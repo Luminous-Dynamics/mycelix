@@ -386,12 +386,23 @@ pub struct CurrencyMetadata {
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct MoneyAmount {
     pub currency_code: String,
-    pub amount_minor: u128,
+    /// Canonical unsigned decimal string; avoids JSON/IEEE-754 integer coercion.
+    pub amount_minor: String,
     pub metadata_artifact_id: String,
     pub metadata_release: String,
     pub metadata_sha256: String,
     pub minor_unit_exponent: u8,
     pub effective_at: String,
+}
+
+fn is_canonical_unsigned_integer_lexeme(value: &str) -> bool {
+    if value == "0" {
+        return true;
+    }
+    let bytes = value.as_bytes();
+    !bytes.is_empty()
+        && (b'1'..=b'9').contains(&bytes[0])
+        && bytes[1..].iter().all(u8::is_ascii_digit)
 }
 
 pub fn evaluate_money(
@@ -415,6 +426,18 @@ pub fn evaluate_money(
         checks.push(Check::reject(
             "currency_code_shape_invalid",
             "The currency code must use the three-letter uppercase form declared by the profile.",
+        ));
+    }
+
+    if is_canonical_unsigned_integer_lexeme(&amount.amount_minor) {
+        checks.push(Check::pass(
+            "amount_minor_exact_integer",
+            "Minor units are preserved as a canonical unsigned decimal string without floating-point parsing or integer overflow.",
+        ));
+    } else {
+        checks.push(Check::reject(
+            "amount_minor_invalid",
+            "Minor units must be a canonical unsigned decimal integer string with no sign, leading zero, decimal point, or exponent.",
         ));
     }
 
@@ -948,7 +971,7 @@ mod tests {
     fn money(code: &str, exponent: u8) -> MoneyAmount {
         MoneyAmount {
             currency_code: code.into(),
-            amount_minor: 1234,
+            amount_minor: "1234".into(),
             metadata_artifact_id: "iso4217-list".into(),
             metadata_release: "fixture-2026-11".into(),
             metadata_sha256: digest('a'),
@@ -962,6 +985,24 @@ mod tests {
         for (code, exponent) in [("AAA", 0), ("BBB", 2), ("CCC", 3)] {
             let report = evaluate_money(&money(code, exponent), Some(&metadata(code, exponent)));
             assert_eq!(report.disposition, Disposition::Pass, "{code}/{exponent}");
+        }
+    }
+
+    #[test]
+    fn money_preserves_integers_beyond_native_and_json_safe_ranges() {
+        let mut amount = money("BBB", 2);
+        amount.amount_minor = "340282366920938463463374607431768211455".into();
+        let report = evaluate_money(&amount, Some(&metadata("BBB", 2)));
+        assert_eq!(report.disposition, Disposition::Pass);
+    }
+
+    #[test]
+    fn money_rejects_noncanonical_integer_spellings() {
+        for invalid in ["", "-1", "+1", "01", "1.0", "1e3", " 1"] {
+            let mut amount = money("BBB", 2);
+            amount.amount_minor = invalid.into();
+            let report = evaluate_money(&amount, Some(&metadata("BBB", 2)));
+            assert_eq!(report.disposition, Disposition::Reject, "{invalid:?}");
         }
     }
 
