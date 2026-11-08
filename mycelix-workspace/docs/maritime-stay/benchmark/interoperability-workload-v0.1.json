@@ -1,0 +1,1705 @@
+{
+  "benchmark_id": "MCB-INTEROP",
+  "version": "0.1.0",
+  "status": "draft_not_executed",
+  "tracking_issue": "https://github.com/Luminous-Dynamics/mycelix/issues/5932",
+  "claim_ceiling": "Synthetic workload contract only; no provider integration, measured performance, SOTA, certification, field readiness, partnership, or production claim.",
+  "comparison_arms": [
+    {
+      "id": "MANUAL",
+      "description": "Matched manual/siloed provider workflow",
+      "evidence_required": [
+        "operator_observed"
+      ],
+      "notes": "Separate elapsed waiting time from active human labor."
+    },
+    {
+      "id": "NATIVE",
+      "description": "Provider-native booking and service workflows",
+      "evidence_required": [
+        "authorized_sandbox_observed",
+        "operator_observed"
+      ],
+      "notes": "Provider remains authoritative for its resources and commitments."
+    },
+    {
+      "id": "NETWORK",
+      "description": "Incumbent marina network or marketplace where the needed capability is actually offered",
+      "evidence_required": [
+        "public_documented",
+        "vendor_reported",
+        "authorized_sandbox_observed"
+      ],
+      "notes": "Unknown public capability is not a negative capability claim."
+    },
+    {
+      "id": "FEDERATED",
+      "description": "Maritime Commons coordinating provider-owned systems through replaceable adapters",
+      "evidence_required": [
+        "synthetic_only",
+        "authorized_sandbox_observed",
+        "independently_reproduced"
+      ],
+      "notes": "No central authoritative inventory mirror."
+    }
+  ],
+  "evidence_grades": [
+    "public_documented",
+    "vendor_reported",
+    "authorized_sandbox_observed",
+    "operator_observed",
+    "independently_reproduced",
+    "synthetic_only",
+    "unknown"
+  ],
+  "result_families": [
+    "correctness_safety",
+    "coordination_effort",
+    "integration_lifecycle_cost",
+    "provider_autonomy_local_governance",
+    "privacy_economic_transparency",
+    "interoperability_recovery",
+    "coordinator_portability",
+    "profile_conformance",
+    "global_interoperability",
+    "monetary_interoperability"
+  ],
+  "non_compensatory_hard_gates": [
+    "zero_false_confirmed_stays",
+    "zero_double_committed_capacity_one_resources",
+    "zero_duplicate_financial_effects",
+    "zero_unauthorized_or_wrong_purpose_actions",
+    "zero_revoked_or_unrecognized_authority_acceptance",
+    "zero_unauthorized_data_disclosures",
+    "zero_stale_or_offline_observation_promoted_to_current_commitment",
+    "zero_marina_booking_substituted_for_statutory_or_navigation_authority",
+    "zero_identifier_subject_misbinding",
+    "zero_currency_scale_errors",
+    "zero_unit_dimension_errors",
+    "zero_silent_timezone_gap_or_fold_resolution",
+    "zero_unreviewed_translation_promotions",
+    "zero_jurisdiction_data_governance_bypasses",
+    "zero_prerelease_or_stale_registry_promotion",
+    "zero_floating_point_authoritative_money_paths",
+    "zero_implicit_fx_conversions",
+    "zero_silent_monetary_rounding_or_overflow",
+    "zero_refund_finality_without_external_evidence"
+  ],
+  "scenarios": [
+    {
+      "id": "MCB-COORD-001",
+      "name": "Independent historical-view reconstruction",
+      "class": "coordinator_portability",
+      "required_arms": [
+        "FEDERATED"
+      ],
+      "coordinator_profiles": [
+        "SINGLE",
+        "HA_REPLICATED",
+        "RECONSTRUCTED"
+      ],
+      "setup": "Two independent evaluators receive the same exact evidence frontier, evaluation instant, policy snapshot, semantic profile and evaluator identity.",
+      "expected_safety_disposition": "Same byte-identical canonical historical view; no external call or side effect.",
+      "measures": [
+        "historical_manifest_match",
+        "manifest_divergence_count",
+        "cold_start_reconstruction_ms"
+      ],
+      "references": [
+        "#5938",
+        "#5921"
+      ]
+    },
+    {
+      "id": "MCB-COORD-002",
+      "name": "Provider commits before coordinator crash",
+      "class": "crash_recovery",
+      "required_arms": [
+        "NATIVE",
+        "FEDERATED"
+      ],
+      "coordinator_profiles": [
+        "SINGLE",
+        "HA_REPLICATED",
+        "RECONSTRUCTED"
+      ],
+      "setup": "Provider durably commits, then coordinator crashes before receiving or admitting the effect receipt.",
+      "expected_safety_disposition": "Replacement reports Unknown / NeedsReconciliation until provider-authoritative evidence is obtained; no second provider effect.",
+      "measures": [
+        "duplicate_effect_count",
+        "reconciliation_latency",
+        "provider_readback_calls",
+        "coordinator_replacement_ms"
+      ],
+      "references": [
+        "#5938",
+        "#2525",
+        "#5921"
+      ]
+    },
+    {
+      "id": "MCB-COORD-003",
+      "name": "Old coordinator resumes after fencing transfer",
+      "class": "split_brain",
+      "required_arms": [
+        "FEDERATED"
+      ],
+      "coordinator_profiles": [
+        "HA_REPLICATED",
+        "RECONSTRUCTED"
+      ],
+      "setup": "Old coordinator resumes with a stale execution epoch after a replacement has become active.",
+      "expected_safety_disposition": "No stale-epoch effectful dispatch; if provider-side fencing/idempotency cannot be guaranteed, effectful failover is refused.",
+      "measures": [
+        "stale_epoch_dispatches",
+        "duplicate_effect_count",
+        "operator_recovery_minutes"
+      ],
+      "references": [
+        "#5938",
+        "#2525"
+      ]
+    },
+    {
+      "id": "MCB-COORD-004",
+      "name": "Historical view after policy change",
+      "class": "policy_change",
+      "required_arms": [
+        "FEDERATED"
+      ],
+      "coordinator_profiles": [
+        "SINGLE",
+        "HA_REPLICATED",
+        "RECONSTRUCTED"
+      ],
+      "setup": "Local recognition or destination policy changes after a historical stay manifest was generated.",
+      "expected_safety_disposition": "Historical output remains immutable; current actionability is independently reevaluated under current policy.",
+      "measures": [
+        "historical_view_mutations",
+        "current_actionability_requalification_ms",
+        "policy_version_mismatch_detection"
+      ],
+      "references": [
+        "#5938",
+        "#1215",
+        "#1149"
+      ]
+    },
+    {
+      "id": "MCB-COORD-005",
+      "name": "Provider continues during coordinator outage",
+      "class": "availability",
+      "required_arms": [
+        "NATIVE",
+        "FEDERATED"
+      ],
+      "coordinator_profiles": [
+        "SINGLE",
+        "HA_REPLICATED",
+        "RECONSTRUCTED"
+      ],
+      "setup": "Federation coordinator is unavailable while provider-native booking operations remain available.",
+      "expected_safety_disposition": "Provider-native operation remains usable under provider authority; federation view reports stale/unavailable and does not claim currentness.",
+      "measures": [
+        "provider_native_availability",
+        "coordinator_replacement_ms",
+        "last_view_age_ms",
+        "manual_reconciliation_minutes"
+      ],
+      "references": [
+        "#5938",
+        "#5920"
+      ]
+    },
+    {
+      "id": "MCB-GLOBAL-001",
+      "name": "UN/LOCODE prerelease snapshot",
+      "class": "global_registry_maturity",
+      "required_arms": [
+        "FEDERATED"
+      ],
+      "setup": "See GLOBAL-001 in mycelix-workspace/docs/maritime-stay/global/global-compatibility-cases-v0.1.json. Execute only with the exact pinned standards, registry, locale, time-zone, currency and jurisdiction fixtures for this scenario.",
+      "expected_safety_disposition": "Only explicitly pinned production registry values may be treated as production; prerelease values remain candidate/unconfirmed.",
+      "measures": [
+        "profile_requirement_coverage",
+        "profile_requirement_correctness",
+        "negative_control_disposition",
+        "manual_review_or_reconciliation"
+      ],
+      "references": [
+        "#5945"
+      ]
+    },
+    {
+      "id": "MCB-GLOBAL-002",
+      "name": "Port location versus berth identifier",
+      "class": "global_identifier_scope",
+      "required_arms": [
+        "FEDERATED"
+      ],
+      "setup": "See GLOBAL-002 in mycelix-workspace/docs/maritime-stay/global/global-compatibility-cases-v0.1.json. Execute only with the exact pinned standards, registry, locale, time-zone, currency and jurisdiction fixtures for this scenario.",
+      "expected_safety_disposition": "A port-level location code cannot satisfy a specific marina/facility/berth subject reference.",
+      "measures": [
+        "profile_requirement_coverage",
+        "profile_requirement_correctness",
+        "negative_control_disposition",
+        "manual_review_or_reconciliation"
+      ],
+      "references": [
+        "#5945"
+      ]
+    },
+    {
+      "id": "MCB-GLOBAL-003",
+      "name": "Pleasure craft without IMO number",
+      "class": "global_identifier_eligibility",
+      "required_arms": [
+        "FEDERATED"
+      ],
+      "setup": "See GLOBAL-003 in mycelix-workspace/docs/maritime-stay/global/global-compatibility-cases-v0.1.json. Execute only with the exact pinned standards, registry, locale, time-zone, currency and jurisdiction fixtures for this scenario.",
+      "expected_safety_disposition": "Accept only an issuer-scoped eligible alternative or return Unknown; no universal IMO-number requirement.",
+      "measures": [
+        "profile_requirement_coverage",
+        "profile_requirement_correctness",
+        "negative_control_disposition",
+        "manual_review_or_reconciliation"
+      ],
+      "references": [
+        "#5945"
+      ]
+    },
+    {
+      "id": "MCB-GLOBAL-004",
+      "name": "Ship versus company identifier",
+      "class": "global_identifier_subject",
+      "required_arms": [
+        "FEDERATED"
+      ],
+      "setup": "See GLOBAL-004 in mycelix-workspace/docs/maritime-stay/global/global-compatibility-cases-v0.1.json. Execute only with the exact pinned standards, registry, locale, time-zone, currency and jurisdiction fixtures for this scenario.",
+      "expected_safety_disposition": "Reject the wrong identifier subject class.",
+      "measures": [
+        "profile_requirement_coverage",
+        "profile_requirement_correctness",
+        "negative_control_disposition",
+        "manual_review_or_reconciliation"
+      ],
+      "references": [
+        "#5945"
+      ]
+    },
+    {
+      "id": "MCB-GLOBAL-005",
+      "name": "Zero-minor-unit currency",
+      "class": "global_money",
+      "required_arms": [
+        "FEDERATED"
+      ],
+      "setup": "See GLOBAL-005 in mycelix-workspace/docs/maritime-stay/global/global-compatibility-cases-v0.1.json. Execute only with the exact pinned standards, registry, locale, time-zone, currency and jurisdiction fixtures for this scenario.",
+      "expected_safety_disposition": "Interpret integer amount only with pinned ISO 4217 scale/effective date; no fixed two-decimal assumption.",
+      "measures": [
+        "profile_requirement_coverage",
+        "profile_requirement_correctness",
+        "negative_control_disposition",
+        "manual_review_or_reconciliation"
+      ],
+      "references": [
+        "#5945"
+      ]
+    },
+    {
+      "id": "MCB-GLOBAL-006",
+      "name": "Three-minor-unit currency",
+      "class": "global_money",
+      "required_arms": [
+        "FEDERATED"
+      ],
+      "setup": "See GLOBAL-006 in mycelix-workspace/docs/maritime-stay/global/global-compatibility-cases-v0.1.json. Execute only with the exact pinned standards, registry, locale, time-zone, currency and jurisdiction fixtures for this scenario.",
+      "expected_safety_disposition": "Use pinned currency scale and integer arithmetic; no silent two-decimal parsing.",
+      "measures": [
+        "profile_requirement_coverage",
+        "profile_requirement_correctness",
+        "negative_control_disposition",
+        "manual_review_or_reconciliation"
+      ],
+      "references": [
+        "#5945"
+      ]
+    },
+    {
+      "id": "MCB-GLOBAL-007",
+      "name": "Historical currency metadata",
+      "class": "global_money_currentness",
+      "required_arms": [
+        "FEDERATED"
+      ],
+      "setup": "See GLOBAL-007 in mycelix-workspace/docs/maritime-stay/global/global-compatibility-cases-v0.1.json. Execute only with the exact pinned standards, registry, locale, time-zone, currency and jurisdiction fixtures for this scenario.",
+      "expected_safety_disposition": "Historical quotes use historical metadata; mutable latest metadata cannot reinterpret prior values.",
+      "measures": [
+        "profile_requirement_coverage",
+        "profile_requirement_correctness",
+        "negative_control_disposition",
+        "manual_review_or_reconciliation"
+      ],
+      "references": [
+        "#5945"
+      ]
+    },
+    {
+      "id": "MCB-GLOBAL-008",
+      "name": "Quote and settlement currencies differ",
+      "class": "global_fx_boundary",
+      "required_arms": [
+        "FEDERATED"
+      ],
+      "setup": "See GLOBAL-008 in mycelix-workspace/docs/maritime-stay/global/global-compatibility-cases-v0.1.json. Execute only with the exact pinned standards, registry, locale, time-zone, currency and jurisdiction fixtures for this scenario.",
+      "expected_safety_disposition": "Keep quote/settlement currencies separate and require explicit FX evidence.",
+      "measures": [
+        "profile_requirement_coverage",
+        "profile_requirement_correctness",
+        "negative_control_disposition",
+        "manual_review_or_reconciliation"
+      ],
+      "references": [
+        "#5945"
+      ]
+    },
+    {
+      "id": "MCB-GLOBAL-009",
+      "name": "Non-whole-hour timezone",
+      "class": "global_time",
+      "required_arms": [
+        "FEDERATED"
+      ],
+      "setup": "See GLOBAL-009 in mycelix-workspace/docs/maritime-stay/global/global-compatibility-cases-v0.1.json. Execute only with the exact pinned standards, registry, locale, time-zone, currency and jurisdiction fixtures for this scenario.",
+      "expected_safety_disposition": "Preserve exact offset and named IANA zone; no whole-hour rounding.",
+      "measures": [
+        "profile_requirement_coverage",
+        "profile_requirement_correctness",
+        "negative_control_disposition",
+        "manual_review_or_reconciliation"
+      ],
+      "references": [
+        "#5945"
+      ]
+    },
+    {
+      "id": "MCB-GLOBAL-010",
+      "name": "DST gap and fold",
+      "class": "global_time_ambiguity",
+      "required_arms": [
+        "FEDERATED"
+      ],
+      "setup": "See GLOBAL-010 in mycelix-workspace/docs/maritime-stay/global/global-compatibility-cases-v0.1.json. Execute only with the exact pinned standards, registry, locale, time-zone, currency and jurisdiction fixtures for this scenario.",
+      "expected_safety_disposition": "Return an explicit ambiguity/nonexistent-time disposition; never silently choose an instant.",
+      "measures": [
+        "profile_requirement_coverage",
+        "profile_requirement_correctness",
+        "negative_control_disposition",
+        "manual_review_or_reconciliation"
+      ],
+      "references": [
+        "#5945"
+      ]
+    },
+    {
+      "id": "MCB-GLOBAL-011",
+      "name": "tzdb update",
+      "class": "global_time_versioning",
+      "required_arms": [
+        "FEDERATED"
+      ],
+      "setup": "See GLOBAL-011 in mycelix-workspace/docs/maritime-stay/global/global-compatibility-cases-v0.1.json. Execute only with the exact pinned standards, registry, locale, time-zone, currency and jurisdiction fixtures for this scenario.",
+      "expected_safety_disposition": "Historical evidence is immutable; future local schedules may need requalification.",
+      "measures": [
+        "profile_requirement_coverage",
+        "profile_requirement_correctness",
+        "negative_control_disposition",
+        "manual_review_or_reconciliation"
+      ],
+      "references": [
+        "#5945"
+      ]
+    },
+    {
+      "id": "MCB-GLOBAL-012",
+      "name": "Date-only deadline",
+      "class": "global_date_semantics",
+      "required_arms": [
+        "FEDERATED"
+      ],
+      "setup": "See GLOBAL-012 in mycelix-workspace/docs/maritime-stay/global/global-compatibility-cases-v0.1.json. Execute only with the exact pinned standards, registry, locale, time-zone, currency and jurisdiction fixtures for this scenario.",
+      "expected_safety_disposition": "Keep date-only policy distinct from UTC event instants and bind the applicable local zone.",
+      "measures": [
+        "profile_requirement_coverage",
+        "profile_requirement_correctness",
+        "negative_control_disposition",
+        "manual_review_or_reconciliation"
+      ],
+      "references": [
+        "#5945"
+      ]
+    },
+    {
+      "id": "MCB-GLOBAL-013",
+      "name": "Arabic right-to-left mixed content",
+      "class": "global_internationalization",
+      "required_arms": [
+        "FEDERATED"
+      ],
+      "setup": "See GLOBAL-013 in mycelix-workspace/docs/maritime-stay/global/global-compatibility-cases-v0.1.json. Execute only with the exact pinned standards, registry, locale, time-zone, currency and jurisdiction fixtures for this scenario.",
+      "expected_safety_disposition": "Preserve source text and direction; signed identifiers remain unchanged.",
+      "measures": [
+        "profile_requirement_coverage",
+        "profile_requirement_correctness",
+        "negative_control_disposition",
+        "manual_review_or_reconciliation"
+      ],
+      "references": [
+        "#5945"
+      ]
+    },
+    {
+      "id": "MCB-GLOBAL-014",
+      "name": "Chinese/Cyrillic/diacritic names",
+      "class": "global_internationalization",
+      "required_arms": [
+        "FEDERATED"
+      ],
+      "setup": "See GLOBAL-014 in mycelix-workspace/docs/maritime-stay/global/global-compatibility-cases-v0.1.json. Execute only with the exact pinned standards, registry, locale, time-zone, currency and jurisdiction fixtures for this scenario.",
+      "expected_safety_disposition": "Support search/display without collapsing distinct legal/provider entities by fuzzy transliteration.",
+      "measures": [
+        "profile_requirement_coverage",
+        "profile_requirement_correctness",
+        "negative_control_disposition",
+        "manual_review_or_reconciliation"
+      ],
+      "references": [
+        "#5945"
+      ]
+    },
+    {
+      "id": "MCB-GLOBAL-015",
+      "name": "Unreviewed translated terms",
+      "class": "global_translation_authority",
+      "required_arms": [
+        "FEDERATED"
+      ],
+      "setup": "See GLOBAL-015 in mycelix-workspace/docs/maritime-stay/global/global-compatibility-cases-v0.1.json. Execute only with the exact pinned standards, registry, locale, time-zone, currency and jurisdiction fixtures for this scenario.",
+      "expected_safety_disposition": "Machine translation remains derived and cannot become authoritative contract/safety/legal wording.",
+      "measures": [
+        "profile_requirement_coverage",
+        "profile_requirement_correctness",
+        "negative_control_disposition",
+        "manual_review_or_reconciliation"
+      ],
+      "references": [
+        "#5945"
+      ]
+    },
+    {
+      "id": "MCB-GLOBAL-016",
+      "name": "Locale-specific decimal formatting",
+      "class": "global_presentation_accounting",
+      "required_arms": [
+        "FEDERATED"
+      ],
+      "setup": "See GLOBAL-016 in mycelix-workspace/docs/maritime-stay/global/global-compatibility-cases-v0.1.json. Execute only with the exact pinned standards, registry, locale, time-zone, currency and jurisdiction fixtures for this scenario.",
+      "expected_safety_disposition": "Locale presentation cannot alter canonical amount or currency scale.",
+      "measures": [
+        "profile_requirement_coverage",
+        "profile_requirement_correctness",
+        "negative_control_disposition",
+        "manual_review_or_reconciliation"
+      ],
+      "references": [
+        "#5945"
+      ]
+    },
+    {
+      "id": "MCB-GLOBAL-017",
+      "name": "Incompatible physical dimensions",
+      "class": "global_units",
+      "required_arms": [
+        "FEDERATED"
+      ],
+      "setup": "See GLOBAL-017 in mycelix-workspace/docs/maritime-stay/global/global-compatibility-cases-v0.1.json. Execute only with the exact pinned standards, registry, locale, time-zone, currency and jurisdiction fixtures for this scenario.",
+      "expected_safety_disposition": "Reject dimension mismatch; unit labels alone cannot establish equivalence.",
+      "measures": [
+        "profile_requirement_coverage",
+        "profile_requirement_correctness",
+        "negative_control_disposition",
+        "manual_review_or_reconciliation"
+      ],
+      "references": [
+        "#5945"
+      ]
+    },
+    {
+      "id": "MCB-GLOBAL-018",
+      "name": "Nautical to SI conversion",
+      "class": "global_units_conversion",
+      "required_arms": [
+        "FEDERATED"
+      ],
+      "setup": "See GLOBAL-018 in mycelix-workspace/docs/maritime-stay/global/global-compatibility-cases-v0.1.json. Execute only with the exact pinned standards, registry, locale, time-zone, currency and jurisdiction fixtures for this scenario.",
+      "expected_safety_disposition": "Conversion must be versioned, bounded and traceable to source value/unit.",
+      "measures": [
+        "profile_requirement_coverage",
+        "profile_requirement_correctness",
+        "negative_control_disposition",
+        "manual_review_or_reconciliation"
+      ],
+      "references": [
+        "#5945"
+      ]
+    },
+    {
+      "id": "MCB-GLOBAL-019",
+      "name": "MSW acknowledgement versus stay confirmation",
+      "class": "global_authority_boundary",
+      "required_arms": [
+        "MANUAL",
+        "NATIVE",
+        "NETWORK",
+        "FEDERATED"
+      ],
+      "setup": "See GLOBAL-019 in mycelix-workspace/docs/maritime-stay/global/global-compatibility-cases-v0.1.json. Execute only with the exact pinned standards, registry, locale, time-zone, currency and jurisdiction fixtures for this scenario.",
+      "expected_safety_disposition": "Private stay receipts cannot imply government submission, acceptance or clearance.",
+      "measures": [
+        "profile_requirement_coverage",
+        "profile_requirement_correctness",
+        "negative_control_disposition",
+        "manual_review_or_reconciliation"
+      ],
+      "references": [
+        "#5945"
+      ]
+    },
+    {
+      "id": "MCB-GLOBAL-020",
+      "name": "Conflicting jurisdiction overlays",
+      "class": "global_jurisdiction_currentness",
+      "required_arms": [
+        "FEDERATED"
+      ],
+      "setup": "See GLOBAL-020 in mycelix-workspace/docs/maritime-stay/global/global-compatibility-cases-v0.1.json. Execute only with the exact pinned standards, registry, locale, time-zone, currency and jurisdiction fixtures for this scenario.",
+      "expected_safety_disposition": "Conflicting scope/effective periods remain Conflict or Unknown, not last-write-wins.",
+      "measures": [
+        "profile_requirement_coverage",
+        "profile_requirement_correctness",
+        "negative_control_disposition",
+        "manual_review_or_reconciliation"
+      ],
+      "references": [
+        "#5945"
+      ]
+    },
+    {
+      "id": "MCB-GLOBAL-021",
+      "name": "Cross-border data governance",
+      "class": "global_data_governance",
+      "required_arms": [
+        "FEDERATED"
+      ],
+      "setup": "See GLOBAL-021 in mycelix-workspace/docs/maritime-stay/global/global-compatibility-cases-v0.1.json. Execute only with the exact pinned standards, registry, locale, time-zone, currency and jurisdiction fixtures for this scenario.",
+      "expected_safety_disposition": "Deny/quarantine processing or transfer when required local policy is absent or conflicts.",
+      "measures": [
+        "profile_requirement_coverage",
+        "profile_requirement_correctness",
+        "negative_control_disposition",
+        "manual_review_or_reconciliation"
+      ],
+      "references": [
+        "#5945"
+      ]
+    },
+    {
+      "id": "MCB-GLOBAL-022",
+      "name": "Low-bandwidth intermittent provider",
+      "class": "global_connectivity",
+      "required_arms": [
+        "FEDERATED"
+      ],
+      "setup": "See GLOBAL-022 in mycelix-workspace/docs/maritime-stay/global/global-compatibility-cases-v0.1.json. Execute only with the exact pinned standards, registry, locale, time-zone, currency and jurisdiction fixtures for this scenario.",
+      "expected_safety_disposition": "Asynchronous ingestion may remain pending; stale cache cannot become a commitment.",
+      "measures": [
+        "profile_requirement_coverage",
+        "profile_requirement_correctness",
+        "negative_control_disposition",
+        "manual_review_or_reconciliation"
+      ],
+      "references": [
+        "#5945"
+      ]
+    },
+    {
+      "id": "MCB-GLOBAL-023",
+      "name": "Manual provider joins network",
+      "class": "global_inclusion",
+      "required_arms": [
+        "MANUAL",
+        "NATIVE",
+        "NETWORK",
+        "FEDERATED"
+      ],
+      "setup": "See GLOBAL-023 in mycelix-workspace/docs/maritime-stay/global/global-compatibility-cases-v0.1.json. Execute only with the exact pinned standards, registry, locale, time-zone, currency and jurisdiction fixtures for this scenario.",
+      "expected_safety_disposition": "Manual/operator-issued evidence may participate with accurate evidence grade and authority scope.",
+      "measures": [
+        "profile_requirement_coverage",
+        "profile_requirement_correctness",
+        "negative_control_disposition",
+        "manual_review_or_reconciliation"
+      ],
+      "references": [
+        "#5945"
+      ]
+    },
+    {
+      "id": "MCB-GLOBAL-024",
+      "name": "Identifier reassignment/revocation",
+      "class": "global_identifier_lifecycle",
+      "required_arms": [
+        "FEDERATED"
+      ],
+      "setup": "See GLOBAL-024 in mycelix-workspace/docs/maritime-stay/global/global-compatibility-cases-v0.1.json. Execute only with the exact pinned standards, registry, locale, time-zone, currency and jurisdiction fixtures for this scenario.",
+      "expected_safety_disposition": "Preserve historical identity binding and requalify current subject linkage.",
+      "measures": [
+        "profile_requirement_coverage",
+        "profile_requirement_correctness",
+        "negative_control_disposition",
+        "manual_review_or_reconciliation"
+      ],
+      "references": [
+        "#5945"
+      ]
+    },
+    {
+      "id": "MCB-GLOBAL-025",
+      "name": "No verified local registry endpoint",
+      "class": "global_registry_unknown",
+      "required_arms": [
+        "FEDERATED"
+      ],
+      "setup": "See GLOBAL-025 in mycelix-workspace/docs/maritime-stay/global/global-compatibility-cases-v0.1.json. Execute only with the exact pinned standards, registry, locale, time-zone, currency and jurisdiction fixtures for this scenario.",
+      "expected_safety_disposition": "Represent Unknown; never invent endpoint, coverage or status.",
+      "measures": [
+        "profile_requirement_coverage",
+        "profile_requirement_correctness",
+        "negative_control_disposition",
+        "manual_review_or_reconciliation"
+      ],
+      "references": [
+        "#5945"
+      ]
+    },
+    {
+      "id": "MCB-GLOBAL-026",
+      "name": "IMO Compendium version migration",
+      "class": "global_standards_versioning",
+      "required_arms": [
+        "FEDERATED"
+      ],
+      "setup": "See GLOBAL-026 in mycelix-workspace/docs/maritime-stay/global/global-compatibility-cases-v0.1.json. Execute only with the exact pinned standards, registry, locale, time-zone, currency and jurisdiction fixtures for this scenario.",
+      "expected_safety_disposition": "Pin FAL circular/schema profile and expose changed/untested requirements.",
+      "measures": [
+        "profile_requirement_coverage",
+        "profile_requirement_correctness",
+        "negative_control_disposition",
+        "manual_review_or_reconciliation"
+      ],
+      "references": [
+        "#5945"
+      ]
+    },
+    {
+      "id": "MCB-GLOBAL-027",
+      "name": "Research-only jurisdiction pack",
+      "class": "global_jurisdiction_approval",
+      "required_arms": [
+        "FEDERATED"
+      ],
+      "setup": "See GLOBAL-027 in mycelix-workspace/docs/maritime-stay/global/global-compatibility-cases-v0.1.json. Execute only with the exact pinned standards, registry, locale, time-zone, currency and jurisdiction fixtures for this scenario.",
+      "expected_safety_disposition": "Do not claim legal review, regulatory approval or production readiness.",
+      "measures": [
+        "profile_requirement_coverage",
+        "profile_requirement_correctness",
+        "negative_control_disposition",
+        "manual_review_or_reconciliation"
+      ],
+      "references": [
+        "#5945"
+      ]
+    },
+    {
+      "id": "MCB-GLOBAL-028",
+      "name": "Community versus statutory rule conflict",
+      "class": "global_authority_hierarchy",
+      "required_arms": [
+        "FEDERATED"
+      ],
+      "setup": "See GLOBAL-028 in mycelix-workspace/docs/maritime-stay/global/global-compatibility-cases-v0.1.json. Execute only with the exact pinned standards, registry, locale, time-zone, currency and jurisdiction fixtures for this scenario.",
+      "expected_safety_disposition": "Local community policy cannot override statutory/port/navigation authority.",
+      "measures": [
+        "profile_requirement_coverage",
+        "profile_requirement_correctness",
+        "negative_control_disposition",
+        "manual_review_or_reconciliation"
+      ],
+      "references": [
+        "#5945"
+      ]
+    },
+    {
+      "id": "MCB-GLOBAL-029",
+      "name": "Multiple vessel identifiers",
+      "class": "global_identity_linkage",
+      "required_arms": [
+        "FEDERATED"
+      ],
+      "setup": "See GLOBAL-029 in mycelix-workspace/docs/maritime-stay/global/global-compatibility-cases-v0.1.json. Execute only with the exact pinned standards, registry, locale, time-zone, currency and jurisdiction fixtures for this scenario.",
+      "expected_safety_disposition": "Keep identifiers scheme- and issuer-scoped; do not assume unqualified transitive identity.",
+      "measures": [
+        "profile_requirement_coverage",
+        "profile_requirement_correctness",
+        "negative_control_disposition",
+        "manual_review_or_reconciliation"
+      ],
+      "references": [
+        "#5945"
+      ]
+    },
+    {
+      "id": "MCB-GLOBAL-030",
+      "name": "Unavailable preferred language",
+      "class": "global_language_fallback",
+      "required_arms": [
+        "FEDERATED"
+      ],
+      "setup": "See GLOBAL-030 in mycelix-workspace/docs/maritime-stay/global/global-compatibility-cases-v0.1.json. Execute only with the exact pinned standards, registry, locale, time-zone, currency and jurisdiction fixtures for this scenario.",
+      "expected_safety_disposition": "Make fallback explicit and confirm comprehension for consequential terms.",
+      "measures": [
+        "profile_requirement_coverage",
+        "profile_requirement_correctness",
+        "negative_control_disposition",
+        "manual_review_or_reconciliation"
+      ],
+      "references": [
+        "#5945"
+      ]
+    },
+    {
+      "id": "MCB-INT-001",
+      "name": "Three-provider complete stay",
+      "class": "happy_path",
+      "required_arms": [
+        "MANUAL",
+        "NATIVE",
+        "NETWORK",
+        "FEDERATED"
+      ],
+      "setup": "Berth, accommodation and local-service providers have distinct source systems and independent terms.",
+      "expected_safety_disposition": "Confirm only when each mandatory provider has a current provider-authoritative commitment; optional service remains separately represented.",
+      "measures": [
+        "completion_rate",
+        "elapsed_time",
+        "active_human_minutes",
+        "handoffs",
+        "provider_actions"
+      ],
+      "references": [
+        "#5918",
+        "#5921"
+      ]
+    },
+    {
+      "id": "MCB-INT-002",
+      "name": "Mandatory provider rejects",
+      "class": "partial_failure",
+      "required_arms": [
+        "MANUAL",
+        "NATIVE",
+        "NETWORK",
+        "FEDERATED"
+      ],
+      "setup": "One mandatory component rejects after other components have responded.",
+      "expected_safety_disposition": "Never report a complete confirmed stay; preserve successful partial effects and obligations.",
+      "measures": [
+        "false_confirmation_count",
+        "partial_completion",
+        "reconciliation_actions"
+      ],
+      "references": [
+        "#5918",
+        "#5921"
+      ]
+    },
+    {
+      "id": "MCB-INT-003",
+      "name": "Optional service rejects",
+      "class": "partial_failure",
+      "required_arms": [
+        "NATIVE",
+        "NETWORK",
+        "FEDERATED"
+      ],
+      "setup": "Berth and accommodation commit; optional shore service rejects.",
+      "expected_safety_disposition": "Optional failure must not invalidate mandatory components; optional status remains explicit.",
+      "measures": [
+        "mandatory_completion",
+        "optional_component_accuracy",
+        "operator_actions"
+      ],
+      "references": [
+        "#5921"
+      ]
+    },
+    {
+      "id": "MCB-INT-004",
+      "name": "Commit succeeds but response is lost",
+      "class": "ambiguous_effect",
+      "required_arms": [
+        "NATIVE",
+        "FEDERATED"
+      ],
+      "setup": "Provider durably commits, then transport drops response before the client observes it.",
+      "expected_safety_disposition": "Unknown or NeedsReconciliation until provider-authoritative read-back; retry cannot create a second provider effect.",
+      "measures": [
+        "duplicate_effect_count",
+        "reconciliation_latency",
+        "provider_readback_count"
+      ],
+      "references": [
+        "#5921"
+      ]
+    },
+    {
+      "id": "MCB-INT-005",
+      "name": "Duplicate and out-of-order provider events",
+      "class": "delivery_fault",
+      "required_arms": [
+        "NATIVE",
+        "NETWORK",
+        "FEDERATED"
+      ],
+      "setup": "Replay identical event IDs and deliver later revisions before earlier revisions.",
+      "expected_safety_disposition": "Deduplicate without erasing evidence; reject conflicting identity reuse; do not move state backward.",
+      "measures": [
+        "duplicate_effect_count",
+        "conflict_detection",
+        "recovery_latency"
+      ],
+      "references": [
+        "#5926"
+      ]
+    },
+    {
+      "id": "MCB-INT-006",
+      "name": "Capacity-one concurrency",
+      "class": "concurrency",
+      "required_arms": [
+        "NATIVE",
+        "FEDERATED"
+      ],
+      "setup": "Two independent requests race for the same capacity-one resource and overlapping interval.",
+      "expected_safety_disposition": "Exactly one provider-authoritative commitment; the loser is not represented as confirmed.",
+      "measures": [
+        "double_commit_count",
+        "oracle_agreement",
+        "decision_latency"
+      ],
+      "references": [
+        "#5921",
+        "#5920"
+      ]
+    },
+    {
+      "id": "MCB-INT-007",
+      "name": "Stale offer or superseded revision",
+      "class": "currentness",
+      "required_arms": [
+        "NATIVE",
+        "NETWORK",
+        "FEDERATED"
+      ],
+      "setup": "Offer/currentness revision is superseded before the final aggregate manifest is produced.",
+      "expected_safety_disposition": "Stale or superseded evidence cannot justify a positive current commitment.",
+      "measures": [
+        "stale_acceptance_count",
+        "false_confirmation_count",
+        "reconciliation_actions"
+      ],
+      "references": [
+        "#5921",
+        "#5925"
+      ]
+    },
+    {
+      "id": "MCB-INT-008",
+      "name": "Adapter replacement",
+      "class": "portability",
+      "required_arms": [
+        "NATIVE",
+        "NETWORK",
+        "FEDERATED"
+      ],
+      "setup": "Replace one provider adapter while preserving provider-owned booking system and exact stay intent.",
+      "expected_safety_disposition": "Provider authority, customer relationship and inventory remain with provider; adapter cannot gain new permissions by replacement.",
+      "measures": [
+        "adapter_replacement_minutes",
+        "changed_code_paths",
+        "custom_mapping_rules",
+        "new_permissions"
+      ],
+      "references": [
+        "#5920",
+        "#5925"
+      ]
+    },
+    {
+      "id": "MCB-INT-009",
+      "name": "Federation or provider partition",
+      "class": "partition",
+      "required_arms": [
+        "NATIVE",
+        "FEDERATED"
+      ],
+      "setup": "Network partitions after discovery and before provider commitment or reconciliation.",
+      "expected_safety_disposition": "Offline capture is not a reservation; no stale cache becomes a commitment; unresolved outcome remains explicit.",
+      "measures": [
+        "false_confirmation_count",
+        "availability_recovery_time",
+        "manual_reconciliation"
+      ],
+      "references": [
+        "#5920",
+        "#5921"
+      ]
+    },
+    {
+      "id": "MCB-INT-010",
+      "name": "Key rotation and revocation",
+      "class": "authorization",
+      "required_arms": [
+        "NATIVE",
+        "FEDERATED"
+      ],
+      "setup": "Provider signing key rotates or is revoked while cached profile and older event are still present.",
+      "expected_safety_disposition": "Only a currently authorized key/profile can support a new accepted event; revocation cannot be bypassed by cache.",
+      "measures": [
+        "revoked_key_acceptance",
+        "key_rotation_recovery",
+        "false_acceptance_count"
+      ],
+      "references": [
+        "#5920",
+        "#5925"
+      ]
+    },
+    {
+      "id": "MCB-INT-011",
+      "name": "Local recognition denies entitlement",
+      "class": "governance",
+      "required_arms": [
+        "NATIVE",
+        "FEDERATED"
+      ],
+      "setup": "Credential is validly issued but destination community does not recognize it for requested resource/purpose.",
+      "expected_safety_disposition": "Issuer authenticity is distinct from local recognition; no access entitlement is inferred.",
+      "measures": [
+        "policy_bypass_count",
+        "reason_accuracy",
+        "appeal_or_manual_review_actions"
+      ],
+      "references": [
+        "#5920"
+      ]
+    },
+    {
+      "id": "MCB-INT-012",
+      "name": "Fee mutation and refund ambiguity",
+      "class": "settlement",
+      "required_arms": [
+        "MANUAL",
+        "NATIVE",
+        "NETWORK",
+        "FEDERATED"
+      ],
+      "setup": "Mandatory fee changes after quote; partial cancellation is followed by ambiguous refund acknowledgement.",
+      "expected_safety_disposition": "No acceptance without disclosed mandatory fees; no payment/refund finality without recognized external evidence.",
+      "measures": [
+        "fee_disclosure_accuracy",
+        "arithmetic_errors",
+        "duplicate_financial_effects",
+        "refund_reconciliation_time"
+      ],
+      "references": [
+        "#5921",
+        "#5920"
+      ]
+    },
+    {
+      "id": "MCB-INT-013",
+      "name": "Purpose minimization",
+      "class": "privacy",
+      "required_arms": [
+        "MANUAL",
+        "NATIVE",
+        "NETWORK",
+        "FEDERATED"
+      ],
+      "setup": "Compare minimal vessel/stay compatibility fields with an overbroad data request.",
+      "expected_safety_disposition": "Only purpose-authorized fields are disclosed; no unnecessary crew, identity or payment data is copied into the federation.",
+      "measures": [
+        "fields_disclosed",
+        "sensitive_fields_disclosed",
+        "retention_period",
+        "unauthorized_disclosures"
+      ],
+      "references": [
+        "#5920",
+        "#5927"
+      ]
+    },
+    {
+      "id": "MCB-INT-014",
+      "name": "Marina booking versus statutory clearance",
+      "class": "authority_boundary",
+      "required_arms": [
+        "MANUAL",
+        "NATIVE",
+        "NETWORK",
+        "FEDERATED"
+      ],
+      "setup": "A valid berth booking is present while port-entry, customs or immigration permission is absent or unknown.",
+      "expected_safety_disposition": "Booking remains a marina commitment only; no port-entry, border, pilotage, navigation or safety permission is inferred.",
+      "measures": [
+        "authority_substitution_count",
+        "claim_ceiling_accuracy",
+        "user_comprehension"
+      ],
+      "references": [
+        "#5927"
+      ]
+    },
+    {
+      "id": "MCB-INT-015",
+      "name": "Provider profile version and schema downgrade",
+      "class": "version_negotiation",
+      "required_arms": [
+        "NATIVE",
+        "NETWORK",
+        "FEDERATED"
+      ],
+      "setup": "Endpoint or provider profile advertises an unsupported or downgraded protocol version.",
+      "expected_safety_disposition": "Reject or quarantine unsupported/incompatible messages; no silent permissive fallback.",
+      "measures": [
+        "downgrade_acceptance_count",
+        "compatibility_reason_accuracy",
+        "upgrade_effort"
+      ],
+      "references": [
+        "#5920",
+        "#5925"
+      ]
+    },
+    {
+      "id": "MCB-MONEY-001",
+      "name": "Zero-minor-unit currency",
+      "class": "monetary_scale_positive",
+      "required_arms": [
+        "MANUAL",
+        "NATIVE",
+        "NETWORK",
+        "FEDERATED"
+      ],
+      "setup": "See MONEY-001 in mycelix-workspace/docs/maritime-stay/money/money-cases-v0.1.json. The test must bind exact transaction-date ISO 4217 metadata and digest.",
+      "expected_safety_disposition": "Exact exponent-zero metadata; no two-decimal assumption.",
+      "measures": [
+        "currency_scale_errors",
+        "monetary_arithmetic_errors",
+        "fx_evidence_completeness",
+        "refund_finality_misclassification"
+      ],
+      "references": [
+        "#5948",
+        "#5945"
+      ]
+    },
+    {
+      "id": "MCB-MONEY-002",
+      "name": "Two-minor-unit currency",
+      "class": "monetary_scale_positive",
+      "required_arms": [
+        "MANUAL",
+        "NATIVE",
+        "NETWORK",
+        "FEDERATED"
+      ],
+      "setup": "See MONEY-002 in mycelix-workspace/docs/maritime-stay/money/money-cases-v0.1.json. The test must bind exact transaction-date ISO 4217 metadata and digest.",
+      "expected_safety_disposition": "Two-minor-unit positive control.",
+      "measures": [
+        "currency_scale_errors",
+        "monetary_arithmetic_errors",
+        "fx_evidence_completeness",
+        "refund_finality_misclassification"
+      ],
+      "references": [
+        "#5948",
+        "#5945"
+      ]
+    },
+    {
+      "id": "MCB-MONEY-003",
+      "name": "Three-minor-unit currency",
+      "class": "monetary_scale_positive",
+      "required_arms": [
+        "MANUAL",
+        "NATIVE",
+        "NETWORK",
+        "FEDERATED"
+      ],
+      "setup": "See MONEY-003 in mycelix-workspace/docs/maritime-stay/money/money-cases-v0.1.json. The test must bind exact transaction-date ISO 4217 metadata and digest.",
+      "expected_safety_disposition": "Exact exponent-three metadata; no two-decimal assumption.",
+      "measures": [
+        "currency_scale_errors",
+        "monetary_arithmetic_errors",
+        "fx_evidence_completeness",
+        "refund_finality_misclassification"
+      ],
+      "references": [
+        "#5948",
+        "#5945"
+      ]
+    },
+    {
+      "id": "MCB-MONEY-004",
+      "name": "Historical currency code",
+      "class": "monetary_currency_lifecycle",
+      "required_arms": [
+        "MANUAL",
+        "NATIVE",
+        "NETWORK",
+        "FEDERATED"
+      ],
+      "setup": "See MONEY-004 in mycelix-workspace/docs/maritime-stay/money/money-cases-v0.1.json. The test must bind exact transaction-date ISO 4217 metadata and digest.",
+      "expected_safety_disposition": "Preserve historic code and transaction-date metadata; do not substitute a current code.",
+      "measures": [
+        "currency_scale_errors",
+        "monetary_arithmetic_errors",
+        "fx_evidence_completeness",
+        "refund_finality_misclassification"
+      ],
+      "references": [
+        "#5948",
+        "#5945"
+      ]
+    },
+    {
+      "id": "MCB-MONEY-005",
+      "name": "Currency metadata revision after quote",
+      "class": "monetary_currency_currentness",
+      "required_arms": [
+        "MANUAL",
+        "NATIVE",
+        "NETWORK",
+        "FEDERATED"
+      ],
+      "setup": "See MONEY-005 in mycelix-workspace/docs/maritime-stay/money/money-cases-v0.1.json. The test must bind exact transaction-date ISO 4217 metadata and digest.",
+      "expected_safety_disposition": "Historical quote retains pinned metadata; new evaluation uses an explicit current snapshot.",
+      "measures": [
+        "currency_scale_errors",
+        "monetary_arithmetic_errors",
+        "fx_evidence_completeness",
+        "refund_finality_misclassification"
+      ],
+      "references": [
+        "#5948",
+        "#5945"
+      ]
+    },
+    {
+      "id": "MCB-MONEY-006",
+      "name": "Same integer under different exponent",
+      "class": "monetary_scale_conflict",
+      "required_arms": [
+        "MANUAL",
+        "NATIVE",
+        "NETWORK",
+        "FEDERATED"
+      ],
+      "setup": "See MONEY-006 in mycelix-workspace/docs/maritime-stay/money/money-cases-v0.1.json. The test must bind exact transaction-date ISO 4217 metadata and digest.",
+      "expected_safety_disposition": "Missing or conflicting exponent yields reject/unknown; same integer cannot imply same major amount.",
+      "measures": [
+        "currency_scale_errors",
+        "monetary_arithmetic_errors",
+        "fx_evidence_completeness",
+        "refund_finality_misclassification"
+      ],
+      "references": [
+        "#5948",
+        "#5945"
+      ]
+    },
+    {
+      "id": "MCB-MONEY-007",
+      "name": "Locale formatting changes",
+      "class": "monetary_presentation",
+      "required_arms": [
+        "MANUAL",
+        "NATIVE",
+        "NETWORK",
+        "FEDERATED"
+      ],
+      "setup": "See MONEY-007 in mycelix-workspace/docs/maritime-stay/money/money-cases-v0.1.json. The test must bind exact transaction-date ISO 4217 metadata and digest.",
+      "expected_safety_disposition": "Locale presentation changes only; canonical minor amount and scale remain identical.",
+      "measures": [
+        "currency_scale_errors",
+        "monetary_arithmetic_errors",
+        "fx_evidence_completeness",
+        "refund_finality_misclassification"
+      ],
+      "references": [
+        "#5948",
+        "#5945"
+      ]
+    },
+    {
+      "id": "MCB-MONEY-008",
+      "name": "Quote differs from settlement currency",
+      "class": "monetary_settlement_currency",
+      "required_arms": [
+        "MANUAL",
+        "NATIVE",
+        "NETWORK",
+        "FEDERATED"
+      ],
+      "setup": "See MONEY-008 in mycelix-workspace/docs/maritime-stay/money/money-cases-v0.1.json. The test must bind exact transaction-date ISO 4217 metadata and digest.",
+      "expected_safety_disposition": "Quote and settlement currencies remain distinct; require settlement evidence.",
+      "measures": [
+        "currency_scale_errors",
+        "monetary_arithmetic_errors",
+        "fx_evidence_completeness",
+        "refund_finality_misclassification"
+      ],
+      "references": [
+        "#5948",
+        "#5945"
+      ]
+    },
+    {
+      "id": "MCB-MONEY-009",
+      "name": "Inverse FX rate direction",
+      "class": "monetary_fx_semantics",
+      "required_arms": [
+        "MANUAL",
+        "NATIVE",
+        "NETWORK",
+        "FEDERATED"
+      ],
+      "setup": "See MONEY-009 in mycelix-workspace/docs/maritime-stay/money/money-cases-v0.1.json. The test must bind exact transaction-date ISO 4217 metadata and digest.",
+      "expected_safety_disposition": "Reject rate applied with wrong base/quote direction.",
+      "measures": [
+        "currency_scale_errors",
+        "monetary_arithmetic_errors",
+        "fx_evidence_completeness",
+        "refund_finality_misclassification"
+      ],
+      "references": [
+        "#5948",
+        "#5945"
+      ]
+    },
+    {
+      "id": "MCB-MONEY-010",
+      "name": "Stale or unrecognized FX rate",
+      "class": "monetary_fx_currentness",
+      "required_arms": [
+        "MANUAL",
+        "NATIVE",
+        "NETWORK",
+        "FEDERATED"
+      ],
+      "setup": "See MONEY-010 in mycelix-workspace/docs/maritime-stay/money/money-cases-v0.1.json. The test must bind exact transaction-date ISO 4217 metadata and digest.",
+      "expected_safety_disposition": "Do not use stale/unrecognized rate; preserve Unknown or reject.",
+      "measures": [
+        "currency_scale_errors",
+        "monetary_arithmetic_errors",
+        "fx_evidence_completeness",
+        "refund_finality_misclassification"
+      ],
+      "references": [
+        "#5948",
+        "#5945"
+      ]
+    },
+    {
+      "id": "MCB-MONEY-011",
+      "name": "Negative discount or credit line",
+      "class": "monetary_line_item_sign",
+      "required_arms": [
+        "MANUAL",
+        "NATIVE",
+        "NETWORK",
+        "FEDERATED"
+      ],
+      "setup": "See MONEY-011 in mycelix-workspace/docs/maritime-stay/money/money-cases-v0.1.json. The test must bind exact transaction-date ISO 4217 metadata and digest.",
+      "expected_safety_disposition": "Permit negative amount only for explicitly classified adjustment with correct arithmetic.",
+      "measures": [
+        "currency_scale_errors",
+        "monetary_arithmetic_errors",
+        "fx_evidence_completeness",
+        "refund_finality_misclassification"
+      ],
+      "references": [
+        "#5948",
+        "#5945"
+      ]
+    },
+    {
+      "id": "MCB-MONEY-012",
+      "name": "Refund requested, no external effect",
+      "class": "monetary_refund_state",
+      "required_arms": [
+        "MANUAL",
+        "NATIVE",
+        "NETWORK",
+        "FEDERATED"
+      ],
+      "setup": "See MONEY-012 in mycelix-workspace/docs/maritime-stay/money/money-cases-v0.1.json. The test must bind exact transaction-date ISO 4217 metadata and digest.",
+      "expected_safety_disposition": "Request is not execution or finality.",
+      "measures": [
+        "currency_scale_errors",
+        "monetary_arithmetic_errors",
+        "fx_evidence_completeness",
+        "refund_finality_misclassification"
+      ],
+      "references": [
+        "#5948",
+        "#5945"
+      ]
+    },
+    {
+      "id": "MCB-MONEY-013",
+      "name": "Refund attempted, finality unknown",
+      "class": "monetary_refund_finality",
+      "required_arms": [
+        "MANUAL",
+        "NATIVE",
+        "NETWORK",
+        "FEDERATED"
+      ],
+      "setup": "See MONEY-013 in mycelix-workspace/docs/maritime-stay/money/money-cases-v0.1.json. The test must bind exact transaction-date ISO 4217 metadata and digest.",
+      "expected_safety_disposition": "Attempt remains unknown until recognized external finality evidence.",
+      "measures": [
+        "currency_scale_errors",
+        "monetary_arithmetic_errors",
+        "fx_evidence_completeness",
+        "refund_finality_misclassification"
+      ],
+      "references": [
+        "#5948",
+        "#5945"
+      ]
+    },
+    {
+      "id": "MCB-MONEY-014",
+      "name": "Cash rounding versus accounting scale",
+      "class": "monetary_rounding",
+      "required_arms": [
+        "MANUAL",
+        "NATIVE",
+        "NETWORK",
+        "FEDERATED"
+      ],
+      "setup": "See MONEY-014 in mycelix-workspace/docs/maritime-stay/money/money-cases-v0.1.json. The test must bind exact transaction-date ISO 4217 metadata and digest.",
+      "expected_safety_disposition": "Keep cash tender rounding separate and auditable.",
+      "measures": [
+        "currency_scale_errors",
+        "monetary_arithmetic_errors",
+        "fx_evidence_completeness",
+        "refund_finality_misclassification"
+      ],
+      "references": [
+        "#5948",
+        "#5945"
+      ]
+    },
+    {
+      "id": "MCB-MONEY-015",
+      "name": "Overflow and unsupported exponent",
+      "class": "monetary_numeric_bounds",
+      "required_arms": [
+        "MANUAL",
+        "NATIVE",
+        "NETWORK",
+        "FEDERATED"
+      ],
+      "setup": "See MONEY-015 in mycelix-workspace/docs/maritime-stay/money/money-cases-v0.1.json. The test must bind exact transaction-date ISO 4217 metadata and digest.",
+      "expected_safety_disposition": "Fail explicitly; no truncation, wraparound or silent scale reduction.",
+      "measures": [
+        "currency_scale_errors",
+        "monetary_arithmetic_errors",
+        "fx_evidence_completeness",
+        "refund_finality_misclassification"
+      ],
+      "references": [
+        "#5948",
+        "#5945"
+      ]
+    },
+    {
+      "id": "MCB-MONEY-016",
+      "name": "Unknown currency code",
+      "class": "monetary_currency_unknown",
+      "required_arms": [
+        "MANUAL",
+        "NATIVE",
+        "NETWORK",
+        "FEDERATED"
+      ],
+      "setup": "See MONEY-016 in mycelix-workspace/docs/maritime-stay/money/money-cases-v0.1.json. The test must bind exact transaction-date ISO 4217 metadata and digest.",
+      "expected_safety_disposition": "Three-letter syntax alone does not prove a currency exists in pinned metadata.",
+      "measures": [
+        "currency_scale_errors",
+        "monetary_arithmetic_errors",
+        "fx_evidence_completeness",
+        "refund_finality_misclassification"
+      ],
+      "references": [
+        "#5948",
+        "#5945"
+      ]
+    },
+    {
+      "id": "MCB-MONEY-017",
+      "name": "Mandatory fee changes after acceptance",
+      "class": "monetary_quote_revision",
+      "required_arms": [
+        "MANUAL",
+        "NATIVE",
+        "NETWORK",
+        "FEDERATED"
+      ],
+      "setup": "See MONEY-017 in mycelix-workspace/docs/maritime-stay/money/money-cases-v0.1.json. The test must bind exact transaction-date ISO 4217 metadata and digest.",
+      "expected_safety_disposition": "Require a new quote/acceptance disposition; do not mutate historical accepted price.",
+      "measures": [
+        "currency_scale_errors",
+        "monetary_arithmetic_errors",
+        "fx_evidence_completeness",
+        "refund_finality_misclassification"
+      ],
+      "references": [
+        "#5948",
+        "#5945"
+      ]
+    },
+    {
+      "id": "MCB-MONEY-018",
+      "name": "Tax-inclusive/exclusive mapping loss",
+      "class": "monetary_tax_semantics",
+      "required_arms": [
+        "MANUAL",
+        "NATIVE",
+        "NETWORK",
+        "FEDERATED"
+      ],
+      "setup": "See MONEY-018 in mycelix-workspace/docs/maritime-stay/money/money-cases-v0.1.json. The test must bind exact transaction-date ISO 4217 metadata and digest.",
+      "expected_safety_disposition": "Do not normalize away tax inclusion/exclusion; reject or retain explicit loss/unknown.",
+      "measures": [
+        "currency_scale_errors",
+        "monetary_arithmetic_errors",
+        "fx_evidence_completeness",
+        "refund_finality_misclassification"
+      ],
+      "references": [
+        "#5948",
+        "#5945"
+      ]
+    },
+    {
+      "id": "MCB-STD-001",
+      "name": "Pinned DCSA Port Call publisher/subscriber conformance",
+      "class": "profile_conformance",
+      "required_arms": [
+        "FEDERATED"
+      ],
+      "profile": "DCSA-PC-2.0.0",
+      "setup": "Exercise each implemented publisher GET and subscriber POST role against a declared synthetic conformance counterpart using pinned scenarios.",
+      "expected_safety_disposition": "Every requirement is marked Correct, Incorrect, Inconsistent, NotTested, Unsupported or NotApplicable; coverage and correctness reported separately; NotTested never counts as PASS.",
+      "measures": [
+        "profile_requirement_coverage",
+        "profile_requirement_correctness",
+        "not_tested_requirement_count",
+        "inconsistent_requirement_count"
+      ],
+      "references": [
+        "#5938",
+        "Symtropy#1955"
+      ]
+    },
+    {
+      "id": "MCB-STD-002",
+      "name": "Incomplete profile and untested requirements",
+      "class": "profile_conformance",
+      "required_arms": [
+        "FEDERATED"
+      ],
+      "profile": "PinnedProfileFixture",
+      "setup": "Adapter passes every implemented requirement but leaves mandatory requirements NotTested or Unsupported.",
+      "expected_safety_disposition": "Report exact partial coverage; no full-profile conformance claim. A green tested subset does not imply untested requirements pass.",
+      "measures": [
+        "profile_requirement_coverage",
+        "profile_requirement_correctness",
+        "not_tested_requirement_count"
+      ],
+      "references": [
+        "#5932"
+      ]
+    },
+    {
+      "id": "MCB-STD-003",
+      "name": "Native and CloudEvents adapter semantic equivalence",
+      "class": "profile_conformance",
+      "required_arms": [
+        "FEDERATED"
+      ],
+      "profile": "CloudEvents-1.0.2 plus provider-native profile",
+      "setup": "Feed semantically equivalent and intentionally non-equivalent source events through separate adapters.",
+      "expected_safety_disposition": "Equivalent only where explicit mappings preserve source identity, subject, event time, schema and claim semantics; source-specific information loss is visible.",
+      "measures": [
+        "mapping_loss_count",
+        "semantic_equivalence_accuracy",
+        "profile_requirement_correctness"
+      ],
+      "references": [
+        "#5938"
+      ]
+    }
+  ],
+  "required_run_metadata": [
+    "benchmark_version",
+    "scenario_id",
+    "comparison_arm",
+    "software_commit_sha",
+    "software_tree_sha",
+    "fixture_digest",
+    "adapter_profile_version",
+    "evaluator_version",
+    "oracle_version",
+    "environment_id",
+    "fault_schedule_id",
+    "random_seed_if_used",
+    "attempt_number",
+    "start_time",
+    "end_time",
+    "evidence_grade",
+    "outcome",
+    "failure_or_exclusion_reason",
+    "coordinator_profile",
+    "coordinator_epoch",
+    "evidence_frontier_digest",
+    "historical_evaluation_instant",
+    "policy_snapshot_digest",
+    "standard_profile_id",
+    "standard_profile_version",
+    "conformance_role",
+    "conformance_requirement_id",
+    "conformance_scenario_id",
+    "jurisdiction_pack_id",
+    "jurisdiction_pack_version",
+    "jurisdiction_pack_approval_status",
+    "country_or_territory_scope",
+    "locale_language_tag",
+    "cldr_version",
+    "tzdb_version",
+    "currency_metadata_artifact_digest",
+    "unit_profile_id",
+    "identifier_scheme_profile_id",
+    "currency_metadata_artifact_ref",
+    "currency_metadata_artifact_digest",
+    "currency_minor_unit_exponent",
+    "transaction_effective_at",
+    "amount_semantic_role",
+    "quote_currency",
+    "settlement_currency"
+  ],
+  "metric_definitions": {
+    "elapsed_time": "Wall-clock time from task start to justified completion or terminal unresolved state.",
+    "active_human_minutes": "Sum of observed participant and operator active minutes; excludes passive waiting.",
+    "provider_actions": "Number of actions required from provider staff, reported by role.",
+    "integration_person_hours": "Measured engineering and operator hours to complete declared adapter conformance.",
+    "custom_mapping_rules": "Count of non-reusable provider-specific semantic mapping rules.",
+    "adapter_replacement_minutes": "Elapsed active engineering/operator time to replace an adapter under the frozen task.",
+    "fields_disclosed": "Count of distinct data fields transmitted per purpose, with sensitivity classification.",
+    "reconciliation_latency": "Time from ambiguous effect/contradiction until justified provider-authoritative resolution.",
+    "coordinator_cold_start_ms": "Time from replacement evaluator start to a justified historical view or terminal indeterminate result.",
+    "historical_manifest_match": "Whether independent evaluators produce byte-identical canonical historical output from the same frontier/profile inputs.",
+    "manifest_divergence_count": "Number of independent reconstruction outputs that disagree for identical frozen inputs.",
+    "provider_readback_calls": "Count of authorized provider-authoritative queries needed to resolve missing or ambiguous effects.",
+    "stale_epoch_dispatches": "Count of effectful dispatch attempts made with an expired or superseded coordinator execution epoch.",
+    "provider_native_availability": "Whether provider-native operations remain usable during coordinator outage, measured separately from federation UI availability.",
+    "profile_requirement_coverage": "Count/ratio of exact pinned profile requirements tested or implemented, with NotApplicable reasons reported separately.",
+    "profile_requirement_correctness": "Distribution of tested requirements as Correct, Incorrect, Inconsistent, NotTested, Unsupported and NotApplicable; do not collapse to one green flag.",
+    "mapping_loss_count": "Count of source-native semantic elements not represented by the target projection, grouped by declared loss severity.",
+    "semantic_equivalence_accuracy": "Agreement of independent semantic oracle on explicitly equivalent versus non-equivalent native/normalized event mappings.",
+    "jurisdiction_pack_approval_status": "Research-only, reviewed, approved by stated competent authority, superseded, withdrawn or unknown. A source link alone is not approval.",
+    "identifier_false_linkages": "Count of distinct provider/location/vessel/legal-entity subjects incorrectly treated as one identity.",
+    "currency_scale_errors": "Count of amounts interpreted or rounded under the wrong currency exponent/effective metadata.",
+    "unit_dimension_errors": "Count of invalid physical dimension or conversion operations.",
+    "timezone_ambiguity_errors": "Count of ambiguous/nonexistent local civil times silently mapped to an instant.",
+    "unreviewed_translation_promotions": "Count of machine/unreviewed translations treated as authoritative source or legal/provider terms.",
+    "global_profile_coverage": "Declared applicable global profile requirements tested / applicable requirements, with NotTested/Unsupported/NotApplicable kept distinct.",
+    "global_profile_correctness": "Correct tested requirements / tested requirements for the exact profile, edition and role.",
+    "monetary_arithmetic_errors": "Count of line-item/total/currency arithmetic mismatches, overflow, unsupported scale or silent rounding.",
+    "fx_evidence_completeness": "Whether conversion direction, exact rate, source, effective time, fees and rounding lineage are present and valid.",
+    "refund_finality_misclassification": "Count of refund requests/attempts incorrectly reported as externally finalized refunds.",
+    "floating_point_authoritative_money_paths": "Count of authoritative monetary operations using binary floating-point.",
+    "implicit_fx_conversions": "Count of currency conversions without an explicit recognized FX source, direction and timestamp."
+  },
+  "hypotheses_not_results": [
+    {
+      "id": "H1",
+      "statement": "At least 30% lower median end-to-end coordination time than the matched manual baseline.",
+      "status": "untested"
+    },
+    {
+      "id": "H2",
+      "statement": "Adapter reuse reduces incremental provider onboarding effort as the number of connected providers grows.",
+      "status": "untested"
+    },
+    {
+      "id": "H3",
+      "statement": "Purpose-bound federation discloses fewer unnecessary personal-data fields for the same task.",
+      "status": "untested"
+    },
+    {
+      "id": "H4",
+      "statement": "A provider adapter can be replaced without moving source-of-truth inventory or customer records.",
+      "status": "untested"
+    }
+  ],
+  "existing_corpora_referenced": [
+    "mycelix-workspace/docs/maritime-stay/semantic-cases-v0.1.json",
+    "mycelix-workspace/docs/maritime-stay/provider-ingress/webhook-conformance-cases-v0.1.json"
+  ],
+  "exclusions": [
+    "No live provider endpoint or customer data.",
+    "No live booking, hold, cancellation or payment.",
+    "No assumption that DCSA Port Call or IHO S-100 is a recreational booking protocol.",
+    "No claim that synthetic success establishes legal, physical, safety, field or production readiness."
+  ],
+  "coordinator_profiles": [
+    {
+      "id": "SINGLE",
+      "description": "One durable centralized coordinator; compare using declared store/recovery profile."
+    },
+    {
+      "id": "HA_REPLICATED",
+      "description": "Highly available or replicated coordinator using a shared durable journal; exact durability/fencing assumptions must be recorded."
+    },
+    {
+      "id": "RECONSTRUCTED",
+      "description": "Replaceable read-only evaluators reconstructing historical views from authorized evidence; new action authority is independently requalified."
+    }
+  ]
+}

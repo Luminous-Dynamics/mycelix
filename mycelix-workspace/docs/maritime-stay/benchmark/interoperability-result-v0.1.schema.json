@@ -1,0 +1,1098 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:luminous-dynamics:maritime-commons:interoperability-result:0.1.0",
+  "title": "Maritime Commons Interoperability Benchmark Result v0.1",
+  "description": "Evidence-bearing result record. Schema validation does not establish result truth, independent reproduction, provider authorization, legal compliance, or production readiness.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "benchmark_id",
+    "benchmark_version",
+    "run_id",
+    "scenario_id",
+    "comparison_arm",
+    "software",
+    "fixtures",
+    "evaluator",
+    "environment",
+    "trial",
+    "evidence_grade",
+    "outcome",
+    "safety_gate_status",
+    "hard_gate_counts",
+    "result_families",
+    "exclusions"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "0.1.0"
+    },
+    "benchmark_id": {
+      "const": "MCB-INTEROP"
+    },
+    "benchmark_version": {
+      "type": "string",
+      "pattern": "^0\\.1\\.[0-9]+$"
+    },
+    "run_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 160
+    },
+    "scenario_id": {
+      "type": "string",
+      "pattern": "^MCB-INT-[0-9]{3}$"
+    },
+    "comparison_arm": {
+      "enum": [
+        "MANUAL",
+        "NATIVE",
+        "NETWORK",
+        "FEDERATED"
+      ]
+    },
+    "software": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "repository",
+        "commit_sha",
+        "tree_sha"
+      ],
+      "properties": {
+        "repository": {
+          "type": "string",
+          "format": "uri"
+        },
+        "commit_sha": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}$"
+        },
+        "tree_sha": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}$"
+        },
+        "dirty_worktree": {
+          "type": "boolean"
+        },
+        "build_profile": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        }
+      }
+    },
+    "fixtures": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "manifest_path",
+        "manifest_sha256",
+        "case_input_sha256"
+      ],
+      "properties": {
+        "manifest_path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "manifest_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "case_input_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "provider_profile_sha256": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^([0-9a-f]{64})$"
+        }
+      }
+    },
+    "adapter_profile": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "version",
+        "source"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source": {
+          "enum": [
+            "synthetic",
+            "provider_documented",
+            "authorized_sandbox",
+            "operator_observed"
+          ]
+        },
+        "permission_reference": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 500
+        }
+      }
+    },
+    "evaluator": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "version",
+        "independent_of_system_under_test"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "independent_of_system_under_test": {
+          "type": "boolean"
+        },
+        "oracle_version": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "oracle_commit_sha": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^([0-9a-f]{40})$"
+        }
+      }
+    },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "environment_id",
+        "runtime",
+        "network_profile"
+      ],
+      "properties": {
+        "environment_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "runtime": {
+          "type": "string",
+          "minLength": 1
+        },
+        "hardware": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "network_profile": {
+          "enum": [
+            "online",
+            "latency_injected",
+            "partitioned",
+            "offline",
+            "mixed",
+            "not_applicable"
+          ]
+        },
+        "region": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "operator_authorized": {
+          "type": "boolean"
+        }
+      }
+    },
+    "trial": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "attempt_number",
+        "started_at",
+        "finished_at",
+        "fault_schedule_id",
+        "seed"
+      ],
+      "properties": {
+        "attempt_number": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "started_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "finished_at": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        },
+        "fault_schedule_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "seed": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "timeout_ms": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1
+        }
+      }
+    },
+    "evidence_grade": {
+      "enum": [
+        "public_documented",
+        "vendor_reported",
+        "authorized_sandbox_observed",
+        "operator_observed",
+        "independently_reproduced",
+        "synthetic_only",
+        "unknown"
+      ]
+    },
+    "outcome": {
+      "enum": [
+        "pass",
+        "fail",
+        "unresolved",
+        "timeout",
+        "not_run",
+        "not_applicable",
+        "invalidated"
+      ]
+    },
+    "safety_gate_status": {
+      "enum": [
+        "pass",
+        "fail",
+        "not_evaluated"
+      ]
+    },
+    "hard_gate_counts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "false_confirmed_stays",
+        "double_committed_capacity_one",
+        "duplicate_financial_effects",
+        "unauthorized_or_wrong_purpose_actions",
+        "revoked_or_unrecognized_authority_acceptances",
+        "unauthorized_disclosures",
+        "stale_or_offline_promotions",
+        "authority_substitutions",
+        "identifier_subject_misbindings",
+        "currency_scale_errors",
+        "unit_dimension_errors",
+        "silent_timezone_gap_fold_resolutions",
+        "unreviewed_translation_promotions",
+        "jurisdiction_data_governance_bypasses",
+        "stale_or_prerelease_registry_promotions",
+        "floating_point_authoritative_money_paths",
+        "implicit_fx_conversions",
+        "silent_monetary_rounding_or_overflow",
+        "refund_finality_without_external_evidence"
+      ],
+      "properties": {
+        "false_confirmed_stays": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "double_committed_capacity_one": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "duplicate_financial_effects": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "unauthorized_or_wrong_purpose_actions": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "revoked_or_unrecognized_authority_acceptances": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "unauthorized_disclosures": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "stale_or_offline_promotions": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "authority_substitutions": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "identifier_subject_misbindings": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "currency_scale_errors": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "unit_dimension_errors": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "silent_timezone_gap_fold_resolutions": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "unreviewed_translation_promotions": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "jurisdiction_data_governance_bypasses": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "stale_or_prerelease_registry_promotions": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "floating_point_authoritative_money_paths": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "implicit_fx_conversions": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "silent_monetary_rounding_or_overflow": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "refund_finality_without_external_evidence": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "result_families": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "correctness_safety": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "mandatory_components": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "mandatory_components_committed": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "optional_components": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "optional_components_committed": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "partial_stay": {
+              "type": "boolean"
+            },
+            "manual_reconciliations": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        },
+        "coordination_effort": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "elapsed_ms": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "active_participant_minutes": {
+              "type": "number",
+              "minimum": 0
+            },
+            "active_operator_minutes": {
+              "type": "number",
+              "minimum": 0
+            },
+            "machine_processing_ms": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "human_handoffs": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "systems_touched": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "reconciliation_interventions": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        },
+        "integration_lifecycle_cost": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "integration_person_hours": {
+              "type": "number",
+              "minimum": 0
+            },
+            "operator_admin_minutes": {
+              "type": "number",
+              "minimum": 0
+            },
+            "provider_specific_mapping_rules": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "custom_code_paths": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "adapter_replacement_minutes": {
+              "type": "number",
+              "minimum": 0
+            },
+            "upgrade_person_hours": {
+              "type": "number",
+              "minimum": 0
+            },
+            "rollback_minutes": {
+              "type": "number",
+              "minimum": 0
+            }
+          }
+        },
+        "provider_autonomy_local_governance": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "provider_inventory_remains_authoritative": {
+              "type": "boolean"
+            },
+            "provider_can_revoke_adapter": {
+              "type": "boolean"
+            },
+            "provider_operations_survive_federation_outage": {
+              "type": "boolean"
+            },
+            "local_policy_enforced": {
+              "type": "boolean"
+            }
+          }
+        },
+        "privacy_economic_transparency": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "fields_disclosed": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "sensitive_fields_disclosed": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "unauthorized_data_copies": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "retention_days": {
+              "type": "number",
+              "minimum": 0
+            },
+            "fees_disclosed_before_acceptance": {
+              "type": "boolean"
+            },
+            "invoice_arithmetic_errors": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "refund_reconciliation_ms": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        },
+        "interoperability_recovery": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "duplicate_deliveries": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "out_of_order_deliveries": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "unresolved_conflicts": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "recovery_ms": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "key_rotation_recovery_ms": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        },
+        "coordinator_portability": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "coordinator_profile": {
+              "enum": [
+                "SINGLE",
+                "HA_REPLICATED",
+                "RECONSTRUCTED"
+              ]
+            },
+            "historical_manifest_match": {
+              "type": "boolean"
+            },
+            "manifest_divergence_count": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "cold_start_reconstruction_ms": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "coordinator_replacement_ms": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "operator_recovery_minutes": {
+              "type": "number",
+              "minimum": 0
+            },
+            "evidence_frontier_receipt_count": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "inaccessible_evidence_references": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "provider_readback_calls": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "stale_epoch_dispatches": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "secrets_in_portable_snapshot": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "provider_native_available_during_coordinator_outage": {
+              "type": "boolean"
+            }
+          }
+        },
+        "profile_conformance": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "profile_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "profile_version": {
+              "type": "string",
+              "minLength": 1
+            },
+            "conformance_role": {
+              "enum": [
+                "publisher",
+                "subscriber",
+                "producer",
+                "consumer",
+                "provider",
+                "requester",
+                "not_applicable"
+              ]
+            },
+            "requirements_total": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "requirements_tested": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "requirements_correct": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "requirements_incorrect": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "requirements_inconsistent": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "requirements_not_tested": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "requirements_unsupported": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "requirements_not_applicable": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "coverage_ratio": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "correctness_ratio": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "mapping_loss_count": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        },
+        "global_interoperability": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "jurisdiction_pack_id": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "jurisdiction_pack_version": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "jurisdiction_pack_approval_status": {
+              "enum": [
+                "research_only",
+                "reviewed",
+                "approved",
+                "superseded",
+                "withdrawn",
+                "unknown"
+              ]
+            },
+            "country_or_territory_scope": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "locale_language_tag": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "cldr_version": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "tzdb_version": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "currency_metadata_artifact_digest": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "pattern": "^([0-9a-f]{64})$"
+            },
+            "currency_minor_unit_exponent": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 0,
+              "maximum": 9
+            },
+            "unit_profile_id": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "identifier_scheme_profile_id": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "profile_requirements_applicable": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "profile_requirements_tested": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "profile_requirements_correct": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "profile_requirements_incorrect": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "profile_requirements_inconsistent": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "profile_requirements_not_tested": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "profile_requirements_unsupported": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "profile_requirements_not_applicable": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "false_identifier_linkages": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "currency_scale_errors": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "unit_dimension_errors": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "timezone_ambiguity_errors": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "unreviewed_translation_promotions": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "msw_authority_substitutions": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "data_governance_bypasses": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "offline_provider_ingest_ms": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        },
+        "monetary_interoperability": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "currency_metadata_artifact_digest": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "pattern": "^([0-9a-f]{64})$"
+            },
+            "currency_metadata_profile_id": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "currency_minor_unit_exponent": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 0,
+              "maximum": 9
+            },
+            "transaction_effective_at": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "format": "date-time"
+            },
+            "amount_semantic_role": {
+              "enum": [
+                "quote",
+                "contractual_obligation",
+                "invoice",
+                "credit_note",
+                "refund_request",
+                "refund_attempt",
+                "refund_effect",
+                "settlement_evidence",
+                "unknown"
+              ]
+            },
+            "quote_currency": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "pattern": "^([A-Z]{3})$"
+            },
+            "settlement_currency": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "pattern": "^([A-Z]{3})$"
+            },
+            "currency_scale_errors": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "monetary_arithmetic_errors": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "floating_point_authoritative_money_paths": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "implicit_fx_conversions": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "silent_monetary_rounding_or_overflow": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "refund_finality_misclassifications": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "fx_evidence_completeness": {
+              "type": "boolean"
+            }
+          }
+        }
+      }
+    },
+    "evidence_references": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "grade",
+          "source",
+          "observed_at",
+          "claim_limit"
+        ],
+        "properties": {
+          "grade": {
+            "enum": [
+              "public_documented",
+              "vendor_reported",
+              "authorized_sandbox_observed",
+              "operator_observed",
+              "independently_reproduced",
+              "synthetic_only",
+              "unknown"
+            ]
+          },
+          "source": {
+            "type": "string",
+            "format": "uri"
+          },
+          "observed_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "claim_limit": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1000
+          }
+        }
+      }
+    },
+    "exclusions": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "notes": {
+      "type": "string",
+      "maxLength": 4000
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "outcome": {
+            "const": "pass"
+          }
+        },
+        "required": [
+          "outcome"
+        ]
+      },
+      "then": {
+        "properties": {
+          "safety_gate_status": {
+            "const": "pass"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "safety_gate_status": {
+            "const": "pass"
+          }
+        },
+        "required": [
+          "safety_gate_status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "hard_gate_counts": {
+            "properties": {
+              "false_confirmed_stays": {
+                "const": 0
+              },
+              "double_committed_capacity_one": {
+                "const": 0
+              },
+              "duplicate_financial_effects": {
+                "const": 0
+              },
+              "unauthorized_or_wrong_purpose_actions": {
+                "const": 0
+              },
+              "revoked_or_unrecognized_authority_acceptances": {
+                "const": 0
+              },
+              "unauthorized_disclosures": {
+                "const": 0
+              },
+              "stale_or_offline_promotions": {
+                "const": 0
+              },
+              "authority_substitutions": {
+                "const": 0
+              },
+              "identifier_subject_misbindings": {
+                "const": 0
+              },
+              "currency_scale_errors": {
+                "const": 0
+              },
+              "unit_dimension_errors": {
+                "const": 0
+              },
+              "silent_timezone_gap_fold_resolutions": {
+                "const": 0
+              },
+              "unreviewed_translation_promotions": {
+                "const": 0
+              },
+              "jurisdiction_data_governance_bypasses": {
+                "const": 0
+              },
+              "stale_or_prerelease_registry_promotions": {
+                "const": 0
+              },
+              "floating_point_authoritative_money_paths": {
+                "const": 0
+              },
+              "implicit_fx_conversions": {
+                "const": 0
+              },
+              "silent_monetary_rounding_or_overflow": {
+                "const": 0
+              },
+              "refund_finality_without_external_evidence": {
+                "const": 0
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}
