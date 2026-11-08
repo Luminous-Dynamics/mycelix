@@ -655,7 +655,7 @@ mod tests {
     const COMPARISON: &str = include_str!(
         "../../../mycelix-workspace/mycelix-praxis/docs/research/GCPN_AWARENESS_INDUSTRY_COMPARISON_CASES_V0_1.json"
     );
-    const SMOKE_RUN: &str = include_str!("fixtures/track_a_smoke_run_v0_1.json");
+    const SMOKE_RUN: &str = include_str!("../fixtures/track_a_smoke_run_v0_1.json");
 
     #[test]
     fn synthetic_smoke_run_is_scored_but_not_claimed_as_field_result() {
