@@ -43,7 +43,7 @@ pub struct ReplayRun {
     pub workflows: Vec<WorkflowRun>,
 }
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Copy, Debug, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum WorkflowKind {
     RulesBaseline,
@@ -694,6 +694,14 @@ mod tests {
         assert_eq!(report.evaluation_status, "SCORED_SYNTHETIC_SMOKE_ONLY");
         assert_eq!(report.case_count, 12);
         assert_eq!(report.workflow_count, 2);
+        assert_eq!(report.pairwise_comparisons.len(), 1);
+        assert_eq!(
+            report.pairwise_comparisons[0].review_workload_reduction_basis_points,
+            Some(1666)
+        );
+        assert!(
+            !report.pairwise_comparisons[0].candidate_meets_20_percent_smoke_hypothesis
+        );
         assert!(report.errors.is_empty(), "{:?}", report.errors);
     }
 
