@@ -148,10 +148,7 @@ const EXPECTED_EVENTS: [(&str, &str, &str); 12] = [
     ("E012", "INCIDENT-K", "INDETERMINATE"),
 ];
 
-const EXPECTED_SYSTEMS: [&str; 2] = [
-    "SYNTHETIC_RULES_REFERENCE",
-    "SYNTHETIC_EVIDENCE_REFERENCE",
-];
+const EXPECTED_SYSTEMS: [&str; 2] = ["SYNTHETIC_RULES_REFERENCE", "SYNTHETIC_EVIDENCE_REFERENCE"];
 
 fn ratio(numerator: usize, denominator: usize) -> Option<f64> {
     (denominator > 0).then(|| numerator as f64 / denominator as f64)
@@ -233,8 +230,11 @@ fn validate_run(run: &ReplayRun) -> Vec<String> {
             run.systems.len()
         ));
     }
-    let system_ids: BTreeSet<&str> =
-        run.systems.iter().map(|system| system.system_id.as_str()).collect();
+    let system_ids: BTreeSet<&str> = run
+        .systems
+        .iter()
+        .map(|system| system.system_id.as_str())
+        .collect();
     if system_ids.len() != run.systems.len() {
         errors.push("duplicate_system_id".to_string());
     }
@@ -286,7 +286,13 @@ fn validate_run(run: &ReplayRun) -> Vec<String> {
 
             match output.disposition.as_str() {
                 "QUEUE_HUMAN_REVIEW" | "DEFER_TO_HUMAN" => {
-                    if output.review_ticket_id.as_deref().unwrap_or("").trim().is_empty() {
+                    if output
+                        .review_ticket_id
+                        .as_deref()
+                        .unwrap_or("")
+                        .trim()
+                        .is_empty()
+                    {
                         errors.push(format!(
                             "review_disposition_missing_ticket: {} -> {}",
                             system.system_id, output.case_id
@@ -307,7 +313,11 @@ fn validate_run(run: &ReplayRun) -> Vec<String> {
                 )),
             }
 
-            if let Some(event) = frame.events.iter().find(|event| event.case_id == output.case_id) {
+            if let Some(event) = frame
+                .events
+                .iter()
+                .find(|event| event.case_id == output.case_id)
+            {
                 if event.truth == "INDETERMINATE" && output.p_review_required.is_some() {
                     errors.push(format!(
                         "probability_claimed_for_indeterminate: {} -> {}",
@@ -321,7 +331,8 @@ fn validate_run(run: &ReplayRun) -> Vec<String> {
                     ));
                 }
                 if let Some(probability) = output.p_review_required {
-                    if output.disposition == "QUEUE_HUMAN_REVIEW" && probability < system.threshold {
+                    if output.disposition == "QUEUE_HUMAN_REVIEW" && probability < system.threshold
+                    {
                         errors.push(format!(
                             "queue_below_threshold: {} -> {}",
                             system.system_id, output.case_id
@@ -348,16 +359,24 @@ fn validate_run(run: &ReplayRun) -> Vec<String> {
         let mut ticket_owner: BTreeMap<&str, (&str, u32)> = BTreeMap::new();
         for output in &system.outputs {
             if let Some(ticket) = output.review_ticket_id.as_deref() {
-                if let Some(event) = frame.events.iter().find(|event| event.case_id == output.case_id) {
+                if let Some(event) = frame
+                    .events
+                    .iter()
+                    .find(|event| event.case_id == output.case_id)
+                {
                     match ticket_owner.get(ticket) {
-                        Some((group, minutes)) if *group != event.incident_group || *minutes != output.review_minutes => {
+                        Some((group, minutes))
+                            if *group != event.incident_group
+                                || *minutes != output.review_minutes =>
+                        {
                             errors.push(format!(
                                 "review_ticket_reused_inconsistently: {} -> {}",
                                 system.system_id, ticket
                             ));
                         }
                         None => {
-                            ticket_owner.insert(ticket, (&event.incident_group, output.review_minutes));
+                            ticket_owner
+                                .insert(ticket, (&event.incident_group, output.review_minutes));
                         }
                         _ => {}
                     }
@@ -371,10 +390,16 @@ fn validate_run(run: &ReplayRun) -> Vec<String> {
 }
 
 fn compute_metrics(frame: &EventFrame, system: &SystemRun) -> SystemMetrics {
-    let events: BTreeMap<&str, &Event> =
-        frame.events.iter().map(|event| (event.case_id.as_str(), event)).collect();
-    let outputs: BTreeMap<&str, &SystemOutput> =
-        system.outputs.iter().map(|output| (output.case_id.as_str(), output)).collect();
+    let events: BTreeMap<&str, &Event> = frame
+        .events
+        .iter()
+        .map(|event| (event.case_id.as_str(), event))
+        .collect();
+    let outputs: BTreeMap<&str, &SystemOutput> = system
+        .outputs
+        .iter()
+        .map(|output| (output.case_id.as_str(), output))
+        .collect();
 
     let mut determinate = 0usize;
     let mut review_required = 0usize;
@@ -417,7 +442,10 @@ fn compute_metrics(frame: &EventFrame, system: &SystemRun) -> SystemMetrics {
             ticket_owner
                 .entry(ticket)
                 .or_insert((&event.incident_group, output.review_minutes));
-            group_tickets.entry(&event.incident_group).or_default().insert(ticket);
+            group_tickets
+                .entry(&event.incident_group)
+                .or_default()
+                .insert(ticket);
         }
 
         match event.truth.as_str() {
@@ -494,10 +522,7 @@ fn compute_metrics(frame: &EventFrame, system: &SystemRun) -> SystemMetrics {
         .filter(|output| output.disposition == "QUEUE_HUMAN_REVIEW")
         .count();
 
-    let review_queue_precision = ratio(
-        review_queued,
-        queue_count,
-    );
+    let review_queue_precision = ratio(review_queued, queue_count);
 
     SystemMetrics {
         system_id: system.system_id.clone(),
@@ -519,7 +544,10 @@ fn compute_metrics(frame: &EventFrame, system: &SystemRun) -> SystemMetrics {
         determinate_correct_resolved: determinate_correct,
         decision_coverage: ratio(determinate_resolved, determinate),
         selective_accuracy: ratio(determinate_correct, determinate_resolved),
-        selective_error: ratio(determinate_resolved.saturating_sub(determinate_correct), determinate_resolved),
+        selective_error: ratio(
+            determinate_resolved.saturating_sub(determinate_correct),
+            determinate_resolved,
+        ),
         correct_abstentions_on_indeterminate: correct_abstentions,
         inappropriate_indeterminate_resolutions: inappropriate_indeterminate,
         brier_score: (brier_count > 0).then(|| brier_sum / brier_count as f64),
@@ -527,7 +555,8 @@ fn compute_metrics(frame: &EventFrame, system: &SystemRun) -> SystemMetrics {
         duplicate_review_requests,
         total_review_minutes,
         review_budget_minutes: u64::from(frame.review_budget_minutes_per_system),
-        review_budget_overrun_minutes: total_review_minutes.saturating_sub(frame.review_budget_minutes_per_system),
+        review_budget_overrun_minutes: total_review_minutes
+            .saturating_sub(u64::from(frame.review_budget_minutes_per_system)),
         decision_latency_p50_ms: percentile(&mut latency_copy, 0.50),
         decision_latency_p95_ms: percentile(&mut latency_copy, 0.95),
         provenance_complete_rate: ratio(provenance_complete, frame.events.len()),
@@ -602,7 +631,8 @@ mod tests {
     use super::*;
 
     fn parsed_errors(changed: &str) -> Vec<String> {
-        let run: ReplayRun = serde_json::from_str(changed).expect("mutated fixture remains valid JSON");
+        let run: ReplayRun =
+            serde_json::from_str(changed).expect("mutated fixture remains valid JSON");
         validate_run(&run)
     }
 
@@ -613,7 +643,11 @@ mod tests {
     #[test]
     fn frozen_demo_run_conforms_and_is_explicitly_synthetic() {
         let report = evaluate_bytes(FIXTURE.as_bytes());
-        assert_eq!(report.status, "CONFORMS_SYNTHETIC_ONLY", "{:?}", report.errors);
+        assert_eq!(
+            report.status, "CONFORMS_SYNTHETIC_ONLY",
+            "{:?}",
+            report.errors
+        );
         assert!(report.synthetic_only);
         assert_eq!(report.event_count, 12);
         assert_eq!(report.system_count, 2);
@@ -634,7 +668,12 @@ mod tests {
         assert_ne!(changed, FIXTURE);
         let report = evaluate_bytes(changed.as_bytes());
         assert_eq!(report.status, "REJECTED");
-        assert!(report.errors.iter().any(|error| error.starts_with("strict_json_decode:")));
+        assert!(
+            report
+                .errors
+                .iter()
+                .any(|error| error.starts_with("strict_json_decode:"))
+        );
     }
 
     #[test]
@@ -657,7 +696,11 @@ mod tests {
         );
         assert_ne!(changed, FIXTURE);
         let errors = parsed_errors(&changed);
-        assert!(errors.iter().any(|error| error.starts_with("output_event_frame_mismatch:")));
+        assert!(
+            errors
+                .iter()
+                .any(|error| error.starts_with("output_event_frame_mismatch:"))
+        );
     }
 
     #[test]
@@ -665,26 +708,28 @@ mod tests {
         let changed = FIXTURE.replace("SYNTHETIC_RULES_REFERENCE", "DED RONE RF360");
         assert_ne!(changed, FIXTURE);
         let errors = parsed_errors(&changed);
-        assert!(errors.iter().any(|error| error.starts_with("non_synthetic_system_id:")));
+        assert!(
+            errors
+                .iter()
+                .any(|error| error.starts_with("non_synthetic_system_id:"))
+        );
     }
 
     #[test]
     fn probabilities_are_checked_by_schema_semantics() {
-        let changed = FIXTURE.replace(
-            "\"p_review_required\":0.90",
-            "\"p_review_required\":1.50",
-        );
+        let changed = FIXTURE.replace("\"p_review_required\":0.90", "\"p_review_required\":1.50");
         assert_ne!(changed, FIXTURE);
         let errors = parsed_errors(&changed);
-        assert!(errors.iter().any(|error| error.starts_with("invalid_probability:")));
+        assert!(
+            errors
+                .iter()
+                .any(|error| error.starts_with("invalid_probability:"))
+        );
     }
 
     #[test]
     fn privacy_violation_fails_the_hard_gate() {
-        let changed = FIXTURE.replace(
-            "\"privacy_violation\":false",
-            "\"privacy_violation\":true",
-        );
+        let changed = FIXTURE.replace("\"privacy_violation\":false", "\"privacy_violation\":true");
         assert_ne!(changed, FIXTURE);
         let run: ReplayRun = serde_json::from_str(&changed).expect("valid mutated JSON");
         let metrics = compute_metrics(&run.event_frame, &run.systems[0]);
@@ -694,10 +739,7 @@ mod tests {
 
     #[test]
     fn authority_violation_fails_the_hard_gate() {
-        let changed = FIXTURE.replace(
-            "\"authority_violation\":false",
-            "\"authority_violation\":true",
-        );
+        let changed = FIXTURE.replace("\"authority_violation\":false", "\"authority_violation\":true");
         assert_ne!(changed, FIXTURE);
         let run: ReplayRun = serde_json::from_str(&changed).expect("valid mutated JSON");
         let metrics = compute_metrics(&run.event_frame, &run.systems[0]);
@@ -712,8 +754,18 @@ mod tests {
         let report = evaluate_bytes(FIXTURE.as_bytes());
         assert_eq!(report.status, "CONFORMS_SYNTHETIC_ONLY");
         assert!(report.results.iter().all(|result| result.hard_gates_passed));
-        assert!(report.results.iter().all(|result| result.privacy_violation_count == 0));
-        assert!(report.results.iter().all(|result| result.authority_violation_count == 0));
+        assert!(
+            report
+                .results
+                .iter()
+                .all(|result| result.privacy_violation_count == 0)
+        );
+        assert!(
+            report
+                .results
+                .iter()
+                .all(|result| result.authority_violation_count == 0)
+        );
         assert_eq!(report.results[0].duplicate_review_requests, 1);
         assert_eq!(report.results[1].duplicate_review_requests, 0);
     }
