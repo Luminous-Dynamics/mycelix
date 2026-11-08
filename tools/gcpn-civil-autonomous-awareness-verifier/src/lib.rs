@@ -11,6 +11,7 @@ use std::collections::BTreeSet;
 pub const SCHEMA: &str = "luminous.gcpn.civil_autonomous_awareness.v0.1";
 pub const STATUS: &str = "synthetic_event_awareness_only";
 pub const CLAIM_CEILING: &str = "frozen_synthetic_semantics_only";
+pub const EXPECTED_FIXTURE_SHA256: &str = "317ed98191606c4e0a58f8445ec29df3c9851dfb4968a33faf80dfc43eaacaa4";
 
 #[derive(Clone, Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -240,6 +241,12 @@ const REQUIRED_METRICS: [&str; 15] = [
 pub fn verify(bytes: &[u8]) -> Report {
     let source_sha256 = format!("{:x}", Sha256::digest(bytes));
     let mut errors = Vec::new();
+    if source_sha256 != EXPECTED_FIXTURE_SHA256 {
+        errors.push(format!(
+            "fixture_digest_mismatch: expected {}, got {}",
+            EXPECTED_FIXTURE_SHA256, source_sha256
+        ));
+    }
     let mut case_count = 0usize;
 
     match serde_json::from_slice::<Manifest>(bytes) {
@@ -427,7 +434,7 @@ mod tests {
         let report = verify(FIXTURE.as_bytes());
         assert_eq!(report.status, "CONFORMS", "{:?}", report.errors);
         assert_eq!(report.case_count, 12);
-        assert_eq!(report.source_sha256.len(), 64);
+        assert_eq!(report.source_sha256, EXPECTED_FIXTURE_SHA256);
     }
 
     #[test]
@@ -537,6 +544,48 @@ mod tests {
                 .iter()
                 .any(|e| e.starts_with("effector_capability_enabled:"))
         );
+    }
+
+    #[test]
+    fn fixture_byte_change_is_rejected_by_digest() {
+        let changed = FIXTURE.replace(
+            "service_drone_authorization_unverified",
+            "service_drone_authorization_unverified ",
+        );
+        assert_ne!(changed, FIXTURE);
+        let report = verify(changed.as_bytes());
+        assert_eq!(report.status, "REJECTED");
+        assert!(report
+            .errors
+            .iter()
+            .any(|e| e.starts_with("fixture_digest_mismatch:")));
+    }
+
+    #[test]
+    fn nonzero_hard_gate_is_rejected() {
+        let changed = FIXTURE.replace(
+            "\"unauthorized_public_disclosure_count\": 0",
+            "\"unauthorized_public_disclosure_count\": 1",
+        );
+        assert_ne!(changed, FIXTURE);
+        let report = verify(changed.as_bytes());
+        assert_eq!(report.status, "REJECTED");
+        assert!(report.errors.iter().any(|e| e == "hard_gate_nonzero"));
+    }
+
+    #[test]
+    fn acoustic_speech_retention_boundary_is_rejected() {
+        let changed = FIXTURE.replace(
+            "no_intelligible_speech_retention",
+            "retain_full_speech_recordings",
+        );
+        assert_ne!(changed, FIXTURE);
+        let report = verify(changed.as_bytes());
+        assert_eq!(report.status, "REJECTED");
+        assert!(report
+            .errors
+            .iter()
+            .any(|e| e == "acoustic_privacy_boundary_changed"));
     }
 
     #[test]
