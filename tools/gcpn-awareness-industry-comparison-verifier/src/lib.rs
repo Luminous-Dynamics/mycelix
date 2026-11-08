@@ -11,7 +11,8 @@ use std::collections::BTreeSet;
 pub const SCHEMA: &str = "luminous.gcpn.awareness_industry_comparison.v0.1";
 pub const STATUS: &str = "synthetic_comparison_protocol_only";
 pub const CLAIM_CEILING: &str = "comparison_manifest_integrity_and_synthetic_track_semantics_only";
-pub const EXPECTED_FIXTURE_SHA256: &str = "FIXTURE_DIGEST_PLACEHOLDER";
+pub const EXPECTED_FIXTURE_SHA256: &str =
+    "3fca74480cef7802e0fd0fddcd97949a0593c6a873f97c195d4250bd88034678";
 
 #[derive(Clone, Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
