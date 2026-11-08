@@ -1,0 +1,230 @@
+{
+  "schema": "luminous.gcpn.awareness_industry_comparison.v0.1",
+  "status": "synthetic_comparison_protocol_only",
+  "claim_ceiling": "comparison_manifest_integrity_and_synthetic_track_semantics_only",
+  "created_date": "2026-11-08",
+  "parent_issue": "Luminous-Dynamics/mycelix#5587",
+  "child_issue": "Luminous-Dynamics/mycelix#5940",
+  "standard_reference": {
+    "id": "CWA_18150_2024",
+    "title": "Unmanned aircraft systems - Counter UAS - Testing methodology",
+    "public_scope": "detection_tracking_identification_sensors_integrated_in_C2",
+    "defeat_disable_in_scope": false,
+    "authorized_text_required_for_conformity_claim": true,
+    "luminous_conformity_claim": false
+  },
+  "tracks": [
+    {
+      "id": "TRACK_A",
+      "kind": "common_event_envelope_replay",
+      "status": "synthetic_protocol_ready",
+      "same_frozen_event_envelopes_required": true,
+      "same_ground_truth_set_required": true,
+      "identical_physical_sensor_inputs_required": false,
+      "scores_physical_sensor_detection": false,
+      "field_permission_required": false
+    },
+    {
+      "id": "TRACK_B",
+      "kind": "physical_sensor_performance",
+      "status": "blocked_pending_site_legal_professional_and_ground_truth_approval",
+      "same_frozen_event_envelopes_required": false,
+      "same_ground_truth_set_required": true,
+      "identical_physical_sensor_inputs_required": false,
+      "scores_physical_sensor_detection": true,
+      "field_permission_required": true
+    }
+  ],
+  "baselines": [
+    {
+      "id": "D0",
+      "vendor": "Participating site",
+      "product": "Existing manual/site workflow",
+      "architecture": "human_manual_process",
+      "source_url": "site_owned_documentation_required",
+      "source_access_date": "2026-11-08",
+      "version_status": "must_be_frozen_by_site_before_scoring",
+      "public_claims": ["existing_site_reporting_and_review_process"],
+      "exclusions": ["assumed_free_staff_time", "assumed_free_training", "assumed_free_recordkeeping"],
+      "independent_performance_verified": false,
+      "vendor_hostile_label_authoritative": false
+    },
+    {
+      "id": "D1",
+      "vendor": "Dedrone by Axon",
+      "product": "RF-360",
+      "architecture": "passive_rf_sensor",
+      "source_url": "https://www.dedrone.com/sensors/rf-360",
+      "source_access_date": "2026-11-08",
+      "version_status": "public_product_page_not_exact_hardware_firmware_release_pinned",
+      "public_claims": ["passive_rf_detection", "drone_classification_claim", "drone_and_remote_control_localization_claim"],
+      "exclusions": ["operator_identity_or_location", "precise_geolocation", "private_communications", "active_effectors"],
+      "independent_performance_verified": false,
+      "vendor_hostile_label_authoritative": false
+    },
+    {
+      "id": "D2",
+      "vendor": "DroneShield",
+      "product": "DroneSentry-C2",
+      "architecture": "multi_sensor_C2",
+      "source_url": "https://www.droneshield.com/products-software",
+      "source_access_date": "2026-11-08",
+      "version_status": "Q1_Q2_2026_public_release_claims_not_exact_customer_configuration_pinned",
+      "public_claims": ["RF_radar_optical_integration_claim", "sensor_fusion_claim", "operator_presentation_claim", "interoperability_claim"],
+      "exclusions": ["disruptor_or_effector_command", "vendor_hostile_label_as_ground_truth", "target_or_engagement_records", "exact_flight_or_operator_tracks"],
+      "independent_performance_verified": false,
+      "vendor_hostile_label_authoritative": false
+    },
+    {
+      "id": "D3",
+      "vendor": "Sentrycs",
+      "product": "DTI Module",
+      "architecture": "passive_rf_detection_identification_claim",
+      "source_url": "https://sentrycs.com/our-technology/",
+      "source_access_date": "2026-11-08",
+      "version_status": "public_product_page_not_exact_hardware_firmware_release_pinned",
+      "public_claims": ["passive_rf_detection_claim", "tracking_claim", "identification_claim"],
+      "exclusions": ["operator_identity_or_last_known_location", "exact_flight_parameters", "private_communications", "mitigation_module", "takeover_or_disconnection"],
+      "independent_performance_verified": false,
+      "vendor_hostile_label_authoritative": false
+    }
+  ],
+  "matching_controls": {
+    "required_fields": [
+      "site_and_jurisdiction_profile",
+      "exact_product_and_configuration",
+      "event_set_and_ground_truth_revision",
+      "eligible_denominator",
+      "modality_coverage_and_missingness",
+      "observation_window",
+      "environmental_context_strata",
+      "operator_training_and_review_budget",
+      "event_matching_and_deduplication_policy",
+      "privacy_and_data_rights_policy",
+      "currency_and_price_base_year"
+    ],
+    "unmatched_disposition": "INCOMPARABLE",
+    "operator_location_allowed": false,
+    "exact_flight_path_allowed": false,
+    "raw_audio_video_allowed": false,
+    "private_communications_allowed": false,
+    "active_mitigation_allowed": false,
+    "third_party_control_allowed": false,
+    "vendor_hostile_label_authoritative": false
+  },
+  "required_track_a_metrics": [
+    "schema_and_provenance_completeness",
+    "identity_authentication_authorization_separation",
+    "calibration_and_source_health_validity",
+    "event_time_receipt_time_and_staleness",
+    "missingness_and_disagreement_preservation",
+    "common_mode_dependency_completeness",
+    "correct_abstention_and_selective_risk",
+    "duplicate_and_unsubstantiated_alert_burden",
+    "human_review_latency_p50_p95",
+    "human_review_minutes_per_case",
+    "privacy_minimization_and_disclosure_violations",
+    "offline_reconciliation_and_correction_lineage",
+    "deterministic_replay_reproducibility"
+  ],
+  "required_track_b_metrics": [
+    "event_precision_and_recall_with_ground_truth_denominator",
+    "false_alerts_per_monitor_hour",
+    "false_alerts_per_site_day",
+    "unknown_ambiguous_and_missed_events",
+    "correct_abstention",
+    "per_modality_environmental_stratum_performance",
+    "sensor_uptime_calibration_and_stale_input_rate",
+    "detection_to_human_review_latency_p50_p95",
+    "operator_workload_and_adjudication_time",
+    "privacy_and_retention_violations",
+    "lifecycle_cost_per_monitored_site_hour"
+  ],
+  "proposed_target": {
+    "relative_duplicate_unsubstantiated_alert_and_review_workload_reduction_percent": 20,
+    "event_recall_non_degradation_required": true,
+    "privacy_safety_and_authority_violations_may_increase": false,
+    "status": "falsifiable_hypothesis_only_not_a_result"
+  },
+  "hard_gates": {
+    "active_mitigation_count": 0,
+    "third_party_control_count": 0,
+    "autonomous_neutralization_count": 0,
+    "operator_geolocation_export_count": 0,
+    "vendor_hostile_label_to_ground_truth_count": 0,
+    "raw_audio_video_export_count": 0,
+    "privacy_or_retention_violation_count": 0
+  },
+  "cases": [
+    {
+      "id": "AIC-001",
+      "name": "matched_track_a_event_envelopes",
+      "expected_disposition": "ELIGIBLE_FOR_TRACK_A",
+      "assertions": ["same_frozen_envelopes", "same_eligible_denominator", "same_operator_review_budget"]
+    },
+    {
+      "id": "AIC-002",
+      "name": "different_product_release_or_configuration",
+      "expected_disposition": "INCOMPARABLE",
+      "assertions": ["exact_release_and_configuration_required", "no_silent_version_substitution"]
+    },
+    {
+      "id": "AIC-003",
+      "name": "physical_sensor_results_mislabelled_as_track_a",
+      "expected_disposition": "BLOCKED",
+      "assertions": ["track_a_does_not_score_physical_detection", "track_results_remain_separate"]
+    },
+    {
+      "id": "AIC-004",
+      "name": "modality_specific_inputs_misrepresented_as_identical",
+      "expected_disposition": "CLAIM_LIMITED",
+      "assertions": ["track_b_uses_same_ground_truth_not_identical_sensor_inputs", "modality_coverage_reported"]
+    },
+    {
+      "id": "AIC-005",
+      "name": "vendor_hostile_label_promoted_to_truth",
+      "expected_disposition": "BLOCKED",
+      "assertions": ["vendor_label_is_untrusted_claim", "intent_and_authority_remain_separate"]
+    },
+    {
+      "id": "AIC-006",
+      "name": "operator_location_or_exact_track_export",
+      "expected_disposition": "BLOCKED",
+      "assertions": ["operator_geolocation_excluded", "exact_trajectory_excluded"]
+    },
+    {
+      "id": "AIC-007",
+      "name": "passive_or_receive_only_used_as_automatic_legal_exemption",
+      "expected_disposition": "BLOCKED",
+      "assertions": ["icasa_written_applicability_required", "no_vendor_claim_substitutes_for_law"]
+    },
+    {
+      "id": "AIC-008",
+      "name": "physical_trial_without_approval_and_independent_truth",
+      "expected_disposition": "BLOCKED",
+      "assertions": ["track_b_approval_gate_required", "independent_ground_truth_required"]
+    },
+    {
+      "id": "AIC-009",
+      "name": "missing_source_or_denominator",
+      "expected_disposition": "UNKNOWN",
+      "assertions": ["missingness_preserved", "no_silent_denominator_change"]
+    },
+    {
+      "id": "AIC-010",
+      "name": "active_effector_or_third_party_command_included",
+      "expected_disposition": "BLOCKED",
+      "assertions": ["effector_scope_excluded", "third_party_control_excluded"]
+    }
+  ],
+  "professional_review": [
+    "SACAA_and_aviation_legal",
+    "ICASA_spectrum_and_type_approval",
+    "CWA_18150_authorized_standards_reviewer",
+    "site_operator_and_vendor_OEM",
+    "privacy_POPIA_and_community",
+    "independent_ground_truth_adjudicator",
+    "site_safety_and_insurance",
+    "quantity_surveyor_or_economist"
+  ]
+}
