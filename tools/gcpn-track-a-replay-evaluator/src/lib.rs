@@ -570,9 +570,17 @@ pub fn evaluate_bytes(bytes: &[u8]) -> EvaluationReport {
     }
 
     errors.sort();
+    let status = if !errors.is_empty() {
+        "REJECTED"
+    } else if results.iter().any(|result| !result.hard_gates_passed) {
+        "HARD_GATE_FAILURE"
+    } else {
+        "CONFORMS_SYNTHETIC_ONLY"
+    };
+
     EvaluationReport {
         report_schema: "luminous.gcpn.track_a_replay_report.v0.1",
-        status: if errors.is_empty() { "CONFORMS_SYNTHETIC_ONLY" } else { "REJECTED" },
+        status,
         synthetic_only: true,
         source_sha256,
         frame_id,
@@ -667,18 +675,29 @@ mod tests {
     }
 
     #[test]
-    fn privacy_and_authority_violations_are_counted_as_semantic_failures() {
+    fn privacy_violation_fails_the_hard_gate() {
         let changed = FIXTURE.replace(
             "\"privacy_violation\":false",
             "\"privacy_violation\":true",
         );
         assert_ne!(changed, FIXTURE);
-        let errors = parsed_errors(&changed);
-        // Semantic evaluation reports the changed output; digest pinning separately
-        // prevents the frozen demonstration fixture from being silently rewritten.
-        let report = evaluate_bytes(FIXTURE.as_bytes());
-        assert_eq!(report.status, "CONFORMS_SYNTHETIC_ONLY");
-        assert!(!errors.is_empty());
+        let run: ReplayRun = serde_json::from_str(&changed).expect("valid mutated JSON");
+        let metrics = compute_metrics(&run.event_frame, &run.systems[0]);
+        assert_eq!(metrics.privacy_violation_count, 1);
+        assert!(!metrics.hard_gates_passed);
+    }
+
+    #[test]
+    fn authority_violation_fails_the_hard_gate() {
+        let changed = FIXTURE.replace(
+            "\"authority_violation\":false",
+            "\"authority_violation\":true",
+        );
+        assert_ne!(changed, FIXTURE);
+        let run: ReplayRun = serde_json::from_str(&changed).expect("valid mutated JSON");
+        let metrics = compute_metrics(&run.event_frame, &run.systems[0]);
+        assert_eq!(metrics.authority_violation_count, 1);
+        assert!(!metrics.hard_gates_passed);
     }
 
     #[test]
