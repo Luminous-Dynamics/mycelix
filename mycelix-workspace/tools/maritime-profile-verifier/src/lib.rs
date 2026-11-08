@@ -314,7 +314,7 @@ pub fn evaluate_identifier(
                     "identifier_valid_from_invalid",
                     "The identifier lower validity bound is not a valid RFC 3339 timestamp.",
                 ));
-            } else if valid_from.as_ref().is_some_and(|start| as_of < *start) {
+            } else if valid_from.as_ref().is_some_and(|start| &as_of < start) {
                 checks.push(Check::reject(
                     "identifier_not_yet_valid",
                     "The identifier is not valid at the requested evaluation time.",
@@ -326,7 +326,7 @@ pub fn evaluate_identifier(
                     "identifier_valid_until_invalid",
                     "The identifier upper validity bound is not a valid RFC 3339 timestamp.",
                 ));
-            } else if valid_until.as_ref().is_some_and(|end| as_of >= *end) {
+            } else if valid_until.as_ref().is_some_and(|end| &as_of >= end) {
                 checks.push(Check::reject(
                     "identifier_expired",
                     "The identifier validity interval uses an exclusive upper bound and has expired.",
@@ -335,8 +335,8 @@ pub fn evaluate_identifier(
 
             if (identifier.valid_from.is_none() || valid_from.is_some())
                 && (identifier.valid_until.is_none() || valid_until.is_some())
-                && valid_from.as_ref().is_none_or(|start| as_of >= *start)
-                && valid_until.as_ref().is_none_or(|end| as_of < *end)
+                && valid_from.as_ref().is_none_or(|start| &as_of >= start)
+                && valid_until.as_ref().is_none_or(|end| &as_of < end)
             {
                 checks.push(Check::pass(
                     "identifier_validity_interval",
