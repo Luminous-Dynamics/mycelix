@@ -1,0 +1,225 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:luminous-dynamics:maritime-commons:adapter-semantic-fidelity-cases:0.1.0",
+  "title": "Maritime Commons Adapter Semantic Fidelity Scenario Manifest v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "corpus_id",
+    "profile_id",
+    "status",
+    "parent_issue",
+    "mapping_ledger_schema",
+    "claim_ceiling",
+    "scenario_count",
+    "invariants",
+    "cases",
+    "execution_status"
+  ],
+  "properties": {
+    "corpus_id": {
+      "const": "MCB-ADAPTER-FIDELITY-0.1"
+    },
+    "profile_id": {
+      "const": "maritime-adapter-semantic-fidelity-0.1"
+    },
+    "status": {
+      "const": "synthetic_scenario_manifest_not_executed"
+    },
+    "parent_issue": {
+      "const": 5963
+    },
+    "mapping_ledger_schema": {
+      "type": "string",
+      "minLength": 1
+    },
+    "claim_ceiling": {
+      "type": "string",
+      "minLength": 1
+    },
+    "scenario_count": {
+      "type": "integer",
+      "minimum": 40
+    },
+    "invariants": {
+      "type": "array",
+      "minItems": 10,
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "SF-01",
+          "SF-02",
+          "SF-03",
+          "SF-04",
+          "SF-05",
+          "SF-06",
+          "SF-07",
+          "SF-08",
+          "SF-09",
+          "SF-10"
+        ]
+      }
+    },
+    "cases": {
+      "type": "array",
+      "minItems": 40,
+      "items": {
+        "$ref": "#/$defs/Case"
+      }
+    },
+    "execution_status": {
+      "$ref": "#/$defs/ExecutionStatus"
+    }
+  },
+  "$defs": {
+    "Case": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "case_id",
+        "family",
+        "case_kind",
+        "source_claim",
+        "target_attempt",
+        "mapping_class",
+        "expected_disposition",
+        "invariant_ids",
+        "setup",
+        "negative_control"
+      ],
+      "properties": {
+        "case_id": {
+          "type": "string",
+          "pattern": "^AF-[0-9]{3}$"
+        },
+        "family": {
+          "enum": [
+            "identity_scope",
+            "authority_stage",
+            "currentness",
+            "uncertainty",
+            "nullability",
+            "event_identity",
+            "currency",
+            "fx_refund",
+            "units",
+            "temporal",
+            "localization",
+            "provenance",
+            "privacy",
+            "reversibility",
+            "versioning",
+            "metamorphic"
+          ]
+        },
+        "case_kind": {
+          "enum": [
+            "positive_control",
+            "negative_control",
+            "ambiguity_control",
+            "metamorphic_control"
+          ]
+        },
+        "source_claim": {
+          "type": "string",
+          "minLength": 1
+        },
+        "target_attempt": {
+          "type": "string",
+          "minLength": 1
+        },
+        "mapping_class": {
+          "enum": [
+            "exact",
+            "lossless_transform",
+            "lossy_declared",
+            "unsupported",
+            "ambiguous"
+          ]
+        },
+        "expected_disposition": {
+          "enum": [
+            "preserve",
+            "preserve_lossless",
+            "preserve_with_loss",
+            "quarantine",
+            "reject",
+            "unknown",
+            "conflict"
+          ]
+        },
+        "invariant_ids": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "SF-01",
+              "SF-02",
+              "SF-03",
+              "SF-04",
+              "SF-05",
+              "SF-06",
+              "SF-07",
+              "SF-08",
+              "SF-09",
+              "SF-10"
+            ]
+          }
+        },
+        "setup": {
+          "type": "string",
+          "minLength": 1
+        },
+        "negative_control": {
+          "type": "string",
+          "minLength": 1
+        },
+        "metamorphic_group": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "ExecutionStatus": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "executed",
+        "exact_source_target_artifact_pins",
+        "materialized_byte_vectors",
+        "independent_oracle",
+        "rust_evaluator",
+        "mutation_campaign",
+        "provider_samples_authorized",
+        "field_evaluation"
+      ],
+      "properties": {
+        "executed": {
+          "const": false
+        },
+        "exact_source_target_artifact_pins": {
+          "const": false
+        },
+        "materialized_byte_vectors": {
+          "const": false
+        },
+        "independent_oracle": {
+          "const": false
+        },
+        "rust_evaluator": {
+          "const": false
+        },
+        "mutation_campaign": {
+          "const": false
+        },
+        "provider_samples_authorized": {
+          "const": false
+        },
+        "field_evaluation": {
+          "const": false
+        }
+      }
+    }
+  }
+}
