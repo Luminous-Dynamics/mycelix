@@ -17,8 +17,13 @@ inventory, or event-store subsystem.
 
 ## Initial checks
 
-- Exact standard-artifact pins, including version, digest, and maturity. A
-  production release and a pre-release are intentionally different identities.
+- Exact standard-artifact pins, including version, digest, maturity, source URI,
+  and retrieval time. A production release and a pre-release are intentionally
+  different identities.
+- Standards dependency graph checks for unique IDs, declared roots, dangling
+  edges, cycles, orphan artifacts, complete closure, and production-use
+  maturity. Product-specific compatibility rules still require reviewed
+  profile data and are not inferred from graph structure alone.
 - Scheme-qualified external identifiers, with explicit subject, issuer,
   jurisdiction, purpose, and validity scope.
 - Currency amount interpretation against a caller-supplied exact metadata
