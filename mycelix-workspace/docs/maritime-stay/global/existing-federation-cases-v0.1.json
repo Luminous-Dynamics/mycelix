@@ -1,0 +1,105 @@
+{
+  "corpus_id": "MCB-EXISTING-FEDERATIONS-0.1",
+  "profile_id": "maritime-global-interop-0.1",
+  "status": "synthetic_contract_cases_not_executed",
+  "claim_ceiling": "Follow-on integration fixtures only. No MCP/NoTN participation, organization endorsement, operational interoperability, local legal recognition, authority or production readiness is established.",
+  "references": {
+    "iala_mcp": "https://maritimeconnectivity.net/",
+    "iala_g1157": "https://www.iala.int/product/g1157/",
+    "iala_mrn": "https://www.iala.int/technical/data-modelling-mrn/",
+    "iala_g1191": "https://www.iala.int/product/g1191/",
+    "ipcsa_notn": "https://tenant.ipcsa.international/initiatives/network-of-trusted-networks/",
+    "dcsa_port_call_v2": "https://reference.dcsa.org/content/standards/releases/port-call/v2/pc-v2-openapi-specification",
+    "iho_s131": "https://registry.iho.int/productspec/view.do?category=product_ID&domainS=ALL&idx=233&product_ID=S-131&searchValue=&statusS=5",
+    "iho_s127": "https://registry.iho.int/productspec/view.do?category=product_ID&domainS=ALL&idx=232&product_ID=S-127&searchValue=&statusS=5"
+  },
+  "cases": [
+    {
+      "case_id": "FED-001",
+      "name": "MRN exists but local issuer is not recognized",
+      "class": "recognition_boundary",
+      "expected": "unknown_or_needs_local_recognition",
+      "setup": "A provider supplies a syntactically valid MRN and an MCP identity certificate, but the destination community has not assessed the issuer for the requested service purpose.",
+      "negative_control": "MCP identity or certificate validity must not be silently promoted to local provider recognition."
+    },
+    {
+      "case_id": "FED-002",
+      "name": "MIR identity authentication without capability authorization",
+      "class": "authorization_boundary",
+      "expected": "reject_unauthorized_capability_action",
+      "setup": "The service consumer successfully authenticates an MCP entity but attempts a service operation outside the credential's declared capability and purpose.",
+      "negative_control": "Authentication is not authorization; an authenticated service identity cannot act outside its delegated scope."
+    },
+    {
+      "case_id": "FED-003",
+      "name": "Stale Maritime Service Registry endpoint",
+      "class": "endpoint_currentness",
+      "expected": "unknown_until_endpoint_and_key_currentness_established",
+      "setup": "An MSR entry resolves to an endpoint whose TLS key or service version has been rotated, revoked, or replaced after the cached directory snapshot.",
+      "negative_control": "A registry listing is discovery evidence, not proof that the endpoint is live, current, or still controlled by the same provider."
+    },
+    {
+      "case_id": "FED-004",
+      "name": "MCP message delivery without provider effect receipt",
+      "class": "effect_authority",
+      "expected": "unknown_needs_provider_reconciliation",
+      "setup": "The Maritime Messaging Service delivers a hold or commitment request, but no provider-authoritative effect receipt is returned or independently observed.",
+      "negative_control": "Transport delivery acknowledgement is not a durable reservation, resource allocation, or contractual commitment."
+    },
+    {
+      "case_id": "FED-005",
+      "name": "IPCSA platform membership without user-purpose permission",
+      "class": "disclosure_authority",
+      "expected": "reject_disallowed_field_transfer",
+      "setup": "A participating PCS platform requests customer or vessel itinerary fields that the originating provider/user purpose profile does not authorize for that recipient.",
+      "negative_control": "Trusted-platform membership cannot override user permission, purpose limitation, local policy, or data-minimization rules."
+    },
+    {
+      "case_id": "FED-006",
+      "name": "NoTN cross-border data minimization",
+      "class": "privacy_boundary",
+      "expected": "transmit_only_authorized_minimum_fields",
+      "setup": "A PCS-to-PCS exchange needs a port-call status but the payload also contains private accommodation, crew, payment, or full-stay itinerary details.",
+      "negative_control": "Do not forward unrelated private stay or household details merely because the transport network supports encrypted exchange."
+    },
+    {
+      "case_id": "FED-007",
+      "name": "S-131 infrastructure feature mistaken for live berth inventory",
+      "class": "hydrographic_semantics",
+      "expected": "not_evaluable_as_provider_reservation_availability",
+      "setup": "A current S-131 harbour dataset describes a berth, facility, or port service feature and an adapter presents it as a live bookable berth with free capacity.",
+      "negative_control": "S-131 infrastructure/service information is not a provider's live inventory, hold, or commitment."
+    },
+    {
+      "case_id": "FED-008",
+      "name": "S-127 service information mistaken for port-entry clearance",
+      "class": "authority_boundary",
+      "expected": "reject_clearance_claim_without_competent_authority_evidence",
+      "setup": "An S-127 feature describes VTS, pilotage, routing measures, or ship-reporting services and an interface interprets that feature as permission to enter port.",
+      "negative_control": "Traffic-management service information is not vessel clearance, berth booking, or navigation permission."
+    },
+    {
+      "case_id": "FED-009",
+      "name": "S-131 product dependency lock mismatch",
+      "class": "standards_dependency_closure",
+      "expected": "conflict_incomplete_or_incompatible_lock",
+      "setup": "An adapter declares S-131 Edition 2.0.0 but binds a feature catalogue or S-100 framework dependency from a different incompatible edition, or it uses a family-level latest alias without a digest.",
+      "negative_control": "Product specification, declared S-100 version, feature catalogue, portrayal catalogue, and validation artifacts must be pinned as one compatible dependency closure."
+    },
+    {
+      "case_id": "FED-010",
+      "name": "Provider participates without an MRN",
+      "class": "inclusive_federation",
+      "expected": "accept_alternative_scheme_qualified_identifier_or_manual_evidence_path",
+      "setup": "A small independent marina has a locally recognized national registry/provider identifier and can publish reviewed export files, but it does not use MCP or possess an MRN.",
+      "negative_control": "Do not make MRN/MCP participation a universal admission prerequisite; preserve the same subject, issuer, purpose, and authority checks."
+    }
+  ],
+  "execution_status": {
+    "executed": false,
+    "mcp_sandbox_used": false,
+    "notn_participant_used": false,
+    "iho_artifact_digests_pinned": false,
+    "independent_evaluator": false
+  }
+}
