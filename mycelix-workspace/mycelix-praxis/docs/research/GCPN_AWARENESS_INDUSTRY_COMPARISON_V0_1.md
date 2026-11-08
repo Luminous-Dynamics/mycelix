@@ -34,6 +34,7 @@ Never combine the results into one score. A better event-envelope consumer canno
 CWA 18150:2024, *Unmanned aircraft systems — Counter UAS — Testing methodology*, is a directly relevant external methodology reference. It is a CEN Workshop Agreement, not an official CEN standard: its own foreword states that it cannot be held as an official standard developed by CEN and its Members. Its published scope describes user-defined scenarios and qualitative/quantitative comparison of detection, tracking and identification systems integrated in a C2 system; the NEN scope summary says defeat/disable aspects are not covered. We use it as a method reference only, not as a certification, harmonized-standard or compliance claim. Source: https://www.cencenelec.eu/media/CEN-CENELEC/CWAs/ICT/cwa-18150.pdf (foreword, pp. 1–2) and https://www.nen.nl/en/cwa-18150-2024-en-330385.
 
 - Current status and scope reference: https://www.nen.nl/en/cwa-18150-2024-en-330385
+- CEN's explanation of CEN/CENELEC Workshop Agreements and their role/status: https://www.cencenelec.eu/get-involved/research-and-innovation/workshop-agreements-cwa/
 - Adoption/status reference: https://dps.gov.al/en/project/show/dps%3Aproj%3A76336
 
 The full CWA text is copyrighted and is not reproduced. Obtain authorized access and a standards specialist's review before claiming any conformity. This Luminous protocol is **not** represented as CWA-conformant.
@@ -61,11 +62,12 @@ Vendor describes RF-360/RF-360T as passive, network-attached RF sensors for dron
 
 Vendor describes DroneSentry-C2 as a multi-sensor C2 platform that combines RF, radar and optical feeds, with SensorFusion and third-party sensor integrations. Its 2026 releases describe interoperability, alerting and operator workflow improvements. The platform ecosystem also supports disruptors/effectors; those capabilities are outside this benchmark.
 
-The Q2 2026 vendor release describes automatic Friendly/Neutral/Hostile/Unknown labels using serial-number/Remote ID inputs. A vendor-provided Hostile label is **not** ground truth, verified intent or authority in this civilian comparison. Our event model separates observation, identity claim, authentication, authorization and intent.
+The Q2 2026 vendor release describes automatic Friendly/Neutral/Hostile/Unknown labels using serial-number/Remote ID inputs. A vendor-provided Hostile label is **not** ground truth, verified intent or authority in this civilian comparison. Our event model separates observation, identity claim, authentication, authorization and intent. A newer Q3 2026 vendor release dated 6 July 2026 reports claimed RF-sensing improvements versus Q2 (with results said to depend on drone type and operating frequency), plus air-gapped updates, offline Cloud Optimized GeoTIFF maps, expanded third-party sensor interoperability and additional language support. These remain vendor-reported claims; exact customer release/configuration and underlying test data must be pinned before independent evaluation.
 
 - Product: https://www.droneshield.com/products-software
 - Q1 2026 release: https://www.droneshield.com/media/press-releases/droneshield-announces-q1-2026-software-enhancements
 - Q2 2026 release: https://www.droneshield.com/media/press-releases/droneshield-advances-decision-advantage-with-q2-2026-software-release-as-drone-threats-scale-globally
+- Q3 2026 release (6 July 2026): https://www.droneshield.com/media/press-releases/droneshield-q3-software-release-sharpens-counter-uas-performance-against-faster-more-evasive-drone-threats
 - Scope: passive detection/awareness event feed and evidence presentation only.
 - Excluded: disruptor state/command, effector APIs, hostile labels as truth, target/engagement records and exact flight/operator tracks.
 
