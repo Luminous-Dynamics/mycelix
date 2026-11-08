@@ -315,3 +315,35 @@ NotTested and Unsupported are not correct and remain visible as uncovered requir
 - DCSA API Design and Implementation Guidelines 2025.Q4: https://reference.dcsa.org/content/standards/guidelines/api-design-and-implementation-guidelines.
 - DCSA conformance overview and scenario tooling: https://reference.dcsa.org/content/standards/guidelines/conformance and https://reference.dcsa.org/content/standards/releases/port-call/v2/pc-v2-conformance-scenarios.
 - CloudEvents 1.0.2 specification: https://github.com/cloudevents/spec.
+
+
+## 13. Monetary interoperability: MCB-MONEY
+
+The monetary profile and fixture corpus are tracked in [MARITIME-MONEY-INTEROP-001 #5948](https://github.com/Luminous-Dynamics/mycelix/issues/5948), with the draft profile in [PR #5949](https://github.com/Luminous-Dynamics/mycelix/pull/5949).
+
+The 18 MCB-MONEY cases test:
+- currency exponent zero, two and three as positive controls;
+- historic currency codes and metadata revision;
+- same integer under different scale metadata;
+- locale presentation that must not mutate canonical values;
+- quote versus settlement currency;
+- FX direction, source and freshness;
+- credits/discounts and signed line-item semantics;
+- refund request/attempt/finality distinction;
+- cash rounding versus accounting scale;
+- overflow and unsupported scale;
+- unknown currency codes;
+- mandatory fee mutation after acceptance;
+- tax-inclusive/exclusive mapping loss.
+
+### Money hard gates
+
+Four additional non-compensatory gates apply:
+- zero authoritative monetary operations using binary floating-point;
+- zero implicit FX conversions;
+- zero silent monetary rounding or overflow;
+- zero refund finality inferred without recognized external evidence.
+
+The ISO 4217 metadata snapshot and digest must be pinned for every execution. The exponent-zero/two/three fixtures are selected from that exact artifact rather than a remembered table. CLDR locale formatting is not accounting metadata.
+
+This is a compatibility review, not a change to Stay Protocol v0.1. MCB-MONEY does not qualify tax treatment, financial licensing, bank settlement, refund completion or an FX execution service.
