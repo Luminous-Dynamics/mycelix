@@ -211,12 +211,7 @@ pub fn evaluate(
 
     let (Some(awareness_manifest), Some(run)) = (awareness_manifest, run) else {
         errors.sort();
-        return rejected_report(
-            run_sha256,
-            comparison_digest,
-            awareness_digest,
-            errors,
-        );
+        return rejected_report(run_sha256, comparison_digest, awareness_digest, errors);
     };
 
     if run.schema != RUN_SCHEMA {
@@ -285,9 +280,7 @@ pub fn evaluate(
                 workflow.workflow_id
             ));
         }
-        if workflow.build_ref.trim().is_empty()
-            || !is_sha256(&workflow.configuration_sha256)
-        {
+        if workflow.build_ref.trim().is_empty() || !is_sha256(&workflow.configuration_sha256) {
             errors.push(format!(
                 "workflow_build_or_configuration_incomplete: {}",
                 workflow.workflow_id
@@ -372,14 +365,25 @@ pub fn evaluate(
     if !workflow_ids.contains(run.baseline_workflow_id.as_str()) {
         errors.push("baseline_workflow_missing".into());
     }
-    if !run.candidate_workflow_ids.iter().all(|id| workflow_ids.contains(id.as_str())) {
+    if !run
+        .candidate_workflow_ids
+        .iter()
+        .all(|id| workflow_ids.contains(id.as_str()))
+    {
         errors.push("candidate_workflow_missing".into());
     }
-    if run.candidate_workflow_ids.iter().any(|id| id == &run.baseline_workflow_id) {
+    if run
+        .candidate_workflow_ids
+        .iter()
+        .any(|id| id == &run.baseline_workflow_id)
+    {
         errors.push("baseline_cannot_also_be_candidate".into());
     }
-    let unique_candidates: BTreeSet<&str> =
-        run.candidate_workflow_ids.iter().map(String::as_str).collect();
+    let unique_candidates: BTreeSet<&str> = run
+        .candidate_workflow_ids
+        .iter()
+        .map(String::as_str)
+        .collect();
     if unique_candidates.len() != run.candidate_workflow_ids.len() {
         errors.push("duplicate_candidate_workflow_id".into());
     }
@@ -412,17 +416,16 @@ pub fn evaluate(
 
     if !errors.is_empty() {
         errors.sort();
-        return rejected_report(
-            run_sha256,
-            comparison_digest,
-            awareness_digest,
-            errors,
-        );
+        return rejected_report(run_sha256, comparison_digest, awareness_digest, errors);
     }
 
     let mut metrics = Vec::new();
     for workflow in &run.workflows {
-        if let Some(result) = calculate_metrics(workflow, &expected_cases, run.operator_review_budget_minutes_per_case) {
+        if let Some(result) = calculate_metrics(
+            workflow,
+            &expected_cases,
+            run.operator_review_budget_minutes_per_case,
+        ) {
             metrics.push(result);
         }
     }
@@ -535,7 +538,10 @@ fn calculate_metrics(
         source_status_preserved_rate: rate(source_status_preserved, count),
         contradiction_required_cases: contradiction_required as usize,
         contradictions_preserved_cases: contradictions_preserved as usize,
-        contradiction_preservation_rate: rate(contradictions_preserved, contradiction_required.max(1)),
+        contradiction_preservation_rate: rate(
+            contradictions_preserved,
+            contradiction_required.max(1),
+        ),
         intent_abstention_cases: intent_abstention as usize,
         intent_abstention_rate: rate(intent_abstention, count),
         human_review_required_cases: human_review_required as usize,
@@ -572,12 +578,11 @@ fn compare_pair(baseline: &WorkflowMetrics, candidate: &WorkflowMetrics) -> Pair
         baseline.unsubstantiated_alert_count,
         candidate.unsubstantiated_alert_count,
     );
-    let state_non_degradation =
-        candidate.exact_state_matches >= baseline.exact_state_matches;
+    let state_non_degradation = candidate.exact_state_matches >= baseline.exact_state_matches;
     let provenance_non_degradation =
         candidate.provenance_complete_cases >= baseline.provenance_complete_cases;
-    let contradiction_non_degradation = candidate.contradictions_preserved_cases
-        >= baseline.contradictions_preserved_cases;
+    let contradiction_non_degradation =
+        candidate.contradictions_preserved_cases >= baseline.contradictions_preserved_cases;
 
     let hypothesis_met = [
         review_reduction,
@@ -619,8 +624,7 @@ fn rate(numerator: u64, denominator: u64) -> Rate {
     let basis_points = if denominator == 0 {
         0
     } else {
-        ((numerator.saturating_mul(10_000) + denominator / 2) / denominator)
-            .min(10_000) as u32
+        ((numerator.saturating_mul(10_000) + denominator / 2) / denominator).min(10_000) as u32
     };
     Rate {
         numerator,
@@ -690,7 +694,11 @@ mod tests {
 
     #[test]
     fn synthetic_smoke_run_is_scored_but_not_claimed_as_field_result() {
-        let report = evaluate(AWARENESS.as_bytes(), COMPARISON.as_bytes(), SMOKE_RUN.as_bytes());
+        let report = evaluate(
+            AWARENESS.as_bytes(),
+            COMPARISON.as_bytes(),
+            SMOKE_RUN.as_bytes(),
+        );
         assert_eq!(report.evaluation_status, "SCORED_SYNTHETIC_SMOKE_ONLY");
         assert_eq!(report.case_count, 12);
         assert_eq!(report.workflow_count, 2);
@@ -699,9 +707,7 @@ mod tests {
             report.pairwise_comparisons[0].review_workload_reduction_basis_points,
             Some(1666)
         );
-        assert!(
-            !report.pairwise_comparisons[0].candidate_meets_20_percent_smoke_hypothesis
-        );
+        assert!(!report.pairwise_comparisons[0].candidate_meets_20_percent_smoke_hypothesis);
         assert!(report.errors.is_empty(), "{:?}", report.errors);
     }
 
@@ -713,9 +719,18 @@ mod tests {
             1,
         );
         assert_ne!(changed, SMOKE_RUN);
-        let report = evaluate(AWARENESS.as_bytes(), COMPARISON.as_bytes(), changed.as_bytes());
+        let report = evaluate(
+            AWARENESS.as_bytes(),
+            COMPARISON.as_bytes(),
+            changed.as_bytes(),
+        );
         assert_eq!(report.evaluation_status, "REJECTED");
-        assert!(report.errors.iter().any(|error| error.starts_with("unmatched_operator_review_budget")));
+        assert!(
+            report
+                .errors
+                .iter()
+                .any(|error| error.starts_with("unmatched_operator_review_budget"))
+        );
     }
 
     #[test]
@@ -727,7 +742,12 @@ mod tests {
         assert_ne!(changed, SMOKE_RUN);
         let report = evaluate(AWARENESS.as_bytes(), COMPARISON.as_bytes(), changed.as_bytes());
         assert_eq!(report.evaluation_status, "REJECTED");
-        assert!(report.errors.iter().any(|error| error.starts_with("replay_run_decode")));
+        assert!(
+            report
+                .errors
+                .iter()
+                .any(|error| error.starts_with("replay_run_decode"))
+        );
     }
 
     #[test]
@@ -751,7 +771,12 @@ mod tests {
         assert_ne!(changed, SMOKE_RUN);
         let report = evaluate(AWARENESS.as_bytes(), COMPARISON.as_bytes(), changed.as_bytes());
         assert_eq!(report.evaluation_status, "REJECTED");
-        assert!(report.errors.iter().any(|error| error.starts_with("intent_abstention_hard_gate")));
+        assert!(
+            report
+                .errors
+                .iter()
+                .any(|error| error.starts_with("intent_abstention_hard_gate"))
+        );
     }
 
     #[test]
@@ -763,7 +788,12 @@ mod tests {
         assert_ne!(changed, SMOKE_RUN);
         let report = evaluate(AWARENESS.as_bytes(), COMPARISON.as_bytes(), changed.as_bytes());
         assert_eq!(report.evaluation_status, "REJECTED");
-        assert!(report.errors.iter().any(|error| error.starts_with("authority_hard_gate")));
+        assert!(
+            report
+                .errors
+                .iter()
+                .any(|error| error.starts_with("authority_hard_gate"))
+        );
     }
 
     #[test]
@@ -775,7 +805,12 @@ mod tests {
         assert_ne!(changed, SMOKE_RUN);
         let report = evaluate(AWARENESS.as_bytes(), COMPARISON.as_bytes(), changed.as_bytes());
         assert_eq!(report.evaluation_status, "REJECTED");
-        assert!(report.errors.iter().any(|error| error == "run_awareness_manifest_digest_mismatch"));
+        assert!(
+            report
+                .errors
+                .iter()
+                .any(|error| error == "run_awareness_manifest_digest_mismatch")
+        );
     }
 
     #[test]
@@ -783,12 +818,19 @@ mod tests {
         let value: serde_json::Value = serde_json::from_str(SMOKE_RUN).expect("fixture parses");
         let mut root = value;
         let workflows = root["workflows"].as_array_mut().expect("workflows array");
-        let results = workflows[0]["case_results"].as_array_mut().expect("case results");
+        let results = workflows[0]["case_results"]
+            .as_array_mut()
+            .expect("case results");
         results.pop();
         let changed = serde_json::to_vec(&root).expect("serialize mutation");
         let report = evaluate(AWARENESS.as_bytes(), COMPARISON.as_bytes(), &changed);
         assert_eq!(report.evaluation_status, "REJECTED");
-        assert!(report.errors.iter().any(|error| error.starts_with("workflow_case_count_mismatch")));
+        assert!(
+            report
+                .errors
+                .iter()
+                .any(|error| error.starts_with("workflow_case_count_mismatch"))
+        );
     }
 
     #[test]
