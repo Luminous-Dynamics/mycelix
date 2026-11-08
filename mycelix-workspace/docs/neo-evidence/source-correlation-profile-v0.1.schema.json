@@ -282,7 +282,13 @@
               "required": [
                 "dependency_kind",
                 "common_cause_id"
-              ]
+              ],
+              "properties": {
+                "common_cause_id": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
             }
           },
           {
@@ -300,7 +306,13 @@
               "required": [
                 "dependency_kind",
                 "dependence_model_ref"
-              ]
+              ],
+              "properties": {
+                "dependence_model_ref": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
             }
           },
           {
