@@ -232,7 +232,9 @@ pub fn verify(bytes: &[u8]) -> Report {
 
             if manifest.standard_reference.id != "CWA_18150_2024"
                 || manifest.standard_reference.defeat_disable_in_scope
-                || !manifest.standard_reference.authorized_text_required_for_conformity_claim
+                || !manifest
+                    .standard_reference
+                    .authorized_text_required_for_conformity_claim
                 || manifest.standard_reference.luminous_conformity_claim
             {
                 errors.push("standard_reference_or_conformity_claim_violation".into());
@@ -277,10 +279,15 @@ pub fn verify(bytes: &[u8]) -> Report {
                 }
             }
 
-            let baseline_ids: BTreeSet<&str> =
-                manifest.baselines.iter().map(|baseline| baseline.id.as_str()).collect();
+            let baseline_ids: BTreeSet<&str> = manifest
+                .baselines
+                .iter()
+                .map(|baseline| baseline.id.as_str())
+                .collect();
             if baseline_ids.len() != EXPECTED_BASELINES.len()
-                || EXPECTED_BASELINES.iter().any(|id| !baseline_ids.contains(id))
+                || EXPECTED_BASELINES
+                    .iter()
+                    .any(|id| !baseline_ids.contains(id))
             {
                 errors.push("baseline_set_mismatch".into());
             }
@@ -296,20 +303,32 @@ pub fn verify(bytes: &[u8]) -> Report {
                     errors.push(format!("baseline_metadata_incomplete: {}", baseline.id));
                 }
                 if baseline.independent_performance_verified {
-                    errors.push(format!("vendor_performance_misrepresented_as_independent: {}", baseline.id));
+                    errors.push(format!(
+                        "vendor_performance_misrepresented_as_independent: {}",
+                        baseline.id
+                    ));
                 }
                 if baseline.vendor_hostile_label_authoritative {
-                    errors.push(format!("vendor_hostile_label_authority_enabled: {}", baseline.id));
+                    errors.push(format!(
+                        "vendor_hostile_label_authority_enabled: {}",
+                        baseline.id
+                    ));
                 }
                 if baseline.exclusions.is_empty() {
                     errors.push(format!("baseline_exclusions_missing: {}", baseline.id));
                 }
             }
 
-            let required_fields: BTreeSet<&str> =
-                manifest.matching_controls.required_fields.iter().map(String::as_str).collect();
+            let required_fields: BTreeSet<&str> = manifest
+                .matching_controls
+                .required_fields
+                .iter()
+                .map(String::as_str)
+                .collect();
             if required_fields.len() != REQUIRED_MATCH_FIELDS.len()
-                || REQUIRED_MATCH_FIELDS.iter().any(|field| !required_fields.contains(field))
+                || REQUIRED_MATCH_FIELDS
+                    .iter()
+                    .any(|field| !required_fields.contains(field))
                 || manifest.matching_controls.unmatched_disposition != "INCOMPARABLE"
             {
                 errors.push("matching_contract_incomplete".into());
@@ -327,24 +346,35 @@ pub fn verify(bytes: &[u8]) -> Report {
                 errors.push("comparison_data_or_authority_boundary_violation".into());
             }
 
-            let a_metrics: BTreeSet<&str> =
-                manifest.required_track_a_metrics.iter().map(String::as_str).collect();
+            let a_metrics: BTreeSet<&str> = manifest
+                .required_track_a_metrics
+                .iter()
+                .map(String::as_str)
+                .collect();
             if a_metrics.len() != REQUIRED_A_METRICS.len()
-                || REQUIRED_A_METRICS.iter().any(|metric| !a_metrics.contains(metric))
+                || REQUIRED_A_METRICS
+                    .iter()
+                    .any(|metric| !a_metrics.contains(metric))
             {
                 errors.push("track_a_metrics_incomplete".into());
             }
 
-            let b_metrics: BTreeSet<&str> =
-                manifest.required_track_b_metrics.iter().map(String::as_str).collect();
+            let b_metrics: BTreeSet<&str> = manifest
+                .required_track_b_metrics
+                .iter()
+                .map(String::as_str)
+                .collect();
             if b_metrics.len() != REQUIRED_B_METRICS.len()
-                || REQUIRED_B_METRICS.iter().any(|metric| !b_metrics.contains(metric))
+                || REQUIRED_B_METRICS
+                    .iter()
+                    .any(|metric| !b_metrics.contains(metric))
             {
                 errors.push("track_b_metrics_incomplete".into());
             }
 
             let target = &manifest.proposed_target;
-            if target.relative_duplicate_unsubstantiated_alert_and_review_workload_reduction_percent != 20
+            if target.relative_duplicate_unsubstantiated_alert_and_review_workload_reduction_percent
+                != 20
                 || !target.event_recall_non_degradation_required
                 || target.privacy_safety_and_authority_violations_may_increase
                 || target.status != "falsifiable_hypothesis_only_not_a_result"
@@ -364,8 +394,11 @@ pub fn verify(bytes: &[u8]) -> Report {
                 errors.push("hard_gate_nonzero".into());
             }
 
-            let review: BTreeSet<&str> =
-                manifest.professional_review.iter().map(String::as_str).collect();
+            let review: BTreeSet<&str> = manifest
+                .professional_review
+                .iter()
+                .map(String::as_str)
+                .collect();
             if review.len() != REQUIRED_REVIEW.len()
                 || REQUIRED_REVIEW.iter().any(|item| !review.contains(item))
             {
@@ -414,7 +447,11 @@ pub fn verify(bytes: &[u8]) -> Report {
 
     errors.sort();
     Report {
-        status: if errors.is_empty() { "CONFORMS" } else { "REJECTED" },
+        status: if errors.is_empty() {
+            "CONFORMS"
+        } else {
+            "REJECTED"
+        },
         source_sha256,
         case_count,
         baseline_count,
@@ -448,7 +485,12 @@ mod tests {
         assert_ne!(changed, FIXTURE);
         let report = verify(changed.as_bytes());
         assert_eq!(report.status, "REJECTED");
-        assert!(report.errors.iter().any(|error| error.starts_with("strict_json_decode:")));
+        assert!(
+            report
+                .errors
+                .iter()
+                .any(|error| error.starts_with("strict_json_decode:"))
+        );
     }
 
     #[test]
@@ -472,7 +514,12 @@ mod tests {
         assert_ne!(changed, FIXTURE);
         let report = verify(changed.as_bytes());
         assert_eq!(report.status, "REJECTED");
-        assert!(report.errors.iter().any(|error| error == "track_b_gate_or_semantics_mismatch"));
+        assert!(
+            report
+                .errors
+                .iter()
+                .any(|error| error == "track_b_gate_or_semantics_mismatch")
+        );
     }
 
     #[test]
@@ -484,7 +531,12 @@ mod tests {
         assert_ne!(changed, FIXTURE);
         let report = verify(changed.as_bytes());
         assert_eq!(report.status, "REJECTED");
-        assert!(report.errors.iter().any(|error| error == "track_a_semantics_mismatch"));
+        assert!(
+            report
+                .errors
+                .iter()
+                .any(|error| error == "track_a_semantics_mismatch")
+        );
     }
 
     #[test]
@@ -511,9 +563,12 @@ mod tests {
         assert_ne!(changed, FIXTURE);
         let report = verify(changed.as_bytes());
         assert_eq!(report.status, "REJECTED");
-        assert!(report.errors.iter().any(|error| {
-            error == "comparison_data_or_authority_boundary_violation"
-        }));
+        assert!(
+            report
+                .errors
+                .iter()
+                .any(|error| { error == "comparison_data_or_authority_boundary_violation" })
+        );
     }
 
     #[test]
@@ -525,7 +580,12 @@ mod tests {
         assert_ne!(changed, FIXTURE);
         let report = verify(changed.as_bytes());
         assert_eq!(report.status, "REJECTED");
-        assert!(report.errors.iter().any(|error| error == "hard_gate_nonzero"));
+        assert!(
+            report
+                .errors
+                .iter()
+                .any(|error| error == "hard_gate_nonzero")
+        );
     }
 
     #[test]
@@ -552,9 +612,12 @@ mod tests {
         assert_ne!(changed, FIXTURE);
         let report = verify(changed.as_bytes());
         assert_eq!(report.status, "REJECTED");
-        assert!(report.errors.iter().any(|error| {
-            error == "standard_reference_or_conformity_claim_violation"
-        }));
+        assert!(
+            report
+                .errors
+                .iter()
+                .any(|error| { error == "standard_reference_or_conformity_claim_violation" })
+        );
     }
 
     #[test]
@@ -566,8 +629,11 @@ mod tests {
         assert_ne!(changed, FIXTURE);
         let report = verify(changed.as_bytes());
         assert_eq!(report.status, "REJECTED");
-        assert!(report.errors.iter().any(|error| {
-            error.starts_with("fixture_digest_mismatch:")
-        }));
+        assert!(
+            report
+                .errors
+                .iter()
+                .any(|error| { error.starts_with("fixture_digest_mismatch:") })
+        );
     }
 }
