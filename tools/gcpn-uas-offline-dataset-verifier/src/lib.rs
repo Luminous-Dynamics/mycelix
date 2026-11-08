@@ -643,6 +643,16 @@ mod tests {
     }
 
     #[test]
+    fn drff_dataset_license_claim_is_required_and_distinct_from_article_license() {
+        let mut register = mutated_register();
+        register.candidate_datasets[2].paper_stated_dataset_license = None;
+        let errors = validate(&register);
+        assert!(errors.iter().any(|error| {
+            error == "drff_r2_rights_or_published_counts_mismatch"
+        }));
+    }
+
+    #[test]
     fn drff_dataset_rights_cannot_be_promoted_from_paper_claim_alone() {
         let mut register = mutated_register();
         register.candidate_datasets[2].dataset_repository_license_verified = Some(true);
