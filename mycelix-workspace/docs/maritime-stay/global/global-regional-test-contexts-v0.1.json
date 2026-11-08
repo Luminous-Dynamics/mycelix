@@ -1,0 +1,469 @@
+{
+  "matrix_id": "MCB-GLOBAL-REGIONAL-CONTEXTS",
+  "version": "0.1.0",
+  "status": "test_contexts_only_not_jurisdiction_packs",
+  "claim_ceiling": "These entries select representative locale, script, currency and time-zone fixtures for compatibility tests. They are not country legal profiles, official language determinations, tax advice, data-residency assessments, regulatory approvals or government integrations.",
+  "pinned_reference_versions": {
+    "cldr": "49",
+    "tzdb": "2026f",
+    "language_tag_standard": "BCP 47 / RFC 5646",
+    "currency_standard": "ISO 4217; exact metadata snapshot digest must be captured by each execution",
+    "unlocode": "Production 2025-1; prerelease is a separate state and requires its own snapshot identity",
+    "retrieved_at": "2026-11-08"
+  },
+  "test_contexts": [
+    {
+      "id": "ZA",
+      "country_or_territory": "South Africa",
+      "languages": [
+        "en-ZA",
+        "af-ZA",
+        "zu-ZA",
+        "xh-ZA",
+        "st-ZA"
+      ],
+      "scripts": [
+        "Latn"
+      ],
+      "time_zones": [
+        "Africa/Johannesburg"
+      ],
+      "currencies": [
+        "ZAR"
+      ],
+      "unit_contexts": [
+        "SI",
+        "nautical"
+      ],
+      "global_scenarios": [
+        "GLOBAL-013",
+        "GLOBAL-014",
+        "GLOBAL-022",
+        "GLOBAL-023"
+      ],
+      "legal_profile_status": "not_assessed",
+      "government_integration_status": "not_authorized"
+    },
+    {
+      "id": "FR",
+      "country_or_territory": "France",
+      "languages": [
+        "fr-FR"
+      ],
+      "scripts": [
+        "Latn"
+      ],
+      "time_zones": [
+        "Europe/Paris"
+      ],
+      "currencies": [
+        "EUR"
+      ],
+      "unit_contexts": [
+        "SI",
+        "nautical"
+      ],
+      "global_scenarios": [
+        "GLOBAL-010",
+        "GLOBAL-011",
+        "GLOBAL-020",
+        "GLOBAL-021"
+      ],
+      "legal_profile_status": "not_assessed",
+      "government_integration_status": "not_authorized"
+    },
+    {
+      "id": "PT",
+      "country_or_territory": "Portugal",
+      "languages": [
+        "pt-PT"
+      ],
+      "scripts": [
+        "Latn"
+      ],
+      "time_zones": [
+        "Europe/Lisbon",
+        "Atlantic/Azores"
+      ],
+      "currencies": [
+        "EUR"
+      ],
+      "unit_contexts": [
+        "SI",
+        "nautical"
+      ],
+      "global_scenarios": [
+        "GLOBAL-009",
+        "GLOBAL-010",
+        "GLOBAL-012"
+      ],
+      "legal_profile_status": "not_assessed",
+      "government_integration_status": "not_authorized"
+    },
+    {
+      "id": "US",
+      "country_or_territory": "United States",
+      "languages": [
+        "en-US",
+        "es-US"
+      ],
+      "scripts": [
+        "Latn"
+      ],
+      "time_zones": [
+        "America/New_York",
+        "America/Los_Angeles",
+        "Pacific/Honolulu"
+      ],
+      "currencies": [
+        "USD"
+      ],
+      "unit_contexts": [
+        "US_customary",
+        "SI",
+        "nautical"
+      ],
+      "global_scenarios": [
+        "GLOBAL-010",
+        "GLOBAL-011",
+        "GLOBAL-016",
+        "GLOBAL-021"
+      ],
+      "legal_profile_status": "not_assessed",
+      "government_integration_status": "not_authorized"
+    },
+    {
+      "id": "AE",
+      "country_or_territory": "United Arab Emirates",
+      "languages": [
+        "ar-AE",
+        "en-AE"
+      ],
+      "scripts": [
+        "Arab",
+        "Latn"
+      ],
+      "time_zones": [
+        "Asia/Dubai"
+      ],
+      "currencies": [
+        "AED"
+      ],
+      "unit_contexts": [
+        "SI",
+        "nautical"
+      ],
+      "global_scenarios": [
+        "GLOBAL-013",
+        "GLOBAL-015",
+        "GLOBAL-019"
+      ],
+      "legal_profile_status": "not_assessed",
+      "government_integration_status": "not_authorized"
+    },
+    {
+      "id": "IN",
+      "country_or_territory": "India",
+      "languages": [
+        "en-IN",
+        "hi-IN",
+        "mr-IN"
+      ],
+      "scripts": [
+        "Latn",
+        "Deva"
+      ],
+      "time_zones": [
+        "Asia/Kolkata"
+      ],
+      "currencies": [
+        "INR"
+      ],
+      "unit_contexts": [
+        "SI",
+        "nautical"
+      ],
+      "global_scenarios": [
+        "GLOBAL-009",
+        "GLOBAL-013",
+        "GLOBAL-016",
+        "GLOBAL-018"
+      ],
+      "legal_profile_status": "not_assessed",
+      "government_integration_status": "not_authorized"
+    },
+    {
+      "id": "NP",
+      "country_or_territory": "Nepal",
+      "languages": [
+        "ne-NP"
+      ],
+      "scripts": [
+        "Deva"
+      ],
+      "time_zones": [
+        "Asia/Kathmandu"
+      ],
+      "currencies": [
+        "NPR"
+      ],
+      "unit_contexts": [
+        "SI"
+      ],
+      "global_scenarios": [
+        "GLOBAL-009",
+        "GLOBAL-012",
+        "GLOBAL-014"
+      ],
+      "legal_profile_status": "not_assessed",
+      "government_integration_status": "not_authorized"
+    },
+    {
+      "id": "CN",
+      "country_or_territory": "China",
+      "languages": [
+        "zh-Hans-CN"
+      ],
+      "scripts": [
+        "Hans"
+      ],
+      "time_zones": [
+        "Asia/Shanghai"
+      ],
+      "currencies": [
+        "CNY"
+      ],
+      "unit_contexts": [
+        "SI",
+        "nautical"
+      ],
+      "global_scenarios": [
+        "GLOBAL-014",
+        "GLOBAL-016",
+        "GLOBAL-020"
+      ],
+      "legal_profile_status": "not_assessed",
+      "government_integration_status": "not_authorized"
+    },
+    {
+      "id": "TW",
+      "country_or_territory": "Taiwan",
+      "languages": [
+        "zh-Hant-TW"
+      ],
+      "scripts": [
+        "Hant"
+      ],
+      "time_zones": [
+        "Asia/Taipei"
+      ],
+      "currencies": [
+        "TWD"
+      ],
+      "unit_contexts": [
+        "SI",
+        "nautical"
+      ],
+      "global_scenarios": [
+        "GLOBAL-014",
+        "GLOBAL-016"
+      ],
+      "legal_profile_status": "not_assessed",
+      "government_integration_status": "not_authorized"
+    },
+    {
+      "id": "JP",
+      "country_or_territory": "Japan",
+      "languages": [
+        "ja-JP"
+      ],
+      "scripts": [
+        "Jpan"
+      ],
+      "time_zones": [
+        "Asia/Tokyo"
+      ],
+      "currencies": [
+        "JPY"
+      ],
+      "unit_contexts": [
+        "SI",
+        "nautical"
+      ],
+      "global_scenarios": [
+        "GLOBAL-005",
+        "GLOBAL-014",
+        "GLOBAL-016"
+      ],
+      "legal_profile_status": "not_assessed",
+      "government_integration_status": "not_authorized"
+    },
+    {
+      "id": "KW",
+      "country_or_territory": "Kuwait",
+      "languages": [
+        "ar-KW",
+        "en-KW"
+      ],
+      "scripts": [
+        "Arab",
+        "Latn"
+      ],
+      "time_zones": [
+        "Asia/Kuwait"
+      ],
+      "currencies": [
+        "KWD"
+      ],
+      "unit_contexts": [
+        "SI",
+        "nautical"
+      ],
+      "global_scenarios": [
+        "GLOBAL-006",
+        "GLOBAL-013",
+        "GLOBAL-015"
+      ],
+      "legal_profile_status": "not_assessed",
+      "government_integration_status": "not_authorized"
+    },
+    {
+      "id": "BR",
+      "country_or_territory": "Brazil",
+      "languages": [
+        "pt-BR"
+      ],
+      "scripts": [
+        "Latn"
+      ],
+      "time_zones": [
+        "America/Sao_Paulo",
+        "America/Manaus"
+      ],
+      "currencies": [
+        "BRL"
+      ],
+      "unit_contexts": [
+        "SI",
+        "nautical"
+      ],
+      "global_scenarios": [
+        "GLOBAL-010",
+        "GLOBAL-011",
+        "GLOBAL-015",
+        "GLOBAL-020"
+      ],
+      "legal_profile_status": "not_assessed",
+      "government_integration_status": "not_authorized"
+    },
+    {
+      "id": "JM",
+      "country_or_territory": "Jamaica",
+      "languages": [
+        "en-JM"
+      ],
+      "scripts": [
+        "Latn"
+      ],
+      "time_zones": [
+        "America/Jamaica"
+      ],
+      "currencies": [
+        "JMD"
+      ],
+      "unit_contexts": [
+        "SI",
+        "nautical"
+      ],
+      "global_scenarios": [
+        "GLOBAL-022",
+        "GLOBAL-023",
+        "GLOBAL-025"
+      ],
+      "legal_profile_status": "not_assessed",
+      "government_integration_status": "not_authorized"
+    },
+    {
+      "id": "FJ",
+      "country_or_territory": "Fiji",
+      "languages": [
+        "en-FJ",
+        "fj-FJ"
+      ],
+      "scripts": [
+        "Latn"
+      ],
+      "time_zones": [
+        "Pacific/Fiji"
+      ],
+      "currencies": [
+        "FJD"
+      ],
+      "unit_contexts": [
+        "SI",
+        "nautical"
+      ],
+      "global_scenarios": [
+        "GLOBAL-022",
+        "GLOBAL-023",
+        "GLOBAL-025"
+      ],
+      "legal_profile_status": "not_assessed",
+      "government_integration_status": "not_authorized"
+    }
+  ],
+  "cross_cutting_fixtures": [
+    {
+      "id": "CURRENCY-SCALE-ZERO",
+      "purpose": "Exercise a currency metadata fixture with zero minor units.",
+      "currency_code": "must_be_selected_from_pinned_ISO4217_snapshot",
+      "legal_profile_status": "not_applicable"
+    },
+    {
+      "id": "CURRENCY-SCALE-THREE",
+      "purpose": "Exercise a currency metadata fixture with three minor units.",
+      "currency_code": "must_be_selected_from_pinned_ISO4217_snapshot",
+      "legal_profile_status": "not_applicable"
+    },
+    {
+      "id": "TIMEZONE-QUARTER-HOUR",
+      "purpose": "Exercise a named civil-time zone with a quarter-hour UTC offset.",
+      "time_zone": "Asia/Kathmandu"
+    },
+    {
+      "id": "LANGUAGE-RTL",
+      "purpose": "Exercise right-to-left script, mixed-direction text and Latin identifiers.",
+      "language_tags": [
+        "ar-AE",
+        "ur-PK"
+      ]
+    },
+    {
+      "id": "LANGUAGE-AFRICAN",
+      "purpose": "Exercise Southern African language tags and locale fallback without implying authoritative translation.",
+      "language_tags": [
+        "zu-ZA",
+        "xh-ZA",
+        "st-ZA",
+        "af-ZA"
+      ]
+    },
+    {
+      "id": "REGISTRY-PRERELEASE",
+      "purpose": "Exercise separate UN/LOCODE production and prerelease identities.",
+      "production_snapshot": "2025-1",
+      "prerelease_observed_at": "2026-11-05"
+    },
+    {
+      "id": "REGISTRY-UNKNOWN",
+      "purpose": "Exercise a remote locality with no independently verified machine-readable registry endpoint.",
+      "status": "unknown"
+    }
+  ],
+  "overlay_controls": {
+    "all_country_or_territory_packs": "not_assessed",
+    "all_local_legal_reviews": "not_started",
+    "all_government_integrations": "not_authorized",
+    "no_entry_may_be_used_as_proof_of_law_or_authority": true
+  }
+}
