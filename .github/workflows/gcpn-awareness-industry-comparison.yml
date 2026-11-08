@@ -5,6 +5,7 @@ on:
     paths:
       - "mycelix-workspace/mycelix-praxis/docs/research/GCPN_AWARENESS_INDUSTRY_COMPARISON_V0_1.md"
       - "mycelix-workspace/mycelix-praxis/docs/research/GCPN_AWARENESS_INDUSTRY_COMPARISON_CASES_V0_1.json"
+      - "mycelix-workspace/mycelix-praxis/docs/research/GCPN_AWARENESS_INDUSTRY_COMPARISON_PRELIMINARY_DESK_REVIEW_V0_1.md"
       - "tools/gcpn-awareness-industry-comparison-verifier/**"
       - ".github/workflows/gcpn-awareness-industry-comparison.yml"
   workflow_dispatch:
