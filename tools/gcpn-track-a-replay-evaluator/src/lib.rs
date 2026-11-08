@@ -309,9 +309,7 @@ pub fn evaluate_with_expected_sha256(
             evidence_tier: Some(evidence_tier_name(&bundle.evidence_tier).to_string()),
             case_count: bundle.oracle_cases.len(),
             pipeline_results: Vec::new(),
-            reasons: vec![
-                "controlled_replay_review_receipts_missing_or_invalid".to_string(),
-            ],
+            reasons: vec!["controlled_replay_review_receipts_missing_or_invalid".to_string()],
             claim_ceiling: "offline_track_a_event_envelope_metrics_only",
         };
     }
