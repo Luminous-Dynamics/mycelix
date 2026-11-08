@@ -1,0 +1,235 @@
+{
+  "corpus_id": "MCB-COORD-PORTABILITY-0.1",
+  "profile_id": "maritime-coordinator-neutral-view-0.1",
+  "status": "declarative_synthetic_cases_not_executed",
+  "claim_ceiling": "These cases define reviewable test intent only. They are not verifier results, provider behavior, fencing proof, field interoperability or production qualification.",
+  "existing_corpora_referenced": [
+    "mycelix-workspace/docs/maritime-stay/semantic-cases-v0.1.json",
+    "mycelix-workspace/docs/maritime-stay/provider-ingress/webhook-conformance-cases-v0.1.json"
+  ],
+  "required_comparison_profiles": [
+    "coordinator-A",
+    "coordinator-B",
+    "independent-verifier"
+  ],
+  "invariants": [
+    "same_frontier_same_evaluator_same_historical_view",
+    "input_order_is_not_source_revision",
+    "historical_view_is_immutable",
+    "historical_reconstruction_grants_no_action_authority",
+    "ambiguous_dispatch_requires_reconciliation",
+    "stale_execution_epoch_cannot_start_new_effect",
+    "typed_receipt_stage_cannot_be_upgraded_by_wrapping",
+    "wire_adapter_preserves_native_semantics",
+    "provider_operations_do_not_depend_on_coordinator_availability"
+  ],
+  "cases": [
+    {
+      "case_id": "COORD-001",
+      "name": "two independent evaluators reconstruct identical frontier",
+      "class": "determinism",
+      "expected_historical": "same_canonical_view",
+      "expected_current_actionability": "not_evaluated_by_historical_reconstruction",
+      "effect_permission": "none",
+      "setup": "Two independently implemented evaluators receive the same frozen evidence frontier, evaluation instant, semantic profile, policy snapshot and verifier identity.",
+      "negative_control": "Evaluator B must not import evaluator A production reducer or coordinator helpers."
+    },
+    {
+      "case_id": "COORD-002",
+      "name": "permuted determinate event inputs",
+      "class": "permutation",
+      "expected_historical": "same_canonical_view",
+      "expected_current_actionability": "not_evaluated_by_historical_reconstruction",
+      "effect_permission": "none",
+      "setup": "Same provider events are supplied in different input orders; provider revision semantics establish a determinate order.",
+      "negative_control": "Local arrival order must not alter the canonical historical disposition."
+    },
+    {
+      "case_id": "COORD-003",
+      "name": "incomparable provider revisions",
+      "class": "conflict",
+      "expected_historical": "conflict_needs_reconciliation",
+      "expected_current_actionability": "denied_until_reconciled",
+      "effect_permission": "none",
+      "setup": "Two differing provider updates have no comparable sequence/revision semantics.",
+      "negative_control": "Do not choose last-received, latest wall-clock or highest confidence."
+    },
+    {
+      "case_id": "COORD-004",
+      "name": "required source evidence unavailable",
+      "class": "frontier_gap",
+      "expected_historical": "indeterminate_missing_evidence",
+      "expected_current_actionability": "denied_or_unknown",
+      "effect_permission": "none",
+      "setup": "Manifest refers to a protected provider source record unavailable to the replacement evaluator.",
+      "negative_control": "Digest availability is not source-payload reconstruction or provider truth."
+    },
+    {
+      "case_id": "COORD-005",
+      "name": "old coordinator crashes before intent persistence",
+      "class": "crash_window",
+      "expected_historical": "no_new_provider_effect_evidence",
+      "expected_current_actionability": "fresh_authorization_required",
+      "effect_permission": "none",
+      "setup": "Coordinator crashes before durable dispatch intent; the fixture proves no outbound invocation occurred.",
+      "negative_control": "Do not invent a provider request or action receipt."
+    },
+    {
+      "case_id": "COORD-006",
+      "name": "old coordinator crashes after intent persistence",
+      "class": "crash_window",
+      "expected_historical": "dispatch_outcome_unknown",
+      "expected_current_actionability": "needs_provider_reconciliation",
+      "effect_permission": "none",
+      "setup": "Intent is durable but post-intent state cannot prove whether external invocation began.",
+      "negative_control": "Absence of local success receipt must not imply NotSent or failure."
+    },
+    {
+      "case_id": "COORD-007",
+      "name": "provider commits then coordinator crashes",
+      "class": "ambiguous_effect",
+      "expected_historical": "provider_effect_unknown_to_coordinator_until_receipt_reconciled",
+      "expected_current_actionability": "no_new_commit_without_reconciliation",
+      "effect_permission": "none",
+      "setup": "Provider commits durably, loses the response path, and old coordinator exits before receipt admission.",
+      "negative_control": "Replacement cannot create a second hold/commit."
+    },
+    {
+      "case_id": "COORD-008",
+      "name": "provider read-back unavailable during replacement",
+      "class": "ambiguous_effect",
+      "expected_historical": "unknown_needs_reconciliation",
+      "expected_current_actionability": "no_blind_retry",
+      "effect_permission": "none",
+      "setup": "Coordinator has durable intent; provider's authoritative query is unavailable.",
+      "negative_control": "Do not turn timeout into failure or success."
+    },
+    {
+      "case_id": "COORD-009",
+      "name": "old coordinator resumes after fencing transfer",
+      "class": "split_brain",
+      "expected_historical": "historical_view_unchanged",
+      "expected_current_actionability": "stale_epoch_denied",
+      "effect_permission": "no_new_effect_from_old_epoch",
+      "setup": "Old process resumes after a new coordinator epoch has been issued.",
+      "negative_control": "Local mutex without qualified cross-process fencing is insufficient."
+    },
+    {
+      "case_id": "COORD-010",
+      "name": "two new coordinators race",
+      "class": "split_brain",
+      "expected_historical": "same_view_for_same_frontier",
+      "expected_current_actionability": "one_active_execution_epoch_or_refuse",
+      "effect_permission": "one_effectful_executor_at_most",
+      "setup": "Two replacement coordinators attempt to claim the same exact operation.",
+      "negative_control": "Provider must enforce fencing or provider idempotency/single-writer profile must bound the operation."
+    },
+    {
+      "case_id": "COORD-011",
+      "name": "provider idempotency horizon expired",
+      "class": "retry",
+      "expected_historical": "unknown_until_provider_reconciled",
+      "expected_current_actionability": "blind_replay_denied",
+      "effect_permission": "none",
+      "setup": "Ambiguous provider operation has exceeded the documented idempotency retention horizon.",
+      "negative_control": "Same key string after expiry is not proof of deduplication."
+    },
+    {
+      "case_id": "COORD-012",
+      "name": "provider key revoked after historical receipt",
+      "class": "revocation",
+      "expected_historical": "historical_signature_disposition_preserved",
+      "expected_current_actionability": "new_action_denied_or_requalified",
+      "effect_permission": "none",
+      "setup": "Old receipt was validly admitted under a then-current key; provider signing key is subsequently revoked.",
+      "negative_control": "Historical evidence is not rewritten; old key cannot authorize new activity."
+    },
+    {
+      "case_id": "COORD-013",
+      "name": "local policy changes after manifest generation",
+      "class": "policy_change",
+      "expected_historical": "old_view_immutable",
+      "expected_current_actionability": "recompute_under_current_policy",
+      "effect_permission": "none",
+      "setup": "Destination policy changes between historical evaluation and new action request.",
+      "negative_control": "Do not mutate old disposition or reuse historical permission as present authority."
+    },
+    {
+      "case_id": "COORD-014",
+      "name": "portable snapshot contains secrets",
+      "class": "privacy",
+      "expected_historical": "portable_snapshot_rejected",
+      "expected_current_actionability": "no_capability_transfer",
+      "effect_permission": "none",
+      "setup": "Recovery bundle includes a signing key, bearer token, payment token or reusable local capability.",
+      "negative_control": "Coordinator replacement never inherits credentials by copying a snapshot."
+    },
+    {
+      "case_id": "COORD-015",
+      "name": "transport receipt substituted for external effect receipt",
+      "class": "receipt_type",
+      "expected_historical": "receipt_chain_rejected",
+      "expected_current_actionability": "denied",
+      "effect_permission": "none",
+      "setup": "A valid TransportReceipt is presented where a typed ExecutionReceipt or ExternalEffectReceipt prerequisite is required.",
+      "negative_control": "Signature validity and generic accepted flags cannot upgrade receipt type."
+    },
+    {
+      "case_id": "COORD-016",
+      "name": "DCSA native timestamp mapping",
+      "class": "wire_mapping",
+      "expected_historical": "native_event_semantics_preserved",
+      "expected_current_actionability": "not_granted",
+      "effect_permission": "none",
+      "setup": "Map DCSA Port Call native event timestamp combinations into a view while preserving ARRIVAL-at-BERTH versus ARRIVAL-at-PILOT-BOARDING-PLACE semantics.",
+      "negative_control": "No automatic mapping to a recreational booking or port clearance."
+    },
+    {
+      "case_id": "COORD-017",
+      "name": "CloudEvents and non-CloudEvents adapter parity",
+      "class": "wire_mapping",
+      "expected_historical": "equivalent_only_for_explicitly_equivalent_mappings",
+      "expected_current_actionability": "not_granted",
+      "effect_permission": "none",
+      "setup": "Equivalent source occurrences are supplied through a CloudEvents profile and a provider-native profile with explicit mappings.",
+      "negative_control": "Do not mandate CloudEvents or silently discard source-specific semantics."
+    },
+    {
+      "case_id": "COORD-018",
+      "name": "coordinator outage while provider remains operational",
+      "class": "availability",
+      "expected_historical": "last_view_marked_as_historical_and_currentness_limited",
+      "expected_current_actionability": "provider_native_action_may_continue_under_provider_authority",
+      "effect_permission": "no_federation_effect",
+      "setup": "Federation coordinator is unavailable while marina provider-native operations remain available.",
+      "negative_control": "Provider operation must not depend on coordinator uptime."
+    },
+    {
+      "case_id": "COORD-019",
+      "name": "historical reconstruction with newer verifier",
+      "class": "versioning",
+      "expected_historical": "new_evaluation_identity_preserves_old_verdict",
+      "expected_current_actionability": "separately_requalified",
+      "effect_permission": "none",
+      "setup": "Verifier implementation is upgraded and re-evaluates the same evidence frontier.",
+      "negative_control": "Do not overwrite old verifier output or pretend version change did not occur."
+    },
+    {
+      "case_id": "COORD-020",
+      "name": "evidence frontier contains duplicate identity with changed content",
+      "class": "equivocation",
+      "expected_historical": "conflict_or_quarantine",
+      "expected_current_actionability": "denied_until_resolved",
+      "effect_permission": "none",
+      "setup": "Same source/event identity appears with different committed content.",
+      "negative_control": "Do not pick the later copy or merge contradictory payload fields."
+    }
+  ],
+  "execution_status": {
+    "executed": false,
+    "provider_sandbox_used": false,
+    "live_provider_access": false,
+    "independent_implementation_built": false,
+    "expected_dispositions_reviewed_against_frozen_semantics": false
+  }
+}
