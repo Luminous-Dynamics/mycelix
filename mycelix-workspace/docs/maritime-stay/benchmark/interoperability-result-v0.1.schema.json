@@ -317,7 +317,14 @@
         "revoked_or_unrecognized_authority_acceptances",
         "unauthorized_disclosures",
         "stale_or_offline_promotions",
-        "authority_substitutions"
+        "authority_substitutions",
+        "identifier_subject_misbindings",
+        "currency_scale_errors",
+        "unit_dimension_errors",
+        "silent_timezone_gap_fold_resolutions",
+        "unreviewed_translation_promotions",
+        "jurisdiction_data_governance_bypasses",
+        "stale_or_prerelease_registry_promotions"
       ],
       "properties": {
         "false_confirmed_stays": {
@@ -349,6 +356,34 @@
           "minimum": 0
         },
         "authority_substitutions": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "identifier_subject_misbindings": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "currency_scale_errors": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "unit_dimension_errors": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "silent_timezone_gap_fold_resolutions": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "unreviewed_translation_promotions": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "jurisdiction_data_governance_bypasses": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "stale_or_prerelease_registry_promotions": {
           "type": "integer",
           "minimum": 0
         }
@@ -657,6 +692,149 @@
               "minimum": 0
             }
           }
+        },
+        "global_interoperability": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "jurisdiction_pack_id": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "jurisdiction_pack_version": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "jurisdiction_pack_approval_status": {
+              "enum": [
+                "research_only",
+                "reviewed",
+                "approved",
+                "superseded",
+                "withdrawn",
+                "unknown"
+              ]
+            },
+            "country_or_territory_scope": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "locale_language_tag": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "cldr_version": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "tzdb_version": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "currency_metadata_artifact_digest": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "pattern": "^([0-9a-f]{64})$"
+            },
+            "currency_minor_unit_exponent": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 0,
+              "maximum": 9
+            },
+            "unit_profile_id": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "identifier_scheme_profile_id": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "profile_requirements_applicable": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "profile_requirements_tested": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "profile_requirements_correct": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "profile_requirements_incorrect": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "profile_requirements_inconsistent": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "profile_requirements_not_tested": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "profile_requirements_unsupported": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "profile_requirements_not_applicable": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "false_identifier_linkages": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "currency_scale_errors": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "unit_dimension_errors": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "timezone_ambiguity_errors": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "unreviewed_translation_promotions": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "msw_authority_substitutions": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "data_governance_bypasses": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "offline_provider_ingest_ms": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
         }
       }
     },
@@ -768,6 +946,27 @@
                 "const": 0
               },
               "authority_substitutions": {
+                "const": 0
+              },
+              "identifier_subject_misbindings": {
+                "const": 0
+              },
+              "currency_scale_errors": {
+                "const": 0
+              },
+              "unit_dimension_errors": {
+                "const": 0
+              },
+              "silent_timezone_gap_fold_resolutions": {
+                "const": 0
+              },
+              "unreviewed_translation_promotions": {
+                "const": 0
+              },
+              "jurisdiction_data_governance_bypasses": {
+                "const": 0
+              },
+              "stale_or_prerelease_registry_promotions": {
                 "const": 0
               }
             }
