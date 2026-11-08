@@ -1792,7 +1792,11 @@ mod tests {
         for disposition in [Disposition::Unknown, Disposition::NotEvaluable] {
             let report = ValidationReport::from_checks(vec![
                 Check::pass("local", "A local predicate passed."),
-                Check::new(disposition, "indeterminate", "An external prerequisite is not established."),
+                Check::new(
+                    disposition,
+                    "indeterminate",
+                    "An external prerequisite is not established.",
+                ),
             ]);
             assert_eq!(report.disposition, disposition);
             assert!(!report.is_pass());
