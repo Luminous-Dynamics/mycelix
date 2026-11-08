@@ -227,7 +227,7 @@ A provider sandbox or sample payload must be clearly identified as authorized. S
 
 A South African candidate register is not a partnership or pilot selection. Keep ZYC/BerthApp and Durban Marina as screening candidates until operators explicitly agree to participate.
 
-## 12. Acceptance
+## 12. Core acceptance
 
 - Comparison arms use matched tasks and explicit applicability rules.
 - Claims are assigned evidence grades and vendor attribution.
@@ -241,7 +241,7 @@ A South African candidate register is not a partnership or pilot selection. Keep
 
 
 
-## 12. Global interoperability: MCB-GLOBAL
+## 13. Global interoperability: MCB-GLOBAL
 
 The global compatibility corpus is defined in the separate Global Interoperability Profile workstream: Mycelix #5945, with 30 declarative cases in `global/global-compatibility-cases-v0.1.json`.
 
@@ -279,7 +279,7 @@ They compose with the existing safety gates. A global profile PASS is not a nati
 
 Use Southern Africa, Europe/EEA, North America, Gulf/Middle East, South/East/Southeast Asia, Latin America, Caribbean/SIDS and Pacific/Oceania as research coverage groupings only. They are not single legal jurisdictions. Country/port packs remain unapproved until exact sources, effective dates, authority scope, translations and local review evidence are recorded.
 
-## 11. Standards-profile conformance: coverage is not correctness
+## 14. Standards-profile conformance: coverage is not correctness
 
 Use a separate conformance family inspired by DCSA's public conformance framework. Measure two different things:
 
@@ -317,7 +317,7 @@ NotTested and Unsupported are not correct and remain visible as uncovered requir
 - CloudEvents 1.0.2 specification: https://github.com/cloudevents/spec.
 
 
-## 13. Monetary interoperability: MCB-MONEY
+## 15. Monetary interoperability: MCB-MONEY
 
 The monetary profile and fixture corpus are tracked in [MARITIME-MONEY-INTEROP-001 #5948](https://github.com/Luminous-Dynamics/mycelix/issues/5948), with the draft profile in [PR #5949](https://github.com/Luminous-Dynamics/mycelix/pull/5949).
 
