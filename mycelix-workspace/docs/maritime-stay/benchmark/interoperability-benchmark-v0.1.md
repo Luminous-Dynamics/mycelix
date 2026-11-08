@@ -239,6 +239,46 @@ A South African candidate register is not a partnership or pilot selection. Keep
 - No SOTA, performance, certification, partnership or production-readiness claim is made without the evidence required for that claim.
 
 
+
+
+## 12. Global interoperability: MCB-GLOBAL
+
+The global compatibility corpus is defined in the separate Global Interoperability Profile workstream: Mycelix #5945, with 30 declarative cases in `global/global-compatibility-cases-v0.1.json`.
+
+Globality is not measured by the number of country flags, translated screens or provider logos. It is measured by whether the protocol preserves meaning across different identifier schemes, currency metadata, time zones, languages/scripts, physical units, jurisdictional authority, data-governance policies, registry maturity and connectivity conditions.
+
+### Comparison dimensions
+
+Report independently:
+- exact profile coverage and correctness, with NotTested/Unsupported/NotApplicable visible;
+- jurisdiction-pack source freshness and review/approval status;
+- identifier subject and issuer linkage correctness;
+- monetary scale, rounding and FX evidence correctness;
+- time-zone/calendar conversion determinism and historical reconstruction;
+- unit dimension and conversion correctness;
+- language/script rendering, translation provenance and comprehension;
+- public-sector authority boundary (private stay versus MSW/PCS submission/acknowledgement/clearance);
+- data-residency/retention policy enforcement;
+- low-bandwidth and offline provider continuity;
+- time/person-hours to add a country pack, language, identifier scheme, currency profile and standards adapter.
+
+### Global hard gates
+
+These seven additional gates are non-compensatory:
+- zero identifier subject misbindings;
+- zero currency scale errors;
+- zero unit dimension errors;
+- zero silent daylight-saving gap/fold resolution;
+- zero unreviewed translation promoted to authoritative terms;
+- zero local data-governance or cross-border-transfer policy bypass;
+- zero stale or pre-release registry record promoted to production/current.
+
+They compose with the existing safety gates. A global profile PASS is not a national legal compliance certificate, regulatory acceptance, government adoption or field interoperability claim.
+
+### Starter regional research coverage
+
+Use Southern Africa, Europe/EEA, North America, Gulf/Middle East, South/East/Southeast Asia, Latin America, Caribbean/SIDS and Pacific/Oceania as research coverage groupings only. They are not single legal jurisdictions. Country/port packs remain unapproved until exact sources, effective dates, authority scope, translations and local review evidence are recorded.
+
 ## 11. Standards-profile conformance: coverage is not correctness
 
 Use a separate conformance family inspired by DCSA's public conformance framework. Measure two different things:
