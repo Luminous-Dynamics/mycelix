@@ -12,7 +12,7 @@ permissions:
 
 jobs:
   verify:
-    name: Build and test isolated verifier
+    name: Format, build, test, and lint isolated verifier
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -23,6 +23,22 @@ jobs:
 
       - name: Install stable Rust toolchain
         uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
 
-      - name: Run unit tests
+      - name: Run unit tests and generate lockfile
         run: cargo test --all-targets
+
+      - name: Check formatting
+        run: cargo fmt -- --check
+
+      - name: Run Clippy
+        run: cargo clippy --all-targets -- -D warnings
+
+      - name: Upload resolved Cargo lockfile for review
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: maritime-profile-verifier-cargo-lock
+          path: mycelix-workspace/tools/maritime-profile-verifier/Cargo.lock
+          if-no-files-found: warn
