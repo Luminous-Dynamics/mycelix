@@ -84,7 +84,12 @@ pub struct CandidateDataset {
     pub published_environment: Option<String>,
     pub paper_stated_license: Option<String>,
     pub exact_dataset_license_verified: Option<bool>,
+    pub license_evidence: Option<LicenseEvidence>,
     pub capture_group_metadata_verified: Option<bool>,
+    pub file_hashes_verified: Option<bool>,
+    pub data_dictionary_verified: Option<bool>,
+    pub privacy_content_review_verified: Option<bool>,
+    pub split_protocol_verified: Option<bool>,
     pub published_subsets: Option<u32>,
     pub published_uav_units: Option<u32>,
     pub published_uav_models: Option<u32>,
@@ -94,6 +99,17 @@ pub struct CandidateDataset {
     pub derivative_sharing_permitted: Option<bool>,
     pub status: String,
     pub primary_limitations: Vec<String>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct LicenseEvidence {
+    pub url: String,
+    pub retrieval_date: String,
+    pub version: String,
+    pub license: String,
+    pub scope: String,
+    pub evidence_type: String,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -296,17 +312,23 @@ pub fn validate(register: &Register) -> Vec<String> {
         if candidate
             .exact_landing_page_file_license_verified
             .unwrap_or(false)
-            || candidate.exact_dataset_license_verified.unwrap_or(false)
             || candidate.capture_group_metadata_verified.unwrap_or(false)
-            || candidate
-                .dataset_repository_license_verified
-                .unwrap_or(false)
+            || candidate.dataset_repository_license_verified.unwrap_or(false)
             || candidate.derivative_sharing_permitted.unwrap_or(false)
+            || candidate.file_hashes_verified.unwrap_or(false)
+            || candidate.data_dictionary_verified.unwrap_or(false)
+            || candidate.privacy_content_review_verified.unwrap_or(false)
+            || candidate.split_protocol_verified.unwrap_or(false)
         {
             errors.push(format!(
-                "unreviewed_rights_or_metadata_promoted: {}",
+                "unreviewed_metadata_or_redistribution_promoted: {}",
                 candidate.id
             ));
+        }
+        if candidate.exact_dataset_license_verified == Some(true)
+            && candidate.license_evidence.is_none()
+        {
+            errors.push(format!("verified_license_missing_source_evidence: {}", candidate.id));
         }
     }
 
@@ -338,8 +360,22 @@ pub fn validate(register: &Register) -> Vec<String> {
     {
         Some(candidate)
             if candidate.paper_stated_license.as_deref() == Some("CC-BY")
-                && candidate.exact_dataset_license_verified == Some(false)
+                && candidate.exact_dataset_license_verified == Some(true)
+                && candidate.license_evidence.as_ref().is_some_and(|evidence| {
+                    evidence.url == "https://data.mendeley.com/datasets/y4w96kzsb5/1"
+                        && evidence.retrieval_date == "2026-11-08"
+                        && evidence.version == "1"
+                        && evidence.license == "CC BY 4.0"
+                        && evidence.evidence_type == "dataset_landing_page"
+                        && evidence.scope.contains("does not clear separate article assets")
+                })
                 && candidate.capture_group_metadata_verified == Some(false)
+                && candidate.file_hashes_verified == Some(false)
+                && candidate.data_dictionary_verified == Some(false)
+                && candidate.privacy_content_review_verified == Some(false)
+                && candidate.split_protocol_verified == Some(false)
+                && candidate.status
+                    == "NOT_ADMITTED_PENDING_GROUP_METADATA_PRIVACY_FILE_HASH_AND_SPLIT_AUDIT"
                 && candidate.published_counts.as_ref().is_some_and(|counts| {
                     counts.spectrograms == 6842
                         && counts.signal_instances == 22375
@@ -490,6 +526,55 @@ mod tests {
                 .iter()
                 .any(|error| error.starts_with("candidate_must_remain_not_admitted:"))
         );
+    }
+
+    #[test]
+    fn mendeley_dataset_license_is_verified_but_candidate_remains_not_admitted() {
+        let register = mutated_register();
+        let candidate = register
+            .candidate_datasets
+            .iter()
+            .find(|candidate| candidate.id == "UAV-RF-COEXIST-2026")
+            .expect("RF coexistence source exists");
+        assert_eq!(candidate.exact_dataset_license_verified, Some(true));
+        assert_eq!(
+            candidate.status,
+            "NOT_ADMITTED_PENDING_GROUP_METADATA_PRIVACY_FILE_HASH_AND_SPLIT_AUDIT"
+        );
+        assert_eq!(candidate.capture_group_metadata_verified, Some(false));
+        assert_eq!(candidate.file_hashes_verified, Some(false));
+        assert_eq!(candidate.split_protocol_verified, Some(false));
+        assert!(validate(&register).is_empty());
+    }
+
+    #[test]
+    fn verified_mendeley_license_requires_exact_source_evidence() {
+        let mut register = mutated_register();
+        let candidate = register
+            .candidate_datasets
+            .iter_mut()
+            .find(|candidate| candidate.id == "UAV-RF-COEXIST-2026")
+            .expect("RF coexistence source exists");
+        candidate.license_evidence = None;
+        let errors = validate(&register);
+        assert!(errors.iter().any(|error| {
+            error.starts_with("verified_license_missing_source_evidence:")
+                || error == "rf_coexistence_rights_or_count_mismatch"
+        }));
+    }
+
+    #[test]
+    fn mendeley_license_url_is_pinned() {
+        let mut register = mutated_register();
+        let candidate = register
+            .candidate_datasets
+            .iter_mut()
+            .find(|candidate| candidate.id == "UAV-RF-COEXIST-2026")
+            .expect("RF coexistence source exists");
+        candidate.license_evidence.as_mut().expect("license evidence").url =
+            "https://example.invalid/license".to_string();
+        let errors = validate(&register);
+        assert!(errors.iter().any(|error| error == "rf_coexistence_rights_or_count_mismatch"));
     }
 
     #[test]
