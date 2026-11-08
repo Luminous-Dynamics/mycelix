@@ -1,0 +1,366 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:luminous-dynamics:maritime-commons:adapter-mapping-ledger:0.1.0",
+  "title": "Maritime Commons Adapter Mapping and Semantic Loss Ledger v0.1",
+  "description": "Structural envelope for adapter field mappings. It does not prove that a mapping is truthful, lossless, authorized, or interoperable.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "ledger_id",
+    "adapter_profile_id",
+    "adapter_version",
+    "source_profile",
+    "target_profile",
+    "evaluated_at",
+    "records",
+    "claim_ceiling"
+  ],
+  "properties": {
+    "ledger_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 160
+    },
+    "adapter_profile_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 160
+    },
+    "adapter_version": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 80
+    },
+    "source_profile": {
+      "$ref": "#/$defs/ProfilePin"
+    },
+    "target_profile": {
+      "$ref": "#/$defs/ProfilePin"
+    },
+    "evaluated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "records": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/MappingRecord"
+      }
+    },
+    "claim_ceiling": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1000
+    }
+  },
+  "$defs": {
+    "Maturity": {
+      "enum": [
+        "production",
+        "operational",
+        "implementation_testing",
+        "prerelease",
+        "draft",
+        "deprecated",
+        "withdrawn",
+        "unknown"
+      ]
+    },
+    "ProfilePin": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "authority",
+        "family",
+        "identifier",
+        "version",
+        "maturity",
+        "sha256"
+      ],
+      "properties": {
+        "authority": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "family": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "identifier": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "maturity": {
+          "$ref": "#/$defs/Maturity"
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^sha256:[a-f0-9]{64}$"
+        }
+      }
+    },
+    "Requirement": {
+      "enum": [
+        "required",
+        "optional",
+        "contextual",
+        "unknown"
+      ]
+    },
+    "Outcome": {
+      "enum": [
+        "preserved",
+        "normalized_preserving",
+        "approximated",
+        "omitted",
+        "unsupported",
+        "unknown_source_value",
+        "invented_value"
+      ]
+    },
+    "LossSeverity": {
+      "enum": [
+        "none",
+        "low",
+        "medium",
+        "high",
+        "critical",
+        "unknown"
+      ]
+    },
+    "Recoverability": {
+      "enum": [
+        "exact_round_trip",
+        "source_evidence_available",
+        "partial",
+        "irreversible",
+        "unknown"
+      ]
+    },
+    "EvidenceKind": {
+      "enum": [
+        "source_fixture",
+        "provider_sample_authorized",
+        "standards_test_vector",
+        "operator_observation",
+        "independent_evaluation",
+        "synthetic_only",
+        "unknown"
+      ]
+    },
+    "MappingRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "mapping_id",
+        "source_field_path",
+        "source_semantics",
+        "field_requirement",
+        "outcome",
+        "loss_severity",
+        "recoverability",
+        "evidence_kind"
+      ],
+      "properties": {
+        "mapping_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "source_field_path": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "source_semantics": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1000
+        },
+        "target_field_path": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 512
+        },
+        "target_semantics": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 1000
+        },
+        "field_requirement": {
+          "$ref": "#/$defs/Requirement"
+        },
+        "outcome": {
+          "$ref": "#/$defs/Outcome"
+        },
+        "loss_severity": {
+          "$ref": "#/$defs/LossSeverity"
+        },
+        "recoverability": {
+          "$ref": "#/$defs/Recoverability"
+        },
+        "loss_reason": {
+          "type": "string",
+          "maxLength": 2000
+        },
+        "evidence_kind": {
+          "$ref": "#/$defs/EvidenceKind"
+        },
+        "evidence_ref": {
+          "type": "string",
+          "maxLength": 2048
+        },
+        "unknown_value_policy": {
+          "enum": [
+            "preserve_opaque",
+            "quarantine",
+            "reject",
+            "not_observed"
+          ]
+        },
+        "notes": {
+          "type": "string",
+          "maxLength": 2000
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "outcome": {
+                "const": "invented_value"
+              }
+            },
+            "required": [
+              "outcome"
+            ]
+          },
+          "then": {
+            "properties": {
+              "loss_severity": {
+                "enum": [
+                  "high",
+                  "critical"
+                ]
+              },
+              "loss_reason": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": [
+              "loss_reason"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "outcome": {
+                "enum": [
+                  "approximated",
+                  "omitted",
+                  "unsupported",
+                  "unknown_source_value"
+                ]
+              }
+            },
+            "required": [
+              "outcome"
+            ]
+          },
+          "then": {
+            "properties": {
+              "loss_severity": {
+                "not": {
+                  "const": "none"
+                }
+              }
+            },
+            "required": [
+              "loss_reason"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "outcome": {
+                "enum": [
+                  "omitted",
+                  "unsupported"
+                ]
+              }
+            },
+            "required": [
+              "outcome"
+            ]
+          },
+          "then": {
+            "properties": {
+              "target_field_path": {
+                "type": "null"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "outcome": {
+                "const": "preserved"
+              }
+            },
+            "required": [
+              "outcome"
+            ]
+          },
+          "then": {
+            "properties": {
+              "loss_severity": {
+                "const": "none"
+              },
+              "recoverability": {
+                "const": "exact_round_trip"
+              },
+              "target_field_path": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "outcome": {
+                "const": "unknown_source_value"
+              }
+            },
+            "required": [
+              "outcome"
+            ]
+          },
+          "then": {
+            "required": [
+              "unknown_value_policy"
+            ]
+          }
+        }
+      ]
+    }
+  }
+}
