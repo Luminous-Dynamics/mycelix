@@ -14,7 +14,7 @@ It reuses the existing Rust manifest verifiers as local dependencies:
 - `gcpn-civil-autonomous-awareness-verifier` validates the exact CAA event taxonomy and its authority/privacy semantics.
 - `gcpn-awareness-industry-comparison-verifier` validates the two-track comparison protocol and baseline metadata.
 
-No third copy of those source schemas is introduced.
+No third copy of those source schemas is introduced. The local Cargo dependencies are intentionally stacked on the civilian-awareness verifier branch while its PR remains open; this comparison/evaluator PR therefore targets that branch until the parent CAA verifier is merged into main.
 
 ## 2. Exact input contract
 
