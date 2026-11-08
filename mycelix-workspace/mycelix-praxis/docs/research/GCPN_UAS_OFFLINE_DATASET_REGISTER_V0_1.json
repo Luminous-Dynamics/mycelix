@@ -148,12 +148,25 @@
       ],
       "paper_license": "CC-BY-NC-ND-4.0",
       "dataset_repository_license_verified": false,
-      "derivative_sharing_permitted": false,
-      "status": "NOT_ADMITTED_PENDING_DATASET_LICENSE_AND_NONCOMMERCIAL_NO_DERIVATIVES_REVIEW",
+      "derivative_sharing_permitted": null,
+      "status": "NOT_ADMITTED_PENDING_SCIENCEDB_LANDING_PAGE_FILE_RIGHTS_AND_DERIVATIVE_TERMS_REVIEW",
       "primary_limitations": [
         "research dataset, not universal site distribution",
-        "exact data repository version and license must be pinned"
-      ]
+        "the paper article licence is distinct from the paper-reported dataset licence",
+        "repository item/version, file inventory, file-level terms and rights-holder authority remain to be verified",
+        "raw I/Q and metadata must undergo privacy/content and group leakage review"
+      ],
+      "dataset_repository_doi": "10.57760/sciencedb.36815",
+      "dataset_repository_url": "https://doi.org/10.57760/sciencedb.36815",
+      "paper_stated_dataset_license": "CC-BY-4.0",
+      "dataset_license_claim_evidence": {
+        "url": "https://github.com/RobotFlow-Labs/DEF-W9-12_DRFF-R2/blob/main/papers/2603.00106.txt",
+        "retrieval_date": "2026-11-08",
+        "source_section": "Data Records / Data Availability",
+        "license": "CC BY 4.0",
+        "statement": "The paper's Data Records section states that dataset files are distributed under CC BY 4.0.",
+        "evidence_type": "paper_reported_dataset_repository_claim"
+      }
     }
   ],
   "required_source_manifest_fields": [
