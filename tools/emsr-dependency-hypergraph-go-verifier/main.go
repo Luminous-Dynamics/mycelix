@@ -305,7 +305,7 @@ func referenceReport(input Input, inputHash string) Report {
 		EvidenceFrontier:    input.Snapshot.EvidenceFrontier,
 		EventTime:           input.Query.EventTime,
 		Domain:              input.Query.Domain,
-		SourceIDs:           append([]string(nil), input.Query.SourceIDs...),
+		SourceIDs:           cloneStrings(input.Query.SourceIDs),
 		SourceAncestors:     sourceAncestors,
 		CommonDependencyIDs: common,
 		ReasonCodes:         reasons,
@@ -420,7 +420,7 @@ func invalidReport(inputHash string, reasons []string, domain string, eventTime 
 		EvidenceFrontier:    evidenceFrontier,
 		EventTime:           eventTime,
 		Domain:              domain,
-		SourceIDs:           append([]string(nil), sourceIDs...),
+		SourceIDs:           cloneStrings(sourceIDs),
 		SourceAncestors:     map[string][]string{},
 		CommonDependencyIDs: []string{},
 		ReasonCodes:         uniqueSorted(reasons),
@@ -507,4 +507,10 @@ func check(id string, passed bool) VerificationCheck {
 		result = "pass"
 	}
 	return VerificationCheck{ID: id, Result: result}
+}
+
+func cloneStrings(values []string) []string {
+	output := make([]string, len(values))
+	copy(output, values)
+	return output
 }
