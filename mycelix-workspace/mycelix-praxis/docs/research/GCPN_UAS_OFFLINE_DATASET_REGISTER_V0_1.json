@@ -98,7 +98,7 @@
         "training_images": 5678,
         "validation_images": 1164
       },
-      "published_environment": "indoor / semi-controlled with Wi-Fi and Bluetooth coexistence",
+      "published_environment": "Indoor and outdoor RF coexistence described by the Mendeley landing page; paper describes indoor/semi-controlled acquisition with Wi-Fi and Bluetooth interference",
       "paper_stated_license": "CC-BY",
       "exact_dataset_license_verified": true,
       "capture_group_metadata_verified": false,
@@ -120,7 +120,12 @@
       "file_hashes_verified": false,
       "data_dictionary_verified": false,
       "privacy_content_review_verified": false,
-      "split_protocol_verified": false
+      "split_protocol_verified": false,
+      "data_notes": [
+        "Mendeley landing page lists PNG spectrograms and corresponding YOLO-format TXT annotations; no raw I/Q files are listed in the published file description",
+        "Paper describes captured raw IQ as transformed into STFT spectrograms before the published image/annotation dataset",
+        "No decoding or retention of private communications payloads is performed or in scope"
+      ]
     },
     {
       "id": "DRFF-R2-2026",
