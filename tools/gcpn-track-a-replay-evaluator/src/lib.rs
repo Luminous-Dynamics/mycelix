@@ -17,7 +17,7 @@ pub const RUN_CLAIM_CEILING: &str =
 pub const AWARENESS_CASE_SHA256: &str =
     "317ed98191606c4e0a58f8445ec29df3c9851dfb4968a33faf80dfc43eaacaa4";
 pub const COMPARISON_MANIFEST_SHA256: &str =
-    "3fca74480cef7802e0fd0fddcd97949a0593c6a873f97c195d4250bd88034678";
+    "4a66a0d631580eeba82b567821b0be692e2857ff1317b677945362a7d08a1173";
 
 #[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "snake_case")]
