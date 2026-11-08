@@ -324,7 +324,11 @@
         "silent_timezone_gap_fold_resolutions",
         "unreviewed_translation_promotions",
         "jurisdiction_data_governance_bypasses",
-        "stale_or_prerelease_registry_promotions"
+        "stale_or_prerelease_registry_promotions",
+        "floating_point_authoritative_money_paths",
+        "implicit_fx_conversions",
+        "silent_monetary_rounding_or_overflow",
+        "refund_finality_without_external_evidence"
       ],
       "properties": {
         "false_confirmed_stays": {
@@ -384,6 +388,22 @@
           "minimum": 0
         },
         "stale_or_prerelease_registry_promotions": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "floating_point_authoritative_money_paths": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "implicit_fx_conversions": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "silent_monetary_rounding_or_overflow": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "refund_finality_without_external_evidence": {
           "type": "integer",
           "minimum": 0
         }
@@ -835,6 +855,94 @@
               "minimum": 0
             }
           }
+        },
+        "monetary_interoperability": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "currency_metadata_artifact_digest": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "pattern": "^([0-9a-f]{64})$"
+            },
+            "currency_metadata_profile_id": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "currency_minor_unit_exponent": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 0,
+              "maximum": 9
+            },
+            "transaction_effective_at": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "format": "date-time"
+            },
+            "amount_semantic_role": {
+              "enum": [
+                "quote",
+                "contractual_obligation",
+                "invoice",
+                "credit_note",
+                "refund_request",
+                "refund_attempt",
+                "refund_effect",
+                "settlement_evidence",
+                "unknown"
+              ]
+            },
+            "quote_currency": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "pattern": "^([A-Z]{3})$"
+            },
+            "settlement_currency": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "pattern": "^([A-Z]{3})$"
+            },
+            "currency_scale_errors": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "monetary_arithmetic_errors": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "floating_point_authoritative_money_paths": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "implicit_fx_conversions": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "silent_monetary_rounding_or_overflow": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "refund_finality_misclassifications": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "fx_evidence_completeness": {
+              "type": "boolean"
+            }
+          }
         }
       }
     },
@@ -967,6 +1075,18 @@
                 "const": 0
               },
               "stale_or_prerelease_registry_promotions": {
+                "const": 0
+              },
+              "floating_point_authoritative_money_paths": {
+                "const": 0
+              },
+              "implicit_fx_conversions": {
+                "const": 0
+              },
+              "silent_monetary_rounding_or_overflow": {
+                "const": 0
+              },
+              "refund_finality_without_external_evidence": {
                 "const": 0
               }
             }
