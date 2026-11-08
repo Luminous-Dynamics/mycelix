@@ -145,7 +145,8 @@
           "assessment",
           "valid_from",
           "valid_until",
-          "rationale"
+          "rationale",
+          "evidence_refs"
         ],
         "properties": {
           "assertion_id": {
@@ -395,13 +396,25 @@
           "scope": {
             "required": [
               "observation_set_digest"
-            ]
+            ],
+            "properties": {
+              "observation_set_digest": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              }
+            }
           },
           "sources": {
             "items": {
               "required": [
                 "source_record_digest"
-              ]
+              ],
+              "properties": {
+                "source_record_digest": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                }
+              }
             }
           },
           "dependency_assertions": {
