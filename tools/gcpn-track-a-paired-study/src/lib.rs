@@ -234,7 +234,7 @@ pub fn evaluate_with_expected_sha256(
 
     let mut unit_ids = BTreeSet::new();
     let mut bundle_digests = BTreeSet::new();
-    let mut event_set_digests = BTreeSet::new();
+    let mut event_set_digests = BTreeSet::<String>::new();
     let mut blocks = Vec::with_capacity(study.blocks.len());
     let mut common_operator_policy: Option<String> = None;
 
@@ -344,7 +344,7 @@ pub fn evaluate_with_expected_sha256(
             );
         }
 
-        if !event_set_digests.insert(run_bundle.event_set_sha256.as_str()) {
+        if !event_set_digests.insert(run_bundle.event_set_sha256.clone()) {
             return empty_report(
                 input_sha256,
                 "REJECTED",
@@ -540,7 +540,8 @@ pub fn evaluate_with_expected_sha256(
     } else {
         "CONTROLLED_PAIRED_RESULT"
     };
-    let inference_permitted = !synthetic && enough_units;
+    let inference_permitted =
+        inference_permitted(study.evidence_tier, count, minimum);
 
     StudyReport {
         report_schema: REPORT_SCHEMA,
@@ -655,6 +656,14 @@ fn blocked_report(
     report.bootstrap_resamples = Some(study.preregistration.bootstrap_resamples);
     report.bootstrap_seed = Some(study.preregistration.bootstrap_seed);
     report
+}
+
+fn inference_permitted(
+    evidence_tier: StudyEvidenceTier,
+    observed_units: usize,
+    required_units: usize,
+) -> bool {
+    evidence_tier == StudyEvidenceTier::ControlledReplay && observed_units >= required_units
 }
 
 fn bootstrap_paired(blocks: &[PairedBlock], prereg: &Preregistration) -> BootstrapOutput {
@@ -812,7 +821,7 @@ fn human_review_seconds(
     case_results
         .iter()
         .filter_map(|result| result.human_review_seconds)
-        .map(f64::from)
+        .map(|seconds| seconds as f64)
         .sum()
 }
 
@@ -980,21 +989,22 @@ mod tests {
     }
 
     #[test]
-    fn synthetic_preview_never_becomes_inferential() {
-        let mut value = fixture_value();
-        let blocks = value["blocks"].as_array_mut().unwrap();
-        let first = blocks[0].clone();
-        for index in 8..32 {
-            let mut copy = first.clone();
-            copy["independent_unit_id"] = json!(format!("SYNTHETIC-UNIT-{index:02}"));
-            copy["run_bundle_sha256"] = json!(format!("{:064x}", index + 1));
-            blocks.push(copy);
-        }
-        let report = evaluate_value(value);
-        assert_eq!(report.status, "SYNTHETIC_PREVIEW");
-        assert_eq!(report.independent_units_observed, 32);
-        assert!(!report.inference_permitted);
-        assert_eq!(report.hypothesis_supported, None);
+    fn synthetic_preview_never_becomes_inferential_even_above_floor() {
+        assert!(!inference_permitted(
+            StudyEvidenceTier::SyntheticPreview,
+            64,
+            CONTROLLED_MINIMUM_INDEPENDENT_UNITS
+        ));
+        assert!(!inference_permitted(
+            StudyEvidenceTier::ControlledReplay,
+            29,
+            CONTROLLED_MINIMUM_INDEPENDENT_UNITS
+        ));
+        assert!(inference_permitted(
+            StudyEvidenceTier::ControlledReplay,
+            30,
+            CONTROLLED_MINIMUM_INDEPENDENT_UNITS
+        ));
     }
 
     #[test]
@@ -1158,10 +1168,47 @@ mod tests {
         value["independence_assessment_receipt_sha256"] = json!(
             "9999999999999999999999999999999999999999999999999999999999999999"
         );
+        let block_json = value["blocks"][0]["run_bundle_json"].as_str().unwrap();
+        let mut child: Value = serde_json::from_str(block_json).unwrap();
+        child["evidence_tier"] = json!("CONTROLLED_REPLAY");
+        child["simulation_only"] = json!(false);
+        let serialized = child.to_string();
+        value["blocks"][0]["run_bundle_sha256"] = json!(sha256_hex(serialized.as_bytes()));
+        value["blocks"][0]["run_bundle_json"] = json!(serialized);
         let report = evaluate_value(value);
-        assert!(
-            report.status == "BLOCKED" || report.status == "INSUFFICIENT_INDEPENDENT_UNITS"
+        assert_eq!(report.status, "BLOCKED");
+        assert!(report.reasons[0].starts_with("track_a_block_blocked:"));
+    }
+
+    #[test]
+    fn controlled_children_with_review_receipts_but_under_floor_are_insufficient() {
+        let mut value = fixture_value();
+        value["evidence_tier"] = json!("CONTROLLED_REPLAY");
+        value["independence_assessment_receipt_sha256"] = json!(
+            "9999999999999999999999999999999999999999999999999999999999999999"
         );
+        for block in value["blocks"].as_array_mut().unwrap() {
+            let block_json = block["run_bundle_json"].as_str().unwrap();
+            let mut child: Value = serde_json::from_str(block_json).unwrap();
+            child["evidence_tier"] = json!("CONTROLLED_REPLAY");
+            child["simulation_only"] = json!(false);
+            child["ground_truth_adjudication_receipt_sha256"] = json!(
+                "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            );
+            child["privacy_review_receipt_sha256"] = json!(
+                "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+            );
+            child["authorization_review_receipt_sha256"] = json!(
+                "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+            );
+            let serialized = child.to_string();
+            block["run_bundle_sha256"] = json!(sha256_hex(serialized.as_bytes()));
+            block["run_bundle_json"] = json!(serialized);
+        }
+        let report = evaluate_value(value);
+        assert_eq!(report.status, "INSUFFICIENT_INDEPENDENT_UNITS");
+        assert!(!report.inference_permitted);
+        assert_eq!(report.independent_units_observed, 8);
     }
 }
 
