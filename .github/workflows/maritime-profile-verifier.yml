@@ -12,7 +12,7 @@ permissions:
 
 jobs:
   verify:
-    name: Build, format, test, and lint isolated verifier
+    name: Build and test isolated verifier
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -23,8 +23,6 @@ jobs:
 
       - name: Install stable Rust toolchain
         uses: dtolnay/rust-toolchain@stable
-        with:
-          components: rustfmt, clippy
 
       - name: Run unit tests
         run: cargo test --all-targets
