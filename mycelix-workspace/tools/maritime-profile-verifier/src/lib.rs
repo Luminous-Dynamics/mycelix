@@ -306,21 +306,15 @@ pub fn evaluate_identifier(
             "The evaluation time must be an RFC 3339 timestamp with an explicit offset.",
         )),
         Some(as_of) => {
-            let valid_from = match identifier.valid_from.as_deref() {
-                Some(value) => parse_rfc3339(value),
-                None => None,
-            };
-            let valid_until = match identifier.valid_until.as_deref() {
-                Some(value) => parse_rfc3339(value),
-                None => None,
-            };
+            let valid_from = identifier.valid_from.as_deref().map(parse_rfc3339).flatten();
+            let valid_until = identifier.valid_until.as_deref().map(parse_rfc3339).flatten();
 
             if identifier.valid_from.is_some() && valid_from.is_none() {
                 checks.push(Check::reject(
                     "identifier_valid_from_invalid",
                     "The identifier lower validity bound is not a valid RFC 3339 timestamp.",
                 ));
-            } else if valid_from.is_some_and(|start| as_of < start) {
+            } else if valid_from.as_ref().is_some_and(|start| as_of < *start) {
                 checks.push(Check::reject(
                     "identifier_not_yet_valid",
                     "The identifier is not valid at the requested evaluation time.",
@@ -332,7 +326,7 @@ pub fn evaluate_identifier(
                     "identifier_valid_until_invalid",
                     "The identifier upper validity bound is not a valid RFC 3339 timestamp.",
                 ));
-            } else if valid_until.is_some_and(|end| as_of >= end) {
+            } else if valid_until.as_ref().is_some_and(|end| as_of >= *end) {
                 checks.push(Check::reject(
                     "identifier_expired",
                     "The identifier validity interval uses an exclusive upper bound and has expired.",
@@ -341,8 +335,8 @@ pub fn evaluate_identifier(
 
             if (identifier.valid_from.is_none() || valid_from.is_some())
                 && (identifier.valid_until.is_none() || valid_until.is_some())
-                && valid_from.is_none_or(|start| as_of >= start)
-                && valid_until.is_none_or(|end| as_of < end)
+                && valid_from.as_ref().is_none_or(|start| as_of >= *start)
+                && valid_until.as_ref().is_none_or(|end| as_of < *end)
             {
                 checks.push(Check::pass(
                     "identifier_validity_interval",
@@ -482,11 +476,7 @@ pub fn evaluate_money(
         )),
         Some(effective_at) => {
             let start = parse_rfc3339(&metadata.effective_from);
-            let end = metadata
-                .effective_until
-                .as_deref()
-                .map(parse_rfc3339)
-                .transpose_option();
+            let end = metadata.effective_until.as_deref().and_then(parse_rfc3339);
 
             if start.is_none() || (metadata.effective_until.is_some() && end.is_none()) {
                 checks.push(Check::unknown(
@@ -511,18 +501,6 @@ pub fn evaluate_money(
     }
 
     ValidationReport::from_checks(checks)
-}
-
-// Converts Option<Option<T>> to Option<T> only when the outer Option is Some.
-// A malformed supplied end date remains None and is handled as an unknown interval.
-trait TransposeOption<T> {
-    fn transpose_option(self) -> Option<T>;
-}
-
-impl<T> TransposeOption<T> for Option<Option<T>> {
-    fn transpose_option(self) -> Option<T> {
-        self.flatten()
-    }
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -591,7 +569,7 @@ pub fn evaluate_temporal(
     let source = parse_rfc3339(&evidence.source_timestamp);
     let local = parse_local_lexeme(&evidence.source_local_lexeme);
 
-    match (source, local) {
+    match (source.as_ref(), local) {
         (Some(source), Some(local)) if source.naive_local() == local => checks.push(Check::pass(
             "source_local_offset_consistent",
             "The preserved local-time lexeme agrees with the local component of the source timestamp and explicit offset.",
@@ -637,7 +615,7 @@ pub fn evaluate_temporal(
     }
 
     match (
-        source,
+        source.as_ref(),
         evidence.resolved_utc.as_deref().and_then(parse_rfc3339),
     ) {
         (Some(source), Some(resolved)) => {
@@ -684,6 +662,7 @@ pub struct UnitRegistrySnapshot {
 pub struct TypedQuantity {
     pub value_decimal: String,
     pub unit_code: String,
+    pub registry_authority: String,
     pub registry_name: String,
     pub registry_version: String,
     pub registry_sha256: String,
@@ -752,7 +731,8 @@ pub fn evaluate_quantity(
         ));
     }
 
-    if quantity.registry_name != registry.registry_name
+    if quantity.registry_authority != registry.authority
+        || quantity.registry_name != registry.registry_name
         || quantity.registry_version != registry.version
         || quantity.registry_sha256 != registry.sha256
     {
@@ -1083,6 +1063,7 @@ mod tests {
         TypedQuantity {
             value_decimal: "12.750".into(),
             unit_code: unit.into(),
+            registry_authority: "unit-registry-authority".into(),
             registry_name: "UCUM".into(),
             registry_version: "2.2".into(),
             registry_sha256: digest('b'),
