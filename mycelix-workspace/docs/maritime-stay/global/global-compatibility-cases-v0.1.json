@@ -1,0 +1,422 @@
+{
+  "corpus_id": "MCB-GLOBAL-0.1",
+  "profile_id": "maritime-global-interop-0.1",
+  "status": "synthetic_contract_cases_not_executed",
+  "claim_ceiling": "Declarative synthetic tests only. No country legal assessment, government authority, currency provider, standards certification, operational interoperability, or production readiness is established.",
+  "base_profiles": {
+    "imo_compendium": {
+      "id": "FAL.5/Circ.56",
+      "approval_context": "FAL 50, March 2026",
+      "maturity": "approved_reference_model",
+      "source": "https://imocompendium.imo.org/public/IMO-Compendium/Current/in1.htm"
+    },
+    "maritime_single_window": {
+      "id": "FAL_Convention_MSW",
+      "effective_from": "2024-01-01",
+      "maturity": "convention_requirement_for_relevant_public_authorities",
+      "source": "https://www.imo.org/en/mediacentre/hottopics/pages/free-flow-of-trade-by-ship.aspx"
+    },
+    "unlocode": {
+      "recommendation": "UNECE Recommendation 16",
+      "production_snapshot": "2025-1",
+      "prerelease_observed_at": "2026-11-05",
+      "maturity": "production_and_prerelease_are_distinct",
+      "source": "https://unlocode.unece.org/publications/"
+    },
+    "w3c_vc": {
+      "profile": "VC Data Model 2.0",
+      "status": "W3C Recommendation 2025-05-15",
+      "source": "https://www.w3.org/TR/vc-data-model/"
+    },
+    "currency": {
+      "profile": "ISO 4217",
+      "metadata_artifact_digest_required": true,
+      "source": "https://www.iso.org/iso-4217-currency-codes.html"
+    },
+    "units": {
+      "profile": "UCUM",
+      "version": "2.2",
+      "source": "https://ucum.org/ucum"
+    },
+    "language": {
+      "profile": "BCP 47 / RFC 5646",
+      "source": "https://www.rfc-editor.org/info/bcp47/"
+    },
+    "locale": {
+      "profile": "Unicode CLDR",
+      "version": "49",
+      "released": "2026-10-22",
+      "source": "https://cldr.unicode.org/index/downloads"
+    },
+    "timezone": {
+      "profile": "IANA Time Zone Database",
+      "version": "2026f",
+      "released": "2026-10-27",
+      "source": "https://www.iana.org/time-zones"
+    },
+    "ihos100": {
+      "profile": "S-100",
+      "edition": "5.2.1",
+      "entry_into_force": "2026-01-01",
+      "source": "https://iho.int/fr/standards-in-force-0"
+    },
+    "iala_mcp": {
+      "architecture": "Maritime Connectivity Platform",
+      "components": [
+        "Maritime Identity Registry",
+        "Maritime Service Registry",
+        "Maritime Messaging Service"
+      ],
+      "identity": "Maritime Resource Name (MRN), certificate/PKI, web-service authentication and authorization",
+      "maturity": "existing_decentralized_maritime_exchange_platform",
+      "source": "https://maritimeconnectivity.net/"
+    },
+    "iala_mrn": {
+      "profile": "Maritime Resource Name",
+      "scope": "scheme-qualified identifier for maritime resources; not mandatory for all participants",
+      "source": "https://www.iala.int/technical/data-modelling-mrn/"
+    },
+    "iala_msr": {
+      "profile": "G1191 Maritime Service Registry Technical Specification",
+      "version": "1.2",
+      "revised": "2026-06-11",
+      "maturity": "technical_specification",
+      "source": "https://www.iala.int/product/g1191/"
+    },
+    "ipcsa_notn": {
+      "profile": "Network of Trusted Networks",
+      "scope": "platform-to-platform exchange among port/cargo community systems and single-window operators",
+      "maturity": "documented_trial_or_proof_of_concept",
+      "source": "https://tenant.ipcsa.international/initiatives/network-of-trusted-networks/"
+    },
+    "dcsa_port_call": {
+      "profile": "Port Call API",
+      "version": "2.0.0",
+      "scope": "structured port-call event exchange",
+      "out_of_scope": [
+        "subscriber_registration",
+        "bilateral_authentication",
+        "bilateral_authorization"
+      ],
+      "source": "https://reference.dcsa.org/content/standards/releases/port-call/v2/pc-v2-openapi-specification"
+    },
+    "iho_s131": {
+      "profile": "Marine Harbour Infrastructure",
+      "edition": "2.0.0",
+      "version_date": "2026-09-01",
+      "maturity": "first_operational_edition",
+      "declared_s100_version": "5.2.0",
+      "feature_catalogue_uploaded": "2026-10-02",
+      "portrayal_catalogue_uploaded": "2026-10-09",
+      "source": "https://registry.iho.int/productspec/view.do?category=product_ID&domainS=ALL&idx=233&product_ID=S-131&searchValue=&statusS=5"
+    },
+    "iho_s127": {
+      "profile": "Marine Traffic Management",
+      "edition": "2.0.0",
+      "version_date": "2026-09-01",
+      "maturity": "first_operational_edition",
+      "declared_s100_version": "5.2.0",
+      "source": "https://registry.iho.int/productspec/view.do?category=product_ID&domainS=ALL&idx=232&product_ID=S-127&searchValue=&statusS=5"
+    }
+  },
+  "region_groups": [
+    {
+      "id": "AFRICA_COASTAL",
+      "name": "Africa coastal and island contexts",
+      "status": "research_grouping_only",
+      "country_packs": []
+    },
+    {
+      "id": "EUROPE_EEA",
+      "name": "Europe and EEA",
+      "status": "research_grouping_only",
+      "country_packs": []
+    },
+    {
+      "id": "NORTH_AMERICA",
+      "name": "North America",
+      "status": "research_grouping_only",
+      "country_packs": []
+    },
+    {
+      "id": "GULF_MIDDLE_EAST",
+      "name": "Gulf and Middle East",
+      "status": "research_grouping_only",
+      "country_packs": []
+    },
+    {
+      "id": "ASIA",
+      "name": "South, East and Southeast Asia",
+      "status": "research_grouping_only",
+      "country_packs": []
+    },
+    {
+      "id": "LATAM",
+      "name": "Latin America",
+      "status": "research_grouping_only",
+      "country_packs": []
+    },
+    {
+      "id": "CARIBBEAN_SIDS",
+      "name": "Caribbean and small-island developing states",
+      "status": "research_grouping_only",
+      "country_packs": []
+    },
+    {
+      "id": "PACIFIC_OCEANIA",
+      "name": "Pacific, Oceania and remote coastal contexts",
+      "status": "research_grouping_only",
+      "country_packs": []
+    }
+  ],
+  "cases": [
+    {
+      "case_id": "GLOBAL-001",
+      "name": "UN/LOCODE production versus prerelease",
+      "class": "registry_maturity",
+      "expected": "preserve_snapshot_maturity_and_version",
+      "setup": "One provider sends a location reference present in the UN/LOCODE prerelease but absent from the pinned production publication.",
+      "negative_control": "Never silently promote prerelease to production."
+    },
+    {
+      "case_id": "GLOBAL-002",
+      "name": "Port location code misused as berth ID",
+      "class": "identifier_scope",
+      "expected": "reject_subject_type_mismatch",
+      "setup": "A UN/LOCODE port-level identifier is supplied where a specific marina berth identifier is required.",
+      "negative_control": "Do not infer a unique berth from a port location code."
+    },
+    {
+      "case_id": "GLOBAL-003",
+      "name": "Pleasure yacht without IMO number",
+      "class": "identifier_eligibility",
+      "expected": "support_issuer_scoped_alternative_or_unknown",
+      "setup": "Small recreational craft is not eligible for an IMO ship number and supplies a national registry record.",
+      "negative_control": "No universal IMO-number requirement or name-only identity matching."
+    },
+    {
+      "case_id": "GLOBAL-004",
+      "name": "Ship versus company identifier confusion",
+      "class": "identifier_subject",
+      "expected": "reject_subject_type_mismatch",
+      "setup": "An IMO company/registered-owner number is supplied as a vessel identifier.",
+      "negative_control": "Never accept one subject class as another."
+    },
+    {
+      "case_id": "GLOBAL-005",
+      "name": "Currency with zero minor units",
+      "class": "money",
+      "expected": "exact_currency_scale_required",
+      "setup": "A valid quote uses a currency whose ISO 4217 minor unit is zero.",
+      "negative_control": "Do not assume every currency has two decimal places."
+    },
+    {
+      "case_id": "GLOBAL-006",
+      "name": "Currency with three minor units",
+      "class": "money",
+      "expected": "exact_currency_scale_required",
+      "setup": "A valid quote uses a currency whose ISO 4217 minor unit is three.",
+      "negative_control": "No hard-coded two-decimal parser or display rounding into authority."
+    },
+    {
+      "case_id": "GLOBAL-007",
+      "name": "Currency metadata changed or historical",
+      "class": "money_currentness",
+      "expected": "use_pinned_transaction_date_metadata",
+      "setup": "A replayed quote references an older currency metadata snapshot and a later currency metadata revision exists.",
+      "negative_control": "Do not reinterpret historical amount_minor using mutable latest metadata."
+    },
+    {
+      "case_id": "GLOBAL-008",
+      "name": "Quote currency differs from settlement currency",
+      "class": "fx_boundary",
+      "expected": "separate_quote_and_settlement_evidence",
+      "setup": "Provider quotes in one currency and payment provider settles in another.",
+      "negative_control": "No implicit exchange rate or FX finality."
+    },
+    {
+      "case_id": "GLOBAL-009",
+      "name": "Non-whole-hour timezone offset",
+      "class": "time",
+      "expected": "preserve_exact_offset_and_iana_zone",
+      "setup": "Local schedule uses a region with a half-hour or quarter-hour UTC offset.",
+      "negative_control": "Do not round offsets to whole hours."
+    },
+    {
+      "case_id": "GLOBAL-010",
+      "name": "Daylight-saving gap and fold",
+      "class": "time_ambiguity",
+      "expected": "explicit_gap_fold_disposition",
+      "setup": "Booking cutoff occurs in a DST transition gap or repeated local time.",
+      "negative_control": "No silent resolver choice."
+    },
+    {
+      "case_id": "GLOBAL-011",
+      "name": "tzdb update after future schedule creation",
+      "class": "time_versioning",
+      "expected": "historical_evidence_immutable_future_schedule_requalified",
+      "setup": "An IANA timezone rule changes after a future local schedule is recorded.",
+      "negative_control": "Do not rewrite source timestamp or treat old future conversion as current without review."
+    },
+    {
+      "case_id": "GLOBAL-012",
+      "name": "Date-only deadline versus UTC event instant",
+      "class": "date_semantics",
+      "expected": "preserve_date_only_and_local_zone",
+      "setup": "Cancellation or check-in policy defines a local calendar date while a provider receipt supplies an instant.",
+      "negative_control": "Do not coerce date-only value to UTC midnight."
+    },
+    {
+      "case_id": "GLOBAL-013",
+      "name": "Arabic RTL and mixed-script fields",
+      "class": "internationalization",
+      "expected": "preserve_source_text_and_direction_metadata",
+      "setup": "Provider/locality has Arabic right-to-left text mixed with Latin identifiers and numerals.",
+      "negative_control": "Do not reorder or corrupt signed identifier/source fields."
+    },
+    {
+      "case_id": "GLOBAL-014",
+      "name": "Chinese, Cyrillic and diacritic-bearing names",
+      "class": "internationalization",
+      "expected": "display_and_search_without_identity_collapse",
+      "setup": "Providers and locations use non-Latin scripts, transliterations and diacritic variants.",
+      "negative_control": "Do not fuzzy-merge distinct entities based on transliteration."
+    },
+    {
+      "case_id": "GLOBAL-015",
+      "name": "Unreviewed machine translation of contract term",
+      "class": "translation_authority",
+      "expected": "translation_marked_derived_not_authoritative",
+      "setup": "A contract or cancellation clause has a machine translation but no competent review.",
+      "negative_control": "Do not accept translated term as authoritative legal/provider wording."
+    },
+    {
+      "case_id": "GLOBAL-016",
+      "name": "Locale decimal formatting differs",
+      "class": "presentation_accounting",
+      "expected": "numeric_value_unchanged",
+      "setup": "Same source amount displayed in locales with different decimal/group separators.",
+      "negative_control": "Locale formatting cannot alter amount_minor or currency exponent."
+    },
+    {
+      "case_id": "GLOBAL-017",
+      "name": "Incompatible physical dimensions",
+      "class": "units",
+      "expected": "reject_dimension_mismatch",
+      "setup": "Provider maps a volume to a mass field or power to energy without density/time conversion evidence.",
+      "negative_control": "Unit labels alone are not dimensional equivalence."
+    },
+    {
+      "case_id": "GLOBAL-018",
+      "name": "Nautical to SI conversion",
+      "class": "units_conversion",
+      "expected": "versioned_reversible_or_error_bounded_conversion",
+      "setup": "Vessel dimension or maritime speed is converted between nautical/legacy and SI representations.",
+      "negative_control": "Preserve source value/unit, conversion version, rounding and uncertainty."
+    },
+    {
+      "case_id": "GLOBAL-019",
+      "name": "MSW acknowledgement versus private stay confirmation",
+      "class": "authority_boundary",
+      "expected": "typed_authority_dispositions_separate",
+      "setup": "Private provider StayManifest is presented as evidence of a public MSW filing or clearance.",
+      "negative_control": "Private confirmation cannot satisfy government submission/acceptance/clearance."
+    },
+    {
+      "case_id": "GLOBAL-020",
+      "name": "Conflicting jurisdiction overlay versions",
+      "class": "jurisdiction_currentness",
+      "expected": "conflict_or_unknown_until_resolved",
+      "setup": "Two overlays claim overlapping geographic scope with inconsistent effective dates or authorities.",
+      "negative_control": "No last-write-wins legal applicability."
+    },
+    {
+      "case_id": "GLOBAL-021",
+      "name": "Cross-border data transfer prohibited or unreviewed",
+      "class": "data_governance",
+      "expected": "deny_or_quarantine_transfer",
+      "setup": "A profile's data transfer/residency policy conflicts with destination processing request.",
+      "negative_control": "Global network membership does not override local data governance."
+    },
+    {
+      "case_id": "GLOBAL-022",
+      "name": "Low bandwidth and intermittent provider connectivity",
+      "class": "connectivity",
+      "expected": "asynchronous_pending_without_false_commitment",
+      "setup": "Provider can receive small metadata asynchronously but cannot provide real-time read-back.",
+      "negative_control": "No cache is promoted to live availability or reservation."
+    },
+    {
+      "case_id": "GLOBAL-023",
+      "name": "Manual provider workflow joins later",
+      "class": "inclusion",
+      "expected": "accept_source_qualified_manual_receipt",
+      "setup": "Small provider has no public API and later supplies an operator-signed/manual confirmation through an authorized channel.",
+      "negative_control": "Do not label manual evidence as automated integration or elevate beyond its issuer scope."
+    },
+    {
+      "case_id": "GLOBAL-024",
+      "name": "Identifier revoked or reassigned",
+      "class": "identifier_lifecycle",
+      "expected": "preserve_history_requalify_current_binding",
+      "setup": "A local registry identifier expires, is revoked or is reassigned under its issuing authority's rules.",
+      "negative_control": "Historical references remain immutable; current action requires fresh subject binding."
+    },
+    {
+      "case_id": "GLOBAL-025",
+      "name": "No verified local registry endpoint",
+      "class": "registry_unknown",
+      "expected": "unknown_manual_evidence_or_review_path",
+      "setup": "A remote island/coastal region has no verified machine-readable provider/registry endpoint.",
+      "negative_control": "Do not fabricate an endpoint, coverage or legal status."
+    },
+    {
+      "case_id": "GLOBAL-026",
+      "name": "IMO Compendium profile updated",
+      "class": "standards_versioning",
+      "expected": "pin_fal_circular_and_requalification_scope",
+      "setup": "Adapter compiled against FAL.5/Circ.55 receives a field added/changed in FAL.5/Circ.56.",
+      "negative_control": "No silent latest alias or false full coverage claim."
+    },
+    {
+      "case_id": "GLOBAL-027",
+      "name": "Regional pack is research-only",
+      "class": "jurisdiction_approval",
+      "expected": "do_not_claim_approved",
+      "setup": "A country pack has source links but no local legal review or authority approval.",
+      "negative_control": "Research-only status must block compliance/production claims."
+    },
+    {
+      "case_id": "GLOBAL-028",
+      "name": "Community rule conflicts with statutory rule",
+      "class": "authority_hierarchy",
+      "expected": "statutory_authority_boundary_preserved",
+      "setup": "Community access policy attempts to bypass port-entry or navigation restriction.",
+      "negative_control": "Community membership or reciprocity cannot override competent public authority."
+    },
+    {
+      "case_id": "GLOBAL-029",
+      "name": "Vessel has multiple issuer identifiers",
+      "class": "identity_linkage",
+      "expected": "retain_scheme_scoped_identifiers_without_false_merge",
+      "setup": "A vessel has IMO, national registry, MMSI and call sign records with different issuers and lifecycle.",
+      "negative_control": "No unqualified identifier transitivity or one field overwriting another."
+    },
+    {
+      "case_id": "GLOBAL-030",
+      "name": "Unreviewed locale fallback",
+      "class": "language_fallback",
+      "expected": "explicit_fallback_and_user_comprehension",
+      "setup": "Preferred language unavailable; system proposes fallback for price/cancellation/safety content.",
+      "negative_control": "No silent acceptance or implied user comprehension."
+    }
+  ],
+  "execution_status": {
+    "executed": false,
+    "local_legal_review": false,
+    "government_integration_authorized": false,
+    "provider_sandbox_used": false,
+    "source_artifacts_digest_pinned": false,
+    "implementation_built": false
+  }
+}
