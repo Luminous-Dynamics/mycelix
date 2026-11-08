@@ -1,6 +1,4 @@
-use gcpn_track_a_replay_evaluator::{
-    evaluate_frozen_fixture, evaluate_with_expected_sha256,
-};
+use gcpn_track_a_replay_evaluator::{evaluate_frozen_fixture, evaluate_with_expected_sha256};
 use std::{env, fs, process::ExitCode};
 
 fn main() -> ExitCode {
