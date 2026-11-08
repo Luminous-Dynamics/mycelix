@@ -621,14 +621,48 @@ mod tests {
     }
 
     #[test]
-    fn drff_noncommercial_no_derivatives_boundary_is_preserved() {
+    fn drff_paper_article_and_dataset_license_claims_remain_separate() {
+        let register = mutated_register();
+        let candidate = &register.candidate_datasets[2];
+        assert_eq!(candidate.paper_license.as_deref(), Some("CC-BY-NC-ND-4.0"));
+        assert_eq!(
+            candidate.paper_stated_dataset_license.as_deref(),
+            Some("CC-BY-4.0")
+        );
+        assert_eq!(
+            candidate.dataset_repository_doi.as_deref(),
+            Some("10.57760/sciencedb.36815")
+        );
+        assert_eq!(candidate.dataset_repository_license_verified, Some(false));
+        assert_eq!(candidate.derivative_sharing_permitted, None);
+        assert!(
+            candidate.status
+                == "NOT_ADMITTED_PENDING_SCIENCEDB_LANDING_PAGE_FILE_RIGHTS_AND_DERIVATIVE_TERMS_REVIEW"
+        );
+        assert!(validate(&register).is_empty());
+    }
+
+    #[test]
+    fn drff_dataset_rights_cannot_be_promoted_from_paper_claim_alone() {
+        let mut register = mutated_register();
+        register.candidate_datasets[2].dataset_repository_license_verified = Some(true);
+        let errors = validate(&register);
+        assert!(
+            errors
+                .iter()
+                .any(|error| error.starts_with("unreviewed_metadata_or_redistribution_promoted:"))
+        );
+    }
+
+    #[test]
+    fn drff_derivative_permission_cannot_be_inferred_from_paper_claim() {
         let mut register = mutated_register();
         register.candidate_datasets[2].derivative_sharing_permitted = Some(true);
         let errors = validate(&register);
         assert!(
             errors
                 .iter()
-                .any(|error| error.starts_with("unreviewed_rights_or_metadata_promoted:"))
+                .any(|error| error.starts_with("unreviewed_metadata_or_redistribution_promoted:"))
         );
         assert!(
             errors
