@@ -1077,8 +1077,8 @@ fn is_decimal_lexeme(value: &str) -> bool {
         || (integer.as_bytes()[0].is_ascii_digit()
             && integer.as_bytes()[0] != b'0'
             && integer.bytes().all(|b| b.is_ascii_digit()));
-    let fraction_valid =
-        fraction.is_none_or(|digits| !digits.is_empty() && digits.bytes().all(|b| b.is_ascii_digit()));
+    let fraction_valid = fraction
+        .is_none_or(|digits| !digits.is_empty() && digits.bytes().all(|b| b.is_ascii_digit()));
 
     integer_valid && fraction_valid
 }
