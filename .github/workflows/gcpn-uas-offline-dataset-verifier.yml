@@ -1,0 +1,49 @@
+name: GCPN offline UAS dataset register verifier
+
+on:
+  pull_request:
+    paths:
+      - "mycelix-workspace/mycelix-praxis/docs/research/GCPN_UAS_OFFLINE_DATASET_EVALUATION_V0_1.md"
+      - "mycelix-workspace/mycelix-praxis/docs/research/GCPN_UAS_OFFLINE_DATASET_REGISTER_V0_1.json"
+      - "tools/gcpn-uas-offline-dataset-verifier/**"
+      - ".github/workflows/gcpn-uas-offline-dataset-verifier.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gcpn-uas-offline-dataset-verifier-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  strict-source-rights-and-split-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - name: Validate candidate-only and no-field-operation gates
+        shell: bash
+        run: |
+          jq -e '
+            .schema == "luminous.gcpn.offline_uas_dataset_register.v0.1" and
+            .status == "source_candidates_not_admitted" and
+            .claim_ceiling == "source_register_and_split_protocol_integrity_only" and
+            (.candidate_datasets | length == 3) and
+            ([.candidate_datasets[].id] | sort) == ["DRFF-R2-2026","TSMS-DRONE-2026","UAV-RF-COEXIST-2026"] and
+            ([.candidate_datasets[].status | startswith("NOT_ADMITTED_PENDING_")] | all) and
+            ([.hard_gates[]] | all(. == false)) and
+            ([.tracks[] | select(.id == "TRACK_B1") | .status] == ["blocked_pending_legal_site_vendor_privacy_insurance_ground_truth_and_professional_approval"])
+          ' mycelix-workspace/mycelix-praxis/docs/research/GCPN_UAS_OFFLINE_DATASET_REGISTER_V0_1.json >/dev/null
+          jq -e '
+            .tracks | length == 3
+          ' mycelix-workspace/mycelix-praxis/docs/research/GCPN_UAS_OFFLINE_DATASET_REGISTER_V0_1.json >/dev/null
+      - name: Check Rust formatting
+        run: cargo fmt --manifest-path tools/gcpn-uas-offline-dataset-verifier/Cargo.toml --all -- --check
+      - name: Run strict schema and adversarial tests
+        run: cargo test --manifest-path tools/gcpn-uas-offline-dataset-verifier/Cargo.toml
+      - name: Verify pinned candidate register
+        run: cargo run --manifest-path tools/gcpn-uas-offline-dataset-verifier/Cargo.toml
