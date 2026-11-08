@@ -81,18 +81,114 @@ pub struct Report {
 }
 
 const EXPECTED_CASES: [(&str, &str, &[&str]); 12] = [
-    ("CAA-001", "AUTHORIZED_CLAIM_PENDING_SOURCE_VALIDATION", &["identity_claim_is_not_authentication", "authorization_source_and_validity_required", "no_hostile_intent_inference"]),
-    ("CAA-002", "HUMAN_REVIEW_REQUIRED", &["emergency_service_claim_preserved", "missing_metadata_remains_unknown", "no_automatic_interference"]),
-    ("CAA-003", "OBSERVED_INTENT_UNKNOWN", &["observation_separated_from_intent", "human_review_required", "notification_only"]),
-    ("CAA-004", "OBSERVED_CLASS_AMBIGUOUS", &["classification_uncertainty_preserved", "no_hostile_label_from_anomaly", "false_escalation_negative_control"]),
-    ("CAA-005", "UNKNOWN_RF_SILENT_OR_OUT_OF_BAND", &["rf_sensor_scope_limited_to_observable_emissions", "missing_rf_is_not_absence", "no_universal_detection_claim"]),
-    ("CAA-006", "STALE_UNKNOWN", &["observation_time_preserved", "stale_not_current", "no_automatic_escalation"]),
-    ("CAA-007", "SOURCE_UNHEALTHY", &["signature_not_physical_truth", "calibration_state_separate", "no_confidence_promotion"]),
-    ("CAA-008", "COMMON_MODE_UNKNOWN", &["sensor_count_not_independence", "dependency_inventory_required", "unknown_when_inventory_incomplete"]),
-    ("CAA-009", "IDENTITY_REVOKED_REVIEW_REQUIRED", &["revocation_and_policy_epoch_checked", "stale_identity_not_authorized", "no_third_party_command"]),
-    ("CAA-010", "OWNER_TASK_AUTHORIZATION_EXPIRED_HOLD", &["task_scope_and_expiry_checked", "site_owner_and_oem_safety_authority_preserved", "no_new_actuator_authority"]),
-    ("CAA-011", "THIRD_PARTY_CONTROL_PROHIBITED", &["no_command_or_takeover_path", "notify_accountable_operator_or_authority", "record_only_authorized_observations"]),
-    ("CAA-012", "DATA_USE_BLOCKED", &["purpose_and_recipient_policy_required", "no_intelligible_speech_retention", "privacy_disclosure_gate_applied"]),
+    (
+        "CAA-001",
+        "AUTHORIZED_CLAIM_PENDING_SOURCE_VALIDATION",
+        &[
+            "identity_claim_is_not_authentication",
+            "authorization_source_and_validity_required",
+            "no_hostile_intent_inference",
+        ],
+    ),
+    (
+        "CAA-002",
+        "HUMAN_REVIEW_REQUIRED",
+        &[
+            "emergency_service_claim_preserved",
+            "missing_metadata_remains_unknown",
+            "no_automatic_interference",
+        ],
+    ),
+    (
+        "CAA-003",
+        "OBSERVED_INTENT_UNKNOWN",
+        &[
+            "observation_separated_from_intent",
+            "human_review_required",
+            "notification_only",
+        ],
+    ),
+    (
+        "CAA-004",
+        "OBSERVED_CLASS_AMBIGUOUS",
+        &[
+            "classification_uncertainty_preserved",
+            "no_hostile_label_from_anomaly",
+            "false_escalation_negative_control",
+        ],
+    ),
+    (
+        "CAA-005",
+        "UNKNOWN_RF_SILENT_OR_OUT_OF_BAND",
+        &[
+            "rf_sensor_scope_limited_to_observable_emissions",
+            "missing_rf_is_not_absence",
+            "no_universal_detection_claim",
+        ],
+    ),
+    (
+        "CAA-006",
+        "STALE_UNKNOWN",
+        &[
+            "observation_time_preserved",
+            "stale_not_current",
+            "no_automatic_escalation",
+        ],
+    ),
+    (
+        "CAA-007",
+        "SOURCE_UNHEALTHY",
+        &[
+            "signature_not_physical_truth",
+            "calibration_state_separate",
+            "no_confidence_promotion",
+        ],
+    ),
+    (
+        "CAA-008",
+        "COMMON_MODE_UNKNOWN",
+        &[
+            "sensor_count_not_independence",
+            "dependency_inventory_required",
+            "unknown_when_inventory_incomplete",
+        ],
+    ),
+    (
+        "CAA-009",
+        "IDENTITY_REVOKED_REVIEW_REQUIRED",
+        &[
+            "revocation_and_policy_epoch_checked",
+            "stale_identity_not_authorized",
+            "no_third_party_command",
+        ],
+    ),
+    (
+        "CAA-010",
+        "OWNER_TASK_AUTHORIZATION_EXPIRED_HOLD",
+        &[
+            "task_scope_and_expiry_checked",
+            "site_owner_and_oem_safety_authority_preserved",
+            "no_new_actuator_authority",
+        ],
+    ),
+    (
+        "CAA-011",
+        "THIRD_PARTY_CONTROL_PROHIBITED",
+        &[
+            "no_command_or_takeover_path",
+            "notify_accountable_operator_or_authority",
+            "record_only_authorized_observations",
+        ],
+    ),
+    (
+        "CAA-012",
+        "DATA_USE_BLOCKED",
+        &[
+            "purpose_and_recipient_policy_required",
+            "no_intelligible_speech_retention",
+            "privacy_disclosure_gate_applied",
+        ],
+    ),
 ];
 
 const EXPECTED_PROHIBITED: [&str; 10] = [
@@ -151,9 +247,15 @@ pub fn verify(bytes: &[u8]) -> Report {
         Ok(manifest) => {
             case_count = manifest.cases.len();
 
-            if manifest.schema != SCHEMA { errors.push("schema_mismatch".into()); }
-            if manifest.status != STATUS { errors.push("status_mismatch".into()); }
-            if manifest.claim_ceiling != CLAIM_CEILING { errors.push("claim_ceiling_mismatch".into()); }
+            if manifest.schema != SCHEMA {
+                errors.push("schema_mismatch".into());
+            }
+            if manifest.status != STATUS {
+                errors.push("status_mismatch".into());
+            }
+            if manifest.claim_ceiling != CLAIM_CEILING {
+                errors.push("claim_ceiling_mismatch".into());
+            }
             if manifest.scope != "civilian_passive_awareness_warning_and_resilience" {
                 errors.push("scope_mismatch".into());
             }
@@ -169,17 +271,31 @@ pub fn verify(bytes: &[u8]) -> Report {
                 errors.push("authority_boundary_violation".into());
             }
 
-            let prohibited: BTreeSet<&str> = manifest.prohibited_capabilities.iter().map(String::as_str).collect();
+            let prohibited: BTreeSet<&str> = manifest
+                .prohibited_capabilities
+                .iter()
+                .map(String::as_str)
+                .collect();
             if prohibited.len() != EXPECTED_PROHIBITED.len()
-                || EXPECTED_PROHIBITED.iter().any(|item| !prohibited.contains(item))
+                || EXPECTED_PROHIBITED
+                    .iter()
+                    .any(|item| !prohibited.contains(item))
             {
                 errors.push("prohibited_capability_set_mismatch".into());
             }
 
-            let modality_ids: BTreeSet<&str> = manifest.modalities.iter().map(|m| m.id.as_str()).collect();
+            let modality_ids: BTreeSet<&str> =
+                manifest.modalities.iter().map(|m| m.id.as_str()).collect();
             let expected_modalities: BTreeSet<&str> = [
-                "OPTICAL", "RADAR", "RF", "ACOUSTIC", "LIDAR", "ROBOT_ONBOARD_SAFETY",
-            ].into_iter().collect();
+                "OPTICAL",
+                "RADAR",
+                "RF",
+                "ACOUSTIC",
+                "LIDAR",
+                "ROBOT_ONBOARD_SAFETY",
+            ]
+            .into_iter()
+            .collect();
             if modality_ids.len() != 6 || modality_ids != expected_modalities {
                 errors.push("modality_set_mismatch".into());
             }
@@ -188,25 +304,34 @@ pub fn verify(bytes: &[u8]) -> Report {
                     errors.push(format!("effector_capability_enabled: {}", modality.id));
                 }
             }
-            if manifest.modalities.iter().any(|m|
-                m.id == "ACOUSTIC" && m.privacy != "no_intelligible_speech_retention"
-            ) {
+            if manifest
+                .modalities
+                .iter()
+                .any(|m| m.id == "ACOUSTIC" && m.privacy != "no_intelligible_speech_retention")
+            {
                 errors.push("acoustic_privacy_boundary_changed".into());
             }
-            if manifest.modalities.iter().any(|m|
-                m.id == "LIDAR" && m.role != "OEM_certified_eye_safe_measurement"
-            ) {
+            if manifest
+                .modalities
+                .iter()
+                .any(|m| m.id == "LIDAR" && m.role != "OEM_certified_eye_safe_measurement")
+            {
                 errors.push("laser_measurement_safety_boundary_changed".into());
             }
 
-            let state_set: BTreeSet<&str> = manifest.allowed_states.iter().map(String::as_str).collect();
+            let state_set: BTreeSet<&str> =
+                manifest.allowed_states.iter().map(String::as_str).collect();
             if state_set.len() != REQUIRED_STATES.len()
                 || REQUIRED_STATES.iter().any(|s| !state_set.contains(s))
             {
                 errors.push("allowed_state_set_mismatch".into());
             }
 
-            let metric_set: BTreeSet<&str> = manifest.required_metrics.iter().map(String::as_str).collect();
+            let metric_set: BTreeSet<&str> = manifest
+                .required_metrics
+                .iter()
+                .map(String::as_str)
+                .collect();
             if metric_set.len() != REQUIRED_METRICS.len()
                 || REQUIRED_METRICS.iter().any(|m| !metric_set.contains(m))
             {
@@ -229,7 +354,11 @@ pub fn verify(bytes: &[u8]) -> Report {
             }
 
             if manifest.cases.len() != EXPECTED_CASES.len() {
-                errors.push(format!("case_count_mismatch: expected {}, got {}", EXPECTED_CASES.len(), manifest.cases.len()));
+                errors.push(format!(
+                    "case_count_mismatch: expected {}, got {}",
+                    EXPECTED_CASES.len(),
+                    manifest.cases.len()
+                ));
             }
 
             let mut seen = BTreeSet::new();
@@ -253,7 +382,10 @@ pub fn verify(bytes: &[u8]) -> Report {
                         }
                         for assertion in *required {
                             if !actual.contains(assertion) {
-                                errors.push(format!("required_assertion_missing: {} -> {}", case.id, assertion));
+                                errors.push(format!(
+                                    "required_assertion_missing: {} -> {}",
+                                    case.id, assertion
+                                ));
                             }
                         }
                     }
@@ -270,7 +402,11 @@ pub fn verify(bytes: &[u8]) -> Report {
     errors.sort();
     Report {
         report_schema: "luminous.gcpn.civil_autonomous_awareness_report.v0.1",
-        status: if errors.is_empty() { "CONFORMS" } else { "REJECTED" },
+        status: if errors.is_empty() {
+            "CONFORMS"
+        } else {
+            "REJECTED"
+        },
         source_sha256,
         case_count,
         errors,
@@ -298,19 +434,24 @@ mod tests {
     fn unknown_root_field_is_rejected() {
         let changed = FIXTURE.replace(
             "\"status\": \"synthetic_event_awareness_only\"",
-            "\"status\": \"synthetic_event_awareness_only\", \"unknown_root\": true"
+            "\"status\": \"synthetic_event_awareness_only\", \"unknown_root\": true",
         );
         assert_ne!(changed, FIXTURE);
         let report = verify(changed.as_bytes());
         assert_eq!(report.status, "REJECTED");
-        assert!(report.errors.iter().any(|e| e.starts_with("strict_json_decode:")));
+        assert!(
+            report
+                .errors
+                .iter()
+                .any(|e| e.starts_with("strict_json_decode:"))
+        );
     }
 
     #[test]
     fn unknown_nested_field_is_rejected() {
         let changed = FIXTURE.replace(
             "\"id\": \"OPTICAL\"",
-            "\"id\": \"OPTICAL\", \"unknown_nested\": true"
+            "\"id\": \"OPTICAL\", \"unknown_nested\": true",
         );
         assert_ne!(changed, FIXTURE);
         let report = verify(changed.as_bytes());
@@ -322,7 +463,7 @@ mod tests {
     fn duplicate_json_member_is_rejected() {
         let changed = FIXTURE.replace(
             "\"third_party_aircraft_command\": false",
-            "\"third_party_aircraft_command\": false, \"third_party_aircraft_command\": true"
+            "\"third_party_aircraft_command\": false, \"third_party_aircraft_command\": true",
         );
         assert_ne!(changed, FIXTURE);
         let report = verify(changed.as_bytes());
@@ -334,7 +475,7 @@ mod tests {
     fn presence_cannot_be_promoted_to_hostile_intent() {
         let changed = FIXTURE.replace(
             "\"expected_state\": \"OBSERVED_INTENT_UNKNOWN\"",
-            "\"expected_state\": \"HOSTILE_CONFIRMED\""
+            "\"expected_state\": \"HOSTILE_CONFIRMED\"",
         );
         assert_ne!(changed, FIXTURE);
         let report = verify(changed.as_bytes());
@@ -346,7 +487,7 @@ mod tests {
     fn rf_silence_cannot_be_promoted_to_aircraft_absence() {
         let changed = FIXTURE.replace(
             "\"expected_state\": \"UNKNOWN_RF_SILENT_OR_OUT_OF_BAND\"",
-            "\"expected_state\": \"NO_AIRCRAFT_PRESENT\""
+            "\"expected_state\": \"NO_AIRCRAFT_PRESENT\"",
         );
         assert_ne!(changed, FIXTURE);
         let report = verify(changed.as_bytes());
@@ -358,36 +499,48 @@ mod tests {
     fn third_party_control_boundary_cannot_be_enabled() {
         let changed = FIXTURE.replace(
             "\"third_party_robot_command\": false",
-            "\"third_party_robot_command\": true"
+            "\"third_party_robot_command\": true",
         );
         assert_ne!(changed, FIXTURE);
         let report = verify(changed.as_bytes());
         assert_eq!(report.status, "REJECTED");
-        assert!(report.errors.iter().any(|e| e == "authority_boundary_violation"));
+        assert!(
+            report
+                .errors
+                .iter()
+                .any(|e| e == "authority_boundary_violation")
+        );
     }
 
     #[test]
     fn modality_cannot_enable_effectors() {
         let changed = FIXTURE.replace(
             "\"effectors_allowed\": false",
-            "\"effectors_allowed\": true"
+            "\"effectors_allowed\": true",
         );
         assert_ne!(changed, FIXTURE);
         let report = verify(changed.as_bytes());
         assert_eq!(report.status, "REJECTED");
-        assert!(report.errors.iter().any(|e| e.starts_with("effector_capability_enabled:")));
+        assert!(
+            report
+                .errors
+                .iter()
+                .any(|e| e.starts_with("effector_capability_enabled:"))
+        );
     }
 
     #[test]
     fn duplicate_case_id_is_rejected() {
-        let changed = FIXTURE.replace(
-            "\"id\": \"CAA-012\"",
-            "\"id\": \"CAA-011\""
-        );
+        let changed = FIXTURE.replace("\"id\": \"CAA-012\"", "\"id\": \"CAA-011\"");
         assert_ne!(changed, FIXTURE);
         let report = verify(changed.as_bytes());
         assert_eq!(report.status, "REJECTED");
-        assert!(report.errors.iter().any(|e| e.starts_with("empty_or_duplicate_case_id:")));
+        assert!(
+            report
+                .errors
+                .iter()
+                .any(|e| e.starts_with("empty_or_duplicate_case_id:"))
+        );
         assert!(report.errors.iter().any(|e| e == "missing_case: CAA-012"));
     }
 }
