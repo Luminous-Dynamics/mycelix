@@ -5,6 +5,7 @@ on:
     paths:
       - "mycelix-workspace/mycelix-praxis/docs/research/GCPN_UAS_OFFLINE_DATASET_EVALUATION_V0_1.md"
       - "mycelix-workspace/mycelix-praxis/docs/research/GCPN_UAS_OFFLINE_DATASET_REGISTER_V0_1.json"
+      - "mycelix-workspace/mycelix-praxis/docs/research/GCPN_UAS_OFFLINE_DATASET_PRELIMINARY_DESK_REVIEW_V0_1.md"
       - "tools/gcpn-uas-offline-dataset-verifier/**"
       - ".github/workflows/gcpn-uas-offline-dataset-verifier.yml"
   workflow_dispatch:
