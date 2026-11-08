@@ -4,7 +4,7 @@
 //! It does not ingest sensor feeds, track aircraft, estimate hostile intent,
 //! command devices, test physical sensor performance, or establish CWA conformity.
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::collections::BTreeSet;
 
@@ -119,7 +119,7 @@ pub struct Case {
     pub assertions: Vec<String>,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize)]
 pub struct Report {
     pub status: &'static str,
     pub source_sha256: String,
