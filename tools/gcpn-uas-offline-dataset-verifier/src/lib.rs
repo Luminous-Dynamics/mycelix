@@ -118,11 +118,7 @@ pub struct VerificationReport {
     pub claim_ceiling: &'static str,
 }
 
-const EXPECTED_CANDIDATES: [&str; 3] = [
-    "TSMS-DRONE-2026",
-    "UAV-RF-COEXIST-2026",
-    "DRFF-R2-2026",
-];
+const EXPECTED_CANDIDATES: [&str; 3] = ["TSMS-DRONE-2026", "UAV-RF-COEXIST-2026", "DRFF-R2-2026"];
 
 const REQUIRED_SOURCE_FIELDS: [&str; 13] = [
     "dataset_id",
@@ -218,19 +214,28 @@ pub fn validate(register: &Register) -> Vec<String> {
     match track_b1 {
         Some(track)
             if track.status.as_deref()
-                == Some("blocked_pending_legal_site_vendor_privacy_insurance_ground_truth_and_professional_approval")
+                == Some(
+                    "blocked_pending_legal_site_vendor_privacy_insurance_ground_truth_and_professional_approval",
+                )
                 && track.physical_sensor_operation.is_none()
                 && track.physical_sensor_performance.is_none() => {}
         _ => errors.push("track_b1_must_remain_blocked".to_string()),
     }
 
-    if !register.permitted_scope.iter().any(|item| item == "passive_coarse_event_presence") {
+    if !register
+        .permitted_scope
+        .iter()
+        .any(|item| item == "passive_coarse_event_presence")
+    {
         errors.push("permitted_scope_incomplete".to_string());
     }
     if !exact_set(&register.prohibited_scope, &REQUIRED_PROHIBITED) {
         errors.push("prohibited_scope_set_mismatch".to_string());
     }
-    if !exact_set(&register.required_source_manifest_fields, &REQUIRED_SOURCE_FIELDS) {
+    if !exact_set(
+        &register.required_source_manifest_fields,
+        &REQUIRED_SOURCE_FIELDS,
+    ) {
         errors.push("source_manifest_fields_incomplete".to_string());
     }
     if !exact_set(&register.required_split_protocols, &REQUIRED_SPLITS) {
@@ -282,34 +287,53 @@ pub fn validate(register: &Register) -> Vec<String> {
             || candidate.status == "ADMITTED"
             || !candidate.status.starts_with("NOT_ADMITTED_PENDING_")
         {
-            errors.push(format!("candidate_must_remain_not_admitted: {}", candidate.id));
+            errors.push(format!(
+                "candidate_must_remain_not_admitted: {}",
+                candidate.id
+            ));
         }
         if candidate
             .exact_landing_page_file_license_verified
             .unwrap_or(false)
             || candidate.exact_dataset_license_verified.unwrap_or(false)
             || candidate.capture_group_metadata_verified.unwrap_or(false)
-            || candidate.dataset_repository_license_verified.unwrap_or(false)
+            || candidate
+                .dataset_repository_license_verified
+                .unwrap_or(false)
             || candidate.derivative_sharing_permitted.unwrap_or(false)
         {
-            errors.push(format!("unreviewed_rights_or_metadata_promoted: {}", candidate.id));
+            errors.push(format!(
+                "unreviewed_rights_or_metadata_promoted: {}",
+                candidate.id
+            ));
         }
     }
 
-    match register.candidate_datasets.iter().find(|candidate| candidate.id == "TSMS-DRONE-2026") {
+    match register
+        .candidate_datasets
+        .iter()
+        .find(|candidate| candidate.id == "TSMS-DRONE-2026")
+    {
         Some(candidate)
             if candidate.paper_stated_dataset_license.as_deref() == Some("CC-BY-4.0")
                 && candidate.exact_landing_page_file_license_verified == Some(false)
-                && candidate.published_conditions.as_ref().is_some_and(|conditions| {
-                    conditions.distance_min_m == 2
-                        && conditions.distance_max_m == 30
-                        && conditions.distance_step_m == 2
-                        && conditions.repeats_per_condition == 500
-                }) => {}
+                && candidate
+                    .published_conditions
+                    .as_ref()
+                    .is_some_and(|conditions| {
+                        conditions.distance_min_m == 2
+                            && conditions.distance_max_m == 30
+                            && conditions.distance_step_m == 2
+                            && conditions.repeats_per_condition == 500
+                    }) => {}
         _ => errors.push("tsms_rights_or_published_conditions_mismatch".to_string()),
     }
 
-    match register.candidate_datasets.iter().find(|candidate| candidate.id == "UAV-RF-COEXIST-2026") {
+    match register
+        .candidate_datasets
+        .iter()
+        .find(|candidate| candidate.id == "UAV-RF-COEXIST-2026")
+    {
         Some(candidate)
             if candidate.paper_stated_license.as_deref() == Some("CC-BY")
                 && candidate.exact_dataset_license_verified == Some(false)
@@ -323,7 +347,11 @@ pub fn validate(register: &Register) -> Vec<String> {
         _ => errors.push("rf_coexistence_rights_or_count_mismatch".to_string()),
     }
 
-    match register.candidate_datasets.iter().find(|candidate| candidate.id == "DRFF-R2-2026") {
+    match register
+        .candidate_datasets
+        .iter()
+        .find(|candidate| candidate.id == "DRFF-R2-2026")
+    {
         Some(candidate)
             if candidate.paper_license.as_deref() == Some("CC-BY-NC-ND-4.0")
                 && candidate.dataset_repository_license_verified == Some(false)
@@ -360,7 +388,11 @@ pub fn verify_bytes(bytes: &[u8]) -> VerificationReport {
 
             VerificationReport {
                 report_schema: "luminous.gcpn.offline_uas_dataset_register_report.v0.1",
-                status: if errors.is_empty() { "CONFORMS_CANDIDATES_NOT_ADMITTED" } else { "REJECTED" },
+                status: if errors.is_empty() {
+                    "CONFORMS_CANDIDATES_NOT_ADMITTED"
+                } else {
+                    "REJECTED"
+                },
                 source_sha256,
                 candidate_count: register.candidate_datasets.len(),
                 admitted_candidate_count: admitted,
@@ -399,7 +431,11 @@ mod tests {
     #[test]
     fn frozen_register_conforms_with_candidates_not_admitted() {
         let report = verify_bytes(FIXTURE.as_bytes());
-        assert_eq!(report.status, "CONFORMS_CANDIDATES_NOT_ADMITTED", "{:?}", report.errors);
+        assert_eq!(
+            report.status, "CONFORMS_CANDIDATES_NOT_ADMITTED",
+            "{:?}",
+            report.errors
+        );
         assert_eq!(report.candidate_count, 3);
         assert_eq!(report.admitted_candidate_count, 0);
     }
@@ -418,7 +454,12 @@ mod tests {
         );
         let report = verify_bytes(changed.as_bytes());
         assert_eq!(report.status, "REJECTED");
-        assert!(report.errors.iter().any(|error| error.starts_with("strict_json_decode:")));
+        assert!(
+            report
+                .errors
+                .iter()
+                .any(|error| error.starts_with("strict_json_decode:"))
+        );
     }
 
     #[test]
@@ -437,7 +478,11 @@ mod tests {
         let mut register = mutated_register();
         register.candidate_datasets[0].status = "ADMITTED".to_string();
         let errors = validate(&register);
-        assert!(errors.iter().any(|error| error.starts_with("candidate_must_remain_not_admitted:")));
+        assert!(
+            errors
+                .iter()
+                .any(|error| error.starts_with("candidate_must_remain_not_admitted:"))
+        );
     }
 
     #[test]
@@ -445,7 +490,11 @@ mod tests {
         let mut register = mutated_register();
         register.candidate_datasets[0].exact_landing_page_file_license_verified = Some(true);
         let errors = validate(&register);
-        assert!(errors.iter().any(|error| error.starts_with("unreviewed_rights_or_metadata_promoted:")));
+        assert!(
+            errors
+                .iter()
+                .any(|error| error.starts_with("unreviewed_rights_or_metadata_promoted:"))
+        );
     }
 
     #[test]
@@ -462,7 +511,11 @@ mod tests {
         register.candidate_datasets[2].derivative_sharing_permitted = Some(true);
         let errors = validate(&register);
         assert!(errors.iter().any(|error| error.starts_with("unreviewed_rights_or_metadata_promoted:")));
-        assert!(errors.iter().any(|error| error == "drff_r2_rights_or_published_counts_mismatch"));
+        assert!(
+            errors
+                .iter()
+                .any(|error| error == "drff_r2_rights_or_published_counts_mismatch")
+        );
     }
 
     #[test]
@@ -470,7 +523,11 @@ mod tests {
         let mut register = mutated_register();
         register.tracks[2].status = Some("ready_for_field_testing".to_string());
         let errors = validate(&register);
-        assert!(errors.iter().any(|error| error == "track_b1_must_remain_blocked"));
+        assert!(
+            errors
+                .iter()
+                .any(|error| error == "track_b1_must_remain_blocked")
+        );
     }
 
     #[test]
