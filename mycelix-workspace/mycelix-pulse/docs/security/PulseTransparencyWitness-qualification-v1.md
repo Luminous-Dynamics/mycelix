@@ -7,9 +7,11 @@
 
 ## Problem: inclusion is not global agreement
 
-A transparency service can issue a signed checkpoint and a Merkle inclusion proof for a statement. A consistency proof can show that a new tree extends a previously pinned tree. These are necessary integrity properties, but clients still need to detect a log that signs and distributes two different roots for the same log identity and tree size.
+SCITT RFC 9943 already requires the Transparency Service's Verifiable Data Structure to provide append-only and non-equivocation properties: no fork in the accepted statement sequence, with auditors able to check that everyone sees the same ordered collection. This PR does not weaken or replace that normative requirement.
 
-Two different clients can each receive a valid signature under the same log key, a valid inclusion proof, and a valid consistency proof from the same earlier checkpoint, yet receive different same-size tree roots. Each local proof bundle may look internally consistent. Unless clients and witnesses compare checkpoints or enforce an anti-equivocation rule, the split view may not be discovered promptly.
+The research question is whether an independent relying-party/monitor layer can detect and contain a TS that violates its non-equivocation promise. RFC 9162 documents the residual split-view problem: Merkle inclusion and consistency checks against a client's own previous checkpoint can be circumvented by a log that shows different, inconsistent views to different clients. It identifies comparison/gossip between clients and monitors as a way to detect inconsistent signed tree heads.
+
+Two different clients can each receive a valid signature under the same log key, a valid inclusion proof, and a valid consistency proof from the same earlier checkpoint, yet receive different same-size tree roots. Each local proof bundle may look internally consistent. The 3-of-4 witness overlay modeled here is an optional independent-monitor policy for this adversarial case. A real TS must still conform to RFC 9943's VDS non-equivocation requirement; witnesses are defense-in-depth and relying-party evidence, not a substitute for that service guarantee.
 
 ## Candidate static witness profile
 
@@ -30,6 +32,12 @@ A real profile should sign a canonical, domain-separated checkpoint statement co
 A witness lock key is the tuple identified by log_id, tree_size and committee_epoch. It records the exact checkpoint digest, not merely a Boolean signed flag. A witness seeing a different digest for an already locked identity must reject it and preserve both observations as equivocation evidence.
 
 A later tree size is a new checkpoint identity; it still requires a valid consistency proof from the prior checkpoint and cannot bypass the prior lock/history.
+
+## Standards boundary
+
+RFC 9943 defines the SCITT VDS requirement as append-only and non-equivocating. The TS implementation is responsible for that property. The witness protocol in this research PR is not a new SCITT requirement and does not make an otherwise non-conformant TS conformant. It models how independent clients/relying parties can refuse to trust divergent same-size roots and preserve evidence of suspected service equivocation.
+
+RFC 9162's Certificate Transparency auditing discussion provides the closest operational analogue: clients/monitors compare signed tree heads and audit inclusion/consistency, because each client's local proofs alone do not necessarily expose every split view. The Pulse overlay investigates a stronger, explicitly thresholded witness-policy option. It must be compared against ordinary gossip/monitoring, not assumed superior without a matched fault-injection benchmark.
 
 ## Modeled assumptions
 
