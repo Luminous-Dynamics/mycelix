@@ -76,6 +76,7 @@ pub struct CandidateDataset {
     pub published_conditions: Option<Conditions>,
     pub data_notes: Option<Vec<String>>,
     pub paper_stated_dataset_license: Option<String>,
+    pub paper_article_license: Option<String>,
     pub exact_landing_page_file_license_verified: Option<bool>,
     pub published_classes: Option<Vec<String>>,
     pub published_platforms: Option<Vec<String>>,
@@ -316,6 +317,7 @@ pub fn validate(register: &Register) -> Vec<String> {
     {
         Some(candidate)
             if candidate.paper_stated_dataset_license.as_deref() == Some("CC-BY-4.0")
+                && candidate.paper_article_license.as_deref() == Some("CC-BY-NC-ND-4.0")
                 && candidate.exact_landing_page_file_license_verified == Some(false)
                 && candidate
                     .published_conditions
