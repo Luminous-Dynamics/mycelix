@@ -1,0 +1,25 @@
+{
+  "manifest_id": "MARITIME-COMMONS-SYNTHETIC-COASTAL-STAY-TEMPLATE-001",
+  "profile_version": "0.1.0",
+  "status": "contract_template",
+  "use_case": "Template for a synthetic multi-provider coastal stay hand-off; no source or run artifacts attached.",
+  "audience": [
+    "research_review"
+  ],
+  "privacy_policy_refs": [],
+  "artifact_refs": [],
+  "handoff_edges": [],
+  "nonclaims": [
+    "No provider commitment or booking has been made.",
+    "No physical availability, navigation suitability or legal clearance is established.",
+    "No payment, settlement, refund or external effect has occurred.",
+    "No simulation, cognitive evaluation or cross-coordinator reconstruction has been executed."
+  ],
+  "execution": {
+    "executed": false,
+    "exact_head_verified": false,
+    "independent_verification": false,
+    "provider_effects": false,
+    "legal_review": false
+  }
+}
