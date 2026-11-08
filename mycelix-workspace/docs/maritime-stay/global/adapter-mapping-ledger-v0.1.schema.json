@@ -261,10 +261,16 @@
               "loss_reason": {
                 "type": "string",
                 "minLength": 1
+              },
+              "target_field_path": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 512
               }
             },
             "required": [
-              "loss_reason"
+              "loss_reason",
+              "target_field_path"
             ]
           }
         },
@@ -341,6 +347,11 @@
               "target_field_path": {
                 "type": "string",
                 "minLength": 1
+              },
+              "target_semantics": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1000
               }
             }
           }
@@ -411,6 +422,16 @@
             "properties": {
               "loss_severity": {
                 "const": "none"
+              },
+              "target_field_path": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 512
+              },
+              "target_semantics": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1000
               }
             },
             "required": [
