@@ -1,0 +1,105 @@
+{
+  "profile_id": "maritime-jurisdiction-overlay",
+  "profile_version": "0.1.0",
+  "status": "research_only",
+  "claim_ceiling": "Template only. No country or port legal assessment, government integration permission, regulatory approval or operational authority is established.",
+  "required_fields": {
+    "geographic_scope": {
+      "country_or_territory_codes": [],
+      "subnational_scope": [],
+      "port_or_locality_refs": [],
+      "coverage_exclusions": []
+    },
+    "governance": {
+      "issuing_authority_ref": null,
+      "competent_authority_refs": [],
+      "local_community_policy_refs": [],
+      "legal_review": {
+        "status": "not_started",
+        "reviewer_role": null,
+        "reviewed_at": null,
+        "scope": null
+      }
+    },
+    "public_sector": {
+      "maritime_single_window_ref": null,
+      "port_community_system_refs": [],
+      "reporting_schema_profiles": [],
+      "official_acknowledgement_semantics": [],
+      "clearance_authority_refs": []
+    },
+    "privacy": {
+      "controller_processor_roles": [],
+      "legal_instrument_refs": [],
+      "residency_policy_ref": null,
+      "cross_border_transfer_policy_ref": null,
+      "retention_profile_ref": null,
+      "data_subject_rights_profile_ref": null
+    },
+    "locale": {
+      "languages": [],
+      "scripts": [],
+      "bcp47_preferred_tags": [],
+      "cldr_version": null,
+      "rtl_required": null,
+      "translation_review_policy_ref": null,
+      "accessibility_profile_refs": []
+    },
+    "time": {
+      "iana_tzids": [],
+      "tzdb_version": null,
+      "calendar_profiles": [],
+      "local_cutoff_semantics_ref": null
+    },
+    "money": {
+      "settlement_currencies": [],
+      "iso4217_metadata_artifact_ref": null,
+      "tax_profile_refs": [],
+      "fee_disclosure_profile_ref": null,
+      "payment_provider_refs": []
+    },
+    "identifiers": {
+      "vessel_schemes": [],
+      "organization_schemes": [],
+      "port_location_schemes": [],
+      "facility_resource_schemes": [],
+      "issuer_verification_profiles": []
+    },
+    "measurement": {
+      "accepted_unit_systems": [],
+      "ucum_version": null,
+      "domain_conversion_profiles": [],
+      "precision_policies": []
+    },
+    "environment_safety": {
+      "protected_area_refs": [],
+      "environmental_constraints": [],
+      "port_safety_authority_refs": [],
+      "navigation_authority_refs": [],
+      "source_freshness_policies": []
+    },
+    "security": {
+      "key_authorities": [],
+      "approved_credential_profiles": [],
+      "incident_routes": [],
+      "data_classification_policy_ref": null
+    },
+    "sources": []
+  },
+  "lifecycle": {
+    "effective_from": null,
+    "effective_until": null,
+    "supersedes": null,
+    "superseded_by": null,
+    "withdrawn_at": null,
+    "review_due_at": null,
+    "source_snapshot_digests": [],
+    "change_log": []
+  },
+  "approval": {
+    "status": "not_approved",
+    "approving_authority_ref": null,
+    "approval_evidence_ref": null,
+    "approval_scope": null
+  }
+}
