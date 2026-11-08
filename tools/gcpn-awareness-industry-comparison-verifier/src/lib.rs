@@ -375,7 +375,7 @@ pub fn verify(bytes: &[u8]) -> Report {
             let target = &manifest.proposed_target;
             if target.relative_duplicate_unsubstantiated_alert_and_review_workload_reduction_percent
                 != 20
-                || !target.event_recall_non_degradation_required
+                || !target.semantic_state_conformance_non_degradation_required
                 || target.privacy_safety_and_authority_violations_may_increase
                 || target.status != "falsifiable_hypothesis_only_not_a_result"
             {
