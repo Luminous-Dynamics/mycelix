@@ -1,0 +1,127 @@
+{
+  "schema": "luminous.gcpn.offline_uas_dataset_register.v0.1",
+  "status": "source_candidates_not_admitted",
+  "claim_ceiling": "source_register_and_split_protocol_integrity_only",
+  "created_date": "2026-11-08",
+  "parent_issue": "Luminous-Dynamics/mycelix#5940",
+  "child_issue": "Luminous-Dynamics/mycelix#5960",
+  "tracks": [
+    {"id":"TRACK_A","description":"common event-envelope evidence replay","physical_sensor_performance":false},
+    {"id":"TRACK_B0","description":"offline public dataset analysis","physical_sensor_operation":false},
+    {"id":"TRACK_B1","description":"physical sensor study","status":"blocked_pending_legal_site_vendor_privacy_insurance_ground_truth_and_professional_approval"}
+  ],
+  "permitted_scope": [
+    "passive_coarse_event_presence",
+    "dataset_label_detection",
+    "benign_rf_coexistence_classification",
+    "sensor_modality_robustness",
+    "calibration_and_abstention",
+    "dataset_domain_shift"
+  ],
+  "prohibited_scope": [
+    "operator_or_controller_identity_or_geolocation",
+    "individual_aircraft_or_remote_controller_rf_fingerprinting",
+    "private_payload_decoding_or_retention",
+    "flight_path_or_tactical_trajectory_inference",
+    "command_takeover_jamming_spoofing_interception_or_engagement",
+    "live_radio_monitoring_or_field_operation"
+  ],
+  "candidate_datasets": [
+    {
+      "id":"TSMS-DRONE-2026",
+      "title":"A Time-Synchronized Multi-Sensor drone dataset acquired from multiple radars and RF receiver",
+      "paper_doi":"10.1038/s41597-026-06802-6",
+      "dataset_doi":"10.25452/figshare.plus.30027313.v1",
+      "paper_url":"https://doi.org/10.1038/s41597-026-06802-6",
+      "dataset_url":"https://explore.openaire.eu/search/dataset?pid=10.25452%2Ffigshare.plus.30027313.v1",
+      "published_date":"2026-02-10",
+      "modalities":["CW_RADAR","FMCW_RADAR","RF_RECEIVER"],
+      "published_target_description":"4 commercial drone models plus 1 non-drone target",
+      "published_conditions":{"distance_min_m":2,"distance_max_m":30,"distance_step_m":2,"repeats_per_condition":500},
+      "data_notes":["CW and RF include raw I/Q","FMCW includes processed range-Doppler frames, not full raw ADC stream"],
+      "paper_stated_dataset_license":"CC-BY-4.0",
+      "exact_landing_page_file_license_verified":false,
+      "status":"NOT_ADMITTED_PENDING_FILE_LEVEL_RIGHTS_AND_DATA_DICTIONARY_AUDIT",
+      "primary_limitations":["controlled distance conditions","small target diversity","not a field deployment sample"]
+    },
+    {
+      "id":"UAV-RF-COEXIST-2026",
+      "title":"A labeled RF signal dataset for UAV detection and classification in the 2.4GHz band under Wi-Fi and Bluetooth coexistence",
+      "paper_doi":"10.1016/j.dib.2026.113127",
+      "dataset_doi":"10.17632/y4w96kzsb5.1",
+      "paper_url":"https://doi.org/10.1016/j.dib.2026.113127",
+      "dataset_url":"https://doi.org/10.17632/y4w96kzsb5.1",
+      "published_date":"2026-08",
+      "modalities":["RF_SPECTROGRAM"],
+      "published_classes":["Drone_Signal","Wi-Fi","Bluetooth"],
+      "published_platforms":["DJI Phantom 4 Pro"],
+      "published_counts":{"spectrograms":6842,"signal_instances":22375,"training_images":5678,"validation_images":1164},
+      "published_environment":"indoor / semi-controlled with Wi-Fi and Bluetooth coexistence",
+      "paper_stated_license":"CC-BY",
+      "exact_dataset_license_verified":false,
+      "capture_group_metadata_verified":false,
+      "status":"NOT_ADMITTED_PENDING_MENDELEY_FILE_LICENSE_AND_GROUP_LEAKAGE_AUDIT",
+      "primary_limitations":["single drone platform","2.4 GHz scope","limited coexistence sources","random/window split leakage not ruled out"]
+    },
+    {
+      "id":"DRFF-R2-2026",
+      "title":"A Multi-Scenario UAV RF Dataset with Real-World Acquisition and Signal Processing Benchmarking",
+      "paper_doi":"10.1038/s41597-026-08490-8",
+      "paper_url":"https://doi.org/10.1038/s41597-026-08490-8",
+      "published_date":"2026-10-22",
+      "published_subsets":7,
+      "published_uav_units":26,
+      "published_uav_models":8,
+      "published_variation":["flight_state","altitude","speed","acquisition_day","receiver_configuration"],
+      "paper_license":"CC-BY-NC-ND-4.0",
+      "dataset_repository_license_verified":false,
+      "derivative_sharing_permitted":false,
+      "status":"NOT_ADMITTED_PENDING_DATASET_LICENSE_AND_NONCOMMERCIAL_NO_DERIVATIVES_REVIEW",
+      "primary_limitations":["research dataset, not universal site distribution","exact data repository version and license must be pinned"]
+    }
+  ],
+  "required_source_manifest_fields": [
+    "dataset_id",
+    "paper_doi",
+    "dataset_doi_or_stable_landing_page",
+    "retrieval_date",
+    "file_version",
+    "file_sha256",
+    "data_dictionary_digest",
+    "annotation_provenance",
+    "exact_file_level_license",
+    "permitted_purpose",
+    "redistribution_rights",
+    "privacy_content_review",
+    "missingness_and_corruption_policy"
+  ],
+  "required_split_protocols": [
+    "session_holdout",
+    "day_holdout_where_metadata_exists",
+    "physical_unit_holdout_where_metadata_exists",
+    "model_holdout_where_dataset_supports_it",
+    "receiver_configuration_holdout_where_supported",
+    "cross_dataset_holdout_only_with_explicit_class_mapping"
+  ],
+  "hard_gates": {
+    "unknown_license_dataset_used": false,
+    "train_test_group_overlap_allowed": false,
+    "raw_private_payload_decoding_allowed": false,
+    "operator_or_controller_identification_allowed": false,
+    "field_sensor_operation_allowed": false,
+    "tactical_or_effector_use_allowed": false,
+    "unqualified_sota_claim_allowed": false
+  },
+  "required_metrics": [
+    "classwise_precision_recall_f1_and_pr_auc",
+    "false_positives_per_labelled_negative_or_valid_negative_duration",
+    "benign_rf_coexistence_error",
+    "brier_and_reliability_on_adequate_holdout",
+    "coverage_vs_selective_error",
+    "worst_group_performance_with_uncertainty",
+    "cross_dataset_generalization_gap",
+    "missing_modality_robustness",
+    "runtime_and_compute_cost",
+    "source_rights_and_reproducibility_completeness"
+  ]
+}
