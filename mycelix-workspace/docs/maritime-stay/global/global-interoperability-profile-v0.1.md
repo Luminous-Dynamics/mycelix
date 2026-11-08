@@ -308,3 +308,28 @@ A follow-on, not-yet-executed integration corpus is \`existing-federation-cases-
 - DCSA Port Call 2.0 API: https://reference.dcsa.org/content/standards/releases/port-call/v2/pc-v2-openapi-specification
 - IHO S-131: https://registry.iho.int/productspec/view.do?category=product_ID&domainS=ALL&idx=233&product_ID=S-131&searchValue=&statusS=5
 - IHO S-127: https://registry.iho.int/productspec/view.do?category=product_ID&domainS=ALL&idx=232&product_ID=S-127&searchValue=&statusS=5
+
+
+### Adapter semantics and field-loss accounting
+
+An adapter connection is not yet semantic interoperability. Every adapter profile should publish a mapping ledger using the adapter-mapping-ledger-v0.1.schema.json contract.
+
+For every source field in the adapter's declared coverage:
+- identify its exact source path and source meaning;
+- identify the target path and target meaning, or explicitly state that it is omitted/unsupported;
+- classify the transformation as preserved, normalized-preserving, approximated, omitted, unsupported, unknown-source-value, or invented-value;
+- report loss severity and whether the source can be reconstructed exactly, from retained source evidence, partially, or not at all;
+- state the evidence grade used to evaluate the mapping.
+
+The source value itself should not be copied into the mapping ledger by default; reference the protected source evidence instead. This keeps the ledger useful for semantic review without creating a second store of customer/provider payloads.
+
+Required semantic rules:
+- A required target field cannot be silently omitted or marked unsupported.
+- An invented value is a hard rejection for normative export; a target schema's requirement does not authorize fabrication.
+- Unknown source values must be preserved opaquely, quarantined, or rejected under the exact adapter profile; they must not silently collapse to a default enum.
+- "Preserved" means exact round-trip preservation, not merely that a value was populated.
+- Normalization is preservation only where the profile declares and tests semantic equivalence.
+- A structurally valid ledger does not prove a mapping correct. The independent semantic verifier must compare frozen source/target vectors and verify required-field coverage.
+- Calculate coverage and loss rates from the records; do not trust caller-supplied summary percentages.
+
+Benchmark declared-lossless fields at 100% preservation and zero silent loss. Report all approximation, omission, unsupported values, and unknown fields separately; do not let a high adapter count compensate for a broken required field.
