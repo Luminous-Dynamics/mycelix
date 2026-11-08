@@ -26,7 +26,7 @@ An offline dataset result is not a physical detection test, range guarantee, fie
 - Dataset landing reference: https://explore.openaire.eu/search/dataset?pid=10.25452%2Ffigshare.plus.30027313.v1.
 - Published contents: synchronized continuous-wave radar, FMCW radar and RF receiver; four commercial drone models plus one non-drone target; controlled distance conditions 2–30 m in 2 m increments; 500 repeated measurements per condition.
 - Data format: raw I/Q for CW and RF; processed FMCW range-Doppler frames, not full raw FMCW ADC streams; matching images and sample MATLAB code.
-- Rights note: the paper says the dataset is available under CC BY 4.0. Before use, verify the exact dataset landing-page licence, any third-party component notices and the licence on every code/data artifact. Do not assume the paper licence automatically controls every linked artifact.
+- Rights note: the article's Data availability section states that the **dataset** is available under CC BY 4.0, while the article's separate Rights and permissions section states that the **article text/images** are under CC BY-NC-ND 4.0. These are different objects and must remain separately recorded. The OpenAIRE/Figshare+ landing record identifies the dataset but does not, in the retrieved metadata, expose a file-level licence field. Before use, verify the exact dataset repository/file terms, third-party component notices and separate rights for sample code, images and paper figures. Do not infer that the article licence or dataset statement automatically applies to every linked artifact.
 - Important limitation: controlled, repeated measurements with a very small target set do not provide representative field performance or broad aircraft diversity.
 
 ### 2.4 GHz RF coexistence dataset
