@@ -34,14 +34,14 @@ pub struct TrackARunBundle {
     pub pipelines: Vec<PipelineSubmission>,
 }
 
-#[derive(Clone, Debug, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum EvidenceTier {
     SyntheticFixture,
     ControlledReplay,
 }
 
-#[derive(Clone, Debug, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum GroundTruthLabel {
     ConfirmedRelevant,
@@ -69,7 +69,7 @@ pub struct PipelineSubmission {
     pub case_results: Vec<CaseResult>,
 }
 
-#[derive(Clone, Debug, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum PipelineRole {
     RulesOnly,
@@ -130,7 +130,7 @@ pub struct CaseResult {
     pub source_evidence: SourceEvidence,
 }
 
-#[derive(Clone, Debug, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum ReviewDisposition {
     ReviewRequired,
@@ -151,7 +151,7 @@ pub struct SourceEvidence {
     pub purpose_and_rights_verified: bool,
 }
 
-#[derive(Clone, Debug, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum DependencyInventory {
     Complete,
@@ -363,10 +363,10 @@ pub fn evaluate_with_expected_sha256(
         };
     }
 
-    let oracle: BTreeMap<&str, &GroundTruthLabel> = bundle
+    let oracle: BTreeMap<&str, GroundTruthLabel> = bundle
         .oracle_cases
         .iter()
-        .map(|case| (case.case_id.as_str(), &case.label))
+        .map(|case| (case.case_id.as_str(), case.label))
         .collect();
 
     let pipeline_results = bundle
@@ -459,6 +459,12 @@ fn validate_bundle(bundle: &TrackARunBundle) -> Vec<String> {
     }
 
     let mut pipeline_ids = BTreeSet::new();
+    let oracle_labels: BTreeMap<&str, GroundTruthLabel> = bundle
+        .oracle_cases
+        .iter()
+        .map(|case| (case.case_id.as_str(), case.label))
+        .collect();
+
     for pipeline in &bundle.pipelines {
         if !valid_identifier(&pipeline.pipeline_id) {
             errors.push(format!("invalid_pipeline_id:{}", pipeline.pipeline_id));
@@ -497,17 +503,30 @@ fn validate_bundle(bundle: &TrackARunBundle) -> Vec<String> {
                     pipeline.pipeline_id, result.case_id
                 ));
             }
+            if oracle_labels.get(result.case_id.as_str()) == Some(&GroundTruthLabel::Unresolved)
+                && result.relevance_probability_micros.is_some()
+            {
+                errors.push(format!(
+                    "unresolved_probability_not_permitted:{}:{}",
+                    pipeline.pipeline_id, result.case_id
+                ));
+            }
         }
     }
 
     if bundle.evidence_tier == EvidenceTier::ControlledReplay {
-        let receipts_present = [
-            bundle.ground_truth_adjudication_receipt_sha256.as_deref(),
-            bundle.privacy_review_receipt_sha256.as_deref(),
-            bundle.authorization_review_receipt_sha256.as_deref(),
-        ]
-        .iter()
-        .all(|value| value.is_some_and(is_sha256));
+        let receipts_present = bundle
+            .ground_truth_adjudication_receipt_sha256
+            .as_deref()
+            .is_some_and(is_sha256)
+            && bundle
+                .privacy_review_receipt_sha256
+                .as_deref()
+                .is_some_and(is_sha256)
+            && bundle
+                .authorization_review_receipt_sha256
+                .as_deref()
+                .is_some_and(is_sha256);
         if !receipts_present {
             errors.push("controlled_replay_review_receipts_missing_or_invalid".to_string());
         }
@@ -651,7 +670,7 @@ fn calculate_metrics(
     let mut rights_and_purpose_verified_cases = 0usize;
 
     for result in &pipeline.case_results {
-        let label = oracle[result.case_id.as_str()];
+        let label = *oracle.get(result.case_id.as_str()).expect("case coverage validated");
         let source = &result.source_evidence;
 
         source_count_total += u64::from(source.source_count);
