@@ -27,7 +27,13 @@ jobs:
           cache: false
       - name: Format check
         working-directory: tools/emsr-dependency-hypergraph-go-verifier
-        run: test -z "$(gofmt -l .)"
+        run: |
+          unformatted="$(gofmt -l .)"
+          if [ -n "$unformatted" ]; then
+            printf 'Files requiring gofmt:\n%s\n' "$unformatted"
+            gofmt -d $unformatted
+            exit 1
+          fi
       - name: Static analysis
         working-directory: tools/emsr-dependency-hypergraph-go-verifier
         run: go vet ./...
