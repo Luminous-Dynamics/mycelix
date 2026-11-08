@@ -18,7 +18,7 @@
       "expected_disposition": "pass",
       "expected_canonical_utf8": "{\"a\":1,\"b\":2}",
       "expected_semantic_sha256_hex": "67a8972db818e14120df09c6a9823de44c5372492837855e9260621efe696cda",
-      "expected_raw_source_sha256_hex": "",
+      "expected_raw_source_sha256_hex": "d0ed52f9264c29a600df1013daf0d1661f8f23390be6b58008de7e7d33c01080",
       "notes": "Object member order and insignificant whitespace do not affect canonical semantic identity."
     },
     {
