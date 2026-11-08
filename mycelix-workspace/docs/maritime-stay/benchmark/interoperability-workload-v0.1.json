@@ -58,7 +58,8 @@
     "integration_lifecycle_cost",
     "provider_autonomy_local_governance",
     "privacy_economic_transparency",
-    "interoperability_recovery"
+    "interoperability_recovery",
+    "coordinator_portability"
   ],
   "non_compensatory_hard_gates": [
     "zero_false_confirmed_stays",
@@ -385,6 +386,131 @@
         "#5920",
         "#5925"
       ]
+    },
+    {
+      "id": "MCB-COORD-001",
+      "name": "Independent historical-view reconstruction",
+      "class": "coordinator_portability",
+      "required_arms": [
+        "FEDERATED"
+      ],
+      "coordinator_profiles": [
+        "SINGLE",
+        "HA_REPLICATED",
+        "RECONSTRUCTED"
+      ],
+      "setup": "Two independent evaluators receive the same exact evidence frontier, evaluation instant, policy snapshot, semantic profile and evaluator identity.",
+      "expected_safety_disposition": "Same byte-identical canonical historical view; no external call or side effect.",
+      "measures": [
+        "historical_manifest_match",
+        "manifest_divergence_count",
+        "cold_start_reconstruction_ms"
+      ],
+      "references": [
+        "#5938",
+        "#5921"
+      ]
+    },
+    {
+      "id": "MCB-COORD-002",
+      "name": "Provider commits before coordinator crash",
+      "class": "crash_recovery",
+      "required_arms": [
+        "NATIVE",
+        "FEDERATED"
+      ],
+      "coordinator_profiles": [
+        "SINGLE",
+        "HA_REPLICATED",
+        "RECONSTRUCTED"
+      ],
+      "setup": "Provider durably commits, then coordinator crashes before receiving or admitting the effect receipt.",
+      "expected_safety_disposition": "Replacement reports Unknown / NeedsReconciliation until provider-authoritative evidence is obtained; no second provider effect.",
+      "measures": [
+        "duplicate_effect_count",
+        "reconciliation_latency",
+        "provider_readback_calls",
+        "coordinator_replacement_ms"
+      ],
+      "references": [
+        "#5938",
+        "#2525",
+        "#5921"
+      ]
+    },
+    {
+      "id": "MCB-COORD-003",
+      "name": "Old coordinator resumes after fencing transfer",
+      "class": "split_brain",
+      "required_arms": [
+        "FEDERATED"
+      ],
+      "coordinator_profiles": [
+        "HA_REPLICATED",
+        "RECONSTRUCTED"
+      ],
+      "setup": "Old coordinator resumes with a stale execution epoch after a replacement has become active.",
+      "expected_safety_disposition": "No stale-epoch effectful dispatch; if provider-side fencing/idempotency cannot be guaranteed, effectful failover is refused.",
+      "measures": [
+        "stale_epoch_dispatches",
+        "duplicate_effect_count",
+        "operator_recovery_minutes"
+      ],
+      "references": [
+        "#5938",
+        "#2525"
+      ]
+    },
+    {
+      "id": "MCB-COORD-004",
+      "name": "Historical view after policy change",
+      "class": "policy_change",
+      "required_arms": [
+        "FEDERATED"
+      ],
+      "coordinator_profiles": [
+        "SINGLE",
+        "HA_REPLICATED",
+        "RECONSTRUCTED"
+      ],
+      "setup": "Local recognition or destination policy changes after a historical stay manifest was generated.",
+      "expected_safety_disposition": "Historical output remains immutable; current actionability is independently reevaluated under current policy.",
+      "measures": [
+        "historical_view_mutations",
+        "current_actionability_requalification_ms",
+        "policy_version_mismatch_detection"
+      ],
+      "references": [
+        "#5938",
+        "#1215",
+        "#1149"
+      ]
+    },
+    {
+      "id": "MCB-COORD-005",
+      "name": "Provider continues during coordinator outage",
+      "class": "availability",
+      "required_arms": [
+        "NATIVE",
+        "FEDERATED"
+      ],
+      "coordinator_profiles": [
+        "SINGLE",
+        "HA_REPLICATED",
+        "RECONSTRUCTED"
+      ],
+      "setup": "Federation coordinator is unavailable while provider-native booking operations remain available.",
+      "expected_safety_disposition": "Provider-native operation remains usable under provider authority; federation view reports stale/unavailable and does not claim currentness.",
+      "measures": [
+        "provider_native_availability",
+        "coordinator_replacement_ms",
+        "last_view_age_ms",
+        "manual_reconciliation_minutes"
+      ],
+      "references": [
+        "#5938",
+        "#5920"
+      ]
     }
   ],
   "required_run_metadata": [
@@ -405,7 +531,12 @@
     "end_time",
     "evidence_grade",
     "outcome",
-    "failure_or_exclusion_reason"
+    "failure_or_exclusion_reason",
+    "coordinator_profile",
+    "coordinator_epoch",
+    "evidence_frontier_digest",
+    "historical_evaluation_instant",
+    "policy_snapshot_digest"
   ],
   "metric_definitions": {
     "elapsed_time": "Wall-clock time from task start to justified completion or terminal unresolved state.",
@@ -415,7 +546,13 @@
     "custom_mapping_rules": "Count of non-reusable provider-specific semantic mapping rules.",
     "adapter_replacement_minutes": "Elapsed active engineering/operator time to replace an adapter under the frozen task.",
     "fields_disclosed": "Count of distinct data fields transmitted per purpose, with sensitivity classification.",
-    "reconciliation_latency": "Time from ambiguous effect/contradiction until justified provider-authoritative resolution."
+    "reconciliation_latency": "Time from ambiguous effect/contradiction until justified provider-authoritative resolution.",
+    "coordinator_cold_start_ms": "Time from replacement evaluator start to a justified historical view or terminal indeterminate result.",
+    "historical_manifest_match": "Whether independent evaluators produce byte-identical canonical historical output from the same frontier/profile inputs.",
+    "manifest_divergence_count": "Number of independent reconstruction outputs that disagree for identical frozen inputs.",
+    "provider_readback_calls": "Count of authorized provider-authoritative queries needed to resolve missing or ambiguous effects.",
+    "stale_epoch_dispatches": "Count of effectful dispatch attempts made with an expired or superseded coordinator execution epoch.",
+    "provider_native_availability": "Whether provider-native operations remain usable during coordinator outage, measured separately from federation UI availability."
   },
   "hypotheses_not_results": [
     {
@@ -448,5 +585,19 @@
     "No live booking, hold, cancellation or payment.",
     "No assumption that DCSA Port Call or IHO S-100 is a recreational booking protocol.",
     "No claim that synthetic success establishes legal, physical, safety, field or production readiness."
+  ],
+  "coordinator_profiles": [
+    {
+      "id": "SINGLE",
+      "description": "One durable centralized coordinator; compare using declared store/recovery profile."
+    },
+    {
+      "id": "HA_REPLICATED",
+      "description": "Highly available or replicated coordinator using a shared durable journal; exact durability/fencing assumptions must be recorded."
+    },
+    {
+      "id": "RECONSTRUCTED",
+      "description": "Replaceable read-only evaluators reconstructing historical views from authorized evidence; new action authority is independently requalified."
+    }
   ]
 }
