@@ -1,0 +1,175 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.luminousdynamics.io/maritime-commons/standards-dependency-lock/0.1.0/schema.json",
+  "title": "Maritime Commons Standards Dependency Lock v0.1",
+  "description": "Structural lockfile contract. Dependency graph closure, cycles, compatibility, maturity, and digest provenance require semantic verification.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "lock_id",
+    "profile_id",
+    "version",
+    "created_at",
+    "status",
+    "root_artifact_ids",
+    "artifacts",
+    "claim_ceiling"
+  ],
+  "properties": {
+    "lock_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 160
+    },
+    "profile_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 160
+    },
+    "version": {
+      "const": "0.1.0"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "status": {
+      "enum": [
+        "incomplete",
+        "complete",
+        "superseded"
+      ]
+    },
+    "root_artifact_ids": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 160
+      }
+    },
+    "artifacts": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/Artifact"
+      }
+    },
+    "claim_ceiling": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1000
+    }
+  },
+  "$defs": {
+    "Maturity": {
+      "enum": [
+        "production",
+        "operational",
+        "implementation_testing",
+        "prerelease",
+        "draft",
+        "deprecated",
+        "withdrawn",
+        "unknown"
+      ]
+    },
+    "Dependency": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "artifact_id",
+        "relationship"
+      ],
+      "properties": {
+        "artifact_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "relationship": {
+          "enum": [
+            "framework_requires",
+            "product_uses",
+            "schema_for",
+            "feature_catalogue_for",
+            "portrayal_catalogue_for",
+            "validation_rules_for",
+            "code_list_for",
+            "references"
+          ]
+        }
+      }
+    },
+    "Artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "artifact_id",
+        "authority",
+        "family",
+        "identifier",
+        "version",
+        "maturity",
+        "source_uri",
+        "retrieved_at",
+        "sha256",
+        "dependencies"
+      ],
+      "properties": {
+        "artifact_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{2,159}$"
+        },
+        "authority": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "family": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "identifier": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "maturity": {
+          "$ref": "#/$defs/Maturity"
+        },
+        "source_uri": {
+          "type": "string",
+          "format": "uri",
+          "maxLength": 2048
+        },
+        "retrieved_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^sha256:[a-f0-9]{64}$"
+        },
+        "dependencies": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Dependency"
+          }
+        },
+        "notes": {
+          "type": "string",
+          "maxLength": 2000
+        }
+      }
+    }
+  }
+}
