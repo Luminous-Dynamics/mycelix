@@ -30,7 +30,7 @@ jobs:
         run: cargo test --locked --all-targets
 
       - name: Check formatting
-        run: cargo fmt
+        run: cargo fmt -- --check
 
       - name: Run Clippy
         run: cargo clippy --all-targets -- -D warnings
