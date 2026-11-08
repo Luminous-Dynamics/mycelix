@@ -463,18 +463,18 @@ fn calculate_metrics(
 
     for result in &workflow.case_results {
         let expected = expectations.get(&result.case_id)?;
-        exact_state_matches += u64::from(result.reported_state == expected.expected_state);
-        provenance_complete += u64::from(result.provenance_complete);
-        source_status_preserved += u64::from(result.source_status_preserved);
+        exact_state_matches += (result.reported_state == expected.expected_state) as u64;
+        provenance_complete += result.provenance_complete as u64;
+        source_status_preserved += result.source_status_preserved as u64;
         if expected.contradiction_required {
             contradiction_required += 1;
-            contradictions_preserved += u64::from(result.contradiction_preserved);
+            contradictions_preserved += result.contradiction_preserved as u64;
         }
-        intent_abstention += u64::from(result.abstained_from_intent_classification);
-        human_review_required += u64::from(result.human_review_required);
-        event_receipt_time_separation += u64::from(result.event_and_receipt_times_separated);
-        correction_lineage += u64::from(result.correction_lineage_preserved);
-        privacy_compliant += u64::from(result.privacy_compliant);
+        intent_abstention += result.abstained_from_intent_classification as u64;
+        human_review_required += result.human_review_required as u64;
+        event_receipt_time_separation += result.event_and_receipt_times_separated as u64;
+        correction_lineage += result.correction_lineage_preserved as u64;
+        privacy_compliant += result.privacy_compliant as u64;
         privacy_violations += u64::from(result.privacy_violation_count);
         authority_violations += u64::from(result.authority_violation_count);
         hostile_label_used += u64::from(result.vendor_hostile_label_used_as_truth);
@@ -668,9 +668,10 @@ mod tests {
 
     #[test]
     fn same_frame_and_budget_are_required() {
-        let changed = SMOKE_RUN.replace(
+        let changed = SMOKE_RUN.replacen(
             "\"operator_review_budget_minutes_per_case\": 10",
             "\"operator_review_budget_minutes_per_case\": 11",
+            1,
         );
         assert_ne!(changed, SMOKE_RUN);
         let report = evaluate(AWARENESS.as_bytes(), COMPARISON.as_bytes(), changed.as_bytes());
