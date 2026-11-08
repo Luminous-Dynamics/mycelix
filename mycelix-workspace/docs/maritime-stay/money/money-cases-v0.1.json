@@ -1,0 +1,132 @@
+{
+  "corpus_id": "MCB-MONEY-0.1",
+  "profile_id": "maritime-money-amount-0.1",
+  "status": "synthetic_contract_cases_not_executed",
+  "claim_ceiling": "Declarative test intent only. Exponent-zero/two/three fixture classes must bind to a pinned ISO 4217 artifact and digest at execution. No legal/tax/payment/FX finality is established.",
+  "required_fixture_metadata": [
+    "iso4217_metadata_artifact_ref",
+    "iso4217_metadata_sha256",
+    "metadata_retrieved_at",
+    "transaction_effective_at",
+    "selected_currency_code",
+    "expected_minor_unit_exponent"
+  ],
+  "cases": [
+    [
+      "MONEY-001",
+      "Zero minor-unit currency",
+      "scale_positive",
+      "Accept exact amount using exponent-zero metadata fixture; no two-decimal assumption."
+    ],
+    [
+      "MONEY-002",
+      "Two minor-unit currency",
+      "scale_positive",
+      "Accept exact amount using exponent-two metadata fixture as positive control."
+    ],
+    [
+      "MONEY-003",
+      "Three minor-unit currency",
+      "scale_positive",
+      "Accept exact amount using exponent-three metadata fixture; no two-decimal assumption."
+    ],
+    [
+      "MONEY-004",
+      "Historical currency code",
+      "currency_lifecycle",
+      "Preserve historical currency metadata and effective interval; do not substitute current code."
+    ],
+    [
+      "MONEY-005",
+      "Metadata revision after quote",
+      "currency_currentness",
+      "Replay with pinned historical metadata; new evaluations must explicitly select applicable metadata."
+    ],
+    [
+      "MONEY-006",
+      "Same integer with different exponent",
+      "scale_conflict",
+      "Reject or mark indeterminate when exponent context missing or conflicting."
+    ],
+    [
+      "MONEY-007",
+      "Locale formatting changes",
+      "presentation",
+      "Display separators/symbols may vary; canonical integer and exponent remain identical."
+    ],
+    [
+      "MONEY-008",
+      "Quote currency differs from settlement currency",
+      "settlement_currency",
+      "Keep quote and settlement currency separate and require explicit settlement evidence."
+    ],
+    [
+      "MONEY-009",
+      "Inverse FX rate direction",
+      "fx_semantics",
+      "Reject a rate whose declared direction does not match source/target conversion."
+    ],
+    [
+      "MONEY-010",
+      "Stale or unrecognized FX rate",
+      "fx_currentness",
+      "Do not use stale/unrecognized rate; preserve Unknown or reject."
+    ],
+    [
+      "MONEY-011",
+      "Negative discount/credit line",
+      "line_item_sign",
+      "Negative line item allowed only for an explicitly classified adjustment and correct aggregate arithmetic."
+    ],
+    [
+      "MONEY-012",
+      "Refund requested, no external effect",
+      "refund_state",
+      "Refund request remains a request; no refund-finality claim."
+    ],
+    [
+      "MONEY-013",
+      "Refund attempted, finality unknown",
+      "refund_finality",
+      "Attempt remains attempted/unknown until recognized external finality evidence."
+    ],
+    [
+      "MONEY-014",
+      "Cash rounding versus accounting scale",
+      "rounding",
+      "Distinguish cash-tender rounding from accounting amount and record exact rounding event."
+    ],
+    [
+      "MONEY-015",
+      "Overflow and unsupported exponent",
+      "numeric_bounds",
+      "Fail explicitly on integer overflow, unsupported scale or arithmetic truncation."
+    ],
+    [
+      "MONEY-016",
+      "Syntactically valid but unknown currency",
+      "currency_unknown",
+      "A three-letter string alone is not an active ISO 4217 currency."
+    ],
+    [
+      "MONEY-017",
+      "Mandatory fee changes after acceptance",
+      "quote_revision",
+      "Require new provider quote/acceptance semantics; do not mutate historical accepted amount."
+    ],
+    [
+      "MONEY-018",
+      "Tax-inclusive/exclusive translation loss",
+      "tax_semantics",
+      "Reject or mark loss/indeterminate when a mapping changes whether tax is included."
+    ]
+  ],
+  "execution_status": {
+    "executed": false,
+    "pinned_currency_artifact": false,
+    "independent_arithmetic_oracle": false,
+    "schema_validator_run": false,
+    "provider_payment_rail_used": false,
+    "financial_finality_tested": false
+  }
+}
