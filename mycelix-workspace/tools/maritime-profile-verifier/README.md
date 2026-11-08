@@ -92,3 +92,5 @@ is upgraded.
 3. Add independent property/differential tests and exact-pinned external
    artifacts only after their source and redistribution terms are reviewed.
 4. Keep provider adapters and all effectful actions outside this crate.
+
+For an authority-dependent claim using an Approved jurisdiction overlay, the host must supply two separate external assessments: recognition of the competent authority for the jurisdiction/purpose, and verification of the exact approval record. A URI/reference alone is not either assessment. The crate records caller-supplied dispositions; it does not authenticate or decide the underlying legal instrument.
