@@ -90,11 +90,14 @@ The report emits:
 - relative reduction in unsubstantiated alerts;
 - non-degradation of exact semantic-state matches;
 - non-degradation of provenance completeness;
-- non-degradation of contradiction preservation.
+- non-degradation of source-status/currentness preservation;
+- non-degradation of contradiction preservation;
+- non-degradation of event/receipt-time separation;
+- non-degradation of correction-lineage preservation.
 
 If a baseline denominator is zero, the relevant percentage reduction is `null`, not zero or an invented improvement.
 
-The 20% candidate hypothesis is met only when all three workload/alert reductions are at least 20% and semantic, provenance, contradiction, privacy and authority conditions are preserved. It is a falsifiable hypothesis, not a result.
+The 20% candidate hypothesis is met only when all three workload/alert reductions are at least 20% and semantic state, provenance, source status, contradiction preservation, event/receipt-time separation, correction lineage, privacy and authority conditions are preserved. It is a falsifiable hypothesis, not a result.
 
 This Track A hypothesis does not refer to physical event recall. Event recall can only be assessed in the separately authorized Track B with independent physical ground truth.
 
