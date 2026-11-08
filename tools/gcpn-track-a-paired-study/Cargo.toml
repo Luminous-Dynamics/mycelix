@@ -1,0 +1,16 @@
+[package]
+name = "gcpn-track-a-paired-study"
+version = "0.1.0"
+edition = "2024"
+publish = false
+license = "AGPL-3.0-or-later"
+description = "Paired independent-block statistics for matched civilian Track A replay studies"
+
+[workspace]
+resolver = "2"
+
+[dependencies]
+gcpn-track-a-replay-evaluator = { path = "../gcpn-track-a-replay-evaluator" }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+sha2 = "0.10"
