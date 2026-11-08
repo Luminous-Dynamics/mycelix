@@ -767,7 +767,12 @@ mod tests {
             changed.as_bytes(),
         );
         assert_eq!(report.evaluation_status, "REJECTED");
-        assert!(report.errors.iter().any(|error| error.starts_with("replay_run_decode")));
+        assert!(
+            report
+                .errors
+                .iter()
+                .any(|error| error.starts_with("replay_run_decode"))
+        );
     }
 
     #[test]
