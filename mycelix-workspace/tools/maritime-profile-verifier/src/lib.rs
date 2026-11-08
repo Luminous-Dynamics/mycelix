@@ -100,6 +100,18 @@ fn sha256_digest_is_well_formed(value: &str) -> bool {
             .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
 }
 
+fn valid_uri_scheme(value: &str) -> bool {
+    let Some((scheme, remainder)) = value.split_once(':') else {
+        return false;
+    };
+    !scheme.is_empty()
+        && scheme.as_bytes()[0].is_ascii_alphabetic()
+        && scheme.bytes().all(|byte| {
+            byte.is_ascii_alphanumeric() || matches!(byte, b'+' | b'.' | b'-')
+        })
+        && !remainder.trim().is_empty()
+}
+
 fn non_empty(value: &str) -> bool {
     !value.trim().is_empty()
 }
@@ -120,6 +132,8 @@ fn parse_local_lexeme(value: &str) -> Option<NaiveDateTime> {
 #[serde(rename_all = "snake_case")]
 pub enum ArtifactMaturity {
     Production,
+    Operational,
+    ImplementationTesting,
     PreRelease,
     Draft,
     Deprecated,
@@ -242,6 +256,8 @@ pub struct StandardsArtifact {
     pub identifier: String,
     pub version: String,
     pub maturity: ArtifactMaturity,
+    pub source_uri: String,
+    pub retrieved_at: String,
     pub sha256: String,
     pub dependencies: Vec<StandardsDependency>,
 }
@@ -349,6 +365,8 @@ pub fn evaluate_standards_lock(
             && non_empty(&artifact.family)
             && non_empty(&artifact.identifier)
             && non_empty(&artifact.version)
+            && valid_uri_scheme(&artifact.source_uri)
+            && parse_rfc3339(&artifact.retrieved_at).is_some()
     });
     if metadata_complete {
         checks.push(Check::pass(
@@ -1434,6 +1452,8 @@ mod tests {
                     identifier: "S-131".into(),
                     version: "2.0.0".into(),
                     maturity: ArtifactMaturity::Operational,
+                    source_uri: "https://registry.iho.int/productspec/S-131".into(),
+                    retrieved_at: "2026-11-08T10:00:00Z".into(),
                     sha256: digest('e'),
                     dependencies: vec![StandardsDependency {
                         artifact_id: "S100".into(),
@@ -1447,6 +1467,8 @@ mod tests {
                     identifier: "S-100".into(),
                     version: "5.2.0".into(),
                     maturity: ArtifactMaturity::Operational,
+                    source_uri: "https://registry.iho.int/productspec/S-100".into(),
+                    retrieved_at: "2026-11-08T10:00:00Z".into(),
                     sha256: digest('f'),
                     dependencies: vec![],
                 },
@@ -1461,6 +1483,16 @@ mod tests {
             StandardsUseScope::CurrentProduction,
         );
         assert_eq!(report.disposition, Disposition::Pass);
+    }
+
+    #[test]
+    fn standards_lock_requires_retrieval_time_and_source_uri() {
+        let mut lock = valid_standards_lock();
+        lock.artifacts[0].source_uri = "not-a-uri".into();
+        lock.artifacts[1].retrieved_at = "not-a-date".into();
+        let report = evaluate_standards_lock(&lock, StandardsUseScope::ResearchFixture);
+        assert_eq!(report.disposition, Disposition::Reject);
+        assert!(report.checks.iter().any(|check| check.code == "standards_artifact_metadata_missing"));
     }
 
     #[test]
