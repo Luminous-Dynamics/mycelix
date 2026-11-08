@@ -470,7 +470,12 @@ mod tests {
         );
         let report = verify_bytes(changed.as_bytes());
         assert_eq!(report.status, "REJECTED");
-        assert!(report.errors.iter().any(|error| error.starts_with("strict_json_decode:")));
+        assert!(
+            report
+                .errors
+                .iter()
+                .any(|error| error.starts_with("strict_json_decode:"))
+        );
     }
 
     #[test]
@@ -502,7 +507,11 @@ mod tests {
         let mut register = mutated_register();
         register.candidate_datasets[1].capture_group_metadata_verified = Some(true);
         let errors = validate(&register);
-        assert!(errors.iter().any(|error| error.starts_with("unreviewed_rights_or_metadata_promoted:")));
+        assert!(
+            errors
+                .iter()
+                .any(|error| error.starts_with("unreviewed_rights_or_metadata_promoted:"))
+        );
     }
 
     #[test]
