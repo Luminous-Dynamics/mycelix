@@ -30,7 +30,7 @@ The three candidate datasets differ in modality, labels, capture conditions, tar
 
 1. **Non-admission is explicit.** All candidates have a not-admitted status, and the verifier rejects a promotion to admitted status.
 2. **Paper licence is separated from file-level rights.** The register does not assume that an open-access article grants every linked data/code artifact the same rights.
-3. **DRFF-R2 receives special treatment.** Its paper states CC BY-NC-ND 4.0; derivative sharing remains false and repository-level terms unresolved.
+3. **DRFF-R2 receives separate article/dataset rights treatment.** Its article text is described as CC BY-NC-ND 4.0, while the paper's Data Records section separately states the linked dataset is distributed under CC BY 4.0 at Science Data Bank DOI 10.57760/sciencedb.36815. The direct ScienceDB item and file-level terms remain uninspected, so repository verification remains false and derivative permission remains unknown.
 4. **Leakage risk is central.** The protocol prohibits random-window split claims when repeated samples, units, sessions, days or receivers may cross partitions.
 5. **Modality limitations are explicit.** TSMS distinguishes raw I/Q from processed range-Doppler frames; the 2.4 GHz set is limited to one aircraft model/band and semi-controlled coexistence conditions.
 6. **Claim ceiling is narrow.** Source/split integrity is not represented as detection performance, legal permission or field safety.
@@ -40,8 +40,8 @@ The three candidate datasets differ in modality, labels, capture conditions, tar
 
 | ID | Severity | Finding | Required closure |
 |---|---|---|---|
-| UDS-PR-01 | Blocker for use | Rights are source-specific. The Mendeley landing page for the 2.4 GHz coexistence dataset version 1 now directly lists CC BY 4.0 (retrieved 8 November 2026); TSMS's Data availability section separately states CC BY 4.0 for the dataset while article text/images carry CC BY-NC-ND 4.0; DRFF-R2's exact repository/file licence remains unverified. | Preserve each distinct source snapshot and scope. Verify file inventory, third-party components and intended derivative/redistribution use. The Mendeley licence verification does not clear missing capture-group metadata, file hashes, privacy review or split integrity; the dataset remains not admitted. Do not apply a dataset licence to article figures, code or third-party assets without confirming rights. |
-| UDS-PR-02 | Blocker for DRFF-R2 derivatives | Paper states CC BY-NC-ND 4.0; non-commercial/no-derivatives limitations may apply to paper material and potentially linked artifacts, depending on repository rights. | Do not redistribute adapted data, transformed spectrograms, derived datasets or model artifacts until legal counsel confirms the exact licence, scope and whether the proposed use is an adaptation. |
+| UDS-PR-01 | Blocker for use | Rights are source-specific. The Mendeley landing page for the 2.4 GHz coexistence dataset v1 directly lists CC BY 4.0; TSMS's Data availability section separately states CC BY 4.0 for the dataset while article text/images carry CC BY-NC-ND 4.0; the DRFF-R2 paper's Data Records section states the dataset is under CC BY 4.0 at Science Data Bank DOI 10.57760/sciencedb.36815, while the article itself is CC BY-NC-ND 4.0. | Preserve each distinct source snapshot and scope. Directly inspect the TSMS and ScienceDB dataset landing records, file inventory, rights-holder and third-party components before use. Mendeley version-1 licence verification does not clear missing capture-group metadata, file hashes, privacy review or split integrity. DRFF-R2 remains unadmitted until its exact ScienceDB item/file terms and derivative permissions are verified. |
+| UDS-PR-02 | Blocker for DRFF-R2 use/derivatives | The article is described under CC BY-NC-ND 4.0, but its Data Records section separately claims the dataset is CC BY 4.0 at Science Data Bank DOI 10.57760/sciencedb.36815. The direct dataset item and file-level rights have not yet been verified. | Do not infer derivative permission from either the article or a paper statement alone. Obtain the exact ScienceDB item/version, inspect all files/third-party components and verify the licence/rights-holder before any use or derivative release. Until then keep repository verification false, derivative permission unknown, and the candidate NOT_ADMITTED. |
 | UDS-PR-03 | Blocker for raw I/Q / content use | TSMS includes raw I/Q. The Mendeley 2.4 GHz package page lists spectrogram PNGs and YOLO labels, describing raw IQ as transformed before publication; the exact archive/file inventory still needs review. | Data privacy/communications reviewer and dataset steward define allowed fields/transforms and prohibit demodulation, private payload decoding or retention. Do not infer a published spectrogram package contains raw I/Q; verify actual downloaded file inventory only after authorization. |
 | UDS-PR-04 | Major | TSMS has repeated measurements in a controlled distance grid; exact unit/session/day/receiver grouping needs file-level inspection. | Build a metadata inventory, bind each measurement to capture group and hold out whole groups. If group metadata is absent, mark relevant generalization unsupported. |
 | UDS-PR-05 | Major | 2.4 GHz RF coexistence supplied training/validation folders may contain source-group leakage. | Audit source IDs, capture session/day, receiver, hardware and repeated windows before using the validation set. Rebuild grouped splits from raw metadata only if rights permit. |
@@ -67,6 +67,18 @@ Sources:
 - Article and its separate Data availability / Rights and permissions sections: https://www.nature.com/articles/s41597-026-06802-6
 - Dataset landing record: https://explore.openaire.eu/search/dataset?pid=10.25452%2Ffigshare.plus.30027313.v1
 
+## 4B. DRFF-R2 article-versus-dataset rights clarification
+
+A later source-text review found that the DRFF-R2 paper distinguishes the article from its linked dataset:
+- the article's Rights and permissions section describes the article material under CC BY-NC-ND 4.0;
+- the paper's Data Records / Data Availability section states that the dataset is distributed under CC BY 4.0 and identifies Science Data Bank DOI https://doi.org/10.57760/sciencedb.36815.
+
+These are separate rights objects. The direct ScienceDB landing item, exact version, file inventory, individual file terms, rights-holder and third-party components have not yet been independently inspected. The register now records the paper-reported dataset licence claim separately, but keeps repository licence verification false, derivative permission unknown and the source NOT_ADMITTED.
+
+Sources:
+- Paper's Data Records / Data Availability text and dataset DOI: https://github.com/RobotFlow-Labs/DEF-W9-12_DRFF-R2/blob/main/papers/2603.00106.txt
+- Published article: https://www.nature.com/articles/s41597-026-08490-8
+
 ## 5. Dataset-by-dataset assessment
 
 ### TSMS-Drone
@@ -76,7 +88,7 @@ Good fit for studying time-synchronized modality relationships and controlled mu
 The Mendeley Data version-1 landing page was inspected on 8 November 2026. It explicitly states CC BY 4.0 and lists 6,842 spectrogram PNGs plus YOLO-format labels (22,375 annotated instances); it does not list raw I/Q files. The paper describes raw IQ being transformed to STFT spectrograms before the published package. This verifies the version-1 landing-page licence claim, not every third-party component or downstream use. One drone platform and one 2.4 GHz band restrict generalization. The capture-group metadata, exact file hashes, data dictionary, privacy/content review and supplied training/validation split remain unqualified. The source stays NOT ADMITTED.
 
 ### DRFF-R2
-Potentially valuable for model/unit/day/configuration diversity. Exact dataset repository terms remain unresolved. CC BY-NC-ND paper licence is a hard legal-review trigger: no derivative publication, transformed artifact redistribution or commercial use assumption. A non-commercial research run is still not automatically cleared for every data use or derived artifact.
+Potentially valuable for model/unit/day/configuration diversity. The article is described under CC BY-NC-ND 4.0, while the paper's Data Records section separately claims the dataset is distributed under CC BY 4.0 at ScienceDB DOI 10.57760/sciencedb.36815. This source-level distinction is now represented in the register. The direct ScienceDB landing item, exact version, individual file terms, rights holder and third-party assets have not yet been verified. Keep the dataset not admitted, repository-license verification false and derivative permission unknown until those checks are complete.
 
 ## 6. Required independent reviewers
 
