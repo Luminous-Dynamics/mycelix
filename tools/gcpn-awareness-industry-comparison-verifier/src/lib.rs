@@ -93,7 +93,7 @@ pub struct MatchingControls {
 #[serde(deny_unknown_fields)]
 pub struct ProposedTarget {
     pub relative_duplicate_unsubstantiated_alert_and_review_workload_reduction_percent: u8,
-    pub event_recall_non_degradation_required: bool,
+    pub semantic_state_conformance_non_degradation_required: bool,
     pub privacy_safety_and_authority_violations_may_increase: bool,
     pub status: String,
 }
