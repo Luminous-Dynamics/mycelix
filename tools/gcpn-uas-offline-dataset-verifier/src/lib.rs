@@ -12,7 +12,7 @@ pub const SCHEMA: &str = "luminous.gcpn.offline_uas_dataset_register.v0.1";
 pub const STATUS: &str = "source_candidates_not_admitted";
 pub const CLAIM_CEILING: &str = "source_register_and_split_protocol_integrity_only";
 pub const EXPECTED_FIXTURE_SHA256: &str =
-    "689b327ec61e5fb33a62f188cd7f9ea3513bb72a97bd88c9edb265d8dfc61125";
+    "efee3da15e1dc0781faef3e5300ceaae7b9dd104b7f05240d543479c216c6b2c";
 
 #[derive(Clone, Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
