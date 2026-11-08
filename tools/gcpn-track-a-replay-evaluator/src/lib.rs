@@ -138,7 +138,10 @@ pub struct PairwiseComparison {
     pub unsubstantiated_alert_reduction_basis_points: Option<i64>,
     pub state_conformance_non_degradation: bool,
     pub provenance_non_degradation: bool,
+    pub source_status_non_degradation: bool,
     pub contradiction_non_degradation: bool,
+    pub event_receipt_time_non_degradation: bool,
+    pub correction_lineage_non_degradation: bool,
     pub candidate_meets_20_percent_smoke_hypothesis: bool,
     pub interpretation: &'static str,
 }
@@ -581,8 +584,14 @@ fn compare_pair(baseline: &WorkflowMetrics, candidate: &WorkflowMetrics) -> Pair
     let state_non_degradation = candidate.exact_state_matches >= baseline.exact_state_matches;
     let provenance_non_degradation =
         candidate.provenance_complete_cases >= baseline.provenance_complete_cases;
+    let source_status_non_degradation =
+        candidate.source_status_preserved_cases >= baseline.source_status_preserved_cases;
     let contradiction_non_degradation =
         candidate.contradictions_preserved_cases >= baseline.contradictions_preserved_cases;
+    let event_receipt_time_non_degradation = candidate.event_receipt_time_separation_cases
+        >= baseline.event_receipt_time_separation_cases;
+    let correction_lineage_non_degradation =
+        candidate.correction_lineage_cases >= baseline.correction_lineage_cases;
 
     let hypothesis_met = [
         review_reduction,
@@ -593,7 +602,10 @@ fn compare_pair(baseline: &WorkflowMetrics, candidate: &WorkflowMetrics) -> Pair
     .all(|value| value.is_some_and(|reduction| reduction >= 2000))
         && state_non_degradation
         && provenance_non_degradation
+        && source_status_non_degradation
         && contradiction_non_degradation
+        && event_receipt_time_non_degradation
+        && correction_lineage_non_degradation
         && candidate.privacy_violation_count == 0
         && candidate.authority_violation_count == 0
         && candidate.vendor_hostile_label_used_count == 0;
@@ -606,7 +618,10 @@ fn compare_pair(baseline: &WorkflowMetrics, candidate: &WorkflowMetrics) -> Pair
         unsubstantiated_alert_reduction_basis_points: unsubstantiated_reduction,
         state_conformance_non_degradation: state_non_degradation,
         provenance_non_degradation,
+        source_status_non_degradation,
         contradiction_non_degradation,
+        event_receipt_time_non_degradation,
+        correction_lineage_non_degradation,
         candidate_meets_20_percent_smoke_hypothesis: hypothesis_met,
         interpretation: "Track A evidence-workflow comparison only; not physical sensor recall or field superiority",
     }
