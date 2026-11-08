@@ -86,6 +86,8 @@ func mutate(input *Input, mutation string) {
 		input.Snapshot.ScopedSourceIDs = input.Snapshot.ScopedSourceIDs[:1]
 	case "incomplete_inventory_snapshot":
 		input.Snapshot.Complete = false
+	case "source_missing_from_snapshot_coverage":
+		input.Snapshot.CoveredNodeIDs = input.Snapshot.CoveredNodeIDs[:len(input.Snapshot.CoveredNodeIDs)-1]
 	case "dependency_cycle":
 		input.Hyperedges = append(input.Hyperedges, DependencyHyperedge{
 			ID:"cycle",SubjectIDs:[]string{"clock-root"},DependencyID:"provider-a",Domain:"clock",
@@ -126,7 +128,7 @@ func TestPublicChallengePack(t *testing.T) {
 		pack.ClaimCeiling=="" || pack.EvaluatorTruth=="" {
 		t.Fatal("challenge pack contract is not frozen or complete")
 	}
-	expectedIDs:=[]string{"DH-001","DH-002","DH-003","DH-004","DH-005","DH-006","DH-007","DH-008","DH-009","DH-010","DH-011"}
+	expectedIDs:=[]string{"DH-001","DH-002","DH-003","DH-004","DH-005","DH-006","DH-007","DH-008","DH-009","DH-010","DH-011","DH-012"}
 	actualIDs:=make([]string,0,len(pack.Cases))
 	for _,challenge:=range pack.Cases { actualIDs=append(actualIDs,challenge.ID) }
 	if !reflect.DeepEqual(actualIDs,expectedIDs) { t.Fatalf("challenge discovery mismatch: %v",actualIDs) }
