@@ -248,7 +248,12 @@ fn validate_run(run: &ReplayRun) -> Vec<String> {
         if !EXPECTED_SYSTEMS.contains(&system.system_id.as_str()) {
             errors.push(format!("non_synthetic_system_id: {}", system.system_id));
         }
-        if !system.system_label.starts_with("Synthetic ") {
+        let expected_label = match system.system_id.as_str() {
+            "SYNTHETIC_RULES_REFERENCE" => "Synthetic rules-only reference",
+            "SYNTHETIC_EVIDENCE_REFERENCE" => "Synthetic evidence-aware reference",
+            _ => "",
+        };
+        if system.system_label != expected_label {
             errors.push(format!("non_synthetic_system_label: {}", system.system_id));
         }
         if !system.threshold.is_finite() || !(0.0..=1.0).contains(&system.threshold) {
