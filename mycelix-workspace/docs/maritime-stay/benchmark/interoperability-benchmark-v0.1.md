@@ -253,3 +253,25 @@ DCSA Port Call 2.0 is a useful reference because its conformance tooling exercis
 Apply the same precision to IHO adapters: pin product-spec edition, S-100 dependency, product validation profile, source dataset and operational applicability independently. Never collapse these into a generic compliant boolean.
 
 This benchmark adds three synthetic cases: complete DCSA-profile conformance, intentionally incomplete/untested profile coverage, and semantic-equivalence checks between native and normalized event adapters.
+
+### Ratio and evidence rules
+
+For one exact pinned profile/role, define:
+
+- Applicable requirements = total requirements minus justified NotApplicable requirements.
+- Tested requirements = Correct + Incorrect + Inconsistent.
+- Coverage = Tested / Applicable.
+- Correctness = Correct / Tested.
+
+NotTested and Unsupported are not correct and remain visible as uncovered requirements. If Tested is zero, correctness is undefined, not 100%. NotApplicable requires a reason and must be excluded before calculating coverage. Report raw counts alongside ratios. Do not publish a single scalar "compliant" score.
+
+### Primary public sources
+
+- Dockwa product and vendor-reported network metrics: https://marinas.dockwa.com/about-us (page states last updated 1 October 2026).
+- Navily product and vendor-reported community metrics: https://www.navily.com/ (retrieved 8 November 2026).
+- Berth / BerthApp platform terms and provider-contract boundary: https://www.berthapp.com/legal/terms (terms updated 2 October 2025).
+- Dockwa administrator-enabled webhook integration: https://mayday.dockwa.com/en/articles/17710897-set-up-webhooks-in-dockwa.
+- DCSA Port Call 2.0 OpenAPI: https://reference.dcsa.org/content/standards/releases/port-call/v2/pc-v2-openapi-specification.
+- DCSA API Design and Implementation Guidelines 2025.Q4: https://reference.dcsa.org/content/standards/guidelines/api-design-and-implementation-guidelines.
+- DCSA conformance overview and scenario tooling: https://reference.dcsa.org/content/standards/guidelines/conformance and https://reference.dcsa.org/content/standards/releases/port-call/v2/pc-v2-conformance-scenarios.
+- CloudEvents 1.0.2 specification: https://github.com/cloudevents/spec.
