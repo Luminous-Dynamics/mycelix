@@ -1168,6 +1168,27 @@ pub fn evaluate_quantity(
     ValidationReport::from_checks(checks)
 }
 
+fn approval_record_check(verification: RecognitionDisposition) -> Check {
+    match verification {
+        RecognitionDisposition::Recognized => Check::pass(
+            "overlay_approval_record_verified_externally",
+            "The caller supplied an independently evaluated positive disposition for this exact approval record.",
+        ),
+        RecognitionDisposition::NotRecognized => Check::reject(
+            "overlay_approval_record_not_verified",
+            "The specific approval record was not accepted by the external verifier.",
+        ),
+        RecognitionDisposition::Unknown => Check::unknown(
+            "overlay_approval_record_verification_unknown",
+            "The specific approval record's validity or currentness is not established.",
+        ),
+        RecognitionDisposition::NotAssessed => Check::not_evaluable(
+            "overlay_approval_record_not_assessed",
+            "A reference to an approval record is not verification of that record.",
+        ),
+    }
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum OverlayMaturity {
@@ -1195,11 +1216,18 @@ pub struct JurisdictionOverlay {
     pub approval_evidence_ref: Option<String>,
 }
 
+pub struct JurisdictionAuthorityAssessment {
+    /// Independent recognition of the competent authority for this purpose/jurisdiction.
+    pub competent_authority_recognition: RecognitionDisposition,
+    /// Independent verification disposition for the specific approval record referenced by the overlay.
+    pub approval_record_verification: RecognitionDisposition,
+}
+
 pub fn evaluate_jurisdiction_overlay(
     overlay: Option<&JurisdictionOverlay>,
     expected_jurisdiction: &str,
     scope: ClaimScope,
-    authority_recognition: RecognitionDisposition,
+    authority_assessment: &JurisdictionAuthorityAssessment,
 ) -> ValidationReport {
     let Some(overlay) = overlay else {
         return ValidationReport::from_checks(vec![Check::unknown(
@@ -1269,7 +1297,12 @@ pub fn evaluate_jurisdiction_overlay(
                     "The approved overlay is usable as a technical fixture; this does not independently validate the approval.",
                 ));
             } else {
-                checks.push(recognition_check(authority_recognition));
+                checks.push(recognition_check(
+                    authority_assessment.competent_authority_recognition,
+                ));
+                checks.push(approval_record_check(
+                    authority_assessment.approval_record_verification,
+                ));
             }
         }
     }
@@ -1778,17 +1811,21 @@ mod tests {
     #[test]
     fn research_overlay_is_fixture_only_not_authority() {
         let research = overlay(OverlayMaturity::Research);
+        let assessment = JurisdictionAuthorityAssessment {
+            competent_authority_recognition: RecognitionDisposition::NotAssessed,
+            approval_record_verification: RecognitionDisposition::NotAssessed,
+        };
         let fixture = evaluate_jurisdiction_overlay(
             Some(&research),
             "ZA",
             ClaimScope::TechnicalFixture,
-            RecognitionDisposition::NotAssessed,
+            &assessment,
         );
         let authority = evaluate_jurisdiction_overlay(
             Some(&research),
             "ZA",
             ClaimScope::AuthorityDependent,
-            RecognitionDisposition::NotAssessed,
+            &assessment,
         );
         assert_eq!(fixture.disposition, Disposition::Pass);
         assert_eq!(authority.disposition, Disposition::NotEvaluable);
@@ -1797,13 +1834,49 @@ mod tests {
     #[test]
     fn approved_overlay_still_requires_external_authority_recognition() {
         let approved = overlay(OverlayMaturity::Approved);
+        let assessment = JurisdictionAuthorityAssessment {
+            competent_authority_recognition: RecognitionDisposition::Recognized,
+            approval_record_verification: RecognitionDisposition::Unknown,
+        };
         let report = evaluate_jurisdiction_overlay(
             Some(&approved),
             "ZA",
             ClaimScope::AuthorityDependent,
-            RecognitionDisposition::Unknown,
+            &assessment,
         );
         assert_eq!(report.disposition, Disposition::Unknown);
+    }
+
+    #[test]
+    fn approved_overlay_requires_both_authority_and_record_assessment() {
+        let approved = overlay(OverlayMaturity::Approved);
+        let assessment = JurisdictionAuthorityAssessment {
+            competent_authority_recognition: RecognitionDisposition::Recognized,
+            approval_record_verification: RecognitionDisposition::Recognized,
+        };
+        let report = evaluate_jurisdiction_overlay(
+            Some(&approved),
+            "ZA",
+            ClaimScope::AuthorityDependent,
+            &assessment,
+        );
+        assert_eq!(report.disposition, Disposition::Pass);
+    }
+
+    #[test]
+    fn approved_overlay_reference_without_record_verification_is_not_evaluable() {
+        let approved = overlay(OverlayMaturity::Approved);
+        let assessment = JurisdictionAuthorityAssessment {
+            competent_authority_recognition: RecognitionDisposition::Recognized,
+            approval_record_verification: RecognitionDisposition::NotAssessed,
+        };
+        let report = evaluate_jurisdiction_overlay(
+            Some(&approved),
+            "ZA",
+            ClaimScope::AuthorityDependent,
+            &assessment,
+        );
+        assert_eq!(report.disposition, Disposition::NotEvaluable);
     }
 
     #[test]
