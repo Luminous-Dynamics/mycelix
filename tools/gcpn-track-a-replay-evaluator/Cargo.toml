@@ -1,0 +1,17 @@
+[package]
+name = "gcpn-track-a-replay-evaluator"
+version = "0.1.0"
+edition = "2024"
+publish = false
+license = "AGPL-3.0-or-later"
+description = "Deterministic Track A event-envelope replay metrics for civilian awareness workflows"
+
+[workspace]
+resolver = "2"
+
+[dependencies]
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+sha2 = "0.10"
+gcpn-civil-autonomous-awareness-verifier = { path = "../gcpn-civil-autonomous-awareness-verifier" }
+gcpn-awareness-industry-comparison-verifier = { path = "../gcpn-awareness-industry-comparison-verifier" }
