@@ -11,7 +11,8 @@ use std::collections::BTreeSet;
 pub const SCHEMA: &str = "luminous.gcpn.civil_autonomous_awareness.v0.1";
 pub const STATUS: &str = "synthetic_event_awareness_only";
 pub const CLAIM_CEILING: &str = "frozen_synthetic_semantics_only";
-pub const EXPECTED_FIXTURE_SHA256: &str = "317ed98191606c4e0a58f8445ec29df3c9851dfb4968a33faf80dfc43eaacaa4";
+pub const EXPECTED_FIXTURE_SHA256: &str =
+    "317ed98191606c4e0a58f8445ec29df3c9851dfb4968a33faf80dfc43eaacaa4";
 
 #[derive(Clone, Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -555,10 +556,12 @@ mod tests {
         assert_ne!(changed, FIXTURE);
         let report = verify(changed.as_bytes());
         assert_eq!(report.status, "REJECTED");
-        assert!(report
-            .errors
-            .iter()
-            .any(|e| e.starts_with("fixture_digest_mismatch:")));
+        assert!(
+            report
+                .errors
+                .iter()
+                .any(|e| e.starts_with("fixture_digest_mismatch:"))
+        );
     }
 
     #[test]
@@ -582,10 +585,12 @@ mod tests {
         assert_ne!(changed, FIXTURE);
         let report = verify(changed.as_bytes());
         assert_eq!(report.status, "REJECTED");
-        assert!(report
-            .errors
-            .iter()
-            .any(|e| e == "acoustic_privacy_boundary_changed"));
+        assert!(
+            report
+                .errors
+                .iter()
+                .any(|e| e == "acoustic_privacy_boundary_changed")
+        );
     }
 
     #[test]
