@@ -355,7 +355,7 @@ pub fn evaluate_standards_lock(
         duplicate_ids.dedup();
         checks.push(Check::conflict(
             "standards_artifact_id_duplicate",
-            format!("Duplicate artifact identifiers: {}", duplicate_ids.join(", ")),
+            &format!("Duplicate artifact identifiers: {}", duplicate_ids.join(", ")),
         ));
     }
 
@@ -429,7 +429,7 @@ pub fn evaluate_standards_lock(
         dangling.sort();
         checks.push(Check::reject(
             "standards_dependency_dangling",
-            format!("Unresolved dependency edges: {}", dangling.join(", ")),
+            &format!("Unresolved dependency edges: {}", dangling.join(", ")),
         ));
     }
 
@@ -471,7 +471,7 @@ pub fn evaluate_standards_lock(
     } else {
         checks.push(Check::reject(
             "standards_dependency_orphan",
-            format!("Artifacts outside the declared root closure: {}", unreachable.join(", ")),
+            &format!("Artifacts outside the declared root closure: {}", unreachable.join(", ")),
         ));
     }
 
