@@ -1,0 +1,17 @@
+[package]
+name = "maritime-profile-verifier"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85"
+license = "AGPL-3.0-or-later"
+publish = false
+description = "Effects-disabled validation of pinned Maritime Commons profile evidence"
+
+[workspace]
+
+[dependencies]
+chrono = { version = "0.4", default-features = false, features = ["std"] }
+serde = { version = "1.0", features = ["derive"] }
+
+[lints.rust]
+unsafe_code = "forbid"
