@@ -1,0 +1,58 @@
+name: GCPN Track A replay evaluator
+
+on:
+  pull_request:
+    paths:
+      - "mycelix-workspace/mycelix-praxis/docs/research/GCPN_TRACK_A_REPLAY_DEMO_RUN_V0_1.json"
+      - "mycelix-workspace/mycelix-praxis/docs/research/GCPN_TRACK_A_REPLAY_EVALUATOR_V0_1.md"
+      - "tools/gcpn-track-a-replay-evaluator/**"
+      - ".github/workflows/gcpn-track-a-replay-evaluator.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gcpn-track-a-replay-evaluator-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  strict-synthetic-replay:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - name: Validate synthetic-only matched replay frame
+        shell: bash
+        run: |
+          jq -e '
+            .schema == "luminous.gcpn.track_a_replay_run.v0.1" and
+            .status == "synthetic_demo_not_performance_evidence" and
+            .claim_ceiling == "synthetic_replay_metric_arithmetic_only" and
+            .event_frame.adjudication_basis == "SYNTHETIC_ORACLE_ONLY" and
+            (.event_frame.events | length == 12) and
+            (.systems | length == 2) and
+            ([.systems[].system_id] | sort) == ["SYNTHETIC_EVIDENCE_REFERENCE","SYNTHETIC_RULES_REFERENCE"] and
+            .matching.all_systems_receive_same_event_frame == true and
+            .matching.same_ground_truth_denominator == true and
+            .matching.same_operator_review_budget == true and
+            .matching.physical_sensor_detection_scored == false and
+            .matching.independent_field_ground_truth == false and
+            .matching.vendor_results_claimed == false
+          ' mycelix-workspace/mycelix-praxis/docs/research/GCPN_TRACK_A_REPLAY_DEMO_RUN_V0_1.json >/dev/null
+          jq -e '
+            ([.event_frame.events[].case_id] | unique | length) == 12 and
+            ([.event_frame.events[].truth] | all(. == "REVIEW_REQUIRED" or . == "NO_REVIEW_REQUIRED" or . == "INDETERMINATE")) and
+            ([.systems[].outputs | length] | all(. == 12)) and
+            ([.systems[].outputs[].privacy_violation] | all(. == false)) and
+            ([.systems[].outputs[].authority_violation] | all(. == false))
+          ' mycelix-workspace/mycelix-praxis/docs/research/GCPN_TRACK_A_REPLAY_DEMO_RUN_V0_1.json >/dev/null
+      - name: Check Rust formatting
+        run: cargo fmt --manifest-path tools/gcpn-track-a-replay-evaluator/Cargo.toml --all -- --check
+      - name: Run evaluator and adversarial tests
+        run: cargo test --manifest-path tools/gcpn-track-a-replay-evaluator/Cargo.toml
+      - name: Run synthetic demonstration evaluator
+        run: cargo run --manifest-path tools/gcpn-track-a-replay-evaluator/Cargo.toml

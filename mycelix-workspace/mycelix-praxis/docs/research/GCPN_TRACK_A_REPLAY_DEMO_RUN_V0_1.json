@@ -1,0 +1,73 @@
+{
+  "schema": "luminous.gcpn.track_a_replay_run.v0.1",
+  "status": "synthetic_demo_not_performance_evidence",
+  "claim_ceiling": "synthetic_replay_metric_arithmetic_only",
+  "protocol_manifest_sha256": "3fca74480cef7802e0fd0fddcd97949a0593c6a873f97c195d4250bd88034678",
+  "event_frame": {
+    "frame_id": "GCPN-TRACK-A-DEMO-FRAME-001",
+    "adjudication_basis": "SYNTHETIC_ORACLE_ONLY",
+    "review_budget_minutes_per_system": 60,
+    "events": [
+      {"case_id":"E001","incident_group":"INCIDENT-A","truth":"REVIEW_REQUIRED"},
+      {"case_id":"E002","incident_group":"INCIDENT-A","truth":"REVIEW_REQUIRED"},
+      {"case_id":"E003","incident_group":"INCIDENT-B","truth":"REVIEW_REQUIRED"},
+      {"case_id":"E004","incident_group":"INCIDENT-C","truth":"REVIEW_REQUIRED"},
+      {"case_id":"E005","incident_group":"INCIDENT-D","truth":"REVIEW_REQUIRED"},
+      {"case_id":"E006","incident_group":"INCIDENT-E","truth":"REVIEW_REQUIRED"},
+      {"case_id":"E007","incident_group":"INCIDENT-F","truth":"NO_REVIEW_REQUIRED"},
+      {"case_id":"E008","incident_group":"INCIDENT-G","truth":"NO_REVIEW_REQUIRED"},
+      {"case_id":"E009","incident_group":"INCIDENT-H","truth":"NO_REVIEW_REQUIRED"},
+      {"case_id":"E010","incident_group":"INCIDENT-I","truth":"INDETERMINATE"},
+      {"case_id":"E011","incident_group":"INCIDENT-J","truth":"INDETERMINATE"},
+      {"case_id":"E012","incident_group":"INCIDENT-K","truth":"INDETERMINATE"}
+    ]
+  },
+  "matching": {
+    "all_systems_receive_same_event_frame": true,
+    "same_ground_truth_denominator": true,
+    "same_operator_review_budget": true,
+    "physical_sensor_detection_scored": false,
+    "independent_field_ground_truth": false,
+    "vendor_results_claimed": false
+  },
+  "systems": [
+    {
+      "system_id": "SYNTHETIC_RULES_REFERENCE",
+      "system_label": "Synthetic rules-only reference",
+      "threshold": 0.5,
+      "outputs": [
+        {"case_id":"E001","disposition":"QUEUE_HUMAN_REVIEW","p_review_required":0.90,"review_ticket_id":"R-A-001","review_minutes":8,"decision_latency_ms":10,"provenance_complete":true,"time_quality_handled":true,"dependency_unknown_preserved":true,"privacy_violation":false,"authority_violation":false},
+        {"case_id":"E002","disposition":"QUEUE_HUMAN_REVIEW","p_review_required":0.80,"review_ticket_id":"R-A-002","review_minutes":8,"decision_latency_ms":12,"provenance_complete":true,"time_quality_handled":true,"dependency_unknown_preserved":false,"privacy_violation":false,"authority_violation":false},
+        {"case_id":"E003","disposition":"NO_HUMAN_REVIEW","p_review_required":0.20,"review_ticket_id":null,"review_minutes":0,"decision_latency_ms":8,"provenance_complete":true,"time_quality_handled":true,"dependency_unknown_preserved":true,"privacy_violation":false,"authority_violation":false},
+        {"case_id":"E004","disposition":"QUEUE_HUMAN_REVIEW","p_review_required":0.85,"review_ticket_id":"R-A-004","review_minutes":7,"decision_latency_ms":9,"provenance_complete":true,"time_quality_handled":true,"dependency_unknown_preserved":true,"privacy_violation":false,"authority_violation":false},
+        {"case_id":"E005","disposition":"QUEUE_HUMAN_REVIEW","p_review_required":0.90,"review_ticket_id":"R-A-005","review_minutes":6,"decision_latency_ms":10,"provenance_complete":true,"time_quality_handled":false,"dependency_unknown_preserved":true,"privacy_violation":false,"authority_violation":false},
+        {"case_id":"E006","disposition":"DEFER_TO_HUMAN","p_review_required":0.50,"review_ticket_id":"R-A-006","review_minutes":4,"decision_latency_ms":18,"provenance_complete":false,"time_quality_handled":true,"dependency_unknown_preserved":true,"privacy_violation":false,"authority_violation":false},
+        {"case_id":"E007","disposition":"QUEUE_HUMAN_REVIEW","p_review_required":0.75,"review_ticket_id":"R-A-007","review_minutes":4,"decision_latency_ms":10,"provenance_complete":true,"time_quality_handled":true,"dependency_unknown_preserved":true,"privacy_violation":false,"authority_violation":false},
+        {"case_id":"E008","disposition":"NO_HUMAN_REVIEW","p_review_required":0.20,"review_ticket_id":null,"review_minutes":0,"decision_latency_ms":8,"provenance_complete":true,"time_quality_handled":true,"dependency_unknown_preserved":true,"privacy_violation":false,"authority_violation":false},
+        {"case_id":"E009","disposition":"NO_HUMAN_REVIEW","p_review_required":0.10,"review_ticket_id":null,"review_minutes":0,"decision_latency_ms":7,"provenance_complete":true,"time_quality_handled":true,"dependency_unknown_preserved":true,"privacy_violation":false,"authority_violation":false},
+        {"case_id":"E010","disposition":"DEFER_TO_HUMAN","p_review_required":null,"review_ticket_id":"R-A-010","review_minutes":3,"decision_latency_ms":14,"provenance_complete":true,"time_quality_handled":true,"dependency_unknown_preserved":true,"privacy_violation":false,"authority_violation":false},
+        {"case_id":"E011","disposition":"QUEUE_HUMAN_REVIEW","p_review_required":null,"review_ticket_id":"R-A-011","review_minutes":5,"decision_latency_ms":11,"provenance_complete":true,"time_quality_handled":true,"dependency_unknown_preserved":true,"privacy_violation":false,"authority_violation":false},
+        {"case_id":"E012","disposition":"DEFER_TO_HUMAN","p_review_required":null,"review_ticket_id":"R-A-012","review_minutes":3,"decision_latency_ms":13,"provenance_complete":true,"time_quality_handled":true,"dependency_unknown_preserved":true,"privacy_violation":false,"authority_violation":false}
+      ]
+    },
+    {
+      "system_id": "SYNTHETIC_EVIDENCE_REFERENCE",
+      "system_label": "Synthetic evidence-aware reference",
+      "threshold": 0.5,
+      "outputs": [
+        {"case_id":"E001","disposition":"QUEUE_HUMAN_REVIEW","p_review_required":0.92,"review_ticket_id":"R-B-001","review_minutes":5,"decision_latency_ms":5,"provenance_complete":true,"time_quality_handled":true,"dependency_unknown_preserved":true,"privacy_violation":false,"authority_violation":false},
+        {"case_id":"E002","disposition":"QUEUE_HUMAN_REVIEW","p_review_required":0.75,"review_ticket_id":"R-B-001","review_minutes":5,"decision_latency_ms":6,"provenance_complete":true,"time_quality_handled":true,"dependency_unknown_preserved":true,"privacy_violation":false,"authority_violation":false},
+        {"case_id":"E003","disposition":"QUEUE_HUMAN_REVIEW","p_review_required":0.95,"review_ticket_id":"R-B-003","review_minutes":5,"decision_latency_ms":6,"provenance_complete":true,"time_quality_handled":true,"dependency_unknown_preserved":true,"privacy_violation":false,"authority_violation":false},
+        {"case_id":"E004","disposition":"QUEUE_HUMAN_REVIEW","p_review_required":0.90,"review_ticket_id":"R-B-004","review_minutes":5,"decision_latency_ms":6,"provenance_complete":true,"time_quality_handled":true,"dependency_unknown_preserved":true,"privacy_violation":false,"authority_violation":false},
+        {"case_id":"E005","disposition":"QUEUE_HUMAN_REVIEW","p_review_required":0.75,"review_ticket_id":"R-B-005","review_minutes":4,"decision_latency_ms":7,"provenance_complete":true,"time_quality_handled":true,"dependency_unknown_preserved":true,"privacy_violation":false,"authority_violation":false},
+        {"case_id":"E006","disposition":"QUEUE_HUMAN_REVIEW","p_review_required":0.70,"review_ticket_id":"R-B-006","review_minutes":4,"decision_latency_ms":8,"provenance_complete":true,"time_quality_handled":true,"dependency_unknown_preserved":true,"privacy_violation":false,"authority_violation":false},
+        {"case_id":"E007","disposition":"NO_HUMAN_REVIEW","p_review_required":0.10,"review_ticket_id":null,"review_minutes":0,"decision_latency_ms":5,"provenance_complete":true,"time_quality_handled":true,"dependency_unknown_preserved":true,"privacy_violation":false,"authority_violation":false},
+        {"case_id":"E008","disposition":"DEFER_TO_HUMAN","p_review_required":0.45,"review_ticket_id":"R-B-008","review_minutes":2,"decision_latency_ms":8,"provenance_complete":true,"time_quality_handled":true,"dependency_unknown_preserved":true,"privacy_violation":false,"authority_violation":false},
+        {"case_id":"E009","disposition":"NO_HUMAN_REVIEW","p_review_required":0.20,"review_ticket_id":null,"review_minutes":0,"decision_latency_ms":5,"provenance_complete":true,"time_quality_handled":true,"dependency_unknown_preserved":true,"privacy_violation":false,"authority_violation":false},
+        {"case_id":"E010","disposition":"DEFER_TO_HUMAN","p_review_required":null,"review_ticket_id":"R-B-010","review_minutes":2,"decision_latency_ms":8,"provenance_complete":true,"time_quality_handled":true,"dependency_unknown_preserved":true,"privacy_violation":false,"authority_violation":false},
+        {"case_id":"E011","disposition":"DEFER_TO_HUMAN","p_review_required":null,"review_ticket_id":"R-B-011","review_minutes":2,"decision_latency_ms":8,"provenance_complete":true,"time_quality_handled":true,"dependency_unknown_preserved":true,"privacy_violation":false,"authority_violation":false},
+        {"case_id":"E012","disposition":"DEFER_TO_HUMAN","p_review_required":null,"review_ticket_id":"R-B-012","review_minutes":2,"decision_latency_ms":8,"provenance_complete":true,"time_quality_handled":true,"dependency_unknown_preserved":true,"privacy_violation":false,"authority_violation":false}
+      ]
+    }
+  ]
+}
