@@ -520,11 +520,6 @@ fn validate_bundle(bundle: &TrackARunBundle) -> Vec<String> {
     }
 
     let mut pipeline_ids = BTreeSet::new();
-    let oracle_labels: BTreeMap<&str, &OracleCase> = bundle
-        .oracle_cases
-        .iter()
-        .map(|case| (case.case_id.as_str(), case))
-        .collect();
 
     for pipeline in &bundle.pipelines {
         if !valid_identifier(&pipeline.pipeline_id) {
@@ -1194,18 +1189,50 @@ mod tests {
     }
 
     #[test]
-    fn unresolved_case_cannot_receive_a_calibrated_binary_probability() {
+    fn unresolved_probability_is_reported_but_not_scored() {
         let mut value = parsed_fixture();
         value["pipelines"][0]["case_results"][6]["relevance_probability_micros"] = json!(500_000);
         let report = evaluate_value(value);
+        assert_eq!(report.status, "COMPARABLE");
+        let metrics = report.pipeline_results[0].metrics.as_ref().unwrap();
+        assert_eq!(metrics.probability_unscored_unresolved_cases, 1);
+        assert_eq!(metrics.probability_scored_case_count, 6);
+        assert_eq!(metrics.probability_supplied_cases, 7);
+    }
+
+    #[test]
+    fn event_state_and_evidence_preservation_metrics_are_disaggregated() {
+        let report = evaluate_frozen_fixture(FIXTURE.as_bytes());
+        let metrics = report.pipeline_results[0].metrics.as_ref().unwrap();
+        assert_eq!(metrics.expected_state_match_cases, 7);
+        assert_eq!(metrics.intent_abstention_cases, 8);
+        assert_eq!(metrics.source_status_preserved_cases, 7);
+        assert_eq!(metrics.event_receipt_times_separated_cases, 7);
+        assert_eq!(metrics.correction_lineage_preserved_cases, 7);
+        assert!((metrics.expected_state_match_rate.unwrap() - 0.875).abs() < 1e-12);
+    }
+
+    #[test]
+    fn unsupported_event_state_is_rejected() {
+        let mut value = parsed_fixture();
+        value["pipelines"][0]["case_results"][0]["reported_state"] = json!("HOSTILE");
+        let report = evaluate_value(value);
         assert_eq!(report.status, "REJECTED");
-        // Validation of the label/probability relationship is enforced below.
-        assert!(
-            report
-                .reasons
-                .iter()
-                .any(|reason| reason.contains("unresolved_probability"))
-        );
+        assert!(report.reasons.iter().any(|reason| {
+            reason.starts_with("reported_state_not_allowed:")
+        }));
+    }
+
+    #[test]
+    fn failure_to_abstain_from_intent_classification_is_rejected() {
+        let mut value = parsed_fixture();
+        value["pipelines"][0]["case_results"][0]["abstained_from_intent_classification"] =
+            json!(false);
+        let report = evaluate_value(value);
+        assert_eq!(report.status, "REJECTED");
+        assert!(report.reasons.iter().any(|reason| {
+            reason.starts_with("intent_classification_not_abstained:")
+        }));
     }
 
     #[test]
@@ -1224,30 +1251,40 @@ mod tests {
     }
 
     #[test]
-    fn controlled_replay_requires_review_receipt_hashes() {
+    fn controlled_replay_stays_blocked_even_with_hash_shaped_receipt_references() {
         let mut value = parsed_fixture();
         value["evidence_tier"] = json!("CONTROLLED_REPLAY");
         value["simulation_only"] = json!(false);
+        value["ground_truth_adjudication_receipt_sha256"] = json!(
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        );
+        value["privacy_review_receipt_sha256"] = json!(
+            "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        );
+        value["authorization_review_receipt_sha256"] = json!(
+            "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+        );
         let report = evaluate_value(value);
         assert_eq!(report.status, "BLOCKED");
         assert_eq!(
             report.reasons,
-            vec!["controlled_replay_review_receipts_missing_or_invalid"]
+            vec!["controlled_replay_blocked_until_shared_evidence_plane_receipt_verification"]
         );
     }
 
     #[test]
-    fn non_independent_ground_truth_is_incomparable() {
+    fn synthetic_fixture_does_not_claim_independent_ground_truth() {
+        let report = evaluate_frozen_fixture(FIXTURE.as_bytes());
+        assert_eq!(report.status, "COMPARABLE");
+        assert_eq!(report.evidence_tier.as_deref(), Some("SYNTHETIC_FIXTURE"));
+
         let mut value = parsed_fixture();
-        value["ground_truth_independent"] = json!(false);
-        let report = evaluate_value(value);
-        assert_eq!(report.status, "INCOMPARABLE");
-        assert!(
-            report
-                .reasons
-                .iter()
-                .any(|reason| reason == "ground_truth_independence_not_established")
-        );
+        value["ground_truth_independent"] = json!(true);
+        let mutated = evaluate_value(value);
+        assert_eq!(mutated.status, "REJECTED");
+        assert!(mutated.reasons.iter().any(|reason| {
+            reason == "synthetic_fixture_cannot_claim_independent_ground_truth"
+        }));
     }
 
     #[test]
