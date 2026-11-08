@@ -61,7 +61,8 @@
     "interoperability_recovery",
     "coordinator_portability",
     "profile_conformance",
-    "global_interoperability"
+    "global_interoperability",
+    "monetary_interoperability"
   ],
   "non_compensatory_hard_gates": [
     "zero_false_confirmed_stays",
@@ -78,7 +79,11 @@
     "zero_silent_timezone_gap_or_fold_resolution",
     "zero_unreviewed_translation_promotions",
     "zero_jurisdiction_data_governance_bypasses",
-    "zero_prerelease_or_stale_registry_promotion"
+    "zero_prerelease_or_stale_registry_promotion",
+    "zero_floating_point_authoritative_money_paths",
+    "zero_implicit_fx_conversions",
+    "zero_silent_monetary_rounding_or_overflow",
+    "zero_refund_finality_without_external_evidence"
   ],
   "scenarios": [
     {
@@ -1098,6 +1103,420 @@
       ]
     },
     {
+      "id": "MCB-MONEY-001",
+      "name": "Zero-minor-unit currency",
+      "class": "monetary_scale_positive",
+      "required_arms": [
+        "MANUAL",
+        "NATIVE",
+        "NETWORK",
+        "FEDERATED"
+      ],
+      "setup": "See MONEY-001 in mycelix-workspace/docs/maritime-stay/money/money-cases-v0.1.json. The test must bind exact transaction-date ISO 4217 metadata and digest.",
+      "expected_safety_disposition": "Exact exponent-zero metadata; no two-decimal assumption.",
+      "measures": [
+        "currency_scale_errors",
+        "monetary_arithmetic_errors",
+        "fx_evidence_completeness",
+        "refund_finality_misclassification"
+      ],
+      "references": [
+        "#5948",
+        "#5945"
+      ]
+    },
+    {
+      "id": "MCB-MONEY-002",
+      "name": "Two-minor-unit currency",
+      "class": "monetary_scale_positive",
+      "required_arms": [
+        "MANUAL",
+        "NATIVE",
+        "NETWORK",
+        "FEDERATED"
+      ],
+      "setup": "See MONEY-002 in mycelix-workspace/docs/maritime-stay/money/money-cases-v0.1.json. The test must bind exact transaction-date ISO 4217 metadata and digest.",
+      "expected_safety_disposition": "Two-minor-unit positive control.",
+      "measures": [
+        "currency_scale_errors",
+        "monetary_arithmetic_errors",
+        "fx_evidence_completeness",
+        "refund_finality_misclassification"
+      ],
+      "references": [
+        "#5948",
+        "#5945"
+      ]
+    },
+    {
+      "id": "MCB-MONEY-003",
+      "name": "Three-minor-unit currency",
+      "class": "monetary_scale_positive",
+      "required_arms": [
+        "MANUAL",
+        "NATIVE",
+        "NETWORK",
+        "FEDERATED"
+      ],
+      "setup": "See MONEY-003 in mycelix-workspace/docs/maritime-stay/money/money-cases-v0.1.json. The test must bind exact transaction-date ISO 4217 metadata and digest.",
+      "expected_safety_disposition": "Exact exponent-three metadata; no two-decimal assumption.",
+      "measures": [
+        "currency_scale_errors",
+        "monetary_arithmetic_errors",
+        "fx_evidence_completeness",
+        "refund_finality_misclassification"
+      ],
+      "references": [
+        "#5948",
+        "#5945"
+      ]
+    },
+    {
+      "id": "MCB-MONEY-004",
+      "name": "Historical currency code",
+      "class": "monetary_currency_lifecycle",
+      "required_arms": [
+        "MANUAL",
+        "NATIVE",
+        "NETWORK",
+        "FEDERATED"
+      ],
+      "setup": "See MONEY-004 in mycelix-workspace/docs/maritime-stay/money/money-cases-v0.1.json. The test must bind exact transaction-date ISO 4217 metadata and digest.",
+      "expected_safety_disposition": "Preserve historic code and transaction-date metadata; do not substitute a current code.",
+      "measures": [
+        "currency_scale_errors",
+        "monetary_arithmetic_errors",
+        "fx_evidence_completeness",
+        "refund_finality_misclassification"
+      ],
+      "references": [
+        "#5948",
+        "#5945"
+      ]
+    },
+    {
+      "id": "MCB-MONEY-005",
+      "name": "Currency metadata revision after quote",
+      "class": "monetary_currency_currentness",
+      "required_arms": [
+        "MANUAL",
+        "NATIVE",
+        "NETWORK",
+        "FEDERATED"
+      ],
+      "setup": "See MONEY-005 in mycelix-workspace/docs/maritime-stay/money/money-cases-v0.1.json. The test must bind exact transaction-date ISO 4217 metadata and digest.",
+      "expected_safety_disposition": "Historical quote retains pinned metadata; new evaluation uses an explicit current snapshot.",
+      "measures": [
+        "currency_scale_errors",
+        "monetary_arithmetic_errors",
+        "fx_evidence_completeness",
+        "refund_finality_misclassification"
+      ],
+      "references": [
+        "#5948",
+        "#5945"
+      ]
+    },
+    {
+      "id": "MCB-MONEY-006",
+      "name": "Same integer under different exponent",
+      "class": "monetary_scale_conflict",
+      "required_arms": [
+        "MANUAL",
+        "NATIVE",
+        "NETWORK",
+        "FEDERATED"
+      ],
+      "setup": "See MONEY-006 in mycelix-workspace/docs/maritime-stay/money/money-cases-v0.1.json. The test must bind exact transaction-date ISO 4217 metadata and digest.",
+      "expected_safety_disposition": "Missing or conflicting exponent yields reject/unknown; same integer cannot imply same major amount.",
+      "measures": [
+        "currency_scale_errors",
+        "monetary_arithmetic_errors",
+        "fx_evidence_completeness",
+        "refund_finality_misclassification"
+      ],
+      "references": [
+        "#5948",
+        "#5945"
+      ]
+    },
+    {
+      "id": "MCB-MONEY-007",
+      "name": "Locale formatting changes",
+      "class": "monetary_presentation",
+      "required_arms": [
+        "MANUAL",
+        "NATIVE",
+        "NETWORK",
+        "FEDERATED"
+      ],
+      "setup": "See MONEY-007 in mycelix-workspace/docs/maritime-stay/money/money-cases-v0.1.json. The test must bind exact transaction-date ISO 4217 metadata and digest.",
+      "expected_safety_disposition": "Locale presentation changes only; canonical minor amount and scale remain identical.",
+      "measures": [
+        "currency_scale_errors",
+        "monetary_arithmetic_errors",
+        "fx_evidence_completeness",
+        "refund_finality_misclassification"
+      ],
+      "references": [
+        "#5948",
+        "#5945"
+      ]
+    },
+    {
+      "id": "MCB-MONEY-008",
+      "name": "Quote differs from settlement currency",
+      "class": "monetary_settlement_currency",
+      "required_arms": [
+        "MANUAL",
+        "NATIVE",
+        "NETWORK",
+        "FEDERATED"
+      ],
+      "setup": "See MONEY-008 in mycelix-workspace/docs/maritime-stay/money/money-cases-v0.1.json. The test must bind exact transaction-date ISO 4217 metadata and digest.",
+      "expected_safety_disposition": "Quote and settlement currencies remain distinct; require settlement evidence.",
+      "measures": [
+        "currency_scale_errors",
+        "monetary_arithmetic_errors",
+        "fx_evidence_completeness",
+        "refund_finality_misclassification"
+      ],
+      "references": [
+        "#5948",
+        "#5945"
+      ]
+    },
+    {
+      "id": "MCB-MONEY-009",
+      "name": "Inverse FX rate direction",
+      "class": "monetary_fx_semantics",
+      "required_arms": [
+        "MANUAL",
+        "NATIVE",
+        "NETWORK",
+        "FEDERATED"
+      ],
+      "setup": "See MONEY-009 in mycelix-workspace/docs/maritime-stay/money/money-cases-v0.1.json. The test must bind exact transaction-date ISO 4217 metadata and digest.",
+      "expected_safety_disposition": "Reject rate applied with wrong base/quote direction.",
+      "measures": [
+        "currency_scale_errors",
+        "monetary_arithmetic_errors",
+        "fx_evidence_completeness",
+        "refund_finality_misclassification"
+      ],
+      "references": [
+        "#5948",
+        "#5945"
+      ]
+    },
+    {
+      "id": "MCB-MONEY-010",
+      "name": "Stale or unrecognized FX rate",
+      "class": "monetary_fx_currentness",
+      "required_arms": [
+        "MANUAL",
+        "NATIVE",
+        "NETWORK",
+        "FEDERATED"
+      ],
+      "setup": "See MONEY-010 in mycelix-workspace/docs/maritime-stay/money/money-cases-v0.1.json. The test must bind exact transaction-date ISO 4217 metadata and digest.",
+      "expected_safety_disposition": "Do not use stale/unrecognized rate; preserve Unknown or reject.",
+      "measures": [
+        "currency_scale_errors",
+        "monetary_arithmetic_errors",
+        "fx_evidence_completeness",
+        "refund_finality_misclassification"
+      ],
+      "references": [
+        "#5948",
+        "#5945"
+      ]
+    },
+    {
+      "id": "MCB-MONEY-011",
+      "name": "Negative discount or credit line",
+      "class": "monetary_line_item_sign",
+      "required_arms": [
+        "MANUAL",
+        "NATIVE",
+        "NETWORK",
+        "FEDERATED"
+      ],
+      "setup": "See MONEY-011 in mycelix-workspace/docs/maritime-stay/money/money-cases-v0.1.json. The test must bind exact transaction-date ISO 4217 metadata and digest.",
+      "expected_safety_disposition": "Permit negative amount only for explicitly classified adjustment with correct arithmetic.",
+      "measures": [
+        "currency_scale_errors",
+        "monetary_arithmetic_errors",
+        "fx_evidence_completeness",
+        "refund_finality_misclassification"
+      ],
+      "references": [
+        "#5948",
+        "#5945"
+      ]
+    },
+    {
+      "id": "MCB-MONEY-012",
+      "name": "Refund requested, no external effect",
+      "class": "monetary_refund_state",
+      "required_arms": [
+        "MANUAL",
+        "NATIVE",
+        "NETWORK",
+        "FEDERATED"
+      ],
+      "setup": "See MONEY-012 in mycelix-workspace/docs/maritime-stay/money/money-cases-v0.1.json. The test must bind exact transaction-date ISO 4217 metadata and digest.",
+      "expected_safety_disposition": "Request is not execution or finality.",
+      "measures": [
+        "currency_scale_errors",
+        "monetary_arithmetic_errors",
+        "fx_evidence_completeness",
+        "refund_finality_misclassification"
+      ],
+      "references": [
+        "#5948",
+        "#5945"
+      ]
+    },
+    {
+      "id": "MCB-MONEY-013",
+      "name": "Refund attempted, finality unknown",
+      "class": "monetary_refund_finality",
+      "required_arms": [
+        "MANUAL",
+        "NATIVE",
+        "NETWORK",
+        "FEDERATED"
+      ],
+      "setup": "See MONEY-013 in mycelix-workspace/docs/maritime-stay/money/money-cases-v0.1.json. The test must bind exact transaction-date ISO 4217 metadata and digest.",
+      "expected_safety_disposition": "Attempt remains unknown until recognized external finality evidence.",
+      "measures": [
+        "currency_scale_errors",
+        "monetary_arithmetic_errors",
+        "fx_evidence_completeness",
+        "refund_finality_misclassification"
+      ],
+      "references": [
+        "#5948",
+        "#5945"
+      ]
+    },
+    {
+      "id": "MCB-MONEY-014",
+      "name": "Cash rounding versus accounting scale",
+      "class": "monetary_rounding",
+      "required_arms": [
+        "MANUAL",
+        "NATIVE",
+        "NETWORK",
+        "FEDERATED"
+      ],
+      "setup": "See MONEY-014 in mycelix-workspace/docs/maritime-stay/money/money-cases-v0.1.json. The test must bind exact transaction-date ISO 4217 metadata and digest.",
+      "expected_safety_disposition": "Keep cash tender rounding separate and auditable.",
+      "measures": [
+        "currency_scale_errors",
+        "monetary_arithmetic_errors",
+        "fx_evidence_completeness",
+        "refund_finality_misclassification"
+      ],
+      "references": [
+        "#5948",
+        "#5945"
+      ]
+    },
+    {
+      "id": "MCB-MONEY-015",
+      "name": "Overflow and unsupported exponent",
+      "class": "monetary_numeric_bounds",
+      "required_arms": [
+        "MANUAL",
+        "NATIVE",
+        "NETWORK",
+        "FEDERATED"
+      ],
+      "setup": "See MONEY-015 in mycelix-workspace/docs/maritime-stay/money/money-cases-v0.1.json. The test must bind exact transaction-date ISO 4217 metadata and digest.",
+      "expected_safety_disposition": "Fail explicitly; no truncation, wraparound or silent scale reduction.",
+      "measures": [
+        "currency_scale_errors",
+        "monetary_arithmetic_errors",
+        "fx_evidence_completeness",
+        "refund_finality_misclassification"
+      ],
+      "references": [
+        "#5948",
+        "#5945"
+      ]
+    },
+    {
+      "id": "MCB-MONEY-016",
+      "name": "Unknown currency code",
+      "class": "monetary_currency_unknown",
+      "required_arms": [
+        "MANUAL",
+        "NATIVE",
+        "NETWORK",
+        "FEDERATED"
+      ],
+      "setup": "See MONEY-016 in mycelix-workspace/docs/maritime-stay/money/money-cases-v0.1.json. The test must bind exact transaction-date ISO 4217 metadata and digest.",
+      "expected_safety_disposition": "Three-letter syntax alone does not prove a currency exists in pinned metadata.",
+      "measures": [
+        "currency_scale_errors",
+        "monetary_arithmetic_errors",
+        "fx_evidence_completeness",
+        "refund_finality_misclassification"
+      ],
+      "references": [
+        "#5948",
+        "#5945"
+      ]
+    },
+    {
+      "id": "MCB-MONEY-017",
+      "name": "Mandatory fee changes after acceptance",
+      "class": "monetary_quote_revision",
+      "required_arms": [
+        "MANUAL",
+        "NATIVE",
+        "NETWORK",
+        "FEDERATED"
+      ],
+      "setup": "See MONEY-017 in mycelix-workspace/docs/maritime-stay/money/money-cases-v0.1.json. The test must bind exact transaction-date ISO 4217 metadata and digest.",
+      "expected_safety_disposition": "Require a new quote/acceptance disposition; do not mutate historical accepted price.",
+      "measures": [
+        "currency_scale_errors",
+        "monetary_arithmetic_errors",
+        "fx_evidence_completeness",
+        "refund_finality_misclassification"
+      ],
+      "references": [
+        "#5948",
+        "#5945"
+      ]
+    },
+    {
+      "id": "MCB-MONEY-018",
+      "name": "Tax-inclusive/exclusive mapping loss",
+      "class": "monetary_tax_semantics",
+      "required_arms": [
+        "MANUAL",
+        "NATIVE",
+        "NETWORK",
+        "FEDERATED"
+      ],
+      "setup": "See MONEY-018 in mycelix-workspace/docs/maritime-stay/money/money-cases-v0.1.json. The test must bind exact transaction-date ISO 4217 metadata and digest.",
+      "expected_safety_disposition": "Do not normalize away tax inclusion/exclusion; reject or retain explicit loss/unknown.",
+      "measures": [
+        "currency_scale_errors",
+        "monetary_arithmetic_errors",
+        "fx_evidence_completeness",
+        "refund_finality_misclassification"
+      ],
+      "references": [
+        "#5948",
+        "#5945"
+      ]
+    },
+    {
       "id": "MCB-STD-001",
       "name": "Pinned DCSA Port Call publisher/subscriber conformance",
       "class": "profile_conformance",
@@ -1195,7 +1614,14 @@
     "tzdb_version",
     "currency_metadata_artifact_digest",
     "unit_profile_id",
-    "identifier_scheme_profile_id"
+    "identifier_scheme_profile_id",
+    "currency_metadata_artifact_ref",
+    "currency_metadata_artifact_digest",
+    "currency_minor_unit_exponent",
+    "transaction_effective_at",
+    "amount_semantic_role",
+    "quote_currency",
+    "settlement_currency"
   ],
   "metric_definitions": {
     "elapsed_time": "Wall-clock time from task start to justified completion or terminal unresolved state.",
@@ -1223,7 +1649,12 @@
     "timezone_ambiguity_errors": "Count of ambiguous/nonexistent local civil times silently mapped to an instant.",
     "unreviewed_translation_promotions": "Count of machine/unreviewed translations treated as authoritative source or legal/provider terms.",
     "global_profile_coverage": "Declared applicable global profile requirements tested / applicable requirements, with NotTested/Unsupported/NotApplicable kept distinct.",
-    "global_profile_correctness": "Correct tested requirements / tested requirements for the exact profile, edition and role."
+    "global_profile_correctness": "Correct tested requirements / tested requirements for the exact profile, edition and role.",
+    "monetary_arithmetic_errors": "Count of line-item/total/currency arithmetic mismatches, overflow, unsupported scale or silent rounding.",
+    "fx_evidence_completeness": "Whether conversion direction, exact rate, source, effective time, fees and rounding lineage are present and valid.",
+    "refund_finality_misclassification": "Count of refund requests/attempts incorrectly reported as externally finalized refunds.",
+    "floating_point_authoritative_money_paths": "Count of authoritative monetary operations using binary floating-point.",
+    "implicit_fx_conversions": "Count of currency conversions without an explicit recognized FX source, direction and timestamp."
   },
   "hypotheses_not_results": [
     {
