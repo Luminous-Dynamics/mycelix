@@ -40,7 +40,7 @@ The three candidate datasets differ in modality, labels, capture conditions, tar
 
 | ID | Severity | Finding | Required closure |
 |---|---|---|---|
-| UDS-PR-01 | Blocker for use | Exact file-level licence for each linked data file, annotation, code sample and metadata artifact has not been verified. | Obtain the dataset repository's current terms, identify rights holders and third-party components, preserve screenshots/PDFs or source snapshot with retrieval date, and obtain a written legal/steward determination for intended research and derivative use. |
+| UDS-PR-01 | Blocker for use | Exact file-level licence for each linked data file, annotation, code sample and metadata artifact has not been verified. TSMS separately states CC BY 4.0 for the dataset in its Data availability section and CC BY-NC-ND 4.0 for article text/images in Rights and permissions; those are distinct objects, not interchangeable licences. | Obtain the dataset repository's current terms and file-level licence, identify rights holders and third-party components, preserve source snapshots with retrieval date, and obtain a written legal/steward determination for intended research and derivative use. Do not copy article figures/text under the dataset licence. |
 | UDS-PR-02 | Blocker for DRFF-R2 derivatives | Paper states CC BY-NC-ND 4.0; non-commercial/no-derivatives limitations may apply to paper material and potentially linked artifacts, depending on repository rights. | Do not redistribute adapted data, transformed spectrograms, derived datasets or model artifacts until legal counsel confirms the exact licence, scope and whether the proposed use is an adaptation. |
 | UDS-PR-03 | Blocker for raw I/Q | TSMS and RF datasets include raw I/Q. The permitted purpose and whether the capture can contain communications-bearing/private content have not been independently reviewed. | Data privacy/communications reviewer and dataset steward define allowed fields/transforms and prohibit demodulation, private payload decoding or retention. If permissible processing cannot be established, do not consume raw I/Q; use only lawfully supplied labels/features. |
 | UDS-PR-04 | Major | TSMS has repeated measurements in a controlled distance grid; exact unit/session/day/receiver grouping needs file-level inspection. | Build a metadata inventory, bind each measurement to capture group and hold out whole groups. If group metadata is absent, mark relevant generalization unsupported. |
@@ -54,6 +54,18 @@ The three candidate datasets differ in modality, labels, capture conditions, tar
 | UDS-PR-12 | Observation | A model's ability to classify a drone-signal label does not imply detection of an autonomous, RF-silent aircraft or intent. | Keep label meaning narrow; never infer absence from no RF label and never infer intent/hostility. |
 | UDS-PR-13 | Observation | Dataset publication date and open paper availability do not ensure current rights or ongoing hosting/access. | Revalidate the landing page, repository version and rights at retrieval time; record superseded or removed files. |
 | UDS-PR-14 | Observation | Public redistribution of even aggregate derived artifacts may be constrained by source licence, privacy or contractual terms. | Rights reviewer classifies every planned artifact: metrics, embeddings, weights, sample visualizations, transformed files and source excerpts. |
+
+## 4A. TSMS article-versus-dataset rights clarification
+
+The source review now records two separate licence statements:
+- the article's **Data availability** section says the TSMS dataset is publicly accessible under CC BY 4.0;
+- the article's **Rights and permissions** section says the article itself is under CC BY-NC-ND 4.0.
+
+The Figshare+/OpenAIRE landing metadata retrieved for this desk review identifies the dataset but does not expose a file-level licence field. Therefore the register records the article's dataset statement and article licence separately, while leaving exact dataset repository/file terms unverified. This is not evidence that the dataset is necessarily NC-ND, nor permission to reuse article figures, code or third-party assets under CC BY 4.0. The dataset remains not admitted until exact repository/file rights are confirmed.
+
+Sources:
+- Article and its separate Data availability / Rights and permissions sections: https://www.nature.com/articles/s41597-026-06802-6
+- Dataset landing record: https://explore.openaire.eu/search/dataset?pid=10.25452%2Ffigshare.plus.30027313.v1
 
 ## 5. Dataset-by-dataset assessment
 
