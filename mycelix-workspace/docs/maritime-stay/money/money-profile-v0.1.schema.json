@@ -1,0 +1,388 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:luminous-dynamics:maritime-commons:money-amount:0.1.0",
+  "title": "Maritime Commons Money Amount Profile v0.1",
+  "description": "Research proposal for canonical amount interpretation. Structural validation does not establish tax treatment, invoice validity, payment execution or financial finality.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "profile_id",
+    "profile_version",
+    "currency",
+    "amount_minor",
+    "amount_role",
+    "effective_at",
+    "rounding_policy"
+  ],
+  "properties": {
+    "profile_id": {
+      "const": "maritime-money-amount"
+    },
+    "profile_version": {
+      "const": "0.1.0"
+    },
+    "currency": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "standard",
+        "alphabetic_code",
+        "numeric_code",
+        "metadata_artifact_ref",
+        "metadata_sha256",
+        "metadata_retrieved_at",
+        "minor_unit_exponent",
+        "effective_from"
+      ],
+      "properties": {
+        "standard": {
+          "const": "ISO 4217"
+        },
+        "alphabetic_code": {
+          "type": "string",
+          "pattern": "^[A-Z]{3}$"
+        },
+        "numeric_code": {
+          "type": "string",
+          "pattern": "^[0-9]{3}$"
+        },
+        "metadata_artifact_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "metadata_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "metadata_retrieved_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "minor_unit_exponent": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9
+        },
+        "effective_from": {
+          "type": "string",
+          "format": "date"
+        },
+        "effective_until": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date"
+        },
+        "currency_status": {
+          "enum": [
+            "active",
+            "historic",
+            "withdrawn",
+            "unknown"
+          ]
+        }
+      }
+    },
+    "amount_minor": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "amount_role": {
+      "enum": [
+        "quote",
+        "contractual_obligation",
+        "invoice",
+        "credit_note",
+        "refund_request",
+        "refund_attempt",
+        "refund_effect",
+        "settlement_evidence"
+      ]
+    },
+    "effective_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "rounding_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "mode",
+        "stage",
+        "applied"
+      ],
+      "properties": {
+        "mode": {
+          "enum": [
+            "half_even",
+            "half_up",
+            "toward_zero",
+            "away_from_zero",
+            "floor",
+            "ceiling",
+            "exact_no_rounding"
+          ]
+        },
+        "stage": {
+          "enum": [
+            "none",
+            "line_item",
+            "tax",
+            "fx_conversion",
+            "invoice_total",
+            "cash_tender",
+            "other_declared"
+          ]
+        },
+        "applied": {
+          "type": "boolean"
+        },
+        "input_precision": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 18
+        },
+        "reason_ref": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "line_items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "line_item_id",
+          "category",
+          "signed_amount_minor",
+          "mandatory",
+          "currency_metadata_sha256"
+        ],
+        "properties": {
+          "line_item_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 160
+          },
+          "category": {
+            "enum": [
+              "base_charge",
+              "tax_or_levy",
+              "mandatory_fee",
+              "optional_fee",
+              "discount",
+              "credit",
+              "cancellation_charge",
+              "refund_adjustment"
+            ]
+          },
+          "signed_amount_minor": {
+            "type": "integer"
+          },
+          "mandatory": {
+            "type": "boolean"
+          },
+          "currency_metadata_sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "tax_profile_ref": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "source_quote_or_invoice_revision": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      }
+    },
+    "quote_reference": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "settlement": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": false,
+      "required": [
+        "settlement_currency",
+        "status",
+        "external_evidence_ref"
+      ],
+      "properties": {
+        "settlement_currency": {
+          "$ref": "#/$defs/CurrencyContext"
+        },
+        "status": {
+          "enum": [
+            "not_initiated",
+            "pending",
+            "attempted",
+            "authorized",
+            "captured",
+            "settled",
+            "failed",
+            "reversed",
+            "unknown"
+          ]
+        },
+        "external_evidence_ref": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "payment_provider_ref": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "fx_conversion": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": false,
+      "required": [
+        "source_amount_minor",
+        "source_currency",
+        "target_amount_minor",
+        "target_currency",
+        "rate_numerator",
+        "rate_denominator",
+        "rate_direction",
+        "source_ref",
+        "observed_at",
+        "rounding_mode"
+      ],
+      "properties": {
+        "source_amount_minor": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "source_currency": {
+          "$ref": "#/$defs/CurrencyContext"
+        },
+        "target_amount_minor": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "target_currency": {
+          "$ref": "#/$defs/CurrencyContext"
+        },
+        "rate_numerator": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "rate_denominator": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "rate_direction": {
+          "enum": [
+            "target_major_per_source_major",
+            "source_major_per_target_major"
+          ]
+        },
+        "source_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "observed_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "valid_until": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        },
+        "fee_minor": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "rounding_mode": {
+          "enum": [
+            "half_even",
+            "half_up",
+            "toward_zero",
+            "away_from_zero",
+            "floor",
+            "ceiling",
+            "exact_no_rounding"
+          ]
+        }
+      }
+    },
+    "jurisdiction_profile_ref": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "source_provider_ref": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "claim_ceiling": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1000
+    }
+  },
+  "$defs": {
+    "CurrencyContext": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "alphabetic_code",
+        "minor_unit_exponent",
+        "metadata_sha256",
+        "effective_from"
+      ],
+      "properties": {
+        "alphabetic_code": {
+          "type": "string",
+          "pattern": "^[A-Z]{3}$"
+        },
+        "minor_unit_exponent": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9
+        },
+        "metadata_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "effective_from": {
+          "type": "string",
+          "format": "date"
+        }
+      }
+    }
+  }
+}
