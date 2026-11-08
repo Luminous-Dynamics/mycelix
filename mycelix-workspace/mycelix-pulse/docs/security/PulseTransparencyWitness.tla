@@ -76,10 +76,10 @@ PublishRoot(root) ==
 SignRoot(w, root) ==
     /\ w \in Witnesses
     /\ root \in logSignedRoots
-    /\ \/ w = badWitness
-       \/ ~EnforceWitnessLock
-       \/ witnessLock[w] = NoRoot
-       \/ witnessLock[w] = root
+    /\ (w = badWitness
+        \/ ~EnforceWitnessLock
+        \/ witnessLock[w] = NoRoot
+        \/ witnessLock[w] = root)
     /\ witnessSigned' =
         [witnessSigned EXCEPT ![w] = @ \cup {root}]
     /\ witnessLock' = [witnessLock EXCEPT ![w] = root]
