@@ -10,7 +10,8 @@ use std::collections::{BTreeMap, BTreeSet};
 
 pub const INPUT_SCHEMA: &str = "luminous.gcpn.track_a_evaluation_bundle.v0.2";
 pub const REPORT_SCHEMA: &str = "luminous.gcpn.track_a_evaluation_report.v0.2";
-pub const EXPECTED_FIXTURE_SHA256: &str = "FIXTURE_SHA256_PENDING";
+pub const EXPECTED_FIXTURE_SHA256: &str =
+    "bd963f6ee2250a1f0eff0cb25348e8992abce09d31c7d66bd8f2c68ae415ae7a";
 
 const ALLOWED_EVENT_STATES: [&str; 12] = [
     "AUTHORIZED_CLAIM_PENDING_SOURCE_VALIDATION",
