@@ -1018,7 +1018,12 @@ mod tests {
         );
         let report = evaluate(changed.as_bytes());
         assert_eq!(report.status, "REJECTED");
-        assert!(report.reasons.iter().any(|reason| reason.starts_with("strict_json_decode:")));
+        assert!(
+            report
+                .reasons
+                .iter()
+                .any(|reason| reason.starts_with("strict_json_decode:"))
+        );
     }
 
     #[test]
@@ -1034,9 +1039,8 @@ mod tests {
     #[test]
     fn pipeline_with_different_event_set_is_incomparable() {
         let mut value = parsed_fixture();
-        value["pipelines"][1]["event_set_sha256"] = json!(
-            "9999999999999999999999999999999999999999999999999999999999999999"
-        );
+        value["pipelines"][1]["event_set_sha256"] =
+            json!("9999999999999999999999999999999999999999999999999999999999999999");
         let report = evaluate_value(value);
         assert_eq!(report.status, "INCOMPARABLE");
         assert!(
@@ -1051,7 +1055,10 @@ mod tests {
     #[test]
     fn missing_pipeline_case_is_incomparable_not_a_negative() {
         let mut value = parsed_fixture();
-        value["pipelines"][1]["case_results"].as_array_mut().unwrap().pop();
+        value["pipelines"][1]["case_results"]
+            .as_array_mut()
+            .unwrap()
+            .pop();
         let report = evaluate_value(value);
         assert_eq!(report.status, "INCOMPARABLE");
         assert!(
@@ -1066,7 +1073,10 @@ mod tests {
     fn duplicate_pipeline_case_is_rejected() {
         let mut value = parsed_fixture();
         let duplicate = value["pipelines"][1]["case_results"][0].clone();
-        value["pipelines"][1]["case_results"].as_array_mut().unwrap().push(duplicate);
+        value["pipelines"][1]["case_results"]
+            .as_array_mut()
+            .unwrap()
+            .push(duplicate);
         let report = evaluate_value(value);
         assert_eq!(report.status, "REJECTED");
         assert!(
@@ -1115,7 +1125,8 @@ mod tests {
     #[test]
     fn source_quality_count_cannot_exceed_source_count() {
         let mut value = parsed_fixture();
-        value["pipelines"][0]["case_results"][0]["source_evidence"]["authenticated_source_count"] = json!(3);
+        value["pipelines"][0]["case_results"][0]["source_evidence"]["authenticated_source_count"] =
+            json!(3);
         let report = evaluate_value(value);
         assert_eq!(report.status, "REJECTED");
         assert!(
