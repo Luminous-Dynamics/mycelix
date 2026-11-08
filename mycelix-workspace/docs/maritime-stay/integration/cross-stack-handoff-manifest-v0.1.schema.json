@@ -330,5 +330,97 @@
         }
       }
     }
-  }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "contract_template"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "artifact_refs": {
+            "maxItems": 0
+          },
+          "handoff_edges": {
+            "maxItems": 0
+          },
+          "execution": {
+            "properties": {
+              "executed": {
+                "const": false
+              },
+              "exact_head_verified": {
+                "const": false
+              },
+              "independent_verification": {
+                "const": false
+              },
+              "legal_review": {
+                "const": false
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "synthetic_fixture_not_executed"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "execution": {
+            "properties": {
+              "executed": {
+                "const": false
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "executed_frozen"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "execution": {
+            "properties": {
+              "executed": {
+                "const": true
+              },
+              "exact_head_verified": {
+                "const": true
+              },
+              "independent_verification": {
+                "const": true
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
 }
