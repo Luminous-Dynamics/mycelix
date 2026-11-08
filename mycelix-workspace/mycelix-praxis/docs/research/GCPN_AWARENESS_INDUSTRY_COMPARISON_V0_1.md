@@ -31,7 +31,7 @@ Never combine the results into one score. A better event-envelope consumer canno
 
 ## 3. External evaluation reference: CWA 18150:2024
 
-CWA 18150:2024, *Unmanned aircraft systems — Counter UAS — Testing methodology*, is a directly relevant external reference. Its published scope describes user-defined scenarios and qualitative/quantitative comparison of detection, tracking and identification systems integrated in a C2 system, and excludes defeat/disable aspects.
+CWA 18150:2024, *Unmanned aircraft systems — Counter UAS — Testing methodology*, is a directly relevant external methodology reference. It is a CEN Workshop Agreement, not an official CEN standard: its own foreword states that it cannot be held as an official standard developed by CEN and its Members. Its published scope describes user-defined scenarios and qualitative/quantitative comparison of detection, tracking and identification systems integrated in a C2 system; the NEN scope summary says defeat/disable aspects are not covered. We use it as a method reference only, not as a certification, harmonized-standard or compliance claim. Source: https://www.cencenelec.eu/media/CEN-CENELEC/CWAs/ICT/cwa-18150.pdf (foreword, pp. 1–2) and https://www.nen.nl/en/cwa-18150-2024-en-330385.
 
 - Current status and scope reference: https://www.nen.nl/en/cwa-18150-2024-en-330385
 - Adoption/status reference: https://dps.gov.al/en/project/show/dps%3Aproj%3A76336
