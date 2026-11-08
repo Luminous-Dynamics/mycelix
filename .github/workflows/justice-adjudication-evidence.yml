@@ -1,0 +1,132 @@
+name: Justice Adjudication Evidence Qualification
+
+on:
+  pull_request:
+    paths:
+      - 'mycelix-workspace/mycelix-civic/zomes/justice-adjudication-evidence/**'
+      - 'mycelix-workspace/mycelix-civic/Cargo.toml'
+      - 'mycelix-workspace/mycelix-civic/Cargo.lock'
+      - 'mycelix-workspace/mycelix-civic/dna/dna.yaml'
+      - '.github/workflows/justice-adjudication-evidence.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: justice-adjudication-evidence-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qualify:
+    name: Authenticated Justice adjudication evidence
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@1.96.0
+        with:
+          components: rustfmt, clippy
+          targets: wasm32-unknown-unknown
+
+      - name: Verify workspace, DNA, and dependency boundary
+        run: |
+          python3 - <<'PY'
+          import pathlib
+          import tomllib
+
+          root = pathlib.Path('mycelix-workspace/mycelix-civic')
+          workspace_manifest = tomllib.loads((root / 'Cargo.toml').read_text())
+          members = set(workspace_manifest['workspace']['members'])
+          integrity = 'zomes/justice-adjudication-evidence/integrity'
+          coordinator = 'zomes/justice-adjudication-evidence/coordinator'
+          assert integrity in members
+          assert coordinator in members
+
+          integrity_manifest = tomllib.loads((root / integrity / 'Cargo.toml').read_text())
+          coordinator_manifest = tomllib.loads((root / coordinator / 'Cargo.toml').read_text())
+
+          assert set(integrity_manifest.get('dependencies', {})) == {
+              'hdi', 'serde', 'holochain_serialized_bytes', 'justice_arbitration_integrity'
+          }
+          assert set(coordinator_manifest.get('dependencies', {})) == {
+              'hdk', 'serde', 'justice_adjudication_evidence_integrity',
+              'justice_arbitration_integrity'
+          }
+          assert set(coordinator_manifest.get('dev-dependencies', {})) == {'serde_json'}
+          assert not integrity_manifest.get('dev-dependencies')
+          assert not integrity_manifest.get('build-dependencies')
+          assert not coordinator_manifest.get('build-dependencies')
+
+          dna = (root / 'dna/dna.yaml').read_text()
+          required = [
+              'name: justice_adjudication_evidence_integrity',
+              'release/justice_adjudication_evidence_integrity.wasm',
+              'name: justice_adjudication_evidence',
+              'release/justice_adjudication_evidence.wasm',
+              '- name: justice_adjudication_evidence_integrity',
+              '- name: justice_arbitration_integrity',
+          ]
+          for needle in required:
+              assert needle in dna, f'missing Civic DNA evidence wiring: {needle}'
+          PY
+
+      - name: Verify authority-layer source boundary
+        run: |
+          src='mycelix-workspace/mycelix-civic/zomes/justice-adjudication-evidence'
+          if grep -R -n -E 'mycelix[_-]business|mycelix[_-]finance|justice_resolution_verifier|justice-resolution-verifier|mycelix[_-]governance' "$src" --include='*.rs' --include='Cargo.toml'; then
+            echo 'Authenticated Justice evidence must not depend on Business, Finance, Governance, or the downstream pure verifier' >&2
+            exit 1
+          fi
+          grep -q 'must_get_valid_record' "$src/integrity/src/lib.rs"
+          grep -q 'acceptance_attestation_action_hash' "$src/integrity/src/lib.rs"
+          grep -q 'AcceptanceNotAccepted' "$src/integrity/src/lib.rs"
+          grep -q 'append-only; updates are forbidden' "$src/integrity/src/lib.rs"
+          grep -q 'append-only; deletes are forbidden' "$src/integrity/src/lib.rs"
+          grep -q 'agent_info()' "$src/coordinator/src/lib.rs"
+
+      - name: rustfmt integrity
+        run: cargo fmt --manifest-path mycelix-workspace/mycelix-civic/zomes/justice-adjudication-evidence/integrity/Cargo.toml -- --check
+
+      - name: rustfmt coordinator
+        run: cargo fmt --manifest-path mycelix-workspace/mycelix-civic/zomes/justice-adjudication-evidence/coordinator/Cargo.toml -- --check
+
+      - name: native tests integrity
+        run: cargo test --manifest-path mycelix-workspace/mycelix-civic/zomes/justice-adjudication-evidence/integrity/Cargo.toml
+
+      - name: native tests coordinator
+        run: cargo test --manifest-path mycelix-workspace/mycelix-civic/zomes/justice-adjudication-evidence/coordinator/Cargo.toml
+
+      - name: native clippy integrity
+        run: cargo clippy --manifest-path mycelix-workspace/mycelix-civic/zomes/justice-adjudication-evidence/integrity/Cargo.toml --all-targets -- -D warnings
+
+      - name: native clippy coordinator
+        run: cargo clippy --manifest-path mycelix-workspace/mycelix-civic/zomes/justice-adjudication-evidence/coordinator/Cargo.toml --all-targets -- -D warnings
+
+      - name: WASM check integrity
+        run: cargo check --manifest-path mycelix-workspace/mycelix-civic/zomes/justice-adjudication-evidence/integrity/Cargo.toml --target wasm32-unknown-unknown
+
+      - name: WASM check coordinator
+        run: cargo check --manifest-path mycelix-workspace/mycelix-civic/zomes/justice-adjudication-evidence/coordinator/Cargo.toml --target wasm32-unknown-unknown
+
+      - name: Require committed lock/source closure
+        run: |
+          if ! git diff --exit-code -- mycelix-workspace/mycelix-civic/Cargo.lock; then
+            echo 'Cargo qualification changed the committed Civic lockfile; commit this exact delta before qualification can be green.' >&2
+            exit 1
+          fi
+          test -z "$(git status --short)"
+
+      - name: Evidence boundary
+        run: |
+          cat <<'EOF'
+          evidence_authority=source_native_and_wasm_qualification
+          individually_authored_participation=true
+          individually_authored_votes=true
+          exact_referenced_action_binding=true
+          vote_requires_exact_accepted_participation=true
+          dht_sweettest_executed=false
+          conflicting_attestation_reduction_qualified=false
+          appeal_finality_qualified=false
+          business_finance_bridge_authorized=false
+          EOF

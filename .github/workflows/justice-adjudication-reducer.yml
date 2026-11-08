@@ -1,0 +1,142 @@
+name: Justice Adjudication Reducer Qualification
+
+on:
+  pull_request:
+    paths:
+      - 'mycelix-workspace/mycelix-civic/crates/justice-adjudication-reducer/**'
+      - 'mycelix-workspace/mycelix-civic/crates/justice-resolution-verifier/**'
+      - 'mycelix-workspace/mycelix-civic/crates/justice-finality-qualification/**'
+      - 'mycelix-workspace/mycelix-civic/crates/justice-resolution-types/**'
+      - 'mycelix-workspace/mycelix-civic/Cargo.toml'
+      - '.github/workflows/justice-adjudication-reducer.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: justice-adjudication-reducer-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qualify:
+    name: Conflict-aware Justice adjudication reduction
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+
+      - uses: dtolnay/rust-toolchain@1.96.0
+        with:
+          components: rustfmt, clippy
+
+      - name: Verify repository dependency boundary
+        run: |
+          python3 - <<'PY'
+          import pathlib
+          import tomllib
+
+          root = pathlib.Path('mycelix-workspace/mycelix-civic')
+          workspace = tomllib.loads((root / 'Cargo.toml').read_text())
+          member = 'crates/justice-adjudication-reducer'
+          assert member in set(workspace['workspace']['members'])
+          assert workspace['workspace']['dependencies']['justice-adjudication-reducer']['path'] == member
+          assert workspace['workspace']['dependencies']['justice-finality-qualification']['path'] == 'crates/justice-finality-qualification'
+
+          manifest = tomllib.loads((root / member / 'Cargo.toml').read_text())
+          dependencies = manifest.get('dependencies', {})
+          dev_dependencies = manifest.get('dev-dependencies', {})
+          assert set(dependencies) == {'justice-resolution-verifier'}
+          assert dependencies['justice-resolution-verifier']['path'] == '../justice-resolution-verifier'
+          assert set(dev_dependencies) == {'justice-finality-qualification'}
+          assert dev_dependencies['justice-finality-qualification']['path'] == '../justice-finality-qualification'
+          assert not manifest.get('build-dependencies')
+          PY
+
+      - name: Verify pure source boundary
+        run: |
+          src='mycelix-workspace/mycelix-civic/crates/justice-adjudication-reducer'
+          if grep -R -n -E '(^|[^[:alnum:]_])(hdk|hdi|holochain|mycelix[_-]business|mycelix[_-]finance|mycelix[_-]governance)([^[:alnum:]_]|$)' "$src" --include='*.rs' --include='Cargo.toml'; then
+            echo 'Justice adjudication reducer must remain transport-neutral and domain-local' >&2
+            exit 1
+          fi
+          grep -q 'justice.authenticated-adjudication-reduction' "$src/src/lib.rs"
+          grep -q 'MultipleParticipationEvidence' "$src/src/lib.rs"
+          grep -q 'MultipleVoteEvidence' "$src/src/lib.rs"
+          grep -q 'AcceptanceReferenceMismatch' "$src/src/lib.rs"
+          grep -q 'qualified_finality' "$src/tests/verifier_composition.rs"
+          grep -q '^use justice_finality_qualification::' "$src/tests/verifier_composition.rs"
+          if grep -R -n 'CurrentAppealStateV1' "$src/tests" --include='*.rs'; then
+            echo 'Reducer composition test bypassed sealed Justice finality' >&2
+            exit 1
+          fi
+
+      - name: Build isolated exact dependency capsule
+        run: |
+          capsule="$RUNNER_TEMP/justice-adjudication-reducer-capsule"
+          rm -rf "$capsule"
+          mkdir -p "$capsule"
+          cp -R mycelix-workspace/mycelix-civic/crates/justice-resolution-types "$capsule/justice-resolution-types"
+          cp -R mycelix-workspace/mycelix-civic/crates/justice-finality-qualification "$capsule/justice-finality-qualification"
+          cp -R mycelix-workspace/mycelix-civic/crates/justice-resolution-verifier "$capsule/justice-resolution-verifier"
+          cp -R mycelix-workspace/mycelix-civic/crates/justice-adjudication-reducer "$capsule/justice-adjudication-reducer"
+          cat > "$capsule/Cargo.toml" <<'EOF'
+          [workspace]
+          resolver = "2"
+          members = [
+            "justice-resolution-types",
+            "justice-finality-qualification",
+            "justice-resolution-verifier",
+            "justice-adjudication-reducer",
+          ]
+
+          [workspace.package]
+          version = "0.1.0"
+          edition = "2024"
+          license = "AGPL-3.0-or-later"
+
+          [workspace.dependencies]
+          serde = { version = "=1.0.228", features = ["derive"] }
+          EOF
+          cargo generate-lockfile --manifest-path "$capsule/Cargo.toml"
+          echo "CAPSULE=$capsule" >> "$GITHUB_ENV"
+
+      - name: Check rustfmt for reducer-owned package
+        id: rustfmt
+        continue-on-error: true
+        run: cargo fmt --manifest-path "$CAPSULE/Cargo.toml" --package justice-adjudication-reducer -- --check
+
+      - name: test reducer exact capsule
+        run: cargo test --locked --manifest-path "$CAPSULE/Cargo.toml" -p justice-adjudication-reducer
+
+      - name: clippy reducer exact capsule
+        run: cargo clippy --locked --manifest-path "$CAPSULE/Cargo.toml" -p justice-adjudication-reducer --all-targets -- -D warnings
+
+      - name: Verify repository stayed clean
+        run: test -z "$(git status --short)"
+
+      - name: Evidence boundary
+        run: |
+          cat <<'EOF'
+          evidence_authority=pure_reduction_qualification
+          authenticated_dht_input_assumed=true
+          finality_evidence_authentication_assumed=true
+          conflict_aware_reduction_qualified=true
+          input_order_independent=true
+          direct_verifier_composition_tested=true
+          sealed_finality_consumer_composition_tested=true
+          finality_qualifier_test_dependency_explicit=true
+          direct_caller_appeal_state_path=false
+          legacy_aggregate_fallback=false
+          runtime_appellate_authority_qualified=false
+          business_finance_bridge_authorized=false
+          EOF
+
+      - name: Require reducer-owned source formatting
+        if: always()
+        run: |
+          if [[ '${{ steps.rustfmt.outcome }}' != 'success' ]]; then
+            echo 'Reducer-owned source is not rustfmt-clean; qualification remains red after collecting compile/test/clippy evidence.' >&2
+            exit 1
+          fi

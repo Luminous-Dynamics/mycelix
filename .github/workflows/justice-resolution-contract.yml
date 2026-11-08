@@ -1,0 +1,71 @@
+name: Justice Resolution Contract Qualification
+
+on:
+  pull_request:
+    paths:
+      - 'mycelix-workspace/mycelix-civic/crates/justice-resolution-types/**'
+      - 'mycelix-workspace/mycelix-civic/Cargo.toml'
+      - '.github/workflows/justice-resolution-contract.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: justice-resolution-contract-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qualify:
+    name: Pure Justice resolution semantics
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@1.96.0
+        with:
+          components: rustfmt, clippy
+
+      - name: Verify workspace and dependency boundary
+        run: |
+          python3 - <<'PY'
+          import pathlib
+          import tomllib
+
+          civic_root = pathlib.Path('mycelix-workspace/mycelix-civic')
+          workspace_manifest = tomllib.loads((civic_root / 'Cargo.toml').read_text())
+          workspace = workspace_manifest['workspace']
+          crate = 'crates/justice-resolution-types'
+          assert crate in workspace['members'], (
+              'Justice resolution vocabulary must be an explicit Civic workspace member'
+          )
+
+          workspace_dependencies = workspace_manifest['workspace']['dependencies']
+          assert workspace_dependencies['justice-resolution-types']['path'] == crate
+
+          manifest = tomllib.loads((civic_root / crate / 'Cargo.toml').read_text())
+          dependencies = manifest.get('dependencies', {})
+          assert set(dependencies) == {'serde'}, (
+              'Justice resolution vocabulary may depend only on Serde; runtime, Business, Finance, and Holochain dependencies are forbidden'
+          )
+          assert dependencies['serde'].get('workspace') is True
+          assert not manifest.get('dev-dependencies'), 'resolution vocabulary must have zero dev dependencies'
+          assert not manifest.get('build-dependencies'), 'resolution vocabulary must have zero build dependencies'
+          PY
+
+      - name: Verify transport-neutral source boundary
+        run: |
+          src='mycelix-workspace/mycelix-civic/crates/justice-resolution-types/src'
+          if grep -R -n -E '(^|[[:space:]])use[[:space:]]+(hdk|hdi|holochain|mycelix_business|mycelix_finance)|hdk::|hdi::|holochain_[A-Za-z0-9_]*::|mycelix_business_[A-Za-z0-9_]*::|mycelix_finance_[A-Za-z0-9_]*::|std::(time|net|fs|process|env)::|SystemTime::now|Instant::now|Command::new|TcpStream|UdpSocket' "$src" --include='*.rs'; then
+            echo 'Justice resolution vocabulary gained runtime, Business, Finance, Holochain, or ambient-authority coupling' >&2
+            exit 1
+          fi
+
+      - name: rustfmt
+        run: cargo fmt --manifest-path mycelix-workspace/mycelix-civic/crates/justice-resolution-types/Cargo.toml -- --check
+
+      - name: tests
+        run: cargo test --manifest-path mycelix-workspace/mycelix-civic/crates/justice-resolution-types/Cargo.toml
+
+      - name: clippy
+        run: cargo clippy --manifest-path mycelix-workspace/mycelix-civic/crates/justice-resolution-types/Cargo.toml --all-targets -- -D warnings
