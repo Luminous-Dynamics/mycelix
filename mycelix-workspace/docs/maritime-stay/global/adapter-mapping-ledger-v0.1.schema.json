@@ -168,7 +168,9 @@
         "outcome",
         "loss_severity",
         "recoverability",
-        "evidence_kind"
+        "evidence_kind",
+        "target_field_path",
+        "target_semantics"
       ],
       "properties": {
         "mapping_id": {
@@ -357,6 +359,63 @@
           "then": {
             "required": [
               "unknown_value_policy"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "field_requirement": {
+                "const": "required"
+              },
+              "outcome": {
+                "enum": [
+                  "omitted",
+                  "unsupported"
+                ]
+              }
+            },
+            "required": [
+              "field_requirement",
+              "outcome"
+            ]
+          },
+          "then": {
+            "not": {
+              "properties": {
+                "outcome": {
+                  "enum": [
+                    "omitted",
+                    "unsupported"
+                  ]
+                }
+              },
+              "required": [
+                "outcome"
+              ]
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "outcome": {
+                "const": "normalized_preserving"
+              }
+            },
+            "required": [
+              "outcome"
+            ]
+          },
+          "then": {
+            "properties": {
+              "loss_severity": {
+                "const": "none"
+              }
+            },
+            "required": [
+              "target_field_path",
+              "target_semantics"
             ]
           }
         }
