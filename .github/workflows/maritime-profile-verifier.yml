@@ -1,0 +1,36 @@
+name: Maritime profile verifier
+
+on:
+  pull_request:
+    paths:
+      - "mycelix-workspace/tools/maritime-profile-verifier/**"
+      - ".github/workflows/maritime-profile-verifier.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Build, format, test, and lint isolated verifier
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mycelix-workspace/tools/maritime-profile-verifier
+    steps:
+      - name: Check out exact PR head
+        uses: actions/checkout@v4
+
+      - name: Install stable Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Check formatting
+        run: cargo fmt -- --check
+
+      - name: Run unit tests
+        run: cargo test --all-targets
+
+      - name: Run Clippy
+        run: cargo clippy --all-targets -- -D warnings
