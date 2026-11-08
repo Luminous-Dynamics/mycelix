@@ -40,6 +40,7 @@
       "published_conditions":{"distance_min_m":2,"distance_max_m":30,"distance_step_m":2,"repeats_per_condition":500},
       "data_notes":["CW and RF include raw I/Q","FMCW includes processed range-Doppler frames, not full raw ADC stream"],
       "paper_stated_dataset_license":"CC-BY-4.0",
+      "paper_article_license":"CC-BY-NC-ND-4.0",
       "exact_landing_page_file_license_verified":false,
       "status":"NOT_ADMITTED_PENDING_FILE_LEVEL_RIGHTS_AND_DATA_DICTIONARY_AUDIT",
       "primary_limitations":["controlled distance conditions","small target diversity","not a field deployment sample"]
