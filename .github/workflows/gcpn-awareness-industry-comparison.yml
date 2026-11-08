@@ -6,6 +6,10 @@ on:
       - "mycelix-workspace/mycelix-praxis/docs/research/GCPN_AWARENESS_INDUSTRY_COMPARISON_V0_1.md"
       - "mycelix-workspace/mycelix-praxis/docs/research/GCPN_AWARENESS_INDUSTRY_COMPARISON_CASES_V0_1.json"
       - "mycelix-workspace/mycelix-praxis/docs/research/GCPN_AWARENESS_INDUSTRY_COMPARISON_PRELIMINARY_DESK_REVIEW_V0_1.md"
+      - "tools/gcpn-civil-autonomous-awareness-verifier/**"
+      - "tools/gcpn-track-a-replay-evaluator/**"
+      - "mycelix-workspace/mycelix-praxis/docs/research/GCPN_CIV_AUTONOMOUS_AWARENESS_CASES_V0_1.json"
+      - "mycelix-workspace/mycelix-praxis/docs/research/GCPN_TRACK_A_REPLAY_EVALUATOR_V0_1.md"
       - "tools/gcpn-awareness-industry-comparison-verifier/**"
       - ".github/workflows/gcpn-awareness-industry-comparison.yml"
   workflow_dispatch:
@@ -60,3 +64,9 @@ jobs:
         run: cargo test --manifest-path tools/gcpn-awareness-industry-comparison-verifier/Cargo.toml
       - name: Verify pinned comparison manifest
         run: cargo run --manifest-path tools/gcpn-awareness-industry-comparison-verifier/Cargo.toml
+      - name: Check Track A evaluator formatting
+        run: cargo fmt --manifest-path tools/gcpn-track-a-replay-evaluator/Cargo.toml --all -- --check
+      - name: Run Track A evaluator tests
+        run: cargo test --manifest-path tools/gcpn-track-a-replay-evaluator/Cargo.toml
+      - name: Run synthetic Track A calculator smoke test
+        run: cargo run --manifest-path tools/gcpn-track-a-replay-evaluator/Cargo.toml
