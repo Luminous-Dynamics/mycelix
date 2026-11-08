@@ -218,3 +218,19 @@ A South African candidate register is not a partnership or pilot selection. Keep
 - The evaluator does not import production orchestration or capacity-transition helpers.
 - Synthetic, sandbox, operator-observed and independently reproduced results remain separate.
 - No SOTA, performance, certification, partnership or production-readiness claim is made without the evidence required for that claim.
+
+
+## 11. Standards-profile conformance: coverage is not correctness
+
+Use a separate conformance family inspired by DCSA's public conformance framework. Measure two different things:
+
+- **Coverage:** which requirements in the exact pinned profile, edition and implementation role were exercised.
+- **Correctness:** whether each tested requirement is correct, incorrect or inconsistent.
+
+Use explicit per-requirement statuses: Correct, Incorrect, Inconsistent, NotTested, Unsupported and NotApplicable. NotTested is not PASS. NotApplicable requires a reason. A result binds exact profile/version, role/direction, requirement ID, scenario and evaluator.
+
+DCSA Port Call 2.0 is a useful reference because its conformance tooling exercises publisher GET and subscriber POST roles against synthetic counterparts. Its framework reports coverage and correctness separately. Maritime Commons may reuse that *method*, but must not claim DCSA certification or confuse commercial port-call coordination with recreational berth/stay coordination.
+
+Apply the same precision to IHO adapters: pin product-spec edition, S-100 dependency, product validation profile, source dataset and operational applicability independently. Never collapse these into a generic compliant boolean.
+
+This benchmark adds three synthetic cases: complete DCSA-profile conformance, intentionally incomplete/untested profile coverage, and semantic-equivalence checks between native and normalized event adapters.
