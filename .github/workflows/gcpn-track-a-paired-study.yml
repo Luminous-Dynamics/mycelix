@@ -1,0 +1,33 @@
+name: GCPN Track A paired independent-block study
+
+on:
+  pull_request:
+    paths:
+      - "tools/gcpn-track-a-paired-study/**"
+      - "tools/gcpn-track-a-replay-evaluator/**"
+      - "mycelix-workspace/mycelix-praxis/docs/research/GCPN_TRACK_A_PAIRED_STUDY_V0_1.md"
+      - ".github/workflows/gcpn-track-a-paired-study.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gcpn-track-a-paired-study-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  deterministic-paired-study:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - name: Check Rust formatting
+        run: cargo fmt --manifest-path tools/gcpn-track-a-paired-study/Cargo.toml --all -- --check
+      - name: Run paired-study tests and mutations
+        run: cargo test --manifest-path tools/gcpn-track-a-paired-study/Cargo.toml
+      - name: Run byte-pinned synthetic paired study
+        run: cargo run --manifest-path tools/gcpn-track-a-paired-study/Cargo.toml
