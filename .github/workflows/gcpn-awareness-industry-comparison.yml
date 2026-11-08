@@ -1,0 +1,61 @@
+name: GCPN awareness industry comparison verifier
+
+on:
+  pull_request:
+    paths:
+      - "mycelix-workspace/mycelix-praxis/docs/research/GCPN_AWARENESS_INDUSTRY_COMPARISON_V0_1.md"
+      - "mycelix-workspace/mycelix-praxis/docs/research/GCPN_AWARENESS_INDUSTRY_COMPARISON_CASES_V0_1.json"
+      - "tools/gcpn-awareness-industry-comparison-verifier/**"
+      - ".github/workflows/gcpn-awareness-industry-comparison.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gcpn-awareness-industry-comparison-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  strict-comparison-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - name: Validate comparison split, baseline labels, and hard gates
+        shell: bash
+        run: |
+          jq -e '
+            .schema == "luminous.gcpn.awareness_industry_comparison.v0.1" and
+            .status == "synthetic_comparison_protocol_only" and
+            .claim_ceiling == "comparison_manifest_integrity_and_synthetic_track_semantics_only" and
+            (.tracks | length == 2) and
+            (.baselines | length == 4) and
+            (.cases | length == 10)
+          ' mycelix-workspace/mycelix-praxis/docs/research/GCPN_AWARENESS_INDUSTRY_COMPARISON_CASES_V0_1.json >/dev/null
+          jq -e '
+            ([.tracks[].id] | sort) == ["TRACK_A","TRACK_B"] and
+            ([.baselines[].id] | sort) == ["D0","D1","D2","D3"] and
+            ([.cases[].id] | unique | length) == 10 and
+            ([.baselines[].independent_performance_verified] | all(. == false)) and
+            ([.baselines[].vendor_hostile_label_authoritative] | all(. == false)) and
+            ([.hard_gates[]] | all(. == 0)) and
+            .standard_reference.defeat_disable_in_scope == false and
+            .standard_reference.luminous_conformity_claim == false and
+            .matching_controls.operator_location_allowed == false and
+            .matching_controls.exact_flight_path_allowed == false and
+            .matching_controls.raw_audio_video_allowed == false and
+            .matching_controls.active_mitigation_allowed == false and
+            .matching_controls.third_party_control_allowed == false and
+            (.tracks[] | select(.id == "TRACK_A") | .scores_physical_sensor_detection == false and .same_frozen_event_envelopes_required == true) and
+            (.tracks[] | select(.id == "TRACK_B") | .status == "blocked_pending_site_legal_professional_and_ground_truth_approval" and .field_permission_required == true)
+          ' mycelix-workspace/mycelix-praxis/docs/research/GCPN_AWARENESS_INDUSTRY_COMPARISON_CASES_V0_1.json >/dev/null
+      - name: Check verifier formatting
+        run: cargo fmt --manifest-path tools/gcpn-awareness-industry-comparison-verifier/Cargo.toml --all -- --check
+      - name: Run strict schema and adversarial tests
+        run: cargo test --manifest-path tools/gcpn-awareness-industry-comparison-verifier/Cargo.toml
+      - name: Verify pinned comparison manifest
+        run: cargo run --manifest-path tools/gcpn-awareness-industry-comparison-verifier/Cargo.toml
