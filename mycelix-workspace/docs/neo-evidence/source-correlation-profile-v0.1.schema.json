@@ -317,7 +317,12 @@
               "required": [
                 "independence_basis",
                 "evidence_refs"
-              ]
+              ],
+              "properties": {
+                "evidence_refs": {
+                  "minItems": 1
+                }
+              }
             }
           },
           {
@@ -372,5 +377,44 @@
         "type": "string"
       }
     }
-  }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "data_status": {
+            "const": "production_evidence"
+          }
+        },
+        "required": [
+          "data_status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "scope": {
+            "required": [
+              "observation_set_digest"
+            ]
+          },
+          "sources": {
+            "items": {
+              "required": [
+                "source_record_digest"
+              ]
+            }
+          },
+          "dependency_assertions": {
+            "items": {
+              "properties": {
+                "evidence_refs": {
+                  "minItems": 1
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
 }
