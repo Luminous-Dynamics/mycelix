@@ -1,0 +1,95 @@
+{
+  "schema": "emsr-dependency-hypergraph-challenge-pack/0.1",
+  "version": "0.1.0",
+  "state": "FROZEN_PUBLIC_SYNTHETIC_CONFORMANCE",
+  "claim_ceiling": "Declared common-dependency semantics over synthetic graph inputs and a declared inventory snapshot only; not proof of physical/statistical independence or absence of unknown common causes.",
+  "evaluator_truth": "Public conformance vectors. Not a blind benchmark or hidden-truth field evaluation.",
+  "case_count": 12,
+  "cases": [
+    {
+      "id": "DH-001",
+      "mutation": "transitive_shared_ancestor",
+      "expected_disposition": "SHARED_DEPENDENCY",
+      "expected_reason_codes": []
+    },
+    {
+      "id": "DH-002",
+      "mutation": "direct_multi_subject_hyperedge",
+      "expected_disposition": "SHARED_DEPENDENCY",
+      "expected_reason_codes": []
+    },
+    {
+      "id": "DH-003",
+      "mutation": "shared_power_does_not_imply_clock",
+      "expected_disposition": "NO_DECLARED_COMMON_DOMAIN",
+      "expected_reason_codes": []
+    },
+    {
+      "id": "DH-004",
+      "mutation": "shared_edge_expired_at_event_time",
+      "expected_disposition": "NO_DECLARED_COMMON_DOMAIN",
+      "expected_reason_codes": []
+    },
+    {
+      "id": "DH-005",
+      "mutation": "stale_shared_edge",
+      "expected_disposition": "UNKNOWN_DEPENDENCY",
+      "expected_reason_codes": []
+    },
+    {
+      "id": "DH-006",
+      "mutation": "source_missing_from_inventory_scope",
+      "expected_disposition": "UNKNOWN_DEPENDENCY",
+      "expected_reason_codes": [
+        "source_outside_inventory_scope"
+      ]
+    },
+    {
+      "id": "DH-007",
+      "mutation": "incomplete_inventory_snapshot",
+      "expected_disposition": "UNKNOWN_DEPENDENCY",
+      "expected_reason_codes": [
+        "inventory_snapshot_incomplete"
+      ]
+    },
+    {
+      "id": "DH-008",
+      "mutation": "dependency_cycle",
+      "expected_disposition": "INVALID_INPUT",
+      "expected_reason_codes": [
+        "dependency_cycle_detected"
+      ]
+    },
+    {
+      "id": "DH-009",
+      "mutation": "tampered_closure_report",
+      "expected_disposition": "VERIFIER_REJECT",
+      "expected_reason_codes": []
+    },
+    {
+      "id": "DH-010",
+      "mutation": "noncanonical_source_order",
+      "expected_disposition": "INVALID_INPUT",
+      "expected_reason_codes": [
+        "query_sources_must_be_sorted_unique"
+      ]
+    },
+    {
+      "id": "DH-011",
+      "mutation": "complete_inventory_no_common_ancestor",
+      "expected_disposition": "NO_DECLARED_COMMON_DOMAIN",
+      "expected_reason_codes": [
+        "complete_inventory_has_no_declared_common_ancestor"
+      ]
+    },
+    {
+      "id": "DH-012",
+      "mutation": "source_missing_from_snapshot_coverage",
+      "expected_disposition": "UNKNOWN_DEPENDENCY",
+      "expected_reason_codes": [
+        "reachable_node_not_covered_by_inventory_snapshot",
+        "source_not_covered_by_inventory_snapshot"
+      ]
+    }
+  ]
+}

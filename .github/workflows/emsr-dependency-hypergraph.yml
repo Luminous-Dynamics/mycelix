@@ -1,0 +1,30 @@
+name: EMSR dependency hypergraph reference
+
+on:
+  pull_request:
+    paths:
+      - "tools/emsr-dependency-hypergraph/**"
+      - ".github/workflows/emsr-dependency-hypergraph.yml"
+  push:
+    branches: [main]
+    paths:
+      - "tools/emsr-dependency-hypergraph/**"
+      - ".github/workflows/emsr-dependency-hypergraph.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  reference:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dtolnay/rust-toolchain@1.96.0
+        with:
+          components: rustfmt, clippy
+      - name: Formatting
+        run: cargo fmt --manifest-path tools/emsr-dependency-hypergraph/Cargo.toml --check
+      - name: Tests
+        run: cargo test --manifest-path tools/emsr-dependency-hypergraph/Cargo.toml --all-targets
+      - name: Clippy
+        run: cargo clippy --manifest-path tools/emsr-dependency-hypergraph/Cargo.toml --all-targets -- -D warnings
