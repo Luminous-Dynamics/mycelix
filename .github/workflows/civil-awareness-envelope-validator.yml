@@ -1,6 +1,13 @@
 name: Civil awareness envelope and observability verifier
 
 on:
+  push:
+    branches:
+      - feat/gcpn-observability-evaluator-v0.1
+    paths:
+      - "mycelix-workspace/mycelix-praxis/benchmarks/civil-awareness-envelope-validator/**"
+      - "mycelix-workspace/mycelix-praxis/docs/research/civil-awareness-observability-dgp-v0.1*"
+      - ".github/workflows/civil-awareness-envelope-validator.yml"
   pull_request:
     branches:
       - main
@@ -32,6 +39,16 @@ jobs:
         uses: dtolnay/rust-toolchain@1.96.0
         with:
           components: rustfmt, clippy
+
+      - name: Check dependency lockfile status
+        shell: bash
+        run: |
+          lockfile="mycelix-workspace/mycelix-praxis/benchmarks/civil-awareness-envelope-validator/Cargo.lock"
+          if [[ -f "$lockfile" ]]; then
+            echo "Cargo.lock present; review and use --locked for final reproducible qualification."
+          else
+            echo "::warning::Cargo.lock is not committed. Test dependency resolution is not yet pinned; generate, review and commit Cargo.lock before merge."
+          fi
 
       - name: Format
         run: cargo fmt --manifest-path mycelix-workspace/mycelix-praxis/benchmarks/civil-awareness-envelope-validator/Cargo.toml --check
