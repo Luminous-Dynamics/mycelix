@@ -87,7 +87,7 @@ cargo run --release --manifest-path tools/emsr-dependency-hypergraph/Cargo.toml 
 GCPN_BENCH_REPETITIONS=31 cargo run --release --manifest-path tools/emsr-dependency-hypergraph/Cargo.toml --example scale_benchmark
 ```
 
-The default is 9 repetitions; the environment variable is clamped to 5–101. Results include OS, architecture, rustc version and debug/release state. The 16 MiB parser limit is not relaxed for the benchmark; oversized synthetic cases are reported as rejected rather than silently excluded or scored.
+The default is 101 measured repetitions after one unmeasured warm-up; `GCPN_BENCH_REPETITIONS` is clamped to 101–501 so the reported nearest-rank p99 is not merely the maximum of a tiny sample. Results include commit SHA (when run in GitHub Actions), OS, architecture, rustc version and debug/release state. The 16 MiB parser limit is not relaxed for the benchmark; oversized synthetic cases are reported as rejected rather than silently excluded or scored.
 
 The driver is a synthetic scale harness, not an observed result. Do not publish p50/p95/p99 or memory numbers until the exact revision, host, toolchain, input digests and complete output JSON are retained. The star graph is intentionally simple; follow it with chain, fan-in/fan-out, dense dependency, unknown-edge, temporal filtering and many-small-components shapes before making general throughput claims.
 
