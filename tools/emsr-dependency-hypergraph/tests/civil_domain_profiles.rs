@@ -1,7 +1,7 @@
 use emsr_dependency_hypergraph::{
-    evaluate_bytes, independently_verify, AssertionState, DependencyDomain, DependencyHyperedge,
-    DependencyQuery, Disposition, HypergraphInput, InventorySnapshot, Node, NodeKind,
-    INPUT_CONTRACT,
+    AssertionState, DependencyDomain, DependencyHyperedge, DependencyQuery, Disposition,
+    HypergraphInput, INPUT_CONTRACT, InventorySnapshot, Node, NodeKind, evaluate_bytes,
+    independently_verify,
 };
 use serde_json::to_vec;
 
@@ -88,9 +88,27 @@ fn uas_vendor_feeds_sharing_a_collector_are_not_independent_confirmations() {
             node("shared-collector", NodeKind::Dependency),
         ],
         vec![
-            edge("a-to-collector", &["rf-feed-a"], "collector-a", DependencyDomain::Collector, AssertionState::Qualified),
-            edge("b-to-collector", &["rf-feed-b"], "collector-b", DependencyDomain::Collector, AssertionState::Qualified),
-            edge("collector-common-root", &["collector-a", "collector-b"], "shared-collector", DependencyDomain::Collector, AssertionState::Qualified),
+            edge(
+                "a-to-collector",
+                &["rf-feed-a"],
+                "collector-a",
+                DependencyDomain::Collector,
+                AssertionState::Qualified,
+            ),
+            edge(
+                "b-to-collector",
+                &["rf-feed-b"],
+                "collector-b",
+                DependencyDomain::Collector,
+                AssertionState::Qualified,
+            ),
+            edge(
+                "collector-common-root",
+                &["collector-a", "collector-b"],
+                "shared-collector",
+                DependencyDomain::Collector,
+                AssertionState::Qualified,
+            ),
         ],
     );
     let report = evaluate(&value);
@@ -111,14 +129,35 @@ fn maritime_ais_and_radar_paths_sharing_a_port_pipeline_are_correlated() {
             node("radar-track-pipeline", NodeKind::Dependency),
         ],
         vec![
-            edge("ais-to-platform", &["ais-provider"], "ais-aggregation", DependencyDomain::DataPipeline, AssertionState::Qualified),
-            edge("radar-to-pipeline", &["radar-processor"], "radar-track-pipeline", DependencyDomain::DataPipeline, AssertionState::Qualified),
-            edge("shared-port-platform", &["ais-aggregation", "radar-track-pipeline"], "port-correlation-platform", DependencyDomain::DataPipeline, AssertionState::Qualified),
+            edge(
+                "ais-to-platform",
+                &["ais-provider"],
+                "ais-aggregation",
+                DependencyDomain::DataPipeline,
+                AssertionState::Qualified,
+            ),
+            edge(
+                "radar-to-pipeline",
+                &["radar-processor"],
+                "radar-track-pipeline",
+                DependencyDomain::DataPipeline,
+                AssertionState::Qualified,
+            ),
+            edge(
+                "shared-port-platform",
+                &["ais-aggregation", "radar-track-pipeline"],
+                "port-correlation-platform",
+                DependencyDomain::DataPipeline,
+                AssertionState::Qualified,
+            ),
         ],
     );
     let report = evaluate(&value);
     assert_eq!(report.disposition, Disposition::SharedDependency);
-    assert_eq!(report.common_dependency_ids, vec!["port-correlation-platform"]);
+    assert_eq!(
+        report.common_dependency_ids,
+        vec!["port-correlation-platform"]
+    );
 }
 
 #[test]
@@ -134,19 +173,43 @@ fn civil_aviation_shared_power_does_not_imply_shared_clock() {
             node("mlat-feed", NodeKind::Source),
         ],
         vec![
-            edge("adsb-clock-edge", &["adsb-feed"], "adsb-clock", DependencyDomain::Clock, AssertionState::Qualified),
-            edge("mlat-clock-edge", &["mlat-feed"], "mlat-clock", DependencyDomain::Clock, AssertionState::Qualified),
-            edge("shared-power", &["adsb-feed", "mlat-feed"], "airport-power-bus", DependencyDomain::Power, AssertionState::Qualified),
+            edge(
+                "adsb-clock-edge",
+                &["adsb-feed"],
+                "adsb-clock",
+                DependencyDomain::Clock,
+                AssertionState::Qualified,
+            ),
+            edge(
+                "mlat-clock-edge",
+                &["mlat-feed"],
+                "mlat-clock",
+                DependencyDomain::Clock,
+                AssertionState::Qualified,
+            ),
+            edge(
+                "shared-power",
+                &["adsb-feed", "mlat-feed"],
+                "airport-power-bus",
+                DependencyDomain::Power,
+                AssertionState::Qualified,
+            ),
         ],
     );
     let clock_report = evaluate(&value);
-    assert_eq!(clock_report.disposition, Disposition::NoDeclaredCommonDomain);
+    assert_eq!(
+        clock_report.disposition,
+        Disposition::NoDeclaredCommonDomain
+    );
     assert!(clock_report.common_dependency_ids.is_empty());
 
     value.query.domain = DependencyDomain::Power;
     let power_report = evaluate(&value);
     assert_eq!(power_report.disposition, Disposition::SharedDependency);
-    assert_eq!(power_report.common_dependency_ids, vec!["airport-power-bus"]);
+    assert_eq!(
+        power_report.common_dependency_ids,
+        vec!["airport-power-bus"]
+    );
 }
 
 #[test]
@@ -161,13 +224,29 @@ fn complete_positive_control_uses_no_declared_common_domain_not_physical_indepen
             node("source-b", NodeKind::Source),
         ],
         vec![
-            edge("source-a-pipeline", &["source-a"], "pipeline-a", DependencyDomain::DataPipeline, AssertionState::Qualified),
-            edge("source-b-pipeline", &["source-b"], "pipeline-b", DependencyDomain::DataPipeline, AssertionState::Qualified),
+            edge(
+                "source-a-pipeline",
+                &["source-a"],
+                "pipeline-a",
+                DependencyDomain::DataPipeline,
+                AssertionState::Qualified,
+            ),
+            edge(
+                "source-b-pipeline",
+                &["source-b"],
+                "pipeline-b",
+                DependencyDomain::DataPipeline,
+                AssertionState::Qualified,
+            ),
         ],
     );
     let report = evaluate(&value);
     assert_eq!(report.disposition, Disposition::NoDeclaredCommonDomain);
-    assert!(report.claim_ceiling.contains("not proof of physical or statistical independence"));
+    assert!(
+        report
+            .claim_ceiling
+            .contains("not proof of physical or statistical independence")
+    );
 }
 
 #[test]
@@ -194,9 +273,14 @@ fn unknown_maritime_lineage_is_not_promoted_to_no_common_domain() {
 
     // When the dependency node exists but its edge is unqualified, disposition
     // is UNKNOWN_DEPENDENCY rather than NO_DECLARED_COMMON_DOMAIN.
-    value.nodes.push(node("missing-source-registry-entry", NodeKind::Dependency));
+    value
+        .nodes
+        .push(node("missing-source-registry-entry", NodeKind::Dependency));
     value.nodes.sort_by(|left, right| left.id.cmp(&right.id));
-    value.snapshot.covered_node_ids.push("missing-source-registry-entry".to_owned());
+    value
+        .snapshot
+        .covered_node_ids
+        .push("missing-source-registry-entry".to_owned());
     value.snapshot.covered_node_ids.sort();
     let report = evaluate(&value);
     assert_eq!(report.disposition, Disposition::UnknownDependency);
@@ -222,9 +306,11 @@ fn aviation_clock_and_antenna_site_are_distinct_dependency_dimensions() {
     );
     let report = evaluate(&value);
     assert_eq!(report.disposition, Disposition::SharedDependency);
-    assert_eq!(report.common_dependency_ids, vec!["airport-antenna-site"]);
+    assert_eq!(
+        report.common_dependency_ids,
+        vec!["airport-antenna-site"]
+    );
 }
-
 
 #[test]
 fn long_maritime_dependency_chains_are_stack_safe_and_reproducible() {
