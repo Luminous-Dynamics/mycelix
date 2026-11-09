@@ -306,10 +306,7 @@ fn aviation_clock_and_antenna_site_are_distinct_dependency_dimensions() {
     );
     let report = evaluate(&value);
     assert_eq!(report.disposition, Disposition::SharedDependency);
-    assert_eq!(
-        report.common_dependency_ids,
-        vec!["airport-antenna-site"]
-    );
+    assert_eq!(report.common_dependency_ids, vec!["airport-antenna-site"]);
 }
 
 #[test]
