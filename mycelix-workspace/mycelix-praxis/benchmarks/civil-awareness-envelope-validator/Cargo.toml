@@ -1,0 +1,24 @@
+[package]
+name = "civil-awareness-envelope-validator"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+description = "Offline, fail-closed validator for Luminous civilian awareness evidence envelopes"
+
+# Keep this research tool isolated from the large parent workspace.
+[workspace]
+
+[dependencies]
+chrono = { version = "0.4", default-features = false, features = ["std"] }
+jsonschema = { version = "0.61", default-features = false }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+serde_json_canonicalizer = "0.4.1"
+sha2 = "0.11"
+
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+name = "civil-awareness-envelope-validator"
+path = "src/main.rs"
