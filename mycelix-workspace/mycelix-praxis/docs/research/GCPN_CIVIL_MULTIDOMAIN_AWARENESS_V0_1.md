@@ -49,6 +49,24 @@ Do not combine detection, calibration, privacy, rights, workload, availability a
 
 Vendor systems remain responsible for their own certified/approved functions. Luminous adapters ingest only explicitly authorized, documented exports; preserve vendor assertions as untrusted source claims; and provide reproducible normalization, provenance, correction and audit. Unknown schema revisions fail closed.
 
+## 1.7 Luminous system responsibilities
+
+Keep responsibility partitioned so no subsystem becomes its own source of authority:
+
+| System | Proposed responsibility | Explicit non-responsibility |
+|---|---|---|
+| **Symthaea** | Semantic interpretation, evidence triage, contradiction discovery, calibrated hypotheses, uncertainty and abstention | Does not convert its own inference into ground truth, identity proof, operator intent or action authority |
+| **Mycelix** | Source authority/rights registry, provenance graph, trust and dependency evidence, consent/access policy, signed receipts, correction/revocation and audit | Does not self-authorize source access, journal an unverified fact as truth or command physical systems |
+| **Sol-Atlas** | Spatial context and versioned domain layers: approved airspace, port/waterway geography, IHO S-100 products, hazards and map provenance | Does not turn map overlays into verified sensor observations or infer personal location |
+| **Symtropy** | Synthetic scenario generation, replay, domain simulation, counterfactual tests, uncertainty/fault injection and benchmark orchestration | Simulation is not physical sensor truth; simulator fidelity must be separately qualified |
+| **Luminous product lifecycle layer** | Hardware/software/configuration identity, BOM, calibration and maintenance history, installation records, release digests and field-change traceability | Does not approve regulatory use or substitute for a professional safety case |
+
+The evidence flow remains:
+
+`source observation → authorized adapter → provenance/rights checks → spatial context → evidence triage → independent review/adjudication → replayable receipt`
+
+Use typed evidence states across services. A Symthaea hypothesis remains a hypothesis; a Sol-Atlas map feature remains a sourced spatial fact; a Symtropy simulated outcome remains synthetic; a Mycelix receipt proves what was recorded and by whom, not that the underlying physical claim is true.
+
 ## 2. Common evidence envelope
 
 The canonical envelope is domain-neutral and versioned. Domain-specific payloads are namespaced and versioned separately. See the companion JSON Schema:
