@@ -10,12 +10,14 @@
 {
   description = "Mycelix Hearth - Family/household coordination on Holochain";
 
+  # HEARTH-0.7 lock refresh trigger: keep dependency graph regeneration on the branch lifecycle.
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     flake-utils.url = "github:numtide/flake-utils";
 
     holonix = {
-      url = "github:holochain/holonix/d21b3543"; # pinned to fixed commit, matches mycelix-workspace root (was moving branch main-0.6)
+      url = "github:holochain/holonix?ref=main-0.7"; # Holochain 0.7 toolchain
+  # Lock refresh is CI-owned; do not hand-edit flake.lock.
       inputs.nixpkgs.follows = "nixpkgs";
     };
 

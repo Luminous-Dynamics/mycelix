@@ -7,7 +7,7 @@
 //! logging rhythm occurrences, and tracking member presence.
 
 use hdk::prelude::*;
-use hearth_coordinator_common::{get_latest_record, records_from_links, require_membership};
+use hearth_coordinator_common::{get_unique_latest_record, records_from_links, require_membership};
 use hearth_rhythms_integrity::*;
 use hearth_types::*;
 use mycelix_bridge_common::{GovernanceEligibility, civic_requirement_basic};
@@ -137,7 +137,7 @@ pub fn log_occurrence(input: LogOccurrenceInput) -> ExternResult<Record> {
         "log_occurrence",
     )?;
     // Read the rhythm to get the hearth_hash for membership validation
-    let rhythm_record = get(input.rhythm_hash.clone(), GetOptions::default())?.ok_or(
+    let rhythm_record = get_unique_latest_record(input.rhythm_hash.clone())?.ok_or(
         wasm_error!(WasmErrorInner::Guest("Rhythm not found".into())),
     )?;
     let rhythm: Rhythm = rhythm_record
@@ -304,7 +304,7 @@ pub fn create_rhythm_digest(input: DigestEpochInput) -> ExternResult<Vec<RhythmS
             .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid rhythm link target".into())))?;
 
         // Get the rhythm record to know expected participant count
-        let rhythm_record = match get_latest_record(rhythm_hash.clone())? {
+        let rhythm_record = match get_unique_latest_record(rhythm_hash.clone())? {
             Some(r) => r,
             None => continue,
         };
@@ -334,7 +334,7 @@ pub fn create_rhythm_digest(input: DigestEpochInput) -> ExternResult<Vec<RhythmS
                 ))
             })?;
 
-            let occ_record = match get_latest_record(occ_hash)? {
+            let occ_record = match get_unique_latest_record(occ_hash)? {
                 Some(r) => r,
                 None => continue,
             };
