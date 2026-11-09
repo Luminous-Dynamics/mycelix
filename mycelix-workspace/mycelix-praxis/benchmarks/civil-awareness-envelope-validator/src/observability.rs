@@ -714,7 +714,8 @@ mod tests {
 
     #[test]
     fn coverage_window_must_contain_the_full_observation_window() {
-        let mut case = case_by_id(&fixture(), "OBS-011").clone();
+        let dgp = fixture();
+        let mut case = case_by_id(&dgp, "OBS-011").clone();
         case["coverage"]["valid_until"] = serde_json::json!(150);
         let report = assess_case(&case).unwrap();
         assert_eq!(report.state, ObservabilityState::CoverageUnknown);
@@ -722,7 +723,8 @@ mod tests {
 
     #[test]
     fn coverage_profile_digest_is_mandatory_for_non_observation() {
-        let mut case = case_by_id(&fixture(), "OBS-011").clone();
+        let dgp = fixture();
+        let mut case = case_by_id(&dgp, "OBS-011").clone();
         case["coverage"]["coverage_profile_digest"] = Value::String("missing".into());
         let report = assess_case(&case).unwrap();
         assert_eq!(report.state, ObservabilityState::CoverageUnknown);
