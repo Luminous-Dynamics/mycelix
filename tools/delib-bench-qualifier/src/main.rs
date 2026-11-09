@@ -616,7 +616,7 @@ mod tests {
         assert_eq!(report.fixtures, 32);
         assert_eq!(report.red_team, 26);
         assert_eq!(report.positive_controls, 6);
-        assert_eq!(report.attack_families, 12);
+        assert_eq!(report.attack_families, 13);
     }
 
     #[test]
