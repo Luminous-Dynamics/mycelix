@@ -177,8 +177,8 @@ pub fn probability_of_detection(
     let mut eligible = 0u64;
     let mut detected = 0u64;
     for trial in trials {
-        if trial.detected && (!trial.event_present || !trial.observation_exposed) {
-            return Err("detection.detected_without_eligible_event_exposure".into());
+        if trial.detected && !trial.observation_exposed {
+            return Err("detection.detected_without_observation_exposure".into());
         }
         if trial.event_present && trial.observation_exposed {
             eligible += 1;
@@ -365,8 +365,28 @@ mod tests {
         }];
         assert_eq!(
             probability_of_detection(&trials).unwrap_err(),
-            "detection.detected_without_eligible_event_exposure"
+            "detection.detected_without_observation_exposure"
         );
+    }
+
+    #[test]
+    fn exposed_false_alarm_does_not_inflate_pd_denominator_or_fail() {
+        let trials = [
+            DetectionTrial {
+                event_present: true,
+                observation_exposed: true,
+                detected: true,
+            },
+            DetectionTrial {
+                event_present: false,
+                observation_exposed: true,
+                detected: true,
+            },
+        ];
+        let pd = probability_of_detection(&trials).unwrap().unwrap();
+        assert_eq!(pd.eligible_events_with_exposure, 1);
+        assert_eq!(pd.detected_eligible_events, 1);
+        assert_eq!(pd.estimate, 1.0);
     }
 
     #[test]
