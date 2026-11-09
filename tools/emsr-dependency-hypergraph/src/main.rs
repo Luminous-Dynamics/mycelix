@@ -1,6 +1,6 @@
 use emsr_dependency_hypergraph::{evaluate_bytes, independently_verify};
 use std::env;
-use std::fs::File;
+use std::fs::{self, File};
 use std::io::Read;
 
 fn main() {
