@@ -689,9 +689,11 @@ mod tests {
             "reason_codes={:?}",
             report.reason_codes
         );
-        assert!(report.reason_codes.contains(
-            &"source.equipment_or_carriage_not_applicable".to_owned()
-        ));
+        assert!(
+            report
+                .reason_codes
+                .contains(&"source.equipment_or_carriage_not_applicable".to_owned())
+        );
     }
 
     #[test]
