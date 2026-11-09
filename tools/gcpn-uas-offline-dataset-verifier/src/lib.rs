@@ -634,7 +634,7 @@ mod tests {
         assert!(
             errors
                 .iter()
-                .any(|error| error.starts_with("unreviewed_rights_or_metadata_promoted:"))
+                .any(|error| error.starts_with("unreviewed_metadata_or_redistribution_promoted:"))
         );
     }
 
