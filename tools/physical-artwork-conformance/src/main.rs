@@ -171,6 +171,18 @@ fn validate_references(instance: &Value, errors: &mut Vec<String>) {
         errors,
     );
 
+    if let Some(evidence) = instance.get("evidence").and_then(Value::as_array) {
+        for (index, item) in evidence.iter().enumerate() {
+            check_refs(
+                item,
+                "rightsRef",
+                &rights_ids,
+                &format!("evidence[{index}]"),
+                errors,
+            );
+        }
+    }
+
     if let Some(assertions) = instance.get("assertions").and_then(Value::as_array) {
         for (index, assertion) in assertions.iter().enumerate() {
             let path = format!("assertions[{index}]");
@@ -314,6 +326,14 @@ mod tests {
             .as_array_mut()
             .expect("assertions array")
             .push(duplicate);
+        assert!(validate_passport(&schema, &instance).is_err());
+    }
+
+    #[test]
+    fn rejects_evidence_with_dangling_rights_reference() {
+        let (schema, mut instance) = documents();
+        instance["evidence"][0]["rightsRef"] =
+            serde_json::json!(["right-that-does-not-exist"]);
         assert!(validate_passport(&schema, &instance).is_err());
     }
 
