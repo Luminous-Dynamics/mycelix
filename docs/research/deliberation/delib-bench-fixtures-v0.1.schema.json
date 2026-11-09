@@ -35,7 +35,7 @@
     },
     "fixtures": {
       "type": "array",
-      "minItems": 30,
+      "minItems": 32,
       "uniqueItems": true,
       "items": {
         "type": "object",
@@ -47,7 +47,8 @@
           "scenario_note",
           "source_claims",
           "output",
-          "oracle"
+          "oracle",
+          "evidence_state"
         ],
         "properties": {
           "fixture_id": {
@@ -291,6 +292,84 @@
                 "items": {
                   "type": "string",
                   "minLength": 3
+                }
+              }
+            }
+          },
+          "evidence_state": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "source_status",
+              "presented_status",
+              "required_evidence_refs",
+              "preserved_evidence_refs",
+              "required_unresolved_objection_ids",
+              "preserved_unresolved_objection_ids",
+              "decision_status",
+              "decision_assumptions"
+            ],
+            "properties": {
+              "source_status": {
+                "enum": [
+                  "Contested",
+                  "Indeterminate",
+                  "Resolved"
+                ]
+              },
+              "presented_status": {
+                "enum": [
+                  "Contested",
+                  "Indeterminate",
+                  "Resolved"
+                ]
+              },
+              "required_evidence_refs": {
+                "type": "array",
+                "minItems": 1,
+                "uniqueItems": true,
+                "items": {
+                  "type": "string",
+                  "minLength": 3
+                }
+              },
+              "preserved_evidence_refs": {
+                "type": "array",
+                "uniqueItems": true,
+                "items": {
+                  "type": "string",
+                  "minLength": 3
+                }
+              },
+              "required_unresolved_objection_ids": {
+                "type": "array",
+                "uniqueItems": true,
+                "items": {
+                  "type": "string",
+                  "minLength": 3
+                }
+              },
+              "preserved_unresolved_objection_ids": {
+                "type": "array",
+                "uniqueItems": true,
+                "items": {
+                  "type": "string",
+                  "minLength": 3
+                }
+              },
+              "decision_status": {
+                "enum": [
+                  "NoDecision",
+                  "ProceedConditionally",
+                  "Defer"
+                ]
+              },
+              "decision_assumptions": {
+                "type": "array",
+                "uniqueItems": true,
+                "items": {
+                  "type": "string",
+                  "minLength": 5
                 }
               }
             }
