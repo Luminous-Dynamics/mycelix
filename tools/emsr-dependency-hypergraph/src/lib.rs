@@ -136,7 +136,7 @@ pub const INPUT_CONTRACT: &str = "emsr-dependency-hypergraph-input/0.1";
 pub const REPORT_CONTRACT: &str = "emsr-dependency-hypergraph-report/0.1";
 pub const VERIFIER_CONTRACT: &str = "emsr-dependency-hypergraph-reference-verifier/0.1";
 const MAX_INPUT_BYTES: usize = 16 * 1024 * 1024;
-const MAX_NODES: usize = 100_000;
+const MAX_NODES: usize = 100_001;
 const MAX_HYPEREDGES: usize = 500_000;
 const CLAIM_CEILING: &str = "Declared common-dependency assessment over the exact supplied inventory snapshot and evidence frontier; not proof of physical or statistical independence, and not evidence that unknown common causes do not exist.";
 
@@ -518,9 +518,12 @@ fn validate_contract(input: &HypergraphInput, errors: &mut Vec<String>) {
             errors.push("snapshot_scope_entry_is_not_a_source".to_owned());
         }
     }
+    // node_kinds is the authoritative validation index built above. A scan
+    // of the full node vector per source made this O(|sources| * |nodes|);
+    // indexed lookup keeps large frozen inventories linear/log-linear.
     for source_id in &input.query.source_ids {
-        match input.nodes.iter().find(|node| node.id == *source_id) {
-            Some(node) if node.kind == NodeKind::Source => {}
+        match node_kinds.get(source_id.as_str()) {
+            Some(kind) if **kind == NodeKind::Source => {}
             Some(_) => errors.push("queried_node_is_not_a_source".to_owned()),
             None => errors.push("queried_source_missing_from_graph".to_owned()),
         }
