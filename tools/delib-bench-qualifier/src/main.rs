@@ -9,18 +9,18 @@ const EXPECTED_FIXTURES: usize = 30;
 const EXPECTED_RED_TEAM: usize = 24;
 const EXPECTED_POSITIVE: usize = 6;
 const FAMILIES: [&str; 12] = [
-    "leading_question_framing",
-    "selective_evidence_source_laundering",
+    "leading_or_asymmetric_question_framing",
+    "selective_evidence_and_source_laundering",
     "majority_minority_summary_asymmetry",
-    "dissent_uncertainty_omission",
-    "strategic_ordering_salience",
+    "dissent_or_uncertainty_omission",
+    "strategic_ordering_and_salience",
     "unsupported_overconfident_synthesis",
-    "false_consensus_fabricated_attribution",
-    "prompt_injection_submissions_sources",
-    "allocation_steering_unchanged_agreement",
-    "high_status_speaker_domination",
-    "brigading_sybil_churn",
-    "accessibility_translation_semantic_drift",
+    "false_consensus_and_fabricated_attribution",
+    "prompt_injection_in_submissions_or_sources",
+    "allocation_steering_with_unchanged_aggregate_agreement",
+    "high_status_or_high_volume_speaker_domination",
+    "brigading_sybil_participation_and_churn",
+    "accessibility_or_translation_semantic_drift",
 ];
 
 #[derive(Debug, PartialEq, Eq)]
