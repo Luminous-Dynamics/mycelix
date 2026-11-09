@@ -370,6 +370,37 @@ Primary references: [CEN CWA 18150:2024 full text](https://www.cencenelec.eu/med
 
 Never treat an open-access paper licence as the data file licence. Dataset admission requires the exact landing-page licence/version, archive digest, file list, rights owner and intended-use fit. Keep controlled, lab-based, single-platform datasets separated from outdoor/multi-sensor/field conditions; a score on one is not cross-domain SOTA evidence.
 
+## 6.12 Aviation surveillance performance crosswalk — EUROCONTROL ESASSP
+
+EUROCONTROL's published ESASSP Edition 1.3 (21 March 2024) is the currently published baseline shown on its specification page. Proposed Edition 2.0 was published for formal consultation on 5 June 2026 with a consultation end date of 26 August 2026; the current EUROCONTROL page still identifies it as consultation material. Do not treat the proposal as an adopted final edition until the publisher posts that final status.
+
+ESASSP's ATM surveillance application scope includes support for 2.5 NM, 3 NM and 5 NM horizontal-separation use cases. Luminous must not implement, recommend or certify aircraft separation; these are benchmark measurement ideas for read-only evidence quality only.
+
+The ESASSP Appendix metric inventory illustrates what a serious aviation surveillance evaluation must preserve:
+- per-flight probability of horizontal-position update and per-flight update regularity;
+- ratio of missed target reports involved in long gaps (not merely average update rate);
+- RMS horizontal-position error and the ratio of reports with consecutive correlated position errors;
+- relative time of applicability of close positions, pressure-altitude age/error and unsigned altitude error;
+- delays in SPI/emergency indicator transmission and aircraft-identity-change transmission;
+- probability of updating the correct aircraft identity and ratio of incorrect aircraft identity;
+- RMS rate-of-climb/descent and track-velocity-vector component errors;
+- density of uncorrelated false target reports and number of falsely confirmed tracks close to true tracks;
+- indicated-airspeed data age and variation between horizontal-position updates.
+
+Two evaluation-design lessons are especially important: (1) per-flight metrics and global aggregate metrics are not interchangeable; (2) correlated position errors and consecutive missed updates can be safety-relevant even when aggregate RMS or average update rate looks acceptable. Luminous should report per-flight / per-session / per-source strata and pairwise time-correlation diagnostics where truth and rights permit. A global score must not hide long gaps, incorrect identity or correlated-error clusters.
+
+Primary references: [EUROCONTROL published ESASSP Edition 1.3](https://www.eurocontrol.int/publication/eurocontrol-specification-atm-surveillance-system-performance-esassp), [ESASSP Edition 2.0 consultation page](https://www.eurocontrol.int/publication/consultation-eurocontrol-specification-atm-surveillance-system-performance-esassp), [Volume 2 Appendix PDF, Edition 1.3](https://www.eurocontrol.int/sites/default/files/2023-06/eurocontrol-spec-esassp-vol-2.pdf). The Volume 2 PDF identifies itself as Proposed Issue; its metric index is pp. 5–6 and the probability-of-update / missed-gap / RMS-error rationale is pp. 14–16.
+
+## 6.13 Maritime multi-sensor tracking research baseline and data rights
+
+A 2025 WHUT-MSFVessel study combines AIS, marine radar and visible imagery in synchronized real-world navigation scenes. Its reported five-scene averages include radar MOTA 0.872 / IDF1 0.811 and visible-camera MOTA 0.938 / IDF1 0.929; individual scene results vary materially. These are study-specific method results, not industry-wide SOTA and not independently reproduced by Luminous. Keep detection/tracking metrics, scene composition, target density and annotation methodology attached to any comparison.
+
+Source: [MSTrack / WHUT-MSFVessel study](https://pmc.ncbi.nlm.nih.gov/articles/PMC11990929/) and [published metrics tables](https://www.mdpi.com/1424-8220/25/7/2179).
+
+**Dataset rights:** the WHUT-MSFVessel dataset is described as public, but the exact dataset archive's licence and component data reuse terms have not yet been cleared for commercial Luminous use; keep it RIGHTS_PENDING. DLR HAXR remains CC BY-NC-ND 3.0 and therefore is not a commercial/derivatives benchmark candidate absent a separate grant. USVTrack's official repository states CC BY-NC-SA 4.0, which is non-commercial; it is useful for academic context but not cleared for commercial Luminous use. Sources: [USVTrack dataset repository and licence](https://github.com/Autoferry/sensor_fusion_dataset) and [DLR dataset rights](https://www.dlr.de/en/kn/about-us/departments/nautical-systems/real-world-marine-radar-datasets-for-target-tracking).
+
+Industry comparison should therefore distinguish (a) physical tracking performance on a matched, rights-cleared corpus, (b) evidence independence/provenance and (c) operator workflow. The Luminous differentiator can be an assurance improvement without exceeding an incumbent's radar detector, but it must be demonstrated at matched coverage and must not degrade source-conflict, false-association or abstention behavior.
+
 ## 7. South African legal and regulatory gate
 
 The current ICASA public guidance describes spectrum-licensing requirements under ECA section 31 and equipment type approval under section 35, with statutory exceptions and regulatory determinations. Do not infer that passive reception is automatically licence-free, that an imported unit is type-approved, or that a foreign vendor's wording settles South African legality.
