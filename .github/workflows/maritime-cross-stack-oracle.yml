@@ -1,0 +1,77 @@
+name: Maritime cross-stack golden-trace oracle
+
+on:
+  pull_request:
+    paths:
+      - "mycelix-workspace/docs/maritime-stay/integration/cross-stack-golden-traces-v0.1.*"
+      - "mycelix-workspace/docs/maritime-stay/integration/cross-stack-oracle-inputs-v0.1.*"
+      - "mycelix-workspace/tools/maritime-cross-stack-oracle/**"
+      - "mycelix-workspace/tools/maritime-handoff-verifier/**"
+      - ".github/workflows/maritime-cross-stack-oracle.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Exact-head handoff verification and independent cross-stack oracle
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out exact PR head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Assert exact source revision
+        shell: bash
+        run: |
+          actual="$(git rev-parse HEAD)"
+          expected="${{ github.event.pull_request.head.sha || github.sha }}"
+          echo "actual_head=${actual}"
+          echo "expected_head=${expected}"
+          test "${actual}" = "${expected}"
+
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@1.96.0
+        with:
+          components: rustfmt, clippy
+
+      - name: Verify handoff manifest component
+        working-directory: mycelix-workspace/tools/maritime-handoff-verifier
+        run: |
+          cargo test --locked --all-targets
+          cargo fmt -- --check
+          cargo clippy --locked --all-targets -- -D warnings
+          cargo run --locked -- fixtures/contract-template-v0.1.json > /tmp/handoff-verifier-report.json
+
+      - name: Test independent golden-trace oracle
+        working-directory: mycelix-workspace/tools/maritime-cross-stack-oracle
+        run: |
+          cargo test --locked --all-targets
+          cargo fmt -- --check
+          cargo clippy --locked --all-targets -- -D warnings
+
+      - name: Execute frozen cross-stack oracle against exact fixtures
+        working-directory: mycelix-workspace/tools/maritime-cross-stack-oracle
+        run: |
+          cargo run --locked -- \
+            ../../docs/maritime-stay/integration/cross-stack-golden-traces-v0.1.json \
+            ../../docs/maritime-stay/integration/cross-stack-oracle-inputs-v0.1.json \
+            ../maritime-handoff-verifier/fixtures/contract-template-v0.1.json \
+            /tmp/handoff-verifier-report.json > /tmp/maritime-cross-stack-oracle-report.json
+          cat /tmp/maritime-cross-stack-oracle-report.json
+
+      - name: Upload exact-head evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: maritime-cross-stack-golden-oracle-evidence
+          path: |
+            /tmp/handoff-verifier-report.json
+            /tmp/maritime-cross-stack-oracle-report.json
+            mycelix-workspace/tools/maritime-cross-stack-oracle/Cargo.lock
+            mycelix-workspace/tools/maritime-cross-stack-oracle/Cargo.toml
+            mycelix-workspace/tools/maritime-cross-stack-oracle/src/lib.rs
+            mycelix-workspace/tools/maritime-cross-stack-oracle/src/main.rs
+          if-no-files-found: warn
