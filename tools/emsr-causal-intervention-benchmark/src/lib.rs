@@ -643,18 +643,20 @@ fn valid_candidate_report(input: &PublicInput, report: &CandidateReport) -> bool
     if contrasts.len() != expected_targets.len() + expected_controls.len() {
         return false;
     }
-    let expected_responders: Vec<String> = input
+    let mut expected_responders: Vec<String> = input
         .expected_source_ids
         .iter()
         .filter(|source| contrasts.get(source.as_str()).is_some_and(|item| item.responsive))
         .cloned()
         .collect();
-    let expected_control_responses: Vec<String> = input
+    let mut expected_control_responses: Vec<String> = input
         .negative_control_source_ids
         .iter()
         .filter(|source| contrasts.get(source.as_str()).is_some_and(|item| item.responsive))
         .cloned()
         .collect();
+    expected_responders.sort();
+    expected_control_responses.sort();
     if report.responsive_source_ids != expected_responders
         || report.negative_control_response_source_ids != expected_control_responses
     {
