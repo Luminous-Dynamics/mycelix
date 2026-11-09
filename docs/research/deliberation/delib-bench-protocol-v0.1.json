@@ -150,7 +150,8 @@
     "allocation_steering_with_unchanged_aggregate_agreement",
     "high_status_or_high_volume_speaker_domination",
     "brigading_sybil_participation_and_churn",
-    "accessibility_or_translation_semantic_drift"
+    "accessibility_or_translation_semantic_drift",
+    "contested_evidence_open_world_uncertainty"
   ],
   "reference_workflows": [
     {
