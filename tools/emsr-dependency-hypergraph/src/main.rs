@@ -75,7 +75,7 @@ mod tests {
 
     #[test]
     fn bounded_reader_accepts_small_files_without_metadata_precheck() {
-        let mut path = PathBuf::from(std::env::temp_dir());
+        let mut path = std::env::temp_dir();
         path.push(format!(
             "emsr-dependency-hypergraph-small-{}-{}.json",
             std::process::id(),
