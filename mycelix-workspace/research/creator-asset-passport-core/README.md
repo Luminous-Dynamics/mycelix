@@ -26,7 +26,23 @@ These are intentionally independent. An identifier is not an ownership certifica
 - A versioned binary portable envelope for grant/revocation history, plus a separate full passport snapshot envelope covering asset records, external identifiers, split claims, and the embedded grant-history envelope. Both have deterministic encoding, strict decoding and domain-separated BLAKE3-256 content digests.
 - A separate import-provenance sidecar records source system/record, schema and parser versions, import time, raw payload reference/length/BLAKE3 digest, per-field mapping/retention decisions, diagnostics, and before/after passport snapshot digests. It is linked by digest and is not yet embedded in the passport snapshot format.
 - An in-memory import replay ledger computes a deterministic processing key from source identity, exact payload digest, schema/parser versions, and mapping versions. Same-key/same-effect retries are idempotent; a changed effect under the same key is rejected without mutating the ledger.
-- No implicit rights inheritance between related assets.
+- Rights-aware derivation lineage in `derivation::DerivationGraph`: explicit multi-parent source records, cycle rejection, exact tool digest/evidence binding, source authorization at transformation time, and later use checks that require exact active grants on the output and every ancestor. Repeated ancestors in a DAG are deduplicated deterministically. This reuses the existing `UsageGrant` evaluator; it is not a second rights store.
+- Explicit operation tags for capture, preservation, transformation, indexing, embedding, retrieval, display, export, model evaluation, thumbnail/OCR/caption/embedding generation, mesh reconstruction, and point-cloud reconstruction. Legacy grant-history action tags 1–7 are unchanged; new action tags are appended as 8–22.
+- Physical/cultural asset kinds for physical artworks, editions, components, digital representations, documentation assets, and derived artifacts. Existing asset-kind tags 1–6 are unchanged; new tags are appended as 7–12.
+
+## Physical and cultural artwork extension (research slice)
+
+The CSCP core now has typed asset kinds for physical artworks, artwork editions, components, digital representations, documentation assets, and derived artifacts. This allows one physical work to remain distinct from its scan, photograph, OCR transcript, mesh, embedding, condition report, or other representation.
+
+The `derivation::DerivationGraph` is a conservative in-memory reference model:
+- a derivation records one output, one or more source assets, the exact operation, actor, purpose, timestamp, tool digest and evidence reference;
+- creating the output requires an explicit, active grant for that exact derivation operation on every source and every source ancestor;
+- later use of a derived asset requires a separate exact grant on the output and every ancestor for the requested grantee, operation, purpose and time;
+- duplicate output identities, duplicate derivation IDs, missing assets, invalid tool digests and lineage cycles are rejected;
+- a failed authorization or invalid derivation leaves the graph unchanged;
+- the derivation record retains the exact grant IDs used to authorize its source transformations.
+
+This is intentionally fail-closed. It does not yet implement an authority-verified declassification workflow, portable derivation-graph serialization, durable event storage, signature verification, or grantor-capacity verification. The graph is not embedded in `CreativeAssetPassportEnvelope` v1. Until those are implemented and separately qualified, the portable asset snapshot must not be described as carrying complete derivation lineage. The new operation and asset-kind tags extend the experimental v1 enums; older clients that do not recognize the appended tags are expected to reject those records rather than silently reinterpret them.
 
 ## Important non-goals and limitations
 
@@ -46,7 +62,7 @@ The binary format is deliberately specified rather than relying on a platform's 
 4. Events in source order. Each begins with event ID (u32 big-endian UTF-8 byte length + bytes), occurred-at timestamp (u64 big-endian), actor ID (length-prefixed string), evidence reference (length-prefixed string), and event-kind tag.
 5. Event-kind 1 means grant issued: grant ID, asset ID, grantee ID, action tag, purpose, issuer ID, grant evidence reference, valid-from timestamp, expiry-presence tag (0 absent; 1 followed by u64 expiry).
 6. Event-kind 2 means revocation: grant ID only.
-7. Action tags are stable explicit values: 1 analyze metadata, 2 publish, 3 distribute, 4 commercialize, 5 train model, 6 generate derivative, 7 synthesize voice/likeness.
+7. Action tags are stable explicit values: 1 analyze metadata, 2 publish, 3 distribute, 4 commercialize, 5 train model, 6 generate derivative, 7 synthesize voice/likeness; appended research-profile actions use tags 8–22 for capture, preserve, transform, index, embed, retrieve, display, export, evaluate model, thumbnail, OCR, caption, embedding, mesh reconstruction, and point-cloud reconstruction.
 
 Every string is UTF-8 with a u32 big-endian byte length and a 256-byte maximum. Integers are big-endian. Unsupported versions/tags, malformed UTF-8, oversized fields/counts, truncated bytes, invalid replay order, and trailing bytes are rejected. The canonical content digest uses BLAKE3-256 over the domain prefix MYCELIX-CSCP-GRANT-HISTORY-DIGEST-V1 plus a NUL byte, followed by the complete canonical envelope bytes. The digest is not embedded in the envelope and should travel as a separate integrity field.
 
