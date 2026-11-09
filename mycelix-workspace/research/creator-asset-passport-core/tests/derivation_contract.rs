@@ -1,9 +1,10 @@
+use creator_asset_passport_core::history::{GrantEvent, GrantHistory};
+use creator_asset_passport_core::portable::GrantHistoryEnvelope;
 use creator_asset_passport_core::{
-    AssetId, AssetKind, AssetRegistry, CreativeAssetPassportEnvelope,
-    DerivationError, DerivationGraph, DerivationId, DerivationRecord, DerivedPermissionDecision,
-    DigestAlgorithm,
-    EventId, GrantEvent, GrantHistory, GrantHistoryEnvelope, GrantId, PartyId,
-    PermissionDenial, UsageGrant, UseAction, UseRequest, evaluate_derived_usage,
+    AssetId, AssetKind, AssetRegistry, CreativeAssetPassportEnvelope, DerivationError,
+    DerivationGraph, DerivationId, DerivationRecord, DerivedPermissionDecision, DigestAlgorithm,
+    EventId, GrantId, PartyId, PermissionDenial, UsageGrant, UseAction, UseRequest,
+    evaluate_derived_usage,
 };
 
 fn asset(value: &str) -> AssetId {
