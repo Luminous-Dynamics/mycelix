@@ -80,6 +80,24 @@ DelibBench does not aim to replace existing participation interfaces:
 
 Comparisons must match intended process size, decision type, population, language, accessibility, platform configuration and outcome. The potential Mycelix differentiation is a portable evidence/authority/correction/decision-to-outcome layer—not a claim of a superior discussion UI.
 
+## South African multilingual extension
+
+The protocol now records a **future** language-access extension rather than implying that U.S.-English research baselines transfer automatically to South Africa.
+
+Initial proposed text profiles are South African English (`en-ZA`), Afrikaans (`af-ZA`), isiZulu (`zu-ZA`), isiXhosa (`xh-ZA`) and Sesotho (`st-ZA`). This is not a claim to cover all local languages, dialects, registers or communities. Each exact profile needs native-authored or independently native-adjudicated tasks, separate performance/uncertainty reporting, code-switching and orthographic policy, and a correction/appeal path in the language being evaluated. English-pivot evaluation is diagnostic only, not gold authority.
+
+Compose the semantic/language layer with existing Symthaea work rather than duplicate it:
+- [BROCA-V27 multilingual semantic fidelity #5347](https://github.com/Luminous-Dynamics/symthaea/issues/5347)
+- [VOICE-SEM-001 African speech semantics #11057](https://github.com/Luminous-Dynamics/symthaea/issues/11057)
+- [Broca online language acquisition #9607](https://github.com/Luminous-Dynamics/symthaea/issues/9607)
+- [MORPH-NARRATIVE-001 South African language morphology #11232](https://github.com/Luminous-Dynamics/symthaea/issues/11232)
+
+[UCT's 2026 MzansiBench project](https://showcase.sit.uct.ac.za/event/showcase-2026/mzansibench-36) describes a benchmark pipeline spanning 13 tasks, 16 datasets and South Africa's 11 official written languages. It is a useful task-coverage crosswalk, not a deliberation benchmark or a substitute for qualified local human references.
+
+South Africa's constitutional text version dated 26 June 2026 includes South African Sign Language among the official languages. Signed-language deliberation therefore belongs on a distinct signed-video/multimodal path with qualified sign-language practitioners and community-led review—not a text-only translation checkbox. See the [2026 constitutional text](https://lawlibrary.org.za/akn/za/act/1996/constitution/eng%402026-06-26). This is design context, not a legal-compliance determination.
+
+No local-language corpus ingestion, recruitment, model training, language-capability promotion or institutional deployment is authorized by the protocol. Exact source rights, consent, language variety, community governance and reviewer competence must be qualified before data collection or reuse.
+
 ## Claim ceiling
 
 - Passing the Rust structural qualifier establishes only that the exact checked-in manifests and synthetic fixtures satisfy the encoded structural and fixture-oracle contracts.
