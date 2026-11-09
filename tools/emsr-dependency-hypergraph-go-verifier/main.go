@@ -213,8 +213,8 @@ func verify(inputBytes, reportBytes []byte) VerificationReport {
 		VerifierContract: verifierContract,
 		Status:           status,
 		Authority:        "cross_language_reference_agreement_only",
-		Checks:            checks,
-		Limitations:       limitations,
+		Checks:           checks,
+		Limitations:      limitations,
 	}
 }
 
