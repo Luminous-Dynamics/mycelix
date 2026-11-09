@@ -132,14 +132,16 @@ impl EnvelopeValidator {
         // Top-level allowlist is independently checked in addition to
         // additionalProperties:false in the JSON Schema.
         self.check_object_keys(
-            envelope,
+            Some(envelope),
             self.policy.pointer("/common_envelope_allowlist"),
             "envelope.field_not_allowlisted",
             &mut rejected,
         );
 
         // Domain extension identity and exact field allowlist.
-        let expected_extension = self.policy.pointer(&format!("/domain_extension_schemas/{domain}"));
+        let expected_extension = self.policy
+            .get("domain_extension_schemas")
+            .and_then(|schemas| schemas.get(domain));
         let actual_uri = string_at(envelope, "/domain_extension/schema_uri");
         let actual_revision = string_at(envelope, "/domain_extension/schema_revision");
         if expected_extension.is_none()
@@ -150,16 +152,21 @@ impl EnvelopeValidator {
         }
         self.check_object_keys(
             envelope.pointer("/domain_extension/payload"),
-            self.policy.pointer(&format!("/domain_extension_allowlists/{domain}")),
+            self.policy
+                .get("domain_extension_allowlists")
+                .and_then(|allowlists| allowlists.get(domain)),
             "domain_extension.field_not_allowlisted",
             &mut rejected,
         );
 
         // claim.value is deliberately narrower than arbitrary JSON. v0.1
         // accepts a scalar or a flat object with domain+claim-specific keys.
-        let claim_allowlist = self.policy.pointer(&format!(
-            "/claim_value_allowlists/{domain}/{claim_type}"
-        ));
+        // Use map lookup rather than constructing a JSON Pointer from untrusted
+        // claim_type text; slash/tilde characters must not alter the lookup path.
+        let claim_allowlist = self.policy
+            .get("claim_value_allowlists")
+            .and_then(|domains| domains.get(domain))
+            .and_then(|claims| claims.get(claim_type));
         if claim_allowlist.is_none() {
             rejected.insert("claim.unknown_domain_claim_type".into());
         }
@@ -179,8 +186,10 @@ impl EnvelopeValidator {
                 rejected.insert("claim.value_array_not_allowed_in_v0_1".into());
             }
             Some(_) => {}
-            None => rejected.insert("claim.value_missing".into()),
-        };
+            None => {
+                rejected.insert("claim.value_missing".into());
+            }
+        }
 
         // The field-policy digest binds the allowlists the validator actually
         // applies. The payload digest uses RFC 8785 JCS, not ordinary JSON text.
@@ -246,11 +255,6 @@ impl EnvelopeValidator {
         }
         if string_at(envelope, "/governance/privacy_state") == Some("quarantined") {
             quarantined.insert("privacy.quarantined".into());
-        }
-        if string_at(envelope, "/governance/allowed_uses")
-            .is_none()
-        {
-            quarantined.insert("rights.allowed_uses_missing".into());
         }
         if envelope.pointer("/governance/allowed_uses")
             .and_then(Value::as_array)
