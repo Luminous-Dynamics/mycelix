@@ -199,7 +199,12 @@ impl ObservabilityEvaluator {
         }
         let case = parse_strict_json(bytes)
             .map_err(|_| "observability.case_parse_or_duplicate_key_failure".to_string())?;
-        if self.case_schema_validator.iter_errors(&case).next().is_some() {
+        if self
+            .case_schema_validator
+            .iter_errors(&case)
+            .next()
+            .is_some()
+        {
             return Err("observability.case_schema_validation_failed".into());
         }
         assess_case(&case)
@@ -537,7 +542,9 @@ fn qualified_same_source_conflict(case: &Value, claims: &[SourceClaim]) -> bool 
             entry.1 = true;
         }
     }
-    by_source.values().any(|(positive, negative)| *positive && *negative)
+    by_source
+        .values()
+        .any(|(positive, negative)| *positive && *negative)
 }
 
 fn qualified_cross_source_conflict(case: &Value, claims: &[SourceClaim]) -> bool {
@@ -843,11 +850,14 @@ mod tests {
     fn contradictory_claims_from_the_same_qualified_source_are_conflict() {
         let dgp = fixture();
         let mut case = case_by_id(&dgp, "OBS-013").clone();
-        case["observations"].as_array_mut().unwrap().push(serde_json::json!({
-            "source_id": "uas-sensor-013",
-            "claim": "NO_MESSAGE",
-            "assertion_ref": "synthetic-contradictory-claim-013"
-        }));
+        case["observations"]
+            .as_array_mut()
+            .unwrap()
+            .push(serde_json::json!({
+                "source_id": "uas-sensor-013",
+                "claim": "NO_MESSAGE",
+                "assertion_ref": "synthetic-contradictory-claim-013"
+            }));
         let report = assess_case(&case).unwrap();
         assert_eq!(report.state, ObservabilityState::Conflict);
         assert_eq!(report.source_claims.len(), 2);
