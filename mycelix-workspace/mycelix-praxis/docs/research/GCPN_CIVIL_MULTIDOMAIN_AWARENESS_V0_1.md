@@ -53,6 +53,8 @@ Vendor systems remain responsible for their own certified/approved functions. Lu
 
 The canonical envelope is domain-neutral and versioned. Domain-specific payloads are namespaced and versioned separately. See the companion JSON Schema:
 - [civil-awareness-evidence-envelope-v0.1.schema.json](./civil-awareness-evidence-envelope-v0.1.schema.json)
+- [civil-awareness-field-policy-v0.1.json](./civil-awareness-field-policy-v0.1.json) — shared and domain-specific field allowlists, prohibited field families and fail-closed preflight rules
+- [civil-awareness-envelope-examples-v0.1.json](./civil-awareness-envelope-examples-v0.1.json) — three synthetic, non-operational examples
 
 Required conceptual groups:
 
@@ -89,7 +91,7 @@ Preserve at least:
 - correction or revocation time;
 - validity interval when the source provides one.
 
-Late arrival, out-of-order messages, clock drift, duplicate deliveries and retrospective corrections must be reproducible. Corrections append a new version and link to the prior record; they do not erase history.
+Late arrival, out-of-order messages, clock drift, duplicate deliveries and retrospective corrections must be reproducible. Corrections append a new version and link to the prior record; they do not erase history. Digests are not decorative identifiers: `field_allowlist_digest` is SHA-256 over the exact UTF-8 bytes of the pinned field-policy artifact; `payload_digest` is SHA-256 over the RFC 8785 canonical JSON bytes of the domain-extension payload. The canonicalization and digest formats are pinned in the field-policy artifact.
 
 ### 2.3 Domain-specific spatial precision
 
