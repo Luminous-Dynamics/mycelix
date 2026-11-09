@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"reflect"
 	"strings"
@@ -431,5 +432,68 @@ func TestDecodeStrictRejectsOversizedInputBeforeParsing(t *testing.T) {
 	_, err := decodeStrict[Input](data)
 	if err == nil {
 		t.Fatal("oversized JSON input was accepted")
+	}
+}
+
+
+func TestReferenceTraversalHandlesLongMaritimeDependencyChains(t *testing.T) {
+	const depth = 10000
+	nodes := []Node{
+		{ID: "ais-observation-source", Kind: "source"},
+		{ID: "radar-observation-source", Kind: "source"},
+		{ID: "shared-port-core", Kind: "dependency"},
+	}
+	edges := make([]DependencyHyperedge, 0, 2*depth+2)
+
+	for _, item := range []struct {
+		prefix string
+		source string
+	}{
+		{prefix: "ais-dependency", source: "ais-observation-source"},
+		{prefix: "radar-dependency", source: "radar-observation-source"},
+	} {
+		previous := item.source
+		for index := 0; index < depth; index++ {
+			current := fmt.Sprintf("%s-%05d", item.prefix, index)
+			nodes = append(nodes, Node{ID: current, Kind: "dependency"})
+			edges = append(edges, civilEdge(
+				fmt.Sprintf("%s-edge-%05d", item.prefix, index),
+				[]string{previous},
+				current,
+				"data_pipeline",
+				"qualified",
+			))
+			previous = current
+		}
+		edges = append(edges, civilEdge(
+			item.prefix+"-to-shared-port-core",
+			[]string{previous},
+			"shared-port-core",
+			"data_pipeline",
+			"qualified",
+		))
+	}
+
+	input := civilInput(
+		"data_pipeline",
+		[]string{"ais-observation-source", "radar-observation-source"},
+		nodes,
+		edges,
+	)
+	inputBytes, err := json.Marshal(input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	report := referenceReport(input, sha256Hex(inputBytes))
+	if report.Disposition != "SHARED_DEPENDENCY" || !reflect.DeepEqual(report.CommonDependencyIDs, []string{"shared-port-core"}) {
+		t.Fatalf("unexpected long-chain report: disposition=%s common=%v reasons=%v", report.Disposition, report.CommonDependencyIDs, report.ReasonCodes)
+	}
+	reportBytes, err := json.Marshal(report)
+	if err != nil {
+		t.Fatal(err)
+	}
+	verification := verify(inputBytes, reportBytes)
+	if verification.Status != "verified" {
+		t.Fatalf("long-chain report failed independent verification: %+v", verification)
 	}
 }
