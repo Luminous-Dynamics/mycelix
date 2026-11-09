@@ -1,0 +1,494 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:luminous-dynamics:gcpn:civil-awareness-observability-dgp:0.1.0",
+  "title": "Civil awareness observability DGP v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "version",
+    "state",
+    "synthetic_only",
+    "non_operational",
+    "parent_issue",
+    "source_references",
+    "states",
+    "required_invariants",
+    "precedence",
+    "metrics",
+    "hard_gates",
+    "cases",
+    "claim_ceiling"
+  ],
+  "properties": {
+    "schema": {
+      "const": "gcpn.observability-dgp"
+    },
+    "version": {
+      "const": "0.1.0"
+    },
+    "state": {
+      "const": "FROZEN_PUBLIC_SYNTHETIC_CHALLENGE"
+    },
+    "synthetic_only": {
+      "const": true
+    },
+    "non_operational": {
+      "const": true
+    },
+    "parent_issue": {
+      "const": 6001
+    },
+    "source_references": {
+      "type": "array",
+      "minItems": 2,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "url",
+          "relevance"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "url": {
+            "type": "string",
+            "format": "uri"
+          },
+          "relevance": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "states": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "OBSERVED_PRESENT",
+        "NOT_OBSERVED_WITHIN_DECLARED_COVERAGE",
+        "UNOBSERVABLE",
+        "COVERAGE_UNKNOWN",
+        "FEED_UNAVAILABLE",
+        "NOT_EQUIPPED_OR_NOT_REQUIRED",
+        "STALE",
+        "WITHHELD_OR_RESTRICTED",
+        "CONFLICT",
+        "NOT_APPLICABLE"
+      ],
+      "properties": {
+        "OBSERVED_PRESENT": {
+          "type": "string",
+          "minLength": 1
+        },
+        "NOT_OBSERVED_WITHIN_DECLARED_COVERAGE": {
+          "type": "string",
+          "minLength": 1
+        },
+        "UNOBSERVABLE": {
+          "type": "string",
+          "minLength": 1
+        },
+        "COVERAGE_UNKNOWN": {
+          "type": "string",
+          "minLength": 1
+        },
+        "FEED_UNAVAILABLE": {
+          "type": "string",
+          "minLength": 1
+        },
+        "NOT_EQUIPPED_OR_NOT_REQUIRED": {
+          "type": "string",
+          "minLength": 1
+        },
+        "STALE": {
+          "type": "string",
+          "minLength": 1
+        },
+        "WITHHELD_OR_RESTRICTED": {
+          "type": "string",
+          "minLength": 1
+        },
+        "CONFLICT": {
+          "type": "string",
+          "minLength": 1
+        },
+        "NOT_APPLICABLE": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "required_invariants": {
+      "type": "array",
+      "minItems": 6,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "precedence": {
+      "type": "array",
+      "minItems": 5,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "metrics": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "false_negative_evidence_promotion_rate",
+        "negative_claim_overreach_rate",
+        "coverage_qualification_precision",
+        "coverage_gap_detection_recall",
+        "correct_unknown_rate",
+        "positive_detection_metrics",
+        "matched_coverage_risk"
+      ],
+      "properties": {
+        "false_negative_evidence_promotion_rate": {
+          "type": "string"
+        },
+        "negative_claim_overreach_rate": {
+          "type": "string"
+        },
+        "coverage_qualification_precision": {
+          "type": "string"
+        },
+        "coverage_gap_detection_recall": {
+          "type": "string"
+        },
+        "correct_unknown_rate": {
+          "type": "string"
+        },
+        "positive_detection_metrics": {
+          "type": "string"
+        },
+        "matched_coverage_risk": {
+          "type": "string"
+        }
+      }
+    },
+    "hard_gates": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "false_negative_evidence_promotions",
+        "physical_absence_overclaims",
+        "unobservable_promoted_to_negative",
+        "partial_window_promoted_to_full_window_negative",
+        "restricted_source_used_for_unapproved_purpose",
+        "privacy_or_authority_boundary_violations"
+      ],
+      "properties": {
+        "false_negative_evidence_promotions": {
+          "const": 0
+        },
+        "physical_absence_overclaims": {
+          "const": 0
+        },
+        "unobservable_promoted_to_negative": {
+          "const": 0
+        },
+        "partial_window_promoted_to_full_window_negative": {
+          "const": 0
+        },
+        "restricted_source_used_for_unapproved_purpose": {
+          "const": 0
+        },
+        "privacy_or_authority_boundary_violations": {
+          "const": 0
+        }
+      }
+    },
+    "cases": {
+      "type": "array",
+      "minItems": 10,
+      "items": {
+        "$ref": "#/$defs/case"
+      }
+    }
+  },
+  "$defs": {
+    "case": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "domain",
+        "name",
+        "source",
+        "scope",
+        "source_health",
+        "equipment_applicability",
+        "coverage",
+        "data_completeness",
+        "freshness",
+        "rights",
+        "observations",
+        "expected",
+        "mutation"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^OBS-[0-9]{3}$"
+        },
+        "domain": {
+          "enum": [
+            "uas",
+            "maritime",
+            "civil_aviation"
+          ]
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "id",
+            "modality",
+            "revision"
+          ],
+          "properties": {
+            "id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "modality": {
+              "type": "string",
+              "minLength": 1
+            },
+            "revision": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "scope": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "scope_id",
+            "window_start",
+            "window_end",
+            "window_unit"
+          ],
+          "properties": {
+            "scope_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "window_start": {
+              "type": "number"
+            },
+            "window_end": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "window_unit": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "source_health": {
+          "enum": [
+            "healthy",
+            "failed",
+            "partial_outage",
+            "mixed",
+            "unknown"
+          ]
+        },
+        "equipment_applicability": {
+          "enum": [
+            "applicable",
+            "not_required_for_declared_vessel_class",
+            "equipped_or_obligation_confirmed",
+            "not_equipped_or_not_required",
+            "unknown",
+            "mixed"
+          ]
+        },
+        "coverage": {
+          "type": "object",
+          "additionalProperties": true,
+          "required": [
+            "assertion_id",
+            "status",
+            "complete_for_scope",
+            "independent_oracle"
+          ],
+          "properties": {
+            "assertion_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "status": {
+              "type": "string",
+              "minLength": 1
+            },
+            "complete_for_scope": {
+              "type": [
+                "boolean",
+                "null"
+              ]
+            },
+            "independent_oracle": {
+              "type": "string",
+              "minLength": 1
+            },
+            "valid_from": {
+              "type": "number"
+            },
+            "valid_until": {
+              "type": "number"
+            },
+            "coverage_profile_digest": {
+              "type": "string",
+              "pattern": "^sha256:[0-9a-f]{64}$"
+            },
+            "limitations": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "covered_intervals": {
+              "type": "array",
+              "items": {
+                "type": "array",
+                "minItems": 2,
+                "maxItems": 2,
+                "items": {
+                  "type": "number"
+                }
+              }
+            },
+            "uncovered_intervals": {
+              "type": "array",
+              "items": {
+                "type": "array",
+                "minItems": 2,
+                "maxItems": 2,
+                "items": {
+                  "type": "number"
+                }
+              }
+            }
+          }
+        },
+        "data_completeness": {
+          "enum": [
+            "complete",
+            "partial",
+            "unknown",
+            "withheld"
+          ]
+        },
+        "freshness": {
+          "enum": [
+            "fresh",
+            "stale",
+            "unknown"
+          ]
+        },
+        "rights": {
+          "enum": [
+            "allowed_for_synthetic_test",
+            "restricted_for_declared_purpose",
+            "unknown"
+          ]
+        },
+        "observations": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "source_id",
+              "claim",
+              "assertion_ref"
+            ],
+            "properties": {
+              "source_id": {
+                "type": "string"
+              },
+              "claim": {
+                "type": "string"
+              },
+              "assertion_ref": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "expected": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "state",
+            "claim_scope",
+            "must_not_claim"
+          ],
+          "properties": {
+            "state": {
+              "enum": [
+                "OBSERVED_PRESENT",
+                "NOT_OBSERVED_WITHIN_DECLARED_COVERAGE",
+                "UNOBSERVABLE",
+                "COVERAGE_UNKNOWN",
+                "FEED_UNAVAILABLE",
+                "NOT_EQUIPPED_OR_NOT_REQUIRED",
+                "STALE",
+                "WITHHELD_OR_RESTRICTED",
+                "CONFLICT",
+                "NOT_APPLICABLE"
+              ]
+            },
+            "claim_scope": {
+              "type": "string",
+              "minLength": 1
+            },
+            "must_not_claim": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        },
+        "mutation": {
+          "type": "string"
+        },
+        "mutation_expected_state": {
+          "enum": [
+            "OBSERVED_PRESENT",
+            "NOT_OBSERVED_WITHIN_DECLARED_COVERAGE",
+            "UNOBSERVABLE",
+            "COVERAGE_UNKNOWN",
+            "FEED_UNAVAILABLE",
+            "NOT_EQUIPPED_OR_NOT_REQUIRED",
+            "STALE",
+            "WITHHELD_OR_RESTRICTED",
+            "CONFLICT",
+            "NOT_APPLICABLE"
+          ]
+        }
+      }
+    }
+  }
+}
