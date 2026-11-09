@@ -1,0 +1,746 @@
+{
+  "corpus_id": "MCB-CROSS-STACK-0.1",
+  "profile_id": "maritime-cross-stack-golden-trace-0.1",
+  "status": "synthetic_owner_result_fixtures_not_executed",
+  "source_corpus_path": "mycelix-workspace/docs/maritime-stay/integration/cross-stack-golden-traces-v0.1.json",
+  "source_corpus_git_blob_sha1": "cc353283af898f03b1f8a3e78f705772fc703fa7",
+  "case_count": 35,
+  "claim_ceiling": "Synthetic owner-result combinations only. No owner implementation outputs or field evidence are included; the oracle tests cross-owner disposition rules, not domain truth.",
+  "cases": [
+    {
+      "case_id": "MCB-X-001",
+      "owner_outputs": {
+        "source_context": "qualified",
+        "feasibility": "feasible",
+        "decision": "recommend",
+        "commitment": "present",
+        "dependency": "not_evaluated",
+        "provider_effect_evidence": "receipt_present",
+        "model_action_authority": "none"
+      },
+      "gate_observations": {
+        "required_handoffs_complete": true,
+        "hard_gate_failure": false,
+        "provider_commitment_revoked": false,
+        "cross_owner_conflict": false,
+        "privacy_violation": false,
+        "offline_partition": false
+      },
+      "expected_stay_disposition": "confirmed"
+    },
+    {
+      "case_id": "MCB-X-002",
+      "owner_outputs": {
+        "source_context": "qualified",
+        "feasibility": "not_evaluated",
+        "decision": "abstain",
+        "commitment": "absent",
+        "dependency": "not_evaluated",
+        "provider_effect_evidence": "none",
+        "model_action_authority": "none"
+      },
+      "gate_observations": {
+        "required_handoffs_complete": true,
+        "hard_gate_failure": true,
+        "provider_commitment_revoked": false,
+        "cross_owner_conflict": false,
+        "privacy_violation": false,
+        "offline_partition": false
+      },
+      "expected_stay_disposition": "rejected"
+    },
+    {
+      "case_id": "MCB-X-003",
+      "owner_outputs": {
+        "source_context": "qualified",
+        "feasibility": "not_evaluated",
+        "decision": "abstain",
+        "commitment": "absent",
+        "dependency": "not_evaluated",
+        "provider_effect_evidence": "none",
+        "model_action_authority": "none"
+      },
+      "gate_observations": {
+        "required_handoffs_complete": true,
+        "hard_gate_failure": true,
+        "provider_commitment_revoked": false,
+        "cross_owner_conflict": false,
+        "privacy_violation": false,
+        "offline_partition": false
+      },
+      "expected_stay_disposition": "rejected"
+    },
+    {
+      "case_id": "MCB-X-004",
+      "owner_outputs": {
+        "source_context": "unknown",
+        "feasibility": "not_evaluated",
+        "decision": "abstain",
+        "commitment": "absent",
+        "dependency": "not_evaluated",
+        "provider_effect_evidence": "none",
+        "model_action_authority": "none"
+      },
+      "gate_observations": {
+        "required_handoffs_complete": true,
+        "hard_gate_failure": false,
+        "provider_commitment_revoked": false,
+        "cross_owner_conflict": false,
+        "privacy_violation": false,
+        "offline_partition": false
+      },
+      "expected_stay_disposition": "unknown"
+    },
+    {
+      "case_id": "MCB-X-005",
+      "owner_outputs": {
+        "source_context": "unsupported",
+        "feasibility": "unsupported",
+        "decision": "abstain",
+        "commitment": "absent",
+        "dependency": "not_evaluated",
+        "provider_effect_evidence": "none",
+        "model_action_authority": "none"
+      },
+      "gate_observations": {
+        "required_handoffs_complete": true,
+        "hard_gate_failure": false,
+        "provider_commitment_revoked": false,
+        "cross_owner_conflict": false,
+        "privacy_violation": false,
+        "offline_partition": false
+      },
+      "expected_stay_disposition": "unknown"
+    },
+    {
+      "case_id": "MCB-X-006",
+      "owner_outputs": {
+        "source_context": "stale",
+        "feasibility": "unknown",
+        "decision": "abstain",
+        "commitment": "absent",
+        "dependency": "not_evaluated",
+        "provider_effect_evidence": "none",
+        "model_action_authority": "none"
+      },
+      "gate_observations": {
+        "required_handoffs_complete": true,
+        "hard_gate_failure": false,
+        "provider_commitment_revoked": false,
+        "cross_owner_conflict": false,
+        "privacy_violation": false,
+        "offline_partition": false
+      },
+      "expected_stay_disposition": "unknown"
+    },
+    {
+      "case_id": "MCB-X-007",
+      "owner_outputs": {
+        "source_context": "stale",
+        "feasibility": "unknown",
+        "decision": "human_review",
+        "commitment": "present",
+        "dependency": "not_evaluated",
+        "provider_effect_evidence": "none",
+        "model_action_authority": "none"
+      },
+      "gate_observations": {
+        "required_handoffs_complete": true,
+        "hard_gate_failure": false,
+        "provider_commitment_revoked": false,
+        "cross_owner_conflict": false,
+        "privacy_violation": false,
+        "offline_partition": false
+      },
+      "expected_stay_disposition": "unknown"
+    },
+    {
+      "case_id": "MCB-X-008",
+      "owner_outputs": {
+        "source_context": "qualified",
+        "feasibility": "feasible",
+        "decision": "recommend",
+        "commitment": "present",
+        "dependency": "not_evaluated",
+        "provider_effect_evidence": "receipt_present",
+        "model_action_authority": "none"
+      },
+      "gate_observations": {
+        "required_handoffs_complete": true,
+        "hard_gate_failure": false,
+        "provider_commitment_revoked": false,
+        "cross_owner_conflict": false,
+        "privacy_violation": false,
+        "offline_partition": false
+      },
+      "expected_stay_disposition": "confirmed"
+    },
+    {
+      "case_id": "MCB-X-009",
+      "owner_outputs": {
+        "source_context": "qualified",
+        "feasibility": "feasible",
+        "decision": "recommend",
+        "commitment": "absent",
+        "dependency": "not_evaluated",
+        "provider_effect_evidence": "none",
+        "model_action_authority": "none"
+      },
+      "gate_observations": {
+        "required_handoffs_complete": true,
+        "hard_gate_failure": false,
+        "provider_commitment_revoked": false,
+        "cross_owner_conflict": false,
+        "privacy_violation": false,
+        "offline_partition": false
+      },
+      "expected_stay_disposition": "pending"
+    },
+    {
+      "case_id": "MCB-X-010",
+      "owner_outputs": {
+        "source_context": "qualified",
+        "feasibility": "unknown",
+        "decision": "human_review",
+        "commitment": "absent",
+        "dependency": "not_evaluated",
+        "provider_effect_evidence": "none",
+        "model_action_authority": "none"
+      },
+      "gate_observations": {
+        "required_handoffs_complete": true,
+        "hard_gate_failure": true,
+        "provider_commitment_revoked": true,
+        "cross_owner_conflict": false,
+        "privacy_violation": false,
+        "offline_partition": false
+      },
+      "expected_stay_disposition": "rejected"
+    },
+    {
+      "case_id": "MCB-X-011",
+      "owner_outputs": {
+        "source_context": "qualified",
+        "feasibility": "infeasible",
+        "decision": "abstain",
+        "commitment": "absent",
+        "dependency": "not_evaluated",
+        "provider_effect_evidence": "none",
+        "model_action_authority": "none"
+      },
+      "gate_observations": {
+        "required_handoffs_complete": true,
+        "hard_gate_failure": false,
+        "provider_commitment_revoked": false,
+        "cross_owner_conflict": false,
+        "privacy_violation": false,
+        "offline_partition": false
+      },
+      "expected_stay_disposition": "rejected"
+    },
+    {
+      "case_id": "MCB-X-012",
+      "owner_outputs": {
+        "source_context": "qualified",
+        "feasibility": "infeasible",
+        "decision": "abstain",
+        "commitment": "absent",
+        "dependency": "not_evaluated",
+        "provider_effect_evidence": "none",
+        "model_action_authority": "none"
+      },
+      "gate_observations": {
+        "required_handoffs_complete": true,
+        "hard_gate_failure": false,
+        "provider_commitment_revoked": false,
+        "cross_owner_conflict": false,
+        "privacy_violation": false,
+        "offline_partition": false
+      },
+      "expected_stay_disposition": "rejected"
+    },
+    {
+      "case_id": "MCB-X-013",
+      "owner_outputs": {
+        "source_context": "unknown",
+        "feasibility": "unknown",
+        "decision": "request_information",
+        "commitment": "absent",
+        "dependency": "not_evaluated",
+        "provider_effect_evidence": "none",
+        "model_action_authority": "none"
+      },
+      "gate_observations": {
+        "required_handoffs_complete": true,
+        "hard_gate_failure": false,
+        "provider_commitment_revoked": false,
+        "cross_owner_conflict": false,
+        "privacy_violation": false,
+        "offline_partition": false
+      },
+      "expected_stay_disposition": "unknown"
+    },
+    {
+      "case_id": "MCB-X-014",
+      "owner_outputs": {
+        "source_context": "qualified",
+        "feasibility": "unsupported",
+        "decision": "abstain",
+        "commitment": "absent",
+        "dependency": "not_evaluated",
+        "provider_effect_evidence": "none",
+        "model_action_authority": "none"
+      },
+      "gate_observations": {
+        "required_handoffs_complete": true,
+        "hard_gate_failure": false,
+        "provider_commitment_revoked": false,
+        "cross_owner_conflict": false,
+        "privacy_violation": false,
+        "offline_partition": false
+      },
+      "expected_stay_disposition": "unknown"
+    },
+    {
+      "case_id": "MCB-X-015",
+      "owner_outputs": {
+        "source_context": "qualified",
+        "feasibility": "conflict",
+        "decision": "human_review",
+        "commitment": "pending",
+        "dependency": "not_evaluated",
+        "provider_effect_evidence": "none",
+        "model_action_authority": "none"
+      },
+      "gate_observations": {
+        "required_handoffs_complete": true,
+        "hard_gate_failure": false,
+        "provider_commitment_revoked": false,
+        "cross_owner_conflict": true,
+        "privacy_violation": false,
+        "offline_partition": false
+      },
+      "expected_stay_disposition": "conflict"
+    },
+    {
+      "case_id": "MCB-X-016",
+      "owner_outputs": {
+        "source_context": "qualified",
+        "feasibility": "unknown",
+        "decision": "request_information",
+        "commitment": "absent",
+        "dependency": "not_evaluated",
+        "provider_effect_evidence": "none",
+        "model_action_authority": "none"
+      },
+      "gate_observations": {
+        "required_handoffs_complete": true,
+        "hard_gate_failure": false,
+        "provider_commitment_revoked": false,
+        "cross_owner_conflict": false,
+        "privacy_violation": false,
+        "offline_partition": false
+      },
+      "expected_stay_disposition": "unknown"
+    },
+    {
+      "case_id": "MCB-X-017",
+      "owner_outputs": {
+        "source_context": "unknown",
+        "feasibility": "unknown",
+        "decision": "request_information",
+        "commitment": "pending",
+        "dependency": "not_evaluated",
+        "provider_effect_evidence": "none",
+        "model_action_authority": "none"
+      },
+      "gate_observations": {
+        "required_handoffs_complete": true,
+        "hard_gate_failure": false,
+        "provider_commitment_revoked": false,
+        "cross_owner_conflict": false,
+        "privacy_violation": false,
+        "offline_partition": false
+      },
+      "expected_stay_disposition": "unknown"
+    },
+    {
+      "case_id": "MCB-X-018",
+      "owner_outputs": {
+        "source_context": "qualified",
+        "feasibility": "feasible",
+        "decision": "recommend",
+        "commitment": "present",
+        "dependency": "not_evaluated",
+        "provider_effect_evidence": "receipt_present",
+        "model_action_authority": "none"
+      },
+      "gate_observations": {
+        "required_handoffs_complete": true,
+        "hard_gate_failure": false,
+        "provider_commitment_revoked": false,
+        "cross_owner_conflict": false,
+        "privacy_violation": false,
+        "offline_partition": false
+      },
+      "expected_stay_disposition": "confirmed"
+    },
+    {
+      "case_id": "MCB-X-019",
+      "owner_outputs": {
+        "source_context": "qualified",
+        "feasibility": "feasible",
+        "decision": "recommend",
+        "commitment": "present",
+        "dependency": "not_evaluated",
+        "provider_effect_evidence": "receipt_present",
+        "model_action_authority": "none"
+      },
+      "gate_observations": {
+        "required_handoffs_complete": true,
+        "hard_gate_failure": false,
+        "provider_commitment_revoked": false,
+        "cross_owner_conflict": false,
+        "privacy_violation": false,
+        "offline_partition": false
+      },
+      "expected_stay_disposition": "confirmed"
+    },
+    {
+      "case_id": "MCB-X-020",
+      "owner_outputs": {
+        "source_context": "unknown",
+        "feasibility": "unknown",
+        "decision": "human_review",
+        "commitment": "needs_reconciliation",
+        "dependency": "not_evaluated",
+        "provider_effect_evidence": "provider_state_unavailable",
+        "model_action_authority": "none"
+      },
+      "gate_observations": {
+        "required_handoffs_complete": true,
+        "hard_gate_failure": false,
+        "provider_commitment_revoked": false,
+        "cross_owner_conflict": false,
+        "privacy_violation": false,
+        "offline_partition": false
+      },
+      "expected_stay_disposition": "needs_reconciliation"
+    },
+    {
+      "case_id": "MCB-X-021",
+      "owner_outputs": {
+        "source_context": "qualified",
+        "feasibility": "feasible",
+        "decision": "recommend",
+        "commitment": "absent",
+        "dependency": "not_evaluated",
+        "provider_effect_evidence": "none",
+        "model_action_authority": "none"
+      },
+      "gate_observations": {
+        "required_handoffs_complete": true,
+        "hard_gate_failure": false,
+        "provider_commitment_revoked": false,
+        "cross_owner_conflict": false,
+        "privacy_violation": false,
+        "offline_partition": false
+      },
+      "expected_stay_disposition": "pending"
+    },
+    {
+      "case_id": "MCB-X-022",
+      "owner_outputs": {
+        "source_context": "unknown",
+        "feasibility": "unknown",
+        "decision": "request_information",
+        "commitment": "absent",
+        "dependency": "unknown_dependency",
+        "provider_effect_evidence": "none",
+        "model_action_authority": "none"
+      },
+      "gate_observations": {
+        "required_handoffs_complete": true,
+        "hard_gate_failure": false,
+        "provider_commitment_revoked": false,
+        "cross_owner_conflict": false,
+        "privacy_violation": false,
+        "offline_partition": false
+      },
+      "expected_stay_disposition": "unknown"
+    },
+    {
+      "case_id": "MCB-X-023",
+      "owner_outputs": {
+        "source_context": "qualified",
+        "feasibility": "feasible",
+        "decision": "human_review",
+        "commitment": "pending",
+        "dependency": "shared_dependency",
+        "provider_effect_evidence": "none",
+        "model_action_authority": "none"
+      },
+      "gate_observations": {
+        "required_handoffs_complete": true,
+        "hard_gate_failure": false,
+        "provider_commitment_revoked": false,
+        "cross_owner_conflict": false,
+        "privacy_violation": false,
+        "offline_partition": false
+      },
+      "expected_stay_disposition": "pending"
+    },
+    {
+      "case_id": "MCB-X-024",
+      "owner_outputs": {
+        "source_context": "qualified",
+        "feasibility": "feasible",
+        "decision": "human_review",
+        "commitment": "pending",
+        "dependency": "shared_dependency",
+        "provider_effect_evidence": "none",
+        "model_action_authority": "none"
+      },
+      "gate_observations": {
+        "required_handoffs_complete": true,
+        "hard_gate_failure": false,
+        "provider_commitment_revoked": false,
+        "cross_owner_conflict": false,
+        "privacy_violation": false,
+        "offline_partition": false
+      },
+      "expected_stay_disposition": "pending"
+    },
+    {
+      "case_id": "MCB-X-025",
+      "owner_outputs": {
+        "source_context": "qualified",
+        "feasibility": "unknown",
+        "decision": "abstain",
+        "commitment": "pending",
+        "dependency": "unknown_dependency",
+        "provider_effect_evidence": "none",
+        "model_action_authority": "none"
+      },
+      "gate_observations": {
+        "required_handoffs_complete": true,
+        "hard_gate_failure": false,
+        "provider_commitment_revoked": false,
+        "cross_owner_conflict": false,
+        "privacy_violation": false,
+        "offline_partition": false
+      },
+      "expected_stay_disposition": "unknown"
+    },
+    {
+      "case_id": "MCB-X-026",
+      "owner_outputs": {
+        "source_context": "qualified",
+        "feasibility": "feasible",
+        "decision": "human_review",
+        "commitment": "pending",
+        "dependency": "no_declared_common_domain",
+        "provider_effect_evidence": "none",
+        "model_action_authority": "none"
+      },
+      "gate_observations": {
+        "required_handoffs_complete": true,
+        "hard_gate_failure": false,
+        "provider_commitment_revoked": false,
+        "cross_owner_conflict": false,
+        "privacy_violation": false,
+        "offline_partition": false
+      },
+      "expected_stay_disposition": "pending"
+    },
+    {
+      "case_id": "MCB-X-027",
+      "owner_outputs": {
+        "source_context": "qualified",
+        "feasibility": "feasible",
+        "decision": "human_review",
+        "commitment": "needs_reconciliation",
+        "dependency": "not_evaluated",
+        "provider_effect_evidence": "provider_state_unavailable",
+        "model_action_authority": "none"
+      },
+      "gate_observations": {
+        "required_handoffs_complete": true,
+        "hard_gate_failure": false,
+        "provider_commitment_revoked": false,
+        "cross_owner_conflict": false,
+        "privacy_violation": false,
+        "offline_partition": false
+      },
+      "expected_stay_disposition": "needs_reconciliation"
+    },
+    {
+      "case_id": "MCB-X-028",
+      "owner_outputs": {
+        "source_context": "qualified",
+        "feasibility": "feasible",
+        "decision": "recommend",
+        "commitment": "present",
+        "dependency": "not_evaluated",
+        "provider_effect_evidence": "receipt_present",
+        "model_action_authority": "none"
+      },
+      "gate_observations": {
+        "required_handoffs_complete": true,
+        "hard_gate_failure": false,
+        "provider_commitment_revoked": false,
+        "cross_owner_conflict": false,
+        "privacy_violation": false,
+        "offline_partition": false
+      },
+      "expected_stay_disposition": "confirmed"
+    },
+    {
+      "case_id": "MCB-X-029",
+      "owner_outputs": {
+        "source_context": "qualified",
+        "feasibility": "unknown",
+        "decision": "human_review",
+        "commitment": "conflict",
+        "dependency": "not_evaluated",
+        "provider_effect_evidence": "none",
+        "model_action_authority": "none"
+      },
+      "gate_observations": {
+        "required_handoffs_complete": true,
+        "hard_gate_failure": false,
+        "provider_commitment_revoked": false,
+        "cross_owner_conflict": false,
+        "privacy_violation": false,
+        "offline_partition": false
+      },
+      "expected_stay_disposition": "conflict"
+    },
+    {
+      "case_id": "MCB-X-030",
+      "owner_outputs": {
+        "source_context": "qualified",
+        "feasibility": "not_evaluated",
+        "decision": "abstain",
+        "commitment": "absent",
+        "dependency": "not_evaluated",
+        "provider_effect_evidence": "none",
+        "model_action_authority": "none"
+      },
+      "gate_observations": {
+        "required_handoffs_complete": true,
+        "hard_gate_failure": true,
+        "provider_commitment_revoked": false,
+        "cross_owner_conflict": false,
+        "privacy_violation": true,
+        "offline_partition": false
+      },
+      "expected_stay_disposition": "rejected"
+    },
+    {
+      "case_id": "MCB-X-031",
+      "owner_outputs": {
+        "source_context": "unknown",
+        "feasibility": "unknown",
+        "decision": "human_review",
+        "commitment": "pending",
+        "dependency": "not_evaluated",
+        "provider_effect_evidence": "none",
+        "model_action_authority": "none"
+      },
+      "gate_observations": {
+        "required_handoffs_complete": true,
+        "hard_gate_failure": false,
+        "provider_commitment_revoked": false,
+        "cross_owner_conflict": false,
+        "privacy_violation": false,
+        "offline_partition": false
+      },
+      "expected_stay_disposition": "unknown"
+    },
+    {
+      "case_id": "MCB-X-032",
+      "owner_outputs": {
+        "source_context": "unknown",
+        "feasibility": "unknown",
+        "decision": "abstain",
+        "commitment": "pending",
+        "dependency": "unknown_dependency",
+        "provider_effect_evidence": "none",
+        "model_action_authority": "none"
+      },
+      "gate_observations": {
+        "required_handoffs_complete": true,
+        "hard_gate_failure": false,
+        "provider_commitment_revoked": false,
+        "cross_owner_conflict": false,
+        "privacy_violation": false,
+        "offline_partition": true
+      },
+      "expected_stay_disposition": "pending"
+    },
+    {
+      "case_id": "MCB-X-033",
+      "owner_outputs": {
+        "source_context": "qualified",
+        "feasibility": "feasible",
+        "decision": "recommend",
+        "commitment": "present",
+        "dependency": "not_evaluated",
+        "provider_effect_evidence": "receipt_present",
+        "model_action_authority": "none"
+      },
+      "gate_observations": {
+        "required_handoffs_complete": true,
+        "hard_gate_failure": false,
+        "provider_commitment_revoked": false,
+        "cross_owner_conflict": false,
+        "privacy_violation": false,
+        "offline_partition": false
+      },
+      "expected_stay_disposition": "confirmed"
+    },
+    {
+      "case_id": "MCB-X-034",
+      "owner_outputs": {
+        "source_context": "qualified",
+        "feasibility": "unknown",
+        "decision": "human_review",
+        "commitment": "present",
+        "dependency": "not_evaluated",
+        "provider_effect_evidence": "none",
+        "model_action_authority": "none"
+      },
+      "gate_observations": {
+        "required_handoffs_complete": true,
+        "hard_gate_failure": false,
+        "provider_commitment_revoked": false,
+        "cross_owner_conflict": false,
+        "privacy_violation": false,
+        "offline_partition": false
+      },
+      "expected_stay_disposition": "unknown"
+    },
+    {
+      "case_id": "MCB-X-035",
+      "owner_outputs": {
+        "source_context": "unknown",
+        "feasibility": "not_evaluated",
+        "decision": "not_evaluated",
+        "commitment": "not_evaluated",
+        "dependency": "not_evaluated",
+        "provider_effect_evidence": "none",
+        "model_action_authority": "none"
+      },
+      "gate_observations": {
+        "required_handoffs_complete": false,
+        "hard_gate_failure": false,
+        "provider_commitment_revoked": false,
+        "cross_owner_conflict": false,
+        "privacy_violation": false,
+        "offline_partition": false
+      },
+      "expected_stay_disposition": "incomparable"
+    }
+  ]
+}
