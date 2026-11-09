@@ -374,5 +374,4 @@ mod tests {
         let verification = independently_verify(&bytes, &report_bytes);
         assert_eq!(verification.status, "verified");
     }
-
 }
