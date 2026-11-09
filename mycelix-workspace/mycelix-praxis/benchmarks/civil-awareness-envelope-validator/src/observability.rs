@@ -79,8 +79,8 @@ impl ObservabilityAssessment {
         reasons: impl IntoIterator<Item = &'static str>,
         source_claims: Vec<SourceClaim>,
     ) -> Result<Self, String> {
-        let source_id = string_at(case, "/source/id")?;
-        let scope_id = string_at(case, "/scope/scope_id")?;
+        let source_id = string_at(case, "/source/id")?.to_owned();
+        let scope_id = string_at(case, "/scope/scope_id")?.to_owned();
         let window_start = number_at(case, "/scope/window_start")?;
         let window_end = number_at(case, "/scope/window_end")?;
         let reason_codes = reasons
