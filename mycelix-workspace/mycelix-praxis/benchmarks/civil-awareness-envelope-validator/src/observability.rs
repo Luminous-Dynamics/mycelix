@@ -200,13 +200,13 @@ fn assess_case(case: &Value) -> Result<ObservabilityAssessment, String> {
             Vec::new(),
         );
     }
-    // Do not parse or expose observation content until the rights/purpose
-    // precondition has passed.
+    let completeness = string_at(case, "/data_completeness")?;
+    // Do not parse or expose observation content until rights and availability
+    // preconditions have passed.
     let claims = source_claims(case)?;
     let applicability = string_at(case, "/equipment_applicability")?;
     let health = string_at(case, "/source_health")?;
     let coverage_status = string_at(case, "/coverage/status")?;
-    let completeness = string_at(case, "/data_completeness")?;
     let freshness = string_at(case, "/freshness")?;
     let modality = string_at(case, "/source/modality")?;
 
