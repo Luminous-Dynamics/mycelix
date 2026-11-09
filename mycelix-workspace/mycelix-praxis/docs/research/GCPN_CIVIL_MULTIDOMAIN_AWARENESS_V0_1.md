@@ -69,6 +69,17 @@ Keep responsibility partitioned so no subsystem becomes its own source of author
 | **Symtropy** | Synthetic scenario generation, replay, domain simulation, counterfactual tests, uncertainty/fault injection and benchmark orchestration | Simulation is not physical sensor truth; simulator fidelity must be separately qualified |
 | **Luminous product lifecycle layer** | Hardware/software/configuration identity, BOM, calibration and maintenance history, installation records, release digests and field-change traceability | Does not approve regulatory use or substitute for a professional safety case |
 
+### Existing cross-repository contract reuse
+
+Do not duplicate the EMSR dataset/split/run-receipt validators. Symthaea's [draft PR #10875](https://github.com/Luminous-Dynamics/symthaea/pull/10875) contains a reusable Rust crate for pinned dataset catalogues, rights/ingestion state, grouped split manifests, run receipts, SHA-256 helpers and independent-verification declarations. Its exact responsibilities are different from Mycelix #5904:
+- Symthaea #10875: dataset/split/receipt contract validation;
+- Mycelix #5904: common-mode dependency and failure-domain graph;
+- Mycelix #5451: shared evidence-plane maturity and receipt semantics;
+- Mycelix #5992: civil envelope structure, field/rights/digest gates;
+- Mycelix #5995: evidence-independence, false-corroboration and selective-risk qualification.
+
+The cross-stack composition should pass the same source/split/receipt identities through these owners. No parallel dataset split format, receipt format, dependency graph or trust root is warranted. PR #10875 remains draft/open and its EMSR Evidence Contract workflow success is not whole-PR qualification.
+
 The evidence flow remains:
 
 `source observation → authorized adapter → provenance/rights checks → spatial context → evidence triage → independent review/adjudication → replayable receipt`
