@@ -76,6 +76,14 @@ The same graph evaluator is now exercised by a separate civil-domain integration
 
 Each Rust civil-domain profile also passes the existing separate Rust reference traversal. The Go standard-library verifier has matching profile tests and verifies the same report contract.
 
+## Scale and traversal behavior
+
+The main Rust evaluator retains its indexed breadth-first closure; the independent Rust reference traversal now uses a separately built subject index and explicit depth-first event stack. The Go reference verifier uses its own subject index and explicit DFS event stack. Both avoid recursive stack growth and repeated full-hyperedge scans for each visited node.
+
+The integration tests include two 10,000-edge-deep maritime lineage branches converging on a shared ancestor. This is a stack-safety/correctness stress case, not a latency or throughput benchmark. Benchmark runs must still report p50/p95/p99, peak memory, graph shape and input digests at declared source/hyperedge sizes before any performance claim.
+
+Both Rust and Go parsers enforce the same 16 MiB input limit. The Rust CLI's bounded reader and both language-level parsers reject oversize input before full deserialization.
+
 ## Parser and byte-boundary hardening
 
 Input and report parsing is strict in both language implementations:
