@@ -1,0 +1,59 @@
+name: Maritime cross-stack handoff verifier
+
+on:
+  pull_request:
+    paths:
+      - "mycelix-workspace/tools/maritime-handoff-verifier/**"
+      - ".github/workflows/maritime-handoff-verifier.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Format, test, and lint isolated handoff verifier
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mycelix-workspace/tools/maritime-handoff-verifier
+    steps:
+      - name: Check out exact PR head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Assert exact source revision
+        shell: bash
+        run: |
+          actual="$(git rev-parse HEAD)"
+          expected="${{ github.event.pull_request.head.sha || github.sha }}"
+          echo "actual_head=${actual}"
+          echo "expected_head=${expected}"
+          test "${actual}" = "${expected}"
+
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@1.96.0
+        with:
+          components: rustfmt, clippy
+
+      - name: Run locked unit tests
+        run: cargo test --locked --all-targets
+
+      - name: Check formatting
+        run: cargo fmt -- --check
+
+      - name: Run locked Clippy
+        run: cargo clippy --locked --all-targets -- -D warnings
+
+      - name: Upload pinned lockfile and verification sources
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: maritime-handoff-verifier-review-evidence
+          path: |
+            mycelix-workspace/tools/maritime-handoff-verifier/Cargo.lock
+            mycelix-workspace/tools/maritime-handoff-verifier/Cargo.toml
+            mycelix-workspace/tools/maritime-handoff-verifier/src/lib.rs
+            mycelix-workspace/tools/maritime-handoff-verifier/src/main.rs
+          if-no-files-found: warn
