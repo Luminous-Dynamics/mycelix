@@ -7,6 +7,7 @@
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::collections::BTreeSet;
+use std::fmt::Write as _;
 
 pub const CLAIM_CEILING: &str =
     "Cross-owner disposition rules over synthetic owner-result fixtures only; no owner implementation outputs or field evidence are present.";
@@ -200,7 +201,7 @@ pub enum OracleError {
 
 fn digest(bytes: &[u8]) -> String {
     let mut out = String::with_capacity(64);
-    for b in Sha256::digest(bytes) { out.push_str(&format!("{b:02x}")); }
+    for b in Sha256::digest(bytes) { let _ = write!(&mut out, "{b:02x}"); }
     out
 }
 
@@ -316,6 +317,8 @@ pub fn evaluate_bytes(
         || inputs.status != "synthetic_owner_result_fixtures_not_executed"
         || inputs.case_count != inputs.cases.len()
         || inputs.case_count != corpus.cases.len()
+        || inputs.source_corpus_path != "mycelix-workspace/docs/maritime-stay/integration/cross-stack-golden-traces-v0.1.json"
+        || inputs.claim_ceiling.trim().is_empty()
         || !inputs.source_corpus_git_blob_sha1.chars().all(|c| c.is_ascii_hexdigit() && !c.is_ascii_uppercase())
         || inputs.source_corpus_git_blob_sha1.len() != 40
     {
@@ -330,6 +333,7 @@ pub fn evaluate_bytes(
 
     let corpus_by_id: std::collections::BTreeMap<&str, &GoldenCase> =
         corpus.cases.iter().map(|c| (c.case_id.as_str(), c)).collect();
+    if corpus_by_id.len() != corpus.cases.len() { return Err(OracleError::InvalidCorpus); }
     let mut seen = BTreeSet::new();
     let mut results = Vec::with_capacity(inputs.cases.len());
     let mut pass_count = 0usize;
@@ -486,11 +490,39 @@ mod tests {
     }
 
     #[test]
-    fn duplicate_or_missing_case_id_is_rejected() {
-        let mut value: OracleInputs = serde_json::from_str(INPUTS).unwrap();
-        value.cases.pop();
-        value.case_count -= 1;
-        assert_eq!(value.cases.len(), 34);
+    fn duplicate_case_id_is_rejected() {
+        let mut value: serde_json::Value = serde_json::from_str(INPUTS).unwrap();
+        let first = value["cases"][0]["case_id"].clone();
+        value["cases"][34]["case_id"] = first;
+        let bytes = serde_json::to_vec(&value).unwrap();
+        let report = report_for_template();
+        assert_eq!(
+            evaluate_bytes(CORPUS.as_bytes(), &bytes, TEMPLATE.as_bytes(), report.as_bytes()),
+            Err(OracleError::InvalidOracleInputs)
+        );
+    }
+
+    #[test]
+    fn handoff_report_must_bind_exact_template_bytes() {
+        let mut value: serde_json::Value = serde_json::from_str(&report_for_template()).unwrap();
+        value["input_sha256"] = json!("sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
+        let report = serde_json::to_vec(&value).unwrap();
+        assert_eq!(
+            evaluate_bytes(CORPUS.as_bytes(), INPUTS.as_bytes(), TEMPLATE.as_bytes(), &report),
+            Err(OracleError::InvalidHandoffReport)
+        );
+    }
+
+    #[test]
+    fn owner_result_fixture_cannot_drift_from_frozen_corpus() {
+        let mut value: serde_json::Value = serde_json::from_str(INPUTS).unwrap();
+        value["cases"][0]["owner_outputs"]["commitment"] = json!("absent");
+        let bytes = serde_json::to_vec(&value).unwrap();
+        let report = report_for_template();
+        assert_eq!(
+            evaluate_bytes(CORPUS.as_bytes(), &bytes, TEMPLATE.as_bytes(), report.as_bytes()),
+            Err(OracleError::InvalidOracleInputs)
+        );
     }
 
     #[test]
