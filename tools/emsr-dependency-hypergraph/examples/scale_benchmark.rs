@@ -91,7 +91,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         cases.push(run_case("star_shared_root", input, expected, repetitions)?);
     }
     for source_count in [10, 100, 1_000, 10_000] {
-        let (input, expected) = build_chain_graph(source_count, 128);
+        let (input, expected) = build_chain_graph(source_count, 256);
         cases.push(run_case("deep_shared_chain", input, expected, repetitions)?);
 
         let (input, expected) = build_layered_graph(source_count);
@@ -262,7 +262,6 @@ fn build_chain_graph(source_count: usize, requested_depth: usize) -> (Hypergraph
         .map(|index| format!("chain-source-{index:08}"))
         .collect();
     let depth = requested_depth.max(1);
-    let root = format!("chain-node-{depth:05}");
     let mut nodes = source_ids
         .iter()
         .map(|id| Node {
@@ -293,7 +292,6 @@ fn build_chain_graph(source_count: usize, requested_depth: usize) -> (Hypergraph
             AssertionState::Qualified,
         ));
     }
-    let _ = root;
     (
         build_input(source_ids, nodes, edges, DependencyDomain::Clock, 20, "chain"),
         "SharedDependency",
@@ -683,7 +681,7 @@ mod tests {
     #[test]
     fn graph_topology_builders_are_deterministic_and_have_expected_dispositions() {
         let builders = [
-            build_chain_graph(1_000, 128),
+            build_chain_graph(1_000, 256),
             build_layered_graph(1_000),
             build_independent_graph(1_000),
             build_unknown_graph(1_000),
@@ -700,6 +698,33 @@ mod tests {
                 independently_verify(&bytes, &report_bytes).status,
                 "verified"
             );
+        }
+    }
+
+    #[test]
+    fn graph_shape_matrix_is_reported_at_multiple_sizes() {
+        for source_count in [10, 100, 1_000, 10_000] {
+            let cases = [
+                build_chain_graph(source_count, 256),
+                build_layered_graph(source_count),
+                build_independent_graph(source_count),
+                build_unknown_graph(source_count),
+            ];
+            for (input, expected) in cases {
+                let bytes = serde_json::to_vec(&input).unwrap();
+                assert!(
+                    bytes.len() <= INPUT_LIMIT_BYTES,
+                    "{} bytes exceeds input cap at {source_count} sources",
+                    bytes.len()
+                );
+                let report = evaluate_bytes(&bytes);
+                assert_eq!(format!("{:?}", report.disposition), expected);
+                let report_bytes = serde_json::to_vec(&report).unwrap();
+                assert_eq!(
+                    independently_verify(&bytes, &report_bytes).status,
+                    "verified"
+                );
+            }
         }
     }
 
