@@ -14,6 +14,7 @@
     "CI-009-synchronous-unrelated-fault-is-false-positive",
     "CI-010-stale-public-input-report-binding-is-rejected",
     "CI-011-hidden-topology-commitment-mutation-is-rejected",
-    "CI-012-duplicate-trial-source-observation-is-invalid"
+    "CI-012-duplicate-trial-source-observation-is-invalid",
+    "CI-013-shared-collector-negative-control-response-abstains"
   ]
 }
