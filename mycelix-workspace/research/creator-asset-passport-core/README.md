@@ -184,6 +184,19 @@ The grant-history envelope has two frozen Rust/Python reference byte vectors (2 
 
 The crate pins its direct BLAKE3 dependency, but a Cargo.lock is not yet committed. Exact-head run 39102068195 on source SHA 137f7f1bd02dea380d304ab301b792175de4a63e recorded Rust/Cargo 1.96.0 and Cargo.lock SHA-256 476a805b7079ff40590627baaf424e69908ea931f3dca2f2c3d1240b5886caab; its receipt, lockfile, fixture hashes, and raw logs were uploaded as artifact [12126982007](https://github.com/Luminous-Dynamics/mycelix/actions/runs/39102068195/artifacts/12126982007). Each draft CI job explicitly checks out and asserts the PR's exact head SHA (or the selected push/manual-dispatch SHA), resolves a lock for that commit, runs formatting and tests with that generated lock, records the Rust/Cargo/Python versions and source SHA, hashes the frozen fixture corpus, and uploads the receipt, lockfile, and raw format/test/reference-vector logs even on failure. This makes that specific run's evidence inspectable; it does **not** guarantee that separate runs resolve identical transitive versions. Before a non-research release, commit a reviewed lockfile and require --locked without regeneration.
 
+## Art-domain qualification status (research branch)
+
+The earlier exact-head qualification recorded above applies only to source SHA `137f7f1bd02dea380d304ab301b792175de4a63e`. It is historical evidence for that earlier source; it is not a test result for the current branch head.
+
+The current research branch adds:
+- six physical/cultural asset kinds and 15 granular operation variants with append-only wire tags;
+- an in-memory multi-parent derivation graph with source/ancestor grants, output/ancestor reauthorization and cycle/duplicate guards;
+- 10 derivation integration-test functions;
+- nine ODRL conflict primitive unit tests and six external integration-test functions;
+- explicit digest-algorithm tagging for tool digests.
+
+These new tests and code have **not** been compiled or executed at the current branch head. The latest pull-request workflow run previously returned zero jobs because the base-branch workflow suppresses all draft checks; a draft-safe exact-head CI bootstrap is proposed in [PR #6010](https://github.com/Luminous-Dynamics/mycelix/pull/6010). Until that workflow is available from the base branch and a run checks out the exact current head, report the new suite as source-written / pending qualification, not pass.
+
 ## Run when a Rust toolchain is available
 
 From the repository root, run:
