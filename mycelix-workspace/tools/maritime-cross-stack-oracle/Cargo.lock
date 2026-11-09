@@ -60,10 +60,6 @@ name = "maritime-cross-stack-oracle"
 version = "0.1.0"
 dependencies = ["serde", "serde_json", "sha2"]
 
-[[package]]
-name = "maritime-handoff-verifier"
-version = "0.1.0"
-dependencies = ["serde", "serde_json", "sha2"]
 
 [[package]]
 name = "memchr"
