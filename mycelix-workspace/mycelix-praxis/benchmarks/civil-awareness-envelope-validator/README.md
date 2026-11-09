@@ -112,3 +112,8 @@ The `calibration` module provides small pure Rust primitives for the #6008 calib
 These primitives do not implement cluster-bootstrap uncertainty, source/event clustering, a DGP generator, field calibration or deployment thresholds. ECE is secondary and bin-dependent. Use #5973 for clustered uncertainty; retain every source group and report denominators/strata. Do not compare results unless eligible exposure and source/dependency profiles are matched.
 
 Benchmark specification: `mycelix-workspace/mycelix-praxis/docs/research/GCPN_COVERAGE_CALIBRATION_BENCHMARK_V0_1.md`; DGP and schema are pinned alongside it. The DGP is a specification only and its generator is not yet implemented.
+## Deterministic synthetic streams
+
+The `pcg32` module implements PCG-XSH-RR-64/32 with the reference two-step seed initialization and a SHA-256 domain-separated per-case stream derivation. Unit tests pin the standard reference output vector, stream repeatability, case-stream separation, Bernoulli endpoints and invalid-probability rejection.
+
+The DGP's global seed and stream-derivation algorithm are pinned in `gcpn-coverage-calibration-dgp-v0.1.json`. This is the random-stream primitive only; no scenario-specific DGP generator, metric runner or statistical replication harness is claimed yet.
