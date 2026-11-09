@@ -189,6 +189,19 @@ Stratify by airspace/airport setting, traffic density, equipage and coverage, we
 | Maritime | AIS, VTS, ECDIS/ENC and IHO S-100 product ecosystem | Preserve source assertion vs truth, chart/product edition and dependency lineage; augment audit/review, never replace master/VTS authority |
 | Civil aviation | ADS-B, radar/MLAT, ANSP/ATC, ACAS/TCAS and airport systems | Improve authorized evidence reconciliation and disruption context; never substitute for certified surveillance/separation/collision-avoidance |
 
+### Public incumbent capability snapshots (vendor descriptions, not independent test results)
+
+| Incumbent | Publicly described capability | What this means for our comparison |
+|---|---|---|
+| [Wärtsilä Navi-Harbour VTMS](https://www.wartsila.com/marine/products/port-optimisation/vtms) | Vendor describes integration of AIS, radar, marine radio, CCTV, RDF, GMDSS and weather-station data, plus traffic-management, decision-support, open-interface and incident-recording functions. | We must compare against an integrated maritime workflow, not an AIS-only dashboard. Any test must pin the exact deployment/configuration and exclude communications/control functions outside our scope. |
+| [Kongsberg Traffic Management](https://www.kongsberg.com/what-we-do/ocean-space/surveillance-monitoring/foresight/traffic-management/) | Vendor describes present/future vessel-traffic views, voyage/clearance workflows, mandatory reporting and incident-response checklists/reporting. | The differentiator cannot be a map alone. Compare evidence provenance, dependency transparency, rights, replay and quality of handoff/incident records. |
+| [Saab multilateration and ADS-B](https://www.saab.com/products/multilateration-and-ads-b-solutions) | Vendor describes cooperative surveillance combining multilateration and ADS-B and use within wider ATM systems. | We are not competing with certified surveillance infrastructure; focus on read-only evidence quality and interoperability where authorized. |
+| [Saab A-SMGCS](https://www.saab.com/products/a-smgcs) | Vendor describes cooperative MLAT/ADS-B/vehicle sensors plus non-cooperative surface-movement radar, airport safety support, routing and guidance. | Do not build a parallel runway safety/ground-control function. Any integration is read-only and authority-approved. |
+| [Indra air-traffic surveillance](https://airtraffic.indragroup.com/en/what-we-do/surveillance) | Vendor describes primary/secondary radar and ADS-B systems for ATM surveillance. | Treat these as incumbent surveillance sources; our independent contribution is provenance, uncertainty, common-mode analysis and auditability across feeds. |
+| [EUROCONTROL A-SMGCS](https://www.eurocontrol.int/service/advanced-surface-movement-guidance-and-control-system) | EUROCONTROL describes surveillance as the base service, with optional airport safety support, routing and guidance services. | This illustrates the safety-critical depth of the incumbent domain. Luminous should remain an assurance/evidence adjunct, not replicate its control functions. |
+
+The features above are source-published product descriptions. They do not establish comparative accuracy, safety certification for a particular installation or independent performance. The matched study must identify the precise product and release and use equivalent lawful event frames.
+
 A public vendor feature page is not an independent performance result. Every comparison must identify product, module, hardware/firmware/software/configuration, source publication/retrieval date, claim maturity, evaluation population and denominator. Unknown remains unknown.
 
 ## 6. Benchmark plan and target-setting discipline
