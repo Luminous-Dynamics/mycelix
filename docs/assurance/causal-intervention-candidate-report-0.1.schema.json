@@ -13,6 +13,7 @@
     "target_id",
     "declared_scope",
     "responsive_source_ids",
+    "negative_control_response_source_ids",
     "contrasts",
     "observations_used",
     "tested_active_trials",
@@ -82,6 +83,13 @@
     "claim_ceiling": {
       "type": "string",
       "minLength": 1
+    },
+    "negative_control_response_source_ids": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string"
+      }
     }
   },
   "$defs": {
@@ -90,6 +98,7 @@
       "additionalProperties": false,
       "required": [
         "source_id",
+        "role",
         "active_responses",
         "active_trials",
         "sham_responses",
@@ -131,6 +140,12 @@
         },
         "responsive": {
           "type": "boolean"
+        },
+        "role": {
+          "enum": [
+            "target_endpoint",
+            "negative_control"
+          ]
         }
       }
     }
