@@ -107,5 +107,19 @@
   },
   "claim_value_constraints": {
     "v0.1": "claim.value must be a scalar or a flat object whose keys are explicitly listed for (domain, claim_type); nested objects and arrays are rejected until a domain-specific value schema is registered."
+  },
+  "domain_extension_schemas": {
+    "uas": {
+      "schema_uri": "urn:luminous-dynamics:gcpn:uas:0.1.0",
+      "schema_revision": "0.1.0"
+    },
+    "maritime": {
+      "schema_uri": "urn:luminous-dynamics:gcpn:maritime:0.1.0",
+      "schema_revision": "0.1.0"
+    },
+    "civil_aviation": {
+      "schema_uri": "urn:luminous-dynamics:gcpn:civil-aviation:0.1.0",
+      "schema_revision": "0.1.0"
+    }
   }
 }
