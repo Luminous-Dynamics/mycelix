@@ -1,5 +1,5 @@
 use emsr_causal_intervention_benchmark::{
-    EvaluationScore, HiddenTruth, PublicInput, evaluate_public_bytes,
+    EvaluationScore, HiddenTruth, PublicInput, ResponseState, TimeMapping, TrialObservation, evaluate_public_bytes,
     hidden_truth_commitment_sha256, score_candidate,
 };
 use jsonschema::draft202012;
@@ -31,6 +31,7 @@ fn input_report_truth_and_score_match_closed_schemas() {
         "scenario_id":"schema-scenario-001",
         "decision_scope":"test-lab",
         "expected_source_ids":["endpoint-a","endpoint-b"],
+        "negative_control_source_ids":["collector-control"],
         "intervention":{
             "intervention_id":"inject-clock-fault",
             "target_id":"grandmaster-a",
@@ -61,6 +62,17 @@ fn input_report_truth_and_score_match_closed_schemas() {
         ]
     })).expect("public input fixture");
     input.scenario_id = "scenario-controlled-001".to_owned();
+    for (index, trial) in input.trials.iter().enumerate() {
+        input.observations.push(TrialObservation {
+            trial_id: trial.trial_id.clone(),
+            source_id: "collector-control".to_owned(),
+            event_time_tai_ns: trial.observation_start_tai_ns,
+            received_time_tai_ns: trial.observation_start_tai_ns + 5,
+            sequence: (index + 1) as u64,
+            time_mapping: TimeMapping::Qualified,
+            state: ResponseState::Nominal,
+        });
+    }
 
     let public_bytes = serde_json::to_vec(&input).expect("public input bytes");
     validate(INPUT_SCHEMA, &serde_json::to_value(&input).unwrap());
