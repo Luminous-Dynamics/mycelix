@@ -138,21 +138,22 @@
         },
         "artifact_kind": {
           "enum": [
-            "source_projection",
-            "profile_pin",
-            "provider_offer",
-            "provider_hold",
-            "provider_commitment",
+            "authorization_evidence",
+            "decision_brief",
+            "dependency_snapshot",
             "effect_receipt",
+            "evaluation_report",
+            "historical_view",
+            "other",
+            "profile_pin",
+            "provider_commitment",
+            "provider_hold",
+            "provider_offer",
             "resource_constraint",
             "scenario",
             "simulation_run",
-            "decision_brief",
-            "evaluation_report",
-            "authorization_evidence",
-            "historical_view",
-            "transformation",
-            "other"
+            "source_projection",
+            "transformation"
           ]
         },
         "profile_id": {
