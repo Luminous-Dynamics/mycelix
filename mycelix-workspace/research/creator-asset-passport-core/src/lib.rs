@@ -10,6 +10,11 @@ pub mod passport_envelope;
 pub mod portable;
 pub mod provenance;
 
+pub use derivation::{
+    AuthorizationGrant, DerivationError, DerivationGraph, DerivationRecord,
+    DerivedPermissionDecision, DigestAlgorithm, evaluate_derived_usage,
+};
+
 use std::collections::BTreeMap;
 use std::error::Error;
 use std::fmt;
