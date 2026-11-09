@@ -9,6 +9,7 @@ pub mod import_ledger;
 pub mod passport_envelope;
 pub mod portable;
 pub mod provenance;
+pub mod policy;
 
 pub use derivation::{
     AuthorizationGrant, DerivationError, DerivationGraph, DerivationRecord,
