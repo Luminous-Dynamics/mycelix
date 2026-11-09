@@ -29,7 +29,7 @@
       "const": "0.1.0"
     },
     "state": {
-      "const": "FROZEN_PUBLIC_SYNTHETIC_DGP_SPECIFICATION_NOT_EXECUTED"
+      "const": "FROZEN_PUBLIC_SYNTHETIC_DGP_WITH_EXECUTABLE_GENERATOR_NOT_FIELD_EVALUATION"
     },
     "synthetic_only": {
       "const": true
@@ -66,7 +66,7 @@
           "const": true
         },
         "implementation_status": {
-          "const": "PCG_STREAM_IMPLEMENTED_DGP_GENERATOR_NOT_IMPLEMENTED"
+          "const": "PCG_STREAM_AND_SCENARIO_GENERATOR_IMPLEMENTED_METRIC_RUNNER_UNDER_TEST"
         },
         "stream_derivation": {
           "type": "string",
@@ -81,7 +81,9 @@
         "primary",
         "secondary",
         "event_cluster",
-        "rule"
+        "rule",
+        "exposure_interval_duration_milliseconds",
+        "calibration_reliability_bin_count"
       ],
       "properties": {
         "primary": {
@@ -95,6 +97,15 @@
         },
         "rule": {
           "type": "string"
+        },
+        "exposure_interval_duration_milliseconds": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "calibration_reliability_bin_count": {
+          "type": "integer",
+          "minimum": 2,
+          "maximum": 100
         }
       }
     },
