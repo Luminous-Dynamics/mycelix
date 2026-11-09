@@ -1,0 +1,852 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/mycelix/physical-artwork-extension/0.1.0",
+  "title": "CSCP Physical Artwork Extension",
+  "description": "Versioned extension to a CSCP Creative Asset Passport for a physical artwork, its provenance assertions, lifecycle events, rights, condition observations and spatial representations. It does not certify authenticity or ownership.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "artwork",
+    "assertions",
+    "evidence",
+    "events",
+    "rights",
+    "access"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": "0.1.0"
+    },
+    "artwork": {
+      "$ref": "#/$defs/artwork"
+    },
+    "assertions": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/assertion"
+      }
+    },
+    "evidence": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/evidence"
+      }
+    },
+    "events": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/event"
+      }
+    },
+    "rights": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/right"
+      }
+    },
+    "conditionObservations": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/conditionObservation"
+      }
+    },
+    "spatialAssets": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/spatialAsset"
+      }
+    },
+    "access": {
+      "$ref": "#/$defs/access"
+    },
+    "lineage": {
+      "$ref": "#/$defs/lineage"
+    }
+  },
+  "$defs": {
+    "digest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "algorithm",
+        "value"
+      ],
+      "properties": {
+        "algorithm": {
+          "enum": [
+            "sha-256",
+            "blake3"
+          ]
+        },
+        "value": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      }
+    },
+    "artwork": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "artworkId",
+        "objectType",
+        "titles",
+        "materials",
+        "makers"
+      ],
+      "properties": {
+        "artworkId": {
+          "type": "string",
+          "format": "uri"
+        },
+        "objectType": {
+          "enum": [
+            "painting",
+            "sculpture",
+            "photograph",
+            "print",
+            "drawing",
+            "textile",
+            "ceramic",
+            "installation",
+            "mixed-media",
+            "digital-native",
+            "other"
+          ]
+        },
+        "titles": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "value",
+              "language"
+            ],
+            "properties": {
+              "value": {
+                "type": "string",
+                "minLength": 1
+              },
+              "language": {
+                "type": "string",
+                "minLength": 2
+              }
+            }
+          }
+        },
+        "dateOrPeriod": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "displayValue": {
+              "type": "string"
+            },
+            "earliest": {
+              "type": "string",
+              "format": "date"
+            },
+            "latest": {
+              "type": "string",
+              "format": "date"
+            },
+            "claimRef": {
+              "type": "string"
+            }
+          }
+        },
+        "materials": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "techniques": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "makers": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "agentRef",
+              "role",
+              "claimRef"
+            ],
+            "properties": {
+              "agentRef": {
+                "type": "string",
+                "format": "uri"
+              },
+              "role": {
+                "type": "string"
+              },
+              "claimRef": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "dimensions": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "height": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "width": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "depth": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "unit": {
+              "enum": [
+                "mm",
+                "cm",
+                "m",
+                "in"
+              ]
+            },
+            "measurementMethod": {
+              "type": "string"
+            },
+            "claimRef": {
+              "type": "string"
+            }
+          }
+        },
+        "edition": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "editionNumber": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "editionSize": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "isUnique": {
+              "type": "boolean"
+            },
+            "claimRef": {
+              "type": "string"
+            }
+          }
+        },
+        "components": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "componentId",
+              "relationship"
+            ],
+            "properties": {
+              "componentId": {
+                "type": "string",
+                "format": "uri"
+              },
+              "relationship": {
+                "enum": [
+                  "part-of",
+                  "attached-to",
+                  "paired-with",
+                  "installed-with",
+                  "other"
+                ]
+              },
+              "description": {
+                "type": "string"
+              },
+              "materials": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "assertion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "assertionId",
+        "subjectRef",
+        "predicate",
+        "objectValue",
+        "assertedBy",
+        "assertedAt",
+        "status",
+        "evidenceRefs"
+      ],
+      "properties": {
+        "assertionId": {
+          "type": "string"
+        },
+        "subjectRef": {
+          "type": "string",
+          "format": "uri"
+        },
+        "predicate": {
+          "enum": [
+            "createdBy",
+            "attributedTo",
+            "ownedBy",
+            "inCustodyOf",
+            "exhibitedAt",
+            "loanedTo",
+            "hasCondition",
+            "hasMaterial",
+            "hasRights",
+            "locatedAt",
+            "createdDuring",
+            "other"
+          ]
+        },
+        "objectValue": {
+          "type": "string",
+          "minLength": 1
+        },
+        "assertedBy": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "agentRef",
+            "role"
+          ],
+          "properties": {
+            "agentRef": {
+              "type": "string",
+              "format": "uri"
+            },
+            "role": {
+              "type": "string"
+            },
+            "credentialRefs": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uri"
+              }
+            }
+          }
+        },
+        "assertedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "validFrom": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "validUntil": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "method": {
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "asserted",
+            "corroborated",
+            "disputed",
+            "withdrawn",
+            "superseded",
+            "rejected",
+            "unverified"
+          ]
+        },
+        "evidenceRefs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "supersedes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "reviewRef": {
+          "type": "string"
+        }
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "evidenceId",
+        "kind",
+        "mediaType",
+        "digest",
+        "access"
+      ],
+      "properties": {
+        "evidenceId": {
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "photograph",
+            "catalogue-entry",
+            "invoice",
+            "ownership-document",
+            "exhibition-record",
+            "expert-opinion",
+            "scientific-analysis",
+            "conservation-report",
+            "contract",
+            "correspondence",
+            "3d-capture",
+            "sensor-record",
+            "other"
+          ]
+        },
+        "mediaType": {
+          "type": "string"
+        },
+        "digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "sourceRef": {
+          "type": "string",
+          "format": "uri"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "capturedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "creatorRef": {
+          "type": "string",
+          "format": "uri"
+        },
+        "rightsRef": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "access": {
+          "enum": [
+            "public",
+            "controlled",
+            "restricted",
+            "sealed"
+          ]
+        },
+        "limitations": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "event": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "eventId",
+        "eventType",
+        "occurredAt",
+        "participants",
+        "evidenceRefs"
+      ],
+      "properties": {
+        "eventId": {
+          "type": "string"
+        },
+        "eventType": {
+          "enum": [
+            "created",
+            "acquired",
+            "sold",
+            "transferred",
+            "consigned",
+            "custody-transfer",
+            "loaned",
+            "exhibited",
+            "transported",
+            "inspected",
+            "conserved",
+            "restored",
+            "damaged",
+            "digitized",
+            "deaccessioned",
+            "other"
+          ]
+        },
+        "occurredAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "participants": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "agentRef",
+              "role"
+            ],
+            "properties": {
+              "agentRef": {
+                "type": "string",
+                "format": "uri"
+              },
+              "role": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "placeRef": {
+          "type": "string",
+          "format": "uri"
+        },
+        "assertionRefs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "evidenceRefs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "sourceRef": {
+          "type": "string",
+          "format": "uri"
+        },
+        "eventDigest": {
+          "$ref": "#/$defs/digest"
+        }
+      }
+    },
+    "right": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "rightId",
+        "rightType",
+        "status",
+        "holderRef",
+        "jurisdiction",
+        "purpose",
+        "sourceAssertionRef"
+      ],
+      "properties": {
+        "rightId": {
+          "type": "string"
+        },
+        "rightType": {
+          "enum": [
+            "physical-ownership",
+            "copyright",
+            "moral-rights",
+            "photography",
+            "reproduction",
+            "public-display",
+            "exhibition",
+            "loan",
+            "commercial-use",
+            "derivative-work",
+            "ai-training",
+            "ai-evaluation",
+            "traditional-knowledge-use",
+            "location-publication",
+            "other"
+          ]
+        },
+        "status": {
+          "enum": [
+            "granted",
+            "denied",
+            "unknown",
+            "revoked",
+            "disputed",
+            "expired"
+          ]
+        },
+        "holderRef": {
+          "type": "string",
+          "format": "uri"
+        },
+        "granteeRef": {
+          "type": "string",
+          "format": "uri"
+        },
+        "jurisdiction": {
+          "type": "string",
+          "minLength": 2
+        },
+        "purpose": {
+          "type": "string",
+          "minLength": 1
+        },
+        "territories": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "channels": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "validFrom": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "validUntil": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "sourceAssertionRef": {
+          "type": "string"
+        },
+        "restrictions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "conditionObservation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "observationId",
+        "observedAt",
+        "assessorRef",
+        "method",
+        "evidenceRefs",
+        "limitations"
+      ],
+      "properties": {
+        "observationId": {
+          "type": "string"
+        },
+        "observedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "assessorRef": {
+          "type": "string",
+          "format": "uri"
+        },
+        "method": {
+          "type": "string"
+        },
+        "scale": {
+          "type": "string"
+        },
+        "rating": {
+          "type": "string"
+        },
+        "regionRef": {
+          "type": "string"
+        },
+        "environment": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "temperatureC": {
+              "type": "number"
+            },
+            "relativeHumidityPercent": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 100
+            },
+            "illuminanceLux": {
+              "type": "number",
+              "minimum": 0
+            },
+            "uvWattPerSquareMeter": {
+              "type": "number",
+              "minimum": 0
+            }
+          }
+        },
+        "evidenceRefs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "limitations": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "spatialAsset": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "spatialAssetId",
+        "kind",
+        "mediaType",
+        "digest",
+        "access",
+        "coordinateFrame",
+        "units",
+        "captureMethod"
+      ],
+      "properties": {
+        "spatialAssetId": {
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "image-set",
+            "depth-map",
+            "point-cloud",
+            "mesh",
+            "scene-graph",
+            "nerf",
+            "gaussian-splat",
+            "other"
+          ]
+        },
+        "mediaType": {
+          "type": "string"
+        },
+        "uri": {
+          "type": "string",
+          "format": "uri"
+        },
+        "digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "access": {
+          "enum": [
+            "public",
+            "controlled",
+            "restricted",
+            "sealed"
+          ]
+        },
+        "coordinateFrame": {
+          "type": "string"
+        },
+        "units": {
+          "enum": [
+            "mm",
+            "cm",
+            "m",
+            "in",
+            "unitless"
+          ]
+        },
+        "captureMethod": {
+          "type": "string"
+        },
+        "capturedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "calibrationDigest": {
+          "$ref": "#/$defs/digest"
+        },
+        "accuracyMetric": {
+          "type": "string"
+        },
+        "accuracyValue": {
+          "type": "number",
+          "minimum": 0
+        },
+        "accuracyUnit": {
+          "type": "string"
+        },
+        "unobservedRegions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "rightsRefs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "access": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "classification",
+        "publicLocationAllowed"
+      ],
+      "properties": {
+        "classification": {
+          "enum": [
+            "public",
+            "controlled",
+            "restricted",
+            "sealed"
+          ]
+        },
+        "publicLocationAllowed": {
+          "type": "boolean"
+        },
+        "policyRef": {
+          "type": "string",
+          "format": "uri"
+        },
+        "reason": {
+          "type": "string"
+        }
+      }
+    },
+    "lineage": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "previousRecordDigest": {
+          "$ref": "#/$defs/digest"
+        },
+        "currentRecordDigest": {
+          "$ref": "#/$defs/digest"
+        },
+        "supersedesRecordRef": {
+          "type": "string",
+          "format": "uri"
+        }
+      }
+    }
+  }
+}
