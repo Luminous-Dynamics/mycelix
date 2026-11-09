@@ -1057,7 +1057,7 @@ mod tests {
 
     #[test]
     fn unknown_top_level_contract_fields_are_rejected() {
-        let mut input = fixture();
+        let input = fixture();
         let mut value = serde_json::to_value(&input).unwrap();
         value
             .as_object_mut()
