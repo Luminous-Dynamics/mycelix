@@ -26,10 +26,7 @@
       "claim": {
         "kind": "source_assertion",
         "claim_type": "sensor_reported_object_class",
-        "value": {
-          "synthetic": true,
-          "fixture_id": "uas-001"
-        }
+        "value": {}
       },
       "quality": {
         "source_health": "healthy",
@@ -58,13 +55,13 @@
           "synthetic_schema_test"
         ],
         "retention_class": "public_fixture",
-        "field_allowlist_digest": "sha256:a88b01b4d7f262f101196b5f8bc3d1c20ee91f2ae20cb1ada4af59af82e3d932"
+        "field_allowlist_digest": "sha256:efd4f59e0a52644edfeace6f1259c9459c5c58d372817159ab111728dd09c0dd"
       },
       "lineage": {
-        "payload_digest": "sha256:84588c61dbf8b9bc892c5cabebae03ed700ea378db64133da7471cf451ce0f54",
+        "payload_digest": "sha256:585d64ea080ea3a62f6d105683d596cfd060b9b28d320256bd3d4a57e82536af",
         "supersedes_refs": [],
         "corrects_refs": [],
-        "envelope_content_digest": "sha256:cc1be83484395306adb5fa180d6212d340f4dab03887319d8cb8ef23c58c5a16"
+        "envelope_content_digest": "sha256:71b6202f7de7817965577f122b38a6692fe76ef690b2c31b39faaf71dd13941e"
       },
       "domain_extension": {
         "schema_uri": "urn:luminous-dynamics:gcpn:uas:0.1.0",
@@ -98,12 +95,7 @@
       "claim": {
         "kind": "source_assertion",
         "claim_type": "ais_reported_navigation_status",
-        "value": {
-          "synthetic": true,
-          "fixture_id": "maritime-001",
-          "ais_is_source_assertion": true,
-          "position_payload_withheld": true
-        }
+        "value": {}
       },
       "quality": {
         "source_health": "healthy",
@@ -132,13 +124,13 @@
           "synthetic_schema_test"
         ],
         "retention_class": "public_fixture",
-        "field_allowlist_digest": "sha256:a88b01b4d7f262f101196b5f8bc3d1c20ee91f2ae20cb1ada4af59af82e3d932"
+        "field_allowlist_digest": "sha256:efd4f59e0a52644edfeace6f1259c9459c5c58d372817159ab111728dd09c0dd"
       },
       "lineage": {
-        "payload_digest": "sha256:eba48c3b24f675022cf548fbd9ea904d069d507541fba859b10696705c6fe398",
+        "payload_digest": "sha256:24f1f26876779edb94b8d4dbbe5cb02f5aa23bafad3f91f57a283a6aacd3da12",
         "supersedes_refs": [],
         "corrects_refs": [],
-        "envelope_content_digest": "sha256:16ea2db1ac0313f27eb07f621c28f7085cf7ef4e6c487c00f9e75abdfb5f3c5b"
+        "envelope_content_digest": "sha256:6fd09fb762bb5f3e001ed9e1e8894a1591d7ed919eed7db15d91cd81fd8720db"
       },
       "domain_extension": {
         "schema_uri": "urn:luminous-dynamics:gcpn:maritime:0.1.0",
@@ -175,13 +167,9 @@
         "kind": "source_assertion",
         "claim_type": "weather_hazard_report",
         "value": {
-          "synthetic": true,
-          "fixture_id": "aviation-001",
           "hazard_type": "reduced_visibility",
           "severity": "advisory",
-          "source_confirmation": "unverified",
-          "declared_integration_class": "advisory_read_only",
-          "authority_owner": "pilot_in_command_or_atc"
+          "source_confirmation": "unverified"
         }
       },
       "quality": {
@@ -211,13 +199,13 @@
           "synthetic_schema_test"
         ],
         "retention_class": "public_fixture",
-        "field_allowlist_digest": "sha256:a88b01b4d7f262f101196b5f8bc3d1c20ee91f2ae20cb1ada4af59af82e3d932"
+        "field_allowlist_digest": "sha256:efd4f59e0a52644edfeace6f1259c9459c5c58d372817159ab111728dd09c0dd"
       },
       "lineage": {
-        "payload_digest": "sha256:0c033ccbd9bf57a360d07b837e94c9d5a5164c820d69760a7bc1f09f5489eee5",
+        "payload_digest": "sha256:dac7ab1fd35789b79dac59da48e709d525efbf34fee7b4ec8e4aa3afc300dc62",
         "supersedes_refs": [],
         "corrects_refs": [],
-        "envelope_content_digest": "sha256:3d7b4c61103841221bd7e36ca534e9ace71b0c7dc74d5eb304b7a30441553092"
+        "envelope_content_digest": "sha256:82953a3f3f59b433b687f8e71c0a32cd8c5919431b7ad23122104b31e2bb66ab"
       },
       "domain_extension": {
         "schema_uri": "urn:luminous-dynamics:gcpn:civil-aviation:0.1.0",
