@@ -199,12 +199,17 @@ The system should support community-defined vocabulary, consent and review workf
 The policy profile should be compatible with the **CARE Principles for Indigenous Data Governance** (Collective Benefit, Authority to Control, Responsibility, Ethics) alongside FAIR-style technical interoperability. CARE is not a machine permission language and must not be reduced to four Boolean fields; it is a people- and purpose-centred governance framework that requires community-defined processes and accountability.
 
 Where a community chooses to use **Local Contexts Traditional Knowledge (TK) or Biocultural (BC) Labels**, CSCP should preserve:
-- the exact label identifier, label version and issuing/community source;
+- the exact permanent label identifier, label title, customized description, label version and issuing/community source;
 - the community or group identified as the primary cultural authority, where stated;
 - associated protocol and permission notices;
 - a pointer to the community's own governance process and contact/decision route, subject to access controls;
-- the time of observation, language and provenance of the label metadata;
+- the time of observation, language/translation and provenance of the label metadata;
 - whether the signal is verified, community-issued, imported, expired or disputed under the source system's own status semantics.
+
+References:
+- [Global Indigenous Data Alliance — CARE Principles for Indigenous Data Governance](https://www.gida-global.org/careprinciples)
+- [Local Contexts — Traditional Knowledge and Biocultural Labels](https://localcontexts.org/labels/about-the-labels/)
+- [Local Contexts — Working with Labels in the Hub](https://localcontexts.org/support/working-with-labels/)
 
 These labels communicate community-specific rules, responsibilities and expectations about sharing and future use. They MUST NOT be interpreted by CSCP as a universal, self-executing legal grant, denial or proof of who holds legal copyright/title. A label is a governance signal and context reference; the operation-specific CSCP decision still requires the relevant community-defined authority/process and exact resource/action scope. Missing or ambiguous authority remains non-permissive. Different communities may choose different protocols, roles, wording and decision processes; the software must not impose one universal cultural ontology.
 
