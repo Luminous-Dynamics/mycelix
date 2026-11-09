@@ -329,4 +329,21 @@ mod tests {
         assert_eq!(quantile(&values, 0.95), 5.0);
         assert_eq!(quantile(&values, 0.99), 5.0);
     }
+
+    #[test]
+    fn thousand_source_scale_case_is_comparable_and_replayable() {
+        let input = build_star_graph(1_000);
+        let bytes = serde_json::to_vec(&input).unwrap();
+        assert!(bytes.len() <= INPUT_LIMIT_BYTES);
+        let report = evaluate_bytes(&bytes);
+        assert_eq!(
+            report.disposition,
+            emsr_dependency_hypergraph::Disposition::SharedDependency
+        );
+        assert_eq!(report.common_dependency_ids, vec!["shared-clock"]);
+        let report_bytes = serde_json::to_vec(&report).unwrap();
+        let verification = independently_verify(&bytes, &report_bytes);
+        assert_eq!(verification.status, "verified");
+    }
+
 }
