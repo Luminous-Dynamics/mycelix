@@ -237,7 +237,6 @@ func TestInvalidAuthorityAndClaimCeilingRejected(t *testing.T) {
 	}
 }
 
-
 func TestDecodeStrictRejectsDuplicateTopLevelProperties(t *testing.T) {
 	_, err := decodeStrict[Input]([]byte(`{"contract":"first","contract":"second"}`))
 	if err == nil {
@@ -274,7 +273,6 @@ func TestVerifierRejectsDuplicateInputProperties(t *testing.T) {
 		t.Fatalf("duplicate-key input was not rejected: %+v", result)
 	}
 }
-
 
 func civilInput(domain string, sourceIDs []string, nodes []Node, edges []DependencyHyperedge) Input {
 	sortStrings(sourceIDs)
@@ -434,7 +432,6 @@ func TestDecodeStrictRejectsOversizedInputBeforeParsing(t *testing.T) {
 		t.Fatal("oversized JSON input was accepted")
 	}
 }
-
 
 func TestReferenceTraversalHandlesLongMaritimeDependencyChains(t *testing.T) {
 	const depth = 10000
