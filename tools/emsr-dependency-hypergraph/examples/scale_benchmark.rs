@@ -19,7 +19,7 @@ use std::process::Command;
 use std::time::{Duration, Instant};
 
 const INPUT_LIMIT_BYTES: usize = 16 * 1024 * 1024;
-const DEFAULT_REPETITIONS: usize = 9;
+const DEFAULT_REPETITIONS: usize = 101;
 const SOURCE_COUNTS: [usize; 5] = [10, 100, 1_000, 10_000, 100_000];
 
 #[derive(Debug, Serialize)]
@@ -30,10 +30,12 @@ struct BenchmarkDocument {
     synthetic_only: bool,
     non_operational: bool,
     rustc_version: String,
+    commit_sha: String,
     operating_system: &'static str,
     architecture: &'static str,
     debug_assertions: bool,
     repetitions: usize,
+    warmup_runs_per_measurement: usize,
     cases: Vec<BenchmarkCase>,
     claim_ceiling: &'static str,
 }
@@ -77,7 +79,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         .ok()
         .and_then(|value| value.parse::<usize>().ok())
         .unwrap_or(DEFAULT_REPETITIONS)
-        .clamp(5, 101);
+        .clamp(101, 501);
 
     let mut cases = Vec::with_capacity(SOURCE_COUNTS.len());
     for source_count in SOURCE_COUNTS {
@@ -91,10 +93,12 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         synthetic_only: true,
         non_operational: true,
         rustc_version: rustc_version(),
+        commit_sha: env::var("GITHUB_SHA").or_else(|_| env::var("GIT_COMMIT")).unwrap_or_else(|_| "unavailable".into()),
         operating_system: env::consts::OS,
         architecture: env::consts::ARCH,
         debug_assertions: cfg!(debug_assertions),
         repetitions,
+        warmup_runs_per_measurement: 1,
         cases,
         claim_ceiling: "Measurements apply only to this synthetic star-hyperedge graph, exact source revision, toolchain and host. They do not establish field throughput, physical independence, sensor performance or operational safety.",
     };
@@ -120,7 +124,7 @@ fn run_case(source_count: usize, repetitions: usize) -> Result<BenchmarkCase, Bo
             input_bytes: input_bytes.len(),
             input_sha256,
             evaluate: empty_timing(),
-            independent_reference_verify: empty_timing(repetitions),
+            independent_reference_verify: empty_timing(),
             evaluator_disposition: "NOT_RUN".into(),
             independent_verifier_status: "NOT_RUN".into(),
             independent_verifier_checks: 0,
@@ -130,6 +134,11 @@ fn run_case(source_count: usize, repetitions: usize) -> Result<BenchmarkCase, Bo
         });
     }
 
+    // One unmeasured warm-up removes first-use allocator/codepath setup from the sample percentiles.
+    let warmup_report = evaluate_bytes(&input_bytes);
+    let warmup_report_bytes = serde_json::to_vec(&warmup_report)?;
+    let _ = independently_verify(&input_bytes, &warmup_report_bytes);
+
     let mut evaluate_times = Vec::with_capacity(repetitions);
     let mut last_report = None;
     for _ in 0..repetitions {
@@ -138,7 +147,7 @@ fn run_case(source_count: usize, repetitions: usize) -> Result<BenchmarkCase, Bo
         evaluate_times.push(start.elapsed());
         last_report = Some(report);
     }
-    let report = last_report.ok_or("no evaluator repetitions executed")?;
+    let report = last_report.ok_or_else(|| std::io::Error::other("no evaluator repetitions executed"))?;
     let report_bytes = serde_json::to_vec(&report)?;
 
     let mut verify_times = Vec::with_capacity(repetitions);
@@ -149,7 +158,7 @@ fn run_case(source_count: usize, repetitions: usize) -> Result<BenchmarkCase, Bo
         verify_times.push(start.elapsed());
         last_verification = Some(verification);
     }
-    let verification = last_verification.ok_or("no verifier repetitions executed")?;
+    let verification = last_verification.ok_or_else(|| std::io::Error::other("no verifier repetitions executed"))?;
 
     let status = if report.disposition == emsr_dependency_hypergraph::Disposition::SharedDependency
         && verification.status == "verified"
