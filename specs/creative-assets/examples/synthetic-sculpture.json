@@ -73,6 +73,38 @@
       "evidenceRefs": [
         "evidence-custody-001"
       ]
+    },
+    {
+      "assertionId": "claim-dimensions-001",
+      "subjectRef": "urn:uuid:11111111-2222-4333-8444-555555555555",
+      "predicate": "other",
+      "objectValue": "Synthetic measured dimensions: 42 cm high × 18 cm wide × 16 cm deep.",
+      "assertedBy": {
+        "agentRef": "did:example:gallery-001",
+        "role": "measurer"
+      },
+      "assertedAt": "2026-11-09T10:20:00Z",
+      "status": "asserted",
+      "method": "calibrated ruler (synthetic fixture)",
+      "evidenceRefs": [
+        "evidence-photo-001"
+      ]
+    },
+    {
+      "assertionId": "claim-edition-001",
+      "subjectRef": "urn:uuid:11111111-2222-4333-8444-555555555555",
+      "predicate": "other",
+      "objectValue": "Synthetic edition claim: unique object, edition 1 of 1.",
+      "assertedBy": {
+        "agentRef": "did:example:artist-001",
+        "role": "artist"
+      },
+      "assertedAt": "2026-11-09T10:21:00Z",
+      "status": "asserted",
+      "method": "artist self-declaration (synthetic fixture)",
+      "evidenceRefs": [
+        "evidence-photo-001"
+      ]
     }
   ],
   "evidence": [
