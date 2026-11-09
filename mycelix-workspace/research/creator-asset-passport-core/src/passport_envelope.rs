@@ -455,6 +455,12 @@ fn encode_asset_kind(value: AssetKind) -> u8 {
         AssetKind::Release => 4,
         AssetKind::VisualAsset => 5,
         AssetKind::LivePerformance => 6,
+        AssetKind::PhysicalArtwork => 7,
+        AssetKind::ArtworkEdition => 8,
+        AssetKind::ArtworkComponent => 9,
+        AssetKind::DigitalRepresentation => 10,
+        AssetKind::DocumentationAsset => 11,
+        AssetKind::DerivedArtifact => 12,
     }
 }
 
@@ -466,6 +472,12 @@ fn decode_asset_kind(value: u8) -> Result<AssetKind, PassportEnvelopeError> {
         4 => Ok(AssetKind::Release),
         5 => Ok(AssetKind::VisualAsset),
         6 => Ok(AssetKind::LivePerformance),
+        7 => Ok(AssetKind::PhysicalArtwork),
+        8 => Ok(AssetKind::ArtworkEdition),
+        9 => Ok(AssetKind::ArtworkComponent),
+        10 => Ok(AssetKind::DigitalRepresentation),
+        11 => Ok(AssetKind::DocumentationAsset),
+        12 => Ok(AssetKind::DerivedArtifact),
         _ => Err(PassportEnvelopeError::InvalidAssetKind),
     }
 }
