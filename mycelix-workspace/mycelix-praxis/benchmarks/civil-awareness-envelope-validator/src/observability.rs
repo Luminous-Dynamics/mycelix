@@ -201,6 +201,14 @@ fn assess_case(case: &Value) -> Result<ObservabilityAssessment, String> {
         );
     }
     let completeness = string_at(case, "/data_completeness")?;
+    if completeness == "withheld" {
+        return assessment(
+            case,
+            ObservabilityState::WithheldOrRestricted,
+            ["rights.source_data_withheld"],
+            Vec::new(),
+        );
+    }
     // Do not parse or expose observation content until rights and availability
     // preconditions have passed.
     let claims = source_claims(case)?;
