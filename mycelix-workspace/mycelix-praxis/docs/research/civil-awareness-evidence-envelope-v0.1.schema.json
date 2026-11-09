@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/Luminous-Dynamics/mycelix/blob/main/mycelix-workspace/mycelix-praxis/docs/research/civil-awareness-evidence-envelope-v0.1.schema.json",
+  "$id": "urn:luminous-dynamics:gcpn:civil-awareness-evidence-envelope:0.1.0",
   "title": "Civil Awareness Evidence Envelope v0.1",
   "description": "Domain-neutral, provenance-preserving event envelope for civilian UAS, maritime and civil-aviation evidence. This schema does not authorize operational use or control actions.",
   "type": "object",
