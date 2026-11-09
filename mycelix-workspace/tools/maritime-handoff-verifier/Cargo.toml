@@ -1,0 +1,18 @@
+[package]
+name = "maritime-handoff-verifier"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85"
+license = "AGPL-3.0-or-later"
+publish = false
+description = "Effects-disabled structural verifier for Maritime Commons cross-stack handoff manifests"
+
+[workspace]
+
+[dependencies]
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+sha2 = "0.10"
+
+[lints.rust]
+unsafe_code = "forbid"
