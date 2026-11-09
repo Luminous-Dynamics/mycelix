@@ -883,7 +883,7 @@ mod tests {
     #[test]
     fn rfc_8785_canonicalization_example_is_stable() {
         let value: Value = serde_json::from_str(
-            r#"{"numbers":[333333333.33333329,1E30,4.50,2e-3,0.000000000000000000000000001],"string":"€$\u000f\nA'B\"\\\\\"/","literals":[null,true,false]}"#
+            r#"{"numbers":[333333333.33333329,1E30,4.50,2e-3,0.000000000000000000000000001],"string":"€$\u000f\nA'B\"\\\\\"\/","literals":[null,true,false]}"#
         ).unwrap();
         let canonical = serde_json_canonicalizer::to_string(&value).unwrap();
         assert_eq!(
