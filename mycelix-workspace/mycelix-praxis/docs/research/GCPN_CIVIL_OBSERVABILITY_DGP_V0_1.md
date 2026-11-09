@@ -54,7 +54,7 @@ If any precondition is unknown, stale, partial, contradictory, failed or restric
 
 ## Frozen challenge set
 
-The machine-readable corpus contains 16 deterministic synthetic cases across all three domains:
+The machine-readable corpus contains 19 deterministic synthetic cases across all three domains:
 
 - AIS not required for a declared vessel class;
 - AIS feed failure;
@@ -76,7 +76,7 @@ The machine-readable corpus contains 16 deterministic synthetic cases across all
 Corpus: `civil-awareness-observability-dgp-v0.1.json`  
 Schema: `civil-awareness-observability-dgp-v0.1.schema.json`
 
-The custom structural checks in the authoring runtime confirmed JSON parsing, 16 unique case IDs, 5 UAS / 6 maritime / 5 civil-aviation cases, all 10 state values represented, valid time intervals, the required coverage/health/rights preconditions on both coverage-qualified negative controls, and the mutation downgrade oracle. This is a structural desk check, not a JSON Schema validator or execution of a product evaluator.
+The custom structural checks in the authoring runtime confirmed JSON parsing, 19 unique case IDs, 6 UAS / 7 maritime / 6 civil-aviation cases, all 10 state values represented, valid time intervals, the required coverage/health/rights/provenance/source-set/dependency preconditions on both coverage-qualified negative controls, and the mutation downgrade oracle. A separately implemented decision-logic mirror reproduced all 19 expected states. This is an independent desk-level cross-check, not execution of the Rust evaluator or a production JSON Schema engine.
 
 ## Metrics
 
@@ -106,3 +106,11 @@ No live sensors, RF operation, vessel/aircraft navigation, ATC/VTS control, flig
 ## Next implementation step
 
 Implement a pure, deterministic `ObservabilityAssessment` function that consumes the source-native coverage artifact and civil envelope, validates the full-window preconditions, emits exactly one state plus stable reason codes, and produces a replayable report bound to input/coverage/evaluator digests. Reuse the existing hypergraph, temporal and rights owners; do not embed a second coverage model or trust root.
+
+## Receipt boundary
+
+`coverage_provenance_ref`, `dependency_context.snapshot_ref` and `dependency_context.evidence_frontier_ref` are owner-native evidence references. The local evaluator checks presence, non-empty identity, source-set binding, scope/time validity and the declared completeness flags. It does **not** resolve, authenticate or verify those referenced receipts cryptographically. A digest-shaped coverage-profile string is a binding identifier, not proof that the profile came from a trusted issuer or was measured correctly.
+
+Before use with real sources, the adapter must retrieve the exact receipt from the owning evidence plane, validate issuer/authority scope, signature/attestation, revision, expiry, rights/purpose and revocation/currentness, then pass only the resulting qualified status into this evaluator. No caller-supplied `independent_oracle`, expected state or other test metadata can qualify coverage.
+
+The single-case API accepts a production-shaped record without `expected`, `mutation` or `independent_oracle` fields. The frozen DGP retains those fields only for the independent test harness.
