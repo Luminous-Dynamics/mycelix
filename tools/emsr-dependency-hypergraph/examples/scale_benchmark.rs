@@ -13,7 +13,6 @@ use emsr_dependency_hypergraph::{
 };
 use serde::Serialize;
 use sha2::{Digest, Sha256};
-use std::collections::BTreeSet;
 use std::env;
 use std::fs;
 use std::process::Command;
@@ -122,7 +121,7 @@ fn run_case(source_count: usize, repetitions: usize) -> Result<BenchmarkCase, Bo
             hyperedge_count: input.hyperedges.len(),
             input_bytes: input_bytes.len(),
             input_sha256,
-            evaluate: empty_timing(repetitions),
+            evaluate: empty_timing(),
             independent_reference_verify: empty_timing(repetitions),
             evaluator_disposition: "NOT_RUN".into(),
             independent_verifier_status: "NOT_RUN".into(),
@@ -262,7 +261,7 @@ fn quantile(values: &[f64], probability: f64) -> f64 {
     values[index.min(values.len() - 1)]
 }
 
-fn empty_timing(repetitions: usize) -> TimingSummary {
+fn empty_timing() -> TimingSummary {
     TimingSummary {
         repetitions: 0,
         p50_ms: 0.0,
