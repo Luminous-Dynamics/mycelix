@@ -18,6 +18,7 @@ VERSION = 1
 FIXTURES = {
     "creator-grant-history-v1.hex",
     "creator-grant-history-v1-unicode-no-expiry.hex",
+    "creator-grant-history-v1-artwork-actions.hex",
 }
 FIXTURE_DIR = Path(__file__).parent / "fixtures"
 
@@ -94,6 +95,33 @@ def encode_unicode_no_expiry_vector() -> bytes:
     return MAGIC + _u16(VERSION) + _u64(1) + issue
 
 
+def encode_artwork_actions_vector() -> bytes:
+    """Exercise the appended CSCP artwork operation tags 8 through 22."""
+    events = []
+    for index, action_tag in enumerate(range(8, 23)):
+        grant_id = f"action-grant-{index}"
+        issue = b"".join(
+            (
+                _string(f"action-event-{index}"),
+                _u64(0),
+                _string("artist"),
+                _string(f"evidence://issue-{index}"),
+                b"\\x01",  # issued event
+                _string(grant_id),
+                _string("artwork-1"),
+                _string("service"),
+                bytes([action_tag]),
+                _string(f"purpose-{index}"),
+                _string("artist"),
+                _string(f"evidence://{grant_id}"),
+                _u64(1),
+                b"\\x00",  # no expiry
+            )
+        )
+        events.append(issue)
+    return MAGIC + _u16(VERSION) + _u64(len(events)) + b"".join(events)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -107,6 +135,7 @@ def main() -> int:
         "creator-grant-history-v1-unicode-no-expiry.hex": (
             encode_unicode_no_expiry_vector()
         ),
+        "creator-grant-history-v1-artwork-actions.hex": encode_artwork_actions_vector(),
     }
 
     if not args.check:
