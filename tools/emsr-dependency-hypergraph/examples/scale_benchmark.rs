@@ -41,7 +41,9 @@ struct BenchmarkDocument {
 
 #[derive(Debug, Serialize)]
 struct BenchmarkCase {
+    topology: String,
     source_count: usize,
+    expected_disposition: String,
     node_count: usize,
     hyperedge_count: usize,
     input_bytes: usize,
@@ -80,9 +82,35 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         .unwrap_or(DEFAULT_REPETITIONS)
         .clamp(101, 501);
 
-    let mut cases = Vec::with_capacity(SOURCE_COUNTS.len());
+    let mut cases = Vec::new();
+
+    // Star is the only 100k case in v0.2. The 100k input remains below the
+    // unchanged production parser cap; richer topologies run through 10k.
     for source_count in SOURCE_COUNTS {
-        cases.push(run_case(source_count, repetitions)?);
+        let (input, expected) = build_star_graph(source_count);
+        cases.push(run_case("star_shared_root", input, expected, repetitions)?);
+    }
+    for source_count in [10, 100, 1_000, 10_000] {
+        let (input, expected) = build_chain_graph(source_count, 128);
+        cases.push(run_case("deep_shared_chain", input, expected, repetitions)?);
+
+        let (input, expected) = build_layered_graph(source_count);
+        cases.push(run_case("layered_hierarchy", input, expected, repetitions)?);
+
+        let (input, expected) = build_independent_graph(source_count);
+        cases.push(run_case("sparse_independent", input, expected, repetitions)?);
+
+        let (input, expected) = build_unknown_graph(source_count);
+        cases.push(run_case("unknown_dependency", input, expected, repetitions)?);
+
+        for (domain, label) in [
+            (DependencyDomain::Clock, "overlap_clock"),
+            (DependencyDomain::Power, "overlap_power"),
+            (DependencyDomain::Network, "overlap_network"),
+        ] {
+            let (input, expected) = build_multi_domain_graph(source_count, domain);
+            cases.push(run_case(label, input, expected, repetitions)?);
+        }
     }
 
     let document = BenchmarkDocument {
@@ -113,16 +141,20 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 fn run_case(
-    source_count: usize,
+    topology: &str,
+    input: HypergraphInput,
+    expected_disposition: &'static str,
     repetitions: usize,
 ) -> Result<BenchmarkCase, Box<dyn std::error::Error>> {
-    let input = build_star_graph(source_count);
+    let source_count = input.query.source_ids.len();
     let input_bytes = serde_json::to_vec(&input)?;
     let input_sha256 = sha256_hex(&input_bytes);
 
     if input_bytes.len() > INPUT_LIMIT_BYTES {
         return Ok(BenchmarkCase {
+            topology: topology.to_owned(),
             source_count,
+            expected_disposition: expected_disposition.to_owned(),
             node_count: input.nodes.len(),
             hyperedge_count: input.hyperedges.len(),
             input_bytes: input_bytes.len(),
@@ -166,7 +198,8 @@ fn run_case(
     let verification = last_verification
         .ok_or_else(|| std::io::Error::other("no verifier repetitions executed"))?;
 
-    let status = if report.disposition == emsr_dependency_hypergraph::Disposition::SharedDependency
+    let actual_disposition = format!("{:?}", report.disposition);
+    let status = if actual_disposition == expected_disposition
         && verification.status == "verified"
     {
         "PASS"
@@ -175,14 +208,16 @@ fn run_case(
     };
 
     Ok(BenchmarkCase {
+        topology: topology.to_owned(),
         source_count,
+        expected_disposition: expected_disposition.to_owned(),
         node_count: input.nodes.len(),
         hyperedge_count: input.hyperedges.len(),
         input_bytes: input_bytes.len(),
         input_sha256,
         evaluate: summarize(&mut evaluate_times),
         independent_reference_verify: summarize(&mut verify_times),
-        evaluator_disposition: format!("{:?}", report.disposition),
+        evaluator_disposition: actual_disposition,
         independent_verifier_status: verification.status,
         independent_verifier_checks: verification.checks.len(),
         peak_rss_kib_after_case: peak_rss_kib(),
@@ -191,50 +226,331 @@ fn run_case(
     })
 }
 
-/// Star-shaped synthetic dependency graph:
-/// N sources -> one shared clock dependency, represented by one hyperedge.
-/// This stresses source validation, multi-subject hyperedges, closure, set
-/// intersection, strict JSON parsing and independent replay at increasing N.
-fn build_star_graph(source_count: usize) -> HypergraphInput {
+/// Star-shaped synthetic dependency graph: N sources -> one common clock.
+fn build_star_graph(source_count: usize) -> (HypergraphInput, &'static str) {
     let source_ids: Vec<String> = (0..source_count)
         .map(|index| format!("s{index:08}"))
         .collect();
-
-    let mut nodes: Vec<Node> = source_ids
+    let mut nodes = source_ids
         .iter()
         .map(|id| Node {
             id: id.clone(),
             kind: NodeKind::Source,
         })
-        .collect();
+        .collect::<Vec<_>>();
     nodes.push(Node {
         id: "shared-clock".into(),
         kind: NodeKind::Dependency,
     });
+    let edge = make_edge(
+        "all-sources-share-clock",
+        source_ids.clone(),
+        "shared-clock",
+        DependencyDomain::Clock,
+        AssertionState::Qualified,
+    );
+    (
+        build_input(source_ids, nodes, vec![edge], DependencyDomain::Clock, source_count, "star"),
+        "SharedDependency",
+    )
+}
 
-    let mut covered_node_ids = source_ids.clone();
-    covered_node_ids.push("shared-clock".into());
-    covered_node_ids.sort();
+/// Every source enters a common 128-deep (or shorter) chain before reaching
+/// the root. This exercises traversal depth as well as a large source set.
+fn build_chain_graph(source_count: usize, requested_depth: usize) -> (HypergraphInput, &'static str) {
+    let source_ids: Vec<String> = (0..source_count)
+        .map(|index| format!("chain-source-{index:08}"))
+        .collect();
+    let depth = requested_depth.max(1);
+    let root = format!("chain-node-{depth:05}");
+    let mut nodes = source_ids
+        .iter()
+        .map(|id| Node {
+            id: id.clone(),
+            kind: NodeKind::Source,
+        })
+        .collect::<Vec<_>>();
+    for index in 0..=depth {
+        nodes.push(Node {
+            id: format!("chain-node-{index:05}"),
+            kind: NodeKind::Dependency,
+        });
+    }
+    let mut edges = Vec::with_capacity(depth + 1);
+    edges.push(make_edge(
+        "chain-source-entry",
+        source_ids.clone(),
+        "chain-node-00000",
+        DependencyDomain::Clock,
+        AssertionState::Qualified,
+    ));
+    for index in 0..depth {
+        edges.push(make_edge(
+            &format!("chain-edge-{index:05}"),
+            vec![format!("chain-node-{index:05}")],
+            format!("chain-node-{:05}", index + 1),
+            DependencyDomain::Clock,
+            AssertionState::Qualified,
+        ));
+    }
+    let _ = root;
+    (
+        build_input(source_ids, nodes, edges, DependencyDomain::Clock, 20, "chain"),
+        "SharedDependency",
+    )
+}
 
-    let mut hyperedge_subjects = source_ids.clone();
-    hyperedge_subjects.sort();
+/// Sources are partitioned into local regions; region dependencies converge
+/// through zones and a common root.
+fn build_layered_graph(source_count: usize) -> (HypergraphInput, &'static str) {
+    let source_ids: Vec<String> = (0..source_count)
+        .map(|index| format!("layer-source-{index:08}"))
+        .collect();
+    let region_size = 100usize;
+    let zone_size = 10usize;
+    let region_count = source_count.div_ceil(region_size);
+    let zone_count = region_count.div_ceil(zone_size);
+    let mut nodes = source_ids
+        .iter()
+        .map(|id| Node {
+            id: id.clone(),
+            kind: NodeKind::Source,
+        })
+        .collect::<Vec<_>>();
+    let mut edges = Vec::new();
+    let mut region_ids = Vec::with_capacity(region_count);
+    for region in 0..region_count {
+        let region_id = format!("region-{region:05}");
+        region_ids.push(region_id.clone());
+        nodes.push(Node {
+            id: region_id.clone(),
+            kind: NodeKind::Dependency,
+        });
+        let start = region * region_size;
+        let end = (start + region_size).min(source_count);
+        edges.push(make_edge(
+            &format!("sources-to-{region_id}"),
+            source_ids[start..end].to_vec(),
+            region_id,
+            DependencyDomain::DataPipeline,
+            AssertionState::Qualified,
+        ));
+    }
+    let mut zone_ids = Vec::with_capacity(zone_count);
+    for zone in 0..zone_count {
+        let zone_id = format!("zone-{zone:05}");
+        zone_ids.push(zone_id.clone());
+        nodes.push(Node {
+            id: zone_id.clone(),
+            kind: NodeKind::Dependency,
+        });
+        let start = zone * zone_size;
+        let end = (start + zone_size).min(region_count);
+        edges.push(make_edge(
+            &format!("regions-to-{zone_id}"),
+            region_ids[start..end].to_vec(),
+            zone_id,
+            DependencyDomain::DataPipeline,
+            AssertionState::Qualified,
+        ));
+    }
+    nodes.push(Node {
+        id: "layered-global-root".into(),
+        kind: NodeKind::Dependency,
+    });
+    edges.push(make_edge(
+        "zones-to-global-root",
+        zone_ids,
+        "layered-global-root",
+        DependencyDomain::DataPipeline,
+        AssertionState::Qualified,
+    ));
+    (
+        build_input(
+            source_ids,
+            nodes,
+            edges,
+            DependencyDomain::DataPipeline,
+            20,
+            "layered",
+        ),
+        "SharedDependency",
+    )
+}
 
-    let edge = DependencyHyperedge {
-        id: "all-sources-share-clock".into(),
-        subject_ids: hyperedge_subjects,
-        dependency_id: "shared-clock".into(),
-        domain: DependencyDomain::Clock,
+/// A source set shares different dependency hierarchies by dimension. Each
+/// benchmark query selects one dimension; the same graph is queried three ways.
+fn build_multi_domain_graph(
+    source_count: usize,
+    domain: DependencyDomain,
+) -> (HypergraphInput, &'static str) {
+    let source_ids: Vec<String> = (0..source_count)
+        .map(|index| format!("multi-source-{index:08}"))
+        .collect();
+    let (label, root_id) = match domain {
+        DependencyDomain::Clock => ("clock", "clock-global-root"),
+        DependencyDomain::Power => ("power", "power-global-root"),
+        DependencyDomain::Network => ("network", "network-global-root"),
+        _ => ("other", "other-global-root"),
+    };
+    let group_size = 100usize;
+    let group_count = source_count.div_ceil(group_size);
+    let mut nodes = source_ids
+        .iter()
+        .map(|id| Node {
+            id: id.clone(),
+            kind: NodeKind::Source,
+        })
+        .collect::<Vec<_>>();
+    let mut edges = Vec::new();
+    let mut group_ids = Vec::with_capacity(group_count);
+    for group in 0..group_count {
+        let group_id = format!("{label}-group-{group:05}");
+        group_ids.push(group_id.clone());
+        nodes.push(Node {
+            id: group_id.clone(),
+            kind: NodeKind::Dependency,
+        });
+        let start = group * group_size;
+        let end = (start + group_size).min(source_count);
+        edges.push(make_edge(
+            &format!("{label}-sources-to-{group_id}"),
+            source_ids[start..end].to_vec(),
+            group_id,
+            domain.clone(),
+            AssertionState::Qualified,
+        ));
+    }
+    nodes.push(Node {
+        id: root_id.into(),
+        kind: NodeKind::Dependency,
+    });
+    edges.push(make_edge(
+        &format!("{label}-groups-to-root"),
+        group_ids,
+        root_id,
+        domain.clone(),
+        AssertionState::Qualified,
+    ));
+    (
+        build_input(source_ids, nodes, edges, domain, 20, label),
+        "SharedDependency",
+    )
+}
+
+/// Every source has its own dependency; a complete inventory must remain
+/// NO_DECLARED_COMMON_DOMAIN rather than inventing an independence proof.
+fn build_independent_graph(source_count: usize) -> (HypergraphInput, &'static str) {
+    let source_ids: Vec<String> = (0..source_count)
+        .map(|index| format!("independent-source-{index:08}"))
+        .collect();
+    let mut nodes = source_ids
+        .iter()
+        .map(|id| Node {
+            id: id.clone(),
+            kind: NodeKind::Source,
+        })
+        .collect::<Vec<_>>();
+    let mut edges = Vec::with_capacity(source_count);
+    for source in &source_ids {
+        let dependency_id = format!("{source}-private-dependency");
+        nodes.push(Node {
+            id: dependency_id.clone(),
+            kind: NodeKind::Dependency,
+        });
+        edges.push(make_edge(
+            &format!("{source}-edge"),
+            vec![source.clone()],
+            dependency_id,
+            DependencyDomain::DataPipeline,
+            AssertionState::Qualified,
+        ));
+    }
+    (
+        build_input(
+            source_ids,
+            nodes,
+            edges,
+            DependencyDomain::DataPipeline,
+            20,
+            "independent",
+        ),
+        "NoDeclaredCommonDomain",
+    )
+}
+
+/// Unknown common-cause metadata must produce UNKNOWN_DEPENDENCY, never a
+/// no-common-domain result.
+fn build_unknown_graph(source_count: usize) -> (HypergraphInput, &'static str) {
+    let source_ids: Vec<String> = (0..source_count)
+        .map(|index| format!("unknown-source-{index:08}"))
+        .collect();
+    let mut nodes = source_ids
+        .iter()
+        .map(|id| Node {
+            id: id.clone(),
+            kind: NodeKind::Source,
+        })
+        .collect::<Vec<_>>();
+    nodes.push(Node {
+        id: "unknown-shared-root".into(),
+        kind: NodeKind::Dependency,
+    });
+    let edge = make_edge(
+        "unknown-shared-edge",
+        source_ids.clone(),
+        "unknown-shared-root",
+        DependencyDomain::Clock,
+        AssertionState::Unknown,
+    );
+    (
+        build_input(source_ids, nodes, vec![edge], DependencyDomain::Clock, 20, "unknown"),
+        "UnknownDependency",
+    )
+}
+
+fn make_edge(
+    id: &str,
+    mut subject_ids: Vec<String>,
+    dependency_id: impl Into<String>,
+    domain: DependencyDomain,
+    state: AssertionState,
+) -> DependencyHyperedge {
+    subject_ids.sort();
+    subject_ids.dedup();
+    DependencyHyperedge {
+        id: id.to_owned(),
+        subject_ids,
+        dependency_id: dependency_id.into(),
+        domain,
         valid_from: Some(0),
         valid_until: None,
         recorded_at: 80,
-        evidence_ref: "synthetic:clock-inventory-v0.1".into(),
-        state: AssertionState::Qualified,
-    };
+        evidence_ref: format!("synthetic:benchmark:{id}"),
+        state,
+    }
+}
 
+fn build_input(
+    mut source_ids: Vec<String>,
+    mut nodes: Vec<Node>,
+    mut hyperedges: Vec<DependencyHyperedge>,
+    domain: DependencyDomain,
+    snapshot_revision: u64,
+    label: &str,
+) -> HypergraphInput {
+    source_ids.sort();
+    source_ids.dedup();
+    nodes.sort_by(|left, right| left.id.cmp(&right.id));
+    hyperedges.sort_by(|left, right| left.id.cmp(&right.id));
+    let mut covered_node_ids: Vec<String> = nodes.iter().map(|node| node.id.clone()).collect();
+    covered_node_ids.sort();
+    covered_node_ids.dedup();
+    let snapshot_id = format!("topology-{label}-{}-{snapshot_revision}", source_ids.len());
     HypergraphInput {
         contract: INPUT_CONTRACT.into(),
         snapshot: InventorySnapshot {
-            snapshot_id: format!("scale-star-{source_count}"),
+            snapshot_id: snapshot_id.clone(),
             as_of: 100,
             evidence_frontier: 120,
             complete: true,
@@ -243,13 +559,13 @@ fn build_star_graph(source_count: usize) -> HypergraphInput {
         },
         query: DependencyQuery {
             source_ids,
-            domain: DependencyDomain::Clock,
+            domain,
             event_time: 90,
-            expected_snapshot_id: format!("scale-star-{source_count}"),
+            expected_snapshot_id: snapshot_id,
             expected_evidence_frontier: 120,
         },
         nodes,
-        hyperedges: vec![edge],
+        hyperedges,
     }
 }
 
