@@ -68,6 +68,17 @@ These results motivate **separate treatment arms**: unassisted discussion, human
 
 The [OECD evaluation guidelines](https://www.oecd.org/en/publications/evaluation-guidelines-for-representative-deliberative-processes_10ccbfcb-en.html) distinguish process-design integrity, deliberative experience and pathways to impact. DelibBench uses those as a lifecycle crosswalk, not as a single scalar score.
 
+## Typed argument and open-world evidence semantics
+
+DelibBench composes with the existing Mycelix domain owners rather than defining another argument graph:
+
+- [#3116 — typed issue/claim/objection graph](https://github.com/Luminous-Dynamics/mycelix/issues/3116) owns issue, claim, evidence, support/challenge, objection, mitigation, and decision lineage. It requires unresolved objections and superseded claims to remain traceable.
+- [#3126 — open-world uncertainty and contested evidence](https://github.com/Luminous-Dynamics/mycelix/issues/3126) owns simultaneous conflicting evidence, contextual verification, first-class unknown/indeterminate states, and decisions made under declared uncertainty.
+
+DelibBench should use those semantics to test whether AI summaries and facilitated processes preserve supporting and challenging evidence, source attribution, unresolved objections and uncertainty. A summary that drops an unresolved challenge can appear more coherent while making the group less informed. A decision reached under uncertainty may be valid as a process outcome; it must not rewrite the evidence as settled.
+
+Structural conformance of an argument graph and human-coded deliberative quality remain different evaluation dimensions.
+
 ## Industry comparison
 
 DelibBench does not aim to replace existing participation interfaces:
