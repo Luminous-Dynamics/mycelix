@@ -33,6 +33,7 @@ pub enum DerivationError {
     NonDerivationOperation,
     AssetNotRegistered(AssetId),
     OutputAlreadyDerived,
+    DuplicateDerivationId,
     CycleDetected,
     InvalidUseRequest,
     SourceNotAuthorized {
@@ -231,6 +232,9 @@ impl DerivationGraph {
     ) -> Result<(), DerivationError> {
         if self.by_output.contains_key(&record.output_asset_id) {
             return Err(DerivationError::OutputAlreadyDerived);
+        }
+        if self.by_output.values().any(|existing| existing.id == record.id) {
+            return Err(DerivationError::DuplicateDerivationId);
         }
         if registry.get(&record.output_asset_id).is_none() {
             return Err(DerivationError::AssetNotRegistered(
