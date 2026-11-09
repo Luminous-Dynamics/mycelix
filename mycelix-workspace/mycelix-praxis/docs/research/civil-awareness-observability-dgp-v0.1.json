@@ -955,6 +955,61 @@
         ]
       },
       "mutation": "none"
+    },
+    {
+      "id": "OBS-019",
+      "domain": "uas",
+      "name": "Fresh positive source observation remains reportable under incomplete broader coverage",
+      "source": {
+        "id": "uas-sensor-019",
+        "modality": "passive_presence",
+        "revision": "synthetic-presence-profile-1"
+      },
+      "scope": {
+        "scope_id": "abstract-scope-site-19",
+        "window_start": 100,
+        "window_end": 200,
+        "window_unit": "synthetic_time"
+      },
+      "equipment_applicability": "applicable",
+      "source_health": "healthy",
+      "coverage": {
+        "assertion_id": "coverage-uas-019",
+        "status": "partial_unknown",
+        "complete_for_scope": false,
+        "independent_oracle": "oracle-uas-positive-019",
+        "limitations": [
+          "coverage_envelope_incomplete"
+        ]
+      },
+      "dependency_context": {
+        "status": "complete",
+        "snapshot_ref": "synthetic-dependency-snapshot-OBS-019",
+        "evidence_frontier_ref": "synthetic-dependency-frontier-OBS-019",
+        "inventory_complete": true
+      },
+      "data_completeness": "complete",
+      "freshness": "fresh",
+      "rights": "allowed_for_synthetic_test",
+      "observations": [
+        {
+          "source_id": "uas-sensor-019",
+          "claim": "OBSERVED_PRESENT",
+          "assertion_ref": "synthetic-positive-observation-019"
+        }
+      ],
+      "expected": {
+        "state": "OBSERVED_PRESENT",
+        "claim_scope": "The source made one fresh positive observation within the abstract scope/window; broader coverage remains unknown and no negative/absence claim is permitted",
+        "must_not_claim": [
+          "complete monitoring",
+          "physical absence outside the observed instance",
+          "universal coverage",
+          "intent",
+          "threat status"
+        ]
+      },
+      "mutation": "none"
     }
   ],
   "claim_ceiling": "Passing this public synthetic DGP establishes only state-transition behavior on declared synthetic coverage and source-health inputs. It does not prove field sensor coverage, probability of detection, physical absence, legal compliance, aircraft/vessel safety or operational readiness."
