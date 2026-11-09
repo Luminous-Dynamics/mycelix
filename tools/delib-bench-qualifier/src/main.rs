@@ -470,6 +470,18 @@ fn run(
     let mut schema_errors = Vec::new();
     validate_schema_subset(manifest, schema, "manifest", &mut schema_errors);
     validate_schema_subset(corpus, fixture_schema, "fixture_corpus", &mut schema_errors);
+    let declared_families: BTreeSet<String> = string_array(manifest, "adversarial_fixture_families")
+        .unwrap_or_default()
+        .into_iter()
+        .collect();
+    let fixture_families: BTreeSet<String> = FAMILIES.iter().map(|family| (*family).to_owned()).collect();
+    if declared_families != fixture_families {
+        add_error(
+            &mut schema_errors,
+            "cross_manifest",
+            "manifest adversarial_fixture_families must exactly match the qualifier registry",
+        );
+    }
     if !schema_errors.is_empty() {
         return Err(schema_errors);
     }
@@ -590,6 +602,34 @@ mod tests {
         fixture["output"]["asserted_authority"] = Value::Bool(true);
         let errors = validate_fixture_corpus(&corpus).unwrap_err();
         assert!(errors.iter().any(|error| error.contains("authority_laundering")));
+    }
+
+
+    #[test]
+    fn protocol_and_fixture_attack_taxonomies_must_match() {
+        let mut manifest = parsed(MANIFEST);
+        manifest["adversarial_fixture_families"][0] = Value::String("unregistered_family".to_string());
+        let errors = run(
+            &manifest,
+            &parsed(SCHEMA),
+            &parsed(FIXTURES),
+            &parsed(FIXTURE_SCHEMA),
+        ).unwrap_err();
+        assert!(errors.iter().any(|error| error.contains("adversarial_fixture_families")));
+    }
+
+    #[test]
+    fn missing_output_boolean_is_rejected_by_fixture_schema() {
+        let mut corpus = parsed(FIXTURES);
+        corpus["fixtures"][0]["output"].as_object_mut().unwrap().remove("asserted_authority");
+        let mut errors = Vec::new();
+        validate_schema_subset(
+            &corpus,
+            &parsed(FIXTURE_SCHEMA),
+            "fixture_corpus",
+            &mut errors,
+        );
+        assert!(errors.iter().any(|error| error.contains("asserted_authority")));
     }
 
     #[test]
