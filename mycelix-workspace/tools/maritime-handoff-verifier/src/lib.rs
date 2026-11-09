@@ -849,7 +849,10 @@ mod tests {
             .unwrap()
             .remove("claim_ceiling");
         let bytes = serde_json::to_vec(&value).unwrap();
-        assert_eq!(validate_manifest_bytes(&bytes), Err(InputError::InvalidJsonOrSchema));
+        assert_eq!(
+            validate_manifest_bytes(&bytes),
+            Err(InputError::InvalidJsonOrSchema)
+        );
     }
 
     #[test]
@@ -860,7 +863,10 @@ mod tests {
             .unwrap()
             .remove("nonclaims");
         let bytes = serde_json::to_vec(&value).unwrap();
-        assert_eq!(validate_manifest_bytes(&bytes), Err(InputError::InvalidJsonOrSchema));
+        assert_eq!(
+            validate_manifest_bytes(&bytes),
+            Err(InputError::InvalidJsonOrSchema)
+        );
     }
 
     #[test]
@@ -868,7 +874,10 @@ mod tests {
         let mut value = valid_synthetic_manifest();
         value["handoff_edges"][0]["transformation_artifact_ref"] = Value::Null;
         let bytes = serde_json::to_vec(&value).unwrap();
-        assert_eq!(validate_manifest_bytes(&bytes), Err(InputError::InvalidJsonOrSchema));
+        assert_eq!(
+            validate_manifest_bytes(&bytes),
+            Err(InputError::InvalidJsonOrSchema)
+        );
     }
 
     #[test]
