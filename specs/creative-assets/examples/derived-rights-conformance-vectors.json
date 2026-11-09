@@ -320,8 +320,18 @@
         "operation": "publish",
         "authority": "verified-for-exact-scope",
         "evidence": "urn:example:credential:012",
-        "approvalEvent": "urn:example:event:policy-supersession-012"
-      }
+        "approvalEvent": "urn:example:event:policy-supersession-012",
+        "grantee": "urn:example:publisher:012",
+        "purpose": "institution-approved-exhibition-publication",
+        "jurisdiction": "ZA",
+        "channel": "institutional-publication",
+        "validFrom": "2026-11-09T00:00:00Z",
+        "validUntil": "2026-12-09T00:00:00Z",
+        "authorityReference": "urn:example:rightsholder-authority:012",
+        "authorityRole": "copyright-holder-for-the-source-representation",
+        "decisionReference": "urn:example:approval:policy-supersession-012"
+      },
+      "at": "2026-11-15T12:00:00Z"
     },
     {
       "id": "DR-013",
@@ -363,7 +373,7 @@
       "actor": "urn:example:ml-pipeline:014",
       "expected": {
         "decision": "deny",
-        "reasonCode": "OPERATION_SCOPE_MISMATCH"
+        "reasonCode": "EXPLICIT_PROHIBITION"
       }
     },
     {
