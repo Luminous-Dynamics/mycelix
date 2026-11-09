@@ -94,3 +94,10 @@ The evaluator deliberately does not read the DGP `expected` field; the unit-test
 A single fresh positive source observation can still be reported when the broader coverage envelope is incomplete; this is not a claim of complete monitoring. In a multi-source assessment, incomplete coverage or lineage remains `COVERAGE_UNKNOWN`, and qualified contradictory source-level outcomes remain `CONFLICT` with both claims preserved.
 
 Run the existing commands from this package to execute the new tests as part of `cargo test --all-targets`. No new graph, source registry, coverage GIS, evidence ledger, trust root or runtime sensor integration is added.
+## Dependency lock and validation status
+
+This package currently has no committed `Cargo.lock`. The path-scoped workflow resolves dependencies and runs formatting, all-target tests and Clippy, but a lockfile must be generated, reviewed and committed before merge. CI success without a committed lockfile does not establish reproducible transitive dependency resolution.
+
+The observability evaluator's 19-case suite includes all ten states, missing/stale dependency-frontier controls, a coverage-proof-removal mutation, a qualified cross-source conflict, a positive source observation under partial broader coverage, and a direct AIS non-carriage precedence assertion. Tests establish only the declared synthetic state-transition behavior; they do not qualify a field coverage model or real detector.
+
+Latest development note: 44 package library tests passed on the prior exact head; Clippy's final `collapsible_if` warning was corrected in the current branch and awaits a new exact-head workflow result.
