@@ -20,6 +20,17 @@ jobs:
     steps:
       - name: Check out exact PR head
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Assert exact source revision
+        shell: bash
+        run: |
+          actual="$(git rev-parse HEAD)"
+          expected="${{ github.event.pull_request.head.sha || github.sha }}"
+          echo "actual_head=${actual}"
+          echo "expected_head=${expected}"
+          test "${actual}" = "${expected}"
 
       - name: Install pinned Rust toolchain
         uses: dtolnay/rust-toolchain@1.96.0
