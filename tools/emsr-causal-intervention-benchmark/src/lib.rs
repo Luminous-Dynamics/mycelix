@@ -379,8 +379,19 @@ pub fn evaluate_public(input: &PublicInput, input_sha256: String) -> CandidateRe
             observation.time_mapping == TimeMapping::Qualified
                 && observation.state != ResponseState::Unobserved
         });
+    let sham_nuisance_detected = by_source.values().any(|(active_response, active_count, sham_response, sham_count)| {
+        *sham_count > 0
+            && *sham_response * 1000
+                > usize::from(plan.maximum_sham_response_rate_milli) * *sham_count
+            && *active_count >= plan.minimum_active_trials
+            && *active_response * 1000
+                >= usize::from(plan.response_threshold_milli) * *active_count
+    });
     if !coverage_complete {
         reasons.push("observation_coverage_incomplete_or_unqualified".to_owned());
+    }
+    if sham_nuisance_detected {
+        reasons.push("sham_trial_response_indicates_nuisance_or_noncausal_correlation".to_owned());
     }
     if time_invalid {
         reasons.push("clock_mapping_or_observation_invalid".to_owned());
@@ -427,7 +438,7 @@ pub fn evaluate_public(input: &PublicInput, input_sha256: String) -> CandidateRe
 
     let disposition = if time_invalid || !errors.is_empty() {
         CandidateDisposition::ObservationOrClockMappingInvalid
-    } else if time_unknown || !coverage_complete {
+    } else if time_unknown || !coverage_complete || sham_nuisance_detected {
         CandidateDisposition::IndeterminateInterventionCoverage
     } else if responsive.len() >= 2 {
         CandidateDisposition::CommonCauseSupportedWithinInterventionScope
@@ -472,11 +483,105 @@ fn hidden_common_cause_sources(input: &PublicInput, truth: &HiddenTruth) -> Vec<
             && path.minimum_latency_ns >= input.intervention.minimum_latency_ns
             && path.maximum_latency_ns <= input.intervention.maximum_latency_ns
             && path.minimum_latency_ns <= path.maximum_latency_ns
+            && path.path_node_ids.len() >= 2
+            && path.path_node_ids.first().map(String::as_str)
+                == Some(path.intervention_target_id.as_str())
+            && path.path_node_ids.last().map(String::as_str) == Some(path.source_id.as_str())
+            && path.path_node_ids.iter().collect::<BTreeSet<_>>().len()
+                == path.path_node_ids.len()
         {
             sources.insert(path.source_id.clone());
         }
     }
     sources.into_iter().collect()
+}
+
+pub fn hidden_truth_commitment_sha256(truth: &HiddenTruth) -> Result<String, String> {
+    let mut uncommitted = truth.clone();
+    uncommitted.truth_commitment_sha256.clear();
+    let bytes = serde_json::to_vec(&uncommitted)
+        .map_err(|error| format!("failed to serialize hidden truth: {error}"))?;
+    Ok(sha256_hex(&bytes))
+}
+
+fn valid_candidate_report(input: &PublicInput, report: &CandidateReport) -> bool {
+    if report.responsive_source_ids.len() != report.responsive_source_ids.iter().collect::<BTreeSet<_>>().len()
+        || report.contrasts.len() != input.expected_source_ids.len()
+    {
+        return false;
+    }
+    let expected: BTreeSet<&str> = input.expected_source_ids.iter().map(String::as_str).collect();
+    let mut contrasts = BTreeMap::new();
+    for contrast in &report.contrasts {
+        if !expected.contains(contrast.source_id.as_str())
+            || contrasts.insert(contrast.source_id.as_str(), contrast).is_some()
+        {
+            return false;
+        }
+        if contrast.active_responses > contrast.active_trials
+            || contrast.sham_responses > contrast.sham_trials
+            || contrast.active_rate_milli > 1000
+            || contrast.sham_rate_milli > 1000
+        {
+            return false;
+        }
+        let expected_active_rate = if contrast.active_trials == 0 {
+            0
+        } else {
+            ((contrast.active_responses * 1000 + contrast.active_trials / 2)
+                / contrast.active_trials) as u16
+        };
+        let expected_sham_rate = if contrast.sham_trials == 0 {
+            0
+        } else {
+            ((contrast.sham_responses * 1000 + contrast.sham_trials / 2)
+                / contrast.sham_trials) as u16
+        };
+        let expected_responsive = contrast.active_trials > 0
+            && contrast.sham_trials > 0
+            && contrast.active_responses * 1000
+                >= usize::from(input.intervention.response_threshold_milli) * contrast.active_trials
+            && contrast.sham_responses * 1000
+                <= usize::from(input.intervention.maximum_sham_response_rate_milli)
+                    * contrast.sham_trials;
+        if contrast.active_rate_milli != expected_active_rate
+            || contrast.sham_rate_milli != expected_sham_rate
+            || contrast.responsive != expected_responsive
+        {
+            return false;
+        }
+    }
+    if contrasts.len() != expected.len() {
+        return false;
+    }
+    let expected_responders: Vec<String> = input
+        .expected_source_ids
+        .iter()
+        .filter(|source| contrasts.get(source.as_str()).is_some_and(|item| item.responsive))
+        .cloned()
+        .collect();
+    if report.responsive_source_ids != expected_responders {
+        return false;
+    }
+    let active_count = input.trials.iter().filter(|trial| trial.arm == TrialArm::Active).count();
+    let sham_count = input.trials.iter().filter(|trial| trial.arm == TrialArm::Sham).count();
+    if report.tested_active_trials != active_count
+        || report.tested_sham_trials != sham_count
+        || report.observations_used > input.observations.len()
+    {
+        return false;
+    }
+    match report.disposition {
+        CandidateDisposition::CommonCauseSupportedWithinInterventionScope => {
+            report.responsive_source_ids.len() >= 2
+        }
+        CandidateDisposition::NoCommonCauseDetectedWithinTestedEnvelope => {
+            report.responsive_source_ids.len() < 2
+                && report.reasons.is_empty()
+        }
+        CandidateDisposition::IndeterminateInterventionCoverage
+        | CandidateDisposition::ObservationOrClockMappingInvalid => true,
+    }
 }
 
 pub fn score_candidate(
@@ -496,8 +601,11 @@ pub fn score_candidate(
         return invalid_score(public_hash, report_hash, "candidate_report_parse_failed");
     };
     let truth_hash = truth.truth_commitment_sha256.clone();
+    let truth_commitment_valid = hidden_truth_commitment_sha256(&truth)
+        .is_ok_and(|expected| expected == truth.truth_commitment_sha256);
     if truth.contract != TRUTH_CONTRACT
         || !valid_digest(&truth.truth_commitment_sha256)
+        || !truth_commitment_valid
         || truth.scenario_id != input.scenario_id
         || report.report_contract != REPORT_CONTRACT
         || report.scenario_id != input.scenario_id
@@ -505,6 +613,7 @@ pub fn score_candidate(
         || report.intervention_id != input.intervention.intervention_id
         || report.target_id != input.intervention.target_id
         || report.declared_scope != input.decision_scope
+        || !valid_candidate_report(&input, &report)
     {
         return EvaluationScore {
             score_contract: SCORE_CONTRACT.to_owned(),
