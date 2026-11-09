@@ -24,7 +24,7 @@ Reuse standards rather than inventing a parallel policy vocabulary:
 - **W3C ODRL Information Model 2.2** provides the core concepts of assets, parties, permissions, prohibitions, duties, actions and constraints. CSCP should define a versioned sector profile for artwork-specific actions, resource scope, authority evidence and conservative conflict semantics.
 - **W3C Verifiable Credentials 2.0** can carry issuer-bound claims and proof material. Credential verification establishes proof/integrity and status, not the truth of the claim or the issuer's legal/cultural competence.
 - **W3C PROV-O** can describe derivation, agents, activities and lineage.
-- **IIIF Authorization Flow API** is relevant to protected image/content delivery. It is not a complete policy engine for every CSCP derivative or AI-processing action.
+- **IIIF Authorization Flow API 2.0.0** is relevant to protected image/content delivery. It is not a complete policy engine for every CSCP derivative or AI-processing action.
 - Existing CSCP approval, replay and event-lineage mechanisms remain authoritative for their current responsibilities.
 
 A standards mapping must record the exact version, profile and mapping-loss report. Unknown fields must not be silently discarded during import/export.
