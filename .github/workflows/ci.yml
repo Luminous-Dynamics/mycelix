@@ -95,6 +95,7 @@ jobs:
             cscp_derived_rights_vectors:
               - 'docs/creator-sovereignty/CSCP_DERIVED_ASSET_RIGHTS_PROFILE.md'
               - 'specs/creative-assets/examples/derived-rights-conformance-vectors.json'
+              - 'tools/cscp-derived-rights-conformance/**'
 
   # Format check (always runs when CI is admitted)
   format:
@@ -246,14 +247,14 @@ jobs:
             cscp-physical-artwork-qualification-receipt.txt
           if-no-files-found: warn
 
-  # Structural validation for the frozen rights conformance corpus. This does
-  # not claim to execute the policy engine; runtime evaluation is a separate gate.
+  # Rust reference oracle for the frozen, synthetic CSCP rights corpus.
+  # This is a fixture conformance tool, not a production authorization service.
   test-cscp-derived-rights-vectors:
-    name: CSCP derived-rights vectors (exact head)
+    name: CSCP derived-rights oracle (exact head)
     needs: changes
     if: needs.changes.outputs.cscp_derived_rights_vectors == 'true' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 15
     permissions:
       contents: read
       pull-requests: read
@@ -266,48 +267,49 @@ jobs:
           persist-credentials: false
       - name: Assert exact source revision
         run: test "$(git rev-parse HEAD)" = "$CSCP_EXPECTED_SHA"
-      - name: Validate rights vector structure and required adversarial cases
-        run: |
-          python3 - <<'PY'
-          import json
-          from pathlib import Path
-
-          path = Path("specs/creative-assets/examples/derived-rights-conformance-vectors.json")
-          document = json.loads(path.read_text(encoding="utf-8"))
-          assert document["schemaVersion"] == "0.1.0"
-          cases = document["cases"]
-          ids = [case["id"] for case in cases]
-          assert len(ids) == len(set(ids)), "duplicate vector IDs"
-          assert len(cases) >= 17, f"expected >=17 frozen cases, got {len(cases)}"
-          allowed = {"permit", "deny", "indeterminate"}
-          for case in cases:
-              expected = case["expected"]
-              assert expected["decision"] in allowed, case["id"]
-              if expected["decision"] == "indeterminate":
-                  assert expected.get("enforcementDisposition") == "deny", case["id"]
-          by_id = {case["id"]: case for case in cases}
-          assert by_id["DR-015"]["expected"]["reasonCode"] == "POLICY_COMPOSITION_INVALID"
-          assert by_id["DR-016"]["expected"]["reasonCode"] == "NO_EXPLICIT_OPERATION_GRANT"
-          assert by_id["DR-017"]["expected"]["reasonCode"] == "COMMUNITY_AUTHORITY_SCOPED_GRANT"
-          assert by_id["DR-016"]["source"][0]["communityGovernance"]["labelSystem"] == "Local-Contexts"
-          print(f"PASS: {len(cases)} rights conformance vectors parsed and structurally checked")
-          PY
-      - name: Write qualification receipt
+      - uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9
+        with:
+          toolchain: 1.96.0
+          components: rustfmt, clippy
+      - name: Generate isolated dependency lock
+        run: cargo generate-lockfile --manifest-path tools/cscp-derived-rights-conformance/Cargo.toml
+      - name: Check formatting
+        run: cargo fmt --manifest-path tools/cscp-derived-rights-conformance/Cargo.toml --all --check
+      - name: Clippy
+        run: cargo clippy --manifest-path tools/cscp-derived-rights-conformance/Cargo.toml --all-targets --locked -- -D warnings
+      - name: Test exact source head
+        run: cargo test --manifest-path tools/cscp-derived-rights-conformance/Cargo.toml --locked
+      - name: Evaluate frozen rights corpus
+        run: cargo run --manifest-path tools/cscp-derived-rights-conformance/Cargo.toml --locked -- --check specs/creative-assets/examples/derived-rights-conformance-vectors.json
+      - name: Write exact-head qualification receipt
         if: always()
         run: |
           {
-            echo "schema=cscp-derived-rights-vectors-receipt-v1"
+            echo "schema=cscp-derived-rights-oracle-receipt-v1"
             echo "expected_source_sha=${CSCP_EXPECTED_SHA}"
             echo "checked_out_sha=$(git rev-parse HEAD 2>/dev/null || echo unavailable)"
-            echo "python_version=$(python3 --version 2>/dev/null || echo unavailable)"
+            echo "rustc_version=$(rustc --version 2>/dev/null || echo unavailable)"
+            echo "cargo_version=$(cargo --version 2>/dev/null || echo unavailable)"
+            if [ -f "tools/cscp-derived-rights-conformance/Cargo.lock" ]; then
+              echo "cargo_lock_sha256=$(sha256sum tools/cscp-derived-rights-conformance/Cargo.lock | cut -d' ' -f1)"
+            else
+              echo "cargo_lock_sha256=missing"
+            fi
             sha256sum specs/creative-assets/examples/derived-rights-conformance-vectors.json
-          } > cscp-derived-rights-vectors-receipt.txt
+            if [ "$(git rev-parse HEAD 2>/dev/null || echo unavailable)" = "$CSCP_EXPECTED_SHA" ]; then
+              echo "exact_source_match=true"
+            else
+              echo "exact_source_match=false"
+            fi
+          } > cscp-derived-rights-oracle-receipt.txt
       - name: Upload raw qualification evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: cscp-derived-rights-vectors-${{ env.CSCP_EXPECTED_SHA }}
-          path: cscp-derived-rights-vectors-receipt.txt
+          name: cscp-derived-rights-oracle-${{ env.CSCP_EXPECTED_SHA }}
+          path: |
+            tools/cscp-derived-rights-conformance/Cargo.lock
+            cscp-derived-rights-oracle-receipt.txt
           if-no-files-found: warn
 
   # Per-cluster test jobs
