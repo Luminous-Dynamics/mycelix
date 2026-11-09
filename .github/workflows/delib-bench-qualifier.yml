@@ -38,4 +38,5 @@ jobs:
           cargo run --manifest-path tools/delib-bench-qualifier/Cargo.toml -- \
             docs/research/deliberation/delib-bench-protocol-v0.1.json \
             docs/research/deliberation/delib-bench-protocol-v0.1.schema.json \
-            docs/research/deliberation/delib-bench-fixtures-v0.1.json
+            docs/research/deliberation/delib-bench-fixtures-v0.1.json \
+            docs/research/deliberation/delib-bench-fixtures-v0.1.schema.json
