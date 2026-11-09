@@ -1,6 +1,7 @@
 use creator_asset_passport_core::{
     AssetId, AssetKind, AssetRegistry, CreativeAssetPassportEnvelope,
     DerivationError, DerivationGraph, DerivationId, DerivationRecord, DerivedPermissionDecision,
+    DigestAlgorithm,
     EventId, GrantEvent, GrantHistory, GrantHistoryEnvelope, GrantId, PartyId,
     PermissionDenial, UsageGrant, UseAction, UseRequest, evaluate_derived_usage,
 };
@@ -56,6 +57,7 @@ fn derivation(
         operation,
         purpose,
         10,
+        DigestAlgorithm::Blake3,
         "a".repeat(64),
         format!("evidence://{id}"),
     )
@@ -299,6 +301,7 @@ fn non_derivation_operations_cannot_be_recorded_as_transformations() {
         UseAction::Publish,
         "release",
         10,
+        DigestAlgorithm::Sha256,
         "b".repeat(64),
         "evidence://invalid",
     );
