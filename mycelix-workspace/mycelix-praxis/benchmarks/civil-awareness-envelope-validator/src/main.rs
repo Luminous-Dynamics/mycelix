@@ -1,7 +1,9 @@
 use std::io::Read;
 use std::process::ExitCode;
 
-use civil_awareness_envelope_validator::{Disposition, EnvelopeValidator, MAX_ENVELOPE_BYTES, ValidationReport};
+use civil_awareness_envelope_validator::{
+    Disposition, EnvelopeValidator, MAX_ENVELOPE_BYTES, ValidationReport,
+};
 
 fn emit(report: &ValidationReport) {
     match serde_json::to_string_pretty(report) {
