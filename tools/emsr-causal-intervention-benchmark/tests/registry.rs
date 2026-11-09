@@ -20,7 +20,7 @@ fn public_intervention_case_registry_is_exact_and_unique() {
     );
     assert_eq!(registry.status, "PUBLIC_SYNTHETIC_SOFTWARE_CONFORMANCE");
     assert!(!registry.claim_ceiling.trim().is_empty());
-    assert_eq!(registry.case_ids.len(), 12);
+    assert_eq!(registry.case_ids.len(), 13);
     let unique: BTreeSet<&str> = registry.case_ids.iter().map(String::as_str).collect();
     assert_eq!(unique.len(), registry.case_ids.len());
 }
