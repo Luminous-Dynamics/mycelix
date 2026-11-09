@@ -1,0 +1,19 @@
+{
+  "schema": "emsr.causal-intervention-public-conformance/0.1",
+  "status": "PUBLIC_SYNTHETIC_SOFTWARE_CONFORMANCE",
+  "claim_ceiling": "Synthetic intervention, observation and hidden-topology mechanics only. Non-detection does not prove physical/statistical independence or generalize beyond the tested intervention envelope.",
+  "case_ids": [
+    "CI-001-active-clock-root-propagates-to-two-endpoints",
+    "CI-002-no-common-path-and-no-active-response",
+    "CI-003-sham-response-nuisance-forces-abstention",
+    "CI-004-missing-endpoint-observation-forces-abstention",
+    "CI-005-unknown-time-mapping-forces-abstention",
+    "CI-006-invalid-time-mapping-is-invalid",
+    "CI-007-delayed-ingestion-preserves-event-time",
+    "CI-008-hidden-common-cause-missed-is-false-nondetection",
+    "CI-009-synchronous-unrelated-fault-is-false-positive",
+    "CI-010-stale-public-input-report-binding-is-rejected",
+    "CI-011-hidden-topology-commitment-mutation-is-rejected",
+    "CI-012-duplicate-trial-source-observation-is-invalid"
+  ]
+}
