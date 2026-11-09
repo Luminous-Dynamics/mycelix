@@ -29,6 +29,38 @@ Reuse standards rather than inventing a parallel policy vocabulary:
 
 A standards mapping must record the exact version, profile and mapping-loss report. Unknown fields must not be silently discarded during import/export.
 
+### 2.1 ODRL 3.0 evolution and migration boundary
+
+The W3C July 2026 workshop report recommends a possible Digital Policy Working Group / ODRL 3.0 direction focused on formal policy semantics, profiles, processor conformance, machine-computable state, modular conformance and integration with identity/provenance standards. A draft Digital Policy Working Group charter is publicly available, but the mailing-list notice explicitly says it remains a proposal and has not yet been accepted by W3C. CSCP therefore pins its current wire/profile semantics to ODRL 2.2 and MUST NOT claim ODRL 3.0 conformance or compatibility.
+
+Design for migration without guessing the future standard:
+
+- keep the CSCP artwork action vocabulary and authority semantics in a separately versioned profile;
+- separate syntax/schema validation from policy evaluation and from enforcement at read/write/search boundaries;
+- record the exact ODRL edition, CSCP profile version, conflict strategy, processor build and conformance corpus digest in each decision receipt;
+- preserve unknown ODRL extensions and source policy payloads as opaque, digest-bound evidence;
+- maintain explicit adapters and mapping-loss reports rather than rewriting a stored 2.2 policy in place;
+- track the proposed W3C work and adopt its semantics only after a published specification and conformance suite exist.
+
+### 2.2 CSCP conformance levels
+
+The initial programme uses progressive qualification so that a structural pass is never confused with actual rights enforcement:
+
+| Level | Qualification scope | Claim ceiling |
+|---|---|---|
+| C0 — syntax/profile | JSON/ODRL structure, known profile terms, identifier shape | Document is structurally valid |
+| C1 — deterministic semantics | Permission/prohibition/duty conflict cases, scope, actor, purpose, time and jurisdiction | Reference processor matches frozen decision vectors |
+| C2 — derivation and lifecycle | Parent lineage, monotonic restrictions, supersession, revocation and expiry | Policy lineage semantics match frozen lifecycle cases |
+| C3 — enforcement surfaces | Object store, derivative workers, caches, OCR, embeddings, vector indexes, search snippets, export, telemetry and restore paths | Tested application surfaces enforce the declared decision contract |
+| C4 — federation/interoperability | ODRL/VC/PROV-O/IIIF mappings, extension preservation, partner round-trip and independent processor comparisons | Tested implementations preserve the profile across declared exchanges |
+
+A higher level requires the lower levels and additional exact-head evidence. The Rust crate in this PR is only a synthetic C1/C2 reference oracle for the fixture vocabulary; it is not a C3 production enforcement engine. No C4 or ODRL-wide conformance is claimed.
+
+References:
+- [W3C workshop report: The Future of ODRL (24 September 2026)](https://www.w3.org/2026/ODRLWS/report.html)
+- [Proposed Digital Policy Working Group charter](https://w3c.github.io/odrl/w3c-wg-draft-charter-2026/dpwg-draft-charter.html)
+- [Notice that the charter remains a proposal](https://lists.w3.org/Archives/Public/public-odrl/2026Sep/0010.html)
+
 ## 3. Resource and subject scope
 
 Every policy rule MUST bind to a specific subject. Supported subject classes include:
