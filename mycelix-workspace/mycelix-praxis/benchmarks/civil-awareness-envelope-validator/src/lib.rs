@@ -145,7 +145,10 @@ impl EnvelopeValidator {
         self.validate_value(&value)
     }
 
-    pub fn validate_value(&self, envelope: &Value) -> ValidationReport {
+    /// Validate a value that has already passed the strict parser. This stays
+    /// private so external callers cannot bypass duplicate-key rejection by
+    /// first parsing untrusted JSON with a last-key-wins deserializer.
+    fn validate_value(&self, envelope: &Value) -> ValidationReport {
         let schema_error_count = self.schema_validator.iter_errors(envelope).count();
         if schema_error_count != 0 {
             return ValidationReport::new(
@@ -192,6 +195,17 @@ impl EnvelopeValidator {
             "domain_extension.field_not_allowlisted",
             &mut rejected,
         );
+        if envelope
+            .pointer("/domain_extension/payload")
+            .and_then(Value::as_object)
+            .is_some_and(|object| {
+                object
+                    .values()
+                    .any(|value| matches!(value, Value::Object(_) | Value::Array(_)))
+            })
+        {
+            rejected.insert("domain_extension.nested_or_array_data_not_allowed_in_v0_1".into());
+        }
 
         // claim.value is deliberately narrower than arbitrary JSON. v0.1
         // accepts a scalar or a flat object with domain+claim-specific keys.
@@ -817,6 +831,33 @@ mod tests {
         assert_eq!(report.disposition, Disposition::Rejected);
         assert!(report.reason_codes.contains(&"domain_extension.field_not_allowlisted".into()));
         assert!(!serde_json::to_string(&report).unwrap().contains("never-log-this-value"));
+    }
+
+    #[test]
+    fn nested_domain_extension_payload_is_rejected_even_with_recomputed_digests() {
+        let v = validator();
+        let mut example = examples().remove(0);
+        example["domain_extension"]["payload"]["fixture_id"] =
+            json!({"nested": "not-allowed"});
+        refresh_digests(&mut example, &v);
+        let report = v.validate_value(&example);
+        assert_eq!(report.disposition, Disposition::Rejected);
+        assert!(report.reason_codes.contains(
+            &"domain_extension.nested_or_array_data_not_allowed_in_v0_1".into()
+        ));
+    }
+
+    #[test]
+    fn array_domain_extension_payload_value_is_rejected() {
+        let v = validator();
+        let mut example = examples().remove(0);
+        example["domain_extension"]["payload"]["fixture_id"] = json!(["not-allowed"]);
+        refresh_digests(&mut example, &v);
+        let report = v.validate_value(&example);
+        assert_eq!(report.disposition, Disposition::Rejected);
+        assert!(report.reason_codes.contains(
+            &"domain_extension.nested_or_array_data_not_allowed_in_v0_1".into()
+        ));
     }
 
     #[test]
