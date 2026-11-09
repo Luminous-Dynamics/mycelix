@@ -234,7 +234,8 @@
         "rights",
         "observations",
         "expected",
-        "mutation"
+        "mutation",
+        "dependency_context"
       ],
       "properties": {
         "id": {
@@ -505,6 +506,45 @@
             "CONFLICT",
             "NOT_APPLICABLE"
           ]
+        },
+        "dependency_context": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "status",
+            "snapshot_ref",
+            "evidence_frontier_ref",
+            "inventory_complete"
+          ],
+          "properties": {
+            "status": {
+              "enum": [
+                "complete",
+                "missing",
+                "stale",
+                "conflicted",
+                "unknown"
+              ]
+            },
+            "snapshot_ref": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "evidence_frontier_ref": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "inventory_complete": {
+              "type": [
+                "boolean",
+                "null"
+              ]
+            }
+          }
         }
       },
       "allOf": [
