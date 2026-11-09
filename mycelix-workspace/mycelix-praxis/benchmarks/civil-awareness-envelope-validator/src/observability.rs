@@ -666,10 +666,32 @@ mod tests {
             assert_eq!(
                 assessment.state.as_str(),
                 case["expected"]["state"].as_str().unwrap(),
-                "{}",
-                case["id"].as_str().unwrap()
+                "{} applicability={:?} reasons={:?}",
+                case["id"].as_str().unwrap(),
+                case["equipment_applicability"],
+                assessment.reason_codes
             );
         }
+    }
+
+    #[test]
+    fn ais_non_carriage_precedes_not_applicable_coverage_profile() {
+        let dgp = fixture();
+        let case = case_by_id(&dgp, "OBS-001");
+        assert_eq!(
+            case["equipment_applicability"].as_str(),
+            Some("not_required_for_declared_vessel_class")
+        );
+        let report = assess_case(case).expect("case structure is complete");
+        assert_eq!(
+            report.state,
+            ObservabilityState::NotEquippedOrNotRequired,
+            "reason_codes={:?}",
+            report.reason_codes
+        );
+        assert!(report.reason_codes.contains(
+            &"source.equipment_or_carriage_not_applicable".to_owned()
+        ));
     }
 
     #[test]
