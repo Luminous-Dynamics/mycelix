@@ -18,7 +18,8 @@
     "https://github.com/Luminous-Dynamics/symthaea/issues/9607",
     "https://github.com/Luminous-Dynamics/symthaea/issues/11232",
     "https://github.com/Luminous-Dynamics/mycelix/issues/3116",
-    "https://github.com/Luminous-Dynamics/mycelix/issues/3126"
+    "https://github.com/Luminous-Dynamics/mycelix/issues/3126",
+    "https://github.com/Luminous-Dynamics/mycelix/issues/6011"
   ],
   "claim_ceiling": {
     "synthetic_conformance": "Establishes behavior only for exact declared fixtures, model assumptions, and evaluator bounds.",
