@@ -211,6 +211,9 @@ pub fn false_alarm_rates(
     if eligible_source_milliseconds == 0 {
         return Err("false_alarm.zero_eligible_source_exposure".into());
     }
+    if false_event_clusters > false_alerts {
+        return Err("false_alarm.event_clusters_exceed_alerts".into());
+    }
     let source_hours = eligible_source_milliseconds as f64 / 3_600_000.0;
     Ok(FalseAlarmRates {
         false_alerts,
@@ -369,6 +372,14 @@ mod tests {
         let rates = false_alarm_rates(12, 3, 7_200_000).unwrap();
         assert_eq!(rates.false_alerts_per_source_hour, 6.0);
         assert_eq!(rates.false_event_clusters_per_source_hour, 1.5);
+    }
+
+    #[test]
+    fn false_event_clusters_cannot_exceed_false_alerts() {
+        assert_eq!(
+            false_alarm_rates(2, 3, 3_600_000).unwrap_err(),
+            "false_alarm.event_clusters_exceed_alerts"
+        );
     }
 
     #[test]
