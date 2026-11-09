@@ -269,30 +269,7 @@ fn write_string(output: &mut Vec<u8>, value: &str) -> Result<(), PortableHistory
 }
 
 fn encode_action(action: UseAction) -> u8 {
-    match action {
-        UseAction::AnalyzeMetadata => 1,
-        UseAction::Publish => 2,
-        UseAction::Distribute => 3,
-        UseAction::Commercialize => 4,
-        UseAction::TrainModel => 5,
-        UseAction::GenerateDerivative => 6,
-        UseAction::SynthesizeVoiceOrLikeness => 7,
-        UseAction::Capture => 8,
-        UseAction::Preserve => 9,
-        UseAction::Transform => 10,
-        UseAction::Index => 11,
-        UseAction::Embed => 12,
-        UseAction::Retrieve => 13,
-        UseAction::Display => 14,
-        UseAction::Export => 15,
-        UseAction::EvaluateModel => 16,
-        UseAction::GenerateThumbnail => 17,
-        UseAction::RunOcr => 18,
-        UseAction::CreateCaption => 19,
-        UseAction::CreateEmbedding => 20,
-        UseAction::ReconstructMesh => 21,
-        UseAction::ReconstructPointCloud => 22,
-    }
+    action.stable_tag()
 }
 
 fn decode_action(value: u8) -> Result<UseAction, PortableHistoryError> {
