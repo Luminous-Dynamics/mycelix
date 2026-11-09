@@ -1,0 +1,141 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Luminous-Dynamics/mycelix/blob/main/docs/research/nrvca-household-capability-v0.1/source-manifest.schema.json",
+  "title": "NRVCA Household Capability Source Manifest v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "profile_id",
+    "snapshot_date",
+    "sources"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "nrvca.household-capability-source-manifest.v0.1"
+    },
+    "profile_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "snapshot_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "sources": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "source_id",
+          "publisher",
+          "title",
+          "canonical_url",
+          "source_kind",
+          "release_vintage",
+          "reference_period",
+          "published_at",
+          "known_at",
+          "geography",
+          "population_scope",
+          "access_status",
+          "source_bytes_acquired",
+          "source_sha256",
+          "rights_status",
+          "evidence_ceiling"
+        ],
+        "properties": {
+          "source_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "publisher": {
+            "type": "string",
+            "minLength": 1
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1
+          },
+          "canonical_url": {
+            "type": "string",
+            "format": "uri"
+          },
+          "source_kind": {
+            "enum": [
+              "official_statistics",
+              "household_microdata",
+              "external_distribution_estimate",
+              "international_methodology",
+              "environmental_accounting_framework"
+            ]
+          },
+          "release_vintage": {
+            "type": "string",
+            "minLength": 1
+          },
+          "reference_period": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "published_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date"
+          },
+          "known_at": {
+            "type": "string",
+            "format": "date"
+          },
+          "geography": {
+            "type": "string",
+            "minLength": 1
+          },
+          "population_scope": {
+            "type": "string",
+            "minLength": 1
+          },
+          "access_status": {
+            "enum": [
+              "metadata_only",
+              "publisher_page_available",
+              "artifact_located_bytes_not_acquired",
+              "bytes_acquired_unverified",
+              "bytes_acquired_hash_verified"
+            ]
+          },
+          "source_bytes_acquired": {
+            "type": "boolean"
+          },
+          "source_sha256": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "rights_status": {
+            "type": "string",
+            "minLength": 1
+          },
+          "evidence_ceiling": {
+            "type": "string",
+            "minLength": 1
+          },
+          "notes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    }
+  }
+}
