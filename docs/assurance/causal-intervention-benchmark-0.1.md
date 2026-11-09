@@ -29,7 +29,7 @@ The truth commitment is a SHA-256 commitment to the serialized hidden-truth stru
 
 For each declared endpoint, compare the degraded-response rate in active trials against the degraded-response rate in sham trials. An endpoint is responsive only when its active response rate meets the intervention threshold and its sham response rate remains below the nuisance ceiling.
 
-A common cause is supported within scope when at least two endpoints respond. A high sham response is treated as confounding/nuisance and forces abstention. Missing observations, unknown time mapping or insufficient coverage also force abstention. Invalid time mappings, duplicate observations, out-of-window events, non-increasing endpoint sequence and malformed schedules are invalid.
+A common cause is supported within scope when at least two endpoints respond. A high sham response is treated as confounding/nuisance and forces abstention. Every trial must also include a declared negative-control observation channel. An active response in that channel is treated as evidence of a shared observation/collection artifact and forces abstention rather than being counted as an independent endpoint. Missing observations, unknown time mapping or insufficient coverage also force abstention. Invalid time mappings, duplicate observations, out-of-window events, non-increasing endpoint sequence and malformed schedules are invalid.
 
 The four candidate dispositions are:
 - `COMMON_CAUSE_SUPPORTED_WITHIN_INTERVENTION_SCOPE`
@@ -41,7 +41,7 @@ The non-detection disposition is not evidence of physical or statistical indepen
 
 ## Public controls and scoring
 
-The public suite has 12 named software conformance cases. The Rust tests cover active/sham contrast, positive and negative outcomes, sham nuisance, incomplete observation coverage, unknown/invalid clock mapping, delayed ingestion, false non-detection, false-positive synchronous unrelated faults, exact-byte input binding, hidden topology commitment mutation and duplicate observation rejection.
+The public suite has 13 named software conformance cases. The Rust tests cover active/sham contrast, positive and negative outcomes, sham nuisance, shared-collector negative-control response, incomplete observation coverage, unknown/invalid clock mapping, delayed ingestion, false non-detection, false-positive synchronous unrelated faults, exact-byte input binding, hidden topology commitment mutation and duplicate observation rejection.
 
 The evaluator records:
 - true positive, false positive, true negative and false negative;
