@@ -101,3 +101,14 @@ This package currently has no committed `Cargo.lock`. The path-scoped workflow r
 The observability evaluator's 19-case suite includes all ten states, missing/stale dependency-frontier controls, a coverage-proof-removal mutation, a qualified cross-source conflict, a positive source observation under partial broader coverage, and a direct AIS non-carriage precedence assertion. Tests establish only the declared synthetic state-transition behavior; they do not qualify a field coverage model or real detector.
 
 Latest development note: 44 package library tests passed on the prior exact head; Clippy's final `collapsible_if` warning was corrected in the current branch and awaits a new exact-head workflow result.
+## Probability calibration and exposure-qualified metrics
+
+The `calibration` module provides small pure Rust primitives for the #6008 calibration benchmark:
+
+- `score_calibration`: Brier score, log loss, prevalence-baseline Brier score, Brier Skill Score, equal-width reliability bins and descriptive ECE. Each record retains a steward-defined source-group ID; group count is reported but independence is not inferred.
+- `probability_of_detection`: Pd only among independently confirmed events with valid observation exposure, with a 95% Wilson interval. Zero eligible events/exposure returns `None`, not Pd = 0.
+- `false_alarm_rates`: raw false alerts and already-deduplicated false-event clusters per eligible source-hour; zero exposure is an error rather than a zero rate.
+
+These primitives do not implement cluster-bootstrap uncertainty, source/event clustering, a DGP generator, field calibration or deployment thresholds. ECE is secondary and bin-dependent. Use #5973 for clustered uncertainty; retain every source group and report denominators/strata. Do not compare results unless eligible exposure and source/dependency profiles are matched.
+
+Benchmark specification: `mycelix-workspace/mycelix-praxis/docs/research/GCPN_COVERAGE_CALIBRATION_BENCHMARK_V0_1.md`; DGP and schema are pinned alongside it. The DGP is a specification only and its generator is not yet implemented.
