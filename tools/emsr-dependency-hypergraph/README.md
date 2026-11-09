@@ -76,6 +76,21 @@ The same graph evaluator is now exercised by a separate civil-domain integration
 
 Each Rust civil-domain profile also passes the existing separate Rust reference traversal. The Go standard-library verifier has matching profile tests and verifies the same report contract.
 
+## Reproducible scale benchmark
+
+An isolated standard-library benchmark driver is available at `examples/scale_benchmark.rs`. It generates a synthetic star-shaped dependency hypergraph at 10, 100, 1,000, 10,000 and 100,000 sources, with one multi-subject shared-clock hyperedge. For each size it reports input SHA-256/bytes, node/edge counts, evaluator p50/p95/p99/min/max, independent-reference-verifier p50/p95/p99/min/max, disposition, verifier status and Linux process high-water RSS where available.
+
+Run in optimized mode:
+
+```sh
+cargo run --release --manifest-path tools/emsr-dependency-hypergraph/Cargo.toml --example scale_benchmark -- /tmp/emsr-hypergraph-scale.json
+GCPN_BENCH_REPETITIONS=31 cargo run --release --manifest-path tools/emsr-dependency-hypergraph/Cargo.toml --example scale_benchmark
+```
+
+The default is 9 repetitions; the environment variable is clamped to 5–101. Results include OS, architecture, rustc version and debug/release state. The 16 MiB parser limit is not relaxed for the benchmark; oversized synthetic cases are reported as rejected rather than silently excluded or scored.
+
+The driver is a synthetic scale harness, not an observed result. Do not publish p50/p95/p99 or memory numbers until the exact revision, host, toolchain, input digests and complete output JSON are retained. The star graph is intentionally simple; follow it with chain, fan-in/fan-out, dense dependency, unknown-edge, temporal filtering and many-small-components shapes before making general throughput claims.
+
 ## Scale and traversal behavior
 
 The main Rust evaluator retains its indexed breadth-first closure; the independent Rust reference traversal now uses a separately built subject index and explicit depth-first event stack. The Go reference verifier uses its own subject index and explicit DFS event stack. Both avoid recursive stack growth and repeated full-hyperedge scans for each visited node.
