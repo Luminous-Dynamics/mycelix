@@ -25,7 +25,9 @@
     "terminal_statuses",
     "non_compensatory_invariants",
     "initial_targets",
-    "outputs"
+    "outputs",
+    "research_basis",
+    "evaluation_layers"
   ],
   "properties": {
     "protocol_id": {
@@ -331,6 +333,87 @@
       "items": {
         "type": "string",
         "minLength": 4
+      }
+    },
+    "research_basis": {
+      "type": "array",
+      "minItems": 4,
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "source_type",
+          "title",
+          "url",
+          "reported_evidence",
+          "intended_use",
+          "limitation"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]*$"
+          },
+          "source_type": {
+            "type": "string",
+            "minLength": 4
+          },
+          "title": {
+            "type": "string",
+            "minLength": 10
+          },
+          "url": {
+            "type": "string",
+            "format": "uri"
+          },
+          "reported_evidence": {
+            "type": "string",
+            "minLength": 20
+          },
+          "intended_use": {
+            "type": "string",
+            "minLength": 20
+          },
+          "limitation": {
+            "type": "string",
+            "minLength": 20
+          }
+        }
+      }
+    },
+    "evaluation_layers": {
+      "type": "array",
+      "minItems": 3,
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "purpose",
+          "primary_evidence",
+          "claim_ceiling"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]*$"
+          },
+          "purpose": {
+            "type": "string",
+            "minLength": 20
+          },
+          "primary_evidence": {
+            "type": "string",
+            "minLength": 10
+          },
+          "claim_ceiling": {
+            "type": "string",
+            "minLength": 20
+          }
+        }
       }
     }
   }
