@@ -1,0 +1,737 @@
+{
+  "corpus_id": "GCPN-CIVIL-CROSS-STACK-0.1",
+  "profile_id": "civil-awareness-cross-stack-golden-trace-0.1",
+  "status": "synthetic_owner_result_fixtures_not_executed",
+  "source_corpus_path": "mycelix-workspace/docs/civil-awareness/integration/civil-awareness-cross-stack-golden-traces-v0.1.json",
+  "source_corpus_git_blob_sha1": "c26b82e5ef9f0b2d3b2452026d7de39d721dd9e5",
+  "case_count": 22,
+  "claim_ceiling": "Typed owner-output fixtures only. These values do not come from Mycelix, Sol-Atlas, Symtropy or Symthaea production implementations and do not establish any physical observation, source truth, independence or operational safety.",
+  "cases": [
+    {
+      "case_id": "UAS-001",
+      "owner_outputs": {
+        "mycelix": {
+          "source_integrity": "verified",
+          "rights_status": "cleared",
+          "authorization_status": "approved",
+          "dependency_state": "no_declared_common_domain",
+          "duplicate_or_relayed": false,
+          "action_authority": "none"
+        },
+        "sol_atlas": {
+          "context_status": "current"
+        },
+        "symtropy": {
+          "scenario_replay_status": "passed"
+        },
+        "symthaea": {
+          "triage_status": "reviewable",
+          "contradiction_status": "none"
+        },
+        "gates": {
+          "required_handoffs_complete": true,
+          "schema_valid": true,
+          "prohibited_fields_detected": false,
+          "privacy_state": "minimized",
+          "source_freshness": "current",
+          "clock_quality": "qualified",
+          "calibration_status": "current",
+          "evidence_completeness": "complete"
+        }
+      }
+    },
+    {
+      "case_id": "UAS-002",
+      "owner_outputs": {
+        "mycelix": {
+          "source_integrity": "verified",
+          "rights_status": "cleared",
+          "authorization_status": "approved",
+          "dependency_state": "shared_dependency",
+          "duplicate_or_relayed": false,
+          "action_authority": "none"
+        },
+        "sol_atlas": {
+          "context_status": "current"
+        },
+        "symtropy": {
+          "scenario_replay_status": "passed"
+        },
+        "symthaea": {
+          "triage_status": "human_review",
+          "contradiction_status": "none"
+        },
+        "gates": {
+          "required_handoffs_complete": true,
+          "schema_valid": true,
+          "prohibited_fields_detected": false,
+          "privacy_state": "minimized",
+          "source_freshness": "current",
+          "clock_quality": "qualified",
+          "calibration_status": "current",
+          "evidence_completeness": "complete"
+        }
+      }
+    },
+    {
+      "case_id": "UAS-003",
+      "owner_outputs": {
+        "mycelix": {
+          "source_integrity": "verified",
+          "rights_status": "cleared",
+          "authorization_status": "approved",
+          "dependency_state": "unknown_dependency",
+          "duplicate_or_relayed": false,
+          "action_authority": "none"
+        },
+        "sol_atlas": {
+          "context_status": "current"
+        },
+        "symtropy": {
+          "scenario_replay_status": "passed"
+        },
+        "symthaea": {
+          "triage_status": "abstain",
+          "contradiction_status": "none"
+        },
+        "gates": {
+          "required_handoffs_complete": true,
+          "schema_valid": true,
+          "prohibited_fields_detected": false,
+          "privacy_state": "minimized",
+          "source_freshness": "current",
+          "clock_quality": "qualified",
+          "calibration_status": "current",
+          "evidence_completeness": "complete"
+        }
+      }
+    },
+    {
+      "case_id": "UAS-004",
+      "owner_outputs": {
+        "mycelix": {
+          "source_integrity": "verified",
+          "rights_status": "cleared",
+          "authorization_status": "approved",
+          "dependency_state": "no_declared_common_domain",
+          "duplicate_or_relayed": true,
+          "action_authority": "none"
+        },
+        "sol_atlas": {
+          "context_status": "current"
+        },
+        "symtropy": {
+          "scenario_replay_status": "passed"
+        },
+        "symthaea": {
+          "triage_status": "human_review",
+          "contradiction_status": "none"
+        },
+        "gates": {
+          "required_handoffs_complete": true,
+          "schema_valid": true,
+          "prohibited_fields_detected": false,
+          "privacy_state": "minimized",
+          "source_freshness": "current",
+          "clock_quality": "qualified",
+          "calibration_status": "current",
+          "evidence_completeness": "complete"
+        }
+      }
+    },
+    {
+      "case_id": "UAS-005",
+      "owner_outputs": {
+        "mycelix": {
+          "source_integrity": "verified",
+          "rights_status": "cleared",
+          "authorization_status": "approved",
+          "dependency_state": "no_declared_common_domain",
+          "duplicate_or_relayed": false,
+          "action_authority": "none"
+        },
+        "sol_atlas": {
+          "context_status": "current"
+        },
+        "symtropy": {
+          "scenario_replay_status": "passed"
+        },
+        "symthaea": {
+          "triage_status": "abstain",
+          "contradiction_status": "none"
+        },
+        "gates": {
+          "required_handoffs_complete": true,
+          "schema_valid": true,
+          "prohibited_fields_detected": false,
+          "privacy_state": "minimized",
+          "source_freshness": "stale",
+          "clock_quality": "qualified",
+          "calibration_status": "current",
+          "evidence_completeness": "complete"
+        }
+      }
+    },
+    {
+      "case_id": "UAS-006",
+      "owner_outputs": {
+        "mycelix": {
+          "source_integrity": "verified",
+          "rights_status": "cleared",
+          "authorization_status": "approved",
+          "dependency_state": "no_declared_common_domain",
+          "duplicate_or_relayed": false,
+          "action_authority": "none"
+        },
+        "sol_atlas": {
+          "context_status": "current"
+        },
+        "symtropy": {
+          "scenario_replay_status": "passed"
+        },
+        "symthaea": {
+          "triage_status": "reviewable",
+          "contradiction_status": "none"
+        },
+        "gates": {
+          "required_handoffs_complete": true,
+          "schema_valid": true,
+          "prohibited_fields_detected": true,
+          "privacy_state": "minimized",
+          "source_freshness": "current",
+          "clock_quality": "qualified",
+          "calibration_status": "current",
+          "evidence_completeness": "complete"
+        }
+      }
+    },
+    {
+      "case_id": "MAR-001",
+      "owner_outputs": {
+        "mycelix": {
+          "source_integrity": "verified",
+          "rights_status": "cleared",
+          "authorization_status": "approved",
+          "dependency_state": "no_declared_common_domain",
+          "duplicate_or_relayed": false,
+          "action_authority": "none"
+        },
+        "sol_atlas": {
+          "context_status": "current"
+        },
+        "symtropy": {
+          "scenario_replay_status": "passed"
+        },
+        "symthaea": {
+          "triage_status": "human_review",
+          "contradiction_status": "conflict"
+        },
+        "gates": {
+          "required_handoffs_complete": true,
+          "schema_valid": true,
+          "prohibited_fields_detected": false,
+          "privacy_state": "minimized",
+          "source_freshness": "current",
+          "clock_quality": "qualified",
+          "calibration_status": "current",
+          "evidence_completeness": "complete"
+        }
+      }
+    },
+    {
+      "case_id": "MAR-002",
+      "owner_outputs": {
+        "mycelix": {
+          "source_integrity": "verified",
+          "rights_status": "cleared",
+          "authorization_status": "approved",
+          "dependency_state": "unknown_dependency",
+          "duplicate_or_relayed": false,
+          "action_authority": "none"
+        },
+        "sol_atlas": {
+          "context_status": "current"
+        },
+        "symtropy": {
+          "scenario_replay_status": "passed"
+        },
+        "symthaea": {
+          "triage_status": "abstain",
+          "contradiction_status": "none"
+        },
+        "gates": {
+          "required_handoffs_complete": true,
+          "schema_valid": true,
+          "prohibited_fields_detected": false,
+          "privacy_state": "minimized",
+          "source_freshness": "current",
+          "clock_quality": "qualified",
+          "calibration_status": "current",
+          "evidence_completeness": "unknown"
+        }
+      }
+    },
+    {
+      "case_id": "MAR-003",
+      "owner_outputs": {
+        "mycelix": {
+          "source_integrity": "verified",
+          "rights_status": "cleared",
+          "authorization_status": "approved",
+          "dependency_state": "shared_dependency",
+          "duplicate_or_relayed": false,
+          "action_authority": "none"
+        },
+        "sol_atlas": {
+          "context_status": "current"
+        },
+        "symtropy": {
+          "scenario_replay_status": "passed"
+        },
+        "symthaea": {
+          "triage_status": "human_review",
+          "contradiction_status": "none"
+        },
+        "gates": {
+          "required_handoffs_complete": true,
+          "schema_valid": true,
+          "prohibited_fields_detected": false,
+          "privacy_state": "minimized",
+          "source_freshness": "current",
+          "clock_quality": "qualified",
+          "calibration_status": "current",
+          "evidence_completeness": "complete"
+        }
+      }
+    },
+    {
+      "case_id": "MAR-004",
+      "owner_outputs": {
+        "mycelix": {
+          "source_integrity": "verified",
+          "rights_status": "cleared",
+          "authorization_status": "approved",
+          "dependency_state": "no_declared_common_domain",
+          "duplicate_or_relayed": false,
+          "action_authority": "none"
+        },
+        "sol_atlas": {
+          "context_status": "stale"
+        },
+        "symtropy": {
+          "scenario_replay_status": "passed"
+        },
+        "symthaea": {
+          "triage_status": "abstain",
+          "contradiction_status": "none"
+        },
+        "gates": {
+          "required_handoffs_complete": true,
+          "schema_valid": true,
+          "prohibited_fields_detected": false,
+          "privacy_state": "minimized",
+          "source_freshness": "current",
+          "clock_quality": "qualified",
+          "calibration_status": "current",
+          "evidence_completeness": "complete"
+        }
+      }
+    },
+    {
+      "case_id": "MAR-005",
+      "owner_outputs": {
+        "mycelix": {
+          "source_integrity": "verified",
+          "rights_status": "cleared",
+          "authorization_status": "approved",
+          "dependency_state": "no_declared_common_domain",
+          "duplicate_or_relayed": false,
+          "action_authority": "none"
+        },
+        "sol_atlas": {
+          "context_status": "current"
+        },
+        "symtropy": {
+          "scenario_replay_status": "passed"
+        },
+        "symthaea": {
+          "triage_status": "reviewable",
+          "contradiction_status": "none"
+        },
+        "gates": {
+          "required_handoffs_complete": true,
+          "schema_valid": true,
+          "prohibited_fields_detected": false,
+          "privacy_state": "minimized",
+          "source_freshness": "current",
+          "clock_quality": "qualified",
+          "calibration_status": "current",
+          "evidence_completeness": "complete"
+        }
+      }
+    },
+    {
+      "case_id": "AVI-001",
+      "owner_outputs": {
+        "mycelix": {
+          "source_integrity": "verified",
+          "rights_status": "cleared",
+          "authorization_status": "approved",
+          "dependency_state": "shared_dependency",
+          "duplicate_or_relayed": false,
+          "action_authority": "none"
+        },
+        "sol_atlas": {
+          "context_status": "current"
+        },
+        "symtropy": {
+          "scenario_replay_status": "passed"
+        },
+        "symthaea": {
+          "triage_status": "human_review",
+          "contradiction_status": "none"
+        },
+        "gates": {
+          "required_handoffs_complete": true,
+          "schema_valid": true,
+          "prohibited_fields_detected": false,
+          "privacy_state": "minimized",
+          "source_freshness": "current",
+          "clock_quality": "qualified",
+          "calibration_status": "current",
+          "evidence_completeness": "complete"
+        }
+      }
+    },
+    {
+      "case_id": "AVI-002",
+      "owner_outputs": {
+        "mycelix": {
+          "source_integrity": "verified",
+          "rights_status": "cleared",
+          "authorization_status": "approved",
+          "dependency_state": "unknown_dependency",
+          "duplicate_or_relayed": false,
+          "action_authority": "none"
+        },
+        "sol_atlas": {
+          "context_status": "current"
+        },
+        "symtropy": {
+          "scenario_replay_status": "passed"
+        },
+        "symthaea": {
+          "triage_status": "abstain",
+          "contradiction_status": "none"
+        },
+        "gates": {
+          "required_handoffs_complete": true,
+          "schema_valid": true,
+          "prohibited_fields_detected": false,
+          "privacy_state": "minimized",
+          "source_freshness": "current",
+          "clock_quality": "qualified",
+          "calibration_status": "current",
+          "evidence_completeness": "unknown"
+        }
+      }
+    },
+    {
+      "case_id": "AVI-003",
+      "owner_outputs": {
+        "mycelix": {
+          "source_integrity": "verified",
+          "rights_status": "cleared",
+          "authorization_status": "approved",
+          "dependency_state": "no_declared_common_domain",
+          "duplicate_or_relayed": false,
+          "action_authority": "none"
+        },
+        "sol_atlas": {
+          "context_status": "conflict"
+        },
+        "symtropy": {
+          "scenario_replay_status": "passed"
+        },
+        "symthaea": {
+          "triage_status": "human_review",
+          "contradiction_status": "conflict"
+        },
+        "gates": {
+          "required_handoffs_complete": true,
+          "schema_valid": true,
+          "prohibited_fields_detected": false,
+          "privacy_state": "minimized",
+          "source_freshness": "current",
+          "clock_quality": "qualified",
+          "calibration_status": "current",
+          "evidence_completeness": "complete"
+        }
+      }
+    },
+    {
+      "case_id": "AVI-004",
+      "owner_outputs": {
+        "mycelix": {
+          "source_integrity": "verified",
+          "rights_status": "cleared",
+          "authorization_status": "approved",
+          "dependency_state": "no_declared_common_domain",
+          "duplicate_or_relayed": false,
+          "action_authority": "none"
+        },
+        "sol_atlas": {
+          "context_status": "current"
+        },
+        "symtropy": {
+          "scenario_replay_status": "passed"
+        },
+        "symthaea": {
+          "triage_status": "reviewable",
+          "contradiction_status": "none"
+        },
+        "gates": {
+          "required_handoffs_complete": true,
+          "schema_valid": true,
+          "prohibited_fields_detected": false,
+          "privacy_state": "minimized",
+          "source_freshness": "current",
+          "clock_quality": "qualified",
+          "calibration_status": "current",
+          "evidence_completeness": "complete"
+        }
+      }
+    },
+    {
+      "case_id": "XDOM-001",
+      "owner_outputs": {
+        "mycelix": {
+          "source_integrity": "verified",
+          "rights_status": "pending",
+          "authorization_status": "pending",
+          "dependency_state": "no_declared_common_domain",
+          "duplicate_or_relayed": false,
+          "action_authority": "none"
+        },
+        "sol_atlas": {
+          "context_status": "current"
+        },
+        "symtropy": {
+          "scenario_replay_status": "passed"
+        },
+        "symthaea": {
+          "triage_status": "abstain",
+          "contradiction_status": "none"
+        },
+        "gates": {
+          "required_handoffs_complete": true,
+          "schema_valid": true,
+          "prohibited_fields_detected": false,
+          "privacy_state": "minimized",
+          "source_freshness": "current",
+          "clock_quality": "qualified",
+          "calibration_status": "current",
+          "evidence_completeness": "complete"
+        }
+      }
+    },
+    {
+      "case_id": "XDOM-002",
+      "owner_outputs": {
+        "mycelix": {
+          "source_integrity": "verified",
+          "rights_status": "cleared",
+          "authorization_status": "approved",
+          "dependency_state": "no_declared_common_domain",
+          "duplicate_or_relayed": false,
+          "action_authority": "none"
+        },
+        "sol_atlas": {
+          "context_status": "current"
+        },
+        "symtropy": {
+          "scenario_replay_status": "passed"
+        },
+        "symthaea": {
+          "triage_status": "not_evaluated",
+          "contradiction_status": "none"
+        },
+        "gates": {
+          "required_handoffs_complete": false,
+          "schema_valid": true,
+          "prohibited_fields_detected": false,
+          "privacy_state": "minimized",
+          "source_freshness": "current",
+          "clock_quality": "qualified",
+          "calibration_status": "current",
+          "evidence_completeness": "complete"
+        }
+      }
+    },
+    {
+      "case_id": "XDOM-003",
+      "owner_outputs": {
+        "mycelix": {
+          "source_integrity": "verified",
+          "rights_status": "cleared",
+          "authorization_status": "approved",
+          "dependency_state": "no_declared_common_domain",
+          "duplicate_or_relayed": false,
+          "action_authority": "attempted"
+        },
+        "sol_atlas": {
+          "context_status": "current"
+        },
+        "symtropy": {
+          "scenario_replay_status": "passed"
+        },
+        "symthaea": {
+          "triage_status": "reviewable",
+          "contradiction_status": "none"
+        },
+        "gates": {
+          "required_handoffs_complete": true,
+          "schema_valid": true,
+          "prohibited_fields_detected": false,
+          "privacy_state": "minimized",
+          "source_freshness": "current",
+          "clock_quality": "qualified",
+          "calibration_status": "current",
+          "evidence_completeness": "complete"
+        }
+      }
+    },
+    {
+      "case_id": "XDOM-004",
+      "owner_outputs": {
+        "mycelix": {
+          "source_integrity": "failed",
+          "rights_status": "cleared",
+          "authorization_status": "approved",
+          "dependency_state": "no_declared_common_domain",
+          "duplicate_or_relayed": false,
+          "action_authority": "none"
+        },
+        "sol_atlas": {
+          "context_status": "current"
+        },
+        "symtropy": {
+          "scenario_replay_status": "passed"
+        },
+        "symthaea": {
+          "triage_status": "reviewable",
+          "contradiction_status": "none"
+        },
+        "gates": {
+          "required_handoffs_complete": true,
+          "schema_valid": true,
+          "prohibited_fields_detected": false,
+          "privacy_state": "minimized",
+          "source_freshness": "current",
+          "clock_quality": "qualified",
+          "calibration_status": "current",
+          "evidence_completeness": "complete"
+        }
+      }
+    },
+    {
+      "case_id": "XDOM-005",
+      "owner_outputs": {
+        "mycelix": {
+          "source_integrity": "verified",
+          "rights_status": "cleared",
+          "authorization_status": "approved",
+          "dependency_state": "no_declared_common_domain",
+          "duplicate_or_relayed": false,
+          "action_authority": "none"
+        },
+        "sol_atlas": {
+          "context_status": "current"
+        },
+        "symtropy": {
+          "scenario_replay_status": "passed"
+        },
+        "symthaea": {
+          "triage_status": "abstain",
+          "contradiction_status": "none"
+        },
+        "gates": {
+          "required_handoffs_complete": true,
+          "schema_valid": true,
+          "prohibited_fields_detected": false,
+          "privacy_state": "minimized",
+          "source_freshness": "current",
+          "clock_quality": "untrusted",
+          "calibration_status": "current",
+          "evidence_completeness": "complete"
+        }
+      }
+    },
+    {
+      "case_id": "XDOM-006",
+      "owner_outputs": {
+        "mycelix": {
+          "source_integrity": "verified",
+          "rights_status": "cleared",
+          "authorization_status": "approved",
+          "dependency_state": "no_declared_common_domain",
+          "duplicate_or_relayed": false,
+          "action_authority": "none"
+        },
+        "sol_atlas": {
+          "context_status": "current"
+        },
+        "symtropy": {
+          "scenario_replay_status": "passed"
+        },
+        "symthaea": {
+          "triage_status": "abstain",
+          "contradiction_status": "none"
+        },
+        "gates": {
+          "required_handoffs_complete": true,
+          "schema_valid": true,
+          "prohibited_fields_detected": false,
+          "privacy_state": "minimized",
+          "source_freshness": "current",
+          "clock_quality": "qualified",
+          "calibration_status": "stale",
+          "evidence_completeness": "complete"
+        }
+      }
+    },
+    {
+      "case_id": "XDOM-007",
+      "owner_outputs": {
+        "mycelix": {
+          "source_integrity": "verified",
+          "rights_status": "cleared",
+          "authorization_status": "approved",
+          "dependency_state": "no_declared_common_domain",
+          "duplicate_or_relayed": false,
+          "action_authority": "none"
+        },
+        "sol_atlas": {
+          "context_status": "current"
+        },
+        "symtropy": {
+          "scenario_replay_status": "unsupported"
+        },
+        "symthaea": {
+          "triage_status": "abstain",
+          "contradiction_status": "none"
+        },
+        "gates": {
+          "required_handoffs_complete": true,
+          "schema_valid": true,
+          "prohibited_fields_detected": false,
+          "privacy_state": "minimized",
+          "source_freshness": "current",
+          "clock_quality": "qualified",
+          "calibration_status": "current",
+          "evidence_completeness": "complete"
+        }
+      }
+    }
+  ]
+}
