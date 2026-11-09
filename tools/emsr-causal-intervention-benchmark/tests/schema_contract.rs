@@ -1,20 +1,27 @@
 use emsr_causal_intervention_benchmark::{
-    EvaluationScore, HiddenTruth, PublicInput,
-    evaluate_public_bytes, hidden_truth_commitment_sha256, score_candidate,
+    EvaluationScore, HiddenTruth, PublicInput, evaluate_public_bytes,
+    hidden_truth_commitment_sha256, score_candidate,
 };
 use jsonschema::draft202012;
 use serde_json::Value;
 
-const INPUT_SCHEMA: &str = include_str!("../../../docs/assurance/causal-intervention-public-input-0.1.schema.json");
-const REPORT_SCHEMA: &str = include_str!("../../../docs/assurance/causal-intervention-candidate-report-0.1.schema.json");
-const TRUTH_SCHEMA: &str = include_str!("../../../docs/assurance/causal-intervention-hidden-truth-0.1.schema.json");
-const SCORE_SCHEMA: &str = include_str!("../../../docs/assurance/causal-intervention-evaluation-score-0.1.schema.json");
+const INPUT_SCHEMA: &str =
+    include_str!("../../../docs/assurance/causal-intervention-public-input-0.1.schema.json");
+const REPORT_SCHEMA: &str =
+    include_str!("../../../docs/assurance/causal-intervention-candidate-report-0.1.schema.json");
+const TRUTH_SCHEMA: &str =
+    include_str!("../../../docs/assurance/causal-intervention-hidden-truth-0.1.schema.json");
+const SCORE_SCHEMA: &str =
+    include_str!("../../../docs/assurance/causal-intervention-evaluation-score-0.1.schema.json");
 
 fn validate(schema_text: &str, value: &Value) {
     let schema: Value = serde_json::from_str(schema_text).expect("schema JSON");
     assert!(draft202012::meta::is_valid(&schema));
     let validator = draft202012::new(&schema).expect("Draft 2020-12 schema");
-    assert!(validator.is_valid(value), "schema rejected value: {value:#}");
+    assert!(
+        validator.is_valid(value),
+        "schema rejected value: {value:#}"
+    );
 }
 
 #[test]
@@ -53,7 +60,7 @@ fn input_report_truth_and_score_match_closed_schemas() {
             {"trial_id":"s2","source_id":"endpoint-b","event_time_tai_ns":610,"received_time_tai_ns":615,"sequence":4,"time_mapping":"qualified","state":"nominal"}
         ]
     })).expect("public input fixture");
-    input.scenario_id="scenario-controlled-001".to_owned();
+    input.scenario_id = "scenario-controlled-001".to_owned();
 
     let public_bytes = serde_json::to_vec(&input).expect("public input bytes");
     validate(INPUT_SCHEMA, &serde_json::to_value(&input).unwrap());
@@ -75,8 +82,9 @@ fn input_report_truth_and_score_match_closed_schemas() {
     let truth_bytes = serde_json::to_vec(&truth).unwrap();
     let report_bytes = serde_json::to_vec(&report).unwrap();
     let score: EvaluationScore = serde_json::from_value(
-        serde_json::to_value(score_candidate(&public_bytes, &truth_bytes, &report_bytes)).unwrap()
-    ).unwrap();
+        serde_json::to_value(score_candidate(&public_bytes, &truth_bytes, &report_bytes)).unwrap(),
+    )
+    .unwrap();
     validate(SCORE_SCHEMA, &serde_json::to_value(&score).unwrap());
     assert!(score.true_positive);
 }
