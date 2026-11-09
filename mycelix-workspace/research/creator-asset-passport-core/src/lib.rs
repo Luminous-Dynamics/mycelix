@@ -583,6 +583,10 @@ impl UseAction {
         matches!(
             self,
             Self::GenerateDerivative
+                | Self::Capture
+                | Self::Transform
+                | Self::Index
+                | Self::Embed
                 | Self::GenerateThumbnail
                 | Self::RunOcr
                 | Self::CreateCaption
