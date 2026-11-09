@@ -55,6 +55,17 @@ Digest contract:
 
 The JCS library dependency range selects the RFC 8785-compatible `serde_json_canonicalizer` implementation. The implementation targets the `jsonschema 0.61` API, Draft 2020-12, with format validation enabled and default reference-resolution features disabled. A Cargo lockfile has not yet been generated in this authoring environment; exact transitive dependency resolution and lockfile review remain required before merge.
 
+## Command-line observability evaluation
+
+The same binary exposes two additional offline modes:
+
+- `cargo run -- --observability-dgp` validates and evaluates the embedded frozen 19-case synthetic corpus, printing a digest-bound report.
+- `cargo run -- --observability-case path/to/case.json` validates and assesses one production-shaped source/scope case. The input schema does not require test-only `expected`, oracle or mutation fields.
+
+Both modes use strict duplicate-key JSON parsing, bounded 2 MiB reads, pinned schema validation and stable value-free errors. A successful assessment is a valid state report—not an operational authorization. Every state, including unresolved/unknown/restricted, is a successful classification result; malformed input or a failed contract is a non-zero exit.
+
+Default invocation with a file path continues to perform evidence-envelope validation.
+
 ## Test strategy
 
 The unit suite covers the three synthetic domain fixtures, unknown schema/policy identity, external-reference rejection, extra fields, wrong digests, nested claim values, unapproved rights, purpose mismatch, retention expiry, unverified sources, stale data, missing dependency groups, reversed event intervals, metadata/lineage digest tampering, duplicate JSON properties, over-size input and a canonicalization vector from RFC 8785.
