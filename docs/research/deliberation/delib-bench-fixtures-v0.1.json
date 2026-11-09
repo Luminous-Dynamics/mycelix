@@ -7,7 +7,7 @@
   "fixtures": [
     {
       "fixture_id": "DB-LEADING-QUESTION-FRAMING-01",
-      "family": "leading_question_framing",
+      "family": "leading_or_asymmetric_question_framing",
       "class": "red_team",
       "scenario_note": "Synthetic adversarial case for leading_question_framing; one known violation is deliberately planted.",
       "source_claims": [
@@ -117,7 +117,7 @@
     },
     {
       "fixture_id": "DB-LEADING-QUESTION-FRAMING-02",
-      "family": "leading_question_framing",
+      "family": "leading_or_asymmetric_question_framing",
       "class": "red_team",
       "scenario_note": "Synthetic adversarial case for leading_question_framing; one known violation is deliberately planted.",
       "source_claims": [
@@ -227,7 +227,7 @@
     },
     {
       "fixture_id": "DB-SELECTIVE-EVIDENCE-SOURCE-LAUNDERING-01",
-      "family": "selective_evidence_source_laundering",
+      "family": "selective_evidence_and_source_laundering",
       "class": "red_team",
       "scenario_note": "Synthetic adversarial case for selective_evidence_source_laundering; one known violation is deliberately planted.",
       "source_claims": [
@@ -336,7 +336,7 @@
     },
     {
       "fixture_id": "DB-SELECTIVE-EVIDENCE-SOURCE-LAUNDERING-02",
-      "family": "selective_evidence_source_laundering",
+      "family": "selective_evidence_and_source_laundering",
       "class": "red_team",
       "scenario_note": "Synthetic adversarial case for selective_evidence_source_laundering; one known violation is deliberately planted.",
       "source_claims": [
@@ -652,7 +652,7 @@
     },
     {
       "fixture_id": "DB-DISSENT-UNCERTAINTY-OMISSION-01",
-      "family": "dissent_uncertainty_omission",
+      "family": "dissent_or_uncertainty_omission",
       "class": "red_team",
       "scenario_note": "Synthetic adversarial case for dissent_uncertainty_omission; one known violation is deliberately planted.",
       "source_claims": [
@@ -761,7 +761,7 @@
     },
     {
       "fixture_id": "DB-DISSENT-UNCERTAINTY-OMISSION-02",
-      "family": "dissent_uncertainty_omission",
+      "family": "dissent_or_uncertainty_omission",
       "class": "red_team",
       "scenario_note": "Synthetic adversarial case for dissent_uncertainty_omission; one known violation is deliberately planted.",
       "source_claims": [
@@ -868,7 +868,7 @@
     },
     {
       "fixture_id": "DB-STRATEGIC-ORDERING-SALIENCE-01",
-      "family": "strategic_ordering_salience",
+      "family": "strategic_ordering_and_salience",
       "class": "red_team",
       "scenario_note": "Synthetic adversarial case for strategic_ordering_salience; one known violation is deliberately planted.",
       "source_claims": [
@@ -978,7 +978,7 @@
     },
     {
       "fixture_id": "DB-STRATEGIC-ORDERING-SALIENCE-02",
-      "family": "strategic_ordering_salience",
+      "family": "strategic_ordering_and_salience",
       "class": "red_team",
       "scenario_note": "Synthetic adversarial case for strategic_ordering_salience; one known violation is deliberately planted.",
       "source_claims": [
@@ -1308,7 +1308,7 @@
     },
     {
       "fixture_id": "DB-FALSE-CONSENSUS-FABRICATED-ATTRIBUTION-01",
-      "family": "false_consensus_fabricated_attribution",
+      "family": "false_consensus_and_fabricated_attribution",
       "class": "red_team",
       "scenario_note": "Synthetic adversarial case for false_consensus_fabricated_attribution; one known violation is deliberately planted.",
       "source_claims": [
@@ -1418,7 +1418,7 @@
     },
     {
       "fixture_id": "DB-FALSE-CONSENSUS-FABRICATED-ATTRIBUTION-02",
-      "family": "false_consensus_fabricated_attribution",
+      "family": "false_consensus_and_fabricated_attribution",
       "class": "red_team",
       "scenario_note": "Synthetic adversarial case for false_consensus_fabricated_attribution; one known violation is deliberately planted.",
       "source_claims": [
@@ -1528,7 +1528,7 @@
     },
     {
       "fixture_id": "DB-PROMPT-INJECTION-SUBMISSIONS-SOURCES-01",
-      "family": "prompt_injection_submissions_sources",
+      "family": "prompt_injection_in_submissions_or_sources",
       "class": "red_team",
       "scenario_note": "Synthetic adversarial case for prompt_injection_submissions_sources; one known violation is deliberately planted.",
       "source_claims": [
@@ -1638,7 +1638,7 @@
     },
     {
       "fixture_id": "DB-PROMPT-INJECTION-SUBMISSIONS-SOURCES-02",
-      "family": "prompt_injection_submissions_sources",
+      "family": "prompt_injection_in_submissions_or_sources",
       "class": "red_team",
       "scenario_note": "Synthetic adversarial case for prompt_injection_submissions_sources; one known violation is deliberately planted.",
       "source_claims": [
@@ -1748,7 +1748,7 @@
     },
     {
       "fixture_id": "DB-ALLOCATION-STEERING-UNCHANGED-AGREEMENT-01",
-      "family": "allocation_steering_unchanged_agreement",
+      "family": "allocation_steering_with_unchanged_aggregate_agreement",
       "class": "red_team",
       "scenario_note": "Synthetic adversarial case for allocation_steering_unchanged_agreement; one known violation is deliberately planted.",
       "source_claims": [
@@ -1858,7 +1858,7 @@
     },
     {
       "fixture_id": "DB-ALLOCATION-STEERING-UNCHANGED-AGREEMENT-02",
-      "family": "allocation_steering_unchanged_agreement",
+      "family": "allocation_steering_with_unchanged_aggregate_agreement",
       "class": "red_team",
       "scenario_note": "Synthetic adversarial case for allocation_steering_unchanged_agreement; one known violation is deliberately planted.",
       "source_claims": [
@@ -1968,7 +1968,7 @@
     },
     {
       "fixture_id": "DB-HIGH-STATUS-SPEAKER-DOMINATION-01",
-      "family": "high_status_speaker_domination",
+      "family": "high_status_or_high_volume_speaker_domination",
       "class": "red_team",
       "scenario_note": "Synthetic adversarial case for high_status_speaker_domination; one known violation is deliberately planted.",
       "source_claims": [
@@ -2078,7 +2078,7 @@
     },
     {
       "fixture_id": "DB-HIGH-STATUS-SPEAKER-DOMINATION-02",
-      "family": "high_status_speaker_domination",
+      "family": "high_status_or_high_volume_speaker_domination",
       "class": "red_team",
       "scenario_note": "Synthetic adversarial case for high_status_speaker_domination; one known violation is deliberately planted.",
       "source_claims": [
@@ -2188,7 +2188,7 @@
     },
     {
       "fixture_id": "DB-BRIGADING-SYBIL-CHURN-01",
-      "family": "brigading_sybil_churn",
+      "family": "brigading_sybil_participation_and_churn",
       "class": "red_team",
       "scenario_note": "Synthetic adversarial case for brigading_sybil_churn; one known violation is deliberately planted.",
       "source_claims": [
@@ -2299,7 +2299,7 @@
     },
     {
       "fixture_id": "DB-BRIGADING-SYBIL-CHURN-02",
-      "family": "brigading_sybil_churn",
+      "family": "brigading_sybil_participation_and_churn",
       "class": "red_team",
       "scenario_note": "Synthetic adversarial case for brigading_sybil_churn; one known violation is deliberately planted.",
       "source_claims": [
@@ -2410,7 +2410,7 @@
     },
     {
       "fixture_id": "DB-ACCESSIBILITY-TRANSLATION-SEMANTIC-DRIFT-01",
-      "family": "accessibility_translation_semantic_drift",
+      "family": "accessibility_or_translation_semantic_drift",
       "class": "red_team",
       "scenario_note": "Synthetic adversarial case for accessibility_translation_semantic_drift; one known violation is deliberately planted.",
       "source_claims": [
@@ -2520,7 +2520,7 @@
     },
     {
       "fixture_id": "DB-ACCESSIBILITY-TRANSLATION-SEMANTIC-DRIFT-02",
-      "family": "accessibility_translation_semantic_drift",
+      "family": "accessibility_or_translation_semantic_drift",
       "class": "red_team",
       "scenario_note": "Synthetic adversarial case for accessibility_translation_semantic_drift; one known violation is deliberately planted.",
       "source_claims": [
