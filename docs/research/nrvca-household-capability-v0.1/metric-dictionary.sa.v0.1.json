@@ -1,0 +1,89 @@
+{
+  "schema_version": "nrvca.household-capability-metric-dictionary.v0.1",
+  "profile_id": "south-africa-household-capability-v0.1",
+  "status": "definitions_only_no_values",
+  "metrics": [
+    {
+      "metric_id": "sa.ghs.household.piped_water_access.v0.1",
+      "name": "Household piped-water access",
+      "definition_status": "proposed_publisher_definition_pending_questionnaire_mapping",
+      "construct": "Household reports piped water in dwelling, yard or communal tap.",
+      "unit": "percent_of_weighted_valid_households",
+      "unit_of_analysis": "household",
+      "population_scope": "GHS 2025 target population",
+      "numerator_definition": null,
+      "denominator_definition": null,
+      "microdata_variable_names": [],
+      "survey_weight_field": null,
+      "strata_field": null,
+      "psu_field": null,
+      "variance_estimator": "pending_design_and_codebook_review",
+      "reference_period": "2025",
+      "source_id": "stats-sa-ghs-2025-v1",
+      "published_value": null,
+      "published_value_status": "not_transcribed_in_this_fixture",
+      "forbidden_inferences": [
+        "continuous_service",
+        "water_quality",
+        "safety",
+        "affordability",
+        "volume_delivered",
+        "causal_policy_effect"
+      ]
+    },
+    {
+      "metric_id": "sa.ghs.household.food_access_inadequacy.v0.1",
+      "name": "Household-reported food-access inadequacy",
+      "definition_status": "proposed_publisher_definition_pending_questionnaire_mapping",
+      "construct": "Household reports access to food as inadequate or severely inadequate under the exact GHS questionnaire item and Stats SA reporting definition.",
+      "unit": "percent_of_weighted_valid_households",
+      "unit_of_analysis": "household",
+      "population_scope": "GHS 2025 target population",
+      "numerator_definition": null,
+      "denominator_definition": null,
+      "microdata_variable_names": [],
+      "survey_weight_field": null,
+      "strata_field": null,
+      "psu_field": null,
+      "variance_estimator": "pending_design_and_codebook_review",
+      "reference_period": "2025",
+      "source_id": "stats-sa-ghs-2025-v1",
+      "published_value": null,
+      "published_value_status": "not_transcribed_in_this_fixture",
+      "forbidden_inferences": [
+        "individual_hunger_diagnosis",
+        "nutritional_status",
+        "causal_policy_effect",
+        "universal_food_security_status"
+      ]
+    },
+    {
+      "metric_id": "sa.ghs.household.mains_electricity_access.v0.1",
+      "name": "Household access to mains electricity",
+      "definition_status": "proposed_publisher_definition_pending_questionnaire_mapping",
+      "construct": "Household access to mains electricity using the precise GHS question, categories and published denominator.",
+      "unit": "percent_of_weighted_valid_households",
+      "unit_of_analysis": "household",
+      "population_scope": "GHS 2025 target population",
+      "numerator_definition": null,
+      "denominator_definition": null,
+      "microdata_variable_names": [],
+      "survey_weight_field": null,
+      "strata_field": null,
+      "psu_field": null,
+      "variance_estimator": "pending_design_and_codebook_review",
+      "reference_period": "2025",
+      "source_id": "stats-sa-ghs-2025-v1",
+      "published_value": null,
+      "published_value_status": "not_transcribed_in_this_fixture",
+      "forbidden_inferences": [
+        "continuous_supply",
+        "outage_frequency",
+        "power_quality",
+        "affordability",
+        "cooking_energy_source",
+        "causal_policy_effect"
+      ]
+    }
+  ]
+}
