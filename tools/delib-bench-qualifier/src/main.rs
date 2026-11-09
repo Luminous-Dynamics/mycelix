@@ -84,6 +84,52 @@ fn uri_shape_is_valid(value: &str) -> bool {
         && remainder.split('/').next().is_some_and(|host| !host.is_empty() && host.contains('.'))
 }
 
+/// Validate the entire schema tree, including optional properties absent from the current instance.
+/// This prevents unsupported constraints from escaping merely because a field is not currently populated.
+fn validate_schema_definition(schema: &Value, context: &str, errors: &mut Vec<String>) {
+    const SUPPORTED_KEYWORDS: [&str; 17] = [
+        "$schema", "$id", "title", "description", "type", "const", "enum",
+        "required", "properties", "additionalProperties", "minItems", "uniqueItems",
+        "items", "minLength", "pattern", "minimum", "format",
+    ];
+
+    let Some(object) = schema.as_object() else {
+        add_error(errors, context, "schema definition must be an object");
+        return;
+    };
+
+    for keyword in object.keys() {
+        if !SUPPORTED_KEYWORDS.contains(&keyword.as_str()) {
+            add_error(errors, context, format!("unsupported schema keyword {keyword}"));
+        }
+    }
+
+    if let Some(pattern) = schema.get("pattern").and_then(Value::as_str) {
+        if pattern != "^[a-z][a-z0-9_]*$" {
+            add_error(errors, context, format!("unsupported pattern {pattern}"));
+        }
+    }
+    if let Some(format) = schema.get("format").and_then(Value::as_str) {
+        if format != "uri" {
+            add_error(errors, context, format!("unsupported format {format}"));
+        }
+    }
+
+    if let Some(properties) = schema.get("properties") {
+        if let Some(properties) = properties.as_object() {
+            for (key, child) in properties {
+                validate_schema_definition(child, &format!("{context}.properties.{key}"), errors);
+            }
+        } else {
+            add_error(errors, context, "properties must be an object");
+        }
+    }
+
+    if let Some(items) = schema.get("items") {
+        validate_schema_definition(items, &format!("{context}.items"), errors);
+    }
+}
+
 /// Validates the JSON-Schema subset declared in the checked-in schema file.
 /// Unsupported schema keywords are not silently treated as a full JSON Schema implementation.
 fn validate_schema_subset(
@@ -304,6 +350,9 @@ fn evaluate_fixture(fixture: &Value, errors: &mut Vec<String>) -> BTreeSet<Strin
     if !required_sources.is_subset(&cited_sources) {
         violations.insert("source_provenance_missing".to_string());
     }
+    if !cited_sources.is_subset(&required_sources) {
+        violations.insert("unsupported_source_reference".to_string());
+    }
 
     let preserved_uncertainty: BTreeSet<String> =
         string_array(output, "uncertainty_preserved_claim_ids")
@@ -312,6 +361,9 @@ fn evaluate_fixture(fixture: &Value, errors: &mut Vec<String>) -> BTreeSet<Strin
             .collect();
     if !required_uncertainty.is_subset(&preserved_uncertainty) {
         violations.insert("uncertainty_omitted".to_string());
+    }
+    if !preserved_uncertainty.is_subset(&required_uncertainty) {
+        violations.insert("unsupported_uncertainty_claim".to_string());
     }
 
     if output.get("asserted_consensus").and_then(Value::as_bool) == Some(true)
@@ -350,8 +402,17 @@ fn evaluate_fixture(fixture: &Value, errors: &mut Vec<String>) -> BTreeSet<Strin
     }
 
     if let Some(principals) = string_array(output, "counted_principal_ids") {
-        if principals.iter().collect::<BTreeSet<_>>().len() != principals.len() {
+        let actual_principals: BTreeSet<String> = principals.iter().cloned().collect();
+        if actual_principals.len() != principals.len() {
             violations.insert("sybil_duplicate_count".to_string());
+        }
+        let expected_principals: BTreeSet<String> = claims
+            .iter()
+            .filter_map(|claim| non_empty_string(claim, "speaker_id"))
+            .map(ToOwned::to_owned)
+            .collect();
+        if actual_principals != expected_principals {
+            violations.insert("principal_roster_mismatch".to_string());
         }
     } else {
         add_error(errors, context, "counted_principal_ids must be a string array");
@@ -531,6 +592,8 @@ fn run(
     fixture_schema: &Value,
 ) -> Result<FixtureReport, Vec<String>> {
     let mut schema_errors = Vec::new();
+    validate_schema_definition(schema, "manifest_schema", &mut schema_errors);
+    validate_schema_definition(fixture_schema, "fixture_schema", &mut schema_errors);
     validate_schema_subset(manifest, schema, "manifest", &mut schema_errors);
     validate_schema_subset(corpus, fixture_schema, "fixture_corpus", &mut schema_errors);
     let declared_families: BTreeSet<String> = string_array(manifest, "adversarial_fixture_families")
@@ -704,6 +767,51 @@ mod tests {
         let mut errors = Vec::new();
         validate_schema_subset(&manifest, &schema, "manifest", &mut errors);
         assert!(errors.iter().any(|error| error.contains("unsupported schema keyword maxLength")));
+    }
+
+    #[test]
+    fn unsupported_keyword_in_absent_optional_property_is_rejected() {
+        let schema = parsed(SCHEMA);
+        let mut schema = schema;
+        schema["properties"]["optional_probe"] =
+            serde_json::json!({"type": "string", "maxLength": 12});
+        let mut errors = Vec::new();
+        validate_schema_definition(&schema, "manifest_schema", &mut errors);
+        assert!(errors.iter().any(|error| error.contains("unsupported schema keyword maxLength")));
+    }
+
+    #[test]
+    fn unsupported_extra_source_reference_is_rejected() {
+        let corpus = parsed(FIXTURES);
+        let mut fixture = corpus["fixtures"][0].clone();
+        fixture["output"]["cited_source_refs"]
+            .as_array_mut().unwrap()
+            .push(Value::String("fabricated-source".to_string()));
+        let mut errors = Vec::new();
+        let violations = evaluate_fixture(&fixture, &mut errors);
+        assert!(violations.contains("unsupported_source_reference"));
+    }
+
+    #[test]
+    fn unsupported_uncertainty_claim_is_rejected() {
+        let corpus = parsed(FIXTURES);
+        let mut fixture = corpus["fixtures"][0].clone();
+        fixture["output"]["uncertainty_preserved_claim_ids"]
+            .as_array_mut().unwrap()
+            .push(Value::String("not-an-uncertain-claim".to_string()));
+        let mut errors = Vec::new();
+        let violations = evaluate_fixture(&fixture, &mut errors);
+        assert!(violations.contains("unsupported_uncertainty_claim"));
+    }
+
+    #[test]
+    fn missing_or_fabricated_principal_ids_are_rejected() {
+        let corpus = parsed(FIXTURES);
+        let mut fixture = corpus["fixtures"][0].clone();
+        fixture["output"]["counted_principal_ids"].as_array_mut().unwrap().pop();
+        let mut errors = Vec::new();
+        let violations = evaluate_fixture(&fixture, &mut errors);
+        assert!(violations.contains("principal_roster_mismatch"));
     }
 
     #[test]
