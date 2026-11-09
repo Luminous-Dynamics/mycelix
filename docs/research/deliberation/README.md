@@ -48,6 +48,9 @@ The evaluator has deterministic oracles for:
 
 The attention-share cap is a synthetic fixture oracle, **not** a universal fairness, participation or airtime standard. The fixture allocation comparison is also only a known-answer control; it does not assert that the reference allocation is normatively correct.
 
+**Important limit of the synthetic claim fixtures:** the `representations` field is a controlled, typed claim-to-claim mapping, not free-form generated natural language. Exact field preservation is a deliberately narrow oracle for source identity, attribution, epistemic status and omission. It does not score acceptable paraphrase/compression, participant-conditioned representativeness, informativeness, neutrality or policy approval. Those require human-grounded summary evaluation (for example, DeliberationBank where data-use review permits) and independent human adjudication. The synthetic corpus is a structural/red-team control, not a language-summary benchmark.
+
+
 ## Research grounding and external baselines
 
 ### Human-grounded opinion summarization
