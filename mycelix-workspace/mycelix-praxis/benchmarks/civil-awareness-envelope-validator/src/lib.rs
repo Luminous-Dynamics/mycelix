@@ -213,15 +213,18 @@ impl EnvelopeValidator {
             }
         }
 
-        // Envelope digest covers the full envelope except lineage itself,
-        // preventing digest self-reference while binding every other field.
-        let mut content_without_lineage = envelope.clone();
-        if let Some(object) = content_without_lineage.as_object_mut() {
-            object.remove("lineage");
+        // Envelope digest covers every field, including correction and
+        // supersession lineage, except its own digest field.
+        let mut content_without_digest = envelope.clone();
+        if let Some(lineage) = content_without_digest
+            .get_mut("lineage")
+            .and_then(Value::as_object_mut)
+        {
+            lineage.remove("envelope_content_digest");
         } else {
-            rejected.insert("envelope.not_object".into());
+            rejected.insert("envelope.lineage_missing".into());
         }
-        match serde_json_canonicalizer::to_vec(&content_without_lineage) {
+        match serde_json_canonicalizer::to_vec(&content_without_digest) {
             Ok(bytes) => {
                 let expected = format!("sha256:{}", sha256_hex(&bytes));
                 if string_at(envelope, "/lineage/envelope_content_digest") != Some(expected.as_str()) {
@@ -557,7 +560,10 @@ mod tests {
         value["lineage"]["payload_digest"] =
             Value::String(format!("sha256:{}", sha256_hex(&bytes)));
         let mut content = value.clone();
-        content.as_object_mut().unwrap().remove("lineage");
+        content["lineage"]
+            .as_object_mut()
+            .unwrap()
+            .remove("envelope_content_digest");
         let bytes = serde_json_canonicalizer::to_vec(&content).unwrap();
         value["lineage"]["envelope_content_digest"] =
             Value::String(format!("sha256:{}", sha256_hex(&bytes)));
