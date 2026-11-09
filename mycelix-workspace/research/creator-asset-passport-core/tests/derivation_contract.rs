@@ -382,3 +382,71 @@ fn new_artwork_use_operations_round_trip_in_portable_grant_history() {
     assert_eq!(decoded, envelope);
     assert_eq!(decoded.replay().unwrap(), history);
 }
+
+#[test]
+fn operation_taxonomy_distinguishes_derivation_from_access_and_preservation() {
+    let derivation_actions = [
+        UseAction::GenerateDerivative,
+        UseAction::Capture,
+        UseAction::Transform,
+        UseAction::Index,
+        UseAction::Embed,
+        UseAction::GenerateThumbnail,
+        UseAction::RunOcr,
+        UseAction::CreateCaption,
+        UseAction::CreateEmbedding,
+        UseAction::ReconstructMesh,
+        UseAction::ReconstructPointCloud,
+    ];
+    for action in derivation_actions {
+        assert!(action.is_derivation_operation(), "{action:?} creates or transforms an addressable derivative");
+    }
+
+    let non_derivation_actions = [
+        UseAction::AnalyzeMetadata,
+        UseAction::Preserve,
+        UseAction::Retrieve,
+        UseAction::Display,
+        UseAction::Export,
+        UseAction::EvaluateModel,
+        UseAction::Publish,
+        UseAction::Distribute,
+        UseAction::Commercialize,
+        UseAction::TrainModel,
+        UseAction::SynthesizeVoiceOrLikeness,
+    ];
+    for action in non_derivation_actions {
+        assert!(!action.is_derivation_operation(), "{action:?} is not a derivation event");
+    }
+}
+
+#[test]
+fn all_usage_action_wire_tags_are_unique_and_stable() {
+    let actions = [
+        UseAction::AnalyzeMetadata,
+        UseAction::Publish,
+        UseAction::Distribute,
+        UseAction::Commercialize,
+        UseAction::TrainModel,
+        UseAction::GenerateDerivative,
+        UseAction::SynthesizeVoiceOrLikeness,
+        UseAction::Capture,
+        UseAction::Preserve,
+        UseAction::Transform,
+        UseAction::Index,
+        UseAction::Embed,
+        UseAction::Retrieve,
+        UseAction::Display,
+        UseAction::Export,
+        UseAction::EvaluateModel,
+        UseAction::GenerateThumbnail,
+        UseAction::RunOcr,
+        UseAction::CreateCaption,
+        UseAction::CreateEmbedding,
+        UseAction::ReconstructMesh,
+        UseAction::ReconstructPointCloud,
+    ];
+    let tags: Vec<u8> = actions.iter().map(|action| action.stable_tag()).collect();
+    assert_eq!(tags, (1u8..=22).collect::<Vec<_>>());
+    assert_eq!(tags.iter().copied().collect::<std::collections::BTreeSet<_>>().len(), tags.len());
+}
