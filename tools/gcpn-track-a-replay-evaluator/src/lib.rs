@@ -344,7 +344,10 @@ pub fn evaluate_with_expected_sha256(
             evidence_tier: Some(evidence_tier_name(&bundle.evidence_tier).to_string()),
             case_count: bundle.oracle_cases.len(),
             pipeline_results: Vec::new(),
-            reasons: vec!["controlled_replay_blocked_until_shared_evidence_plane_receipt_verification".to_string()],
+            reasons: vec![
+                "controlled_replay_blocked_until_shared_evidence_plane_receipt_verification"
+                    .to_string(),
+            ],
             claim_ceiling: "controlled_replay_not_scored_until_shared_evidence_plane_receipts_are_verified",
         };
     }
@@ -508,7 +511,10 @@ fn validate_bundle(bundle: &TrackARunBundle) -> Vec<String> {
             errors.push(format!("invalid_case_id:{}", case.case_id));
         }
         if !ALLOWED_EVENT_STATES.contains(&case.expected_state.as_str()) {
-            errors.push(format!("oracle_expected_state_not_allowed:{}", case.case_id));
+            errors.push(format!(
+                "oracle_expected_state_not_allowed:{}",
+                case.case_id
+            ));
         }
         if !oracle_ids.insert(case.case_id.as_str()) {
             errors.push(format!("duplicate_oracle_case_id:{}", case.case_id));
@@ -882,11 +888,20 @@ fn calculate_metrics(
         intent_abstention_cases,
         intent_abstention_rate: ratio(intent_abstention_cases, pipeline.case_results.len()),
         source_status_preserved_cases,
-        source_status_preservation_rate: ratio(source_status_preserved_cases, pipeline.case_results.len()),
+        source_status_preservation_rate: ratio(
+            source_status_preserved_cases,
+            pipeline.case_results.len(),
+        ),
         event_receipt_times_separated_cases,
-        event_receipt_time_separation_rate: ratio(event_receipt_times_separated_cases, pipeline.case_results.len()),
+        event_receipt_time_separation_rate: ratio(
+            event_receipt_times_separated_cases,
+            pipeline.case_results.len(),
+        ),
         correction_lineage_preserved_cases,
-        correction_lineage_preservation_rate: ratio(correction_lineage_preserved_cases, pipeline.case_results.len()),
+        correction_lineage_preservation_rate: ratio(
+            correction_lineage_preserved_cases,
+            pipeline.case_results.len(),
+        ),
         confirmed_relevant_cases,
         confirmed_benign_cases,
         unresolved_cases,
@@ -1222,9 +1237,12 @@ mod tests {
         value["pipelines"][0]["case_results"][0]["reported_state"] = json!("HOSTILE");
         let report = evaluate_value(value);
         assert_eq!(report.status, "REJECTED");
-        assert!(report.reasons.iter().any(|reason| {
-            reason.starts_with("reported_state_not_allowed:")
-        }));
+        assert!(
+            report
+                .reasons
+                .iter()
+                .any(|reason| { reason.starts_with("reported_state_not_allowed:") })
+        );
     }
 
     #[test]
@@ -1234,9 +1252,12 @@ mod tests {
             json!(false);
         let report = evaluate_value(value);
         assert_eq!(report.status, "REJECTED");
-        assert!(report.reasons.iter().any(|reason| {
-            reason.starts_with("intent_classification_not_abstained:")
-        }));
+        assert!(
+            report
+                .reasons
+                .iter()
+                .any(|reason| { reason.starts_with("intent_classification_not_abstained:") })
+        );
     }
 
     #[test]
@@ -1259,15 +1280,12 @@ mod tests {
         let mut value = parsed_fixture();
         value["evidence_tier"] = json!("CONTROLLED_REPLAY");
         value["simulation_only"] = json!(false);
-        value["ground_truth_adjudication_receipt_sha256"] = json!(
-            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
-        );
-        value["privacy_review_receipt_sha256"] = json!(
-            "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
-        );
-        value["authorization_review_receipt_sha256"] = json!(
-            "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
-        );
+        value["ground_truth_adjudication_receipt_sha256"] =
+            json!("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
+        value["privacy_review_receipt_sha256"] =
+            json!("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb");
+        value["authorization_review_receipt_sha256"] =
+            json!("cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc");
         let report = evaluate_value(value);
         assert_eq!(report.status, "BLOCKED");
         assert_eq!(
@@ -1286,9 +1304,11 @@ mod tests {
         value["ground_truth_independent"] = json!(true);
         let mutated = evaluate_value(value);
         assert_eq!(mutated.status, "REJECTED");
-        assert!(mutated.reasons.iter().any(|reason| {
-            reason == "synthetic_fixture_cannot_claim_independent_ground_truth"
-        }));
+        assert!(
+            mutated.reasons.iter().any(|reason| {
+                reason == "synthetic_fixture_cannot_claim_independent_ground_truth"
+            })
+        );
     }
 
     #[test]
