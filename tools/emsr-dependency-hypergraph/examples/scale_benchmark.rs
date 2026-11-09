@@ -19,10 +19,8 @@ use std::process::Command;
 use std::time::{Duration, Instant};
 
 const INPUT_LIMIT_BYTES: usize = 16 * 1024 * 1024;
-const DEFAULT_REPETITIONS: usize =  nine();
+const DEFAULT_REPETITIONS: usize = 9;
 const SOURCE_COUNTS: [usize; 5] = [10, 100, 1_000, 10_000, 100_000];
-
-const fn nine() -> usize { 9 }
 
 #[derive(Debug, Serialize)]
 struct BenchmarkDocument {
