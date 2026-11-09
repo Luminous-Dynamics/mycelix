@@ -8,7 +8,7 @@ use std::{
 const EXPECTED_FIXTURES: usize = 32;
 const EXPECTED_RED_TEAM: usize = 26;
 const EXPECTED_POSITIVE: usize = 6;
-const FAMILIES: [&str; 12] = [
+const FAMILIES: [&str; 13] = [
     "leading_or_asymmetric_question_framing",
     "selective_evidence_and_source_laundering",
     "majority_minority_summary_asymmetry",
