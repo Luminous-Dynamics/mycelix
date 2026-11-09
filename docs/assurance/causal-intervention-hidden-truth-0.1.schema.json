@@ -1,0 +1,80 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:emsr:causal-intervention-hidden-truth:0.1",
+  "title": "EMSR controlled-intervention hidden truth 0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contract",
+    "scenario_id",
+    "causal_paths",
+    "truth_commitment_sha256"
+  ],
+  "properties": {
+    "contract": {
+      "const": "emsr.causal-intervention-hidden-truth/0.1"
+    },
+    "scenario_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "truth_commitment_sha256": {
+      "$ref": "#/$defs/digest"
+    },
+    "causal_paths": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/path"
+      }
+    }
+  },
+  "$defs": {
+    "digest": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "path": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "intervention_target_id",
+        "source_id",
+        "domain",
+        "path_node_ids",
+        "minimum_latency_ns",
+        "maximum_latency_ns"
+      ],
+      "properties": {
+        "intervention_target_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "domain": {
+          "type": "string",
+          "minLength": 1
+        },
+        "path_node_ids": {
+          "type": "array",
+          "minItems": 2,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "minimum_latency_ns": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "maximum_latency_ns": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    }
+  }
+}
