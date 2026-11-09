@@ -1,7 +1,7 @@
 {
   "schema": "gcpn.coverage-calibration-dgp",
   "version": "0.1.0",
-  "state": "FROZEN_PUBLIC_SYNTHETIC_DGP_SPECIFICATION_NOT_EXECUTED",
+  "state": "FROZEN_PUBLIC_SYNTHETIC_DGP_WITH_EXECUTABLE_GENERATOR_NOT_FIELD_EVALUATION",
   "synthetic_only": true,
   "non_operational": true,
   "parent_issue": 6008,
@@ -10,14 +10,16 @@
     "algorithm_version": "1",
     "seed": 6008001,
     "deterministic_stream_per_case": true,
-    "implementation_status": "PCG_STREAM_IMPLEMENTED_DGP_GENERATOR_NOT_IMPLEMENTED",
+    "implementation_status": "PCG_STREAM_AND_SCENARIO_GENERATOR_IMPLEMENTED_METRIC_RUNNER_UNDER_TEST",
     "stream_derivation": "SHA-256(domain_separator || global_seed_le_u64 || case_id_utf8); first 8 digest bytes little-endian are initial state, next 8 are initial sequence."
   },
   "unit_of_analysis": {
     "primary": "site_session_source_dependency_block",
     "secondary": "eligible_source_exposure_interval",
     "event_cluster": "steward_defined_event_group",
-    "rule": "Do not treat overlapping windows or feeds sharing a dependency as independent trials."
+    "rule": "Do not treat overlapping windows or feeds sharing a dependency as independent trials.",
+    "exposure_interval_duration_milliseconds": 60000,
+    "calibration_reliability_bin_count": 10
   },
   "partitions": {
     "development": "public_synthetic_development",
