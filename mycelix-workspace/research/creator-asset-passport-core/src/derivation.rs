@@ -21,6 +21,12 @@ use crate::{
 
 const MAX_FIELD_BYTES: usize = 256;
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
+pub enum DigestAlgorithm {
+    Sha256,
+    Blake3,
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum DerivationError {
     EmptyField,
@@ -65,6 +71,7 @@ pub struct DerivationRecord {
     operation: UseAction,
     purpose: String,
     occurred_at: u64,
+    tool_digest_algorithm: DigestAlgorithm,
     tool_digest_hex: String,
     evidence_ref: String,
     authorization_grants: Vec<AuthorizationGrant>,
@@ -80,6 +87,7 @@ impl DerivationRecord {
         operation: UseAction,
         purpose: impl AsRef<str>,
         occurred_at: u64,
+        tool_digest_algorithm: DigestAlgorithm,
         tool_digest_hex: impl AsRef<str>,
         evidence_ref: impl AsRef<str>,
     ) -> Result<Self, DerivationError> {
@@ -112,6 +120,7 @@ impl DerivationRecord {
             operation,
             purpose,
             occurred_at,
+            tool_digest_algorithm,
             tool_digest_hex: digest.to_ascii_lowercase(),
             evidence_ref,
             authorization_grants: Vec::new(),
@@ -144,6 +153,10 @@ impl DerivationRecord {
 
     pub fn occurred_at(&self) -> u64 {
         self.occurred_at
+    }
+
+    pub fn tool_digest_algorithm(&self) -> DigestAlgorithm {
+        self.tool_digest_algorithm
     }
 
     pub fn tool_digest_hex(&self) -> &str {
