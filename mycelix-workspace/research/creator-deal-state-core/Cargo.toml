@@ -1,0 +1,16 @@
+[package]
+name = "mycelix-creator-deal-state-core"
+version = "0.1.0"
+edition = "2024"
+authors = ["Tristan Stoltz / Luminous Dynamics"]
+license = "AGPL-3.0-or-later"
+repository = "https://github.com/Luminous-Dynamics/mycelix"
+description = "Experimental evidence-backed creator deal lifecycle state machine"
+
+[workspace]
+
+[lib]
+name = "creator_deal_state_core"
+path = "src/lib.rs"
+
+[dependencies]
