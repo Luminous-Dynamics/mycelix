@@ -5,10 +5,16 @@
 //! has an independent SHA-256-derived PCG-XSH-RR-64/32 stream so case order
 //! cannot alter another case's generated values.
 
+use std::collections::BTreeSet;
+
 use serde::Serialize;
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 
+use crate::calibration::{
+    false_alarm_rates, probability_of_detection, score_calibration, CalibrationMetrics,
+    DetectionTrial, FalseAlarmRates, ProbabilityOfDetection, ProbabilityOutcome,
+};
 use crate::pcg32::{for_case, Pcg32};
 use crate::{parse_strict_json, schema_has_external_refs};
 
@@ -28,7 +34,10 @@ pub struct SyntheticObservation {
     pub event_present: bool,
     pub observation_exposed: bool,
     pub detected: bool,
+    /// Predicted probability for the event-presence claim, not Pd or coverage.
     pub predicted_probability: f64,
+    /// Conditional probability of detection when an eligible event is exposed.
+    pub detection_probability: f64,
     pub coverage_declared_probability: f64,
     pub coverage_realized: bool,
     pub source_integrity_valid: bool,
@@ -54,6 +63,12 @@ pub struct GeneratedCalibrationCase {
     pub integrity_valid_intervals: usize,
     pub current_profile_intervals: usize,
     pub latency_budget_exceedances: usize,
+    pub eligible_source_milliseconds: u64,
+    pub false_alert_count: u64,
+    pub false_event_cluster_count: u64,
+    pub calibration_metrics: Option<CalibrationMetrics>,
+    pub probability_of_detection: Option<ProbabilityOfDetection>,
+    pub false_alarm_rates: Option<FalseAlarmRates>,
     pub observations: Vec<SyntheticObservation>,
 }
 
@@ -67,6 +82,8 @@ pub struct GeneratedCalibrationDgp {
     pub schema_sha256: String,
     pub case_count: usize,
     pub samples_per_case: usize,
+    pub exposure_interval_duration_milliseconds: u64,
+    pub reliability_bin_count: usize,
     pub cases: Vec<GeneratedCalibrationCase>,
     pub claim_ceiling: &'static str,
 }
@@ -135,9 +152,26 @@ impl CalibrationDgpGenerator {
             .get("cases")
             .and_then(Value::as_array)
             .ok_or_else(|| "calibration.dgp_cases_missing".to_string())?;
+        let exposure_interval_ms = dgp
+            .pointer("/unit_of_analysis/exposure_interval_duration_milliseconds")
+            .and_then(Value::as_u64)
+            .filter(|value| *value > 0)
+            .ok_or_else(|| "calibration.exposure_interval_duration_missing".to_string())?;
+        let reliability_bin_count = dgp
+            .pointer("/unit_of_analysis/calibration_reliability_bin_count")
+            .and_then(Value::as_u64)
+            .and_then(|value| usize::try_from(value).ok())
+            .filter(|value| (2..=100).contains(value))
+            .ok_or_else(|| "calibration.reliability_bin_count_invalid".to_string())?;
         let mut generated = Vec::with_capacity(cases.len());
         for case in cases {
-            generated.push(generate_case(case, global_seed, samples_per_case)?);
+            generated.push(generate_case(
+                case,
+                global_seed,
+                samples_per_case,
+                exposure_interval_ms,
+                reliability_bin_count,
+            )?);
         }
         Ok(GeneratedCalibrationDgp {
             schema: "gcpn.coverage-calibration-generated-run",
@@ -148,6 +182,8 @@ impl CalibrationDgpGenerator {
             schema_sha256: self.schema_sha256.clone(),
             case_count: generated.len(),
             samples_per_case,
+            exposure_interval_duration_milliseconds: exposure_interval_ms,
+            reliability_bin_count,
             cases: generated,
             claim_ceiling: CLAIM_CEILING,
         })
@@ -158,6 +194,8 @@ fn generate_case(
     case: &Value,
     global_seed: u64,
     sample_count: usize,
+    exposure_interval_ms: u64,
+    reliability_bin_count: usize,
 ) -> Result<GeneratedCalibrationCase, String> {
     let case_id = string_at(case, "/id")?;
     let scenario = string_at(case, "/scenario")?;
@@ -187,7 +225,12 @@ fn generate_case(
 
     let eligible_event_exposures = observations
         .iter()
-        .filter(|row| row.event_present && row.observation_exposed && row.source_integrity_valid)
+        .filter(|row| {
+            row.event_present
+                && row.observation_exposed
+                && row.source_integrity_valid
+                && row.calibration_profile_current
+        })
         .count();
     let detected_eligible_events = observations
         .iter()
@@ -214,6 +257,68 @@ fn generate_case(
         .iter()
         .filter(|row| matches!((row.latency_ms, row.latency_budget_ms), (Some(a), Some(b)) if a > b))
         .count();
+    let eligible_source_milliseconds = observations
+        .iter()
+        .filter(|row| {
+            row.observation_exposed
+                && row.source_integrity_valid
+                && row.calibration_profile_current
+        })
+        .count() as u64
+        * exposure_interval_ms;
+    let false_alert_count = observations
+        .iter()
+        .filter(|row| row.false_alert || (row.observation_exposed && !row.event_present && row.detected))
+        .count() as u64;
+    let mut false_clusters = BTreeSet::new();
+    for (index, row) in observations.iter().enumerate() {
+        if row.false_alert || (row.observation_exposed && !row.event_present && row.detected) {
+            false_clusters.insert(
+                row.false_event_cluster_id
+                    .clone()
+                    .unwrap_or_else(|| format!("unclustered-false-alert-{index:08}")),
+            );
+        }
+    }
+    let false_event_cluster_count = false_clusters.len() as u64;
+    let eligible_scores: Vec<_> = observations
+        .iter()
+        .filter(|row| {
+            row.observation_exposed
+                && row.source_integrity_valid
+                && row.calibration_profile_current
+                && !row.conflict
+        })
+        .map(|row| ProbabilityOutcome {
+            predicted_probability: row.predicted_probability,
+            outcome: row.event_present,
+            source_group_id: row.source_group_id.clone(),
+        })
+        .collect();
+    let calibration_metrics = if eligible_scores.is_empty() {
+        None
+    } else {
+        Some(score_calibration(&eligible_scores, reliability_bin_count)?)
+    };
+    let eligible_trials: Vec<_> = observations
+        .iter()
+        .filter(|row| row.source_integrity_valid && row.calibration_profile_current)
+        .map(|row| DetectionTrial {
+            event_present: row.event_present,
+            observation_exposed: row.observation_exposed,
+            detected: row.detected,
+        })
+        .collect();
+    let probability_of_detection = probability_of_detection(&eligible_trials)?;
+    let false_alarm_rates = if eligible_source_milliseconds == 0 {
+        None
+    } else {
+        Some(false_alarm_rates(
+            false_alert_count,
+            false_event_cluster_count,
+            eligible_source_milliseconds,
+        )?)
+    };
 
     Ok(GeneratedCalibrationCase {
         case_id: case_id.to_owned(),
@@ -226,6 +331,12 @@ fn generate_case(
         integrity_valid_intervals,
         current_profile_intervals,
         latency_budget_exceedances,
+        eligible_source_milliseconds,
+        false_alert_count,
+        false_event_cluster_count,
+        calibration_metrics,
+        probability_of_detection,
+        false_alarm_rates,
         observations,
     })
 }
@@ -477,7 +588,8 @@ fn base_observation(index: usize, rng: &mut Pcg32) -> Result<SyntheticObservatio
         event_present,
         observation_exposed,
         detected: event_present && draw(rng, 0.8)?,
-        predicted_probability: 0.8,
+        predicted_probability: 0.1,
+        detection_probability: 0.8,
         coverage_declared_probability: 1.0,
         coverage_realized: true,
         source_integrity_valid: true,
@@ -532,6 +644,9 @@ mod tests {
             .cases
             .iter()
             .all(|case| case.observations.len() == 512));
+        assert_eq!(first.exposure_interval_duration_milliseconds, 60_000);
+        assert_eq!(first.reliability_bin_count, 10);
+        assert!(first.cases.iter().any(|case| case.calibration_metrics.is_some()));
         assert_eq!(
             first.dgp_sha256,
             format!(
@@ -591,6 +706,30 @@ mod tests {
         assert!(case.observations.iter().all(|row| {
             row.latency_ms == Some(45) && row.latency_budget_ms == Some(30)
         }));
+    }
+
+    #[test]
+    fn false_alarm_bursts_report_alerts_and_deduplicated_clusters_per_hour() {
+        let result = generator().generate_embedded(6_008_001, 512).unwrap();
+        let case = result.cases.iter().find(|case| case.case_id == "CC-017").unwrap();
+        assert!(case.false_alert_count > case.false_event_cluster_count);
+        assert_eq!(case.eligible_source_milliseconds, 512 * 60_000);
+        let rates = case.false_alarm_rates.unwrap();
+        assert_eq!(rates.eligible_source_milliseconds, 512 * 60_000);
+        assert_eq!(rates.false_alerts, case.false_alert_count);
+        assert_eq!(rates.false_event_clusters, case.false_event_cluster_count);
+    }
+
+    #[test]
+    fn stale_profile_and_invalid_integrity_are_not_scored() {
+        let result = generator().generate_embedded(6_008_001, 128).unwrap();
+        let stale = result.cases.iter().find(|case| case.case_id == "CC-013").unwrap();
+        let invalid = result.cases.iter().find(|case| case.case_id == "CC-020").unwrap();
+        assert_eq!(stale.calibration_metrics, None);
+        assert_eq!(stale.probability_of_detection, None);
+        assert_eq!(invalid.calibration_metrics, None);
+        assert_eq!(invalid.probability_of_detection, None);
+        assert_eq!(invalid.false_alarm_rates, None);
     }
 
     #[test]
