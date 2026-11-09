@@ -798,12 +798,10 @@ fn reference_report(input: &HypergraphInput, input_sha256: String) -> Evaluation
     }
 }
 
-fn reference_adjacency<'a>(
-    input: &'a HypergraphInput,
-) -> (
-    BTreeMap<&'a str, Vec<&'a DependencyHyperedge>>,
-    BTreeMap<&'a str, Vec<&'a DependencyHyperedge>>,
-) {
+type ReferenceEdges<'a> = BTreeMap<&'a str, Vec<&'a DependencyHyperedge>>;
+type ReferenceAdjacency<'a> = (ReferenceEdges<'a>, ReferenceEdges<'a>);
+
+fn reference_adjacency(input: &HypergraphInput) -> ReferenceAdjacency<'_> {
     let mut qualified = BTreeMap::<&str, Vec<&DependencyHyperedge>>::new();
     let mut uncertain = BTreeMap::<&str, Vec<&DependencyHyperedge>>::new();
     for edge in &input.hyperedges {
