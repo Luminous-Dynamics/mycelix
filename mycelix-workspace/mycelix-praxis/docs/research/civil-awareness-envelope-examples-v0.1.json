@@ -27,8 +27,8 @@
         "kind": "source_assertion",
         "claim_type": "sensor_reported_object_class",
         "value": {
-          "reported_class": "uncrewed_aircraft",
-          "classification_status": "source_assertion"
+          "synthetic": true,
+          "fixture_id": "uas-001"
         }
       },
       "quality": {
@@ -58,7 +58,7 @@
           "synthetic_schema_test"
         ],
         "retention_class": "public_fixture",
-        "field_allowlist_digest": "sha256:49403e5baa15d265cbfc1c03d2596e702109119923dd09e81cca797934614469"
+        "field_allowlist_digest": "sha256:a26be21fa4c63ddab5c4cb405a5c2dd8edccae5526de953a554ad136cb528000"
       },
       "lineage": {
         "payload_digest": "sha256:585d64ea080ea3a62f6d105683d596cfd060b9b28d320256bd3d4a57e82536af",
@@ -98,8 +98,10 @@
         "kind": "source_assertion",
         "claim_type": "ais_reported_navigation_status",
         "value": {
-          "reported_status": "under_way_using_engine",
-          "identity_status": "unverified"
+          "synthetic": true,
+          "fixture_id": "maritime-001",
+          "ais_is_source_assertion": true,
+          "position_payload_withheld": true
         }
       },
       "quality": {
@@ -129,7 +131,7 @@
           "synthetic_schema_test"
         ],
         "retention_class": "public_fixture",
-        "field_allowlist_digest": "sha256:49403e5baa15d265cbfc1c03d2596e702109119923dd09e81cca797934614469"
+        "field_allowlist_digest": "sha256:a26be21fa4c63ddab5c4cb405a5c2dd8edccae5526de953a554ad136cb528000"
       },
       "lineage": {
         "payload_digest": "sha256:24f1f26876779edb94b8d4dbbe5cb02f5aa23bafad3f91f57a283a6aacd3da12",
@@ -171,9 +173,13 @@
         "kind": "source_assertion",
         "claim_type": "weather_hazard_report",
         "value": {
+          "synthetic": true,
+          "fixture_id": "aviation-001",
           "hazard_type": "reduced_visibility",
           "severity": "advisory",
-          "source_confirmation": "unverified"
+          "source_confirmation": "unverified",
+          "declared_integration_class": "advisory_read_only",
+          "authority_owner": "pilot_in_command_or_atc"
         }
       },
       "quality": {
@@ -203,7 +209,7 @@
           "synthetic_schema_test"
         ],
         "retention_class": "public_fixture",
-        "field_allowlist_digest": "sha256:49403e5baa15d265cbfc1c03d2596e702109119923dd09e81cca797934614469"
+        "field_allowlist_digest": "sha256:a26be21fa4c63ddab5c4cb405a5c2dd8edccae5526de953a554ad136cb528000"
       },
       "lineage": {
         "payload_digest": "sha256:dac7ab1fd35789b79dac59da48e709d525efbf34fee7b4ec8e4aa3afc300dc62",
