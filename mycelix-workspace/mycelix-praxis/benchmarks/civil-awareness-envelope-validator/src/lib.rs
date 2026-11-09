@@ -16,6 +16,7 @@ use serde_json::{Map, Number, Value};
 use sha2::{Digest, Sha256};
 
 pub mod calibration;
+pub mod calibration_dgp;
 pub mod observability;
 pub mod pcg32;
 
