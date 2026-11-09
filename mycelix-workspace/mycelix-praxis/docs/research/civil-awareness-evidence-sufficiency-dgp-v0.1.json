@@ -1,0 +1,791 @@
+{
+  "schema": "gcpn.evidence-sufficiency-dgp",
+  "version": "0.1.0",
+  "state": "FROZEN_SYNTHETIC_DESIGN",
+  "synthetic_only": true,
+  "non_operational": true,
+  "purpose": "Qualify common-mode dependency interpretation, contradiction preservation and abstention for privacy-minimized civilian awareness evidence across UAS, maritime and civil aviation.",
+  "parent_issue": 5995,
+  "composition": {
+    "common_mode_graph_owner": "Mycelix #5904",
+    "dataset_split_and_run_receipt_contract": "Symthaea PR #10875 (draft; not whole-PR-qualified)",
+    "shared_evidence_plane": "Mycelix #5451",
+    "civil_envelope_validator": "Mycelix PR #5992 (draft)",
+    "inference_qualification": "Mycelix #5973 and #5995"
+  },
+  "semantics": {
+    "dependency_dimensions": [
+      "receiver",
+      "antenna",
+      "clock",
+      "power",
+      "network",
+      "upstream_data",
+      "processing",
+      "calibration",
+      "model_lineage",
+      "site",
+      "campaign"
+    ],
+    "states": {
+      "NO_COMMON_MODE_IN_CAPTURED_GRAPH": "No shared dependency was declared or stewarded for the compared sources in the captured graph. This is NOT proof of physical independence.",
+      "PARTIALLY_DEPENDENT": "At least one relevant shared dependency dimension is known. Independence may still exist in other dimensions.",
+      "DUPLICATE_OR_REPLAYED": "The observations resolve to the same origin/payload or replay lineage and must not be counted as separate confirmations.",
+      "INDEPENDENCE_UNKNOWN": "One or more required dependency inventories/edges are unknown, missing, stale or contradictory. Do not default to independence.",
+      "EVIDENCE_UNRESOLVED": "Provenance, time, calibration, freshness or integrity is inadequate for relying on the observation.",
+      "CONFLICT_UNRESOLVED": "Two or more assertions conflict and the captured evidence does not adjudicate the conflict."
+    },
+    "source_authentication_is_not_physical_truth": true,
+    "distinct_vendor_names_do_not_imply_independence": true,
+    "distinct_api_endpoints_do_not_imply_independence": true,
+    "missing_dependency_is_unknown_not_independent": true,
+    "shared_dependency_in_one_dimension_does_not_collapse_all_dimensions": true,
+    "only_no_declared_common_mode_can_be_claimed_without_independent_physical_test": false,
+    "no_personal_identity_or_operator_geolocation": true
+  },
+  "fixtures": [
+    {
+      "scenario_id": "DGP-001",
+      "name": "six receivers share one clock",
+      "domain": "uas",
+      "question": "Do not count six receiver observations as six independent time witnesses when they share the same clock source.",
+      "sources": [
+        {
+          "source_id": "clock-source-1",
+          "observation_id": "clock-observation-1",
+          "payload_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "integrity_status": "authenticated",
+          "calibration_status": "current",
+          "dependency_inventory_status": "complete"
+        },
+        {
+          "source_id": "clock-source-2",
+          "observation_id": "clock-observation-2",
+          "payload_digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+          "integrity_status": "authenticated",
+          "calibration_status": "current",
+          "dependency_inventory_status": "complete"
+        },
+        {
+          "source_id": "clock-source-3",
+          "observation_id": "clock-observation-3",
+          "payload_digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+          "integrity_status": "authenticated",
+          "calibration_status": "current",
+          "dependency_inventory_status": "complete"
+        },
+        {
+          "source_id": "clock-source-4",
+          "observation_id": "clock-observation-4",
+          "payload_digest": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+          "integrity_status": "authenticated",
+          "calibration_status": "current",
+          "dependency_inventory_status": "complete"
+        },
+        {
+          "source_id": "clock-source-5",
+          "observation_id": "clock-observation-5",
+          "payload_digest": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+          "integrity_status": "authenticated",
+          "calibration_status": "current",
+          "dependency_inventory_status": "complete"
+        },
+        {
+          "source_id": "clock-source-6",
+          "observation_id": "clock-observation-6",
+          "payload_digest": "sha256:6666666666666666666666666666666666666666666666666666666666666666",
+          "integrity_status": "authenticated",
+          "calibration_status": "current",
+          "dependency_inventory_status": "complete"
+        }
+      ],
+      "dependency_nodes": [
+        {
+          "id": "clock-master-01",
+          "dimension": "clock",
+          "kind": "time_reference"
+        }
+      ],
+      "dependency_edges": [
+        {
+          "from": "clock-source-1",
+          "to": "clock-master-01",
+          "dimension": "clock",
+          "relation": "synchronized_by"
+        },
+        {
+          "from": "clock-source-2",
+          "to": "clock-master-01",
+          "dimension": "clock",
+          "relation": "synchronized_by"
+        },
+        {
+          "from": "clock-source-3",
+          "to": "clock-master-01",
+          "dimension": "clock",
+          "relation": "synchronized_by"
+        },
+        {
+          "from": "clock-source-4",
+          "to": "clock-master-01",
+          "dimension": "clock",
+          "relation": "synchronized_by"
+        },
+        {
+          "from": "clock-source-5",
+          "to": "clock-master-01",
+          "dimension": "clock",
+          "relation": "synchronized_by"
+        },
+        {
+          "from": "clock-source-6",
+          "to": "clock-master-01",
+          "dimension": "clock",
+          "relation": "synchronized_by"
+        }
+      ],
+      "oracle": {
+        "pairwise_comparisons": [
+          {
+            "left": "clock-source-1",
+            "right": "clock-source-2",
+            "oracle_state": "PARTIALLY_DEPENDENT",
+            "shared_dimensions": [
+              "clock"
+            ]
+          },
+          {
+            "left": "clock-source-1",
+            "right": "clock-source-3",
+            "oracle_state": "PARTIALLY_DEPENDENT",
+            "shared_dimensions": [
+              "clock"
+            ]
+          },
+          {
+            "left": "clock-source-1",
+            "right": "clock-source-4",
+            "oracle_state": "PARTIALLY_DEPENDENT",
+            "shared_dimensions": [
+              "clock"
+            ]
+          },
+          {
+            "left": "clock-source-1",
+            "right": "clock-source-5",
+            "oracle_state": "PARTIALLY_DEPENDENT",
+            "shared_dimensions": [
+              "clock"
+            ]
+          },
+          {
+            "left": "clock-source-1",
+            "right": "clock-source-6",
+            "oracle_state": "PARTIALLY_DEPENDENT",
+            "shared_dimensions": [
+              "clock"
+            ]
+          },
+          {
+            "left": "clock-source-2",
+            "right": "clock-source-3",
+            "oracle_state": "PARTIALLY_DEPENDENT",
+            "shared_dimensions": [
+              "clock"
+            ]
+          },
+          {
+            "left": "clock-source-2",
+            "right": "clock-source-4",
+            "oracle_state": "PARTIALLY_DEPENDENT",
+            "shared_dimensions": [
+              "clock"
+            ]
+          },
+          {
+            "left": "clock-source-2",
+            "right": "clock-source-5",
+            "oracle_state": "PARTIALLY_DEPENDENT",
+            "shared_dimensions": [
+              "clock"
+            ]
+          },
+          {
+            "left": "clock-source-2",
+            "right": "clock-source-6",
+            "oracle_state": "PARTIALLY_DEPENDENT",
+            "shared_dimensions": [
+              "clock"
+            ]
+          },
+          {
+            "left": "clock-source-3",
+            "right": "clock-source-4",
+            "oracle_state": "PARTIALLY_DEPENDENT",
+            "shared_dimensions": [
+              "clock"
+            ]
+          },
+          {
+            "left": "clock-source-3",
+            "right": "clock-source-5",
+            "oracle_state": "PARTIALLY_DEPENDENT",
+            "shared_dimensions": [
+              "clock"
+            ]
+          },
+          {
+            "left": "clock-source-3",
+            "right": "clock-source-6",
+            "oracle_state": "PARTIALLY_DEPENDENT",
+            "shared_dimensions": [
+              "clock"
+            ]
+          },
+          {
+            "left": "clock-source-4",
+            "right": "clock-source-5",
+            "oracle_state": "PARTIALLY_DEPENDENT",
+            "shared_dimensions": [
+              "clock"
+            ]
+          },
+          {
+            "left": "clock-source-4",
+            "right": "clock-source-6",
+            "oracle_state": "PARTIALLY_DEPENDENT",
+            "shared_dimensions": [
+              "clock"
+            ]
+          },
+          {
+            "left": "clock-source-5",
+            "right": "clock-source-6",
+            "oracle_state": "PARTIALLY_DEPENDENT",
+            "shared_dimensions": [
+              "clock"
+            ]
+          }
+        ],
+        "shared_clock_witness_count": 1,
+        "receiver_observation_count": 6,
+        "system_must_not_report_six_independent_time_witnesses": true,
+        "system_must_not_claim_all_measurement_dimensions_fully_dependent": true
+      }
+    },
+    {
+      "scenario_id": "DGP-002",
+      "name": "shared power and network with separate clocks",
+      "domain": "maritime",
+      "question": "Expose the shared power and network failure domains while preserving the separate clock domains.",
+      "sources": [
+        {
+          "source_id": "powernet-source-1",
+          "observation_id": "powernet-observation-1",
+          "payload_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "integrity_status": "authenticated",
+          "calibration_status": "current",
+          "dependency_inventory_status": "complete"
+        },
+        {
+          "source_id": "powernet-source-2",
+          "observation_id": "powernet-observation-2",
+          "payload_digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+          "integrity_status": "authenticated",
+          "calibration_status": "current",
+          "dependency_inventory_status": "complete"
+        }
+      ],
+      "dependency_nodes": [
+        {
+          "id": "power-bus-01",
+          "dimension": "power",
+          "kind": "power_distribution"
+        },
+        {
+          "id": "network-path-01",
+          "dimension": "network",
+          "kind": "communications_path"
+        },
+        {
+          "id": "clock-a",
+          "dimension": "clock",
+          "kind": "clock_reference"
+        },
+        {
+          "id": "clock-b",
+          "dimension": "clock",
+          "kind": "clock_reference"
+        }
+      ],
+      "dependency_edges": [
+        {
+          "from": "powernet-source-1",
+          "to": "power-bus-01",
+          "dimension": "power",
+          "relation": "powered_by"
+        },
+        {
+          "from": "powernet-source-2",
+          "to": "power-bus-01",
+          "dimension": "power",
+          "relation": "powered_by"
+        },
+        {
+          "from": "powernet-source-1",
+          "to": "network-path-01",
+          "dimension": "network",
+          "relation": "connected_through"
+        },
+        {
+          "from": "powernet-source-2",
+          "to": "network-path-01",
+          "dimension": "network",
+          "relation": "connected_through"
+        },
+        {
+          "from": "powernet-source-1",
+          "to": "clock-a",
+          "dimension": "clock",
+          "relation": "synchronized_by"
+        },
+        {
+          "from": "powernet-source-2",
+          "to": "clock-b",
+          "dimension": "clock",
+          "relation": "synchronized_by"
+        }
+      ],
+      "oracle": {
+        "pairwise_comparisons": [
+          {
+            "left": "powernet-source-1",
+            "right": "powernet-source-2",
+            "oracle_state": "PARTIALLY_DEPENDENT",
+            "shared_dimensions": [
+              "power",
+              "network"
+            ]
+          }
+        ],
+        "shared_dimensions": [
+          "power",
+          "network"
+        ],
+        "independent_dimensions_within_fixture": [
+          "clock"
+        ],
+        "must_not_emit_single_scalar_trust_score": true
+      }
+    },
+    {
+      "scenario_id": "DGP-003",
+      "name": "different vendors share one upstream provider",
+      "domain": "civil_aviation",
+      "question": "Vendor branding and separate API endpoints must not disguise a common upstream source.",
+      "sources": [
+        {
+          "source_id": "vendor-source-1",
+          "observation_id": "vendor-observation-1",
+          "payload_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "integrity_status": "authenticated",
+          "calibration_status": "current",
+          "dependency_inventory_status": "complete"
+        },
+        {
+          "source_id": "vendor-source-2",
+          "observation_id": "vendor-observation-2",
+          "payload_digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+          "integrity_status": "authenticated",
+          "calibration_status": "current",
+          "dependency_inventory_status": "complete"
+        }
+      ],
+      "dependency_nodes": [
+        {
+          "id": "upstream-feed-01",
+          "dimension": "upstream_data",
+          "kind": "third_party_data_provider"
+        },
+        {
+          "id": "fusion-service-01",
+          "dimension": "processing",
+          "kind": "shared_processing_service"
+        }
+      ],
+      "dependency_edges": [
+        {
+          "from": "vendor-source-1",
+          "to": "upstream-feed-01",
+          "dimension": "upstream_data",
+          "relation": "derived_from"
+        },
+        {
+          "from": "vendor-source-2",
+          "to": "upstream-feed-01",
+          "dimension": "upstream_data",
+          "relation": "derived_from"
+        },
+        {
+          "from": "vendor-source-1",
+          "to": "fusion-service-01",
+          "dimension": "processing",
+          "relation": "processed_by"
+        },
+        {
+          "from": "vendor-source-2",
+          "to": "fusion-service-01",
+          "dimension": "processing",
+          "relation": "processed_by"
+        }
+      ],
+      "oracle": {
+        "pairwise_comparisons": [
+          {
+            "left": "vendor-source-1",
+            "right": "vendor-source-2",
+            "oracle_state": "PARTIALLY_DEPENDENT",
+            "shared_dimensions": [
+              "upstream_data",
+              "processing"
+            ]
+          }
+        ],
+        "distinct_vendor_count": 2,
+        "independent_upstream_count": 1,
+        "must_not_report_two_independent_confirmations": true
+      }
+    },
+    {
+      "scenario_id": "DGP-004",
+      "name": "duplicate or relayed observation",
+      "domain": "uas",
+      "question": "A copied payload with the same origin and digest is not a second observation.",
+      "sources": [
+        {
+          "source_id": "relay-origin",
+          "observation_id": "payload-origin",
+          "payload_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "integrity_status": "authenticated",
+          "calibration_status": "current",
+          "dependency_inventory_status": "complete"
+        },
+        {
+          "source_id": "relay-copy",
+          "observation_id": "payload-relay",
+          "payload_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "integrity_status": "authenticated",
+          "calibration_status": "current",
+          "dependency_inventory_status": "complete"
+        }
+      ],
+      "dependency_nodes": [
+        {
+          "id": "origin-payload-01",
+          "dimension": "upstream_data",
+          "kind": "payload_origin"
+        }
+      ],
+      "dependency_edges": [
+        {
+          "from": "relay-origin",
+          "to": "origin-payload-01",
+          "dimension": "upstream_data",
+          "relation": "originates"
+        },
+        {
+          "from": "relay-copy",
+          "to": "origin-payload-01",
+          "dimension": "upstream_data",
+          "relation": "relays"
+        }
+      ],
+      "oracle": {
+        "pairwise_comparisons": [
+          {
+            "left": "relay-origin",
+            "right": "relay-copy",
+            "oracle_state": "DUPLICATE_OR_REPLAYED",
+            "shared_dimensions": [
+              "upstream_data"
+            ]
+          }
+        ],
+        "unique_origin_count": 1,
+        "independent_confirmation_count": 1
+      }
+    },
+    {
+      "scenario_id": "DGP-005",
+      "name": "unknown dependency inventory",
+      "domain": "maritime",
+      "question": "Missing or stale dependency metadata is not evidence of independence.",
+      "sources": [
+        {
+          "source_id": "known-source",
+          "observation_id": "known-observation",
+          "payload_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "integrity_status": "authenticated",
+          "calibration_status": "current",
+          "dependency_inventory_status": "complete"
+        },
+        {
+          "source_id": "unknown-source",
+          "observation_id": "unknown-observation",
+          "payload_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "integrity_status": "authenticated",
+          "calibration_status": "current",
+          "dependency_inventory_status": "unknown"
+        }
+      ],
+      "dependency_nodes": [],
+      "dependency_edges": [],
+      "oracle": {
+        "pairwise_comparisons": [
+          {
+            "left": "known-source",
+            "right": "unknown-source",
+            "oracle_state": "INDEPENDENCE_UNKNOWN",
+            "shared_dimensions": [],
+            "unknown_source_ids": [
+              "unknown-source"
+            ]
+          }
+        ],
+        "must_not_emit_independent_claim": true,
+        "must_preserve_unknown_reason": true
+      }
+    },
+    {
+      "scenario_id": "DGP-006",
+      "name": "authenticated source with expired calibration",
+      "domain": "civil_aviation",
+      "question": "Cryptographic authentication does not establish measurement currentness or calibration.",
+      "sources": [
+        {
+          "source_id": "signed-expired-source",
+          "observation_id": "signed-expired-observation",
+          "payload_digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+          "integrity_status": "authenticated",
+          "calibration_status": "expired",
+          "dependency_inventory_status": "complete"
+        }
+      ],
+      "dependency_nodes": [],
+      "dependency_edges": [],
+      "oracle": {
+        "evidence_state": "EVIDENCE_UNRESOLVED",
+        "authentication_state": "AUTHENTICATED",
+        "calibration_state": "EXPIRED",
+        "must_not_upgrade_to_qualified_measurement": true
+      }
+    },
+    {
+      "scenario_id": "DGP-007",
+      "name": "independent within captured declared dimensions positive control",
+      "domain": "maritime",
+      "question": "The method must not abstain on every pair; it should recognize when no common dependency is declared in the complete captured profile.",
+      "sources": [
+        {
+          "source_id": "independent-source-1",
+          "observation_id": "independent-observation-1",
+          "payload_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "integrity_status": "authenticated",
+          "calibration_status": "current",
+          "dependency_inventory_status": "complete"
+        },
+        {
+          "source_id": "independent-source-2",
+          "observation_id": "independent-observation-2",
+          "payload_digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+          "integrity_status": "authenticated",
+          "calibration_status": "current",
+          "dependency_inventory_status": "complete"
+        }
+      ],
+      "dependency_nodes": [
+        {
+          "id": "receiver-a",
+          "dimension": "receiver",
+          "kind": "receiver"
+        },
+        {
+          "id": "receiver-b",
+          "dimension": "receiver",
+          "kind": "receiver"
+        },
+        {
+          "id": "antenna-a",
+          "dimension": "antenna",
+          "kind": "antenna"
+        },
+        {
+          "id": "antenna-b",
+          "dimension": "antenna",
+          "kind": "antenna"
+        },
+        {
+          "id": "clock-a",
+          "dimension": "clock",
+          "kind": "clock_reference"
+        },
+        {
+          "id": "clock-b",
+          "dimension": "clock",
+          "kind": "clock_reference"
+        },
+        {
+          "id": "power-a",
+          "dimension": "power",
+          "kind": "power_distribution"
+        },
+        {
+          "id": "power-b",
+          "dimension": "power",
+          "kind": "power_distribution"
+        },
+        {
+          "id": "network-a",
+          "dimension": "network",
+          "kind": "communications_path"
+        },
+        {
+          "id": "network-b",
+          "dimension": "network",
+          "kind": "communications_path"
+        }
+      ],
+      "dependency_edges": [
+        {
+          "from": "independent-source-1",
+          "to": "receiver-a",
+          "dimension": "receiver",
+          "relation": "observed_by"
+        },
+        {
+          "from": "independent-source-2",
+          "to": "receiver-b",
+          "dimension": "receiver",
+          "relation": "observed_by"
+        },
+        {
+          "from": "independent-source-1",
+          "to": "antenna-a",
+          "dimension": "antenna",
+          "relation": "connected_to"
+        },
+        {
+          "from": "independent-source-2",
+          "to": "antenna-b",
+          "dimension": "antenna",
+          "relation": "connected_to"
+        },
+        {
+          "from": "independent-source-1",
+          "to": "clock-a",
+          "dimension": "clock",
+          "relation": "synchronized_by"
+        },
+        {
+          "from": "independent-source-2",
+          "to": "clock-b",
+          "dimension": "clock",
+          "relation": "synchronized_by"
+        },
+        {
+          "from": "independent-source-1",
+          "to": "power-a",
+          "dimension": "power",
+          "relation": "powered_by"
+        },
+        {
+          "from": "independent-source-2",
+          "to": "power-b",
+          "dimension": "power",
+          "relation": "powered_by"
+        },
+        {
+          "from": "independent-source-1",
+          "to": "network-a",
+          "dimension": "network",
+          "relation": "connected_through"
+        },
+        {
+          "from": "independent-source-2",
+          "to": "network-b",
+          "dimension": "network",
+          "relation": "connected_through"
+        }
+      ],
+      "oracle": {
+        "pairwise_comparisons": [
+          {
+            "left": "independent-source-1",
+            "right": "independent-source-2",
+            "oracle_state": "NO_COMMON_MODE_IN_CAPTURED_GRAPH",
+            "shared_dimensions": []
+          }
+        ],
+        "state": "NO_COMMON_MODE_IN_CAPTURED_GRAPH",
+        "must_not_claim_physical_independence": true,
+        "dependency_inventory_complete": true
+      }
+    },
+    {
+      "scenario_id": "DGP-008",
+      "name": "conflicting AIS and SAR assertions with incomplete adjudication",
+      "domain": "maritime",
+      "question": "A cooperative AIS report and a SAR-derived detection that do not associate are a conflict requiring review, not evidence of intent, evasion or absence.",
+      "sources": [
+        {
+          "source_id": "ais-provider",
+          "observation_id": "ais-observation",
+          "payload_digest": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "integrity_status": "authenticated",
+          "calibration_status": "not_applicable",
+          "dependency_inventory_status": "complete",
+          "claim_type": "source_assertion",
+          "claim": "reported_vessel_position"
+        },
+        {
+          "source_id": "sar-processing",
+          "observation_id": "sar-observation",
+          "payload_digest": "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+          "integrity_status": "authenticated",
+          "calibration_status": "current",
+          "dependency_inventory_status": "complete",
+          "claim_type": "source_assertion",
+          "claim": "image_based_vessel_detection"
+        }
+      ],
+      "dependency_nodes": [],
+      "dependency_edges": [],
+      "oracle": {
+        "evidence_state": "CONFLICT_UNRESOLVED",
+        "must_preserve_both_assertions": true,
+        "must_not_infer_absence_or_intent": true,
+        "independent_adjudication": "NOT_PROVIDED",
+        "allowed_output": "HUMAN_REVIEW_REQUIRED"
+      }
+    }
+  ],
+  "metrics": {
+    "false_independent_corroboration_rate": {
+      "numerator": "Count of oracle-dependent source pairs for which the evaluated system emits an independent-support claim.",
+      "denominator": "All oracle-dependent source pairs in the confirmatory fixture/corpus, including pairs on which the system abstains.",
+      "zero_denominator": "REPORT_NOT_APPLICABLE"
+    },
+    "dependency_edge_recall": "Recovered expected common-mode edges divided by all oracle-known common-mode edges; report per dependency dimension and unknown-edge handling separately.",
+    "independent_label_precision": "Correct NO_COMMON_MODE_IN_CAPTURED_GRAPH labels divided by all system outputs with that label. This is not physical-independence precision.",
+    "abstention_correctness": "Correct unresolved/unknown/conflict dispositions divided by all oracle cases requiring abstention or unresolved handling.",
+    "risk_coverage": "Report selective risk at prespecified coverage levels and the full risk-coverage curve; compute AURC only when the ordering and denominator are predeclared.",
+    "matched_coverage": "Compare candidate and baseline at identical event frame and coverage; workload improvement cannot compensate for higher selective risk."
+  },
+  "hard_gates": {
+    "false_independence_claims_in_deterministic_negative_controls": 0,
+    "unknown_dependency_pairs_promoted_to_independent": 0,
+    "duplicated_payloads_counted_as_distinct_confirmations": 0,
+    "privacy_rights_authority_or_control_boundary_violations": 0
+  },
+  "claim_ceiling": "Passing these synthetic fixtures demonstrates only the tested dependency-graph semantics. It does not prove physical independence, source truth, sensor detection, domain safety, regulatory compliance or field performance."
+}
