@@ -425,3 +425,11 @@ func TestCivilPositiveControlUsesDeclaredNotPhysicalIndependenceSemantics(t *tes
 		t.Fatal("positive control exceeded the graph-derived claim ceiling")
 	}
 }
+
+func TestDecodeStrictRejectsOversizedInputBeforeParsing(t *testing.T) {
+	data := make([]byte, maxFileBytes+1)
+	_, err := decodeStrict[Input](data)
+	if err == nil {
+		t.Fatal("oversized JSON input was accepted")
+	}
+}
