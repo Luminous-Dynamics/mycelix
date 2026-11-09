@@ -1,0 +1,66 @@
+name: Civil Awareness Cross-Stack Golden Oracle
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/civil-awareness-cross-stack-oracle.yml"
+      - "mycelix-workspace/tools/civil-awareness-cross-stack-oracle/**"
+      - "mycelix-workspace/tools/maritime-handoff-verifier/**"
+      - "mycelix-workspace/docs/civil-awareness/integration/**"
+      - "mycelix-workspace/docs/maritime-stay/integration/cross-stack-handoff-manifest-v0.1.schema.json"
+  push:
+    paths:
+      - ".github/workflows/civil-awareness-cross-stack-oracle.yml"
+      - "mycelix-workspace/tools/civil-awareness-cross-stack-oracle/**"
+      - "mycelix-workspace/tools/maritime-handoff-verifier/**"
+      - "mycelix-workspace/docs/civil-awareness/integration/**"
+      - "mycelix-workspace/docs/maritime-stay/integration/cross-stack-handoff-manifest-v0.1.schema.json"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify-civil-cross-stack:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact revision
+        uses: actions/checkout@v4
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@1.96.0
+        with:
+          components: rustfmt, clippy
+      - name: Format check - shared handoff verifier
+        run: cargo fmt --manifest-path mycelix-workspace/tools/maritime-handoff-verifier/Cargo.toml --check
+      - name: Format check - civil oracle
+        run: cargo fmt --manifest-path mycelix-workspace/tools/civil-awareness-cross-stack-oracle/Cargo.toml --check
+      - name: Test shared handoff verifier
+        run: cargo test --manifest-path mycelix-workspace/tools/maritime-handoff-verifier/Cargo.toml
+      - name: Test civil evidence oracle
+        run: cargo test --manifest-path mycelix-workspace/tools/civil-awareness-cross-stack-oracle/Cargo.toml
+      - name: Clippy shared handoff verifier
+        run: cargo clippy --manifest-path mycelix-workspace/tools/maritime-handoff-verifier/Cargo.toml --all-targets -- -D warnings
+      - name: Clippy civil evidence oracle
+        run: cargo clippy --manifest-path mycelix-workspace/tools/civil-awareness-cross-stack-oracle/Cargo.toml --all-targets -- -D warnings
+      - name: Verify empty civil handoff contract with shared verifier
+        run: |
+          cargo run --quiet --manifest-path mycelix-workspace/tools/maritime-handoff-verifier/Cargo.toml -- \
+            mycelix-workspace/docs/civil-awareness/integration/civil-awareness-handoff-template-v0.1.json \
+            > "$RUNNER_TEMP/civil-awareness-handoff-report.json"
+      - name: Evaluate civil cross-stack synthetic golden traces
+        run: |
+          cargo run --quiet --manifest-path mycelix-workspace/tools/civil-awareness-cross-stack-oracle/Cargo.toml -- \
+            mycelix-workspace/docs/civil-awareness/integration/civil-awareness-cross-stack-golden-traces-v0.1.json \
+            mycelix-workspace/docs/civil-awareness/integration/civil-awareness-cross-stack-oracle-inputs-v0.1.json \
+            mycelix-workspace/docs/civil-awareness/integration/civil-awareness-handoff-template-v0.1.json \
+            "$RUNNER_TEMP/civil-awareness-handoff-report.json" \
+            > "$RUNNER_TEMP/civil-awareness-cross-stack-oracle-report.json"
+      - name: Upload exact-head synthetic oracle report
+        uses: actions/upload-artifact@v4
+        with:
+          name: civil-awareness-cross-stack-oracle-${{ github.sha }}
+          path: |
+            ${{ runner.temp }}/civil-awareness-handoff-report.json
+            ${{ runner.temp }}/civil-awareness-cross-stack-oracle-report.json
+          if-no-files-found: error
+          retention-days: 30
