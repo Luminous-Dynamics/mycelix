@@ -104,7 +104,10 @@ fn add_power_only_common_edge(input: &mut HypergraphInput) {
         id: "power-root".to_owned(),
         kind: NodeKind::Dependency,
     });
-    input.snapshot.covered_node_ids.push("power-root".to_owned());
+    input
+        .snapshot
+        .covered_node_ids
+        .push("power-root".to_owned());
     input.snapshot.covered_node_ids.sort();
     input.hyperedges.push(DependencyHyperedge {
         id: "shared-power".to_owned(),
@@ -144,7 +147,10 @@ fn node_and_edge_order_permutations_preserve_semantics_and_verify() {
 #[test]
 fn a_shared_power_edge_cannot_change_a_clock_domain_answer() {
     let input = no_shared_clock(&fixture());
-    assert_eq!(evaluate(&input).disposition, Disposition::NoDeclaredCommonDomain);
+    assert_eq!(
+        evaluate(&input).disposition,
+        Disposition::NoDeclaredCommonDomain
+    );
 
     let mut with_power = input.clone();
     add_power_only_common_edge(&mut with_power);
@@ -164,7 +170,10 @@ fn valid_time_is_half_open_at_the_upper_boundary() {
         .expect("shared edge")
         .valid_until = Some(input.query.event_time);
 
-    assert_eq!(evaluate(&input).disposition, Disposition::NoDeclaredCommonDomain);
+    assert_eq!(
+        evaluate(&input).disposition,
+        Disposition::NoDeclaredCommonDomain
+    );
 }
 
 #[test]
@@ -215,10 +224,7 @@ fn adding_a_qualified_common_ancestor_cannot_make_a_pair_more_independent() {
     );
 
     let common = fixture();
-    assert_eq!(
-        evaluate(&common).disposition,
-        Disposition::SharedDependency
-    );
+    assert_eq!(evaluate(&common).disposition, Disposition::SharedDependency);
 }
 
 #[test]
