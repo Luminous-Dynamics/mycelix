@@ -9,33 +9,83 @@ use sha2::{Digest, Sha256};
 use std::collections::BTreeSet;
 use std::fmt::Write as _;
 
-pub const CLAIM_CEILING: &str =
-    "Cross-owner disposition rules over synthetic owner-result fixtures only; no owner implementation outputs or field evidence are present.";
+pub const CLAIM_CEILING: &str = "Cross-owner disposition rules over synthetic owner-result fixtures only; no owner implementation outputs or field evidence are present.";
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
-pub enum SourceDisposition { Qualified, Stale, Unknown, Unsupported, Conflict, NotApplicable }
+pub enum SourceDisposition {
+    Qualified,
+    Stale,
+    Unknown,
+    Unsupported,
+    Conflict,
+    NotApplicable,
+}
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
-pub enum FeasibilityDisposition { Feasible, Infeasible, Unknown, Unsupported, Conflict, NotEvaluated }
+pub enum FeasibilityDisposition {
+    Feasible,
+    Infeasible,
+    Unknown,
+    Unsupported,
+    Conflict,
+    NotEvaluated,
+}
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
-pub enum DecisionDisposition { Recommend, Abstain, RequestInformation, HumanReview, NotEvaluated }
+pub enum DecisionDisposition {
+    Recommend,
+    Abstain,
+    RequestInformation,
+    HumanReview,
+    NotEvaluated,
+}
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
-pub enum CommitmentDisposition { Present, Absent, Pending, NeedsReconciliation, Conflict, NotEvaluated }
+pub enum CommitmentDisposition {
+    Present,
+    Absent,
+    Pending,
+    NeedsReconciliation,
+    Conflict,
+    NotEvaluated,
+}
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
-pub enum DependencyDisposition { SharedDependency, UnknownDependency, NoDeclaredCommonDomain, NotEvaluated }
+pub enum DependencyDisposition {
+    SharedDependency,
+    UnknownDependency,
+    NoDeclaredCommonDomain,
+    NotEvaluated,
+}
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
-pub enum ProviderEffectEvidence { None, ReceiptPresent, ProviderStateUnavailable, NotApplicable }
+pub enum ProviderEffectEvidence {
+    None,
+    ReceiptPresent,
+    ProviderStateUnavailable,
+    NotApplicable,
+}
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
-pub enum ModelActionAuthority { None, Attempted, Granted, Unknown }
+pub enum ModelActionAuthority {
+    None,
+    Attempted,
+    Granted,
+    Unknown,
+}
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
-pub enum StayDisposition { Confirmed, Rejected, Pending, Unknown, Conflict, NeedsReconciliation, NotEvaluated, Incomparable }
+pub enum StayDisposition {
+    Confirmed,
+    Rejected,
+    Pending,
+    Unknown,
+    Conflict,
+    NeedsReconciliation,
+    NotEvaluated,
+    Incomparable,
+}
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq)]
 #[serde(deny_unknown_fields)]
@@ -210,13 +260,18 @@ pub enum OracleError {
 
 fn digest(bytes: &[u8]) -> String {
     let mut out = String::with_capacity(64);
-    for b in Sha256::digest(bytes) { let _ = write!(&mut out, "{b:02x}"); }
+    for b in Sha256::digest(bytes) {
+        let _ = write!(&mut out, "{b:02x}");
+    }
     out
 }
 
 /// Independent cross-owner rule table. This deliberately does not inspect free-text
 /// scenario descriptions: only typed owner outputs and explicit gate observations.
-pub fn derive_stay_disposition(outputs: &OwnerOutputs, gates: &GateObservations) -> StayDisposition {
+pub fn derive_stay_disposition(
+    outputs: &OwnerOutputs,
+    gates: &GateObservations,
+) -> StayDisposition {
     if !gates.required_handoffs_complete {
         return StayDisposition::Incomparable;
     }
@@ -258,16 +313,22 @@ pub fn derive_stay_disposition(outputs: &OwnerOutputs, gates: &GateObservations)
     if outputs.decision == DecisionDisposition::HumanReview {
         return StayDisposition::Pending;
     }
-    if matches!(outputs.decision, DecisionDisposition::Abstain
-        | DecisionDisposition::RequestInformation
-        | DecisionDisposition::NotEvaluated)
-    {
+    if matches!(
+        outputs.decision,
+        DecisionDisposition::Abstain
+            | DecisionDisposition::RequestInformation
+            | DecisionDisposition::NotEvaluated
+    ) {
         return StayDisposition::Unknown;
     }
     if outputs.dependency == DependencyDisposition::SharedDependency {
         return if outputs.commitment == CommitmentDisposition::Pending
             && outputs.decision == DecisionDisposition::HumanReview
-        { StayDisposition::Pending } else { StayDisposition::Unknown };
+        {
+            StayDisposition::Pending
+        } else {
+            StayDisposition::Unknown
+        };
     }
     if outputs.commitment == CommitmentDisposition::Present
         && outputs.decision == DecisionDisposition::Recommend
@@ -296,12 +357,23 @@ pub fn evaluate_bytes(
     handoff_report_bytes: &[u8],
 ) -> Result<OracleReport, OracleError> {
     const LIMIT: usize = 16 * 1024 * 1024;
-    if [corpus_bytes, input_bytes, template_bytes, handoff_report_bytes].iter().any(|b| b.len() > LIMIT) {
+    if [
+        corpus_bytes,
+        input_bytes,
+        template_bytes,
+        handoff_report_bytes,
+    ]
+    .iter()
+    .any(|b| b.len() > LIMIT)
+    {
         return Err(OracleError::InputTooLarge);
     }
-    let corpus: GoldenCorpus = serde_json::from_slice(corpus_bytes).map_err(|_| OracleError::InvalidCorpus)?;
-    let inputs: OracleInputs = serde_json::from_slice(input_bytes).map_err(|_| OracleError::InvalidOracleInputs)?;
-    let handoff: HandoffVerifierReport = serde_json::from_slice(handoff_report_bytes).map_err(|_| OracleError::InvalidHandoffReport)?;
+    let corpus: GoldenCorpus =
+        serde_json::from_slice(corpus_bytes).map_err(|_| OracleError::InvalidCorpus)?;
+    let inputs: OracleInputs =
+        serde_json::from_slice(input_bytes).map_err(|_| OracleError::InvalidOracleInputs)?;
+    let handoff: HandoffVerifierReport = serde_json::from_slice(handoff_report_bytes)
+        .map_err(|_| OracleError::InvalidHandoffReport)?;
 
     if corpus.corpus_id != "MCB-CROSS-STACK-0.1"
         || corpus.profile_id != "maritime-cross-stack-golden-trace-0.1"
@@ -330,9 +402,13 @@ pub fn evaluate_bytes(
         || inputs.status != "synthetic_owner_result_fixtures_not_executed"
         || inputs.case_count != inputs.cases.len()
         || inputs.case_count != corpus.cases.len()
-        || inputs.source_corpus_path != "mycelix-workspace/docs/maritime-stay/integration/cross-stack-golden-traces-v0.1.json"
+        || inputs.source_corpus_path
+            != "mycelix-workspace/docs/maritime-stay/integration/cross-stack-golden-traces-v0.1.json"
         || inputs.claim_ceiling.trim().is_empty()
-        || !inputs.source_corpus_git_blob_sha1.chars().all(|c| c.is_ascii_hexdigit() && !c.is_ascii_uppercase())
+        || !inputs
+            .source_corpus_git_blob_sha1
+            .chars()
+            .all(|c| c.is_ascii_hexdigit() && !c.is_ascii_uppercase())
         || inputs.source_corpus_git_blob_sha1.len() != 40
     {
         return Err(OracleError::InvalidOracleInputs);
@@ -344,32 +420,45 @@ pub fn evaluate_bytes(
         return Err(OracleError::InvalidHandoffReport);
     }
 
-    let corpus_by_id: std::collections::BTreeMap<&str, &GoldenCase> =
-        corpus.cases.iter().map(|c| (c.case_id.as_str(), c)).collect();
-    if corpus_by_id.len() != corpus.cases.len() { return Err(OracleError::InvalidCorpus); }
+    let corpus_by_id: std::collections::BTreeMap<&str, &GoldenCase> = corpus
+        .cases
+        .iter()
+        .map(|c| (c.case_id.as_str(), c))
+        .collect();
+    if corpus_by_id.len() != corpus.cases.len() {
+        return Err(OracleError::InvalidCorpus);
+    }
     let mut seen = BTreeSet::new();
     let mut results = Vec::with_capacity(inputs.cases.len());
     let mut pass_count = 0usize;
 
     for fixture in &inputs.cases {
-        if !seen.insert(fixture.case_id.as_str()) { return Err(OracleError::InvalidOracleInputs); }
-        let Some(golden) = corpus_by_id.get(fixture.case_id.as_str()) else { return Err(OracleError::CaseSetMismatch); };
+        if !seen.insert(fixture.case_id.as_str()) {
+            return Err(OracleError::InvalidOracleInputs);
+        }
+        let Some(golden) = corpus_by_id.get(fixture.case_id.as_str()) else {
+            return Err(OracleError::CaseSetMismatch);
+        };
         let expected_owner = &golden.expected;
         if fixture.owner_outputs.source_context != expected_owner.source_context
             || fixture.owner_outputs.feasibility != expected_owner.feasibility
             || fixture.owner_outputs.decision != expected_owner.decision
             || fixture.owner_outputs.commitment != expected_owner.commitment
             || fixture.owner_outputs.dependency != expected_owner.dependency
-            || fixture.owner_outputs.provider_effect_evidence != expected_owner.provider_effect_evidence
+            || fixture.owner_outputs.provider_effect_evidence
+                != expected_owner.provider_effect_evidence
             || expected_owner.model_action_authority != "none"
             || fixture.owner_outputs.model_action_authority != ModelActionAuthority::None
             || fixture.expected_stay_disposition != expected_owner.stay_disposition
         {
             return Err(OracleError::InvalidOracleInputs);
         }
-        let calculated = derive_stay_disposition(&fixture.owner_outputs, &fixture.gate_observations);
+        let calculated =
+            derive_stay_disposition(&fixture.owner_outputs, &fixture.gate_observations);
         let matches = calculated == golden.expected.stay_disposition;
-        if matches { pass_count += 1; }
+        if matches {
+            pass_count += 1;
+        }
         results.push(CaseResult {
             case_id: fixture.case_id.clone(),
             calculated,
@@ -377,7 +466,9 @@ pub fn evaluate_bytes(
             matches,
         });
     }
-    if seen.len() != corpus_by_id.len() { return Err(OracleError::CaseSetMismatch); }
+    if seen.len() != corpus_by_id.len() {
+        return Err(OracleError::CaseSetMismatch);
+    }
 
     let mismatch_count = results.len().saturating_sub(pass_count);
     Ok(OracleReport {
@@ -390,7 +481,11 @@ pub fn evaluate_bytes(
         pass_count,
         mismatch_count,
         results,
-        disposition: if mismatch_count == 0 { "pass".into() } else { "reject".into() },
+        disposition: if mismatch_count == 0 {
+            "pass".into()
+        } else {
+            "reject".into()
+        },
         claim_ceiling: CLAIM_CEILING.into(),
     })
 }
@@ -400,9 +495,12 @@ mod tests {
     use super::*;
     use serde_json::json;
 
-    const CORPUS: &str = include_str!("../../../docs/maritime-stay/integration/cross-stack-golden-traces-v0.1.json");
-    const INPUTS: &str = include_str!("../../../docs/maritime-stay/integration/cross-stack-oracle-inputs-v0.1.json");
-    const TEMPLATE: &str = include_str!("../../maritime-handoff-verifier/fixtures/contract-template-v0.1.json");
+    const CORPUS: &str =
+        include_str!("../../../docs/maritime-stay/integration/cross-stack-golden-traces-v0.1.json");
+    const INPUTS: &str =
+        include_str!("../../../docs/maritime-stay/integration/cross-stack-oracle-inputs-v0.1.json");
+    const TEMPLATE: &str =
+        include_str!("../../maritime-handoff-verifier/fixtures/contract-template-v0.1.json");
 
     fn report_for_template() -> String {
         let digest = digest(TEMPLATE.as_bytes());
@@ -416,12 +514,19 @@ mod tests {
             "disposition":"pass",
             "checks":[],
             "claim_ceiling":"manifest structure only"
-        }).to_string()
+        })
+        .to_string()
     }
 
     #[test]
     fn all_frozen_golden_cases_match_independent_reference_rule_table() {
-        let report = evaluate_bytes(CORPUS.as_bytes(), INPUTS.as_bytes(), TEMPLATE.as_bytes(), report_for_template().as_bytes()).unwrap();
+        let report = evaluate_bytes(
+            CORPUS.as_bytes(),
+            INPUTS.as_bytes(),
+            TEMPLATE.as_bytes(),
+            report_for_template().as_bytes(),
+        )
+        .unwrap();
         assert_eq!(report.case_count, 35);
         assert_eq!(report.pass_count, 35);
         assert_eq!(report.mismatch_count, 0);
@@ -431,90 +536,166 @@ mod tests {
     #[test]
     fn positive_trace_requires_provider_commitment_and_effect_receipt() {
         let mut value: OracleInputs = serde_json::from_str(INPUTS).unwrap();
-        let c = value.cases.iter_mut().find(|c| c.case_id == "MCB-X-001").unwrap();
+        let c = value
+            .cases
+            .iter_mut()
+            .find(|c| c.case_id == "MCB-X-001")
+            .unwrap();
         c.owner_outputs.commitment = CommitmentDisposition::Absent;
-        assert_eq!(derive_stay_disposition(&c.owner_outputs, &c.gate_observations), StayDisposition::Pending);
+        assert_eq!(
+            derive_stay_disposition(&c.owner_outputs, &c.gate_observations),
+            StayDisposition::Pending
+        );
     }
 
     #[test]
     fn feasibility_without_provider_commitment_is_pending_not_confirmed() {
         let mut value: OracleInputs = serde_json::from_str(INPUTS).unwrap();
-        let c = value.cases.iter_mut().find(|c| c.case_id == "MCB-X-009").unwrap();
-        assert_eq!(derive_stay_disposition(&c.owner_outputs, &c.gate_observations), StayDisposition::Pending);
+        let c = value
+            .cases
+            .iter_mut()
+            .find(|c| c.case_id == "MCB-X-009")
+            .unwrap();
+        assert_eq!(
+            derive_stay_disposition(&c.owner_outputs, &c.gate_observations),
+            StayDisposition::Pending
+        );
     }
 
     #[test]
     fn stale_source_never_becomes_confirmed() {
         let mut value: OracleInputs = serde_json::from_str(INPUTS).unwrap();
-        let c = value.cases.iter_mut().find(|c| c.case_id == "MCB-X-001").unwrap();
+        let c = value
+            .cases
+            .iter_mut()
+            .find(|c| c.case_id == "MCB-X-001")
+            .unwrap();
         c.owner_outputs.source_context = SourceDisposition::Stale;
-        assert_eq!(derive_stay_disposition(&c.owner_outputs, &c.gate_observations), StayDisposition::Unknown);
+        assert_eq!(
+            derive_stay_disposition(&c.owner_outputs, &c.gate_observations),
+            StayDisposition::Unknown
+        );
     }
 
     #[test]
     fn model_output_never_creates_action_authority() {
         let mut value: OracleInputs = serde_json::from_str(INPUTS).unwrap();
-        let c = value.cases.iter_mut().find(|c| c.case_id == "MCB-X-001").unwrap();
+        let c = value
+            .cases
+            .iter_mut()
+            .find(|c| c.case_id == "MCB-X-001")
+            .unwrap();
         c.owner_outputs.model_action_authority = ModelActionAuthority::Granted;
-        assert_eq!(derive_stay_disposition(&c.owner_outputs, &c.gate_observations), StayDisposition::Rejected);
+        assert_eq!(
+            derive_stay_disposition(&c.owner_outputs, &c.gate_observations),
+            StayDisposition::Rejected
+        );
     }
 
     #[test]
     fn hard_gate_failure_is_non_compensatory() {
         let mut value: OracleInputs = serde_json::from_str(INPUTS).unwrap();
-        let c = value.cases.iter_mut().find(|c| c.case_id == "MCB-X-001").unwrap();
+        let c = value
+            .cases
+            .iter_mut()
+            .find(|c| c.case_id == "MCB-X-001")
+            .unwrap();
         c.gate_observations.hard_gate_failure = true;
-        assert_eq!(derive_stay_disposition(&c.owner_outputs, &c.gate_observations), StayDisposition::Rejected);
+        assert_eq!(
+            derive_stay_disposition(&c.owner_outputs, &c.gate_observations),
+            StayDisposition::Rejected
+        );
     }
 
     #[test]
     fn conflict_is_not_last_write_wins() {
         let mut value: OracleInputs = serde_json::from_str(INPUTS).unwrap();
-        let c = value.cases.iter_mut().find(|c| c.case_id == "MCB-X-001").unwrap();
+        let c = value
+            .cases
+            .iter_mut()
+            .find(|c| c.case_id == "MCB-X-001")
+            .unwrap();
         c.gate_observations.cross_owner_conflict = true;
-        assert_eq!(derive_stay_disposition(&c.owner_outputs, &c.gate_observations), StayDisposition::Conflict);
+        assert_eq!(
+            derive_stay_disposition(&c.owner_outputs, &c.gate_observations),
+            StayDisposition::Conflict
+        );
     }
 
     #[test]
     fn provider_effect_loss_requires_reconciliation() {
         let mut value: OracleInputs = serde_json::from_str(INPUTS).unwrap();
-        let c = value.cases.iter_mut().find(|c| c.case_id == "MCB-X-027").unwrap();
-        assert_eq!(derive_stay_disposition(&c.owner_outputs, &c.gate_observations), StayDisposition::NeedsReconciliation);
+        let c = value
+            .cases
+            .iter_mut()
+            .find(|c| c.case_id == "MCB-X-027")
+            .unwrap();
+        assert_eq!(
+            derive_stay_disposition(&c.owner_outputs, &c.gate_observations),
+            StayDisposition::NeedsReconciliation
+        );
     }
 
     #[test]
     fn incomplete_owner_handoff_is_incomparable_not_rejected_or_passed() {
         let mut value: OracleInputs = serde_json::from_str(INPUTS).unwrap();
-        let c = value.cases.iter_mut().find(|c| c.case_id == "MCB-X-001").unwrap();
+        let c = value
+            .cases
+            .iter_mut()
+            .find(|c| c.case_id == "MCB-X-001")
+            .unwrap();
         c.gate_observations.required_handoffs_complete = false;
-        assert_eq!(derive_stay_disposition(&c.owner_outputs, &c.gate_observations), StayDisposition::Incomparable);
+        assert_eq!(
+            derive_stay_disposition(&c.owner_outputs, &c.gate_observations),
+            StayDisposition::Incomparable
+        );
     }
 
     #[test]
     fn offline_partition_can_only_remain_pending() {
         let mut value: OracleInputs = serde_json::from_str(INPUTS).unwrap();
-        let c = value.cases.iter_mut().find(|c| c.case_id == "MCB-X-032").unwrap();
-        assert_eq!(derive_stay_disposition(&c.owner_outputs, &c.gate_observations), StayDisposition::Pending);
+        let c = value
+            .cases
+            .iter_mut()
+            .find(|c| c.case_id == "MCB-X-032")
+            .unwrap();
+        assert_eq!(
+            derive_stay_disposition(&c.owner_outputs, &c.gate_observations),
+            StayDisposition::Pending
+        );
         c.owner_outputs.commitment = CommitmentDisposition::Present;
         c.owner_outputs.provider_effect_evidence = ProviderEffectEvidence::ReceiptPresent;
         c.owner_outputs.source_context = SourceDisposition::Qualified;
         c.owner_outputs.feasibility = FeasibilityDisposition::Feasible;
         c.owner_outputs.decision = DecisionDisposition::Recommend;
-        assert_eq!(derive_stay_disposition(&c.owner_outputs, &c.gate_observations), StayDisposition::Pending);
+        assert_eq!(
+            derive_stay_disposition(&c.owner_outputs, &c.gate_observations),
+            StayDisposition::Pending
+        );
         c.owner_outputs.commitment = CommitmentDisposition::Present;
         c.owner_outputs.provider_effect_evidence = ProviderEffectEvidence::ReceiptPresent;
         c.owner_outputs.source_context = SourceDisposition::Qualified;
         c.owner_outputs.feasibility = FeasibilityDisposition::Feasible;
         c.owner_outputs.decision = DecisionDisposition::Recommend;
-        assert_eq!(derive_stay_disposition(&c.owner_outputs, &c.gate_observations), StayDisposition::Pending);
+        assert_eq!(
+            derive_stay_disposition(&c.owner_outputs, &c.gate_observations),
+            StayDisposition::Pending
+        );
     }
 
     #[test]
     fn human_review_blocks_confirmation_even_with_commitment_and_receipt() {
         let mut value: OracleInputs = serde_json::from_str(INPUTS).unwrap();
-        let c = value.cases.iter_mut().find(|c| c.case_id == "MCB-X-001").unwrap();
+        let c = value
+            .cases
+            .iter_mut()
+            .find(|c| c.case_id == "MCB-X-001")
+            .unwrap();
         c.owner_outputs.decision = DecisionDisposition::HumanReview;
-        assert_eq!(derive_stay_disposition(&c.owner_outputs, &c.gate_observations), StayDisposition::Pending);
+        assert_eq!(
+            derive_stay_disposition(&c.owner_outputs, &c.gate_observations),
+            StayDisposition::Pending
+        );
     }
 
     #[test]
@@ -525,7 +706,12 @@ mod tests {
         let bytes = serde_json::to_vec(&value).unwrap();
         let report = report_for_template();
         assert_eq!(
-            evaluate_bytes(CORPUS.as_bytes(), &bytes, TEMPLATE.as_bytes(), report.as_bytes()),
+            evaluate_bytes(
+                CORPUS.as_bytes(),
+                &bytes,
+                TEMPLATE.as_bytes(),
+                report.as_bytes()
+            ),
             Err(OracleError::InvalidOracleInputs)
         );
     }
@@ -533,10 +719,16 @@ mod tests {
     #[test]
     fn handoff_report_must_bind_exact_template_bytes() {
         let mut value: serde_json::Value = serde_json::from_str(&report_for_template()).unwrap();
-        value["input_sha256"] = json!("sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
+        value["input_sha256"] =
+            json!("sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
         let report = serde_json::to_vec(&value).unwrap();
         assert_eq!(
-            evaluate_bytes(CORPUS.as_bytes(), INPUTS.as_bytes(), TEMPLATE.as_bytes(), &report),
+            evaluate_bytes(
+                CORPUS.as_bytes(),
+                INPUTS.as_bytes(),
+                TEMPLATE.as_bytes(),
+                &report
+            ),
             Err(OracleError::InvalidHandoffReport)
         );
     }
@@ -548,15 +740,32 @@ mod tests {
         let bytes = serde_json::to_vec(&value).unwrap();
         let report = report_for_template();
         assert_eq!(
-            evaluate_bytes(CORPUS.as_bytes(), &bytes, TEMPLATE.as_bytes(), report.as_bytes()),
+            evaluate_bytes(
+                CORPUS.as_bytes(),
+                &bytes,
+                TEMPLATE.as_bytes(),
+                report.as_bytes()
+            ),
             Err(OracleError::InvalidOracleInputs)
         );
     }
 
     #[test]
     fn report_is_deterministic_for_identical_input_bytes() {
-        let report1 = evaluate_bytes(CORPUS.as_bytes(), INPUTS.as_bytes(), TEMPLATE.as_bytes(), report_for_template().as_bytes()).unwrap();
-        let report2 = evaluate_bytes(CORPUS.as_bytes(), INPUTS.as_bytes(), TEMPLATE.as_bytes(), report_for_template().as_bytes()).unwrap();
+        let report1 = evaluate_bytes(
+            CORPUS.as_bytes(),
+            INPUTS.as_bytes(),
+            TEMPLATE.as_bytes(),
+            report_for_template().as_bytes(),
+        )
+        .unwrap();
+        let report2 = evaluate_bytes(
+            CORPUS.as_bytes(),
+            INPUTS.as_bytes(),
+            TEMPLATE.as_bytes(),
+            report_for_template().as_bytes(),
+        )
+        .unwrap();
         assert_eq!(report1, report2);
     }
 }
