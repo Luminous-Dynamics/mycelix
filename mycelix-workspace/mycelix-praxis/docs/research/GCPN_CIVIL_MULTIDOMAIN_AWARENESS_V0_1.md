@@ -313,6 +313,36 @@ The broader IHO publications page lists S-97 Edition 2.0.0 (November 2026) and S
 
 Primary sources: [IHO Standards in Force](https://iho.int/fr/standards-in-force-0) and [IHO Standards and Specifications](https://iho.int/standards-and-specifications).
 
+
+## 6.7 Civil-aviation surveillance standard snapshot (9 November 2026)
+
+Pin data-format and surveillance-interface editions before comparing any adapter:
+- ICAO Annex 10, Volume IV — Surveillance Radar and Collision Avoidance Systems: Sixth Edition, August 2026. It covers SSR Mode A/C/S and ACAS technical characteristics; it is not a licence for a research product to implement operational separation or collision avoidance.
+- EUROCAE ED-129C — 1090 MHz Extended Squitter ADS-B Surveillance System: current published edition shown as 18 October 2023; includes partial ADS-B Version 3 and ASTERIX CAT021 support. ED-129C Change 1 is still shown as draft with a target publication date of 31 December 2026, so do not treat that change as published as of this snapshot.
+- EUROCONTROL ASTERIX: current surveillance-data exchange library; page now announces Edition 1.6 of Category 025. Part I general surveillance data-exchange specification is listed as Edition 3.1 dated 23 November 2021. Pin the actual category and edition used for each interface rather than claiming generic ASTERIX support.
+
+Research adapters should preserve the original category/edition, SAC/SIC or source identity fields where lawfully available, time-of-day semantics, update and reception time, quality indicators, track status and source lineage. The Luminous layer remains read-only and advisory; it does not provide ATC instructions, separation minima, ACAS/TCAS, flight-control or certified detect-and-avoid functions.
+
+Primary references: [ICAO Annex 10 Vol IV, Sixth Edition](https://store.icao.int/en/annex-10-aeronautical-telecommunications-volume-iv-surveillance-radar-and-collision-avoidance-systems), [EUROCAE ED-129C](https://www.eurocae.net/product/ed-129c-technical-specification-for-a-1090-mhz-extended-squitter-ads-b-surveillance-system/), [EUROCAE WG-51 status](https://www.eurocae.net/working-group/wg-51-sg-4/), [EUROCONTROL ASTERIX](https://www.eurocontrol.int/asterix).
+
+## 6.8 VTS / port workflow reference snapshot
+
+IMO Resolution A.1158(32) (adopted 15 December 2021) is the current published VTS guideline reference in this review. It describes information services, traffic monitoring/management and response to developing unsafe situations. Those are VTS provider functions governed by competent authorities and trained operators; our system should supply evidence, not silently assume VTS authority. IALA's current VTS publication index lists G1141 operational procedures (28 June 2024), G1130 technical information exchange (16 December 2022), and G1156 VTS personnel recruitment/training/certification (12 December 2025).
+
+Benchmark the *handoff* to the existing VTS/port workflow: event evidence completeness, source disagreement, freshness, time-alignment uncertainty, provenance, operator review time, duplicate alerts and correction propagation. Do not benchmark an unapproved Luminous route-advice or traffic-clearance function against certified VTS.
+
+Primary references: [IMO VTS guidance](https://www.imo.org/en/ourwork/safety/pages/vesseltrafficservices.aspx), [IMO Resolution A.1158(32)](https://wwwcdn.imo.org/localresources/en/KnowledgeCentre/IndexofIMOResolutions/AssemblyDocuments/A.1158%2832%29.pdf), [IALA VTS publications](https://www.iala.int/product-category/publications/guidelines/vts/).
+
+## 6.9 Benchmark design: compare at the workflow boundary
+
+Do not compare unlike systems by headline detection percentages. Use the same authorized event frame and output semantics, then report distinct measures:
+- **Surveillance/source layer:** detection probability, false plots/tracks per operating hour, track continuity/fragmentation, false association, update interval, latency, coverage and clock uncertainty, all stratified by source class and environment.
+- **Evidence-reconciliation layer:** independent-dependency-group correctness, false corroboration rate, unresolved/conflict preservation, provenance completeness, source health, correction handling and replay reproducibility.
+- **Human-workflow layer:** time to find the relevant evidence, time to adjudicate, false-review volume, missed escalation, handoff completeness and workload. Measure only where a valid workflow truth/annotation exists.
+- **Lifecycle layer:** calibration/maintenance workload, integration cost, data-rights cost, storage/connectivity, downtime, version migration and vendor substitution cost.
+
+An assurance layer can outperform an incumbent workflow without exceeding its radar/ADS-B detection performance, but only if it improves a declared outcome at matched event coverage and does not degrade false-association risk, evidence integrity, rights or human authority. Publish separate Pareto dimensions; never hide a safety-critical regression inside a composite score.
+
 ## 7. South African legal and regulatory gate
 
 The current ICASA public guidance describes spectrum-licensing requirements under ECA section 31 and equipment type approval under section 35, with statutory exceptions and regulatory determinations. Do not infer that passive reception is automatically licence-free, that an imported unit is type-approved, or that a foreign vendor's wording settles South African legality.
