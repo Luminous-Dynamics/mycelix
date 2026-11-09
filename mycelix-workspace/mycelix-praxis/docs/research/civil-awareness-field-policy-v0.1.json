@@ -83,5 +83,29 @@
     "authorizes_action": false,
     "replaces_certified_safety_system": false,
     "uses_personal_operator_geolocation": false
+  },
+  "claim_value_allowlists": {
+    "uas": {
+      "sensor_reported_object_class": [
+        "reported_class",
+        "classification_status"
+      ]
+    },
+    "maritime": {
+      "ais_reported_navigation_status": [
+        "reported_status",
+        "identity_status"
+      ]
+    },
+    "civil_aviation": {
+      "weather_hazard_report": [
+        "hazard_type",
+        "severity",
+        "source_confirmation"
+      ]
+    }
+  },
+  "claim_value_constraints": {
+    "v0.1": "claim.value must be a scalar or a flat object whose keys are explicitly listed for (domain, claim_type); nested objects and arrays are rejected until a domain-specific value schema is registered."
   }
 }
