@@ -82,7 +82,7 @@ The machine-readable DGP contains 21 deterministic scenario definitions:
 Corpus: `gcpn-coverage-calibration-dgp-v0.1.json`  
 Schema: `gcpn-coverage-calibration-dgp-v0.1.schema.json`
 
-The DGP is a specification, not a run. It records no measured performance. Its fixed PCG-XSH-RR-64/32 seed and independent per-case streams make deterministic generation a future implementation requirement; this generator has not yet been written.
+The DGP is a specification, not a run. It records no measured performance. The PCG-XSH-RR-64/32 primitive and SHA-256 domain-separated per-case stream derivation are implemented and covered by the reference output vector and reproducibility tests; the scenario-specific DGP generator and metric runner have not yet been written.
 
 ## Acceptance metrics and reporting
 
