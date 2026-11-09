@@ -232,5 +232,63 @@
     "steering_and_minority_preservation_audit",
     "decision_to_outcome_traceability_report",
     "limitations_null_results_and_counterexamples"
+  ],
+  "research_basis": [
+    {
+      "id": "deliberation_bank_colm_2026",
+      "source_type": "human_grounded_opinion_summarization_benchmark",
+      "title": "Can AI Truly Represent Your Voice in Deliberations? A Comprehensive Study of Large-Scale Opinion Aggregation with LLMs",
+      "url": "https://arxiv.org/abs/2510.05154",
+      "reported_evidence": "The project reports 3,000 participant opinions across ten U.S. societal questions and 4,500 human summary judgments from 7,500 participants; judgments are participant-conditioned and cover representativeness, informativeness, neutrality and policy approval. The publication list identifies the work as COLM 2026.",
+      "intended_use": "Use as an existing development/reference corpus for opinion summarization and participant-conditioned evaluation if license, provenance, version and data-use review pass. Compare candidate summaries with the released human-grounded evaluation baseline where technically compatible.",
+      "limitation": "This is not a group-interaction randomized trial, does not prove public-institution legitimacy or downstream policy impact, and does not establish population-general performance outside its U.S. topic/sample context. Keep policy approval separate from representativeness or neutrality."
+    },
+    {
+      "id": "llm_group_facilitation_fact_2026",
+      "source_type": "randomized_group_facilitation_experiment",
+      "title": "Real-Time Group Dynamics with LLM Facilitation: Evidence from a Charity Allocation Task",
+      "url": "https://arxiv.org/abs/2605.14097",
+      "reported_evidence": "Two studies with 879 participants in groups of three and real financial stakes. Reported LLM facilitation did not significantly improve consensus or measured participation equity, while participants preferred facilitated discussion and some strategies shifted charity allocations by up to 5.5 percentage points.",
+      "intended_use": "Motivate separate measurement of perceived inclusion, transcript-coded participation, trust, consensus, and directional influence over actual group allocations.",
+      "limitation": "The task, group size, sample and facilitator configurations are specific; do not assume effects generalize to civic, workplace, cooperative or multi-session settings."
+    },
+    {
+      "id": "ai_guided_self_reflection_2026",
+      "source_type": "randomized_pre_deliberation_intervention",
+      "title": "Improving Group Deliberation through AI-Guided Self-Reflection",
+      "url": "https://arxiv.org/abs/2610.37862",
+      "reported_evidence": "A randomized experiment reports 1,173 U.S. participants across 391 small-group deliberations. Non-directive AI-guided pre-deliberation reflection improved measured Discourse Quality Index outcomes against no-reflection and unassisted-reflection conditions, with reported Cohen's d values of 0.31 and 0.27.",
+      "intended_use": "Preregister a replication arm for participant-controlled non-directive reflection before group discussion; test boundary conditions and persistence independently.",
+      "limitation": "One reported design and population do not establish a universal benefit, long-term persistence, institutional outcomes or superiority over all human-facilitation methods."
+    },
+    {
+      "id": "oecd_deliberative_evaluation_2021",
+      "source_type": "evaluation_framework",
+      "title": "Evaluation Guidelines for Representative Deliberative Processes",
+      "url": "https://www.oecd.org/en/publications/evaluation-guidelines-for-representative-deliberative-processes_10ccbfcb-en.html",
+      "reported_evidence": "The OECD framework separates process-design integrity, the deliberative experience, and pathways to impact, and recommends independent, mixed-method evaluation.",
+      "intended_use": "Use as a process-evaluation crosswalk and reporting baseline, not as a single numeric benchmark.",
+      "limitation": "Guidance is not itself a machine-test oracle and does not supply universal effect-size thresholds."
+    }
+  ],
+  "evaluation_layers": [
+    {
+      "id": "opinion_summarization",
+      "purpose": "Test whether a generated summary represents individual and minority positions, evidence and uncertainty. Reuse human-grounded public corpora such as DeliberationBank after source/license review.",
+      "primary_evidence": "Participant-conditioned human judgments and source-linked claims.",
+      "claim_ceiling": "Summary quality for the exact corpus, question, sample and evaluation protocol; not full deliberation quality."
+    },
+    {
+      "id": "group_interaction",
+      "purpose": "Test how facilitation and reflection interventions change interaction, reasoning, participation, influence, trust and group decisions.",
+      "primary_evidence": "Preregistered group-level human experiments with independent human-coded transcripts and outcome measures.",
+      "claim_ceiling": "Causal claims only for the tested population, intervention, context and analysis assumptions."
+    },
+    {
+      "id": "institutional_follow_through",
+      "purpose": "Test whether deliberative inputs and recommendations receive traceable, reasoned responses and connect to authorized action, implementation and independently observed outcomes.",
+      "primary_evidence": "Versioned institutional records, execution evidence, appeals and independent outcome observations.",
+      "claim_ceiling": "Institutional and outcome claims only for the specific authority, process, implementation and observation period."
+    }
   ]
 }
