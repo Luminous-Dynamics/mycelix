@@ -109,7 +109,7 @@ Preserve at least:
 - correction or revocation time;
 - validity interval when the source provides one.
 
-Late arrival, out-of-order messages, clock drift, duplicate deliveries and retrospective corrections must be reproducible. Corrections append a new version and link to the prior record; they do not erase history. Digests are not decorative identifiers: `field_allowlist_digest` is SHA-256 over the exact UTF-8 bytes of the pinned field-policy artifact; `payload_digest` is SHA-256 over the RFC 8785 canonical JSON bytes of the domain-extension payload. The canonicalization and digest formats are pinned in the field-policy artifact.
+Late arrival, out-of-order messages, clock drift, duplicate deliveries and retrospective corrections must be reproducible. Corrections append a new version and link to the prior record; they do not erase history. Digests are not decorative identifiers: `field_allowlist_digest` is SHA-256 over the exact UTF-8 bytes of the pinned field-policy artifact; `payload_digest` is SHA-256 over the RFC 8785 canonical JSON bytes of the domain-extension payload; and `envelope_content_digest` is SHA-256 over the RFC 8785 canonical JSON bytes of the complete envelope after removing only the `lineage.envelope_content_digest` field. The last digest therefore binds source, timestamps, claims, quality, dependency, spatial and governance metadata, plus correction/supersession lineage, without self-reference. The canonicalization and digest formats are pinned in the field-policy artifact. In v0.1, `claim.value` is restricted by a `(domain, claim_type)` allowlist; objects must be flat, and nested objects/arrays are rejected until a domain-specific value schema is registered.
 
 ### 2.3 Domain-specific spatial precision
 
@@ -293,7 +293,11 @@ No adapters to vessel navigation control, aircraft flight controls, ATC/VTS comm
 7. **Comparators:** pin exact product revisions and export semantics via #5975; report public claims as vendor claims only.
 8. **Physical evaluation:** separate future gates for each domain, with regulator/site authorization, independent truth, human-factors protocol and professional safety review.
 
-## 10. Current claim ceiling
+## 10. Implementation work
+
+The offline Rust validator and negative-control suite are tracked in [#5992 — fail-closed envelope validation](https://github.com/Luminous-Dynamics/mycelix/issues/5992). It validates structure and digests but deliberately stops short of accepting evidence until an independent source-attestation and authority-receipt verifier is connected to the shared evidence plane.
+
+## 11. Current claim ceiling
 
 The architecture and schema define an implementable research contract. They do not establish actual vessel/aircraft detection performance, navigational or aviation safety, certified system status, vendor superiority, legal compliance, or field readiness. Each of those requires a separate independently governed qualification.
 
