@@ -1,4 +1,8 @@
-use std::{env, fs, io::{self, Write}, process::ExitCode};
+use std::{
+    env, fs,
+    io::{self, Write},
+    process::ExitCode,
+};
 
 use emsr_causal_intervention_benchmark::score_candidate;
 
@@ -17,8 +21,12 @@ fn run() -> Result<(), String> {
     let public_path = args.next().ok_or_else(|| {
         "usage: causal-evaluator <public-scenario.json> <hidden-truth.json> <candidate-report.json>".to_owned()
     })?;
-    let truth_path = args.next().ok_or_else(|| "hidden truth path required".to_owned())?;
-    let report_path = args.next().ok_or_else(|| "candidate report path required".to_owned())?;
+    let truth_path = args
+        .next()
+        .ok_or_else(|| "hidden truth path required".to_owned())?;
+    let report_path = args
+        .next()
+        .ok_or_else(|| "candidate report path required".to_owned())?;
     if args.next().is_some() {
         return Err("expected exactly three input paths".to_owned());
     }
