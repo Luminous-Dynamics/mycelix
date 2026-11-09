@@ -219,17 +219,6 @@ fn assess_case(case: &Value) -> Result<ObservabilityAssessment, String> {
             Vec::new(),
         );
     }
-    if matches!(
-        applicability,
-        "not_required_for_declared_vessel_class" | "not_equipped_or_not_required"
-    ) {
-        return assessment(
-            case,
-            ObservabilityState::NotEquippedOrNotRequired,
-            ["source.equipment_or_carriage_not_applicable"],
-            claims,
-        );
-    }
     if modality == "meteorological_context" || coverage_status == "not_applicable" {
         return assessment(
             case,
@@ -261,6 +250,52 @@ fn assess_case(case: &Value) -> Result<ObservabilityAssessment, String> {
             case,
             ObservabilityState::Unobservable,
             ["coverage.known_blind_region_or_profile_mismatch"],
+            claims,
+        );
+    }
+
+    // A single fresh positive source observation is still reportable when
+    // the broader coverage envelope is partial or unknown. It proves only that
+    // the source emitted an observation; it does not prove full-window coverage
+    // or physical identity. Multi-source aggregates remain subject to common
+    // coverage/lineage qualification.
+    let distinct_sources: BTreeSet<&str> =
+        claims.iter().map(|claim| claim.source_id.as_str()).collect();
+    let has_positive = claims.iter().any(|claim| {
+        matches!(
+            claim.claim.as_str(),
+            "OBSERVED_PRESENT" | "OBSERVED_PRESENT_WITHIN_SCOPE"
+        )
+    });
+    let has_negative = claims.iter().any(|claim| {
+        matches!(
+            claim.claim.as_str(),
+            "NO_MESSAGE" | "NOT_OBSERVED_WITHIN_DECLARED_COVERAGE"
+        )
+    });
+    if distinct_sources.len() == 1
+        && has_positive
+        && !has_negative
+        && health == "healthy"
+        && freshness == "fresh"
+        && completeness == "complete"
+    {
+        return assessment(
+            case,
+            ObservabilityState::ObservedPresent,
+            ["source.positive_observation_recorded_coverage_may_be_partial"],
+            claims,
+        );
+    }
+    if matches!(
+        applicability,
+        "not_required_for_declared_vessel_class" | "not_equipped_or_not_required"
+    ) && claims.is_empty()
+    {
+        return assessment(
+            case,
+            ObservabilityState::NotEquippedOrNotRequired,
+            ["source.equipment_or_carriage_not_applicable"],
             claims,
         );
     }
@@ -702,6 +737,18 @@ mod tests {
         assert_eq!(report.state, ObservabilityState::Conflict);
         assert_eq!(report.source_claims.len(), 2);
         assert_ne!(report.source_claims[0].source_id, report.source_claims[1].source_id);
+    }
+
+    #[test]
+    fn fresh_single_source_positive_is_preserved_when_coverage_is_incomplete() {
+        let dgp = fixture();
+        let case = case_by_id(&dgp, "OBS-019");
+        let report = assess_case(case).unwrap();
+        assert_eq!(report.state, ObservabilityState::ObservedPresent);
+        assert_eq!(report.source_claims.len(), 1);
+        assert!(report.reason_codes.contains(
+            &"source.positive_observation_recorded_coverage_may_be_partial".to_owned()
+        ));
     }
 
     #[test]
