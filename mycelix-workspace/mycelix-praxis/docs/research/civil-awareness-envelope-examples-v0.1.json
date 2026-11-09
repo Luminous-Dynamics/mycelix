@@ -58,12 +58,13 @@
           "synthetic_schema_test"
         ],
         "retention_class": "public_fixture",
-        "field_allowlist_digest": "sha256:37c1f712ac7b8107b9bd3fd08e44e834ed16c504fa50b20d855ad27ca1dd6f47"
+        "field_allowlist_digest": "sha256:a88b01b4d7f262f101196b5f8bc3d1c20ee91f2ae20cb1ada4af59af82e3d932"
       },
       "lineage": {
-        "payload_digest": "sha256:585d64ea080ea3a62f6d105683d596cfd060b9b28d320256bd3d4a57e82536af",
+        "payload_digest": "sha256:84588c61dbf8b9bc892c5cabebae03ed700ea378db64133da7471cf451ce0f54",
         "supersedes_refs": [],
-        "corrects_refs": []
+        "corrects_refs": [],
+        "envelope_content_digest": "sha256:cc1be83484395306adb5fa180d6212d340f4dab03887319d8cb8ef23c58c5a16"
       },
       "domain_extension": {
         "schema_uri": "urn:luminous-dynamics:gcpn:uas:0.1.0",
@@ -131,12 +132,13 @@
           "synthetic_schema_test"
         ],
         "retention_class": "public_fixture",
-        "field_allowlist_digest": "sha256:37c1f712ac7b8107b9bd3fd08e44e834ed16c504fa50b20d855ad27ca1dd6f47"
+        "field_allowlist_digest": "sha256:a88b01b4d7f262f101196b5f8bc3d1c20ee91f2ae20cb1ada4af59af82e3d932"
       },
       "lineage": {
-        "payload_digest": "sha256:24f1f26876779edb94b8d4dbbe5cb02f5aa23bafad3f91f57a283a6aacd3da12",
+        "payload_digest": "sha256:eba48c3b24f675022cf548fbd9ea904d069d507541fba859b10696705c6fe398",
         "supersedes_refs": [],
-        "corrects_refs": []
+        "corrects_refs": [],
+        "envelope_content_digest": "sha256:16ea2db1ac0313f27eb07f621c28f7085cf7ef4e6c487c00f9e75abdfb5f3c5b"
       },
       "domain_extension": {
         "schema_uri": "urn:luminous-dynamics:gcpn:maritime:0.1.0",
@@ -209,12 +211,13 @@
           "synthetic_schema_test"
         ],
         "retention_class": "public_fixture",
-        "field_allowlist_digest": "sha256:37c1f712ac7b8107b9bd3fd08e44e834ed16c504fa50b20d855ad27ca1dd6f47"
+        "field_allowlist_digest": "sha256:a88b01b4d7f262f101196b5f8bc3d1c20ee91f2ae20cb1ada4af59af82e3d932"
       },
       "lineage": {
-        "payload_digest": "sha256:dac7ab1fd35789b79dac59da48e709d525efbf34fee7b4ec8e4aa3afc300dc62",
+        "payload_digest": "sha256:0c033ccbd9bf57a360d07b837e94c9d5a5164c820d69760a7bc1f09f5489eee5",
         "supersedes_refs": [],
-        "corrects_refs": []
+        "corrects_refs": [],
+        "envelope_content_digest": "sha256:3d7b4c61103841221bd7e36ca534e9ace71b0c7dc74d5eb304b7a30441553092"
       },
       "domain_extension": {
         "schema_uri": "urn:luminous-dynamics:gcpn:civil-aviation:0.1.0",
