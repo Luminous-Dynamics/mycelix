@@ -141,8 +141,12 @@ func readBounded(path string, maxBytes int64) ([]byte, error) {
 
 func decodeStrict[T any](data []byte) (T, error) {
 	var value T
+	if err := rejectDuplicateJSONKeys(data); err != nil {
+		return value, err
+	}
 	decoder := json.NewDecoder(bytes.NewReader(data))
 	decoder.DisallowUnknownFields()
+	decoder.UseNumber()
 	if err := decoder.Decode(&value); err != nil {
 		return value, err
 	}
@@ -154,6 +158,82 @@ func decodeStrict[T any](data []byte) (T, error) {
 		return value, err
 	}
 	return value, nil
+}
+
+// rejectDuplicateJSONKeys walks decoder tokens before typed decoding. The Go
+// encoding/json package otherwise accepts duplicate names and keeps the last
+// value, which can make byte-identical signed evidence mean different things
+// to different parsers.
+func rejectDuplicateJSONKeys(data []byte) error {
+	decoder := json.NewDecoder(bytes.NewReader(data))
+	decoder.UseNumber()
+	if err := walkUniqueJSONValue(decoder); err != nil {
+		return err
+	}
+	if _, err := decoder.Token(); !errors.Is(err, io.EOF) {
+		if err == nil {
+			return errors.New("multiple JSON values are not permitted")
+		}
+		return err
+	}
+	return nil
+}
+
+func walkUniqueJSONValue(decoder *json.Decoder) error {
+	token, err := decoder.Token()
+	if err != nil {
+		return err
+	}
+	delim, isDelimiter := token.(json.Delim)
+	if !isDelimiter {
+		return nil
+	}
+
+	switch delim {
+	case '{':
+		seen := make(map[string]struct{})
+		for decoder.More() {
+			keyToken, err := decoder.Token()
+			if err != nil {
+				return err
+			}
+			key, ok := keyToken.(string)
+			if !ok {
+				return errors.New("JSON object property name is not a string")
+			}
+			if _, exists := seen[key]; exists {
+				return errors.New("duplicate JSON object property")
+			}
+			seen[key] = struct{}{}
+			if err := walkUniqueJSONValue(decoder); err != nil {
+				return err
+			}
+		}
+		end, err := decoder.Token()
+		if err != nil {
+			return err
+		}
+		if end != json.Delim('}') {
+			return errors.New("unterminated JSON object")
+		}
+		return nil
+	case '[':
+		for decoder.More() {
+			if err := walkUniqueJSONValue(decoder); err != nil {
+				return err
+			}
+		}
+		end, err := decoder.Token()
+		if err != nil {
+			return err
+		}
+		if end != json.Delim(']') {
+			return errors.New("unterminated JSON array")
+		}
+		return nil
+	default:
+		return errors.New("unexpected JSON closing delimiter")
+	}
 }
 
 func verify(inputBytes, reportBytes []byte) VerificationReport {
