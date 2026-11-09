@@ -81,9 +81,31 @@ impl EnvelopeValidator {
         if string_at(&policy, "/policy_version") != Some("0.1.0") {
             return Err("policy.version_unsupported".into());
         }
-        if string_at(&policy, "/canonicalization/digest_algorithm") != Some("SHA-256")
+        if string_at(&schema, "/$id")
+            != Some("urn:luminous-dynamics:gcpn:civil-awareness-evidence-envelope:0.1.0")
+            || string_at(&schema, "/$schema")
+                != Some("https://json-schema.org/draft/2020-12/schema")
+        {
+            return Err("schema.identity_or_draft_unsupported".into());
+        }
+        if string_at(&policy, "/canonicalization/encoding") != Some("UTF-8")
+            || string_at(&policy, "/canonicalization/digest_algorithm") != Some("SHA-256")
             || string_at(&policy, "/canonicalization/json_payload_serialization")
                 != Some("RFC 8785 JSON Canonicalization Scheme")
+            || string_at(&policy, "/canonicalization/digest_format")
+                != Some("sha256:<64 lowercase hexadecimal characters>")
+            || string_at(
+                &policy,
+                "/canonicalization/digest_semantics/field_allowlist_digest",
+            ) != Some("SHA-256 over the exact UTF-8 bytes of this field-policy artifact.")
+            || string_at(
+                &policy,
+                "/canonicalization/digest_semantics/payload_digest",
+            ) != Some("SHA-256 over RFC 8785 canonical JSON bytes of domain_extension.payload.")
+            || string_at(
+                &policy,
+                "/canonicalization/digest_semantics/envelope_content_digest",
+            ) != Some("SHA-256 over RFC 8785 canonical JSON bytes of the entire envelope object after removing only lineage.envelope_content_digest; this avoids self-reference while binding payload_digest, correction/supersession links and every other field.")
         {
             return Err("policy.digest_contract_unsupported".into());
         }
@@ -622,6 +644,31 @@ mod tests {
     fn embedded_schema_contains_no_remote_references() {
         let schema = parse_strict_json(SCHEMA_JSON.as_bytes()).unwrap();
         assert!(!schema_has_external_refs(&schema));
+    }
+
+    #[test]
+    fn schema_identity_and_draft_are_pinned() {
+        let schema: Value = parse_strict_json(SCHEMA_JSON.as_bytes()).unwrap();
+        let mut changed = schema;
+        changed["$id"] = json!("urn:attacker:replacement");
+        let result = EnvelopeValidator::from_documents(
+            &serde_json::to_string(&changed).unwrap(),
+            FIELD_POLICY_JSON,
+        );
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn policy_digest_semantics_are_pinned() {
+        let policy: Value = parse_strict_json(FIELD_POLICY_JSON.as_bytes()).unwrap();
+        let mut changed = policy;
+        changed["canonicalization"]["digest_semantics"]["payload_digest"] =
+            json!("SHA-256 over arbitrary JSON serialization.");
+        let result = EnvelopeValidator::from_documents(
+            SCHEMA_JSON,
+            &serde_json::to_string(&changed).unwrap(),
+        );
+        assert!(result.is_err());
     }
 
     #[test]
