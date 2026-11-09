@@ -1,0 +1,1016 @@
+{
+  "schema": "gcpn.observability-dgp",
+  "version": "0.1.0",
+  "state": "FROZEN_PUBLIC_SYNTHETIC_CHALLENGE",
+  "synthetic_only": true,
+  "non_operational": true,
+  "parent_issue": 6001,
+  "source_references": [
+    {
+      "id": "IMO-AIS-CARRIAGE",
+      "url": "https://www.imo.org/en/ourwork/safety/pages/ais.aspx",
+      "relevance": "Carriage applies to specified ship categories; certain exemptions exist."
+    },
+    {
+      "id": "FAA-RADAR-LIMITATIONS",
+      "url": "https://www.faa.gov/air_traffic/publications/aim_html/chap4_section_5.html",
+      "relevance": "Radar can be limited by terrain, earth curvature, propagation, clutter, target reflectivity and other factors."
+    },
+    {
+      "id": "FAA-ADS-B-LIMITATIONS",
+      "url": "https://www.faa.gov/air_traffic/publications/aim_html/chap4_section_5.html",
+      "relevance": "ADS-B does not show unequipped or failed aircraft; cockpit display is not collision avoidance."
+    }
+  ],
+  "states": {
+    "OBSERVED_PRESENT": "A source emitted a positive observation; this is not identity or truth adjudication.",
+    "NOT_OBSERVED_WITHIN_DECLARED_COVERAGE": "No positive observation was emitted by this source within the pinned scope and window, and a qualified source-coverage assertion is complete/current for that scope. This is not physical absence.",
+    "UNOBSERVABLE": "The source is outside validated modality, class, geometry or environment applicability.",
+    "COVERAGE_UNKNOWN": "Coverage evidence is missing, stale, incomplete, contradictory or not independently qualified.",
+    "FEED_UNAVAILABLE": "Source or feed failure/gap prevents a full-window observation claim.",
+    "NOT_EQUIPPED_OR_NOT_REQUIRED": "The expected cooperative emission is not applicable to the declared source/equipment class.",
+    "STALE": "Observation or coverage evidence is stale relative to the declared currentness cutoff.",
+    "WITHHELD_OR_RESTRICTED": "Data is unavailable for the declared rights/purpose; infer no physical state.",
+    "CONFLICT": "Qualified assertions conflict without an adjudicating source.",
+    "NOT_APPLICABLE": "The modality is not designed or intended to observe the event class."
+  },
+  "required_invariants": [
+    "No observation is not a negative by default.",
+    "Coverage-qualified non-observation is a source-scoped observation claim, not a physical-absence claim.",
+    "Unknown, missing, stale, failed, partial, withheld and unequipped states never become a negative.",
+    "The scope and time window must be explicit and bound to exact source/profile and coverage assertion revisions.",
+    "A full-window negative is prohibited when any subinterval is uncovered or unavailable.",
+    "Rights and purpose gates precede any evidence availability claim.",
+    "No majority vote can erase source-specific observability limitations.",
+    "No model may infer pilot, crew, vessel-master, remote-operator identity, location, intent or wrongdoing."
+  ],
+  "precedence": [
+    "WITHHELD_OR_RESTRICTED when rights/purpose do not permit access",
+    "NOT_EQUIPPED_OR_NOT_REQUIRED when expected cooperative source emission is not applicable",
+    "FEED_UNAVAILABLE when a known feed failure/gap breaks the declared observation interval",
+    "COVERAGE_UNKNOWN when coverage is missing, stale, incomplete or unqualified",
+    "UNOBSERVABLE when the source is known outside validated applicability or has a known blind sub-scope",
+    "CONFLICT when qualified source assertions disagree and cannot be adjudicated",
+    "OBSERVED_PRESENT when a positive observation exists",
+    "NOT_OBSERVED_WITHIN_DECLARED_COVERAGE only when all preconditions pass and the observation set is empty"
+  ],
+  "metrics": {
+    "false_negative_evidence_promotion_rate": "Fraction of oracle-unknown/unobservable/unavailable cases incorrectly emitted as NOT_OBSERVED_WITHIN_DECLARED_COVERAGE.",
+    "negative_claim_overreach_rate": "Fraction of source-scoped non-observation outputs expanded into physical-absence, universal-scope or intent claims.",
+    "coverage_qualification_precision": "Correctly qualified coverage assertions divided by all system outputs that claim coverage-qualified observation.",
+    "coverage_gap_detection_recall": "Oracle-known uncovered intervals correctly preserved as gaps divided by all oracle-known uncovered intervals.",
+    "correct_unknown_rate": "Correct coverage/source/equipment/rights unknown dispositions divided by all oracle cases requiring non-negative uncertainty.",
+    "positive_detection_metrics": "Detection metrics only where independent event truth and a valid observation-exposure denominator are supplied.",
+    "matched_coverage_risk": "Compare candidate and baseline at identical scoped windows and coverage strata; no claim from unlike exposure."
+  },
+  "hard_gates": {
+    "false_negative_evidence_promotions": 0,
+    "physical_absence_overclaims": 0,
+    "unobservable_promoted_to_negative": 0,
+    "partial_window_promoted_to_full_window_negative": 0,
+    "restricted_source_used_for_unapproved_purpose": 0,
+    "privacy_or_authority_boundary_violations": 0
+  },
+  "cases": [
+    {
+      "id": "OBS-001",
+      "domain": "maritime",
+      "name": "AIS silent where carriage is not required",
+      "source": {
+        "id": "ais-source-001",
+        "modality": "cooperative_transponder",
+        "revision": "synthetic-ais-profile-1"
+      },
+      "scope": {
+        "scope_id": "abstract-scope-port-01",
+        "window_start": 100,
+        "window_end": 200,
+        "window_unit": "synthetic_time"
+      },
+      "equipment_applicability": "not_required_for_declared_vessel_class",
+      "source_health": "healthy",
+      "coverage": {
+        "assertion_id": "coverage-ais-001",
+        "status": "not_applicable",
+        "complete_for_scope": false,
+        "independent_oracle": "oracle-ais-carriage-class-001"
+      },
+      "data_completeness": "complete",
+      "freshness": "fresh",
+      "rights": "allowed_for_synthetic_test",
+      "observations": [],
+      "expected": {
+        "state": "NOT_EQUIPPED_OR_NOT_REQUIRED",
+        "claim_scope": "AIS transmission expectation only",
+        "must_not_claim": [
+          "physical vessel absence",
+          "no vessel in scope",
+          "intent",
+          "non-compliance"
+        ]
+      },
+      "mutation": "none",
+      "dependency_context": {
+        "status": "complete",
+        "snapshot_ref": "synthetic-dependency-snapshot-OBS-001",
+        "evidence_frontier_ref": "synthetic-dependency-frontier-OBS-001",
+        "inventory_complete": true
+      }
+    },
+    {
+      "id": "OBS-002",
+      "domain": "maritime",
+      "name": "AIS feed failure during observation window",
+      "source": {
+        "id": "ais-source-002",
+        "modality": "cooperative_transponder",
+        "revision": "synthetic-ais-profile-1"
+      },
+      "scope": {
+        "scope_id": "abstract-scope-port-02",
+        "window_start": 100,
+        "window_end": 200,
+        "window_unit": "synthetic_time"
+      },
+      "equipment_applicability": "equipped_or_obligation_confirmed",
+      "source_health": "failed",
+      "coverage": {
+        "assertion_id": "coverage-ais-002",
+        "status": "unknown",
+        "complete_for_scope": false,
+        "independent_oracle": "oracle-ais-failure-002"
+      },
+      "data_completeness": "partial",
+      "freshness": "unknown",
+      "rights": "allowed_for_synthetic_test",
+      "observations": [],
+      "expected": {
+        "state": "FEED_UNAVAILABLE",
+        "claim_scope": "AIS source availability only",
+        "must_not_claim": [
+          "physical vessel absence",
+          "no vessel in scope",
+          "intent"
+        ]
+      },
+      "mutation": "none",
+      "dependency_context": {
+        "status": "complete",
+        "snapshot_ref": "synthetic-dependency-snapshot-OBS-002",
+        "evidence_frontier_ref": "synthetic-dependency-frontier-OBS-002",
+        "inventory_complete": true
+      }
+    },
+    {
+      "id": "OBS-003",
+      "domain": "maritime",
+      "name": "AIS source healthy under full declared coverage with no messages",
+      "source": {
+        "id": "ais-source-003",
+        "modality": "cooperative_transponder",
+        "revision": "synthetic-ais-profile-1"
+      },
+      "scope": {
+        "scope_id": "abstract-scope-port-03",
+        "window_start": 100,
+        "window_end": 200,
+        "window_unit": "synthetic_time"
+      },
+      "equipment_applicability": "equipped_or_obligation_confirmed",
+      "source_health": "healthy",
+      "coverage": {
+        "assertion_id": "coverage-ais-003",
+        "status": "qualified",
+        "complete_for_scope": true,
+        "independent_oracle": "oracle-ais-coverage-003",
+        "valid_from": 90,
+        "valid_until": 210,
+        "coverage_profile_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "data_completeness": "complete",
+      "freshness": "fresh",
+      "rights": "allowed_for_synthetic_test",
+      "observations": [],
+      "expected": {
+        "state": "NOT_OBSERVED_WITHIN_DECLARED_COVERAGE",
+        "claim_scope": "No AIS report was received from this source in this abstract scope/window under the pinned coverage assertion",
+        "must_not_claim": [
+          "physical vessel absence",
+          "complete vessel census",
+          "non-compliance",
+          "intent"
+        ]
+      },
+      "mutation": "none",
+      "dependency_context": {
+        "status": "complete",
+        "snapshot_ref": "synthetic-dependency-snapshot-OBS-003",
+        "evidence_frontier_ref": "synthetic-dependency-frontier-OBS-003",
+        "inventory_complete": true
+      }
+    },
+    {
+      "id": "OBS-004",
+      "domain": "civil_aviation",
+      "name": "Radar beam shadow / terrain screening",
+      "source": {
+        "id": "radar-source-004",
+        "modality": "primary_radar",
+        "revision": "synthetic-radar-profile-1"
+      },
+      "scope": {
+        "scope_id": "abstract-scope-airspace-04",
+        "window_start": 100,
+        "window_end": 200,
+        "window_unit": "synthetic_time"
+      },
+      "equipment_applicability": "applicable",
+      "source_health": "healthy",
+      "coverage": {
+        "assertion_id": "coverage-radar-004",
+        "status": "qualified_with_declared_blind_region",
+        "complete_for_scope": false,
+        "independent_oracle": "oracle-radar-shadow-004",
+        "limitations": [
+          "terrain_screening",
+          "below_beam"
+        ]
+      },
+      "data_completeness": "complete",
+      "freshness": "fresh",
+      "rights": "allowed_for_synthetic_test",
+      "observations": [],
+      "expected": {
+        "state": "UNOBSERVABLE",
+        "claim_scope": "This radar source cannot establish non-observation for the declared sub-scope",
+        "must_not_claim": [
+          "no aircraft in scope",
+          "absence of traffic",
+          "intent"
+        ]
+      },
+      "mutation": "none",
+      "dependency_context": {
+        "status": "complete",
+        "snapshot_ref": "synthetic-dependency-snapshot-OBS-004",
+        "evidence_frontier_ref": "synthetic-dependency-frontier-OBS-004",
+        "inventory_complete": true
+      }
+    },
+    {
+      "id": "OBS-005",
+      "domain": "civil_aviation",
+      "name": "ADS-B silent because aircraft is not equipped",
+      "source": {
+        "id": "adsb-source-005",
+        "modality": "cooperative_adsb",
+        "revision": "synthetic-adsb-profile-1"
+      },
+      "scope": {
+        "scope_id": "abstract-scope-airspace-05",
+        "window_start": 100,
+        "window_end": 200,
+        "window_unit": "synthetic_time"
+      },
+      "equipment_applicability": "not_equipped_or_not_required",
+      "source_health": "healthy",
+      "coverage": {
+        "assertion_id": "coverage-adsb-005",
+        "status": "qualified",
+        "complete_for_scope": true,
+        "independent_oracle": "oracle-adsb-equipage-005"
+      },
+      "data_completeness": "complete",
+      "freshness": "fresh",
+      "rights": "allowed_for_synthetic_test",
+      "observations": [],
+      "expected": {
+        "state": "NOT_EQUIPPED_OR_NOT_REQUIRED",
+        "claim_scope": "ADS-B emission expectation only",
+        "must_not_claim": [
+          "physical aircraft absence",
+          "airspace empty",
+          "pilot intent"
+        ]
+      },
+      "mutation": "none",
+      "dependency_context": {
+        "status": "complete",
+        "snapshot_ref": "synthetic-dependency-snapshot-OBS-005",
+        "evidence_frontier_ref": "synthetic-dependency-frontier-OBS-005",
+        "inventory_complete": true
+      }
+    },
+    {
+      "id": "OBS-006",
+      "domain": "uas",
+      "name": "UAS target class / environment outside qualified sensor coverage",
+      "source": {
+        "id": "uas-sensor-006",
+        "modality": "passive_rf_presence",
+        "revision": "synthetic-rf-profile-1"
+      },
+      "scope": {
+        "scope_id": "abstract-scope-site-06",
+        "window_start": 100,
+        "window_end": 200,
+        "window_unit": "synthetic_time"
+      },
+      "equipment_applicability": "applicable",
+      "source_health": "healthy",
+      "coverage": {
+        "assertion_id": "coverage-rf-006",
+        "status": "qualified_for_other_classes_only",
+        "complete_for_scope": false,
+        "independent_oracle": "oracle-rf-applicability-006",
+        "limitations": [
+          "target_class_outside_validated_profile",
+          "environment_outside_tested_conditions"
+        ]
+      },
+      "data_completeness": "complete",
+      "freshness": "fresh",
+      "rights": "allowed_for_synthetic_test",
+      "observations": [],
+      "expected": {
+        "state": "UNOBSERVABLE",
+        "claim_scope": "No conclusion for the out-of-profile target class or environment",
+        "must_not_claim": [
+          "no UAS present",
+          "universal detector coverage",
+          "intent"
+        ]
+      },
+      "mutation": "none",
+      "dependency_context": {
+        "status": "complete",
+        "snapshot_ref": "synthetic-dependency-snapshot-OBS-006",
+        "evidence_frontier_ref": "synthetic-dependency-frontier-OBS-006",
+        "inventory_complete": true
+      }
+    },
+    {
+      "id": "OBS-007",
+      "domain": "uas",
+      "name": "Healthy feed but a mid-window outage breaks full-window observation",
+      "source": {
+        "id": "uas-sensor-007",
+        "modality": "passive_presence",
+        "revision": "synthetic-presence-profile-1"
+      },
+      "scope": {
+        "scope_id": "abstract-scope-site-07",
+        "window_start": 100,
+        "window_end": 200,
+        "window_unit": "synthetic_time"
+      },
+      "source_health": "partial_outage",
+      "equipment_applicability": "applicable",
+      "coverage": {
+        "assertion_id": "coverage-uas-007",
+        "status": "partial",
+        "complete_for_scope": false,
+        "independent_oracle": "oracle-uas-outage-007",
+        "covered_intervals": [
+          [
+            100,
+            140
+          ],
+          [
+            160,
+            200
+          ]
+        ],
+        "uncovered_intervals": [
+          [
+            140,
+            160
+          ]
+        ]
+      },
+      "data_completeness": "partial",
+      "freshness": "fresh",
+      "rights": "allowed_for_synthetic_test",
+      "observations": [],
+      "expected": {
+        "state": "FEED_UNAVAILABLE",
+        "claim_scope": "The full observation window is not covered because the source has a known gap",
+        "must_not_claim": [
+          "no event during the complete window",
+          "continuous monitoring",
+          "physical absence"
+        ]
+      },
+      "mutation": "none",
+      "dependency_context": {
+        "status": "complete",
+        "snapshot_ref": "synthetic-dependency-snapshot-OBS-007",
+        "evidence_frontier_ref": "synthetic-dependency-frontier-OBS-007",
+        "inventory_complete": true
+      }
+    },
+    {
+      "id": "OBS-008",
+      "domain": "maritime",
+      "name": "Coverage profile is stale",
+      "source": {
+        "id": "radar-source-008",
+        "modality": "shore_radar",
+        "revision": "synthetic-radar-profile-1"
+      },
+      "scope": {
+        "scope_id": "abstract-scope-port-08",
+        "window_start": 100,
+        "window_end": 200,
+        "window_unit": "synthetic_time"
+      },
+      "equipment_applicability": "applicable",
+      "source_health": "healthy",
+      "coverage": {
+        "assertion_id": "coverage-radar-008",
+        "status": "stale",
+        "complete_for_scope": null,
+        "independent_oracle": "oracle-radar-stale-008",
+        "valid_until": 90
+      },
+      "data_completeness": "complete",
+      "freshness": "stale",
+      "rights": "allowed_for_synthetic_test",
+      "observations": [],
+      "expected": {
+        "state": "COVERAGE_UNKNOWN",
+        "claim_scope": "Current coverage cannot be established for this window",
+        "must_not_claim": [
+          "coverage-qualified non-observation",
+          "physical absence"
+        ]
+      },
+      "mutation": "none",
+      "dependency_context": {
+        "status": "complete",
+        "snapshot_ref": "synthetic-dependency-snapshot-OBS-008",
+        "evidence_frontier_ref": "synthetic-dependency-frontier-OBS-008",
+        "inventory_complete": true
+      }
+    },
+    {
+      "id": "OBS-009",
+      "domain": "maritime",
+      "name": "Positive radar observation conflicts with AIS silence under unknown AIS coverage",
+      "source": {
+        "id": "cross-source-009",
+        "modality": "radar_plus_ais",
+        "revision": "synthetic-cross-source-profile-1"
+      },
+      "scope": {
+        "scope_id": "abstract-scope-port-09",
+        "window_start": 100,
+        "window_end": 200,
+        "window_unit": "synthetic_time"
+      },
+      "source_health": "mixed",
+      "equipment_applicability": "mixed",
+      "coverage": {
+        "assertion_id": "coverage-cross-009",
+        "status": "partial_unknown",
+        "complete_for_scope": false,
+        "independent_oracle": "oracle-cross-009"
+      },
+      "data_completeness": "partial",
+      "freshness": "fresh",
+      "rights": "allowed_for_synthetic_test",
+      "observations": [
+        {
+          "source_id": "radar-source-009",
+          "claim": "OBSERVED_PRESENT",
+          "assertion_ref": "synthetic-radar-positive-009"
+        },
+        {
+          "source_id": "ais-source-009",
+          "claim": "NO_MESSAGE",
+          "assertion_ref": "synthetic-ais-silence-009"
+        }
+      ],
+      "expected": {
+        "state": "COVERAGE_UNKNOWN",
+        "claim_scope": "Preserve the positive radar assertion and classify AIS silence as unknown coverage; do not treat it as contradiction or independent negative",
+        "must_not_claim": [
+          "AIS confirms absence",
+          "majority vote",
+          "intent"
+        ]
+      },
+      "mutation": "none",
+      "dependency_context": {
+        "status": "complete",
+        "snapshot_ref": "synthetic-dependency-snapshot-OBS-009",
+        "evidence_frontier_ref": "synthetic-dependency-frontier-OBS-009",
+        "inventory_complete": true
+      }
+    },
+    {
+      "id": "OBS-010",
+      "domain": "civil_aviation",
+      "name": "Data feed is withheld under a restricted purpose",
+      "source": {
+        "id": "aviation-source-010",
+        "modality": "surveillance_feed",
+        "revision": "synthetic-feed-profile-1"
+      },
+      "scope": {
+        "scope_id": "abstract-scope-airspace-10",
+        "window_start": 100,
+        "window_end": 200,
+        "window_unit": "synthetic_time"
+      },
+      "equipment_applicability": "applicable",
+      "source_health": "unknown",
+      "coverage": {
+        "assertion_id": "coverage-aviation-010",
+        "status": "unknown",
+        "complete_for_scope": null,
+        "independent_oracle": "oracle-aviation-rights-010"
+      },
+      "data_completeness": "withheld",
+      "freshness": "unknown",
+      "rights": "restricted_for_declared_purpose",
+      "observations": [],
+      "expected": {
+        "state": "WITHHELD_OR_RESTRICTED",
+        "claim_scope": "The source is not available for this purpose",
+        "must_not_claim": [
+          "no target",
+          "no traffic",
+          "source failed",
+          "physical absence"
+        ]
+      },
+      "mutation": "none",
+      "dependency_context": {
+        "status": "complete",
+        "snapshot_ref": "synthetic-dependency-snapshot-OBS-010",
+        "evidence_frontier_ref": "synthetic-dependency-frontier-OBS-010",
+        "inventory_complete": true
+      }
+    },
+    {
+      "id": "OBS-011",
+      "domain": "uas",
+      "name": "Positive control: complete qualified coverage and no source observations",
+      "source": {
+        "id": "uas-sensor-011",
+        "modality": "passive_presence",
+        "revision": "synthetic-presence-profile-1"
+      },
+      "scope": {
+        "scope_id": "abstract-scope-site-11",
+        "window_start": 100,
+        "window_end": 200,
+        "window_unit": "synthetic_time"
+      },
+      "equipment_applicability": "applicable",
+      "source_health": "healthy",
+      "coverage": {
+        "assertion_id": "coverage-uas-011",
+        "status": "qualified",
+        "complete_for_scope": true,
+        "independent_oracle": "oracle-uas-coverage-011",
+        "valid_from": 90,
+        "valid_until": 210,
+        "coverage_profile_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      },
+      "data_completeness": "complete",
+      "freshness": "fresh",
+      "rights": "allowed_for_synthetic_test",
+      "observations": [],
+      "expected": {
+        "state": "NOT_OBSERVED_WITHIN_DECLARED_COVERAGE",
+        "claim_scope": "No positive observation from this source in this abstract scope/window",
+        "must_not_claim": [
+          "physical absence",
+          "universal coverage",
+          "complete site census"
+        ]
+      },
+      "mutation": "none",
+      "dependency_context": {
+        "status": "complete",
+        "snapshot_ref": "synthetic-dependency-snapshot-OBS-011",
+        "evidence_frontier_ref": "synthetic-dependency-frontier-OBS-011",
+        "inventory_complete": true
+      }
+    },
+    {
+      "id": "OBS-012",
+      "domain": "uas",
+      "name": "Mutation removes coverage proof while retaining empty detection list",
+      "source": {
+        "id": "uas-sensor-012",
+        "modality": "passive_presence",
+        "revision": "synthetic-presence-profile-1"
+      },
+      "scope": {
+        "scope_id": "abstract-scope-site-12",
+        "window_start": 100,
+        "window_end": 200,
+        "window_unit": "synthetic_time"
+      },
+      "equipment_applicability": "applicable",
+      "source_health": "healthy",
+      "coverage": {
+        "assertion_id": "coverage-uas-012",
+        "status": "qualified",
+        "complete_for_scope": true,
+        "independent_oracle": "oracle-uas-coverage-012",
+        "valid_from": 90,
+        "valid_until": 210,
+        "coverage_profile_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+      },
+      "data_completeness": "complete",
+      "freshness": "fresh",
+      "rights": "allowed_for_synthetic_test",
+      "observations": [],
+      "expected": {
+        "state": "NOT_OBSERVED_WITHIN_DECLARED_COVERAGE",
+        "claim_scope": "No positive observation under the original complete coverage proof",
+        "must_not_claim": [
+          "physical absence"
+        ]
+      },
+      "mutation": "remove_coverage_assertion",
+      "mutation_expected_state": "COVERAGE_UNKNOWN",
+      "dependency_context": {
+        "status": "complete",
+        "snapshot_ref": "synthetic-dependency-snapshot-OBS-012",
+        "evidence_frontier_ref": "synthetic-dependency-frontier-OBS-012",
+        "inventory_complete": true
+      }
+    },
+    {
+      "id": "OBS-013",
+      "domain": "uas",
+      "name": "Source emits a positive observation under qualified scope",
+      "source": {
+        "id": "uas-sensor-013",
+        "modality": "passive_presence",
+        "revision": "synthetic-presence-profile-1"
+      },
+      "scope": {
+        "scope_id": "abstract-scope-site-13",
+        "window_start": 100,
+        "window_end": 200,
+        "window_unit": "synthetic_time"
+      },
+      "equipment_applicability": "applicable",
+      "source_health": "healthy",
+      "coverage": {
+        "assertion_id": "coverage-uas-013",
+        "status": "qualified",
+        "complete_for_scope": true,
+        "independent_oracle": "oracle-uas-positive-013",
+        "valid_from": 90,
+        "valid_until": 210,
+        "coverage_profile_digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+      },
+      "data_completeness": "complete",
+      "freshness": "fresh",
+      "rights": "allowed_for_synthetic_test",
+      "observations": [
+        {
+          "source_id": "uas-sensor-013",
+          "claim": "OBSERVED_PRESENT",
+          "assertion_ref": "synthetic-positive-observation-013"
+        }
+      ],
+      "expected": {
+        "state": "OBSERVED_PRESENT",
+        "claim_scope": "A positive observation was emitted by this source within the declared synthetic scope/window",
+        "must_not_claim": [
+          "physical identity proof",
+          "pilot/operator identity",
+          "intent",
+          "threat status"
+        ]
+      },
+      "mutation": "none",
+      "dependency_context": {
+        "status": "complete",
+        "snapshot_ref": "synthetic-dependency-snapshot-OBS-013",
+        "evidence_frontier_ref": "synthetic-dependency-frontier-OBS-013",
+        "inventory_complete": true
+      }
+    },
+    {
+      "id": "OBS-014",
+      "domain": "maritime",
+      "name": "A previously received AIS record is stale at the declared cutoff",
+      "source": {
+        "id": "ais-source-014",
+        "modality": "cooperative_transponder",
+        "revision": "synthetic-ais-profile-1"
+      },
+      "scope": {
+        "scope_id": "abstract-scope-port-14",
+        "window_start": 100,
+        "window_end": 200,
+        "window_unit": "synthetic_time"
+      },
+      "equipment_applicability": "equipped_or_obligation_confirmed",
+      "source_health": "healthy",
+      "coverage": {
+        "assertion_id": "coverage-ais-014",
+        "status": "qualified",
+        "complete_for_scope": true,
+        "independent_oracle": "oracle-ais-freshness-014",
+        "valid_from": 90,
+        "valid_until": 210,
+        "coverage_profile_digest": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+      },
+      "data_completeness": "complete",
+      "freshness": "stale",
+      "rights": "allowed_for_synthetic_test",
+      "observations": [
+        {
+          "source_id": "ais-source-014",
+          "claim": "OLD_REPORT_OUTSIDE_FRESHNESS_WINDOW",
+          "assertion_ref": "synthetic-stale-observation-014"
+        }
+      ],
+      "expected": {
+        "state": "STALE",
+        "claim_scope": "The stored AIS observation is outside the declared freshness threshold",
+        "must_not_claim": [
+          "current vessel state",
+          "current absence",
+          "current presence",
+          "intent"
+        ]
+      },
+      "mutation": "none",
+      "dependency_context": {
+        "status": "complete",
+        "snapshot_ref": "synthetic-dependency-snapshot-OBS-014",
+        "evidence_frontier_ref": "synthetic-dependency-frontier-OBS-014",
+        "inventory_complete": true
+      }
+    },
+    {
+      "id": "OBS-015",
+      "domain": "civil_aviation",
+      "name": "Weather product is not an aircraft-presence sensor",
+      "source": {
+        "id": "weather-source-015",
+        "modality": "meteorological_context",
+        "revision": "synthetic-weather-profile-1"
+      },
+      "scope": {
+        "scope_id": "abstract-scope-airspace-15",
+        "window_start": 100,
+        "window_end": 200,
+        "window_unit": "synthetic_time"
+      },
+      "equipment_applicability": "unknown",
+      "source_health": "healthy",
+      "coverage": {
+        "assertion_id": "coverage-weather-015",
+        "status": "not_applicable",
+        "complete_for_scope": false,
+        "independent_oracle": "oracle-weather-not-applicable-015"
+      },
+      "data_completeness": "complete",
+      "freshness": "fresh",
+      "rights": "allowed_for_synthetic_test",
+      "observations": [],
+      "expected": {
+        "state": "NOT_APPLICABLE",
+        "claim_scope": "Meteorological context may enrich an event record but does not establish aircraft presence or absence",
+        "must_not_claim": [
+          "aircraft presence",
+          "aircraft absence",
+          "traffic count",
+          "pilot intent"
+        ]
+      },
+      "mutation": "none",
+      "dependency_context": {
+        "status": "complete",
+        "snapshot_ref": "synthetic-dependency-snapshot-OBS-015",
+        "evidence_frontier_ref": "synthetic-dependency-frontier-OBS-015",
+        "inventory_complete": true
+      }
+    },
+    {
+      "id": "OBS-016",
+      "domain": "civil_aviation",
+      "name": "Qualified radar positive and optical non-observation disagree",
+      "source": {
+        "id": "multi-source-assessment-016",
+        "modality": "cross_sensor_event_reconciliation",
+        "revision": "synthetic-reconciliation-profile-1"
+      },
+      "scope": {
+        "scope_id": "abstract-scope-airspace-16",
+        "window_start": 100,
+        "window_end": 200,
+        "window_unit": "synthetic_time"
+      },
+      "equipment_applicability": "applicable",
+      "source_health": "mixed",
+      "coverage": {
+        "assertion_id": "coverage-multisource-016",
+        "status": "qualified_for_both_sources",
+        "complete_for_scope": true,
+        "independent_oracle": "oracle-multisource-conflict-016",
+        "source_coverage_refs": [
+          "coverage-radar-016",
+          "coverage-optical-016"
+        ],
+        "valid_from": 90,
+        "valid_until": 210,
+        "coverage_profile_digest": "sha256:1212121212121212121212121212121212121212121212121212121212121212"
+      },
+      "data_completeness": "complete",
+      "freshness": "fresh",
+      "rights": "allowed_for_synthetic_test",
+      "observations": [
+        {
+          "source_id": "radar-source-016",
+          "claim": "OBSERVED_PRESENT_WITHIN_SCOPE",
+          "assertion_ref": "synthetic-radar-positive-016"
+        },
+        {
+          "source_id": "optical-source-016",
+          "claim": "NOT_OBSERVED_WITHIN_DECLARED_COVERAGE",
+          "assertion_ref": "synthetic-optical-nonobservation-016"
+        }
+      ],
+      "expected": {
+        "state": "CONFLICT",
+        "claim_scope": "Qualified source outcomes disagree for the same abstract event scope; retain both source-level states and require adjudication",
+        "must_not_claim": [
+          "optical source proves physical absence",
+          "radar source proves identity",
+          "majority vote establishes truth",
+          "intent",
+          "threat status"
+        ]
+      },
+      "mutation": "none",
+      "dependency_context": {
+        "status": "complete",
+        "snapshot_ref": "synthetic-dependency-snapshot-OBS-016",
+        "evidence_frontier_ref": "synthetic-dependency-frontier-OBS-016",
+        "inventory_complete": true
+      }
+    },
+    {
+      "id": "OBS-017",
+      "domain": "maritime",
+      "name": "Dependency inventory is missing for otherwise qualified observation coverage",
+      "source": {
+        "id": "ais-source-017",
+        "modality": "cooperative_transponder",
+        "revision": "synthetic-ais-profile-1"
+      },
+      "scope": {
+        "scope_id": "abstract-scope-port-17",
+        "window_start": 100,
+        "window_end": 200,
+        "window_unit": "synthetic_time"
+      },
+      "equipment_applicability": "equipped_or_obligation_confirmed",
+      "source_health": "healthy",
+      "coverage": {
+        "assertion_id": "coverage-ais-017",
+        "status": "qualified",
+        "complete_for_scope": true,
+        "independent_oracle": "oracle-ais-coverage-017",
+        "valid_from": 90,
+        "valid_until": 210,
+        "coverage_profile_digest": "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+      },
+      "dependency_context": {
+        "status": "missing",
+        "snapshot_ref": null,
+        "evidence_frontier_ref": null,
+        "inventory_complete": null
+      },
+      "data_completeness": "complete",
+      "freshness": "fresh",
+      "rights": "allowed_for_synthetic_test",
+      "observations": [],
+      "expected": {
+        "state": "COVERAGE_UNKNOWN",
+        "claim_scope": "Coverage-qualified non-observation is prohibited because the dependency inventory/frontier cannot be verified",
+        "must_not_claim": [
+          "independent support",
+          "physical absence",
+          "complete coverage qualification"
+        ]
+      },
+      "mutation": "none"
+    },
+    {
+      "id": "OBS-018",
+      "domain": "civil_aviation",
+      "name": "Dependency snapshot is stale relative to the assessment frontier",
+      "source": {
+        "id": "radar-source-018",
+        "modality": "primary_radar",
+        "revision": "synthetic-radar-profile-1"
+      },
+      "scope": {
+        "scope_id": "abstract-scope-airspace-18",
+        "window_start": 100,
+        "window_end": 200,
+        "window_unit": "synthetic_time"
+      },
+      "equipment_applicability": "applicable",
+      "source_health": "healthy",
+      "coverage": {
+        "assertion_id": "coverage-radar-018",
+        "status": "qualified",
+        "complete_for_scope": true,
+        "independent_oracle": "oracle-radar-coverage-018",
+        "valid_from": 90,
+        "valid_until": 210,
+        "coverage_profile_digest": "sha256:abababababababababababababababababababababababababababababababab"
+      },
+      "dependency_context": {
+        "status": "stale",
+        "snapshot_ref": "synthetic-dependency-snapshot-OBS-018",
+        "evidence_frontier_ref": "synthetic-frontier-behind-OBS-018",
+        "inventory_complete": true
+      },
+      "data_completeness": "complete",
+      "freshness": "fresh",
+      "rights": "allowed_for_synthetic_test",
+      "observations": [],
+      "expected": {
+        "state": "COVERAGE_UNKNOWN",
+        "claim_scope": "Current dependency independence/common-cause assessment is unknown because its evidence frontier is stale",
+        "must_not_claim": [
+          "independent corroboration",
+          "physical absence"
+        ]
+      },
+      "mutation": "none"
+    },
+    {
+      "id": "OBS-019",
+      "domain": "uas",
+      "name": "Fresh positive source observation remains reportable under incomplete broader coverage",
+      "source": {
+        "id": "uas-sensor-019",
+        "modality": "passive_presence",
+        "revision": "synthetic-presence-profile-1"
+      },
+      "scope": {
+        "scope_id": "abstract-scope-site-19",
+        "window_start": 100,
+        "window_end": 200,
+        "window_unit": "synthetic_time"
+      },
+      "equipment_applicability": "applicable",
+      "source_health": "healthy",
+      "coverage": {
+        "assertion_id": "coverage-uas-019",
+        "status": "partial_unknown",
+        "complete_for_scope": false,
+        "independent_oracle": "oracle-uas-positive-019",
+        "limitations": [
+          "coverage_envelope_incomplete"
+        ]
+      },
+      "dependency_context": {
+        "status": "complete",
+        "snapshot_ref": "synthetic-dependency-snapshot-OBS-019",
+        "evidence_frontier_ref": "synthetic-dependency-frontier-OBS-019",
+        "inventory_complete": true
+      },
+      "data_completeness": "complete",
+      "freshness": "fresh",
+      "rights": "allowed_for_synthetic_test",
+      "observations": [
+        {
+          "source_id": "uas-sensor-019",
+          "claim": "OBSERVED_PRESENT",
+          "assertion_ref": "synthetic-positive-observation-019"
+        }
+      ],
+      "expected": {
+        "state": "OBSERVED_PRESENT",
+        "claim_scope": "The source made one fresh positive observation within the abstract scope/window; broader coverage remains unknown and no negative/absence claim is permitted",
+        "must_not_claim": [
+          "complete monitoring",
+          "physical absence outside the observed instance",
+          "universal coverage",
+          "intent",
+          "threat status"
+        ]
+      },
+      "mutation": "none"
+    }
+  ],
+  "claim_ceiling": "Passing this public synthetic DGP establishes only state-transition behavior on declared synthetic coverage and source-health inputs. It does not prove field sensor coverage, probability of detection, physical absence, legal compliance, aircraft/vessel safety or operational readiness."
+}
