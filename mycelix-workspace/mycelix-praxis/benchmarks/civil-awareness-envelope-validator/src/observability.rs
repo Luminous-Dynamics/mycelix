@@ -211,10 +211,21 @@ fn assess_case(case: &Value) -> Result<ObservabilityAssessment, String> {
             Vec::new(),
         );
     }
-    // Do not parse or expose observation content until rights and availability
-    // preconditions have passed.
-    let claims = source_claims(case)?;
     let applicability = string_at(case, "/equipment_applicability")?;
+    if matches!(
+        applicability,
+        "not_required_for_declared_vessel_class" | "not_equipped_or_not_required"
+    ) {
+        return assessment(
+            case,
+            ObservabilityState::NotEquippedOrNotRequired,
+            ["source.equipment_or_carriage_not_applicable"],
+            Vec::new(),
+        );
+    }
+    // Do not parse or expose observation content until rights, availability
+    // and modality-applicability preconditions have passed.
+    let claims = source_claims(case)?;
     let health = string_at(case, "/source_health")?;
     let coverage_status = string_at(case, "/coverage/status")?;
     let freshness = string_at(case, "/freshness")?;
@@ -296,18 +307,6 @@ fn assess_case(case: &Value) -> Result<ObservabilityAssessment, String> {
             case,
             ObservabilityState::ObservedPresent,
             ["source.positive_observation_recorded_coverage_may_be_partial"],
-            claims,
-        );
-    }
-    if matches!(
-        applicability,
-        "not_required_for_declared_vessel_class" | "not_equipped_or_not_required"
-    ) && claims.is_empty()
-    {
-        return assessment(
-            case,
-            ObservabilityState::NotEquippedOrNotRequired,
-            ["source.equipment_or_carriage_not_applicable"],
             claims,
         );
     }
