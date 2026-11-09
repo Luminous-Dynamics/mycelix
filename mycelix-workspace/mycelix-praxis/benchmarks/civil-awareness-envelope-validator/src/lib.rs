@@ -573,14 +573,27 @@ mod tests {
     }
 
     #[test]
-    fn all_three_domain_examples_are_structurally_valid_but_still_need_receipts() {
+    fn synthetic_domain_examples_remain_unresolved_without_source_attestation() {
         let v = validator();
         let reports: Vec<_> = examples().iter().map(|e| v.validate_value(e)).collect();
         assert_eq!(reports.len(), 3);
         assert!(reports.iter().all(|r| {
-            r.disposition == Disposition::StructurallyValidRequiresAuthorityReceipt
-                && r.reason_codes.contains(&"authority.signed_receipt_verification_required".into())
+            r.disposition == Disposition::Unresolved
+                && r.reason_codes.contains(&"source.authentication_unverified".into())
         }));
+    }
+
+    #[test]
+    fn authenticated_source_declaration_still_requires_an_independent_receipt() {
+        let v = validator();
+        let mut example = examples().remove(0);
+        example["source"]["integrity_status"] = json!("authenticated");
+        example["source"]["authentication_method"] = json!("synthetic_test_attestation");
+        refresh_digests(&mut example, &v);
+        let report = v.validate_value(&example);
+        assert_eq!(report.disposition, Disposition::StructurallyValidRequiresAuthorityReceipt);
+        assert!(report.reason_codes.contains(&"authority.signed_receipt_verification_required".into()));
+        assert!(report.reason_codes.contains(&"source.attestation_verification_required".into()));
     }
 
     #[test]
