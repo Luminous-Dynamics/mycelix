@@ -53,7 +53,7 @@ Digest contract:
 - `payload_digest`: SHA-256 over RFC 8785 canonical JSON bytes of `domain_extension.payload`.
 - `envelope_content_digest`: SHA-256 over RFC 8785 canonical JSON bytes of the entire envelope after removing only `lineage.envelope_content_digest`; it therefore binds the other fields, including correction/supersession lineage.
 
-The JCS library is pinned to the RFC 8785-compatible `serde_json_canonicalizer` implementation. The JSON Schema validator is pinned to `jsonschema 0.61`, Draft 2020-12, with format validation enabled and reference resolution disabled.
+The JCS library dependency range selects the RFC 8785-compatible `serde_json_canonicalizer` implementation. The implementation targets the `jsonschema 0.61` API, Draft 2020-12, with format validation enabled and default reference-resolution features disabled. A Cargo lockfile has not yet been generated in this authoring environment; exact transitive dependency resolution and lockfile review remain required before merge.
 
 ## Test strategy
 
