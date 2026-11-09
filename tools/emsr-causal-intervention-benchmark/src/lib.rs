@@ -53,8 +53,8 @@ pub struct InterventionPlan {
     pub maximum_latency_ns: u64,
     pub minimum_active_trials: usize,
     pub minimum_sham_trials: usize,
-    pub response_threshold: f64,
-    pub maximum_sham_response_rate: f64,
+    pub response_threshold_milli: u16,
+    pub maximum_sham_response_rate_milli: u16,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -191,6 +191,12 @@ fn valid_public_input(input: &PublicInput) -> Vec<String> {
         errors.push("scenario_identity_or_scope_empty".to_owned());
     }
     let plan = &input.intervention;
+    if input.trials.len() > 4096
+        || input.expected_source_ids.len() > 4096
+        || input.observations.len() > 1_000_000
+    {
+        errors.push("public_input_exceeds_benchmark_resource_limits".to_owned());
+    }
     if plan.intervention_id.trim().is_empty()
         || plan.target_id.trim().is_empty()
         || plan.domain.trim().is_empty()
@@ -198,8 +204,8 @@ fn valid_public_input(input: &PublicInput) -> Vec<String> {
         || plan.minimum_latency_ns > plan.maximum_latency_ns
         || plan.minimum_active_trials == 0
         || plan.minimum_sham_trials == 0
-        || !(0.0..=1.0).contains(&plan.response_threshold)
-        || !(0.0..=1.0).contains(&plan.maximum_sham_response_rate)
+        || plan.response_threshold_milli > 1000
+        || plan.maximum_sham_response_rate_milli > 1000
     {
         errors.push("intervention_plan_invalid".to_owned());
     }
@@ -387,20 +393,21 @@ pub fn evaluate_public(input: &PublicInput, input_sha256: String) -> CandidateRe
     for source_id in &input.expected_source_ids {
         let (active_response, active_count, sham_response, sham_count) =
             by_source.get(source_id).copied().unwrap_or_default();
-        let active_rate = if active_count == 0 {
-            0.0
+        let active_rate_milli = if active_count == 0 {
+            0
         } else {
-            active_response as f64 / active_count as f64
+            ((active_response * 1000 + active_count / 2) / active_count) as u16
         };
-        let sham_rate = if sham_count == 0 {
-            0.0
+        let sham_rate_milli = if sham_count == 0 {
+            0
         } else {
-            sham_response as f64 / sham_count as f64
+            ((sham_response * 1000 + sham_count / 2) / sham_count) as u16
         };
         let is_responsive = active_count > 0
             && sham_count > 0
-            && active_rate >= plan.response_threshold
-            && sham_rate <= plan.maximum_sham_response_rate;
+            && active_response * 1000 >= usize::from(plan.response_threshold_milli) * active_count
+            && sham_response * 1000
+                <= usize::from(plan.maximum_sham_response_rate_milli) * sham_count;
         if is_responsive {
             responsive.push(source_id.clone());
         }
@@ -410,8 +417,8 @@ pub fn evaluate_public(input: &PublicInput, input_sha256: String) -> CandidateRe
             active_trials: active_count,
             sham_responses: sham_response,
             sham_trials: sham_count,
-            active_rate_milli: (active_rate * 1000.0).round() as u16,
-            sham_rate_milli: (sham_rate * 1000.0).round() as u16,
+            active_rate_milli,
+            sham_rate_milli,
             responsive: is_responsive,
         });
     }
