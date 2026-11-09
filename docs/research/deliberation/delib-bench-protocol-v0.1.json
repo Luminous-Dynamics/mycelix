@@ -269,6 +269,15 @@
       "reported_evidence": "The OECD framework separates process-design integrity, the deliberative experience, and pathways to impact, and recommends independent, mixed-method evaluation.",
       "intended_use": "Use as a process-evaluation crosswalk and reporting baseline, not as a single numeric benchmark.",
       "limitation": "Guidance is not itself a machine-test oracle and does not supply universal effect-size thresholds."
+    },
+    {
+      "id": "grail_hidden_profile_group_decision_2026",
+      "source_type": "preregistered_randomized_group_decision_experiment_and_open_platform",
+      "title": "Bringing Everyone to the Table: An Experimental Study of LLM-Facilitated Group Decision Making",
+      "url": "https://arxiv.org/abs/2508.08242",
+      "reported_evidence": "A preregistered randomized experiment reports 1,475 participants in 281 five-person groups under no-facilitation, written-prompt, human-facilitator and LLM-facilitator conditions. LLM facilitation increased information sharing, but final decision outcomes remained suboptimal in the tested hidden-profile task; the authors released the GRAIL experimental platform and dataset.",
+      "intended_use": "Use as a reference experimental design and candidate group-interaction testbed after code/data version, license, protocol, and fit review. Hidden-profile tasks may complement deliberative policy questions by testing information integration under asymmetric knowledge.",
+      "limitation": "The task is a hypothetical city-selection hidden-profile problem with a U.S. participant sample. Increased information sharing did not establish decision improvement or generalize to civic legitimacy, public budgeting, or long-term institutions."
     }
   ],
   "evaluation_layers": [
