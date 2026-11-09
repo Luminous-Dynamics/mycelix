@@ -69,7 +69,8 @@
               "household_microdata",
               "external_distribution_estimate",
               "international_methodology",
-              "environmental_accounting_framework"
+              "environmental_accounting_framework",
+              "survey_metadata"
             ]
           },
           "release_vintage": {
