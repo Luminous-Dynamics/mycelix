@@ -10,7 +10,8 @@
     "algorithm_version": "1",
     "seed": 6008001,
     "deterministic_stream_per_case": true,
-    "implementation_status": "SPECIFIED_NOT_IMPLEMENTED"
+    "implementation_status": "PCG_STREAM_IMPLEMENTED_DGP_GENERATOR_NOT_IMPLEMENTED",
+    "stream_derivation": "SHA-256(domain_separator || global_seed_le_u64 || case_id_utf8); first 8 digest bytes little-endian are initial state, next 8 are initial sequence."
   },
   "unit_of_analysis": {
     "primary": "site_session_source_dependency_block",
