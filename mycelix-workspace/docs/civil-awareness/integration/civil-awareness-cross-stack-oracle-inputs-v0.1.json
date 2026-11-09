@@ -3,7 +3,6 @@
   "profile_id": "civil-awareness-cross-stack-golden-trace-0.1",
   "status": "synthetic_owner_result_fixtures_not_executed",
   "source_corpus_path": "mycelix-workspace/docs/civil-awareness/integration/civil-awareness-cross-stack-golden-traces-v0.1.json",
-  "source_corpus_git_blob_sha1": "c26b82e5ef9f0b2d3b2452026d7de39d721dd9e5",
   "case_count": 22,
   "claim_ceiling": "Typed owner-output fixtures only. These values do not come from Mycelix, Sol-Atlas, Symtropy or Symthaea production implementations and do not establish any physical observation, source truth, independence or operational safety.",
   "cases": [
@@ -27,17 +26,17 @@
         "symthaea": {
           "triage_status": "reviewable",
           "contradiction_status": "none"
-        },
-        "gates": {
-          "required_handoffs_complete": true,
-          "schema_valid": true,
-          "prohibited_fields_detected": false,
-          "privacy_state": "minimized",
-          "source_freshness": "current",
-          "clock_quality": "qualified",
-          "calibration_status": "current",
-          "evidence_completeness": "complete"
         }
+      },
+      "gates": {
+        "required_handoffs_complete": true,
+        "schema_valid": true,
+        "prohibited_fields_detected": false,
+        "privacy_state": "minimized",
+        "source_freshness": "current",
+        "clock_quality": "qualified",
+        "calibration_status": "current",
+        "evidence_completeness": "complete"
       }
     },
     {
@@ -60,17 +59,17 @@
         "symthaea": {
           "triage_status": "human_review",
           "contradiction_status": "none"
-        },
-        "gates": {
-          "required_handoffs_complete": true,
-          "schema_valid": true,
-          "prohibited_fields_detected": false,
-          "privacy_state": "minimized",
-          "source_freshness": "current",
-          "clock_quality": "qualified",
-          "calibration_status": "current",
-          "evidence_completeness": "complete"
         }
+      },
+      "gates": {
+        "required_handoffs_complete": true,
+        "schema_valid": true,
+        "prohibited_fields_detected": false,
+        "privacy_state": "minimized",
+        "source_freshness": "current",
+        "clock_quality": "qualified",
+        "calibration_status": "current",
+        "evidence_completeness": "complete"
       }
     },
     {
@@ -93,17 +92,17 @@
         "symthaea": {
           "triage_status": "abstain",
           "contradiction_status": "none"
-        },
-        "gates": {
-          "required_handoffs_complete": true,
-          "schema_valid": true,
-          "prohibited_fields_detected": false,
-          "privacy_state": "minimized",
-          "source_freshness": "current",
-          "clock_quality": "qualified",
-          "calibration_status": "current",
-          "evidence_completeness": "complete"
         }
+      },
+      "gates": {
+        "required_handoffs_complete": true,
+        "schema_valid": true,
+        "prohibited_fields_detected": false,
+        "privacy_state": "minimized",
+        "source_freshness": "current",
+        "clock_quality": "qualified",
+        "calibration_status": "current",
+        "evidence_completeness": "complete"
       }
     },
     {
@@ -126,17 +125,17 @@
         "symthaea": {
           "triage_status": "human_review",
           "contradiction_status": "none"
-        },
-        "gates": {
-          "required_handoffs_complete": true,
-          "schema_valid": true,
-          "prohibited_fields_detected": false,
-          "privacy_state": "minimized",
-          "source_freshness": "current",
-          "clock_quality": "qualified",
-          "calibration_status": "current",
-          "evidence_completeness": "complete"
         }
+      },
+      "gates": {
+        "required_handoffs_complete": true,
+        "schema_valid": true,
+        "prohibited_fields_detected": false,
+        "privacy_state": "minimized",
+        "source_freshness": "current",
+        "clock_quality": "qualified",
+        "calibration_status": "current",
+        "evidence_completeness": "complete"
       }
     },
     {
@@ -159,17 +158,17 @@
         "symthaea": {
           "triage_status": "abstain",
           "contradiction_status": "none"
-        },
-        "gates": {
-          "required_handoffs_complete": true,
-          "schema_valid": true,
-          "prohibited_fields_detected": false,
-          "privacy_state": "minimized",
-          "source_freshness": "stale",
-          "clock_quality": "qualified",
-          "calibration_status": "current",
-          "evidence_completeness": "complete"
         }
+      },
+      "gates": {
+        "required_handoffs_complete": true,
+        "schema_valid": true,
+        "prohibited_fields_detected": false,
+        "privacy_state": "minimized",
+        "source_freshness": "stale",
+        "clock_quality": "qualified",
+        "calibration_status": "current",
+        "evidence_completeness": "complete"
       }
     },
     {
@@ -192,17 +191,17 @@
         "symthaea": {
           "triage_status": "reviewable",
           "contradiction_status": "none"
-        },
-        "gates": {
-          "required_handoffs_complete": true,
-          "schema_valid": true,
-          "prohibited_fields_detected": true,
-          "privacy_state": "minimized",
-          "source_freshness": "current",
-          "clock_quality": "qualified",
-          "calibration_status": "current",
-          "evidence_completeness": "complete"
         }
+      },
+      "gates": {
+        "required_handoffs_complete": true,
+        "schema_valid": true,
+        "prohibited_fields_detected": true,
+        "privacy_state": "minimized",
+        "source_freshness": "current",
+        "clock_quality": "qualified",
+        "calibration_status": "current",
+        "evidence_completeness": "complete"
       }
     },
     {
@@ -225,17 +224,17 @@
         "symthaea": {
           "triage_status": "human_review",
           "contradiction_status": "conflict"
-        },
-        "gates": {
-          "required_handoffs_complete": true,
-          "schema_valid": true,
-          "prohibited_fields_detected": false,
-          "privacy_state": "minimized",
-          "source_freshness": "current",
-          "clock_quality": "qualified",
-          "calibration_status": "current",
-          "evidence_completeness": "complete"
         }
+      },
+      "gates": {
+        "required_handoffs_complete": true,
+        "schema_valid": true,
+        "prohibited_fields_detected": false,
+        "privacy_state": "minimized",
+        "source_freshness": "current",
+        "clock_quality": "qualified",
+        "calibration_status": "current",
+        "evidence_completeness": "complete"
       }
     },
     {
@@ -258,17 +257,17 @@
         "symthaea": {
           "triage_status": "abstain",
           "contradiction_status": "none"
-        },
-        "gates": {
-          "required_handoffs_complete": true,
-          "schema_valid": true,
-          "prohibited_fields_detected": false,
-          "privacy_state": "minimized",
-          "source_freshness": "current",
-          "clock_quality": "qualified",
-          "calibration_status": "current",
-          "evidence_completeness": "unknown"
         }
+      },
+      "gates": {
+        "required_handoffs_complete": true,
+        "schema_valid": true,
+        "prohibited_fields_detected": false,
+        "privacy_state": "minimized",
+        "source_freshness": "current",
+        "clock_quality": "qualified",
+        "calibration_status": "current",
+        "evidence_completeness": "unknown"
       }
     },
     {
@@ -291,17 +290,17 @@
         "symthaea": {
           "triage_status": "human_review",
           "contradiction_status": "none"
-        },
-        "gates": {
-          "required_handoffs_complete": true,
-          "schema_valid": true,
-          "prohibited_fields_detected": false,
-          "privacy_state": "minimized",
-          "source_freshness": "current",
-          "clock_quality": "qualified",
-          "calibration_status": "current",
-          "evidence_completeness": "complete"
         }
+      },
+      "gates": {
+        "required_handoffs_complete": true,
+        "schema_valid": true,
+        "prohibited_fields_detected": false,
+        "privacy_state": "minimized",
+        "source_freshness": "current",
+        "clock_quality": "qualified",
+        "calibration_status": "current",
+        "evidence_completeness": "complete"
       }
     },
     {
@@ -324,17 +323,17 @@
         "symthaea": {
           "triage_status": "abstain",
           "contradiction_status": "none"
-        },
-        "gates": {
-          "required_handoffs_complete": true,
-          "schema_valid": true,
-          "prohibited_fields_detected": false,
-          "privacy_state": "minimized",
-          "source_freshness": "current",
-          "clock_quality": "qualified",
-          "calibration_status": "current",
-          "evidence_completeness": "complete"
         }
+      },
+      "gates": {
+        "required_handoffs_complete": true,
+        "schema_valid": true,
+        "prohibited_fields_detected": false,
+        "privacy_state": "minimized",
+        "source_freshness": "current",
+        "clock_quality": "qualified",
+        "calibration_status": "current",
+        "evidence_completeness": "complete"
       }
     },
     {
@@ -357,17 +356,17 @@
         "symthaea": {
           "triage_status": "reviewable",
           "contradiction_status": "none"
-        },
-        "gates": {
-          "required_handoffs_complete": true,
-          "schema_valid": true,
-          "prohibited_fields_detected": false,
-          "privacy_state": "minimized",
-          "source_freshness": "current",
-          "clock_quality": "qualified",
-          "calibration_status": "current",
-          "evidence_completeness": "complete"
         }
+      },
+      "gates": {
+        "required_handoffs_complete": true,
+        "schema_valid": true,
+        "prohibited_fields_detected": false,
+        "privacy_state": "minimized",
+        "source_freshness": "current",
+        "clock_quality": "qualified",
+        "calibration_status": "current",
+        "evidence_completeness": "complete"
       }
     },
     {
@@ -390,17 +389,17 @@
         "symthaea": {
           "triage_status": "human_review",
           "contradiction_status": "none"
-        },
-        "gates": {
-          "required_handoffs_complete": true,
-          "schema_valid": true,
-          "prohibited_fields_detected": false,
-          "privacy_state": "minimized",
-          "source_freshness": "current",
-          "clock_quality": "qualified",
-          "calibration_status": "current",
-          "evidence_completeness": "complete"
         }
+      },
+      "gates": {
+        "required_handoffs_complete": true,
+        "schema_valid": true,
+        "prohibited_fields_detected": false,
+        "privacy_state": "minimized",
+        "source_freshness": "current",
+        "clock_quality": "qualified",
+        "calibration_status": "current",
+        "evidence_completeness": "complete"
       }
     },
     {
@@ -423,17 +422,17 @@
         "symthaea": {
           "triage_status": "abstain",
           "contradiction_status": "none"
-        },
-        "gates": {
-          "required_handoffs_complete": true,
-          "schema_valid": true,
-          "prohibited_fields_detected": false,
-          "privacy_state": "minimized",
-          "source_freshness": "current",
-          "clock_quality": "qualified",
-          "calibration_status": "current",
-          "evidence_completeness": "unknown"
         }
+      },
+      "gates": {
+        "required_handoffs_complete": true,
+        "schema_valid": true,
+        "prohibited_fields_detected": false,
+        "privacy_state": "minimized",
+        "source_freshness": "current",
+        "clock_quality": "qualified",
+        "calibration_status": "current",
+        "evidence_completeness": "unknown"
       }
     },
     {
@@ -456,17 +455,17 @@
         "symthaea": {
           "triage_status": "human_review",
           "contradiction_status": "conflict"
-        },
-        "gates": {
-          "required_handoffs_complete": true,
-          "schema_valid": true,
-          "prohibited_fields_detected": false,
-          "privacy_state": "minimized",
-          "source_freshness": "current",
-          "clock_quality": "qualified",
-          "calibration_status": "current",
-          "evidence_completeness": "complete"
         }
+      },
+      "gates": {
+        "required_handoffs_complete": true,
+        "schema_valid": true,
+        "prohibited_fields_detected": false,
+        "privacy_state": "minimized",
+        "source_freshness": "current",
+        "clock_quality": "qualified",
+        "calibration_status": "current",
+        "evidence_completeness": "complete"
       }
     },
     {
@@ -489,17 +488,17 @@
         "symthaea": {
           "triage_status": "reviewable",
           "contradiction_status": "none"
-        },
-        "gates": {
-          "required_handoffs_complete": true,
-          "schema_valid": true,
-          "prohibited_fields_detected": false,
-          "privacy_state": "minimized",
-          "source_freshness": "current",
-          "clock_quality": "qualified",
-          "calibration_status": "current",
-          "evidence_completeness": "complete"
         }
+      },
+      "gates": {
+        "required_handoffs_complete": true,
+        "schema_valid": true,
+        "prohibited_fields_detected": false,
+        "privacy_state": "minimized",
+        "source_freshness": "current",
+        "clock_quality": "qualified",
+        "calibration_status": "current",
+        "evidence_completeness": "complete"
       }
     },
     {
@@ -522,17 +521,17 @@
         "symthaea": {
           "triage_status": "abstain",
           "contradiction_status": "none"
-        },
-        "gates": {
-          "required_handoffs_complete": true,
-          "schema_valid": true,
-          "prohibited_fields_detected": false,
-          "privacy_state": "minimized",
-          "source_freshness": "current",
-          "clock_quality": "qualified",
-          "calibration_status": "current",
-          "evidence_completeness": "complete"
         }
+      },
+      "gates": {
+        "required_handoffs_complete": true,
+        "schema_valid": true,
+        "prohibited_fields_detected": false,
+        "privacy_state": "minimized",
+        "source_freshness": "current",
+        "clock_quality": "qualified",
+        "calibration_status": "current",
+        "evidence_completeness": "complete"
       }
     },
     {
@@ -555,17 +554,17 @@
         "symthaea": {
           "triage_status": "not_evaluated",
           "contradiction_status": "none"
-        },
-        "gates": {
-          "required_handoffs_complete": false,
-          "schema_valid": true,
-          "prohibited_fields_detected": false,
-          "privacy_state": "minimized",
-          "source_freshness": "current",
-          "clock_quality": "qualified",
-          "calibration_status": "current",
-          "evidence_completeness": "complete"
         }
+      },
+      "gates": {
+        "required_handoffs_complete": false,
+        "schema_valid": true,
+        "prohibited_fields_detected": false,
+        "privacy_state": "minimized",
+        "source_freshness": "current",
+        "clock_quality": "qualified",
+        "calibration_status": "current",
+        "evidence_completeness": "complete"
       }
     },
     {
@@ -588,17 +587,17 @@
         "symthaea": {
           "triage_status": "reviewable",
           "contradiction_status": "none"
-        },
-        "gates": {
-          "required_handoffs_complete": true,
-          "schema_valid": true,
-          "prohibited_fields_detected": false,
-          "privacy_state": "minimized",
-          "source_freshness": "current",
-          "clock_quality": "qualified",
-          "calibration_status": "current",
-          "evidence_completeness": "complete"
         }
+      },
+      "gates": {
+        "required_handoffs_complete": true,
+        "schema_valid": true,
+        "prohibited_fields_detected": false,
+        "privacy_state": "minimized",
+        "source_freshness": "current",
+        "clock_quality": "qualified",
+        "calibration_status": "current",
+        "evidence_completeness": "complete"
       }
     },
     {
@@ -621,17 +620,17 @@
         "symthaea": {
           "triage_status": "reviewable",
           "contradiction_status": "none"
-        },
-        "gates": {
-          "required_handoffs_complete": true,
-          "schema_valid": true,
-          "prohibited_fields_detected": false,
-          "privacy_state": "minimized",
-          "source_freshness": "current",
-          "clock_quality": "qualified",
-          "calibration_status": "current",
-          "evidence_completeness": "complete"
         }
+      },
+      "gates": {
+        "required_handoffs_complete": true,
+        "schema_valid": true,
+        "prohibited_fields_detected": false,
+        "privacy_state": "minimized",
+        "source_freshness": "current",
+        "clock_quality": "qualified",
+        "calibration_status": "current",
+        "evidence_completeness": "complete"
       }
     },
     {
@@ -654,17 +653,17 @@
         "symthaea": {
           "triage_status": "abstain",
           "contradiction_status": "none"
-        },
-        "gates": {
-          "required_handoffs_complete": true,
-          "schema_valid": true,
-          "prohibited_fields_detected": false,
-          "privacy_state": "minimized",
-          "source_freshness": "current",
-          "clock_quality": "untrusted",
-          "calibration_status": "current",
-          "evidence_completeness": "complete"
         }
+      },
+      "gates": {
+        "required_handoffs_complete": true,
+        "schema_valid": true,
+        "prohibited_fields_detected": false,
+        "privacy_state": "minimized",
+        "source_freshness": "current",
+        "clock_quality": "untrusted",
+        "calibration_status": "current",
+        "evidence_completeness": "complete"
       }
     },
     {
@@ -687,17 +686,17 @@
         "symthaea": {
           "triage_status": "abstain",
           "contradiction_status": "none"
-        },
-        "gates": {
-          "required_handoffs_complete": true,
-          "schema_valid": true,
-          "prohibited_fields_detected": false,
-          "privacy_state": "minimized",
-          "source_freshness": "current",
-          "clock_quality": "qualified",
-          "calibration_status": "stale",
-          "evidence_completeness": "complete"
         }
+      },
+      "gates": {
+        "required_handoffs_complete": true,
+        "schema_valid": true,
+        "prohibited_fields_detected": false,
+        "privacy_state": "minimized",
+        "source_freshness": "current",
+        "clock_quality": "qualified",
+        "calibration_status": "stale",
+        "evidence_completeness": "complete"
       }
     },
     {
@@ -720,17 +719,17 @@
         "symthaea": {
           "triage_status": "abstain",
           "contradiction_status": "none"
-        },
-        "gates": {
-          "required_handoffs_complete": true,
-          "schema_valid": true,
-          "prohibited_fields_detected": false,
-          "privacy_state": "minimized",
-          "source_freshness": "current",
-          "clock_quality": "qualified",
-          "calibration_status": "current",
-          "evidence_completeness": "complete"
         }
+      },
+      "gates": {
+        "required_handoffs_complete": true,
+        "schema_valid": true,
+        "prohibited_fields_detected": false,
+        "privacy_state": "minimized",
+        "source_freshness": "current",
+        "clock_quality": "qualified",
+        "calibration_status": "current",
+        "evidence_completeness": "complete"
       }
     }
   ],
