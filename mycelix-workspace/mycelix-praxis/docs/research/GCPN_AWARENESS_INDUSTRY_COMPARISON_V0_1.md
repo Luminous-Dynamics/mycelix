@@ -187,7 +187,29 @@ Track B requires, at minimum:
 - quantity surveyor/economist for full lifecycle costs;
 - vendor/OEM permissions for each participating system.
 
-## 10. Hard acceptance gates
+## 10. Atomic metric contract and denominator discipline
+
+The machine-readable metric dictionary is `GCPN_CIVIL_ATOMIC_METRIC_CATALOG_V0_1.json`. It defines 27 atomic measures spanning physical detection, tracking, identification, observability, common-mode dependence, evidence reconciliation, selective prediction, human workflow and lifecycle economics. It contains definitions only; it contains no vendor scores or results.
+
+Each measure pins its unit, numerator, denominator, admissible truth source, required strata, NOT_EVALUABLE condition and comparison rule. This is necessary because the same headline metric can mean different things when the eligible exposure, target class, coverage, truth source or event-deduplication rule changes.
+
+### Reporting rules
+
+- Detection probability, event precision, false alerts per monitor-hour and false alerts per site-day are separate. Do not substitute wall-clock uptime for qualified observation exposure.
+- Track completeness and continuity are based on independent truth intervals and qualified observable windows. A target-time interval outside known coverage is not silently counted as a missed detection.
+- Position/velocity error is computed only for matched samples with compatible independent truth, CRS/datum/epoch and time quality. Unmatched samples, gaps and false associations remain separate.
+- Identification metrics are per class under a pinned, non-intent ontology. Unknown and abstention remain visible; hostile/friendly intent labels are excluded.
+- Coverage-qualified non-observation, false corroboration and dependency correctness are measured separately from sensor recall.
+- Human review time, false-review burden and handoff completeness require a controlled/blinded workflow and independent adjudication.
+- Lifecycle cost uses the same base currency/year and includes rights, integration, staffing, calibration, maintenance, connectivity, downtime and decommissioning.
+
+### Hard gates and aggregates
+
+Default output is atomic metrics only. No weighted single-number leaderboard is permitted in v0.1. Rights, privacy, authority, false-independence, false-negative-evidence and actuation-boundary violations are non-compensatory: a high detection score cannot offset them. Any future composite would require a separately preregistered protocol with public weights and still could not compensate for a nonzero hard gate.
+
+Track A may compare downstream workflows with identical frozen event-envelope bytes; Track B requires independently adjudicated physical ground truth and remains blocked until legal, site, vendor, privacy, safety and insurance gates are met. Cross-domain summaries must retain modality and domain strata rather than pool incompatible observations.
+
+## 11. Hard acceptance gates
 
 - Track A and Track B results remain separate.
 - Every vendor feature is labelled as vendor-public claim until independently measured.
