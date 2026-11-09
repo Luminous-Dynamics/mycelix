@@ -401,6 +401,38 @@ Source: [MSTrack / WHUT-MSFVessel study](https://pmc.ncbi.nlm.nih.gov/articles/P
 
 Industry comparison should therefore distinguish (a) physical tracking performance on a matched, rights-cleared corpus, (b) evidence independence/provenance and (c) operator workflow. The Luminous differentiator can be an assurance improvement without exceeding an incumbent's radar detector, but it must be demonstrated at matched coverage and must not degrade source-conflict, false-association or abstention behavior.
 
+## 6.12 Observability, coverage and evidence of non-observation
+
+Do not model sensor output as `detected=true/false` or infer a negative from an empty event list. The system must distinguish a positive source observation, a source-scoped non-observation under qualified coverage, an unobservable scope, unknown coverage, feed failure, non-equipage/non-requirement, stale data, restricted data, conflict and non-applicability.
+
+The new frozen synthetic track is [#6001 — coverage-aware observability](https://github.com/Luminous-Dynamics/mycelix/issues/6001), with 16 UAS/maritime/civil-aviation cases, an explicit schema and per-domain claim ceilings.
+
+### State contract
+
+- `OBSERVED_PRESENT`: this source emitted a positive observation. It does not establish physical identity, intent or truth by itself.
+- `NOT_OBSERVED_WITHIN_DECLARED_COVERAGE`: this source emitted no positive observation within an exact abstract scope/window, and its source-native coverage assertion is qualified, complete, fresh and valid for that entire scope/window. This is **not** a claim that the physical object is absent.
+- `UNOBSERVABLE`: a known modality, class, geometry, environment or operating limitation prevents a negative observation.
+- `COVERAGE_UNKNOWN`: coverage, source health, completeness, currentness or the dependency inventory is missing, stale, incomplete, contradictory or unqualified.
+- `FEED_UNAVAILABLE`: a feed failure or gap prevents a full-window observation claim.
+- `NOT_EQUIPPED_OR_NOT_REQUIRED`: the expected cooperative emission does not apply to the declared equipment/source class.
+- `STALE`, `WITHHELD_OR_RESTRICTED`, `CONFLICT` and `NOT_APPLICABLE` remain distinct states.
+
+All unknown, stale, missing, failed, partial, non-equipped, withheld and restricted states must fail closed; they may not become a coverage-qualified non-observation. A qualified non-observation must bind exact source revision, modality, scope ID, time window, coverage assertion, health/completeness interval, operating conditions, freshness cutoff, rights/purpose, dependency snapshot/frontier and exact evaluator/input digests.
+
+### Domain evidence
+
+- **Maritime:** IMO's AIS carriage page says SOLAS V/19 requirements apply to defined categories (300 GT and above on international voyages, cargo ships 500 GT and above on non-international voyages, and passenger ships regardless of size); it also notes flag-State exemptions. AIS silence therefore cannot be treated as a complete vessel census. IMO also warns that unrestricted publication of AIS-generated ship data can harm ship and port safety/security. [IMO AIS transponders](https://www.imo.org/en/ourwork/safety/pages/ais.aspx).
+- **Civil aviation:** FAA AIM describes radar limitations from terrain screening, earth curvature/beam geometry, anomalous propagation, attenuation, clutter, target reflectivity and other factors. It also says that in secondary-radar-only or ADS-B-served areas, aircraft without the required transponder/ADS-B may not receive radar service. A data gap or a blank ADS-B feed is not evidence that the airspace is empty. [FAA AIM — Surveillance Systems](https://www.faa.gov/air_traffic/publications/aim_html/chap4_section_5.html).
+- **UAS:** passive RF/EO/radar coverage depends on the source modality, target class and validated conditions. A vendor-advertised range or map does not qualify a source-native coverage assertion. The operating source, observation duration, class, environmental conditions and test method must all be pinned before a negative is permitted.
+
+### Benchmark gates
+
+Report false-negative-evidence promotion, physical-absence overreach, coverage qualification precision/recall, coverage-gap interval completeness, correct unknown/abstention rate, stale/failed/withheld state accuracy and false conflict-resolution. The hard gates are zero: unobservable-to-negative promotion, partial-window-to-full-window negative promotion, restricted-source misuse, physical-absence overclaim, and privacy/authority violation. Detection probability is measured separately and only with independent truth and an eligible observation-exposure denominator.
+
+Do not set a universal coverage percentage. Thresholds depend on modality, class, environment, coverage geometry, source health, use-case hazard and professional review. Keep raw atomic metrics and uncertainty; no composite score may compensate for a hard-gate failure.
+
+The profile and corpus live in `civil-awareness-observability-dgp-v0.1.json`, its JSON Schema and `GCPN_CIVIL_OBSERVABILITY_DGP_V0_1.md`. They are synthetic contract artifacts only; they do not establish field coverage, sensor performance, physical absence, legal compliance or operational readiness.
+
 ## 7. South African legal and regulatory gate
 
 The current ICASA public guidance describes spectrum-licensing requirements under ECA section 31 and equipment type approval under section 35, with statutory exceptions and regulatory determinations. Do not infer that passive reception is automatically licence-free, that an imported unit is type-approved, or that a foreign vendor's wording settles South African legality.
