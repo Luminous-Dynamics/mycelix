@@ -1,0 +1,138 @@
+{
+  "schema_version": "nrvca.household-capability-source-manifest.v0.1",
+  "profile_id": "south-africa-household-capability-v0.1",
+  "snapshot_date": "2026-11-09",
+  "sources": [
+    {
+      "source_id": "stats-sa-ghs-2025-v1",
+      "publisher": "Statistics South Africa / DataFirst, University of Cape Town",
+      "title": "General Household Survey 2025, Version 1",
+      "canonical_url": "https://datafirst.uct.ac.za/dataportal/index.php/catalog/1144",
+      "source_kind": "household_microdata",
+      "release_vintage": "GHS-2025-v1, 2026-06",
+      "reference_period": "2025-01/2025-12",
+      "published_at": "2026-05-26",
+      "known_at": "2026-06-16",
+      "geography": "South Africa; provinces and metropolitan municipalities where applicable",
+      "population_scope": "Private households in nine provinces and residents of workers' hostels; other collective living quarters and military populations excluded",
+      "access_status": "publisher_page_available",
+      "source_bytes_acquired": false,
+      "source_sha256": null,
+      "rights_status": "DataFirst metadata states Creative Commons Attribution (CC BY); cite dataset DOI and send DataFirst a copy/link to resulting publication. Exact file bytes not acquired.",
+      "evidence_ceiling": "Survey estimate for the stated population, period, sampling design and reported constructs; not continuous telemetry, person-level wealth accounts or causal impact.",
+      "notes": [
+        "Two-stage stratified sampling using 2013 Master Sample; approximately 3,080 PSUs.",
+        "Use provided weights and design metadata; preserve PSU/cluster and strata.",
+        "Low-level disaggregation requires caution; provincial boundaries differ from older vintages."
+      ]
+    },
+    {
+      "source_id": "stats-sa-ghs-2025-p0318",
+      "publisher": "Statistics South Africa",
+      "title": "P0318 General Household Survey 2025 publication",
+      "canonical_url": "https://www.statssa.gov.za/?PPN=P0318&page_id=1854",
+      "source_kind": "official_statistics",
+      "release_vintage": "P0318 2025, published 2026-05-26",
+      "reference_period": "2025",
+      "published_at": "2026-05-26",
+      "known_at": "2026-05-26",
+      "geography": "South Africa; report-specific provincial and metropolitan coverage",
+      "population_scope": "GHS 2025 target population as defined by Stats SA",
+      "access_status": "publisher_page_available",
+      "source_bytes_acquired": false,
+      "source_sha256": null,
+      "rights_status": "Stats SA publication/data-access terms must be reviewed before reproducing tables or redistributing artifacts.",
+      "evidence_ceiling": "Publisher-reported aggregate statistics and definitions; not raw continuous service measurements.",
+      "notes": [
+        "Contains publication, presentation, weighted tables and selected 2002–2025 time series locators."
+      ]
+    },
+    {
+      "source_id": "stats-sa-gdp-2022-base-2026",
+      "publisher": "Statistics South Africa",
+      "title": "Report 04-04-04 Benchmarked and rebased estimates of GDP, 2026",
+      "canonical_url": "https://www.statssa.gov.za/?PPN=Report+04-04-04&SCH=74595&page_id=1854",
+      "source_kind": "official_statistics",
+      "release_vintage": "2022-base benchmarked/rebased national accounts, release 2026-10-29",
+      "reference_period": "2018-Q1/2026-Q2",
+      "published_at": "2026-10-29",
+      "known_at": "2026-10-29",
+      "geography": "South Africa; provincial estimates in separate tables/release",
+      "population_scope": "National accounts aggregates and related tables",
+      "access_status": "artifact_located_bytes_not_acquired",
+      "source_bytes_acquired": false,
+      "source_sha256": null,
+      "rights_status": "Stats SA publication/data-access terms require review; no permissive licence asserted.",
+      "evidence_ceiling": "Official revised national accounts for the stated vintage and reference period; not household-level welfare or a causal explanation.",
+      "notes": [
+        "Real GDP is at constant 2022 prices; nominal GDP at current prices.",
+        "SARB notice confirms coverage 2018 Q1–2026 Q2; balanced production/expenditure/income series through Q3 2026 were scheduled for 15 December 2026."
+      ]
+    },
+    {
+      "source_id": "wid-world-inequality-report-2026",
+      "publisher": "World Inequality Lab",
+      "title": "World Inequality Report 2026",
+      "canonical_url": "https://wid.world/document/world-inequality-report-2026/",
+      "source_kind": "external_distribution_estimate",
+      "release_vintage": "WIR 2026; South Africa country sheet includes 2024 estimates",
+      "reference_period": "country-sheet values are series-specific; cited South Africa summary year 2024",
+      "published_at": null,
+      "known_at": "2026-11-09",
+      "geography": "South Africa national estimates",
+      "population_scope": "Population-wide distributional estimates under WID definitions",
+      "access_status": "publisher_page_available",
+      "source_bytes_acquired": false,
+      "source_sha256": null,
+      "rights_status": "Report is CC BY-NC-SA 4.0; underlying downloadable series may have separate terms. Review before copying/rehosting or commercial reuse.",
+      "evidence_ceiling": "Independent distribution estimates under WID definitions; not GHS household microdata and not directly joinable to survey records.",
+      "notes": [
+        "Do not merge as person-level records or assume income/wealth concepts match GHS.",
+        "Preserve WID methodology, price/PPP basis, income/wealth definition and year."
+      ]
+    },
+    {
+      "source_id": "oecd-how-life-2024-framework",
+      "publisher": "Organisation for Economic Co-operation and Development",
+      "title": "How's Life? 2024 — Well-being Framework",
+      "canonical_url": "https://www.oecd.org/en/publications/how-s-life-2024_90ba854a-en/full-report/component-5.html",
+      "source_kind": "international_methodology",
+      "release_vintage": "2024 framework",
+      "reference_period": null,
+      "published_at": "2024-11-05",
+      "known_at": "2026-11-09",
+      "geography": "OECD framework; use as methodology comparator only",
+      "population_scope": "Framework dimensions, not a South African dataset",
+      "access_status": "publisher_page_available",
+      "source_bytes_acquired": false,
+      "source_sha256": null,
+      "rights_status": "OECD publication terms apply; link and cite, do not mirror without permission review.",
+      "evidence_ceiling": "Measurement framework, not a source of South African household observations.",
+      "notes": [
+        "Current well-being includes income/wealth, work, housing, health, skills, environment, safety, work-life balance, social connections, civic engagement and subjective well-being.",
+        "Future resources include economic, natural, human and social capital."
+      ]
+    },
+    {
+      "source_id": "un-seea-ecosystem-accounting",
+      "publisher": "United Nations Statistics Division",
+      "title": "System of Environmental-Economic Accounting — Ecosystem Accounting",
+      "canonical_url": "https://seea.un.org/en/methodology/ecosystem-accounting",
+      "source_kind": "environmental_accounting_framework",
+      "release_vintage": "SEEA EA adopted 2021; web method page current at snapshot",
+      "reference_period": null,
+      "published_at": "2021-03-01",
+      "known_at": "2026-11-09",
+      "geography": "Spatially explicit ecosystem accounting areas",
+      "population_scope": "Framework, not a South African microdataset",
+      "access_status": "publisher_page_available",
+      "source_bytes_acquired": false,
+      "source_sha256": null,
+      "rights_status": "Use/copy terms to be checked for any substantial reproduction.",
+      "evidence_ceiling": "Framework for ecosystem extent, condition and ecosystem-service accounts; not a household well-being estimate.",
+      "notes": [
+        "Keep physical and monetary ecosystem-service accounts separate."
+      ]
+    }
+  ]
+}
