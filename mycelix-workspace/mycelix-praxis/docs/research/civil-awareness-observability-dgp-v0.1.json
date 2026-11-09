@@ -93,7 +93,11 @@
         "assertion_id": "coverage-ais-001",
         "status": "not_applicable",
         "complete_for_scope": false,
-        "independent_oracle": "oracle-ais-carriage-class-001"
+        "independent_oracle": "oracle-ais-carriage-class-001",
+        "source_ids": [
+          "ais-source-001"
+        ],
+        "coverage_provenance_ref": "synthetic-coverage-provenance-OBS-001"
       },
       "data_completeness": "complete",
       "freshness": "fresh",
@@ -138,7 +142,11 @@
         "assertion_id": "coverage-ais-002",
         "status": "unknown",
         "complete_for_scope": false,
-        "independent_oracle": "oracle-ais-failure-002"
+        "independent_oracle": "oracle-ais-failure-002",
+        "source_ids": [
+          "ais-source-002"
+        ],
+        "coverage_provenance_ref": "synthetic-coverage-provenance-OBS-002"
       },
       "data_completeness": "partial",
       "freshness": "unknown",
@@ -185,7 +193,11 @@
         "independent_oracle": "oracle-ais-coverage-003",
         "valid_from": 90,
         "valid_until": 210,
-        "coverage_profile_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        "coverage_profile_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "source_ids": [
+          "ais-source-003"
+        ],
+        "coverage_provenance_ref": "synthetic-coverage-provenance-OBS-003"
       },
       "data_completeness": "complete",
       "freshness": "fresh",
@@ -234,7 +246,11 @@
         "limitations": [
           "terrain_screening",
           "below_beam"
-        ]
+        ],
+        "source_ids": [
+          "radar-source-004"
+        ],
+        "coverage_provenance_ref": "synthetic-coverage-provenance-OBS-004"
       },
       "data_completeness": "complete",
       "freshness": "fresh",
@@ -278,7 +294,11 @@
         "assertion_id": "coverage-adsb-005",
         "status": "qualified",
         "complete_for_scope": true,
-        "independent_oracle": "oracle-adsb-equipage-005"
+        "independent_oracle": "oracle-adsb-equipage-005",
+        "source_ids": [
+          "adsb-source-005"
+        ],
+        "coverage_provenance_ref": "synthetic-coverage-provenance-OBS-005"
       },
       "data_completeness": "complete",
       "freshness": "fresh",
@@ -326,7 +346,11 @@
         "limitations": [
           "target_class_outside_validated_profile",
           "environment_outside_tested_conditions"
-        ]
+        ],
+        "source_ids": [
+          "uas-sensor-006"
+        ],
+        "coverage_provenance_ref": "synthetic-coverage-provenance-OBS-006"
       },
       "data_completeness": "complete",
       "freshness": "fresh",
@@ -386,7 +410,11 @@
             140,
             160
           ]
-        ]
+        ],
+        "source_ids": [
+          "uas-sensor-007"
+        ],
+        "coverage_provenance_ref": "synthetic-coverage-provenance-OBS-007"
       },
       "data_completeness": "partial",
       "freshness": "fresh",
@@ -431,7 +459,11 @@
         "status": "stale",
         "complete_for_scope": null,
         "independent_oracle": "oracle-radar-stale-008",
-        "valid_until": 90
+        "valid_until": 90,
+        "source_ids": [
+          "radar-source-008"
+        ],
+        "coverage_provenance_ref": "synthetic-coverage-provenance-OBS-008"
       },
       "data_completeness": "complete",
       "freshness": "stale",
@@ -474,7 +506,12 @@
         "assertion_id": "coverage-cross-009",
         "status": "partial_unknown",
         "complete_for_scope": false,
-        "independent_oracle": "oracle-cross-009"
+        "independent_oracle": "oracle-cross-009",
+        "source_ids": [
+          "radar-source-009",
+          "ais-source-009"
+        ],
+        "coverage_provenance_ref": "synthetic-coverage-provenance-OBS-009"
       },
       "data_completeness": "partial",
       "freshness": "fresh",
@@ -529,7 +566,11 @@
         "assertion_id": "coverage-aviation-010",
         "status": "unknown",
         "complete_for_scope": null,
-        "independent_oracle": "oracle-aviation-rights-010"
+        "independent_oracle": "oracle-aviation-rights-010",
+        "source_ids": [
+          "aviation-source-010"
+        ],
+        "coverage_provenance_ref": "synthetic-coverage-provenance-OBS-010"
       },
       "data_completeness": "withheld",
       "freshness": "unknown",
@@ -577,7 +618,11 @@
         "independent_oracle": "oracle-uas-coverage-011",
         "valid_from": 90,
         "valid_until": 210,
-        "coverage_profile_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        "coverage_profile_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "source_ids": [
+          "uas-sensor-011"
+        ],
+        "coverage_provenance_ref": "synthetic-coverage-provenance-OBS-011"
       },
       "data_completeness": "complete",
       "freshness": "fresh",
@@ -624,7 +669,11 @@
         "independent_oracle": "oracle-uas-coverage-012",
         "valid_from": 90,
         "valid_until": 210,
-        "coverage_profile_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+        "coverage_profile_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "source_ids": [
+          "uas-sensor-012"
+        ],
+        "coverage_provenance_ref": "synthetic-coverage-provenance-OBS-012"
       },
       "data_completeness": "complete",
       "freshness": "fresh",
@@ -670,7 +719,11 @@
         "independent_oracle": "oracle-uas-positive-013",
         "valid_from": 90,
         "valid_until": 210,
-        "coverage_profile_digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+        "coverage_profile_digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "source_ids": [
+          "uas-sensor-013"
+        ],
+        "coverage_provenance_ref": "synthetic-coverage-provenance-OBS-013"
       },
       "data_completeness": "complete",
       "freshness": "fresh",
@@ -724,7 +777,11 @@
         "independent_oracle": "oracle-ais-freshness-014",
         "valid_from": 90,
         "valid_until": 210,
-        "coverage_profile_digest": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+        "coverage_profile_digest": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        "source_ids": [
+          "ais-source-014"
+        ],
+        "coverage_provenance_ref": "synthetic-coverage-provenance-OBS-014"
       },
       "data_completeness": "complete",
       "freshness": "stale",
@@ -775,7 +832,11 @@
         "assertion_id": "coverage-weather-015",
         "status": "not_applicable",
         "complete_for_scope": false,
-        "independent_oracle": "oracle-weather-not-applicable-015"
+        "independent_oracle": "oracle-weather-not-applicable-015",
+        "source_ids": [
+          "weather-source-015"
+        ],
+        "coverage_provenance_ref": "synthetic-coverage-provenance-OBS-015"
       },
       "data_completeness": "complete",
       "freshness": "fresh",
@@ -827,7 +888,12 @@
         ],
         "valid_from": 90,
         "valid_until": 210,
-        "coverage_profile_digest": "sha256:1212121212121212121212121212121212121212121212121212121212121212"
+        "coverage_profile_digest": "sha256:1212121212121212121212121212121212121212121212121212121212121212",
+        "source_ids": [
+          "radar-source-016",
+          "optical-source-016"
+        ],
+        "coverage_provenance_ref": "synthetic-coverage-provenance-OBS-016"
       },
       "data_completeness": "complete",
       "freshness": "fresh",
@@ -887,7 +953,11 @@
         "independent_oracle": "oracle-ais-coverage-017",
         "valid_from": 90,
         "valid_until": 210,
-        "coverage_profile_digest": "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+        "coverage_profile_digest": "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+        "source_ids": [
+          "ais-source-017"
+        ],
+        "coverage_provenance_ref": "synthetic-coverage-provenance-OBS-017"
       },
       "dependency_context": {
         "status": "missing",
@@ -934,7 +1004,11 @@
         "independent_oracle": "oracle-radar-coverage-018",
         "valid_from": 90,
         "valid_until": 210,
-        "coverage_profile_digest": "sha256:abababababababababababababababababababababababababababababababab"
+        "coverage_profile_digest": "sha256:abababababababababababababababababababababababababababababababab",
+        "source_ids": [
+          "radar-source-018"
+        ],
+        "coverage_provenance_ref": "synthetic-coverage-provenance-OBS-018"
       },
       "dependency_context": {
         "status": "stale",
@@ -980,7 +1054,11 @@
         "independent_oracle": "oracle-uas-positive-019",
         "limitations": [
           "coverage_envelope_incomplete"
-        ]
+        ],
+        "source_ids": [
+          "uas-sensor-019"
+        ],
+        "coverage_provenance_ref": "synthetic-coverage-provenance-OBS-019"
       },
       "dependency_context": {
         "status": "complete",
