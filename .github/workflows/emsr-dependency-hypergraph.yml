@@ -30,7 +30,7 @@ jobs:
         run: cargo clippy --manifest-path tools/emsr-dependency-hypergraph/Cargo.toml --all-targets -- -D warnings
       - name: Reproducible release-mode scale benchmark
         env:
-          GCPN_BENCH_REPETITIONS: "9"
+          GCPN_BENCH_REPETITIONS: "101"
         run: |
           cargo run --release --manifest-path tools/emsr-dependency-hypergraph/Cargo.toml --example scale_benchmark -- "$RUNNER_TEMP/emsr-hypergraph-scale.json"
       - name: Upload exact-head benchmark result
