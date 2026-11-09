@@ -78,6 +78,18 @@ impl EnvelopeValidator {
         let policy: Value = parse_strict_json(policy_text.as_bytes())
             .map_err(|_| "pinned policy JSON is invalid".to_string())?;
 
+        if string_at(&policy, "/policy_version") != Some("0.1.0") {
+            return Err("policy.version_unsupported".into());
+        }
+        if string_at(&policy, "/canonicalization/digest_algorithm") != Some("SHA-256")
+            || string_at(&policy, "/canonicalization/json_payload_serialization")
+                != Some("RFC 8785 JSON Canonicalization Scheme")
+        {
+            return Err("policy.digest_contract_unsupported".into());
+        }
+        if schema_has_external_refs(&schema) {
+            return Err("schema.external_reference_forbidden".into());
+        }
         if !jsonschema::meta::is_valid(&schema) {
             return Err("schema.meta_validation_failed".into());
         }
@@ -259,11 +271,27 @@ impl EnvelopeValidator {
         if string_at(envelope, "/governance/privacy_state") == Some("quarantined") {
             quarantined.insert("privacy.quarantined".into());
         }
-        if envelope.pointer("/governance/allowed_uses")
-            .and_then(Value::as_array)
-            .is_some_and(Vec::is_empty)
-        {
+        let allowed_uses = envelope
+            .pointer("/governance/allowed_uses")
+            .and_then(Value::as_array);
+        if allowed_uses.is_some_and(Vec::is_empty) {
             quarantined.insert("rights.allowed_uses_empty".into());
+        }
+        let declared_purpose = string_at(envelope, "/governance/purpose_code");
+        if !allowed_uses.is_some_and(|uses| {
+            declared_purpose.is_some_and(|purpose| {
+                uses.iter().any(|use_code| use_code.as_str() == Some(purpose))
+            })
+        }) {
+            quarantined.insert("rights.declared_purpose_not_allowed".into());
+        }
+
+        let retention_until = string_at(envelope, "/governance/retention_until")
+            .and_then(|value| DateTime::parse_from_rfc3339(value).ok());
+        let received_at = string_at(envelope, "/timestamps/received_at")
+            .and_then(|value| DateTime::parse_from_rfc3339(value).ok());
+        if matches!((retention_until, received_at), (Some(retention), Some(received)) if retention < received) {
+            quarantined.insert("rights.retention_expired_at_ingest".into());
         }
 
         // Source and evidence quality. A self-declared "authenticated" value is
@@ -405,6 +433,18 @@ impl EnvelopeValidator {
             0,
             self.field_policy_digest.clone(),
         )
+    }
+}
+
+fn schema_has_external_refs(value: &Value) -> bool {
+    match value {
+        Value::Object(object) => object.iter().any(|(key, child)| {
+            (key == "$ref" || key == "$dynamicRef")
+                && child.as_str().is_some_and(|reference| !reference.starts_with('#'))
+                || schema_has_external_refs(child)
+        }),
+        Value::Array(values) => values.iter().any(schema_has_external_refs),
+        _ => false,
     }
 }
 
@@ -577,6 +617,58 @@ mod tests {
         let v = validator();
         assert!(v.field_policy_digest().starts_with("sha256:"));
     }
+
+    #[test]
+    fn embedded_schema_contains_no_remote_references() {
+        let schema = parse_strict_json(SCHEMA_JSON.as_bytes()).unwrap();
+        assert!(!schema_has_external_refs(&schema));
+    }
+
+    #[test]
+    fn unknown_policy_version_is_rejected_during_initialization() {
+        let policy: Value = parse_strict_json(FIELD_POLICY_JSON.as_bytes()).unwrap();
+        let mut changed = policy;
+        changed["policy_version"] = json!("9.9.9");
+        let report = EnvelopeValidator::from_documents(
+            SCHEMA_JSON,
+            &serde_json::to_string(&changed).unwrap(),
+        );
+        assert!(report.is_err());
+    }
+
+    #[test]
+    fn declared_purpose_must_be_in_allowed_uses() {
+        let v = validator();
+        let mut example = examples().remove(0);
+        example["governance"]["allowed_uses"] = json!(["other_purpose"]);
+        refresh_digests(&mut example, &v);
+        let report = v.validate_value(&example);
+        assert_eq!(report.disposition, Disposition::Quarantined);
+        assert!(report.reason_codes.contains(&"rights.declared_purpose_not_allowed".into()));
+    }
+
+    #[test]
+    fn expired_retention_at_ingest_is_quarantined() {
+        let v = validator();
+        let mut example = examples().remove(0);
+        example["governance"]["retention_until"] = json!("2026-11-09T07:59:00Z");
+        example["timestamps"]["received_at"] = json!("2026-11-09T08:00:00Z");
+        refresh_digests(&mut example, &v);
+        let report = v.validate_value(&example);
+        assert_eq!(report.disposition, Disposition::Quarantined);
+        assert!(report.reason_codes.contains(&"rights.retention_expired_at_ingest".into()));
+    }
+
+    #[test]
+    fn correction_lineage_is_covered_by_envelope_digest() {
+        let v = validator();
+        let mut example = examples().remove(0);
+        example["lineage"]["corrects_refs"] = json!(["prior-envelope-001"]);
+        let report = v.validate_value(&example);
+        assert_eq!(report.disposition, Disposition::Rejected);
+        assert!(report.reason_codes.contains(&"digest.envelope_content_mismatch".into()));
+    }
+
 
     #[test]
     fn synthetic_domain_examples_remain_unresolved_without_source_attestation() {
