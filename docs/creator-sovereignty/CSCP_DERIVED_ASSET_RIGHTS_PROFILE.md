@@ -103,6 +103,18 @@ The initial CSCP profile uses conservative, deny-by-default evaluation:
 
 A policy conflict MUST NOT be resolved by a model score, majority vote, popularity, issuer count or whichever record is newest. Conflicting assertions remain visible for competent human review.
 
+### 6.0 Conflict and decision precedence
+
+The profile must define policy-combination semantics rather than relying on an implementation's default ODRL evaluator behavior. For the initial CSCP profile, use this fail-closed evaluation order for one exact operation request:
+
+1. **Invalid or stale decision context:** invalid proofs, unknown authority capacity, stale policy epoch, missing resource/actor scope, incomplete lineage, unavailable required policy state or unresolved revocation produce `indeterminate`; enforcement disposition is deny.
+2. **Applicable prohibition:** any applicable prohibition from the resource, an ancestor, an authority policy or a mandatory legal/institutional constraint produces `deny`, unless a competent authority has issued a separately verifiable, exact-scope supersession/declassification for that prohibition.
+3. **Required duties and constraints:** unsatisfied duties, unmet constraints, expired grants or unfulfilled preconditions produce `deny`; uncheckable conditions produce `indeterminate` and enforcement deny.
+4. **Positive authorization:** `permit` is returned only when every required source/resource read and transformation is permitted, every applicable constraint is satisfied, and an explicit permission covers the requested actor, operation, purpose, audience, channel and validity interval.
+5. **Default:** absent an applicable permission, return `deny`.
+
+An arbitrary newer timestamp, higher issuer count, model confidence score, local derivative grant or platform administrator role does not resolve a conflict. A new policy version can supersede an earlier one only through the declared CSCP approval and event-lineage process, with the affected scope and reason preserved. The evaluator returns the applied policy IDs/versions, lineage digest, stable reason code and decision disposition so independent verifiers can reproduce the result.
+
 ### 6.1 Monotonic derivation
 
 For a derived asset with source ancestors S = {s1, ..., sn}, the derived asset's effective permissions are no broader than the intersection of the applicable effective permissions of every ancestor, plus any stricter policy attached to the derived asset itself. The only exception is an explicit, independently verifiable declassification or scoped release issued by an authority competent over the exact inherited restriction; it must identify the affected ancestor, output resource, action and conditions. A derivative-local grant without that authority does not override an ancestor policy.
