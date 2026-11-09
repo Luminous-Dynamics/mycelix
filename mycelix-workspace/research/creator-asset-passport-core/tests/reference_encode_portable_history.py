@@ -106,7 +106,7 @@ def encode_artwork_actions_vector() -> bytes:
                 _u64(0),
                 _string("artist"),
                 _string(f"evidence://issue-{index}"),
-                b"\\x01",  # issued event
+                b"\x01",  # issued event
                 _string(grant_id),
                 _string("artwork-1"),
                 _string("service"),
@@ -115,7 +115,7 @@ def encode_artwork_actions_vector() -> bytes:
                 _string("artist"),
                 _string(f"evidence://{grant_id}"),
                 _u64(1),
-                b"\\x00",  # no expiry
+                b"\x00",  # no expiry
             )
         )
         events.append(issue)
