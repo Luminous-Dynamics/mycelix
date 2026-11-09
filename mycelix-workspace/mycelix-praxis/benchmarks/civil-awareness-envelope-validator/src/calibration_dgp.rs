@@ -356,7 +356,8 @@ fn generate_observation(
             let probability = probabilities[index % probabilities.len()];
             row.predicted_probability = probability;
             row.event_present = draw(rng, probability)?;
-            row.detected = row.event_present && draw(rng, probability)?;
+            row.detection_probability = 0.8;
+            row.detected = row.event_present && draw(rng, row.detection_probability)?;
         }
         "rare_class_overconfidence_hidden_by_pooling" => {
             let rare = draw(rng, 0.03)?;
@@ -364,21 +365,24 @@ fn generate_observation(
             let actual = if rare { 0.3 } else { 0.02 };
             row.predicted_probability = if rare { 0.9 } else { 0.02 };
             row.event_present = draw(rng, actual)?;
-            row.detected = row.event_present && draw(rng, 0.8)?;
+            row.detection_probability = 0.8;
+            row.detected = row.event_present && draw(rng, row.detection_probability)?;
         }
         "underconfident_rank_preserving_scores" => {
             let actual = [0.02, 0.1, 0.5, 0.9][index % 4];
             let prevalence = 0.38;
             row.predicted_probability = prevalence + 0.5 * (actual - prevalence);
             row.event_present = draw(rng, actual)?;
-            row.detected = row.event_present && draw(rng, 0.8)?;
+            row.detection_probability = 0.8;
+            row.detected = row.event_present && draw(rng, row.detection_probability)?;
         }
         "prior_prevalence_shift" => {
             // Confirmatory prior is 0.20, while the score remains calibrated
             // to the 0.05 development prior.
             row.predicted_probability = 0.05;
             row.event_present = draw(rng, 0.20)?;
-            row.detected = row.event_present && draw(rng, 0.8)?;
+            row.detection_probability = 0.8;
+            row.detected = row.event_present && draw(rng, row.detection_probability)?;
             row.operating_condition = "confirmatory_prior".into();
         }
         "conditional_distribution_shift" => {
@@ -387,7 +391,8 @@ fn generate_observation(
             let bucket = index % probabilities.len();
             row.predicted_probability = probabilities[bucket];
             row.event_present = draw(rng, actual_rates[bucket])?;
-            row.detected = row.event_present && draw(rng, 0.8)?;
+            row.detection_probability = 0.8;
+            row.detected = row.event_present && draw(rng, row.detection_probability)?;
             row.operating_condition = format!("conditional_shift_bucket_{bucket}");
         }
         "missing_at_random_observation_exposure" => {
@@ -395,10 +400,11 @@ fn generate_observation(
             row.observation_exposed = draw(rng, 0.8)?;
             row.coverage_declared_probability = 0.8;
             row.coverage_realized = row.observation_exposed;
-            row.predicted_probability = if row.event_present { 0.8 } else { 0.05 };
+            row.predicted_probability = 0.1;
+            row.detection_probability = 0.8;
             row.detected = row.event_present
                 && row.observation_exposed
-                && draw(rng, 0.8)?;
+                && draw(rng, row.detection_probability)?;
         }
         "informative_missingness_correlated_with_event_difficulty" => {
             let hard = draw(rng, 0.4)?;
@@ -412,10 +418,11 @@ fn generate_observation(
             row.coverage_declared_probability = 1.0;
             row.coverage_realized = row.observation_exposed;
             let pd = if hard { 0.2 } else { 0.9 };
-            row.predicted_probability = pd;
+            row.predicted_probability = 0.1;
+            row.detection_probability = pd;
             row.detected = row.event_present
                 && row.observation_exposed
-                && draw(rng, pd)?;
+                && draw(rng, row.detection_probability)?;
         }
         "shared_collector_common_mode" => {
             let block = index / 2;
@@ -427,10 +434,11 @@ fn generate_observation(
             row.observation_exposed = !failed;
             row.coverage_declared_probability = 1.0;
             row.coverage_realized = !failed;
-            row.predicted_probability = 0.8;
+            row.predicted_probability = 0.1;
+            row.detection_probability = 0.8;
             row.detected = row.event_present
                 && row.observation_exposed
-                && draw(rng, 0.8)?;
+                && draw(rng, row.detection_probability)?;
         }
         "independent_source_control" => {
             let block = index / 2;
@@ -440,8 +448,9 @@ fn generate_observation(
             row.observation_exposed = true;
             row.coverage_declared_probability = 1.0;
             row.coverage_realized = true;
-            row.predicted_probability = 0.8;
-            row.detected = row.event_present && draw(rng, 0.8)?;
+            row.predicted_probability = 0.1;
+            row.detection_probability = 0.8;
+            row.detected = row.event_present && draw(rng, row.detection_probability)?;
         }
         "shared_model_dependency" => {
             let block = index / 2;
@@ -453,17 +462,18 @@ fn generate_observation(
             row.observation_exposed = true;
             row.coverage_declared_probability = 1.0;
             row.coverage_realized = true;
-            row.predicted_probability = if shared_failure { 0.2 } else { 0.8 };
+            row.predicted_probability = 0.1;
+            row.detection_probability = if shared_failure { 0.0 } else { 0.8 };
             row.detected = row.event_present
-                && !shared_failure
-                && draw(rng, 0.8)?;
+                && draw(rng, row.detection_probability)?;
         }
         "zero_observation_exposure" => {
             row.event_present = draw(rng, 0.1)?;
             row.observation_exposed = false;
             row.coverage_declared_probability = 0.0;
             row.coverage_realized = false;
-            row.predicted_probability = 0.0;
+            row.predicted_probability = 0.1;
+            row.detection_probability = 0.8;
             row.detected = false;
         }
         "positive_observation_with_partial_coverage" => {
@@ -471,7 +481,8 @@ fn generate_observation(
             row.observation_exposed = index % 5 < 3;
             row.coverage_declared_probability = 1.0;
             row.coverage_realized = row.observation_exposed;
-            row.detected = index == 0 || (row.observation_exposed && draw(rng, 0.8)?);
+            row.detection_probability = 0.8;
+            row.detected = index == 0 || (row.observation_exposed && draw(rng, row.detection_probability)?);
             row.predicted_probability = 0.8;
         }
         "stale_calibration_profile" => {
@@ -480,8 +491,9 @@ fn generate_observation(
             row.coverage_declared_probability = 1.0;
             row.coverage_realized = true;
             row.calibration_profile_current = false;
-            row.predicted_probability = 0.8;
-            row.detected = row.event_present && draw(rng, 0.8)?;
+            row.predicted_probability = 0.1;
+            row.detection_probability = 0.8;
+            row.detected = row.event_present && draw(rng, row.detection_probability)?;
         }
         "qualified_source_conflict" => {
             let block = index / 2;
@@ -506,8 +518,9 @@ fn generate_observation(
                 "separate_interference_domain_unqualified"
             }
             .into();
-            row.predicted_probability = if index % 2 == 0 { 0.7 } else { 0.2 };
-            row.detected = row.event_present && draw(rng, 0.7)?;
+            row.predicted_probability = 0.1;
+            row.detection_probability = if index % 2 == 0 { 0.7 } else { 0.2 };
+            row.detected = row.event_present && draw(rng, row.detection_probability)?;
         }
         "imbalanced_cluster_sizes" => {
             row.source_group_id = if index < sample_count * 4 / 5 {
@@ -519,8 +532,9 @@ fn generate_observation(
             row.observation_exposed = true;
             row.coverage_declared_probability = 1.0;
             row.coverage_realized = true;
-            row.predicted_probability = 0.8;
-            row.detected = row.event_present && draw(rng, 0.8)?;
+            row.predicted_probability = 0.1;
+            row.detection_probability = 0.8;
+            row.detected = row.event_present && draw(rng, row.detection_probability)?;
         }
         "false_alarm_bursts_and_duplicate_windows" => {
             row.event_present = false;
@@ -542,7 +556,8 @@ fn generate_observation(
             row.coverage_declared_probability = 1.0;
             row.coverage_realized = true;
             row.predicted_probability = 0.1;
-            row.detected = row.event_present && draw(rng, 0.8)?;
+            row.detection_probability = 0.8;
+            row.detected = row.event_present && draw(rng, row.detection_probability)?;
         }
         "coverage_probability_calibration" => {
             let probabilities = [0.1, 0.3, 0.5, 0.7, 0.9];
@@ -551,8 +566,9 @@ fn generate_observation(
             row.coverage_realized = draw(rng, probability)?;
             row.observation_exposed = row.coverage_realized;
             row.event_present = draw(rng, 0.1)?;
-            row.detected = row.event_present && row.observation_exposed && draw(rng, 0.8)?;
-            row.predicted_probability = 0.8;
+            row.detection_probability = 0.8;
+            row.detected = row.event_present && row.observation_exposed && draw(rng, row.detection_probability)?;
+            row.predicted_probability = 0.1;
         }
         "source_attestation_or_content_digest_failure" => {
             row.event_present = true;
@@ -561,6 +577,7 @@ fn generate_observation(
             row.coverage_declared_probability = 1.0;
             row.coverage_realized = true;
             row.predicted_probability = 0.8;
+            row.detection_probability = 0.8;
             row.detected = false;
         }
         "end_to_end_service_latency_and_clock_uncertainty" => {
@@ -569,6 +586,7 @@ fn generate_observation(
             row.coverage_declared_probability = 1.0;
             row.coverage_realized = true;
             row.predicted_probability = 0.8;
+            row.detection_probability = 0.8;
             row.detected = true;
             row.latency_ms = Some(45);
             row.latency_budget_ms = Some(30);
