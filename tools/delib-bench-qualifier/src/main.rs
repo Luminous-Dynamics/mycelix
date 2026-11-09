@@ -91,6 +91,22 @@ fn validate_schema_subset(
     context: &str,
     errors: &mut Vec<String>,
 ) {
+    const SUPPORTED_KEYWORDS: [&str; 17] = [
+        "$schema", "$id", "title", "description", "type", "const", "enum",
+        "required", "properties", "additionalProperties", "minItems", "uniqueItems",
+        "items", "minLength", "pattern", "minimum", "format",
+    ];
+    if let Some(schema_object) = schema.as_object() {
+        for keyword in schema_object.keys() {
+            if !SUPPORTED_KEYWORDS.contains(&keyword.as_str()) {
+                add_error(errors, context, format!("unsupported schema keyword {keyword}"));
+            }
+        }
+    } else {
+        add_error(errors, context, "schema definition must be an object");
+        return;
+    }
+
     if let Some(expected) = schema.get("const") {
         if instance != expected {
             add_error(errors, context, "does not match const");
@@ -116,7 +132,9 @@ fn validate_schema_subset(
             }
         }
         if let Some(pattern) = schema.get("pattern").and_then(Value::as_str) {
-            if !pattern_matches(text, pattern) {
+            if pattern != "^[a-z][a-z0-9_]*$" {
+                add_error(errors, context, format!("unsupported pattern {pattern}"));
+            } else if !pattern_matches(text, pattern) {
                 add_error(errors, context, format!("does not match pattern {pattern}"));
             }
         }
@@ -631,6 +649,27 @@ mod tests {
             &mut errors,
         );
         assert!(errors.iter().any(|error| error.contains("asserted_authority")));
+    }
+
+
+    #[test]
+    fn unsupported_schema_keyword_is_rejected() {
+        let manifest = parsed(MANIFEST);
+        let mut schema = parsed(SCHEMA);
+        schema["properties"]["protocol_id"]["maxLength"] = Value::from(32);
+        let mut errors = Vec::new();
+        validate_schema_subset(&manifest, &schema, "manifest", &mut errors);
+        assert!(errors.iter().any(|error| error.contains("unsupported schema keyword maxLength")));
+    }
+
+    #[test]
+    fn unsupported_pattern_is_rejected_instead_of_ignored() {
+        let manifest = parsed(MANIFEST);
+        let mut schema = parsed(SCHEMA);
+        schema["properties"]["protocol_id"]["pattern"] = Value::String(".*".to_string());
+        let mut errors = Vec::new();
+        validate_schema_subset(&manifest, &schema, "manifest", &mut errors);
+        assert!(errors.iter().any(|error| error.contains("unsupported pattern")));
     }
 
     #[test]
