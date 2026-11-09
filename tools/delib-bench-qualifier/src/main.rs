@@ -607,7 +607,7 @@ mod tests {
     }
 
     #[test]
-    fn checked_in_protocol_and_thirty_fixture_oracles_validate() {
+    fn checked_in_protocol_and_thirty_two_fixture_oracles_validate() {
         let manifest = parsed(MANIFEST);
         let schema = parsed(SCHEMA);
         let corpus = parsed(FIXTURES);
