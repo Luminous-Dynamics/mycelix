@@ -95,7 +95,6 @@ pub struct CandidateDataset {
     pub published_uav_models: Option<u32>,
     pub published_variation: Option<Vec<String>>,
     pub paper_license: Option<String>,
-    pub paper_stated_dataset_license: Option<String>,
     pub dataset_repository_doi: Option<String>,
     pub dataset_repository_url: Option<String>,
     pub dataset_license_claim_evidence: Option<LicenseEvidence>,
@@ -110,9 +109,11 @@ pub struct CandidateDataset {
 pub struct LicenseEvidence {
     pub url: String,
     pub retrieval_date: String,
-    pub version: String,
+    pub version: Option<String>,
     pub license: String,
-    pub scope: String,
+    pub scope: Option<String>,
+    pub source_section: Option<String>,
+    pub statement: Option<String>,
     pub evidence_type: String,
 }
 
@@ -373,12 +374,12 @@ pub fn validate(register: &Register) -> Vec<String> {
                 && candidate.license_evidence.as_ref().is_some_and(|evidence| {
                     evidence.url == "https://data.mendeley.com/datasets/y4w96kzsb5/1"
                         && evidence.retrieval_date == "2026-11-08"
-                        && evidence.version == "1"
+                        && evidence.version.as_deref() == Some("1")
                         && evidence.license == "CC BY 4.0"
                         && evidence.evidence_type == "dataset_landing_page"
-                        && evidence
-                            .scope
-                            .contains("does not clear separate article assets")
+                        && evidence.scope.as_deref().is_some_and(|scope| {
+                            scope.contains("does not clear separate article assets")
+                        })
                 })
                 && candidate.capture_group_metadata_verified == Some(false)
                 && candidate.file_hashes_verified == Some(false)
