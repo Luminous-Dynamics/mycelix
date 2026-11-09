@@ -1,0 +1,9 @@
+[package]
+name = "delib-bench-qualifier"
+version = "0.1.0"
+edition = "2024"
+publish = false
+description = "Deterministic structural and red-team fixture qualifier for DelibBench"
+
+[dependencies]
+serde_json = "1"
