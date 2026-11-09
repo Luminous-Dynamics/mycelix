@@ -272,3 +272,155 @@ func TestVerifierRejectsDuplicateInputProperties(t *testing.T) {
 		t.Fatalf("duplicate-key input was not rejected: %+v", result)
 	}
 }
+
+
+func civilInput(domain string, sourceIDs []string, nodes []Node, edges []DependencyHyperedge) Input {
+	sortStrings(sourceIDs)
+	sortNodes(nodes)
+	covered := make([]string, 0, len(nodes))
+	for _, node := range nodes {
+		covered = append(covered, node.ID)
+	}
+	sortStrings(covered)
+	return Input{
+		Contract: inputContract,
+		Snapshot: InventorySnapshot{
+			SnapshotID:       "civil-domain-snapshot-v0.1",
+			AsOf:             100,
+			EvidenceFrontier: 120,
+			Complete:         true,
+			ScopedSourceIDs:  append([]string(nil), sourceIDs...),
+			CoveredNodeIDs:   covered,
+		},
+		Query: DependencyQuery{
+			SourceIDs:                append([]string(nil), sourceIDs...),
+			Domain:                   domain,
+			EventTime:                90,
+			ExpectedSnapshotID:       "civil-domain-snapshot-v0.1",
+			ExpectedEvidenceFrontier: 120,
+		},
+		Nodes:      nodes,
+		Hyperedges: edges,
+	}
+}
+
+func civilEdge(id string, subjects []string, dependency, domain string, state string) DependencyHyperedge {
+	sortStrings(subjects)
+	return DependencyHyperedge{
+		ID:           id,
+		SubjectIDs:   subjects,
+		DependencyID: dependency,
+		Domain:       domain,
+		ValidFrom:    int64Ptr(0),
+		RecordedAt:   80,
+		EvidenceRef:  "synthetic:" + id,
+		State:        state,
+	}
+}
+
+func assertCivilReport(t *testing.T, input Input, want string, common []string) Report {
+	t.Helper()
+	inputBytes, err := json.Marshal(input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	report := referenceReport(input, sha256Hex(inputBytes))
+	if report.Disposition != want {
+		t.Fatalf("disposition %s, want %s; reasons=%v", report.Disposition, want, report.ReasonCodes)
+	}
+	if !reflect.DeepEqual(report.CommonDependencyIDs, common) {
+		t.Fatalf("common dependencies %v, want %v", report.CommonDependencyIDs, common)
+	}
+	reportBytes, err := json.Marshal(report)
+	if err != nil {
+		t.Fatal(err)
+	}
+	verification := verify(inputBytes, reportBytes)
+	if verification.Status != "verified" {
+		t.Fatalf("cross-language report did not verify: %+v", verification)
+	}
+	return report
+}
+
+func TestCivilUASVendorFeedsSharingCollector(t *testing.T) {
+	input := civilInput(
+		"collector",
+		[]string{"rf-feed-a", "rf-feed-b"},
+		[]Node{
+			{ID: "collector-a", Kind: "dependency"},
+			{ID: "collector-b", Kind: "dependency"},
+			{ID: "rf-feed-a", Kind: "source"},
+			{ID: "rf-feed-b", Kind: "source"},
+			{ID: "shared-collector", Kind: "dependency"},
+		},
+		[]DependencyHyperedge{
+			civilEdge("a-to-collector", []string{"rf-feed-a"}, "collector-a", "collector", "qualified"),
+			civilEdge("b-to-collector", []string{"rf-feed-b"}, "collector-b", "collector", "qualified"),
+			civilEdge("collector-common-root", []string{"collector-a", "collector-b"}, "shared-collector", "collector", "qualified"),
+		},
+	)
+	assertCivilReport(t, input, "SHARED_DEPENDENCY", []string{"shared-collector"})
+}
+
+func TestCivilMaritimeAISAndRadarSharePortPipeline(t *testing.T) {
+	input := civilInput(
+		"data_pipeline",
+		[]string{"ais-provider", "radar-processor"},
+		[]Node{
+			{ID: "ais-aggregation", Kind: "dependency"},
+			{ID: "ais-provider", Kind: "source"},
+			{ID: "port-correlation-platform", Kind: "dependency"},
+			{ID: "radar-processor", Kind: "source"},
+			{ID: "radar-track-pipeline", Kind: "dependency"},
+		},
+		[]DependencyHyperedge{
+			civilEdge("ais-to-platform", []string{"ais-provider"}, "ais-aggregation", "data_pipeline", "qualified"),
+			civilEdge("radar-to-pipeline", []string{"radar-processor"}, "radar-track-pipeline", "data_pipeline", "qualified"),
+			civilEdge("shared-port-platform", []string{"ais-aggregation", "radar-track-pipeline"}, "port-correlation-platform", "data_pipeline", "qualified"),
+		},
+	)
+	assertCivilReport(t, input, "SHARED_DEPENDENCY", []string{"port-correlation-platform"})
+}
+
+func TestCivilAviationSharedPowerDoesNotImplySharedClock(t *testing.T) {
+	input := civilInput(
+		"clock",
+		[]string{"adsb-feed", "mlat-feed"},
+		[]Node{
+			{ID: "adsb-clock", Kind: "dependency"},
+			{ID: "adsb-feed", Kind: "source"},
+			{ID: "airport-power-bus", Kind: "dependency"},
+			{ID: "mlat-clock", Kind: "dependency"},
+			{ID: "mlat-feed", Kind: "source"},
+		},
+		[]DependencyHyperedge{
+			civilEdge("adsb-clock-edge", []string{"adsb-feed"}, "adsb-clock", "clock", "qualified"),
+			civilEdge("mlat-clock-edge", []string{"mlat-feed"}, "mlat-clock", "clock", "qualified"),
+			civilEdge("shared-power", []string{"adsb-feed", "mlat-feed"}, "airport-power-bus", "power", "qualified"),
+		},
+	)
+	assertCivilReport(t, input, "NO_DECLARED_COMMON_DOMAIN", []string{})
+	input.Query.Domain = "power"
+	assertCivilReport(t, input, "SHARED_DEPENDENCY", []string{"airport-power-bus"})
+}
+
+func TestCivilPositiveControlUsesDeclaredNotPhysicalIndependenceSemantics(t *testing.T) {
+	input := civilInput(
+		"data_pipeline",
+		[]string{"source-a", "source-b"},
+		[]Node{
+			{ID: "pipeline-a", Kind: "dependency"},
+			{ID: "pipeline-b", Kind: "dependency"},
+			{ID: "source-a", Kind: "source"},
+			{ID: "source-b", Kind: "source"},
+		},
+		[]DependencyHyperedge{
+			civilEdge("source-a-pipeline", []string{"source-a"}, "pipeline-a", "data_pipeline", "qualified"),
+			civilEdge("source-b-pipeline", []string{"source-b"}, "pipeline-b", "data_pipeline", "qualified"),
+		},
+	)
+	report := assertCivilReport(t, input, "NO_DECLARED_COMMON_DOMAIN", []string{})
+	if !strings.Contains(report.ClaimCeiling, "not proof of physical or statistical independence") {
+		t.Fatal("positive control exceeded the graph-derived claim ceiling")
+	}
+}
