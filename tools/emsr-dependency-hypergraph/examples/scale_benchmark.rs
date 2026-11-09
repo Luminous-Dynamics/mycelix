@@ -7,9 +7,8 @@
 //! read hardware, sensor feeds, or field data.
 
 use emsr_dependency_hypergraph::{
-    independently_verify, evaluate_bytes, AssertionState, DependencyDomain,
-    DependencyHyperedge, DependencyQuery, HypergraphInput, InventorySnapshot,
-    Node, NodeKind, INPUT_CONTRACT,
+    AssertionState, DependencyDomain, DependencyHyperedge, DependencyQuery, HypergraphInput,
+    INPUT_CONTRACT, InventorySnapshot, Node, NodeKind, evaluate_bytes, independently_verify,
 };
 use serde::Serialize;
 use sha2::{Digest, Sha256};
@@ -93,7 +92,9 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         synthetic_only: true,
         non_operational: true,
         rustc_version: rustc_version(),
-        commit_sha: env::var("GITHUB_SHA").or_else(|_| env::var("GIT_COMMIT")).unwrap_or_else(|_| "unavailable".into()),
+        commit_sha: env::var("GITHUB_SHA")
+            .or_else(|_| env::var("GIT_COMMIT"))
+            .unwrap_or_else(|_| "unavailable".into()),
         operating_system: env::consts::OS,
         architecture: env::consts::ARCH,
         debug_assertions: cfg!(debug_assertions),
@@ -111,7 +112,10 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-fn run_case(source_count: usize, repetitions: usize) -> Result<BenchmarkCase, Box<dyn std::error::Error>> {
+fn run_case(
+    source_count: usize,
+    repetitions: usize,
+) -> Result<BenchmarkCase, Box<dyn std::error::Error>> {
     let input = build_star_graph(source_count);
     let input_bytes = serde_json::to_vec(&input)?;
     let input_sha256 = sha256_hex(&input_bytes);
@@ -147,7 +151,8 @@ fn run_case(source_count: usize, repetitions: usize) -> Result<BenchmarkCase, Bo
         evaluate_times.push(start.elapsed());
         last_report = Some(report);
     }
-    let report = last_report.ok_or_else(|| std::io::Error::other("no evaluator repetitions executed"))?;
+    let report =
+        last_report.ok_or_else(|| std::io::Error::other("no evaluator repetitions executed"))?;
     let report_bytes = serde_json::to_vec(&report)?;
 
     let mut verify_times = Vec::with_capacity(repetitions);
@@ -158,7 +163,8 @@ fn run_case(source_count: usize, repetitions: usize) -> Result<BenchmarkCase, Bo
         verify_times.push(start.elapsed());
         last_verification = Some(verification);
     }
-    let verification = last_verification.ok_or_else(|| std::io::Error::other("no verifier repetitions executed"))?;
+    let verification = last_verification
+        .ok_or_else(|| std::io::Error::other("no verifier repetitions executed"))?;
 
     let status = if report.disposition == emsr_dependency_hypergraph::Disposition::SharedDependency
         && verification.status == "verified"
@@ -249,7 +255,10 @@ fn build_star_graph(source_count: usize) -> HypergraphInput {
 
 fn summarize(times: &mut [Duration]) -> TimingSummary {
     times.sort_unstable();
-    let values: Vec<f64> = times.iter().map(|time| time.as_secs_f64() * 1_000.0).collect();
+    let values: Vec<f64> = times
+        .iter()
+        .map(|time| time.as_secs_f64() * 1_000.0)
+        .collect();
     TimingSummary {
         repetitions: times.len(),
         p50_ms: quantile(&values, 0.50),
@@ -326,8 +335,19 @@ mod tests {
         assert_eq!(input.nodes.len(), 11);
         assert_eq!(input.hyperedges.len(), 1);
         assert_eq!(input.hyperedges[0].subject_ids.len(), 10);
-        assert!(input.hyperedges[0].subject_ids.windows(2).all(|pair| pair[0] < pair[1]));
-        assert!(input.query.source_ids.windows(2).all(|pair| pair[0] < pair[1]));
+        assert!(
+            input.hyperedges[0]
+                .subject_ids
+                .windows(2)
+                .all(|pair| pair[0] < pair[1])
+        );
+        assert!(
+            input
+                .query
+                .source_ids
+                .windows(2)
+                .all(|pair| pair[0] < pair[1])
+        );
         assert_eq!(input.hyperedges[0].dependency_id, "shared-clock");
     }
 
