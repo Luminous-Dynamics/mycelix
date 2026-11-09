@@ -1,0 +1,231 @@
+{
+  "fixture_set": "civil-awareness-domain-envelope-examples-v0.1",
+  "synthetic_only": true,
+  "non_operational": true,
+  "examples": [
+    {
+      "schema_version": "0.1.0",
+      "envelope_id": "synthetic-uas-event-0001",
+      "domain": "uas",
+      "event_class": "civil_awareness_observation",
+      "source": {
+        "source_ref": "synthetic-uas-source-01",
+        "source_class": "sensor",
+        "integrity_status": "unverified"
+      },
+      "timestamps": {
+        "event_time": {
+          "start": "2026-11-09T08:00:00Z",
+          "end": "2026-11-09T08:00:00Z",
+          "uncertainty_ms": 1000
+        },
+        "received_at": "2026-11-09T08:00:01Z",
+        "clock_quality": "bounded",
+        "clock_uncertainty_ms": 1000
+      },
+      "claim": {
+        "kind": "source_assertion",
+        "claim_type": "sensor_reported_object_class",
+        "value": {
+          "reported_class": "uncrewed_aircraft",
+          "classification_status": "source_assertion"
+        }
+      },
+      "quality": {
+        "source_health": "healthy",
+        "freshness": "current",
+        "missingness": "complete",
+        "abstention": {
+          "abstained": false
+        }
+      },
+      "dependence": {
+        "dependency_group_refs": [
+          "synthetic-common-mode-group-uas"
+        ],
+        "lineage_complete": true
+      },
+      "spatial_context": {
+        "precision_class": "none",
+        "location_reference_status": "not_applicable"
+      },
+      "governance": {
+        "purpose_code": "synthetic_schema_test",
+        "authorization_status": "approved",
+        "rights_reference": "synthetic_fixture_no_external_source_rights_claimed",
+        "privacy_state": "no_personal_data",
+        "allowed_uses": [
+          "synthetic_schema_test"
+        ],
+        "retention_class": "public_fixture",
+        "field_allowlist_digest": "sha256:8ac201a5b0ae7459e2c3c869f3808483d42b5d0577a18c3803a3284e623faa79"
+      },
+      "lineage": {
+        "payload_digest": "sha256:585d64ea080ea3a62f6d105683d596cfd060b9b28d320256bd3d4a57e82536af",
+        "supersedes_refs": [],
+        "corrects_refs": [],
+        "envelope_content_digest": "sha256:ad7df24e13e83afb478fcf52071dd2dea5e1bc211a70f0fb6350c19478dc20a5"
+      },
+      "domain_extension": {
+        "schema_uri": "urn:luminous-dynamics:gcpn:uas:0.1.0",
+        "schema_revision": "0.1.0",
+        "payload": {
+          "synthetic": true,
+          "fixture_id": "uas-001"
+        }
+      }
+    },
+    {
+      "schema_version": "0.1.0",
+      "envelope_id": "synthetic-maritime-event-0001",
+      "domain": "maritime",
+      "event_class": "civil_vessel_status_observation",
+      "source": {
+        "source_ref": "synthetic-maritime-source-01",
+        "source_class": "authority_feed",
+        "integrity_status": "unverified"
+      },
+      "timestamps": {
+        "event_time": {
+          "start": "2026-11-09T08:00:00Z",
+          "end": "2026-11-09T08:00:00Z",
+          "uncertainty_ms": 1000
+        },
+        "received_at": "2026-11-09T08:00:01Z",
+        "clock_quality": "bounded",
+        "clock_uncertainty_ms": 1000
+      },
+      "claim": {
+        "kind": "source_assertion",
+        "claim_type": "ais_reported_navigation_status",
+        "value": {
+          "reported_status": "under_way_using_engine",
+          "identity_status": "unverified"
+        }
+      },
+      "quality": {
+        "source_health": "healthy",
+        "freshness": "current",
+        "missingness": "complete",
+        "abstention": {
+          "abstained": false
+        }
+      },
+      "dependence": {
+        "dependency_group_refs": [
+          "synthetic-common-mode-group-maritime"
+        ],
+        "lineage_complete": true
+      },
+      "spatial_context": {
+        "precision_class": "none",
+        "location_reference_status": "not_applicable"
+      },
+      "governance": {
+        "purpose_code": "synthetic_schema_test",
+        "authorization_status": "approved",
+        "rights_reference": "synthetic_fixture_no_external_source_rights_claimed",
+        "privacy_state": "no_personal_data",
+        "allowed_uses": [
+          "synthetic_schema_test"
+        ],
+        "retention_class": "public_fixture",
+        "field_allowlist_digest": "sha256:8ac201a5b0ae7459e2c3c869f3808483d42b5d0577a18c3803a3284e623faa79"
+      },
+      "lineage": {
+        "payload_digest": "sha256:24f1f26876779edb94b8d4dbbe5cb02f5aa23bafad3f91f57a283a6aacd3da12",
+        "supersedes_refs": [],
+        "corrects_refs": [],
+        "envelope_content_digest": "sha256:10b6b7f16c75e73a8aaa4f5611344beac8fc6f6ec53a0ce22f9fd3fe7d1b8548"
+      },
+      "domain_extension": {
+        "schema_uri": "urn:luminous-dynamics:gcpn:maritime:0.1.0",
+        "schema_revision": "0.1.0",
+        "payload": {
+          "synthetic": true,
+          "fixture_id": "maritime-001",
+          "ais_is_source_assertion": true,
+          "position_payload_withheld": true
+        }
+      }
+    },
+    {
+      "schema_version": "0.1.0",
+      "envelope_id": "synthetic-civil_aviation-event-0001",
+      "domain": "civil_aviation",
+      "event_class": "airport_hazard_context",
+      "source": {
+        "source_ref": "synthetic-civil_aviation-source-01",
+        "source_class": "environmental_service",
+        "integrity_status": "unverified"
+      },
+      "timestamps": {
+        "event_time": {
+          "start": "2026-11-09T08:00:00Z",
+          "end": "2026-11-09T08:00:00Z",
+          "uncertainty_ms": 1000
+        },
+        "received_at": "2026-11-09T08:00:01Z",
+        "clock_quality": "bounded",
+        "clock_uncertainty_ms": 1000
+      },
+      "claim": {
+        "kind": "source_assertion",
+        "claim_type": "weather_hazard_report",
+        "value": {
+          "hazard_type": "reduced_visibility",
+          "severity": "advisory",
+          "source_confirmation": "unverified"
+        }
+      },
+      "quality": {
+        "source_health": "healthy",
+        "freshness": "current",
+        "missingness": "complete",
+        "abstention": {
+          "abstained": false
+        }
+      },
+      "dependence": {
+        "dependency_group_refs": [
+          "synthetic-common-mode-group-aviation"
+        ],
+        "lineage_complete": true
+      },
+      "spatial_context": {
+        "precision_class": "none",
+        "location_reference_status": "not_applicable"
+      },
+      "governance": {
+        "purpose_code": "synthetic_schema_test",
+        "authorization_status": "approved",
+        "rights_reference": "synthetic_fixture_no_external_source_rights_claimed",
+        "privacy_state": "no_personal_data",
+        "allowed_uses": [
+          "synthetic_schema_test"
+        ],
+        "retention_class": "public_fixture",
+        "field_allowlist_digest": "sha256:8ac201a5b0ae7459e2c3c869f3808483d42b5d0577a18c3803a3284e623faa79"
+      },
+      "lineage": {
+        "payload_digest": "sha256:dac7ab1fd35789b79dac59da48e709d525efbf34fee7b4ec8e4aa3afc300dc62",
+        "supersedes_refs": [],
+        "corrects_refs": [],
+        "envelope_content_digest": "sha256:6bcad58d86bc07c513a7b512bd304ab9bfe29512903a4e20144cea9ab4cdc5aa"
+      },
+      "domain_extension": {
+        "schema_uri": "urn:luminous-dynamics:gcpn:civil-aviation:0.1.0",
+        "schema_revision": "0.1.0",
+        "payload": {
+          "synthetic": true,
+          "fixture_id": "aviation-001",
+          "hazard_type": "reduced_visibility",
+          "severity": "advisory",
+          "source_confirmation": "unverified",
+          "declared_integration_class": "advisory_read_only",
+          "authority_owner": "pilot_in_command_or_atc"
+        }
+      }
+    }
+  ]
+}

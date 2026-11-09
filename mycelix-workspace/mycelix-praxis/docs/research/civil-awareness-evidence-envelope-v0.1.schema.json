@@ -1,0 +1,575 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:luminous-dynamics:gcpn:civil-awareness-evidence-envelope:0.1.0",
+  "title": "Civil Awareness Evidence Envelope v0.1",
+  "description": "Domain-neutral, provenance-preserving event envelope for civilian UAS, maritime and civil-aviation evidence. This schema does not authorize operational use or control actions.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "envelope_id",
+    "domain",
+    "event_class",
+    "source",
+    "timestamps",
+    "claim",
+    "quality",
+    "dependence",
+    "spatial_context",
+    "governance",
+    "lineage",
+    "domain_extension"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "0.1.0"
+    },
+    "envelope_id": {
+      "$ref": "#/$defs/opaque_id"
+    },
+    "domain": {
+      "enum": [
+        "uas",
+        "maritime",
+        "civil_aviation"
+      ]
+    },
+    "event_class": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_ref",
+        "source_class",
+        "integrity_status"
+      ],
+      "properties": {
+        "source_ref": {
+          "$ref": "#/$defs/opaque_id"
+        },
+        "source_class": {
+          "enum": [
+            "sensor",
+            "authority_feed",
+            "environmental_service",
+            "human_observation",
+            "derived_system",
+            "other"
+          ]
+        },
+        "publisher_ref": {
+          "$ref": "#/$defs/opaque_id"
+        },
+        "product_revision": {
+          "type": "string",
+          "maxLength": 256
+        },
+        "configuration_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "integrity_status": {
+          "enum": [
+            "authenticated",
+            "unverified",
+            "failed",
+            "unknown"
+          ]
+        },
+        "authentication_method": {
+          "type": "string",
+          "maxLength": 128
+        }
+      }
+    },
+    "timestamps": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "event_time",
+        "received_at",
+        "clock_quality"
+      ],
+      "properties": {
+        "event_time": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "start",
+            "end"
+          ],
+          "properties": {
+            "start": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "end": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "uncertainty_ms": {
+              "type": "number",
+              "minimum": 0
+            }
+          }
+        },
+        "received_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "corrected_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "clock_quality": {
+          "enum": [
+            "disciplined",
+            "bounded",
+            "untrusted",
+            "unknown"
+          ]
+        },
+        "clock_offset_ms": {
+          "type": "number"
+        },
+        "clock_uncertainty_ms": {
+          "type": "number",
+          "minimum": 0
+        }
+      }
+    },
+    "claim": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "claim_type",
+        "value"
+      ],
+      "properties": {
+        "kind": {
+          "enum": [
+            "measurement",
+            "source_assertion",
+            "fused_estimate",
+            "adjudicated_outcome"
+          ]
+        },
+        "claim_type": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "value": {
+          "anyOf": [
+            {
+              "type": "object"
+            },
+            {
+              "type": "array"
+            },
+            {
+              "type": "string"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "unit": {
+          "type": "string",
+          "maxLength": 64
+        },
+        "uncertainty": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "representation"
+          ],
+          "properties": {
+            "representation": {
+              "enum": [
+                "interval",
+                "standard_deviation",
+                "quantiles",
+                "categorical_distribution",
+                "unknown"
+              ]
+            },
+            "lower": {
+              "type": "number"
+            },
+            "upper": {
+              "type": "number"
+            },
+            "standard_deviation": {
+              "type": "number",
+              "minimum": 0
+            },
+            "quantiles": {
+              "type": "array",
+              "items": {
+                "type": "number"
+              },
+              "minItems": 2,
+              "maxItems": 16
+            }
+          }
+        },
+        "probability": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "calibration_status": {
+          "enum": [
+            "current",
+            "stale",
+            "not_applicable",
+            "unknown"
+          ]
+        },
+        "method_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "adjudication_ref": {
+          "$ref": "#/$defs/opaque_id"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "measurement"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "then": {
+            "required": [
+              "unit",
+              "uncertainty",
+              "calibration_status"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "fused_estimate"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "then": {
+            "required": [
+              "uncertainty",
+              "method_digest"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "adjudicated_outcome"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "then": {
+            "required": [
+              "adjudication_ref"
+            ]
+          }
+        }
+      ]
+    },
+    "quality": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_health",
+        "freshness",
+        "missingness",
+        "abstention"
+      ],
+      "properties": {
+        "source_health": {
+          "enum": [
+            "healthy",
+            "degraded",
+            "unavailable",
+            "unknown"
+          ]
+        },
+        "freshness": {
+          "enum": [
+            "current",
+            "stale",
+            "expired",
+            "unknown"
+          ]
+        },
+        "calibration_status": {
+          "enum": [
+            "current",
+            "stale",
+            "not_applicable",
+            "unknown"
+          ]
+        },
+        "missingness": {
+          "enum": [
+            "complete",
+            "partial",
+            "missing",
+            "withheld",
+            "redacted",
+            "disputed"
+          ]
+        },
+        "abstention": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "abstained"
+          ],
+          "properties": {
+            "abstained": {
+              "type": "boolean"
+            },
+            "reason_code": {
+              "type": "string",
+              "maxLength": 128
+            }
+          }
+        },
+        "conflict_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/opaque_id"
+          },
+          "uniqueItems": true
+        }
+      }
+    },
+    "dependence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "dependency_group_refs",
+        "lineage_complete"
+      ],
+      "properties": {
+        "dependency_group_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/opaque_id"
+          },
+          "uniqueItems": true
+        },
+        "upstream_envelope_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/opaque_id"
+          },
+          "uniqueItems": true
+        },
+        "lineage_complete": {
+          "type": "boolean"
+        }
+      }
+    },
+    "spatial_context": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "precision_class",
+        "location_reference_status"
+      ],
+      "properties": {
+        "precision_class": {
+          "enum": [
+            "none",
+            "coarse_area",
+            "sector",
+            "site",
+            "operational_minimum",
+            "withheld"
+          ]
+        },
+        "location_reference_status": {
+          "enum": [
+            "present",
+            "withheld",
+            "not_applicable",
+            "unknown"
+          ]
+        },
+        "location_ref": {
+          "$ref": "#/$defs/opaque_id"
+        },
+        "coordinate_payload_ref": {
+          "$ref": "#/$defs/opaque_id"
+        },
+        "purpose_binding_ref": {
+          "$ref": "#/$defs/opaque_id"
+        }
+      }
+    },
+    "governance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "purpose_code",
+        "authorization_status",
+        "rights_reference",
+        "privacy_state",
+        "allowed_uses",
+        "retention_class",
+        "field_allowlist_digest"
+      ],
+      "properties": {
+        "purpose_code": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "authorization_status": {
+          "enum": [
+            "approved",
+            "pending",
+            "denied",
+            "unknown"
+          ]
+        },
+        "rights_reference": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "privacy_state": {
+          "enum": [
+            "no_personal_data",
+            "pseudonymized",
+            "quarantined"
+          ]
+        },
+        "allowed_uses": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 128
+          },
+          "uniqueItems": true
+        },
+        "retention_class": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "retention_until": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "field_allowlist_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "policy_digest": {
+          "$ref": "#/$defs/digest"
+        }
+      }
+    },
+    "lineage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "payload_digest",
+        "supersedes_refs",
+        "corrects_refs",
+        "envelope_content_digest"
+      ],
+      "properties": {
+        "payload_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "model_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "evaluator_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "supersedes_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/opaque_id"
+          },
+          "uniqueItems": true
+        },
+        "corrects_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/opaque_id"
+          },
+          "uniqueItems": true
+        },
+        "envelope_content_digest": {
+          "$ref": "#/$defs/digest"
+        }
+      }
+    },
+    "domain_extension": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_uri",
+        "schema_revision",
+        "payload"
+      ],
+      "properties": {
+        "schema_uri": {
+          "type": "string",
+          "format": "uri"
+        },
+        "schema_revision": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "payload": {
+          "type": "object"
+        }
+      }
+    }
+  },
+  "$defs": {
+    "opaque_id": {
+      "type": "string",
+      "minLength": 8,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$"
+    },
+    "digest": {
+      "type": "string",
+      "pattern": "^(sha256|blake3):[a-f0-9]{64}$"
+    }
+  }
+}
