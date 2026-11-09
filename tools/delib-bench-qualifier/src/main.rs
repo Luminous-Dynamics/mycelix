@@ -319,6 +319,7 @@ fn evaluate_fixture(fixture: &Value, errors: &mut Vec<String>) -> BTreeSet<Strin
         violations.insert("allocation_steered".to_string());
     }
 
+    // The share cap is a per-fixture synthetic oracle, not a general fairness or airtime standard.
     let attention = output.get("attention_share").and_then(Value::as_f64);
     let maximum = output.get("max_attention_share").and_then(Value::as_f64);
     if let (Some(attention), Some(maximum)) = (attention, maximum) {
