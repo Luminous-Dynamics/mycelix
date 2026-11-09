@@ -191,8 +191,18 @@ impl ObservabilityEvaluator {
 }
 
 fn assess_case(case: &Value) -> Result<ObservabilityAssessment, String> {
-    let claims = source_claims(case)?;
     let rights = string_at(case, "/rights")?;
+    if rights != "allowed_for_synthetic_test" {
+        return assessment(
+            case,
+            ObservabilityState::WithheldOrRestricted,
+            ["rights.source_unavailable_for_declared_purpose"],
+            Vec::new(),
+        );
+    }
+    // Do not parse or expose observation content until the rights/purpose
+    // precondition has passed.
+    let claims = source_claims(case)?;
     let applicability = string_at(case, "/equipment_applicability")?;
     let health = string_at(case, "/source_health")?;
     let coverage_status = string_at(case, "/coverage/status")?;
@@ -201,12 +211,12 @@ fn assess_case(case: &Value) -> Result<ObservabilityAssessment, String> {
     let modality = string_at(case, "/source/modality")?;
 
     // Rights/purpose and equipment applicability precede source interpretation.
-    if rights != "allowed_for_synthetic_test" || completeness == "withheld" {
+    if completeness == "withheld" {
         return assessment(
             case,
             ObservabilityState::WithheldOrRestricted,
-            ["rights.source_unavailable_for_declared_purpose"],
-            claims,
+            ["rights.source_data_withheld"],
+            Vec::new(),
         );
     }
     if matches!(
