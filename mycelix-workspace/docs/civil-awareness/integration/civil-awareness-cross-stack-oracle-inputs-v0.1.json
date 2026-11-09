@@ -733,5 +733,7 @@
         }
       }
     }
-  ]
+  ],
+  "source_corpus_sha256": "sha256:0e595cb83484e79529a51babb7bf6ee216ae227c54a714425498ff96f7ef8337",
+  "handoff_template_sha256": "sha256:a8e387bd7738e102e3c6f08e728defb94d8dd664a45c47a751a190e3c32273e5"
 }
