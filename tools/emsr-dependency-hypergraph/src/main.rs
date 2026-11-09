@@ -57,12 +57,11 @@ fn write_json(path: &str, value: &impl serde::Serialize) -> Result<(), String> {
 mod tests {
     use super::read_bounded;
     use std::fs;
-    use std::path::PathBuf;
 
     #[test]
     fn bounded_reader_rejects_files_larger_than_sixteen_mib() {
         const LIMIT: usize = 16 * 1024 * 1024;
-        let mut path = PathBuf::from(std::env::temp_dir());
+        let mut path = std::env::temp_dir();
         path.push(format!(
             "emsr-dependency-hypergraph-oversize-{}-{}.json",
             std::process::id(),
