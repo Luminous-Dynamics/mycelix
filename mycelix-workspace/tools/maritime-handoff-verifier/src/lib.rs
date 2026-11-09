@@ -672,6 +672,7 @@ mod tests {
             {
                 "edge_id": "run-to-brief",
                 "source_artifact_refs": ["run"],
+                "purpose": "Synthetic read-only decision brief input.",
                 "destination_owner": "symthaea",
                 "produced_artifact_ref": "brief",
                 "fidelity_disposition": "preserved",
@@ -682,6 +683,7 @@ mod tests {
             {
                 "edge_id": "stay-to-review",
                 "source_artifact_refs": ["stay", "brief"],
+                "purpose": "Synthetic stay evidence composition review.",
                 "destination_owner": "mycelix",
                 "fidelity_disposition": "not_evaluated",
                 "declared_losses": [],
