@@ -1,3 +1,4 @@
+use std::io::Read;
 use std::process::ExitCode;
 
 use civil_awareness_envelope_validator::{Disposition, EnvelopeValidator, MAX_ENVELOPE_BYTES, ValidationReport};
@@ -34,7 +35,8 @@ fn main() -> ExitCode {
         }
     };
     let mut bytes = Vec::with_capacity(MAX_ENVELOPE_BYTES.min(64 * 1024));
-    let read_result = std::io::Read::take(file, (MAX_ENVELOPE_BYTES + 1) as u64)
+    let read_result = file
+        .take((MAX_ENVELOPE_BYTES + 1) as u64)
         .read_to_end(&mut bytes);
     if read_result.is_err() {
         eprintln!("input.read_failed");
