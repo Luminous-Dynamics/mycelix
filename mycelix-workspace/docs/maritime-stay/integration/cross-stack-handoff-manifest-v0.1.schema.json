@@ -1,0 +1,427 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:luminous-dynamics:maritime-commons:cross-stack-handoff:0.1.0",
+  "title": "Maritime Commons Cross-Stack Evidence Handoff Manifest v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "manifest_id",
+    "profile_version",
+    "status",
+    "use_case",
+    "audience",
+    "privacy_policy_refs",
+    "artifact_refs",
+    "handoff_edges",
+    "nonclaims",
+    "execution"
+  ],
+  "properties": {
+    "manifest_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 160
+    },
+    "profile_version": {
+      "const": "0.1.0"
+    },
+    "status": {
+      "enum": [
+        "contract_template",
+        "synthetic_fixture_not_executed",
+        "executed_frozen"
+      ]
+    },
+    "use_case": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 500
+    },
+    "audience": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 120
+      }
+    },
+    "privacy_policy_refs": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 512
+      }
+    },
+    "artifact_refs": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ArtifactRef"
+      }
+    },
+    "handoff_edges": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/HandoffEdge"
+      }
+    },
+    "nonclaims": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 500
+      }
+    },
+    "execution": {
+      "$ref": "#/$defs/Execution"
+    }
+  },
+  "$defs": {
+    "Owner": {
+      "enum": [
+        "mycelix",
+        "sol_atlas",
+        "symtropy",
+        "symthaea"
+      ]
+    },
+    "Digest": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "ArtifactRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "artifact_ref",
+        "owner",
+        "repository",
+        "commit",
+        "path",
+        "content_digest",
+        "artifact_kind",
+        "profile_id",
+        "profile_version",
+        "maturity",
+        "subject_refs",
+        "claim_ceiling",
+        "nonclaims"
+      ],
+      "properties": {
+        "artifact_ref": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_-]{1,63}$"
+        },
+        "owner": {
+          "$ref": "#/$defs/Owner"
+        },
+        "repository": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$"
+        },
+        "commit": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{40}$"
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        },
+        "content_digest": {
+          "$ref": "#/$defs/Digest"
+        },
+        "artifact_kind": {
+          "enum": [
+            "authorization_evidence",
+            "decision_brief",
+            "dependency_snapshot",
+            "effect_receipt",
+            "evaluation_report",
+            "historical_view",
+            "other",
+            "profile_pin",
+            "provider_commitment",
+            "provider_hold",
+            "provider_offer",
+            "resource_constraint",
+            "scenario",
+            "simulation_run",
+            "source_projection",
+            "transformation"
+          ]
+        },
+        "profile_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "profile_version": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "maturity": {
+          "enum": [
+            "production",
+            "operational",
+            "implementation_testing",
+            "prerelease",
+            "draft",
+            "research",
+            "synthetic",
+            "unknown",
+            "deprecated",
+            "withdrawn"
+          ]
+        },
+        "subject_refs": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512
+          }
+        },
+        "resource_refs": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512
+          }
+        },
+        "temporal_context_ref": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "spatial_context_ref": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "claim_ceiling": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1000
+        },
+        "nonclaims": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          }
+        }
+      }
+    },
+    "HandoffEdge": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "edge_id",
+        "source_artifact_refs",
+        "destination_owner",
+        "purpose",
+        "fidelity_disposition",
+        "declared_losses",
+        "unresolved_fields",
+        "claim_ceiling"
+      ],
+      "properties": {
+        "edge_id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_-]{1,63}$"
+        },
+        "source_artifact_refs": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_-]{1,63}$"
+          }
+        },
+        "destination_owner": {
+          "$ref": "#/$defs/Owner"
+        },
+        "purpose": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500
+        },
+        "produced_artifact_ref": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_-]{1,63}$"
+        },
+        "transformation_artifact_ref": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_-]{1,63}$"
+        },
+        "independent_verifier_artifact_ref": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_-]{1,63}$"
+        },
+        "fidelity_disposition": {
+          "enum": [
+            "preserved",
+            "lossy_declared",
+            "blocked",
+            "unknown",
+            "conflict",
+            "not_evaluated"
+          ]
+        },
+        "declared_losses": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          }
+        },
+        "unresolved_fields": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          }
+        },
+        "claim_ceiling": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1000
+        }
+      }
+    },
+    "Execution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "executed",
+        "exact_head_verified",
+        "independent_verification",
+        "provider_effects",
+        "legal_review"
+      ],
+      "properties": {
+        "executed": {
+          "type": "boolean"
+        },
+        "exact_head_verified": {
+          "type": "boolean"
+        },
+        "independent_verification": {
+          "type": "boolean"
+        },
+        "provider_effects": {
+          "const": false
+        },
+        "legal_review": {
+          "type": "boolean"
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "contract_template"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "artifact_refs": {
+            "maxItems": 0
+          },
+          "handoff_edges": {
+            "maxItems": 0
+          },
+          "execution": {
+            "properties": {
+              "executed": {
+                "const": false
+              },
+              "exact_head_verified": {
+                "const": false
+              },
+              "independent_verification": {
+                "const": false
+              },
+              "legal_review": {
+                "const": false
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "synthetic_fixture_not_executed"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "execution": {
+            "properties": {
+              "executed": {
+                "const": false
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "executed_frozen"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "execution": {
+            "properties": {
+              "executed": {
+                "const": true
+              },
+              "exact_head_verified": {
+                "const": true
+              },
+              "independent_verification": {
+                "const": true
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}
