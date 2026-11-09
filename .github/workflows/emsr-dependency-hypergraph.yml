@@ -28,3 +28,15 @@ jobs:
         run: cargo test --manifest-path tools/emsr-dependency-hypergraph/Cargo.toml --all-targets
       - name: Clippy
         run: cargo clippy --manifest-path tools/emsr-dependency-hypergraph/Cargo.toml --all-targets -- -D warnings
+      - name: Reproducible release-mode scale benchmark
+        env:
+          GCPN_BENCH_REPETITIONS: "9"
+        run: |
+          cargo run --release --manifest-path tools/emsr-dependency-hypergraph/Cargo.toml --example scale_benchmark -- "$RUNNER_TEMP/emsr-hypergraph-scale.json"
+      - name: Upload exact-head benchmark result
+        uses: actions/upload-artifact@v4
+        with:
+          name: emsr-hypergraph-scale-${{ github.sha }}
+          path: ${{ runner.temp }}/emsr-hypergraph-scale.json
+          if-no-files-found: error
+          retention-days: 30
