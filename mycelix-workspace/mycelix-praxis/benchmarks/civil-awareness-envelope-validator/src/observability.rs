@@ -633,7 +633,8 @@ mod tests {
 
     #[test]
     fn removing_coverage_assertion_downgrades_non_observation_to_unknown() {
-        let mut case = case_by_id(&fixture(), "OBS-012").clone();
+        let dgp = fixture();
+        let mut case = case_by_id(&dgp, "OBS-012").clone();
         case["coverage"]["assertion_id"] = Value::Null;
         case["coverage"]["status"] = Value::String("unknown".into());
         case["coverage"]["complete_for_scope"] = Value::Bool(false);
@@ -643,7 +644,8 @@ mod tests {
 
     #[test]
     fn missing_dependency_frontier_blocks_coverage_qualified_non_observation() {
-        let mut case = case_by_id(&fixture(), "OBS-011").clone();
+        let dgp = fixture();
+        let mut case = case_by_id(&dgp, "OBS-011").clone();
         case["dependency_context"]["snapshot_ref"] = Value::Null;
         let report = assess_case(&case).unwrap();
         assert_eq!(report.state, ObservabilityState::CoverageUnknown);
@@ -651,7 +653,8 @@ mod tests {
 
     #[test]
     fn stale_dependency_frontier_blocks_coverage_qualified_non_observation() {
-        let case = case_by_id(&fixture(), "OBS-018");
+        let dgp = fixture();
+        let case = case_by_id(&dgp, "OBS-018");
         let report = assess_case(case).unwrap();
         assert_eq!(report.state, ObservabilityState::CoverageUnknown);
     }
@@ -674,7 +677,8 @@ mod tests {
 
     #[test]
     fn rights_restriction_precedes_any_detection_inference() {
-        let mut case = case_by_id(&fixture(), "OBS-013").clone();
+        let dgp = fixture();
+        let mut case = case_by_id(&dgp, "OBS-013").clone();
         case["rights"] = Value::String("restricted_for_declared_purpose".into());
         let report = assess_case(&case).unwrap();
         assert_eq!(report.state, ObservabilityState::WithheldOrRestricted);
@@ -682,7 +686,8 @@ mod tests {
 
     #[test]
     fn qualified_cross_source_disagreement_is_preserved_as_conflict() {
-        let case = case_by_id(&fixture(), "OBS-016");
+        let dgp = fixture();
+        let case = case_by_id(&dgp, "OBS-016");
         let report = assess_case(case).unwrap();
         assert_eq!(report.state, ObservabilityState::Conflict);
         assert_eq!(report.source_claims.len(), 2);
@@ -691,7 +696,8 @@ mod tests {
 
     #[test]
     fn positive_observation_is_not_erased_by_empty_other_sources() {
-        let case = case_by_id(&fixture(), "OBS-013");
+        let dgp = fixture();
+        let case = case_by_id(&dgp, "OBS-013");
         let report = assess_case(case).unwrap();
         assert_eq!(report.state, ObservabilityState::ObservedPresent);
     }
@@ -699,7 +705,8 @@ mod tests {
     #[test]
     fn failed_and_partial_outage_sources_are_not_negative() {
         for id in ["OBS-002", "OBS-007"] {
-            let case = case_by_id(&fixture(), id);
+            let dgp = fixture();
+            let case = case_by_id(&dgp, id);
             let report = assess_case(case).unwrap();
             assert_eq!(report.state, ObservabilityState::FeedUnavailable, "{id}");
         }
