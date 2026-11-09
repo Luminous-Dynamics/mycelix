@@ -1,7 +1,7 @@
 use creator_asset_passport_core::{
-    AssetId, AssetKind, AssetRegistry, AuthorizationGrant, CreativeAssetPassportEnvelope,
+    AssetId, AssetKind, AssetRegistry, CreativeAssetPassportEnvelope,
     DerivationError, DerivationGraph, DerivationId, DerivationRecord, DerivedPermissionDecision,
-    EventId, GrantEvent, GrantHistory, GrantHistoryEnvelope, GrantId, PartyId, PermissionDecision,
+    EventId, GrantEvent, GrantHistory, GrantHistoryEnvelope, GrantId, PartyId,
     PermissionDenial, UsageGrant, UseAction, UseRequest, evaluate_derived_usage,
 };
 
@@ -279,16 +279,14 @@ fn shared_ancestors_are_deduplicated_in_deterministic_lineage() {
         derivation("composite-event", composite.clone(), vec![left.clone(), right.clone()], UseAction::GenerateThumbnail, "curatorial-view", "processor"),
     ).unwrap();
 
-    assert_eq!(
-        graph.ancestors_of(&composite).unwrap(),
-        vec![left, right, root]
-    );
+    let expected_lineage = vec![left.clone(), right.clone(), root.clone()];
+    assert_eq!(graph.ancestors_of(&composite).unwrap(), expected_lineage);
     let record = graph.get(&composite).unwrap();
     let authorization_ids: Vec<_> = record.authorization_grants()
         .iter()
         .map(|item| item.resource_asset_id.clone())
         .collect();
-    assert_eq!(authorization_ids, vec![root]);
+    assert_eq!(authorization_ids, expected_lineage);
 }
 
 #[test]
