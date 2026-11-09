@@ -27,8 +27,8 @@
         "kind": "source_assertion",
         "claim_type": "sensor_reported_object_class",
         "value": {
-          "synthetic": true,
-          "fixture_id": "uas-001"
+          "reported_class": "uncrewed_aircraft",
+          "classification_status": "source_assertion"
         }
       },
       "quality": {
@@ -58,12 +58,13 @@
           "synthetic_schema_test"
         ],
         "retention_class": "public_fixture",
-        "field_allowlist_digest": "sha256:37c1f712ac7b8107b9bd3fd08e44e834ed16c504fa50b20d855ad27ca1dd6f47"
+        "field_allowlist_digest": "sha256:efd4f59e0a52644edfeace6f1259c9459c5c58d372817159ab111728dd09c0dd"
       },
       "lineage": {
         "payload_digest": "sha256:585d64ea080ea3a62f6d105683d596cfd060b9b28d320256bd3d4a57e82536af",
         "supersedes_refs": [],
-        "corrects_refs": []
+        "corrects_refs": [],
+        "envelope_content_digest": "sha256:79843a76ae4ed34c327c3567e882a7af25cd2775b6b753720b05f3374f84bc79"
       },
       "domain_extension": {
         "schema_uri": "urn:luminous-dynamics:gcpn:uas:0.1.0",
@@ -98,10 +99,8 @@
         "kind": "source_assertion",
         "claim_type": "ais_reported_navigation_status",
         "value": {
-          "synthetic": true,
-          "fixture_id": "maritime-001",
-          "ais_is_source_assertion": true,
-          "position_payload_withheld": true
+          "reported_status": "under_way_using_engine",
+          "identity_status": "unverified"
         }
       },
       "quality": {
@@ -131,12 +130,13 @@
           "synthetic_schema_test"
         ],
         "retention_class": "public_fixture",
-        "field_allowlist_digest": "sha256:37c1f712ac7b8107b9bd3fd08e44e834ed16c504fa50b20d855ad27ca1dd6f47"
+        "field_allowlist_digest": "sha256:efd4f59e0a52644edfeace6f1259c9459c5c58d372817159ab111728dd09c0dd"
       },
       "lineage": {
         "payload_digest": "sha256:24f1f26876779edb94b8d4dbbe5cb02f5aa23bafad3f91f57a283a6aacd3da12",
         "supersedes_refs": [],
-        "corrects_refs": []
+        "corrects_refs": [],
+        "envelope_content_digest": "sha256:ed7adbe3502c947490cf56cbef043bacbcc1402263e94b7673484343c00c965f"
       },
       "domain_extension": {
         "schema_uri": "urn:luminous-dynamics:gcpn:maritime:0.1.0",
@@ -173,13 +173,9 @@
         "kind": "source_assertion",
         "claim_type": "weather_hazard_report",
         "value": {
-          "synthetic": true,
-          "fixture_id": "aviation-001",
           "hazard_type": "reduced_visibility",
           "severity": "advisory",
-          "source_confirmation": "unverified",
-          "declared_integration_class": "advisory_read_only",
-          "authority_owner": "pilot_in_command_or_atc"
+          "source_confirmation": "unverified"
         }
       },
       "quality": {
@@ -209,12 +205,13 @@
           "synthetic_schema_test"
         ],
         "retention_class": "public_fixture",
-        "field_allowlist_digest": "sha256:37c1f712ac7b8107b9bd3fd08e44e834ed16c504fa50b20d855ad27ca1dd6f47"
+        "field_allowlist_digest": "sha256:efd4f59e0a52644edfeace6f1259c9459c5c58d372817159ab111728dd09c0dd"
       },
       "lineage": {
         "payload_digest": "sha256:dac7ab1fd35789b79dac59da48e709d525efbf34fee7b4ec8e4aa3afc300dc62",
         "supersedes_refs": [],
-        "corrects_refs": []
+        "corrects_refs": [],
+        "envelope_content_digest": "sha256:82953a3f3f59b433b687f8e71c0a32cd8c5919431b7ad23122104b31e2bb66ab"
       },
       "domain_extension": {
         "schema_uri": "urn:luminous-dynamics:gcpn:civil-aviation:0.1.0",
