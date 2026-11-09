@@ -156,6 +156,14 @@ pub struct GoldenCorpus {
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq)]
 #[serde(deny_unknown_fields)]
+pub struct HandoffVerifierCheck {
+    pub disposition: String,
+    pub code: String,
+    pub detail: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq)]
+#[serde(deny_unknown_fields)]
 pub struct HandoffVerifierReport {
     pub manifest_id: String,
     pub profile_version: String,
@@ -164,6 +172,7 @@ pub struct HandoffVerifierReport {
     pub artifact_count: usize,
     pub handoff_edge_count: usize,
     pub disposition: String,
+    pub checks: Vec<HandoffVerifierCheck>,
     pub claim_ceiling: String,
 }
 
@@ -231,9 +240,10 @@ pub fn derive_stay_disposition(outputs: &OwnerOutputs, gates: &GateObservations)
     {
         return StayDisposition::Rejected;
     }
-    // Store-and-forward requests can remain pending during a partition, but only as
-    // pending requests. This branch never permits an offline confirmation.
-    if gates.offline_partition && outputs.commitment == CommitmentDisposition::Pending {
+    // This v0.1 fixture has no typed, independently verified non-overlapping
+    // allocation-lease field. Therefore any declared partition remains pending;
+    // it cannot confirm merely because an owner-output fixture says "present".
+    if gates.offline_partition {
         return StayDisposition::Pending;
     }
     if outputs.source_context != SourceDisposition::Qualified {
@@ -244,6 +254,9 @@ pub fn derive_stay_disposition(outputs: &OwnerOutputs, gates: &GateObservations)
     }
     if outputs.feasibility != FeasibilityDisposition::Feasible {
         return StayDisposition::Unknown;
+    }
+    if outputs.decision == DecisionDisposition::HumanReview {
+        return StayDisposition::Pending;
     }
     if matches!(outputs.decision, DecisionDisposition::Abstain
         | DecisionDisposition::RequestInformation
@@ -401,6 +414,7 @@ mod tests {
             "artifact_count":0,
             "handoff_edge_count":0,
             "disposition":"pass",
+            "checks":[],
             "claim_ceiling":"manifest structure only"
         }).to_string()
     }
@@ -486,6 +500,20 @@ mod tests {
         c.owner_outputs.source_context = SourceDisposition::Qualified;
         c.owner_outputs.feasibility = FeasibilityDisposition::Feasible;
         c.owner_outputs.decision = DecisionDisposition::Recommend;
+        assert_eq!(derive_stay_disposition(&c.owner_outputs, &c.gate_observations), StayDisposition::Pending);
+        c.owner_outputs.commitment = CommitmentDisposition::Present;
+        c.owner_outputs.provider_effect_evidence = ProviderEffectEvidence::ReceiptPresent;
+        c.owner_outputs.source_context = SourceDisposition::Qualified;
+        c.owner_outputs.feasibility = FeasibilityDisposition::Feasible;
+        c.owner_outputs.decision = DecisionDisposition::Recommend;
+        assert_eq!(derive_stay_disposition(&c.owner_outputs, &c.gate_observations), StayDisposition::Pending);
+    }
+
+    #[test]
+    fn human_review_blocks_confirmation_even_with_commitment_and_receipt() {
+        let mut value: OracleInputs = serde_json::from_str(INPUTS).unwrap();
+        let c = value.cases.iter_mut().find(|c| c.case_id == "MCB-X-001").unwrap();
+        c.owner_outputs.decision = DecisionDisposition::HumanReview;
         assert_eq!(derive_stay_disposition(&c.owner_outputs, &c.gate_observations), StayDisposition::Pending);
     }
 
