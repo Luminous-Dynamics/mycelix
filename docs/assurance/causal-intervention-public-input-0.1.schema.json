@@ -9,6 +9,7 @@
     "scenario_id",
     "decision_scope",
     "expected_source_ids",
+    "negative_control_source_ids",
     "intervention",
     "trials",
     "observations"
@@ -48,6 +49,15 @@
       "type": "array",
       "items": {
         "$ref": "#/$defs/observation"
+      }
+    },
+    "negative_control_source_ids": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
       }
     }
   },
