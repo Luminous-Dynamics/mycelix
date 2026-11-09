@@ -1,7 +1,133 @@
+use serde::de::{self, MapAccess, SeqAccess, Visitor};
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
+use serde_json::{Map, Number, Value};
+use std::fmt;
 use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
+
+/// Parse exactly one JSON value and reject duplicate property names at every
+/// nesting level. serde_json::Value's default parser is last-key-wins; that is
+/// unsafe for byte-bound evidence contracts because different implementations
+/// can otherwise interpret the same signed bytes differently.
+#[derive(Debug)]
+struct StrictValue(Value);
+
+impl<'de> Deserialize<'de> for StrictValue {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        struct StrictVisitor;
+
+        impl<'de> Visitor<'de> for StrictVisitor {
+            type Value = StrictValue;
+
+            fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+                formatter.write_str("JSON with unique object property names")
+            }
+
+            fn visit_bool<E>(self, value: bool) -> Result<Self::Value, E>
+            where
+                E: de::Error,
+            {
+                Ok(StrictValue(Value::Bool(value)))
+            }
+
+            fn visit_i64<E>(self, value: i64) -> Result<Self::Value, E>
+            where
+                E: de::Error,
+            {
+                Ok(StrictValue(Value::Number(Number::from(value))))
+            }
+
+            fn visit_u64<E>(self, value: u64) -> Result<Self::Value, E>
+            where
+                E: de::Error,
+            {
+                Ok(StrictValue(Value::Number(Number::from(value))))
+            }
+
+            fn visit_f64<E>(self, value: f64) -> Result<Self::Value, E>
+            where
+                E: de::Error,
+            {
+                Number::from_f64(value)
+                    .map(|number| StrictValue(Value::Number(number)))
+                    .ok_or_else(|| E::custom("non-finite JSON number"))
+            }
+
+            fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
+            where
+                E: de::Error,
+            {
+                Ok(StrictValue(Value::String(value.to_owned())))
+            }
+
+            fn visit_string<E>(self, value: String) -> Result<Self::Value, E>
+            where
+                E: de::Error,
+            {
+                Ok(StrictValue(Value::String(value)))
+            }
+
+            fn visit_unit<E>(self) -> Result<Self::Value, E>
+            where
+                E: de::Error,
+            {
+                Ok(StrictValue(Value::Null))
+            }
+
+            fn visit_none<E>(self) -> Result<Self::Value, E>
+            where
+                E: de::Error,
+            {
+                Ok(StrictValue(Value::Null))
+            }
+
+            fn visit_some<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
+            where
+                D: serde::Deserializer<'de>,
+            {
+                StrictValue::deserialize(deserializer)
+            }
+
+            fn visit_seq<A>(self, mut sequence: A) -> Result<Self::Value, A::Error>
+            where
+                A: SeqAccess<'de>,
+            {
+                let mut values = Vec::new();
+                while let Some(value) = sequence.next_element::<StrictValue>()? {
+                    values.push(value.0);
+                }
+                Ok(StrictValue(Value::Array(values)))
+            }
+
+            fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+            where
+                A: MapAccess<'de>,
+            {
+                let mut values = Map::new();
+                while let Some(key) = map.next_key::<String>()? {
+                    if values.contains_key(&key) {
+                        return Err(de::Error::custom("duplicate JSON object property"));
+                    }
+                    let value = map.next_value::<StrictValue>()?;
+                    values.insert(key, value.0);
+                }
+                Ok(StrictValue(Value::Object(values)))
+            }
+        }
+
+        deserializer.deserialize_any(StrictVisitor)
+    }
+}
+
+fn parse_strict_json(bytes: &[u8]) -> Result<Value, ()> {
+    let mut deserializer = serde_json::Deserializer::from_slice(bytes);
+    let value = StrictValue::deserialize(&mut deserializer).map_err(|_| ())?;
+    deserializer.end().map_err(|_| ())?;
+    Ok(value.0)
+}
 
 pub const INPUT_CONTRACT: &str = "emsr-dependency-hypergraph-input/0.1";
 pub const REPORT_CONTRACT: &str = "emsr-dependency-hypergraph-report/0.1";
@@ -147,11 +273,13 @@ struct Validated<'a> {
 
 pub fn evaluate_bytes(input_bytes: &[u8]) -> EvaluationReport {
     let input_sha256 = sha256_hex(input_bytes);
-    match serde_json::from_slice::<HypergraphInput>(input_bytes) {
+    let parsed = parse_strict_json(input_bytes)
+        .and_then(|value| serde_json::from_value::<HypergraphInput>(value).map_err(|_| ()));
+    match parsed {
         Ok(input) => evaluate(&input, input_sha256),
         Err(_) => invalid_report(
             input_sha256,
-            "input_json_invalid_or_contract_fields_unknown",
+            "input_json_invalid_duplicate_or_unknown_contract_fields",
             DependencyDomain::Clock,
             0,
             String::new(),
@@ -276,8 +404,10 @@ pub fn evaluate(input: &HypergraphInput, input_sha256: String) -> EvaluationRepo
 pub fn independently_verify(input_bytes: &[u8], report_bytes: &[u8]) -> VerificationReport {
     let mut checks = Vec::new();
     let input_hash = sha256_hex(input_bytes);
-    let parsed_input = serde_json::from_slice::<HypergraphInput>(input_bytes);
-    let parsed_report = serde_json::from_slice::<EvaluationReport>(report_bytes);
+    let parsed_input = parse_strict_json(input_bytes)
+        .and_then(|value| serde_json::from_value::<HypergraphInput>(value).map_err(|_| ()));
+    let parsed_report = parse_strict_json(report_bytes)
+        .and_then(|value| serde_json::from_value::<EvaluationReport>(value).map_err(|_| ()));
 
     match (parsed_input, parsed_report) {
         (Ok(input), Ok(report)) => {
@@ -857,6 +987,57 @@ mod tests {
     fn evaluate_fixture(input: &HypergraphInput) -> EvaluationReport {
         let bytes = serde_json::to_vec(input).unwrap();
         evaluate_bytes(&bytes)
+    }
+
+
+    #[test]
+    fn duplicate_top_level_json_properties_are_rejected() {
+        let input = br#"{"contract":"emsr-dependency-hypergraph-input/0.1","contract":"emsr-dependency-hypergraph-input/0.1"}"#;
+        let report = evaluate_bytes(input);
+        assert_eq!(report.disposition, Disposition::InvalidInput);
+        assert_eq!(
+            report.reason_codes,
+            vec!["input_json_invalid_duplicate_or_unknown_contract_fields"]
+        );
+    }
+
+    #[test]
+    fn duplicate_nested_json_properties_are_rejected() {
+        let input = br#"{"contract":"emsr-dependency-hypergraph-input/0.1","snapshot":{"snapshot_id":"one","snapshot_id":"two"}}"#;
+        let report = evaluate_bytes(input);
+        assert_eq!(report.disposition, Disposition::InvalidInput);
+        assert_eq!(
+            report.reason_codes,
+            vec!["input_json_invalid_duplicate_or_unknown_contract_fields"]
+        );
+    }
+
+    #[test]
+    fn unknown_top_level_contract_fields_are_rejected() {
+        let mut input = fixture();
+        let mut value = serde_json::to_value(&input).unwrap();
+        value.as_object_mut().unwrap().insert("unexpected".into(), Value::Bool(true));
+        let bytes = serde_json::to_vec(&value).unwrap();
+        let report = evaluate_bytes(&bytes);
+        assert_eq!(report.disposition, Disposition::InvalidInput);
+        assert_eq!(
+            report.reason_codes,
+            vec!["input_json_invalid_duplicate_or_unknown_contract_fields"]
+        );
+        let report_bytes = serde_json::to_vec(&report).unwrap();
+        assert_eq!(independently_verify(&bytes, &report_bytes).status, "verified");
+    }
+
+    #[test]
+    fn trailing_json_values_are_rejected() {
+        let mut bytes = serde_json::to_vec(&fixture()).unwrap();
+        bytes.extend_from_slice(br#" {}"#);
+        let report = evaluate_bytes(&bytes);
+        assert_eq!(report.disposition, Disposition::InvalidInput);
+        assert_eq!(
+            report.reason_codes,
+            vec!["input_json_invalid_duplicate_or_unknown_contract_fields"]
+        );
     }
 
     #[test]
