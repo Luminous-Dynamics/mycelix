@@ -28,7 +28,6 @@ const ALLOWED_EVENT_STATES: [&str; 12] = [
     "HUMAN_REVIEW_REQUIRED",
 ];
 
-
 #[derive(Clone, Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct TrackARunBundle {
