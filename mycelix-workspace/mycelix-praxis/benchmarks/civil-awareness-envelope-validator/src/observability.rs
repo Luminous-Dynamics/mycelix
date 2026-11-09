@@ -316,9 +316,7 @@ fn assess_case(case: &Value) -> Result<ObservabilityAssessment, String> {
         )
     });
     let primary_source_id = string_at(case, "/source/id")?;
-    if distinct_sources.len() == 1
-        && has_positive
-        && !distinct_sources.contains(primary_source_id)
+    if distinct_sources.len() == 1 && has_positive && !distinct_sources.contains(primary_source_id)
     {
         return assessment(
             case,
