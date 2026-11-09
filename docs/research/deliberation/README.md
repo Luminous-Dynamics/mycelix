@@ -16,7 +16,7 @@ A model that performs well on one layer has not thereby qualified the next.
 
 - `delib-bench-protocol-v0.1.json` — protocol, intervention arms, outcome families, claim ceilings and research basis.
 - `delib-bench-protocol-v0.1.schema.json` — strict schema for the protocol manifest.
-- `delib-bench-fixtures-v0.1.json` — 30 deterministic synthetic fixtures: 24 red-team cases across 12 attack families and 6 positive controls.
+- `delib-bench-fixtures-v0.1.json` — 32 deterministic synthetic fixtures: 26 red-team cases across 13 attack families and 6 positive controls.
 - `delib-bench-fixtures-v0.1.schema.json` — strict fixture-corpus schema.
 - `tools/delib-bench-qualifier/` — Rust structural and fixture-oracle validator.
 - `.github/workflows/delib-bench-qualifier.yml` — path-filtered hosted qualification workflow.
@@ -120,6 +120,6 @@ No local-language corpus ingestion, recruitment, model training, language-capabi
 
 ## Validation state for this branch
 
-The manifest and fixture JSON were fetched back from GitHub. An independent local structural replay checked both schemas and all 30 expected fixture dispositions: 24 red-team cases were detected, 6 positive controls passed, and the fixture families matched the protocol registry. Three protocol negative controls were also rejected.
+The manifest and fixture JSON were fetched back from GitHub. An independent local structural replay checked both schemas and all 30 expected fixture dispositions: 26 red-team cases were detected, 6 positive controls passed, and the fixture families matched the protocol registry. Three protocol negative controls were also rejected.
 
 The execution environment used for authoring does not have `cargo` or `rustc`; the Rust tests and hosted GitHub Actions workflow have **not** been run here. Do not treat authored tests or a workflow file as a CI pass.
