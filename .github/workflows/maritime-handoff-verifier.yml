@@ -26,9 +26,6 @@ jobs:
         with:
           components: rustfmt, clippy
 
-      - name: Generate provisional lockfile for this review head
-        run: cargo generate-lockfile
-
       - name: Run locked unit tests
         run: cargo test --locked --all-targets
 
@@ -38,7 +35,7 @@ jobs:
       - name: Run locked Clippy
         run: cargo clippy --locked --all-targets -- -D warnings
 
-      - name: Upload generated lockfile and verification sources
+      - name: Upload pinned lockfile and verification sources
         if: always()
         uses: actions/upload-artifact@v4
         with:
