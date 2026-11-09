@@ -123,6 +123,9 @@ impl<'de> Deserialize<'de> for StrictValue {
 }
 
 fn parse_strict_json(bytes: &[u8]) -> Result<Value, ()> {
+    if bytes.len() > MAX_INPUT_BYTES {
+        return Err(());
+    }
     let mut deserializer = serde_json::Deserializer::from_slice(bytes);
     let value = StrictValue::deserialize(&mut deserializer).map_err(|_| ())?;
     deserializer.end().map_err(|_| ())?;
@@ -132,6 +135,7 @@ fn parse_strict_json(bytes: &[u8]) -> Result<Value, ()> {
 pub const INPUT_CONTRACT: &str = "emsr-dependency-hypergraph-input/0.1";
 pub const REPORT_CONTRACT: &str = "emsr-dependency-hypergraph-report/0.1";
 pub const VERIFIER_CONTRACT: &str = "emsr-dependency-hypergraph-reference-verifier/0.1";
+const MAX_INPUT_BYTES: usize = 16 * 1024 * 1024;
 const MAX_NODES: usize = 100_000;
 const MAX_HYPEREDGES: usize = 500_000;
 const CLAIM_CEILING: &str = "Declared common-dependency assessment over the exact supplied inventory snapshot and evidence frontier; not proof of physical or statistical independence, and not evidence that unknown common causes do not exist.";
@@ -989,6 +993,12 @@ mod tests {
         evaluate_bytes(&bytes)
     }
 
+
+    #[test]
+    fn strict_json_parser_rejects_oversized_input_before_deserialization() {
+        let bytes = vec![b' '; MAX_INPUT_BYTES + 1];
+        assert!(parse_strict_json(&bytes).is_err());
+    }
 
     #[test]
     fn duplicate_top_level_json_properties_are_rejected() {
