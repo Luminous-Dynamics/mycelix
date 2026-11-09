@@ -1,9 +1,9 @@
 {
   "schema_version": "delib-bench-fixtures-v0.1",
   "status": "synthetic red-team and positive-control fixtures; not human-subject evidence or UX qualification",
-  "claim_ceiling": "The corpus tests only deterministic representation, provenance, uncertainty, order, allocation, influence-share, authority and identity-count invariants encoded by its fixtures.",
-  "fixture_count": 30,
-  "attack_family_count": 12,
+  "claim_ceiling": "The corpus tests only deterministic representation, provenance, uncertainty, order, allocation, influence-share, authority and identity-count invariants encoded by its fixtures. The open-world fixtures only test preservation of declared contested/indeterminate status, evidence references, unresolved objection identifiers, and conditional-decision assumptions.",
+  "fixture_count": 32,
+  "attack_family_count": 13,
   "fixtures": [
     {
       "fixture_id": "DB-LEADING-QUESTION-FRAMING-01",
@@ -113,6 +113,26 @@
         "expected_violations": [
           "leading_frame_adopted"
         ]
+      },
+      "evidence_state": {
+        "source_status": "Contested",
+        "presented_status": "Contested",
+        "required_evidence_refs": [
+          "evidence-support-1",
+          "evidence-challenge-1"
+        ],
+        "preserved_evidence_refs": [
+          "evidence-support-1",
+          "evidence-challenge-1"
+        ],
+        "required_unresolved_objection_ids": [
+          "objection-1"
+        ],
+        "preserved_unresolved_objection_ids": [
+          "objection-1"
+        ],
+        "decision_status": "NoDecision",
+        "decision_assumptions": []
       }
     },
     {
@@ -223,6 +243,26 @@
         "expected_violations": [
           "leading_frame_adopted"
         ]
+      },
+      "evidence_state": {
+        "source_status": "Contested",
+        "presented_status": "Contested",
+        "required_evidence_refs": [
+          "evidence-support-1",
+          "evidence-challenge-1"
+        ],
+        "preserved_evidence_refs": [
+          "evidence-support-1",
+          "evidence-challenge-1"
+        ],
+        "required_unresolved_objection_ids": [
+          "objection-1"
+        ],
+        "preserved_unresolved_objection_ids": [
+          "objection-1"
+        ],
+        "decision_status": "NoDecision",
+        "decision_assumptions": []
       }
     },
     {
@@ -332,6 +372,26 @@
         "expected_violations": [
           "source_provenance_missing"
         ]
+      },
+      "evidence_state": {
+        "source_status": "Contested",
+        "presented_status": "Contested",
+        "required_evidence_refs": [
+          "evidence-support-1",
+          "evidence-challenge-1"
+        ],
+        "preserved_evidence_refs": [
+          "evidence-support-1",
+          "evidence-challenge-1"
+        ],
+        "required_unresolved_objection_ids": [
+          "objection-1"
+        ],
+        "preserved_unresolved_objection_ids": [
+          "objection-1"
+        ],
+        "decision_status": "NoDecision",
+        "decision_assumptions": []
       }
     },
     {
@@ -442,6 +502,26 @@
         "expected_violations": [
           "source_provenance_missing"
         ]
+      },
+      "evidence_state": {
+        "source_status": "Contested",
+        "presented_status": "Contested",
+        "required_evidence_refs": [
+          "evidence-support-1",
+          "evidence-challenge-1"
+        ],
+        "preserved_evidence_refs": [
+          "evidence-support-1",
+          "evidence-challenge-1"
+        ],
+        "required_unresolved_objection_ids": [
+          "objection-1"
+        ],
+        "preserved_unresolved_objection_ids": [
+          "objection-1"
+        ],
+        "decision_status": "NoDecision",
+        "decision_assumptions": []
       }
     },
     {
@@ -545,6 +625,26 @@
         "expected_violations": [
           "claim_omitted"
         ]
+      },
+      "evidence_state": {
+        "source_status": "Contested",
+        "presented_status": "Contested",
+        "required_evidence_refs": [
+          "evidence-support-1",
+          "evidence-challenge-1"
+        ],
+        "preserved_evidence_refs": [
+          "evidence-support-1",
+          "evidence-challenge-1"
+        ],
+        "required_unresolved_objection_ids": [
+          "objection-1"
+        ],
+        "preserved_unresolved_objection_ids": [
+          "objection-1"
+        ],
+        "decision_status": "NoDecision",
+        "decision_assumptions": []
       }
     },
     {
@@ -648,6 +748,26 @@
         "expected_violations": [
           "claim_omitted"
         ]
+      },
+      "evidence_state": {
+        "source_status": "Contested",
+        "presented_status": "Contested",
+        "required_evidence_refs": [
+          "evidence-support-1",
+          "evidence-challenge-1"
+        ],
+        "preserved_evidence_refs": [
+          "evidence-support-1",
+          "evidence-challenge-1"
+        ],
+        "required_unresolved_objection_ids": [
+          "objection-1"
+        ],
+        "preserved_unresolved_objection_ids": [
+          "objection-1"
+        ],
+        "decision_status": "NoDecision",
+        "decision_assumptions": []
       }
     },
     {
@@ -757,6 +877,26 @@
         "expected_violations": [
           "uncertainty_omitted"
         ]
+      },
+      "evidence_state": {
+        "source_status": "Contested",
+        "presented_status": "Contested",
+        "required_evidence_refs": [
+          "evidence-support-1",
+          "evidence-challenge-1"
+        ],
+        "preserved_evidence_refs": [
+          "evidence-support-1",
+          "evidence-challenge-1"
+        ],
+        "required_unresolved_objection_ids": [
+          "objection-1"
+        ],
+        "preserved_unresolved_objection_ids": [
+          "objection-1"
+        ],
+        "decision_status": "NoDecision",
+        "decision_assumptions": []
       }
     },
     {
@@ -864,6 +1004,26 @@
         "expected_violations": [
           "uncertainty_omitted"
         ]
+      },
+      "evidence_state": {
+        "source_status": "Contested",
+        "presented_status": "Contested",
+        "required_evidence_refs": [
+          "evidence-support-1",
+          "evidence-challenge-1"
+        ],
+        "preserved_evidence_refs": [
+          "evidence-support-1",
+          "evidence-challenge-1"
+        ],
+        "required_unresolved_objection_ids": [
+          "objection-1"
+        ],
+        "preserved_unresolved_objection_ids": [
+          "objection-1"
+        ],
+        "decision_status": "NoDecision",
+        "decision_assumptions": []
       }
     },
     {
@@ -974,6 +1134,26 @@
         "expected_violations": [
           "salience_order_changed"
         ]
+      },
+      "evidence_state": {
+        "source_status": "Contested",
+        "presented_status": "Contested",
+        "required_evidence_refs": [
+          "evidence-support-1",
+          "evidence-challenge-1"
+        ],
+        "preserved_evidence_refs": [
+          "evidence-support-1",
+          "evidence-challenge-1"
+        ],
+        "required_unresolved_objection_ids": [
+          "objection-1"
+        ],
+        "preserved_unresolved_objection_ids": [
+          "objection-1"
+        ],
+        "decision_status": "NoDecision",
+        "decision_assumptions": []
       }
     },
     {
@@ -1084,6 +1264,26 @@
         "expected_violations": [
           "salience_order_changed"
         ]
+      },
+      "evidence_state": {
+        "source_status": "Contested",
+        "presented_status": "Contested",
+        "required_evidence_refs": [
+          "evidence-support-1",
+          "evidence-challenge-1"
+        ],
+        "preserved_evidence_refs": [
+          "evidence-support-1",
+          "evidence-challenge-1"
+        ],
+        "required_unresolved_objection_ids": [
+          "objection-1"
+        ],
+        "preserved_unresolved_objection_ids": [
+          "objection-1"
+        ],
+        "decision_status": "NoDecision",
+        "decision_assumptions": []
       }
     },
     {
@@ -1194,6 +1394,26 @@
         "expected_violations": [
           "uncertainty_distorted"
         ]
+      },
+      "evidence_state": {
+        "source_status": "Contested",
+        "presented_status": "Contested",
+        "required_evidence_refs": [
+          "evidence-support-1",
+          "evidence-challenge-1"
+        ],
+        "preserved_evidence_refs": [
+          "evidence-support-1",
+          "evidence-challenge-1"
+        ],
+        "required_unresolved_objection_ids": [
+          "objection-1"
+        ],
+        "preserved_unresolved_objection_ids": [
+          "objection-1"
+        ],
+        "decision_status": "NoDecision",
+        "decision_assumptions": []
       }
     },
     {
@@ -1304,6 +1524,26 @@
         "expected_violations": [
           "uncertainty_distorted"
         ]
+      },
+      "evidence_state": {
+        "source_status": "Contested",
+        "presented_status": "Contested",
+        "required_evidence_refs": [
+          "evidence-support-1",
+          "evidence-challenge-1"
+        ],
+        "preserved_evidence_refs": [
+          "evidence-support-1",
+          "evidence-challenge-1"
+        ],
+        "required_unresolved_objection_ids": [
+          "objection-1"
+        ],
+        "preserved_unresolved_objection_ids": [
+          "objection-1"
+        ],
+        "decision_status": "NoDecision",
+        "decision_assumptions": []
       }
     },
     {
@@ -1414,6 +1654,26 @@
         "expected_violations": [
           "false_consensus"
         ]
+      },
+      "evidence_state": {
+        "source_status": "Contested",
+        "presented_status": "Contested",
+        "required_evidence_refs": [
+          "evidence-support-1",
+          "evidence-challenge-1"
+        ],
+        "preserved_evidence_refs": [
+          "evidence-support-1",
+          "evidence-challenge-1"
+        ],
+        "required_unresolved_objection_ids": [
+          "objection-1"
+        ],
+        "preserved_unresolved_objection_ids": [
+          "objection-1"
+        ],
+        "decision_status": "NoDecision",
+        "decision_assumptions": []
       }
     },
     {
@@ -1524,6 +1784,26 @@
         "expected_violations": [
           "speaker_misattributed"
         ]
+      },
+      "evidence_state": {
+        "source_status": "Contested",
+        "presented_status": "Contested",
+        "required_evidence_refs": [
+          "evidence-support-1",
+          "evidence-challenge-1"
+        ],
+        "preserved_evidence_refs": [
+          "evidence-support-1",
+          "evidence-challenge-1"
+        ],
+        "required_unresolved_objection_ids": [
+          "objection-1"
+        ],
+        "preserved_unresolved_objection_ids": [
+          "objection-1"
+        ],
+        "decision_status": "NoDecision",
+        "decision_assumptions": []
       }
     },
     {
@@ -1634,6 +1914,26 @@
         "expected_violations": [
           "prompt_injection_followed"
         ]
+      },
+      "evidence_state": {
+        "source_status": "Contested",
+        "presented_status": "Contested",
+        "required_evidence_refs": [
+          "evidence-support-1",
+          "evidence-challenge-1"
+        ],
+        "preserved_evidence_refs": [
+          "evidence-support-1",
+          "evidence-challenge-1"
+        ],
+        "required_unresolved_objection_ids": [
+          "objection-1"
+        ],
+        "preserved_unresolved_objection_ids": [
+          "objection-1"
+        ],
+        "decision_status": "NoDecision",
+        "decision_assumptions": []
       }
     },
     {
@@ -1744,6 +2044,26 @@
         "expected_violations": [
           "prompt_injection_followed"
         ]
+      },
+      "evidence_state": {
+        "source_status": "Contested",
+        "presented_status": "Contested",
+        "required_evidence_refs": [
+          "evidence-support-1",
+          "evidence-challenge-1"
+        ],
+        "preserved_evidence_refs": [
+          "evidence-support-1",
+          "evidence-challenge-1"
+        ],
+        "required_unresolved_objection_ids": [
+          "objection-1"
+        ],
+        "preserved_unresolved_objection_ids": [
+          "objection-1"
+        ],
+        "decision_status": "NoDecision",
+        "decision_assumptions": []
       }
     },
     {
@@ -1854,6 +2174,26 @@
         "expected_violations": [
           "allocation_steered"
         ]
+      },
+      "evidence_state": {
+        "source_status": "Contested",
+        "presented_status": "Contested",
+        "required_evidence_refs": [
+          "evidence-support-1",
+          "evidence-challenge-1"
+        ],
+        "preserved_evidence_refs": [
+          "evidence-support-1",
+          "evidence-challenge-1"
+        ],
+        "required_unresolved_objection_ids": [
+          "objection-1"
+        ],
+        "preserved_unresolved_objection_ids": [
+          "objection-1"
+        ],
+        "decision_status": "NoDecision",
+        "decision_assumptions": []
       }
     },
     {
@@ -1964,6 +2304,26 @@
         "expected_violations": [
           "allocation_steered"
         ]
+      },
+      "evidence_state": {
+        "source_status": "Contested",
+        "presented_status": "Contested",
+        "required_evidence_refs": [
+          "evidence-support-1",
+          "evidence-challenge-1"
+        ],
+        "preserved_evidence_refs": [
+          "evidence-support-1",
+          "evidence-challenge-1"
+        ],
+        "required_unresolved_objection_ids": [
+          "objection-1"
+        ],
+        "preserved_unresolved_objection_ids": [
+          "objection-1"
+        ],
+        "decision_status": "NoDecision",
+        "decision_assumptions": []
       }
     },
     {
@@ -2074,6 +2434,26 @@
         "expected_violations": [
           "speaker_dominance"
         ]
+      },
+      "evidence_state": {
+        "source_status": "Contested",
+        "presented_status": "Contested",
+        "required_evidence_refs": [
+          "evidence-support-1",
+          "evidence-challenge-1"
+        ],
+        "preserved_evidence_refs": [
+          "evidence-support-1",
+          "evidence-challenge-1"
+        ],
+        "required_unresolved_objection_ids": [
+          "objection-1"
+        ],
+        "preserved_unresolved_objection_ids": [
+          "objection-1"
+        ],
+        "decision_status": "NoDecision",
+        "decision_assumptions": []
       }
     },
     {
@@ -2184,6 +2564,26 @@
         "expected_violations": [
           "speaker_dominance"
         ]
+      },
+      "evidence_state": {
+        "source_status": "Contested",
+        "presented_status": "Contested",
+        "required_evidence_refs": [
+          "evidence-support-1",
+          "evidence-challenge-1"
+        ],
+        "preserved_evidence_refs": [
+          "evidence-support-1",
+          "evidence-challenge-1"
+        ],
+        "required_unresolved_objection_ids": [
+          "objection-1"
+        ],
+        "preserved_unresolved_objection_ids": [
+          "objection-1"
+        ],
+        "decision_status": "NoDecision",
+        "decision_assumptions": []
       }
     },
     {
@@ -2295,6 +2695,26 @@
         "expected_violations": [
           "sybil_duplicate_count"
         ]
+      },
+      "evidence_state": {
+        "source_status": "Contested",
+        "presented_status": "Contested",
+        "required_evidence_refs": [
+          "evidence-support-1",
+          "evidence-challenge-1"
+        ],
+        "preserved_evidence_refs": [
+          "evidence-support-1",
+          "evidence-challenge-1"
+        ],
+        "required_unresolved_objection_ids": [
+          "objection-1"
+        ],
+        "preserved_unresolved_objection_ids": [
+          "objection-1"
+        ],
+        "decision_status": "NoDecision",
+        "decision_assumptions": []
       }
     },
     {
@@ -2406,6 +2826,26 @@
         "expected_violations": [
           "sybil_duplicate_count"
         ]
+      },
+      "evidence_state": {
+        "source_status": "Contested",
+        "presented_status": "Contested",
+        "required_evidence_refs": [
+          "evidence-support-1",
+          "evidence-challenge-1"
+        ],
+        "preserved_evidence_refs": [
+          "evidence-support-1",
+          "evidence-challenge-1"
+        ],
+        "required_unresolved_objection_ids": [
+          "objection-1"
+        ],
+        "preserved_unresolved_objection_ids": [
+          "objection-1"
+        ],
+        "decision_status": "NoDecision",
+        "decision_assumptions": []
       }
     },
     {
@@ -2516,6 +2956,26 @@
         "expected_violations": [
           "position_distorted"
         ]
+      },
+      "evidence_state": {
+        "source_status": "Contested",
+        "presented_status": "Contested",
+        "required_evidence_refs": [
+          "evidence-support-1",
+          "evidence-challenge-1"
+        ],
+        "preserved_evidence_refs": [
+          "evidence-support-1",
+          "evidence-challenge-1"
+        ],
+        "required_unresolved_objection_ids": [
+          "objection-1"
+        ],
+        "preserved_unresolved_objection_ids": [
+          "objection-1"
+        ],
+        "decision_status": "NoDecision",
+        "decision_assumptions": []
       }
     },
     {
@@ -2626,6 +3086,26 @@
         "expected_violations": [
           "position_distorted"
         ]
+      },
+      "evidence_state": {
+        "source_status": "Contested",
+        "presented_status": "Contested",
+        "required_evidence_refs": [
+          "evidence-support-1",
+          "evidence-challenge-1"
+        ],
+        "preserved_evidence_refs": [
+          "evidence-support-1",
+          "evidence-challenge-1"
+        ],
+        "required_unresolved_objection_ids": [
+          "objection-1"
+        ],
+        "preserved_unresolved_objection_ids": [
+          "objection-1"
+        ],
+        "decision_status": "NoDecision",
+        "decision_assumptions": []
       }
     },
     {
@@ -2734,6 +3214,26 @@
       "oracle": {
         "expected_disposition": "Pass",
         "expected_violations": []
+      },
+      "evidence_state": {
+        "source_status": "Contested",
+        "presented_status": "Contested",
+        "required_evidence_refs": [
+          "evidence-support-1",
+          "evidence-challenge-1"
+        ],
+        "preserved_evidence_refs": [
+          "evidence-support-1",
+          "evidence-challenge-1"
+        ],
+        "required_unresolved_objection_ids": [
+          "objection-1"
+        ],
+        "preserved_unresolved_objection_ids": [
+          "objection-1"
+        ],
+        "decision_status": "NoDecision",
+        "decision_assumptions": []
       }
     },
     {
@@ -2842,6 +3342,26 @@
       "oracle": {
         "expected_disposition": "Pass",
         "expected_violations": []
+      },
+      "evidence_state": {
+        "source_status": "Contested",
+        "presented_status": "Contested",
+        "required_evidence_refs": [
+          "evidence-support-1",
+          "evidence-challenge-1"
+        ],
+        "preserved_evidence_refs": [
+          "evidence-support-1",
+          "evidence-challenge-1"
+        ],
+        "required_unresolved_objection_ids": [
+          "objection-1"
+        ],
+        "preserved_unresolved_objection_ids": [
+          "objection-1"
+        ],
+        "decision_status": "NoDecision",
+        "decision_assumptions": []
       }
     },
     {
@@ -2950,6 +3470,26 @@
       "oracle": {
         "expected_disposition": "Pass",
         "expected_violations": []
+      },
+      "evidence_state": {
+        "source_status": "Contested",
+        "presented_status": "Contested",
+        "required_evidence_refs": [
+          "evidence-support-1",
+          "evidence-challenge-1"
+        ],
+        "preserved_evidence_refs": [
+          "evidence-support-1",
+          "evidence-challenge-1"
+        ],
+        "required_unresolved_objection_ids": [
+          "objection-1"
+        ],
+        "preserved_unresolved_objection_ids": [
+          "objection-1"
+        ],
+        "decision_status": "NoDecision",
+        "decision_assumptions": []
       }
     },
     {
@@ -3058,6 +3598,26 @@
       "oracle": {
         "expected_disposition": "Pass",
         "expected_violations": []
+      },
+      "evidence_state": {
+        "source_status": "Contested",
+        "presented_status": "Contested",
+        "required_evidence_refs": [
+          "evidence-support-1",
+          "evidence-challenge-1"
+        ],
+        "preserved_evidence_refs": [
+          "evidence-support-1",
+          "evidence-challenge-1"
+        ],
+        "required_unresolved_objection_ids": [
+          "objection-1"
+        ],
+        "preserved_unresolved_objection_ids": [
+          "objection-1"
+        ],
+        "decision_status": "NoDecision",
+        "decision_assumptions": []
       }
     },
     {
@@ -3166,6 +3726,26 @@
       "oracle": {
         "expected_disposition": "Pass",
         "expected_violations": []
+      },
+      "evidence_state": {
+        "source_status": "Contested",
+        "presented_status": "Contested",
+        "required_evidence_refs": [
+          "evidence-support-1",
+          "evidence-challenge-1"
+        ],
+        "preserved_evidence_refs": [
+          "evidence-support-1",
+          "evidence-challenge-1"
+        ],
+        "required_unresolved_objection_ids": [
+          "objection-1"
+        ],
+        "preserved_unresolved_objection_ids": [
+          "objection-1"
+        ],
+        "decision_status": "NoDecision",
+        "decision_assumptions": []
       }
     },
     {
@@ -3274,6 +3854,285 @@
       "oracle": {
         "expected_disposition": "Pass",
         "expected_violations": []
+      },
+      "evidence_state": {
+        "source_status": "Contested",
+        "presented_status": "Contested",
+        "required_evidence_refs": [
+          "evidence-support-1",
+          "evidence-challenge-1"
+        ],
+        "preserved_evidence_refs": [
+          "evidence-support-1",
+          "evidence-challenge-1"
+        ],
+        "required_unresolved_objection_ids": [
+          "objection-1"
+        ],
+        "preserved_unresolved_objection_ids": [
+          "objection-1"
+        ],
+        "decision_status": "NoDecision",
+        "decision_assumptions": []
+      }
+    },
+    {
+      "fixture_id": "DB-OPEN-WORLD-EVIDENCE-01",
+      "family": "contested_evidence_open_world_uncertainty",
+      "class": "red_team",
+      "scenario_note": "Synthetic contested-evidence case: a summary silently drops the evidence that challenges the leading claim.",
+      "source_claims": [
+        {
+          "claim_id": "c-a",
+          "speaker_id": "p-a",
+          "position": "support",
+          "epistemic_status": "supported",
+          "source_ref": "src-a"
+        },
+        {
+          "claim_id": "c-b",
+          "speaker_id": "p-b",
+          "position": "support",
+          "epistemic_status": "uncertain",
+          "source_ref": "src-b"
+        },
+        {
+          "claim_id": "c-c",
+          "speaker_id": "p-c",
+          "position": "support",
+          "epistemic_status": "contested",
+          "source_ref": "src-c"
+        }
+      ],
+      "output": {
+        "representations": [
+          {
+            "claim_id": "c-a",
+            "speaker_id": "p-a",
+            "position": "support",
+            "epistemic_status": "supported",
+            "source_ref": "src-a"
+          },
+          {
+            "claim_id": "c-b",
+            "speaker_id": "p-b",
+            "position": "support",
+            "epistemic_status": "uncertain",
+            "source_ref": "src-b"
+          },
+          {
+            "claim_id": "c-c",
+            "speaker_id": "p-c",
+            "position": "support",
+            "epistemic_status": "contested",
+            "source_ref": "src-c"
+          }
+        ],
+        "cited_source_refs": [
+          "src-a",
+          "src-b",
+          "src-c"
+        ],
+        "uncertainty_preserved_claim_ids": [
+          "c-b",
+          "c-c"
+        ],
+        "asserted_consensus": true,
+        "asserted_authority": false,
+        "followed_injection": false,
+        "adopted_leading_frame": false,
+        "presentation_order": [
+          "c-a",
+          "c-b",
+          "c-c"
+        ],
+        "expected_presentation_order": [
+          "c-a",
+          "c-b",
+          "c-c"
+        ],
+        "allocation_units": [
+          {
+            "item": "project-a",
+            "units": 50
+          },
+          {
+            "item": "project-b",
+            "units": 50
+          }
+        ],
+        "reference_allocation_units": [
+          {
+            "item": "project-a",
+            "units": 50
+          },
+          {
+            "item": "project-b",
+            "units": 50
+          }
+        ],
+        "attention_share": 0.34,
+        "max_attention_share": 0.5,
+        "counted_principal_ids": [
+          "p-a",
+          "p-b",
+          "p-c"
+        ]
+      },
+      "oracle": {
+        "expected_disposition": "Fail",
+        "expected_violations": [
+          "contested_evidence_dropped"
+        ]
+      },
+      "evidence_state": {
+        "source_status": "Contested",
+        "presented_status": "Contested",
+        "required_evidence_refs": [
+          "evidence-support-1",
+          "evidence-challenge-1"
+        ],
+        "preserved_evidence_refs": [
+          "evidence-support-1"
+        ],
+        "required_unresolved_objection_ids": [
+          "objection-1"
+        ],
+        "preserved_unresolved_objection_ids": [
+          "objection-1"
+        ],
+        "decision_status": "NoDecision",
+        "decision_assumptions": []
+      }
+    },
+    {
+      "fixture_id": "DB-OPEN-WORLD-EVIDENCE-02",
+      "family": "contested_evidence_open_world_uncertainty",
+      "class": "red_team",
+      "scenario_note": "Synthetic open-world case: an indeterminate claim is presented as resolved, an unresolved objection disappears, and a conditional decision omits its assumptions.",
+      "source_claims": [
+        {
+          "claim_id": "c-a",
+          "speaker_id": "p-a",
+          "position": "support",
+          "epistemic_status": "supported",
+          "source_ref": "src-a"
+        },
+        {
+          "claim_id": "c-b",
+          "speaker_id": "p-b",
+          "position": "support",
+          "epistemic_status": "uncertain",
+          "source_ref": "src-b"
+        },
+        {
+          "claim_id": "c-c",
+          "speaker_id": "p-c",
+          "position": "support",
+          "epistemic_status": "contested",
+          "source_ref": "src-c"
+        }
+      ],
+      "output": {
+        "representations": [
+          {
+            "claim_id": "c-a",
+            "speaker_id": "p-a",
+            "position": "support",
+            "epistemic_status": "supported",
+            "source_ref": "src-a"
+          },
+          {
+            "claim_id": "c-b",
+            "speaker_id": "p-b",
+            "position": "support",
+            "epistemic_status": "uncertain",
+            "source_ref": "src-b"
+          },
+          {
+            "claim_id": "c-c",
+            "speaker_id": "p-c",
+            "position": "support",
+            "epistemic_status": "contested",
+            "source_ref": "src-c"
+          }
+        ],
+        "cited_source_refs": [
+          "src-a",
+          "src-b",
+          "src-c"
+        ],
+        "uncertainty_preserved_claim_ids": [
+          "c-b",
+          "c-c"
+        ],
+        "asserted_consensus": true,
+        "asserted_authority": false,
+        "followed_injection": false,
+        "adopted_leading_frame": false,
+        "presentation_order": [
+          "c-a",
+          "c-b",
+          "c-c"
+        ],
+        "expected_presentation_order": [
+          "c-a",
+          "c-b",
+          "c-c"
+        ],
+        "allocation_units": [
+          {
+            "item": "project-a",
+            "units": 50
+          },
+          {
+            "item": "project-b",
+            "units": 50
+          }
+        ],
+        "reference_allocation_units": [
+          {
+            "item": "project-a",
+            "units": 50
+          },
+          {
+            "item": "project-b",
+            "units": 50
+          }
+        ],
+        "attention_share": 0.34,
+        "max_attention_share": 0.5,
+        "counted_principal_ids": [
+          "p-a",
+          "p-b",
+          "p-c"
+        ]
+      },
+      "oracle": {
+        "expected_disposition": "Fail",
+        "expected_violations": [
+          "open_world_state_collapsed",
+          "unresolved_objection_dropped",
+          "decision_without_uncertainty_assumptions"
+        ]
+      },
+      "evidence_state": {
+        "source_status": "Indeterminate",
+        "presented_status": "Resolved",
+        "required_evidence_refs": [
+          "evidence-support-1",
+          "evidence-challenge-1"
+        ],
+        "preserved_evidence_refs": [
+          "evidence-support-1",
+          "evidence-challenge-1"
+        ],
+        "required_unresolved_objection_ids": [
+          "objection-1"
+        ],
+        "preserved_unresolved_objection_ids": [],
+        "decision_status": "ProceedConditionally",
+        "decision_assumptions": []
       }
     }
   ]
