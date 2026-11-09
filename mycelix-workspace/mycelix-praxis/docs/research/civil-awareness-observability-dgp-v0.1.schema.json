@@ -323,7 +323,7 @@
         },
         "coverage": {
           "type": "object",
-          "additionalProperties": true,
+          "additionalProperties": false,
           "required": [
             "assertion_id",
             "status",
@@ -337,7 +337,18 @@
             },
             "status": {
               "type": "string",
-              "minLength": 1
+              "minLength": 1,
+              "enum": [
+                "not_applicable",
+                "unknown",
+                "qualified",
+                "qualified_with_declared_blind_region",
+                "qualified_for_other_classes_only",
+                "partial",
+                "stale",
+                "partial_unknown",
+                "qualified_for_both_sources"
+              ]
             },
             "complete_for_scope": {
               "type": [
@@ -385,6 +396,13 @@
                 "items": {
                   "type": "number"
                 }
+              }
+            },
+            "source_coverage_refs": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
               }
             }
           }
@@ -488,7 +506,96 @@
             "NOT_APPLICABLE"
           ]
         }
-      }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "expected": {
+                "properties": {
+                  "state": {
+                    "const": "NOT_OBSERVED_WITHIN_DECLARED_COVERAGE"
+                  }
+                },
+                "required": [
+                  "state"
+                ]
+              }
+            },
+            "required": [
+              "expected"
+            ]
+          },
+          "then": {
+            "properties": {
+              "source_health": {
+                "const": "healthy"
+              },
+              "data_completeness": {
+                "const": "complete"
+              },
+              "freshness": {
+                "const": "fresh"
+              },
+              "rights": {
+                "const": "allowed_for_synthetic_test"
+              },
+              "observations": {
+                "maxItems": 0
+              },
+              "coverage": {
+                "properties": {
+                  "status": {
+                    "enum": [
+                      "qualified"
+                    ]
+                  },
+                  "complete_for_scope": {
+                    "const": true
+                  },
+                  "valid_from": {
+                    "type": "number"
+                  },
+                  "valid_until": {
+                    "type": "number"
+                  },
+                  "coverage_profile_digest": {
+                    "type": "string",
+                    "pattern": "^sha256:[0-9a-f]{64}$"
+                  }
+                },
+                "required": [
+                  "valid_from",
+                  "valid_until",
+                  "coverage_profile_digest"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "mutation": {
+                "const": "remove_coverage_assertion"
+              }
+            },
+            "required": [
+              "mutation"
+            ]
+          },
+          "then": {
+            "properties": {
+              "mutation_expected_state": {
+                "const": "COVERAGE_UNKNOWN"
+              }
+            },
+            "required": [
+              "mutation_expected_state"
+            ]
+          }
+        }
+      ]
     }
   }
 }
