@@ -15,6 +15,8 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Map, Number, Value};
 use sha2::{Digest, Sha256};
 
+pub mod observability;
+
 pub const MAX_ENVELOPE_BYTES: usize = 2 * 1024 * 1024;
 pub const SCHEMA_JSON: &str =
     include_str!("../../../docs/research/civil-awareness-evidence-envelope-v0.1.schema.json");
@@ -608,7 +610,7 @@ impl<'de> Deserialize<'de> for StrictValue {
     }
 }
 
-fn parse_strict_json(bytes: &[u8]) -> Result<Value, ()> {
+pub(crate) fn parse_strict_json(bytes: &[u8]) -> Result<Value, ()> {
     if bytes.len() > MAX_ENVELOPE_BYTES {
         return Err(());
     }
