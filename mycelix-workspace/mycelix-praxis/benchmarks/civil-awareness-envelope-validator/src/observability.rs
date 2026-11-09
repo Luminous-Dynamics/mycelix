@@ -1,0 +1,1125 @@
+//! Deterministic, fail-closed source-observability assessment.
+//!
+//! The only negative-like result is scoped to one source and one time window.
+//! It never means that a physical object is absent.
+
+use std::collections::{BTreeMap, BTreeSet};
+
+use jsonschema::Validator;
+use serde::Serialize;
+use serde_json::Value;
+use sha2::{Digest, Sha256};
+
+use crate::{parse_strict_json, schema_has_external_refs};
+
+pub const OBSERVABILITY_DGP_JSON: &str =
+    include_str!("../../../docs/research/civil-awareness-observability-dgp-v0.1.json");
+pub const OBSERVABILITY_SCHEMA_JSON: &str =
+    include_str!("../../../docs/research/civil-awareness-observability-dgp-v0.1.schema.json");
+pub const OBSERVABILITY_REPORT_CONTRACT: &str = "gcpn-observability-report/0.1";
+const CLAIM_CEILING: &str = "Source-scoped observation-state assessment over the exact supplied scope, coverage assertion, source-health record, rights state and dependency frontier. NOT_OBSERVED_WITHIN_DECLARED_COVERAGE is not physical absence, a complete census, identity proof, intent or safety clearance.";
+const MAX_DGP_BYTES: usize = 2 * 1024 * 1024;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum ObservabilityState {
+    ObservedPresent,
+    NotObservedWithinDeclaredCoverage,
+    Unobservable,
+    CoverageUnknown,
+    FeedUnavailable,
+    NotEquippedOrNotRequired,
+    Stale,
+    WithheldOrRestricted,
+    Conflict,
+    NotApplicable,
+}
+
+impl ObservabilityState {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::ObservedPresent => "OBSERVED_PRESENT",
+            Self::NotObservedWithinDeclaredCoverage => "NOT_OBSERVED_WITHIN_DECLARED_COVERAGE",
+            Self::Unobservable => "UNOBSERVABLE",
+            Self::CoverageUnknown => "COVERAGE_UNKNOWN",
+            Self::FeedUnavailable => "FEED_UNAVAILABLE",
+            Self::NotEquippedOrNotRequired => "NOT_EQUIPPED_OR_NOT_REQUIRED",
+            Self::Stale => "STALE",
+            Self::WithheldOrRestricted => "WITHHELD_OR_RESTRICTED",
+            Self::Conflict => "CONFLICT",
+            Self::NotApplicable => "NOT_APPLICABLE",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct SourceClaim {
+    pub source_id: String,
+    pub claim: String,
+    pub assertion_ref: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct ObservabilityAssessment {
+    pub source_id: String,
+    pub scope_id: String,
+    pub window_start: f64,
+    pub window_end: f64,
+    pub state: ObservabilityState,
+    pub reason_codes: Vec<String>,
+    pub source_claims: Vec<SourceClaim>,
+    pub claim_scope: String,
+    pub claim_ceiling: &'static str,
+}
+
+impl ObservabilityAssessment {
+    fn new(
+        case: &Value,
+        state: ObservabilityState,
+        reasons: impl IntoIterator<Item = &'static str>,
+        source_claims: Vec<SourceClaim>,
+    ) -> Result<Self, String> {
+        let source_id = string_at(case, "/source/id")?.to_owned();
+        let scope_id = string_at(case, "/scope/scope_id")?.to_owned();
+        let window_start = number_at(case, "/scope/window_start")?;
+        let window_end = number_at(case, "/scope/window_end")?;
+        let reason_codes = reasons
+            .into_iter()
+            .map(str::to_owned)
+            .collect::<BTreeSet<_>>();
+        let claim_scope =
+            format!("source={source_id};scope={scope_id};window=[{window_start},{window_end}]");
+        Ok(Self {
+            source_id,
+            scope_id,
+            window_start,
+            window_end,
+            state,
+            reason_codes: reason_codes.into_iter().collect(),
+            source_claims,
+            claim_scope,
+            claim_ceiling: CLAIM_CEILING,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct ObservabilityEvaluationReport {
+    pub report_contract: &'static str,
+    pub dgp_sha256: String,
+    pub schema_sha256: String,
+    pub case_count: usize,
+    pub assessments: Vec<ObservabilityAssessment>,
+    pub claim_ceiling: &'static str,
+}
+
+#[derive(Debug)]
+pub struct ObservabilityEvaluator {
+    schema_validator: Validator,
+    case_schema_validator: Validator,
+    schema_sha256: String,
+}
+
+impl ObservabilityEvaluator {
+    /// Compile the pinned challenge schema; no references are resolved online.
+    pub fn from_embedded() -> Result<Self, String> {
+        let schema = parse_strict_json(OBSERVABILITY_SCHEMA_JSON.as_bytes())
+            .map_err(|_| "observability.schema_json_invalid".to_string())?;
+        if schema_has_external_refs(&schema) {
+            return Err("observability.schema_external_reference_forbidden".into());
+        }
+        if !jsonschema::meta::is_valid(&schema) {
+            return Err("observability.schema_meta_invalid".into());
+        }
+        let schema_validator = jsonschema::draft202012::options()
+            .should_validate_formats(true)
+            .build(&schema)
+            .map_err(|_| "observability.schema_compile_failed".to_string())?;
+        // The DGP case definition includes test-oracle and mutation fields.
+        // The single-case production API must not require or consume those fields.
+        let mut case_schema = serde_json::json!({
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "$defs": schema.get("$defs").cloned().unwrap_or_else(|| serde_json::json!({})),
+            "$ref": "#/$defs/case"
+        });
+        let case_definition = case_schema
+            .pointer_mut("/$defs/case")
+            .and_then(Value::as_object_mut)
+            .ok_or_else(|| "observability.case_schema_definition_missing".to_string())?;
+        if let Some(required) = case_definition.get_mut("required").and_then(Value::as_array_mut) {
+            required.retain(|field| {
+                !matches!(
+                    field.as_str(),
+                    Some(
+                        "expected"
+                            | "mutation"
+                            | "mutation_expected_state"
+                            | "independent_oracle"
+                    )
+                )
+            });
+        }
+        if let Some(properties) = case_definition
+            .get_mut("properties")
+            .and_then(Value::as_object_mut)
+        {
+            properties.remove("expected");
+            properties.remove("mutation");
+            properties.remove("mutation_expected_state");
+            if let Some(coverage) = properties
+                .get_mut("coverage")
+                .and_then(Value::as_object_mut)
+            {
+                if let Some(required) = coverage.get_mut("required").and_then(Value::as_array_mut) {
+                    required.retain(|field| field.as_str() != Some("independent_oracle"));
+                }
+                if let Some(coverage_properties) = coverage
+                    .get_mut("properties")
+                    .and_then(Value::as_object_mut)
+                {
+                    coverage_properties.remove("independent_oracle");
+                }
+            }
+        }
+        let case_schema_validator = jsonschema::draft202012::options()
+            .should_validate_formats(true)
+            .build(&case_schema)
+            .map_err(|_| "observability.case_schema_compile_failed".to_string())?;
+        Ok(Self {
+            schema_validator,
+            case_schema_validator,
+            schema_sha256: format!(
+                "sha256:{}",
+                sha256_hex(OBSERVABILITY_SCHEMA_JSON.as_bytes())
+            ),
+        })
+    }
+
+    /// Evaluate every case in the embedded frozen DGP.
+    pub fn evaluate_embedded(&self) -> Result<ObservabilityEvaluationReport, String> {
+        self.evaluate_dgp_bytes(OBSERVABILITY_DGP_JSON.as_bytes())
+    }
+
+    /// Parse and validate exact DGP bytes, then assess every case. The function
+    /// deliberately does not read any expected-oracle field.
+    pub fn evaluate_dgp_bytes(
+        &self,
+        bytes: &[u8],
+    ) -> Result<ObservabilityEvaluationReport, String> {
+        if bytes.len() > MAX_DGP_BYTES {
+            return Err("observability.dgp_too_large".into());
+        }
+        let dgp = parse_strict_json(bytes)
+            .map_err(|_| "observability.dgp_parse_or_duplicate_key_failure".to_string())?;
+        if self.schema_validator.iter_errors(&dgp).next().is_some() {
+            return Err("observability.dgp_schema_validation_failed".into());
+        }
+        let cases = dgp
+            .get("cases")
+            .and_then(Value::as_array)
+            .ok_or_else(|| "observability.cases_missing".to_string())?;
+        let mut assessments = Vec::with_capacity(cases.len());
+        for case in cases {
+            assessments.push(assess_case(case)?);
+        }
+        Ok(ObservabilityEvaluationReport {
+            report_contract: OBSERVABILITY_REPORT_CONTRACT,
+            dgp_sha256: format!("sha256:{}", sha256_hex(bytes)),
+            schema_sha256: self.schema_sha256.clone(),
+            case_count: assessments.len(),
+            assessments,
+            claim_ceiling: CLAIM_CEILING,
+        })
+    }
+
+    /// Assess one case using the same strict duplicate-key parser used by the
+    /// evidence-envelope validator.
+    pub fn assess_case_bytes(&self, bytes: &[u8]) -> Result<ObservabilityAssessment, String> {
+        if bytes.len() > MAX_DGP_BYTES {
+            return Err("observability.case_too_large".into());
+        }
+        let case = parse_strict_json(bytes)
+            .map_err(|_| "observability.case_parse_or_duplicate_key_failure".to_string())?;
+        if self
+            .case_schema_validator
+            .iter_errors(&case)
+            .next()
+            .is_some()
+        {
+            return Err("observability.case_schema_validation_failed".into());
+        }
+        assess_case(&case)
+    }
+}
+
+fn assess_case(case: &Value) -> Result<ObservabilityAssessment, String> {
+    let window_start = number_at(case, "/scope/window_start")?;
+    let window_end = number_at(case, "/scope/window_end")?;
+    if window_end <= window_start {
+        return Err("observability.scope_interval_not_positive".into());
+    }
+
+    let rights = string_at(case, "/rights")?;
+    if !matches!(
+        rights,
+        "allowed_for_synthetic_test" | "authorized_for_declared_purpose"
+    ) {
+        return assessment(
+            case,
+            ObservabilityState::WithheldOrRestricted,
+            ["rights.source_unavailable_for_declared_purpose"],
+            Vec::new(),
+        );
+    }
+    let completeness = string_at(case, "/data_completeness")?;
+    if completeness == "withheld" {
+        return assessment(
+            case,
+            ObservabilityState::WithheldOrRestricted,
+            ["rights.source_data_withheld"],
+            Vec::new(),
+        );
+    }
+    let applicability = string_at(case, "/equipment_applicability")?;
+    if matches!(
+        applicability,
+        "not_required_for_declared_vessel_class" | "not_equipped_or_not_required"
+    ) {
+        return assessment(
+            case,
+            ObservabilityState::NotEquippedOrNotRequired,
+            ["source.equipment_or_carriage_not_applicable"],
+            Vec::new(),
+        );
+    }
+    // Do not parse or expose observation content until rights, availability
+    // and modality-applicability preconditions have passed.
+    let claims = source_claims(case)?;
+    let health = string_at(case, "/source_health")?;
+    let coverage_status = string_at(case, "/coverage/status")?;
+    let freshness = string_at(case, "/freshness")?;
+    let modality = string_at(case, "/source/modality")?;
+
+    if modality == "meteorological_context" || coverage_status == "not_applicable" {
+        return assessment(
+            case,
+            ObservabilityState::NotApplicable,
+            ["source.modality_not_applicable_to_presence"],
+            claims,
+        );
+    }
+
+    // A known gap or outage prevents a full-window non-observation.
+    if matches!(health, "failed" | "partial_outage")
+        || (coverage_status == "partial"
+            && has_nonempty_array(case, "/coverage/uncovered_intervals"))
+    {
+        return assessment(
+            case,
+            ObservabilityState::FeedUnavailable,
+            ["source.feed_or_observation_window_incomplete"],
+            claims,
+        );
+    }
+
+    // Known blind regions/profile mismatch are unobservable rather than unknown.
+    if matches!(
+        coverage_status,
+        "qualified_with_declared_blind_region" | "qualified_for_other_classes_only"
+    ) {
+        return assessment(
+            case,
+            ObservabilityState::Unobservable,
+            ["coverage.known_blind_region_or_profile_mismatch"],
+            claims,
+        );
+    }
+
+    // A single fresh positive source observation is still reportable when
+    // the broader coverage envelope is partial or unknown. It proves only that
+    // the source emitted an observation; it does not prove full-window coverage
+    // or physical identity. Multi-source aggregates remain subject to common
+    // coverage/lineage qualification.
+    let distinct_sources: BTreeSet<&str> = claims
+        .iter()
+        .map(|claim| claim.source_id.as_str())
+        .collect();
+    let has_positive = claims.iter().any(|claim| {
+        matches!(
+            claim.claim.as_str(),
+            "OBSERVED_PRESENT" | "OBSERVED_PRESENT_WITHIN_SCOPE"
+        )
+    });
+    let has_negative = claims.iter().any(|claim| {
+        matches!(
+            claim.claim.as_str(),
+            "NO_MESSAGE" | "NOT_OBSERVED_WITHIN_DECLARED_COVERAGE"
+        )
+    });
+    let primary_source_id = string_at(case, "/source/id")?;
+    if distinct_sources.len() == 1 && has_positive && !distinct_sources.contains(primary_source_id)
+    {
+        return assessment(
+            case,
+            ObservabilityState::CoverageUnknown,
+            ["evidence.positive_claim_source_does_not_match_assessed_source"],
+            claims,
+        );
+    }
+    if distinct_sources.len() == 1
+        && distinct_sources.contains(primary_source_id)
+        && has_positive
+        && !has_negative
+        && health == "healthy"
+        && freshness == "fresh"
+        && completeness == "complete"
+    {
+        return assessment(
+            case,
+            ObservabilityState::ObservedPresent,
+            ["source.positive_observation_recorded_coverage_may_be_partial"],
+            claims,
+        );
+    }
+
+    // A negative cannot be assessed without a complete dependency inventory
+    // and evidence frontier binding the query's source set.
+    if !dependency_context_is_complete(case) {
+        return assessment(
+            case,
+            ObservabilityState::CoverageUnknown,
+            ["dependence.snapshot_or_evidence_frontier_unavailable"],
+            claims,
+        );
+    }
+
+    if matches!(
+        coverage_status,
+        "unknown" | "stale" | "partial_unknown" | "partial"
+    ) || value_at(case, "/coverage/complete_for_scope") != Some(&Value::Bool(true))
+    {
+        return assessment(
+            case,
+            ObservabilityState::CoverageUnknown,
+            ["coverage.assertion_missing_stale_or_incomplete"],
+            claims,
+        );
+    }
+
+    if !coverage_source_set_is_valid(case, &claims) {
+        return assessment(
+            case,
+            ObservabilityState::CoverageUnknown,
+            ["coverage.source_set_missing_or_inconsistent"],
+            claims,
+        );
+    }
+
+    if !coverage_assertion_is_pinned_and_valid(case) {
+        return assessment(
+            case,
+            ObservabilityState::CoverageUnknown,
+            ["coverage.assertion_not_bound_to_full_scope_window"],
+            claims,
+        );
+    }
+
+    if freshness == "stale" {
+        return assessment(
+            case,
+            ObservabilityState::Stale,
+            ["source.observation_or_coverage_stale"],
+            claims,
+        );
+    }
+    if freshness != "fresh" || completeness != "complete" {
+        return assessment(
+            case,
+            ObservabilityState::CoverageUnknown,
+            ["source.freshness_or_completeness_unknown"],
+            claims,
+        );
+    }
+
+    // Conflicting qualified source outcomes remain visible; no vote or
+    // majority rule can turn a source-specific non-observation into absence.
+    if qualified_same_source_conflict(case, &claims)
+        || qualified_cross_source_conflict(case, &claims)
+    {
+        return assessment(
+            case,
+            ObservabilityState::Conflict,
+            ["evidence.qualified_source_assertions_conflict"],
+            claims,
+        );
+    }
+
+    if health == "unknown" || (health != "healthy" && health != "mixed") {
+        return assessment(
+            case,
+            ObservabilityState::CoverageUnknown,
+            ["source.health_not_qualified_for_observation"],
+            claims,
+        );
+    }
+    if health == "mixed" {
+        return assessment(
+            case,
+            ObservabilityState::CoverageUnknown,
+            ["source.health_mixed_without_adjudicated_conflict"],
+            claims,
+        );
+    }
+
+    if claims.iter().any(|claim| {
+        matches!(
+            claim.claim.as_str(),
+            "OBSERVED_PRESENT" | "OBSERVED_PRESENT_WITHIN_SCOPE"
+        )
+    }) {
+        return assessment(
+            case,
+            ObservabilityState::ObservedPresent,
+            ["source.positive_observation_recorded"],
+            claims,
+        );
+    }
+
+    if claims
+        .iter()
+        .any(|claim| claim.claim == "OLD_REPORT_OUTSIDE_FRESHNESS_WINDOW")
+    {
+        return assessment(
+            case,
+            ObservabilityState::Stale,
+            ["source.observation_outside_freshness_cutoff"],
+            claims,
+        );
+    }
+
+    if claims.iter().any(|claim| {
+        !matches!(
+            claim.claim.as_str(),
+            "NO_MESSAGE" | "NOT_OBSERVED_WITHIN_DECLARED_COVERAGE"
+        )
+    }) {
+        return assessment(
+            case,
+            ObservabilityState::CoverageUnknown,
+            ["evidence.observation_claim_unrecognized_or_unresolved"],
+            claims,
+        );
+    }
+
+    if (claims.is_empty()
+        || claims.iter().all(|claim| {
+            matches!(
+                claim.claim.as_str(),
+                "NO_MESSAGE" | "NOT_OBSERVED_WITHIN_DECLARED_COVERAGE"
+            )
+        }))
+        && applicability_is_supported(applicability)
+    {
+        return assessment(
+            case,
+            ObservabilityState::NotObservedWithinDeclaredCoverage,
+            ["coverage.full_window_qualified_no_source_observation"],
+            claims,
+        );
+    }
+
+    assessment(
+        case,
+        ObservabilityState::CoverageUnknown,
+        ["evidence.insufficient_for_observation_state"],
+        claims,
+    )
+}
+
+fn applicability_is_supported(value: &str) -> bool {
+    matches!(value, "applicable" | "equipped_or_obligation_confirmed")
+}
+
+fn dependency_context_is_complete(case: &Value) -> bool {
+    let Some(context) = case.get("dependency_context") else {
+        return false;
+    };
+    string_at(case, "/dependency_context/status").ok() == Some("complete")
+        && string_at(case, "/dependency_context/snapshot_ref")
+            .is_ok_and(|value| !value.trim().is_empty())
+        && string_at(case, "/dependency_context/evidence_frontier_ref")
+            .is_ok_and(|value| !value.trim().is_empty())
+        && context.get("inventory_complete") == Some(&Value::Bool(true))
+}
+
+fn coverage_source_set_is_valid(case: &Value, claims: &[SourceClaim]) -> bool {
+    let Some(source_ids) = case
+        .pointer("/coverage/source_ids")
+        .and_then(Value::as_array)
+    else {
+        return false;
+    };
+    let declared: BTreeSet<&str> = source_ids.iter().filter_map(Value::as_str).collect();
+    if declared.is_empty()
+        || declared.len() != source_ids.len()
+        || source_ids
+            .iter()
+            .any(|item| item.as_str().is_none_or(|source_id| source_id.trim().is_empty()))
+    {
+        return false;
+    }
+    if claims.is_empty() {
+        return string_at(case, "/source/id")
+            .is_ok_and(|primary| declared.contains(primary));
+    }
+    claims
+        .iter()
+        .all(|claim| declared.contains(claim.source_id.as_str()))
+}
+
+fn coverage_assertion_is_pinned_and_valid(case: &Value) -> bool {
+    let Ok(assertion_id) = string_at(case, "/coverage/assertion_id") else {
+        return false;
+    };
+    let Ok(provenance_ref) = string_at(case, "/coverage/coverage_provenance_ref") else {
+        return false;
+    };
+    let (Ok(start), Ok(end), Ok(coverage_start), Ok(coverage_end)) = (
+        number_at(case, "/scope/window_start"),
+        number_at(case, "/scope/window_end"),
+        number_at(case, "/coverage/valid_from"),
+        number_at(case, "/coverage/valid_until"),
+    ) else {
+        return false;
+    };
+    let digest = string_at(case, "/coverage/coverage_profile_digest").unwrap_or_default();
+    !assertion_id.trim().is_empty()
+        && !provenance_ref.trim().is_empty()
+        && case
+            .pointer("/coverage/source_ids")
+            .and_then(Value::as_array)
+            .is_some_and(|source_ids| !source_ids.is_empty())
+        && end > start
+        && coverage_end > coverage_start
+        && coverage_start <= start
+        && coverage_end >= end
+        && is_sha256_digest(digest)
+}
+
+fn qualified_same_source_conflict(case: &Value, claims: &[SourceClaim]) -> bool {
+    if string_at(case, "/coverage/status").ok() != Some("qualified")
+        || value_at(case, "/coverage/complete_for_scope") != Some(&Value::Bool(true))
+        || string_at(case, "/source_health").ok() != Some("healthy")
+        || !coverage_assertion_is_pinned_and_valid(case)
+    {
+        return false;
+    }
+    let mut by_source: BTreeMap<&str, (bool, bool)> = BTreeMap::new();
+    for claim in claims {
+        let entry = by_source.entry(claim.source_id.as_str()).or_default();
+        if matches!(
+            claim.claim.as_str(),
+            "OBSERVED_PRESENT" | "OBSERVED_PRESENT_WITHIN_SCOPE"
+        ) {
+            entry.0 = true;
+        }
+        if matches!(
+            claim.claim.as_str(),
+            "NO_MESSAGE" | "NOT_OBSERVED_WITHIN_DECLARED_COVERAGE"
+        ) {
+            entry.1 = true;
+        }
+    }
+    by_source
+        .values()
+        .any(|(positive, negative)| *positive && *negative)
+}
+
+fn qualified_cross_source_conflict(case: &Value, claims: &[SourceClaim]) -> bool {
+    if string_at(case, "/coverage/status").ok() != Some("qualified_for_both_sources")
+        || value_at(case, "/coverage/complete_for_scope") != Some(&Value::Bool(true))
+        || string_at(case, "/source_health").ok() != Some("mixed")
+    {
+        return false;
+    }
+    let has_positive = claims.iter().any(|claim| {
+        matches!(
+            claim.claim.as_str(),
+            "OBSERVED_PRESENT" | "OBSERVED_PRESENT_WITHIN_SCOPE"
+        )
+    });
+    let has_negative = claims.iter().any(|claim| {
+        matches!(
+            claim.claim.as_str(),
+            "NO_MESSAGE" | "NOT_OBSERVED_WITHIN_DECLARED_COVERAGE"
+        )
+    });
+    let distinct_sources: BTreeSet<&str> = claims
+        .iter()
+        .map(|claim| claim.source_id.as_str())
+        .collect();
+    let coverage_refs = case
+        .pointer("/coverage/source_coverage_refs")
+        .and_then(Value::as_array);
+    has_positive
+        && has_negative
+        && distinct_sources.len() >= 2
+        && coverage_refs.is_some_and(|refs| {
+            refs.len() >= 2
+                && refs
+                    .iter()
+                    .all(|item| item.as_str().is_some_and(|value| !value.trim().is_empty()))
+        })
+        && coverage_assertion_is_pinned_and_valid(case)
+}
+
+fn source_claims(case: &Value) -> Result<Vec<SourceClaim>, String> {
+    let observations = case
+        .get("observations")
+        .and_then(Value::as_array)
+        .ok_or_else(|| "observability.observations_missing".to_string())?;
+    let mut claims = Vec::with_capacity(observations.len());
+    for item in observations {
+        let source_id = item
+            .get("source_id")
+            .and_then(Value::as_str)
+            .filter(|value| !value.trim().is_empty())
+            .ok_or_else(|| "observability.observation_source_id_missing".to_string())?;
+        let claim = item
+            .get("claim")
+            .and_then(Value::as_str)
+            .filter(|value| {
+                matches!(
+                    *value,
+                    "OBSERVED_PRESENT"
+                        | "OBSERVED_PRESENT_WITHIN_SCOPE"
+                        | "NOT_OBSERVED_WITHIN_DECLARED_COVERAGE"
+                        | "NO_MESSAGE"
+                        | "OLD_REPORT_OUTSIDE_FRESHNESS_WINDOW"
+                )
+            })
+            .ok_or_else(|| "observability.observation_claim_invalid".to_string())?;
+        let declared_sources = case
+            .pointer("/coverage/source_ids")
+            .and_then(Value::as_array)
+            .ok_or_else(|| "observability.coverage_source_ids_missing".to_string())?;
+        if !declared_sources
+            .iter()
+            .any(|declared| declared.as_str() == Some(source_id))
+        {
+            return Err("observability.observation_source_not_declared".into());
+        }
+        let assertion_ref = item
+            .get("assertion_ref")
+            .and_then(Value::as_str)
+            .filter(|value| !value.trim().is_empty())
+            .ok_or_else(|| "observability.observation_assertion_ref_missing".to_string())?;
+        claims.push(SourceClaim {
+            source_id: source_id.to_owned(),
+            claim: claim.to_owned(),
+            assertion_ref: assertion_ref.to_owned(),
+        });
+    }
+    claims.sort_by(|left, right| {
+        (&left.source_id, &left.claim, &left.assertion_ref).cmp(&(
+            &right.source_id,
+            &right.claim,
+            &right.assertion_ref,
+        ))
+    });
+    Ok(claims)
+}
+
+fn assessment(
+    case: &Value,
+    state: ObservabilityState,
+    reasons: impl IntoIterator<Item = &'static str>,
+    claims: Vec<SourceClaim>,
+) -> Result<ObservabilityAssessment, String> {
+    ObservabilityAssessment::new(case, state, reasons, claims)
+}
+
+fn string_at<'a>(value: &'a Value, pointer: &str) -> Result<&'a str, String> {
+    value
+        .pointer(pointer)
+        .and_then(Value::as_str)
+        .ok_or_else(|| format!("observability.field_missing_or_invalid:{pointer}"))
+}
+
+fn number_at(value: &Value, pointer: &str) -> Result<f64, String> {
+    value
+        .pointer(pointer)
+        .and_then(Value::as_f64)
+        .filter(|number| number.is_finite())
+        .ok_or_else(|| format!("observability.number_missing_or_invalid:{pointer}"))
+}
+
+fn value_at<'a>(value: &'a Value, pointer: &str) -> Option<&'a Value> {
+    value.pointer(pointer)
+}
+
+fn has_nonempty_array(value: &Value, pointer: &str) -> bool {
+    value
+        .pointer(pointer)
+        .and_then(Value::as_array)
+        .is_some_and(|items| !items.is_empty())
+}
+
+fn is_sha256_digest(value: &str) -> bool {
+    value.strip_prefix("sha256:").is_some_and(|hex| {
+        hex.len() == 64
+            && hex
+                .bytes()
+                .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+    })
+}
+
+fn sha256_hex(bytes: &[u8]) -> String {
+    let digest = Sha256::digest(bytes);
+    let mut output = String::with_capacity(64);
+    for byte in digest {
+        use std::fmt::Write as _;
+        let _ = write!(&mut output, "{byte:02x}");
+    }
+    output
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn evaluator() -> ObservabilityEvaluator {
+        ObservabilityEvaluator::from_embedded().expect("pinned observability schema compiles")
+    }
+
+    fn fixture() -> Value {
+        parse_strict_json(OBSERVABILITY_DGP_JSON.as_bytes()).expect("frozen DGP is strict JSON")
+    }
+
+    fn case_by_id<'a>(dgp: &'a Value, id: &str) -> &'a Value {
+        dgp["cases"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|case| case["id"].as_str() == Some(id))
+            .expect("case exists in frozen DGP")
+    }
+
+    #[test]
+    fn embedded_dgp_schema_and_evaluator_pass_all_frozen_cases() {
+        let report = evaluator().evaluate_embedded().expect("DGP is valid");
+        let dgp = fixture();
+        let cases = dgp["cases"].as_array().unwrap();
+        assert_eq!(report.case_count, cases.len());
+        for (case, assessment) in cases.iter().zip(report.assessments.iter()) {
+            assert_eq!(
+                assessment.state.as_str(),
+                case["expected"]["state"].as_str().unwrap(),
+                "{} applicability={:?} reasons={:?}",
+                case["id"].as_str().unwrap(),
+                case["equipment_applicability"],
+                assessment.reason_codes
+            );
+        }
+    }
+
+    #[test]
+    fn ais_non_carriage_precedes_not_applicable_coverage_profile() {
+        let dgp = fixture();
+        let case = case_by_id(&dgp, "OBS-001");
+        assert_eq!(
+            case["equipment_applicability"].as_str(),
+            Some("not_required_for_declared_vessel_class")
+        );
+        let report = assess_case(case).expect("case structure is complete");
+        assert_eq!(
+            report.state,
+            ObservabilityState::NotEquippedOrNotRequired,
+            "reason_codes={:?}",
+            report.reason_codes
+        );
+        assert!(
+            report
+                .reason_codes
+                .contains(&"source.equipment_or_carriage_not_applicable".to_owned())
+        );
+    }
+
+    #[test]
+    fn evaluator_does_not_depend_on_expected_oracle_field() {
+        let dgp = fixture();
+        let evaluator = evaluator();
+        let bytes = serde_json::to_vec(&dgp).unwrap();
+        let first = evaluator.evaluate_dgp_bytes(&bytes).unwrap();
+        let mut changed_oracle = dgp;
+        for case in changed_oracle["cases"].as_array_mut().unwrap() {
+            case["expected"]["state"] = Value::String("CONFLICT".into());
+        }
+        let changed_bytes = serde_json::to_vec(&changed_oracle).unwrap();
+        let second = evaluator.evaluate_dgp_bytes(&changed_bytes).unwrap();
+        let first_states: Vec<_> = first.assessments.iter().map(|item| item.state).collect();
+        let second_states: Vec<_> = second.assessments.iter().map(|item| item.state).collect();
+        assert_eq!(first_states, second_states);
+    }
+
+    #[test]
+    fn removing_coverage_assertion_downgrades_non_observation_to_unknown() {
+        let dgp = fixture();
+        let mut case = case_by_id(&dgp, "OBS-012").clone();
+        case["coverage"]["assertion_id"] = Value::Null;
+        case["coverage"]["status"] = Value::String("unknown".into());
+        case["coverage"]["complete_for_scope"] = Value::Bool(false);
+        let report = assess_case(&case).expect("mutated case has enough structure");
+        assert_eq!(report.state, ObservabilityState::CoverageUnknown);
+    }
+
+    #[test]
+    fn missing_dependency_frontier_blocks_coverage_qualified_non_observation() {
+        let dgp = fixture();
+        let mut case = case_by_id(&dgp, "OBS-011").clone();
+        case["dependency_context"]["snapshot_ref"] = Value::Null;
+        let report = assess_case(&case).unwrap();
+        assert_eq!(report.state, ObservabilityState::CoverageUnknown);
+    }
+
+    #[test]
+    fn stale_dependency_frontier_blocks_coverage_qualified_non_observation() {
+        let dgp = fixture();
+        let case = case_by_id(&dgp, "OBS-018");
+        let report = assess_case(case).unwrap();
+        assert_eq!(report.state, ObservabilityState::CoverageUnknown);
+    }
+
+    #[test]
+    fn coverage_window_must_contain_the_full_observation_window() {
+        let dgp = fixture();
+        let mut case = case_by_id(&dgp, "OBS-011").clone();
+        case["coverage"]["valid_until"] = serde_json::json!(150);
+        let report = assess_case(&case).unwrap();
+        assert_eq!(report.state, ObservabilityState::CoverageUnknown);
+    }
+
+    #[test]
+    fn coverage_profile_digest_is_mandatory_for_non_observation() {
+        let dgp = fixture();
+        let mut case = case_by_id(&dgp, "OBS-011").clone();
+        case["coverage"]["coverage_profile_digest"] = Value::String("missing".into());
+        let report = assess_case(&case).unwrap();
+        assert_eq!(report.state, ObservabilityState::CoverageUnknown);
+    }
+
+    #[test]
+    fn rights_restriction_precedes_any_detection_inference() {
+        let dgp = fixture();
+        let mut case = case_by_id(&dgp, "OBS-013").clone();
+        case["rights"] = Value::String("restricted_for_declared_purpose".into());
+        let report = assess_case(&case).unwrap();
+        assert_eq!(report.state, ObservabilityState::WithheldOrRestricted);
+    }
+
+    #[test]
+    fn qualified_cross_source_disagreement_is_preserved_as_conflict() {
+        let dgp = fixture();
+        let case = case_by_id(&dgp, "OBS-016");
+        let report = assess_case(case).unwrap();
+        assert_eq!(report.state, ObservabilityState::Conflict);
+        assert_eq!(report.source_claims.len(), 2);
+        assert_ne!(
+            report.source_claims[0].source_id,
+            report.source_claims[1].source_id
+        );
+    }
+
+    #[test]
+    fn fresh_single_source_positive_is_preserved_when_coverage_is_incomplete() {
+        let dgp = fixture();
+        let case = case_by_id(&dgp, "OBS-019");
+        let report = assess_case(case).unwrap();
+        assert_eq!(report.state, ObservabilityState::ObservedPresent);
+        assert_eq!(report.source_claims.len(), 1);
+        assert!(
+            report.reason_codes.contains(
+                &"source.positive_observation_recorded_coverage_may_be_partial".to_owned()
+            )
+        );
+    }
+
+    #[test]
+    fn contradictory_claims_from_the_same_qualified_source_are_conflict() {
+        let dgp = fixture();
+        let mut case = case_by_id(&dgp, "OBS-013").clone();
+        case["observations"]
+            .as_array_mut()
+            .unwrap()
+            .push(serde_json::json!({
+                "source_id": "uas-sensor-013",
+                "claim": "NO_MESSAGE",
+                "assertion_ref": "synthetic-contradictory-claim-013"
+            }));
+        let report = assess_case(&case).unwrap();
+        assert_eq!(report.state, ObservabilityState::Conflict);
+        assert_eq!(report.source_claims.len(), 2);
+    }
+
+    #[test]
+    fn single_source_positive_claim_must_match_assessed_source_identity() {
+        let dgp = fixture();
+        let mut case = case_by_id(&dgp, "OBS-013").clone();
+        case["observations"][0]["source_id"] = Value::String("different-source".into());
+        let report = assess_case(&case).unwrap();
+        assert_eq!(report.state, ObservabilityState::CoverageUnknown);
+    }
+
+    #[test]
+    fn single_case_api_does_not_require_or_read_test_oracle_fields() {
+        let evaluator = evaluator();
+        let dgp = fixture();
+        let mut case = case_by_id(&dgp, "OBS-011").clone();
+        case.as_object_mut().unwrap().remove("expected");
+        case.as_object_mut().unwrap().remove("mutation");
+        case["coverage"]
+            .as_object_mut()
+            .unwrap()
+            .remove("independent_oracle");
+        let bytes = serde_json::to_vec(&case).unwrap();
+        let report = evaluator.assess_case_bytes(&bytes).unwrap();
+        assert_eq!(report.state, ObservabilityState::NotObservedWithinDeclaredCoverage);
+    }
+
+    #[test]
+    fn coverage_provenance_ref_is_required_but_test_oracle_is_not_trusted() {
+        let dgp = fixture();
+        let evaluator = evaluator();
+        let mut case = case_by_id(&dgp, "OBS-011").clone();
+        case["coverage"]["independent_oracle"] = Value::String("not-a-coverage-proof".into());
+        let report = assess_case(&case).unwrap();
+        assert_eq!(report.state, ObservabilityState::NotObservedWithinDeclaredCoverage);
+
+        case["coverage"]["coverage_provenance_ref"] = Value::Null;
+        let report = assess_case(&case).unwrap();
+        assert_eq!(report.state, ObservabilityState::CoverageUnknown);
+    }
+
+    #[test]
+    fn no_observation_case_must_bind_the_assessed_source_id() {
+        let dgp = fixture();
+        let mut case = case_by_id(&dgp, "OBS-011").clone();
+        case["coverage"]["source_ids"] = serde_json::json!(["different-source"]);
+        let report = assess_case(&case).unwrap();
+        assert_eq!(report.state, ObservabilityState::CoverageUnknown);
+    }
+
+    #[test]
+    fn observations_must_belong_to_declared_coverage_source_set() {
+        let dgp = fixture();
+        let mut case = case_by_id(&dgp, "OBS-013").clone();
+        case["observations"][0]["source_id"] = Value::String("undeclared-source".into());
+        let error = assess_case(&case).unwrap_err();
+        assert_eq!(error, "observability.observation_source_not_declared");
+    }
+
+    #[test]
+    fn invalid_scope_interval_is_rejected_before_state_assessment() {
+        let dgp = fixture();
+        let mut case = case_by_id(&dgp, "OBS-011").clone();
+        case["scope"]["window_end"] = serde_json::json!(100);
+        let error = assess_case(&case).unwrap_err();
+        assert_eq!(error, "observability.scope_interval_not_positive");
+    }
+
+    #[test]
+    fn authorized_for_declared_purpose_is_an_allowed_normalized_rights_state() {
+        let dgp = fixture();
+        let mut case = case_by_id(&dgp, "OBS-013").clone();
+        case["rights"] = Value::String("authorized_for_declared_purpose".into());
+        let report = assess_case(&case).unwrap();
+        assert_eq!(report.state, ObservabilityState::ObservedPresent);
+    }
+
+    #[test]
+    fn single_case_api_validates_schema_before_assessment() {
+        let evaluator = evaluator();
+        let invalid = br#"{"source":{"id":"x"}}"#;
+        let error = evaluator.assess_case_bytes(invalid).unwrap_err();
+        assert_eq!(error, "observability.case_schema_validation_failed");
+    }
+
+    #[test]
+    fn positive_observation_is_not_erased_by_empty_other_sources() {
+        let dgp = fixture();
+        let case = case_by_id(&dgp, "OBS-013");
+        let report = assess_case(case).unwrap();
+        assert_eq!(report.state, ObservabilityState::ObservedPresent);
+    }
+
+    #[test]
+    fn failed_and_partial_outage_sources_are_not_negative() {
+        for id in ["OBS-002", "OBS-007"] {
+            let dgp = fixture();
+            let case = case_by_id(&dgp, id);
+            let report = assess_case(case).unwrap();
+            assert_eq!(report.state, ObservabilityState::FeedUnavailable, "{id}");
+        }
+    }
+
+    #[test]
+    fn duplicate_keys_in_dgp_are_rejected() {
+        let evaluator = evaluator();
+        let result = evaluator.evaluate_dgp_bytes(br#"{"schema":"a","schema":"b"}"#);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn all_ten_observability_states_are_exercised_by_the_frozen_corpus() {
+        let report = evaluator().evaluate_embedded().unwrap();
+        let states: BTreeSet<&str> = report
+            .assessments
+            .iter()
+            .map(|assessment| assessment.state.as_str())
+            .collect();
+        let expected = [
+            "OBSERVED_PRESENT",
+            "NOT_OBSERVED_WITHIN_DECLARED_COVERAGE",
+            "UNOBSERVABLE",
+            "COVERAGE_UNKNOWN",
+            "FEED_UNAVAILABLE",
+            "NOT_EQUIPPED_OR_NOT_REQUIRED",
+            "STALE",
+            "WITHHELD_OR_RESTRICTED",
+            "CONFLICT",
+            "NOT_APPLICABLE",
+        ];
+        assert_eq!(states, expected.into_iter().collect());
+    }
+
+    #[test]
+    fn repeated_embedded_evaluation_is_byte_stable() {
+        let evaluator = evaluator();
+        let first = evaluator.evaluate_embedded().unwrap();
+        let second = evaluator.evaluate_embedded().unwrap();
+        assert_eq!(
+            serde_json::to_vec(&first).unwrap(),
+            serde_json::to_vec(&second).unwrap()
+        );
+    }
+
+    #[test]
+    fn every_assessment_has_sorted_unique_reason_codes() {
+        let report = evaluator().evaluate_embedded().unwrap();
+        for assessment in report.assessments {
+            let mut sorted = assessment.reason_codes.clone();
+            sorted.sort();
+            sorted.dedup();
+            assert_eq!(assessment.reason_codes, sorted);
+            assert!(!assessment.reason_codes.is_empty());
+        }
+    }
+
+    #[test]
+    fn output_never_claims_physical_absence() {
+        let report = evaluator().evaluate_embedded().unwrap();
+        for item in &report.assessments {
+            assert!(item.claim_ceiling.contains("not physical absence"));
+        }
+    }
+}

@@ -55,6 +55,17 @@ Digest contract:
 
 The JCS library dependency range selects the RFC 8785-compatible `serde_json_canonicalizer` implementation. The implementation targets the `jsonschema 0.61` API, Draft 2020-12, with format validation enabled and default reference-resolution features disabled. A Cargo lockfile has not yet been generated in this authoring environment; exact transitive dependency resolution and lockfile review remain required before merge.
 
+## Command-line observability evaluation
+
+The same binary exposes two additional offline modes:
+
+- `cargo run -- --observability-dgp` validates and evaluates the embedded frozen 19-case synthetic corpus, printing a digest-bound report.
+- `cargo run -- --observability-case path/to/case.json` validates and assesses one production-shaped source/scope case. The input schema does not require test-only `expected`, oracle or mutation fields.
+
+Both modes use strict duplicate-key JSON parsing, bounded 2 MiB reads, pinned schema validation and stable value-free errors. A successful assessment is a valid state report—not an operational authorization. Every state, including unresolved/unknown/restricted, is a successful classification result; malformed input or a failed contract is a non-zero exit.
+
+Default invocation with a file path continues to perform evidence-envelope validation.
+
 ## Test strategy
 
 The unit suite covers the three synthetic domain fixtures, unknown schema/policy identity, external-reference rejection, extra fields, wrong digests, nested claim values, unapproved rights, purpose mismatch, retention expiry, unverified sources, stale data, missing dependency groups, reversed event intervals, metadata/lineage digest tampering, duplicate JSON properties, over-size input and a canonicalization vector from RFC 8785.
@@ -72,3 +83,32 @@ The included examples are **synthetic and non-operational**. Unit tests prove on
 ## Parent issue
 
 [GCPN-CIVIL-ENVELOPE-VALIDATOR-001 — #5992](https://github.com/Luminous-Dynamics/mycelix/issues/5992)
+
+
+## Coverage-aware observability evaluator
+
+The `observability` module reuses this crate's strict duplicate-key parser and adds a pure, deterministic evaluator for the frozen UAS / maritime / civil-aviation observability DGP:
+
+- DGP: `mycelix-workspace/mycelix-praxis/docs/research/civil-awareness-observability-dgp-v0.1.json`
+- Schema: `mycelix-workspace/mycelix-praxis/docs/research/civil-awareness-observability-dgp-v0.1.schema.json`
+- Profile: `mycelix-workspace/mycelix-praxis/docs/research/GCPN_CIVIL_OBSERVABILITY_DGP_V0_1.md`
+
+Public API:
+
+- `ObservabilityEvaluator::from_embedded()` compiles the pinned Draft 2020-12 schema without remote references.
+- `evaluate_embedded()` validates and assesses the frozen corpus.
+- `evaluate_dgp_bytes()` strictly parses exact bytes, checks the schema and reports one state/reason set per case.
+- `assess_case_bytes()` assesses a single strict JSON case.
+
+The evaluator deliberately does not read the DGP `expected` field; the unit-test harness compares its outputs with the oracle after evaluation. It binds the DGP/schema digests, preserves source-level claim references, and emits the same ten explicit states. It reports `NOT_OBSERVED_WITHIN_DECLARED_COVERAGE` only when source health, rights, freshness, completeness, coverage validity across the entire scope window, coverage-profile digest and dependency snapshot/frontier all pass.
+
+A single fresh positive source observation can still be reported when the broader coverage envelope is incomplete; this is not a claim of complete monitoring. In a multi-source assessment, incomplete coverage or lineage remains `COVERAGE_UNKNOWN`, and qualified contradictory source-level outcomes remain `CONFLICT` with both claims preserved.
+
+Run the existing commands from this package to execute the new tests as part of `cargo test --all-targets`. No new graph, source registry, coverage GIS, evidence ledger, trust root or runtime sensor integration is added.
+## Dependency lock and validation status
+
+This package currently has no committed `Cargo.lock`. The path-scoped workflow resolves dependencies and runs formatting, all-target tests and Clippy, but a lockfile must be generated, reviewed and committed before merge. CI success without a committed lockfile does not establish reproducible transitive dependency resolution.
+
+The observability evaluator's 19-case suite includes all ten states, missing/stale dependency-frontier controls, a coverage-proof-removal mutation, a qualified cross-source conflict, a positive source observation under partial broader coverage, and a direct AIS non-carriage precedence assertion. Tests establish only the declared synthetic state-transition behavior; they do not qualify a field coverage model or real detector.
+
+Latest development note: 44 package library tests passed on the prior exact head; Clippy's final `collapsible_if` warning was corrected in the current branch and awaits a new exact-head workflow result.

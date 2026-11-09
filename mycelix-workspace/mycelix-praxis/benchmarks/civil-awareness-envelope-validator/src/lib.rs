@@ -15,6 +15,8 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Map, Number, Value};
 use sha2::{Digest, Sha256};
 
+pub mod observability;
+
 pub const MAX_ENVELOPE_BYTES: usize = 2 * 1024 * 1024;
 pub const SCHEMA_JSON: &str =
     include_str!("../../../docs/research/civil-awareness-evidence-envelope-v0.1.schema.json");
@@ -48,7 +50,12 @@ pub struct ValidationReport {
 }
 
 impl ValidationReport {
-    fn new(disposition: Disposition, reasons: BTreeSet<String>, schema_error_count: usize, digest: String) -> Self {
+    fn new(
+        disposition: Disposition,
+        reasons: BTreeSet<String>,
+        schema_error_count: usize,
+        digest: String,
+    ) -> Self {
         Self {
             disposition,
             reason_codes: reasons.into_iter().collect(),
@@ -98,14 +105,14 @@ impl EnvelopeValidator {
                 &policy,
                 "/canonicalization/digest_semantics/field_allowlist_digest",
             ) != Some("SHA-256 over the exact UTF-8 bytes of this field-policy artifact.")
-            || string_at(
-                &policy,
-                "/canonicalization/digest_semantics/payload_digest",
-            ) != Some("SHA-256 over RFC 8785 canonical JSON bytes of domain_extension.payload.")
+            || string_at(&policy, "/canonicalization/digest_semantics/payload_digest")
+                != Some("SHA-256 over RFC 8785 canonical JSON bytes of domain_extension.payload.")
             || string_at(
                 &policy,
                 "/canonicalization/digest_semantics/envelope_content_digest",
-            ) != Some("SHA-256 over RFC 8785 canonical JSON bytes of the entire envelope object after removing only lineage.envelope_content_digest; this avoids self-reference while binding payload_digest, correction/supersession links and every other field.")
+            ) != Some(
+                "SHA-256 over RFC 8785 canonical JSON bytes of the entire envelope object after removing only lineage.envelope_content_digest; this avoids self-reference while binding payload_digest, correction/supersession links and every other field.",
+            )
         {
             return Err("policy.digest_contract_unsupported".into());
         }
@@ -153,7 +160,9 @@ impl EnvelopeValidator {
         if schema_error_count != 0 {
             return ValidationReport::new(
                 Disposition::Rejected,
-                ["schema.validation_failed".to_string()].into_iter().collect(),
+                ["schema.validation_failed".to_string()]
+                    .into_iter()
+                    .collect(),
                 schema_error_count,
                 self.field_policy_digest.clone(),
             );
@@ -176,14 +185,21 @@ impl EnvelopeValidator {
         );
 
         // Domain extension identity and exact field allowlist.
-        let expected_extension = self.policy
+        let expected_extension = self
+            .policy
             .get("domain_extension_schemas")
             .and_then(|schemas| schemas.get(domain));
         let actual_uri = string_at(envelope, "/domain_extension/schema_uri");
         let actual_revision = string_at(envelope, "/domain_extension/schema_revision");
         if expected_extension.is_none()
-            || actual_uri != expected_extension.and_then(|v| v.get("schema_uri")).and_then(Value::as_str)
-            || actual_revision != expected_extension.and_then(|v| v.get("schema_revision")).and_then(Value::as_str)
+            || actual_uri
+                != expected_extension
+                    .and_then(|v| v.get("schema_uri"))
+                    .and_then(Value::as_str)
+            || actual_revision
+                != expected_extension
+                    .and_then(|v| v.get("schema_revision"))
+                    .and_then(Value::as_str)
         {
             rejected.insert("domain_extension.unknown_schema_or_revision".into());
         }
@@ -211,7 +227,8 @@ impl EnvelopeValidator {
         // accepts a scalar or a flat object with domain+claim-specific keys.
         // Use map lookup rather than constructing a JSON Pointer from untrusted
         // claim_type text; slash/tilde characters must not alter the lookup path.
-        let claim_allowlist = self.policy
+        let claim_allowlist = self
+            .policy
             .get("claim_value_allowlists")
             .and_then(|domains| domains.get(domain))
             .and_then(|claims| claims.get(claim_type));
@@ -226,7 +243,10 @@ impl EnvelopeValidator {
                     "claim.value_field_not_allowlisted",
                     &mut rejected,
                 );
-                if value.values().any(|v| matches!(v, Value::Object(_) | Value::Array(_))) {
+                if value
+                    .values()
+                    .any(|v| matches!(v, Value::Object(_) | Value::Array(_)))
+                {
                     rejected.insert("claim.value_nested_or_array_data_not_allowed".into());
                 }
             }
@@ -275,7 +295,9 @@ impl EnvelopeValidator {
         match serde_json_canonicalizer::to_vec(&content_without_digest) {
             Ok(bytes) => {
                 let expected = format!("sha256:{}", sha256_hex(&bytes));
-                if string_at(envelope, "/lineage/envelope_content_digest") != Some(expected.as_str()) {
+                if string_at(envelope, "/lineage/envelope_content_digest")
+                    != Some(expected.as_str())
+                {
                     rejected.insert("digest.envelope_content_mismatch".into());
                 }
             }
@@ -316,7 +338,8 @@ impl EnvelopeValidator {
         let declared_purpose = string_at(envelope, "/governance/purpose_code");
         if !allowed_uses.is_some_and(|uses| {
             declared_purpose.is_some_and(|purpose| {
-                uses.iter().any(|use_code| use_code.as_str() == Some(purpose))
+                uses.iter()
+                    .any(|use_code| use_code.as_str() == Some(purpose))
             })
         }) {
             quarantined.insert("rights.declared_purpose_not_allowed".into());
@@ -326,7 +349,8 @@ impl EnvelopeValidator {
             .and_then(|value| DateTime::parse_from_rfc3339(value).ok());
         let received_at = string_at(envelope, "/timestamps/received_at")
             .and_then(|value| DateTime::parse_from_rfc3339(value).ok());
-        if matches!((retention_until, received_at), (Some(retention), Some(received)) if retention < received) {
+        if matches!((retention_until, received_at), (Some(retention), Some(received)) if retention < received)
+        {
             quarantined.insert("rights.retention_expired_at_ingest".into());
         }
 
@@ -369,7 +393,10 @@ impl EnvelopeValidator {
         match string_at(envelope, "/timestamps/clock_quality") {
             Some("disciplined") => {}
             Some("bounded") => {
-                if envelope.pointer("/timestamps/clock_uncertainty_ms").is_none() {
+                if envelope
+                    .pointer("/timestamps/clock_uncertainty_ms")
+                    .is_none()
+                {
                     unresolved.insert("time.bounded_clock_uncertainty_missing".into());
                 }
             }
@@ -393,12 +420,18 @@ impl EnvelopeValidator {
         let location_status = string_at(envelope, "/spatial_context/location_reference_status");
         if matches!(location_status, Some("present"))
             && envelope.pointer("/spatial_context/location_ref").is_none()
-            && envelope.pointer("/spatial_context/coordinate_payload_ref").is_none()
+            && envelope
+                .pointer("/spatial_context/coordinate_payload_ref")
+                .is_none()
         {
             unresolved.insert("spatial.reference_missing".into());
         }
-        if matches!(spatial_precision, Some("sector" | "site" | "operational_minimum"))
-            && envelope.pointer("/spatial_context/purpose_binding_ref").is_none()
+        if matches!(
+            spatial_precision,
+            Some("sector" | "site" | "operational_minimum")
+        ) && envelope
+            .pointer("/spatial_context/purpose_binding_ref")
+            .is_none()
         {
             unresolved.insert("spatial.purpose_binding_missing".into());
         }
@@ -476,7 +509,9 @@ fn schema_has_external_refs(value: &Value) -> bool {
     match value {
         Value::Object(object) => object.iter().any(|(key, child)| {
             (key == "$ref" || key == "$dynamicRef")
-                && child.as_str().is_some_and(|reference| !reference.starts_with('#'))
+                && child
+                    .as_str()
+                    .is_some_and(|reference| !reference.starts_with('#'))
                 || schema_has_external_refs(child)
         }),
         Value::Array(values) => values.iter().any(schema_has_external_refs),
@@ -537,15 +572,21 @@ impl<'de> Deserialize<'de> for StrictValue {
             }
 
             fn visit_bool<E>(self, value: bool) -> Result<Self::Value, E>
-            where E: de::Error {
+            where
+                E: de::Error,
+            {
                 Ok(StrictValue(Value::Bool(value)))
             }
             fn visit_i64<E>(self, value: i64) -> Result<Self::Value, E>
-            where E: de::Error {
+            where
+                E: de::Error,
+            {
                 Ok(StrictValue(Value::Number(Number::from(value))))
             }
             fn visit_u64<E>(self, value: u64) -> Result<Self::Value, E>
-            where E: de::Error {
+            where
+                E: de::Error,
+            {
                 Ok(StrictValue(Value::Number(Number::from(value))))
             }
             fn visit_f64<E>(self, value: f64) -> Result<Self::Value, E>
@@ -557,19 +598,27 @@ impl<'de> Deserialize<'de> for StrictValue {
                     .ok_or_else(|| E::custom("non-finite JSON number"))
             }
             fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
-            where E: de::Error {
+            where
+                E: de::Error,
+            {
                 Ok(StrictValue(Value::String(value.to_owned())))
             }
             fn visit_string<E>(self, value: String) -> Result<Self::Value, E>
-            where E: de::Error {
+            where
+                E: de::Error,
+            {
                 Ok(StrictValue(Value::String(value)))
             }
             fn visit_unit<E>(self) -> Result<Self::Value, E>
-            where E: de::Error {
+            where
+                E: de::Error,
+            {
                 Ok(StrictValue(Value::Null))
             }
             fn visit_none<E>(self) -> Result<Self::Value, E>
-            where E: de::Error {
+            where
+                E: de::Error,
+            {
                 Ok(StrictValue(Value::Null))
             }
             fn visit_some<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
@@ -608,7 +657,7 @@ impl<'de> Deserialize<'de> for StrictValue {
     }
 }
 
-fn parse_strict_json(bytes: &[u8]) -> Result<Value, ()> {
+pub(crate) fn parse_strict_json(bytes: &[u8]) -> Result<Value, ()> {
     if bytes.len() > MAX_ENVELOPE_BYTES {
         return Err(());
     }
@@ -676,7 +725,11 @@ mod tests {
             &serde_json::to_string(&schema).unwrap(),
             FIELD_POLICY_JSON,
         );
-        assert!(result.unwrap_err().contains("schema.external_reference_forbidden"));
+        assert!(
+            result
+                .unwrap_err()
+                .contains("schema.external_reference_forbidden")
+        );
     }
 
     #[test]
@@ -687,7 +740,11 @@ mod tests {
         refresh_digests(&mut example, &v);
         let report = v.validate_value(&example);
         assert_eq!(report.disposition, Disposition::Rejected);
-        assert!(report.reason_codes.contains(&"claim.unknown_domain_claim_type".into()));
+        assert!(
+            report
+                .reason_codes
+                .contains(&"claim.unknown_domain_claim_type".into())
+        );
     }
 
     #[test]
@@ -698,7 +755,11 @@ mod tests {
         refresh_digests(&mut example, &v);
         let report = v.validate_value(&example);
         assert_eq!(report.disposition, Disposition::Rejected);
-        assert!(report.reason_codes.contains(&"domain_extension.unknown_schema_or_revision".into()));
+        assert!(
+            report
+                .reason_codes
+                .contains(&"domain_extension.unknown_schema_or_revision".into())
+        );
     }
 
     #[test]
@@ -709,9 +770,12 @@ mod tests {
         refresh_digests(&mut example, &v);
         let report = v.validate_value(&example);
         assert_eq!(report.disposition, Disposition::Rejected);
-        assert!(report.reason_codes.contains(&"source.integrity_failed".into()));
+        assert!(
+            report
+                .reason_codes
+                .contains(&"source.integrity_failed".into())
+        );
     }
-
 
     #[test]
     fn schema_identity_and_draft_are_pinned() {
@@ -758,7 +822,11 @@ mod tests {
         refresh_digests(&mut example, &v);
         let report = v.validate_value(&example);
         assert_eq!(report.disposition, Disposition::Quarantined);
-        assert!(report.reason_codes.contains(&"rights.declared_purpose_not_allowed".into()));
+        assert!(
+            report
+                .reason_codes
+                .contains(&"rights.declared_purpose_not_allowed".into())
+        );
     }
 
     #[test]
@@ -770,7 +838,11 @@ mod tests {
         refresh_digests(&mut example, &v);
         let report = v.validate_value(&example);
         assert_eq!(report.disposition, Disposition::Quarantined);
-        assert!(report.reason_codes.contains(&"rights.retention_expired_at_ingest".into()));
+        assert!(
+            report
+                .reason_codes
+                .contains(&"rights.retention_expired_at_ingest".into())
+        );
     }
 
     #[test]
@@ -780,9 +852,12 @@ mod tests {
         example["lineage"]["corrects_refs"] = json!(["prior-envelope-001"]);
         let report = v.validate_value(&example);
         assert_eq!(report.disposition, Disposition::Rejected);
-        assert!(report.reason_codes.contains(&"digest.envelope_content_mismatch".into()));
+        assert!(
+            report
+                .reason_codes
+                .contains(&"digest.envelope_content_mismatch".into())
+        );
     }
-
 
     #[test]
     fn synthetic_domain_examples_remain_unresolved_without_source_attestation() {
@@ -791,7 +866,8 @@ mod tests {
         assert_eq!(reports.len(), 3);
         assert!(reports.iter().all(|r| {
             r.disposition == Disposition::Unresolved
-                && r.reason_codes.contains(&"source.authentication_unverified".into())
+                && r.reason_codes
+                    .contains(&"source.authentication_unverified".into())
         }));
     }
 
@@ -803,48 +879,75 @@ mod tests {
         example["source"]["authentication_method"] = json!("synthetic_test_attestation");
         refresh_digests(&mut example, &v);
         let report = v.validate_value(&example);
-        assert_eq!(report.disposition, Disposition::StructurallyValidRequiresAuthorityReceipt);
-        assert!(report.reason_codes.contains(&"authority.signed_receipt_verification_required".into()));
-        assert!(report.reason_codes.contains(&"source.attestation_verification_required".into()));
+        assert_eq!(
+            report.disposition,
+            Disposition::StructurallyValidRequiresAuthorityReceipt
+        );
+        assert!(
+            report
+                .reason_codes
+                .contains(&"authority.signed_receipt_verification_required".into())
+        );
+        assert!(
+            report
+                .reason_codes
+                .contains(&"source.attestation_verification_required".into())
+        );
     }
 
     #[test]
     fn wrong_field_policy_digest_is_rejected() {
         let v = validator();
         let mut example = examples().remove(0);
-        example["governance"]["field_allowlist_digest"] = json!("sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
+        example["governance"]["field_allowlist_digest"] =
+            json!("sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
         refresh_digests(&mut example, &v);
         // refresh_digests restores the correct digest, so deliberately corrupt it after binding.
-        example["governance"]["field_allowlist_digest"] = json!("sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
+        example["governance"]["field_allowlist_digest"] =
+            json!("sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
         let report = v.validate_value(&example);
         assert_eq!(report.disposition, Disposition::Rejected);
-        assert!(report.reason_codes.contains(&"digest.field_policy_mismatch".into()));
+        assert!(
+            report
+                .reason_codes
+                .contains(&"digest.field_policy_mismatch".into())
+        );
     }
 
     #[test]
     fn unknown_domain_extension_field_is_rejected_even_with_recomputed_digests() {
         let v = validator();
         let mut example = examples().remove(0);
-        example["domain_extension"]["payload"]["pilot_personal_location"] = json!("never-log-this-value");
+        example["domain_extension"]["payload"]["pilot_personal_location"] =
+            json!("never-log-this-value");
         refresh_digests(&mut example, &v);
         let report = v.validate_value(&example);
         assert_eq!(report.disposition, Disposition::Rejected);
-        assert!(report.reason_codes.contains(&"domain_extension.field_not_allowlisted".into()));
-        assert!(!serde_json::to_string(&report).unwrap().contains("never-log-this-value"));
+        assert!(
+            report
+                .reason_codes
+                .contains(&"domain_extension.field_not_allowlisted".into())
+        );
+        assert!(
+            !serde_json::to_string(&report)
+                .unwrap()
+                .contains("never-log-this-value")
+        );
     }
 
     #[test]
     fn nested_domain_extension_payload_is_rejected_even_with_recomputed_digests() {
         let v = validator();
         let mut example = examples().remove(0);
-        example["domain_extension"]["payload"]["fixture_id"] =
-            json!({"nested": "not-allowed"});
+        example["domain_extension"]["payload"]["fixture_id"] = json!({"nested": "not-allowed"});
         refresh_digests(&mut example, &v);
         let report = v.validate_value(&example);
         assert_eq!(report.disposition, Disposition::Rejected);
-        assert!(report.reason_codes.contains(
-            &"domain_extension.nested_or_array_data_not_allowed_in_v0_1".into()
-        ));
+        assert!(
+            report
+                .reason_codes
+                .contains(&"domain_extension.nested_or_array_data_not_allowed_in_v0_1".into())
+        );
     }
 
     #[test]
@@ -855,9 +958,11 @@ mod tests {
         refresh_digests(&mut example, &v);
         let report = v.validate_value(&example);
         assert_eq!(report.disposition, Disposition::Rejected);
-        assert!(report.reason_codes.contains(
-            &"domain_extension.nested_or_array_data_not_allowed_in_v0_1".into()
-        ));
+        assert!(
+            report
+                .reason_codes
+                .contains(&"domain_extension.nested_or_array_data_not_allowed_in_v0_1".into())
+        );
     }
 
     #[test]
@@ -868,8 +973,16 @@ mod tests {
         refresh_digests(&mut example, &v);
         let report = v.validate_value(&example);
         assert_eq!(report.disposition, Disposition::Rejected);
-        assert!(report.reason_codes.contains(&"claim.value_field_not_allowlisted".into()));
-        assert!(!serde_json::to_string(&report).unwrap().contains("private-value"));
+        assert!(
+            report
+                .reason_codes
+                .contains(&"claim.value_field_not_allowlisted".into())
+        );
+        assert!(
+            !serde_json::to_string(&report)
+                .unwrap()
+                .contains("private-value")
+        );
     }
 
     #[test]
@@ -880,7 +993,11 @@ mod tests {
         refresh_digests(&mut example, &v);
         let report = v.validate_value(&example);
         assert_eq!(report.disposition, Disposition::Rejected);
-        assert!(report.reason_codes.contains(&"claim.value_nested_or_array_data_not_allowed".into()));
+        assert!(
+            report
+                .reason_codes
+                .contains(&"claim.value_nested_or_array_data_not_allowed".into())
+        );
     }
 
     #[test]
@@ -891,7 +1008,11 @@ mod tests {
         refresh_digests(&mut example, &v);
         let report = v.validate_value(&example);
         assert_eq!(report.disposition, Disposition::Quarantined);
-        assert!(report.reason_codes.contains(&"rights.authorization_not_approved".into()));
+        assert!(
+            report
+                .reason_codes
+                .contains(&"rights.authorization_not_approved".into())
+        );
     }
 
     #[test]
@@ -902,7 +1023,11 @@ mod tests {
         refresh_digests(&mut example, &v);
         let report = v.validate_value(&example);
         assert_eq!(report.disposition, Disposition::Unresolved);
-        assert!(report.reason_codes.contains(&"source.authentication_unverified".into()));
+        assert!(
+            report
+                .reason_codes
+                .contains(&"source.authentication_unverified".into())
+        );
     }
 
     #[test]
@@ -913,7 +1038,11 @@ mod tests {
         refresh_digests(&mut example, &v);
         let report = v.validate_value(&example);
         assert_eq!(report.disposition, Disposition::Unresolved);
-        assert!(report.reason_codes.contains(&"source.freshness_not_current".into()));
+        assert!(
+            report
+                .reason_codes
+                .contains(&"source.freshness_not_current".into())
+        );
     }
 
     #[test]
@@ -924,7 +1053,11 @@ mod tests {
         refresh_digests(&mut example, &v);
         let report = v.validate_value(&example);
         assert_eq!(report.disposition, Disposition::Unresolved);
-        assert!(report.reason_codes.contains(&"dependence.group_identity_missing".into()));
+        assert!(
+            report
+                .reason_codes
+                .contains(&"dependence.group_identity_missing".into())
+        );
     }
 
     #[test]
@@ -936,7 +1069,11 @@ mod tests {
         refresh_digests(&mut example, &v);
         let report = v.validate_value(&example);
         assert_eq!(report.disposition, Disposition::Rejected);
-        assert!(report.reason_codes.contains(&"time.event_interval_reversed".into()));
+        assert!(
+            report
+                .reason_codes
+                .contains(&"time.event_interval_reversed".into())
+        );
     }
 
     #[test]
@@ -947,7 +1084,11 @@ mod tests {
         changed["source"]["source_class"] = json!("authority_feed");
         let report = v.validate_value(&changed);
         assert_eq!(report.disposition, Disposition::Rejected);
-        assert!(report.reason_codes.contains(&"digest.envelope_content_mismatch".into()));
+        assert!(
+            report
+                .reason_codes
+                .contains(&"digest.envelope_content_mismatch".into())
+        );
     }
 
     #[test]
@@ -955,7 +1096,11 @@ mod tests {
         let v = validator();
         let report = v.validate_bytes(br#"{"domain":"uas","domain":"maritime"}"#);
         assert_eq!(report.disposition, Disposition::Rejected);
-        assert!(report.reason_codes.contains(&"json.parse_or_duplicate_key_failure".into()));
+        assert!(
+            report
+                .reason_codes
+                .contains(&"json.parse_or_duplicate_key_failure".into())
+        );
     }
 
     #[test]
