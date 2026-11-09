@@ -164,7 +164,7 @@
           "maxLength": 128
         },
         "value": {
-          "oneOf": [
+          "anyOf": [
             {
               "type": "object"
             },
@@ -176,9 +176,6 @@
             },
             {
               "type": "number"
-            },
-            {
-              "type": "integer"
             },
             {
               "type": "boolean"
