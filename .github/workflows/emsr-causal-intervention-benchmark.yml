@@ -1,0 +1,45 @@
+name: EMSR causal intervention benchmark
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/emsr-causal-intervention-benchmark.yml"
+      - "docs/assurance/causal-intervention-*.schema.json"
+      - "tools/emsr-causal-intervention-benchmark/**"
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/emsr-causal-intervention-benchmark.yml"
+      - "docs/assurance/causal-intervention-*.schema.json"
+      - "tools/emsr-causal-intervention-benchmark/**"
+
+permissions:
+  contents: read
+
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dtolnay/rust-toolchain@1.96.0
+        with:
+          components: rustfmt, clippy
+      - name: Formatting
+        run: cargo fmt --manifest-path tools/emsr-causal-intervention-benchmark/Cargo.toml -- --check
+      - name: Public, hidden-truth and metamorphic contract tests
+        run: cargo test --manifest-path tools/emsr-causal-intervention-benchmark/Cargo.toml --all-targets
+      - name: Candidate-process smoke test
+        shell: bash
+        run: |
+          set -euo pipefail
+          report="$RUNNER_TEMP/causal-candidate-report.json"
+          cargo run --manifest-path tools/emsr-causal-intervention-benchmark/Cargo.toml --bin causal-candidate -- tools/emsr-causal-intervention-benchmark/fixtures/public-common-cause-001.json > "$report"
+          jq -e '
+            .report_contract == "emsr.causal-intervention-candidate-report/0.1" and
+            .scenario_id == "public-common-cause-001" and
+            .disposition == "COMMON_CAUSE_SUPPORTED_WITHIN_INTERVENTION_SCOPE" and
+            (.responsive_source_ids | length) == 2 and
+            (.input_sha256 | test("^[a-f0-9]{64}$"))
+          ' "$report" > /dev/null
+      - name: Clippy
+        run: cargo clippy --manifest-path tools/emsr-causal-intervention-benchmark/Cargo.toml --all-targets -- -D warnings
