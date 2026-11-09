@@ -504,7 +504,8 @@
       "required": [
         "payload_digest",
         "supersedes_refs",
-        "corrects_refs"
+        "corrects_refs",
+        "envelope_content_digest"
       ],
       "properties": {
         "payload_digest": {
@@ -529,6 +530,9 @@
             "$ref": "#/$defs/opaque_id"
           },
           "uniqueItems": true
+        },
+        "envelope_content_digest": {
+          "$ref": "#/$defs/digest"
         }
       }
     },
