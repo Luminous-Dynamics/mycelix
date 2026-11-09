@@ -11,8 +11,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::fmt::Write as _;
 
 pub const MAX_MANIFEST_BYTES: usize = 8 * 1024 * 1024;
-pub const CLAIM_CEILING: &str =
-    "Manifest structure and local handoff-reference consistency only; referenced claims are not authenticated or validated.";
+pub const CLAIM_CEILING: &str = "Manifest structure and local handoff-reference consistency only; referenced claims are not authenticated or validated.";
 
 #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -83,7 +82,10 @@ impl std::fmt::Display for InputError {
         match self {
             Self::TooLarge => write!(formatter, "manifest exceeds the 8 MiB input limit"),
             Self::InvalidJsonOrSchema => {
-                write!(formatter, "manifest is invalid JSON or violates the strict manifest schema")
+                write!(
+                    formatter,
+                    "manifest is invalid JSON or violates the strict manifest schema"
+                )
             }
         }
     }
@@ -280,7 +282,10 @@ fn validate_artifacts(manifest: &Manifest, checks: &mut Vec<Check>) -> BTreeMap<
     let mut duplicate_refs = BTreeSet::new();
 
     for artifact in &manifest.artifact_refs {
-        if owners.insert(artifact.artifact_ref.clone(), artifact.owner).is_some() {
+        if owners
+            .insert(artifact.artifact_ref.clone(), artifact.owner)
+            .is_some()
+        {
             duplicate_refs.insert(artifact.artifact_ref.clone());
         }
 
@@ -292,9 +297,18 @@ fn validate_artifacts(manifest: &Manifest, checks: &mut Vec<Check>) -> BTreeMap<
             || artifact.nonclaims.is_empty()
             || artifact.nonclaims.iter().any(|item| !non_empty(item))
             || artifact.subject_refs.iter().any(|item| !non_empty(item))
-            || artifact.resource_refs.as_ref().is_some_and(|items| items.iter().any(|item| !non_empty(item)))
-            || artifact.temporal_context_ref.as_deref().is_some_and(|item| !non_empty(item))
-            || artifact.spatial_context_ref.as_deref().is_some_and(|item| !non_empty(item))
+            || artifact
+                .resource_refs
+                .as_ref()
+                .is_some_and(|items| items.iter().any(|item| !non_empty(item)))
+            || artifact
+                .temporal_context_ref
+                .as_deref()
+                .is_some_and(|item| !non_empty(item))
+            || artifact
+                .spatial_context_ref
+                .as_deref()
+                .is_some_and(|item| !non_empty(item))
         {
             checks.push(Check::reject(
                 "artifact_required_metadata_missing",
@@ -339,11 +353,7 @@ fn validate_artifacts(manifest: &Manifest, checks: &mut Vec<Check>) -> BTreeMap<
     owners
 }
 
-fn validate_edges(
-    manifest: &Manifest,
-    owners: &BTreeMap<String, Owner>,
-    checks: &mut Vec<Check>,
-) {
+fn validate_edges(manifest: &Manifest, owners: &BTreeMap<String, Owner>, checks: &mut Vec<Check>) {
     let mut edge_ids = BTreeSet::new();
     let mut duplicate_edge_id = false;
 
@@ -356,7 +366,10 @@ fn validate_edges(
             || !non_empty(&edge.purpose)
             || !non_empty(&edge.claim_ceiling)
             || edge.source_artifact_refs.is_empty()
-            || edge.source_artifact_refs.iter().any(|item| !non_empty(item))
+            || edge
+                .source_artifact_refs
+                .iter()
+                .any(|item| !non_empty(item))
             || edge.declared_losses.iter().any(|item| !non_empty(item))
             || edge.unresolved_fields.iter().any(|item| !non_empty(item))
         {
@@ -387,9 +400,18 @@ fn validate_edges(
         }
 
         let optional_refs = [
-            (edge.produced_artifact_ref.as_deref(), "handoff_produced_reference_dangling"),
-            (edge.transformation_artifact_ref.as_deref(), "handoff_transformation_reference_dangling"),
-            (edge.independent_verifier_artifact_ref.as_deref(), "handoff_verifier_reference_dangling"),
+            (
+                edge.produced_artifact_ref.as_deref(),
+                "handoff_produced_reference_dangling",
+            ),
+            (
+                edge.transformation_artifact_ref.as_deref(),
+                "handoff_transformation_reference_dangling",
+            ),
+            (
+                edge.independent_verifier_artifact_ref.as_deref(),
+                "handoff_verifier_reference_dangling",
+            ),
         ];
         for (reference, code) in optional_refs {
             if reference.is_some_and(|reference| !owners.contains_key(reference)) {
@@ -558,7 +580,11 @@ pub fn validate_manifest_bytes(bytes: &[u8]) -> Result<ValidationReport, InputEr
             "Manifest audience and nonclaims must both contain non-empty entries.",
         ));
     }
-    if manifest.privacy_policy_refs.iter().any(|item| !non_empty(item)) {
+    if manifest
+        .privacy_policy_refs
+        .iter()
+        .any(|item| !non_empty(item))
+    {
         checks.push(Check::reject(
             "manifest_privacy_reference_empty",
             "Privacy policy references, when supplied, must be non-empty.",
@@ -727,7 +753,10 @@ mod tests {
     fn rejects_duplicate_artifact_reference_ids() {
         let mut value = valid_synthetic_manifest();
         let duplicate = value["artifact_refs"][0].clone();
-        value["artifact_refs"].as_array_mut().unwrap().push(duplicate);
+        value["artifact_refs"]
+            .as_array_mut()
+            .unwrap()
+            .push(duplicate);
         let report = validate_value(&value);
         assert_eq!(report.disposition, Disposition::Conflict);
         assert_has_code(&report, "artifact_reference_id_duplicate");
@@ -737,7 +766,10 @@ mod tests {
     fn rejects_duplicate_handoff_edge_ids() {
         let mut value = valid_synthetic_manifest();
         let duplicate = value["handoff_edges"][0].clone();
-        value["handoff_edges"].as_array_mut().unwrap().push(duplicate);
+        value["handoff_edges"]
+            .as_array_mut()
+            .unwrap()
+            .push(duplicate);
         let report = validate_value(&value);
         assert_eq!(report.disposition, Disposition::Conflict);
         assert_has_code(&report, "handoff_edge_id_duplicate");
@@ -748,7 +780,10 @@ mod tests {
         let mut value = base_template();
         value["unexpected_authority"] = json!("global");
         let bytes = serde_json::to_vec(&value).unwrap();
-        assert_eq!(validate_manifest_bytes(&bytes), Err(InputError::InvalidJsonOrSchema));
+        assert_eq!(
+            validate_manifest_bytes(&bytes),
+            Err(InputError::InvalidJsonOrSchema)
+        );
     }
 
     #[test]
@@ -772,7 +807,10 @@ mod tests {
                 "legal_review":false
             }
         }"#;
-        assert_eq!(validate_manifest_bytes(bytes), Err(InputError::InvalidJsonOrSchema));
+        assert_eq!(
+            validate_manifest_bytes(bytes),
+            Err(InputError::InvalidJsonOrSchema)
+        );
     }
 
     #[test]
@@ -806,7 +844,10 @@ mod tests {
     #[test]
     fn rejects_missing_claim_ceiling() {
         let mut value = valid_synthetic_manifest();
-        value["artifact_refs"][0].as_object_mut().unwrap().remove("claim_ceiling");
+        value["artifact_refs"][0]
+            .as_object_mut()
+            .unwrap()
+            .remove("claim_ceiling");
         let bytes = serde_json::to_vec(&value).unwrap();
         assert_eq!(validate_manifest_bytes(&bytes), Err(InputError::InvalidJsonOrSchema));
     }
@@ -814,7 +855,10 @@ mod tests {
     #[test]
     fn rejects_missing_nonclaims() {
         let mut value = valid_synthetic_manifest();
-        value["artifact_refs"][0].as_object_mut().unwrap().remove("nonclaims");
+        value["artifact_refs"][0]
+            .as_object_mut()
+            .unwrap()
+            .remove("nonclaims");
         let bytes = serde_json::to_vec(&value).unwrap();
         assert_eq!(validate_manifest_bytes(&bytes), Err(InputError::InvalidJsonOrSchema));
     }
@@ -912,9 +956,11 @@ mod tests {
     #[test]
     fn rejects_contract_template_with_artifact_references() {
         let mut value = base_template();
-        value["artifact_refs"] = json!([
-            artifact("source", "sol_atlas", "Luminous-Dynamics/sol-atlas-leptos")
-        ]);
+        value["artifact_refs"] = json!([artifact(
+            "source",
+            "sol_atlas",
+            "Luminous-Dynamics/sol-atlas-leptos"
+        )]);
         let report = validate_value(&value);
         assert_eq!(report.disposition, Disposition::Reject);
         assert_has_code(&report, "template_contains_execution_artifacts");
