@@ -120,6 +120,33 @@ def encode_unicode_disputed_snapshot() -> bytes:
     )
 
 
+def encode_physical_artwork_kinds_snapshot() -> bytes:
+    """Encode all six appended physical/cultural asset-kind wire tags."""
+    assets = b"".join(
+        b"".join(
+            (
+                _string(f"art-resource-{index}"),
+                bytes([kind_tag]),
+                b"\x00",  # title absent
+                _u64(0),  # no external identifiers
+            )
+        )
+        for index, kind_tag in enumerate(range(7, 13))
+    )
+    empty_history = HISTORY_MAGIC + _u16(VERSION) + _u64(0)
+    return b"".join(
+        (
+            MAGIC,
+            _u16(VERSION),
+            _u64(6),
+            assets,
+            _u64(0),  # no split claims
+            _u64(len(empty_history)),
+            empty_history,
+        )
+    )
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -132,6 +159,9 @@ def main() -> int:
         "creator-asset-passport-v1.hex": encode_reference_snapshot(),
         "creator-asset-passport-v1-unicode-disputed.hex": (
             encode_unicode_disputed_snapshot()
+        ),
+        "creator-asset-passport-v1-physical-artwork-kinds.hex": (
+            encode_physical_artwork_kinds_snapshot()
         ),
     }
 
