@@ -23,32 +23,23 @@ fn main() -> ExitCode {
         return ExitCode::from(64);
     }
 
-    let metadata = match std::fs::metadata(&path) {
-        Ok(metadata) => metadata,
+    // Bound bytes read, rather than trusting metadata length alone. A file
+    // can grow between metadata() and read(); take(MAX+1) caps memory even
+    // under that race and lets the validator reject an oversized input.
+    let file = match std::fs::File::open(&path) {
+        Ok(file) => file,
         Err(_) => {
             eprintln!("input.read_failed");
             return ExitCode::from(74);
         }
     };
-    if metadata.len() > MAX_ENVELOPE_BYTES as u64 {
-        let validator = match EnvelopeValidator::from_embedded() {
-            Ok(validator) => validator,
-            Err(_) => {
-                eprintln!("validator.initialization_failed");
-                return ExitCode::from(70);
-            }
-        };
-        let report = validator.validate_bytes(&vec![0; MAX_ENVELOPE_BYTES + 1]);
-        emit(&report);
-        return ExitCode::from(2);
+    let mut bytes = Vec::with_capacity(MAX_ENVELOPE_BYTES.min(64 * 1024));
+    let read_result = std::io::Read::take(file, (MAX_ENVELOPE_BYTES + 1) as u64)
+        .read_to_end(&mut bytes);
+    if read_result.is_err() {
+        eprintln!("input.read_failed");
+        return ExitCode::from(74);
     }
-    let bytes = match std::fs::read(&path) {
-        Ok(bytes) => bytes,
-        Err(_) => {
-            eprintln!("input.read_failed");
-            return ExitCode::from(74);
-        }
-    };
     let validator = match EnvelopeValidator::from_embedded() {
         Ok(validator) => validator,
         Err(_) => {
