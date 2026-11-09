@@ -3,6 +3,7 @@
 //! This crate checks structural invariants only. It is not a rights registry,
 //! identity provider, signature verifier, legal opinion, or proof of ownership.
 
+pub mod derivation;
 pub mod history;
 pub mod import_ledger;
 pub mod passport_envelope;
@@ -89,6 +90,7 @@ string_id!(AssetId);
 string_id!(PartyId);
 string_id!(GrantId);
 string_id!(EventId);
+string_id!(DerivationId);
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum AssetKind {
@@ -98,6 +100,12 @@ pub enum AssetKind {
     Release,
     VisualAsset,
     LivePerformance,
+    PhysicalArtwork,
+    ArtworkEdition,
+    ArtworkComponent,
+    DigitalRepresentation,
+    DocumentationAsset,
+    DerivedArtifact,
 }
 
 /// Typed identifiers prevent a work identifier from being silently treated as
@@ -523,6 +531,38 @@ pub enum UseAction {
     TrainModel,
     GenerateDerivative,
     SynthesizeVoiceOrLikeness,
+    Capture,
+    Preserve,
+    Transform,
+    Index,
+    Embed,
+    Retrieve,
+    Display,
+    Export,
+    EvaluateModel,
+    GenerateThumbnail,
+    RunOcr,
+    CreateCaption,
+    CreateEmbedding,
+    ReconstructMesh,
+    ReconstructPointCloud,
+}
+
+impl UseAction {
+    /// True only for actions that create a new representation or derived asset.
+    /// The exact operation remains part of the grant scope.
+    pub fn is_derivation_operation(self) -> bool {
+        matches!(
+            self,
+            Self::GenerateDerivative
+                | Self::GenerateThumbnail
+                | Self::RunOcr
+                | Self::CreateCaption
+                | Self::CreateEmbedding
+                | Self::ReconstructMesh
+                | Self::ReconstructPointCloud
+        )
+    }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
