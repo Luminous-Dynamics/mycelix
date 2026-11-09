@@ -63,3 +63,27 @@ The Rust suite also includes metamorphic tests that do not depend on a single ha
 - Inserting a qualified common ancestor changes the result from no declared common domain to shared dependency; making that edge stale produces unknown, never a clean independent result.
 
 These are metamorphic software properties, not statistical independence or physical fault-injection results.
+
+
+## Civil-domain consumer profiles
+
+The same graph evaluator is now exercised by a separate civil-domain integration test module, without changing the graph vocabulary or adding a second implementation:
+
+- **UAS:** two RF observation feeds with distinct immediate collectors but one shared collector ancestor (collector).
+- **Maritime:** AIS and radar processing paths with distinct immediate pipelines but one shared port-correlation platform (data_pipeline).
+- **Civil aviation:** ADS-B and MLAT paths with separate clock domains but a shared airport power bus. A clock query remains NO_DECLARED_COMMON_DOMAIN; a power query returns SHARED_DEPENDENCY.
+- **Positive control:** a complete inventory with no common ancestor remains NO_DECLARED_COMMON_DOMAIN; the report claim ceiling explicitly says this is not proof of physical/statistical independence.
+
+Each Rust civil-domain profile also passes the existing separate Rust reference traversal. The Go standard-library verifier has matching profile tests and verifies the same report contract.
+
+## Parser and byte-boundary hardening
+
+Input and report parsing is strict in both language implementations:
+- duplicate JSON object keys are rejected at every nesting level;
+- unknown input fields are rejected (Rust uses deny_unknown_fields; Go uses DisallowUnknownFields);
+- multiple trailing JSON values are rejected;
+- Rust CLI reads use a capped Read::take(max+1) rather than a metadata-then-unbounded-read sequence; Go uses io.LimitReader.
+
+The parser changes remain subject to exact-head workflow results on the integration PR. A passing parser test proves only deterministic interpretation of supplied JSON bytes, not issuer authenticity.
+
+Follow-on integration: [#5997 — civil-domain hypergraph and parser integrity](https://github.com/Luminous-Dynamics/mycelix/issues/5997).
