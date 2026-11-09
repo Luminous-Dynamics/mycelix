@@ -27,7 +27,9 @@
     "initial_targets",
     "outputs",
     "research_basis",
-    "evaluation_layers"
+    "evaluation_layers",
+    "multilingual_extension",
+    "jurisdictional_context"
   ],
   "properties": {
     "protocol_id": {
@@ -413,6 +415,119 @@
             "type": "string",
             "minLength": 20
           }
+        }
+      }
+    },
+    "multilingual_extension": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "initial_text_profiles",
+        "profile_selection_rule",
+        "required_controls",
+        "sign_language_pathway",
+        "compose_with"
+      ],
+      "properties": {
+        "status": {
+          "type": "string",
+          "minLength": 20
+        },
+        "initial_text_profiles": {
+          "type": "array",
+          "minItems": 5,
+          "uniqueItems": true,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "tag",
+              "name"
+            ],
+            "properties": {
+              "tag": {
+                "type": "string",
+                "minLength": 4
+              },
+              "name": {
+                "type": "string",
+                "minLength": 3
+              }
+            }
+          }
+        },
+        "profile_selection_rule": {
+          "type": "string",
+          "minLength": 30
+        },
+        "required_controls": {
+          "type": "array",
+          "minItems": 7,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 10
+          }
+        },
+        "sign_language_pathway": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "name",
+            "modality",
+            "status",
+            "required_expertise"
+          ],
+          "properties": {
+            "name": {
+              "type": "string",
+              "minLength": 3
+            },
+            "modality": {
+              "type": "string",
+              "minLength": 3
+            },
+            "status": {
+              "type": "string",
+              "minLength": 20
+            },
+            "required_expertise": {
+              "type": "string",
+              "minLength": 10
+            }
+          }
+        },
+        "compose_with": {
+          "type": "array",
+          "minItems": 5,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "format": "uri"
+          }
+        }
+      }
+    },
+    "jurisdictional_context": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "country",
+        "constitutional_reference",
+        "source_note"
+      ],
+      "properties": {
+        "country": {
+          "const": "South Africa"
+        },
+        "constitutional_reference": {
+          "type": "string",
+          "format": "uri"
+        },
+        "source_note": {
+          "type": "string",
+          "minLength": 20
         }
       }
     }
