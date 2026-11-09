@@ -1,0 +1,199 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:luminous-dynamics:maritime-commons:cross-stack-oracle-inputs:0.1.0",
+  "title": "Maritime Commons Cross-Stack Synthetic Owner-Result Fixtures v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "corpus_id",
+    "profile_id",
+    "status",
+    "source_corpus_path",
+    "source_corpus_git_blob_sha1",
+    "case_count",
+    "claim_ceiling",
+    "cases"
+  ],
+  "properties": {
+    "corpus_id": {
+      "const": "MCB-CROSS-STACK-0.1"
+    },
+    "profile_id": {
+      "const": "maritime-cross-stack-golden-trace-0.1"
+    },
+    "status": {
+      "const": "synthetic_owner_result_fixtures_not_executed"
+    },
+    "source_corpus_path": {
+      "const": "mycelix-workspace/docs/maritime-stay/integration/cross-stack-golden-traces-v0.1.json"
+    },
+    "source_corpus_git_blob_sha1": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{40}$"
+    },
+    "case_count": {
+      "type": "integer",
+      "minimum": 30
+    },
+    "claim_ceiling": {
+      "type": "string",
+      "minLength": 1
+    },
+    "cases": {
+      "type": "array",
+      "minItems": 30,
+      "items": {
+        "$ref": "#/$defs/Case"
+      }
+    }
+  },
+  "$defs": {
+    "Case": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "case_id",
+        "owner_outputs",
+        "gate_observations",
+        "expected_stay_disposition"
+      ],
+      "properties": {
+        "case_id": {
+          "type": "string",
+          "pattern": "^MCB-X-[0-9]{3}$"
+        },
+        "owner_outputs": {
+          "$ref": "#/$defs/OwnerOutputs"
+        },
+        "gate_observations": {
+          "$ref": "#/$defs/GateObservations"
+        },
+        "expected_stay_disposition": {
+          "$ref": "#/$defs/StayDisposition"
+        }
+      }
+    },
+    "OwnerOutputs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_context",
+        "feasibility",
+        "decision",
+        "commitment",
+        "dependency",
+        "provider_effect_evidence",
+        "model_action_authority"
+      ],
+      "properties": {
+        "source_context": {
+          "enum": [
+            "qualified",
+            "stale",
+            "unknown",
+            "unsupported",
+            "conflict",
+            "not_applicable"
+          ]
+        },
+        "feasibility": {
+          "enum": [
+            "feasible",
+            "infeasible",
+            "unknown",
+            "unsupported",
+            "conflict",
+            "not_evaluated"
+          ]
+        },
+        "decision": {
+          "enum": [
+            "recommend",
+            "abstain",
+            "request_information",
+            "human_review",
+            "not_evaluated"
+          ]
+        },
+        "commitment": {
+          "enum": [
+            "present",
+            "absent",
+            "pending",
+            "needs_reconciliation",
+            "conflict",
+            "not_evaluated"
+          ]
+        },
+        "dependency": {
+          "enum": [
+            "shared_dependency",
+            "unknown_dependency",
+            "no_declared_common_domain",
+            "not_evaluated"
+          ]
+        },
+        "provider_effect_evidence": {
+          "enum": [
+            "none",
+            "receipt_present",
+            "provider_state_unavailable",
+            "not_applicable"
+          ]
+        },
+        "model_action_authority": {
+          "enum": [
+            "none",
+            "attempted",
+            "granted",
+            "unknown"
+          ]
+        }
+      }
+    },
+    "GateObservations": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "required_handoffs_complete",
+        "hard_gate_failure",
+        "provider_commitment_revoked",
+        "cross_owner_conflict",
+        "privacy_violation",
+        "offline_partition"
+      ],
+      "properties": {
+        "required_handoffs_complete": {
+          "type": "boolean"
+        },
+        "hard_gate_failure": {
+          "type": "boolean"
+        },
+        "provider_commitment_revoked": {
+          "type": "boolean"
+        },
+        "cross_owner_conflict": {
+          "type": "boolean"
+        },
+        "privacy_violation": {
+          "type": "boolean"
+        },
+        "offline_partition": {
+          "type": "boolean"
+        }
+      }
+    },
+    "StayDisposition": {
+      "enum": [
+        "confirmed",
+        "rejected",
+        "pending",
+        "unknown",
+        "conflict",
+        "needs_reconciliation",
+        "not_evaluated",
+        "incomparable"
+      ]
+    }
+  }
+}
