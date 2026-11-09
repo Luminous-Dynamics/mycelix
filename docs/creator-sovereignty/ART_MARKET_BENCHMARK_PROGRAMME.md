@@ -45,6 +45,17 @@ Build standards adapters before proprietary schema proliferation:
 
 Cryptographic integrity proves that a record has not changed and who signed it; it does not prove the claim is true, the issuer is competent, or the legal title is valid.
 
+## 3.1 Cultural governance and permission interoperability
+
+The physical-artwork extension must support community-defined protocols without assuming that all cultural objects share one governance model. For Indigenous data governance, the CARE Principles (Collective Benefit, Authority to Control, Responsibility, Ethics) complement technical FAIR interoperability; they are not a machine-readable license. Where communities choose Local Contexts TK/BC Labels, preserve the permanent label identifier, label title, community-customized description, language/translation, provenance and source status.
+
+**Critical semantic boundary:** a community label communicates governance context and expectations; it is not automatically a universal executable permission, copyright determination or proof of legal authority. The system must retain the community's own decision process and require an exact, operation-scoped decision from the appropriate community-designated authority where such authorization is required. Never infer permission to index, embed, train, commercialize or disclose sensitive context from public access, museum custody or a label alone.
+
+References:
+- [Global Indigenous Data Alliance — CARE Principles](https://www.gida-global.org/careprinciples)
+- [Local Contexts — TK/BC Labels](https://localcontexts.org/labels/about-the-labels/)
+- [Local Contexts — community label workflow](https://localcontexts.org/support/working-with-labels/)
+
 ## 4. Benchmark ladder
 
 ### A. Passport integrity and interoperability
