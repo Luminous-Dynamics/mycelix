@@ -194,6 +194,23 @@ Sensitive location, owner identity, contractual terms and restricted cultural co
 
 The system should support community-defined vocabulary, consent and review workflows without assuming that all cultural materials share the same governance model. A restricted cultural object should not become globally searchable merely because a public surrogate exists.
 
+### 9.1 Community governance signals and CARE/Local Contexts
+
+The policy profile should be compatible with the **CARE Principles for Indigenous Data Governance** (Collective Benefit, Authority to Control, Responsibility, Ethics) alongside FAIR-style technical interoperability. CARE is not a machine permission language and must not be reduced to four Boolean fields; it is a people- and purpose-centred governance framework that requires community-defined processes and accountability.
+
+Where a community chooses to use **Local Contexts Traditional Knowledge (TK) or Biocultural (BC) Labels**, CSCP should preserve:
+- the exact label identifier, label version and issuing/community source;
+- the community or group identified as the primary cultural authority, where stated;
+- associated protocol and permission notices;
+- a pointer to the community's own governance process and contact/decision route, subject to access controls;
+- the time of observation, language and provenance of the label metadata;
+- whether the signal is verified, community-issued, imported, expired or disputed under the source system's own status semantics.
+
+These labels communicate community-specific rules, responsibilities and expectations about sharing and future use. They MUST NOT be interpreted by CSCP as a universal, self-executing legal grant, denial or proof of who holds legal copyright/title. A label is a governance signal and context reference; the operation-specific CSCP decision still requires the relevant community-defined authority/process and exact resource/action scope. Missing or ambiguous authority remains non-permissive. Different communities may choose different protocols, roles, wording and decision processes; the software must not impose one universal cultural ontology.
+
+Community authority must be able to define who may issue, amend, withdraw or supersede a policy for its own materials. That authority is not inferred from an artist's identity, museum custody, state registration, platform account or a cryptographic signature alone. A public label or public exhibition does not imply permission for embedding, model training, commercial reuse or disclosure of sensitive context.
+
+
 ## 10. Threat model and negative controls
 
 At minimum, test:
