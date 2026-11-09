@@ -1,6 +1,7 @@
 use emsr_dependency_hypergraph::{
-    evaluate_bytes, AssertionState, DependencyDomain, DependencyHyperedge, DependencyQuery,
-    Disposition, HypergraphInput, InventorySnapshot, Node, NodeKind, INPUT_CONTRACT,
+    evaluate_bytes, independently_verify, AssertionState, DependencyDomain, DependencyHyperedge,
+    DependencyQuery, Disposition, HypergraphInput, InventorySnapshot, Node, NodeKind,
+    INPUT_CONTRACT,
 };
 use serde_json::to_vec;
 
@@ -66,7 +67,12 @@ fn input(
 }
 
 fn evaluate(value: &HypergraphInput) -> emsr_dependency_hypergraph::EvaluationReport {
-    evaluate_bytes(&to_vec(value).expect("serialize synthetic civil profile"))
+    let input_bytes = to_vec(value).expect("serialize synthetic civil profile");
+    let report = evaluate_bytes(&input_bytes);
+    let report_bytes = to_vec(&report).expect("serialize synthetic civil report");
+    let verification = independently_verify(&input_bytes, &report_bytes);
+    assert_eq!(verification.status, "verified");
+    report
 }
 
 #[test]
