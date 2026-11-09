@@ -1,5 +1,5 @@
 use emsr_causal_intervention_benchmark::{
-    EvaluationScore, HiddenTruth, PublicInput, CandidateReport,
+    EvaluationScore, HiddenTruth, PublicInput,
     evaluate_public_bytes, hidden_truth_commitment_sha256, score_candidate,
 };
 use jsonschema::draft202012;
