@@ -6,6 +6,7 @@ on:
       - "mycelix-workspace/mycelix-praxis/docs/research/GCPN_AWARENESS_INDUSTRY_COMPARISON_V0_1.md"
       - "mycelix-workspace/mycelix-praxis/docs/research/GCPN_AWARENESS_INDUSTRY_COMPARISON_CASES_V0_1.json"
       - "mycelix-workspace/mycelix-praxis/docs/research/GCPN_AWARENESS_INDUSTRY_COMPARISON_PRELIMINARY_DESK_REVIEW_V0_1.md"
+      - "mycelix-workspace/mycelix-praxis/docs/research/GCPN_CIVIL_ATOMIC_METRIC_CATALOG_V0_1.json"
       - "tools/gcpn-civil-autonomous-awareness-verifier/**"
       - "tools/gcpn-track-a-replay-evaluator/**"
       - "mycelix-workspace/mycelix-praxis/docs/research/GCPN_CIV_AUTONOMOUS_AWARENESS_CASES_V0_1.json"
@@ -58,6 +59,22 @@ jobs:
             (.tracks[] | select(.id == "TRACK_A") | .scores_physical_sensor_detection == false and .same_frozen_event_envelopes_required == true) and
             (.tracks[] | select(.id == "TRACK_B") | .status == "blocked_pending_site_legal_professional_and_ground_truth_approval" and .field_permission_required == true)
           ' mycelix-workspace/mycelix-praxis/docs/research/GCPN_AWARENESS_INDUSTRY_COMPARISON_CASES_V0_1.json >/dev/null
+      - name: Validate atomic denominator-pinned metric catalogue
+        shell: bash
+        run: |
+          jq -e '
+            .schema == "luminous.gcpn.civil_atomic_metric_catalog.v0.1" and
+            .version == "0.1.0" and
+            .state == "METRIC_DEFINITIONS_ONLY_NO_RESULTS" and
+            .metric_count == 27 and
+            (.metrics | length == 27) and
+            ([.metrics[].id] | unique | length) == 27 and
+            ([.metrics[] | has("numerator") and has("denominator") and has("truth") and has("not_evaluable") and has("comparison")] | all) and
+            .aggregation_policy.composite_allowed == false and
+            .aggregation_policy.default == "PUBLISH_ATOMIC_METRICS_ONLY" and
+            (.non_compensatory_hard_gates | length >= 5)
+          ' mycelix-workspace/mycelix-praxis/docs/research/GCPN_CIVIL_ATOMIC_METRIC_CATALOG_V0_1.json >/dev/null
+
       - name: Check verifier formatting
         run: cargo fmt --manifest-path tools/gcpn-awareness-industry-comparison-verifier/Cargo.toml --all -- --check
       - name: Run strict schema and adversarial tests
