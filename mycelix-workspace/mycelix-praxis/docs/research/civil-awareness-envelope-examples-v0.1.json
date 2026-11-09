@@ -58,11 +58,10 @@
           "synthetic_schema_test"
         ],
         "retention_class": "public_fixture",
-        "field_allowlist_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-        "policy_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        "field_allowlist_digest": "sha256:49403e5baa15d265cbfc1c03d2596e702109119923dd09e81cca797934614469"
       },
       "lineage": {
-        "payload_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "payload_digest": "sha256:c94e4f5aaa8992945fc4d10df5f5e642618861120426d6cc9dd6de3beaf3b19a",
         "supersedes_refs": [],
         "corrects_refs": []
       },
@@ -131,11 +130,10 @@
           "synthetic_schema_test"
         ],
         "retention_class": "public_fixture",
-        "field_allowlist_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-        "policy_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        "field_allowlist_digest": "sha256:49403e5baa15d265cbfc1c03d2596e702109119923dd09e81cca797934614469"
       },
       "lineage": {
-        "payload_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "payload_digest": "sha256:24f1f26876779edb94b8d4dbbe5cb02f5aa23bafad3f91f57a283a6aacd3da12",
         "supersedes_refs": [],
         "corrects_refs": []
       },
@@ -206,11 +204,10 @@
           "synthetic_schema_test"
         ],
         "retention_class": "public_fixture",
-        "field_allowlist_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-        "policy_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        "field_allowlist_digest": "sha256:49403e5baa15d265cbfc1c03d2596e702109119923dd09e81cca797934614469"
       },
       "lineage": {
-        "payload_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "payload_digest": "sha256:06fa165216fb01541974b682f8795300d64c7547faa75c528db68131bd6ac557",
         "supersedes_refs": [],
         "corrects_refs": []
       },
