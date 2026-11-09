@@ -1,7 +1,7 @@
 use emsr_causal_intervention_benchmark::{
     CandidateDisposition, CandidateReport, HiddenCausalPath, HiddenTruth, InterventionPlan,
-    PublicInput, ResponseState, TimeMapping, Trial, TrialArm, TrialObservation,
-    TRUTH_CONTRACT, evaluate_public_bytes, hidden_truth_commitment_sha256, score_candidate,
+    PublicInput, ResponseState, TRUTH_CONTRACT, TimeMapping, Trial, TrialArm, TrialObservation,
+    evaluate_public_bytes, hidden_truth_commitment_sha256, score_candidate,
 };
 
 fn public_input(active_degraded: &[&str], sham_degraded: &[&str]) -> PublicInput {
@@ -104,7 +104,10 @@ fn report_bytes(input: &PublicInput) -> (Vec<u8>, CandidateReport) {
     (bytes, report)
 }
 
-fn score(input: &PublicInput, truth: &HiddenTruth) -> emsr_causal_intervention_benchmark::EvaluationScore {
+fn score(
+    input: &PublicInput,
+    truth: &HiddenTruth,
+) -> emsr_causal_intervention_benchmark::EvaluationScore {
     let public_bytes = serde_json::to_vec(input).expect("public input JSON");
     let (report_bytes, _) = report_bytes(input);
     let truth_bytes = serde_json::to_vec(truth).expect("hidden truth JSON");
@@ -147,20 +150,15 @@ fn no_declared_causal_paths_and_no_active_effect_is_a_scoped_true_negative() {
 
 #[test]
 fn sham_response_is_a_nuisance_control_and_forces_abstention() {
-    let input = public_input(
-        &["endpoint-a", "endpoint-b"],
-        &["endpoint-a", "endpoint-b"],
-    );
+    let input = public_input(&["endpoint-a", "endpoint-b"], &["endpoint-a", "endpoint-b"]);
     let report = evaluate_public_bytes(&serde_json::to_vec(&input).unwrap());
     assert_eq!(
         report.disposition,
         CandidateDisposition::IndeterminateInterventionCoverage
     );
-    assert!(
-        report.reasons.iter().any(|reason| {
-            reason == "sham_trial_response_indicates_nuisance_or_noncausal_correlation"
-        })
-    );
+    assert!(report.reasons.iter().any(|reason| {
+        reason == "sham_trial_response_indicates_nuisance_or_noncausal_correlation"
+    }));
     let evaluated = score(&input, &hidden_truth(&["endpoint-a", "endpoint-b"]));
     assert!(evaluated.abstained);
     assert!(!evaluated.false_independence_claim);
@@ -208,7 +206,10 @@ fn receive_delay_does_not_rewrite_event_time_or_change_the_decision() {
     }
     let delayed = evaluate_public_bytes(&serde_json::to_vec(&input).unwrap());
     assert_eq!(original.disposition, delayed.disposition);
-    assert_eq!(original.responsive_source_ids, delayed.responsive_source_ids);
+    assert_eq!(
+        original.responsive_source_ids,
+        delayed.responsive_source_ids
+    );
     assert_ne!(original.input_sha256, delayed.input_sha256);
 }
 
