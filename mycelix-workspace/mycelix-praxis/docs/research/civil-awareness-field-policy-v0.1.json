@@ -5,7 +5,12 @@
     "encoding": "UTF-8",
     "digest_algorithm": "SHA-256",
     "json_payload_serialization": "RFC 8785 JSON Canonicalization Scheme",
-    "digest_format": "sha256:<64 lowercase hexadecimal characters>"
+    "digest_format": "sha256:<64 lowercase hexadecimal characters>",
+    "digest_semantics": {
+      "field_allowlist_digest": "SHA-256 over the exact UTF-8 bytes of this field-policy artifact.",
+      "payload_digest": "SHA-256 over RFC 8785 canonical JSON bytes of domain_extension.payload.",
+      "envelope_content_digest": "SHA-256 over RFC 8785 canonical JSON bytes of the entire envelope object after removing the lineage member; this avoids self-reference and binds all source, time, claim, quality, dependency, spatial and governance fields."
+    }
   },
   "common_envelope_allowlist": [
     "schema_version",
