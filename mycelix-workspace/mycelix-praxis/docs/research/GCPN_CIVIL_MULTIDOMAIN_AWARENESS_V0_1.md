@@ -343,6 +343,33 @@ Do not compare unlike systems by headline detection percentages. Use the same au
 
 An assurance layer can outperform an incumbent workflow without exceeding its radar/ADS-B detection performance, but only if it improves a declared outcome at matched event coverage and does not degrade false-association risk, evidence integrity, rights or human authority. Publish separate Pareto dimensions; never hide a safety-critical regression inside a composite score.
 
+## 6.10 UAS DTI metric crosswalk — CWA 18150:2024
+
+CWA 18150:2024 is a **CEN Workshop Agreement**, not an official CEN standard; its foreword says so explicitly. It is a useful scenario/test-method reference for detection, tracking and identification, not a certification grant. The text is copyrighted; this project does not reproduce it or claim conformity.
+
+Adopt the metric decomposition as an atomic scorecard crosswalk:
+
+| Function | CWA 18150 metric family | Luminous reporting / safeguard |
+|---|---|---|
+| Detection | 2D/3D location accuracy, range ratio, precision | Report detection probability by declared size/range/environment stratum, false alarms per monitor-hour and site-day, missed events, precision/recall and location error conditional on correctly matched targets. Preserve no-target exposure in the denominator. |
+| Tracking | Track completeness, continuity, ambiguity, spuriousness, velocity accuracy, positional accuracy, longest track segment, tracking immediateness | Report fraction of object-time represented, track switches/fragmentation, simultaneous competing tracks, time-weighted false tracks, RMS position/velocity error, longest uninterrupted segment and time to first associated track. |
+| Identification | F1, false-alarm rate, missed-alarm rate, probability of detection | Report class-wise precision/recall/F1 and confusion matrix; separate wrong class, unknown class and abstention. Never convert vendor hostile/friendly or intent labels into ground truth. |
+| Evidence assurance (Luminous extension) | Not a substitute for DTI physical metrics | Source-dependency completeness, false corroboration, provenance, calibration/time/freshness, correction lineage, risk–coverage and human-review burden. |
+
+Important denominator distinction: CWA's identification FAR is a fraction of false alarms among alarms. Also report operational false alarms per monitored hour/site-day and the time/exposure denominator; those are not interchangeable. Probability of detection must be stratified by target size, distance and atmospheric/environmental conditions. Where no independently adjudicated truth exists, mark the metric NOT EVALUABLE rather than scoring against AIS/vendor assertions.
+
+The CWA describes metric-level normalization and optional component-level weighting/aggregation. Luminous should publish all raw metrics, strata, uncertainty and thresholds. A composite may be shown only as a secondary, fully disclosed view with frozen weights; it must never compensate for a false-independence claim, privacy/rights breach, authority promotion or other hard-gate failure.
+
+Primary references: [CEN CWA 18150:2024 full text](https://www.cencenelec.eu/media/CEN-CENELEC/CWAs/ICT/cwa-18150.pdf), [NEN current-version listing](https://www.nen.nl/en/cwa-18150-2024-en-330385). The CWA itself states on page 1 that it is not an official standard developed by CEN and its Members. Metric tables are on pp. 227–228.
+
+## 6.11 Current UAS dataset candidate rights and generalization limits
+
+- **Dataset_Drones_Bluetooth_Wifi v1 — candidate / RIGHTS_CLEARED_FOR_CC_BY_4.0 DATASET LICENSE, subject to exact-file audit.** Mendeley Data version 1 explicitly lists CC BY 4.0. It contains 6,842 spectrograms and 22,375 YOLO annotations, but the drone class is specifically DJI Phantom 4 Pro active video-link emission, and the data is 2.4 GHz with indoor/semi-controlled coexistence. It is not a general multi-platform UAS detector corpus or a flight/track ground-truth set. Preserve attribution and audit the exact archive, README, capture-session grouping and derived-model/data conditions before use. Source: [Mendeley dataset v1](https://data.mendeley.com/datasets/y4w96kzsb5/1).
+- **TSMS-Drone v1 — RIGHTS_PENDING until the Figshare+ item itself is inspected.** The paper describes synchronized FMCW radar, CW radar and RF measurements for four commercial drone types plus one non-drone target, 2–30 m in controlled repeated conditions, and a Figshare+ DOI. A separate 2026 paper reports its external validation data under CC BY 4.0, but that does not replace verifying the dataset's own license and exact file rights. Paper/data references: [Scientific Data descriptor](https://www.nature.com/articles/s41597-026-06802-6), [Figshare+ item](https://doi.org/10.25452/figshare.plus.30027313.v1).
+- **DRFF-R2 — RIGHTS_PENDING / non-commercial-no-derivatives.** The 22 October 2026 Scientific Data article reports 26 UAV units across eight models and seven subsets, but the article is CC BY-NC-ND 4.0. Do not assume commercial training, adaptation, derivative dataset creation or transformed feature redistribution is permitted. Seek a separate data-owner grant before any Luminous use. Source: [Scientific Data descriptor](https://www.nature.com/articles/s41597-026-08490-8).
+
+Never treat an open-access paper licence as the data file licence. Dataset admission requires the exact landing-page licence/version, archive digest, file list, rights owner and intended-use fit. Keep controlled, lab-based, single-platform datasets separated from outdoor/multi-sensor/field conditions; a score on one is not cross-domain SOTA evidence.
+
 ## 7. South African legal and regulatory gate
 
 The current ICASA public guidance describes spectrum-licensing requirements under ECA section 31 and equipment type approval under section 35, with statutory exceptions and regulatory determinations. Do not infer that passive reception is automatically licence-free, that an imported unit is type-approved, or that a foreign vendor's wording settles South African legality.
