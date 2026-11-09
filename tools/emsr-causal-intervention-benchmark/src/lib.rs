@@ -216,7 +216,10 @@ fn valid_public_input(input: &PublicInput) -> Vec<String> {
         .collect();
     if input.expected_source_ids.len() < 2
         || unique_sources.len() != input.expected_source_ids.len()
-        || input.expected_source_ids.iter().any(|id| id.trim().is_empty())
+        || input
+            .expected_source_ids
+            .iter()
+            .any(|id| id.trim().is_empty())
     {
         errors.push("expected_source_inventory_invalid".to_owned());
     }
@@ -230,9 +233,13 @@ fn valid_public_input(input: &PublicInput) -> Vec<String> {
             || !valid_digest(&trial.randomization_receipt_sha256)
             || trial.observation_start_tai_ns > trial.observation_end_tai_ns
             || trial.observation_start_tai_ns
-                < trial.injection_time_tai_ns.saturating_add(plan.minimum_latency_ns)
+                < trial
+                    .injection_time_tai_ns
+                    .saturating_add(plan.minimum_latency_ns)
             || trial.observation_end_tai_ns
-                > trial.injection_time_tai_ns.saturating_add(plan.maximum_latency_ns)
+                > trial
+                    .injection_time_tai_ns
+                    .saturating_add(plan.maximum_latency_ns)
         {
             errors.push(format!("trial_{}_invalid_or_duplicate", trial.trial_id));
         }
@@ -246,7 +253,10 @@ fn valid_public_input(input: &PublicInput) -> Vec<String> {
     let mut observation_keys = BTreeSet::new();
     let mut source_sequences: BTreeMap<&str, u64> = BTreeMap::new();
     for observation in &input.observations {
-        let key = (observation.trial_id.as_str(), observation.source_id.as_str());
+        let key = (
+            observation.trial_id.as_str(),
+            observation.source_id.as_str(),
+        );
         if !observation_keys.insert(key) {
             errors.push(format!(
                 "observation_{}_{}_duplicated",
@@ -309,7 +319,12 @@ pub fn evaluate_public_bytes(public_bytes: &[u8]) -> CandidateReport {
     let input = match serde_json::from_slice::<PublicInput>(public_bytes) {
         Ok(value) => value,
         Err(_) => {
-            return invalid_report(input_sha256, String::new(), String::new(), "public_input_parse_failed");
+            return invalid_report(
+                input_sha256,
+                String::new(),
+                String::new(),
+                "public_input_parse_failed",
+            );
         }
     };
     evaluate_public(&input, input_sha256)
@@ -379,13 +394,11 @@ pub fn evaluate_public(input: &PublicInput, input_sha256: String) -> CandidateRe
             observation.time_mapping == TimeMapping::Qualified
                 && observation.state != ResponseState::Unobserved
         });
-    let sham_nuisance_detected = by_source.values().any(
-        |(_, _, sham_response, sham_count)| {
-            *sham_count > 0
-                && *sham_response * 1000
-                    > usize::from(plan.maximum_sham_response_rate_milli) * *sham_count
-        },
-    );
+    let sham_nuisance_detected = by_source.values().any(|(_, _, sham_response, sham_count)| {
+        *sham_count > 0
+            && *sham_response * 1000
+                > usize::from(plan.maximum_sham_response_rate_milli) * *sham_count
+    });
     if !coverage_complete {
         reasons.push("observation_coverage_incomplete_or_unqualified".to_owned());
     }
@@ -472,7 +485,11 @@ pub fn evaluate_public(input: &PublicInput, input_sha256: String) -> CandidateRe
 }
 
 fn hidden_common_cause_sources(input: &PublicInput, truth: &HiddenTruth) -> Vec<String> {
-    let expected: BTreeSet<&str> = input.expected_source_ids.iter().map(String::as_str).collect();
+    let expected: BTreeSet<&str> = input
+        .expected_source_ids
+        .iter()
+        .map(String::as_str)
+        .collect();
     let mut sources = BTreeSet::new();
     for path in &truth.causal_paths {
         if path.intervention_target_id == input.intervention.target_id
@@ -486,8 +503,7 @@ fn hidden_common_cause_sources(input: &PublicInput, truth: &HiddenTruth) -> Vec<
             && path.path_node_ids.first().map(String::as_str)
                 == Some(path.intervention_target_id.as_str())
             && path.path_node_ids.last().map(String::as_str) == Some(path.source_id.as_str())
-            && path.path_node_ids.iter().collect::<BTreeSet<_>>().len()
-                == path.path_node_ids.len()
+            && path.path_node_ids.iter().collect::<BTreeSet<_>>().len() == path.path_node_ids.len()
         {
             sources.insert(path.source_id.clone());
         }
@@ -504,16 +520,27 @@ pub fn hidden_truth_commitment_sha256(truth: &HiddenTruth) -> Result<String, Str
 }
 
 fn valid_candidate_report(input: &PublicInput, report: &CandidateReport) -> bool {
-    if report.responsive_source_ids.len() != report.responsive_source_ids.iter().collect::<BTreeSet<_>>().len()
+    if report.responsive_source_ids.len()
+        != report
+            .responsive_source_ids
+            .iter()
+            .collect::<BTreeSet<_>>()
+            .len()
         || report.contrasts.len() != input.expected_source_ids.len()
     {
         return false;
     }
-    let expected: BTreeSet<&str> = input.expected_source_ids.iter().map(String::as_str).collect();
+    let expected: BTreeSet<&str> = input
+        .expected_source_ids
+        .iter()
+        .map(String::as_str)
+        .collect();
     let mut contrasts = BTreeMap::new();
     for contrast in &report.contrasts {
         if !expected.contains(contrast.source_id.as_str())
-            || contrasts.insert(contrast.source_id.as_str(), contrast).is_some()
+            || contrasts
+                .insert(contrast.source_id.as_str(), contrast)
+                .is_some()
         {
             return false;
         }
@@ -533,13 +560,14 @@ fn valid_candidate_report(input: &PublicInput, report: &CandidateReport) -> bool
         let expected_sham_rate = if contrast.sham_trials == 0 {
             0
         } else {
-            ((contrast.sham_responses * 1000 + contrast.sham_trials / 2)
-                / contrast.sham_trials) as u16
+            ((contrast.sham_responses * 1000 + contrast.sham_trials / 2) / contrast.sham_trials)
+                as u16
         };
         let expected_responsive = contrast.active_trials > 0
             && contrast.sham_trials > 0
             && contrast.active_responses * 1000
-                >= usize::from(input.intervention.response_threshold_milli) * contrast.active_trials
+                >= usize::from(input.intervention.response_threshold_milli)
+                    * contrast.active_trials
             && contrast.sham_responses * 1000
                 <= usize::from(input.intervention.maximum_sham_response_rate_milli)
                     * contrast.sham_trials;
@@ -556,14 +584,26 @@ fn valid_candidate_report(input: &PublicInput, report: &CandidateReport) -> bool
     let expected_responders: Vec<String> = input
         .expected_source_ids
         .iter()
-        .filter(|source| contrasts.get(source.as_str()).is_some_and(|item| item.responsive))
+        .filter(|source| {
+            contrasts
+                .get(source.as_str())
+                .is_some_and(|item| item.responsive)
+        })
         .cloned()
         .collect();
     if report.responsive_source_ids != expected_responders {
         return false;
     }
-    let active_count = input.trials.iter().filter(|trial| trial.arm == TrialArm::Active).count();
-    let sham_count = input.trials.iter().filter(|trial| trial.arm == TrialArm::Sham).count();
+    let active_count = input
+        .trials
+        .iter()
+        .filter(|trial| trial.arm == TrialArm::Active)
+        .count();
+    let sham_count = input
+        .trials
+        .iter()
+        .filter(|trial| trial.arm == TrialArm::Sham)
+        .count();
     if report.tested_active_trials != active_count
         || report.tested_sham_trials != sham_count
         || report.observations_used > input.observations.len()
@@ -575,8 +615,7 @@ fn valid_candidate_report(input: &PublicInput, report: &CandidateReport) -> bool
             report.responsive_source_ids.len() >= 2
         }
         CandidateDisposition::NoCommonCauseDetectedWithinTestedEnvelope => {
-            report.responsive_source_ids.len() < 2
-                && report.reasons.is_empty()
+            report.responsive_source_ids.len() < 2 && report.reasons.is_empty()
         }
         CandidateDisposition::IndeterminateInterventionCoverage
         | CandidateDisposition::ObservationOrClockMappingInvalid => true,
@@ -601,8 +640,7 @@ fn valid_hidden_truth(input: &PublicInput, truth: &HiddenTruth) -> bool {
                 != Some(path.intervention_target_id.as_str())
             || path.path_node_ids.last().map(String::as_str) != Some(path.source_id.as_str())
             || path.path_node_ids.iter().any(|node| node.trim().is_empty())
-            || path.path_node_ids.iter().collect::<BTreeSet<_>>().len()
-                != path.path_node_ids.len()
+            || path.path_node_ids.iter().collect::<BTreeSet<_>>().len() != path.path_node_ids.len()
         {
             return false;
         }
@@ -692,7 +730,8 @@ pub fn score_candidate(
         limitations: vec![
             "synthetic_hidden_topology_and_controlled_intervention_only".to_owned(),
             "non_detection_is_not_physical_or_statistical_independence".to_owned(),
-            "truth_commitment_shape_is_checked_but_signature_and_custody_are_not_authenticated".to_owned(),
+            "truth_commitment_shape_is_checked_but_signature_and_custody_are_not_authenticated"
+                .to_owned(),
         ],
     }
 }
