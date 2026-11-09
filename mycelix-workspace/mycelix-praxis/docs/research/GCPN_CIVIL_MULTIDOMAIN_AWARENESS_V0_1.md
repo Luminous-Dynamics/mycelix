@@ -292,12 +292,26 @@ Reuse GCPN's existing paired event-cluster and known-DGP methodology rather than
 ## 6.5 Candidate public data: current rights posture
 
 Candidate availability is not a data license. Keep these statuses explicit:
-- **HAXR v1.1.0 / Zenodo 19824555 — RIGHTS_PENDING.** The record says Copyright, © 2026 German Aerospace Centre, and presents no open reuse license. Obtain written DLR permission before product research, redistribution, derivative extraction or benchmark admission. Its hourly chunking and strongly overlapping radar cycles also require source-station/hour grouping.
+- **HAXR v1.1.0 / Zenodo 19824555 — RIGHTS_PENDING.** DLR's official page explicitly lists **CC BY-NC-ND 3.0** for the 13-station X-band radar/AIS dataset. This is not a commercial-use or derivatives clearance for Luminous. Obtain written DLR permission or a separate commercial agreement before commercial research, feature extraction, derived benchmark creation or ingestion. The aligned AIS data is described by DLR as a pseudo-reference where applicable, not universally adjudicated ground truth. The hourly chunking, UTC time-of-day/cycle groupings and overlapping radar stations require capture/station/hour dependency grouping.
 - **MMDEC v1 / Zenodo 17491518 — RIGHTS_PENDING.** The Zenodo license field is blank; OpenAIRE indexes the record as CC BY-NC-SA and the article as CC BY-NC. That is not a commercial-use grant to Luminous. Obtain written confirmation of dataset and component-source rights before admission.
 - **OpenSky historical data / API — RIGHTS_PENDING for Luminous.** OpenSky states that for-profit/commercial use needs a written license and operational REST API integration needs a written agreement. Evaluate any curated dataset and supplemental terms separately.
 - **NASA ASRS — distinct evidence type.** Its de-identified voluntary safety reports may help build event taxonomies and human-review fixtures, but they are not sensor tracks or ground-truth aircraft positions. Confirm download/reuse/derived-data conditions before use.
 
 Until rights are cleared, use synthetic fixtures and independently authored data only. See the admission registers #5993 and #5994.
+
+
+
+## 6.6 Maritime spatial-reference standard snapshot (9 November 2026)
+
+Pin IHO editions and their applicability by publication/effective status, not a generic "S-100 compatible" boolean. The IHO Standards-in-Force page (updated 29 October 2026) lists:
+- S-100 Edition 5.2.1 (in force 1 January 2026);
+- S-101 Edition 2.0.0, S-102 Edition 3.0.0, S-104 Edition 2.0.0, S-111 Edition 2.0.0;
+- S-124 Edition 2.0.0, S-128 Edition 2.0.0 and S-129 Edition 2.0.0 (in force 1 January 2026);
+- S-122, S-123, S-127 and S-131 Edition 2.0.0 (listed with entry into force 10 October 2026).
+
+The broader IHO publications page lists S-97 Edition 2.0.0 (November 2026) and S-98 Edition 3.0.0 (November 2026), while the standards-in-force page notes Edition 2.0.0 as the initial operational S-98 version. Record release status, applicability and transition notes per source; do not silently treat publication as mandatory entry into force. These are spatial/data-product interoperability references, not permission for Luminous to issue navigational instructions or replace type-approved ECDIS.
+
+Primary sources: [IHO Standards in Force](https://iho.int/fr/standards-in-force-0) and [IHO Standards and Specifications](https://iho.int/standards-and-specifications).
 
 ## 7. South African legal and regulatory gate
 
