@@ -52,3 +52,40 @@ fn write_json(path: &str, value: &impl serde::Serialize) -> Result<(), String> {
     let bytes = serde_json::to_vec_pretty(value).map_err(|e| e.to_string())?;
     fs::write(path, bytes).map_err(|e| format!("cannot write {path}: {e}"))
 }
+
+
+#[cfg(test)]
+mod tests {
+    use super::read_bounded;
+    use std::fs;
+    use std::path::PathBuf;
+
+    #[test]
+    fn bounded_reader_rejects_files_larger_than_sixteen_mib() {
+        const LIMIT: usize = 16 * 1024 * 1024;
+        let mut path = PathBuf::from(std::env::temp_dir());
+        path.push(format!(
+            "emsr-dependency-hypergraph-oversize-{}-{}.json",
+            std::process::id(),
+            std::thread::current().name().unwrap_or("test")
+        ));
+        fs::write(&path, vec![b' '; LIMIT + 1]).expect("write temporary test input");
+        let result = read_bounded(path.to_str().expect("UTF-8 temporary path"));
+        let _ = fs::remove_file(&path);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn bounded_reader_accepts_small_files_without_metadata_precheck() {
+        let mut path = PathBuf::from(std::env::temp_dir());
+        path.push(format!(
+            "emsr-dependency-hypergraph-small-{}-{}.json",
+            std::process::id(),
+            std::thread::current().name().unwrap_or("test")
+        ));
+        fs::write(&path, b"{}").expect("write temporary test input");
+        let result = read_bounded(path.to_str().expect("UTF-8 temporary path"));
+        let _ = fs::remove_file(&path);
+        assert_eq!(result.expect("small file is below the byte limit"), b"{}");
+    }
+}
