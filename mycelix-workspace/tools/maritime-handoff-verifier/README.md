@@ -33,9 +33,9 @@ cargo run -- path/to/manifest.json
 
 The CLI reads one local JSON file and writes a JSON report to stdout. Exit codes: 0 for Pass, 1 for Reject/Conflict, 2 for Unknown/NotEvaluable, 64 for usage, 65 for invalid input, 66 for file read failure, and 74 for output failure.
 
-## Lockfile status
+## Dependency lock
 
-This initial review branch does not yet contain a committed Cargo.lock. Its pull-request workflow generates a provisional lockfile on the exact review head, runs all Cargo checks with that lockfile, and uploads it as a review artifact. Before merge, the generated lockfile must be inspected and committed; until then dependency resolution is not yet pinned in version control.
+The standalone workspace commits Cargo.lock. CI uses --locked for tests and Clippy so dependency resolution cannot silently drift during review.
 
 ## Qualification boundary
 
