@@ -170,7 +170,15 @@ impl ObservabilityEvaluator {
                 .get_mut("coverage")
                 .and_then(Value::as_object_mut)
             {
-                coverage.remove("independent_oracle");
+                if let Some(required) = coverage.get_mut("required").and_then(Value::as_array_mut) {
+                    required.retain(|field| field.as_str() != Some("independent_oracle"));
+                }
+                if let Some(coverage_properties) = coverage
+                    .get_mut("properties")
+                    .and_then(Value::as_object_mut)
+                {
+                    coverage_properties.remove("independent_oracle");
+                }
             }
         }
         let case_schema_validator = jsonschema::draft202012::options()
