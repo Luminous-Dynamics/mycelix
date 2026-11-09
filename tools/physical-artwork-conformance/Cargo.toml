@@ -1,0 +1,14 @@
+[package]
+name = "physical-artwork-conformance"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+publish = false
+description = "Rust-native Draft 2020-12 and reference-integrity validator for CSCP physical artwork passports"
+
+# This small CLI is intentionally isolated from the Holochain workspace.
+[workspace]
+
+[dependencies]
+jsonschema = "=0.61.0"
+serde_json = "1.0"
