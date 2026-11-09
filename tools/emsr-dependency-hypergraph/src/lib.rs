@@ -1027,7 +1027,6 @@ mod tests {
         evaluate_bytes(&bytes)
     }
 
-
     #[test]
     fn strict_json_parser_rejects_oversized_input_before_deserialization() {
         let bytes = vec![b' '; MAX_INPUT_BYTES + 1];
