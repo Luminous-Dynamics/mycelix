@@ -313,7 +313,7 @@ jobs:
   # Per-cluster test jobs
   test-cos-conformance:
     needs: changes
-    if: needs.changes.outputs.cos_conformance == 'true' || github.event_name == 'push'
+    if: (needs.changes.outputs.cos_conformance == 'true' || github.event_name == 'push') && (github.event_name != 'pull_request' || github.event.pull_request.draft == false)
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -333,7 +333,7 @@ jobs:
 
   test-commons:
     needs: changes
-    if: needs.changes.outputs.commons == 'true' || github.event_name == 'push'
+    if: (needs.changes.outputs.commons == 'true' || github.event_name == 'push') && (github.event_name != 'pull_request' || github.event.pull_request.draft == false)
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -351,7 +351,7 @@ jobs:
 
   test-civic:
     needs: changes
-    if: needs.changes.outputs.civic == 'true' || github.event_name == 'push'
+    if: (needs.changes.outputs.civic == 'true' || github.event_name == 'push') && (github.event_name != 'pull_request' || github.event.pull_request.draft == false)
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -369,7 +369,7 @@ jobs:
 
   test-hearth:
     needs: changes
-    if: needs.changes.outputs.hearth == 'true' || github.event_name == 'push'
+    if: (needs.changes.outputs.hearth == 'true' || github.event_name == 'push') && (github.event_name != 'pull_request' || github.event.pull_request.draft == false)
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -387,7 +387,7 @@ jobs:
 
   test-finance:
     needs: changes
-    if: needs.changes.outputs.finance == 'true' || github.event_name == 'push'
+    if: (needs.changes.outputs.finance == 'true' || github.event_name == 'push') && (github.event_name != 'pull_request' || github.event.pull_request.draft == false)
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -465,7 +465,7 @@ jobs:
 
   test-governance:
     needs: changes
-    if: needs.changes.outputs.governance == 'true' || github.event_name == 'push'
+    if: (needs.changes.outputs.governance == 'true' || github.event_name == 'push') && (github.event_name != 'pull_request' || github.event.pull_request.draft == false)
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -483,7 +483,7 @@ jobs:
 
   test-identity:
     needs: changes
-    if: needs.changes.outputs.identity == 'true' || github.event_name == 'push'
+    if: (needs.changes.outputs.identity == 'true' || github.event_name == 'push') && (github.event_name != 'pull_request' || github.event.pull_request.draft == false)
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -501,7 +501,7 @@ jobs:
 
   test-personal:
     needs: changes
-    if: needs.changes.outputs.personal == 'true' || github.event_name == 'push'
+    if: (needs.changes.outputs.personal == 'true' || github.event_name == 'push') && (github.event_name != 'pull_request' || github.event.pull_request.draft == false)
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -519,7 +519,7 @@ jobs:
 
   test-attribution:
     needs: changes
-    if: needs.changes.outputs.attribution == 'true' || github.event_name == 'push'
+    if: (needs.changes.outputs.attribution == 'true' || github.event_name == 'push') && (github.event_name != 'pull_request' || github.event.pull_request.draft == false)
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -537,7 +537,7 @@ jobs:
 
   test-bridge:
     needs: changes
-    if: needs.changes.outputs.bridge == 'true' || github.event_name == 'push'
+    if: (needs.changes.outputs.bridge == 'true' || github.event_name == 'push') && (github.event_name != 'pull_request' || github.event.pull_request.draft == false)
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -557,7 +557,7 @@ jobs:
 
   test-sdk:
     needs: changes
-    if: needs.changes.outputs.sdk == 'true' || github.event_name == 'push'
+    if: (needs.changes.outputs.sdk == 'true' || github.event_name == 'push') && (github.event_name != 'pull_request' || github.event.pull_request.draft == false)
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -581,7 +581,7 @@ jobs:
 
   test-prism:
     needs: changes
-    if: needs.changes.outputs.prism == 'true' || github.event_name == 'push'
+    if: (needs.changes.outputs.prism == 'true' || github.event_name == 'push') && (github.event_name != 'pull_request' || github.event.pull_request.draft == false)
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
