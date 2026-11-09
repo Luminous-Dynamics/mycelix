@@ -133,6 +133,31 @@
       "notes": [
         "Keep physical and monetary ecosystem-service accounts separate."
       ]
+    },
+    {
+      "source_id": "stats-sa-ghs-2025-ddi-json-v1",
+      "publisher": "DataFirst, University of Cape Town",
+      "title": "General Household Survey 2025 DDI metadata export (JSON)",
+      "canonical_url": "https://datafirst.uct.ac.za/dataportal/index.php/metadata/export/1144/json",
+      "source_kind": "survey_metadata",
+      "release_vintage": "DDI metadata Version 1, 2026-06; publicly accessible export checked 2026-11-09",
+      "reference_period": "2025",
+      "published_at": "2026-06-16",
+      "known_at": "2026-11-09",
+      "geography": "South Africa; national, provincial and metropolitan metadata as available",
+      "population_scope": "GHS 2025 household survey; see primary study manifest for target-population limits",
+      "access_status": "publisher_page_available",
+      "source_bytes_acquired": false,
+      "source_sha256": null,
+      "rights_status": "Public metadata export accessible from DataFirst catalogue. No independent metadata-export licence asserted; cite DataFirst/Stats SA. Microdata remain login-gated; dataset CC BY terms and publication deposit requirement remain separately recorded.",
+      "evidence_ceiling": "Variable names, labels, category labels, file identifiers and disclosed metadata summaries only. Several variable question-text fields are blank in the DDI JSON. Does not prove raw microdata acquisition or provide full questionnaire wording.",
+      "notes": [
+        "DataFirst catalogue has a separate Get Microdata page that requires login; do not imply the microdata archive was acquired.",
+        "Household analytic file F3 is ghs-2025-household-v1 with 20,095 cases and 206 variables.",
+        "F3 design fields: psu V330; prov V331; stratum V528; geotype V529; metro V530; rotation V532; house_wgt V533.",
+        "DDI variable-level frequency counts are metadata summaries; do not treat them as weighted national estimates.",
+        "Mapped F3 variables include wat_drinkwat V347, eng_light V378, fsd_hung_adult V435, fsd_hung_child V436 and related food hardship items V437-V444."
+      ]
     }
   ]
 }
