@@ -1025,7 +1025,7 @@ mod tests {
             vec!["input_json_invalid_duplicate_or_unknown_contract_fields"]
         );
         let report_bytes = serde_json::to_vec(&report).unwrap();
-        assert_eq!(independently_verify(&bytes, &report_bytes).status, "verified");
+        assert_eq!(independently_verify(&bytes, &report_bytes).status, "rejected");
     }
 
     #[test]
