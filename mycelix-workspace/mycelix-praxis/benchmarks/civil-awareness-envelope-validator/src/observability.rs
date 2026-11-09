@@ -317,6 +317,17 @@ fn assess_case(case: &Value) -> Result<ObservabilityAssessment, String> {
     });
     let primary_source_id = string_at(case, "/source/id")?;
     if distinct_sources.len() == 1
+        && has_positive
+        && !distinct_sources.contains(primary_source_id)
+    {
+        return assessment(
+            case,
+            ObservabilityState::CoverageUnknown,
+            ["evidence.positive_claim_source_does_not_match_assessed_source"],
+            claims,
+        );
+    }
+    if distinct_sources.len() == 1
         && distinct_sources.contains(primary_source_id)
         && has_positive
         && !has_negative
