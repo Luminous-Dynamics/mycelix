@@ -824,7 +824,10 @@
         "source_coverage_refs": [
           "coverage-radar-016",
           "coverage-optical-016"
-        ]
+        ],
+        "valid_from": 90,
+        "valid_until": 210,
+        "coverage_profile_digest": "sha256:1212121212121212121212121212121212121212121212121212121212121212"
       },
       "data_completeness": "complete",
       "freshness": "fresh",
