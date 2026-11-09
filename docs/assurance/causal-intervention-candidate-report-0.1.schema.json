@@ -1,0 +1,138 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:emsr:causal-intervention-candidate-report:0.1",
+  "title": "EMSR controlled-intervention candidate report 0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "report_contract",
+    "scenario_id",
+    "disposition",
+    "input_sha256",
+    "intervention_id",
+    "target_id",
+    "declared_scope",
+    "responsive_source_ids",
+    "contrasts",
+    "observations_used",
+    "tested_active_trials",
+    "tested_sham_trials",
+    "reasons",
+    "claim_ceiling"
+  ],
+  "properties": {
+    "report_contract": {
+      "const": "emsr.causal-intervention-candidate-report/0.1"
+    },
+    "scenario_id": {
+      "type": "string"
+    },
+    "disposition": {
+      "enum": [
+        "COMMON_CAUSE_SUPPORTED_WITHIN_INTERVENTION_SCOPE",
+        "NO_COMMON_CAUSE_DETECTED_WITHIN_TESTED_ENVELOPE",
+        "INDETERMINATE_INTERVENTION_COVERAGE",
+        "OBSERVATION_OR_CLOCK_MAPPING_INVALID"
+      ]
+    },
+    "input_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "intervention_id": {
+      "type": "string"
+    },
+    "target_id": {
+      "type": "string"
+    },
+    "declared_scope": {
+      "type": "string"
+    },
+    "responsive_source_ids": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string"
+      }
+    },
+    "contrasts": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/contrast"
+      }
+    },
+    "observations_used": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "tested_active_trials": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "tested_sham_trials": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "reasons": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "claim_ceiling": {
+      "type": "string",
+      "minLength": 1
+    }
+  },
+  "$defs": {
+    "contrast": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_id",
+        "active_responses",
+        "active_trials",
+        "sham_responses",
+        "sham_trials",
+        "active_rate_milli",
+        "sham_rate_milli",
+        "responsive"
+      ],
+      "properties": {
+        "source_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "active_responses": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "active_trials": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "sham_responses": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "sham_trials": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "active_rate_milli": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000
+        },
+        "sham_rate_milli": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000
+        },
+        "responsive": {
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}
