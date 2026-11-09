@@ -1,0 +1,678 @@
+{
+  "schema": "luminous.gcpn.civil_atomic_metric_catalog.v0.1",
+  "version": "0.1.0",
+  "state": "METRIC_DEFINITIONS_ONLY_NO_RESULTS",
+  "created_date": "2026-11-09",
+  "parent_issue": "5940",
+  "purpose": "Atomic metric contract for matched civilian UAS, maritime and civil-aviation comparisons. Every result must use a pinned denominator, admissible truth source, strata, comparison rule and explicit NOT_EVALUABLE disposition.",
+  "normative_principles": [
+    "Track A evidence/reconciliation results never substitute for Track B sensor detection results.",
+    "Physical sensor inputs are modality-specific; identical physical inputs are not required and must not be fabricated.",
+    "A metric without its required denominator, truth authority or eligible exposure is NOT_EVALUABLE, not zero.",
+    "No single aggregate score may compensate for a false corroboration, rights, privacy, authority or safety hard-gate failure.",
+    "Unknown, stale, unobservable, unavailable, unequipped and withheld exposure is not silently counted as a negative observation.",
+    "All results are paired on the same event frame and matched operating conditions where comparison is claimed."
+  ],
+  "metric_count": 27,
+  "metrics": [
+    {
+      "id": "DET-001",
+      "name": "Event-level probability of detection",
+      "track": "B",
+      "layer": "detection",
+      "domains": [
+        "uas",
+        "maritime",
+        "civil_aviation"
+      ],
+      "unit": "fraction",
+      "definition": "Fraction of independently adjudicated eligible positive events for which the evaluated sensor reports a matched observation within the predeclared temporal/spatial tolerance.",
+      "numerator": "Matched true-positive events",
+      "denominator": "All eligible independently adjudicated positive events in the declared observation exposure",
+      "truth": "Independent ground-truth event set with authority, capture method, time window, tolerance and adjudication recorded",
+      "strata": [
+        "target_class",
+        "size_or_vessel_class",
+        "range_or_scope_band",
+        "environment",
+        "modality",
+        "source_health"
+      ],
+      "not_evaluable": "No independent positive-event denominator, unqualified observation exposure or matched event tolerance.",
+      "comparison": "Same truth set and inclusion rules; sensor modality-specific input; never equate with Track A evidence completeness."
+    },
+    {
+      "id": "DET-002",
+      "name": "Event precision",
+      "track": "B",
+      "layer": "detection",
+      "domains": [
+        "uas",
+        "maritime",
+        "civil_aviation"
+      ],
+      "unit": "fraction",
+      "definition": "Fraction of evaluated detections that match an independently adjudicated positive event.",
+      "numerator": "Matched true-positive detections",
+      "denominator": "All detections retained by the frozen deduplication policy, including false and ambiguous detections",
+      "truth": "Independent ground-truth event set and predeclared matching/deduplication policy",
+      "strata": [
+        "target_class",
+        "range_or_scope_band",
+        "environment",
+        "modality"
+      ],
+      "not_evaluable": "No adjudicated event set or deterministic event-matching rule.",
+      "comparison": "Report alongside recall and false alerts per exposure; precision alone is prevalence-sensitive."
+    },
+    {
+      "id": "DET-003",
+      "name": "False alerts per monitored hour",
+      "track": "B",
+      "layer": "detection",
+      "domains": [
+        "uas",
+        "maritime",
+        "civil_aviation"
+      ],
+      "unit": "false_alerts/hour",
+      "definition": "Number of false event alerts divided by valid monitored exposure hours.",
+      "numerator": "False alerts confirmed by independent adjudication",
+      "denominator": "Hours in which the source was authorized, applicable, healthy and observable under the declared scope",
+      "truth": "Independent adjudication plus source-health and observability record",
+      "strata": [
+        "site_class",
+        "environment",
+        "modality",
+        "traffic_density",
+        "coverage_state"
+      ],
+      "not_evaluable": "No qualified source-health and eligible exposure-hours denominator.",
+      "comparison": "Do not use wall-clock deployment hours when the feed was unavailable, unobservable, withheld or out of profile."
+    },
+    {
+      "id": "DET-004",
+      "name": "False alerts per site-day",
+      "track": "B",
+      "layer": "detection",
+      "domains": [
+        "uas",
+        "maritime",
+        "civil_aviation"
+      ],
+      "unit": "false_alerts/site_day",
+      "definition": "False alerts divided by qualified site-days under the declared operating profile.",
+      "numerator": "Independently adjudicated false alerts",
+      "denominator": "Complete site-days with declared monitor hours, system availability and permitted scope",
+      "truth": "Independent event adjudication and complete monitoring logs",
+      "strata": [
+        "site_class",
+        "environment",
+        "season",
+        "traffic_density"
+      ],
+      "not_evaluable": "Incomplete monitor-day logs or non-comparable site-hours.",
+      "comparison": "Report with false alerts/hour; a site-day is not a fixed exposure unless its duration is declared."
+    },
+    {
+      "id": "TRK-001",
+      "name": "Track completeness",
+      "track": "B",
+      "layer": "tracking",
+      "domains": [
+        "uas",
+        "maritime",
+        "civil_aviation"
+      ],
+      "unit": "fraction_of_target_time",
+      "definition": "Fraction of the independently adjudicated in-scope target-time interval represented by a correctly associated evaluated track.",
+      "numerator": "Correctly represented target-seconds",
+      "denominator": "Total eligible target-seconds from independent truth during qualified observable intervals",
+      "truth": "Independent truth tracks or event-time intervals; source and association rules pinned",
+      "strata": [
+        "target_class",
+        "range_or_scope_band",
+        "environment",
+        "modality"
+      ],
+      "not_evaluable": "No independent truth track or no defined target-time eligibility.",
+      "comparison": "Do not treat absence outside the sensor's qualified coverage as a track gap."
+    },
+    {
+      "id": "TRK-002",
+      "name": "Track continuity",
+      "track": "B",
+      "layer": "tracking",
+      "domains": [
+        "uas",
+        "maritime",
+        "civil_aviation"
+      ],
+      "unit": "breaks/target_hour",
+      "definition": "Number of unjustified track breaks per eligible target-hour after applying a frozen gap-tolerance rule.",
+      "numerator": "Track breaks not explained by truth/source availability or permitted reacquisition rules",
+      "denominator": "Eligible truth target-hours under qualified observation",
+      "truth": "Independent truth trajectory or track continuity labels; explicit break/reacquisition policy",
+      "strata": [
+        "target_class",
+        "environment",
+        "modality",
+        "update_rate"
+      ],
+      "not_evaluable": "No ground-truth continuity intervals or gap-tolerance policy.",
+      "comparison": "Publish track-ID switch rate separately; do not conflate sensor dropout and association fragmentation."
+    },
+    {
+      "id": "TRK-003",
+      "name": "Track ambiguity",
+      "track": "B",
+      "layer": "tracking",
+      "domains": [
+        "uas",
+        "maritime",
+        "civil_aviation"
+      ],
+      "unit": "ambiguous_track_epochs/fixed_epochs",
+      "definition": "Fraction of eligible epochs in which the system maintains multiple competing associations for the same truth object or event.",
+      "numerator": "Ambiguous epochs under predeclared association rules",
+      "denominator": "All eligible truth-linked epochs",
+      "truth": "Independent truth plus frozen association adjudication",
+      "strata": [
+        "target_class",
+        "density",
+        "environment",
+        "modality"
+      ],
+      "not_evaluable": "No event association truth or ambiguity definition.",
+      "comparison": "Report alongside false association and abstention, not as a substitute."
+    },
+    {
+      "id": "TRK-004",
+      "name": "Spurious track burden",
+      "track": "B",
+      "layer": "tracking",
+      "domains": [
+        "uas",
+        "maritime",
+        "civil_aviation"
+      ],
+      "unit": "false_track_seconds/monitor_hour",
+      "definition": "Time-weighted duration of tracks with no matching independently adjudicated object, divided by qualified monitoring hours.",
+      "numerator": "Seconds occupied by independently adjudicated false tracks",
+      "denominator": "Qualified monitored hours",
+      "truth": "Independent truth and track matching protocol",
+      "strata": [
+        "environment",
+        "density",
+        "modality",
+        "source_health"
+      ],
+      "not_evaluable": "No independent truth, time-synchronized track records or eligible exposure.",
+      "comparison": "Keep false tracks distinct from alert counts; one false track can generate repeated alerts."
+    },
+    {
+      "id": "TRK-005",
+      "name": "Position error",
+      "track": "B",
+      "layer": "tracking",
+      "domains": [
+        "uas",
+        "maritime",
+        "civil_aviation"
+      ],
+      "unit": "metres",
+      "definition": "Distribution of horizontal position error for correctly matched observations or tracks against independent truth.",
+      "numerator": "Not a ratio; report median, p95, RMSE and sample count of matched errors",
+      "denominator": "Matched truth-linked samples only; report coverage and unmatched count separately",
+      "truth": "Independent position reference with declared CRS, datum, epoch, uncertainty and synchronization",
+      "strata": [
+        "range_or_scope_band",
+        "environment",
+        "modality",
+        "target_class"
+      ],
+      "not_evaluable": "No independent position truth or coordinate-reference compatibility.",
+      "comparison": "Do not score unqualified or unmatched events as zero error; keep no-coverage separate."
+    },
+    {
+      "id": "TRK-006",
+      "name": "Velocity error",
+      "track": "B",
+      "layer": "tracking",
+      "domains": [
+        "uas",
+        "maritime",
+        "civil_aviation"
+      ],
+      "unit": "m/s",
+      "definition": "Distribution of velocity-vector error for correctly associated samples against independent truth.",
+      "numerator": "Not a ratio; report median, p95, RMSE and sample count",
+      "denominator": "Matched samples with truth velocity and qualified time synchronization",
+      "truth": "Independent truth velocity, CRS/datum and time uncertainty",
+      "strata": [
+        "speed_band",
+        "environment",
+        "modality",
+        "target_class"
+      ],
+      "not_evaluable": "No reliable independent velocity truth or time synchronization.",
+      "comparison": "Do not infer velocity accuracy from displayed smoothness or vendor screenshots."
+    },
+    {
+      "id": "TRK-007",
+      "name": "Time to first qualified observation",
+      "track": "B",
+      "layer": "tracking",
+      "domains": [
+        "uas",
+        "maritime",
+        "civil_aviation"
+      ],
+      "unit": "seconds",
+      "definition": "Elapsed event-time from independent ground-truth onset to first qualified source observation.",
+      "numerator": "Not a ratio; report median, p90, p95 and censoring count",
+      "denominator": "Eligible positive truth events with a defined onset and qualified exposure",
+      "truth": "Independent event onset and source event-time record",
+      "strata": [
+        "target_class",
+        "range_or_scope_band",
+        "environment",
+        "modality"
+      ],
+      "not_evaluable": "No independent onset time, uncertain clock or no eligible event set.",
+      "comparison": "Separate sensor event time, receipt time and human-review time."
+    },
+    {
+      "id": "ID-001",
+      "name": "Class-wise identification precision/recall/F1",
+      "track": "B",
+      "layer": "identification",
+      "domains": [
+        "uas",
+        "maritime",
+        "civil_aviation"
+      ],
+      "unit": "per_class_metrics",
+      "definition": "Per-class classification metrics using only predeclared non-intent classes supported by the truth protocol.",
+      "numerator": "Per class: TP, FP, FN; publish confusion matrix",
+      "denominator": "All adjudicated class instances and system class outputs in eligible observations",
+      "truth": "Independent class labels with annotation provenance and adjudicator",
+      "strata": [
+        "class",
+        "modality",
+        "environment",
+        "equipage_or_platform"
+      ],
+      "not_evaluable": "Class truth is not independently adjudicated, class not in source scope, or intent semantics are used.",
+      "comparison": "Keep UNKNOWN/ABSTAIN explicit; no hostile/friendly intent class is accepted."
+    },
+    {
+      "id": "ID-002",
+      "name": "Identification false-alarm fraction",
+      "track": "B",
+      "layer": "identification",
+      "domains": [
+        "uas",
+        "maritime",
+        "civil_aviation"
+      ],
+      "unit": "fraction_of_identification_decisions",
+      "definition": "Fraction of emitted identification decisions that are false under the frozen label set.",
+      "numerator": "False identification decisions",
+      "denominator": "All emitted identification decisions; also publish decisions abstained and unclassified",
+      "truth": "Independent class truth for the declared label ontology",
+      "strata": [
+        "class",
+        "modality",
+        "environment"
+      ],
+      "not_evaluable": "No admissible class-truth set or label ontology not pinned.",
+      "comparison": "Do not interchange this with false alerts per hour."
+    },
+    {
+      "id": "OBS-001",
+      "name": "Coverage-qualified non-observation promotion error",
+      "track": "A",
+      "layer": "observability",
+      "domains": [
+        "uas",
+        "maritime",
+        "civil_aviation"
+      ],
+      "unit": "fraction_of_negative_like_outputs",
+      "definition": "Fraction of cases with unknown, incomplete, stale, unavailable, not-equipped or unobservable coverage that are incorrectly reported as NOT_OBSERVED_WITHIN_DECLARED_COVERAGE.",
+      "numerator": "False coverage-qualified non-observation outputs",
+      "denominator": "All oracle cases that require a non-negative unknown/unavailable/unobservable state",
+      "truth": "Frozen synthetic coverage oracle or independently stewarded source-health/coverage records",
+      "strata": [
+        "domain",
+        "modality",
+        "missingness_type",
+        "coverage_state"
+      ],
+      "not_evaluable": "No explicit source coverage, health and applicability oracle.",
+      "comparison": "Hard gate: zero in deterministic negative controls."
+    },
+    {
+      "id": "OBS-002",
+      "name": "Negative-claim overreach",
+      "track": "A",
+      "layer": "observability",
+      "domains": [
+        "uas",
+        "maritime",
+        "civil_aviation"
+      ],
+      "unit": "fraction_of_nonobservation_claims",
+      "definition": "Fraction of source-scoped non-observation outputs expanded into physical absence, complete census, universal scope, intent or non-compliance claims.",
+      "numerator": "Overbroad non-observation statements",
+      "denominator": "All source-scoped NOT_OBSERVED_WITHIN_DECLARED_COVERAGE outputs",
+      "truth": "Claim-scope oracle",
+      "strata": [
+        "domain",
+        "source_class",
+        "claim_destination"
+      ],
+      "not_evaluable": "No traceable output claim scope.",
+      "comparison": "Hard gate: zero overclaims."
+    },
+    {
+      "id": "OBS-003",
+      "name": "Coverage-gap interval recall",
+      "track": "A",
+      "layer": "observability",
+      "domains": [
+        "uas",
+        "maritime",
+        "civil_aviation"
+      ],
+      "unit": "fraction_of_gap_duration",
+      "definition": "Fraction of oracle-known uncovered interval duration that the system explicitly preserves as a gap or unavailable state.",
+      "numerator": "Correctly represented uncovered interval duration",
+      "denominator": "Total oracle-known uncovered interval duration",
+      "truth": "Independent coverage interval oracle",
+      "strata": [
+        "domain",
+        "modality",
+        "gap_duration"
+      ],
+      "not_evaluable": "No time-qualified coverage and source-health intervals.",
+      "comparison": "A gap must block full-window negative claims regardless of detection list."
+    },
+    {
+      "id": "DEP-001",
+      "name": "False independent corroboration",
+      "track": "A",
+      "layer": "dependency",
+      "domains": [
+        "uas",
+        "maritime",
+        "civil_aviation"
+      ],
+      "unit": "fraction_of_dependent_source_sets",
+      "definition": "Fraction of oracle-dependent source sets the system describes as independently corroborated.",
+      "numerator": "Dependent source sets promoted to independent support",
+      "denominator": "All oracle-dependent source sets in the frozen fixture/confirmatory corpus",
+      "truth": "Time-qualified dependency hypergraph oracle and exact evidence frontier",
+      "strata": [
+        "dependency_dimension",
+        "domain",
+        "graph_shape",
+        "unknown_lineage"
+      ],
+      "not_evaluable": "No source dependency inventory or independent oracle.",
+      "comparison": "Hard gate: zero on deterministic negative controls."
+    },
+    {
+      "id": "DEP-002",
+      "name": "Dependency edge recall/precision",
+      "track": "A",
+      "layer": "dependency",
+      "domains": [
+        "uas",
+        "maritime",
+        "civil_aviation"
+      ],
+      "unit": "per_dimension_precision_recall",
+      "definition": "Precision and recall for declared transitive common-dependency edges, computed separately by dependency dimension.",
+      "numerator": "Correctly recovered dependency edges / recovered incorrect edges",
+      "denominator": "Oracle dependency edges / predicted edges",
+      "truth": "Frozen stewarded graph with source-derived edge evidence",
+      "strata": [
+        "receiver",
+        "antenna",
+        "clock",
+        "power",
+        "network",
+        "upstream_data",
+        "processing",
+        "calibration",
+        "model_lineage",
+        "site"
+      ],
+      "not_evaluable": "No independently stewarded dependency graph.",
+      "comparison": "No single scalar trust score; dimension-specific results required."
+    },
+    {
+      "id": "DEP-003",
+      "name": "Unknown-dependency abstention correctness",
+      "track": "A",
+      "layer": "dependency",
+      "domains": [
+        "uas",
+        "maritime",
+        "civil_aviation"
+      ],
+      "unit": "fraction_of_unknown_dependency_cases",
+      "definition": "Fraction of cases with missing, stale, conflicted or outside-frontier dependency evidence that remain UNKNOWN or abstain.",
+      "numerator": "Correct unknown/abstention outcomes",
+      "denominator": "All oracle cases requiring unknown dependency treatment",
+      "truth": "Frozen dependency-frontier and completeness oracle",
+      "strata": [
+        "domain",
+        "unknown_cause"
+      ],
+      "not_evaluable": "No explicit inventory completeness/frontier state.",
+      "comparison": "Unknown is not independent; zero promotion in negative controls."
+    },
+    {
+      "id": "EVD-001",
+      "name": "Provenance reference completeness",
+      "track": "A",
+      "layer": "evidence_reconciliation",
+      "domains": [
+        "uas",
+        "maritime",
+        "civil_aviation"
+      ],
+      "unit": "fraction_of_required_references",
+      "definition": "Fraction of required source, revision, capture, time, rights, transformation and evaluator references present and resolvable in an event envelope.",
+      "numerator": "Valid required provenance references",
+      "denominator": "All required references defined by the pinned domain profile",
+      "truth": "Profile/schema oracle plus artifact digest verification",
+      "strata": [
+        "domain",
+        "source_type",
+        "adapter"
+      ],
+      "not_evaluable": "No pinned required-reference profile.",
+      "comparison": "Presence of a URI alone is not authentication or source truth."
+    },
+    {
+      "id": "EVD-002",
+      "name": "Correction propagation latency",
+      "track": "A",
+      "layer": "evidence_reconciliation",
+      "domains": [
+        "uas",
+        "maritime",
+        "civil_aviation"
+      ],
+      "unit": "seconds",
+      "definition": "Elapsed time from receipt of a qualified correction to all derived reports being marked corrected/superseded or blocked.",
+      "numerator": "Not ratio; median/p95 and stale-derived count",
+      "denominator": "All initiated correction events",
+      "truth": "Exact correction event and derived artifact lineage",
+      "strata": [
+        "domain",
+        "graph_depth",
+        "number_of_consumers"
+      ],
+      "not_evaluable": "No pinned correction lineage or timestamp ordering.",
+      "comparison": "Prior historical views must remain reproducible at their original evidence frontier."
+    },
+    {
+      "id": "EVD-003",
+      "name": "Replay reproducibility",
+      "track": "A",
+      "layer": "evidence_reconciliation",
+      "domains": [
+        "uas",
+        "maritime",
+        "civil_aviation"
+      ],
+      "unit": "fraction_of_replays",
+      "definition": "Fraction of exact-input replays that reproduce the same canonical report bytes or semantically pinned report digest under the same evaluator build.",
+      "numerator": "Exact/contract-equivalent report replays",
+      "denominator": "All initiated identical-input replay runs",
+      "truth": "Frozen input, evaluator, schema, policy and environment digests",
+      "strata": [
+        "domain",
+        "input_size",
+        "evaluator_revision"
+      ],
+      "not_evaluable": "Missing exact digests or incomplete run census.",
+      "comparison": "Failed, aborted and abstained runs remain in the run census."
+    },
+    {
+      "id": "SEL-001",
+      "name": "Risk-coverage curve and AURC",
+      "track": "A",
+      "layer": "selective_prediction",
+      "domains": [
+        "uas",
+        "maritime",
+        "civil_aviation"
+      ],
+      "unit": "curve_and_area",
+      "definition": "Selective error risk as coverage increases by lowering abstention; report full curve, AURC and selected operating points.",
+      "numerator": "Incorrect/unsafe accepted claims at each coverage point",
+      "denominator": "All accepted claims at that coverage point",
+      "truth": "Independent adjudication for the task being scored",
+      "strata": [
+        "domain",
+        "event_class",
+        "coverage_level"
+      ],
+      "not_evaluable": "No independent labels or well-defined acceptance/abstention policy.",
+      "comparison": "Compare at matched coverage; do not present AURC alone without coverage curve."
+    },
+    {
+      "id": "HUM-001",
+      "name": "Human review time",
+      "track": "A",
+      "layer": "human_workflow",
+      "domains": [
+        "uas",
+        "maritime",
+        "civil_aviation"
+      ],
+      "unit": "seconds_per_case",
+      "definition": "Active human time to locate, inspect and adjudicate the required evidence packet.",
+      "numerator": "Total active review seconds",
+      "denominator": "All assigned review cases, including unresolved/abstained cases; report separately by disposition",
+      "truth": "Time-stamped workflow logs and blinded reviewer study",
+      "strata": [
+        "case_complexity",
+        "reviewer_experience",
+        "disposition",
+        "domain"
+      ],
+      "not_evaluable": "No consistent start/stop rules or missing reviewer telemetry.",
+      "comparison": "Same reviewers or balanced randomized assignments; same information and permitted review budget."
+    },
+    {
+      "id": "HUM-002",
+      "name": "False-review burden",
+      "track": "A",
+      "layer": "human_workflow",
+      "domains": [
+        "uas",
+        "maritime",
+        "civil_aviation"
+      ],
+      "unit": "unsubstantiated_reviews_per_100_cases",
+      "definition": "Number of human reviews later adjudicated as unsupported, duplicate or non-actionable per 100 eligible cases.",
+      "numerator": "Unsubstantiated/duplicate reviews",
+      "denominator": "Eligible cases under frozen event and deduplication policy, scaled to 100",
+      "truth": "Blinded adjudication panel and duplicate-resolution policy",
+      "strata": [
+        "domain",
+        "event_class",
+        "source_count"
+      ],
+      "not_evaluable": "No independent final adjudication or duplicate policy.",
+      "comparison": "Measure alongside missed events and required unresolved reviews."
+    },
+    {
+      "id": "HUM-003",
+      "name": "Handoff completeness",
+      "track": "A",
+      "layer": "human_workflow",
+      "domains": [
+        "uas",
+        "maritime",
+        "civil_aviation"
+      ],
+      "unit": "fraction_of_required_handoff_fields",
+      "definition": "Fraction of required evidence, uncertainty, source limitation, unresolved issue and authority boundary fields present in a receiving operator's handoff.",
+      "numerator": "Correctly present/understood mandatory fields",
+      "denominator": "All profile-required handoff fields",
+      "truth": "Pre-registered task checklist and independent reviewer",
+      "strata": [
+        "domain",
+        "receiver_role",
+        "case_disposition"
+      ],
+      "not_evaluable": "No role-specific handoff profile or blinded scoring.",
+      "comparison": "Score completeness separately from reviewer speed."
+    },
+    {
+      "id": "LCC-001",
+      "name": "Lifecycle cost per qualified monitoring hour",
+      "track": "A_and_B_separately",
+      "layer": "lifecycle_economics",
+      "domains": [
+        "uas",
+        "maritime",
+        "civil_aviation"
+      ],
+      "unit": "currency_per_qualified_monitor_hour",
+      "definition": "Fully loaded lifecycle cost divided by qualified monitoring hours, with data rights, staffing, maintenance, calibration, network, storage, integration, downtime and decommissioning included.",
+      "numerator": "Annualized/period lifecycle cost in declared base-year currency",
+      "denominator": "Qualified monitoring hours within authorized scope",
+      "truth": "Audited invoices, time allocation, maintenance and uptime logs",
+      "strata": [
+        "site_class",
+        "currency",
+        "deployment_scale",
+        "domain"
+      ],
+      "not_evaluable": "Incomplete costs, uncertain uptime or unqualified exposure.",
+      "comparison": "Currency/base year and allocation rules must match; do not price free/unlicensed data as zero."
+    }
+  ],
+  "non_compensatory_hard_gates": [
+    "false independent corroboration on deterministic negative controls == 0",
+    "false-negative-evidence promotion on deterministic negative controls == 0",
+    "physical absence overclaims == 0",
+    "privacy/rights/authority boundary violations == 0",
+    "active mitigation, third-party control and operator geolocation in benchmark == 0"
+  ],
+  "aggregation_policy": {
+    "default": "PUBLISH_ATOMIC_METRICS_ONLY",
+    "composite_allowed": false,
+    "reason": "A composite can mask incomparable denominators, modality differences and hard-gate failures. Any future aggregate must be separately preregistered with public weights and can never compensate for a nonzero hard gate."
+  },
+  "claim_ceiling": "This catalogue defines how future matched metrics must be measured. It contains no vendor score, no SOTA result and no field-performance claim."
+}
