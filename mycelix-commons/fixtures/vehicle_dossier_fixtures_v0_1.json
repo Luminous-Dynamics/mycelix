@@ -1,0 +1,256 @@
+{
+  "corpus_version": "mycelix-vehicle-dossier-fixtures/0.1",
+  "status": "synthetic-contract-fixtures-not-deployed",
+  "claim_ceiling": [
+    "Fixtures exercise intended decisions only; they do not prove correct current production behavior.",
+    "Public/private visibility includes metadata risks beyond payload JSON.",
+    "Signed ownership assertions do not establish legal title.",
+    "Repair events and part identity do not prove workmanship or safety."
+  ],
+  "schema_ref": "../schemas/vehicle_record_envelope_v0_1.schema.json",
+  "fixtures": [
+    {
+      "id": "VD01_VALID_REPAIR_ATTESTATION",
+      "expected": "accept_as_scoped_provider_assertion",
+      "input": {
+        "event_kind": "maintenance_performed",
+        "claim_status": "counterparty_attested",
+        "visibility_policy": "shared_pseudonymous"
+      },
+      "invariants": [
+        "opaque_vehicle_ref",
+        "provider_credential_scope_checked_separately",
+        "work_procedure_and_part_revision_referenced",
+        "post_repair_measurement_present",
+        "public_payload_has_no_direct_identifiers"
+      ]
+    },
+    {
+      "id": "VD02_UNSIGNED_REPAIR",
+      "expected": "retain_as_unverified_assertion",
+      "input": {
+        "event_kind": "maintenance_performed",
+        "signature": null,
+        "claim_status": "asserted"
+      },
+      "invariants": [
+        "must_not_render_as_provider_verified",
+        "missing_signature_is_visible"
+      ]
+    },
+    {
+      "id": "VD03_UNILATERAL_TRANSFER",
+      "expected": "keep_transfer_pending",
+      "input": {
+        "event_kind": "transfer_proposed",
+        "party_signatures": 1
+      },
+      "invariants": [
+        "no_ownership_transfer_finalized_from_one_signature",
+        "external_legal_title_claim_not_inferred"
+      ]
+    },
+    {
+      "id": "VD04_TWO_PARTY_TRANSFER",
+      "expected": "accept_as_transfer_claim_not_legal_title",
+      "input": {
+        "event_kind": "transfer_acknowledged",
+        "matching_transfer_digest": true,
+        "party_signatures": 2
+      },
+      "invariants": [
+        "both_parties_bound_to_same_transfer_digest",
+        "legal_title_status_remains_jurisdiction_scoped"
+      ]
+    },
+    {
+      "id": "VD05_COMPETING_TRANSFERS",
+      "expected": "retain_disputed",
+      "input": {
+        "event_kind": "transfer_acknowledged",
+        "overlapping_claims": 2,
+        "common_authority_receipt": null
+      },
+      "invariants": [
+        "no_last_writer_wins",
+        "preserve_both_signed_histories"
+      ]
+    },
+    {
+      "id": "VD06_PUBLIC_PII",
+      "expected": "reject_shared_publication",
+      "input": {
+        "visibility_policy": "shared_pseudonymous",
+        "contains_direct_identifiers": true,
+        "fields": [
+          "owner_name",
+          "phone"
+        ]
+      },
+      "invariants": [
+        "direct_identifier_leak_blocked_before_publication"
+      ]
+    },
+    {
+      "id": "VD07_PRIVATE_TRIP_LOCATION",
+      "expected": "deny_unauthorized_disclosure",
+      "input": {
+        "event_kind": "cost_record",
+        "precise_trip_points": true,
+        "consent_valid": false
+      },
+      "invariants": [
+        "private_route_trace_not_shared_by_default",
+        "expired_or_absent_consent_denies_release"
+      ]
+    },
+    {
+      "id": "VD08_INCOMPATIBLE_PART",
+      "expected": "reject_qualified_install_claim",
+      "input": {
+        "event_kind": "part_installed",
+        "part_revision": "PART-SYNTH-9",
+        "compatibility_scope": [
+          "PART-SYNTH-1",
+          "PART-SYNTH-2"
+        ]
+      },
+      "invariants": [
+        "part_identity_not_equal_to_compatibility",
+        "no_qualified_install_without_scope_match"
+      ]
+    },
+    {
+      "id": "VD09_PAYLOAD_DIGEST_MISMATCH",
+      "expected": "reject_tampered_payload",
+      "input": {
+        "payload_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "computed_payload_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      },
+      "invariants": [
+        "canonical_payload_digest_must_match"
+      ]
+    },
+    {
+      "id": "VD10_WRONG_VEHICLE_GENERATION",
+      "expected": "reject_or_mark_unresolved",
+      "input": {
+        "event_vehicle_generation": "VEH-GEN-A",
+        "evidence_vehicle_generation": "VEH-GEN-B"
+      },
+      "invariants": [
+        "evidence_must_bind_exact_subject_and_generation"
+      ]
+    },
+    {
+      "id": "VD11_FAILED_POST_REPAIR_CHECK",
+      "expected": "repair_follow_up_required",
+      "input": {
+        "event_kind": "maintenance_performed",
+        "post_repair_check": "failed",
+        "claim_status": "counterparty_attested"
+      },
+      "invariants": [
+        "failed_measurement_cannot_be_displayed_as_repair_success",
+        "preserve_original_work_record"
+      ]
+    },
+    {
+      "id": "VD12_EXPIRED_WORKSHOP_CREDENTIAL",
+      "expected": "retain_unverified_not_independently_verified",
+      "input": {
+        "event_kind": "maintenance_performed",
+        "credential_expired": true,
+        "claim_status": "independently_verified"
+      },
+      "invariants": [
+        "expired_credential_blocks_verified_status",
+        "keep_signature_and_credential_failure_evidence"
+      ]
+    },
+    {
+      "id": "VD13_RECALL_NOT_CLEARED",
+      "expected": "show_open_recall_or_unknown",
+      "input": {
+        "event_kind": "recall_notice",
+        "affected_variant": true,
+        "completion_event": null
+      },
+      "invariants": [
+        "stale_cache_does_not_create_clean_status",
+        "source_and_scope_visible"
+      ]
+    },
+    {
+      "id": "VD14_APPEND_CORRECTION",
+      "expected": "accept_correction_preserve_history",
+      "input": {
+        "event_kind": "correction_appended",
+        "supersedes": [
+          "VD-OLD-EVENT"
+        ]
+      },
+      "invariants": [
+        "old_signed_event_remains_resolvable",
+        "correction_links_exact_prior_event"
+      ]
+    },
+    {
+      "id": "VD15_EXPORT_IMPORT",
+      "expected": "preserve_semantics",
+      "input": {
+        "round_trip": true,
+        "event_ids_stable": true
+      },
+      "invariants": [
+        "preserve_signatures_event_ids_evidence_refs_disputes_and_claim_status"
+      ]
+    },
+    {
+      "id": "VD16_DUPLICATE_EVENT_MUTATION",
+      "expected": "reject_event_id_collision",
+      "input": {
+        "same_event_id": true,
+        "payload_changed": true
+      },
+      "invariants": [
+        "one_event_id_cannot_bind_multiple_payload_digests"
+      ]
+    },
+    {
+      "id": "VD17_UNSUPPORTED_TITLE_CLAIM",
+      "expected": "keep_title_unverified",
+      "input": {
+        "event_kind": "ownership_claim",
+        "jurisdiction": null,
+        "external_title_evidence": null
+      },
+      "invariants": [
+        "mycelix_record_never_substitutes_for_competent_title_registry"
+      ]
+    },
+    {
+      "id": "VD18_EXPIRED_DISCLOSURE",
+      "expected": "deny_release",
+      "input": {
+        "consent_expired": true,
+        "reuse_old_grant": true
+      },
+      "invariants": [
+        "purpose_and_expiry_bound_disclosure_grant"
+      ]
+    },
+    {
+      "id": "VD19_PUBLIC_RAW_VIN",
+      "expected": "reject_shared_publication",
+      "input": {
+        "visibility_policy": "public_source_attestation",
+        "raw_vin_present": true
+      },
+      "invariants": [
+        "raw_vin_not_public_by_default",
+        "opaque_dossier_id_used_in_public_record"
+      ]
+    }
+  ]
+}
