@@ -72,3 +72,25 @@ The included examples are **synthetic and non-operational**. Unit tests prove on
 ## Parent issue
 
 [GCPN-CIVIL-ENVELOPE-VALIDATOR-001 — #5992](https://github.com/Luminous-Dynamics/mycelix/issues/5992)
+
+
+## Coverage-aware observability evaluator
+
+The `observability` module reuses this crate's strict duplicate-key parser and adds a pure, deterministic evaluator for the frozen UAS / maritime / civil-aviation observability DGP:
+
+- DGP: `mycelix-workspace/mycelix-praxis/docs/research/civil-awareness-observability-dgp-v0.1.json`
+- Schema: `mycelix-workspace/mycelix-praxis/docs/research/civil-awareness-observability-dgp-v0.1.schema.json`
+- Profile: `mycelix-workspace/mycelix-praxis/docs/research/GCPN_CIVIL_OBSERVABILITY_DGP_V0_1.md`
+
+Public API:
+
+- `ObservabilityEvaluator::from_embedded()` compiles the pinned Draft 2020-12 schema without remote references.
+- `evaluate_embedded()` validates and assesses the frozen corpus.
+- `evaluate_dgp_bytes()` strictly parses exact bytes, checks the schema and reports one state/reason set per case.
+- `assess_case_bytes()` assesses a single strict JSON case.
+
+The evaluator deliberately does not read the DGP `expected` field; the unit-test harness compares its outputs with the oracle after evaluation. It binds the DGP/schema digests, preserves source-level claim references, and emits the same ten explicit states. It reports `NOT_OBSERVED_WITHIN_DECLARED_COVERAGE` only when source health, rights, freshness, completeness, coverage validity across the entire scope window, coverage-profile digest and dependency snapshot/frontier all pass.
+
+A single fresh positive source observation can still be reported when the broader coverage envelope is incomplete; this is not a claim of complete monitoring. In a multi-source assessment, incomplete coverage or lineage remains `COVERAGE_UNKNOWN`, and qualified contradictory source-level outcomes remain `CONFLICT` with both claims preserved.
+
+Run the existing commands from this package to execute the new tests as part of `cargo test --all-targets`. No new graph, source registry, coverage GIS, evidence ledger, trust root or runtime sensor integration is added.
