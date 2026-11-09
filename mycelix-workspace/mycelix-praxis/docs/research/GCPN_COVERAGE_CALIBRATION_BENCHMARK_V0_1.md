@@ -19,7 +19,7 @@ The system should be allowed to say: “The source reported this; the source was
 ## What industry standards cover—and do not cover
 
 - **ASTM F3411-22a** specifies message formats, transmission methods and testing for broadcast/network Remote ID in participating systems. Its own scope says it does not solve identification needs for UAS not participating in Remote ID or operators deliberately circumventing it. Remote ID protocol conformance is not universal aircraft observability. [ASTM F3411-22a](https://store.astm.org/standards/f3411).
-- **EASA U-space** sets a service-performance approach that includes data quality, latency, availability, integrity and service-specific requirements tied to the airspace/use case. It also requires service-performance arrangements and assurance evidence; that is a better comparison point than a single detector accuracy score. [EASA Easy Access Rules for U-space](https://www.easa.europa.eu/en/document-library/easy-access-rules/online-publications/easy-access-rules-u-space).
+- **EASA U-space** sets a service-performance approach that includes data quality, latency, availability, integrity and service-specific requirements tied to the airspace/use case. The consolidated rules include Commission Implementing Regulation (EU) 2023/203 information-security risk-management requirements applicable from 22 February 2026. EASA also announced the enhanced online U-space Easy Access Rules as part of its March 2026 publication set. This is a better comparison point than a single detector accuracy score. [EASA U-space rules and amendment scope](https://www.easa.europa.eu/en/document-library/easy-access-rules/easy-access-rules-u-space-regulation-eu-2021664) · [EASA 21 May 2026 publication update](https://www.easa.europa.eu/en/newsroom-and-events/news/easa-publishes-new-set-enhanced-online-easy-access-rules).
 - **European Commission JRC's 2025 C-UAS review** covers acoustic, EO, radar and RF modalities, their limitations and sensor fusion. Its subject includes detection, localization, tracking, classification and identification. [JRC140692](https://publications.jrc.ec.europa.eu/repository/handle/JRC140692).
 - A 2026 systems survey emphasizes the divergence between nominal and field performance under clutter, NLOS, occlusion, multipath and environmental degradation, and evaluates SWaP, integration and maintenance alongside detection performance. It is a review, not a standardized benchmark or universal SOTA table. [Survey record](https://www.sciencedirect.com/science/article/pii/S1874548226000429).
 
@@ -55,7 +55,7 @@ Plot correctness/false-claim risk against the fraction of cases on which the sys
 
 ## Frozen DGP specification
 
-The machine-readable DGP contains 19 deterministic scenario definitions:
+The machine-readable DGP contains 21 deterministic scenario definitions:
 
 - well-specified calibration positive control;
 - rare-class overconfidence hidden by pooled metrics;
@@ -75,7 +75,9 @@ The machine-readable DGP contains 19 deterministic scenario definitions:
 - imbalanced cluster sizes / Simpson reversal;
 - false-alarm bursts and overlapping windows;
 - source/device revision shift;
-- coverage probability calibration by abstract condition cell.
+- coverage probability calibration by abstract condition cell;
+- source-attestation failure / content-digest tampering, which must be rejected before scoring;
+- end-to-end multi-hop latency exceeding a predeclared budget, with event-time/receipt-time and bounded clock uncertainty kept separate.
 
 Corpus: `gcpn-coverage-calibration-dgp-v0.1.json`  
 Schema: `gcpn-coverage-calibration-dgp-v0.1.schema.json`
@@ -104,3 +106,9 @@ The benchmark does not authorize receiving, recording or processing any physical
 ## Non-goals
 
 No active RF, live sensor activation, tracking an operator/pilot/crew, personal location, identity, intent, threat score, interception, flight/navigation/ATC/VTS control, mitigation, jamming, spoofing, takeover or enforcement trigger. No benchmark pass is evidence of physical sensor performance or operational readiness.
+
+## Information integrity and end-to-end timeliness
+
+A valid sensor observation must still be tied to an authenticated source assertion, pinned content digest and current rights/purpose. A digest/signature failure is not a detector false positive or false negative; the assertion is rejected or quarantined before it enters calibration. Preserve the source-authentication failure as its own metric/quality dimension.
+
+Service latency must be measured end-to-end across all responsible hops, with each sub-budget and the overall budget declared before the run. Keep event time, source time, ingest time and receipt time distinct; clock uncertainty is part of the timing record. A latency budget is use-case-specific, not a universal threshold. The two new cases CC-020 and CC-021 lock these controls.
