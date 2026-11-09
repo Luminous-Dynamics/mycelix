@@ -317,7 +317,9 @@ pub fn validate(register: &Register) -> Vec<String> {
             .exact_landing_page_file_license_verified
             .unwrap_or(false)
             || candidate.capture_group_metadata_verified.unwrap_or(false)
-            || candidate.dataset_repository_license_verified.unwrap_or(false)
+            || candidate
+                .dataset_repository_license_verified
+                .unwrap_or(false)
             || candidate.derivative_sharing_permitted.unwrap_or(false)
             || candidate.file_hashes_verified.unwrap_or(false)
             || candidate.data_dictionary_verified.unwrap_or(false)
@@ -332,7 +334,10 @@ pub fn validate(register: &Register) -> Vec<String> {
         if candidate.exact_dataset_license_verified == Some(true)
             && candidate.license_evidence.is_none()
         {
-            errors.push(format!("verified_license_missing_source_evidence: {}", candidate.id));
+            errors.push(format!(
+                "verified_license_missing_source_evidence: {}",
+                candidate.id
+            ));
         }
     }
 
@@ -371,7 +376,9 @@ pub fn validate(register: &Register) -> Vec<String> {
                         && evidence.version == "1"
                         && evidence.license == "CC BY 4.0"
                         && evidence.evidence_type == "dataset_landing_page"
-                        && evidence.scope.contains("does not clear separate article assets")
+                        && evidence
+                            .scope
+                            .contains("does not clear separate article assets")
                 })
                 && candidate.capture_group_metadata_verified == Some(false)
                 && candidate.file_hashes_verified == Some(false)
@@ -397,16 +404,20 @@ pub fn validate(register: &Register) -> Vec<String> {
         Some(candidate)
             if candidate.paper_license.as_deref() == Some("CC-BY-NC-ND-4.0")
                 && candidate.paper_stated_dataset_license.as_deref() == Some("CC-BY-4.0")
-                && candidate.dataset_repository_doi.as_deref() == Some("10.57760/sciencedb.36815")
+                && candidate.dataset_repository_doi.as_deref()
+                    == Some("10.57760/sciencedb.36815")
                 && candidate.dataset_repository_url.as_deref()
                     == Some("https://doi.org/10.57760/sciencedb.36815")
-                && candidate.dataset_license_claim_evidence.as_ref().is_some_and(|evidence| {
-                    evidence.url.contains("DEF-W9-12_DRFF-R2")
-                        && evidence.retrieval_date == "2026-11-08"
-                        && evidence.source_section == "Data Records / Data Availability"
-                        && evidence.license == "CC BY 4.0"
-                        && evidence.evidence_type == "paper_reported_dataset_repository_claim"
-                })
+                && candidate
+                    .dataset_license_claim_evidence
+                    .as_ref()
+                    .is_some_and(|evidence| {
+                        evidence.url.contains("DEF-W9-12_DRFF-R2")
+                            && evidence.retrieval_date == "2026-11-08"
+                            && evidence.source_section == "Data Records / Data Availability"
+                            && evidence.license == "CC BY 4.0"
+                            && evidence.evidence_type == "paper_reported_dataset_repository_claim"
+                    })
                 && candidate.dataset_repository_license_verified == Some(false)
                 && candidate.derivative_sharing_permitted.is_none()
                 && candidate.status
@@ -424,9 +435,7 @@ pub fn validate(register: &Register) -> Vec<String> {
 pub fn verify_bytes(bytes: &[u8]) -> VerificationReport {
     let source_sha256 = format!("{:x}", Sha256::digest(bytes));
     let mut errors = Vec::new();
-    if EXPECTED_FIXTURE_SHA256 != "PIN_AFTER_RUN"
-        && source_sha256 != EXPECTED_FIXTURE_SHA256
-    {
+    if EXPECTED_FIXTURE_SHA256 != "PIN_AFTER_RUN" && source_sha256 != EXPECTED_FIXTURE_SHA256 {
         errors.push(format!(
             "fixture_digest_mismatch: expected {}, got {}",
             EXPECTED_FIXTURE_SHA256, source_sha256
@@ -590,10 +599,17 @@ mod tests {
             .iter_mut()
             .find(|candidate| candidate.id == "UAV-RF-COEXIST-2026")
             .expect("RF coexistence source exists");
-        candidate.license_evidence.as_mut().expect("license evidence").url =
-            "https://example.invalid/license".to_string();
+        candidate
+            .license_evidence
+            .as_mut()
+            .expect("license evidence")
+            .url = "https://example.invalid/license".to_string();
         let errors = validate(&register);
-        assert!(errors.iter().any(|error| error == "rf_coexistence_rights_or_count_mismatch"));
+        assert!(
+            errors
+                .iter()
+                .any(|error| error == "rf_coexistence_rights_or_count_mismatch")
+        );
     }
 
     #[test]
@@ -647,9 +663,11 @@ mod tests {
         let mut register = mutated_register();
         register.candidate_datasets[2].paper_stated_dataset_license = None;
         let errors = validate(&register);
-        assert!(errors.iter().any(|error| {
-            error == "drff_r2_rights_or_published_counts_mismatch"
-        }));
+        assert!(
+            errors
+                .iter()
+                .any(|error| { error == "drff_r2_rights_or_published_counts_mismatch" })
+        );
     }
 
     #[test]
