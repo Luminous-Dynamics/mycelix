@@ -549,6 +549,34 @@ pub enum UseAction {
 }
 
 impl UseAction {
+    /// Stable action tag shared with the versioned grant-history encoding.
+    pub fn stable_tag(self) -> u8 {
+        match self {
+            Self::AnalyzeMetadata => 1,
+            Self::Publish => 2,
+            Self::Distribute => 3,
+            Self::Commercialize => 4,
+            Self::TrainModel => 5,
+            Self::GenerateDerivative => 6,
+            Self::SynthesizeVoiceOrLikeness => 7,
+            Self::Capture => 8,
+            Self::Preserve => 9,
+            Self::Transform => 10,
+            Self::Index => 11,
+            Self::Embed => 12,
+            Self::Retrieve => 13,
+            Self::Display => 14,
+            Self::Export => 15,
+            Self::EvaluateModel => 16,
+            Self::GenerateThumbnail => 17,
+            Self::RunOcr => 18,
+            Self::CreateCaption => 19,
+            Self::CreateEmbedding => 20,
+            Self::ReconstructMesh => 21,
+            Self::ReconstructPointCloud => 22,
+        }
+    }
+
     /// True only for actions that create a new representation or derived asset.
     /// The exact operation remains part of the grant scope.
     pub fn is_derivation_operation(self) -> bool {
