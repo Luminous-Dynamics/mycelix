@@ -1,6 +1,7 @@
 use emsr_dependency_hypergraph::{evaluate_bytes, independently_verify};
 use std::env;
-use std::fs;
+use std::fs::File;
+use std::io::Read;
 
 fn main() {
     if let Err(error) = run() {
@@ -35,11 +36,16 @@ fn run() -> Result<(), String> {
 }
 
 fn read_bounded(path: &str) -> Result<Vec<u8>, String> {
-    let metadata = fs::metadata(path).map_err(|e| format!("cannot inspect {path}: {e}"))?;
-    if metadata.len() > 16 * 1024 * 1024 {
+    const MAX_BYTES: usize = 16 * 1024 * 1024;
+    let file = File::open(path).map_err(|e| format!("cannot open {path}: {e}"))?;
+    let mut bytes = Vec::with_capacity(64 * 1024);
+    file.take((MAX_BYTES + 1) as u64)
+        .read_to_end(&mut bytes)
+        .map_err(|e| format!("cannot read {path}: {e}"))?;
+    if bytes.len() > MAX_BYTES {
         return Err(format!("input exceeds 16 MiB: {path}"));
     }
-    fs::read(path).map_err(|e| format!("cannot read {path}: {e}"))
+    Ok(bytes)
 }
 
 fn write_json(path: &str, value: &impl serde::Serialize) -> Result<(), String> {
