@@ -35,7 +35,7 @@ cargo run --manifest-path tools/delib-bench-qualifier/Cargo.toml -- \
   docs/research/deliberation/delib-bench-fixtures-v0.1.schema.json
 ```
 
-The qualifier implements a deliberately bounded JSON-Schema subset. It rejects unsupported schema keywords and unsupported patterns instead of silently claiming full JSON-Schema conformance. It checks required fields, types, constants/enums, the declared pattern and URI shape, minimums, unique arrays, nested properties, fixture taxonomy, expected evaluator violations and terminal dispositions.
+The qualifier implements a deliberately bounded JSON-Schema subset. It recursively audits the entire schema tree—including optional properties absent from the current instance—and rejects unsupported schema keywords, patterns and formats instead of silently claiming full JSON-Schema conformance. It checks required fields, types, constants/enums, the declared pattern and URI shape, minimums, unique arrays, nested properties, fixture taxonomy, expected evaluator violations and terminal dispositions.
 
 The evaluator has deterministic oracles for:
 - omission, duplication, misattribution or stance distortion of source claims;
@@ -44,9 +44,12 @@ The evaluator has deterministic oracles for:
 - followed prompt injection and adopted leading framing;
 - changes to a fixture's declared presentation order or reference allocation;
 - a scenario-specific attention-share cap;
-- duplicate principal counting.
+- duplicate principal counting and exact roster parity against speakers represented in the source claims;
+- unsupported source citations and uncertainty labels that are not grounded in source claims.
 
 The attention-share cap is a synthetic fixture oracle, **not** a universal fairness, participation or airtime standard. The fixture allocation comparison is also only a known-answer control; it does not assert that the reference allocation is normatively correct.
+
+The principal-roster check is bounded to the principals represented by source claims in each fixture; it is not a complete participation, eligibility, abstention, or identity-proof theorem. Source citations and uncertainty labels are checked for both missing required entries and unsupported extras.
 
 **Important limit of the synthetic claim fixtures:** the `representations` field is a controlled, typed claim-to-claim mapping, not free-form generated natural language. Exact field preservation is a deliberately narrow oracle for source identity, attribution, epistemic status and omission. It does not score acceptable paraphrase/compression, participant-conditioned representativeness, informativeness, neutrality or policy approval. Those require human-grounded summary evaluation (for example, DeliberationBank where data-use review permits) and independent human adjudication. The synthetic corpus is a structural/red-team control, not a language-summary benchmark.
 
