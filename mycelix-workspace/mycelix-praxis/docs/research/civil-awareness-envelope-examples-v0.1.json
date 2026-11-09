@@ -58,7 +58,7 @@
           "synthetic_schema_test"
         ],
         "retention_class": "public_fixture",
-        "field_allowlist_digest": "sha256:a26be21fa4c63ddab5c4cb405a5c2dd8edccae5526de953a554ad136cb528000"
+        "field_allowlist_digest": "sha256:37c1f712ac7b8107b9bd3fd08e44e834ed16c504fa50b20d855ad27ca1dd6f47"
       },
       "lineage": {
         "payload_digest": "sha256:585d64ea080ea3a62f6d105683d596cfd060b9b28d320256bd3d4a57e82536af",
@@ -131,7 +131,7 @@
           "synthetic_schema_test"
         ],
         "retention_class": "public_fixture",
-        "field_allowlist_digest": "sha256:a26be21fa4c63ddab5c4cb405a5c2dd8edccae5526de953a554ad136cb528000"
+        "field_allowlist_digest": "sha256:37c1f712ac7b8107b9bd3fd08e44e834ed16c504fa50b20d855ad27ca1dd6f47"
       },
       "lineage": {
         "payload_digest": "sha256:24f1f26876779edb94b8d4dbbe5cb02f5aa23bafad3f91f57a283a6aacd3da12",
@@ -209,7 +209,7 @@
           "synthetic_schema_test"
         ],
         "retention_class": "public_fixture",
-        "field_allowlist_digest": "sha256:a26be21fa4c63ddab5c4cb405a5c2dd8edccae5526de953a554ad136cb528000"
+        "field_allowlist_digest": "sha256:37c1f712ac7b8107b9bd3fd08e44e834ed16c504fa50b20d855ad27ca1dd6f47"
       },
       "lineage": {
         "payload_digest": "sha256:dac7ab1fd35789b79dac59da48e709d525efbf34fee7b4ec8e4aa3afc300dc62",
