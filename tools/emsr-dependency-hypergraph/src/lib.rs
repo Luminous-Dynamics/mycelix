@@ -1,9 +1,9 @@
 use serde::de::{self, MapAccess, SeqAccess, Visitor};
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Number, Value};
-use std::fmt;
 use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
+use std::fmt;
 
 /// Parse exactly one JSON value and reject duplicate property names at every
 /// nesting level. serde_json::Value's default parser is last-key-wins; that is
@@ -857,7 +857,12 @@ fn reference_visit(
         if !visiting.insert(node_id.clone()) {
             return true;
         }
-        if input.snapshot.covered_node_ids.binary_search(&node_id).is_err() {
+        if input
+            .snapshot
+            .covered_node_ids
+            .binary_search(&node_id)
+            .is_err()
+        {
             unknown.push("reachable_node_not_covered_by_inventory_snapshot".to_owned());
         }
         if uncertain
@@ -1055,7 +1060,10 @@ mod tests {
     fn unknown_top_level_contract_fields_are_rejected() {
         let mut input = fixture();
         let mut value = serde_json::to_value(&input).unwrap();
-        value.as_object_mut().unwrap().insert("unexpected".into(), Value::Bool(true));
+        value
+            .as_object_mut()
+            .unwrap()
+            .insert("unexpected".into(), Value::Bool(true));
         let bytes = serde_json::to_vec(&value).unwrap();
         let report = evaluate_bytes(&bytes);
         assert_eq!(report.disposition, Disposition::InvalidInput);
@@ -1064,7 +1072,10 @@ mod tests {
             vec!["input_json_invalid_duplicate_or_unknown_contract_fields"]
         );
         let report_bytes = serde_json::to_vec(&report).unwrap();
-        assert_eq!(independently_verify(&bytes, &report_bytes).status, "rejected");
+        assert_eq!(
+            independently_verify(&bytes, &report_bytes).status,
+            "rejected"
+        );
     }
 
     #[test]
