@@ -59,6 +59,12 @@ The attention-share cap is a synthetic fixture oracle, **not** a universal fairn
 
 The [project publishes code and data](https://github.com/shuyhere/LLMs-for-Scalable-Deliberation) and the [dataset page currently shows an MIT license](https://huggingface.co/datasets/babytreecc/DeliberationBank). Before import, pin exact artifacts and review license, provenance, consent context, scope and data-use requirements. The corpus is a U.S.-topic opinion-summary benchmark; it is **not** a randomized group-interaction study or evidence of public-institution legitimacy. Policy approval must remain separate from neutrality and representativeness.
 
+### Participant-conditioned opinion-summary evaluation
+
+- [#6011 — participant-conditioned opinion summaries against human-grounded data](https://github.com/Luminous-Dynamics/mycelix/issues/6011) is a sibling child of #5999. It evaluates representativeness, informativeness, neutrality and policy approval separately against DeliberationBank, subject to exact artifact/license/consent review.
+- Keep summary generation separate from summary evaluation. Use participant-conditioned judgments, topic-aware split controls, minority-position and uncertainty diagnostics, order sensitivity, and independent human adjudication.
+- The 32 structured fixtures in this PR remain exact provenance/representation controls; they do not judge free-form paraphrase quality or lived participant experience.
+
 ### Group-interaction experiments
 
 - [Real-Time Group Dynamics with LLM Facilitation (FAccT 2026)](https://arxiv.org/abs/2605.14097) reports two experiments with 879 participants in groups of three. Participants preferred LLM facilitation, but the study did not find significant consensus or measured participation-equity improvements; some strategies shifted actual charity allocations.
