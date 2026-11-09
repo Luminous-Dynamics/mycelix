@@ -429,22 +429,21 @@ fn assess_case(case: &Value) -> Result<ObservabilityAssessment, String> {
         );
     }
 
-    if claims.is_empty()
+    if (claims.is_empty()
         || claims.iter().all(|claim| {
             matches!(
                 claim.claim.as_str(),
                 "NO_MESSAGE" | "NOT_OBSERVED_WITHIN_DECLARED_COVERAGE"
             )
-        })
+        }))
+        && applicability_is_supported(applicability)
     {
-        if applicability_is_supported(applicability) {
-            return assessment(
-                case,
-                ObservabilityState::NotObservedWithinDeclaredCoverage,
-                ["coverage.full_window_qualified_no_source_observation"],
-                claims,
-            );
-        }
+        return assessment(
+            case,
+            ObservabilityState::NotObservedWithinDeclaredCoverage,
+            ["coverage.full_window_qualified_no_source_observation"],
+            claims,
+        );
     }
 
     assessment(
