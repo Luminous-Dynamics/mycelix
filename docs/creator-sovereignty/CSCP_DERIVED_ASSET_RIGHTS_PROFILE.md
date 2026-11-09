@@ -103,17 +103,22 @@ The initial CSCP profile uses conservative, deny-by-default evaluation:
 
 A policy conflict MUST NOT be resolved by a model score, majority vote, popularity, issuer count or whichever record is newest. Conflicting assertions remain visible for competent human review.
 
-### 6.0 Conflict and decision precedence
+### 6.0 ODRL conflict strategy and decision semantics
 
-The profile must define policy-combination semantics rather than relying on an implementation's default ODRL evaluator behavior. For the initial CSCP profile, use this fail-closed evaluation order for one exact operation request:
+CSCP uses ODRL 2.2 as a policy information model, but an ODRL document is not safe to evaluate correctly unless policy-composition semantics are explicit. ODRL defines three conflict strategies (`perm`, `prohibit`, and `invalid`) and specifies `invalid` as the default when no strategy is supplied. The CSCP profile MUST explicitly select `odrl:conflict = invalid` for each composed policy. A composition containing conflicting permissions/prohibitions is invalid as a whole; it does not silently pick the more permissive or more popular claim. The enforcing disposition for an invalid policy is deny. An evaluator may surface the reason as `indeterminate` to distinguish missing/contradictory evidence from an explicit prohibition.
+
+The initial CSCP evaluation order for one exact operation request is:
 
 1. **Invalid or stale decision context:** invalid proofs, unknown authority capacity, stale policy epoch, missing resource/actor scope, incomplete lineage, unavailable required policy state or unresolved revocation produce `indeterminate`; enforcement disposition is deny.
-2. **Applicable prohibition:** any applicable prohibition from the resource, an ancestor, an authority policy or a mandatory legal/institutional constraint produces `deny`, unless a competent authority has issued a separately verifiable, exact-scope supersession/declassification for that prohibition.
-3. **Required duties and constraints:** unsatisfied duties, unmet constraints, expired grants or unfulfilled preconditions produce `deny`; uncheckable conditions produce `indeterminate` and enforcement deny.
-4. **Positive authorization:** `permit` is returned only when every required source/resource read and transformation is permitted, every applicable constraint is satisfied, and an explicit permission covers the requested actor, operation, purpose, audience, channel and validity interval.
-5. **Default:** absent an applicable permission, return `deny`.
+2. **Invalid policy composition:** if permissions and prohibitions conflict under the CSCP composition rules, the policy is invalid (`odrl:conflict = invalid`) and enforcement denies the request. A downstream adapter MUST NOT substitute ODRL's `perm` or `prohibit` strategy without an explicitly versioned CSCP profile mapping.
+3. **Applicable prohibition:** a prohibition in a valid, current policy for the exact resource, operation, actor, purpose, audience, channel and interval produces `deny`.
+4. **Required duties and constraints:** unsatisfied duties, unmet constraints, expired grants or unfulfilled preconditions produce `deny`; uncheckable conditions produce `indeterminate` and enforcement deny.
+5. **Positive authorization:** `permit` is returned only when every required source/resource read and transformation is permitted, every applicable constraint is satisfied, no applicable prohibition exists, and an explicit permission covers the requested actor, operation, purpose, audience, channel and validity interval.
+6. **Default:** absent an applicable permission, return `deny`.
 
-An arbitrary newer timestamp, higher issuer count, model confidence score, local derivative grant or platform administrator role does not resolve a conflict. A new policy version can supersede an earlier one only through the declared CSCP approval and event-lineage process, with the affected scope and reason preserved. The evaluator returns the applied policy IDs/versions, lineage digest, stable reason code and decision disposition so independent verifiers can reproduce the result.
+A valid prohibition is not overridden by a derivative-local grant. A restriction can be relaxed only through a new, explicitly versioned policy issued by an authority competent over that exact restriction and scope; the new policy must supersede the old rule through the CSCP approval and event-lineage process. A timestamp alone, higher issuer count, model confidence score, platform administrator role or new derivative identity does not supersede a restriction. The evaluator returns the applied policy IDs/versions, ODRL conflict strategy, lineage digest, stable reason code and decision disposition so independent verifiers can reproduce the result.
+
+Reference: [ODRL Information Model 2.2, Policy Conflict Strategy](https://www.w3.org/TR/odrl-model/#policy-conflict-strategy).
 
 ### 6.1 Monotonic derivation
 
