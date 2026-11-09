@@ -109,7 +109,13 @@
           "non-compliance"
         ]
       },
-      "mutation": "none"
+      "mutation": "none",
+      "dependency_context": {
+        "status": "complete",
+        "snapshot_ref": "synthetic-dependency-snapshot-OBS-001",
+        "evidence_frontier_ref": "synthetic-dependency-frontier-OBS-001",
+        "inventory_complete": true
+      }
     },
     {
       "id": "OBS-002",
@@ -147,7 +153,13 @@
           "intent"
         ]
       },
-      "mutation": "none"
+      "mutation": "none",
+      "dependency_context": {
+        "status": "complete",
+        "snapshot_ref": "synthetic-dependency-snapshot-OBS-002",
+        "evidence_frontier_ref": "synthetic-dependency-frontier-OBS-002",
+        "inventory_complete": true
+      }
     },
     {
       "id": "OBS-003",
@@ -189,7 +201,13 @@
           "intent"
         ]
       },
-      "mutation": "none"
+      "mutation": "none",
+      "dependency_context": {
+        "status": "complete",
+        "snapshot_ref": "synthetic-dependency-snapshot-OBS-003",
+        "evidence_frontier_ref": "synthetic-dependency-frontier-OBS-003",
+        "inventory_complete": true
+      }
     },
     {
       "id": "OBS-004",
@@ -231,7 +249,13 @@
           "intent"
         ]
       },
-      "mutation": "none"
+      "mutation": "none",
+      "dependency_context": {
+        "status": "complete",
+        "snapshot_ref": "synthetic-dependency-snapshot-OBS-004",
+        "evidence_frontier_ref": "synthetic-dependency-frontier-OBS-004",
+        "inventory_complete": true
+      }
     },
     {
       "id": "OBS-005",
@@ -269,7 +293,13 @@
           "pilot intent"
         ]
       },
-      "mutation": "none"
+      "mutation": "none",
+      "dependency_context": {
+        "status": "complete",
+        "snapshot_ref": "synthetic-dependency-snapshot-OBS-005",
+        "evidence_frontier_ref": "synthetic-dependency-frontier-OBS-005",
+        "inventory_complete": true
+      }
     },
     {
       "id": "OBS-006",
@@ -311,7 +341,13 @@
           "intent"
         ]
       },
-      "mutation": "none"
+      "mutation": "none",
+      "dependency_context": {
+        "status": "complete",
+        "snapshot_ref": "synthetic-dependency-snapshot-OBS-006",
+        "evidence_frontier_ref": "synthetic-dependency-frontier-OBS-006",
+        "inventory_complete": true
+      }
     },
     {
       "id": "OBS-007",
@@ -365,7 +401,13 @@
           "physical absence"
         ]
       },
-      "mutation": "none"
+      "mutation": "none",
+      "dependency_context": {
+        "status": "complete",
+        "snapshot_ref": "synthetic-dependency-snapshot-OBS-007",
+        "evidence_frontier_ref": "synthetic-dependency-frontier-OBS-007",
+        "inventory_complete": true
+      }
     },
     {
       "id": "OBS-008",
@@ -403,7 +445,13 @@
           "physical absence"
         ]
       },
-      "mutation": "none"
+      "mutation": "none",
+      "dependency_context": {
+        "status": "complete",
+        "snapshot_ref": "synthetic-dependency-snapshot-OBS-008",
+        "evidence_frontier_ref": "synthetic-dependency-frontier-OBS-008",
+        "inventory_complete": true
+      }
     },
     {
       "id": "OBS-009",
@@ -452,7 +500,13 @@
           "intent"
         ]
       },
-      "mutation": "none"
+      "mutation": "none",
+      "dependency_context": {
+        "status": "complete",
+        "snapshot_ref": "synthetic-dependency-snapshot-OBS-009",
+        "evidence_frontier_ref": "synthetic-dependency-frontier-OBS-009",
+        "inventory_complete": true
+      }
     },
     {
       "id": "OBS-010",
@@ -491,7 +545,13 @@
           "physical absence"
         ]
       },
-      "mutation": "none"
+      "mutation": "none",
+      "dependency_context": {
+        "status": "complete",
+        "snapshot_ref": "synthetic-dependency-snapshot-OBS-010",
+        "evidence_frontier_ref": "synthetic-dependency-frontier-OBS-010",
+        "inventory_complete": true
+      }
     },
     {
       "id": "OBS-011",
@@ -532,7 +592,13 @@
           "complete site census"
         ]
       },
-      "mutation": "none"
+      "mutation": "none",
+      "dependency_context": {
+        "status": "complete",
+        "snapshot_ref": "synthetic-dependency-snapshot-OBS-011",
+        "evidence_frontier_ref": "synthetic-dependency-frontier-OBS-011",
+        "inventory_complete": true
+      }
     },
     {
       "id": "OBS-012",
@@ -572,7 +638,13 @@
         ]
       },
       "mutation": "remove_coverage_assertion",
-      "mutation_expected_state": "COVERAGE_UNKNOWN"
+      "mutation_expected_state": "COVERAGE_UNKNOWN",
+      "dependency_context": {
+        "status": "complete",
+        "snapshot_ref": "synthetic-dependency-snapshot-OBS-012",
+        "evidence_frontier_ref": "synthetic-dependency-frontier-OBS-012",
+        "inventory_complete": true
+      }
     },
     {
       "id": "OBS-013",
@@ -620,7 +692,13 @@
           "threat status"
         ]
       },
-      "mutation": "none"
+      "mutation": "none",
+      "dependency_context": {
+        "status": "complete",
+        "snapshot_ref": "synthetic-dependency-snapshot-OBS-013",
+        "evidence_frontier_ref": "synthetic-dependency-frontier-OBS-013",
+        "inventory_complete": true
+      }
     },
     {
       "id": "OBS-014",
@@ -668,7 +746,13 @@
           "intent"
         ]
       },
-      "mutation": "none"
+      "mutation": "none",
+      "dependency_context": {
+        "status": "complete",
+        "snapshot_ref": "synthetic-dependency-snapshot-OBS-014",
+        "evidence_frontier_ref": "synthetic-dependency-frontier-OBS-014",
+        "inventory_complete": true
+      }
     },
     {
       "id": "OBS-015",
@@ -707,7 +791,13 @@
           "pilot intent"
         ]
       },
-      "mutation": "none"
+      "mutation": "none",
+      "dependency_context": {
+        "status": "complete",
+        "snapshot_ref": "synthetic-dependency-snapshot-OBS-015",
+        "evidence_frontier_ref": "synthetic-dependency-frontier-OBS-015",
+        "inventory_complete": true
+      }
     },
     {
       "id": "OBS-016",
@@ -760,6 +850,105 @@
           "majority vote establishes truth",
           "intent",
           "threat status"
+        ]
+      },
+      "mutation": "none",
+      "dependency_context": {
+        "status": "complete",
+        "snapshot_ref": "synthetic-dependency-snapshot-OBS-016",
+        "evidence_frontier_ref": "synthetic-dependency-frontier-OBS-016",
+        "inventory_complete": true
+      }
+    },
+    {
+      "id": "OBS-017",
+      "domain": "maritime",
+      "name": "Dependency inventory is missing for otherwise qualified observation coverage",
+      "source": {
+        "id": "ais-source-017",
+        "modality": "cooperative_transponder",
+        "revision": "synthetic-ais-profile-1"
+      },
+      "scope": {
+        "scope_id": "abstract-scope-port-17",
+        "window_start": 100,
+        "window_end": 200,
+        "window_unit": "synthetic_time"
+      },
+      "equipment_applicability": "equipped_or_obligation_confirmed",
+      "source_health": "healthy",
+      "coverage": {
+        "assertion_id": "coverage-ais-017",
+        "status": "qualified",
+        "complete_for_scope": true,
+        "independent_oracle": "oracle-ais-coverage-017",
+        "valid_from": 90,
+        "valid_until": 210,
+        "coverage_profile_digest": "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+      },
+      "dependency_context": {
+        "status": "missing",
+        "snapshot_ref": null,
+        "evidence_frontier_ref": null,
+        "inventory_complete": null
+      },
+      "data_completeness": "complete",
+      "freshness": "fresh",
+      "rights": "allowed_for_synthetic_test",
+      "observations": [],
+      "expected": {
+        "state": "COVERAGE_UNKNOWN",
+        "claim_scope": "Coverage-qualified non-observation is prohibited because the dependency inventory/frontier cannot be verified",
+        "must_not_claim": [
+          "independent support",
+          "physical absence",
+          "complete coverage qualification"
+        ]
+      },
+      "mutation": "none"
+    },
+    {
+      "id": "OBS-018",
+      "domain": "civil_aviation",
+      "name": "Dependency snapshot is stale relative to the assessment frontier",
+      "source": {
+        "id": "radar-source-018",
+        "modality": "primary_radar",
+        "revision": "synthetic-radar-profile-1"
+      },
+      "scope": {
+        "scope_id": "abstract-scope-airspace-18",
+        "window_start": 100,
+        "window_end": 200,
+        "window_unit": "synthetic_time"
+      },
+      "equipment_applicability": "applicable",
+      "source_health": "healthy",
+      "coverage": {
+        "assertion_id": "coverage-radar-018",
+        "status": "qualified",
+        "complete_for_scope": true,
+        "independent_oracle": "oracle-radar-coverage-018",
+        "valid_from": 90,
+        "valid_until": 210,
+        "coverage_profile_digest": "sha256:abababababababababababababababababababababababababababababababab"
+      },
+      "dependency_context": {
+        "status": "stale",
+        "snapshot_ref": "synthetic-dependency-snapshot-OBS-018",
+        "evidence_frontier_ref": "synthetic-frontier-behind-OBS-018",
+        "inventory_complete": true
+      },
+      "data_completeness": "complete",
+      "freshness": "fresh",
+      "rights": "allowed_for_synthetic_test",
+      "observations": [],
+      "expected": {
+        "state": "COVERAGE_UNKNOWN",
+        "claim_scope": "Current dependency independence/common-cause assessment is unknown because its evidence frontier is stale",
+        "must_not_claim": [
+          "independent corroboration",
+          "physical absence"
         ]
       },
       "mutation": "none"
