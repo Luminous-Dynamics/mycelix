@@ -22,7 +22,7 @@ env:
 jobs:
   # Detect which clusters changed
   changes:
-    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && github.event.pull_request.draft == false)
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch' || github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     outputs:
       commons: ${{ steps.filter.outputs.commons }}
@@ -37,6 +37,7 @@ jobs:
       sdk: ${{ steps.filter.outputs.sdk }}
       prism: ${{ steps.filter.outputs.prism }}
       cos_conformance: ${{ steps.filter.outputs.cos_conformance }}
+      cscp_asset_passport: ${{ steps.filter.outputs.cscp_asset_passport }}
     steps:
       - uses: actions/checkout@v4
       - uses: dorny/paths-filter@v3
@@ -80,6 +81,8 @@ jobs:
               - 'mycelix-manufacturing/Cargo.lock'
               - 'docs/integral/cos-reference-node-v1.md'
               - 'mycelix-manufacturing/tests/cos_reference_conformance.md'
+            cscp_asset_passport:
+              - 'mycelix-workspace/research/creator-asset-passport-core/**'
 
   # Format check (always runs when CI is admitted)
   format:
@@ -111,6 +114,68 @@ jobs:
           (cd crates/mycelix-bridge-common && cargo fmt --all --check) || status=1
           (cd crates/mycelix-bridge-entry-types && cargo fmt --all --check) || status=1
           exit $status
+
+  # Narrow, read-only qualification for CSCP research code. This job may run
+  # on drafts; it checks out the exact PR head and receives no secrets/write token.
+  test-cscp-asset-passport:
+    name: CSCP creator asset passport (exact head)
+    needs: changes
+    if: needs.changes.outputs.cscp_asset_passport == 'true' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      pull-requests: read
+    env:
+      CSCP_EXPECTED_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ env.CSCP_EXPECTED_SHA }}
+          persist-credentials: false
+      - name: Assert exact source revision
+        run: test "$(git rev-parse HEAD)" = "$CSCP_EXPECTED_SHA"
+      - uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9
+        with:
+          toolchain: 1.96.0
+          components: rustfmt
+      - name: Generate isolated dependency lock
+        run: cargo generate-lockfile --manifest-path mycelix-workspace/research/creator-asset-passport-core/Cargo.toml
+      - name: Check formatting
+        run: cargo fmt --manifest-path mycelix-workspace/research/creator-asset-passport-core/Cargo.toml --all --check
+      - name: Test exact source head
+        run: cargo test --manifest-path mycelix-workspace/research/creator-asset-passport-core/Cargo.toml --locked
+      - name: Write qualification receipt
+        if: always()
+        run: |
+          {
+            echo "schema=cscp-draft-qualification-receipt-v1"
+            echo "repository=${GITHUB_REPOSITORY}"
+            echo "event=${GITHUB_EVENT_NAME}"
+            echo "expected_source_sha=${CSCP_EXPECTED_SHA}"
+            echo "checked_out_sha=$(git rev-parse HEAD 2>/dev/null || echo unavailable)"
+            echo "rustc_version=$(rustc --version 2>/dev/null || echo unavailable)"
+            echo "cargo_version=$(cargo --version 2>/dev/null || echo unavailable)"
+            if [ -f "mycelix-workspace/research/creator-asset-passport-core/Cargo.lock" ]; then
+              echo "cargo_lock_sha256=$(sha256sum mycelix-workspace/research/creator-asset-passport-core/Cargo.lock | cut -d' ' -f1)"
+            else
+              echo "cargo_lock_sha256=missing"
+            fi
+            if [ "$(git rev-parse HEAD 2>/dev/null || echo unavailable)" = "$CSCP_EXPECTED_SHA" ]; then
+              echo "exact_source_match=true"
+            else
+              echo "exact_source_match=false"
+            fi
+          } > cscp-draft-qualification-receipt.txt
+      - name: Upload raw qualification evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: cscp-draft-qualification-${{ env.CSCP_EXPECTED_SHA }}
+          path: |
+            mycelix-workspace/research/creator-asset-passport-core/Cargo.lock
+            cscp-draft-qualification-receipt.txt
+          if-no-files-found: warn
 
   # Per-cluster test jobs
   test-cos-conformance:
@@ -452,6 +517,7 @@ jobs:
       - test-bridge
       - test-sdk
       - test-prism
+      - test-cscp-asset-passport
     runs-on: ubuntu-latest
     steps:
       - name: Check results
@@ -472,9 +538,10 @@ jobs:
           echo "Bridge: ${{ needs.test-bridge.result }}"
           echo "SDK: ${{ needs.test-sdk.result }}"
           echo "Prism: ${{ needs.test-prism.result }}"
+          echo "CSCP asset passport: ${{ needs.test-cscp-asset-passport.result }}"
           if [ "${{ needs.format.result }}" = "failure" ]; then exit 1; fi
           # Skipped jobs are OK (path filter didn't match)
-          for result in "${{ needs.test-cos-conformance.result }}" "${{ needs.test-commons.result }}" "${{ needs.test-civic.result }}" "${{ needs.test-hearth.result }}" "${{ needs.test-finance.result }}" "${{ needs.test-governance.result }}" "${{ needs.test-identity.result }}" "${{ needs.test-personal.result }}" "${{ needs.test-attribution.result }}" "${{ needs.test-bridge.result }}" "${{ needs.test-sdk.result }}" "${{ needs.test-prism.result }}"; do
+          for result in "${{ needs.test-cos-conformance.result }}" "${{ needs.test-commons.result }}" "${{ needs.test-civic.result }}" "${{ needs.test-hearth.result }}" "${{ needs.test-finance.result }}" "${{ needs.test-governance.result }}" "${{ needs.test-identity.result }}" "${{ needs.test-personal.result }}" "${{ needs.test-attribution.result }}" "${{ needs.test-bridge.result }}" "${{ needs.test-sdk.result }}" "${{ needs.test-prism.result }}" "${{ needs.test-cscp-asset-passport.result }}"; do
             if [ "$result" = "failure" ]; then exit 1; fi
           done
           echo "All checks passed!"
