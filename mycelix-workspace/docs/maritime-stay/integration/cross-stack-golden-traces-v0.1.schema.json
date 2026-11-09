@@ -1,0 +1,349 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:luminous-dynamics:maritime-commons:cross-stack-golden-traces:0.1.0",
+  "title": "Maritime Commons Cross-Stack Golden-Trace Corpus v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "corpus_id",
+    "profile_id",
+    "status",
+    "parent_issue",
+    "claim_ceiling",
+    "scenario_count",
+    "owner_repositories",
+    "cases",
+    "execution_status"
+  ],
+  "properties": {
+    "corpus_id": {
+      "const": "MCB-CROSS-STACK-0.1"
+    },
+    "profile_id": {
+      "const": "maritime-cross-stack-golden-trace-0.1"
+    },
+    "status": {
+      "const": "declarative_synthetic_not_executed"
+    },
+    "parent_issue": {
+      "const": 5974
+    },
+    "claim_ceiling": {
+      "type": "string",
+      "minLength": 1
+    },
+    "scenario_count": {
+      "type": "integer",
+      "minimum": 30
+    },
+    "owner_repositories": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "mycelix",
+        "sol_atlas",
+        "symtropy",
+        "symthaea"
+      ],
+      "properties": {
+        "mycelix": {
+          "const": "Luminous-Dynamics/mycelix"
+        },
+        "sol_atlas": {
+          "const": "Luminous-Dynamics/sol-atlas-leptos"
+        },
+        "symtropy": {
+          "const": "Luminous-Dynamics/symtropy"
+        },
+        "symthaea": {
+          "const": "Luminous-Dynamics/symthaea"
+        }
+      }
+    },
+    "cases": {
+      "type": "array",
+      "minItems": 30,
+      "items": {
+        "$ref": "#/$defs/Case"
+      }
+    },
+    "execution_status": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "executed",
+        "owner_artifacts_pinned",
+        "independent_oracle_built",
+        "mutation_campaign",
+        "cross_coordinator_replay",
+        "provider_sandbox_used",
+        "field_evaluation"
+      ],
+      "properties": {
+        "executed": {
+          "const": false
+        },
+        "owner_artifacts_pinned": {
+          "const": false
+        },
+        "independent_oracle_built": {
+          "const": false
+        },
+        "mutation_campaign": {
+          "const": false
+        },
+        "cross_coordinator_replay": {
+          "const": false
+        },
+        "provider_sandbox_used": {
+          "const": false
+        },
+        "field_evaluation": {
+          "const": false
+        }
+      }
+    }
+  },
+  "$defs": {
+    "Owner": {
+      "enum": [
+        "mycelix",
+        "sol_atlas",
+        "symtropy",
+        "symthaea"
+      ]
+    },
+    "ControlKind": {
+      "enum": [
+        "positive_control",
+        "negative_control",
+        "ambiguity_control",
+        "recovery_control",
+        "metamorphic_control"
+      ]
+    },
+    "SourceDisposition": {
+      "enum": [
+        "qualified",
+        "stale",
+        "unknown",
+        "unsupported",
+        "conflict",
+        "not_applicable"
+      ]
+    },
+    "FeasibilityDisposition": {
+      "enum": [
+        "feasible",
+        "infeasible",
+        "unknown",
+        "unsupported",
+        "conflict",
+        "not_evaluated"
+      ]
+    },
+    "DecisionDisposition": {
+      "enum": [
+        "recommend",
+        "abstain",
+        "request_information",
+        "human_review",
+        "not_evaluated"
+      ]
+    },
+    "CommitmentDisposition": {
+      "enum": [
+        "present",
+        "absent",
+        "pending",
+        "needs_reconciliation",
+        "conflict",
+        "not_evaluated"
+      ]
+    },
+    "DependencyDisposition": {
+      "enum": [
+        "shared_dependency",
+        "unknown_dependency",
+        "no_declared_common_domain",
+        "not_evaluated"
+      ]
+    },
+    "StayDisposition": {
+      "enum": [
+        "confirmed",
+        "rejected",
+        "pending",
+        "unknown",
+        "conflict",
+        "needs_reconciliation",
+        "not_evaluated",
+        "incomparable"
+      ]
+    },
+    "ArtifactRequirement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "owner",
+        "artifact_kind",
+        "required"
+      ],
+      "properties": {
+        "owner": {
+          "$ref": "#/$defs/Owner"
+        },
+        "artifact_kind": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "required": {
+          "type": "boolean"
+        }
+      }
+    },
+    "Expected": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_context",
+        "feasibility",
+        "decision",
+        "commitment",
+        "dependency",
+        "stay_disposition",
+        "provider_effect_evidence",
+        "model_action_authority"
+      ],
+      "properties": {
+        "source_context": {
+          "$ref": "#/$defs/SourceDisposition"
+        },
+        "feasibility": {
+          "$ref": "#/$defs/FeasibilityDisposition"
+        },
+        "decision": {
+          "$ref": "#/$defs/DecisionDisposition"
+        },
+        "commitment": {
+          "$ref": "#/$defs/CommitmentDisposition"
+        },
+        "dependency": {
+          "$ref": "#/$defs/DependencyDisposition"
+        },
+        "stay_disposition": {
+          "$ref": "#/$defs/StayDisposition"
+        },
+        "provider_effect_evidence": {
+          "enum": [
+            "none",
+            "receipt_present",
+            "provider_state_unavailable",
+            "not_applicable"
+          ]
+        },
+        "model_action_authority": {
+          "const": "none"
+        }
+      }
+    },
+    "Case": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "case_id",
+        "family",
+        "control_kind",
+        "scenario",
+        "owner_artifact_requirements",
+        "expected",
+        "invariant_ids",
+        "hard_gates",
+        "claim_ceiling"
+      ],
+      "properties": {
+        "case_id": {
+          "type": "string",
+          "pattern": "^MCB-X-[0-9]{3}$"
+        },
+        "family": {
+          "enum": [
+            "source_spatial",
+            "feasibility",
+            "time_standards_identity",
+            "cognitive_evidence",
+            "provider_recovery_privacy"
+          ]
+        },
+        "control_kind": {
+          "$ref": "#/$defs/ControlKind"
+        },
+        "scenario": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1200
+        },
+        "owner_artifact_requirements": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/ArtifactRequirement"
+          }
+        },
+        "expected": {
+          "$ref": "#/$defs/Expected"
+        },
+        "invariant_ids": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "NO_AUTHORITY_PROMOTION",
+              "NO_FALSE_FEASIBLE",
+              "NO_STALE_TO_CURRENT",
+              "NO_FALSE_RESOURCE_JOIN",
+              "NO_UNIT_OR_TIME_LAUNDERING",
+              "NO_EVIDENCE_OVERCOUNT",
+              "UNKNOWN_DEPENDENCY_ABSTAIN",
+              "NO_DUPLICATE_EFFECT",
+              "NO_PRIVACY_EXPANSION",
+              "HISTORY_IMMUTABLE",
+              "EXACT_REPLAY",
+              "NO_UNREVIEWED_TRANSLATION",
+              "NO_UNSUPPORTED_PHYSICS"
+            ]
+          }
+        },
+        "hard_gates": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "authority",
+              "identity",
+              "currentness",
+              "feasibility",
+              "allocation",
+              "effect_idempotency",
+              "privacy",
+              "evidence_independence",
+              "historical_reconstruction"
+            ]
+          }
+        },
+        "claim_ceiling": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1000
+        },
+        "metamorphic_group": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        }
+      }
+    }
+  }
+}
