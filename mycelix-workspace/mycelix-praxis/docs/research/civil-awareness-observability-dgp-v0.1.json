@@ -708,6 +708,61 @@
         ]
       },
       "mutation": "none"
+    },
+    {
+      "id": "OBS-016",
+      "domain": "civil_aviation",
+      "name": "Qualified radar positive and optical non-observation disagree",
+      "source": {
+        "id": "multi-source-assessment-016",
+        "modality": "cross_sensor_event_reconciliation",
+        "revision": "synthetic-reconciliation-profile-1"
+      },
+      "scope": {
+        "scope_id": "abstract-scope-airspace-16",
+        "window_start": 100,
+        "window_end": 200,
+        "window_unit": "synthetic_time"
+      },
+      "equipment_applicability": "applicable",
+      "source_health": "mixed",
+      "coverage": {
+        "assertion_id": "coverage-multisource-016",
+        "status": "qualified_for_both_sources",
+        "complete_for_scope": true,
+        "independent_oracle": "oracle-multisource-conflict-016",
+        "source_coverage_refs": [
+          "coverage-radar-016",
+          "coverage-optical-016"
+        ]
+      },
+      "data_completeness": "complete",
+      "freshness": "fresh",
+      "rights": "allowed_for_synthetic_test",
+      "observations": [
+        {
+          "source_id": "radar-source-016",
+          "claim": "OBSERVED_PRESENT_WITHIN_SCOPE",
+          "assertion_ref": "synthetic-radar-positive-016"
+        },
+        {
+          "source_id": "optical-source-016",
+          "claim": "NOT_OBSERVED_WITHIN_DECLARED_COVERAGE",
+          "assertion_ref": "synthetic-optical-nonobservation-016"
+        }
+      ],
+      "expected": {
+        "state": "CONFLICT",
+        "claim_scope": "Qualified source outcomes disagree for the same abstract event scope; retain both source-level states and require adjudication",
+        "must_not_claim": [
+          "optical source proves physical absence",
+          "radar source proves identity",
+          "majority vote establishes truth",
+          "intent",
+          "threat status"
+        ]
+      },
+      "mutation": "none"
     }
   ],
   "claim_ceiling": "Passing this public synthetic DGP establishes only state-transition behavior on declared synthetic coverage and source-health inputs. It does not prove field sensor coverage, probability of detection, physical absence, legal compliance, aircraft/vessel safety or operational readiness."
