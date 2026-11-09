@@ -723,7 +723,7 @@ mod tests {
         let canonical = serde_json_canonicalizer::to_string(&value).unwrap();
         assert_eq!(
             canonical,
-            r#"{"literals":[null,true,false],"numbers":[333333333.3333333,1e+30,4.5,0.002,1e-27],"string":"€$\\u000f\\nA'B\"\\\\\"/"}"#
+            r#"{"literals":[null,true,false],"numbers":[333333333.3333333,1e+30,4.5,0.002,1e-27],"string":"€$\u000f\nA'B\"\\\\\"/"}"#
         );
     }
 }
