@@ -1,5 +1,5 @@
 {
-  "schema": "luminous.gcpn.track_a_evaluation_bundle.v0.1",
+  "schema": "luminous.gcpn.track_a_evaluation_bundle.v0.2",
   "comparison_id": "SYNTHETIC-TRACK-A-REFERENCE-001",
   "track_id": "TRACK_A",
   "evidence_tier": "SYNTHETIC_FIXTURE",
@@ -7,7 +7,7 @@
   "event_set_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
   "ground_truth_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
   "operator_policy_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
-  "ground_truth_independent": true,
+  "ground_truth_independent": false,
   "ground_truth_adjudication_receipt_sha256": null,
   "privacy_review_receipt_sha256": null,
   "authorization_review_receipt_sha256": null,
@@ -16,35 +16,43 @@
   "oracle_cases": [
     {
       "case_id": "TAR-001",
-      "label": "CONFIRMED_RELEVANT"
+      "label": "CONFIRMED_RELEVANT",
+      "expected_state": "AUTHORIZED_CLAIM_PENDING_SOURCE_VALIDATION"
     },
     {
       "case_id": "TAR-002",
-      "label": "CONFIRMED_RELEVANT"
+      "label": "CONFIRMED_RELEVANT",
+      "expected_state": "HUMAN_REVIEW_REQUIRED"
     },
     {
       "case_id": "TAR-003",
-      "label": "CONFIRMED_RELEVANT"
+      "label": "CONFIRMED_RELEVANT",
+      "expected_state": "OBSERVED_INTENT_UNKNOWN"
     },
     {
       "case_id": "TAR-004",
-      "label": "CONFIRMED_BENIGN"
+      "label": "CONFIRMED_BENIGN",
+      "expected_state": "OBSERVED_CLASS_AMBIGUOUS"
     },
     {
       "case_id": "TAR-005",
-      "label": "CONFIRMED_BENIGN"
+      "label": "CONFIRMED_BENIGN",
+      "expected_state": "UNKNOWN_RF_SILENT_OR_OUT_OF_BAND"
     },
     {
       "case_id": "TAR-006",
-      "label": "CONFIRMED_BENIGN"
+      "label": "CONFIRMED_BENIGN",
+      "expected_state": "STALE_UNKNOWN"
     },
     {
       "case_id": "TAR-007",
-      "label": "UNRESOLVED"
+      "label": "UNRESOLVED",
+      "expected_state": "COMMON_MODE_UNKNOWN"
     },
     {
       "case_id": "TAR-008",
-      "label": "UNRESOLVED"
+      "label": "UNRESOLVED",
+      "expected_state": "SOURCE_UNHEALTHY"
     }
   ],
   "pipelines": [
@@ -81,7 +89,12 @@
             "conflict_observed": false,
             "conflict_preserved": true,
             "purpose_and_rights_verified": true
-          }
+          },
+          "reported_state": "AUTHORIZED_CLAIM_PENDING_SOURCE_VALIDATION",
+          "abstained_from_intent_classification": true,
+          "source_status_preserved": true,
+          "event_and_receipt_times_separated": true,
+          "correction_lineage_preserved": true
         },
         {
           "case_id": "TAR-002",
@@ -99,7 +112,12 @@
             "conflict_observed": false,
             "conflict_preserved": true,
             "purpose_and_rights_verified": true
-          }
+          },
+          "reported_state": "HUMAN_REVIEW_REQUIRED",
+          "abstained_from_intent_classification": true,
+          "source_status_preserved": true,
+          "event_and_receipt_times_separated": true,
+          "correction_lineage_preserved": true
         },
         {
           "case_id": "TAR-003",
@@ -117,7 +135,12 @@
             "conflict_observed": true,
             "conflict_preserved": false,
             "purpose_and_rights_verified": true
-          }
+          },
+          "reported_state": "OBSERVED_INTENT_UNKNOWN",
+          "abstained_from_intent_classification": true,
+          "source_status_preserved": true,
+          "event_and_receipt_times_separated": true,
+          "correction_lineage_preserved": true
         },
         {
           "case_id": "TAR-004",
@@ -135,7 +158,12 @@
             "conflict_observed": true,
             "conflict_preserved": false,
             "purpose_and_rights_verified": true
-          }
+          },
+          "reported_state": "OBSERVED_INTENT_UNKNOWN",
+          "abstained_from_intent_classification": true,
+          "source_status_preserved": true,
+          "event_and_receipt_times_separated": true,
+          "correction_lineage_preserved": false
         },
         {
           "case_id": "TAR-005",
@@ -153,7 +181,12 @@
             "conflict_observed": false,
             "conflict_preserved": true,
             "purpose_and_rights_verified": true
-          }
+          },
+          "reported_state": "UNKNOWN_RF_SILENT_OR_OUT_OF_BAND",
+          "abstained_from_intent_classification": true,
+          "source_status_preserved": true,
+          "event_and_receipt_times_separated": true,
+          "correction_lineage_preserved": true
         },
         {
           "case_id": "TAR-006",
@@ -171,7 +204,12 @@
             "conflict_observed": false,
             "conflict_preserved": true,
             "purpose_and_rights_verified": true
-          }
+          },
+          "reported_state": "STALE_UNKNOWN",
+          "abstained_from_intent_classification": true,
+          "source_status_preserved": false,
+          "event_and_receipt_times_separated": false,
+          "correction_lineage_preserved": true
         },
         {
           "case_id": "TAR-007",
@@ -189,7 +227,12 @@
             "conflict_observed": true,
             "conflict_preserved": true,
             "purpose_and_rights_verified": true
-          }
+          },
+          "reported_state": "COMMON_MODE_UNKNOWN",
+          "abstained_from_intent_classification": true,
+          "source_status_preserved": true,
+          "event_and_receipt_times_separated": true,
+          "correction_lineage_preserved": true
         },
         {
           "case_id": "TAR-008",
@@ -207,7 +250,12 @@
             "conflict_observed": true,
             "conflict_preserved": false,
             "purpose_and_rights_verified": true
-          }
+          },
+          "reported_state": "SOURCE_UNHEALTHY",
+          "abstained_from_intent_classification": true,
+          "source_status_preserved": true,
+          "event_and_receipt_times_separated": true,
+          "correction_lineage_preserved": true
         }
       ]
     },
@@ -244,7 +292,12 @@
             "conflict_observed": false,
             "conflict_preserved": true,
             "purpose_and_rights_verified": true
-          }
+          },
+          "reported_state": "AUTHORIZED_CLAIM_PENDING_SOURCE_VALIDATION",
+          "abstained_from_intent_classification": true,
+          "source_status_preserved": true,
+          "event_and_receipt_times_separated": true,
+          "correction_lineage_preserved": true
         },
         {
           "case_id": "TAR-002",
@@ -262,7 +315,12 @@
             "conflict_observed": false,
             "conflict_preserved": true,
             "purpose_and_rights_verified": true
-          }
+          },
+          "reported_state": "HUMAN_REVIEW_REQUIRED",
+          "abstained_from_intent_classification": true,
+          "source_status_preserved": true,
+          "event_and_receipt_times_separated": true,
+          "correction_lineage_preserved": true
         },
         {
           "case_id": "TAR-003",
@@ -280,7 +338,12 @@
             "conflict_observed": true,
             "conflict_preserved": true,
             "purpose_and_rights_verified": true
-          }
+          },
+          "reported_state": "OBSERVED_INTENT_UNKNOWN",
+          "abstained_from_intent_classification": true,
+          "source_status_preserved": true,
+          "event_and_receipt_times_separated": true,
+          "correction_lineage_preserved": true
         },
         {
           "case_id": "TAR-004",
@@ -298,7 +361,12 @@
             "conflict_observed": true,
             "conflict_preserved": true,
             "purpose_and_rights_verified": true
-          }
+          },
+          "reported_state": "OBSERVED_CLASS_AMBIGUOUS",
+          "abstained_from_intent_classification": true,
+          "source_status_preserved": true,
+          "event_and_receipt_times_separated": true,
+          "correction_lineage_preserved": true
         },
         {
           "case_id": "TAR-005",
@@ -316,7 +384,12 @@
             "conflict_observed": false,
             "conflict_preserved": true,
             "purpose_and_rights_verified": true
-          }
+          },
+          "reported_state": "UNKNOWN_RF_SILENT_OR_OUT_OF_BAND",
+          "abstained_from_intent_classification": true,
+          "source_status_preserved": true,
+          "event_and_receipt_times_separated": true,
+          "correction_lineage_preserved": true
         },
         {
           "case_id": "TAR-006",
@@ -334,7 +407,12 @@
             "conflict_observed": false,
             "conflict_preserved": true,
             "purpose_and_rights_verified": true
-          }
+          },
+          "reported_state": "STALE_UNKNOWN",
+          "abstained_from_intent_classification": true,
+          "source_status_preserved": true,
+          "event_and_receipt_times_separated": true,
+          "correction_lineage_preserved": false
         },
         {
           "case_id": "TAR-007",
@@ -352,7 +430,12 @@
             "conflict_observed": true,
             "conflict_preserved": true,
             "purpose_and_rights_verified": true
-          }
+          },
+          "reported_state": "COMMON_MODE_UNKNOWN",
+          "abstained_from_intent_classification": true,
+          "source_status_preserved": true,
+          "event_and_receipt_times_separated": true,
+          "correction_lineage_preserved": true
         },
         {
           "case_id": "TAR-008",
@@ -370,7 +453,12 @@
             "conflict_observed": false,
             "conflict_preserved": true,
             "purpose_and_rights_verified": true
-          }
+          },
+          "reported_state": "STALE_UNKNOWN",
+          "abstained_from_intent_classification": true,
+          "source_status_preserved": true,
+          "event_and_receipt_times_separated": true,
+          "correction_lineage_preserved": true
         }
       ]
     },
@@ -407,7 +495,12 @@
             "conflict_observed": false,
             "conflict_preserved": true,
             "purpose_and_rights_verified": true
-          }
+          },
+          "reported_state": "AUTHORIZED_CLAIM_PENDING_SOURCE_VALIDATION",
+          "abstained_from_intent_classification": true,
+          "source_status_preserved": true,
+          "event_and_receipt_times_separated": true,
+          "correction_lineage_preserved": true
         },
         {
           "case_id": "TAR-002",
@@ -425,7 +518,12 @@
             "conflict_observed": false,
             "conflict_preserved": true,
             "purpose_and_rights_verified": true
-          }
+          },
+          "reported_state": "HUMAN_REVIEW_REQUIRED",
+          "abstained_from_intent_classification": true,
+          "source_status_preserved": true,
+          "event_and_receipt_times_separated": true,
+          "correction_lineage_preserved": true
         },
         {
           "case_id": "TAR-003",
@@ -443,7 +541,12 @@
             "conflict_observed": true,
             "conflict_preserved": true,
             "purpose_and_rights_verified": true
-          }
+          },
+          "reported_state": "OBSERVED_INTENT_UNKNOWN",
+          "abstained_from_intent_classification": true,
+          "source_status_preserved": true,
+          "event_and_receipt_times_separated": true,
+          "correction_lineage_preserved": true
         },
         {
           "case_id": "TAR-004",
@@ -461,7 +564,12 @@
             "conflict_observed": false,
             "conflict_preserved": true,
             "purpose_and_rights_verified": true
-          }
+          },
+          "reported_state": "OBSERVED_CLASS_AMBIGUOUS",
+          "abstained_from_intent_classification": true,
+          "source_status_preserved": true,
+          "event_and_receipt_times_separated": true,
+          "correction_lineage_preserved": true
         },
         {
           "case_id": "TAR-005",
@@ -479,7 +587,12 @@
             "conflict_observed": false,
             "conflict_preserved": true,
             "purpose_and_rights_verified": true
-          }
+          },
+          "reported_state": "UNKNOWN_RF_SILENT_OR_OUT_OF_BAND",
+          "abstained_from_intent_classification": true,
+          "source_status_preserved": true,
+          "event_and_receipt_times_separated": true,
+          "correction_lineage_preserved": true
         },
         {
           "case_id": "TAR-006",
@@ -497,7 +610,12 @@
             "conflict_observed": false,
             "conflict_preserved": true,
             "purpose_and_rights_verified": true
-          }
+          },
+          "reported_state": "STALE_UNKNOWN",
+          "abstained_from_intent_classification": true,
+          "source_status_preserved": true,
+          "event_and_receipt_times_separated": true,
+          "correction_lineage_preserved": true
         },
         {
           "case_id": "TAR-007",
@@ -515,7 +633,12 @@
             "conflict_observed": true,
             "conflict_preserved": true,
             "purpose_and_rights_verified": true
-          }
+          },
+          "reported_state": "COMMON_MODE_UNKNOWN",
+          "abstained_from_intent_classification": true,
+          "source_status_preserved": true,
+          "event_and_receipt_times_separated": true,
+          "correction_lineage_preserved": true
         },
         {
           "case_id": "TAR-008",
@@ -533,7 +656,12 @@
             "conflict_observed": false,
             "conflict_preserved": true,
             "purpose_and_rights_verified": true
-          }
+          },
+          "reported_state": "SOURCE_UNHEALTHY",
+          "abstained_from_intent_classification": true,
+          "source_status_preserved": true,
+          "event_and_receipt_times_separated": true,
+          "correction_lineage_preserved": true
         }
       ]
     }

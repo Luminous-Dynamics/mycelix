@@ -5,6 +5,7 @@ on:
     paths:
       - "tools/gcpn-track-a-replay-evaluator/**"
       - "mycelix-workspace/mycelix-praxis/docs/research/GCPN_TRACK_A_REPLAY_EVALUATOR_V0_1.md"
+      - "mycelix-workspace/mycelix-praxis/docs/research/GCPN_TRACK_A_REPLAY_EVALUATOR_V0_2.md"
       - ".github/workflows/gcpn-track-a-replay-evaluator.yml"
   workflow_dispatch:
 

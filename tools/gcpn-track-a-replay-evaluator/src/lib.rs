@@ -8,10 +8,25 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, BTreeSet};
 
-pub const INPUT_SCHEMA: &str = "luminous.gcpn.track_a_evaluation_bundle.v0.1";
-pub const REPORT_SCHEMA: &str = "luminous.gcpn.track_a_evaluation_report.v0.1";
+pub const INPUT_SCHEMA: &str = "luminous.gcpn.track_a_evaluation_bundle.v0.2";
+pub const REPORT_SCHEMA: &str = "luminous.gcpn.track_a_evaluation_report.v0.2";
 pub const EXPECTED_FIXTURE_SHA256: &str =
-    "16b49f09f9254e6d816d5464b99afe9342b44baae7560f5a1274fe391684feb8";
+    "ddd39fbf78557e383814fca1241f0f731bff84b0236499383200660ca12f43e5";
+
+const ALLOWED_EVENT_STATES: [&str; 12] = [
+    "AUTHORIZED_CLAIM_PENDING_SOURCE_VALIDATION",
+    "OBSERVED_INTENT_UNKNOWN",
+    "OBSERVED_CLASS_AMBIGUOUS",
+    "UNKNOWN_RF_SILENT_OR_OUT_OF_BAND",
+    "STALE_UNKNOWN",
+    "SOURCE_UNHEALTHY",
+    "COMMON_MODE_UNKNOWN",
+    "IDENTITY_REVOKED_REVIEW_REQUIRED",
+    "OWNER_TASK_AUTHORIZATION_EXPIRED_HOLD",
+    "THIRD_PARTY_CONTROL_PROHIBITED",
+    "DATA_USE_BLOCKED",
+    "HUMAN_REVIEW_REQUIRED",
+];
 
 #[derive(Clone, Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -54,6 +69,7 @@ pub enum GroundTruthLabel {
 pub struct OracleCase {
     pub case_id: String,
     pub label: GroundTruthLabel,
+    pub expected_state: String,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -122,6 +138,11 @@ impl SafetyBoundary {
 #[serde(deny_unknown_fields)]
 pub struct CaseResult {
     pub case_id: String,
+    pub reported_state: String,
+    pub abstained_from_intent_classification: bool,
+    pub source_status_preserved: bool,
+    pub event_and_receipt_times_separated: bool,
+    pub correction_lineage_preserved: bool,
     pub disposition: ReviewDisposition,
     pub review_requests: u32,
     pub review_latency_ms: Option<u64>,
@@ -185,6 +206,16 @@ pub struct PipelineEvaluation {
 #[derive(Clone, Debug, Serialize)]
 pub struct PipelineMetrics {
     pub case_count: usize,
+    pub expected_state_match_cases: usize,
+    pub expected_state_match_rate: Option<f64>,
+    pub intent_abstention_cases: usize,
+    pub intent_abstention_rate: Option<f64>,
+    pub source_status_preserved_cases: usize,
+    pub source_status_preservation_rate: Option<f64>,
+    pub event_receipt_times_separated_cases: usize,
+    pub event_receipt_time_separation_rate: Option<f64>,
+    pub correction_lineage_preserved_cases: usize,
+    pub correction_lineage_preservation_rate: Option<f64>,
     pub confirmed_relevant_cases: usize,
     pub confirmed_benign_cases: usize,
     pub unresolved_cases: usize,
@@ -208,6 +239,9 @@ pub struct PipelineMetrics {
     pub known_decision_coverage: Option<f64>,
     pub selective_risk: Option<f64>,
     pub brier_score: Option<f64>,
+    pub probability_supplied_cases: usize,
+    pub probability_unscored_unresolved_cases: usize,
+    pub probability_coverage_known_cases: Option<f64>,
     pub probability_scored_case_count: usize,
     pub review_latency_p50_ms: Option<u64>,
     pub review_latency_p95_ms: Option<u64>,
@@ -299,7 +333,7 @@ pub fn evaluate_with_expected_sha256(
         );
     }
 
-    if controlled_replay_receipts_missing(&bundle) {
+    if controlled_replay_receipt_verification_unavailable(&bundle) {
         return EvaluationReport {
             report_schema: REPORT_SCHEMA,
             status: "BLOCKED",
@@ -309,8 +343,11 @@ pub fn evaluate_with_expected_sha256(
             evidence_tier: Some(evidence_tier_name(&bundle.evidence_tier).to_string()),
             case_count: bundle.oracle_cases.len(),
             pipeline_results: Vec::new(),
-            reasons: vec!["controlled_replay_review_receipts_missing_or_invalid".to_string()],
-            claim_ceiling: "offline_track_a_event_envelope_metrics_only",
+            reasons: vec![
+                "controlled_replay_blocked_until_shared_evidence_plane_receipt_verification"
+                    .to_string(),
+            ],
+            claim_ceiling: "controlled_replay_not_scored_until_shared_evidence_plane_receipts_are_verified",
         };
     }
 
@@ -383,10 +420,10 @@ pub fn evaluate_with_expected_sha256(
         };
     }
 
-    let oracle: BTreeMap<&str, GroundTruthLabel> = bundle
+    let oracle: BTreeMap<&str, &OracleCase> = bundle
         .oracle_cases
         .iter()
-        .map(|case| (case.case_id.as_str(), case.label))
+        .map(|case| (case.case_id.as_str(), case))
         .collect();
 
     let pipeline_results = bundle
@@ -416,7 +453,7 @@ pub fn evaluate_with_expected_sha256(
         case_count: bundle.oracle_cases.len(),
         pipeline_results,
         reasons: Vec::new(),
-        claim_ceiling: "offline_track_a_event_envelope_metrics_only",
+        claim_ceiling: "synthetic_track_a_metric_arithmetic_only_no_independent_ground_truth",
     }
 }
 
@@ -454,6 +491,9 @@ fn validate_bundle(bundle: &TrackARunBundle) -> Vec<String> {
         EvidenceTier::SyntheticFixture if !bundle.simulation_only => {
             errors.push("synthetic_fixture_must_be_simulation_only".to_string());
         }
+        EvidenceTier::SyntheticFixture if bundle.ground_truth_independent => {
+            errors.push("synthetic_fixture_cannot_claim_independent_ground_truth".to_string());
+        }
         EvidenceTier::ControlledReplay if bundle.simulation_only => {
             errors.push("controlled_replay_cannot_be_marked_simulation_only".to_string());
         }
@@ -469,6 +509,12 @@ fn validate_bundle(bundle: &TrackARunBundle) -> Vec<String> {
         if !valid_case_id(&case.case_id) {
             errors.push(format!("invalid_case_id:{}", case.case_id));
         }
+        if !ALLOWED_EVENT_STATES.contains(&case.expected_state.as_str()) {
+            errors.push(format!(
+                "oracle_expected_state_not_allowed:{}",
+                case.case_id
+            ));
+        }
         if !oracle_ids.insert(case.case_id.as_str()) {
             errors.push(format!("duplicate_oracle_case_id:{}", case.case_id));
         }
@@ -479,11 +525,6 @@ fn validate_bundle(bundle: &TrackARunBundle) -> Vec<String> {
     }
 
     let mut pipeline_ids = BTreeSet::new();
-    let oracle_labels: BTreeMap<&str, GroundTruthLabel> = bundle
-        .oracle_cases
-        .iter()
-        .map(|case| (case.case_id.as_str(), case.label))
-        .collect();
 
     for pipeline in &bundle.pipelines {
         if !valid_identifier(&pipeline.pipeline_id) {
@@ -520,17 +561,21 @@ fn validate_bundle(bundle: &TrackARunBundle) -> Vec<String> {
                     pipeline.pipeline_id, result.case_id
                 ));
             }
-            if let Err(error) = validate_case_result(result) {
+            if !ALLOWED_EVENT_STATES.contains(&result.reported_state.as_str()) {
                 errors.push(format!(
-                    "invalid_case_result:{}:{}:{error}",
+                    "reported_state_not_allowed:{}:{}",
                     pipeline.pipeline_id, result.case_id
                 ));
             }
-            if oracle_labels.get(result.case_id.as_str()) == Some(&GroundTruthLabel::Unresolved)
-                && result.relevance_probability_micros.is_some()
-            {
+            if !result.abstained_from_intent_classification {
                 errors.push(format!(
-                    "unresolved_probability_not_permitted:{}:{}",
+                    "intent_classification_not_abstained:{}:{}",
+                    pipeline.pipeline_id, result.case_id
+                ));
+            }
+            if let Err(error) = validate_case_result(result) {
+                errors.push(format!(
+                    "invalid_case_result:{}:{}:{error}",
                     pipeline.pipeline_id, result.case_id
                 ));
             }
@@ -553,20 +598,12 @@ fn validate_bundle(bundle: &TrackARunBundle) -> Vec<String> {
     errors
 }
 
-fn controlled_replay_receipts_missing(bundle: &TrackARunBundle) -> bool {
+fn controlled_replay_receipt_verification_unavailable(bundle: &TrackARunBundle) -> bool {
+    // A syntactically valid digest is only a reference, not proof that a receipt
+    // exists, is signed, is current, or was issued by an independent authority.
+    // Until the shared evidence-plane verifier is integrated, all real/controlled
+    // replay bundles remain blocked regardless of the presence of digest strings.
     bundle.evidence_tier == EvidenceTier::ControlledReplay
-        && !(bundle
-            .ground_truth_adjudication_receipt_sha256
-            .as_deref()
-            .is_some_and(is_sha256)
-            && bundle
-                .privacy_review_receipt_sha256
-                .as_deref()
-                .is_some_and(is_sha256)
-            && bundle
-                .authorization_review_receipt_sha256
-                .as_deref()
-                .is_some_and(is_sha256))
 }
 
 fn validate_case_result(result: &CaseResult) -> Result<(), &'static str> {
@@ -612,10 +649,6 @@ fn validate_case_result(result: &CaseResult) -> Result<(), &'static str> {
 
 fn comparability_reasons(bundle: &TrackARunBundle) -> Vec<String> {
     let mut reasons = Vec::new();
-    if !bundle.ground_truth_independent {
-        reasons.push("ground_truth_independence_not_established".to_string());
-    }
-
     let oracle_ids: BTreeSet<&str> = bundle
         .oracle_cases
         .iter()
@@ -648,10 +681,15 @@ fn comparability_reasons(bundle: &TrackARunBundle) -> Vec<String> {
 
 fn calculate_metrics(
     pipeline: &PipelineSubmission,
-    oracle: &BTreeMap<&str, GroundTruthLabel>,
+    oracle: &BTreeMap<&str, &OracleCase>,
     monitoring_duration_seconds: u64,
     review_budget_seconds_per_case: u64,
 ) -> PipelineMetrics {
+    let mut expected_state_match_cases = 0usize;
+    let mut intent_abstention_cases = 0usize;
+    let mut source_status_preserved_cases = 0usize;
+    let mut event_receipt_times_separated_cases = 0usize;
+    let mut correction_lineage_preserved_cases = 0usize;
     let mut confirmed_relevant_cases = 0usize;
     let mut confirmed_benign_cases = 0usize;
     let mut unresolved_cases = 0usize;
@@ -678,6 +716,8 @@ fn calculate_metrics(
     let mut reviewed_case_count = 0usize;
 
     let mut brier_sum = 0.0f64;
+    let mut probability_supplied_cases = 0usize;
+    let mut probability_unscored_unresolved_cases = 0usize;
     let mut probability_scored_case_count = 0usize;
 
     let mut source_count_total = 0u64;
@@ -694,10 +734,27 @@ fn calculate_metrics(
     let mut rights_and_purpose_verified_cases = 0usize;
 
     for result in &pipeline.case_results {
-        let label = *oracle
+        let oracle_case = oracle
             .get(result.case_id.as_str())
             .expect("case coverage validated");
+        let label = oracle_case.label;
         let source = &result.source_evidence;
+
+        if result.reported_state == oracle_case.expected_state {
+            expected_state_match_cases += 1;
+        }
+        if result.abstained_from_intent_classification {
+            intent_abstention_cases += 1;
+        }
+        if result.source_status_preserved {
+            source_status_preserved_cases += 1;
+        }
+        if result.event_and_receipt_times_separated {
+            event_receipt_times_separated_cases += 1;
+        }
+        if result.correction_lineage_preserved {
+            correction_lineage_preserved_cases += 1;
+        }
 
         source_count_total += u64::from(source.source_count);
         authenticated_source_count_total += u64::from(source.authenticated_source_count);
@@ -799,6 +856,7 @@ fn calculate_metrics(
         }
 
         if let Some(probability) = result.relevance_probability_micros {
+            probability_supplied_cases += 1;
             let target = match label {
                 GroundTruthLabel::ConfirmedRelevant => Some(1.0),
                 GroundTruthLabel::ConfirmedBenign => Some(0.0),
@@ -809,6 +867,8 @@ fn calculate_metrics(
                 let error = predicted - target;
                 brier_sum += error * error;
                 probability_scored_case_count += 1;
+            } else {
+                probability_unscored_unresolved_cases += 1;
             }
         }
     }
@@ -822,6 +882,25 @@ fn calculate_metrics(
 
     PipelineMetrics {
         case_count: pipeline.case_results.len(),
+        expected_state_match_cases,
+        expected_state_match_rate: ratio(expected_state_match_cases, pipeline.case_results.len()),
+        intent_abstention_cases,
+        intent_abstention_rate: ratio(intent_abstention_cases, pipeline.case_results.len()),
+        source_status_preserved_cases,
+        source_status_preservation_rate: ratio(
+            source_status_preserved_cases,
+            pipeline.case_results.len(),
+        ),
+        event_receipt_times_separated_cases,
+        event_receipt_time_separation_rate: ratio(
+            event_receipt_times_separated_cases,
+            pipeline.case_results.len(),
+        ),
+        correction_lineage_preserved_cases,
+        correction_lineage_preservation_rate: ratio(
+            correction_lineage_preserved_cases,
+            pipeline.case_results.len(),
+        ),
         confirmed_relevant_cases,
         confirmed_benign_cases,
         unresolved_cases,
@@ -853,6 +932,9 @@ fn calculate_metrics(
         } else {
             None
         },
+        probability_supplied_cases,
+        probability_unscored_unresolved_cases,
+        probability_coverage_known_cases: ratio(probability_scored_case_count, known_cases),
         probability_scored_case_count,
         review_latency_p50_ms: percentile_nearest_rank(&latencies, 0.50),
         review_latency_p95_ms: percentile_nearest_rank(&latencies, 0.95),
@@ -952,6 +1034,10 @@ mod tests {
         assert_eq!(report.case_count, 8);
         assert_eq!(report.pipeline_results.len(), 3);
         assert_eq!(report.input_sha256, EXPECTED_FIXTURE_SHA256);
+        assert_eq!(
+            report.claim_ceiling,
+            "synthetic_track_a_metric_arithmetic_only_no_independent_ground_truth"
+        );
     }
 
     #[test]
@@ -1121,17 +1207,55 @@ mod tests {
     }
 
     #[test]
-    fn unresolved_case_cannot_receive_a_calibrated_binary_probability() {
+    fn unresolved_probability_is_reported_but_not_scored() {
         let mut value = parsed_fixture();
         value["pipelines"][0]["case_results"][6]["relevance_probability_micros"] = json!(500_000);
         let report = evaluate_value(value);
+        assert_eq!(report.status, "COMPARABLE");
+        let metrics = report.pipeline_results[0].metrics.as_ref().unwrap();
+        assert_eq!(metrics.probability_unscored_unresolved_cases, 1);
+        assert_eq!(metrics.probability_scored_case_count, 6);
+        assert_eq!(metrics.probability_supplied_cases, 7);
+    }
+
+    #[test]
+    fn event_state_and_evidence_preservation_metrics_are_disaggregated() {
+        let report = evaluate_frozen_fixture(FIXTURE.as_bytes());
+        let metrics = report.pipeline_results[0].metrics.as_ref().unwrap();
+        assert_eq!(metrics.expected_state_match_cases, 7);
+        assert_eq!(metrics.intent_abstention_cases, 8);
+        assert_eq!(metrics.source_status_preserved_cases, 7);
+        assert_eq!(metrics.event_receipt_times_separated_cases, 7);
+        assert_eq!(metrics.correction_lineage_preserved_cases, 7);
+        assert!((metrics.expected_state_match_rate.unwrap() - 0.875).abs() < 1e-12);
+    }
+
+    #[test]
+    fn unsupported_event_state_is_rejected() {
+        let mut value = parsed_fixture();
+        value["pipelines"][0]["case_results"][0]["reported_state"] = json!("HOSTILE");
+        let report = evaluate_value(value);
         assert_eq!(report.status, "REJECTED");
-        // Validation of the label/probability relationship is enforced below.
         assert!(
             report
                 .reasons
                 .iter()
-                .any(|reason| reason.contains("unresolved_probability"))
+                .any(|reason| { reason.starts_with("reported_state_not_allowed:") })
+        );
+    }
+
+    #[test]
+    fn failure_to_abstain_from_intent_classification_is_rejected() {
+        let mut value = parsed_fixture();
+        value["pipelines"][0]["case_results"][0]["abstained_from_intent_classification"] =
+            json!(false);
+        let report = evaluate_value(value);
+        assert_eq!(report.status, "REJECTED");
+        assert!(
+            report
+                .reasons
+                .iter()
+                .any(|reason| { reason.starts_with("intent_classification_not_abstained:") })
         );
     }
 
@@ -1151,29 +1275,38 @@ mod tests {
     }
 
     #[test]
-    fn controlled_replay_requires_review_receipt_hashes() {
+    fn controlled_replay_stays_blocked_even_with_hash_shaped_receipt_references() {
         let mut value = parsed_fixture();
         value["evidence_tier"] = json!("CONTROLLED_REPLAY");
         value["simulation_only"] = json!(false);
+        value["ground_truth_adjudication_receipt_sha256"] =
+            json!("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
+        value["privacy_review_receipt_sha256"] =
+            json!("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb");
+        value["authorization_review_receipt_sha256"] =
+            json!("cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc");
         let report = evaluate_value(value);
         assert_eq!(report.status, "BLOCKED");
         assert_eq!(
             report.reasons,
-            vec!["controlled_replay_review_receipts_missing_or_invalid"]
+            vec!["controlled_replay_blocked_until_shared_evidence_plane_receipt_verification"]
         );
     }
 
     #[test]
-    fn non_independent_ground_truth_is_incomparable() {
+    fn synthetic_fixture_does_not_claim_independent_ground_truth() {
+        let report = evaluate_frozen_fixture(FIXTURE.as_bytes());
+        assert_eq!(report.status, "COMPARABLE");
+        assert_eq!(report.evidence_tier.as_deref(), Some("SYNTHETIC_FIXTURE"));
+
         let mut value = parsed_fixture();
-        value["ground_truth_independent"] = json!(false);
-        let report = evaluate_value(value);
-        assert_eq!(report.status, "INCOMPARABLE");
+        value["ground_truth_independent"] = json!(true);
+        let mutated = evaluate_value(value);
+        assert_eq!(mutated.status, "REJECTED");
         assert!(
-            report
-                .reasons
-                .iter()
-                .any(|reason| reason == "ground_truth_independence_not_established")
+            mutated.reasons.iter().any(|reason| {
+                reason == "synthetic_fixture_cannot_claim_independent_ground_truth"
+            })
         );
     }
 
