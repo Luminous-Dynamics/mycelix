@@ -654,6 +654,52 @@ mod tests {
     }
 
     #[test]
+    fn external_schema_reference_is_rejected_without_network_resolution() {
+        let mut schema: Value = parse_strict_json(SCHEMA_JSON.as_bytes()).unwrap();
+        schema["properties"]["envelope_id"] =
+            json!({"$ref": "https://untrusted.example/schema.json"});
+        let result = EnvelopeValidator::from_documents(
+            &serde_json::to_string(&schema).unwrap(),
+            FIELD_POLICY_JSON,
+        );
+        assert!(result.unwrap_err().contains("schema.external_reference_forbidden"));
+    }
+
+    #[test]
+    fn unknown_claim_type_is_rejected() {
+        let v = validator();
+        let mut example = examples().remove(0);
+        example["claim"]["claim_type"] = json!("unknown_or_unregistered_claim");
+        refresh_digests(&mut example, &v);
+        let report = v.validate_value(&example);
+        assert_eq!(report.disposition, Disposition::Rejected);
+        assert!(report.reason_codes.contains(&"claim.unknown_domain_claim_type".into()));
+    }
+
+    #[test]
+    fn unrecognized_domain_schema_revision_is_rejected() {
+        let v = validator();
+        let mut example = examples().remove(0);
+        example["domain_extension"]["schema_revision"] = json!("99.0.0");
+        refresh_digests(&mut example, &v);
+        let report = v.validate_value(&example);
+        assert_eq!(report.disposition, Disposition::Rejected);
+        assert!(report.reason_codes.contains(&"domain_extension.unknown_schema_or_revision".into()));
+    }
+
+    #[test]
+    fn failed_source_integrity_is_rejected_not_merely_unresolved() {
+        let v = validator();
+        let mut example = examples().remove(0);
+        example["source"]["integrity_status"] = json!("failed");
+        refresh_digests(&mut example, &v);
+        let report = v.validate_value(&example);
+        assert_eq!(report.disposition, Disposition::Rejected);
+        assert!(report.reason_codes.contains(&"source.integrity_failed".into()));
+    }
+
+
+    #[test]
     fn schema_identity_and_draft_are_pinned() {
         let schema: Value = parse_strict_json(SCHEMA_JSON.as_bytes()).unwrap();
         let mut changed = schema;
