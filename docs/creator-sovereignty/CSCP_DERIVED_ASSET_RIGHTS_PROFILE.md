@@ -105,7 +105,7 @@ A policy conflict MUST NOT be resolved by a model score, majority vote, populari
 
 ### 6.1 Monotonic derivation
 
-For a derived asset with source ancestors S = {s1, ..., sn}, the derived asset's effective permissions are no broader than the intersection of the applicable effective permissions of every ancestor, plus any stricter policy attached to the derived asset itself.
+For a derived asset with source ancestors S = {s1, ..., sn}, the derived asset's effective permissions are no broader than the intersection of the applicable effective permissions of every ancestor, plus any stricter policy attached to the derived asset itself. The only exception is an explicit, independently verifiable declassification or scoped release issued by an authority competent over the exact inherited restriction; it must identify the affected ancestor, output resource, action and conditions. A derivative-local grant without that authority does not override an ancestor policy.
 
 In operational terms:
 
