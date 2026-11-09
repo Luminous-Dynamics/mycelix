@@ -1,7 +1,8 @@
 use creator_asset_passport_core::history::{GrantEvent, GrantHistory};
+use creator_asset_passport_core::passport_envelope::CreativeAssetPassportEnvelope;
 use creator_asset_passport_core::portable::GrantHistoryEnvelope;
 use creator_asset_passport_core::{
-    AssetId, AssetKind, AssetRegistry, CreativeAssetPassportEnvelope, DerivationError,
+    AssetId, AssetKind, AssetRegistry, DerivationError,
     DerivationGraph, DerivationId, DerivationRecord, DerivedPermissionDecision, DigestAlgorithm,
     EventId, GrantId, PartyId, PermissionDenial, UsageGrant, UseAction, UseRequest,
     evaluate_derived_usage,
