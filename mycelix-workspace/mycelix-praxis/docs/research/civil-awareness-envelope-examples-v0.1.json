@@ -26,7 +26,10 @@
       "claim": {
         "kind": "source_assertion",
         "claim_type": "sensor_reported_object_class",
-        "value": {}
+        "value": {
+          "reported_class": "uncrewed_aircraft",
+          "classification_status": "source_assertion"
+        }
       },
       "quality": {
         "source_health": "healthy",
@@ -61,7 +64,7 @@
         "payload_digest": "sha256:585d64ea080ea3a62f6d105683d596cfd060b9b28d320256bd3d4a57e82536af",
         "supersedes_refs": [],
         "corrects_refs": [],
-        "envelope_content_digest": "sha256:71b6202f7de7817965577f122b38a6692fe76ef690b2c31b39faaf71dd13941e"
+        "envelope_content_digest": "sha256:79843a76ae4ed34c327c3567e882a7af25cd2775b6b753720b05f3374f84bc79"
       },
       "domain_extension": {
         "schema_uri": "urn:luminous-dynamics:gcpn:uas:0.1.0",
@@ -95,7 +98,10 @@
       "claim": {
         "kind": "source_assertion",
         "claim_type": "ais_reported_navigation_status",
-        "value": {}
+        "value": {
+          "reported_status": "under_way_using_engine",
+          "identity_status": "unverified"
+        }
       },
       "quality": {
         "source_health": "healthy",
@@ -130,7 +136,7 @@
         "payload_digest": "sha256:24f1f26876779edb94b8d4dbbe5cb02f5aa23bafad3f91f57a283a6aacd3da12",
         "supersedes_refs": [],
         "corrects_refs": [],
-        "envelope_content_digest": "sha256:6fd09fb762bb5f3e001ed9e1e8894a1591d7ed919eed7db15d91cd81fd8720db"
+        "envelope_content_digest": "sha256:ed7adbe3502c947490cf56cbef043bacbcc1402263e94b7673484343c00c965f"
       },
       "domain_extension": {
         "schema_uri": "urn:luminous-dynamics:gcpn:maritime:0.1.0",
