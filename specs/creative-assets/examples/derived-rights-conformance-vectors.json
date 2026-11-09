@@ -331,7 +331,10 @@
         "authorityRole": "copyright-holder-for-the-source-representation",
         "decisionReference": "urn:example:approval:policy-supersession-012"
       },
-      "at": "2026-11-15T12:00:00Z"
+      "at": "2026-11-15T12:00:00Z",
+      "purpose": "institution-approved-exhibition-publication",
+      "jurisdiction": "ZA",
+      "channel": "institutional-publication"
     },
     {
       "id": "DR-013",
