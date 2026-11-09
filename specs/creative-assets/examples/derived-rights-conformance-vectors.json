@@ -71,7 +71,7 @@
       "actor": "urn:example:service:thumbnailer",
       "expected": {
         "decision": "deny",
-        "reasonCode": "ANCESTOR_PROHIBITION"
+        "reasonCode": "EXPLICIT_PROHIBITION"
       }
     },
     {
