@@ -14,7 +14,10 @@ struct CaseRegistry {
 #[test]
 fn public_intervention_case_registry_is_exact_and_unique() {
     let registry: CaseRegistry = serde_json::from_str(REGISTRY).expect("registry JSON");
-    assert_eq!(registry.schema, "emsr.causal-intervention-public-conformance/0.1");
+    assert_eq!(
+        registry.schema,
+        "emsr.causal-intervention-public-conformance/0.1"
+    );
     assert_eq!(registry.status, "PUBLIC_SYNTHETIC_SOFTWARE_CONFORMANCE");
     assert!(!registry.claim_ceiling.trim().is_empty());
     assert_eq!(registry.case_ids.len(), 12);
