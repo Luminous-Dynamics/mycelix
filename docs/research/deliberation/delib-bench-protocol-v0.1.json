@@ -1,0 +1,236 @@
+{
+  "protocol_id": "DELIB-BENCH-001",
+  "version": "0.1.0",
+  "status": "research-proposal",
+  "title": "Deliberative quality, AI steering, inclusion, and decision traceability",
+  "owning_repository": "Luminous-Dynamics/mycelix",
+  "parent_issue": "https://github.com/Luminous-Dynamics/mycelix/issues/5999",
+  "related_work": [
+    "https://github.com/Luminous-Dynamics/mycelix/issues/3353",
+    "https://github.com/Luminous-Dynamics/mycelix/issues/1205",
+    "https://github.com/Luminous-Dynamics/mycelix/pull/5137",
+    "https://github.com/Luminous-Dynamics/symthaea/issues/3054",
+    "https://github.com/Luminous-Dynamics/symthaea/issues/11248",
+    "https://github.com/Luminous-Dynamics/mycelix/issues/5996",
+    "https://github.com/Luminous-Dynamics/mycelix/issues/4835"
+  ],
+  "claim_ceiling": {
+    "synthetic_conformance": "Establishes behavior only for exact declared fixtures, model assumptions, and evaluator bounds.",
+    "human_experiment": "Supports causal claims only for the preregistered population, randomization, treatment, outcomes, and analysis assumptions.",
+    "platform_comparison": "Describes matched workflows and observed capability differences; does not establish universal product superiority.",
+    "institutional_impact": "Requires separate outcome evidence and independent evaluation; deliberation quality alone does not prove policy benefit or legitimacy."
+  },
+  "evidence_classes": [
+    "SyntheticFixture",
+    "HumanAdjudicatedAnnotation",
+    "HumanSubjectExperiment",
+    "ExternalPlatformWorkflow",
+    "InstitutionalDecisionRecord",
+    "DownstreamOutcomeObservation"
+  ],
+  "intervention_conditions": [
+    {
+      "id": "no_ai",
+      "description": "Unassisted group deliberation; no AI-generated contribution or analysis shown to participants."
+    },
+    {
+      "id": "human_facilitator",
+      "description": "Trained human facilitation under a versioned facilitation protocol."
+    },
+    {
+      "id": "platform_native",
+      "description": "The selected platform's native workflow without additional AI intervention."
+    },
+    {
+      "id": "private_reflection_ai",
+      "description": "Optional non-directive AI-guided reflection before group discussion; no group-facing recommendations."
+    },
+    {
+      "id": "retrospective_ai_analysis",
+      "description": "AI summary or argument map generated after the discussion; not visible to participants during deliberation."
+    },
+    {
+      "id": "in_conversation_ai",
+      "description": "AI participation or facilitation during discussion; treated as a distinct, higher-steering-risk condition."
+    },
+    {
+      "id": "optional_counterargument_prompts",
+      "description": "Optional AI-generated counterarguments or evidence questions; participant-controlled and separately randomized where appropriate."
+    }
+  ],
+  "metric_families": [
+    {
+      "id": "deliberative_quality",
+      "measures": [
+        "argument_justification",
+        "evidence_use_and_relevance",
+        "responsiveness_to_counterarguments",
+        "mutual_comprehension",
+        "respectful_treatment",
+        "minority_position_fidelity",
+        "constructive_common_ground_without_forced_convergence"
+      ],
+      "primary_method": "Human-coded transcript or interaction record using a frozen coding manual; DQI may be used with versioned operationalization."
+    },
+    {
+      "id": "participation_and_influence",
+      "measures": [
+        "opportunity_to_participate",
+        "speaking_turn_and_airtime_distribution",
+        "argument_acknowledgement_and_incorporation",
+        "minority_voice_retention",
+        "correction_and_dissent_access",
+        "participation_burden_and_attrition"
+      ],
+      "caveat": "Equal word counts, turns, airtime, or satisfaction do not alone establish equitable influence."
+    },
+    {
+      "id": "epistemic_quality",
+      "measures": [
+        "source_correctness_and_traceability",
+        "evidence_diversity",
+        "uncertainty_calibration",
+        "unsupported_claim_and_fabricated_citation_rate",
+        "counterevidence_preservation",
+        "correction_latency",
+        "pre_post_knowledge_and_confidence_calibration"
+      ]
+    },
+    {
+      "id": "agency_and_trust",
+      "measures": [
+        "understanding_of_ai_role_and_limits",
+        "ability_to_reject_correct_disable_or_bypass_ai",
+        "perceived_agency",
+        "freedom_to_disagree_or_abstain",
+        "automation_bias_and_overreliance",
+        "trust_calibration_against_measured_accuracy_and_influence",
+        "ai_contribution_attribution"
+      ]
+    },
+    {
+      "id": "decision_and_impact_pathway",
+      "measures": [
+        "participant_input_to_recommendation_traceability",
+        "recommendation_to_authorized_decision_traceability",
+        "implementation_and_outcome_evidence_linkage",
+        "decision_maker_response_and_rationale",
+        "uptake_partial_uptake_rejection_and_nonresponse",
+        "time_cost_accessibility_and_administrative_burden"
+      ]
+    },
+    {
+      "id": "harm_and_anti_capture",
+      "measures": [
+        "directional_steering",
+        "minority_view_omission_or_distortion",
+        "agenda_capture_and_brigading",
+        "privacy_leakage_and_reidentification",
+        "coercion_retaliation_and_chilling",
+        "false_neutrality_consensus_or_inclusion_claims"
+      ],
+      "gate": "Rights, privacy, and authority violations are non-compensatory failures."
+    }
+  ],
+  "adversarial_fixture_families": [
+    "leading_or_asymmetric_question_framing",
+    "selective_evidence_and_source_laundering",
+    "majority_minority_summary_asymmetry",
+    "dissent_or_uncertainty_omission",
+    "strategic_ordering_and_salience",
+    "unsupported_overconfident_synthesis",
+    "false_consensus_and_fabricated_attribution",
+    "prompt_injection_in_submissions_or_sources",
+    "allocation_steering_with_unchanged_aggregate_agreement",
+    "high_status_or_high_volume_speaker_domination",
+    "brigading_sybil_participation_and_churn",
+    "accessibility_or_translation_semantic_drift"
+  ],
+  "reference_workflows": [
+    {
+      "id": "decidim",
+      "url": "https://decidim.org/",
+      "comparison_layer": "Participatory process lifecycle, proposals, assemblies, debate, voting, and accountability."
+    },
+    {
+      "id": "loomio",
+      "url": "https://www.loomio.com/",
+      "comparison_layer": "Asynchronous organizational discussions, proposals, polls, and decision records."
+    },
+    {
+      "id": "polis",
+      "url": "https://pol.is/",
+      "comparison_layer": "Open-ended contributions, agree/disagree responses, opinion grouping, and cross-group statements."
+    },
+    {
+      "id": "stanford_online_deliberation",
+      "url": "https://stanforddeliberate.org/",
+      "comparison_layer": "Structured synchronous small-group discussion, managed speaking turns, agendas, moderation, and participation analytics."
+    }
+  ],
+  "annotation_policy": {
+    "primary_outcome_source": "Independent human annotation and adjudication",
+    "coding_manual": "Versioned and frozen before confirmatory annotation",
+    "blinding": "Blind annotators to intervention condition where feasible",
+    "disagreement": "Retain and report annotator disagreement; do not hide it with majority labels",
+    "llm_annotations": "Secondary method only; separately compare with held-out human judgments and report subgroup error",
+    "reliability": "Report suitable inter-rater reliability statistics and uncertainty; do not impose a universal threshold before feasibility study."
+  },
+  "preregistration_requirements": [
+    "estimand_and_primary_outcomes",
+    "randomization_unit_and_spillover_model",
+    "power_analysis_and_sample_size",
+    "inclusion_exclusion_and_missingness",
+    "statistical_model_and_multiplicity",
+    "stopping_rule_and_adverse_event_handling",
+    "data_protection_and_retention",
+    "independent_evaluation_and_conflict_disclosure"
+  ],
+  "human_subjects_gate": {
+    "required_before_recruitment": [
+      "applicable_ethics_review",
+      "informed_consent",
+      "accessible_withdrawal_path",
+      "privacy_and_data_minimization_review",
+      "participant_safety_and_adverse_event_plan",
+      "independent_analysis_plan"
+    ],
+    "synthetic_data_is_not_human_evidence": true
+  },
+  "terminal_statuses": [
+    "Pass",
+    "Fail",
+    "Indeterminate",
+    "Invalid",
+    "Unsupported",
+    "Timeout",
+    "NotRun"
+  ],
+  "non_compensatory_invariants": [
+    "silence_is_not_consent_or_agreement",
+    "dissent_and_minority_reports_remain_correctable_and_publishable",
+    "ai_output_does_not_create_decision_authority",
+    "participants_can_reject_or_bypass_ai_assistance",
+    "no_aggregate_score_offsets_rights_privacy_or_authority_violations",
+    "model_confidence_does_not_substitute_for_source_evidence",
+    "unknown_or_missing_outcome_is_not_a_pass"
+  ],
+  "initial_targets": {
+    "synthetic_known_answer_and_adversarial_fixtures_minimum": 30,
+    "independent_double_coded_feasibility_corpus": "Required before scaled human annotation; sample size to be justified in protocol.",
+    "external_workflow_adapters_minimum": 1,
+    "confirmatory_human_study": "Only after ethics review and preregistration.",
+    "aggregate_deliberation_score": false,
+    "production_policy_mutation": false
+  },
+  "outputs": [
+    "versioned_protocol_and_metric_dictionary",
+    "fixture_manifest_and_exact_input_digests",
+    "annotation_guideline_and_adjudication_records",
+    "condition_configuration_and_model_identity",
+    "per_metric_results_and_uncertainty",
+    "steering_and_minority_preservation_audit",
+    "decision_to_outcome_traceability_report",
+    "limitations_null_results_and_counterexamples"
+  ]
+}
