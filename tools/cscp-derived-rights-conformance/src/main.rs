@@ -112,6 +112,10 @@ fn valid_supersession<'a>(
         .as_array()?;
     let grantee = policy.get("grantee")?.as_str()?;
     let granted_purpose = policy.get("purpose")?.as_str()?;
+    let granted_jurisdiction = policy.get("jurisdiction")?.as_str()?;
+    let granted_channel = policy.get("channel")?.as_str()?;
+    let requested_jurisdiction = case.get("jurisdiction")?.as_str()?;
+    let requested_channel = case.get("channel")?.as_str()?;
     let valid_from = policy.get("validFrom")?.as_str()?;
     let valid_until = policy.get("validUntil")?.as_str()?;
     let now = at?;
@@ -129,8 +133,8 @@ fn valid_supersession<'a>(
         && policy.get("operation").and_then(Value::as_str) == Some(operation)
         && grantee == actor
         && purpose == Some(granted_purpose)
-        && policy.get("jurisdiction").and_then(Value::as_str).is_some()
-        && policy.get("channel").and_then(Value::as_str).is_some()
+        && requested_jurisdiction == granted_jurisdiction
+        && requested_channel == granted_channel
         && policy.get("authorityReference").and_then(Value::as_str).is_some()
         && policy.get("authorityRole").and_then(Value::as_str).is_some()
         && policy.get("decisionReference").and_then(Value::as_str).is_some()
@@ -440,6 +444,29 @@ mod tests {
             evaluate_case(case),
             decision("deny", "EXPLICIT_PROHIBITION")
         );
+    }
+
+    #[test]
+    fn supersession_must_match_requested_purpose_jurisdiction_and_channel() {
+        for (field, replacement) in [
+            ("purpose", "unapproved-purpose"),
+            ("jurisdiction", "US"),
+            ("channel", "unapproved-channel"),
+        ] {
+            let mut document = fixture();
+            let case = document["cases"]
+                .as_array_mut()
+                .expect("cases array")
+                .iter_mut()
+                .find(|case| case["id"] == "DR-012")
+                .expect("supersession vector");
+            case[field] = Value::String(replacement.into());
+            assert_eq!(
+                evaluate_case(case),
+                decision("deny", "EXPLICIT_PROHIBITION"),
+                "supersession must reject a request with mismatched {field}"
+            );
+        }
     }
 
     #[test]
