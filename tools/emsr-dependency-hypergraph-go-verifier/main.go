@@ -26,10 +26,10 @@ const (
 )
 
 type Input struct {
-	Contract   string               `json:"contract"`
-	Snapshot   InventorySnapshot    `json:"snapshot"`
-	Query      DependencyQuery      `json:"query"`
-	Nodes      []Node               `json:"nodes"`
+	Contract   string                `json:"contract"`
+	Snapshot   InventorySnapshot     `json:"snapshot"`
+	Query      DependencyQuery       `json:"query"`
+	Nodes      []Node                `json:"nodes"`
 	Hyperedges []DependencyHyperedge `json:"hyperedges"`
 }
 
@@ -172,8 +172,8 @@ func verify(inputBytes, reportBytes []byte) VerificationReport {
 			VerifierContract: verifierContract,
 			Status:           "rejected",
 			Authority:        "cross_language_reference_agreement_only",
-			Checks:            checks,
-			Limitations:       limitations,
+			Checks:           checks,
+			Limitations:      limitations,
 		}
 	}
 
