@@ -573,6 +573,141 @@
       },
       "mutation": "remove_coverage_assertion",
       "mutation_expected_state": "COVERAGE_UNKNOWN"
+    },
+    {
+      "id": "OBS-013",
+      "domain": "uas",
+      "name": "Source emits a positive observation under qualified scope",
+      "source": {
+        "id": "uas-sensor-013",
+        "modality": "passive_presence",
+        "revision": "synthetic-presence-profile-1"
+      },
+      "scope": {
+        "scope_id": "abstract-scope-site-13",
+        "window_start": 100,
+        "window_end": 200,
+        "window_unit": "synthetic_time"
+      },
+      "equipment_applicability": "applicable",
+      "source_health": "healthy",
+      "coverage": {
+        "assertion_id": "coverage-uas-013",
+        "status": "qualified",
+        "complete_for_scope": true,
+        "independent_oracle": "oracle-uas-positive-013",
+        "valid_from": 90,
+        "valid_until": 210,
+        "coverage_profile_digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+      },
+      "data_completeness": "complete",
+      "freshness": "fresh",
+      "rights": "allowed_for_synthetic_test",
+      "observations": [
+        {
+          "source_id": "uas-sensor-013",
+          "claim": "OBSERVED_PRESENT",
+          "assertion_ref": "synthetic-positive-observation-013"
+        }
+      ],
+      "expected": {
+        "state": "OBSERVED_PRESENT",
+        "claim_scope": "A positive observation was emitted by this source within the declared synthetic scope/window",
+        "must_not_claim": [
+          "physical identity proof",
+          "pilot/operator identity",
+          "intent",
+          "threat status"
+        ]
+      },
+      "mutation": "none"
+    },
+    {
+      "id": "OBS-014",
+      "domain": "maritime",
+      "name": "A previously received AIS record is stale at the declared cutoff",
+      "source": {
+        "id": "ais-source-014",
+        "modality": "cooperative_transponder",
+        "revision": "synthetic-ais-profile-1"
+      },
+      "scope": {
+        "scope_id": "abstract-scope-port-14",
+        "window_start": 100,
+        "window_end": 200,
+        "window_unit": "synthetic_time"
+      },
+      "equipment_applicability": "equipped_or_obligation_confirmed",
+      "source_health": "healthy",
+      "coverage": {
+        "assertion_id": "coverage-ais-014",
+        "status": "qualified",
+        "complete_for_scope": true,
+        "independent_oracle": "oracle-ais-freshness-014",
+        "valid_from": 90,
+        "valid_until": 210,
+        "coverage_profile_digest": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+      },
+      "data_completeness": "complete",
+      "freshness": "stale",
+      "rights": "allowed_for_synthetic_test",
+      "observations": [
+        {
+          "source_id": "ais-source-014",
+          "claim": "OLD_REPORT_OUTSIDE_FRESHNESS_WINDOW",
+          "assertion_ref": "synthetic-stale-observation-014"
+        }
+      ],
+      "expected": {
+        "state": "STALE",
+        "claim_scope": "The stored AIS observation is outside the declared freshness threshold",
+        "must_not_claim": [
+          "current vessel state",
+          "current absence",
+          "current presence",
+          "intent"
+        ]
+      },
+      "mutation": "none"
+    },
+    {
+      "id": "OBS-015",
+      "domain": "civil_aviation",
+      "name": "Weather product is not an aircraft-presence sensor",
+      "source": {
+        "id": "weather-source-015",
+        "modality": "meteorological_context",
+        "revision": "synthetic-weather-profile-1"
+      },
+      "scope": {
+        "scope_id": "abstract-scope-airspace-15",
+        "window_start": 100,
+        "window_end": 200,
+        "window_unit": "synthetic_time"
+      },
+      "equipment_applicability": "unknown",
+      "source_health": "healthy",
+      "coverage": {
+        "assertion_id": "coverage-weather-015",
+        "status": "not_applicable",
+        "complete_for_scope": false,
+        "independent_oracle": "oracle-weather-not-applicable-015"
+      },
+      "data_completeness": "complete",
+      "freshness": "fresh",
+      "rights": "allowed_for_synthetic_test",
+      "observations": [],
+      "expected": {
+        "state": "NOT_APPLICABLE",
+        "claim_scope": "Meteorological context may enrich an event record but does not establish aircraft presence or absence",
+        "must_not_claim": [
+          "aircraft presence",
+          "aircraft absence",
+          "traffic count",
+          "pilot intent"
+        ]
+      },
+      "mutation": "none"
     }
   ],
   "claim_ceiling": "Passing this public synthetic DGP establishes only state-transition behavior on declared synthetic coverage and source-health inputs. It does not prove field sensor coverage, probability of detection, physical absence, legal compliance, aircraft/vessel safety or operational readiness."
