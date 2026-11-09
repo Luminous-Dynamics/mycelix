@@ -1,0 +1,87 @@
+{
+  "policy_version": "0.1.0",
+  "purpose": "Civilian, read-only, evidence-qualified situational awareness for UAS, maritime and civil aviation.",
+  "canonicalization": {
+    "encoding": "UTF-8",
+    "digest_algorithm": "SHA-256",
+    "json_payload_serialization": "RFC 8785 JSON Canonicalization Scheme",
+    "digest_format": "sha256:<64 lowercase hexadecimal characters>"
+  },
+  "common_envelope_allowlist": [
+    "schema_version",
+    "envelope_id",
+    "domain",
+    "event_class",
+    "source",
+    "timestamps",
+    "claim",
+    "quality",
+    "dependence",
+    "spatial_context",
+    "governance",
+    "lineage",
+    "domain_extension"
+  ],
+  "domain_extension_allowlists": {
+    "uas": [
+      "synthetic",
+      "fixture_id",
+      "reported_class",
+      "classification_status"
+    ],
+    "maritime": [
+      "synthetic",
+      "fixture_id",
+      "reported_status",
+      "identity_status",
+      "ais_is_source_assertion",
+      "position_payload_withheld"
+    ],
+    "civil_aviation": [
+      "synthetic",
+      "fixture_id",
+      "hazard_type",
+      "severity",
+      "source_confirmation",
+      "declared_integration_class",
+      "authority_owner"
+    ]
+  },
+  "prohibited_field_families": [
+    "personal_identity_contact_home_address_or_personal_device_identifiers",
+    "pilot_crew_controller_remote_operator_identity_or_precise_personal_location",
+    "private_communications_voice_recordings_raw_audio_raw_video_or_biometrics",
+    "weapons_interceptors_effectors_mitigation_jamming_spoofing_or_takeover",
+    "targeting_engagement_fire_control_hostile_intent_or_threat_classification",
+    "vessel_navigation_commands_aircraft_flight_controls_atc_commands_vts_instructions_or_actuation",
+    "unapproved_exact_geometry_or_trajectory_not_required_for_the_declared_safety_purpose"
+  ],
+  "preflight_requirements": [
+    "known_schema_revision",
+    "verified_domain_allowlist_digest",
+    "declared_purpose_and_approved_rights_basis",
+    "source_integrity_and_authentication_state_recorded",
+    "event_time_and_receipt_time_separate",
+    "clock_quality_and_uncertainty_recorded",
+    "calibration_freshness_and_source_health_explicit",
+    "common_mode_dependency_groups_recorded_or_explicitly_unknown",
+    "domain_geometry_precision_approved_for_purpose",
+    "no_prohibited_fields_or_control_interfaces",
+    "all_rejections_quarantines_and_abstentions_retained_in_run_census"
+  ],
+  "failure_states": {
+    "unknown_schema_or_unrecognized_field": "REJECTED",
+    "missing_or_unapproved_rights_basis": "QUARANTINED",
+    "prohibited_personal_or_control_field": "REJECTED",
+    "unverified_source_or_clock": "UNRESOLVED_OR_ABSTAIN",
+    "missing_independent_split_group": "NOT_CONFIRMATORY",
+    "incomplete_or_conflicted_evidence": "INCOMPARABLE_OR_ABSTAIN"
+  },
+  "operational_constraints": {
+    "read_only": true,
+    "connects_to_control_plane": false,
+    "authorizes_action": false,
+    "replaces_certified_safety_system": false,
+    "uses_personal_operator_geolocation": false
+  }
+}
