@@ -1,0 +1,1645 @@
+{
+  "corpus_id": "MCB-CROSS-STACK-0.1",
+  "profile_id": "maritime-cross-stack-golden-trace-0.1",
+  "status": "declarative_synthetic_not_executed",
+  "parent_issue": 5974,
+  "claim_ceiling": "Declarative synthetic cross-owner scenarios only. No golden trace has been executed, no real provider/source artifact is included, and no physical, legal, navigation, commercial, or field qualification is established.",
+  "scenario_count": 35,
+  "owner_repositories": {
+    "mycelix": "Luminous-Dynamics/mycelix",
+    "sol_atlas": "Luminous-Dynamics/sol-atlas-leptos",
+    "symtropy": "Luminous-Dynamics/symtropy",
+    "symthaea": "Luminous-Dynamics/symthaea"
+  },
+  "cases": [
+    {
+      "case_id": "MCB-X-001",
+      "family": "source_spatial",
+      "control_kind": "positive_control",
+      "scenario": "Pinned source product, valid coverage, CRS and datum are projected with exact lineage; all owner outputs agree on a synthetic stay.",
+      "owner_artifact_requirements": [
+        {
+          "owner": "sol_atlas",
+          "artifact_kind": "source_projection",
+          "required": true
+        },
+        {
+          "owner": "symtropy",
+          "artifact_kind": "simulation_run",
+          "required": true
+        },
+        {
+          "owner": "symthaea",
+          "artifact_kind": "decision_brief",
+          "required": true
+        },
+        {
+          "owner": "mycelix",
+          "artifact_kind": "stay_view",
+          "required": true
+        }
+      ],
+      "expected": {
+        "source_context": "qualified",
+        "feasibility": "feasible",
+        "decision": "recommend",
+        "commitment": "present",
+        "dependency": "not_evaluated",
+        "stay_disposition": "confirmed",
+        "provider_effect_evidence": "receipt_present",
+        "model_action_authority": "none"
+      },
+      "invariant_ids": [
+        "NO_FALSE_FEASIBLE",
+        "HISTORY_IMMUTABLE",
+        "EXACT_REPLAY"
+      ],
+      "hard_gates": [
+        "identity",
+        "currentness",
+        "feasibility"
+      ],
+      "claim_ceiling": "Synthetic cross-stack disposition only; no field, legal, physical or provider-authority claim."
+    },
+    {
+      "case_id": "MCB-X-002",
+      "family": "source_spatial",
+      "control_kind": "negative_control",
+      "scenario": "S-131 harbour infrastructure feature is presented as current reservable berth inventory.",
+      "owner_artifact_requirements": [
+        {
+          "owner": "sol_atlas",
+          "artifact_kind": "source_projection",
+          "required": true
+        },
+        {
+          "owner": "symtropy",
+          "artifact_kind": "simulation_run",
+          "required": true
+        },
+        {
+          "owner": "symthaea",
+          "artifact_kind": "decision_brief",
+          "required": true
+        },
+        {
+          "owner": "mycelix",
+          "artifact_kind": "stay_view",
+          "required": true
+        }
+      ],
+      "expected": {
+        "source_context": "qualified",
+        "feasibility": "not_evaluated",
+        "decision": "abstain",
+        "commitment": "absent",
+        "dependency": "not_evaluated",
+        "stay_disposition": "rejected",
+        "provider_effect_evidence": "none",
+        "model_action_authority": "none"
+      },
+      "invariant_ids": [
+        "NO_AUTHORITY_PROMOTION",
+        "NO_FALSE_RESOURCE_JOIN"
+      ],
+      "hard_gates": [
+        "authority",
+        "identity"
+      ],
+      "claim_ceiling": "Synthetic cross-stack disposition only; no field, legal, physical or provider-authority claim."
+    },
+    {
+      "case_id": "MCB-X-003",
+      "family": "source_spatial",
+      "control_kind": "negative_control",
+      "scenario": "S-127 traffic-management feature is projected as government port-entry clearance or berth booking authority.",
+      "owner_artifact_requirements": [
+        {
+          "owner": "sol_atlas",
+          "artifact_kind": "source_projection",
+          "required": true
+        },
+        {
+          "owner": "symtropy",
+          "artifact_kind": "simulation_run",
+          "required": true
+        },
+        {
+          "owner": "symthaea",
+          "artifact_kind": "decision_brief",
+          "required": true
+        },
+        {
+          "owner": "mycelix",
+          "artifact_kind": "stay_view",
+          "required": true
+        }
+      ],
+      "expected": {
+        "source_context": "qualified",
+        "feasibility": "not_evaluated",
+        "decision": "abstain",
+        "commitment": "absent",
+        "dependency": "not_evaluated",
+        "stay_disposition": "rejected",
+        "provider_effect_evidence": "none",
+        "model_action_authority": "none"
+      },
+      "invariant_ids": [
+        "NO_AUTHORITY_PROMOTION"
+      ],
+      "hard_gates": [
+        "authority"
+      ],
+      "claim_ceiling": "Synthetic cross-stack disposition only; no field, legal, physical or provider-authority claim."
+    },
+    {
+      "case_id": "MCB-X-004",
+      "family": "source_spatial",
+      "control_kind": "negative_control",
+      "scenario": "UN/LOCODE port-level location is joined to one specific marina berth without separate provider/facility evidence.",
+      "owner_artifact_requirements": [
+        {
+          "owner": "sol_atlas",
+          "artifact_kind": "source_projection",
+          "required": true
+        },
+        {
+          "owner": "symtropy",
+          "artifact_kind": "simulation_run",
+          "required": true
+        },
+        {
+          "owner": "symthaea",
+          "artifact_kind": "decision_brief",
+          "required": true
+        },
+        {
+          "owner": "mycelix",
+          "artifact_kind": "stay_view",
+          "required": true
+        }
+      ],
+      "expected": {
+        "source_context": "unknown",
+        "feasibility": "not_evaluated",
+        "decision": "abstain",
+        "commitment": "absent",
+        "dependency": "not_evaluated",
+        "stay_disposition": "unknown",
+        "provider_effect_evidence": "none",
+        "model_action_authority": "none"
+      },
+      "invariant_ids": [
+        "NO_FALSE_RESOURCE_JOIN"
+      ],
+      "hard_gates": [
+        "identity"
+      ],
+      "claim_ceiling": "Synthetic cross-stack disposition only; no field, legal, physical or provider-authority claim."
+    },
+    {
+      "case_id": "MCB-X-005",
+      "family": "source_spatial",
+      "control_kind": "ambiguity_control",
+      "scenario": "Spatial source lacks vertical datum or the requested CRS transformation is unsupported; dependent feasibility must remain unevaluated.",
+      "owner_artifact_requirements": [
+        {
+          "owner": "sol_atlas",
+          "artifact_kind": "source_projection",
+          "required": true
+        },
+        {
+          "owner": "symtropy",
+          "artifact_kind": "simulation_run",
+          "required": true
+        },
+        {
+          "owner": "symthaea",
+          "artifact_kind": "decision_brief",
+          "required": true
+        },
+        {
+          "owner": "mycelix",
+          "artifact_kind": "stay_view",
+          "required": true
+        }
+      ],
+      "expected": {
+        "source_context": "unsupported",
+        "feasibility": "unsupported",
+        "decision": "abstain",
+        "commitment": "absent",
+        "dependency": "not_evaluated",
+        "stay_disposition": "unknown",
+        "provider_effect_evidence": "none",
+        "model_action_authority": "none"
+      },
+      "invariant_ids": [
+        "NO_FALSE_RESOURCE_JOIN",
+        "NO_UNSUPPORTED_PHYSICS"
+      ],
+      "hard_gates": [
+        "identity",
+        "feasibility"
+      ],
+      "claim_ceiling": "Synthetic cross-stack disposition only; no field, legal, physical or provider-authority claim."
+    },
+    {
+      "case_id": "MCB-X-006",
+      "family": "source_spatial",
+      "control_kind": "negative_control",
+      "scenario": "Hydrographic observation is stale even though Sol-Atlas retrieved the source bytes recently.",
+      "owner_artifact_requirements": [
+        {
+          "owner": "sol_atlas",
+          "artifact_kind": "source_projection",
+          "required": true
+        },
+        {
+          "owner": "symtropy",
+          "artifact_kind": "simulation_run",
+          "required": true
+        },
+        {
+          "owner": "symthaea",
+          "artifact_kind": "decision_brief",
+          "required": true
+        },
+        {
+          "owner": "mycelix",
+          "artifact_kind": "stay_view",
+          "required": true
+        }
+      ],
+      "expected": {
+        "source_context": "stale",
+        "feasibility": "unknown",
+        "decision": "abstain",
+        "commitment": "absent",
+        "dependency": "not_evaluated",
+        "stay_disposition": "unknown",
+        "provider_effect_evidence": "none",
+        "model_action_authority": "none"
+      },
+      "invariant_ids": [
+        "NO_STALE_TO_CURRENT"
+      ],
+      "hard_gates": [
+        "currentness"
+      ],
+      "claim_ceiling": "Synthetic cross-stack disposition only; no field, legal, physical or provider-authority claim."
+    },
+    {
+      "case_id": "MCB-X-007",
+      "family": "source_spatial",
+      "control_kind": "recovery_control",
+      "scenario": "A product is withdrawn after a historical stay; current projection is requalified while prior decision references and bytes remain immutable.",
+      "owner_artifact_requirements": [
+        {
+          "owner": "sol_atlas",
+          "artifact_kind": "source_projection",
+          "required": true
+        },
+        {
+          "owner": "symtropy",
+          "artifact_kind": "simulation_run",
+          "required": true
+        },
+        {
+          "owner": "symthaea",
+          "artifact_kind": "decision_brief",
+          "required": true
+        },
+        {
+          "owner": "mycelix",
+          "artifact_kind": "stay_view",
+          "required": true
+        }
+      ],
+      "expected": {
+        "source_context": "stale",
+        "feasibility": "unknown",
+        "decision": "human_review",
+        "commitment": "present",
+        "dependency": "not_evaluated",
+        "stay_disposition": "unknown",
+        "provider_effect_evidence": "none",
+        "model_action_authority": "none"
+      },
+      "invariant_ids": [
+        "HISTORY_IMMUTABLE",
+        "EXACT_REPLAY",
+        "NO_STALE_TO_CURRENT"
+      ],
+      "hard_gates": [
+        "currentness",
+        "historical_reconstruction"
+      ],
+      "claim_ceiling": "Synthetic cross-stack disposition only; no field, legal, physical or provider-authority claim."
+    },
+    {
+      "case_id": "MCB-X-008",
+      "family": "feasibility",
+      "control_kind": "positive_control",
+      "scenario": "Provider-authorized berth and compound-service commitment is current; Symtropy's supported model satisfies every declared hard constraint.",
+      "owner_artifact_requirements": [
+        {
+          "owner": "sol_atlas",
+          "artifact_kind": "source_projection",
+          "required": true
+        },
+        {
+          "owner": "symtropy",
+          "artifact_kind": "simulation_run",
+          "required": true
+        },
+        {
+          "owner": "symthaea",
+          "artifact_kind": "decision_brief",
+          "required": true
+        },
+        {
+          "owner": "mycelix",
+          "artifact_kind": "stay_view",
+          "required": true
+        }
+      ],
+      "expected": {
+        "source_context": "qualified",
+        "feasibility": "feasible",
+        "decision": "recommend",
+        "commitment": "present",
+        "dependency": "not_evaluated",
+        "stay_disposition": "confirmed",
+        "provider_effect_evidence": "receipt_present",
+        "model_action_authority": "none"
+      },
+      "invariant_ids": [
+        "NO_FALSE_FEASIBLE",
+        "NO_AUTHORITY_PROMOTION"
+      ],
+      "hard_gates": [
+        "authority",
+        "feasibility",
+        "allocation"
+      ],
+      "claim_ceiling": "Synthetic cross-stack disposition only; no field, legal, physical or provider-authority claim."
+    },
+    {
+      "case_id": "MCB-X-009",
+      "family": "feasibility",
+      "control_kind": "negative_control",
+      "scenario": "Symtropy says the berth geometry is feasible but Mycelix has no provider commitment or valid allocation right.",
+      "owner_artifact_requirements": [
+        {
+          "owner": "sol_atlas",
+          "artifact_kind": "source_projection",
+          "required": true
+        },
+        {
+          "owner": "symtropy",
+          "artifact_kind": "simulation_run",
+          "required": true
+        },
+        {
+          "owner": "symthaea",
+          "artifact_kind": "decision_brief",
+          "required": true
+        },
+        {
+          "owner": "mycelix",
+          "artifact_kind": "stay_view",
+          "required": true
+        }
+      ],
+      "expected": {
+        "source_context": "qualified",
+        "feasibility": "feasible",
+        "decision": "recommend",
+        "commitment": "absent",
+        "dependency": "not_evaluated",
+        "stay_disposition": "pending",
+        "provider_effect_evidence": "none",
+        "model_action_authority": "none"
+      },
+      "invariant_ids": [
+        "NO_AUTHORITY_PROMOTION"
+      ],
+      "hard_gates": [
+        "authority",
+        "allocation"
+      ],
+      "claim_ceiling": "Synthetic cross-stack disposition only; no field, legal, physical or provider-authority claim."
+    },
+    {
+      "case_id": "MCB-X-010",
+      "family": "feasibility",
+      "control_kind": "negative_control",
+      "scenario": "Provider commitment expires or is revoked after scenario preparation; a cached positive state is reused for a new decision.",
+      "owner_artifact_requirements": [
+        {
+          "owner": "sol_atlas",
+          "artifact_kind": "source_projection",
+          "required": true
+        },
+        {
+          "owner": "symtropy",
+          "artifact_kind": "simulation_run",
+          "required": true
+        },
+        {
+          "owner": "symthaea",
+          "artifact_kind": "decision_brief",
+          "required": true
+        },
+        {
+          "owner": "mycelix",
+          "artifact_kind": "stay_view",
+          "required": true
+        }
+      ],
+      "expected": {
+        "source_context": "qualified",
+        "feasibility": "unknown",
+        "decision": "human_review",
+        "commitment": "absent",
+        "dependency": "not_evaluated",
+        "stay_disposition": "rejected",
+        "provider_effect_evidence": "none",
+        "model_action_authority": "none"
+      },
+      "invariant_ids": [
+        "NO_STALE_TO_CURRENT",
+        "NO_AUTHORITY_PROMOTION"
+      ],
+      "hard_gates": [
+        "authority",
+        "currentness",
+        "allocation"
+      ],
+      "claim_ceiling": "Synthetic cross-stack disposition only; no field, legal, physical or provider-authority claim."
+    },
+    {
+      "case_id": "MCB-X-011",
+      "family": "feasibility",
+      "control_kind": "negative_control",
+      "scenario": "Vessel draft or berth geometry violates a declared hard constraint while other service constraints pass.",
+      "owner_artifact_requirements": [
+        {
+          "owner": "sol_atlas",
+          "artifact_kind": "source_projection",
+          "required": true
+        },
+        {
+          "owner": "symtropy",
+          "artifact_kind": "simulation_run",
+          "required": true
+        },
+        {
+          "owner": "symthaea",
+          "artifact_kind": "decision_brief",
+          "required": true
+        },
+        {
+          "owner": "mycelix",
+          "artifact_kind": "stay_view",
+          "required": true
+        }
+      ],
+      "expected": {
+        "source_context": "qualified",
+        "feasibility": "infeasible",
+        "decision": "abstain",
+        "commitment": "absent",
+        "dependency": "not_evaluated",
+        "stay_disposition": "rejected",
+        "provider_effect_evidence": "none",
+        "model_action_authority": "none"
+      },
+      "invariant_ids": [
+        "NO_FALSE_FEASIBLE",
+        "NO_FALSE_RESOURCE_JOIN"
+      ],
+      "hard_gates": [
+        "feasibility"
+      ],
+      "claim_ceiling": "Synthetic cross-stack disposition only; no field, legal, physical or provider-authority claim."
+    },
+    {
+      "case_id": "MCB-X-012",
+      "family": "feasibility",
+      "control_kind": "negative_control",
+      "scenario": "Instantaneous shore-power capacity in W passes but energy quota in Wh fails; the reverse case is also tested.",
+      "owner_artifact_requirements": [
+        {
+          "owner": "sol_atlas",
+          "artifact_kind": "source_projection",
+          "required": true
+        },
+        {
+          "owner": "symtropy",
+          "artifact_kind": "simulation_run",
+          "required": true
+        },
+        {
+          "owner": "symthaea",
+          "artifact_kind": "decision_brief",
+          "required": true
+        },
+        {
+          "owner": "mycelix",
+          "artifact_kind": "stay_view",
+          "required": true
+        }
+      ],
+      "expected": {
+        "source_context": "qualified",
+        "feasibility": "infeasible",
+        "decision": "abstain",
+        "commitment": "absent",
+        "dependency": "not_evaluated",
+        "stay_disposition": "rejected",
+        "provider_effect_evidence": "none",
+        "model_action_authority": "none"
+      },
+      "invariant_ids": [
+        "NO_UNIT_OR_TIME_LAUNDERING",
+        "NO_FALSE_FEASIBLE"
+      ],
+      "hard_gates": [
+        "feasibility",
+        "allocation"
+      ],
+      "claim_ceiling": "Synthetic cross-stack disposition only; no field, legal, physical or provider-authority claim."
+    },
+    {
+      "case_id": "MCB-X-013",
+      "family": "feasibility",
+      "control_kind": "ambiguity_control",
+      "scenario": "Water delivery rate/connection compatibility or waste class evidence is missing from a multi-resource service bundle.",
+      "owner_artifact_requirements": [
+        {
+          "owner": "sol_atlas",
+          "artifact_kind": "source_projection",
+          "required": true
+        },
+        {
+          "owner": "symtropy",
+          "artifact_kind": "simulation_run",
+          "required": true
+        },
+        {
+          "owner": "symthaea",
+          "artifact_kind": "decision_brief",
+          "required": true
+        },
+        {
+          "owner": "mycelix",
+          "artifact_kind": "stay_view",
+          "required": true
+        }
+      ],
+      "expected": {
+        "source_context": "unknown",
+        "feasibility": "unknown",
+        "decision": "request_information",
+        "commitment": "absent",
+        "dependency": "not_evaluated",
+        "stay_disposition": "unknown",
+        "provider_effect_evidence": "none",
+        "model_action_authority": "none"
+      },
+      "invariant_ids": [
+        "NO_FALSE_FEASIBLE",
+        "NO_UNIT_OR_TIME_LAUNDERING"
+      ],
+      "hard_gates": [
+        "feasibility"
+      ],
+      "claim_ceiling": "Synthetic cross-stack disposition only; no field, legal, physical or provider-authority claim."
+    },
+    {
+      "case_id": "MCB-X-014",
+      "family": "feasibility",
+      "control_kind": "negative_control",
+      "scenario": "A scenario requests unsupported CFD, FEA or hydrodynamic physics and receives an invented precise result.",
+      "owner_artifact_requirements": [
+        {
+          "owner": "sol_atlas",
+          "artifact_kind": "source_projection",
+          "required": true
+        },
+        {
+          "owner": "symtropy",
+          "artifact_kind": "simulation_run",
+          "required": true
+        },
+        {
+          "owner": "symthaea",
+          "artifact_kind": "decision_brief",
+          "required": true
+        },
+        {
+          "owner": "mycelix",
+          "artifact_kind": "stay_view",
+          "required": true
+        }
+      ],
+      "expected": {
+        "source_context": "qualified",
+        "feasibility": "unsupported",
+        "decision": "abstain",
+        "commitment": "absent",
+        "dependency": "not_evaluated",
+        "stay_disposition": "unknown",
+        "provider_effect_evidence": "none",
+        "model_action_authority": "none"
+      },
+      "invariant_ids": [
+        "NO_UNSUPPORTED_PHYSICS"
+      ],
+      "hard_gates": [
+        "feasibility"
+      ],
+      "claim_ceiling": "Synthetic cross-stack disposition only; no field, legal, physical or provider-authority claim."
+    },
+    {
+      "case_id": "MCB-X-015",
+      "family": "feasibility",
+      "control_kind": "metamorphic_control",
+      "scenario": "Identical scenario ID is replayed after the source input digest or engine/model configuration changes; it must be a different run identity.",
+      "owner_artifact_requirements": [
+        {
+          "owner": "sol_atlas",
+          "artifact_kind": "source_projection",
+          "required": true
+        },
+        {
+          "owner": "symtropy",
+          "artifact_kind": "simulation_run",
+          "required": true
+        },
+        {
+          "owner": "symthaea",
+          "artifact_kind": "decision_brief",
+          "required": true
+        },
+        {
+          "owner": "mycelix",
+          "artifact_kind": "stay_view",
+          "required": true
+        }
+      ],
+      "expected": {
+        "source_context": "qualified",
+        "feasibility": "conflict",
+        "decision": "human_review",
+        "commitment": "pending",
+        "dependency": "not_evaluated",
+        "stay_disposition": "conflict",
+        "provider_effect_evidence": "none",
+        "model_action_authority": "none"
+      },
+      "invariant_ids": [
+        "HISTORY_IMMUTABLE",
+        "EXACT_REPLAY"
+      ],
+      "hard_gates": [
+        "historical_reconstruction"
+      ],
+      "claim_ceiling": "Synthetic cross-stack disposition only; no field, legal, physical or provider-authority claim.",
+      "metamorphic_group": "run-identity-changes"
+    },
+    {
+      "case_id": "MCB-X-016",
+      "family": "time_standards_identity",
+      "control_kind": "negative_control",
+      "scenario": "IAPH PCO planned arrival at Pilot Boarding Place is silently coerced into a DCSA JIT ETA-Berth event.",
+      "owner_artifact_requirements": [
+        {
+          "owner": "sol_atlas",
+          "artifact_kind": "source_projection",
+          "required": true
+        },
+        {
+          "owner": "symtropy",
+          "artifact_kind": "simulation_run",
+          "required": true
+        },
+        {
+          "owner": "symthaea",
+          "artifact_kind": "decision_brief",
+          "required": true
+        },
+        {
+          "owner": "mycelix",
+          "artifact_kind": "stay_view",
+          "required": true
+        }
+      ],
+      "expected": {
+        "source_context": "qualified",
+        "feasibility": "unknown",
+        "decision": "request_information",
+        "commitment": "absent",
+        "dependency": "not_evaluated",
+        "stay_disposition": "unknown",
+        "provider_effect_evidence": "none",
+        "model_action_authority": "none"
+      },
+      "invariant_ids": [
+        "NO_UNIT_OR_TIME_LAUNDERING"
+      ],
+      "hard_gates": [
+        "currentness"
+      ],
+      "claim_ceiling": "Synthetic cross-stack disposition only; no field, legal, physical or provider-authority claim."
+    },
+    {
+      "case_id": "MCB-X-017",
+      "family": "time_standards_identity",
+      "control_kind": "ambiguity_control",
+      "scenario": "A local arrival deadline falls within a DST fold/gap or quarter-hour offset ambiguity without explicit disposition.",
+      "owner_artifact_requirements": [
+        {
+          "owner": "sol_atlas",
+          "artifact_kind": "source_projection",
+          "required": true
+        },
+        {
+          "owner": "symtropy",
+          "artifact_kind": "simulation_run",
+          "required": true
+        },
+        {
+          "owner": "symthaea",
+          "artifact_kind": "decision_brief",
+          "required": true
+        },
+        {
+          "owner": "mycelix",
+          "artifact_kind": "stay_view",
+          "required": true
+        }
+      ],
+      "expected": {
+        "source_context": "unknown",
+        "feasibility": "unknown",
+        "decision": "request_information",
+        "commitment": "pending",
+        "dependency": "not_evaluated",
+        "stay_disposition": "unknown",
+        "provider_effect_evidence": "none",
+        "model_action_authority": "none"
+      },
+      "invariant_ids": [
+        "NO_UNIT_OR_TIME_LAUNDERING"
+      ],
+      "hard_gates": [
+        "currentness"
+      ],
+      "claim_ceiling": "Synthetic cross-stack disposition only; no field, legal, physical or provider-authority claim."
+    },
+    {
+      "case_id": "MCB-X-018",
+      "family": "time_standards_identity",
+      "control_kind": "positive_control",
+      "scenario": "Historical monetary obligation uses pinned currency exponent and effective metadata; display locale changes without changing canonical amount.",
+      "owner_artifact_requirements": [
+        {
+          "owner": "sol_atlas",
+          "artifact_kind": "source_projection",
+          "required": true
+        },
+        {
+          "owner": "symtropy",
+          "artifact_kind": "simulation_run",
+          "required": true
+        },
+        {
+          "owner": "symthaea",
+          "artifact_kind": "decision_brief",
+          "required": true
+        },
+        {
+          "owner": "mycelix",
+          "artifact_kind": "stay_view",
+          "required": true
+        }
+      ],
+      "expected": {
+        "source_context": "qualified",
+        "feasibility": "feasible",
+        "decision": "recommend",
+        "commitment": "present",
+        "dependency": "not_evaluated",
+        "stay_disposition": "confirmed",
+        "provider_effect_evidence": "receipt_present",
+        "model_action_authority": "none"
+      },
+      "invariant_ids": [
+        "NO_UNIT_OR_TIME_LAUNDERING"
+      ],
+      "hard_gates": [
+        "authority"
+      ],
+      "claim_ceiling": "Synthetic cross-stack disposition only; no field, legal, physical or provider-authority claim."
+    },
+    {
+      "case_id": "MCB-X-019",
+      "family": "time_standards_identity",
+      "control_kind": "positive_control",
+      "scenario": "Recreational vessel without an eligible IMO number uses a verified issuer-scoped national registry identifier; company identifier cannot bind to a vessel.",
+      "owner_artifact_requirements": [
+        {
+          "owner": "sol_atlas",
+          "artifact_kind": "source_projection",
+          "required": true
+        },
+        {
+          "owner": "symtropy",
+          "artifact_kind": "simulation_run",
+          "required": true
+        },
+        {
+          "owner": "symthaea",
+          "artifact_kind": "decision_brief",
+          "required": true
+        },
+        {
+          "owner": "mycelix",
+          "artifact_kind": "stay_view",
+          "required": true
+        }
+      ],
+      "expected": {
+        "source_context": "qualified",
+        "feasibility": "feasible",
+        "decision": "recommend",
+        "commitment": "present",
+        "dependency": "not_evaluated",
+        "stay_disposition": "confirmed",
+        "provider_effect_evidence": "receipt_present",
+        "model_action_authority": "none"
+      },
+      "invariant_ids": [
+        "NO_AUTHORITY_PROMOTION"
+      ],
+      "hard_gates": [
+        "identity"
+      ],
+      "claim_ceiling": "Synthetic cross-stack disposition only; no field, legal, physical or provider-authority claim."
+    },
+    {
+      "case_id": "MCB-X-020",
+      "family": "time_standards_identity",
+      "control_kind": "ambiguity_control",
+      "scenario": "Provider event time, delivery attempt time, observation time and retrieval time are conflated under duplicate or out-of-order webhook delivery.",
+      "owner_artifact_requirements": [
+        {
+          "owner": "sol_atlas",
+          "artifact_kind": "source_projection",
+          "required": true
+        },
+        {
+          "owner": "symtropy",
+          "artifact_kind": "simulation_run",
+          "required": true
+        },
+        {
+          "owner": "symthaea",
+          "artifact_kind": "decision_brief",
+          "required": true
+        },
+        {
+          "owner": "mycelix",
+          "artifact_kind": "stay_view",
+          "required": true
+        }
+      ],
+      "expected": {
+        "source_context": "unknown",
+        "feasibility": "unknown",
+        "decision": "human_review",
+        "commitment": "needs_reconciliation",
+        "dependency": "not_evaluated",
+        "stay_disposition": "needs_reconciliation",
+        "provider_effect_evidence": "provider_state_unavailable",
+        "model_action_authority": "none"
+      },
+      "invariant_ids": [
+        "NO_STALE_TO_CURRENT",
+        "NO_DUPLICATE_EFFECT"
+      ],
+      "hard_gates": [
+        "currentness",
+        "effect_idempotency"
+      ],
+      "claim_ceiling": "Synthetic cross-stack disposition only; no field, legal, physical or provider-authority claim."
+    },
+    {
+      "case_id": "MCB-X-021",
+      "family": "cognitive_evidence",
+      "control_kind": "negative_control",
+      "scenario": "Symthaea recommends a feasible alternative; its recommendation is then treated as provider authorization or a booking commitment.",
+      "owner_artifact_requirements": [
+        {
+          "owner": "sol_atlas",
+          "artifact_kind": "source_projection",
+          "required": true
+        },
+        {
+          "owner": "symtropy",
+          "artifact_kind": "simulation_run",
+          "required": true
+        },
+        {
+          "owner": "symthaea",
+          "artifact_kind": "decision_brief",
+          "required": true
+        },
+        {
+          "owner": "mycelix",
+          "artifact_kind": "stay_view",
+          "required": true
+        }
+      ],
+      "expected": {
+        "source_context": "qualified",
+        "feasibility": "feasible",
+        "decision": "recommend",
+        "commitment": "absent",
+        "dependency": "not_evaluated",
+        "stay_disposition": "pending",
+        "provider_effect_evidence": "none",
+        "model_action_authority": "none"
+      },
+      "invariant_ids": [
+        "NO_AUTHORITY_PROMOTION"
+      ],
+      "hard_gates": [
+        "authority"
+      ],
+      "claim_ceiling": "Synthetic cross-stack disposition only; no field, legal, physical or provider-authority claim."
+    },
+    {
+      "case_id": "MCB-X-022",
+      "family": "cognitive_evidence",
+      "control_kind": "ambiguity_control",
+      "scenario": "Required provider evidence is absent; Symthaea abstains or requests information rather than inventing a source fact.",
+      "owner_artifact_requirements": [
+        {
+          "owner": "sol_atlas",
+          "artifact_kind": "source_projection",
+          "required": true
+        },
+        {
+          "owner": "symtropy",
+          "artifact_kind": "simulation_run",
+          "required": true
+        },
+        {
+          "owner": "symthaea",
+          "artifact_kind": "decision_brief",
+          "required": true
+        },
+        {
+          "owner": "mycelix",
+          "artifact_kind": "stay_view",
+          "required": true
+        }
+      ],
+      "expected": {
+        "source_context": "unknown",
+        "feasibility": "unknown",
+        "decision": "request_information",
+        "commitment": "absent",
+        "dependency": "unknown_dependency",
+        "stay_disposition": "unknown",
+        "provider_effect_evidence": "none",
+        "model_action_authority": "none"
+      },
+      "invariant_ids": [
+        "UNKNOWN_DEPENDENCY_ABSTAIN",
+        "NO_EVIDENCE_OVERCOUNT",
+        "NO_AUTHORITY_PROMOTION"
+      ],
+      "hard_gates": [
+        "authority",
+        "evidence_independence"
+      ],
+      "claim_ceiling": "Synthetic cross-stack disposition only; no field, legal, physical or provider-authority claim."
+    },
+    {
+      "case_id": "MCB-X-023",
+      "family": "cognitive_evidence",
+      "control_kind": "negative_control",
+      "scenario": "A provider observation, its Sol-Atlas projection, Symtropy run and Symthaea brief are counted as four independent observations.",
+      "owner_artifact_requirements": [
+        {
+          "owner": "sol_atlas",
+          "artifact_kind": "source_projection",
+          "required": true
+        },
+        {
+          "owner": "symtropy",
+          "artifact_kind": "simulation_run",
+          "required": true
+        },
+        {
+          "owner": "symthaea",
+          "artifact_kind": "decision_brief",
+          "required": true
+        },
+        {
+          "owner": "mycelix",
+          "artifact_kind": "stay_view",
+          "required": true
+        }
+      ],
+      "expected": {
+        "source_context": "qualified",
+        "feasibility": "feasible",
+        "decision": "human_review",
+        "commitment": "pending",
+        "dependency": "shared_dependency",
+        "stay_disposition": "pending",
+        "provider_effect_evidence": "none",
+        "model_action_authority": "none"
+      },
+      "invariant_ids": [
+        "NO_EVIDENCE_OVERCOUNT",
+        "UNKNOWN_DEPENDENCY_ABSTAIN",
+        "NO_EVIDENCE_OVERCOUNT"
+      ],
+      "hard_gates": [
+        "evidence_independence"
+      ],
+      "claim_ceiling": "Synthetic cross-stack disposition only; no field, legal, physical or provider-authority claim."
+    },
+    {
+      "case_id": "MCB-X-024",
+      "family": "cognitive_evidence",
+      "control_kind": "negative_control",
+      "scenario": "Two provider feeds share a transitive upstream inventory database; Mycelix dependency evaluator reports a common origin.",
+      "owner_artifact_requirements": [
+        {
+          "owner": "sol_atlas",
+          "artifact_kind": "source_projection",
+          "required": true
+        },
+        {
+          "owner": "symtropy",
+          "artifact_kind": "simulation_run",
+          "required": true
+        },
+        {
+          "owner": "symthaea",
+          "artifact_kind": "decision_brief",
+          "required": true
+        },
+        {
+          "owner": "mycelix",
+          "artifact_kind": "stay_view",
+          "required": true
+        }
+      ],
+      "expected": {
+        "source_context": "qualified",
+        "feasibility": "feasible",
+        "decision": "human_review",
+        "commitment": "pending",
+        "dependency": "shared_dependency",
+        "stay_disposition": "pending",
+        "provider_effect_evidence": "none",
+        "model_action_authority": "none"
+      },
+      "invariant_ids": [
+        "UNKNOWN_DEPENDENCY_ABSTAIN",
+        "NO_EVIDENCE_OVERCOUNT"
+      ],
+      "hard_gates": [
+        "evidence_independence"
+      ],
+      "claim_ceiling": "Synthetic cross-stack disposition only; no field, legal, physical or provider-authority claim."
+    },
+    {
+      "case_id": "MCB-X-025",
+      "family": "cognitive_evidence",
+      "control_kind": "ambiguity_control",
+      "scenario": "Dependency inventory is stale, incomplete or missing for the observation's relevant valid-time interval.",
+      "owner_artifact_requirements": [
+        {
+          "owner": "sol_atlas",
+          "artifact_kind": "source_projection",
+          "required": true
+        },
+        {
+          "owner": "symtropy",
+          "artifact_kind": "simulation_run",
+          "required": true
+        },
+        {
+          "owner": "symthaea",
+          "artifact_kind": "decision_brief",
+          "required": true
+        },
+        {
+          "owner": "mycelix",
+          "artifact_kind": "stay_view",
+          "required": true
+        }
+      ],
+      "expected": {
+        "source_context": "qualified",
+        "feasibility": "unknown",
+        "decision": "abstain",
+        "commitment": "pending",
+        "dependency": "unknown_dependency",
+        "stay_disposition": "unknown",
+        "provider_effect_evidence": "none",
+        "model_action_authority": "none"
+      },
+      "invariant_ids": [
+        "UNKNOWN_DEPENDENCY_ABSTAIN",
+        "NO_EVIDENCE_OVERCOUNT"
+      ],
+      "hard_gates": [
+        "evidence_independence"
+      ],
+      "claim_ceiling": "Synthetic cross-stack disposition only; no field, legal, physical or provider-authority claim."
+    },
+    {
+      "case_id": "MCB-X-026",
+      "family": "cognitive_evidence",
+      "control_kind": "positive_control",
+      "scenario": "Dependency inventory is complete/current and records no declared common domain; consumer preserves that limited meaning and makes no independence claim.",
+      "owner_artifact_requirements": [
+        {
+          "owner": "sol_atlas",
+          "artifact_kind": "source_projection",
+          "required": true
+        },
+        {
+          "owner": "symtropy",
+          "artifact_kind": "simulation_run",
+          "required": true
+        },
+        {
+          "owner": "symthaea",
+          "artifact_kind": "decision_brief",
+          "required": true
+        },
+        {
+          "owner": "mycelix",
+          "artifact_kind": "stay_view",
+          "required": true
+        }
+      ],
+      "expected": {
+        "source_context": "qualified",
+        "feasibility": "feasible",
+        "decision": "human_review",
+        "commitment": "pending",
+        "dependency": "no_declared_common_domain",
+        "stay_disposition": "pending",
+        "provider_effect_evidence": "none",
+        "model_action_authority": "none"
+      },
+      "invariant_ids": [
+        "UNKNOWN_DEPENDENCY_ABSTAIN",
+        "NO_EVIDENCE_OVERCOUNT"
+      ],
+      "hard_gates": [
+        "evidence_independence"
+      ],
+      "claim_ceiling": "Synthetic cross-stack disposition only; no field, legal, physical or provider-authority claim."
+    },
+    {
+      "case_id": "MCB-X-027",
+      "family": "provider_recovery_privacy",
+      "control_kind": "recovery_control",
+      "scenario": "Provider commitment effect succeeded but response was lost; stay remains NeedsReconciliation until provider-owned effect evidence is recovered.",
+      "owner_artifact_requirements": [
+        {
+          "owner": "sol_atlas",
+          "artifact_kind": "source_projection",
+          "required": true
+        },
+        {
+          "owner": "symtropy",
+          "artifact_kind": "simulation_run",
+          "required": true
+        },
+        {
+          "owner": "symthaea",
+          "artifact_kind": "decision_brief",
+          "required": true
+        },
+        {
+          "owner": "mycelix",
+          "artifact_kind": "stay_view",
+          "required": true
+        }
+      ],
+      "expected": {
+        "source_context": "qualified",
+        "feasibility": "feasible",
+        "decision": "human_review",
+        "commitment": "needs_reconciliation",
+        "dependency": "not_evaluated",
+        "stay_disposition": "needs_reconciliation",
+        "provider_effect_evidence": "provider_state_unavailable",
+        "model_action_authority": "none"
+      },
+      "invariant_ids": [
+        "NO_DUPLICATE_EFFECT",
+        "NO_AUTHORITY_PROMOTION"
+      ],
+      "hard_gates": [
+        "effect_idempotency",
+        "authority"
+      ],
+      "claim_ceiling": "Synthetic cross-stack disposition only; no field, legal, physical or provider-authority claim."
+    },
+    {
+      "case_id": "MCB-X-028",
+      "family": "provider_recovery_privacy",
+      "control_kind": "positive_control",
+      "scenario": "Same idempotency key and same canonical request is retried; provider returns original effect reference without a duplicate effect.",
+      "owner_artifact_requirements": [
+        {
+          "owner": "sol_atlas",
+          "artifact_kind": "source_projection",
+          "required": true
+        },
+        {
+          "owner": "symtropy",
+          "artifact_kind": "simulation_run",
+          "required": true
+        },
+        {
+          "owner": "symthaea",
+          "artifact_kind": "decision_brief",
+          "required": true
+        },
+        {
+          "owner": "mycelix",
+          "artifact_kind": "stay_view",
+          "required": true
+        }
+      ],
+      "expected": {
+        "source_context": "qualified",
+        "feasibility": "feasible",
+        "decision": "recommend",
+        "commitment": "present",
+        "dependency": "not_evaluated",
+        "stay_disposition": "confirmed",
+        "provider_effect_evidence": "receipt_present",
+        "model_action_authority": "none"
+      },
+      "invariant_ids": [
+        "NO_DUPLICATE_EFFECT"
+      ],
+      "hard_gates": [
+        "effect_idempotency"
+      ],
+      "claim_ceiling": "Synthetic cross-stack disposition only; no field, legal, physical or provider-authority claim."
+    },
+    {
+      "case_id": "MCB-X-029",
+      "family": "provider_recovery_privacy",
+      "control_kind": "negative_control",
+      "scenario": "Same idempotency key is reused with a different canonical request; provider effect identity conflicts.",
+      "owner_artifact_requirements": [
+        {
+          "owner": "sol_atlas",
+          "artifact_kind": "source_projection",
+          "required": true
+        },
+        {
+          "owner": "symtropy",
+          "artifact_kind": "simulation_run",
+          "required": true
+        },
+        {
+          "owner": "symthaea",
+          "artifact_kind": "decision_brief",
+          "required": true
+        },
+        {
+          "owner": "mycelix",
+          "artifact_kind": "stay_view",
+          "required": true
+        }
+      ],
+      "expected": {
+        "source_context": "qualified",
+        "feasibility": "unknown",
+        "decision": "human_review",
+        "commitment": "conflict",
+        "dependency": "not_evaluated",
+        "stay_disposition": "conflict",
+        "provider_effect_evidence": "none",
+        "model_action_authority": "none"
+      },
+      "invariant_ids": [
+        "NO_DUPLICATE_EFFECT"
+      ],
+      "hard_gates": [
+        "effect_idempotency"
+      ],
+      "claim_ceiling": "Synthetic cross-stack disposition only; no field, legal, physical or provider-authority claim."
+    },
+    {
+      "case_id": "MCB-X-030",
+      "family": "provider_recovery_privacy",
+      "control_kind": "negative_control",
+      "scenario": "A projection attempts to disclose private customer, crew or vessel-itinerary fields beyond the declared purpose/audience.",
+      "owner_artifact_requirements": [
+        {
+          "owner": "sol_atlas",
+          "artifact_kind": "source_projection",
+          "required": true
+        },
+        {
+          "owner": "symtropy",
+          "artifact_kind": "simulation_run",
+          "required": true
+        },
+        {
+          "owner": "symthaea",
+          "artifact_kind": "decision_brief",
+          "required": true
+        },
+        {
+          "owner": "mycelix",
+          "artifact_kind": "stay_view",
+          "required": true
+        }
+      ],
+      "expected": {
+        "source_context": "qualified",
+        "feasibility": "not_evaluated",
+        "decision": "abstain",
+        "commitment": "absent",
+        "dependency": "not_evaluated",
+        "stay_disposition": "rejected",
+        "provider_effect_evidence": "none",
+        "model_action_authority": "none"
+      },
+      "invariant_ids": [
+        "NO_PRIVACY_EXPANSION"
+      ],
+      "hard_gates": [
+        "privacy"
+      ],
+      "claim_ceiling": "Synthetic cross-stack disposition only; no field, legal, physical or provider-authority claim."
+    },
+    {
+      "case_id": "MCB-X-031",
+      "family": "provider_recovery_privacy",
+      "control_kind": "ambiguity_control",
+      "scenario": "Provider source-language terms have an unreviewed machine translation that is promoted to authoritative cancellation terms.",
+      "owner_artifact_requirements": [
+        {
+          "owner": "sol_atlas",
+          "artifact_kind": "source_projection",
+          "required": true
+        },
+        {
+          "owner": "symtropy",
+          "artifact_kind": "simulation_run",
+          "required": true
+        },
+        {
+          "owner": "symthaea",
+          "artifact_kind": "decision_brief",
+          "required": true
+        },
+        {
+          "owner": "mycelix",
+          "artifact_kind": "stay_view",
+          "required": true
+        }
+      ],
+      "expected": {
+        "source_context": "unknown",
+        "feasibility": "unknown",
+        "decision": "human_review",
+        "commitment": "pending",
+        "dependency": "not_evaluated",
+        "stay_disposition": "unknown",
+        "provider_effect_evidence": "none",
+        "model_action_authority": "none"
+      },
+      "invariant_ids": [
+        "NO_UNREVIEWED_TRANSLATION"
+      ],
+      "hard_gates": [
+        "authority",
+        "privacy"
+      ],
+      "claim_ceiling": "Synthetic cross-stack disposition only; no field, legal, physical or provider-authority claim."
+    },
+    {
+      "case_id": "MCB-X-032",
+      "family": "provider_recovery_privacy",
+      "control_kind": "recovery_control",
+      "scenario": "Federation partition occurs without valid non-overlapping provider allocation rights; offline capture is not confirmation.",
+      "owner_artifact_requirements": [
+        {
+          "owner": "sol_atlas",
+          "artifact_kind": "source_projection",
+          "required": true
+        },
+        {
+          "owner": "symtropy",
+          "artifact_kind": "simulation_run",
+          "required": true
+        },
+        {
+          "owner": "symthaea",
+          "artifact_kind": "decision_brief",
+          "required": true
+        },
+        {
+          "owner": "mycelix",
+          "artifact_kind": "stay_view",
+          "required": true
+        }
+      ],
+      "expected": {
+        "source_context": "unknown",
+        "feasibility": "unknown",
+        "decision": "abstain",
+        "commitment": "pending",
+        "dependency": "unknown_dependency",
+        "stay_disposition": "pending",
+        "provider_effect_evidence": "none",
+        "model_action_authority": "none"
+      },
+      "invariant_ids": [
+        "NO_AUTHORITY_PROMOTION",
+        "UNKNOWN_DEPENDENCY_ABSTAIN",
+        "NO_EVIDENCE_OVERCOUNT"
+      ],
+      "hard_gates": [
+        "authority",
+        "allocation"
+      ],
+      "claim_ceiling": "Synthetic cross-stack disposition only; no field, legal, physical or provider-authority claim."
+    },
+    {
+      "case_id": "MCB-X-033",
+      "family": "provider_recovery_privacy",
+      "control_kind": "positive_control",
+      "scenario": "Replacement coordinator reconstructs the same historical stay disposition from complete, identical evidence references and frontier.",
+      "owner_artifact_requirements": [
+        {
+          "owner": "sol_atlas",
+          "artifact_kind": "source_projection",
+          "required": true
+        },
+        {
+          "owner": "symtropy",
+          "artifact_kind": "simulation_run",
+          "required": true
+        },
+        {
+          "owner": "symthaea",
+          "artifact_kind": "decision_brief",
+          "required": true
+        },
+        {
+          "owner": "mycelix",
+          "artifact_kind": "stay_view",
+          "required": true
+        }
+      ],
+      "expected": {
+        "source_context": "qualified",
+        "feasibility": "feasible",
+        "decision": "recommend",
+        "commitment": "present",
+        "dependency": "not_evaluated",
+        "stay_disposition": "confirmed",
+        "provider_effect_evidence": "receipt_present",
+        "model_action_authority": "none"
+      },
+      "invariant_ids": [
+        "HISTORY_IMMUTABLE",
+        "EXACT_REPLAY"
+      ],
+      "hard_gates": [
+        "historical_reconstruction"
+      ],
+      "claim_ceiling": "Synthetic cross-stack disposition only; no field, legal, physical or provider-authority claim."
+    },
+    {
+      "case_id": "MCB-X-034",
+      "family": "provider_recovery_privacy",
+      "control_kind": "metamorphic_control",
+      "scenario": "Provider correction creates a new superseding assertion while the historical decision retains its original exact evidence frontier.",
+      "owner_artifact_requirements": [
+        {
+          "owner": "sol_atlas",
+          "artifact_kind": "source_projection",
+          "required": true
+        },
+        {
+          "owner": "symtropy",
+          "artifact_kind": "simulation_run",
+          "required": true
+        },
+        {
+          "owner": "symthaea",
+          "artifact_kind": "decision_brief",
+          "required": true
+        },
+        {
+          "owner": "mycelix",
+          "artifact_kind": "stay_view",
+          "required": true
+        }
+      ],
+      "expected": {
+        "source_context": "qualified",
+        "feasibility": "unknown",
+        "decision": "human_review",
+        "commitment": "present",
+        "dependency": "not_evaluated",
+        "stay_disposition": "unknown",
+        "provider_effect_evidence": "none",
+        "model_action_authority": "none"
+      },
+      "invariant_ids": [
+        "HISTORY_IMMUTABLE",
+        "EXACT_REPLAY"
+      ],
+      "hard_gates": [
+        "historical_reconstruction"
+      ],
+      "claim_ceiling": "Synthetic cross-stack disposition only; no field, legal, physical or provider-authority claim.",
+      "metamorphic_group": "correction-supersession"
+    },
+    {
+      "case_id": "MCB-X-035",
+      "family": "provider_recovery_privacy",
+      "control_kind": "metamorphic_control",
+      "scenario": "One owner output is missing for a required hand-off; evaluator returns INCOMPARABLE/UNKNOWN rather than treating the missing result as negative or successful.",
+      "owner_artifact_requirements": [
+        {
+          "owner": "sol_atlas",
+          "artifact_kind": "source_projection",
+          "required": true
+        },
+        {
+          "owner": "symtropy",
+          "artifact_kind": "simulation_run",
+          "required": true
+        },
+        {
+          "owner": "symthaea",
+          "artifact_kind": "decision_brief",
+          "required": true
+        },
+        {
+          "owner": "mycelix",
+          "artifact_kind": "stay_view",
+          "required": true
+        }
+      ],
+      "expected": {
+        "source_context": "unknown",
+        "feasibility": "not_evaluated",
+        "decision": "not_evaluated",
+        "commitment": "not_evaluated",
+        "dependency": "not_evaluated",
+        "stay_disposition": "incomparable",
+        "provider_effect_evidence": "none",
+        "model_action_authority": "none"
+      },
+      "invariant_ids": [
+        "HISTORY_IMMUTABLE",
+        "EXACT_REPLAY"
+      ],
+      "hard_gates": [
+        "historical_reconstruction"
+      ],
+      "claim_ceiling": "Synthetic cross-stack disposition only; no field, legal, physical or provider-authority claim.",
+      "metamorphic_group": "required-owner-output"
+    }
+  ],
+  "execution_status": {
+    "executed": false,
+    "owner_artifacts_pinned": false,
+    "independent_oracle_built": false,
+    "mutation_campaign": false,
+    "cross_coordinator_replay": false,
+    "provider_sandbox_used": false,
+    "field_evaluation": false
+  }
+}
