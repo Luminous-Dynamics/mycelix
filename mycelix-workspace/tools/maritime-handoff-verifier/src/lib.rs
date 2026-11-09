@@ -144,6 +144,7 @@ pub enum ArtifactKind {
     EvaluationReport,
     AuthorizationEvidence,
     HistoricalView,
+    DependencySnapshot,
     Transformation,
     Other,
 }
@@ -681,7 +682,22 @@ mod tests {
             artifact("source", "sol_atlas", "Luminous-Dynamics/sol-atlas-leptos"),
             artifact("run", "symtropy", "Luminous-Dynamics/symtropy"),
             artifact("brief", "symthaea", "Luminous-Dynamics/symthaea"),
-            artifact("stay", "mycelix", "Luminous-Dynamics/mycelix")
+            artifact("stay", "mycelix", "Luminous-Dynamics/mycelix"),
+            {
+                "artifact_ref": "dependencies",
+                "owner": "mycelix",
+                "repository": "Luminous-Dynamics/mycelix",
+                "commit": COMMIT_A,
+                "path": "fixtures/maritime/dependency-snapshot.json",
+                "content_digest": DIGEST_A,
+                "artifact_kind": "dependency_snapshot",
+                "profile_id": "time-qualified-dependency-hypergraph",
+                "profile_version": "0.1.0",
+                "maturity": "synthetic",
+                "subject_refs": ["fixture:source:1", "fixture:source:2"],
+                "claim_ceiling": "Declared dependency relationships in this synthetic snapshot only.",
+                "nonclaims": ["Does not prove statistical or physical independence."]
+            }
         ]);
         value["handoff_edges"] = json!([
             {
@@ -708,7 +724,7 @@ mod tests {
             },
             {
                 "edge_id": "stay-to-review",
-                "source_artifact_refs": ["stay", "brief"],
+                "source_artifact_refs": ["stay", "brief", "dependencies"],
                 "purpose": "Synthetic stay evidence composition review.",
                 "destination_owner": "mycelix",
                 "fidelity_disposition": "not_evaluated",
@@ -745,8 +761,15 @@ mod tests {
     fn synthetic_unexecuted_manifest_with_all_four_owners_passes() {
         let report = validate_value(&valid_synthetic_manifest());
         assert_eq!(report.disposition, Disposition::Pass);
-        assert_eq!(report.artifact_count, 4);
+        assert_eq!(report.artifact_count, 5);
         assert_eq!(report.handoff_edge_count, 3);
+    }
+
+    #[test]
+    fn accepts_mycelix_time_qualified_dependency_snapshot_reference() {
+        let report = validate_value(&valid_synthetic_manifest());
+        assert_eq!(report.disposition, Disposition::Pass);
+        assert_has_code(&report, "artifact_reference_ids_unique");
     }
 
     #[test]
