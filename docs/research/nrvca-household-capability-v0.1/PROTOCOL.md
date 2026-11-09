@@ -190,3 +190,20 @@ For each metric, group, geography and period report:
 ## 10. Claim ceiling
 
 A PASS establishes only that the declared source, metric, survey design, estimator, cohort/geography, period and evaluator reproduce the declared source statistics under the stated assumptions. It does not establish a universal definition of well-being, person-level wealth, causal policy impact, current service continuity, or an authoritative replacement for Stats SA/SARB. No automatic eligibility, rights, political authority or public-resource allocation may be derived from these metrics.
+
+
+## 3.4 Public DDI mapping update (9 November 2026)
+
+The public DataFirst JSON metadata export is accessible separately from the login-gated microdata page:
+- DDI/JSON locator: https://datafirst.uct.ac.za/dataportal/index.php/metadata/export/1144/json
+- Study reference ID: `zaf-statssa-ghs-2025-v1`.
+
+The export identifies the F3 household file as `ghs-2025-household-v1` (20,095 records; 206 variables) and maps these variables:
+- `wat_drinkwat` F3/V347 — Main source of water; categories 1 (tap in dwelling), 2 (tap on site/in yard), 3–16 (other source types).
+- `eng_light` F3/V378 — Energy for lighting; categories include mains electricity (1) and generator (2), plus other source categories. Codes 9 and 10 both have a None label in the metadata and remain distinct pending questionnaire clarification.
+- `fsd_hung_adult` F3/V435 — Insufficient food for adult; ordinal categories Never, Seldom, Sometimes, Often, Always, Not applicable (no adults), Unspecified.
+- `fsd_hung_child` F3/V436 — Insufficient food for children; code 6 is Not applicable (no children).
+- Supporting food hardship items: `fsd_worried` V437; `fsd_healthy` V438; `fsd_fewfoods` V439; `fsd_fewfoods_days` V440; `fsd_ateless` V441; `fsd_ateless_days` V442; `fsd_ranout` V443; `fsd_ranout_days` V444.
+- Survey-design fields: `psu` F3/V330, `prov` F3/V331, `stratum` F3/V528, `geotype` F3/V529, `metro` F3/V530, `rotation` F3/V532 and `house_wgt` F3/V533.
+
+The DDI variable-level question text field is blank for these variables. Therefore variable labels/category codes are mapped, but exact interviewer question wording, routing/applicability and questionnaire changes remain to be checked against the questionnaire/documentation before defining final estimators. The metadata's displayed category frequencies are not weighted national estimates. The microdata download remains login-gated; no microdata bytes were acquired and no weighted estimate has been computed.
