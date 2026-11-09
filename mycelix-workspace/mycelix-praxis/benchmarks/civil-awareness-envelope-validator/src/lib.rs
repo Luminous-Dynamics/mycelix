@@ -522,13 +522,16 @@ impl<'de> Deserialize<'de> for StrictValue {
                 formatter.write_str("a JSON value with unique object property names")
             }
 
-            fn visit_bool<E>(self, value: bool) -> Result<Self::Value, E> {
+            fn visit_bool<E>(self, value: bool) -> Result<Self::Value, E>
+            where E: de::Error {
                 Ok(StrictValue(Value::Bool(value)))
             }
-            fn visit_i64<E>(self, value: i64) -> Result<Self::Value, E> {
+            fn visit_i64<E>(self, value: i64) -> Result<Self::Value, E>
+            where E: de::Error {
                 Ok(StrictValue(Value::Number(Number::from(value))))
             }
-            fn visit_u64<E>(self, value: u64) -> Result<Self::Value, E> {
+            fn visit_u64<E>(self, value: u64) -> Result<Self::Value, E>
+            where E: de::Error {
                 Ok(StrictValue(Value::Number(Number::from(value))))
             }
             fn visit_f64<E>(self, value: f64) -> Result<Self::Value, E>
@@ -539,16 +542,20 @@ impl<'de> Deserialize<'de> for StrictValue {
                     .map(|number| StrictValue(Value::Number(number)))
                     .ok_or_else(|| E::custom("non-finite JSON number"))
             }
-            fn visit_str<E>(self, value: &str) -> Result<Self::Value, E> {
+            fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
+            where E: de::Error {
                 Ok(StrictValue(Value::String(value.to_owned())))
             }
-            fn visit_string<E>(self, value: String) -> Result<Self::Value, E> {
+            fn visit_string<E>(self, value: String) -> Result<Self::Value, E>
+            where E: de::Error {
                 Ok(StrictValue(Value::String(value)))
             }
-            fn visit_unit<E>(self) -> Result<Self::Value, E> {
+            fn visit_unit<E>(self) -> Result<Self::Value, E>
+            where E: de::Error {
                 Ok(StrictValue(Value::Null))
             }
-            fn visit_none<E>(self) -> Result<Self::Value, E> {
+            fn visit_none<E>(self) -> Result<Self::Value, E>
+            where E: de::Error {
                 Ok(StrictValue(Value::Null))
             }
             fn visit_some<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
