@@ -61,7 +61,7 @@
         "field_allowlist_digest": "sha256:49403e5baa15d265cbfc1c03d2596e702109119923dd09e81cca797934614469"
       },
       "lineage": {
-        "payload_digest": "sha256:c94e4f5aaa8992945fc4d10df5f5e642618861120426d6cc9dd6de3beaf3b19a",
+        "payload_digest": "sha256:585d64ea080ea3a62f6d105683d596cfd060b9b28d320256bd3d4a57e82536af",
         "supersedes_refs": [],
         "corrects_refs": []
       },
@@ -70,8 +70,7 @@
         "schema_revision": "0.1.0",
         "payload": {
           "synthetic": true,
-          "fixture_id": "uas-001",
-          "control_or_mitigation_fields_present": false
+          "fixture_id": "uas-001"
         }
       }
     },
@@ -207,7 +206,7 @@
         "field_allowlist_digest": "sha256:49403e5baa15d265cbfc1c03d2596e702109119923dd09e81cca797934614469"
       },
       "lineage": {
-        "payload_digest": "sha256:06fa165216fb01541974b682f8795300d64c7547faa75c528db68131bd6ac557",
+        "payload_digest": "sha256:dac7ab1fd35789b79dac59da48e709d525efbf34fee7b4ec8e4aa3afc300dc62",
         "supersedes_refs": [],
         "corrects_refs": []
       },
@@ -217,8 +216,11 @@
         "payload": {
           "synthetic": true,
           "fixture_id": "aviation-001",
-          "flight_control_interface": false,
-          "atc_authority_retained": true
+          "hazard_type": "reduced_visibility",
+          "severity": "advisory",
+          "source_confirmation": "unverified",
+          "declared_integration_class": "advisory_read_only",
+          "authority_owner": "pilot_in_command_or_atc"
         }
       }
     }
