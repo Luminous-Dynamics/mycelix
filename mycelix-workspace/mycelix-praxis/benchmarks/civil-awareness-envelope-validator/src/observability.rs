@@ -150,7 +150,12 @@ impl ObservabilityEvaluator {
             required.retain(|field| {
                 !matches!(
                     field.as_str(),
-                    Some("expected" | "mutation" | "mutation_expected_state")
+                    Some(
+                        "expected"
+                            | "mutation"
+                            | "mutation_expected_state"
+                            | "independent_oracle"
+                    )
                 )
             });
         }
@@ -161,6 +166,12 @@ impl ObservabilityEvaluator {
             properties.remove("expected");
             properties.remove("mutation");
             properties.remove("mutation_expected_state");
+            if let Some(coverage) = properties
+                .get_mut("coverage")
+                .and_then(Value::as_object_mut)
+            {
+                coverage.remove("independent_oracle");
+            }
         }
         let case_schema_validator = jsonschema::draft202012::options()
             .should_validate_formats(true)
@@ -958,6 +969,10 @@ mod tests {
         let mut case = case_by_id(&dgp, "OBS-011").clone();
         case.as_object_mut().unwrap().remove("expected");
         case.as_object_mut().unwrap().remove("mutation");
+        case["coverage"]
+            .as_object_mut()
+            .unwrap()
+            .remove("independent_oracle");
         let bytes = serde_json::to_vec(&case).unwrap();
         let report = evaluator.assess_case_bytes(&bytes).unwrap();
         assert_eq!(report.state, ObservabilityState::NotObservedWithinDeclaredCoverage);
@@ -1044,6 +1059,52 @@ mod tests {
         let evaluator = evaluator();
         let result = evaluator.evaluate_dgp_bytes(br#"{"schema":"a","schema":"b"}"#);
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn all_ten_observability_states_are_exercised_by_the_frozen_corpus() {
+        let report = evaluator().evaluate_embedded().unwrap();
+        let states: BTreeSet<&str> = report
+            .assessments
+            .iter()
+            .map(|assessment| assessment.state.as_str())
+            .collect();
+        let expected = [
+            "OBSERVED_PRESENT",
+            "NOT_OBSERVED_WITHIN_DECLARED_COVERAGE",
+            "UNOBSERVABLE",
+            "COVERAGE_UNKNOWN",
+            "FEED_UNAVAILABLE",
+            "NOT_EQUIPPED_OR_NOT_REQUIRED",
+            "STALE",
+            "WITHHELD_OR_RESTRICTED",
+            "CONFLICT",
+            "NOT_APPLICABLE",
+        ];
+        assert_eq!(states, expected.into_iter().collect());
+    }
+
+    #[test]
+    fn repeated_embedded_evaluation_is_byte_stable() {
+        let evaluator = evaluator();
+        let first = evaluator.evaluate_embedded().unwrap();
+        let second = evaluator.evaluate_embedded().unwrap();
+        assert_eq!(
+            serde_json::to_vec(&first).unwrap(),
+            serde_json::to_vec(&second).unwrap()
+        );
+    }
+
+    #[test]
+    fn every_assessment_has_sorted_unique_reason_codes() {
+        let report = evaluator().evaluate_embedded().unwrap();
+        for assessment in report.assessments {
+            let mut sorted = assessment.reason_codes.clone();
+            sorted.sort();
+            sorted.dedup();
+            assert_eq!(assessment.reason_codes, sorted);
+            assert!(!assessment.reason_codes.is_empty());
+        }
     }
 
     #[test]
