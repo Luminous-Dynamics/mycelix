@@ -1,0 +1,30 @@
+{
+  "manifest_id": "GCPN-CIVIL-CROSS-STACK-CONTRACT-TEMPLATE-001",
+  "profile_version": "0.1.0",
+  "status": "contract_template",
+  "use_case": "Index only the owner-native references required for civilian awareness evidence handoff across UAS, maritime and civil aviation; this template is intentionally empty and unexecuted.",
+  "audience": [
+    "civilian-awareness-research",
+    "independent-review"
+  ],
+  "privacy_policy_refs": [
+    "policy-ref:minimum-necessary-civil-awareness",
+    "policy-ref:no-personal-or-operator-location"
+  ],
+  "artifact_refs": [],
+  "handoff_edges": [],
+  "nonclaims": [
+    "No source observation has been ingested or authenticated.",
+    "No physical detection, tracking, identification or navigation claim is made.",
+    "No source independence or physical truth is proved.",
+    "No VTS, ATC, pilot, vessel-master, provider or external action authority is created.",
+    "No live sensor feed, private communication, biometric media or personal/operator/crew location is present."
+  ],
+  "execution": {
+    "executed": false,
+    "exact_head_verified": false,
+    "independent_verification": false,
+    "provider_effects": false,
+    "legal_review": false
+  }
+}
