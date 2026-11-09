@@ -87,9 +87,8 @@ impl ObservabilityAssessment {
             .into_iter()
             .map(str::to_owned)
             .collect::<BTreeSet<_>>();
-        let claim_scope = format!(
-            "source={source_id};scope={scope_id};window=[{window_start},{window_end}]"
-        );
+        let claim_scope =
+            format!("source={source_id};scope={scope_id};window=[{window_start},{window_end}]");
         Ok(Self {
             source_id,
             scope_id,
@@ -137,7 +136,10 @@ impl ObservabilityEvaluator {
             .map_err(|_| "observability.schema_compile_failed".to_string())?;
         Ok(Self {
             schema_validator,
-            schema_sha256: format!("sha256:{}", sha256_hex(OBSERVABILITY_SCHEMA_JSON.as_bytes())),
+            schema_sha256: format!(
+                "sha256:{}",
+                sha256_hex(OBSERVABILITY_SCHEMA_JSON.as_bytes())
+            ),
         })
     }
 
@@ -267,8 +269,10 @@ fn assess_case(case: &Value) -> Result<ObservabilityAssessment, String> {
     // the source emitted an observation; it does not prove full-window coverage
     // or physical identity. Multi-source aggregates remain subject to common
     // coverage/lineage qualification.
-    let distinct_sources: BTreeSet<&str> =
-        claims.iter().map(|claim| claim.source_id.as_str()).collect();
+    let distinct_sources: BTreeSet<&str> = claims
+        .iter()
+        .map(|claim| claim.source_id.as_str())
+        .collect();
     let has_positive = claims.iter().any(|claim| {
         matches!(
             claim.claim.as_str(),
@@ -319,8 +323,10 @@ fn assess_case(case: &Value) -> Result<ObservabilityAssessment, String> {
         );
     }
 
-    if matches!(coverage_status, "unknown" | "stale" | "partial_unknown" | "partial")
-        || value_at(case, "/coverage/complete_for_scope") != Some(&Value::Bool(true))
+    if matches!(
+        coverage_status,
+        "unknown" | "stale" | "partial_unknown" | "partial"
+    ) || value_at(case, "/coverage/complete_for_scope") != Some(&Value::Bool(true))
     {
         return assessment(
             case,
@@ -746,7 +752,10 @@ mod tests {
         let report = assess_case(case).unwrap();
         assert_eq!(report.state, ObservabilityState::Conflict);
         assert_eq!(report.source_claims.len(), 2);
-        assert_ne!(report.source_claims[0].source_id, report.source_claims[1].source_id);
+        assert_ne!(
+            report.source_claims[0].source_id,
+            report.source_claims[1].source_id
+        );
     }
 
     #[test]
@@ -756,9 +765,11 @@ mod tests {
         let report = assess_case(case).unwrap();
         assert_eq!(report.state, ObservabilityState::ObservedPresent);
         assert_eq!(report.source_claims.len(), 1);
-        assert!(report.reason_codes.contains(
-            &"source.positive_observation_recorded_coverage_may_be_partial".to_owned()
-        ));
+        assert!(
+            report.reason_codes.contains(
+                &"source.positive_observation_recorded_coverage_may_be_partial".to_owned()
+            )
+        );
     }
 
     #[test]
