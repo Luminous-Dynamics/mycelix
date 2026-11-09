@@ -6,6 +6,12 @@ use emsr_causal_intervention_benchmark::{
 
 fn public_input(active_degraded: &[&str], sham_degraded: &[&str]) -> PublicInput {
     let expected_source_ids = vec!["endpoint-a".to_owned(), "endpoint-b".to_owned()];
+    let negative_control_source_ids = vec!["collector-control".to_owned()];
+    let all_sources: Vec<String> = expected_source_ids
+        .iter()
+        .chain(negative_control_source_ids.iter())
+        .cloned()
+        .collect();
     let trials = vec![
         trial("active-1", TrialArm::Active, 0, 0),
         trial("sham-1", TrialArm::Sham, 1, 200),
@@ -15,13 +21,15 @@ fn public_input(active_degraded: &[&str], sham_degraded: &[&str]) -> PublicInput
     let mut sequence_by_source = std::collections::BTreeMap::new();
     let mut observations = Vec::new();
     for trial in &trials {
-        for source in &expected_source_ids {
+        for source in &all_sources {
             let sequence = sequence_by_source.entry(source.clone()).or_insert(0_u64);
             *sequence += 1;
-            let is_degraded = match trial.arm {
-                TrialArm::Active => active_degraded.contains(&source.as_str()),
-                TrialArm::Sham => sham_degraded.contains(&source.as_str()),
-            };
+            let is_target = expected_source_ids.contains(source);
+            let is_degraded = is_target
+                && match trial.arm {
+                    TrialArm::Active => active_degraded.contains(&source.as_str()),
+                    TrialArm::Sham => sham_degraded.contains(&source.as_str()),
+                };
             observations.push(TrialObservation {
                 trial_id: trial.trial_id.clone(),
                 source_id: source.clone(),
@@ -42,6 +50,7 @@ fn public_input(active_degraded: &[&str], sham_degraded: &[&str]) -> PublicInput
         scenario_id: "scenario-controlled-001".to_owned(),
         decision_scope: "lab-clock-domain-a".to_owned(),
         expected_source_ids,
+        negative_control_source_ids,
         intervention: InterventionPlan {
             intervention_id: "inject-grandmaster-phase-step".to_owned(),
             target_id: "grandmaster-a".to_owned(),
@@ -281,4 +290,28 @@ fn duplicate_trial_source_observation_is_invalid() {
         report.disposition,
         CandidateDisposition::ObservationOrClockMappingInvalid
     );
+}
+
+#[test]
+fn active_response_in_shared_collector_negative_control_forces_abstention() {
+    let mut input = public_input(&["endpoint-a", "endpoint-b"], &[]);
+    for observation in &mut input.observations {
+        if observation.source_id == "collector-control"
+            && (observation.trial_id == "active-1" || observation.trial_id == "active-2")
+        {
+            observation.state = ResponseState::Degraded;
+        }
+    }
+    let report = evaluate_public_bytes(&serde_json::to_vec(&input).unwrap());
+    assert_eq!(
+        report.disposition,
+        CandidateDisposition::IndeterminateInterventionCoverage
+    );
+    assert_eq!(
+        report.negative_control_response_source_ids,
+        vec!["collector-control".to_owned()]
+    );
+    assert!(report.reasons.iter().any(|reason| {
+        reason == "negative_control_response_indicates_shared_observation_or_collection_artifact"
+    }));
 }
