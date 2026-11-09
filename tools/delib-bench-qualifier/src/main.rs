@@ -5,8 +5,8 @@ use std::{
     process::ExitCode,
 };
 
-const EXPECTED_FIXTURES: usize = 30;
-const EXPECTED_RED_TEAM: usize = 24;
+const EXPECTED_FIXTURES: usize = 32;
+const EXPECTED_RED_TEAM: usize = 26;
 const EXPECTED_POSITIVE: usize = 6;
 const FAMILIES: [&str; 12] = [
     "leading_or_asymmetric_question_framing",
@@ -21,6 +21,7 @@ const FAMILIES: [&str; 12] = [
     "high_status_or_high_volume_speaker_domination",
     "brigading_sybil_participation_and_churn",
     "accessibility_or_translation_semantic_drift",
+    "contested_evidence_open_world_uncertainty",
 ];
 
 #[derive(Debug, PartialEq, Eq)]
@@ -356,6 +357,49 @@ fn evaluate_fixture(fixture: &Value, errors: &mut Vec<String>) -> BTreeSet<Strin
         add_error(errors, context, "counted_principal_ids must be a string array");
     }
 
+    // Open-world evidence is not resolved merely because a summary or decision packet says so.
+    let Some(evidence_state) = fixture.get("evidence_state") else {
+        add_error(errors, context, "evidence_state is required");
+        return violations;
+    };
+    let source_status = non_empty_string(evidence_state, "source_status");
+    let presented_status = non_empty_string(evidence_state, "presented_status");
+    if !["Contested", "Indeterminate", "Resolved"].contains(&source_status.unwrap_or_default())
+        || !["Contested", "Indeterminate", "Resolved"].contains(&presented_status.unwrap_or_default())
+    {
+        add_error(errors, context, "evidence_state statuses must be Contested, Indeterminate or Resolved");
+    }
+    if source_status != presented_status {
+        violations.insert("open_world_state_collapsed".to_string());
+    }
+
+    let required_evidence: BTreeSet<String> = string_array(evidence_state, "required_evidence_refs")
+        .unwrap_or_default().into_iter().collect();
+    let preserved_evidence: BTreeSet<String> = string_array(evidence_state, "preserved_evidence_refs")
+        .unwrap_or_default().into_iter().collect();
+    if !required_evidence.is_subset(&preserved_evidence) {
+        violations.insert("contested_evidence_dropped".to_string());
+    }
+
+    let required_objections: BTreeSet<String> =
+        string_array(evidence_state, "required_unresolved_objection_ids")
+            .unwrap_or_default().into_iter().collect();
+    let preserved_objections: BTreeSet<String> =
+        string_array(evidence_state, "preserved_unresolved_objection_ids")
+            .unwrap_or_default().into_iter().collect();
+    if !required_objections.is_subset(&preserved_objections) {
+        violations.insert("unresolved_objection_dropped".to_string());
+    }
+
+    let decision_status = non_empty_string(evidence_state, "decision_status").unwrap_or_default();
+    let assumptions = string_array(evidence_state, "decision_assumptions").unwrap_or_default();
+    if decision_status == "ProceedConditionally"
+        && source_status != Some("Resolved")
+        && assumptions.is_empty()
+    {
+        violations.insert("decision_without_uncertainty_assumptions".to_string());
+    }
+
     violations
 }
 
@@ -569,8 +613,8 @@ mod tests {
         let corpus = parsed(FIXTURES);
         let fixture_schema = parsed(FIXTURE_SCHEMA);
         let report = run(&manifest, &schema, &corpus, &fixture_schema).expect("protocol and fixtures should validate");
-        assert_eq!(report.fixtures, 30);
-        assert_eq!(report.red_team, 24);
+        assert_eq!(report.fixtures, 32);
+        assert_eq!(report.red_team, 26);
         assert_eq!(report.positive_controls, 6);
         assert_eq!(report.attack_families, 12);
     }
@@ -670,6 +714,35 @@ mod tests {
         let mut errors = Vec::new();
         validate_schema_subset(&manifest, &schema, "manifest", &mut errors);
         assert!(errors.iter().any(|error| error.contains("unsupported pattern")));
+    }
+
+
+    #[test]
+    fn evaluator_detects_dropped_contesting_evidence() {
+        let mut corpus = parsed(FIXTURES);
+        let fixture = corpus["fixtures"].as_array_mut().unwrap().iter_mut()
+            .find(|fixture| fixture["family"] == "contested_evidence_open_world_uncertainty"
+                && fixture["fixture_id"].as_str().unwrap_or_default().ends_with("01"))
+            .unwrap();
+        fixture["oracle"]["expected_violations"] = serde_json::json!([]);
+        fixture["oracle"]["expected_disposition"] = Value::String("Pass".to_string());
+        let errors = validate_fixture_corpus(&corpus).unwrap_err();
+        assert!(errors.iter().any(|error| error.contains("contested_evidence_dropped")));
+    }
+
+    #[test]
+    fn evaluator_detects_indeterminate_state_collapse_and_dropped_objection() {
+        let mut corpus = parsed(FIXTURES);
+        let fixture = corpus["fixtures"].as_array_mut().unwrap().iter_mut()
+            .find(|fixture| fixture["family"] == "contested_evidence_open_world_uncertainty"
+                && fixture["fixture_id"].as_str().unwrap_or_default().ends_with("02"))
+            .unwrap();
+        fixture["oracle"]["expected_violations"] = serde_json::json!([]);
+        fixture["oracle"]["expected_disposition"] = Value::String("Pass".to_string());
+        let errors = validate_fixture_corpus(&corpus).unwrap_err();
+        assert!(errors.iter().any(|error| error.contains("open_world_state_collapsed")));
+        assert!(errors.iter().any(|error| error.contains("unresolved_objection_dropped")));
+        assert!(errors.iter().any(|error| error.contains("decision_without_uncertainty_assumptions")));
     }
 
     #[test]
