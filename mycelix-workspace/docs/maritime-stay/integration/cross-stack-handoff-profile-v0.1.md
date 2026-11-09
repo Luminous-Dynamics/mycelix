@@ -61,6 +61,14 @@ Each edge identifies:
 
 The edge does not reinterpret source claims. The destination owner must validate the referenced inputs under its own contract.
 
+### Dependency snapshot artifact
+
+The artifact-kind vocabulary includes `dependency_snapshot` for a Mycelix-owned reference to an exact time-qualified source-dependency hypergraph snapshot (Mycelix #5923, composed with #5904 and EPI-008 #2631). This is a reference to an owner-native assessment, not an independence score.
+
+Consumers preserve the exact observation-time scope, dependency inventory snapshot, evidence frontier and three-way outcome: SHARED_DEPENDENCY, UNKNOWN_DEPENDENCY or NO_DECLARED_COMMON_DOMAIN. The last means no common domain was declared within a complete/current inventory; it is not proof of physical or statistical independence.
+
+Do not infer dependency semantics from artifact IDs, signatures or repository diversity. The #5972 manifest verifier checks only reference closure and type parsing; #5923 remains the semantic dependency evaluator.
+
 ### Privacy and purpose
 
 Each manifest declares the intended audience and purpose and points to the owner-native disclosure/authorization policy references. It must not embed private customer, crew, household or itinerary data merely to make cross-stack correlation convenient.
