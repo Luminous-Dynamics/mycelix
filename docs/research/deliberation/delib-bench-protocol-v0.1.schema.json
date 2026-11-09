@@ -171,7 +171,7 @@
     },
     "adversarial_fixture_families": {
       "type": "array",
-      "minItems": 8,
+      "minItems": 13,
       "uniqueItems": true,
       "items": {
         "type": "string",
