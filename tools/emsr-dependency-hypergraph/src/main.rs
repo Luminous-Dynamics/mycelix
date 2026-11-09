@@ -53,7 +53,6 @@ fn write_json(path: &str, value: &impl serde::Serialize) -> Result<(), String> {
     fs::write(path, bytes).map_err(|e| format!("cannot write {path}: {e}"))
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::read_bounded;
