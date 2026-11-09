@@ -689,6 +689,86 @@
         "coverage_calibration_separate_from_detection_calibration",
         "coverage_cell_uncertainty_reported"
       ]
+    },
+    {
+      "id": "CC-020",
+      "scenario": "source_attestation_or_content_digest_failure",
+      "name": "A tampered or unauthenticated source assertion cannot be treated as a sensor error or valid observation.",
+      "parameters": {
+        "truth": {
+          "event_present": true
+        },
+        "score": {
+          "kind": "untrusted_assertion_not_scoreable"
+        },
+        "source_integrity": {
+          "expected_status": "authenticated_by_independent_receipt",
+          "actual_status": "digest_mismatch_or_signature_invalid"
+        },
+        "exposure": {
+          "eligible_fraction": 1,
+          "missingness": "none"
+        },
+        "coverage": {
+          "declared_probability": 1,
+          "realized_probability": 1
+        },
+        "dependence": {
+          "source_groups": 100,
+          "within_group_correlation": 0
+        }
+      },
+      "expected_properties": [
+        "source_assertion_rejected_or_quarantined",
+        "not_counted_as_detector_false_positive_or_false_negative",
+        "no_score_calibration_from_untrusted_claim",
+        "source_attestation_gate_precedes_evidence_use"
+      ]
+    },
+    {
+      "id": "CC-021",
+      "scenario": "end_to_end_service_latency_and_clock_uncertainty",
+      "name": "Multi-hop evidence delivery exceeds the predeclared latency budget; event time must not be replaced by receipt time.",
+      "parameters": {
+        "truth": {
+          "event_present": true,
+          "event_time": 100
+        },
+        "score": {
+          "kind": "freshness_and_service_delivery_assessment"
+        },
+        "exposure": {
+          "eligible_fraction": 1,
+          "missingness": "none"
+        },
+        "coverage": {
+          "declared_probability": 1,
+          "realized_probability": 1
+        },
+        "timing": {
+          "event_time": 100,
+          "hop_latencies": [
+            8,
+            12,
+            25
+          ],
+          "end_to_end_latency": 45,
+          "predeclared_latency_budget": 30,
+          "clock_uncertainty": 2,
+          "source_clock_quality": "bounded"
+        },
+        "dependence": {
+          "source_groups": 100,
+          "within_group_correlation": 0
+        }
+      },
+      "expected_properties": [
+        "end_to_end_latency_includes_all_hops",
+        "latency_budget_exceeded_is_reported",
+        "event_time_never_replaced_by_receipt_time",
+        "stale_or_unresolved_disposition_preserved",
+        "no_universal_latency_threshold_inferred"
+      ]
     }
   ],
   "claim_ceiling": "This corpus is a synthetic DGP specification only. It contains no measured detector, field coverage or real sensor performance. Execution can qualify metric implementation and failure detection only, not field capability."
