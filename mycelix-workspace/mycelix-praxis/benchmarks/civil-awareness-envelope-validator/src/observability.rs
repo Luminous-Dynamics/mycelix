@@ -387,6 +387,15 @@ fn assess_case(case: &Value) -> Result<ObservabilityAssessment, String> {
         );
     }
 
+    if !coverage_source_set_is_valid(case, &claims) {
+        return assessment(
+            case,
+            ObservabilityState::CoverageUnknown,
+            ["coverage.source_set_missing_or_inconsistent"],
+            claims,
+        );
+    }
+
     if !coverage_assertion_is_pinned_and_valid(case) {
         return assessment(
             case,
@@ -524,6 +533,31 @@ fn dependency_context_is_complete(case: &Value) -> bool {
         && context.get("inventory_complete") == Some(&Value::Bool(true))
 }
 
+fn coverage_source_set_is_valid(case: &Value, claims: &[SourceClaim]) -> bool {
+    let Some(source_ids) = case
+        .pointer("/coverage/source_ids")
+        .and_then(Value::as_array)
+    else {
+        return false;
+    };
+    let declared: BTreeSet<&str> = source_ids.iter().filter_map(Value::as_str).collect();
+    if declared.is_empty()
+        || declared.len() != source_ids.len()
+        || source_ids
+            .iter()
+            .any(|item| item.as_str().is_none_or(|source_id| source_id.trim().is_empty()))
+    {
+        return false;
+    }
+    if claims.is_empty() {
+        return string_at(case, "/source/id")
+            .is_ok_and(|primary| declared.contains(primary));
+    }
+    claims
+        .iter()
+        .all(|claim| declared.contains(claim.source_id.as_str()))
+}
+
 fn coverage_assertion_is_pinned_and_valid(case: &Value) -> bool {
     let Ok(assertion_id) = string_at(case, "/coverage/assertion_id") else {
         return false;
@@ -542,6 +576,10 @@ fn coverage_assertion_is_pinned_and_valid(case: &Value) -> bool {
     let digest = string_at(case, "/coverage/coverage_profile_digest").unwrap_or_default();
     !assertion_id.trim().is_empty()
         && !provenance_ref.trim().is_empty()
+        && case
+            .pointer("/coverage/source_ids")
+            .and_then(Value::as_array)
+            .is_some_and(|source_ids| !source_ids.is_empty())
         && end > start
         && coverage_end > coverage_start
         && coverage_start <= start
@@ -935,6 +973,15 @@ mod tests {
         assert_eq!(report.state, ObservabilityState::NotObservedWithinDeclaredCoverage);
 
         case["coverage"]["coverage_provenance_ref"] = Value::Null;
+        let report = assess_case(&case).unwrap();
+        assert_eq!(report.state, ObservabilityState::CoverageUnknown);
+    }
+
+    #[test]
+    fn no_observation_case_must_bind_the_assessed_source_id() {
+        let dgp = fixture();
+        let mut case = case_by_id(&dgp, "OBS-011").clone();
+        case["coverage"]["source_ids"] = serde_json::json!(["different-source"]);
         let report = assess_case(&case).unwrap();
         assert_eq!(report.state, ObservabilityState::CoverageUnknown);
     }
