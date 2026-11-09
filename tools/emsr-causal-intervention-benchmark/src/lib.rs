@@ -34,6 +34,13 @@ pub enum ResponseState {
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ObservationRole {
+    TargetEndpoint,
+    NegativeControl,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum CandidateDisposition {
     CommonCauseSupportedWithinInterventionScope,
@@ -88,6 +95,7 @@ pub struct PublicInput {
     pub scenario_id: String,
     pub decision_scope: String,
     pub expected_source_ids: Vec<String>,
+    pub negative_control_source_ids: Vec<String>,
     pub intervention: InterventionPlan,
     pub trials: Vec<Trial>,
     pub observations: Vec<TrialObservation>,
@@ -97,6 +105,7 @@ pub struct PublicInput {
 #[serde(deny_unknown_fields)]
 pub struct SourceContrast {
     pub source_id: String,
+    pub role: ObservationRole,
     pub active_responses: usize,
     pub active_trials: usize,
     pub sham_responses: usize,
@@ -117,6 +126,7 @@ pub struct CandidateReport {
     pub target_id: String,
     pub declared_scope: String,
     pub responsive_source_ids: Vec<String>,
+    pub negative_control_response_source_ids: Vec<String>,
     pub contrasts: Vec<SourceContrast>,
     pub observations_used: usize,
     pub tested_active_trials: usize,
@@ -209,19 +219,29 @@ fn valid_public_input(input: &PublicInput) -> Vec<String> {
     {
         errors.push("intervention_plan_invalid".to_owned());
     }
-    let unique_sources: BTreeSet<&str> = input
+    let target_sources: BTreeSet<&str> = input
         .expected_source_ids
         .iter()
         .map(String::as_str)
         .collect();
+    let control_sources: BTreeSet<&str> = input
+        .negative_control_source_ids
+        .iter()
+        .map(String::as_str)
+        .collect();
+    let all_sources: BTreeSet<&str> = target_sources.union(&control_sources).copied().collect();
     if input.expected_source_ids.len() < 2
-        || unique_sources.len() != input.expected_source_ids.len()
+        || target_sources.len() != input.expected_source_ids.len()
+        || input.expected_source_ids.iter().any(|id| id.trim().is_empty())
+        || input.negative_control_source_ids.is_empty()
+        || control_sources.len() != input.negative_control_source_ids.len()
         || input
-            .expected_source_ids
+            .negative_control_source_ids
             .iter()
             .any(|id| id.trim().is_empty())
+        || !target_sources.is_disjoint(&control_sources)
     {
-        errors.push("expected_source_inventory_invalid".to_owned());
+        errors.push("target_or_negative_control_inventory_invalid".to_owned());
     }
 
     let mut trial_ids = BTreeSet::new();
@@ -263,7 +283,7 @@ fn valid_public_input(input: &PublicInput) -> Vec<String> {
                 observation.trial_id, observation.source_id
             ));
         }
-        if !unique_sources.contains(observation.source_id.as_str()) {
+        if !all_sources.contains(observation.source_id.as_str()) {
             errors.push(format!(
                 "observation_{}_source_outside_inventory",
                 observation.source_id
@@ -350,6 +370,7 @@ pub fn evaluate_public(input: &PublicInput, input_sha256: String) -> CandidateRe
     let mut by_source: BTreeMap<String, (usize, usize, usize, usize)> = input
         .expected_source_ids
         .iter()
+        .chain(input.negative_control_source_ids.iter())
         .map(|source| (source.clone(), (0, 0, 0, 0)))
         .collect();
     let mut reasons = Vec::new();
@@ -387,7 +408,8 @@ pub fn evaluate_public(input: &PublicInput, input_sha256: String) -> CandidateRe
         }
     }
 
-    let expected_observations = input.trials.len() * input.expected_source_ids.len();
+    let expected_observations = input.trials.len()
+        * (input.expected_source_ids.len() + input.negative_control_source_ids.len());
     let coverage_complete = input.observations.len() == expected_observations
         && !unobserved
         && input.observations.iter().all(|observation| {
@@ -399,11 +421,15 @@ pub fn evaluate_public(input: &PublicInput, input_sha256: String) -> CandidateRe
             && *sham_response * 1000
                 > usize::from(plan.maximum_sham_response_rate_milli) * *sham_count
     });
+    let negative_control_response_detected = !negative_control_responses.is_empty();
     if !coverage_complete {
         reasons.push("observation_coverage_incomplete_or_unqualified".to_owned());
     }
     if sham_nuisance_detected {
         reasons.push("sham_trial_response_indicates_nuisance_or_noncausal_correlation".to_owned());
+    }
+    if negative_control_response_detected {
+        reasons.push("negative_control_response_indicates_shared_observation_or_collection_artifact".to_owned());
     }
     if time_invalid {
         reasons.push("clock_mapping_or_observation_invalid".to_owned());
@@ -411,31 +437,30 @@ pub fn evaluate_public(input: &PublicInput, input_sha256: String) -> CandidateRe
         reasons.push("clock_mapping_unknown".to_owned());
     }
 
-    let mut contrasts = Vec::new();
+    let mut contrasts = Vec::with_capacity(
+        input.expected_source_ids.len() + input.negative_control_source_ids.len(),
+    );
     let mut responsive = Vec::new();
+    let mut negative_control_responses = Vec::new();
+
     for source_id in &input.expected_source_ids {
         let (active_response, active_count, sham_response, sham_count) =
             by_source.get(source_id).copied().unwrap_or_default();
-        let active_rate_milli = if active_count == 0 {
-            0
-        } else {
-            ((active_response * 1000 + active_count / 2) / active_count) as u16
-        };
-        let sham_rate_milli = if sham_count == 0 {
-            0
-        } else {
-            ((sham_response * 1000 + sham_count / 2) / sham_count) as u16
-        };
-        let is_responsive = active_count > 0
-            && sham_count > 0
-            && active_response * 1000 >= usize::from(plan.response_threshold_milli) * active_count
-            && sham_response * 1000
-                <= usize::from(plan.maximum_sham_response_rate_milli) * sham_count;
+        let active_rate_milli = rate_milli(active_response, active_count);
+        let sham_rate_milli = rate_milli(sham_response, sham_count);
+        let is_responsive = endpoint_responsive(
+            active_response,
+            active_count,
+            sham_response,
+            sham_count,
+            plan,
+        );
         if is_responsive {
             responsive.push(source_id.clone());
         }
         contrasts.push(SourceContrast {
             source_id: source_id.clone(),
+            role: ObservationRole::TargetEndpoint,
             active_responses: active_response,
             active_trials: active_count,
             sham_responses: sham_response,
@@ -445,12 +470,47 @@ pub fn evaluate_public(input: &PublicInput, input_sha256: String) -> CandidateRe
             responsive: is_responsive,
         });
     }
+
+    for source_id in &input.negative_control_source_ids {
+        let (active_response, active_count, sham_response, sham_count) =
+            by_source.get(source_id).copied().unwrap_or_default();
+        let active_rate_milli = rate_milli(active_response, active_count);
+        let sham_rate_milli = rate_milli(sham_response, sham_count);
+        let is_responsive = endpoint_responsive(
+            active_response,
+            active_count,
+            sham_response,
+            sham_count,
+            plan,
+        );
+        if is_responsive {
+            negative_control_responses.push(source_id.clone());
+        }
+        contrasts.push(SourceContrast {
+            source_id: source_id.clone(),
+            role: ObservationRole::NegativeControl,
+            active_responses: active_response,
+            active_trials: active_count,
+            sham_responses: sham_response,
+            sham_trials: sham_count,
+            active_rate_milli,
+            sham_rate_milli,
+            responsive: is_responsive,
+        });
+    }
+
+    responsive.sort();
+    negative_control_responses.sort();
     contrasts.sort_by(|a, b| a.source_id.cmp(&b.source_id));
     responsive.sort();
 
     let disposition = if time_invalid || !errors.is_empty() {
         CandidateDisposition::ObservationOrClockMappingInvalid
-    } else if time_unknown || !coverage_complete || sham_nuisance_detected {
+    } else if time_unknown
+        || !coverage_complete
+        || sham_nuisance_detected
+        || negative_control_response_detected
+    {
         CandidateDisposition::IndeterminateInterventionCoverage
     } else if responsive.len() >= 2 {
         CandidateDisposition::CommonCauseSupportedWithinInterventionScope
@@ -467,6 +527,7 @@ pub fn evaluate_public(input: &PublicInput, input_sha256: String) -> CandidateRe
         target_id: plan.target_id.clone(),
         declared_scope: input.decision_scope.clone(),
         responsive_source_ids: responsive,
+        negative_control_response_source_ids: negative_control_responses,
         contrasts,
         observations_used: input.observations.len(),
         tested_active_trials: input
@@ -521,23 +582,35 @@ pub fn hidden_truth_commitment_sha256(truth: &HiddenTruth) -> Result<String, Str
 
 fn valid_candidate_report(input: &PublicInput, report: &CandidateReport) -> bool {
     if report.responsive_source_ids.len()
-        != report
-            .responsive_source_ids
-            .iter()
-            .collect::<BTreeSet<_>>()
-            .len()
-        || report.contrasts.len() != input.expected_source_ids.len()
+        != report.responsive_source_ids.iter().collect::<BTreeSet<_>>().len()
+        || report.negative_control_response_source_ids.len()
+            != report
+                .negative_control_response_source_ids
+                .iter()
+                .collect::<BTreeSet<_>>()
+                .len()
+        || report.contrasts.len()
+            != input.expected_source_ids.len() + input.negative_control_source_ids.len()
     {
         return false;
     }
-    let expected: BTreeSet<&str> = input
-        .expected_source_ids
+    let expected_targets: BTreeSet<&str> =
+        input.expected_source_ids.iter().map(String::as_str).collect();
+    let expected_controls: BTreeSet<&str> = input
+        .negative_control_source_ids
         .iter()
         .map(String::as_str)
         .collect();
     let mut contrasts = BTreeMap::new();
     for contrast in &report.contrasts {
-        if !expected.contains(contrast.source_id.as_str())
+        let expected_role = if expected_targets.contains(contrast.source_id.as_str()) {
+            Some(ObservationRole::TargetEndpoint)
+        } else if expected_controls.contains(contrast.source_id.as_str()) {
+            Some(ObservationRole::NegativeControl)
+        } else {
+            None
+        };
+        if expected_role != Some(contrast.role)
             || contrasts
                 .insert(contrast.source_id.as_str(), contrast)
                 .is_some()
@@ -551,26 +624,15 @@ fn valid_candidate_report(input: &PublicInput, report: &CandidateReport) -> bool
         {
             return false;
         }
-        let expected_active_rate = if contrast.active_trials == 0 {
-            0
-        } else {
-            ((contrast.active_responses * 1000 + contrast.active_trials / 2)
-                / contrast.active_trials) as u16
-        };
-        let expected_sham_rate = if contrast.sham_trials == 0 {
-            0
-        } else {
-            ((contrast.sham_responses * 1000 + contrast.sham_trials / 2) / contrast.sham_trials)
-                as u16
-        };
-        let expected_responsive = contrast.active_trials > 0
-            && contrast.sham_trials > 0
-            && contrast.active_responses * 1000
-                >= usize::from(input.intervention.response_threshold_milli)
-                    * contrast.active_trials
-            && contrast.sham_responses * 1000
-                <= usize::from(input.intervention.maximum_sham_response_rate_milli)
-                    * contrast.sham_trials;
+        let expected_active_rate = rate_milli(contrast.active_responses, contrast.active_trials);
+        let expected_sham_rate = rate_milli(contrast.sham_responses, contrast.sham_trials);
+        let expected_responsive = endpoint_responsive(
+            contrast.active_responses,
+            contrast.active_trials,
+            contrast.sham_responses,
+            contrast.sham_trials,
+            &input.intervention,
+        );
         if contrast.active_rate_milli != expected_active_rate
             || contrast.sham_rate_milli != expected_sham_rate
             || contrast.responsive != expected_responsive
@@ -578,74 +640,70 @@ fn valid_candidate_report(input: &PublicInput, report: &CandidateReport) -> bool
             return false;
         }
     }
-    if contrasts.len() != expected.len() {
+    if contrasts.len() != expected_targets.len() + expected_controls.len() {
         return false;
     }
     let expected_responders: Vec<String> = input
         .expected_source_ids
         .iter()
-        .filter(|source| {
-            contrasts
-                .get(source.as_str())
-                .is_some_and(|item| item.responsive)
-        })
+        .filter(|source| contrasts.get(source.as_str()).is_some_and(|item| item.responsive))
         .cloned()
         .collect();
-    if report.responsive_source_ids != expected_responders {
+    let expected_control_responses: Vec<String> = input
+        .negative_control_source_ids
+        .iter()
+        .filter(|source| contrasts.get(source.as_str()).is_some_and(|item| item.responsive))
+        .cloned()
+        .collect();
+    if report.responsive_source_ids != expected_responders
+        || report.negative_control_response_source_ids != expected_control_responses
+    {
         return false;
     }
-    let active_count = input
-        .trials
-        .iter()
-        .filter(|trial| trial.arm == TrialArm::Active)
-        .count();
-    let sham_count = input
-        .trials
-        .iter()
-        .filter(|trial| trial.arm == TrialArm::Sham)
-        .count();
+    let active_count = input.trials.iter().filter(|trial| trial.arm == TrialArm::Active).count();
+    let sham_count = input.trials.iter().filter(|trial| trial.arm == TrialArm::Sham).count();
     if report.tested_active_trials != active_count
         || report.tested_sham_trials != sham_count
-        || report.observations_used > input.observations.len()
+        || report.observations_used != input.observations.len()
     {
         return false;
     }
     match report.disposition {
         CandidateDisposition::CommonCauseSupportedWithinInterventionScope => {
             report.responsive_source_ids.len() >= 2
+                && report.negative_control_response_source_ids.is_empty()
         }
         CandidateDisposition::NoCommonCauseDetectedWithinTestedEnvelope => {
-            report.responsive_source_ids.len() < 2 && report.reasons.is_empty()
+            report.responsive_source_ids.len() < 2
+                && report.negative_control_response_source_ids.is_empty()
+                && report.reasons.is_empty()
         }
         CandidateDisposition::IndeterminateInterventionCoverage
         | CandidateDisposition::ObservationOrClockMappingInvalid => true,
     }
 }
 
-fn valid_hidden_truth(input: &PublicInput, truth: &HiddenTruth) -> bool {
-    let mut path_keys = BTreeSet::new();
-    for path in &truth.causal_paths {
-        let key = (
-            path.intervention_target_id.as_str(),
-            path.source_id.as_str(),
-            path.domain.as_str(),
-        );
-        if path.intervention_target_id.trim().is_empty()
-            || path.source_id.trim().is_empty()
-            || path.domain.trim().is_empty()
-            || !path_keys.insert(key)
-            || path.minimum_latency_ns > path.maximum_latency_ns
-            || path.path_node_ids.len() < 2
-            || path.path_node_ids.first().map(String::as_str)
-                != Some(path.intervention_target_id.as_str())
-            || path.path_node_ids.last().map(String::as_str) != Some(path.source_id.as_str())
-            || path.path_node_ids.iter().any(|node| node.trim().is_empty())
-            || path.path_node_ids.iter().collect::<BTreeSet<_>>().len() != path.path_node_ids.len()
-        {
-            return false;
-        }
+fn rate_milli(responses: usize, trials: usize) -> u16 {
+    if trials == 0 {
+        0
+    } else {
+        ((responses * 1000 + trials / 2) / trials) as u16
     }
-    input.scenario_id == truth.scenario_id
+}
+
+fn endpoint_responsive(
+    active_responses: usize,
+    active_trials: usize,
+    sham_responses: usize,
+    sham_trials: usize,
+    plan: &InterventionPlan,
+) -> bool {
+    active_trials > 0
+        && sham_trials > 0
+        && active_responses * 1000
+            >= usize::from(plan.response_threshold_milli) * active_trials
+        && sham_responses * 1000
+            <= usize::from(plan.maximum_sham_response_rate_milli) * sham_trials
 }
 
 pub fn score_candidate(
@@ -751,6 +809,7 @@ fn invalid_report(
         target_id: String::new(),
         declared_scope: String::new(),
         responsive_source_ids: Vec::new(),
+        negative_control_response_source_ids: Vec::new(),
         contrasts: Vec::new(),
         observations_used: 0,
         tested_active_trials: 0,
