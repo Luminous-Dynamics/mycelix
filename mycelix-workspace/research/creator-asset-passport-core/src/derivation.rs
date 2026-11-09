@@ -257,27 +257,33 @@ impl DerivationGraph {
     /// Deterministic, sorted list of all known source ancestors, nearest and
     /// distant alike. A repeated ancestor in a multi-parent graph is returned once.
     pub fn ancestors_of(&self, asset_id: &AssetId) -> Result<Vec<AssetId>, DerivationError> {
-        let mut visited = BTreeSet::new();
+        let mut ancestors = BTreeSet::new();
+        let mut expanded = BTreeSet::new();
         let mut active = BTreeSet::new();
-        self.collect_ancestors(asset_id, &mut visited, &mut active)?;
-        Ok(visited.into_iter().collect())
+        self.collect_ancestors(asset_id, &mut ancestors, &mut expanded, &mut active)?;
+        Ok(ancestors.into_iter().collect())
     }
 
     fn collect_ancestors(
         &self,
         asset_id: &AssetId,
-        visited: &mut BTreeSet<AssetId>,
+        ancestors: &mut BTreeSet<AssetId>,
+        expanded: &mut BTreeSet<AssetId>,
         active: &mut BTreeSet<AssetId>,
     ) -> Result<(), DerivationError> {
-        if !active.insert(asset_id.clone()) {
+        // Check the active recursion stack before the expanded set: a node can
+        // already have been discovered on this same path and still form a cycle.
+        if active.contains(asset_id) {
             return Err(DerivationError::CycleDetected);
         }
+        if !expanded.insert(asset_id.clone()) {
+            return Ok(());
+        }
+        active.insert(asset_id.clone());
         if let Some(record) = self.by_output.get(asset_id) {
             for source in &record.source_asset_ids {
-                if !visited.contains(source) {
-                    visited.insert(source.clone());
-                    self.collect_ancestors(source, visited, active)?;
-                }
+                ancestors.insert(source.clone());
+                self.collect_ancestors(source, ancestors, expanded, active)?;
             }
         }
         active.remove(asset_id);
