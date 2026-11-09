@@ -3,7 +3,7 @@
 //! The only negative-like result is scoped to one source and one time window.
 //! It never means that a physical object is absent.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 use jsonschema::Validator;
 use serde::Serialize;
@@ -116,6 +116,7 @@ pub struct ObservabilityEvaluationReport {
 #[derive(Debug)]
 pub struct ObservabilityEvaluator {
     schema_validator: Validator,
+    case_schema_validator: Validator,
     schema_sha256: String,
 }
 
@@ -134,8 +135,18 @@ impl ObservabilityEvaluator {
             .should_validate_formats(true)
             .build(&schema)
             .map_err(|_| "observability.schema_compile_failed".to_string())?;
+        let case_schema = serde_json::json!({
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "$defs": schema.get("$defs").cloned().unwrap_or_else(|| serde_json::json!({})),
+            "$ref": "#/$defs/case"
+        });
+        let case_schema_validator = jsonschema::draft202012::options()
+            .should_validate_formats(true)
+            .build(&case_schema)
+            .map_err(|_| "observability.case_schema_compile_failed".to_string())?;
         Ok(Self {
             schema_validator,
+            case_schema_validator,
             schema_sha256: format!(
                 "sha256:{}",
                 sha256_hex(OBSERVABILITY_SCHEMA_JSON.as_bytes())
@@ -188,6 +199,9 @@ impl ObservabilityEvaluator {
         }
         let case = parse_strict_json(bytes)
             .map_err(|_| "observability.case_parse_or_duplicate_key_failure".to_string())?;
+        if self.case_schema_validator.iter_errors(&case).next().is_some() {
+            return Err("observability.case_schema_validation_failed".into());
+        }
         assess_case(&case)
     }
 }
@@ -296,7 +310,9 @@ fn assess_case(case: &Value) -> Result<ObservabilityAssessment, String> {
             "NO_MESSAGE" | "NOT_OBSERVED_WITHIN_DECLARED_COVERAGE"
         )
     });
+    let primary_source_id = string_at(case, "/source/id")?;
     if distinct_sources.len() == 1
+        && distinct_sources.contains(primary_source_id)
         && has_positive
         && !has_negative
         && health == "healthy"
@@ -363,7 +379,9 @@ fn assess_case(case: &Value) -> Result<ObservabilityAssessment, String> {
 
     // Conflicting qualified source outcomes remain visible; no vote or
     // majority rule can turn a source-specific non-observation into absence.
-    if qualified_cross_source_conflict(case, &claims) {
+    if qualified_same_source_conflict(case, &claims)
+        || qualified_cross_source_conflict(case, &claims)
+    {
         return assessment(
             case,
             ObservabilityState::Conflict,
@@ -493,6 +511,33 @@ fn coverage_assertion_is_pinned_and_valid(case: &Value) -> bool {
         && coverage_start <= start
         && coverage_end >= end
         && is_sha256_digest(digest)
+}
+
+fn qualified_same_source_conflict(case: &Value, claims: &[SourceClaim]) -> bool {
+    if string_at(case, "/coverage/status").ok() != Some("qualified")
+        || value_at(case, "/coverage/complete_for_scope") != Some(&Value::Bool(true))
+        || string_at(case, "/source_health").ok() != Some("healthy")
+        || !coverage_assertion_is_pinned_and_valid(case)
+    {
+        return false;
+    }
+    let mut by_source: BTreeMap<&str, (bool, bool)> = BTreeMap::new();
+    for claim in claims {
+        let entry = by_source.entry(claim.source_id.as_str()).or_default();
+        if matches!(
+            claim.claim.as_str(),
+            "OBSERVED_PRESENT" | "OBSERVED_PRESENT_WITHIN_SCOPE"
+        ) {
+            entry.0 = true;
+        }
+        if matches!(
+            claim.claim.as_str(),
+            "NO_MESSAGE" | "NOT_OBSERVED_WITHIN_DECLARED_COVERAGE"
+        ) {
+            entry.1 = true;
+        }
+    }
+    by_source.values().any(|(positive, negative)| *positive && *negative)
 }
 
 fn qualified_cross_source_conflict(case: &Value, claims: &[SourceClaim]) -> bool {
@@ -792,6 +837,37 @@ mod tests {
                 &"source.positive_observation_recorded_coverage_may_be_partial".to_owned()
             )
         );
+    }
+
+    #[test]
+    fn contradictory_claims_from_the_same_qualified_source_are_conflict() {
+        let dgp = fixture();
+        let mut case = case_by_id(&dgp, "OBS-013").clone();
+        case["observations"].as_array_mut().unwrap().push(serde_json::json!({
+            "source_id": "uas-sensor-013",
+            "claim": "NO_MESSAGE",
+            "assertion_ref": "synthetic-contradictory-claim-013"
+        }));
+        let report = assess_case(&case).unwrap();
+        assert_eq!(report.state, ObservabilityState::Conflict);
+        assert_eq!(report.source_claims.len(), 2);
+    }
+
+    #[test]
+    fn single_source_positive_claim_must_match_assessed_source_identity() {
+        let dgp = fixture();
+        let mut case = case_by_id(&dgp, "OBS-013").clone();
+        case["observations"][0]["source_id"] = Value::String("different-source".into());
+        let report = assess_case(&case).unwrap();
+        assert_eq!(report.state, ObservabilityState::CoverageUnknown);
+    }
+
+    #[test]
+    fn single_case_api_validates_schema_before_assessment() {
+        let evaluator = evaluator();
+        let invalid = br#"{"source":{"id":"x"}}"#;
+        let error = evaluator.assess_case_bytes(invalid).unwrap_err();
+        assert_eq!(error, "observability.case_schema_validation_failed");
     }
 
     #[test]
