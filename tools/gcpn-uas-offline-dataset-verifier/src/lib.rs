@@ -415,7 +415,8 @@ pub fn validate(register: &Register) -> Vec<String> {
                     .is_some_and(|evidence| {
                         evidence.url.contains("DEF-W9-12_DRFF-R2")
                             && evidence.retrieval_date == "2026-11-08"
-                            && evidence.source_section.as_deref() == Some("Data Records / Data Availability")
+                            && evidence.source_section.as_deref()
+                                == Some("Data Records / Data Availability")
                             && evidence.license == "CC BY 4.0"
                             && evidence.evidence_type == "paper_reported_dataset_repository_claim"
                     })
