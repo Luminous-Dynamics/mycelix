@@ -234,3 +234,41 @@ func TestInvalidAuthorityAndClaimCeilingRejected(t *testing.T) {
 		t.Fatal("authority escalation was accepted")
 	}
 }
+
+
+func TestDecodeStrictRejectsDuplicateTopLevelProperties(t *testing.T) {
+	_, err := decodeStrict[Input]([]byte(`{"contract":"first","contract":"second"}`))
+	if err == nil {
+		t.Fatal("duplicate top-level property was accepted")
+	}
+}
+
+func TestDecodeStrictRejectsDuplicateNestedProperties(t *testing.T) {
+	_, err := decodeStrict[Input]([]byte(`{"contract":"emsr-dependency-hypergraph-input/0.1","snapshot":{"snapshot_id":"first","snapshot_id":"second"}}`))
+	if err == nil {
+		t.Fatal("duplicate nested property was accepted")
+	}
+}
+
+func TestDecodeStrictRejectsUnknownTopLevelProperties(t *testing.T) {
+	_, err := decodeStrict[Input]([]byte(`{"contract":"emsr-dependency-hypergraph-input/0.1","unexpected":true}`))
+	if err == nil {
+		t.Fatal("unknown top-level property was accepted")
+	}
+}
+
+func TestDecodeStrictRejectsTrailingJSONValues(t *testing.T) {
+	_, err := decodeStrict[Input]([]byte(`{} {}`))
+	if err == nil {
+		t.Fatal("multiple JSON values were accepted")
+	}
+}
+
+func TestVerifierRejectsDuplicateInputProperties(t *testing.T) {
+	input := []byte(`{"contract":"first","contract":"second"}`)
+	report := []byte(`{}`)
+	result := verify(input, report)
+	if result.Status != "rejected" {
+		t.Fatalf("duplicate-key input was not rejected: %+v", result)
+	}
+}
