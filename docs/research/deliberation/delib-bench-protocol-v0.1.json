@@ -12,7 +12,11 @@
     "https://github.com/Luminous-Dynamics/symthaea/issues/3054",
     "https://github.com/Luminous-Dynamics/symthaea/issues/11248",
     "https://github.com/Luminous-Dynamics/mycelix/issues/5996",
-    "https://github.com/Luminous-Dynamics/mycelix/issues/4835"
+    "https://github.com/Luminous-Dynamics/mycelix/issues/4835",
+    "https://github.com/Luminous-Dynamics/symthaea/issues/5347",
+    "https://github.com/Luminous-Dynamics/symthaea/issues/11057",
+    "https://github.com/Luminous-Dynamics/symthaea/issues/9607",
+    "https://github.com/Luminous-Dynamics/symthaea/issues/11232"
   ],
   "claim_ceiling": {
     "synthetic_conformance": "Establishes behavior only for exact declared fixtures, model assumptions, and evaluator bounds.",
@@ -278,6 +282,15 @@
       "reported_evidence": "A preregistered randomized experiment reports 1,475 participants in 281 five-person groups under no-facilitation, written-prompt, human-facilitator and LLM-facilitator conditions. LLM facilitation increased information sharing, but final decision outcomes remained suboptimal in the tested hidden-profile task; the authors released the GRAIL experimental platform and dataset.",
       "intended_use": "Use as a reference experimental design and candidate group-interaction testbed after code/data version, license, protocol, and fit review. Hidden-profile tasks may complement deliberative policy questions by testing information integration under asymmetric knowledge.",
       "limitation": "The task is a hypothetical city-selection hidden-profile problem with a U.S. participant sample. Increased information sharing did not establish decision improvement or generalize to civic legitimacy, public budgeting, or long-term institutions."
+    },
+    {
+      "id": "mzansibench_south_african_nlp_2026",
+      "source_type": "south_african_language_benchmark_project",
+      "title": "MzansiBench: Benchmarking LLMs for South African Languages",
+      "url": "https://showcase.sit.uct.ac.za/event/showcase-2026/mzansibench-36",
+      "reported_evidence": "The 2026 University of Cape Town project showcase describes a reproducible prompt-based and fine-tuning evaluation framework spanning 13 tasks, 16 datasets and South Africa's 11 official written languages. It reports uneven coverage and performance gaps for several low-resource languages.",
+      "intended_use": "Use as a local-language task and coverage crosswalk, then compose with Broca's exact per-language semantic and speech qualification. It may inform task selection and language-specific baseline design.",
+      "limitation": "This is a 2026 project showcase, not a universal or fully peer-reviewed deliberation benchmark. Its NLP tasks do not directly measure group deliberation, power, influence or institutional outcomes; inspect exact datasets, splits and licenses before reuse."
     }
   ],
   "evaluation_layers": [
@@ -299,5 +312,58 @@
       "primary_evidence": "Versioned institutional records, execution evidence, appeals and independent outcome observations.",
       "claim_ceiling": "Institutional and outcome claims only for the specific authority, process, implementation and observation period."
     }
-  ]
+  ],
+  "multilingual_extension": {
+    "status": "future qualification extension; no corpus ingestion, training, recruitment or language-capability promotion is authorized by this protocol manifest",
+    "initial_text_profiles": [
+      {
+        "tag": "en-ZA",
+        "name": "South African English"
+      },
+      {
+        "tag": "af-ZA",
+        "name": "Afrikaans"
+      },
+      {
+        "tag": "zu-ZA",
+        "name": "isiZulu"
+      },
+      {
+        "tag": "xh-ZA",
+        "name": "isiXhosa"
+      },
+      {
+        "tag": "st-ZA",
+        "name": "Sesotho"
+      }
+    ],
+    "profile_selection_rule": "This is a proposed initial text-profile set, not a claim that it represents all South African languages or varieties. Add or change profiles only through community-informed preregistration with documented language-use needs, capable reviewers and source permissions.",
+    "required_controls": [
+      "native-authored or independently native-adjudicated task prompts and reference positions",
+      "no English-pivot authority; English translation is diagnostic only",
+      "exact language, script, orthography, dialect/register and code-switch profile identity",
+      "separate language-specific results and uncertainty; no macro-average may hide a language failure",
+      "meaning-preservation checks for negation, agency, attribution, modality, numbers, conditions and dissent",
+      "native-language correction and appeal paths for summaries and translations",
+      "low-bandwidth and accessible participation conditions as separate experimental factors"
+    ],
+    "sign_language_pathway": {
+      "name": "South African Sign Language",
+      "modality": "signed-video / multimodal deliberation",
+      "status": "separate future workstream; do not treat as written-language translation or claim support from text-only fixtures",
+      "required_expertise": "qualified sign-language practitioners and community-led review"
+    },
+    "compose_with": [
+      "https://github.com/Luminous-Dynamics/symthaea/issues/5347",
+      "https://github.com/Luminous-Dynamics/symthaea/issues/11057",
+      "https://github.com/Luminous-Dynamics/symthaea/issues/9607",
+      "https://github.com/Luminous-Dynamics/symthaea/issues/11232",
+      "https://showcase.sit.uct.ac.za/event/showcase-2026/mzansibench-36"
+    ]
+  },
+  "jurisdictional_context": {
+    "country": "South Africa",
+    "constitutional_reference": "https://lawlibrary.org.za/akn/za/act/1996/constitution/eng@2026-06-26",
+    "source_note": "The constitutional text version dated 26 June 2026 lists South African Sign Language alongside the other official languages and requires equitable treatment. This is context for the language-access design, not a legal-compliance determination or a substitute for jurisdiction-specific legal review."
+  }
 }
