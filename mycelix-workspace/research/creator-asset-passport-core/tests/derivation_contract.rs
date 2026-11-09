@@ -331,6 +331,10 @@ fn physical_artwork_asset_kinds_round_trip_in_the_portable_passport() {
         &GrantHistory::new(),
     ).unwrap();
     let bytes = envelope.canonical_bytes().unwrap();
+    let actual_hex = bytes.iter().map(|byte| format!("{byte:02x}")).collect::<String>();
+    let expected_hex =
+        include_str!("fixtures/creator-asset-passport-v1-physical-artwork-kinds.hex").trim();
+    assert_eq!(actual_hex, expected_hex);
     let decoded = CreativeAssetPassportEnvelope::from_bytes(&bytes).unwrap();
 
     for (index, expected_kind) in kinds.iter().copied().enumerate() {
@@ -383,6 +387,10 @@ fn new_artwork_use_operations_round_trip_in_portable_grant_history() {
 
     let envelope = GrantHistoryEnvelope::from_history(&history).unwrap();
     let bytes = envelope.canonical_bytes().unwrap();
+    let actual_hex = bytes.iter().map(|byte| format!("{byte:02x}")).collect::<String>();
+    let expected_hex =
+        include_str!("fixtures/creator-grant-history-v1-artwork-actions.hex").trim();
+    assert_eq!(actual_hex, expected_hex);
     let decoded = GrantHistoryEnvelope::from_bytes(&bytes).unwrap();
     assert_eq!(decoded, envelope);
     assert_eq!(decoded.replay().unwrap(), history);
