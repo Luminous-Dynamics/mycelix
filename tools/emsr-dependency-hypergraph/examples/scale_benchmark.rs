@@ -115,7 +115,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
 
     let document = BenchmarkDocument {
         schema: "gcpn.dependency-hypergraph-scale-benchmark",
-        version: "0.1.0",
+        version: "0.2.0",
         state: "SYNTHETIC_MEASUREMENT",
         synthetic_only: true,
         non_operational: true,
@@ -129,7 +129,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         repetitions,
         warmup_runs_per_measurement: 1,
         cases,
-        claim_ceiling: "Measurements apply only to this synthetic star-hyperedge graph, exact source revision, toolchain and host. They do not establish field throughput, physical independence, sensor performance or operational safety.",
+        claim_ceiling: "Measurements apply only to the exact synthetic graph topologies, input digests, source revision, toolchain and host. They do not establish field throughput, physical independence, sensor performance or operational safety.",
     };
 
     let json = serde_json::to_string_pretty(&document)?;
@@ -382,17 +382,16 @@ fn build_layered_graph(source_count: usize) -> (HypergraphInput, &'static str) {
 /// benchmark query selects one dimension; the same graph is queried three ways.
 fn build_multi_domain_graph(
     source_count: usize,
-    domain: DependencyDomain,
+    query_domain: DependencyDomain,
 ) -> (HypergraphInput, &'static str) {
     let source_ids: Vec<String> = (0..source_count)
         .map(|index| format!("multi-source-{index:08}"))
         .collect();
-    let (label, root_id) = match domain {
-        DependencyDomain::Clock => ("clock", "clock-global-root"),
-        DependencyDomain::Power => ("power", "power-global-root"),
-        DependencyDomain::Network => ("network", "network-global-root"),
-        _ => ("other", "other-global-root"),
-    };
+    let dimensions = [
+        (DependencyDomain::Clock, "clock", "clock-global-root"),
+        (DependencyDomain::Power, "power", "power-global-root"),
+        (DependencyDomain::Network, "network", "network-global-root"),
+    ];
     let group_size = 100usize;
     let group_count = source_count.div_ceil(group_size);
     let mut nodes = source_ids
@@ -403,37 +402,50 @@ fn build_multi_domain_graph(
         })
         .collect::<Vec<_>>();
     let mut edges = Vec::new();
-    let mut group_ids = Vec::with_capacity(group_count);
-    for group in 0..group_count {
-        let group_id = format!("{label}-group-{group:05}");
-        group_ids.push(group_id.clone());
+
+    // All three dependency dimensions coexist in the same inventory. The
+    // evaluator query changes only its selected dimension.
+    for (domain, label, root_id) in dimensions {
+        let mut group_ids = Vec::with_capacity(group_count);
+        for group in 0..group_count {
+            let group_id = format!("{label}-group-{group:05}");
+            group_ids.push(group_id.clone());
+            nodes.push(Node {
+                id: group_id.clone(),
+                kind: NodeKind::Dependency,
+            });
+            let start = group * group_size;
+            let end = (start + group_size).min(source_count);
+            edges.push(make_edge(
+                &format!("{label}-sources-to-{group_id}"),
+                source_ids[start..end].to_vec(),
+                group_id,
+                domain.clone(),
+                AssertionState::Qualified,
+            ));
+        }
         nodes.push(Node {
-            id: group_id.clone(),
+            id: root_id.into(),
             kind: NodeKind::Dependency,
         });
-        let start = group * group_size;
-        let end = (start + group_size).min(source_count);
         edges.push(make_edge(
-            &format!("{label}-sources-to-{group_id}"),
-            source_ids[start..end].to_vec(),
-            group_id,
-            domain.clone(),
+            &format!("{label}-groups-to-root"),
+            group_ids,
+            root_id,
+            domain,
             AssertionState::Qualified,
         ));
     }
-    nodes.push(Node {
-        id: root_id.into(),
-        kind: NodeKind::Dependency,
-    });
-    edges.push(make_edge(
-        &format!("{label}-groups-to-root"),
-        group_ids,
-        root_id,
-        domain.clone(),
-        AssertionState::Qualified,
-    ));
+
     (
-        build_input(source_ids, nodes, edges, domain, 20, label),
+        build_input(
+            source_ids,
+            nodes,
+            edges,
+            query_domain,
+            20,
+            "multi-domain",
+        ),
         "SharedDependency",
     )
 }
@@ -647,7 +659,8 @@ mod tests {
 
     #[test]
     fn star_graph_has_one_shared_root_and_sorted_subjects() {
-        let input = build_star_graph(10);
+        let (input, expected) = build_star_graph(10);
+        assert_eq!(expected, "SharedDependency");
         assert_eq!(input.nodes.len(), 11);
         assert_eq!(input.hyperedges.len(), 1);
         assert_eq!(input.hyperedges[0].subject_ids.len(), 10);
@@ -668,6 +681,63 @@ mod tests {
     }
 
     #[test]
+    fn graph_topology_builders_are_deterministic_and_have_expected_dispositions() {
+        let builders = [
+            build_chain_graph(1_000, 128),
+            build_layered_graph(1_000),
+            build_independent_graph(1_000),
+            build_unknown_graph(1_000),
+        ];
+        for (input, expected) in builders {
+            let bytes = serde_json::to_vec(&input).unwrap();
+            let repeated = serde_json::to_vec(&input).unwrap();
+            assert_eq!(sha256_hex(&bytes), sha256_hex(&repeated));
+            assert!(bytes.len() <= INPUT_LIMIT_BYTES);
+            let report = evaluate_bytes(&bytes);
+            assert_eq!(format!("{:?}", report.disposition), expected);
+            let report_bytes = serde_json::to_vec(&report).unwrap();
+            assert_eq!(
+                independently_verify(&bytes, &report_bytes).status,
+                "verified"
+            );
+        }
+    }
+
+    #[test]
+    fn one_inventory_can_be_queried_by_three_overlapping_dependency_dimensions() {
+        for (domain, expected_root) in [
+            (DependencyDomain::Clock, "clock-global-root"),
+            (DependencyDomain::Power, "power-global-root"),
+            (DependencyDomain::Network, "network-global-root"),
+        ] {
+            let (input, expected) = build_multi_domain_graph(1_000, domain);
+            assert_eq!(expected, "SharedDependency");
+            assert!(input.hyperedges.iter().any(|edge| {
+                edge.domain == DependencyDomain::Clock
+            }));
+            assert!(input.hyperedges.iter().any(|edge| {
+                edge.domain == DependencyDomain::Power
+            }));
+            assert!(input.hyperedges.iter().any(|edge| {
+                edge.domain == DependencyDomain::Network
+            }));
+            let bytes = serde_json::to_vec(&input).unwrap();
+            assert!(bytes.len() <= INPUT_LIMIT_BYTES);
+            let report = evaluate_bytes(&bytes);
+            assert_eq!(
+                report.disposition,
+                emsr_dependency_hypergraph::Disposition::SharedDependency
+            );
+            assert_eq!(report.common_dependency_ids, vec![expected_root]);
+            let report_bytes = serde_json::to_vec(&report).unwrap();
+            assert_eq!(
+                independently_verify(&bytes, &report_bytes).status,
+                "verified"
+            );
+        }
+    }
+
+    #[test]
     fn quantile_is_deterministic_and_nearest_rank() {
         let values = [1.0, 2.0, 3.0, 4.0, 5.0];
         assert_eq!(quantile(&values, 0.50), 3.0);
@@ -677,7 +747,8 @@ mod tests {
 
     #[test]
     fn thousand_source_scale_case_is_comparable_and_replayable() {
-        let input = build_star_graph(1_000);
+        let (input, expected) = build_star_graph(1_000);
+        assert_eq!(expected, "SharedDependency");
         let bytes = serde_json::to_vec(&input).unwrap();
         assert!(bytes.len() <= INPUT_LIMIT_BYTES);
         let report = evaluate_bytes(&bytes);
