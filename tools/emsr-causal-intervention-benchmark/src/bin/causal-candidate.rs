@@ -1,4 +1,8 @@
-use std::{env, fs, io::{self, Write}, process::ExitCode};
+use std::{
+    env, fs,
+    io::{self, Write},
+    process::ExitCode,
+};
 
 use emsr_causal_intervention_benchmark::evaluate_public_bytes;
 
@@ -14,9 +18,9 @@ fn read_input(path: &str) -> Result<Vec<u8>, String> {
 
 fn run() -> Result<(), String> {
     let mut args = env::args().skip(1);
-    let path = args.next().ok_or_else(|| {
-        "usage: causal-candidate <public-scenario.json>".to_owned()
-    })?;
+    let path = args
+        .next()
+        .ok_or_else(|| "usage: causal-candidate <public-scenario.json>".to_owned())?;
     if args.next().is_some() {
         return Err("expected exactly one public input path".to_owned());
     }
