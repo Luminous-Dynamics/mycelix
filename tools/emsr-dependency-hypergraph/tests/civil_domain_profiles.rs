@@ -224,3 +224,52 @@ fn aviation_clock_and_antenna_site_are_distinct_dependency_dimensions() {
     assert_eq!(report.disposition, Disposition::SharedDependency);
     assert_eq!(report.common_dependency_ids, vec!["airport-antenna-site"]);
 }
+
+
+#[test]
+fn long_maritime_dependency_chains_are_stack_safe_and_reproducible() {
+    const DEPTH: usize = 10_000;
+    let mut nodes = vec![
+        node("ais-observation-source", NodeKind::Source),
+        node("radar-observation-source", NodeKind::Source),
+        node("shared-port-core", NodeKind::Dependency),
+    ];
+    let mut edges = Vec::with_capacity(2 * DEPTH + 1);
+
+    for (prefix, source) in [
+        ("ais-dependency", "ais-observation-source"),
+        ("radar-dependency", "radar-observation-source"),
+    ] {
+        let mut previous = source.to_owned();
+        for index in 0..DEPTH {
+            let current = format!("{prefix}-{index:05}");
+            nodes.push(node(&current, NodeKind::Dependency));
+            edges.push(edge(
+                &format!("{prefix}-edge-{index:05}"),
+                &[&previous],
+                &current,
+                DependencyDomain::DataPipeline,
+                AssertionState::Qualified,
+            ));
+            previous = current;
+        }
+        edges.push(edge(
+            &format!("{prefix}-to-shared-port-core"),
+            &[&previous],
+            "shared-port-core",
+            DependencyDomain::DataPipeline,
+            AssertionState::Qualified,
+        ));
+    }
+    nodes.sort_by(|left, right| left.id.cmp(&right.id));
+
+    let value = input(
+        DependencyDomain::DataPipeline,
+        &["ais-observation-source", "radar-observation-source"],
+        nodes,
+        edges,
+    );
+    let report = evaluate(&value);
+    assert_eq!(report.disposition, Disposition::SharedDependency);
+    assert_eq!(report.common_dependency_ids, vec!["shared-port-core"]);
+}
