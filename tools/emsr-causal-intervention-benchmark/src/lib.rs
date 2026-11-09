@@ -379,14 +379,13 @@ pub fn evaluate_public(input: &PublicInput, input_sha256: String) -> CandidateRe
             observation.time_mapping == TimeMapping::Qualified
                 && observation.state != ResponseState::Unobserved
         });
-    let sham_nuisance_detected = by_source.values().any(|(active_response, active_count, sham_response, sham_count)| {
-        *sham_count > 0
-            && *sham_response * 1000
-                > usize::from(plan.maximum_sham_response_rate_milli) * *sham_count
-            && *active_count >= plan.minimum_active_trials
-            && *active_response * 1000
-                >= usize::from(plan.response_threshold_milli) * *active_count
-    });
+    let sham_nuisance_detected = by_source.values().any(
+        |(_, _, sham_response, sham_count)| {
+            *sham_count > 0
+                && *sham_response * 1000
+                    > usize::from(plan.maximum_sham_response_rate_milli) * *sham_count
+        },
+    );
     if !coverage_complete {
         reasons.push("observation_coverage_incomplete_or_unqualified".to_owned());
     }
@@ -584,6 +583,33 @@ fn valid_candidate_report(input: &PublicInput, report: &CandidateReport) -> bool
     }
 }
 
+fn valid_hidden_truth(input: &PublicInput, truth: &HiddenTruth) -> bool {
+    let mut path_keys = BTreeSet::new();
+    for path in &truth.causal_paths {
+        let key = (
+            path.intervention_target_id.as_str(),
+            path.source_id.as_str(),
+            path.domain.as_str(),
+        );
+        if path.intervention_target_id.trim().is_empty()
+            || path.source_id.trim().is_empty()
+            || path.domain.trim().is_empty()
+            || !path_keys.insert(key)
+            || path.minimum_latency_ns > path.maximum_latency_ns
+            || path.path_node_ids.len() < 2
+            || path.path_node_ids.first().map(String::as_str)
+                != Some(path.intervention_target_id.as_str())
+            || path.path_node_ids.last().map(String::as_str) != Some(path.source_id.as_str())
+            || path.path_node_ids.iter().any(|node| node.trim().is_empty())
+            || path.path_node_ids.iter().collect::<BTreeSet<_>>().len()
+                != path.path_node_ids.len()
+        {
+            return false;
+        }
+    }
+    input.scenario_id == truth.scenario_id
+}
+
 pub fn score_candidate(
     public_bytes: &[u8],
     truth_bytes: &[u8],
@@ -606,6 +632,7 @@ pub fn score_candidate(
     if truth.contract != TRUTH_CONTRACT
         || !valid_digest(&truth.truth_commitment_sha256)
         || !truth_commitment_valid
+        || !valid_hidden_truth(&input, &truth)
         || truth.scenario_id != input.scenario_id
         || report.report_contract != REPORT_CONTRACT
         || report.scenario_id != input.scenario_id
