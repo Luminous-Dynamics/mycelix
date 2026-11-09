@@ -32,6 +32,14 @@ Every value must identify its semantics, units, uncertainty representation, cali
 
 Three vendor feeds may share the same upstream receiver, clock, network, power, model, data broker or training set. Record dependency groups and common-cause cuts. Count evidence sources only after examining their dependence. A fused estimate must not imply independent corroboration when its inputs are correlated.
 
+### 1.3.1 From sensor count to independence-qualified corroboration
+
+Use a source-dependency DAG rather than counting vendor names, sensors or APIs as independent confirmations. Multiple feeds may share a receiver, antenna, clock, power supply, network, data broker, model, training corpus or upstream authority source. Store declared dependencies and common upstream ancestors; unknown dependencies remain unknown, never independent.
+
+For each event, report raw observation count, declared source count, independent dependency-group count (only when source-defined or independently stewarded), unknown-dependency count, known common-mode ancestors, conflict state and abstention reason. Do not multiply likelihoods or create a single trust score from source count without a qualified dependence model.
+
+Qualify **false corroboration rate** against known dependent-DGPs, then evaluate event decisions using risk–coverage curves, area under the risk–coverage curve (AURC), selective risk at matched coverage, and abstention correctness. The programme now tracks this as [#5995 — independent corroboration and evidence sufficiency](https://github.com/Luminous-Dynamics/mycelix/issues/5995). It reuses Mycelix's existing common-mode dependency graph #5904 and GCPN statistical methodology #5973; it does not create a second graph or bootstrap framework.
+
 ### 1.4 From leaderboard scores to challengeable evidence
 
 Maintain three separate evaluation partitions:
@@ -234,6 +242,18 @@ A public vendor feature page is not an independent performance result. Every com
 - 0 unauthorized fields, actions or control-path connections in negative controls.
 - A 95% interval coverage target is judged against per-DGP-cell Monte Carlo uncertainty; a proposed 93–97% observed-coverage band is a research acceptance hypothesis, not an existing industry standard.
 
+### 6.2.1 Evidence-sufficiency and selective-prediction metrics
+
+Add these to every domain-specific scorecard:
+- **False corroboration rate:** fraction of events reported as independently corroborated when their oracle dependency graph contains shared causes or duplicated feeds.
+- **Dependency-edge completeness:** source-declared dependency relationships recovered against the independently stewarded fixture graph; unknown edges stay unknown.
+- **Selective risk / coverage:** error or false-association risk as the system abstains less or more; publish the full risk–coverage curve and AURC, not just one chosen threshold.
+- **Matched-coverage comparison:** baseline and candidate must be compared at the same coverage and event frame before efficiency or accuracy claims.
+- **Abstention correctness:** whether the system appropriately leaves unresolved/conflicted/underspecified evidence unresolved, with reason-code accuracy and human-review cost.
+- **Common-mode fault detection:** correctly identify when multiple input paths fail together or share a compromised upstream dependency.
+
+Do not set a universal minimum number of sources, a universal coverage point or a composite reliability score. Pre-register thresholds by hazard/use case; zero false independence claims is a deterministic negative-control gate, not a target for real-world prevalence.
+
 ### 6.2 Domain metrics (never collapsed into one number)
 
 | Metric family | Reporting requirement |
@@ -257,6 +277,16 @@ Compare against best-of-breed systems **within each domain**, on the same event 
 ### 6.4 Statistical qualification
 
 Reuse GCPN's existing paired event-cluster and known-DGP methodology rather than create another generic bootstrap. For the new Track A workload estimand, qualify false-superiority control under nested site/session blocks, informative block sizes, skew/zero inflation, time drift, missing outputs and heterogeneous effects. No row-level pseudo-replication. No superiority claim from a synthetic arithmetic fixture.
+
+## 6.5 Candidate public data: current rights posture
+
+Candidate availability is not a data license. Keep these statuses explicit:
+- **HAXR v1.1.0 / Zenodo 19824555 — RIGHTS_PENDING.** The record says Copyright, © 2026 German Aerospace Centre, and presents no open reuse license. Obtain written DLR permission before product research, redistribution, derivative extraction or benchmark admission. Its hourly chunking and strongly overlapping radar cycles also require source-station/hour grouping.
+- **MMDEC v1 / Zenodo 17491518 — RIGHTS_PENDING.** The Zenodo license field is blank; OpenAIRE indexes the record as CC BY-NC-SA and the article as CC BY-NC. That is not a commercial-use grant to Luminous. Obtain written confirmation of dataset and component-source rights before admission.
+- **OpenSky historical data / API — RIGHTS_PENDING for Luminous.** OpenSky states that for-profit/commercial use needs a written license and operational REST API integration needs a written agreement. Evaluate any curated dataset and supplemental terms separately.
+- **NASA ASRS — distinct evidence type.** Its de-identified voluntary safety reports may help build event taxonomies and human-review fixtures, but they are not sensor tracks or ground-truth aircraft positions. Confirm download/reuse/derived-data conditions before use.
+
+Until rights are cleared, use synthetic fixtures and independently authored data only. See the admission registers #5993 and #5994.
 
 ## 7. South African legal and regulatory gate
 
