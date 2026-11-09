@@ -214,6 +214,10 @@
       "items": {
         "$ref": "#/$defs/case"
       }
+    },
+    "claim_ceiling": {
+      "type": "string",
+      "minLength": 1
     }
   },
   "$defs": {
