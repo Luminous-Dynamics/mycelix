@@ -1,0 +1,1070 @@
+{
+  "corpus_id": "GCPN-CIVIL-CROSS-STACK-0.1",
+  "profile_id": "civil-awareness-cross-stack-golden-trace-0.1",
+  "status": "declarative_synthetic_not_executed",
+  "parent_issue": 5998,
+  "scenario_count": 22,
+  "claim_ceiling": "Cross-owner disposition rules over synthetic owner-result fixtures only. No owner-native runtime outputs or physical sensor records are included. No claim of source authenticity, truth, physical independence, detection performance, regulatory compliance, navigation or action authority.",
+  "owner_repositories": {
+    "mycelix": "Luminous-Dynamics/mycelix",
+    "sol_atlas": "Luminous-Dynamics/sol-atlas-leptos",
+    "symtropy": "Luminous-Dynamics/symtropy",
+    "symthaea": "Luminous-Dynamics/symthaea"
+  },
+  "owner_artifact_requirements": [
+    {
+      "owner": "mycelix",
+      "artifact_kind": "dependency_snapshot",
+      "required": true
+    },
+    {
+      "owner": "mycelix",
+      "artifact_kind": "source_projection",
+      "required": true
+    },
+    {
+      "owner": "sol_atlas",
+      "artifact_kind": "source_projection",
+      "required": true
+    },
+    {
+      "owner": "symtropy",
+      "artifact_kind": "simulation_run",
+      "required": true
+    },
+    {
+      "owner": "symthaea",
+      "artifact_kind": "decision_brief",
+      "required": true
+    }
+  ],
+  "cases": [
+    {
+      "case_id": "UAS-001",
+      "domain": "uas",
+      "scenario": "complete inventory and no declared common ancestor",
+      "control_kind": "positive",
+      "expected_disposition": "REVIEWABLE_WITHIN_DECLARED_EVIDENCE",
+      "invariant_ids": [
+        "SOURCE_AUTHENTICATION_NOT_PHYSICAL_TRUTH",
+        "UNKNOWN_DEPENDENCY_IS_NOT_INDEPENDENCE",
+        "NO_DECLARED_COMMON_DOMAIN_IS_NOT_PHYSICAL_INDEPENDENCE",
+        "MODEL_OUTPUT_HAS_NO_ACTION_AUTHORITY"
+      ],
+      "hard_gates": [
+        "NO_AUTHORITY_PROMOTION",
+        "NO_PROHIBITED_PERSONAL_OR_OPERATOR_FIELDS",
+        "NO_UNAUTHORIZED_DATA_USE",
+        "NO_FALSE_INDEPENDENT_CORROBORATION"
+      ],
+      "owner_artifact_requirements": [
+        {
+          "owner": "mycelix",
+          "artifact_kind": "dependency_snapshot",
+          "required": true
+        },
+        {
+          "owner": "mycelix",
+          "artifact_kind": "source_projection",
+          "required": true
+        },
+        {
+          "owner": "sol_atlas",
+          "artifact_kind": "source_projection",
+          "required": true
+        },
+        {
+          "owner": "symtropy",
+          "artifact_kind": "simulation_run",
+          "required": true
+        },
+        {
+          "owner": "symthaea",
+          "artifact_kind": "decision_brief",
+          "required": true
+        }
+      ],
+      "claim_ceiling": "Synthetic owner-result fixture only; no physical or operational claim."
+    },
+    {
+      "case_id": "UAS-002",
+      "domain": "uas",
+      "scenario": "two RF feeds share an upstream collector and clock",
+      "control_kind": "correlation_control",
+      "expected_disposition": "REVIEW_WITH_CORRELATED_SOURCES",
+      "invariant_ids": [
+        "SOURCE_AUTHENTICATION_NOT_PHYSICAL_TRUTH",
+        "UNKNOWN_DEPENDENCY_IS_NOT_INDEPENDENCE",
+        "NO_DECLARED_COMMON_DOMAIN_IS_NOT_PHYSICAL_INDEPENDENCE",
+        "MODEL_OUTPUT_HAS_NO_ACTION_AUTHORITY"
+      ],
+      "hard_gates": [
+        "NO_AUTHORITY_PROMOTION",
+        "NO_PROHIBITED_PERSONAL_OR_OPERATOR_FIELDS",
+        "NO_UNAUTHORIZED_DATA_USE",
+        "NO_FALSE_INDEPENDENT_CORROBORATION"
+      ],
+      "owner_artifact_requirements": [
+        {
+          "owner": "mycelix",
+          "artifact_kind": "dependency_snapshot",
+          "required": true
+        },
+        {
+          "owner": "mycelix",
+          "artifact_kind": "source_projection",
+          "required": true
+        },
+        {
+          "owner": "sol_atlas",
+          "artifact_kind": "source_projection",
+          "required": true
+        },
+        {
+          "owner": "symtropy",
+          "artifact_kind": "simulation_run",
+          "required": true
+        },
+        {
+          "owner": "symthaea",
+          "artifact_kind": "decision_brief",
+          "required": true
+        }
+      ],
+      "claim_ceiling": "Synthetic owner-result fixture only; no physical or operational claim."
+    },
+    {
+      "case_id": "UAS-003",
+      "domain": "uas",
+      "scenario": "receiver lineage is unknown",
+      "control_kind": "unknown_control",
+      "expected_disposition": "UNRESOLVED",
+      "invariant_ids": [
+        "SOURCE_AUTHENTICATION_NOT_PHYSICAL_TRUTH",
+        "UNKNOWN_DEPENDENCY_IS_NOT_INDEPENDENCE",
+        "NO_DECLARED_COMMON_DOMAIN_IS_NOT_PHYSICAL_INDEPENDENCE",
+        "MODEL_OUTPUT_HAS_NO_ACTION_AUTHORITY"
+      ],
+      "hard_gates": [
+        "NO_AUTHORITY_PROMOTION",
+        "NO_PROHIBITED_PERSONAL_OR_OPERATOR_FIELDS",
+        "NO_UNAUTHORIZED_DATA_USE",
+        "NO_FALSE_INDEPENDENT_CORROBORATION"
+      ],
+      "owner_artifact_requirements": [
+        {
+          "owner": "mycelix",
+          "artifact_kind": "dependency_snapshot",
+          "required": true
+        },
+        {
+          "owner": "mycelix",
+          "artifact_kind": "source_projection",
+          "required": true
+        },
+        {
+          "owner": "sol_atlas",
+          "artifact_kind": "source_projection",
+          "required": true
+        },
+        {
+          "owner": "symtropy",
+          "artifact_kind": "simulation_run",
+          "required": true
+        },
+        {
+          "owner": "symthaea",
+          "artifact_kind": "decision_brief",
+          "required": true
+        }
+      ],
+      "claim_ceiling": "Synthetic owner-result fixture only; no physical or operational claim."
+    },
+    {
+      "case_id": "UAS-004",
+      "domain": "uas",
+      "scenario": "one observation is relayed twice under different wrappers",
+      "control_kind": "correlation_control",
+      "expected_disposition": "REVIEW_WITH_CORRELATED_SOURCES",
+      "invariant_ids": [
+        "SOURCE_AUTHENTICATION_NOT_PHYSICAL_TRUTH",
+        "UNKNOWN_DEPENDENCY_IS_NOT_INDEPENDENCE",
+        "NO_DECLARED_COMMON_DOMAIN_IS_NOT_PHYSICAL_INDEPENDENCE",
+        "MODEL_OUTPUT_HAS_NO_ACTION_AUTHORITY",
+        "DUPLICATE_ORIGIN_IS_NOT_NEW_OBSERVATION"
+      ],
+      "hard_gates": [
+        "NO_AUTHORITY_PROMOTION",
+        "NO_PROHIBITED_PERSONAL_OR_OPERATOR_FIELDS",
+        "NO_UNAUTHORIZED_DATA_USE",
+        "NO_FALSE_INDEPENDENT_CORROBORATION"
+      ],
+      "owner_artifact_requirements": [
+        {
+          "owner": "mycelix",
+          "artifact_kind": "dependency_snapshot",
+          "required": true
+        },
+        {
+          "owner": "mycelix",
+          "artifact_kind": "source_projection",
+          "required": true
+        },
+        {
+          "owner": "sol_atlas",
+          "artifact_kind": "source_projection",
+          "required": true
+        },
+        {
+          "owner": "symtropy",
+          "artifact_kind": "simulation_run",
+          "required": true
+        },
+        {
+          "owner": "symthaea",
+          "artifact_kind": "decision_brief",
+          "required": true
+        }
+      ],
+      "claim_ceiling": "Synthetic owner-result fixture only; no physical or operational claim."
+    },
+    {
+      "case_id": "UAS-005",
+      "domain": "uas",
+      "scenario": "source freshness is stale despite a valid parse",
+      "control_kind": "unknown_control",
+      "expected_disposition": "UNRESOLVED",
+      "invariant_ids": [
+        "SOURCE_AUTHENTICATION_NOT_PHYSICAL_TRUTH",
+        "UNKNOWN_DEPENDENCY_IS_NOT_INDEPENDENCE",
+        "NO_DECLARED_COMMON_DOMAIN_IS_NOT_PHYSICAL_INDEPENDENCE",
+        "MODEL_OUTPUT_HAS_NO_ACTION_AUTHORITY"
+      ],
+      "hard_gates": [
+        "NO_AUTHORITY_PROMOTION",
+        "NO_PROHIBITED_PERSONAL_OR_OPERATOR_FIELDS",
+        "NO_UNAUTHORIZED_DATA_USE",
+        "NO_FALSE_INDEPENDENT_CORROBORATION"
+      ],
+      "owner_artifact_requirements": [
+        {
+          "owner": "mycelix",
+          "artifact_kind": "dependency_snapshot",
+          "required": true
+        },
+        {
+          "owner": "mycelix",
+          "artifact_kind": "source_projection",
+          "required": true
+        },
+        {
+          "owner": "sol_atlas",
+          "artifact_kind": "source_projection",
+          "required": true
+        },
+        {
+          "owner": "symtropy",
+          "artifact_kind": "simulation_run",
+          "required": true
+        },
+        {
+          "owner": "symthaea",
+          "artifact_kind": "decision_brief",
+          "required": true
+        }
+      ],
+      "claim_ceiling": "Synthetic owner-result fixture only; no physical or operational claim."
+    },
+    {
+      "case_id": "UAS-006",
+      "domain": "uas",
+      "scenario": "remote-operator location field is present in a proposed payload",
+      "control_kind": "hard_gate_negative",
+      "expected_disposition": "REJECTED",
+      "invariant_ids": [
+        "SOURCE_AUTHENTICATION_NOT_PHYSICAL_TRUTH",
+        "UNKNOWN_DEPENDENCY_IS_NOT_INDEPENDENCE",
+        "NO_DECLARED_COMMON_DOMAIN_IS_NOT_PHYSICAL_INDEPENDENCE",
+        "MODEL_OUTPUT_HAS_NO_ACTION_AUTHORITY"
+      ],
+      "hard_gates": [
+        "NO_AUTHORITY_PROMOTION",
+        "NO_PROHIBITED_PERSONAL_OR_OPERATOR_FIELDS",
+        "NO_UNAUTHORIZED_DATA_USE",
+        "NO_FALSE_INDEPENDENT_CORROBORATION"
+      ],
+      "owner_artifact_requirements": [
+        {
+          "owner": "mycelix",
+          "artifact_kind": "dependency_snapshot",
+          "required": true
+        },
+        {
+          "owner": "mycelix",
+          "artifact_kind": "source_projection",
+          "required": true
+        },
+        {
+          "owner": "sol_atlas",
+          "artifact_kind": "source_projection",
+          "required": true
+        },
+        {
+          "owner": "symtropy",
+          "artifact_kind": "simulation_run",
+          "required": true
+        },
+        {
+          "owner": "symthaea",
+          "artifact_kind": "decision_brief",
+          "required": true
+        }
+      ],
+      "claim_ceiling": "Synthetic owner-result fixture only; no physical or operational claim."
+    },
+    {
+      "case_id": "MAR-001",
+      "domain": "maritime",
+      "scenario": "AIS and radar assertions disagree without adjudication",
+      "control_kind": "conflict_control",
+      "expected_disposition": "CONFLICT",
+      "invariant_ids": [
+        "SOURCE_AUTHENTICATION_NOT_PHYSICAL_TRUTH",
+        "UNKNOWN_DEPENDENCY_IS_NOT_INDEPENDENCE",
+        "NO_DECLARED_COMMON_DOMAIN_IS_NOT_PHYSICAL_INDEPENDENCE",
+        "MODEL_OUTPUT_HAS_NO_ACTION_AUTHORITY"
+      ],
+      "hard_gates": [
+        "NO_AUTHORITY_PROMOTION",
+        "NO_PROHIBITED_PERSONAL_OR_OPERATOR_FIELDS",
+        "NO_UNAUTHORIZED_DATA_USE",
+        "NO_FALSE_INDEPENDENT_CORROBORATION"
+      ],
+      "owner_artifact_requirements": [
+        {
+          "owner": "mycelix",
+          "artifact_kind": "dependency_snapshot",
+          "required": true
+        },
+        {
+          "owner": "mycelix",
+          "artifact_kind": "source_projection",
+          "required": true
+        },
+        {
+          "owner": "sol_atlas",
+          "artifact_kind": "source_projection",
+          "required": true
+        },
+        {
+          "owner": "symtropy",
+          "artifact_kind": "simulation_run",
+          "required": true
+        },
+        {
+          "owner": "symthaea",
+          "artifact_kind": "decision_brief",
+          "required": true
+        }
+      ],
+      "claim_ceiling": "Synthetic owner-result fixture only; no physical or operational claim."
+    },
+    {
+      "case_id": "MAR-002",
+      "domain": "maritime",
+      "scenario": "AIS report is absent and observation coverage is unknown",
+      "control_kind": "unknown_control",
+      "expected_disposition": "UNRESOLVED",
+      "invariant_ids": [
+        "SOURCE_AUTHENTICATION_NOT_PHYSICAL_TRUTH",
+        "UNKNOWN_DEPENDENCY_IS_NOT_INDEPENDENCE",
+        "NO_DECLARED_COMMON_DOMAIN_IS_NOT_PHYSICAL_INDEPENDENCE",
+        "MODEL_OUTPUT_HAS_NO_ACTION_AUTHORITY"
+      ],
+      "hard_gates": [
+        "NO_AUTHORITY_PROMOTION",
+        "NO_PROHIBITED_PERSONAL_OR_OPERATOR_FIELDS",
+        "NO_UNAUTHORIZED_DATA_USE",
+        "NO_FALSE_INDEPENDENT_CORROBORATION"
+      ],
+      "owner_artifact_requirements": [
+        {
+          "owner": "mycelix",
+          "artifact_kind": "dependency_snapshot",
+          "required": true
+        },
+        {
+          "owner": "mycelix",
+          "artifact_kind": "source_projection",
+          "required": true
+        },
+        {
+          "owner": "sol_atlas",
+          "artifact_kind": "source_projection",
+          "required": true
+        },
+        {
+          "owner": "symtropy",
+          "artifact_kind": "simulation_run",
+          "required": true
+        },
+        {
+          "owner": "symthaea",
+          "artifact_kind": "decision_brief",
+          "required": true
+        }
+      ],
+      "claim_ceiling": "Synthetic owner-result fixture only; no physical or operational claim."
+    },
+    {
+      "case_id": "MAR-003",
+      "domain": "maritime",
+      "scenario": "AIS and radar processing share a port correlation pipeline",
+      "control_kind": "correlation_control",
+      "expected_disposition": "REVIEW_WITH_CORRELATED_SOURCES",
+      "invariant_ids": [
+        "SOURCE_AUTHENTICATION_NOT_PHYSICAL_TRUTH",
+        "UNKNOWN_DEPENDENCY_IS_NOT_INDEPENDENCE",
+        "NO_DECLARED_COMMON_DOMAIN_IS_NOT_PHYSICAL_INDEPENDENCE",
+        "MODEL_OUTPUT_HAS_NO_ACTION_AUTHORITY"
+      ],
+      "hard_gates": [
+        "NO_AUTHORITY_PROMOTION",
+        "NO_PROHIBITED_PERSONAL_OR_OPERATOR_FIELDS",
+        "NO_UNAUTHORIZED_DATA_USE",
+        "NO_FALSE_INDEPENDENT_CORROBORATION"
+      ],
+      "owner_artifact_requirements": [
+        {
+          "owner": "mycelix",
+          "artifact_kind": "dependency_snapshot",
+          "required": true
+        },
+        {
+          "owner": "mycelix",
+          "artifact_kind": "source_projection",
+          "required": true
+        },
+        {
+          "owner": "sol_atlas",
+          "artifact_kind": "source_projection",
+          "required": true
+        },
+        {
+          "owner": "symtropy",
+          "artifact_kind": "simulation_run",
+          "required": true
+        },
+        {
+          "owner": "symthaea",
+          "artifact_kind": "decision_brief",
+          "required": true
+        }
+      ],
+      "claim_ceiling": "Synthetic owner-result fixture only; no physical or operational claim."
+    },
+    {
+      "case_id": "MAR-004",
+      "domain": "maritime",
+      "scenario": "chart context is stale relative to event time",
+      "control_kind": "unknown_control",
+      "expected_disposition": "UNRESOLVED",
+      "invariant_ids": [
+        "SOURCE_AUTHENTICATION_NOT_PHYSICAL_TRUTH",
+        "UNKNOWN_DEPENDENCY_IS_NOT_INDEPENDENCE",
+        "NO_DECLARED_COMMON_DOMAIN_IS_NOT_PHYSICAL_INDEPENDENCE",
+        "MODEL_OUTPUT_HAS_NO_ACTION_AUTHORITY"
+      ],
+      "hard_gates": [
+        "NO_AUTHORITY_PROMOTION",
+        "NO_PROHIBITED_PERSONAL_OR_OPERATOR_FIELDS",
+        "NO_UNAUTHORIZED_DATA_USE",
+        "NO_FALSE_INDEPENDENT_CORROBORATION"
+      ],
+      "owner_artifact_requirements": [
+        {
+          "owner": "mycelix",
+          "artifact_kind": "dependency_snapshot",
+          "required": true
+        },
+        {
+          "owner": "mycelix",
+          "artifact_kind": "source_projection",
+          "required": true
+        },
+        {
+          "owner": "sol_atlas",
+          "artifact_kind": "source_projection",
+          "required": true
+        },
+        {
+          "owner": "symtropy",
+          "artifact_kind": "simulation_run",
+          "required": true
+        },
+        {
+          "owner": "symthaea",
+          "artifact_kind": "decision_brief",
+          "required": true
+        }
+      ],
+      "claim_ceiling": "Synthetic owner-result fixture only; no physical or operational claim."
+    },
+    {
+      "case_id": "MAR-005",
+      "domain": "maritime",
+      "scenario": "independent sources have no common declared domain in complete captured inventory",
+      "control_kind": "positive",
+      "expected_disposition": "REVIEWABLE_WITHIN_DECLARED_EVIDENCE",
+      "invariant_ids": [
+        "SOURCE_AUTHENTICATION_NOT_PHYSICAL_TRUTH",
+        "UNKNOWN_DEPENDENCY_IS_NOT_INDEPENDENCE",
+        "NO_DECLARED_COMMON_DOMAIN_IS_NOT_PHYSICAL_INDEPENDENCE",
+        "MODEL_OUTPUT_HAS_NO_ACTION_AUTHORITY"
+      ],
+      "hard_gates": [
+        "NO_AUTHORITY_PROMOTION",
+        "NO_PROHIBITED_PERSONAL_OR_OPERATOR_FIELDS",
+        "NO_UNAUTHORIZED_DATA_USE",
+        "NO_FALSE_INDEPENDENT_CORROBORATION"
+      ],
+      "owner_artifact_requirements": [
+        {
+          "owner": "mycelix",
+          "artifact_kind": "dependency_snapshot",
+          "required": true
+        },
+        {
+          "owner": "mycelix",
+          "artifact_kind": "source_projection",
+          "required": true
+        },
+        {
+          "owner": "sol_atlas",
+          "artifact_kind": "source_projection",
+          "required": true
+        },
+        {
+          "owner": "symtropy",
+          "artifact_kind": "simulation_run",
+          "required": true
+        },
+        {
+          "owner": "symthaea",
+          "artifact_kind": "decision_brief",
+          "required": true
+        }
+      ],
+      "claim_ceiling": "Synthetic owner-result fixture only; no physical or operational claim."
+    },
+    {
+      "case_id": "AVI-001",
+      "domain": "civil_aviation",
+      "scenario": "ADS-B and MLAT feeds share a qualified timing source",
+      "control_kind": "correlation_control",
+      "expected_disposition": "REVIEW_WITH_CORRELATED_SOURCES",
+      "invariant_ids": [
+        "SOURCE_AUTHENTICATION_NOT_PHYSICAL_TRUTH",
+        "UNKNOWN_DEPENDENCY_IS_NOT_INDEPENDENCE",
+        "NO_DECLARED_COMMON_DOMAIN_IS_NOT_PHYSICAL_INDEPENDENCE",
+        "MODEL_OUTPUT_HAS_NO_ACTION_AUTHORITY"
+      ],
+      "hard_gates": [
+        "NO_AUTHORITY_PROMOTION",
+        "NO_PROHIBITED_PERSONAL_OR_OPERATOR_FIELDS",
+        "NO_UNAUTHORIZED_DATA_USE",
+        "NO_FALSE_INDEPENDENT_CORROBORATION"
+      ],
+      "owner_artifact_requirements": [
+        {
+          "owner": "mycelix",
+          "artifact_kind": "dependency_snapshot",
+          "required": true
+        },
+        {
+          "owner": "mycelix",
+          "artifact_kind": "source_projection",
+          "required": true
+        },
+        {
+          "owner": "sol_atlas",
+          "artifact_kind": "source_projection",
+          "required": true
+        },
+        {
+          "owner": "symtropy",
+          "artifact_kind": "simulation_run",
+          "required": true
+        },
+        {
+          "owner": "symthaea",
+          "artifact_kind": "decision_brief",
+          "required": true
+        }
+      ],
+      "claim_ceiling": "Synthetic owner-result fixture only; no physical or operational claim."
+    },
+    {
+      "case_id": "AVI-002",
+      "domain": "civil_aviation",
+      "scenario": "flight surveillance coverage is unknown or receiver unequipped",
+      "control_kind": "unknown_control",
+      "expected_disposition": "UNRESOLVED",
+      "invariant_ids": [
+        "SOURCE_AUTHENTICATION_NOT_PHYSICAL_TRUTH",
+        "UNKNOWN_DEPENDENCY_IS_NOT_INDEPENDENCE",
+        "NO_DECLARED_COMMON_DOMAIN_IS_NOT_PHYSICAL_INDEPENDENCE",
+        "MODEL_OUTPUT_HAS_NO_ACTION_AUTHORITY"
+      ],
+      "hard_gates": [
+        "NO_AUTHORITY_PROMOTION",
+        "NO_PROHIBITED_PERSONAL_OR_OPERATOR_FIELDS",
+        "NO_UNAUTHORIZED_DATA_USE",
+        "NO_FALSE_INDEPENDENT_CORROBORATION"
+      ],
+      "owner_artifact_requirements": [
+        {
+          "owner": "mycelix",
+          "artifact_kind": "dependency_snapshot",
+          "required": true
+        },
+        {
+          "owner": "mycelix",
+          "artifact_kind": "source_projection",
+          "required": true
+        },
+        {
+          "owner": "sol_atlas",
+          "artifact_kind": "source_projection",
+          "required": true
+        },
+        {
+          "owner": "symtropy",
+          "artifact_kind": "simulation_run",
+          "required": true
+        },
+        {
+          "owner": "symthaea",
+          "artifact_kind": "decision_brief",
+          "required": true
+        }
+      ],
+      "claim_ceiling": "Synthetic owner-result fixture only; no physical or operational claim."
+    },
+    {
+      "case_id": "AVI-003",
+      "domain": "civil_aviation",
+      "scenario": "weather and NOTAM edition assertions conflict",
+      "control_kind": "conflict_control",
+      "expected_disposition": "CONFLICT",
+      "invariant_ids": [
+        "SOURCE_AUTHENTICATION_NOT_PHYSICAL_TRUTH",
+        "UNKNOWN_DEPENDENCY_IS_NOT_INDEPENDENCE",
+        "NO_DECLARED_COMMON_DOMAIN_IS_NOT_PHYSICAL_INDEPENDENCE",
+        "MODEL_OUTPUT_HAS_NO_ACTION_AUTHORITY"
+      ],
+      "hard_gates": [
+        "NO_AUTHORITY_PROMOTION",
+        "NO_PROHIBITED_PERSONAL_OR_OPERATOR_FIELDS",
+        "NO_UNAUTHORIZED_DATA_USE",
+        "NO_FALSE_INDEPENDENT_CORROBORATION"
+      ],
+      "owner_artifact_requirements": [
+        {
+          "owner": "mycelix",
+          "artifact_kind": "dependency_snapshot",
+          "required": true
+        },
+        {
+          "owner": "mycelix",
+          "artifact_kind": "source_projection",
+          "required": true
+        },
+        {
+          "owner": "sol_atlas",
+          "artifact_kind": "source_projection",
+          "required": true
+        },
+        {
+          "owner": "symtropy",
+          "artifact_kind": "simulation_run",
+          "required": true
+        },
+        {
+          "owner": "symthaea",
+          "artifact_kind": "decision_brief",
+          "required": true
+        }
+      ],
+      "claim_ceiling": "Synthetic owner-result fixture only; no physical or operational claim."
+    },
+    {
+      "case_id": "AVI-004",
+      "domain": "civil_aviation",
+      "scenario": "separate surveillance sources have no common declared dependency in captured inventory",
+      "control_kind": "positive",
+      "expected_disposition": "REVIEWABLE_WITHIN_DECLARED_EVIDENCE",
+      "invariant_ids": [
+        "SOURCE_AUTHENTICATION_NOT_PHYSICAL_TRUTH",
+        "UNKNOWN_DEPENDENCY_IS_NOT_INDEPENDENCE",
+        "NO_DECLARED_COMMON_DOMAIN_IS_NOT_PHYSICAL_INDEPENDENCE",
+        "MODEL_OUTPUT_HAS_NO_ACTION_AUTHORITY"
+      ],
+      "hard_gates": [
+        "NO_AUTHORITY_PROMOTION",
+        "NO_PROHIBITED_PERSONAL_OR_OPERATOR_FIELDS",
+        "NO_UNAUTHORIZED_DATA_USE",
+        "NO_FALSE_INDEPENDENT_CORROBORATION"
+      ],
+      "owner_artifact_requirements": [
+        {
+          "owner": "mycelix",
+          "artifact_kind": "dependency_snapshot",
+          "required": true
+        },
+        {
+          "owner": "mycelix",
+          "artifact_kind": "source_projection",
+          "required": true
+        },
+        {
+          "owner": "sol_atlas",
+          "artifact_kind": "source_projection",
+          "required": true
+        },
+        {
+          "owner": "symtropy",
+          "artifact_kind": "simulation_run",
+          "required": true
+        },
+        {
+          "owner": "symthaea",
+          "artifact_kind": "decision_brief",
+          "required": true
+        }
+      ],
+      "claim_ceiling": "Synthetic owner-result fixture only; no physical or operational claim."
+    },
+    {
+      "case_id": "XDOM-001",
+      "domain": "uas",
+      "scenario": "source rights and permitted purpose are pending",
+      "control_kind": "rights_control",
+      "expected_disposition": "QUARANTINED",
+      "invariant_ids": [
+        "SOURCE_AUTHENTICATION_NOT_PHYSICAL_TRUTH",
+        "UNKNOWN_DEPENDENCY_IS_NOT_INDEPENDENCE",
+        "NO_DECLARED_COMMON_DOMAIN_IS_NOT_PHYSICAL_INDEPENDENCE",
+        "MODEL_OUTPUT_HAS_NO_ACTION_AUTHORITY"
+      ],
+      "hard_gates": [
+        "NO_AUTHORITY_PROMOTION",
+        "NO_PROHIBITED_PERSONAL_OR_OPERATOR_FIELDS",
+        "NO_UNAUTHORIZED_DATA_USE",
+        "NO_FALSE_INDEPENDENT_CORROBORATION"
+      ],
+      "owner_artifact_requirements": [
+        {
+          "owner": "mycelix",
+          "artifact_kind": "dependency_snapshot",
+          "required": true
+        },
+        {
+          "owner": "mycelix",
+          "artifact_kind": "source_projection",
+          "required": true
+        },
+        {
+          "owner": "sol_atlas",
+          "artifact_kind": "source_projection",
+          "required": true
+        },
+        {
+          "owner": "symtropy",
+          "artifact_kind": "simulation_run",
+          "required": true
+        },
+        {
+          "owner": "symthaea",
+          "artifact_kind": "decision_brief",
+          "required": true
+        }
+      ],
+      "claim_ceiling": "Synthetic owner-result fixture only; no physical or operational claim."
+    },
+    {
+      "case_id": "XDOM-002",
+      "domain": "maritime",
+      "scenario": "required Sol-Atlas handoff is missing",
+      "control_kind": "missing_handoff_control",
+      "expected_disposition": "NOT_EVALUABLE",
+      "invariant_ids": [
+        "SOURCE_AUTHENTICATION_NOT_PHYSICAL_TRUTH",
+        "UNKNOWN_DEPENDENCY_IS_NOT_INDEPENDENCE",
+        "NO_DECLARED_COMMON_DOMAIN_IS_NOT_PHYSICAL_INDEPENDENCE",
+        "MODEL_OUTPUT_HAS_NO_ACTION_AUTHORITY"
+      ],
+      "hard_gates": [
+        "NO_AUTHORITY_PROMOTION",
+        "NO_PROHIBITED_PERSONAL_OR_OPERATOR_FIELDS",
+        "NO_UNAUTHORIZED_DATA_USE",
+        "NO_FALSE_INDEPENDENT_CORROBORATION"
+      ],
+      "owner_artifact_requirements": [
+        {
+          "owner": "mycelix",
+          "artifact_kind": "dependency_snapshot",
+          "required": true
+        },
+        {
+          "owner": "mycelix",
+          "artifact_kind": "source_projection",
+          "required": true
+        },
+        {
+          "owner": "sol_atlas",
+          "artifact_kind": "source_projection",
+          "required": true
+        },
+        {
+          "owner": "symtropy",
+          "artifact_kind": "simulation_run",
+          "required": true
+        },
+        {
+          "owner": "symthaea",
+          "artifact_kind": "decision_brief",
+          "required": true
+        }
+      ],
+      "claim_ceiling": "Synthetic owner-result fixture only; no physical or operational claim."
+    },
+    {
+      "case_id": "XDOM-003",
+      "domain": "civil_aviation",
+      "scenario": "model attempts to emit an operational action-authority claim",
+      "control_kind": "hard_gate_negative",
+      "expected_disposition": "REJECTED",
+      "invariant_ids": [
+        "SOURCE_AUTHENTICATION_NOT_PHYSICAL_TRUTH",
+        "UNKNOWN_DEPENDENCY_IS_NOT_INDEPENDENCE",
+        "NO_DECLARED_COMMON_DOMAIN_IS_NOT_PHYSICAL_INDEPENDENCE",
+        "MODEL_OUTPUT_HAS_NO_ACTION_AUTHORITY"
+      ],
+      "hard_gates": [
+        "NO_AUTHORITY_PROMOTION",
+        "NO_PROHIBITED_PERSONAL_OR_OPERATOR_FIELDS",
+        "NO_UNAUTHORIZED_DATA_USE",
+        "NO_FALSE_INDEPENDENT_CORROBORATION"
+      ],
+      "owner_artifact_requirements": [
+        {
+          "owner": "mycelix",
+          "artifact_kind": "dependency_snapshot",
+          "required": true
+        },
+        {
+          "owner": "mycelix",
+          "artifact_kind": "source_projection",
+          "required": true
+        },
+        {
+          "owner": "sol_atlas",
+          "artifact_kind": "source_projection",
+          "required": true
+        },
+        {
+          "owner": "symtropy",
+          "artifact_kind": "simulation_run",
+          "required": true
+        },
+        {
+          "owner": "symthaea",
+          "artifact_kind": "decision_brief",
+          "required": true
+        }
+      ],
+      "claim_ceiling": "Synthetic owner-result fixture only; no physical or operational claim."
+    },
+    {
+      "case_id": "XDOM-004",
+      "domain": "uas",
+      "scenario": "source authentication explicitly failed",
+      "control_kind": "hard_gate_negative",
+      "expected_disposition": "REJECTED",
+      "invariant_ids": [
+        "SOURCE_AUTHENTICATION_NOT_PHYSICAL_TRUTH",
+        "UNKNOWN_DEPENDENCY_IS_NOT_INDEPENDENCE",
+        "MODEL_OUTPUT_HAS_NO_ACTION_AUTHORITY"
+      ],
+      "hard_gates": [
+        "NO_AUTHORITY_PROMOTION",
+        "NO_PROHIBITED_PERSONAL_OR_OPERATOR_FIELDS",
+        "NO_UNAUTHORIZED_DATA_USE"
+      ],
+      "owner_artifact_requirements": [
+        {
+          "owner": "mycelix",
+          "artifact_kind": "dependency_snapshot",
+          "required": true
+        },
+        {
+          "owner": "mycelix",
+          "artifact_kind": "source_projection",
+          "required": true
+        },
+        {
+          "owner": "sol_atlas",
+          "artifact_kind": "source_projection",
+          "required": true
+        },
+        {
+          "owner": "symtropy",
+          "artifact_kind": "simulation_run",
+          "required": true
+        },
+        {
+          "owner": "symthaea",
+          "artifact_kind": "decision_brief",
+          "required": true
+        }
+      ],
+      "claim_ceiling": "Synthetic owner-result fixture only; no physical or operational claim."
+    },
+    {
+      "case_id": "XDOM-005",
+      "domain": "maritime",
+      "scenario": "clock quality is untrusted despite fresh receipt time",
+      "control_kind": "unknown_control",
+      "expected_disposition": "UNRESOLVED",
+      "invariant_ids": [
+        "SOURCE_AUTHENTICATION_NOT_PHYSICAL_TRUTH",
+        "UNKNOWN_DEPENDENCY_IS_NOT_INDEPENDENCE",
+        "MODEL_OUTPUT_HAS_NO_ACTION_AUTHORITY"
+      ],
+      "hard_gates": [
+        "NO_AUTHORITY_PROMOTION",
+        "NO_PROHIBITED_PERSONAL_OR_OPERATOR_FIELDS",
+        "NO_UNAUTHORIZED_DATA_USE"
+      ],
+      "owner_artifact_requirements": [
+        {
+          "owner": "mycelix",
+          "artifact_kind": "dependency_snapshot",
+          "required": true
+        },
+        {
+          "owner": "mycelix",
+          "artifact_kind": "source_projection",
+          "required": true
+        },
+        {
+          "owner": "sol_atlas",
+          "artifact_kind": "source_projection",
+          "required": true
+        },
+        {
+          "owner": "symtropy",
+          "artifact_kind": "simulation_run",
+          "required": true
+        },
+        {
+          "owner": "symthaea",
+          "artifact_kind": "decision_brief",
+          "required": true
+        }
+      ],
+      "claim_ceiling": "Synthetic owner-result fixture only; no physical or operational claim."
+    },
+    {
+      "case_id": "XDOM-006",
+      "domain": "civil_aviation",
+      "scenario": "receiver calibration is stale",
+      "control_kind": "unknown_control",
+      "expected_disposition": "UNRESOLVED",
+      "invariant_ids": [
+        "SOURCE_AUTHENTICATION_NOT_PHYSICAL_TRUTH",
+        "UNKNOWN_DEPENDENCY_IS_NOT_INDEPENDENCE",
+        "MODEL_OUTPUT_HAS_NO_ACTION_AUTHORITY"
+      ],
+      "hard_gates": [
+        "NO_AUTHORITY_PROMOTION",
+        "NO_PROHIBITED_PERSONAL_OR_OPERATOR_FIELDS",
+        "NO_UNAUTHORIZED_DATA_USE"
+      ],
+      "owner_artifact_requirements": [
+        {
+          "owner": "mycelix",
+          "artifact_kind": "dependency_snapshot",
+          "required": true
+        },
+        {
+          "owner": "mycelix",
+          "artifact_kind": "source_projection",
+          "required": true
+        },
+        {
+          "owner": "sol_atlas",
+          "artifact_kind": "source_projection",
+          "required": true
+        },
+        {
+          "owner": "symtropy",
+          "artifact_kind": "simulation_run",
+          "required": true
+        },
+        {
+          "owner": "symthaea",
+          "artifact_kind": "decision_brief",
+          "required": true
+        }
+      ],
+      "claim_ceiling": "Synthetic owner-result fixture only; no physical or operational claim."
+    },
+    {
+      "case_id": "XDOM-007",
+      "domain": "civil_aviation",
+      "scenario": "synthetic scenario replay is unsupported for the declared profile",
+      "control_kind": "unknown_control",
+      "expected_disposition": "UNRESOLVED",
+      "invariant_ids": [
+        "SOURCE_AUTHENTICATION_NOT_PHYSICAL_TRUTH",
+        "UNKNOWN_DEPENDENCY_IS_NOT_INDEPENDENCE",
+        "MODEL_OUTPUT_HAS_NO_ACTION_AUTHORITY"
+      ],
+      "hard_gates": [
+        "NO_AUTHORITY_PROMOTION",
+        "NO_PROHIBITED_PERSONAL_OR_OPERATOR_FIELDS",
+        "NO_UNAUTHORIZED_DATA_USE"
+      ],
+      "owner_artifact_requirements": [
+        {
+          "owner": "mycelix",
+          "artifact_kind": "dependency_snapshot",
+          "required": true
+        },
+        {
+          "owner": "mycelix",
+          "artifact_kind": "source_projection",
+          "required": true
+        },
+        {
+          "owner": "sol_atlas",
+          "artifact_kind": "source_projection",
+          "required": true
+        },
+        {
+          "owner": "symtropy",
+          "artifact_kind": "simulation_run",
+          "required": true
+        },
+        {
+          "owner": "symthaea",
+          "artifact_kind": "decision_brief",
+          "required": true
+        }
+      ],
+      "claim_ceiling": "Synthetic owner-result fixture only; no physical or operational claim."
+    }
+  ]
+}
