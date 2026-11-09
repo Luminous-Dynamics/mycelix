@@ -48,7 +48,8 @@
         "algorithm_version",
         "seed",
         "deterministic_stream_per_case",
-        "implementation_status"
+        "implementation_status",
+        "stream_derivation"
       ],
       "properties": {
         "algorithm": {
@@ -65,7 +66,11 @@
           "const": true
         },
         "implementation_status": {
-          "const": "SPECIFIED_NOT_IMPLEMENTED"
+          "const": "PCG_STREAM_IMPLEMENTED_DGP_GENERATOR_NOT_IMPLEMENTED"
+        },
+        "stream_derivation": {
+          "type": "string",
+          "minLength": 40
         }
       }
     },
