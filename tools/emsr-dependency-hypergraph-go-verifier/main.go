@@ -22,7 +22,7 @@ const (
 	authority        = "declared_dependency_assessment_only"
 	maxNodes         = 100_000
 	maxHyperedges    = 500_000
-	maxFileBytes     = 128 << 20
+	maxFileBytes     = 16 << 20
 )
 
 type Input struct {
@@ -141,6 +141,9 @@ func readBounded(path string, maxBytes int64) ([]byte, error) {
 
 func decodeStrict[T any](data []byte) (T, error) {
 	var value T
+	if int64(len(data)) > maxFileBytes {
+		return value, errors.New("JSON input exceeds the 16 MiB limit")
+	}
 	if err := rejectDuplicateJSONKeys(data); err != nil {
 		return value, err
 	}
