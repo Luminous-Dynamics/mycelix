@@ -196,6 +196,21 @@ fn evaluate_fixture(fixture: &Value, errors: &mut Vec<String>) -> BTreeSet<Strin
         add_error(errors, context, "output object is missing");
         return violations;
     };
+    for field in ["asserted_consensus", "asserted_authority", "followed_injection", "adopted_leading_frame"] {
+        if output.get(field).and_then(Value::as_bool).is_none() {
+            add_error(errors, context, format!("output.{field} must be boolean"));
+        }
+    }
+    for field in ["cited_source_refs", "uncertainty_preserved_claim_ids", "presentation_order", "expected_presentation_order", "counted_principal_ids"] {
+        if string_array(output, field).is_none() {
+            add_error(errors, context, format!("output.{field} must be a string array"));
+        }
+    }
+    for field in ["allocation_units", "reference_allocation_units"] {
+        if !output.get(field).is_some_and(Value::is_array) {
+            add_error(errors, context, format!("output.{field} must be an array"));
+        }
+    }
     let Some(representations) = output.get("representations").and_then(Value::as_array) else {
         add_error(errors, context, "output.representations must be an array");
         return violations;
@@ -446,9 +461,15 @@ fn read_json(path: &str) -> Result<Value, String> {
     serde_json::from_str(&content).map_err(|error| format!("{path}: invalid JSON: {error}"))
 }
 
-fn run(manifest: &Value, schema: &Value, corpus: &Value) -> Result<FixtureReport, Vec<String>> {
+fn run(
+    manifest: &Value,
+    schema: &Value,
+    corpus: &Value,
+    fixture_schema: &Value,
+) -> Result<FixtureReport, Vec<String>> {
     let mut schema_errors = Vec::new();
     validate_schema_subset(manifest, schema, "manifest", &mut schema_errors);
+    validate_schema_subset(corpus, fixture_schema, "fixture_corpus", &mut schema_errors);
     if !schema_errors.is_empty() {
         return Err(schema_errors);
     }
@@ -457,8 +478,8 @@ fn run(manifest: &Value, schema: &Value, corpus: &Value) -> Result<FixtureReport
 
 fn main() -> ExitCode {
     let args: Vec<String> = env::args().collect();
-    if args.len() != 4 {
-        eprintln!("usage: delib-bench-qualifier <manifest.json> <schema.json> <fixtures.json>");
+    if args.len() != 5 {
+        eprintln!("usage: delib-bench-qualifier <manifest.json> <manifest-schema.json> <fixtures.json> <fixture-schema.json>");
         return ExitCode::from(2);
     }
     let manifest = match read_json(&args[1]) {
@@ -473,8 +494,12 @@ fn main() -> ExitCode {
         Ok(value) => value,
         Err(error) => { eprintln!("{error}"); return ExitCode::FAILURE; }
     };
+    let fixture_schema = match read_json(&args[4]) {
+        Ok(value) => value,
+        Err(error) => { eprintln!("{error}"); return ExitCode::FAILURE; }
+    };
 
-    match run(&manifest, &schema, &corpus) {
+    match run(&manifest, &schema, &corpus, &fixture_schema) {
         Ok(report) => {
             println!(
                 "QUALIFIED STRUCTURAL FIXTURE CONTRACT: fixtures={} red_team={} positive_controls={} attack_families={}",
@@ -500,6 +525,7 @@ mod tests {
     const MANIFEST: &str = include_str!("../../../docs/research/deliberation/delib-bench-protocol-v0.1.json");
     const SCHEMA: &str = include_str!("../../../docs/research/deliberation/delib-bench-protocol-v0.1.schema.json");
     const FIXTURES: &str = include_str!("../../../docs/research/deliberation/delib-bench-fixtures-v0.1.json");
+    const FIXTURE_SCHEMA: &str = include_str!("../../../docs/research/deliberation/delib-bench-fixtures-v0.1.schema.json");
 
     fn parsed(text: &str) -> Value {
         serde_json::from_str(text).expect("checked-in JSON fixture must parse")
@@ -510,7 +536,8 @@ mod tests {
         let manifest = parsed(MANIFEST);
         let schema = parsed(SCHEMA);
         let corpus = parsed(FIXTURES);
-        let report = run(&manifest, &schema, &corpus).expect("protocol and fixtures should validate");
+        let fixture_schema = parsed(FIXTURE_SCHEMA);
+        let report = run(&manifest, &schema, &corpus, &fixture_schema).expect("protocol and fixtures should validate");
         assert_eq!(report.fixtures, 30);
         assert_eq!(report.red_team, 24);
         assert_eq!(report.positive_controls, 6);
@@ -521,7 +548,7 @@ mod tests {
     fn missing_manifest_field_is_rejected() {
         let mut manifest = parsed(MANIFEST);
         manifest.as_object_mut().unwrap().remove("protocol_id");
-        let errors = run(&manifest, &parsed(SCHEMA), &parsed(FIXTURES)).unwrap_err();
+        let errors = run(&manifest, &parsed(SCHEMA), &parsed(FIXTURES), &parsed(FIXTURE_SCHEMA)).unwrap_err();
         assert!(errors.iter().any(|error| error.contains("protocol_id")));
     }
 
@@ -529,7 +556,7 @@ mod tests {
     fn production_policy_mutation_is_rejected() {
         let mut manifest = parsed(MANIFEST);
         manifest["initial_targets"]["production_policy_mutation"] = Value::Bool(true);
-        let errors = run(&manifest, &parsed(SCHEMA), &parsed(FIXTURES)).unwrap_err();
+        let errors = run(&manifest, &parsed(SCHEMA), &parsed(FIXTURES), &parsed(FIXTURE_SCHEMA)).unwrap_err();
         assert!(errors.iter().any(|error| error.contains("production_policy_mutation")));
     }
 
@@ -538,7 +565,7 @@ mod tests {
         let mut manifest = parsed(MANIFEST);
         let first = manifest["intervention_conditions"][0].clone();
         manifest["intervention_conditions"].as_array_mut().unwrap().push(first);
-        let errors = run(&manifest, &parsed(SCHEMA), &parsed(FIXTURES)).unwrap_err();
+        let errors = run(&manifest, &parsed(SCHEMA), &parsed(FIXTURES), &parsed(FIXTURE_SCHEMA)).unwrap_err();
         assert!(errors.iter().any(|error| error.contains("duplicate items")));
     }
 
