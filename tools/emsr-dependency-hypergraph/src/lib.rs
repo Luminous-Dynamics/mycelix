@@ -710,6 +710,7 @@ fn reference_report(input: &HypergraphInput, input_sha256: String) -> Evaluation
 
     let mut source_ancestors = BTreeMap::new();
     let mut unknown = Vec::new();
+    let (reference_edges, uncertain_reference_edges) = reference_adjacency(input);
     if !input.snapshot.complete {
         unknown.push("inventory_snapshot_incomplete".to_owned());
     }
@@ -734,14 +735,12 @@ fn reference_report(input: &HypergraphInput, input_sha256: String) -> Evaluation
         {
             unknown.push("source_not_covered_by_inventory_snapshot".to_owned());
         }
-        let mut visiting = BTreeSet::new();
-        let mut done = BTreeSet::new();
         let mut ancestors = BTreeSet::new();
         if reference_visit(
             source,
             input,
-            &mut visiting,
-            &mut done,
+            &reference_edges,
+            &uncertain_reference_edges,
             &mut ancestors,
             &mut unknown,
         ) {
@@ -796,56 +795,83 @@ fn reference_report(input: &HypergraphInput, input_sha256: String) -> Evaluation
     }
 }
 
+fn reference_adjacency<'a>(
+    input: &'a HypergraphInput,
+) -> (
+    BTreeMap<&'a str, Vec<&'a DependencyHyperedge>>,
+    BTreeMap<&'a str, Vec<&'a DependencyHyperedge>>,
+) {
+    let mut qualified = BTreeMap::<&str, Vec<&DependencyHyperedge>>::new();
+    let mut uncertain = BTreeMap::<&str, Vec<&DependencyHyperedge>>::new();
+    for edge in &input.hyperedges {
+        if edge.domain != input.query.domain || !valid_at(edge, input.query.event_time) {
+            continue;
+        }
+        let target = if edge.state == AssertionState::Qualified
+            && edge.recorded_at <= input.snapshot.evidence_frontier
+        {
+            &mut qualified
+        } else {
+            &mut uncertain
+        };
+        for subject in &edge.subject_ids {
+            target.entry(subject.as_str()).or_default().push(edge);
+        }
+    }
+    for edges in qualified.values_mut() {
+        edges.sort_by(|left, right| left.id.cmp(&right.id));
+    }
+    for edges in uncertain.values_mut() {
+        edges.sort_by(|left, right| left.id.cmp(&right.id));
+    }
+    (qualified, uncertain)
+}
+
+/// Independent depth-first reference traversal. It uses an explicit event
+/// stack rather than recursion and a separately built index, so long valid
+/// chains cannot exhaust the verifier thread stack.
 fn reference_visit(
-    node_id: &str,
+    start: &str,
     input: &HypergraphInput,
-    visiting: &mut BTreeSet<String>,
-    done: &mut BTreeSet<String>,
+    qualified: &BTreeMap<&str, Vec<&DependencyHyperedge>>,
+    uncertain: &BTreeMap<&str, Vec<&DependencyHyperedge>>,
     ancestors: &mut BTreeSet<String>,
     unknown: &mut Vec<String>,
 ) -> bool {
-    if done.contains(node_id) {
-        return false;
-    }
-    if !visiting.insert(node_id.to_owned()) {
-        return true;
-    }
-    if input
-        .snapshot
-        .covered_node_ids
-        .binary_search(&node_id.to_owned())
-        .is_err()
-    {
-        unknown.push("reachable_node_not_covered_by_inventory_snapshot".to_owned());
-    }
+    let mut visiting = BTreeSet::<String>::new();
+    let mut done = BTreeSet::<String>::new();
+    let mut stack = vec![(start.to_owned(), false)];
 
-    for edge in &input.hyperedges {
-        if edge.domain != input.query.domain
-            || !edge.subject_ids.iter().any(|subject| subject == node_id)
-            || !valid_at(edge, input.query.event_time)
-        {
+    while let Some((node_id, exiting)) = stack.pop() {
+        if exiting {
+            visiting.remove(&node_id);
+            done.insert(node_id);
             continue;
         }
-        if edge.state != AssertionState::Qualified
-            || edge.recorded_at > input.snapshot.evidence_frontier
-        {
-            unknown.push("applicable_assertion_not_qualified_or_outside_frontier".to_owned());
+        if done.contains(&node_id) {
             continue;
         }
-        ancestors.insert(edge.dependency_id.clone());
-        if reference_visit(
-            &edge.dependency_id,
-            input,
-            visiting,
-            done,
-            ancestors,
-            unknown,
-        ) {
+        if !visiting.insert(node_id.clone()) {
             return true;
         }
+        if input.snapshot.covered_node_ids.binary_search(&node_id).is_err() {
+            unknown.push("reachable_node_not_covered_by_inventory_snapshot".to_owned());
+        }
+        if uncertain
+            .get(node_id.as_str())
+            .is_some_and(|edges| !edges.is_empty())
+        {
+            unknown.push("applicable_assertion_not_qualified_or_outside_frontier".to_owned());
+        }
+
+        stack.push((node_id.clone(), true));
+        if let Some(edges) = qualified.get(node_id.as_str()) {
+            for edge in edges.iter().rev() {
+                ancestors.insert(edge.dependency_id.clone());
+                stack.push((edge.dependency_id.clone(), false));
+            }
+        }
     }
-    visiting.remove(node_id);
-    done.insert(node_id.to_owned());
     false
 }
 
