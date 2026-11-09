@@ -106,6 +106,10 @@ fn valid_supersession<'a>(
     let source_resource = policy.get("sourceResource")?.as_str()?;
     let output_resource = policy.get("outputResource")?.as_str()?;
     let derivation_output = string_at(case, &["derivation", "output"])?;
+    let derivation_parents = case
+        .get("derivation")?
+        .get("parents")?
+        .as_array()?;
     let grantee = policy.get("grantee")?.as_str()?;
     let granted_purpose = policy.get("purpose")?.as_str()?;
     let valid_from = policy.get("validFrom")?.as_str()?;
@@ -118,6 +122,10 @@ fn valid_supersession<'a>(
     let current_version = policy.get("currentPolicyVersion")?.as_str()?;
 
     let exact_scope = output_resource == derivation_output
+        && derivation_parents
+            .iter()
+            .filter_map(Value::as_str)
+            .any(|parent| parent == source_resource)
         && policy.get("operation").and_then(Value::as_str) == Some(operation)
         && grantee == actor
         && purpose == Some(granted_purpose)
@@ -428,6 +436,22 @@ mod tests {
             .expect("supersession vector");
         case["policySupersession"]["grantee"] =
             Value::String("urn:example:attacker:wrong-beneficiary".into());
+        assert_eq!(
+            evaluate_case(case),
+            decision("deny", "EXPLICIT_PROHIBITION")
+        );
+    }
+
+    #[test]
+    fn supersession_must_name_a_source_in_the_derivative_parent_manifest() {
+        let mut document = fixture();
+        let case = document["cases"]
+            .as_array_mut()
+            .expect("cases array")
+            .iter_mut()
+            .find(|case| case["id"] == "DR-012")
+            .expect("supersession vector");
+        case["derivation"]["parents"] = serde_json::json!(["urn:example:unrelated:source"]);
         assert_eq!(
             evaluate_case(case),
             decision("deny", "EXPLICIT_PROHIBITION")
