@@ -715,4 +715,50 @@ mod tests {
             Err(OracleError::InvalidHandoffReport)
         );
     }
+
+    #[test]
+    fn duplicate_corpus_object_fields_are_rejected() {
+        let (corpus, inputs, manifest, report) = fixtures();
+        let text = String::from_utf8(corpus).unwrap();
+        let duplicate = text.replacen(
+            "\"corpus_id\": \"GCPN-CIVIL-CROSS-STACK-0.1\",",
+            "\"corpus_id\": \"GCPN-CIVIL-CROSS-STACK-0.1\", \"corpus_id\": \"tampered\",",
+            1,
+        );
+        assert_eq!(
+            evaluate_bytes(duplicate.as_bytes(), &inputs, &manifest, &report),
+            Err(OracleError::InvalidCorpus)
+        );
+    }
+
+    #[test]
+    fn unknown_corpus_fields_are_rejected() {
+        let (corpus, inputs, manifest, report) = fixtures();
+        let mut value: serde_json::Value = serde_json::from_slice(&corpus).unwrap();
+        value["unexpected_field"] = json!(true);
+        let changed = serde_json::to_vec(&value).unwrap();
+        assert_eq!(
+            evaluate_bytes(&changed, &inputs, &manifest, &report),
+            Err(OracleError::InvalidCorpus)
+        );
+    }
+
+    #[test]
+    fn trailing_json_documents_are_rejected() {
+        let (mut corpus, inputs, manifest, report) = fixtures();
+        corpus.extend_from_slice(b" {}");
+        assert_eq!(
+            evaluate_bytes(&corpus, &inputs, &manifest, &report),
+            Err(OracleError::InvalidCorpus)
+        );
+    }
+
+    #[test]
+    fn oversized_input_is_rejected_before_deserialization() {
+        let bytes = vec![b' '; MAX_INPUT_BYTES + 1];
+        assert_eq!(
+            evaluate_bytes(&bytes, b"{}", b"{}", b"{}"),
+            Err(OracleError::InputTooLarge)
+        );
+    }
 }
