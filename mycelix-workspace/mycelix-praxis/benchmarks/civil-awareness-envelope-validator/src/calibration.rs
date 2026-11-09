@@ -7,6 +7,8 @@
 
 use std::collections::BTreeSet;
 
+use serde::Serialize;
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct ProbabilityOutcome {
     pub predicted_probability: f64,
@@ -15,7 +17,7 @@ pub struct ProbabilityOutcome {
     pub source_group_id: String,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct ReliabilityBin {
     pub lower_bound: f64,
     pub upper_bound: f64,
@@ -24,7 +26,7 @@ pub struct ReliabilityBin {
     pub observed_frequency: f64,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct CalibrationMetrics {
     pub sample_count: usize,
     pub source_group_count: usize,
@@ -44,7 +46,7 @@ pub struct DetectionTrial {
     pub detected: bool,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize)]
 pub struct ProbabilityOfDetection {
     pub detected_eligible_events: u64,
     pub eligible_events_with_exposure: u64,
@@ -53,7 +55,7 @@ pub struct ProbabilityOfDetection {
     pub wilson_95_upper: f64,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize)]
 pub struct FalseAlarmRates {
     pub false_alerts: u64,
     pub false_event_clusters: u64,
