@@ -333,7 +333,9 @@
             "assertion_id",
             "status",
             "complete_for_scope",
-            "independent_oracle"
+            "independent_oracle",
+            "coverage_provenance_ref",
+            "source_ids"
           ],
           "properties": {
             "assertion_id": {
@@ -409,6 +411,19 @@
                 "type": "string",
                 "minLength": 1
               }
+            },
+            "coverage_provenance_ref": {
+              "type": "string",
+              "minLength": 1
+            },
+            "source_ids": {
+              "type": "array",
+              "minItems": 1,
+              "uniqueItems": true,
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
             }
           }
         },
@@ -430,6 +445,7 @@
         "rights": {
           "enum": [
             "allowed_for_synthetic_test",
+            "authorized_for_declared_purpose",
             "restricted_for_declared_purpose",
             "unknown"
           ]
