@@ -95,3 +95,23 @@ This is a matched in-memory microbenchmark, not a production performance claim. 
 Rust and Go tests now reconstruct the live journal projection after every valid prefix of the local-Payment/Treasury-recovery path: Created, Authorized, local Prepared, local Committed, Treasury Prepared, Treasury Indeterminate, same-effect Treasury Prepared, and final Treasury Committed. Each prefix is replayed against its own event-count/tail anchor and compared with the live in-memory journal. This tests intermediate recovery states rather than only the terminal Completed state.
 
 These are deterministic state-machine prefix checks. They do not inject process termination into a real conductor, storage engine, message broker or provider API; those remain a separate runtime qualification layer.
+
+## Bounded Treasury outbox recovery reference
+
+`outbox_recovery.go` is a standard-library-only independent state-machine model for [#4965](https://github.com/Luminous-Dynamics/mycelix/issues/4965). It composes with the stable operation/effect identity in #4958 and the event replay model above; it does not introduce a second payment engine or perform live effects.
+
+The model enforces:
+
+- `Ready → LeasedForPreflight → DispatchAuthorized`: a destination-qualified authoritative absence is required before the dispatch phase.
+- A preflight-only expired lease safely returns to `Ready`; an expired dispatch-authorized lease becomes `AwaitingReconciliation`.
+- An indeterminate dispatch remains non-dispatchable until a reconciliation query resolves the original effect ID.
+- Matching receipts bind operation, effect, destination and payload digest. Mismatches require manual review.
+- Definitely-no-effect transient outcomes retry the same effect ID after capped deterministic backoff; permanent rejection dead-letters; invalid source evidence requires manual review.
+- Batch claims are capped at 64; leases are generation-fenced; finite dispatch attempts and a separate reconciliation-attempt / maximum-age budget prevent unbounded automatic work.
+- Exhausted reconciliation moves to manual review, never a fresh dispatch.
+
+The Rust implementation is `src/outbox.rs`. Both languages consume `fixtures/sap-treasury-outbox-recovery-v1.kat` for deterministic backoff. Tests cover lease expiry, preflight gating, ambiguous outcomes, same-effect retry, mismatched receipts, dead-letter/manual-review branches and bounded reconciliation.
+
+The `AuthoritativeAbsence` input is not cryptographically verified by this reference model. The real provider adapter must qualify destination key scope, retention, consistency and proof/receipt semantics; an ordinary empty read or HTTP 404 must remain `Uncertain` unless the exact adapter contract proves absence. The model is not a durable queue, cross-process CAS, scheduler, Holochain conductor test, live provider sandbox or exactly-once theorem. See `OUTBOX_RECOVERY_V1.md` for the state machine, claim ceiling and performance plan.
+
+Queue scale benchmarks are defined in `outbox_recovery_benchmark_test.go` (Go) and `benches/outbox_benchmark.rs` (Rust). They measure claim/lease work and read-only metrics at 1k, 10k and 100k queued effects. The workflow captures 30 samples per Go operation/size and 30 raw Rust samples per operation/size on the same runner. These are memory-only baselines; they are not end-to-end or production performance results.

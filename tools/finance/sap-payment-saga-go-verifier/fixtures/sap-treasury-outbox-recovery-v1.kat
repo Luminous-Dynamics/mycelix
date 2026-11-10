@@ -1,0 +1,6 @@
+# MXSAP-OUTBOX-BACKOFF-V1 known-answer vectors
+# policy: base=100ms, cap=1000ms, positive deterministic jitter window=25ms
+backoff-domain=MXSAP-OUTBOX-BACKOFF-V1
+effect-id=effect:treasury-fee:op-001
+attempt=3
+expected-delay-ms=416

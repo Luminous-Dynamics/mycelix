@@ -83,3 +83,17 @@ jobs:
           set -euo pipefail
           cat /tmp/replay-rust-benchmark.txt /tmp/replay-go-benchmark.txt > /tmp/replay-benchmark.txt
           awk -f tools/finance/sap-payment-saga-go-verifier/summarize-replay-benchmark.awk /tmp/replay-benchmark.txt
+
+      - name: Measure Rust Treasury outbox queue scaling
+        run: |
+          set -euo pipefail
+          cargo bench --manifest-path tools/finance/sap-payment-saga-model/Cargo.toml --bench outbox_benchmark | tee /tmp/outbox-rust-benchmark.txt
+      - name: Measure Go Treasury outbox queue scaling
+        working-directory: tools/finance/sap-payment-saga-go-verifier
+        run: |
+          set -euo pipefail
+          go test -run 'a^' -bench '^BenchmarkOutbox(ClaimDue|Metrics)$' -benchmem -benchtime=200ms -count=30 | tee /tmp/outbox-go-benchmark.txt
+      - name: Summarize paired outbox benchmark samples
+        run: |
+          set -euo pipefail
+          awk -f tools/finance/sap-payment-saga-go-verifier/summarize-outbox-benchmark.awk /tmp/outbox-go-benchmark.txt
