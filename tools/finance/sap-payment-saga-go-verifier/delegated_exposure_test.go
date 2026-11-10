@@ -157,6 +157,29 @@ func TestParentPolicyReductionFreezesNewChildRiskUntilBudgetIsReclaimed(t *testi
 	}
 }
 
+func TestReducedChildCapBlocksNewEffectsButPreservesExistingRetry(t *testing.T) {
+	parent, _ := NewParentDelegatedExposureBookV1(parentExposureTestPolicy(1_000))
+	scope := parentExposureChildScope("operator:a", "dest:a")
+	existing := parentExposureIntent(scope, "effect:existing", 100)
+	_, _ = parent.AllocateChildBudget("provider-a", scope, 700, 1, exposureTestDigest(1))
+	if _, err := parent.Reserve("provider-a", existing); err != nil { t.Fatal(err) }
+
+	lower := parentExposureTestPolicy(800)
+	lower.Sequence = 2
+	lower.MaximumChildBudgetMinor = 600
+	lower.PolicyDigest = exposureTestDigest(14)
+	if err := parent.ReplacePolicy(lower); err != nil { t.Fatal(err) }
+
+	// Exact retry remains idempotent, but this 700-unit grant can no longer
+	// authorize a new effect under the reduced 600-unit child ceiling.
+	if disposition, err := parent.Reserve("provider-a", existing); err != nil || disposition != ExposureAlreadyReserved {
+		t.Fatalf("existing retry = %v, %v", disposition, err)
+	}
+	if _, err := parent.Reserve("provider-a", parentExposureIntent(scope, "effect:new", 50)); err != ErrExposureLimitExceeded {
+		t.Fatalf("new effect under reduced child cap = %v", err)
+	}
+}
+
 func TestDelegatedSnapshotMatchesSharedKnownAnswer(t *testing.T) {
 	raw, err := os.ReadFile("../sap-payment-saga-model/fixtures/sap-payment-delegated-exposure-v1.kat")
 	if err != nil { t.Fatal(err) }
