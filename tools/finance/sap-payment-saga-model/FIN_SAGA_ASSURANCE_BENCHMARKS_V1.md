@@ -135,3 +135,18 @@ Do not say “better than SOTA” until the matched database/outbox baseline, na
 - **Independent:** third-party conformance rerun, reproducible artifacts and a public benchmark report.
 
 A workflow that is queued, skipped, uninitialized or run on a merge ref is not an exact-head pass.
+
+
+## 8. Current implementation coverage snapshot (2026-11-10)
+
+| Area | Current evidence | Still required |
+|---|---|---|
+| Typed effect evidence | Rust/Go canonical digest reference and shared known-answer vectors in #6020 | Exact-head qualification and native Holochain source-record verification |
+| Journal replay | Rust/Go in-memory reducers, prefix reconstruction and 100/1,000/10,000-frame synthetic benchmarks in #6021 | Exact-head qualification; disk durability, conductor restart and DHT replay |
+| Checkpoint subject | Rust/Go owner-scoped canonical subject, byte/digest KAT and mutation tests in #6041 | Native action-author binding, owner grant authorization, source-action/frontier resolution and competing-history policy |
+| Receipt authenticity | Draft implementation #5755 | Real-agent/DHT qualification and Holochain 0.7 migration qualification |
+| Autonomous recovery | Design/requirements in #4965 | Durable scheduler/lease/worker, bounded retry and queue-age operations |
+| Provider/rail outcome | Adapter requirements and bounded provider profiles in #4957/#4958 | Named-provider sandbox, callback/query authentication and independently reconciled settlement |
+| Database comparison | Defined here | Implement and run the matched transactional-outbox baseline |
+
+This table is a status boundary, not a green dashboard. Draft PRs, queued workflows and reference-only tests do not qualify their pending rows.
