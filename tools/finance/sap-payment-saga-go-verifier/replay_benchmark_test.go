@@ -82,7 +82,7 @@ func replayBenchmarkHistory(tb testing.TB, eventCount int) ([]JournalEventFrame,
 	if status := journal.Status(); status != Completed {
 		tb.Fatalf("benchmark history status = %q, want %q", status, Completed)
 	}
-		return frames, log.Anchor()
+	return frames, log.Anchor()
 }
 
 // BenchmarkReplayJournal measures only in-memory validation and reconstruction.
