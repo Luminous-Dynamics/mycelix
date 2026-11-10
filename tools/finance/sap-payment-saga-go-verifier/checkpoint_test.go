@@ -1,9 +1,9 @@
 package sagaverifier
 
 import (
-	"fmt"
 	"bytes"
 	"encoding/hex"
+	"fmt"
 	"os"
 	"strings"
 	"testing"
