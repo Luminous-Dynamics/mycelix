@@ -1,0 +1,39 @@
+{
+  "schema_version": "mycelix.measurement-evidence-invalidation-profile/0.1",
+  "profile_id": "BUILD-MEASUREMENT-INVALIDATION-PROFILE-V0.1",
+  "classification": "synthetic_read_only_dependency_semantics",
+  "claim_ceiling": "deterministic_dependency_and_invalidation_semantics_only",
+  "parent_issue": "https://github.com/Luminous-Dynamics/mycelix/issues/6042",
+  "parent_passport_pr": "https://github.com/Luminous-Dynamics/mycelix/pull/6040",
+  "node_states": [
+    "current",
+    "unknown",
+    "revoked",
+    "expired",
+    "superseded",
+    "corrected"
+  ],
+  "event_states": [
+    "correction",
+    "revocation",
+    "expiry",
+    "supersession",
+    "rights_revocation",
+    "firmware_change",
+    "installation_change",
+    "method_change",
+    "uncertainty_change",
+    "assay_revocation"
+  ],
+  "dependency_direction": "dependency_to_dependent",
+  "exact_parent_binding_required": true,
+  "exact_event_target_binding_required": true,
+  "identical_duplicate_node_is_idempotent": true,
+  "conflicting_duplicate_node_is_rejected": true,
+  "duplicate_edges_are_rejected": true,
+  "duplicate_or_multiple_target_events_are_rejected": true,
+  "canonical_topological_order": "lexicographically_smallest_ready_node_first",
+  "descendant_only_invalidation": true,
+  "unrelated_nodes_remain_current": true,
+  "no_mutation_or_authority": true
+}
