@@ -808,7 +808,7 @@ mod tests {
         assert_eq!(result.disposition, Disposition::Indeterminate);
         assert!(result
             .reason_codes
-            .contains(&ReasonCode::AuthorizationClaimNotQualified));
+            .contains(&ReasonCode::InvalidSequencerClaim));
     }
 
     #[test]
@@ -910,7 +910,7 @@ mod tests {
         assert_eq!(result.disposition, Disposition::Indeterminate);
         assert!(result
             .reason_codes
-            .contains(&ReasonCode::AuthorizationClaimNotQualified));
+            .contains(&ReasonCode::InvalidQuorumPolicy));
     }
 
     #[test]
