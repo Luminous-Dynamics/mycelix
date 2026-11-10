@@ -85,6 +85,9 @@ Text values use four-byte unsigned big-endian UTF-8 byte lengths, with a 4,096-b
 
 The separate `MXSAP-PAYMENT-INTENT-V1` digest binds sender DID, recipient DID, client key, payload fingerprint, integer amount, fee and currency. The operation ID is also included directly in the checkpoint subject, so the subject cannot be transplanted to another operation without changing its digest.
 
+
+The 39-byte raw ActionHash framing follows Holochain's documented address layout: three-byte multihash type prefix, 32-byte hash core and four-byte DHT location; the ActionHash prefix is `hCkk` / `0x842924`. See [Holochain identifiers](https://developer.holochain.org/build/identifiers/). The reference validator checks the type and byte shape only; it does not recompute an action hash from a signed header.
+
 The checkpoint sequence is owner-local: Payments and Treasury do not share one imaginary global order. A sequence-1 checkpoint has no prior checkpoint digest; later sequences require one. The source-action frontier has the analogous genesis/predecessor rule.
 
 This is a canonical subject/reference model only. The digest is not an authorship proof. The model does not yet validate the native Holochain Create action that commits a checkpoint, map an owner DID to that action's author, check authority for the exact Payments/Treasury scope, resolve the referenced source ActionHash, prove predecessor/fork exclusion, or establish DHT convergence. The intended native path should reuse Holochain's signed action and integrity validation rather than layering a second detached signature system over the same source chain. External portable attestations can be considered separately when an actual cross-DNA or non-Holochain verifier requires them.
