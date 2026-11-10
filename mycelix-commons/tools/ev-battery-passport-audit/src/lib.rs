@@ -930,11 +930,11 @@ mod tests {
     }
 
     #[test]
-    fn frozen_corpus_accepts_four_and_rejects_fourteen_controls() {
+    fn frozen_corpus_accepts_seven_and_rejects_fifteen_controls() {
         let report = report();
-        assert_eq!(report.payload.case_count, 18);
-        assert_eq!(report.payload.accepted_count, 4);
-        assert_eq!(report.payload.rejected_count, 14);
+        assert_eq!(report.payload.case_count, 22);
+        assert_eq!(report.payload.accepted_count, 7);
+        assert_eq!(report.payload.rejected_count, 15);
     }
 
     #[test]
@@ -1024,6 +1024,38 @@ mod tests {
                 .expect("lifecycle control");
             assert!(!case.accepted);
         }
+    }
+
+    #[test]
+    fn common_bms_multi_pack_boundary_is_one_finished_battery() {
+        let report = report();
+        let case = report.payload.cases.iter()
+            .find(|case| case.case_id == "multi-pack-common-bms-one-finished-battery")
+            .expect("common BMS multi-pack case");
+        assert!(case.accepted);
+        assert_eq!(case.passport_id.as_deref(), Some("passport-ev-001"));
+    }
+
+    #[test]
+    fn independent_finished_pack_has_its_own_passport_boundary() {
+        let report = report();
+        let valid = report.payload.cases.iter()
+            .find(|case| case.case_id == "independent-finished-pack-has-own-passport")
+            .expect("independent pack case");
+        let invalid = report.payload.cases.iter()
+            .find(|case| case.case_id == "independent-packs-must-not-share-one-passport")
+            .expect("independent pack boundary control");
+        assert!(valid.accepted);
+        assert!(!invalid.accepted);
+    }
+
+    #[test]
+    fn waste_transfer_changes_operator_without_rewriting_past_actor_identity() {
+        let report = report();
+        let case = report.payload.cases.iter()
+            .find(|case| case.case_id == "waste-transfer-updates-responsible-operator")
+            .expect("operator transfer case");
+        assert!(case.accepted);
     }
 
     #[test]
