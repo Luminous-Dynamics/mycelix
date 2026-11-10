@@ -1,0 +1,16 @@
+# Mycelix owner-scoped exposure snapshot KAT v1
+owner=owner:coop-a
+pool=pool:treasury
+destination=dest:provider-a
+currency=SAP
+sequence=1
+maximum_total_minor=1000
+maximum_per_effect_minor=800
+policy_digest=sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+operation_id=op:1
+effect_id=effect:1
+intent_digest=sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+payload_digest=sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+maximum_exposure_minor=600
+status=1
+snapshot_sha256=8dd30c578ad7cf3f0a648aae137593a4d767d899099732433fa5da4d8186ae17
