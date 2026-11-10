@@ -97,7 +97,7 @@ func (trace TraceV1) CanonicalBytes() ([]byte, error) {
 		return nil, ErrTraceTooManyCommands
 	}
 
-	output := make([]byte, 0, 37+len(trace.Commands)*20)
+	output := make([]byte, 0, 49+len(trace.Commands)*20)
 	output = append(output, []byte(traceDomain)...)
 	output = appendTraceU64(output, trace.Seed)
 	output = appendTraceU64(output, trace.TraceIndex)
