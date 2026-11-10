@@ -136,8 +136,11 @@ fn require_text(value: &str) -> Result<(), CheckpointError> {
     if value.is_empty() {
         return Err(CheckpointError::EmptyRequiredField);
     }
-    if value.len() > MAX_TEXT_BYTES || !value.is_ascii() {
+    if value.len() > MAX_TEXT_BYTES {
         return Err(CheckpointError::TextFieldTooLarge);
+    }
+    if !value.is_ascii() {
+        return Err(CheckpointError::TextFieldNotAscii);
     }
     Ok(())
 }
