@@ -1,0 +1,810 @@
+{
+  "schema": "mycelix.payment-adapter-qualification/v1",
+  "status": "reference-corpus",
+  "created_on": "2026-10-11",
+  "purpose": "Provider-neutral qualification scenarios for payment adapters, external evidence, recovery and reconciliation.",
+  "profile_rule": "Every concrete deployment must bind an adapter to an exact provider/product, jurisdiction, API or message version, instrument profile, capability profile, and finality profile. Generic family names are not executable provider profiles.",
+  "scope": {
+    "mode": "effects-disabled",
+    "adapter_classes": [
+      "iso20022_bank_payment",
+      "visa_direct_payout",
+      "card_acceptance_processor",
+      "regional_instant_payment",
+      "mycelix_internal_or_mutual_credit"
+    ],
+    "explicitly_unqualified": [
+      "live financial effects",
+      "provider credential and entitlement checks",
+      "production onboarding or certification",
+      "legal settlement finality",
+      "regulatory compliance",
+      "unidentified PandaCard product"
+    ]
+  },
+  "lifecycle_vocabulary": [
+    "Created",
+    "Authorized",
+    "Submitted",
+    "Accepted",
+    "Booked",
+    "Confirmed",
+    "Settled",
+    "Returned",
+    "Reversed",
+    "Disputed",
+    "Rejected",
+    "Indeterminate",
+    "PartialEffect",
+    "ReconciliationException"
+  ],
+  "acceptance_invariants": [
+    "A retry for one logical operation must not create a second value-moving effect.",
+    "Provider status is evidence, not a universal finality verdict.",
+    "Every amount is bound to exact instrument identity, currency, scale, and rounding policy.",
+    "Unknown outcomes remain indeterminate until read-after-timeout or reconciliation resolves them.",
+    "Returns, reversals, chargebacks, corrections and disputes append causal lineage; they do not erase prior evidence.",
+    "A multi-rail plan is not atomic unless every rail and coordinator capability proves the requested coordination semantics.",
+    "Missing provider, jurisdiction, message-version, authorization, or finality profiles fail closed before dispatch.",
+    "Credentials, secrets, full PANs and reusable authentication material never enter portable receipts or the fixture corpus.",
+    "Lossy mappings are declared; required authority-bearing fields must not be invented or silently defaulted.",
+    "Analytical output from Symthaea cannot grant payment authority or upgrade settlement state.",
+    "Concurrent submissions with the same sender-scoped key and fingerprint resolve to one operation; a conflicting fingerprint creates no second payment or outbox effect.",
+    "A Treasury effect ID is deduplication metadata, not authority: an exact committed Payments outbox record and matching Payment intent are required before a credit.",
+    "If a Treasury receipt commits before the Payment status update, recovery queries the exact destination-scoped receipt before applying any balance change.",
+    "Concurrent effects targeting one Treasury destination require serialized receipt identity and checked balance constraints; every effect is applied at most once.",
+    "Idempotency keys are sender-scoped: the same client key from different authenticated senders must not collide or resolve another sender's Payment.",
+    "When concurrent Holochain source-chain calls race, a chain-head-moved loser must roll back atomically and resolve the winner on retry with the same idempotency key."
+  ],
+  "source_refs": [
+    {
+      "id": "ISO20022_CATALOG",
+      "url": "https://www.iso20022.org/iso-20022-message-definitions",
+      "observed_on": "2026-10-11",
+      "relevance": "Authoritative message-definition catalogue; exact message versions must be profile-bound."
+    },
+    {
+      "id": "SWIFT_CBPR_PLUS_ADDRESS_CUTOVER",
+      "url": "https://www.swift.com/insights/news/iso-20022-bytes-payments-call-action-november-2026",
+      "observed_on": "2026-10-11",
+      "relevance": "Swift's May 2026 guidance for the November 2026 CBPR+ milestone; scope remains profile-specific, not a rule for every ISO 20022 usage."
+    },
+    {
+      "id": "VISA_DIRECT_CONNECT",
+      "url": "https://developer.visa.com/capabilities/visa-direct-connect",
+      "observed_on": "2026-10-11",
+      "relevance": "Visa Direct Connect API products and supported payout status/return notifications; specific product profiles and onboarding determine actual capabilities."
+    },
+    {
+      "id": "VISA_DIRECT_CONNECT_REFERENCE",
+      "url": "https://developer.visa.com/capabilities/visa-direct-connect/reference",
+      "observed_on": "2026-10-11",
+      "relevance": "Published reference schema includes a clientReferenceId on payout status notification; use the selected endpoint's current contract and never silently truncate/rewrite identifiers."
+    },
+    {
+      "id": "MYCELIX_ISO_AIRLOCK",
+      "url": "https://github.com/Luminous-Dynamics/mycelix/issues/2432",
+      "relevance": "Existing loss-aware ISO 20022 airlock specification."
+    },
+    {
+      "id": "MYCELIX_RAIL_FINALITY",
+      "url": "https://github.com/Luminous-Dynamics/mycelix/issues/3345",
+      "relevance": "Existing settlement rail, finality and reconciliation specification."
+    },
+    {
+      "id": "MYCELIX_FINANCE_CONFORMANCE",
+      "url": "https://github.com/Luminous-Dynamics/mycelix/pull/3348",
+      "relevance": "Existing Finance fabric conformance profile proposal; this corpus complements rather than replaces it."
+    },
+    {
+      "id": "MYCELIX_BANKING_CONTROL_PLANE",
+      "url": "https://github.com/Luminous-Dynamics/mycelix/pull/4466",
+      "relevance": "Existing professional banking and finance control-plane proposal."
+    },
+    {
+      "id": "VISA_DIRECT_ERROR_CODES",
+      "url": "https://developer.visa.com/capabilities/visa-direct-connect/error-codes",
+      "observed_on": "2026-10-11",
+      "relevance": "Visa Direct documents client-reference conflict and amount/currency inconsistency errors for previously processed payout requests; exact handling remains bound to the applicable product profile."
+    },
+    {
+      "id": "STRIPE_IDEMPOTENCY",
+      "url": "https://docs.stripe.com/api/idempotent_requests",
+      "observed_on": "2026-10-11",
+      "relevance": "Stripe documents request parameter consistency and idempotency-key pruning after at least 24 hours; a pruned key can be treated as a new request."
+    },
+    {
+      "id": "ADYEN_IDEMPOTENCY",
+      "url": "https://docs.adyen.com/development-resources/api-idempotency",
+      "observed_on": "2026-10-11",
+      "relevance": "Adyen documents company-account scope, a 7–14 day key-retention window, and regional endpoint isolation for duplicate detection; exact behavior must be bound to the selected product contract."
+    },
+    {
+      "id": "HOLOCHAIN_ATOMIC_CALLS",
+      "url": "https://developer.holochain.org/build/zome-functions/",
+      "observed_on": "2026-10-11",
+      "relevance": "Official Holochain documentation states that zome-call writes are atomic, and a concurrent source-chain commit can roll back a stale call with a chain-head-moved error; callers must retry or resolve the same logical operation."
+    }
+  ],
+  "cases": [
+    {
+      "id": "PAY-ISO-001",
+      "adapter_class": "iso20022_bank_payment",
+      "condition": "A syntactically valid message uses a message definition version not admitted by the pinned adapter profile.",
+      "event_sequence": [
+        "message_received",
+        "version_profile_lookup"
+      ],
+      "expected_disposition": "UnsupportedProfile",
+      "external_dispatch_allowed": false,
+      "expected_financial_effect": "none",
+      "required_evidence": [
+        "message_content_digest",
+        "declared_message_definition",
+        "adapter_profile_id",
+        "rejection_reason"
+      ],
+      "forbidden_claims": [
+        "parsed_message_is_authorized",
+        "unknown_version_is_compatible"
+      ]
+    },
+    {
+      "id": "PAY-ISO-002",
+      "adapter_class": "iso20022_bank_payment",
+      "condition": "A positive payment status report is received, but the selected rail finality profile does not define that status as settlement-final.",
+      "event_sequence": [
+        "payment_submitted",
+        "positive_status_report_received"
+      ],
+      "expected_disposition": "ProviderStatusObserved",
+      "external_dispatch_allowed": null,
+      "expected_financial_effect": "retain the existing instruction lifecycle; do not book a final settlement solely from the status report",
+      "required_evidence": [
+        "message_digest",
+        "provider_reference",
+        "status_code",
+        "source_authentication_result",
+        "finality_profile_id"
+      ],
+      "forbidden_claims": [
+        "provider_acknowledgement_equals_finality",
+        "message_status_equals_legal_discharge"
+      ]
+    },
+    {
+      "id": "PAY-ISO-003",
+      "adapter_class": "iso20022_bank_payment",
+      "condition": "A payment return or reversal message refers to an earlier payment.",
+      "event_sequence": [
+        "original_payment_evidence",
+        "return_or_reversal_received",
+        "causal_reference_validation"
+      ],
+      "expected_disposition": "AppendSuccessorEffect",
+      "external_dispatch_allowed": null,
+      "expected_financial_effect": "append a return/reversal candidate linked to the exact earlier effect; preserve the original event",
+      "required_evidence": [
+        "original_effect_id",
+        "return_or_reversal_message_digest",
+        "provider_reference",
+        "causal_link",
+        "evaluation_result"
+      ],
+      "forbidden_claims": [
+        "original_payment_never_happened",
+        "history_may_be_overwritten"
+      ]
+    },
+    {
+      "id": "PAY-ISO-004",
+      "adapter_class": "iso20022_bank_payment",
+      "profile_id": "swift_cbpr_plus_sr2026",
+      "condition": "A cross-border message under the selected Swift CBPR+ profile is evaluated at or after 2026-11-14 and uses an unstructured postal address prohibited by that profile.",
+      "event_sequence": [
+        "outbound_intent_created",
+        "effective_profile_resolved",
+        "address_usage_rule_evaluated"
+      ],
+      "expected_disposition": "PreDispatchValidationFailure",
+      "external_dispatch_allowed": false,
+      "expected_financial_effect": "none",
+      "required_evidence": [
+        "profile_id",
+        "profile_version",
+        "evaluation_time",
+        "address_structure_class",
+        "validation_result"
+      ],
+      "forbidden_claims": [
+        "adapter_may_invent_structured_address",
+        "rule_applies_to_every_iso20022_market"
+      ]
+    },
+    {
+      "id": "PAY-VISA-001",
+      "adapter_class": "visa_direct_payout",
+      "condition": "The client times out after submission, and the provider may have accepted the payout.",
+      "event_sequence": [
+        "submission_attempted",
+        "transport_timeout",
+        "read_after_timeout"
+      ],
+      "expected_disposition": "IndeterminateUntilQueried",
+      "external_dispatch_allowed": false,
+      "expected_financial_effect": "no blind resubmission; resolve by provider reference or documented recovery/query contract before any retry",
+      "required_evidence": [
+        "logical_operation_id",
+        "idempotency_key_digest",
+        "client_reference_id",
+        "request_digest",
+        "timeout_receipt",
+        "query_result_or_pending_marker"
+      ],
+      "forbidden_claims": [
+        "timeout_means_provider_rejected",
+        "retry_may_create_new_logical_payment"
+      ]
+    },
+    {
+      "id": "PAY-VISA-002",
+      "adapter_class": "visa_direct_payout",
+      "condition": "The same authenticated payout status notification is delivered multiple times.",
+      "event_sequence": [
+        "status_notification_received",
+        "signature_or_channel_authentication",
+        "event_deduplication",
+        "status_projection"
+      ],
+      "expected_disposition": "DuplicateEvidenceNoDuplicateEffect",
+      "external_dispatch_allowed": null,
+      "expected_financial_effect": "one logical state transition; duplicate notification is retained or referenced without duplicating value movement",
+      "required_evidence": [
+        "notification_digest",
+        "provider_transaction_reference",
+        "client_reference_id",
+        "deduplication_key",
+        "authentication_result"
+      ],
+      "forbidden_claims": [
+        "each_webhook_means_new_payment",
+        "webhook_delivery_order_is_guaranteed"
+      ]
+    },
+    {
+      "id": "PAY-VISA-003",
+      "adapter_class": "visa_direct_payout",
+      "condition": "A payout return notification arrives after an earlier payout status was received.",
+      "event_sequence": [
+        "payout_status_observed",
+        "return_notification_received",
+        "causal_and_amount_reconciliation"
+      ],
+      "expected_disposition": "AppendReturnAndReconcile",
+      "external_dispatch_allowed": null,
+      "expected_financial_effect": "record return as a later linked event; reconcile the returned amount and destination currency; preserve the original payout evidence",
+      "required_evidence": [
+        "original_transaction_reference",
+        "return_notification_digest",
+        "returned_amount",
+        "currency",
+        "causal_link",
+        "reconciliation_result"
+      ],
+      "forbidden_claims": [
+        "prior_payout_evidence_is_deleted",
+        "return_equals_original_submission_never_occurred"
+      ]
+    },
+    {
+      "id": "PAY-VISA-004",
+      "adapter_class": "visa_direct_payout",
+      "condition": "An external reference exceeds or violates the selected provider profile's documented identifier constraints, or shortening it would cause a collision.",
+      "event_sequence": [
+        "logical_operation_id_created",
+        "provider_reference_mapping",
+        "uniqueness_check"
+      ],
+      "expected_disposition": "IdentifierMappingRejected",
+      "external_dispatch_allowed": false,
+      "expected_financial_effect": "none",
+      "required_evidence": [
+        "logical_operation_id",
+        "mapping_profile_version",
+        "candidate_reference",
+        "uniqueness_check"
+      ],
+      "forbidden_claims": [
+        "silent_identifier_truncation",
+        "provider_reference_is_globally_unique_without_scope"
+      ]
+    },
+    {
+      "id": "PAY-VISA-005",
+      "adapter_class": "visa_direct_payout",
+      "condition": "A request reuses a Client Reference ID previously processed with a different request identity, amount, or currency.",
+      "event_sequence": [
+        "prior_request_accepted_or_processed",
+        "conflicting_request_received",
+        "request_identity_comparison"
+      ],
+      "expected_disposition": "IdempotencyConflict",
+      "external_dispatch_allowed": false,
+      "expected_financial_effect": "none from the conflicting request; preserve the original operation identity and reconcile its provider state",
+      "required_evidence": [
+        "client_reference_id",
+        "prior_request_digest",
+        "new_request_digest",
+        "prior_amount_and_currency",
+        "new_amount_and_currency",
+        "provider_error_or_query_result"
+      ],
+      "forbidden_claims": [
+        "changed_payload_under_same_client_reference_is_a_new_payment",
+        "provider_conflict_can_be_bypassed_without_new_authorized_intent"
+      ]
+    },
+    {
+      "id": "PAY-IDEM-001",
+      "adapter_class": "all_external_adapters",
+      "condition": "The provider-side idempotency retention window has expired or is unknown while the original logical operation outcome remains unresolved.",
+      "event_sequence": [
+        "original_submission_recorded",
+        "provider_key_retention_expired_or_unknown",
+        "local_operation_lookup",
+        "provider_query_or_reconciliation"
+      ],
+      "expected_disposition": "IndeterminateAfterProviderKeyExpiry",
+      "external_dispatch_allowed": false,
+      "expected_financial_effect": "do not dispatch under a fresh provider key; resolve the original provider operation using its reference/query contract or hold for reconciliation",
+      "required_evidence": [
+        "provider_profile_id",
+        "key_namespace_scope",
+        "retention_policy_version",
+        "first_submission_at",
+        "idempotency_key_digest",
+        "provider_reference_or_client_reference",
+        "query_result_or_reconciliation_record"
+      ],
+      "forbidden_claims": [
+        "local_key_persistence_extends_provider_key_retention",
+        "expired_or_unknown_provider_key_is_safe_to_replay",
+        "same_key_is_globally_deduplicated_across_regions"
+      ]
+    },
+    {
+      "id": "PAY-CARD-001",
+      "adapter_class": "card_acceptance_processor",
+      "condition": "A card authorization succeeds but no supported capture/clearing/settlement evidence exists.",
+      "event_sequence": [
+        "authorization_approved"
+      ],
+      "expected_disposition": "AuthorizedNotSettled",
+      "external_dispatch_allowed": null,
+      "expected_financial_effect": "represent the authorization or hold only; do not classify proceeds as settled funds",
+      "required_evidence": [
+        "processor_transaction_id",
+        "authorization_result",
+        "authorized_amount",
+        "currency",
+        "provider_profile_id"
+      ],
+      "forbidden_claims": [
+        "authorization_equals_capture",
+        "authorization_equals_settlement"
+      ]
+    },
+    {
+      "id": "PAY-CARD-002",
+      "adapter_class": "card_acceptance_processor",
+      "condition": "A capture request times out and its outcome is unknown.",
+      "event_sequence": [
+        "capture_intent_created",
+        "capture_submitted",
+        "transport_timeout",
+        "processor_query_or_reconciliation"
+      ],
+      "expected_disposition": "IndeterminateCapture",
+      "external_dispatch_allowed": false,
+      "expected_financial_effect": "no retry as a new capture until the original operation is resolved under the processor's idempotency contract",
+      "required_evidence": [
+        "capture_operation_id",
+        "authorization_reference",
+        "idempotency_key_digest",
+        "request_digest",
+        "query_result_or_pending_marker"
+      ],
+      "forbidden_claims": [
+        "timeout_means_capture_failed",
+        "same_capture_may_be_replayed_with_new_identity"
+      ]
+    },
+    {
+      "id": "PAY-CARD-003",
+      "adapter_class": "card_acceptance_processor",
+      "condition": "A dispute or chargeback arrives after a previously recorded capture or settlement.",
+      "event_sequence": [
+        "capture_or_settlement_evidence",
+        "dispute_or_chargeback_received",
+        "dispute_state_projection"
+      ],
+      "expected_disposition": "AppendDisputeLifecycle",
+      "external_dispatch_allowed": null,
+      "expected_financial_effect": "record a dispute/chargeback event with linked evidence; do not erase the initial transaction or presume the dispute outcome",
+      "required_evidence": [
+        "original_transaction_id",
+        "dispute_reference",
+        "amount",
+        "currency",
+        "reason_code",
+        "event_source"
+      ],
+      "forbidden_claims": [
+        "chargeback_means_fraud_is_proven",
+        "dispute_erases_original_transaction"
+      ]
+    },
+    {
+      "id": "PAY-REGIONAL-001",
+      "adapter_class": "regional_instant_payment",
+      "condition": "A proposed cross-border route names a region or policy initiative but no exact participating rail, provider, participant eligibility, currency pair, and jurisdiction profile.",
+      "event_sequence": [
+        "route_requested",
+        "candidate_rail_resolution"
+      ],
+      "expected_disposition": "RouteNotAdmitted",
+      "external_dispatch_allowed": false,
+      "expected_financial_effect": "none",
+      "required_evidence": [
+        "requested_origin_and_destination",
+        "candidate_rail_profile_lookup",
+        "missing_profile_reasons"
+      ],
+      "forbidden_claims": [
+        "region_or_political_initiative_is_an_api",
+        "proposed_interconnection_equals_operational_connectivity"
+      ]
+    },
+    {
+      "id": "PAY-REGIONAL-002",
+      "adapter_class": "regional_instant_payment",
+      "condition": "A local payment succeeds at one participating system but the cross-border receiving leg has not been evidenced.",
+      "event_sequence": [
+        "origin_leg_accepted_or_settled",
+        "receiving_leg_unknown",
+        "cross_leg_reconciliation"
+      ],
+      "expected_disposition": "PartialEffectOrIndeterminate",
+      "external_dispatch_allowed": false,
+      "expected_financial_effect": "preserve the completed origin-leg evidence and represent the other leg as unknown; recover only under a qualified coordination/saga plan",
+      "required_evidence": [
+        "settlement_graph_id",
+        "per_leg_state",
+        "provider_references",
+        "coordination_profile_id",
+        "recovery_decision"
+      ],
+      "forbidden_claims": [
+        "one_leg_success_means_whole_route_settled",
+        "multi_rail_route_is_atomic_by_default"
+      ]
+    },
+    {
+      "id": "PAY-FX-001",
+      "adapter_class": "regional_instant_payment",
+      "condition": "An FX quote is expired, has the wrong currency pair, or cannot explain the exact rounded settlement amount.",
+      "event_sequence": [
+        "quote_observed",
+        "quote_profile_validation",
+        "amount_reconstruction"
+      ],
+      "expected_disposition": "QuoteRejectedOrRequoted",
+      "external_dispatch_allowed": false,
+      "expected_financial_effect": "none until a current quote, rate convention, fee treatment, and rounding rule are qualified",
+      "required_evidence": [
+        "quote_id",
+        "base_currency",
+        "quote_currency",
+        "validity_window",
+        "rate_source",
+        "rounding_profile",
+        "calculated_amount"
+      ],
+      "forbidden_claims": [
+        "fx_is_unit_conversion",
+        "expired_quote_authorizes_execution",
+        "float_rounding_is_exact_money"
+      ]
+    },
+    {
+      "id": "PAY-SEC-001",
+      "adapter_class": "all_external_adapters",
+      "condition": "A webhook or callback fails its configured authenticity check or is a replay outside the accepted replay window.",
+      "event_sequence": [
+        "callback_received",
+        "authenticity_check",
+        "freshness_and_replay_check"
+      ],
+      "expected_disposition": "EvidenceRejected",
+      "external_dispatch_allowed": false,
+      "expected_financial_effect": "none",
+      "required_evidence": [
+        "body_digest",
+        "authenticity_result",
+        "key_or_certificate_profile_id",
+        "replay_check_result"
+      ],
+      "forbidden_claims": [
+        "callback_payload_is_authority",
+        "transport_success_equals_authenticity"
+      ]
+    },
+    {
+      "id": "PAY-REC-001",
+      "adapter_class": "all_external_adapters",
+      "condition": "Reconciliation discovers an amount, currency, instrument, beneficiary, fee, or source-identity mismatch.",
+      "event_sequence": [
+        "intent_and_provider_evidence_available",
+        "reconciliation",
+        "exception_recorded"
+      ],
+      "expected_disposition": "ReconciliationException",
+      "external_dispatch_allowed": false,
+      "expected_financial_effect": "preserve all source events and open a typed exception; do not silently normalize or close the payment",
+      "required_evidence": [
+        "intent_digest",
+        "provider_event_digests",
+        "field_level_differences",
+        "exception_id",
+        "resolution_state"
+      ],
+      "forbidden_claims": [
+        "near_match_equals_match",
+        "mismatch_may_be_dropped_from_receipt"
+      ]
+    },
+    {
+      "id": "PAY-MULTI-001",
+      "adapter_class": "multi_rail_coordinator",
+      "condition": "A multi-leg plan contains an irreversible submission on one rail and an unknown result on another, while atomic commitment is unsupported.",
+      "event_sequence": [
+        "plan_admitted",
+        "leg_a_submitted_or_settled",
+        "leg_b_indeterminate",
+        "capability_recheck"
+      ],
+      "expected_disposition": "PartialEffectWithRecoveryPlan",
+      "external_dispatch_allowed": false,
+      "expected_financial_effect": "retain per-leg outcomes; no synchronized-completion claim; recover or compensate only under a previously qualified plan",
+      "required_evidence": [
+        "plan_digest",
+        "rail_capability_profiles",
+        "per_leg_event_digests",
+        "compensation_or_recovery_plan"
+      ],
+      "forbidden_claims": [
+        "saga_equals_atomicity",
+        "partial_effect_may_be_hidden"
+      ]
+    },
+    {
+      "id": "PAY-PANDA-001",
+      "adapter_class": "unidentified_provider",
+      "condition": "A requested PandaCard integration has not been bound to a verified product identity, legal provider, technical documentation, jurisdiction, and settlement counterparties.",
+      "event_sequence": [
+        "integration_request_received",
+        "provider_identity_resolution"
+      ],
+      "expected_disposition": "UnqualifiedProvider",
+      "external_dispatch_allowed": false,
+      "expected_financial_effect": "none",
+      "required_evidence": [
+        "official_product_url",
+        "legal_provider_identity",
+        "provider_api_or_message_docs",
+        "jurisdiction",
+        "settlement_counterparty",
+        "sandbox_or_test_access"
+      ],
+      "forbidden_claims": [
+        "product_name_alone_identifies_a_payment_rail",
+        "unverified_product_is_integrated"
+      ]
+    },
+    {
+      "id": "PAY-MYC-001",
+      "adapter_class": "mycelix_internal_or_mutual_credit",
+      "condition": "Concurrent authenticated submissions use the same sender-scoped idempotency key and identical request fingerprint.",
+      "event_sequence": [
+        "concurrent_payment_submissions",
+        "claim_index_conflict_resolution",
+        "committed_payment_and_outbox_resolution"
+      ],
+      "expected_disposition": "SingleOperationResolved",
+      "external_dispatch_allowed": null,
+      "expected_financial_effect": "Exactly one logical Payment, creation claim, and stable outbox effect is created; exact retries resolve to the original operation without repeating value effects or mutation bookkeeping.",
+      "required_evidence": [
+        "sender_identity",
+        "operation_id_digest",
+        "request_fingerprint",
+        "winning_claim_hash",
+        "source_payment_id",
+        "outbox_effect_id",
+        "race_result"
+      ],
+      "forbidden_claims": [
+        "each_retry_is_a_new_payment",
+        "local_operation_id_proves_external_provider_deduplication"
+      ]
+    },
+    {
+      "id": "PAY-MYC-002",
+      "adapter_class": "mycelix_internal_or_mutual_credit",
+      "condition": "Concurrent submissions reuse one sender-scoped idempotency key with different request fingerprints, such as amount, recipient, currency, payment type, or memo.",
+      "event_sequence": [
+        "concurrent_payment_submissions",
+        "claim_index_conflict_resolution",
+        "request_fingerprint_comparison"
+      ],
+      "expected_disposition": "IdempotencyConflict",
+      "external_dispatch_allowed": false,
+      "expected_financial_effect": "Only the winning request may create the operation; every conflicting fingerprint fails closed without another Payment, outbox effect, or mutation-side bookkeeping.",
+      "required_evidence": [
+        "sender_identity",
+        "operation_id_digest",
+        "winning_request_fingerprint",
+        "conflicting_request_fingerprint",
+        "winning_claim_hash",
+        "conflict_result"
+      ],
+      "forbidden_claims": [
+        "changed_payload_under_same_sender_key_is_a_new_payment",
+        "conflicting_retry_may_update_the_original_payment"
+      ]
+    },
+    {
+      "id": "PAY-TREASURY-001",
+      "adapter_class": "mycelix_internal_or_mutual_credit",
+      "condition": "Treasury commits a destination-scoped receipt, then the caller fails before the Payments source record can advance from Pending; a later drain retries the same effect.",
+      "event_sequence": [
+        "payments_outbox_committed",
+        "treasury_receipt_committed",
+        "payment_status_write_failed",
+        "receipt_lookup",
+        "payment_status_reconciled"
+      ],
+      "expected_disposition": "ExistingReceiptResolved",
+      "external_dispatch_allowed": null,
+      "expected_financial_effect": "Recovery finds the exact existing receipt for the same destination and effect identity, confirms it against the committed outbox and Payment intent, and advances local status without applying a second Treasury balance change.",
+      "required_evidence": [
+        "source_outbox_hash",
+        "effect_id",
+        "destination_scope",
+        "destination_scoped_receipt_id",
+        "payment_status_before",
+        "payment_status_after",
+        "balance_delta"
+      ],
+      "forbidden_claims": [
+        "receipt_replay_adds_another_balance_credit",
+        "pending_payment_status_proves_no_treasury_receipt_exists"
+      ]
+    },
+    {
+      "id": "PAY-TREASURY-002",
+      "adapter_class": "mycelix_internal_or_mutual_credit",
+      "condition": "A Treasury credit arrives with an effect ID but no exact committed Payments outbox record and matching Payment intent.",
+      "event_sequence": [
+        "treasury_credit_requested",
+        "source_outbox_lookup",
+        "payment_record_lookup",
+        "authority_binding_check"
+      ],
+      "expected_disposition": "UnanchoredEffectRejected",
+      "external_dispatch_allowed": false,
+      "expected_financial_effect": "No Treasury balance change occurs; the effect is rejected or held for reconciliation until exact committed source evidence is available.",
+      "required_evidence": [
+        "effect_id",
+        "source_outbox_lookup_result",
+        "payment_record_lookup_result",
+        "authority_binding_evaluation",
+        "rejection_reason",
+        "balance_before",
+        "balance_after"
+      ],
+      "forbidden_claims": [
+        "effect_id_alone_authorizes_credit",
+        "missing_source_evidence_may_be_bypassed_for_retry"
+      ]
+    },
+    {
+      "id": "PAY-TREASURY-003",
+      "adapter_class": "mycelix_internal_or_mutual_credit",
+      "condition": "Many distinct valid fee effects and duplicate retries concurrently target one CommonsPool whose available balance is near the maximum representable u64.",
+      "event_sequence": [
+        "concurrent_credit_attempts",
+        "destination_scoped_receipt_deduplication",
+        "destination_balance_checked_arithmetically",
+        "serialized_receipt_commit"
+      ],
+      "expected_disposition": "ConcurrentCreditsSerialized",
+      "external_dispatch_allowed": null,
+      "expected_financial_effect": "Each stable effect ID contributes at most once; available_balance never exceeds u64::MAX; credits that would overflow checked u64 addition are rejected without a receipt or partial balance change.",
+      "required_evidence": [
+        "destination_scope",
+        "balance_before",
+        "balance_after",
+        "maximum_representable_balance",
+        "effect_id_set",
+        "destination_scoped_receipts",
+        "rejected_effect_ids"
+      ],
+      "forbidden_claims": [
+        "competing_credits_may_overflow_shared_pool",
+        "every_competing_credit_must_succeed"
+      ]
+    },
+    {
+      "id": "PAY-MYC-003",
+      "adapter_class": "mycelix_internal_or_mutual_credit",
+      "condition": "Two different authenticated sender DIDs use the same client idempotency key and the same request fingerprint.",
+      "event_sequence": [
+        "sender_A_payment_submission",
+        "sender_B_payment_submission",
+        "sender_scoped_operation_identity_resolution",
+        "exact_retry_per_sender"
+      ],
+      "expected_disposition": "SenderScopedOperationsIsolated",
+      "external_dispatch_allowed": null,
+      "expected_financial_effect": "Each sender receives a distinct deterministic operation identity and its own at-most-once Payment/outbox effect; retries resolve only within that sender's namespace.",
+      "required_evidence": [
+        "sender_A_identity",
+        "sender_B_identity",
+        "shared_idempotency_key_digest",
+        "operation_id_A",
+        "operation_id_B",
+        "payment_id_A",
+        "payment_id_B",
+        "outbox_effect_id_A",
+        "outbox_effect_id_B"
+      ],
+      "forbidden_claims": [
+        "same_key_is_globally_unique_across_senders",
+        "one_senders_retry_may_resolve_another_senders_payment"
+      ]
+    },
+    {
+      "id": "PAY-MYC-004",
+      "adapter_class": "mycelix_internal_or_mutual_credit",
+      "condition": "Two same-agent zome calls begin from one source-chain snapshot; one commits the payment claim, while the other loses the source-chain-head race and is rolled back with a chain-head-moved error.",
+      "event_sequence": [
+        "two_zome_calls_read_same_snapshot",
+        "first_payment_transaction_commits_atomically",
+        "second_transaction_returns_chain_head_moved",
+        "losing_transaction_scratch_is_discarded",
+        "losing_caller_retries_same_sender_key_and_fingerprint",
+        "winning_claim_and_payment_are_resolved"
+      ],
+      "expected_disposition": "ChainHeadMovedRetryResolvesOriginal",
+      "external_dispatch_allowed": null,
+      "expected_financial_effect": "The losing transaction contributes no claim, Payment, rate-limit mutation, or outbox record; retrying with the original sender-scoped key returns the winning operation and preserves exactly one value-moving effect.",
+      "required_evidence": [
+        "initial_source_chain_revision",
+        "winning_commit_action_hash",
+        "chain_head_moved_error",
+        "losing_transaction_rollback_evidence",
+        "original_operation_id",
+        "winning_claim_hash",
+        "payment_id",
+        "outbox_effect_id",
+        "retry_request_fingerprint",
+        "value_effect_count"
+      ],
+      "forbidden_claims": [
+        "chain_head_moved_means_the_original_payment_did_not_commit",
+        "losing_transaction_may_partially_commit",
+        "retry_may_use_a_fresh_idempotency_key"
+      ]
+    }
+  ]
+}
