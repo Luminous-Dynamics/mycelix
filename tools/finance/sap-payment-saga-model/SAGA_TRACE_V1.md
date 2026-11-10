@@ -59,12 +59,14 @@ Each draw performs, in order:
 
 All multiplication and addition wrap modulo (2^{64}).
 
-Exactly six draws are consumed, in this order: scenario, operation nonce, effect nonce, checkpoint nonce, amount, fee.
+Exactly six draws are consumed, in this order: scenario, operation nonce, effect nonce, checkpoint nonce, amount, fee. Scenario 2 emits the AuthoritativeAbsence disposition only after a simulated pre-effect loss; scenario 4 uses LookupUncertain and must remain unresolved. These are simulated dispositions in the test trace, not proof that a real adapter's absence query meets an authoritative-absence contract.
 
 - Scenario = first draw modulo 8 plus 1.
 - Amount = fifth draw modulo 1,000,000 plus 1.
 - Fee = sixth draw modulo 1,001.
 - All other draws become the corresponding nonce values.
+
+The response-loss fault values identify where the injected loss occurs in the synthetic schedule; they do not grant the caller knowledge of whether the external effect occurred. A subsequent ReconcileTreasury command supplies the simulated observation.
 
 The generator emits one of eight bounded templates: normal completion/checkpointing; pre-effect acknowledgement loss, destination-qualified authoritative absence and same-effect recovery; post-effect acknowledgement loss and receipt reconciliation; unresolved external outcome; immutable-intent mutation; duplicate delivery with receipt-mismatch rejection and event mutation; stale/forked checkpoint plus wrong-owner evidence; and separately identified compensation.
 
