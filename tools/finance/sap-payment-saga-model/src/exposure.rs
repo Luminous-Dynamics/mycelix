@@ -463,7 +463,7 @@ mod tests {
             scope: scope(),
             sequence: 1,
             maximum_total_minor,
-            maximum_per_effect_minor: 800,
+            maximum_per_effect_minor: maximum_total_minor.min(800),
             policy_digest: digest('d'),
         }
     }
