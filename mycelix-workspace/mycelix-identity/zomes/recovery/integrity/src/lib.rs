@@ -489,22 +489,15 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                             "Request vote link target must target a RecoveryVote".into(),
                         ));
                     };
-                    if request_id_hash != string_index_hash(&vote.request_id) {
-                        return Ok(ValidateCallbackResult::Invalid(
-                            "Vote link base must match the vote's request ID".into(),
-                        ));
+                    match validate_request_vote_link_fields(
+                        &request_id_hash,
+                        &vote,
+                        vote_record.action().author(),
+                        &action.author,
+                    ) {
+                        Ok(()) => Ok(ValidateCallbackResult::Valid),
+                        Err(reason) => Ok(ValidateCallbackResult::Invalid(reason.into())),
                     }
-                    if vote_record.action().author() != &action.author {
-                        return Ok(ValidateCallbackResult::Invalid(
-                            "Only the vote author may create its request index link".into(),
-                        ));
-                    }
-                    if vote.trustee != format!("did:mycelix:{}", action.author) {
-                        return Ok(ValidateCallbackResult::Invalid(
-                            "Vote index link author must match the authenticated trustee".into(),
-                        ));
-                    }
-                    Ok(ValidateCallbackResult::Valid)
                 }
             }
         }
@@ -560,6 +553,28 @@ fn string_index_hash(value: &str) -> EntryHash {
             .chain([0u8; 4])
             .collect(),
     )
+}
+
+/// Validate the request-ID indexed vote link shared by all conductors.
+/// Holochain link targets are DHT-wide, while request IDs are deterministic
+/// string identifiers; this keeps vote lookup independent of the initiator's
+/// local source-chain placement.
+fn validate_request_vote_link_fields(
+    base_hash: &EntryHash,
+    vote: &RecoveryVote,
+    vote_author: &AgentPubKey,
+    link_author: &AgentPubKey,
+) -> Result<(), &'static str> {
+    if base_hash != &string_index_hash(&vote.request_id) {
+        return Err("Vote link base must match the vote's request ID");
+    }
+    if vote_author != link_author {
+        return Err("Only the vote author may create its request index link");
+    }
+    if vote.trustee != format!("did:mycelix:{}", link_author) {
+        return Err("Vote index link author must match the authenticated trustee");
+    }
+    Ok(())
 }
 
 /// Check the ownership and target/base binding for a DID-to-recovery-config
@@ -1607,6 +1622,42 @@ mod author_binding_tests {
             &did,
             &owner,
             &other_agent()
+        ).is_err());
+    }
+
+    #[test]
+    fn request_vote_link_uses_shared_request_id_index_and_authenticated_author() {
+        let author = me();
+        let vote = valid_vote(format!("did:mycelix:{}", author));
+        let request_id_base = string_index_hash(&vote.request_id);
+        assert!(validate_request_vote_link_fields(
+            &request_id_base,
+            &vote,
+            &author,
+            &author
+        ).is_ok());
+
+        let wrong_request_base = string_index_hash("another-request");
+        assert!(validate_request_vote_link_fields(
+            &wrong_request_base,
+            &vote,
+            &author,
+            &author
+        ).is_err());
+
+        assert!(validate_request_vote_link_fields(
+            &request_id_base,
+            &vote,
+            &other_agent(),
+            &author
+        ).is_err());
+
+        let forged_trustee = valid_vote(format!("did:mycelix:{}", other_agent()));
+        assert!(validate_request_vote_link_fields(
+            &request_id_base,
+            &forged_trustee,
+            &author,
+            &author
         ).is_err());
     }
 
