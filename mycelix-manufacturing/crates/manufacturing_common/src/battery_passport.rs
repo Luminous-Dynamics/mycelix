@@ -179,6 +179,7 @@ fn issue_event_matches(
 ) -> bool {
     if record.issuing_event_digest != event.event_digest
         || record.issued_at_ms != event.occurred_at_ms
+        || record.issuing_operator_ref != event.actor_ref
         || record.physical_battery_id != event.physical_battery_id
         || record.configuration_digest != event.resulting_configuration_digest
     {
@@ -340,6 +341,11 @@ pub fn validate_battery_passport_lineage(
                 if event.passport_id.as_ref() != Some(predecessor) {
                     return Err("remanufacture/repurpose event must name the current predecessor passport".to_owned());
                 }
+                if current_configuration_digest.as_deref()
+                    == Some(event.resulting_configuration_digest.as_str())
+                {
+                    return Err("remanufacture/repurpose must produce a new engineering configuration".to_owned());
+                }
                 let successor = event.successor_passport_id.as_ref()
                     .filter(|value| nonempty(value))
                     .ok_or_else(|| "remanufacture/repurpose must name the new passport".to_owned())?;
@@ -452,6 +458,9 @@ pub enum PassportAccessClass {
 
 impl PassportAccessClass {
     pub fn allows(self, audience: PassportAudience) -> bool {
+        if audience == PassportAudience::ResponsibleOperator {
+            return true;
+        }
         match self {
             Self::Public => true,
             Self::AuthorityRestricted => matches!(
@@ -866,6 +875,25 @@ mod tests {
         record.issue_kind = PassportIssueKind::Repurpose;
         record.issuing_event_digest = event.event_digest.clone();
         assert!(validate_battery_passport_lineage(&lineage).is_ok());
+    }
+
+    #[test]
+    fn simple_repair_cannot_issue_a_successor_passport() {
+        let mut lineage = make_lineage();
+        let repair = &mut lineage.events[2];
+        repair.successor_passport_id = Some("passport-forged".to_owned());
+        repair.seal().unwrap();
+        assert!(validate_battery_passport_lineage(&lineage).is_err());
+    }
+
+    #[test]
+    fn remanufacture_requires_a_changed_configuration_digest() {
+        let mut lineage = make_lineage();
+        lineage.events[3].resulting_configuration_digest = digest(1);
+        lineage.events[3].seal().unwrap();
+        lineage.passports[1].configuration_digest = digest(1);
+        lineage.passports[1].issuing_event_digest = lineage.events[3].event_digest.clone();
+        assert!(validate_battery_passport_lineage(&lineage).is_err());
     }
 
     #[test]
