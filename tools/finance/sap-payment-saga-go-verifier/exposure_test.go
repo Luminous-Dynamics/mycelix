@@ -1,6 +1,10 @@
 package sagaverifier
 
-import "testing"
+import (
+	"os"
+	"strings"
+	"testing"
+)
 
 func exposureTestDigest(value byte) string {
 	const hex = "0123456789abcdef"
@@ -173,13 +177,23 @@ func TestCancellationOnlyBeforeDispatch(t *testing.T) {
 }
 
 func TestExposureSnapshotMatchesSharedKnownAnswer(t *testing.T) {
+	raw, err := os.ReadFile("../sap-payment-saga-model/fixtures/sap-payment-exposure-v1.kat")
+	if err != nil { t.Fatal(err) }
+	var expected string
+	for _, line := range strings.Split(string(raw), "\n") {
+		if strings.HasPrefix(line, "snapshot_sha256=") {
+			expected = strings.TrimPrefix(line, "snapshot_sha256=")
+			break
+		}
+	}
+	if expected == "" { t.Fatal("missing exposure snapshot known answer") }
 	book, err := NewExposureBookV1(exposureTestPolicy(1_000))
 	if err != nil { t.Fatal(err) }
 	intent := exposureTestIntent("effect:1", 600)
 	if _, err := book.Reserve(intent); err != nil { t.Fatal(err) }
 	got, err := book.CanonicalSnapshotDigest()
 	if err != nil { t.Fatal(err) }
-	const want = "sha256:8dd30c578ad7cf3f0a648aae137593a4d767d899099732433fa5da4d8186ae17"
+	const want = "sha256:" + expected
 	if got != want { t.Fatalf("snapshot digest = %s, want %s", got, want) }
 }
 
