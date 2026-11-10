@@ -72,8 +72,8 @@ The trace grammar and draw order are versioned. Any change requires a new profil
 
 ## Test discipline
 
-- The shared fixture `fixtures/saga-trace-v1.kat` pins one exact canonical trace and digest.
-- Rust and Go tests independently regenerate the fixture.
+- The shared fixture `fixtures/saga-trace-v1.kat` pins the exact canonical bytes for a primary vector plus independent SHA-256 known answers for all eight scenario templates.
+- Rust and Go tests independently regenerate the primary byte vector and all eight scenario digests; the digest values were calculated independently with Python's fixed-width integer/struct encoding and hashlib.
 - A 4,096-seed deterministic smoke corpus checks repeatability and scenario coverage.
 - This initial tranche does not yet execute the commands against the saga models, check economic invariants per trace, minimize counterexamples, or run one million traces.
 - No provider is called and no production zome or ledger state is mutated.
