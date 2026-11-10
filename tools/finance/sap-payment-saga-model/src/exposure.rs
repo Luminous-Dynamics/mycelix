@@ -149,7 +149,7 @@ impl std::error::Error for ExposureError {}
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[repr(u8)]
 pub enum ExposureResolutionKind {
-    SettlementReceipt = 1,
+    FinalSettlementEvidence = 1,
     AuthoritativeAbsence = 2,
 }
 
@@ -188,6 +188,24 @@ impl DestinationResolutionV1 {
 pub struct ExposureBookV1 {
     policy: ExposurePolicyV1,
     reservations: BTreeMap<String, ExposureReservationV1>,
+}
+
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub struct ExposureBreakdownV1 {
+    pub reserved_minor: u64,
+    pub dispatch_authorized_minor: u64,
+    pub indeterminate_minor: u64,
+    pub committed_unsettled_minor: u64,
+}
+
+impl ExposureBreakdownV1 {
+    pub fn total_minor(self) -> Result<u64, ExposureError> {
+        self.reserved_minor
+            .checked_add(self.dispatch_authorized_minor)
+            .and_then(|value| value.checked_add(self.indeterminate_minor))
+            .and_then(|value| value.checked_add(self.committed_unsettled_minor))
+            .ok_or(ExposureError::AmountOverflow)
+    }
 }
 
 impl ExposureBookV1 {
@@ -294,7 +312,7 @@ impl ExposureBookV1 {
             .reservations
             .get(effect_id)
             .ok_or(ExposureError::ReservationNotFound)?;
-        evidence.validate_against(reservation, ExposureResolutionKind::SettlementReceipt)?;
+        evidence.validate_against(reservation, ExposureResolutionKind::FinalSettlementEvidence)?;
         if reservation.status == ExposureStatus::Settled {
             return Ok(());
         }
@@ -350,15 +368,26 @@ impl ExposureBookV1 {
         self.reservations.len()
     }
 
+    pub fn breakdown_minor(&self) -> Result<ExposureBreakdownV1, ExposureError> {
+        let mut totals = ExposureBreakdownV1::default();
+        for reservation in self.reservations.values() {
+            let amount = reservation.intent.maximum_exposure_minor;
+            let bucket = match reservation.status {
+                ExposureStatus::Reserved => &mut totals.reserved_minor,
+                ExposureStatus::DispatchAuthorized => &mut totals.dispatch_authorized_minor,
+                ExposureStatus::Indeterminate => &mut totals.indeterminate_minor,
+                ExposureStatus::CommittedUnsettled => &mut totals.committed_unsettled_minor,
+                ExposureStatus::Settled
+                | ExposureStatus::AuthoritativelyAbsent
+                | ExposureStatus::CancelledBeforeDispatch => continue,
+            };
+            *bucket = bucket.checked_add(amount).ok_or(ExposureError::AmountOverflow)?;
+        }
+        Ok(totals)
+    }
+
     pub fn total_exposure_minor(&self) -> Result<u64, ExposureError> {
-        self.reservations
-            .values()
-            .filter(|reservation| reservation.status.contributes_to_limit())
-            .try_fold(0_u64, |total, reservation| {
-                total
-                    .checked_add(reservation.intent.maximum_exposure_minor)
-                    .ok_or(ExposureError::AmountOverflow)
-            })
+        self.breakdown_minor()?.total_minor()
     }
 
     pub fn headroom_minor(&self) -> Result<u64, ExposureError> {
@@ -505,7 +534,7 @@ mod tests {
 
     fn resolution(effect_id: &str) -> DestinationResolutionV1 {
         DestinationResolutionV1 {
-            kind: ExposureResolutionKind::SettlementReceipt,
+            kind: ExposureResolutionKind::FinalSettlementEvidence,
             effect_id: effect_id.into(),
             destination_id: "dest:provider-a".into(),
             payload_digest: digest('b'),
