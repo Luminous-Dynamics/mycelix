@@ -831,45 +831,15 @@ fn validate_create_self_recovery_config(
     Ok(ValidateCallbackResult::Valid)
 }
 
-/// Validate self-recovery request creation
-///
-/// Deliberately NOT author-bound (reviewed 2026-07-08, P0 pass): binding
-/// this to action.author() would be architecturally WRONG, not just
-/// unnecessary. Self-recovery exists specifically for when the DID owner's
-/// ORIGINAL agent key is unreachable -- the whole point is that the
-/// committing agent is necessarily a *different* key (a new device/session)
-/// than the one being recovered from. Its actual security comes from
-/// anchor-possession proof (verified_anchors must match
-/// SelfRecoveryConfig.anchors, checked coordinator-side in
-/// initiate_self_recovery/verify_self_recovery_anchor), not agent identity.
-///
-/// KNOWN GAP found while reviewing this path (out of scope to fix here):
-/// `verify_self_recovery_anchor` checks anchor possession by comparing the
-/// caller-supplied hash against the enrolled hash list with no actual
-/// proof-of-control (no signature challenge) -- anyone who knows/guesses/
-/// leaks the phone/email hash can "verify" that anchor. This is a
-/// proof-of-possession gap, architecturally different from the
-/// author-identity forgeries fixed elsewhere this pass (same class as the
-/// report_reputation forgery gap documented in the bridge zome).
+/// Self-recovery request creation is disabled until the proof-of-control
+/// protocol is implemented. A caller-supplied hash is not evidence that the
+/// caller controls the phone, email, device, passkey, or biometric factor.
 fn validate_create_self_recovery_request(
-    request: SelfRecoveryRequest,
+    _request: SelfRecoveryRequest,
 ) -> ExternResult<ValidateCallbackResult> {
-    if !request.did.starts_with("did:mycelix:") {
-        return Ok(ValidateCallbackResult::Invalid(
-            "DID must start with 'did:mycelix:'".into(),
-        ));
-    }
-    if request.reason.is_empty() {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Recovery reason is required".into(),
-        ));
-    }
-    if request.status != RecoveryStatus::Pending {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Initial status must be Pending".into(),
-        ));
-    }
-    Ok(ValidateCallbackResult::Valid)
+    Ok(ValidateCallbackResult::Invalid(
+        "Self-recovery requests are disabled until challenge-backed anchor proof is implemented".into(),
+    ))
 }
 
 /// Only an inactive self-recovery configuration may be maintained. Anchor
@@ -909,18 +879,6 @@ fn validate_update_self_recovery_config(
         ));
     }
     Ok(ValidateCallbackResult::Valid)
-}
-
-/// Self-recovery request creation is disabled until the proof-of-control
-/// protocol is implemented. A caller-supplied hash is not evidence that the
-/// caller controls the phone, email, device, passkey, or biometric factor.
-fn validate_create_self_recovery_request(
-    _action: EntryCreationAction,
-    _request: SelfRecoveryRequest,
-) -> ExternResult<ValidateCallbackResult> {
-    Ok(ValidateCallbackResult::Invalid(
-        "Self-recovery requests are disabled until challenge-backed anchor proof is implemented".into(),
-    ))
 }
 
 /// Existing self-recovery requests cannot transition while the verification
