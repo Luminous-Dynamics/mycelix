@@ -44,6 +44,25 @@ The 17 Rust unit tests cover sender/key retry, immutable-intent conflict, amount
 
 The model checks the **shape and semantic agreement** of caller-supplied evidence. It does not recompute that an evidence digest matches evidence bytes, verify Ed25519, fetch real Holochain records, prove the Payment predecessor is valid, verify Treasury's actual balance transition, or authenticate the caller's capability/authority. A SHA-256-shaped string or action-reference-shaped string is not proof of authenticity. Production integrity code must resolve and validate the source records and cryptographic proofs.
 
+## Canonical effect-evidence digest v1
+
+The reference model no longer accepts a merely SHA-256-shaped evidence_digest. It recomputes the digest over the complete typed evidence subject using the domain-separated profile MXSAP-EFFECT-EVIDENCE-V1 followed by a NUL byte.
+
+The byte profile is fixed and versioned:
+
+- UTF-8 strings use a four-byte unsigned big-endian byte length followed by the exact UTF-8 bytes.
+- Minor-unit values use eight-byte unsigned big-endian integers.
+- Common fields are ordered as operation ID, effect ID, leg, sender DID, recipient DID, principal, fee and currency.
+- The local-transaction and Treasury-fee variants use separate one-byte type tags and fixed field orders. Payment status and optional outbox identity also have explicit one-byte tags.
+- Every string field is limited to 4,096 UTF-8 bytes. Invalid or over-limit fields are rejected.
+- evidence_digest is excluded from its own preimage. The output is lowercase sha256: plus 64 hexadecimal digits.
+
+Rust and Go consume the same known-answer fixture at tools/finance/sap-payment-saga-go-verifier/fixtures/sap-payment-evidence-v1.kat. The fixed Treasury vector produces sha256:5d4182a07eaa54dc3c5a358a8cee0b98019d333e8d9eae8cd1fd759c635461d9.
+
+This is a project-specific canonical binary profile, not a claim of RFC 8785 JSON Canonicalization Scheme or deterministic CBOR conformance. Any field/order/encoding change requires a new profile version and new known-answer vectors.
+
+The digest now detects changes to typed evidence fields even if the caller recomputes the digest after mutation. It still does not authenticate the source: production code must resolve the cited Holochain actions, verify Ed25519 and predecessor authority, and establish that the signed evidence actually corresponds to committed records. signature_digest remains only a typed digest reference in this model; signature verification is not implemented here.
+
 ## Distributed-systems and production limitations
 
 - The Mutex concurrency test proves only that this in-memory registry serializes its own threads.
@@ -56,7 +75,7 @@ Production implementation must compose with #4491 (sender-scoped operation ident
 
 ## Exact tests and next gate
 
-The model has **17 unit tests authored**. The dedicated workflow pins Rust 1.96.0 and runs formatting, tests and Clippy. A queued run is not PASS; tests have not been locally compiled in the authoring environment because no Rust/Cargo/Nix toolchain is available.
+The model has **20 unit tests authored**, including two shared canonical-digest known-answer vectors, typed-field mutation check and over-limit field rejection. The dedicated workflow pins Rust 1.96.0 and runs formatting, tests and Clippy. A queued run is not PASS; tests have not been locally compiled in the authoring environment because no Rust/Cargo/Nix toolchain is available.
 
 Next production gates:
 - same-sender concurrent zome-call test: one transaction commits; stale chain-head attempt leaves no partial local write set;
