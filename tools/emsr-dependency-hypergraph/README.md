@@ -83,7 +83,7 @@ The standard-library Rust driver at `examples/scale_benchmark.rs` emits a versio
 - `star_shared_root`: 10, 100, 1,000, 10,000 and 100,000 sources sharing one dependency hyperedge.
 - `deep_shared_chain`: 10, 100, 1,000 and 10,000 sources traversing a 256-edge common lineage.
 - `paired_deep_chains_depth_10000`: two independent 10,000-edge dependency lineages converging on one common ancestor. This is a dedicated depth-stress case with two sources, not a 10,000-source case.
-- `layered_hierarchy`, `overlap_clock`, `overlap_power`, `overlap_network`, `sparse_independent` and `unknown_dependency`: each measured at 10, 100, 1,000 and 10,000 sources.
+- `layered_hierarchy`, `overlap_clock`, `overlap_power`, `overlap_network`, `sparse_independent`, `unknown_dependency`, `stale_dependency`, `unavailable_dependency` and `partial_inventory_unknown`: each measured at 10, 100, 1,000 and 10,000 sources. The final three uncertainty families explicitly distinguish unqualified common-cause assertions from missing dependency metadata in a snapshot whose `complete` flag is false.
 
 Each case records its topology, dependency domain, source/node/hyperedge counts, total subject-reference count, direct source-hyperedge-reference count, average direct hyperedges per queried source, serialized input bytes and SHA-256, expected and actual disposition, verifier status/check count, and Linux high-water RSS when available. The Rust evaluator and separately implemented Rust reference verifier are timed separately. The evaluator timing includes strict input parsing and evaluation; report serialization is outside the timed interval. Each timing record retains the raw per-run samples in measurement order as well as p50/p95/p99, min and max.
 
