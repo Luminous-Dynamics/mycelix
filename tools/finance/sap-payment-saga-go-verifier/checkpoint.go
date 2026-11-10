@@ -36,7 +36,7 @@ type OwnerCheckpointSubjectV1 struct {
 	OperationID                string
 	IntentDigest               string
 	OwnerDomain                CheckpointOwnerDomain
-	JournalIdentityDigest     string
+	JournalIdentityDigest      string
 	EventCount                 uint64
 	TailDigest                 string
 	CheckpointSequence         uint64
