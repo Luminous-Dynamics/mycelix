@@ -74,7 +74,9 @@
         "channel_profile_id",
         "identity_state",
         "serial_identity_reused",
-        "lifecycle_state"
+        "lifecycle_state",
+        "protocol_profile_verification_receipt_id",
+        "protocol_profile_verifier_id"
       ],
       "properties": {
         "instrument_id": {
@@ -146,6 +148,14 @@
         },
         "local_read_only_supported": {
           "type": "boolean"
+        },
+        "protocol_profile_verification_receipt_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "protocol_profile_verifier_id": {
+          "type": "string",
+          "minLength": 1
         }
       }
     },
@@ -667,7 +677,9 @@
         "installation_record_id",
         "rights_state",
         "acquisition_mode",
-        "local_read_only"
+        "local_read_only",
+        "protocol_profile_digest",
+        "read_only_session_receipt_id"
       ],
       "properties": {
         "observation_id": {
@@ -781,6 +793,14 @@
         },
         "local_read_only": {
           "type": "boolean"
+        },
+        "protocol_profile_digest": {
+          "type": "string",
+          "minLength": 1
+        },
+        "read_only_session_receipt_id": {
+          "type": "string",
+          "minLength": 1
         }
       }
     },
