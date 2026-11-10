@@ -1,5 +1,5 @@
 use super::{
-    EffectEvidence, EffectState, PaymentIntent, PaymentJournal, PaymentLeg, SagaError,
+    EffectEvidence, PaymentIntent, PaymentJournal, PaymentLeg, SagaError,
 };
 use sha2::{Digest, Sha256};
 
