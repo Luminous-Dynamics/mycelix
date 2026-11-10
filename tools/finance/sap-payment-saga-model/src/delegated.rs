@@ -573,7 +573,8 @@ mod tests {
         let first_scope = child_scope("operator:a", "dest:a");
         let second_scope = child_scope("operator:b", "dest:b");
         parent.allocate_child_budget("provider-a", first_scope.clone(), 600, 1, digest('1')).unwrap();
-        parent.reserve("provider-a", child_intent(first_scope.clone(), "effect:existing", 200)).unwrap();
+        let existing_intent = child_intent(first_scope.clone(), "effect:existing", 200);
+        parent.reserve("provider-a", existing_intent.clone()).unwrap();
         parent.allocate_child_budget("provider-b", second_scope, 300, 2, digest('2')).unwrap();
 
         let mut lower = parent_policy(800);
@@ -582,6 +583,10 @@ mod tests {
         lower.policy_digest = digest('e');
         parent.replace_policy(lower).unwrap();
         assert_eq!(parent.available_parent_budget_minor(), Ok(0));
+        assert_eq!(
+            parent.reserve("provider-a", existing_intent),
+            Ok(ExposureDisposition::AlreadyReserved)
+        );
         assert_eq!(
             parent.reserve("provider-a", child_intent(first_scope.clone(), "effect:new", 50)),
             Err(ExposureError::LimitExceeded)
