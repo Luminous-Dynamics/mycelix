@@ -581,10 +581,14 @@ mod tests {
 
     #[test]
     fn snapshot_is_canonical_and_insertion_order_independent() {
+        let kat = include_str!("../fixtures/sap-payment-exposure-v1.kat");
+        let expected = kat.lines()
+            .find_map(|line| line.strip_prefix("snapshot_sha256="))
+            .expect("shared exposure snapshot KAT exists");
         let mut first = ExposureBookV1::new(policy(1_000)).unwrap();
         first.reserve(intent("effect:1", 600)).unwrap();
         let actual = first.canonical_snapshot_digest().unwrap();
-        assert_eq!(actual, "sha256:8dd30c578ad7cf3f0a648aae137593a4d767d899099732433fa5da4d8186ae17");
+        assert_eq!(actual.strip_prefix("sha256:"), Some(expected));
 
         let mut second = ExposureBookV1::new(policy(1_000)).unwrap();
         second.reserve(intent("effect:2", 100)).unwrap();
