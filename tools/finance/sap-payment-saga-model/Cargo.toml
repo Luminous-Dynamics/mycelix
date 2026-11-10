@@ -16,3 +16,8 @@ sha2 = "=0.10.9"
 name = "replay_benchmark"
 path = "benches/replay_benchmark.rs"
 harness = false
+
+[[bench]]
+name = "outbox_benchmark"
+path = "benches/outbox_benchmark.rs"
+harness = false
