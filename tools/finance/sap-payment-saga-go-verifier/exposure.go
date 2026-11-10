@@ -6,7 +6,6 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"errors"
-	"fmt"
 	"sort"
 	"strings"
 )
@@ -431,6 +430,3 @@ func appendExposureU64(output *bytes.Buffer, value uint64) {
 	output.Write(encoded[:])
 }
 
-func exposureDigest(byteValue byte) string {
-	return fmt.Sprintf("sha256:%c", byteValue) + strings.Repeat(string(byteValue), 63)
-}
