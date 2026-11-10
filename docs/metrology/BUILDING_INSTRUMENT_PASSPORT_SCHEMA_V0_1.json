@@ -814,8 +814,7 @@
                 "minLength": 1
               },
               "correlation_group": {
-                "type": "string",
-                "minLength": 1
+                "type": "string"
               },
               "source_record_id": {
                 "type": "string",
