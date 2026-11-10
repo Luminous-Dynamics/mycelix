@@ -1,6 +1,23 @@
 package sagaverifier
 
-import "testing"
+import (
+	"os"
+	"strings"
+	"testing"
+)
+
+func checkpointVector(name string) string {
+	data, err := os.ReadFile("fixtures/sap-payment-journal-checkpoint-v1.kat")
+	if err != nil {
+		panic(err)
+	}
+	for _, line := range strings.Split(string(data), "\\n") {
+		if strings.HasPrefix(line, name+"=") {
+			return strings.TrimPrefix(line, name+"=")
+		}
+	}
+	panic("missing checkpoint known-answer vector: " + name)
+}
 
 func checkpointTestIntent() Intent {
 	return Intent{
@@ -38,14 +55,14 @@ func TestCanonicalCheckpointMatchesSharedCrossLanguageVector(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if want := "sha256:4226d08540bfc19a3dfd9249480cfe21d1358c2b6153919ec137f691ebd46348"; intentDigest != want {
+	if want := checkpointVector("intent-digest"); intentDigest != want {
 		t.Fatalf("intent digest = %s, want %s", intentDigest, want)
 	}
 	got, err := checkpointTestSubject().CanonicalDigest(intent)
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := "sha256:369cfa206f8ba9cbdeb866bb1672cdb14369ce8046c0166319c397e446d52081"
+	want := checkpointVector("payments-checkpoint-digest")
 	if got != want {
 		t.Fatalf("checkpoint digest = %s, want %s", got, want)
 	}
