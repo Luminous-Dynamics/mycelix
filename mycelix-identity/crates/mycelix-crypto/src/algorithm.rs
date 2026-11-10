@@ -244,4 +244,35 @@ mod tests {
         assert_eq!(AlgorithmId::from_u16(0x0000), None);
         assert_eq!(AlgorithmId::from_u16(0xFFFF), None);
     }
+
+    #[test]
+    fn algorithm_roles_are_explicit_and_disjoint() {
+        for algorithm in [
+            AlgorithmId::Ed25519,
+            AlgorithmId::MlDsa65,
+            AlgorithmId::MlDsa87,
+            AlgorithmId::SlhDsaSha2_128s,
+            AlgorithmId::SlhDsaShake128s,
+            AlgorithmId::HybridEd25519MlDsa65,
+            AlgorithmId::MlKem768,
+            AlgorithmId::MlKem1024,
+        ] {
+            assert!(algorithm.is_public_key_algorithm());
+        }
+        assert!(!AlgorithmId::XChaCha20Poly1305.is_public_key_algorithm());
+
+        for algorithm in [
+            AlgorithmId::Ed25519,
+            AlgorithmId::MlDsa65,
+            AlgorithmId::MlDsa87,
+            AlgorithmId::SlhDsaSha2_128s,
+            AlgorithmId::SlhDsaShake128s,
+            AlgorithmId::HybridEd25519MlDsa65,
+        ] {
+            assert!(algorithm.is_signature_algorithm());
+        }
+        assert!(!AlgorithmId::MlKem768.is_signature_algorithm());
+        assert!(!AlgorithmId::MlKem1024.is_signature_algorithm());
+        assert!(!AlgorithmId::XChaCha20Poly1305.is_signature_algorithm());
+    }
 }
