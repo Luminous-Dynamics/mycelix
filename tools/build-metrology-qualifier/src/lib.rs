@@ -6,7 +6,7 @@
 use serde::de::{MapAccess, SeqAccess, Visitor};
 use serde::{Deserialize, Deserializer};
 use serde_json::{Map, Value};
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeSet;
 use std::fmt;
 
 pub const PROFILE_JSON: &str = include_str!("../../../docs/metrology/BUILDING_METROLOGY_PROFILE_V0_1.json");
@@ -257,7 +257,7 @@ fn validate_profile_schema(schema: &Value) -> Result<(), String> {
     if schema["properties"]["schema_version"]["const"] != "mycelix.building-metrology-profile/0.1"
         || schema["properties"]["profile_id"]["const"] != PROFILE_ID
         || schema["properties"]["classification"]["const"] != "synthetic_measurement_requirements_only"
-        || schema["properties"]["claim_ceiling"]["const"] != "instrument_profile_schema_and_physical_thresholds_not_set"
+        || schema["properties"]["claim_ceiling"]["const"] != "instrument_profile_schema_and_synthetic_admission_logic_only"
         || schema["properties"]["owner"]["const"] != "Mycelix"
         || schema["properties"]["owner_issue"]["const"]
             != "https://github.com/Luminous-Dynamics/mycelix/issues/6025"
