@@ -67,6 +67,9 @@
         "hardware_revision",
         "firmware_revision",
         "protocol_profile_id",
+        "protocol_profile_digest",
+        "protocol_profile_state",
+        "local_read_only_supported",
         "channel_id",
         "channel_profile_id",
         "identity_state",
@@ -129,6 +132,20 @@
             "replaced",
             "retired"
           ]
+        },
+        "protocol_profile_digest": {
+          "type": "string",
+          "minLength": 1
+        },
+        "protocol_profile_state": {
+          "enum": [
+            "independently_verified",
+            "provider_asserted",
+            "unknown"
+          ]
+        },
+        "local_read_only_supported": {
+          "type": "boolean"
         }
       }
     },
@@ -633,6 +650,7 @@
         "firmware_revision",
         "value",
         "unit",
+        "observed_at_date",
         "qc_state",
         "event_time_seconds",
         "acquisition_time_seconds",
@@ -648,7 +666,8 @@
         "calibration_record_id",
         "installation_record_id",
         "rights_state",
-        "observed_at_date"
+        "acquisition_mode",
+        "local_read_only"
       ],
       "properties": {
         "observation_id": {
@@ -752,6 +771,16 @@
         "observed_at_date": {
           "type": "string",
           "format": "date"
+        },
+        "acquisition_mode": {
+          "enum": [
+            "local",
+            "remote",
+            "manual"
+          ]
+        },
+        "local_read_only": {
+          "type": "boolean"
         }
       }
     },
