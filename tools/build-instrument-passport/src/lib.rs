@@ -827,7 +827,10 @@ fn validate_schema_contracts(passport_schema: &Value, corpus_schema: &Value) -> 
         ("uncertainty_budget", "uncertainty_budget"),
         ("purpose_profile", "purpose_profile"),
     ] {
-        if passport_schema["properties"][field]["$ref"] != format!("#/$defs/{definition}") {
+        let expected_reference = format!("#/$defs/{definition}");
+        if passport_schema["properties"][field]["$ref"].as_str()
+            != Some(expected_reference.as_str())
+        {
             return Err("PASSPORT_SCHEMA_REFERENCE_INVALID".to_owned());
         }
     }
