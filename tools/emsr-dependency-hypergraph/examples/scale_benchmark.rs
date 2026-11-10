@@ -393,10 +393,7 @@ fn build_paired_deep_chain_graph(depth: usize) -> (HypergraphInput, &'static str
     });
     let mut edges = Vec::with_capacity(depth.saturating_mul(2));
 
-    for (label, source_id) in [
-        ("a", "deep-source-a"),
-        ("b", "deep-source-b"),
-    ] {
+    for (label, source_id) in [("a", "deep-source-a"), ("b", "deep-source-b")] {
         let mut previous = source_id.to_owned();
         for index in 0..depth.saturating_sub(1) {
             let current = format!("deep-{label}-node-{index:05}");
