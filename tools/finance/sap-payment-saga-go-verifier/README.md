@@ -45,8 +45,18 @@ Both languages load the same known-answer file at fixtures/sap-payment-evidence-
 
 This is a project-specific canonical binary profile, not a claim of RFC 8785/JCS or CBOR conformance. It detects typed-field mutation, but it does not prove that the fields describe authentic Holochain actions or a real ledger movement.
 
+## Anchored append-only journal replay
+
+`replay.go` adds a standard-library-only reducer for the same typed event stream as Rust `src/replay.rs`. It reconstructs a fresh `Journal` from create, authorize/reject, effect-prepared, indeterminate and effect-committed events.
+
+Each frame binds a sequence number, prior-frame digest, versioned event encoding and event digest. Replay verifies sequence continuity, the hash chain, operation identity, external event-count/tail anchor and legal journal transitions. Committed effects re-run typed evidence and canonical digest validation.
+
+Both languages consume `fixtures/sap-payment-journal-replay-v1.kat`, which pins the create, authorize and local-effect-preparation frame digests. The Go tests also replay a full local-payment/Treasury recovery with an indeterminate fee result, and reject tail truncation, reordered/tampered events, impossible transitions and invalid committed evidence.
+
+This is a reference replay model, not a durable Holochain event store. The anchor must be held independently to detect tail truncation, and the anchor itself is not authenticated by this model. A fully rewritten stream plus rewritten anchor can be rehashed. Production still requires independently protected checkpoints, authenticated source records and ActionHash/predecessor verification.
+
 ## Claim ceiling
 
-A passing test suite demonstrates agreement of this Go implementation with its own frozen synthetic scenario expectations. It does not establish equivalence to Rust unless the same scenarios are executed against the Rust model; Holochain source-chain singleton uniqueness, DHT convergence, cross-agent exclusivity or fork exclusion; evidence-digest recomputation, Ed25519 verification, ActionHash resolution or predecessor authorisation; actual SAP account movement or Treasury receipt; provider idempotency, external bank settlement, recipient availability or legal finality; live performance, regulatory compliance or production readiness.
+A passing test suite demonstrates agreement of this Go implementation with its own frozen synthetic scenario expectations. It does not establish equivalence to Rust unless the same scenarios are executed against the Rust model; Holochain source-chain singleton uniqueness, DHT convergence, cross-agent exclusivity or fork exclusion; Ed25519 verification, ActionHash resolution or predecessor authorisation; actual SAP account movement or Treasury receipt; provider idempotency, external bank settlement, recipient availability or legal finality; live performance, regulatory compliance or production readiness.
 
 The Go registry's mutex test only demonstrates in-process serialization. It is not a distributed exactly-once theorem.
