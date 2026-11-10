@@ -70,7 +70,7 @@ The CI qualification captures the Go version, OS/architecture and CPU model, ret
 
 ## Owner-scoped journal checkpoint subject v1
 
-`checkpoint.go` independently implements the same fixed-field checkpoint subject profile as Rust `src/checkpoint.rs`. The shared `fixtures/sap-payment-journal-checkpoint-v1.kat` pins exact canonical preimage bytes and SHA-256 digests for Payments, Treasury, and a second Treasury checkpoint in the same owner-scoped sequence.
+`checkpoint.go` independently implements the same fixed-field checkpoint subject profile as Rust `src/checkpoint.rs`. The shared `fixtures/sap-payment-journal-checkpoint-v1.kat` pins exact canonical preimage bytes and SHA-256 digests for Payments, Treasury, a second Treasury checkpoint in the same owner-scoped sequence, and the terminal digests of paired synthetic Payments/Treasury chains at 100, 1,000 and 10,000 checkpoints.
 
 The `MXSAP-JOURNAL-CHECKPOINT-V1` profile binds, in fixed order:
 
