@@ -28,6 +28,7 @@ var (
 	ErrCheckpointInvalid = errors.New("owner checkpoint subject is invalid")
 	ErrCheckpointInvalidDigest = errors.New("owner checkpoint digest is not canonical sha256")
 	ErrCheckpointInvalidSequence = errors.New("owner checkpoint sequence/prior link is invalid")
+	ErrCheckpointJournalIdentity = errors.New("owner checkpoint journal identity does not match operation and intent")
 )
 
 type OwnerCheckpointSubjectV1 struct {
@@ -60,6 +61,9 @@ func (s OwnerCheckpointSubjectV1) Validate() error {
 		if err := validateOwnerCheckpointDigest(value); err != nil {
 			return err
 		}
+	}
+	if s.EventLogDigest != ownerCheckpointJournalIdentityDigest(s.OperationID, s.IntentDigest) {
+		return ErrCheckpointJournalIdentity
 	}
 	if s.EventCount == 0 {
 		return ErrCheckpointInvalid
@@ -149,6 +153,14 @@ func (s OwnerCheckpointSubjectV1) Digest() (string, error) {
 	}
 	digest := sha256.Sum256(encoded)
 	return "sha256:" + hex.EncodeToString(digest[:]), nil
+}
+
+func ownerCheckpointJournalIdentityDigest(operationID, intentDigest string) string {
+	encoded := []byte("MXSAP-JOURNAL-IDENTITY-V1\\x00")
+	encoded, _ = appendOwnerCheckpointText(encoded, operationID)
+	encoded, _ = appendOwnerCheckpointText(encoded, intentDigest)
+	digest := sha256.Sum256(encoded)
+	return "sha256:" + hex.EncodeToString(digest[:])
 }
 
 func validateOwnerCheckpointText(value string) error {
