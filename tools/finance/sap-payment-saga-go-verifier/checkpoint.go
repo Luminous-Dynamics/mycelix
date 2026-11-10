@@ -11,6 +11,7 @@ import (
 
 const (
 	checkpointSubjectDomain = "MXSAP-JOURNAL-CHECKPOINT-SUBJECT-V1\x00"
+	paymentIntentDomain     = "MXSAP-PAYMENT-INTENT-V1\x00"
 	maxCheckpointFieldBytes = 4096
 )
 
