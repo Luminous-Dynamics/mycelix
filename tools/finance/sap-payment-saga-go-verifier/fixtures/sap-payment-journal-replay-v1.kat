@@ -1,0 +1,5 @@
+# MXSAP-JOURNAL-EVENT-V1 known-answer vectors
+# Format: event name=sha256 digest of exact frame bytes, including sequence and previous digest.
+created-basic=sha256:c09e67d2bd8efcde28f0bc70a56b17dabd7d9e40cf83369c223de9a2072fd2ed
+authorized-after-created=sha256:3622293d726255c4fb5a6b73f4eec4841db4cc2683e6067acbe17407c795037f
+local-prepared-after-authorized=sha256:e9eff513982d9588755cc1568e542c1d326901e31e218005c8d96a65b0f486bb
