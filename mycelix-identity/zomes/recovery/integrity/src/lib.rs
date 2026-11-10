@@ -314,6 +314,41 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     }
 }
 
+/// Canonical DID binding for this deployment: the identifier suffix is
+/// the Holochain agent public key that authored the identity record.
+fn recovery_config_matches_owner_did(did: &str, owner: &AgentPubKey) -> bool {
+    did == format!("did:mycelix:{}", owner)
+}
+
+/// Verify that a recovery request is authorized by the frozen policy revision.
+fn recovery_request_matches_config(
+    request: &RecoveryRequest,
+    config: &RecoveryConfig,
+    author: &AgentPubKey,
+) -> bool {
+    let author_did = format!("did:mycelix:{}", author);
+    config.did == request.did
+        && config.active
+        && config.trustees.contains(&request.initiated_by)
+        && request.initiated_by == author_did
+}
+
+/// Verify signer binding, request binding, and trustee membership independent
+/// of coordinator behavior.
+fn recovery_vote_matches_policy(
+    vote: &RecoveryVote,
+    request: &RecoveryRequest,
+    config: &RecoveryConfig,
+    author: &AgentPubKey,
+) -> bool {
+    let author_did = format!("did:mycelix:{}", author);
+    vote.request_id == request.id
+        && vote.trustee == author_did
+        && config.did == request.did
+        && config.active
+        && config.trustees.contains(&vote.trustee)
+}
+
 /// Validate recovery config creation
 fn validate_create_recovery_config(
     action: EntryCreationAction,
@@ -336,8 +371,7 @@ fn validate_create_recovery_config(
     // Bind the protected DID itself to the owner. Without this check an
     // attacker can create a config whose owner is their own key but whose
     // DID names a victim, then publish attacker-controlled trustees for it.
-    let expected_owner_did = format!("did:mycelix:{}", action.author());
-    if config.did != expected_owner_did {
+    if !recovery_config_matches_owner_did(&config.did, action.author()) {
         return Ok(ValidateCallbackResult::Invalid(
             "Recovery config DID must correspond to the committing owner".into(),
         ));
@@ -476,24 +510,10 @@ fn validate_create_recovery_request(
         ));
     }
 
-    // Validate initiator is a DID
-    if !request.initiated_by.starts_with("did:") {
+    // Validate initiator is a DID.
+    if !request.initiated_by.starts_with("did:mycelix:") {
         return Ok(ValidateCallbackResult::Invalid(
-            "Initiator must be a valid DID".into(),
-        ));
-    }
-
-    // Author-binding: the coordinator's initiate_recovery already checks
-    // `input.initiator_did != caller_did` ("Caller does not own the
-    // initiator DID") before creating the entry, but that check is
-    // bypassable by a modified coordinator -- the integrity validator is
-    // the real security boundary. Without this, any agent could commit a
-    // RecoveryRequest naming an arbitrary trustee as initiator, forging
-    // trustee-initiated identity recovery. Bind here as belt-and-suspenders.
-    let expected_initiator_did = format!("did:mycelix:{}", action.author());
-    if request.initiated_by != expected_initiator_did {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Recovery request initiator DID must correspond to the committing agent".into(),
+            "Initiator must be a valid Mycelix DID".into(),
         ));
     }
 
@@ -516,7 +536,7 @@ fn validate_create_recovery_request(
         .ok_or(wasm_error!(WasmErrorInner::Guest(
             "Referenced recovery config entry is invalid".into()
         )))?;
-    if config.did != request.did || !config.active || !config.trustees.contains(&request.initiated_by) {
+    if !recovery_request_matches_config(&request, &config, action.author()) {
         return Ok(ValidateCallbackResult::Invalid(
             "Recovery request must target an active config and be initiated by one of its trustees".into(),
         ));
@@ -1035,7 +1055,7 @@ fn validate_create_recovery_vote(
                .ok_or(wasm_error!(WasmErrorInner::Guest(
             "Referenced recovery config entry is invalid".into()
         )))?;
-    if config.did != request.did || !config.active || !config.trustees.contains(&vote.trustee) {
+    if !recovery_vote_matches_policy(&vote, &request, &config, action.author()) {
         return Ok(ValidateCallbackResult::Invalid(
             "Recovery vote author is not an authorized trustee for this request".into(),
         ));
@@ -1063,22 +1083,6 @@ fn validate_create_recovery_vote(
 mod author_binding_tests {
     use super::*;
 
-    fn test_action(author: AgentPubKey) -> Create {
-        Create {
-            author,
-            timestamp: Timestamp::from_micros(0),
-            action_seq: 0,
-            prev_action: ActionHash::from_raw_36(vec![0u8; 36]),
-            entry_type: EntryType::App(AppEntryDef::new(
-                EntryDefIndex::from(0),
-                0.into(),
-                EntryVisibility::Public,
-            )),
-            entry_hash: EntryHash::from_raw_36(vec![0u8; 36]),
-            weight: Default::default(),
-        }
-    }
-
     fn me() -> AgentPubKey {
         AgentPubKey::from_raw_36(vec![0u8; 36])
     }
@@ -1087,13 +1091,26 @@ mod author_binding_tests {
         AgentPubKey::from_raw_36(vec![1u8; 36])
     }
 
-    fn valid_request(initiated_by: String) -> RecoveryRequest {
+    fn config(did: String, trustees: Vec<String>, active: bool) -> RecoveryConfig {
+        RecoveryConfig {
+            did,
+            owner: me(),
+            trustees,
+            threshold: 2,
+            time_lock: 86_400,
+            active,
+            created: Timestamp::from_micros(0),
+            updated: Timestamp::from_micros(0),
+        }
+    }
+
+    fn request(initiated_by: String) -> RecoveryRequest {
         RecoveryRequest {
             id: "req-1".into(),
-            did: "did:mycelix:owner".into(),
-            new_agent: me(),
+            did: format!("did:mycelix:{}", other_agent()),
+            new_agent: other_agent(),
             initiated_by,
-            reason: "Owner lost device".into(),
+            reason: "Owner lost access".into(),
             status: RecoveryStatus::Pending,
             created: Timestamp::from_micros(0),
             time_lock_expires: None,
@@ -1101,27 +1118,7 @@ mod author_binding_tests {
         }
     }
 
-    #[test]
-    fn create_request_valid_when_initiator_matches_committer() {
-        let req = valid_request(format!("did:mycelix:{}", me()));
-        let result =
-            validate_create_recovery_request(EntryCreationAction::Create(test_action(me())), req)
-                .unwrap();
-        assert_eq!(result, ValidateCallbackResult::Valid);
-    }
-
-    #[test]
-    fn create_request_initiator_forgery_rejected() {
-        let req = valid_request(format!("did:mycelix:{}", me()));
-        let result = validate_create_recovery_request(
-            EntryCreationAction::Create(test_action(other_agent())),
-            req,
-        )
-        .unwrap();
-        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
-    }
-
-    fn valid_vote(trustee: String) -> RecoveryVote {
+    fn vote(trustee: String) -> RecoveryVote {
         RecoveryVote {
             request_id: "req-1".into(),
             trustee,
@@ -1133,22 +1130,84 @@ mod author_binding_tests {
     }
 
     #[test]
-    fn create_vote_valid_when_trustee_matches_committer() {
-        let vote = valid_vote(format!("did:mycelix:{}", me()));
-        let result =
-            validate_create_recovery_vote(EntryCreationAction::Create(test_action(me())), vote)
-                .unwrap();
-        assert_eq!(result, ValidateCallbackResult::Valid);
+    fn recovery_config_must_name_its_owner_did() {
+        assert!(recovery_config_matches_owner_did(
+            &format!("did:mycelix:{}", me()),
+            &me()
+        ));
+        assert!(!recovery_config_matches_owner_did(
+            &format!("did:mycelix:{}", other_agent()),
+            &me()
+        ));
     }
 
     #[test]
-    fn create_vote_trustee_forgery_rejected() {
-        let vote = valid_vote(format!("did:mycelix:{}", me()));
-        let result = validate_create_recovery_vote(
-            EntryCreationAction::Create(test_action(other_agent())),
-            vote,
-        )
-        .unwrap();
-        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    fn recovery_request_requires_config_trustee_and_author_binding() {
+        let author = me();
+        let initiator = format!("did:mycelix:{}", author);
+        let target_did = format!("did:mycelix:{}", other_agent());
+        let req = request(initiator.clone());
+        let policy = config(
+            target_did,
+            vec![initiator.clone(), "did:mycelix:another-trustee".into(), "did:mycelix:third".into()],
+            true,
+        );
+        assert!(recovery_request_matches_config(&req, &policy, &author));
+
+        let non_trustee = request("did:mycelix:outsider".into());
+        assert!(!recovery_request_matches_config(&non_trustee, &policy, &author));
+
+        let inactive = config(
+            req.did.clone(),
+            policy.trustees.clone(),
+            false,
+        );
+        assert!(!recovery_request_matches_config(&req, &inactive, &author));
+
+        let wrong_target = config(
+            format!("did:mycelix:{}", me()),
+            policy.trustees.clone(),
+            true,
+        );
+        assert!(!recovery_request_matches_config(&req, &wrong_target, &author));
+
+        assert!(!recovery_request_matches_config(&req, &policy, &other_agent()));
+    }
+
+    #[test]
+    fn recovery_vote_requires_trustee_membership_and_author_binding() {
+        let author = me();
+        let trustee_did = format!("did:mycelix:{}", author);
+        let req = request("did:mycelix:initiator".into());
+        let policy = config(
+            req.did.clone(),
+            vec![trustee_did.clone(), "did:mycelix:other".into(), "did:mycelix:third".into()],
+            true,
+        );
+
+        assert!(recovery_vote_matches_policy(
+            &vote(trustee_did.clone()),
+            &req,
+            &policy,
+            &author
+        ));
+        assert!(!recovery_vote_matches_policy(
+            &vote("did:mycelix:outsider".into()),
+            &req,
+            &policy,
+            &other_agent()
+        ));
+        assert!(!recovery_vote_matches_policy(
+            &vote("did:mycelix:outsider".into()),
+            &req,
+            &policy,
+            &author
+        ));
+        assert!(!recovery_vote_matches_policy(
+            &vote(trustee_did),
+            &request("other-request".into()),
+            &policy,
+            &author
+        ));
     }
 }
