@@ -207,7 +207,8 @@ func (b *ParentDelegatedExposureBookV1) Reserve(
 	}
 	allocated, err := b.AllocatedBudgetMinor()
 	if err != nil { return 0, err }
-	if allocated > b.policy.MaximumTotalMinor {
+	if grant.BudgetMinor > b.policy.MaximumChildBudgetMinor ||
+		allocated > b.policy.MaximumTotalMinor {
 		return 0, ErrExposureLimitExceeded
 	}
 	return grant.ChildBook.Reserve(intent)
