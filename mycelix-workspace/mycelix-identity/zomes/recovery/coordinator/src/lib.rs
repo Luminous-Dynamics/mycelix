@@ -1122,6 +1122,12 @@ pub fn create_self_recovery(input: CreateSelfRecoveryInput) -> ExternResult<Reco
     }
 
     let agent = agent_info()?.agent_initial_pubkey;
+    let expected_did = format!("did:mycelix:{}", agent);
+    if input.did != expected_did {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Self-recovery config DID must belong to the calling agent".into()
+        )));
+    }
     let now = sys_time()?;
 
     let config = SelfRecoveryConfig {
@@ -1195,6 +1201,15 @@ pub fn add_verification_anchor(input: AddVerificationAnchorInput) -> ExternResul
     if config.owner != agent {
         return Err(wasm_error!(WasmErrorInner::Guest(
             "Only the DID owner can add verification anchors".into()
+        )));
+    }
+
+    // Do not let a repeated enrollment inflate the number of apparent
+    // independent recovery factors. The integrity zome also enforces this
+    // invariant so a modified coordinator cannot bypass it.
+    if config.anchors.contains(&input.anchor) {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Verification anchor is already enrolled".into()
         )));
     }
 
