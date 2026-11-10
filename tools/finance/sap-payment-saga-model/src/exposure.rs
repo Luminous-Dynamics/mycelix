@@ -93,18 +93,6 @@ pub enum ExposureStatus {
     CancelledBeforeDispatch = 7,
 }
 
-impl ExposureStatus {
-    fn contributes_to_limit(self) -> bool {
-        matches!(
-            self,
-            Self::Reserved
-                | Self::DispatchAuthorized
-                | Self::Indeterminate
-                | Self::CommittedUnsettled
-        )
-    }
-}
-
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ExposureReservationV1 {
     pub intent: ExposureIntentV1,
