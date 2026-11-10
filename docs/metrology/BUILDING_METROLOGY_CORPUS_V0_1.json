@@ -529,12 +529,12 @@
     },
     {
       "case_id": "BM-019",
-      "description": "An electrical power channel is relabelled with accumulated-energy quantity semantics and units.",
+      "description": "An electrical power measurand is relabelled with accumulated-energy quantity semantics and units.",
       "measurement": {
         "profile_id": "MYC-BUILD-METROLOGY-PROFILE-V0.1",
         "instrument_identity_state": "established",
         "instrument_id": "SYNTHETIC-ELECTRICAL_POWER-001",
-        "measurand_id": "habitat.electrical_energy",
+        "measurand_id": "habitat.electrical_power",
         "quantity_kind": "energy",
         "unit": "kWh",
         "raw_or_derived": "raw",
