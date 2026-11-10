@@ -216,9 +216,10 @@ mod tests {
     fn fixture_field(name: &str) -> &str {
         CHECKPOINT_FIXTURE
             .lines()
-            .find_map(|line| line.split_once('='))
-            .filter(|(key, _)| *key == name)
-            .map(|(_, value)| value)
+            .find_map(|line| {
+                let (key, value) = line.split_once('=')?;
+                (key == name).then_some(value)
+            })
             .unwrap_or_else(|| panic!("missing checkpoint fixture field: {name}"))
     }
 
