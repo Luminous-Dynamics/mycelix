@@ -223,26 +223,34 @@ pub fn setup_recovery(input: SetupRecoveryInput) -> ExternResult<Record> {
             "DID must be 1-256 characters".into()
         )));
     }
-    if input.trustees.is_empty() {
+    if input.trustees.len() < 3 || input.trustees.len() > 7 {
         return Err(wasm_error!(WasmErrorInner::Guest(
-            "At least one trustee is required".into()
-        )));
-    }
-    if input.trustees.len() > 50 {
-        return Err(wasm_error!(WasmErrorInner::Guest(
-            "Maximum 50 trustees allowed".into()
+            "Recovery requires 3-7 trustees".into()
         )));
     }
     for trustee in &input.trustees {
-        if trustee.is_empty() || trustee.len() > 256 {
+        if !trustee.starts_with("did:mycelix:") || trustee.len() > 256 {
             return Err(wasm_error!(WasmErrorInner::Guest(
-                "Each trustee DID must be 1-256 characters".into()
+                "Each trustee must be a valid did:mycelix identifier".into()
             )));
         }
     }
-    if input.threshold == 0 || input.threshold > input.trustees.len() as u32 {
+    let unique_trustees: HashSet<&String> = input.trustees.iter().collect();
+    if unique_trustees.len() != input.trustees.len() {
         return Err(wasm_error!(WasmErrorInner::Guest(
-            "Threshold must be between 1 and the number of trustees".into()
+            "Duplicate trustees are not allowed".into()
+        )));
+    }
+    let min_threshold = (input.trustees.len() as u32).div_ceil(2);
+    if input.threshold < min_threshold || input.threshold as usize > input.trustees.len() {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Threshold must be a majority and cannot exceed trustee count".into()
+        )));
+    }
+    let time_lock = input.time_lock.unwrap_or(86400 * 7);
+    if time_lock < 86400 {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Recovery time lock must be at least 24 hours".into()
         )));
     }
     let agent_info = agent_info()?;
@@ -259,7 +267,7 @@ pub fn setup_recovery(input: SetupRecoveryInput) -> ExternResult<Record> {
         owner: agent_info.agent_initial_pubkey,
         trustees: input.trustees,
         threshold: input.threshold,
-        time_lock: input.time_lock.unwrap_or(86400 * 7), // Default 7 days
+        time_lock, // Default 7 days
         active: true,
         created: now,
         updated: now,
@@ -399,6 +407,11 @@ pub fn initiate_recovery(input: InitiateRecoveryInput) -> ExternResult<Record> {
         .ok_or(wasm_error!(WasmErrorInner::Guest(
             "Invalid recovery config".into()
         )))?;
+    if !config.active {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Recovery configuration is inactive".into()
+        )));
+    }
 
     // Verify initiator is a trustee (constant-time to prevent timing side-channel)
     let is_trustee = config.trustees.iter().fold(0u8, |acc, trustee| {
