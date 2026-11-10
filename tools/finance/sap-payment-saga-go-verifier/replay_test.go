@@ -234,6 +234,16 @@ func TestJournalEventReplayReconstructsLocalAndTreasuryRecovery(t *testing.T) {
 	}
 }
 
+func TestJournalEventTextFieldsAreBoundedBeforeHashing(t *testing.T) {
+	var output []byte
+	if err := appendJournalEventText(&output, strings.Repeat("x", maxJournalEventFieldBytes)); err != nil {
+		t.Fatalf("maximum-size event field rejected: %v", err)
+	}
+	if err := appendJournalEventText(&output, strings.Repeat("x", maxJournalEventFieldBytes+1)); err != ErrReplayInvalidEvent {
+		t.Fatalf("oversized event field error = %v, want %v", err, ErrReplayInvalidEvent)
+	}
+}
+
 func TestJournalReplayRejectsTailTruncationAgainstExternalAnchor(t *testing.T) {
 	log, err := NewJournalEventLog(replayTestIntent())
 	if err != nil {
