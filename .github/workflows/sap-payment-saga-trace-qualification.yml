@@ -58,7 +58,7 @@ jobs:
       - name: Go formatting
         working-directory: tools/finance/sap-payment-saga-go-verifier
         run: |
-          test -z "$(gofmt -l trace.go trace_test.go exposure.go exposure_test.go)"
+          test -z "$(gofmt -l trace.go trace_test.go exposure.go exposure_test.go delegated_exposure.go delegated_exposure_test.go)"
 
       - name: Go tests with race detector
         working-directory: tools/finance/sap-payment-saga-go-verifier
