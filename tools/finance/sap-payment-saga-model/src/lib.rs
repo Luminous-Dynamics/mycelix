@@ -15,6 +15,8 @@
 use std::collections::{BTreeMap, btree_map::Entry};
 use std::fmt;
 
+use sha2::{Digest, Sha256};
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct PaymentIntent {
     sender_did: String,
@@ -153,6 +155,129 @@ pub enum EffectEvidenceKind {
         predecessor_action: String,
         treasury_action: String,
     },
+}
+
+/// Computes a domain-separated SHA-256 digest over every typed effect-evidence
+/// field except `evidence_digest` itself. Strings are UTF-8 with a u32 big-endian
+/// byte length; monetary values are u64 big-endian. The profile is deliberately
+/// fixed-field and versioned rather than relying on serializer map ordering.
+impl EffectEvidence {
+    pub fn canonical_digest(&self) -> Result<String, SagaError> {
+        let bytes = canonical_effect_evidence_bytes(self)?;
+        let digest = Sha256::digest(&bytes);
+        let mut output = String::with_capacity(71);
+        output.push_str("sha256:");
+        for byte in digest {
+            use std::fmt::Write as _;
+            write!(&mut output, "{byte:02x}").expect("writing to String cannot fail");
+        }
+        Ok(output)
+    }
+}
+
+const MAX_CANONICAL_EVIDENCE_FIELD_BYTES: usize = 4096;
+
+fn append_evidence_text(
+    output: &mut Vec<u8>,
+    value: &str,
+    leg: PaymentLeg,
+) -> Result<(), SagaError> {
+    let bytes = value.as_bytes();
+    if bytes.len() > MAX_CANONICAL_EVIDENCE_FIELD_BYTES {
+        return Err(SagaError::InvalidEffectEvidence(leg));
+    }
+    let length = u32::try_from(bytes.len())
+        .map_err(|_| SagaError::InvalidEffectEvidence(leg))?;
+    output.extend_from_slice(&length.to_be_bytes());
+    output.extend_from_slice(bytes);
+    Ok(())
+}
+
+fn append_evidence_u64(output: &mut Vec<u8>, value: u64) {
+    output.extend_from_slice(&value.to_be_bytes());
+}
+
+fn canonical_effect_evidence_bytes(
+    evidence: &EffectEvidence,
+) -> Result<Vec<u8>, SagaError> {
+    let leg = evidence.leg;
+    let mut output = Vec::with_capacity(1024);
+    output.extend_from_slice(b"MXSAP-EFFECT-EVIDENCE-V1\0");
+
+    append_evidence_text(&mut output, &evidence.operation_id, leg)?;
+    append_evidence_text(&mut output, &evidence.effect_id, leg)?;
+    append_evidence_text(&mut output, evidence.leg.suffix(), leg)?;
+    append_evidence_text(&mut output, &evidence.sender_did, leg)?;
+    append_evidence_text(&mut output, &evidence.recipient_did, leg)?;
+    append_evidence_u64(&mut output, evidence.principal_minor);
+    append_evidence_u64(&mut output, evidence.fee_minor);
+    append_evidence_text(&mut output, &evidence.currency, leg)?;
+
+    match &evidence.kind {
+        EffectEvidenceKind::LocalPaymentTransaction {
+            sender_account_id,
+            recipient_account_id,
+            sender_debit_minor,
+            recipient_credit_minor,
+            sender_predecessor_action,
+            sender_debit_action,
+            recipient_predecessor_action,
+            recipient_credit_action,
+            payment_action_hash,
+            payment_status,
+            receipt_action_hash,
+            receipt_signer_did,
+            signing_profile,
+            signature_digest,
+            treasury_fee_outbox_id,
+        } => {
+            output.push(1);
+            append_evidence_text(&mut output, sender_account_id, leg)?;
+            append_evidence_text(&mut output, recipient_account_id, leg)?;
+            append_evidence_u64(&mut output, *sender_debit_minor);
+            append_evidence_u64(&mut output, *recipient_credit_minor);
+            append_evidence_text(&mut output, sender_predecessor_action, leg)?;
+            append_evidence_text(&mut output, sender_debit_action, leg)?;
+            append_evidence_text(&mut output, recipient_predecessor_action, leg)?;
+            append_evidence_text(&mut output, recipient_credit_action, leg)?;
+            append_evidence_text(&mut output, payment_action_hash, leg)?;
+            output.push(match payment_status {
+                PaymentRecordStatus::Completed => 1,
+                PaymentRecordStatus::Pending => 2,
+                PaymentRecordStatus::Failed => 3,
+            });
+            append_evidence_text(&mut output, receipt_action_hash, leg)?;
+            append_evidence_text(&mut output, receipt_signer_did, leg)?;
+            append_evidence_text(&mut output, signing_profile, leg)?;
+            append_evidence_text(&mut output, signature_digest, leg)?;
+            match treasury_fee_outbox_id {
+                Some(outbox_id) => {
+                    output.push(1);
+                    append_evidence_text(&mut output, outbox_id, leg)?;
+                }
+                None => output.push(0),
+            }
+        }
+        EffectEvidenceKind::TreasuryFee {
+            pool_id,
+            source_member_did,
+            amount_minor,
+            payment_action_hash,
+            idempotency_key,
+            predecessor_action,
+            treasury_action,
+        } => {
+            output.push(2);
+            append_evidence_text(&mut output, pool_id, leg)?;
+            append_evidence_text(&mut output, source_member_did, leg)?;
+            append_evidence_u64(&mut output, *amount_minor);
+            append_evidence_text(&mut output, payment_action_hash, leg)?;
+            append_evidence_text(&mut output, idempotency_key, leg)?;
+            append_evidence_text(&mut output, predecessor_action, leg)?;
+            append_evidence_text(&mut output, treasury_action, leg)?;
+        }
+    }
+    Ok(output)
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -406,8 +531,11 @@ impl PaymentJournal {
             && evidence.recipient_did == self.intent.recipient_did
             && evidence.principal_minor == self.intent.amount_minor
             && evidence.fee_minor == self.intent.fee_minor
-            && evidence.currency == self.intent.currency
-            && is_sha256_digest(&evidence.evidence_digest);
+            && evidence.currency == self.intent.currency;
+        let digest_matches = evidence
+            .canonical_digest()
+            .is_ok_and(|expected| expected == evidence.evidence_digest);
+        let common_valid = common_valid && digest_matches;
         if !common_valid {
             return Err(SagaError::InvalidEffectEvidence(leg));
         }
