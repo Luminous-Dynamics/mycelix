@@ -12,6 +12,7 @@
 //! - Updates MFA state when recovery is executed
 
 use hdk::prelude::*;
+use std::collections::{HashMap, HashSet};
 use mycelix_zome_helpers as _;
 use recovery_integrity::*;
 use subtle::ConstantTimeEq;
@@ -245,6 +246,12 @@ pub fn setup_recovery(input: SetupRecoveryInput) -> ExternResult<Record> {
         )));
     }
     let agent_info = agent_info()?;
+    let owner_did = format!("did:mycelix:{}", agent_info.agent_initial_pubkey);
+    if input.did != owner_did {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Recovery configuration can only be created by the owner of the DID".into()
+        )));
+    }
     let now = sys_time()?;
 
     let config = RecoveryConfig {
@@ -354,16 +361,26 @@ pub fn initiate_recovery(input: InitiateRecoveryInput) -> ExternResult<Record> {
     for link in &request_links {
         if let Ok(action_hash) = ActionHash::try_from(link.target.clone()) {
             if let Ok(Some(record)) = get(action_hash, GetOptions::default()) {
-                if let Ok(Some(req)) = record.entry().to_app_option::<RecoveryRequest>() {
-                    match req.status {
-                        RecoveryStatus::Pending
-                        | RecoveryStatus::Approved
-                        | RecoveryStatus::ReadyToExecute => {
-                            return Err(wasm_error!(WasmErrorInner::Guest(
-                                "An active recovery request already exists for this DID. Cancel it first.".into()
-                            )));
+                if let Ok(Some(snapshot)) = record.entry().to_app_option::<RecoveryRequest>() {
+                    // Resolve the latest indexed version, not just the original
+                    // Pending record. A completed request must not permanently
+                    // block a future recovery attempt.
+                    let latest = get_recovery_request(snapshot.id.clone())?
+                        .or(Some(record));
+                    if let Some(latest_record) = latest {
+                        if let Some(req) = latest_record.entry().to_app_option::<RecoveryRequest>()
+                            .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))? {
+                            match req.status {
+                                RecoveryStatus::Pending
+                                | RecoveryStatus::Approved
+                                | RecoveryStatus::ReadyToExecute => {
+                                    return Err(wasm_error!(WasmErrorInner::Guest(
+                                        "An active recovery request already exists for this DID. Cancel it first.".into()
+                                    )));
+                                }
+                                _ => {}
+                            }
                         }
-                        _ => {} // Completed/Rejected/Cancelled — allow new request
                     }
                 }
             }
@@ -431,6 +448,7 @@ pub fn initiate_recovery(input: InitiateRecoveryInput) -> ExternResult<Record> {
         status: RecoveryStatus::Pending,
         created: now,
         time_lock_expires: None,
+        config_action_hash: Some(config_record.action_address().clone()),
     };
 
     let action_hash = create_entry(&EntryTypes::RecoveryRequest(request))?;
@@ -440,6 +458,12 @@ pub fn initiate_recovery(input: InitiateRecoveryInput) -> ExternResult<Record> {
         string_to_entry_hash(&input.did),
         action_hash.clone(),
         LinkTypes::DidToRecoveryRequest,
+        (),
+    )?;
+    create_link(
+        string_to_entry_hash(&request_id),
+        action_hash.clone(),
+        LinkTypes::RequestIdToRequest,
         (),
     )?;
 
@@ -453,6 +477,7 @@ pub fn initiate_recovery(input: InitiateRecoveryInput) -> ExternResult<Record> {
         vote: VoteDecision::Approve,
         comment: Some("Initiated recovery".to_string()),
         voted_at: now,
+        request_action_hash: Some(action_hash.clone()),
     };
 
     let vote_hash = create_entry(&EntryTypes::RecoveryVote(vote))?;
@@ -547,6 +572,38 @@ pub fn vote_on_recovery(input: VoteOnRecoveryInput) -> ExternResult<Record> {
         )));
     }
 
+    // Resolve the request from its DHT index. The request ID is not an
+    // authorization token: the integrity zome independently follows this
+    // action reference and validates trustee membership against the frozen
+    // recovery configuration.
+    let request_record = get_recovery_request(input.request_id.clone())?
+        .ok_or(wasm_error!(WasmErrorInner::Guest("Recovery request not found".into())))?;
+    let request: RecoveryRequest = request_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest("Invalid recovery request".into())))?;
+    if request.status != RecoveryStatus::Pending {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Recovery request is no longer accepting votes".into()
+        )));
+    }
+    let config_hash = request.config_action_hash.clone().ok_or(wasm_error!(
+        WasmErrorInner::Guest("Recovery request has no config revision".into())
+    ))?;
+    let config_record = get(config_hash, GetOptions::default())?
+        .ok_or(wasm_error!(WasmErrorInner::Guest("Recovery config revision not found".into())))?;
+    let config: RecoveryConfig = config_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest("Invalid recovery config revision".into())))?;
+    if !config.active || !config.trustees.contains(&input.trustee_did) {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Only an authorized trustee in this recovery configuration may vote".into()
+        )));
+    }
+
     // Verify voter has sufficient MFA assurance
     if !verify_mfa_assurance_for_recovery(&input.trustee_did)? {
         return Err(wasm_error!(WasmErrorInner::Guest(
@@ -579,6 +636,7 @@ pub fn vote_on_recovery(input: VoteOnRecoveryInput) -> ExternResult<Record> {
         vote: input.vote,
         comment: input.comment,
         voted_at: now,
+        request_action_hash: Some(request_record.action_address().clone()),
     };
 
     let action_hash = create_entry(&EntryTypes::RecoveryVote(vote))?;
@@ -1040,7 +1098,7 @@ pub fn cancel_recovery(request_id: String) -> ExternResult<Record> {
     )))
 }
 
-/// Get a specific recovery request by ID
+/// Get the latest indexed recovery request version by ID.
 #[hdk_extern]
 pub fn get_recovery_request(request_id: String) -> ExternResult<Option<Record>> {
     if request_id.is_empty() || request_id.len() > 256 {
@@ -1049,13 +1107,42 @@ pub fn get_recovery_request(request_id: String) -> ExternResult<Option<Record>> 
         )));
     }
 
+    let links = get_links(
+        LinkQuery::try_new(
+            string_to_entry_hash(&request_id),
+            LinkTypes::RequestIdToRequest,
+        )?,
+        GetStrategy::default(),
+    )?;
+    let mut candidates = Vec::new();
+    for link in links {
+        let action_hash = ActionHash::try_from(link.target)
+            .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid request index target".into())))?;
+        if let Some(record) = get(action_hash, GetOptions::default())? {
+            if let Some(req) = record
+                .entry()
+                .to_app_option::<RecoveryRequest>()
+                .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+            {
+                if req.id == request_id {
+                    candidates.push((link.timestamp, record));
+                }
+            }
+        }
+    }
+    candidates.sort_by_key(|(timestamp, _)| *timestamp);
+    if let Some((_, record)) = candidates.pop() {
+        return Ok(Some(record));
+    }
+
+    // Legacy compatibility: entries created before RequestIdToRequest was
+    // introduced are discoverable only on their original author's source chain.
     let filter = ChainQueryFilter::new()
         .entry_type(EntryType::App(AppEntryDef::try_from(
             UnitEntryTypes::RecoveryRequest,
         )?))
         .include_entries(true);
-
-    let mut found: Option<Record> = None;
+    let mut found = None;
     for record in query(filter)? {
         if let Some(req) = record
             .entry()
@@ -1063,12 +1150,10 @@ pub fn get_recovery_request(request_id: String) -> ExternResult<Option<Record>> 
             .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
         {
             if req.id == request_id {
-                // Keep iterating — update_entry appends newer versions later in the chain
                 found = Some(record);
             }
         }
     }
-
     Ok(found)
 }
 
