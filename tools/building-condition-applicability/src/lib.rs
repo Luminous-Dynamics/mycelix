@@ -44,7 +44,7 @@ const EXPECTED_CASES:&[(&str,&str)]=&[
 ("CCA-029","OUTSIDE_DECLARED_ENVELOPE"),
 ("CCA-030","OUTSIDE_DECLARED_ENVELOPE"),
 ("CCA-031","MISSING_REQUIRED_CONDITION"),
-("CCA-032","NOT_COMPARABLE"),
+("CCA-032","MISSING_REQUIRED_CONDITION"),
 ("CCA-033","MISSING_REQUIRED_CONDITION"),
 ("CCA-034","EXPIRED_OR_INVALIDATED"),
 ("CCA-035","NOT_COMPARABLE"),
@@ -229,16 +229,20 @@ fn validate_schema_contracts(profile_schema:&Value,corpus_schema:&Value)->Result
  if txt(profile_schema,"title")!="Mycelix Building Condition Profile v0.1"
   ||profile_schema["type"]!="object"||profile_schema["additionalProperties"]!=false
   ||!arr_eq(&profile_schema["required"],PROFILE_FIELDS)
+  ||!exact(&profile_schema["properties"],PROFILE_FIELDS)
   ||!schema_object_matches(&profile_schema["$defs"]["dimension"],DIMENSION_FIELDS)
   ||profile_schema["properties"]["dimensions"]["items"]["$ref"]!="#/$defs/dimension"
  {return Err("PROFILE_SCHEMA_CONTRACT_INVALID".into());}
  if txt(corpus_schema,"title")!="Mycelix Building Condition Applicability Corpus v0.1"
   ||corpus_schema["type"]!="object"||corpus_schema["additionalProperties"]!=false
   ||!arr_eq(&corpus_schema["required"],CORPUS_FIELDS)
+  ||!exact(&corpus_schema["properties"],CORPUS_FIELDS)
   ||corpus_schema["properties"]["cases"]["minItems"]!=EXPECTED_CASES.len()
   ||corpus_schema["properties"]["cases"]["maxItems"]!=EXPECTED_CASES.len()
   ||corpus_schema["properties"]["cases"]["items"]["$ref"]!="#/$defs/case"
   ||!schema_object_matches(&corpus_schema["$defs"]["case"],CASE_FIELDS)
+  ||!schema_object_matches(&corpus_schema["$defs"]["profile"],PROFILE_FIELDS)
+  ||!schema_object_matches(&corpus_schema["$defs"]["case"]["properties"]["record"],RECORD_FIELDS)
   ||corpus_schema["$defs"]["case"]["properties"]["record"]["properties"]["profile"]["$ref"]!="#/$defs/profile"
   ||corpus_schema["$defs"]["case"]["properties"]["record"]["properties"]["observations"]["items"]["$ref"]!="#/$defs/observation"
   ||!schema_object_matches(&corpus_schema["$defs"]["dimension"],DIMENSION_FIELDS)
