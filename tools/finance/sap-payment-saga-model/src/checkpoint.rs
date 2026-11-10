@@ -123,12 +123,10 @@ impl OwnerCheckpointSubjectV1 {
             (_, Some(digest)) => validate_digest(digest)?,
         }
 
-        if self.source_action_hash.len() != HOLOCHAIN_ACTION_HASH_BYTES
-        {
+        if self.source_action_hash.len() != HOLOCHAIN_ACTION_HASH_BYTES {
             return Err(CheckpointError::InvalidSourceActionHash);
         }
-        if self.owner_authority_action_hash.len() != HOLOCHAIN_ACTION_HASH_BYTES
-        {
+        if self.owner_authority_action_hash.len() != HOLOCHAIN_ACTION_HASH_BYTES {
             return Err(CheckpointError::InvalidAuthorityActionHash);
         }
         if require_text(&self.issuer_did).is_err()
