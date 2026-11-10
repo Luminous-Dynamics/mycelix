@@ -9,6 +9,7 @@ use std::collections::BTreeSet;
 use std::fmt;
 
 pub const CORPUS_JSON:&str=include_str!("../../../docs/metrology/BUILDING_CONDITION_APPLICABILITY_CORPUS_V0_1.json");
+pub const PROFILE_SCHEMA_JSON:&str=include_str!("../../../docs/metrology/BUILDING_CONDITION_APPLICABILITY_PROFILE_V0_1.schema.json");
 pub const CORPUS_SCHEMA_JSON:&str=include_str!("../../../docs/metrology/BUILDING_CONDITION_APPLICABILITY_SCHEMA_V0_1.json");
 
 const EXPECTED_CASES:&[(&str,&str)]=&[
@@ -110,6 +111,15 @@ fn expected_dimensions(domain:&str)->Option<Vec<(&'static str,&'static str,&'sta
  _=>None
  }
 }
+fn expected_allowed_values(domain:&str,dimension:&str)->Option<&'static [&'static str]>{
+ match (domain,dimension){
+  ("water-closed-conduit","conduit_fully_charged")=>Some(&["true"]),
+  ("water-closed-conduit","flow_profile")=>Some(&["within_declared_meter_installation_profile"]),
+  ("ac-power-quality-50hz","wiring_topology")=>Some(&["single_phase_correctly_wired","three_phase_correctly_wired"]),
+  ("pm25-monitoring","aerosol_profile")=>Some(&["reference_method_co_location_validated"]),
+  _=>None
+ }
+}
 fn validate_profile(p:&Value)->Result<(),String>{
  if !exact(p,PROFILE_FIELDS)||txt(p,"schema_version")!="mycelix.building-condition-profile/0.1"
  ||txt(p,"classification")!="synthetic_condition_applicability_profile"
@@ -127,8 +137,11 @@ fn validate_profile(p:&Value)->Result<(),String>{
   {return Err(format!("PROFILE_DIMENSION_DRIFT:{id}"));}
   if kind=="numeric_range"{
    if num(d,"minimum")!=Some(min)||num(d,"maximum")!=Some(max)||!d["allowed_values"].as_array().is_some_and(|x|x.is_empty()){return Err(format!("PROFILE_RANGE_DRIFT:{id}"));}
-  }else if !d["minimum"].is_null()||!d["maximum"].is_null()||!d["allowed_values"].is_array()||d["allowed_values"].as_array().is_some_and(|x|x.is_empty()){
-   return Err(format!("PROFILE_CATEGORY_DRIFT:{id}"));
+  }else{
+   let Some(allowed)=expected_allowed_values(txt(p,"domain_id"),id)else{return Err(format!("PROFILE_CATEGORY_UNSUPPORTED:{id}"));};
+   if !d["minimum"].is_null()||!d["maximum"].is_null()||!arr_eq(&d["allowed_values"],allowed){
+    return Err(format!("PROFILE_CATEGORY_DRIFT:{id}"));
+   }
   }
  }
  Ok(())
@@ -141,7 +154,7 @@ fn classify(record:&Value)->&'static str{
  let observations=record["observations"].as_array();
  let Some(observations)=observations else{return "MISSING_REQUIRED_CONDITION";}
  let mut result=Vec::new();
- for d in p["dimensions"].as_array().unwrap_or(&Vec::new()){
+ for d in p["dimensions"].as_array().expect("validated profile dimensions"){
   let id=txt(d,"dimension_id");
   let found:Vec<&Value>=observations.iter().filter(|o|txt(o,"dimension_id")==id).collect();
   if found.is_empty(){result.push("MISSING_REQUIRED_CONDITION");continue;}
@@ -155,7 +168,8 @@ fn classify(record:&Value)->&'static str{
    ||num(o,"valid_to_tick").is_none_or(|x|x.fract()!=0.0||x<num(p,"sample_tick").unwrap_or(-1.0))
    ||num(o,"valid_to_tick").unwrap_or(-1.0)<num(o,"valid_from_tick").unwrap_or(0.0)
   {return "NOT_COMPARABLE";}
-  if !nonempty(o,"source_id")||txt(o,"source_id")==txt(p,"subject_instrument_id")||!nonempty(o,"source_receipt_id"){return "NOT_COMPARABLE";}
+  if !nonempty(o,"source_id")||txt(o,"source_id")==txt(p,"subject_instrument_id"){return "NOT_COMPARABLE";}
+  if !nonempty(o,"source_receipt_id"){return "MISSING_REQUIRED_CONDITION";}
   if txt(o,"rights_state")=="revoked"{return "REJECTED_FOR_DECLARED_PURPOSE";}
   if txt(o,"calibration_state")=="expired"||matches!(txt(o,"quality_state"),"stale"|"device_fault"|"out_of_range"){return "EXPIRED_OR_INVALIDATED";}
   if txt(o,"rights_state")!="authorized"||txt(o,"source_state")!="independently_admitted"
@@ -200,18 +214,56 @@ pub fn validate_corpus(c:&Value)->Result<usize,String>{
  for(case,(id,want))in cases.iter().zip(EXPECTED_CASES){
   if !exact(case,CASE_FIELDS)||txt(case,"case_id")!=*id||txt(case,"description").len()<20||txt(case,"expected_disposition")!=*want
   {return Err(format!("CASE_EXPECTATION_DRIFT:{id}"));}
+  validate_record_shape(&case["record"])?;
   let actual=classify(&case["record"]);
   if actual!=*want{return Err(format!("CASE_DISPOSITION_MISMATCH:{id}:expected={want}:actual={actual}"));}
  }
  Ok(cases.len())
 }
-pub fn validate_tracked()->Result<usize,String>{
- let schema=parse(CORPUS_SCHEMA_JSON)?;
- if txt(&schema,"title")!="Mycelix Building Condition Applicability Corpus v0.1"
-  ||schema["type"]!="object"||schema["additionalProperties"]!=false
-  ||schema["properties"]["cases"]["minItems"]!=40||schema["properties"]["cases"]["maxItems"]!=40
-  ||schema["$defs"]["observation"]["additionalProperties"]!=false
+fn schema_object_matches(schema:&Value,fields:&[&str])->bool{
+ schema["type"]=="object"&&schema["additionalProperties"]==false
+  &&arr_eq(&schema["required"],fields)
+  &&exact(&schema["properties"],fields)
+}
+fn validate_schema_contracts(profile_schema:&Value,corpus_schema:&Value)->Result<(),String>{
+ if txt(profile_schema,"title")!="Mycelix Building Condition Profile v0.1"
+  ||profile_schema["type"]!="object"||profile_schema["additionalProperties"]!=false
+  ||!arr_eq(&profile_schema["required"],PROFILE_FIELDS)
+  ||!schema_object_matches(&profile_schema["$defs"]["dimension"],DIMENSION_FIELDS)
+  ||profile_schema["properties"]["dimensions"]["items"]["$ref"]!="#/$defs/dimension"
+ {return Err("PROFILE_SCHEMA_CONTRACT_INVALID".into());}
+ if txt(corpus_schema,"title")!="Mycelix Building Condition Applicability Corpus v0.1"
+  ||corpus_schema["type"]!="object"||corpus_schema["additionalProperties"]!=false
+  ||!arr_eq(&corpus_schema["required"],CORPUS_FIELDS)
+  ||corpus_schema["properties"]["cases"]["minItems"]!=EXPECTED_CASES.len()
+  ||corpus_schema["properties"]["cases"]["maxItems"]!=EXPECTED_CASES.len()
+  ||corpus_schema["properties"]["cases"]["items"]["$ref"]!="#/$defs/case"
+  ||!schema_object_matches(&corpus_schema["$defs"]["case"],CASE_FIELDS)
+  ||corpus_schema["$defs"]["case"]["properties"]["record"]["properties"]["profile"]["$ref"]!="#/$defs/profile"
+  ||corpus_schema["$defs"]["case"]["properties"]["record"]["properties"]["observations"]["items"]["$ref"]!="#/$defs/observation"
+  ||!schema_object_matches(&corpus_schema["$defs"]["dimension"],DIMENSION_FIELDS)
+  ||!schema_object_matches(&corpus_schema["$defs"]["observation"],OBS_FIELDS)
  {return Err("CORPUS_SCHEMA_CONTRACT_INVALID".into());}
+ Ok(())
+}
+fn validate_record_shape(record:&Value)->Result<(),String>{
+ if !exact(record,RECORD_FIELDS){return Err("RECORD_FIELDS_INVALID".into());}
+ let p=&record["profile"];
+ if !exact(p,PROFILE_FIELDS){return Err("PROFILE_FIELDS_INVALID".into());}
+ let dims=p["dimensions"].as_array().ok_or("DIMENSIONS_MISSING")?;
+ for d in dims{if !exact(d,DIMENSION_FIELDS){return Err("DIMENSION_FIELDS_INVALID".into());}}
+ let observations=record["observations"].as_array().ok_or("OBSERVATIONS_MISSING")?;
+ for o in observations{
+  if !exact(o,OBS_FIELDS){return Err("OBSERVATION_FIELDS_INVALID".into());}
+  if !o["value"].is_number()&&!o["value"].is_string(){return Err("OBSERVATION_VALUE_INVALID".into());}
+  if !o["uncertainty_value"].is_null()&&num(o,"uncertainty_value").is_none(){return Err("OBSERVATION_UNCERTAINTY_INVALID".into());}
+ }
+ Ok(())
+}
+pub fn validate_tracked()->Result<usize,String>{
+ let profile_schema=parse(PROFILE_SCHEMA_JSON)?;
+ let corpus_schema=parse(CORPUS_SCHEMA_JSON)?;
+ validate_schema_contracts(&profile_schema,&corpus_schema)?;
  let corpus=parse(CORPUS_JSON)?;
  validate_corpus(&corpus)
 }
@@ -220,6 +272,11 @@ mod tests{
  use super::*;
  fn case(id:&str)->Value{let c=parse(CORPUS_JSON).unwrap();c["cases"].as_array().unwrap().iter().find(|x|txt(x,"case_id")==id).unwrap().clone()}
  #[test]fn all_40_known_answers_match(){assert_eq!(validate_tracked().unwrap(),40);}
+
+ #[test]fn categorical_vocabularies_are_frozen_not_self_defined(){let mut c=case("CCA-024");c["record"]["profile"]["dimensions"][0]["allowed_values"][0]=Value::String("false".into());assert_eq!(classify(&c["record"]),"NOT_COMPARABLE");}
+ #[test]fn source_receipt_absence_is_missing_evidence(){assert_eq!(classify(&case("CCA-032")["record"]),"MISSING_REQUIRED_CONDITION");}
+ #[test]fn schema_contract_checks_the_standalone_profile_schema(){let s=parse(PROFILE_SCHEMA_JSON).unwrap();assert!(schema_object_matches(&s["$defs"]["dimension"],DIMENSION_FIELDS));}
+ #[test]fn unknown_nested_fields_are_rejected_even_in_negative_cases(){let mut c=case("CCA-017");c["record"]["observations"][0]["unreviewed"]=Value::Bool(true);assert!(validate_record_shape(&c["record"]).is_err());}
  #[test]fn duplicate_json_member_is_rejected(){assert!(parse(r#"{"a":1,"a":2}"#).is_err());}
  #[test]fn missing_critical_condition_never_becomes_within(){assert_eq!(classify(&case("CCA-005")["record"]),"MISSING_REQUIRED_CONDITION");}
  #[test]fn boundary_overlap_is_indeterminate(){assert_eq!(classify(&case("CCA-002")["record"]),"INDETERMINATE_BOUNDARY_OVERLAP");}
