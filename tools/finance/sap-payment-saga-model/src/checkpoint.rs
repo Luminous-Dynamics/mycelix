@@ -91,7 +91,10 @@ impl JournalCheckpointSubject {
 
     pub fn validate(&self) -> Result<(), CheckpointError> {
         for value in [&self.operation_id, &self.owner_did, &self.event_log_id] {
-            if value.trim().is_empty() || value.contains('\0') {
+            if value.trim().is_empty()
+                || value.contains('\0')
+                || value.as_bytes().len() > MAX_CHECKPOINT_TEXT_BYTES
+            {
                 return Err(CheckpointError::InvalidSubject);
             }
         }
@@ -113,7 +116,8 @@ impl JournalCheckpointSubject {
         validate_action_hash(&self.source_action_hash)?;
         match (&self.source_previous_action_hash, self.source_action_sequence) {
             (None, 0) => {}
-            (Some(hash), sequence) if sequence > 0 => validate_action_hash(hash)?,
+            (Some(hash), sequence) if sequence > 0 => validate_action_hash(hash)
+                .map_err(|_| CheckpointError::InvalidSourceChainFrontier)?,
             _ => return Err(CheckpointError::InvalidSourceChainFrontier),
         }
         Ok(())
@@ -349,6 +353,35 @@ mod tests {
         let mut subject = payments_subject(&intent);
         subject.event_log_id = "x".repeat(MAX_CHECKPOINT_TEXT_BYTES + 1);
         assert_eq!(subject.validate(), Err(CheckpointError::InvalidSubject));
+    }
+
+
+    #[test]
+    fn treasury_checkpoints_extend_their_own_chain_and_source_frontier() {
+        let intent = test_intent();
+        let first = treasury_subject(&intent);
+        let vectors = vectors();
+        assert_eq!(
+            first.canonical_digest().expect("first Treasury checkpoint"),
+            vectors["treasury-subject-digest"]
+        );
+
+        let mut next = first.clone();
+        next.event_count = 3;
+        next.checkpoint_sequence = 2;
+        next.previous_checkpoint_digest = Some(
+            first.canonical_digest().expect("prior Treasury checkpoint"),
+        );
+        next.source_action_hash = action_hash(0x99, 0xaa);
+        next.source_action_sequence = 102;
+        next.source_previous_action_hash = Some(first.source_action_hash.clone());
+
+        let bytes = next.canonical_bytes().expect("continued Treasury checkpoint");
+        assert_eq!(hex(&bytes), vectors["treasury-next-subject-hex"]);
+        assert_eq!(
+            next.canonical_digest().expect("continued Treasury digest"),
+            vectors["treasury-next-subject-digest"]
+        );
     }
 
     #[test]
