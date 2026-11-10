@@ -121,15 +121,24 @@ impl<'de> Visitor<'de> for UniqueJsonVisitor {
         formatter.write_str("a JSON value with no duplicate object member names")
     }
 
-    fn visit_bool<E>(self, value: bool) -> Result<Self::Value, E> {
+    fn visit_bool<E>(self, value: bool) -> Result<Self::Value, E>
+    where
+        E: serde::de::Error,
+     {
         Ok(UniqueJson(Value::Bool(value)))
     }
 
-    fn visit_i64<E>(self, value: i64) -> Result<Self::Value, E> {
+    fn visit_i64<E>(self, value: i64) -> Result<Self::Value, E>
+    where
+        E: serde::de::Error,
+     {
         Ok(UniqueJson(Value::Number(value.into())))
     }
 
-    fn visit_u64<E>(self, value: u64) -> Result<Self::Value, E> {
+    fn visit_u64<E>(self, value: u64) -> Result<Self::Value, E>
+    where
+        E: serde::de::Error,
+     {
         Ok(UniqueJson(Value::Number(value.into())))
     }
 
@@ -142,19 +151,31 @@ impl<'de> Visitor<'de> for UniqueJsonVisitor {
         Ok(UniqueJson(Value::Number(number)))
     }
 
-    fn visit_str<E>(self, value: &str) -> Result<Self::Value, E> {
+    fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
+    where
+        E: serde::de::Error,
+     {
         Ok(UniqueJson(Value::String(value.to_owned())))
     }
 
-    fn visit_string<E>(self, value: String) -> Result<Self::Value, E> {
+    fn visit_string<E>(self, value: String) -> Result<Self::Value, E>
+    where
+        E: serde::de::Error,
+     {
         Ok(UniqueJson(Value::String(value)))
     }
 
-    fn visit_unit<E>(self) -> Result<Self::Value, E> {
+    fn visit_unit<E>(self) -> Result<Self::Value, E>
+    where
+        E: serde::de::Error,
+     {
         Ok(UniqueJson(Value::Null))
     }
 
-    fn visit_none<E>(self) -> Result<Self::Value, E> {
+    fn visit_none<E>(self) -> Result<Self::Value, E>
+    where
+        E: serde::de::Error,
+     {
         Ok(UniqueJson(Value::Null))
     }
 
@@ -223,12 +244,55 @@ fn schema_string_property(schema: &Value, property: &str) -> bool {
 }
 
 fn validate_profile_schema(schema: &Value) -> Result<(), String> {
-    if schema["type"] != "object"
+    if schema["$schema"] != "https://json-schema.org/draft/2020-12/schema"
+        || schema["title"] != "Mycelix Building Metrology Profile v0.1"
+        || schema["type"] != "object"
         || schema["additionalProperties"] != false
         || !exact_string_array(&schema["required"], PROFILE_ROOT_FIELDS)
         || !exact_keys(&schema["properties"], PROFILE_ROOT_FIELDS)
     {
         return Err("PROFILE_SCHEMA_ROOT_CONTRACT_INVALID".to_owned());
+    }
+
+    if schema["properties"]["schema_version"]["const"] != "mycelix.building-metrology-profile/0.1"
+        || schema["properties"]["profile_id"]["const"] != PROFILE_ID
+        || schema["properties"]["classification"]["const"] != "synthetic_measurement_requirements_only"
+        || schema["properties"]["claim_ceiling"]["const"] != "instrument_profile_schema_and_physical_thresholds_not_set"
+        || schema["properties"]["owner"]["const"] != "Mycelix"
+        || schema["properties"]["owner_issue"]["const"]
+            != "https://github.com/Luminous-Dynamics/mycelix/issues/6025"
+    {
+        return Err("PROFILE_SCHEMA_IDENTITY_CONSTRAINT_DRIFT".to_owned());
+    }
+
+    if schema["properties"]["evidence_classes"]["type"] != "array"
+        || !exact_string_array(
+            &schema["properties"]["evidence_classes"]["items"]["enum"],
+            &[
+                "provider_assertion",
+                "documented_capability",
+                "calibration_record",
+                "independent_check",
+                "measured_observation",
+                "assay_result",
+            ],
+        )
+        || schema["properties"]["evidence_classes"]["uniqueItems"] != true
+        || schema["properties"]["admission_states"]["type"] != "array"
+        || !exact_string_array(
+            &schema["properties"]["admission_states"]["items"]["enum"],
+            &[
+                "AdmittedForDeclaredMeasurementProfile",
+                "AdmittedWithDeclaredLimitations",
+                "MoreEvidenceRequired",
+                "NotComparable",
+                "RejectedForDeclaredPurpose",
+                "ExpiredOrInvalidated",
+            ],
+        )
+        || schema["properties"]["admission_states"]["uniqueItems"] != true
+    {
+        return Err("PROFILE_SCHEMA_ENUM_CONTRACT_INVALID".to_owned());
     }
 
     let channel_array = &schema["properties"]["channels"];
