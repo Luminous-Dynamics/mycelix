@@ -119,6 +119,20 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             repetitions,
         )?);
 
+        let (input, expected) =
+            build_uncertain_graph(source_count, AssertionState::Stale, "stale_dependency");
+        cases.push(run_case("stale_dependency", input, expected, repetitions)?);
+
+        let (input, expected) = build_uncertain_graph(
+            source_count,
+            AssertionState::Unavailable,
+            "unavailable_dependency",
+        );
+        cases.push(run_case("unavailable_dependency", input, expected, repetitions)?);
+
+        let (input, expected) = build_partial_inventory_graph(source_count);
+        cases.push(run_case("partial_inventory_unknown", input, expected, repetitions)?);
+
         for (domain, label) in [
             (DependencyDomain::Clock, "overlap_clock"),
             (DependencyDomain::Power, "overlap_power"),
@@ -653,6 +667,86 @@ fn build_unknown_graph(source_count: usize) -> (HypergraphInput, &'static str) {
     )
 }
 
+
+/// Stale and unavailable edges are explicit uncertainty states, not negative
+/// evidence that a common dependency does not exist.
+fn build_uncertain_graph(
+    source_count: usize,
+    state: AssertionState,
+    topology: &str,
+) -> (HypergraphInput, &'static str) {
+    let source_ids: Vec<String> = (0..source_count)
+        .map(|index| format!("{topology}-source-{index:08}"))
+        .collect();
+    let mut nodes = source_ids
+        .iter()
+        .map(|id| Node {
+            id: id.clone(),
+            kind: NodeKind::Source,
+        })
+        .collect::<Vec<_>>();
+    nodes.push(Node {
+        id: format!("{topology}-shared-root"),
+        kind: NodeKind::Dependency,
+    });
+    let edge = make_edge(
+        &format!("{topology}-shared-edge"),
+        source_ids.clone(),
+        format!("{topology}-shared-root"),
+        DependencyDomain::Clock,
+        state,
+    );
+    (
+        build_input(
+            source_ids,
+            nodes,
+            vec![edge],
+            DependencyDomain::Clock,
+            20,
+            topology,
+        ),
+        "UnknownDependency",
+    )
+}
+
+/// The inventory declares its scope but marks the snapshot incomplete and
+/// omits dependency edges for half of the queried sources. Missing metadata
+/// must not be interpreted as evidence of no common cause.
+fn build_partial_inventory_graph(source_count: usize) -> (HypergraphInput, &'static str) {
+    let source_ids: Vec<String> = (0..source_count)
+        .map(|index| format!("partial-source-{index:08}"))
+        .collect();
+    let mut nodes = source_ids
+        .iter()
+        .map(|id| Node {
+            id: id.clone(),
+            kind: NodeKind::Source,
+        })
+        .collect::<Vec<_>>();
+    nodes.push(Node {
+        id: "partial-shared-root".into(),
+        kind: NodeKind::Dependency,
+    });
+    let known_sources = source_ids[..source_count / 2].to_vec();
+    let edge = make_edge(
+        "partial-known-shared-edge",
+        known_sources,
+        "partial-shared-root",
+        DependencyDomain::Clock,
+        AssertionState::Qualified,
+    );
+    let mut input = build_input(
+        source_ids,
+        nodes,
+        vec![edge],
+        DependencyDomain::Clock,
+        20,
+        "partial-inventory",
+    );
+    input.snapshot.complete = false;
+    (input, "UnknownDependency")
+}
+
 fn make_edge(
     id: &str,
     mut subject_ids: Vec<String>,
@@ -825,6 +919,9 @@ mod tests {
             build_layered_graph(1_000),
             build_independent_graph(1_000),
             build_unknown_graph(1_000),
+            build_uncertain_graph(1_000, AssertionState::Stale, "stale"),
+            build_uncertain_graph(1_000, AssertionState::Unavailable, "unavailable"),
+            build_partial_inventory_graph(1_000),
         ];
         for (input, expected) in builders {
             let bytes = serde_json::to_vec(&input).unwrap();
@@ -849,6 +946,9 @@ mod tests {
                 build_layered_graph(source_count),
                 build_independent_graph(source_count),
                 build_unknown_graph(source_count),
+                build_uncertain_graph(source_count, AssertionState::Stale, "stale"),
+                build_uncertain_graph(source_count, AssertionState::Unavailable, "unavailable"),
+                build_partial_inventory_graph(source_count),
             ];
             for (input, expected) in cases {
                 let bytes = serde_json::to_vec(&input).unwrap();
@@ -859,6 +959,43 @@ mod tests {
                 );
                 let report = evaluate_bytes(&bytes);
                 assert_eq!(format!("{:?}", report.disposition), expected);
+                let report_bytes = serde_json::to_vec(&report).unwrap();
+                assert_eq!(
+                    independently_verify(&bytes, &report_bytes).status,
+                    "verified"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn stale_unavailable_and_partial_inventory_never_claim_no_common_domain() {
+        for source_count in [10, 100, 1_000, 10_000] {
+            let cases = [
+                build_uncertain_graph(source_count, AssertionState::Stale, "stale"),
+                build_uncertain_graph(
+                    source_count,
+                    AssertionState::Unavailable,
+                    "unavailable",
+                ),
+                build_partial_inventory_graph(source_count),
+            ];
+
+            for (input, expected) in cases {
+                let bytes = serde_json::to_vec(&input).unwrap();
+                assert!(bytes.len() <= INPUT_LIMIT_BYTES);
+                let report = evaluate_bytes(&bytes);
+                assert_eq!(format!("{:?}", report.disposition), expected);
+                assert_ne!(
+                    format!("{:?}", report.disposition),
+                    "NoDeclaredCommonDomain",
+                    "uncertain inventory at {source_count} sources must fail closed"
+                );
+                if !input.snapshot.complete {
+                    assert!(
+                        report.reason_codes.contains(&"inventory_snapshot_incomplete".to_owned())
+                    );
+                }
                 let report_bytes = serde_json::to_vec(&report).unwrap();
                 assert_eq!(
                     independently_verify(&bytes, &report_bytes).status,
