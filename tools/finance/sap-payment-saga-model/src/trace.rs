@@ -466,7 +466,13 @@ impl TraceGeneratorV1 {
                     effect_nonce,
                     fee,
                 ),
-                command(O::CommitTreasury, A::Treasury, F::None, effect_nonce, fee),
+                command(
+                    O::ReconcileTreasury,
+                    A::Treasury,
+                    F::ReceiptMismatch,
+                    effect_nonce,
+                    fee,
+                ),
                 command(
                     O::MutateEvent,
                     A::Adversary,
@@ -487,6 +493,13 @@ impl TraceGeneratorV1 {
                     O::CheckpointTreasury,
                     A::Treasury,
                     F::StaleFrontier,
+                    effect_nonce,
+                    checkpoint_nonce,
+                ),
+                command(
+                    O::StaleCheckpoint,
+                    A::Adversary,
+                    F::WrongOwner,
                     effect_nonce,
                     checkpoint_nonce,
                 ),
