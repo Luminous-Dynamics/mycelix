@@ -5,8 +5,6 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"errors"
-	"fmt"
-	"math"
 	"unicode/utf8"
 )
 
@@ -127,7 +125,7 @@ func (l *JournalEventLog) RecordEffectCommitted(evidence Evidence) error {
 }
 
 func (l *JournalEventLog) append(event JournalEvent) error {
-	if uint64(len(l.frames)) == math.MaxUint64 {
+	if uint64(len(l.frames)) == ^uint64(0) {
 		return ErrReplayInvalidEvent
 	}
 	sequence := uint64(len(l.frames))
@@ -311,7 +309,7 @@ func journalEventDigest(sequence uint64, previous string, event JournalEvent) (s
 }
 
 func appendJournalEventText(output *[]byte, value string) error {
-	if !utf8.ValidString(value) || uint64(len(value)) > math.MaxUint32 {
+	if !utf8.ValidString(value) || uint64(len(value)) > uint64(^uint32(0)) {
 		return ErrReplayInvalidEvent
 	}
 	var length [4]byte
@@ -352,4 +350,3 @@ var (
 	ErrReplayInvalidEvidence            = errors.New("replay rejected: invalid effect evidence")
 )
 
-var _ = fmt.Sprintf
