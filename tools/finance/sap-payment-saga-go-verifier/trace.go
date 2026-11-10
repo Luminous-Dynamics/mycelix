@@ -186,7 +186,7 @@ func GenerateTraceV1(seed, traceIndex uint64) TraceV1 {
 			makeTraceCommand(TracePrepareTreasury, TraceTreasury, TraceNoFault, effectNonce, fee),
 			makeTraceCommand(TraceDispatchTreasury, TraceTreasury, TraceNoFault, effectNonce, fee),
 			makeTraceCommand(TraceMarkIndeterminate, TraceTreasury, TraceResponseLostBeforeEffect, effectNonce, fee),
-			makeTraceCommand(TraceReconcileTreasury, TraceTreasury, TraceLookupUncertain, effectNonce, fee),
+			makeTraceCommand(TraceReconcileTreasury, TraceTreasury, TraceAuthoritativeAbsence, effectNonce, fee),
 			makeTraceCommand(TraceRetrySameEffect, TraceTreasury, TraceNoFault, effectNonce, fee),
 			makeTraceCommand(TraceDispatchTreasury, TraceTreasury, TraceNoFault, effectNonce, fee),
 			makeTraceCommand(TraceCommitTreasury, TraceTreasury, TraceNoFault, effectNonce, fee),
