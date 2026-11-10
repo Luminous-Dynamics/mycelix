@@ -1,0 +1,20 @@
+[package]
+name = "building-instrument-passport"
+version = "0.1.0"
+edition = "2024"
+publish = false
+description = "Synthetic-only building instrument passport applicability checker"
+
+[dependencies]
+serde = { version = "=1.0.228", features = ["derive"] }
+serde_json = "=1.0.150"
+
+[workspace]
+resolver = "3"
+
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+name = "building-instrument-passport"
+path = "src/main.rs"
