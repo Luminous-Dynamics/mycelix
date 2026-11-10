@@ -167,7 +167,7 @@ fn journal_identity_digest(
     operation_id: &str,
     intent_digest: &str,
 ) -> Result<String, CheckpointError> {
-    let mut bytes = b"MXSAP-JOURNAL-IDENTITY-V1\\0".to_vec();
+    let mut bytes = b"MXSAP-JOURNAL-IDENTITY-V1\0".to_vec();
     append_text(&mut bytes, operation_id)?;
     append_digest(&mut bytes, intent_digest)?;
     let digest = Sha256::digest(bytes);
@@ -290,6 +290,17 @@ mod tests {
         assert!(first.starts_with(CHECKPOINT_DOMAIN));
         assert_eq!(hex_lower(&first), fixture_field("canonical_hex"));
         assert_eq!(subject.digest().unwrap(), fixture_field("digest"));
+    }
+
+    #[test]
+    fn journal_identity_is_derived_from_operation_and_intent() {
+        let subject = valid_subject();
+        let mut changed = subject.clone();
+        changed.operation_id.push_str("-other");
+        assert_eq!(
+            changed.validate(),
+            Err(CheckpointError::InvalidJournalIdentity)
+        );
     }
 
     #[test]
