@@ -408,3 +408,53 @@ func TestJournalReplayRejectsNonCanonicalIgnoredVariantFields(t *testing.T) {
 		})
 	}
 }
+
+
+func TestJournalReplayRejectsIgnoredRejectedAndIndeterminateFields(t *testing.T) {
+	t.Run("rejected event cannot carry an effect ID", func(t *testing.T) {
+		log, err := NewJournalEventLog(replayTestIntent())
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := log.RecordRejected(); err != nil {
+			t.Fatal(err)
+		}
+		frames := log.Frames()
+		frames[1].Event.EffectID = "unbound-effect"
+		if _, err := ReplayJournal(frames, log.Anchor()); err != ErrReplayInvalidEvent {
+			t.Fatalf("non-canonical rejected event error = %v, want %v", err, ErrReplayInvalidEvent)
+		}
+	})
+
+	t.Run("indeterminate event cannot carry committed evidence", func(t *testing.T) {
+		journal := newJournal(replayTestIntent())
+		log, err := NewJournalEventLog(replayTestIntent())
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := journal.Authorize(); err != nil {
+			t.Fatal(err)
+		}
+		if err := log.RecordAuthorized(); err != nil {
+			t.Fatal(err)
+		}
+		effectID := journal.EffectID(TreasuryFee)
+		if _, err := journal.PrepareLeg(TreasuryFee, effectID); err != nil {
+			t.Fatal(err)
+		}
+		if err := log.RecordEffectPrepared(TreasuryFee, effectID); err != nil {
+			t.Fatal(err)
+		}
+		if err := journal.MarkIndeterminate(TreasuryFee, effectID); err != nil {
+			t.Fatal(err)
+		}
+		if err := log.RecordEffectIndeterminate(TreasuryFee, effectID); err != nil {
+			t.Fatal(err)
+		}
+		frames := log.Frames()
+		frames[3].Event.Evidence = &Evidence{}
+		if _, err := ReplayJournal(frames, log.Anchor()); err != ErrReplayInvalidEvent {
+			t.Fatalf("non-canonical indeterminate event error = %v, want %v", err, ErrReplayInvalidEvent)
+		}
+	})
+}
