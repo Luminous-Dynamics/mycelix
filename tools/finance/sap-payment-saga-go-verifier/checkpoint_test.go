@@ -106,6 +106,15 @@ func TestOwnerCheckpointSubjectKnownAnswer(t *testing.T) {
 	}
 }
 
+func TestOwnerCheckpointJournalIdentityIsDerivedFromOperationAndIntent(t *testing.T) {
+	fields := readOwnerCheckpointFixture(t)
+	subject := checkpointFixtureSubject(t, fields)
+	subject.OperationID += "-substituted"
+	if err := subject.Validate(); !errors.Is(err, ErrCheckpointJournalIdentity) {
+		t.Fatalf("substituted journal identity = %v, want %v", err, ErrCheckpointJournalIdentity)
+	}
+}
+
 func TestOwnerCheckpointDomainAndSourceActionAreBound(t *testing.T) {
 	fields := readOwnerCheckpointFixture(t)
 	subject := checkpointFixtureSubject(t, fields)
