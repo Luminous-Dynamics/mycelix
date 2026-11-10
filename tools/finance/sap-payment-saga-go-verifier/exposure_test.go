@@ -201,3 +201,28 @@ func minExposureTest(left, right uint64) uint64 {
 	if left < right { return left }
 	return right
 }
+
+func TestExposureScopeMustMatchPolicyExactly(t *testing.T) {
+	book, err := NewExposureBookV1(exposureTestPolicy(1_000))
+	if err != nil { t.Fatal(err) }
+	wrongOwner := exposureTestIntent("effect:1", 100)
+	wrongOwner.Scope.OwnerID = "owner:other"
+	if _, err := book.Reserve(wrongOwner); err != ErrExposureScopeMismatch {
+		t.Fatalf("wrong owner reserve = %v", err)
+	}
+	wrongCurrency := exposureTestIntent("effect:2", 100)
+	wrongCurrency.Scope.Currency = "USD"
+	if _, err := book.Reserve(wrongCurrency); err != ErrExposureScopeMismatch {
+		t.Fatalf("cross-currency reserve = %v", err)
+	}
+}
+
+func TestInvalidUTF8IsRejectedForCrossLanguageCanonicalParity(t *testing.T) {
+	scope := exposureTestScope()
+	scope.OwnerID = string([]byte{0xff})
+	policy := exposureTestPolicy(1_000)
+	policy.Scope = scope
+	if _, err := NewExposureBookV1(policy); err != ErrExposureInvalidText {
+		t.Fatalf("invalid UTF-8 owner accepted: %v", err)
+	}
+}
