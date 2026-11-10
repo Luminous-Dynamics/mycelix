@@ -139,7 +139,25 @@ func (s CheckpointSubjectV1) Validate() error {
 	return nil
 }
 
-func (s CheckpointSubjectV1) CanonicalBytes() ([]byte, error) {
+func (s CheckpointSubjectV1) CanonicalBytesAgainstIntent(intent Intent) ([]byte, error) {
+	if err := s.ValidateAgainstIntent(intent); err != nil {
+		return nil, err
+	}
+	return s.canonicalBytes()
+}
+
+func (s CheckpointSubjectV1) CanonicalDigestAgainstIntent(intent Intent) (string, error) {
+	encoded, err := s.CanonicalBytesAgainstIntent(intent)
+	if err != nil {
+		return "", err
+	}
+	digest := sha256.Sum256(encoded)
+	return "sha256:" + hex.EncodeToString(digest[:]), nil
+}
+
+// canonicalBytes is intentionally package-private: callers must pass the
+// immutable intent through CanonicalBytesAgainstIntent before serialization.
+func (s CheckpointSubjectV1) canonicalBytes() ([]byte, error) {
 	if err := s.Validate(); err != nil {
 		return nil, err
 	}
@@ -188,8 +206,8 @@ func (s CheckpointSubjectV1) CanonicalBytes() ([]byte, error) {
 	return encoded, nil
 }
 
-func (s CheckpointSubjectV1) CanonicalDigest() (string, error) {
-	encoded, err := s.CanonicalBytes()
+func (s CheckpointSubjectV1) canonicalDigest() (string, error) {
+	encoded, err := s.canonicalBytes()
 	if err != nil {
 		return "", err
 	}
