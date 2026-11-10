@@ -1,0 +1,123 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Mycelix Observation Stream Profile v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "profile_id",
+    "classification",
+    "claim_ceiling",
+    "owners",
+    "timestamp_bases",
+    "time_units",
+    "clock_states",
+    "mapping_states",
+    "sequence_width_bits",
+    "sequence_wrap_policy",
+    "ordering_fields",
+    "rules",
+    "case_count"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "mycelix.observation-stream-profile/0.1"
+    },
+    "profile_id": {
+      "const": "MYC-BUILD-OBSERVATION-STREAM-V0.1"
+    },
+    "classification": {
+      "const": "synthetic_stream_ordering_contract"
+    },
+    "claim_ceiling": {
+      "const": "stream_identity_clock_epoch_sequence_replay_conformance_only"
+    },
+    "owners": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "instrument_passport",
+        "dependency_invalidation",
+        "event_availability"
+      ],
+      "properties": {
+        "instrument_passport": {
+          "const": "MYC-BUILD-METROLOGY-PROFILE-V0.1"
+        },
+        "dependency_invalidation": {
+          "const": "MYC-BUILD-METROLOGY-003"
+        },
+        "event_availability": {
+          "const": "SPATIAL-RESILIENCE-TIMELINE-ORACLE"
+        }
+      }
+    },
+    "timestamp_bases": {
+      "const": [
+        "utc_unix_epoch_seconds",
+        "monotonic_seconds_from_boot"
+      ]
+    },
+    "time_units": {
+      "const": [
+        "s",
+        "ms",
+        "us",
+        "ns"
+      ]
+    },
+    "clock_states": {
+      "const": [
+        "synchronized",
+        "holdover",
+        "unsynchronized",
+        "unknown"
+      ]
+    },
+    "mapping_states": {
+      "const": [
+        "not_required",
+        "verified",
+        "missing",
+        "expired",
+        "revoked",
+        "invalid"
+      ]
+    },
+    "sequence_width_bits": {
+      "const": [
+        8,
+        16,
+        32,
+        64
+      ]
+    },
+    "sequence_wrap_policy": {
+      "const": "new_epoch_only"
+    },
+    "ordering_fields": {
+      "const": {
+        "event_time": "physical/domain event time in the stream's declared clock basis",
+        "acquisition_time": "instrument acquisition time in the same declared basis",
+        "collector_receipt_time_unix": "collector receipt wall-clock time; never substitutes for event/acquisition time",
+        "display_timezone": "presentation metadata only; never the ordering authority"
+      }
+    },
+    "rules": {
+      "const": [
+        "A stream is scoped by instrument, channel, firmware/configuration, clock domain, boot epoch and stream ID.",
+        "Monotonic values are comparable only inside their exact clock domain and boot epoch.",
+        "A reboot, counter reset or wrap creates a new boot epoch; it never silently reuses a sequence namespace.",
+        "Exact duplicate sample ID/sequence/digest is idempotent; same identity or sequence with conflicting content is rejected.",
+        "Missing sequence intervals remain gaps; no zero fill or interpolation is permitted by this contract.",
+        "Out-of-order delivery is retained and may be reconciled only within the declared bounded reorder window.",
+        "Clock mapping is versioned, receipt-bound, validity-bounded and uncertainty-qualified when cross-domain correlation is required.",
+        "Local timezone and DST are presentation concerns; unsupported local-wall-clock-only input is non-comparable.",
+        "Symtropy availability-event ticks are not physical measurement clock values."
+      ]
+    },
+    "case_count": {
+      "const": 40
+    }
+  }
+}
