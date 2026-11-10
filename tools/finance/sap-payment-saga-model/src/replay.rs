@@ -538,6 +538,75 @@ mod tests {
     }
 
     #[test]
+    fn every_valid_replay_prefix_reconstructs_the_live_journal_projection() {
+        let mut journal = PaymentJournal::new(intent());
+        let mut log = JournalEventLog::new(intent()).expect("event log");
+
+        let assert_prefix = |stage: &str, journal: &PaymentJournal, log: &JournalEventLog| {
+            let replayed = replay_journal(log.frames(), &log.anchor())
+                .unwrap_or_else(|error| panic!("{stage}: replay failed: {error:?}"));
+            assert_eq!(
+                replayed,
+                journal.clone(),
+                "{stage}: replayed prefix differs from live journal projection"
+            );
+        };
+
+        assert_prefix("created", &journal, &log);
+
+        journal.authorize().expect("authorize journal");
+        log.record_authorized().expect("record authorization");
+        assert_prefix("authorized", &journal, &log);
+
+        let local_id = journal.effect_id(PaymentLeg::LocalPaymentTransaction);
+        journal
+            .prepare_leg(PaymentLeg::LocalPaymentTransaction, &local_id)
+            .expect("prepare local payment");
+        log.record_effect_prepared(PaymentLeg::LocalPaymentTransaction, local_id)
+            .expect("record local prepare");
+        assert_prefix("local-prepared", &journal, &log);
+
+        let local = local_evidence(&journal);
+        journal
+            .commit_leg(PaymentLeg::LocalPaymentTransaction, local.clone())
+            .expect("commit local payment");
+        log.record_effect_committed(local)
+            .expect("record local commit");
+        assert_prefix("local-committed", &journal, &log);
+
+        let treasury_id = journal.effect_id(PaymentLeg::TreasuryFee);
+        journal
+            .prepare_leg(PaymentLeg::TreasuryFee, &treasury_id)
+            .expect("prepare Treasury");
+        log.record_effect_prepared(PaymentLeg::TreasuryFee, treasury_id.clone())
+            .expect("record Treasury prepare");
+        assert_prefix("treasury-prepared", &journal, &log);
+
+        journal
+            .mark_indeterminate(PaymentLeg::TreasuryFee, &treasury_id)
+            .expect("mark Treasury indeterminate");
+        log.record_effect_indeterminate(PaymentLeg::TreasuryFee, treasury_id.clone())
+            .expect("record Treasury indeterminate");
+        assert_prefix("treasury-indeterminate", &journal, &log);
+
+        assert_eq!(
+            journal.prepare_leg(PaymentLeg::TreasuryFee, &treasury_id),
+            Ok(super::super::Transition::ResumedSameEffect)
+        );
+        log.record_effect_prepared(PaymentLeg::TreasuryFee, treasury_id)
+            .expect("record same-effect Treasury retry");
+        assert_prefix("treasury-resumed-same-effect", &journal, &log);
+
+        let treasury = treasury_evidence(&journal);
+        journal
+            .commit_leg(PaymentLeg::TreasuryFee, treasury.clone())
+            .expect("commit Treasury");
+        log.record_effect_committed(treasury)
+            .expect("record Treasury commit");
+        assert_prefix("completed", &journal, &log);
+    }
+
+    #[test]
     fn event_text_fields_are_bounded_before_hashing() {
         let mut output = Vec::new();
         assert_eq!(
