@@ -98,10 +98,20 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         cases.push(run_case("layered_hierarchy", input, expected, repetitions)?);
 
         let (input, expected) = build_independent_graph(source_count);
-        cases.push(run_case("sparse_independent", input, expected, repetitions)?);
+        cases.push(run_case(
+            "sparse_independent",
+            input,
+            expected,
+            repetitions,
+        )?);
 
         let (input, expected) = build_unknown_graph(source_count);
-        cases.push(run_case("unknown_dependency", input, expected, repetitions)?);
+        cases.push(run_case(
+            "unknown_dependency",
+            input,
+            expected,
+            repetitions,
+        )?);
 
         for (domain, label) in [
             (DependencyDomain::Clock, "overlap_clock"),
@@ -199,8 +209,7 @@ fn run_case(
         .ok_or_else(|| std::io::Error::other("no verifier repetitions executed"))?;
 
     let actual_disposition = format!("{:?}", report.disposition);
-    let status = if actual_disposition == expected_disposition
-        && verification.status == "verified"
+    let status = if actual_disposition == expected_disposition && verification.status == "verified"
     {
         "PASS"
     } else {
@@ -250,14 +259,24 @@ fn build_star_graph(source_count: usize) -> (HypergraphInput, &'static str) {
         AssertionState::Qualified,
     );
     (
-        build_input(source_ids, nodes, vec![edge], DependencyDomain::Clock, source_count, "star"),
+        build_input(
+            source_ids,
+            nodes,
+            vec![edge],
+            DependencyDomain::Clock,
+            source_count,
+            "star",
+        ),
         "SharedDependency",
     )
 }
 
 /// Every source enters a common 128-deep (or shorter) chain before reaching
 /// the root. This exercises traversal depth as well as a large source set.
-fn build_chain_graph(source_count: usize, requested_depth: usize) -> (HypergraphInput, &'static str) {
+fn build_chain_graph(
+    source_count: usize,
+    requested_depth: usize,
+) -> (HypergraphInput, &'static str) {
     let source_ids: Vec<String> = (0..source_count)
         .map(|index| format!("chain-source-{index:08}"))
         .collect();
@@ -293,7 +312,14 @@ fn build_chain_graph(source_count: usize, requested_depth: usize) -> (Hypergraph
         ));
     }
     (
-        build_input(source_ids, nodes, edges, DependencyDomain::Clock, 20, "chain"),
+        build_input(
+            source_ids,
+            nodes,
+            edges,
+            DependencyDomain::Clock,
+            20,
+            "chain",
+        ),
         "SharedDependency",
     )
 }
@@ -436,14 +462,7 @@ fn build_multi_domain_graph(
     }
 
     (
-        build_input(
-            source_ids,
-            nodes,
-            edges,
-            query_domain,
-            20,
-            "multi-domain",
-        ),
+        build_input(source_ids, nodes, edges, query_domain, 20, "multi-domain"),
         "SharedDependency",
     )
 }
@@ -514,7 +533,14 @@ fn build_unknown_graph(source_count: usize) -> (HypergraphInput, &'static str) {
         AssertionState::Unknown,
     );
     (
-        build_input(source_ids, nodes, vec![edge], DependencyDomain::Clock, 20, "unknown"),
+        build_input(
+            source_ids,
+            nodes,
+            vec![edge],
+            DependencyDomain::Clock,
+            20,
+            "unknown",
+        ),
         "UnknownDependency",
     )
 }
@@ -737,15 +763,24 @@ mod tests {
         ] {
             let (input, expected) = build_multi_domain_graph(1_000, domain);
             assert_eq!(expected, "SharedDependency");
-            assert!(input.hyperedges.iter().any(|edge| {
-                edge.domain == DependencyDomain::Clock
-            }));
-            assert!(input.hyperedges.iter().any(|edge| {
-                edge.domain == DependencyDomain::Power
-            }));
-            assert!(input.hyperedges.iter().any(|edge| {
-                edge.domain == DependencyDomain::Network
-            }));
+            assert!(
+                input
+                    .hyperedges
+                    .iter()
+                    .any(|edge| { edge.domain == DependencyDomain::Clock })
+            );
+            assert!(
+                input
+                    .hyperedges
+                    .iter()
+                    .any(|edge| { edge.domain == DependencyDomain::Power })
+            );
+            assert!(
+                input
+                    .hyperedges
+                    .iter()
+                    .any(|edge| { edge.domain == DependencyDomain::Network })
+            );
             let bytes = serde_json::to_vec(&input).unwrap();
             assert!(bytes.len() <= INPUT_LIMIT_BYTES);
             let report = evaluate_bytes(&bytes);
