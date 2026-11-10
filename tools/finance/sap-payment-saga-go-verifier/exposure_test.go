@@ -240,3 +240,13 @@ func TestInvalidUTF8IsRejectedForCrossLanguageCanonicalParity(t *testing.T) {
 		t.Fatalf("invalid UTF-8 owner accepted: %v", err)
 	}
 }
+
+func TestDispatchAuthorizationIsIdempotent(t *testing.T) {
+	book, _ := NewExposureBookV1(exposureTestPolicy(1_000))
+	_, _ = book.Reserve(exposureTestIntent("effect:1", 600))
+	if err := book.MarkDispatchAuthorized("effect:1"); err != nil { t.Fatal(err) }
+	if err := book.MarkDispatchAuthorized("effect:1"); err != nil { t.Fatal(err) }
+	status, ok := book.Status("effect:1")
+	if !ok || status != ExposureDispatchAuthorized { t.Fatalf("status = %v, %v", status, ok) }
+	if total, _ := book.TotalExposureMinor(); total != 600 { t.Fatalf("total = %d", total) }
+}
