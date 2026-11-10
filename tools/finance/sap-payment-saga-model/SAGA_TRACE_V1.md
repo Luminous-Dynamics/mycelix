@@ -66,7 +66,7 @@ Exactly six draws are consumed, in this order: scenario, operation nonce, effect
 - Fee = sixth draw modulo 1,001.
 - All other draws become the corresponding nonce values.
 
-The generator emits one of eight bounded templates: normal completion/checkpointing; pre-effect acknowledgement loss and same-effect recovery; post-effect acknowledgement loss and receipt reconciliation; unresolved external outcome; immutable-intent mutation; duplicate delivery plus event mutation; stale/forked owner checkpoint; and separately identified compensation.
+The generator emits one of eight bounded templates: normal completion/checkpointing; pre-effect acknowledgement loss, destination-qualified authoritative absence and same-effect recovery; post-effect acknowledgement loss and receipt reconciliation; unresolved external outcome; immutable-intent mutation; duplicate delivery plus event mutation; stale/forked owner checkpoint; and separately identified compensation.
 
 The trace grammar and draw order are versioned. Any change requires a new profile version and new known-answer vectors.
 
