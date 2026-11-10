@@ -431,9 +431,17 @@ mod tests {
     fn replays_local_payment_and_treasury_recovery_history() {
         let mut journal = PaymentJournal::new(intent());
         let mut log = JournalEventLog::new(intent()).expect("event log");
+        assert_eq!(
+            log.frames()[0].event_digest,
+            journal_replay_known_answer("history-frame-00")
+        );
 
         assert_eq!(journal.authorize(), Ok(super::super::Transition::Prepared));
         log.record_authorized().expect("record authorization");
+        assert_eq!(
+            log.frames()[1].event_digest,
+            journal_replay_known_answer("history-frame-01")
+        );
 
         let local_id = journal.effect_id(PaymentLeg::LocalPaymentTransaction);
         assert_eq!(
@@ -442,14 +450,26 @@ mod tests {
         );
         log.record_effect_prepared(PaymentLeg::LocalPaymentTransaction, local_id)
             .expect("record local prepare");
+        assert_eq!(
+            log.frames()[2].event_digest,
+            journal_replay_known_answer("history-frame-02")
+        );
 
         let local = local_evidence(&journal);
+        assert_eq!(
+            local.evidence_digest,
+            journal_replay_known_answer("local-effect-evidence")
+        );
         assert_eq!(
             journal.commit_leg(PaymentLeg::LocalPaymentTransaction, local.clone()),
             Ok(super::super::Transition::Committed)
         );
         log.record_effect_committed(local)
             .expect("record local commit");
+        assert_eq!(
+            log.frames()[3].event_digest,
+            journal_replay_known_answer("history-frame-03")
+        );
 
         let treasury_id = journal.effect_id(PaymentLeg::TreasuryFee);
         assert_eq!(
@@ -458,12 +478,20 @@ mod tests {
         );
         log.record_effect_prepared(PaymentLeg::TreasuryFee, treasury_id.clone())
             .expect("record Treasury prepare");
+        assert_eq!(
+            log.frames()[4].event_digest,
+            journal_replay_known_answer("history-frame-04")
+        );
 
         journal
             .mark_indeterminate(PaymentLeg::TreasuryFee, &treasury_id)
             .expect("mark indeterminate");
         log.record_effect_indeterminate(PaymentLeg::TreasuryFee, treasury_id.clone())
             .expect("record indeterminate outcome");
+        assert_eq!(
+            log.frames()[5].event_digest,
+            journal_replay_known_answer("history-frame-05")
+        );
 
         assert_eq!(
             journal.prepare_leg(PaymentLeg::TreasuryFee, &treasury_id),
@@ -471,14 +499,30 @@ mod tests {
         );
         log.record_effect_prepared(PaymentLeg::TreasuryFee, treasury_id)
             .expect("record same-effect recovery");
+        assert_eq!(
+            log.frames()[6].event_digest,
+            journal_replay_known_answer("history-frame-06")
+        );
 
         let treasury = treasury_evidence(&journal);
+        assert_eq!(
+            treasury.evidence_digest,
+            journal_replay_known_answer("treasury-effect-evidence")
+        );
         assert_eq!(
             journal.commit_leg(PaymentLeg::TreasuryFee, treasury.clone()),
             Ok(super::super::Transition::Committed)
         );
         log.record_effect_committed(treasury)
             .expect("record Treasury commit");
+        assert_eq!(
+            log.frames()[7].event_digest,
+            journal_replay_known_answer("history-frame-07")
+        );
+        assert_eq!(
+            log.anchor().tail_digest,
+            journal_replay_known_answer("history-tail-anchor")
+        );
 
         assert_eq!(journal.status(), super::super::OperationStatus::Completed);
         let replayed = replay_journal(log.frames(), &log.anchor()).expect("replay");
