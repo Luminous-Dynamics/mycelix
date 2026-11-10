@@ -41,11 +41,67 @@ type CheckpointSubjectV1 struct {
 }
 
 var (
-	ErrCheckpointInvalidSubject  = errors.New("checkpoint rejected: invalid subject")
-	ErrCheckpointInvalidDigest   = errors.New("checkpoint rejected: invalid digest")
-	ErrCheckpointInvalidSequence = errors.New("checkpoint rejected: invalid sequence")
+	ErrCheckpointInvalidSubject   = errors.New("checkpoint rejected: invalid subject")
+	ErrCheckpointInvalidDigest    = errors.New("checkpoint rejected: invalid digest")
+	ErrCheckpointInvalidSequence  = errors.New("checkpoint rejected: invalid sequence")
 	ErrCheckpointInvalidTimestamp = errors.New("checkpoint rejected: invalid timestamp")
+	ErrCheckpointInvalidIntent    = errors.New("checkpoint rejected: invalid immutable intent")
+	ErrCheckpointIntentMismatch   = errors.New("checkpoint rejected: immutable intent mismatch")
 )
+
+
+func (s CheckpointSubjectV1) ValidateAgainstIntent(intent Intent) error {
+	if err := s.Validate(); err != nil {
+		return err
+	}
+	digest, err := CanonicalIntentDigest(intent)
+	if err != nil {
+		return err
+	}
+	expectedOperationID := OperationID(intent.SenderDID, intent.ClientIdempotencyKey)
+	if s.OperationID != expectedOperationID || s.IntentDigest != digest {
+		return ErrCheckpointIntentMismatch
+	}
+	return nil
+}
+
+// CanonicalIntentBytes binds every immutable payment-intent field using fixed
+// field order, u32-BE length-prefixed UTF-8 strings, and u64-BE minor units.
+func CanonicalIntentBytes(intent Intent) ([]byte, error) {
+	if err := intent.validate(); err != nil {
+		return nil, ErrCheckpointInvalidIntent
+	}
+	encoded := make([]byte, 0, 256)
+	encoded = append(encoded, []byte(paymentIntentDomain)...)
+	var err error
+	for _, value := range []string{
+		intent.SenderDID,
+		intent.RecipientDID,
+		intent.ClientIdempotencyKey,
+		intent.PayloadFingerprint,
+	} {
+		encoded, err = appendCheckpointText(encoded, value)
+		if err != nil {
+			return nil, ErrCheckpointInvalidIntent
+		}
+	}
+	encoded = appendCheckpointU64(encoded, intent.AmountMinor)
+	encoded = appendCheckpointU64(encoded, intent.FeeMinor)
+	encoded, err = appendCheckpointText(encoded, intent.Currency)
+	if err != nil {
+		return nil, ErrCheckpointInvalidIntent
+	}
+	return encoded, nil
+}
+
+func CanonicalIntentDigest(intent Intent) (string, error) {
+	encoded, err := CanonicalIntentBytes(intent)
+	if err != nil {
+		return "", err
+	}
+	digest := sha256.Sum256(encoded)
+	return "sha256:" + hex.EncodeToString(digest[:]), nil
+}
 
 func (s CheckpointSubjectV1) Validate() error {
 	for _, value := range []string{
