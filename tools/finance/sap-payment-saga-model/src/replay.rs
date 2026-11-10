@@ -399,7 +399,9 @@ mod tests {
     }
 
     fn journal_replay_known_answer(name: &str) -> &'static str {
-        include_str!("../../sap-payment-saga-go-verifier/fixtures/sap-payment-journal-replay-v1.kat")
+        include_str!(
+            "../../sap-payment-saga-go-verifier/fixtures/sap-payment-journal-replay-v1.kat"
+        )
             .lines()
             .find_map(|line| {
                 line.strip_prefix(name)
@@ -422,7 +424,8 @@ mod tests {
             journal_replay_known_answer("authorized-after-created")
         );
 
-        let operation_id = PaymentJournal::new(intent()).effect_id(PaymentLeg::LocalPaymentTransaction);
+        let operation_id =
+            PaymentJournal::new(intent()).effect_id(PaymentLeg::LocalPaymentTransaction);
         log.record_effect_prepared(PaymentLeg::LocalPaymentTransaction, operation_id)
             .expect("local prepare");
         assert_eq!(
