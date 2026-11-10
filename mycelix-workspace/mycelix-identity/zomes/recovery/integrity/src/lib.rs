@@ -758,6 +758,14 @@ fn validate_create_self_recovery_request(
             "Initial status must be Pending".into(),
         ));
     }
+    // The legacy field stores caller-supplied anchor identifiers, not
+    // cryptographic proof receipts. Do not let those values be represented as
+    // already-verified possession evidence.
+    if !request.verified_anchors.is_empty() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Self-recovery cannot record verified anchors without proof receipts".into(),
+        ));
+    }
     Ok(ValidateCallbackResult::Valid)
 }
 
@@ -794,10 +802,36 @@ fn validate_update_self_recovery_request(
         ));
     }
 
-    // Same state machine as social recovery
+    // Self-recovery v1 does not carry any cryptographically verifiable
+    // possession-proof receipt. The legacy coordinator merely compares
+    // caller-supplied anchor strings, so Pending -> Approved is unsafe.
+    // Keep this transition blocked until a versioned proof envelope and
+    // verifier are implemented. Social Recovery uses a separate entry type
+    // and is not affected by this restriction.
+    if original.status == RecoveryStatus::Pending
+        && request.status == RecoveryStatus::Approved
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Self-recovery approval is disabled until cryptographic possession-proof receipts are implemented".into(),
+        ));
+    }
+
+    // Verified-anchor history is append-only. Removal/replacement must use a
+    // future explicit, auditable anchor-revocation protocol.
+    if original
+        .verified_anchors
+        .iter()
+        .any(|anchor| !request.verified_anchors.contains(anchor))
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Previously recorded self-recovery anchors cannot be removed or replaced".into(),
+        ));
+    }
+
+    // Same state machine as social recovery, except the proofless v1
+    // Pending -> Approved transition is intentionally unavailable.
     let valid_transition = match (&original.status, &request.status) {
-        (RecoveryStatus::Pending, RecoveryStatus::Approved)
-        | (RecoveryStatus::Pending, RecoveryStatus::Cancelled) => true,
+        (RecoveryStatus::Pending, RecoveryStatus::Cancelled) => true,
         (RecoveryStatus::Approved, RecoveryStatus::ReadyToExecute)
         | (RecoveryStatus::Approved, RecoveryStatus::Cancelled) => true,
         (RecoveryStatus::ReadyToExecute, RecoveryStatus::Completed)
