@@ -79,10 +79,10 @@ func replayBenchmarkHistory(tb testing.TB, eventCount int) ([]JournalEventFrame,
 	if len(frames) != eventCount {
 		t.Fatalf("benchmark history has %d frames, want %d", len(frames), eventCount)
 	}
-	if err := journal.validateTerminalState(); err != nil {
-		t.Fatalf("benchmark history is not terminal: %v", err)
+	if status := journal.Status(); status != Completed {
+		tb.Fatalf("benchmark history status = %q, want %q", status, Completed)
 	}
-	return frames, log.Anchor()
+		return frames, log.Anchor()
 }
 
 // BenchmarkReplayJournal measures only in-memory validation and reconstruction.
