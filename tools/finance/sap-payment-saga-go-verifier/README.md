@@ -73,14 +73,14 @@ The sibling Rust reference model and this Go verifier now define the same canoni
 
 The subject binds:
 - owner domain (local payment transaction or Treasury fee effect);
-- operation ID, immutable intent digest and a derived journal identity digest;
+- operation ID, immutable intent digest and a derived `journal_identity_digest`;
 - exact event count and tail digest;
 - a 1-based checkpoint sequence and the previous checkpoint digest for that owner only;
-- the exact owner-effect ActionHash and exact owner-authority-grant ActionHash, plus a digest of the grant subject;
+- the exact 39-byte owner-effect ActionHash and exact 39-byte owner-authority-grant ActionHash, plus a digest of the grant subject;
 - issuer DID, SHA-256 fingerprint of the Holochain author key, native action-signature profile tag and source-chain action timestamp;
 - an optional prior checkpoint that the new record explicitly supersedes.
 
-The journal identity is derived as SHA-256 over `MXSAP-JOURNAL-IDENTITY-V1\\0` plus length-prefixed operation ID and intent digest. A caller cannot choose an unrelated event-log identity. The checkpoint codec uses a separate domain `MXSAP-OWNER-CHECKPOINT-SUBJECT-V1\\0`, fixed-width big-endian counters/timestamp, length-prefixed text/ActionHash bytes and explicit option tags. The shared KAT fixes both the complete canonical byte string and its SHA-256 digest.
+The `journal_identity_digest` is derived as SHA-256 over `MXSAP-JOURNAL-IDENTITY-V1\\0` plus length-prefixed operation ID and intent digest. A caller cannot choose an unrelated event-log identity. The checkpoint codec uses a separate domain `MXSAP-OWNER-CHECKPOINT-SUBJECT-V1\\0`, fixed-width big-endian counters/timestamp, length-prefixed text/ActionHash bytes and explicit option tags. The shared KAT fixes both the complete canonical byte string and its SHA-256 digest.
 
 For a checkpoint stored in the same Holochain DNA, the Create action's native signature is the authorship attestation; no detached signature is duplicated inside the entry. A production integrity callback must still: bind the Create action author and key fingerprint to the issuer DID; retrieve and verify the authority-grant record and its owner/operation scope; retrieve the exact source action and check its entry type, owner, operation and author; verify the checkpoint predecessor on that owner's chain; and compare the entry's computed subject digest. The codec itself does none of these DHT or authorization checks.
 
