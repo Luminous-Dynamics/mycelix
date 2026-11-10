@@ -31,6 +31,20 @@ The aspiration is not simply to retry with the same key. The provider contract i
 - SARB's QR+ Standard 1.2 describes payment initiation data; the selected underlying rail executes the payment. A QR+/PayShap initiation payload is not settlement evidence: https://www.resbank.co.za/en/home/publications/publication-detail-pages/other-publications/2026/qr-1-2-overview
 - ISO's Bank-to-Customer Cash Management set distinguishes CAMT.052 account reports, CAMT.053 statements and CAMT.054 debit/credit notifications; the exact pinned message set and bank MUG govern their evidence semantics: https://www.iso20022.org/iso-20022-message-definitions?search=Bank-to-Customer+Cash+Management
 
+## Canonical effect-evidence digest v1
+
+The Go implementation recomputes evidence_digest over every typed field using the same domain-separated MXSAP-EFFECT-EVIDENCE-V1 profile as Rust:
+
+- UTF-8 strings are four-byte unsigned big-endian length-prefixed and limited to 4,096 bytes.
+- Minor-unit values are eight-byte unsigned big-endian integers.
+- Common identity/value fields precede a one-byte local-payment or Treasury-fee variant tag and fixed variant-specific fields.
+- Payment status and optional outbox identity have explicit one-byte tags.
+- The digest field is excluded from its own preimage. Output is lowercase sha256: plus 64 lowercase hex digits.
+
+Both languages load the same known-answer file at fixtures/sap-payment-evidence-v1.kat. The fixed Treasury vector is sha256:5d4182a07eaa54dc3c5a358a8cee0b98019d333e8d9eae8cd1fd759c635461d9.
+
+This is a project-specific canonical binary profile, not a claim of RFC 8785/JCS or CBOR conformance. It detects typed-field mutation, but it does not prove that the fields describe authentic Holochain actions or a real ledger movement.
+
 ## Claim ceiling
 
 A passing test suite demonstrates agreement of this Go implementation with its own frozen synthetic scenario expectations. It does not establish equivalence to Rust unless the same scenarios are executed against the Rust model; Holochain source-chain singleton uniqueness, DHT convergence, cross-agent exclusivity or fork exclusion; evidence-digest recomputation, Ed25519 verification, ActionHash resolution or predecessor authorisation; actual SAP account movement or Treasury receipt; provider idempotency, external bank settlement, recipient availability or legal finality; live performance, regulatory compliance or production readiness.
