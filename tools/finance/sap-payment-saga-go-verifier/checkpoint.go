@@ -62,7 +62,11 @@ func (s OwnerCheckpointSubjectV1) Validate() error {
 			return err
 		}
 	}
-	if s.EventLogDigest != ownerCheckpointJournalIdentityDigest(s.OperationID, s.IntentDigest) {
+	expectedLogDigest, err := ownerCheckpointJournalIdentityDigest(s.OperationID, s.IntentDigest)
+	if err != nil {
+		return err
+	}
+	if s.EventLogDigest != expectedLogDigest {
 		return ErrCheckpointJournalIdentity
 	}
 	if s.EventCount == 0 {
@@ -155,12 +159,17 @@ func (s OwnerCheckpointSubjectV1) Digest() (string, error) {
 	return "sha256:" + hex.EncodeToString(digest[:]), nil
 }
 
-func ownerCheckpointJournalIdentityDigest(operationID, intentDigest string) string {
+func ownerCheckpointJournalIdentityDigest(operationID, intentDigest string) (string, error) {
 	encoded := []byte("MXSAP-JOURNAL-IDENTITY-V1\\x00")
-	encoded, _ = appendOwnerCheckpointText(encoded, operationID)
-	encoded, _ = appendOwnerCheckpointText(encoded, intentDigest)
+	var length [4]byte
+	binary.BigEndian.PutUint32(length[:], uint32(len(operationID)))
+	encoded = append(encoded, length[:]...)
+	encoded = append(encoded, []byte(operationID)...)
+	binary.BigEndian.PutUint32(length[:], uint32(len(intentDigest)))
+	encoded = append(encoded, length[:]...)
+	encoded = append(encoded, []byte(intentDigest)...)
 	digest := sha256.Sum256(encoded)
-	return "sha256:" + hex.EncodeToString(digest[:])
+	return "sha256:" + hex.EncodeToString(digest[:]), nil
 }
 
 func validateOwnerCheckpointText(value string) error {
