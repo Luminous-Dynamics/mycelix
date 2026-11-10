@@ -1122,6 +1122,7 @@ mod tests {
         {
             *sender_debit_minor -= 1;
         }
+        refresh_evidence_digest(&mut wrong_debit);
         assert_eq!(
             journal.validate_effect_evidence(PaymentLeg::LocalPaymentTransaction, &wrong_debit,),
             Err(SagaError::InvalidEffectEvidence(
@@ -1137,6 +1138,7 @@ mod tests {
         {
             *recipient_credit_minor += 1;
         }
+        refresh_evidence_digest(&mut wrong_credit);
         assert_eq!(
             journal.validate_effect_evidence(PaymentLeg::LocalPaymentTransaction, &wrong_credit,),
             Err(SagaError::InvalidEffectEvidence(
@@ -1151,6 +1153,7 @@ mod tests {
         {
             *receipt_signer_did = "did:mycelix:mallory".into();
         }
+        refresh_evidence_digest(&mut wrong_signer);
         assert_eq!(
             journal.validate_effect_evidence(PaymentLeg::LocalPaymentTransaction, &wrong_signer,),
             Err(SagaError::InvalidEffectEvidence(
@@ -1169,6 +1172,7 @@ mod tests {
         {
             *payment_status = PaymentRecordStatus::Pending;
         }
+        refresh_evidence_digest(&mut pending_payment);
         assert_eq!(
             journal
                 .validate_effect_evidence(PaymentLeg::LocalPaymentTransaction, &pending_payment,),
@@ -1183,6 +1187,7 @@ mod tests {
         {
             *payment_status = PaymentRecordStatus::Failed;
         }
+        refresh_evidence_digest(&mut failed_payment);
         assert_eq!(
             journal.validate_effect_evidence(PaymentLeg::LocalPaymentTransaction, &failed_payment,),
             Err(SagaError::InvalidEffectEvidence(
@@ -1198,6 +1203,7 @@ mod tests {
         {
             *treasury_fee_outbox_id = None;
         }
+        refresh_evidence_digest(&mut missing_outbox);
         assert_eq!(
             journal.validate_effect_evidence(PaymentLeg::LocalPaymentTransaction, &missing_outbox,),
             Err(SagaError::InvalidEffectEvidence(
@@ -1216,6 +1222,7 @@ mod tests {
         {
             *signing_profile = "legacy-unversioned".into();
         }
+        refresh_evidence_digest(&mut wrong_profile);
         assert_eq!(
             journal.validate_effect_evidence(PaymentLeg::LocalPaymentTransaction, &wrong_profile,),
             Err(SagaError::InvalidEffectEvidence(
@@ -1230,6 +1237,7 @@ mod tests {
         {
             *signature_digest = "not-a-digest".into();
         }
+        refresh_evidence_digest(&mut bad_signature_digest);
         assert_eq!(
             journal.validate_effect_evidence(
                 PaymentLeg::LocalPaymentTransaction,
@@ -1285,6 +1293,7 @@ mod tests {
         if let EffectEvidenceKind::TreasuryFee { pool_id, .. } = &mut wrong_pool.kind {
             *pool_id = "treasury:other-pool".into();
         }
+        refresh_evidence_digest(&mut wrong_pool);
         assert_eq!(
             journal.validate_effect_evidence(PaymentLeg::TreasuryFee, &wrong_pool),
             Err(SagaError::InvalidEffectEvidence(PaymentLeg::TreasuryFee))
@@ -1294,6 +1303,7 @@ mod tests {
         if let EffectEvidenceKind::TreasuryFee { amount_minor, .. } = &mut wrong_amount.kind {
             *amount_minor += 1;
         }
+        refresh_evidence_digest(&mut wrong_amount);
         assert_eq!(
             journal.validate_effect_evidence(PaymentLeg::TreasuryFee, &wrong_amount),
             Err(SagaError::InvalidEffectEvidence(PaymentLeg::TreasuryFee))
@@ -1307,6 +1317,7 @@ mod tests {
         {
             *payment_action_hash = "action:some-other-payment".into();
         }
+        refresh_evidence_digest(&mut wrong_payment);
         assert_eq!(
             journal.validate_effect_evidence(PaymentLeg::TreasuryFee, &wrong_payment),
             Err(SagaError::InvalidEffectEvidence(PaymentLeg::TreasuryFee))
@@ -1319,6 +1330,7 @@ mod tests {
         {
             *idempotency_key = "another-operation".into();
         }
+        refresh_evidence_digest(&mut wrong_key);
         assert_eq!(
             journal.validate_effect_evidence(PaymentLeg::TreasuryFee, &wrong_key),
             Err(SagaError::InvalidEffectEvidence(PaymentLeg::TreasuryFee))
@@ -1381,7 +1393,11 @@ mod tests {
             .prepare_leg(PaymentLeg::TreasuryFee, &fee_id)
             .unwrap();
         commit_fee(&mut journal, "treasury", 16).unwrap();
-        let changed = treasury_fee_evidence(&journal, "treasury", 17);
+        let mut changed = treasury_fee_evidence(&journal, "treasury", 17);
+        if let EffectEvidenceKind::TreasuryFee { treasury_action, .. } = &mut changed.kind {
+            *treasury_action = "action:treasury-fee-conflict".into();
+        }
+        refresh_evidence_digest(&mut changed);
         assert_eq!(
             journal.commit_leg(PaymentLeg::TreasuryFee, changed),
             Err(SagaError::EffectEvidenceConflict(PaymentLeg::TreasuryFee))
