@@ -256,18 +256,34 @@ func TestExposureBreakdownTracksEachAtRiskState(t *testing.T) {
 	_, _ = book.Reserve(exposureTestIntent("dispatch", 200))
 	_, _ = book.Reserve(exposureTestIntent("indeterminate", 300))
 	_, _ = book.Reserve(exposureTestIntent("committed", 400))
-	if err := book.MarkDispatchAuthorized("dispatch"); err != nil { t.Fatal(err) }
-	if err := book.MarkDispatchAuthorized("indeterminate"); err != nil { t.Fatal(err) }
-	if err := book.MarkIndeterminate("indeterminate"); err != nil { t.Fatal(err) }
-	if err := book.MarkDispatchAuthorized("committed"); err != nil { t.Fatal(err) }
-	if err := book.MarkCommittedUnsettled("committed"); err != nil { t.Fatal(err) }
-	got, err := book.BreakdownMinor()
-	if err != nil { t.Fatal(err) }
-	want := ExposureBreakdownV1{
-		ReservedMinor: 100, DispatchAuthorizedMinor: 200,
-		IndeterminateMinor: 300, CommittedUnsettledMinor: 400,
+	if err := book.MarkDispatchAuthorized("dispatch"); err != nil {
+		t.Fatal(err)
 	}
-	if got != want { t.Fatalf("breakdown = %+v, want %+v", got, want) }
+	if err := book.MarkDispatchAuthorized("indeterminate"); err != nil {
+		t.Fatal(err)
+	}
+	if err := book.MarkIndeterminate("indeterminate"); err != nil {
+		t.Fatal(err)
+	}
+	if err := book.MarkDispatchAuthorized("committed"); err != nil {
+		t.Fatal(err)
+	}
+	if err := book.MarkCommittedUnsettled("committed"); err != nil {
+		t.Fatal(err)
+	}
+	got, err := book.BreakdownMinor()
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := ExposureBreakdownV1{
+		ReservedMinor:           100,
+		DispatchAuthorizedMinor: 200,
+		IndeterminateMinor:      300,
+		CommittedUnsettledMinor: 400,
+	}
+	if got != want {
+		t.Fatalf("breakdown = %+v, want %+v", got, want)
+	}
 	if total, err := got.TotalMinor(); err != nil || total != 1_000 {
 		t.Fatalf("breakdown total = %d, %v; want 1000", total, err)
 	}
