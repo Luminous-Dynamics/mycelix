@@ -371,19 +371,42 @@ fn validate_update_currency(
             e
         )));
     }
-    // Enforce status transition rules
-    if let Ok(original_record) = must_get_valid_record(original_action.clone()) {
-        if let Ok(Some(original)) = original_record
-            .entry()
-            .to_app_option::<CurrencyDefinition>()
-        {
-            if original.status != def.status && !original.status.can_transition_to(&def.status) {
-                return Ok(ValidateCallbackResult::Invalid(format!(
-                    "Invalid currency status transition: {:?} → {:?}",
-                    original.status, def.status
-                )));
-            }
+    // Do not turn a missing or unresolved original action into Valid.
+    let original_record = must_get_valid_record(original_action.clone())?;
+    let original_action = original_record.action();
+    if !matches!(
+        original_action.action_type(),
+        ActionType::Create | ActionType::Update
+    ) {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Currency definition predecessor must be a Create or Update action".into(),
+        ));
+    }
+    let expected_entry_type = EntryType::App(UnitEntryTypes::CurrencyDefinition.try_into()?);
+    if original_action.entry_type() != Some(&expected_entry_type) {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Currency definition predecessor has the wrong entry type".into(),
+        ));
+    }
+    let original = match original_record.entry().to_app_option::<CurrencyDefinition>() {
+        Ok(Some(original)) => original,
+        Ok(None) => {
+            return Ok(ValidateCallbackResult::Invalid(
+                "Currency definition predecessor is missing its entry".into(),
+            ));
         }
+        Err(error) => {
+            return Ok(ValidateCallbackResult::Invalid(format!(
+                "Currency definition predecessor could not be decoded: {error}"
+            )));
+        }
+    };
+
+    if original.status != def.status && !original.status.can_transition_to(&def.status) {
+        return Ok(ValidateCallbackResult::Invalid(format!(
+            "Invalid currency status transition: {:?} → {:?}",
+            original.status, def.status
+        )));
     }
     Ok(ValidateCallbackResult::Valid)
 }
@@ -741,14 +764,14 @@ mod tests {
     }
 
     #[test]
-    fn test_currency_update_valid() {
+    fn test_currency_update_propagates_unavailable_predecessor() {
         let mut def = valid_currency_def();
         def.status = CurrencyStatus::Active;
         def.params.credit_limit = 80;
-        // Dummy action hash — must_get_valid_record will fail gracefully outside WASM
+        // Without a host-provided predecessor this must remain an error,
+        // never be normalized into a successful update validation.
         let dummy_hash = ActionHash::from_raw_36(vec![0; 36]);
-        let result = validate_update_currency(&dummy_hash, def).unwrap();
-        assert!(matches!(result, ValidateCallbackResult::Valid));
+        assert!(validate_update_currency(&dummy_hash, def).is_err());
     }
 
     #[test]
