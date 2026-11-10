@@ -228,7 +228,10 @@ mod tests {
             owner_did: "did:mycelix:payments:alice".into(),
             event_log_id: "sap-journal:payments:op-001".into(),
             event_count: 8,
-            tail_digest: format!("sha256:{}", "a1e5b966be2b6aab453c65370639d702e6d83b3097c9a542a0d85d28bf6ed899"),
+            tail_digest: format!(
+                "sha256:{}",
+                "a1e5b966be2b6aab453c65370639d702e6d83b3097c9a542a0d85d28bf6ed899",
+            ),
             checkpoint_sequence: 1,
             previous_checkpoint_digest: None,
             source_action_hash: action_hash(0x11, 0x22),
@@ -245,7 +248,10 @@ mod tests {
             owner_did: "did:mycelix:treasury:community".into(),
             event_log_id: "sap-journal:treasury:op-001".into(),
             event_count: 2,
-            tail_digest: format!("sha256:{}", "98bea9e9428e50e2fb522a6d8e7800d3cbc9e32ea068c5b23313f459d9e13f27"),
+            tail_digest: format!(
+                "sha256:{}",
+                "98bea9e9428e50e2fb522a6d8e7800d3cbc9e32ea068c5b23313f459d9e13f27",
+            ),
             checkpoint_sequence: 1,
             previous_checkpoint_digest: None,
             source_action_hash: action_hash(0x55, 0x66),
