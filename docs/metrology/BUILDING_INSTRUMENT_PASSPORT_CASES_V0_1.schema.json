@@ -162,12 +162,16 @@
           "type": "boolean"
         },
         "protocol_profile_verification_receipt_id": {
-          "type": "string",
-          "minLength": 1
+          "type": [
+            "string",
+            "null"
+          ]
         },
         "protocol_profile_verifier_id": {
-          "type": "string",
-          "minLength": 1
+          "type": [
+            "string",
+            "null"
+          ]
         }
       }
     },
@@ -810,8 +814,10 @@
           "minLength": 1
         },
         "read_only_session_receipt_id": {
-          "type": "string",
-          "minLength": 1
+          "type": [
+            "string",
+            "null"
+          ]
         }
       }
     },
