@@ -56,7 +56,7 @@ Keep at least these identifiers distinct:
 
 A normal key rotation changes the key epoch, not automatically the subject identity. A software update changes an artifact digest, not automatically the device identity. A fork or independently governed successor is an explicit lineage event, not an accidental consequence of changing a hash.
 
-The currently documented form did:mycelix:<agent_pub_key> should be treated as an **agent-key-derived identifier**. By itself, it is not proof that the controller is a particular natural person, legal organization, physical device, or unique participant. Any stronger statement requires separately specified enrollment evidence and a verifier policy.
+The currently documented form `did:mycelix:<agent_pub_key>` should be treated as an **agent-key-derived identifier**. By itself, it is not proof that the controller is a particular natural person, legal organization, physical device, or unique participant. Any stronger statement requires separately specified enrollment evidence and a verifier policy.
 
 ### 2.2 Relationships are first-class
 
