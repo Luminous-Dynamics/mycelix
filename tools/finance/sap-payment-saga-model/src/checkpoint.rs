@@ -295,6 +295,7 @@ mod tests {
             prior_checkpoint_digest: optional_digest("prior_checkpoint_digest"),
             source_action_hash: decode_hex(fixture_field("source_action_hash_hex")),
             owner_authority_action_hash: decode_hex(fixture_field("owner_authority_action_hash_hex")),
+            owner_authority_action_hash: decode_hex(fixture_field("owner_authority_action_hash_hex")),
             issuer_did: fixture_field("issuer_did").into(),
             issuer_key_fingerprint: fixture_field("issuer_key_fingerprint").into(),
             owner_authority_digest: fixture_field("owner_authority_digest").into(),
