@@ -131,6 +131,24 @@ impl AlgorithmId {
         )
     }
 
+    /// Whether this algorithm defines asymmetric public-key material.
+    ///
+    /// Signature algorithms and KEM algorithms both have public keys. Symmetric
+    /// AEAD algorithms do not; they must never be encoded as TaggedPublicKey.
+    pub const fn is_public_key_algorithm(&self) -> bool {
+        matches!(
+            self,
+            Self::Ed25519
+                | Self::MlDsa65
+                | Self::MlDsa87
+                | Self::SlhDsaSha2_128s
+                | Self::SlhDsaShake128s
+                | Self::HybridEd25519MlDsa65
+                | Self::MlKem768
+                | Self::MlKem1024
+        )
+    }
+
     /// Try to identify algorithm from a 2-byte multicodec prefix.
     pub fn from_multicodec_prefix(prefix: [u8; 2]) -> Option<Self> {
         match prefix {
