@@ -287,7 +287,7 @@ jobs:
     needs: changes
     if: needs.changes.outputs.identity == 'true' || github.event_name == 'push'
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
         with:
@@ -298,8 +298,13 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: mycelix-identity
-      - name: Test identity
+      - name: Test identity workspace
         run: cd mycelix-identity && cargo test --workspace
+      # The conductor integration harness lives in an excluded Cargo package.
+      # Compile it on every identity change so mirror structs and call payloads
+      # cannot silently drift; runtime tests still require a packed DNA bundle.
+      - name: Compile conductor integration tests
+        run: cargo test --manifest-path mycelix-identity/tests/Cargo.toml --no-run
 
   test-personal:
     needs: changes
