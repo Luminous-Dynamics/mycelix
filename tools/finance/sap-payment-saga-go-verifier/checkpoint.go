@@ -182,7 +182,11 @@ func appendOwnerCheckpointText(output []byte, value string) ([]byte, error) {
 	if err := validateOwnerCheckpointText(value); err != nil {
 		return nil, err
 	}
-	return appendOwnerCheckpointBytes(output, []byte(value))
+	var length [4]byte
+	binary.BigEndian.PutUint32(length[:], uint32(len(value)))
+	output = append(output, length[:]...)
+	output = append(output, []byte(value)...)
+	return output, nil
 }
 
 func appendOwnerCheckpointOptionalDigest(output []byte, value *string) ([]byte, error) {
