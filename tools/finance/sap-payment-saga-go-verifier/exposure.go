@@ -224,7 +224,7 @@ func (b *ExposureBookV1) Reserve(intent ExposureIntentV1) (ExposureDisposition, 
 }
 
 func (b *ExposureBookV1) MarkDispatchAuthorized(effectID string) error {
-	return b.transition(effectID, []ExposureStatus{ExposureReserved}, ExposureDispatchAuthorized)
+	return b.transition(effectID, []ExposureStatus{ExposureReserved, ExposureDispatchAuthorized}, ExposureDispatchAuthorized)
 }
 
 func (b *ExposureBookV1) MarkIndeterminate(effectID string) error {
