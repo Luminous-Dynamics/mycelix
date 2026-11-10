@@ -1,0 +1,164 @@
+{
+  "schema_version": "delib-shift-reference-intake-v0.1",
+  "intake_id": "DELIB-SHIFT-A1R-METADATA-001",
+  "status": "metadata-only-reconciliation-pending",
+  "observed_at": "2026-11-10",
+  "owning_issue": "https://github.com/Luminous-Dynamics/mycelix/issues/6023",
+  "parent_issue": "https://github.com/Luminous-Dynamics/mycelix/issues/5999",
+  "claim_ceiling": "Public paper and project-page metadata only. No participant-level records, questionnaires, transcripts, audio, video, model weights, or annotation payloads were downloaded or inspected. No secondary-use permission, consent transfer, license compatibility, reproduction, or causal result is asserted.",
+  "reference_paper": {
+    "title": "Before You Poll with LLMs: A Deliberative Diagnostic Framework",
+    "authors": [
+      "Ahmed Wali",
+      "Hassaan Tayyab"
+    ],
+    "venue": "EMNLP 2026",
+    "paper_url": "https://aclanthology.org/2026.emnlp-main.2291/",
+    "arxiv_id": "2609.15849",
+    "arxiv_url": "https://arxiv.org/abs/2609.15849",
+    "published_claims": {
+      "personas": 526,
+      "questions": 72,
+      "models_evaluated": 5,
+      "reported_failure_signatures": [
+        "reversal",
+        "overshoot",
+        "rigidity",
+        "heterogeneous_failure"
+      ],
+      "note": "Counts and findings are paper-reported; Mycelix has not independently reproduced the paper's analysis."
+    }
+  },
+  "human_reference": {
+    "project_name": "America in One Room (2019)",
+    "event_dates": "2019-09-19/2019-09-22",
+    "sources": [
+      {
+        "source_id": "stanford-deliberation-lab",
+        "url": "https://deliberation.stanford.edu/america-in-one-room",
+        "publisher": "Stanford Deliberative Democracy Lab",
+        "observed_claims": {
+          "participant_count": 526,
+          "participant_description": "registered American voters / citizen delegates",
+          "method": "stratified random sample; deliberative polling; policy information; moderated small groups; plenary expert/candidate sessions",
+          "confidence": "official project page"
+        },
+        "data_rights_observation": "Stanford results page states participation was voluntary, participants could withdraw or refuse questions, and published/written data were anonymized with confidentiality protections. This is not a statement of blanket secondary-use or redistribution permission."
+      },
+      {
+        "source_id": "norc-project-page",
+        "url": "https://www.norc.org/research/projects/america-in-one-room.html",
+        "publisher": "NORC at the University of Chicago",
+        "observed_claims": {
+          "participant_count": 523,
+          "participant_description": "registered voters",
+          "method": "baseline questionnaire; balanced expert-vetted briefing materials; moderated small-group discussion; post-deliberation questionnaire; separate control group"
+        },
+        "data_rights_observation": "The inspected project description does not itself grant Mycelix a data license, participant-level access, or permission to train models."
+      },
+      {
+        "source_id": "stanford-results-rights-note",
+        "url": "https://deliberation.stanford.edu/news/america-one-room-results",
+        "publisher": "Stanford Deliberative Democracy Lab",
+        "observed_claims": {
+          "participant_count": 523,
+          "data_note": "Research data described as anonymized; individual privacy/confidentiality maintained; participation voluntary with withdrawal and question-refusal rights."
+        },
+        "data_rights_observation": "Published consent/privacy summary is not a substitute for the original consent instrument, data-use agreement, license, or approval for this new use."
+      },
+      {
+        "source_id": "helena-project-page",
+        "url": "https://www.helena.org/projects/america-in-one-room/",
+        "publisher": "Helena",
+        "observed_claims": {
+          "public_data_statement": "Project page says Stanford and Helena published project data publicly."
+        },
+        "data_rights_observation": "Exact files, release identity, machine-readable license, participant-level permissions, and whether all modalities/fields are covered remain unresolved."
+      }
+    ],
+    "reconciliation": {
+      "status": "unresolved",
+      "paper_reported_personas": 526,
+      "official_stanford_page_count": 526,
+      "official_norc_page_count": 523,
+      "official_stanford_results_count": 523,
+      "plausible_explanations_not_assumed": [
+        "different inclusion/exclusion rules",
+        "different survey/event/control subsets",
+        "persona-level analytic transformation",
+        "page-level count discrepancy"
+      ],
+      "required_resolution": [
+        "paper methods/sample flow",
+        "exact analytic table/source data",
+        "participant inclusion/exclusion rules",
+        "treatment-versus-control counts",
+        "persona-to-human record relationship",
+        "weights and missingness rules"
+      ]
+    }
+  },
+  "data_custody_gate": {
+    "status": "blocked-pending-authorization",
+    "payload_downloaded": false,
+    "participant_level_access_authorized": false,
+    "model_training_authorized": false,
+    "derived_participant_level_publication_authorized": false,
+    "required_evidence": [
+      "exact dataset release and immutable version",
+      "original consent notice and permitted secondary-use scope",
+      "applicable research ethics review / approval or documented exemption",
+      "data-use agreement and redistribution/license terms",
+      "participant withdrawal and deletion handling for secondary copies",
+      "de-identification, linkage and re-identification risk assessment",
+      "allowed fields, purpose limitation and retention schedule",
+      "official codebook, response scales and question/instrument versions",
+      "weighting, sample flow, exclusions and missingness",
+      "participant-level train/validation/test split provenance, if any",
+      "whether use is permitted for evaluation only versus model training",
+      "review of audio/video/transcript restrictions separately from survey responses"
+    ],
+    "prohibited_until_cleared": [
+      "Do not download or mirror participant-level files into Mycelix.",
+      "Do not train, fine-tune, prompt-tune, or calibrate on the human reference records.",
+      "Do not publish participant-level opinions, persona reconstructions, or derived sensitive profiles.",
+      "Do not link records to external identities or infer individual political attributes.",
+      "Do not report the 526 / 523 count discrepancy as resolved."
+    ]
+  },
+  "benchmark_reproduction": {
+    "status": "unsupported-pending-provenance-and-access",
+    "report_dimensions": [
+      "directional_update_fidelity",
+      "magnitude_overshoot_or_undershoot",
+      "rigidity_and_responsiveness",
+      "heterogeneity_and_distributional_fidelity",
+      "missingness_and_uncertainty"
+    ],
+    "outstanding_items": [
+      "exact human response data and question-level measurements",
+      "pre/post response scale mapping",
+      "intervention content and exposure equivalence",
+      "treatment/control assignment and weighting",
+      "full five-model prompt/configuration and response outputs",
+      "statistical analysis code and uncertainty estimates",
+      "held-out question/task protocol and model-tuning leakage audit"
+    ],
+    "next_steps": [
+      "request the paper's data/code release identity and exact analytic artifacts",
+      "reconcile paper/Stanford/NORC sample counts and persona-to-participant mapping",
+      "obtain documented data-use and consent authorization before any participant-level intake",
+      "freeze an allowed, minimal, read-only adapter after the custody gate clears",
+      "reproduce the published diagnostic on the exact recoverable split before comparing Symthaea or candidate models"
+    ]
+  },
+  "source_urls": [
+    "https://aclanthology.org/2026.emnlp-main.2291/",
+    "https://arxiv.org/abs/2609.15849",
+    "https://deliberation.stanford.edu/america-in-one-room",
+    "https://deliberation.stanford.edu/news/america-one-room-results",
+    "https://www.norc.org/research/projects/america-in-one-room.html",
+    "https://www.helena.org/projects/america-in-one-room/",
+    "https://github.com/Luminous-Dynamics/mycelix/issues/6023"
+  ]
+}
