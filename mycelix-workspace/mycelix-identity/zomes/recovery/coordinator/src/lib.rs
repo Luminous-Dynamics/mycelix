@@ -259,6 +259,12 @@ pub fn setup_recovery(input: SetupRecoveryInput) -> ExternResult<Record> {
         )));
     }
     let agent_info = agent_info()?;
+    let expected_did = format!("did:mycelix:{}", agent_info.agent_initial_pubkey);
+    if input.did != expected_did {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Recovery config DID must belong to the calling owner".into()
+        )));
+    }
     let now = sys_time()?;
 
     let config = RecoveryConfig {
