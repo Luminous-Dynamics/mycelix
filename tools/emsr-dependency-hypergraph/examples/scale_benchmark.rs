@@ -33,6 +33,7 @@ struct BenchmarkDocument {
     operating_system: &'static str,
     architecture: &'static str,
     debug_assertions: bool,
+    build_profile: &'static str,
     repetitions: usize,
     warmup_runs_per_measurement: usize,
     cases: Vec<BenchmarkCase>,
@@ -42,7 +43,10 @@ struct BenchmarkDocument {
 #[derive(Debug, Serialize)]
 struct BenchmarkCase {
     topology: String,
+    dependency_domain: String,
     source_count: usize,
+    subject_reference_count: usize,
+    hyperedges_per_source: f64,
     expected_disposition: String,
     node_count: usize,
     hyperedge_count: usize,
@@ -61,6 +65,7 @@ struct BenchmarkCase {
 #[derive(Debug, Serialize)]
 struct TimingSummary {
     repetitions: usize,
+    samples_ms: Vec<f64>,
     p50_ms: f64,
     p95_ms: f64,
     p99_ms: f64,
@@ -123,6 +128,17 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
+    // Two independent 10,000-edge lineages converge at one common ancestor.
+    // This is a depth stress case with a small source set, so the benchmark
+    // measures traversal depth without multiplying work by 10,000 sources.
+    let (input, expected) = build_paired_deep_chain_graph(10_000);
+    cases.push(run_case(
+        "paired_deep_chains_depth_10000",
+        input,
+        expected,
+        repetitions,
+    )?);
+
     let document = BenchmarkDocument {
         schema: "gcpn.dependency-hypergraph-scale-benchmark",
         version: "0.2.0",
@@ -136,6 +152,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         operating_system: env::consts::OS,
         architecture: env::consts::ARCH,
         debug_assertions: cfg!(debug_assertions),
+        build_profile: if cfg!(debug_assertions) { "debug" } else { "release" },
         repetitions,
         warmup_runs_per_measurement: 1,
         cases,
@@ -157,13 +174,27 @@ fn run_case(
     repetitions: usize,
 ) -> Result<BenchmarkCase, Box<dyn std::error::Error>> {
     let source_count = input.query.source_ids.len();
+    let dependency_domain = format!("{:?}", input.query.domain);
+    let subject_reference_count = input
+        .hyperedges
+        .iter()
+        .map(|edge| edge.subject_ids.len())
+        .sum::<usize>();
+    let hyperedges_per_source = if source_count == 0 {
+        0.0
+    } else {
+        subject_reference_count as f64 / source_count as f64
+    };
     let input_bytes = serde_json::to_vec(&input)?;
     let input_sha256 = sha256_hex(&input_bytes);
 
     if input_bytes.len() > INPUT_LIMIT_BYTES {
         return Ok(BenchmarkCase {
             topology: topology.to_owned(),
+            dependency_domain,
             source_count,
+            subject_reference_count,
+            hyperedges_per_source,
             expected_disposition: expected_disposition.to_owned(),
             node_count: input.nodes.len(),
             hyperedge_count: input.hyperedges.len(),
@@ -218,7 +249,10 @@ fn run_case(
 
     Ok(BenchmarkCase {
         topology: topology.to_owned(),
+        dependency_domain,
         source_count,
+        subject_reference_count,
+        hyperedges_per_source,
         expected_disposition: expected_disposition.to_owned(),
         node_count: input.nodes.len(),
         hyperedge_count: input.hyperedges.len(),
@@ -326,6 +360,63 @@ fn build_chain_graph(
 
 /// Sources are partitioned into local regions; region dependencies converge
 /// through zones and a common root.
+fn build_paired_deep_chain_graph(depth: usize) -> (HypergraphInput, &'static str) {
+    let source_ids = vec![
+        "deep-source-a".to_owned(),
+        "deep-source-b".to_owned(),
+    ];
+    let mut nodes = source_ids
+        .iter()
+        .map(|id| Node {
+            id: id.clone(),
+            kind: NodeKind::Source,
+        })
+        .collect::<Vec<_>>();
+    nodes.push(Node {
+        id: "deep-shared-root".to_owned(),
+        kind: NodeKind::Dependency,
+    });
+    let mut edges = Vec::with_capacity(depth.saturating_mul(2).saturating_add(2));
+
+    for (label, source_id) in [("a", "deep-source-a"), ("b", "deep-source-b")] {
+        let mut previous = source_id.to_owned();
+        for index in 0..depth {
+            let current = format!("deep-{label}-node-{index:05}");
+            nodes.push(Node {
+                id: current.clone(),
+                kind: NodeKind::Dependency,
+            });
+            edges.push(make_edge(
+                &format!("deep-{label}-edge-{index:05}"),
+                vec![previous],
+                current.clone(),
+                DependencyDomain::Clock,
+                AssertionState::Qualified,
+            ));
+            previous = current;
+        }
+        edges.push(make_edge(
+            &format!("deep-{label}-to-shared-root"),
+            vec![previous],
+            "deep-shared-root",
+            DependencyDomain::Clock,
+            AssertionState::Qualified,
+        ));
+    }
+
+    (
+        build_input(
+            source_ids,
+            nodes,
+            edges,
+            DependencyDomain::Clock,
+            depth as u64,
+            "paired-deep-chain",
+        ),
+        "SharedDependency",
+    )
+}
+
 fn build_layered_graph(source_count: usize) -> (HypergraphInput, &'static str) {
     let source_ids: Vec<String> = (0..source_count)
         .map(|index| format!("layer-source-{index:08}"))
@@ -613,6 +704,7 @@ fn summarize(times: &mut [Duration]) -> TimingSummary {
         .collect();
     TimingSummary {
         repetitions: times.len(),
+        samples_ms: values.clone(),
         p50_ms: quantile(&values, 0.50),
         p95_ms: quantile(&values, 0.95),
         p99_ms: quantile(&values, 0.99),
@@ -632,6 +724,7 @@ fn quantile(values: &[f64], probability: f64) -> f64 {
 fn empty_timing() -> TimingSummary {
     TimingSummary {
         repetitions: 0,
+        samples_ms: Vec::new(),
         p50_ms: 0.0,
         p95_ms: 0.0,
         p99_ms: 0.0,
@@ -752,6 +845,35 @@ mod tests {
                 );
             }
         }
+    }
+
+    #[test]
+    fn paired_ten_thousand_edge_chains_are_deterministic_and_verifiable() {
+        let (input, expected) = build_paired_deep_chain_graph(10_000);
+        let bytes = serde_json::to_vec(&input).unwrap();
+        let repeated_bytes = serde_json::to_vec(&input).unwrap();
+
+        assert_eq!(bytes, repeated_bytes);
+        assert!(
+            bytes.len() <= INPUT_LIMIT_BYTES,
+            "paired deep-chain input is {} bytes, above the unchanged 16 MiB cap",
+            bytes.len()
+        );
+        assert_eq!(input.query.source_ids.len(), 2);
+        assert_eq!(input.nodes.len(), 20_003);
+        assert_eq!(input.hyperedges.len(), 20_002);
+
+        let report = evaluate_bytes(&bytes);
+        assert_eq!(format!("{:?}", report.disposition), expected);
+        assert_eq!(
+            report.common_dependency_ids,
+            vec!["deep-shared-root".to_owned()]
+        );
+        let report_bytes = serde_json::to_vec(&report).unwrap();
+        assert_eq!(
+            independently_verify(&bytes, &report_bytes).status,
+            "verified"
+        );
     }
 
     #[test]
