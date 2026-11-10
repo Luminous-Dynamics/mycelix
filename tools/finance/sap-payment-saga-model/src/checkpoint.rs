@@ -210,22 +210,58 @@ fn hex_lower(bytes: &[u8]) -> String {
 mod tests {
     use super::*;
 
+    const CHECKPOINT_FIXTURE: &str =
+        include_str!("../fixtures/sap-payment-owner-checkpoint-v1.kat");
+
+    fn fixture_field(name: &str) -> &str {
+        CHECKPOINT_FIXTURE
+            .lines()
+            .find_map(|line| line.split_once('='))
+            .filter(|(key, _)| *key == name)
+            .map(|(_, value)| value)
+            .unwrap_or_else(|| panic!("missing checkpoint fixture field: {name}"))
+    }
+
+    fn decode_hex(value: &str) -> Vec<u8> {
+        assert_eq!(value.len() % 2, 0);
+        value
+            .as_bytes()
+            .chunks_exact(2)
+            .map(|pair| {
+                let hex = std::str::from_utf8(pair).unwrap();
+                u8::from_str_radix(hex, 16).unwrap()
+            })
+            .collect()
+    }
+
+    fn optional_digest(field: &str) -> Option<String> {
+        match fixture_field(field) {
+            "-" => None,
+            value => Some(value.to_owned()),
+        }
+    }
+
     fn valid_subject() -> OwnerCheckpointSubjectV1 {
+        let owner_domain = match fixture_field("owner_domain") {
+            "payments_local_transaction" => CheckpointOwnerDomain::PaymentsLocalTransaction,
+            "treasury_fee_effect" => CheckpointOwnerDomain::TreasuryFeeEffect,
+            other => panic!("unknown checkpoint owner domain: {other}"),
+        };
         OwnerCheckpointSubjectV1 {
-            operation_id: "payment-op:v1:alice-01".into(),
-            intent_digest: format!("sha256:{}", "a".repeat(64)),
-            owner_domain: CheckpointOwnerDomain::PaymentsLocalTransaction,
-            event_log_digest: format!("sha256:{}", "b".repeat(64)),
-            event_count: 8,
-            tail_digest: format!("sha256:{}", "e".repeat(64)),
-            checkpoint_sequence: 1,
-            prior_checkpoint_digest: None,
-            source_action_hash: (0_u8..39).collect(),
-            issuer_did: "did:mycelix:uhCAkAlice".into(),
-            issuer_key_fingerprint: format!("sha256:{}", "c".repeat(64)),
-            owner_authority_digest: format!("sha256:{}", "d".repeat(64)),
-            issued_at_micros: 1_794_300_000_000_000,
-            supersedes_checkpoint_digest: None,
+            operation_id: fixture_field("operation_id").into(),
+            intent_digest: fixture_field("intent_digest").into(),
+            owner_domain,
+            event_log_digest: fixture_field("event_log_digest").into(),
+            event_count: fixture_field("event_count").parse().unwrap(),
+            tail_digest: fixture_field("tail_digest").into(),
+            checkpoint_sequence: fixture_field("checkpoint_sequence").parse().unwrap(),
+            prior_checkpoint_digest: optional_digest("prior_checkpoint_digest"),
+            source_action_hash: decode_hex(fixture_field("source_action_hash_hex")),
+            issuer_did: fixture_field("issuer_did").into(),
+            issuer_key_fingerprint: fixture_field("issuer_key_fingerprint").into(),
+            owner_authority_digest: fixture_field("owner_authority_digest").into(),
+            issued_at_micros: fixture_field("issued_at_micros").parse().unwrap(),
+            supersedes_checkpoint_digest: optional_digest("supersedes_checkpoint_digest"),
         }
     }
 
@@ -236,10 +272,8 @@ mod tests {
         let second = subject.canonical_bytes().unwrap();
         assert_eq!(first, second);
         assert!(first.starts_with(CHECKPOINT_DOMAIN));
-        assert_eq!(
-            subject.digest().unwrap(),
-            "sha256:69e8cd918ccdda9a080af4a48bfd4d0e65b684d8ab584f710926afd673a86e60"
-        );
+        assert_eq!(hex_lower(&first), fixture_field("canonical_hex"));
+        assert_eq!(subject.digest().unwrap(), fixture_field("digest"));
     }
 
     #[test]
