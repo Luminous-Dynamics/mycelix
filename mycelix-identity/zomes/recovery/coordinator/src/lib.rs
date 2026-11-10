@@ -449,6 +449,7 @@ pub fn initiate_recovery(input: InitiateRecoveryInput) -> ExternResult<Record> {
         created: now,
         time_lock_expires: None,
         config_action_hash: Some(config_record.action_address().clone()),
+        decision_vote_hashes: Vec::new(),
     };
 
     let action_hash = create_entry(&EntryTypes::RecoveryRequest(request))?;
@@ -736,7 +737,7 @@ fn check_and_update_request_status(request_id: String) -> ExternResult<()> {
     // Count each trustee at most once. If a trustee has conflicting votes,
     // exclude that trustee entirely (equivocation must never increase quorum).
     let vote_records = get_recovery_votes(request_id.clone())?;
-    let mut votes_by_trustee: HashMap<String, VoteDecision> = HashMap::new();
+    let mut votes_by_trustee: HashMap<String, (VoteDecision, ActionHash)> = HashMap::new();
     let mut equivocated: HashSet<String> = HashSet::new();
     for record in vote_records {
         if let Some(vote) = record
@@ -748,12 +749,15 @@ fn check_and_update_request_status(request_id: String) -> ExternResult<()> {
                 continue;
             }
             match votes_by_trustee.get(&vote.trustee) {
-                Some(existing) if existing != &vote.vote => {
+                Some((existing, _)) if existing != &vote.vote => {
                     equivocated.insert(vote.trustee);
                 }
                 Some(_) => {}
                 None => {
-                    votes_by_trustee.insert(vote.trustee, vote.vote);
+                    votes_by_trustee.insert(
+                        vote.trustee,
+                        (vote.vote, record.action_address().clone()),
+                    );
                 }
             }
         }
@@ -761,23 +765,31 @@ fn check_and_update_request_status(request_id: String) -> ExternResult<()> {
 
     let mut approve_count = 0u32;
     let mut reject_count = 0u32;
-    for (trustee, decision) in votes_by_trustee {
+    let mut approval_evidence = Vec::new();
+    let mut rejection_evidence = Vec::new();
+    for (trustee, (decision, vote_hash)) in votes_by_trustee {
         if equivocated.contains(&trustee) {
             continue;
         }
         match decision {
-            VoteDecision::Approve => approve_count += 1,
-            VoteDecision::Reject => reject_count += 1,
+            VoteDecision::Approve => {
+                approve_count += 1;
+                approval_evidence.push(vote_hash);
+            }
+            VoteDecision::Reject => {
+                reject_count += 1;
+                rejection_evidence.push(vote_hash);
+            }
             VoteDecision::Abstain => {}
         }
     }
 
-    let next_status = if approve_count >= config.threshold {
-        Some(RecoveryStatus::Approved)
+    let (next_status, decision_vote_hashes) = if approve_count >= config.threshold {
+        (Some(RecoveryStatus::Approved), approval_evidence)
     } else if reject_count > (config.trustees.len() as u32).saturating_sub(config.threshold) {
-        Some(RecoveryStatus::Rejected)
+        (Some(RecoveryStatus::Rejected), rejection_evidence)
     } else {
-        None
+        (None, Vec::new())
     };
 
     let Some(next_status) = next_status else {
@@ -803,6 +815,7 @@ fn check_and_update_request_status(request_id: String) -> ExternResult<()> {
         created: current_request.created,
         time_lock_expires,
         config_action_hash: current_request.config_action_hash,
+        decision_vote_hashes,
     };
 
     let action_hash = update_entry(
@@ -1002,6 +1015,7 @@ pub fn execute_recovery(request_id: String) -> ExternResult<Record> {
         created: current_request.created,
         time_lock_expires: current_request.time_lock_expires,
         config_action_hash: current_request.config_action_hash,
+        decision_vote_hashes: current_request.decision_vote_hashes,
     };
 
     let request_id_for_index = current_request.id.clone();
