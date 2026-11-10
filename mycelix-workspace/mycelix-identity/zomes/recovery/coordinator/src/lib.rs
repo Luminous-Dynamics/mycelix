@@ -16,6 +16,20 @@ use mycelix_zome_helpers as _;
 use recovery_integrity::*;
 use subtle::ConstantTimeEq;
 
+// Self-recovery v1 stores caller-supplied anchor strings but has no signed
+// possession-proof receipt. It must remain unavailable until a versioned,
+// cryptographically verifiable proof protocol is implemented and tested.
+const SELF_RECOVERY_POSSESSION_PROOFS_V1_ENABLED: bool = false;
+
+fn require_self_recovery_possession_proofs() -> ExternResult<()> {
+    if !SELF_RECOVERY_POSSESSION_PROOFS_V1_ENABLED {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Self-recovery is temporarily unavailable: cryptographic possession-proof receipts are not implemented".into()
+        )));
+    }
+    Ok(())
+}
+
 // =============================================================================
 // MFA CROSS-ZOME INTEGRATION
 // =============================================================================
@@ -1299,10 +1313,12 @@ pub struct InitiateSelfRecoveryInput {
 
 /// Initiate a self-recovery request.
 ///
-/// Requires proving control of at least one verification anchor.
-/// The request enters a time-locked waiting period before it can execute.
+/// Disabled in v1: matching a caller-supplied anchor string is not proof of
+/// control. This entry point remains gated until a cryptographic possession
+/// proof protocol is implemented and independently tested.
 #[hdk_extern]
 pub fn initiate_self_recovery(input: InitiateSelfRecoveryInput) -> ExternResult<Record> {
+    require_self_recovery_possession_proofs()?;
     // Fetch self-recovery config
     let config_record = get_self_recovery_config(input.did.clone())?.ok_or(wasm_error!(
         WasmErrorInner::Guest("No self-recovery config found".into())
@@ -1376,10 +1392,11 @@ pub struct VerifySelfRecoveryAnchorInput {
 
 /// Verify an additional anchor on an active self-recovery request.
 ///
-/// When the anchor threshold is met, the request transitions to Approved
-/// and the time lock countdown begins.
+/// Disabled in v1: the existing enum carries identifiers/hashes, not
+/// authenticated proof receipts. It cannot safely approve a recovery.
 #[hdk_extern]
 pub fn verify_self_recovery_anchor(input: VerifySelfRecoveryAnchorInput) -> ExternResult<Record> {
+    require_self_recovery_possession_proofs()?;
     let record =
         get(input.request_action_hash.clone(), GetOptions::default())?.ok_or(wasm_error!(
             WasmErrorInner::Guest("Self-recovery request not found".into())
@@ -1440,9 +1457,11 @@ pub fn verify_self_recovery_anchor(input: VerifySelfRecoveryAnchorInput) -> Exte
 
 /// Execute a self-recovery request after time lock expires.
 ///
-/// Completes the identity rotation — same effect as social recovery execution.
+/// Disabled in v1 until proof-backed approval is available. Social recovery
+/// uses a separate request type and remains unaffected.
 #[hdk_extern]
 pub fn execute_self_recovery(request_action_hash: ActionHash) -> ExternResult<Record> {
+    require_self_recovery_possession_proofs()?;
     let record = get(request_action_hash.clone(), GetOptions::default())?.ok_or(wasm_error!(
         WasmErrorInner::Guest("Self-recovery request not found".into())
     ))?;
