@@ -48,8 +48,7 @@
       "minLength": 1
     },
     "sample_tick": {
-      "type": "integer",
-      "minimum": 0
+      "type": "integer"
     },
     "timebase_id": {
       "type": "string",
