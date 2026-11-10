@@ -40,3 +40,9 @@ jobs:
             docs/research/deliberation/delib-bench-protocol-v0.1.schema.json \
             docs/research/deliberation/delib-bench-fixtures-v0.1.json \
             docs/research/deliberation/delib-bench-fixtures-v0.1.schema.json
+      - name: Validate metadata-only DeliberationBank intake gates
+        run: |
+          cargo run --manifest-path tools/delib-bench-qualifier/Cargo.toml -- \
+            --summary-intake \
+            docs/research/deliberation/delib-summary-baseline-intake-v0.1.json \
+            docs/research/deliberation/delib-summary-baseline-intake-v0.1.schema.json
