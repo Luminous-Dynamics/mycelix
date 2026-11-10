@@ -46,6 +46,7 @@ struct BenchmarkCase {
     dependency_domain: String,
     source_count: usize,
     subject_reference_count: usize,
+    source_hyperedge_reference_count: usize,
     hyperedges_per_source: f64,
     expected_disposition: String,
     node_count: usize,
@@ -184,10 +185,20 @@ fn run_case(
         .iter()
         .map(|edge| edge.subject_ids.len())
         .sum::<usize>();
+    let source_hyperedge_reference_count = input
+        .hyperedges
+        .iter()
+        .map(|edge| {
+            edge.subject_ids
+                .iter()
+                .filter(|subject| input.query.source_ids.binary_search(*subject).is_ok())
+                .count()
+        })
+        .sum::<usize>();
     let hyperedges_per_source = if source_count == 0 {
         0.0
     } else {
-        subject_reference_count as f64 / source_count as f64
+        source_hyperedge_reference_count as f64 / source_count as f64
     };
     let input_bytes = serde_json::to_vec(&input)?;
     let input_sha256 = sha256_hex(&input_bytes);
@@ -198,6 +209,7 @@ fn run_case(
             dependency_domain,
             source_count,
             subject_reference_count,
+            source_hyperedge_reference_count,
             hyperedges_per_source,
             expected_disposition: expected_disposition.to_owned(),
             node_count: input.nodes.len(),
@@ -256,6 +268,7 @@ fn run_case(
         dependency_domain,
         source_count,
         subject_reference_count,
+        source_hyperedge_reference_count,
         hyperedges_per_source,
         expected_disposition: expected_disposition.to_owned(),
         node_count: input.nodes.len(),
@@ -365,6 +378,7 @@ fn build_chain_graph(
 /// Builds two independent lineages of the requested depth that converge on
 /// one shared ancestor.
 fn build_paired_deep_chain_graph(depth: usize) -> (HypergraphInput, &'static str) {
+    let depth = depth.max(1);
     let source_ids = vec!["deep-source-a".to_owned(), "deep-source-b".to_owned()];
     let mut nodes = source_ids
         .iter()
@@ -377,14 +391,14 @@ fn build_paired_deep_chain_graph(depth: usize) -> (HypergraphInput, &'static str
         id: "deep-shared-root".to_owned(),
         kind: NodeKind::Dependency,
     });
-    let mut edges = Vec::with_capacity(depth.saturating_mul(2).saturating_add(2));
+    let mut edges = Vec::with_capacity(depth.saturating_mul(2));
 
     for (label, source_id) in [
         ("a", "deep-source-a"),
         ("b", "deep-source-b"),
     ] {
         let mut previous = source_id.to_owned();
-        for index in 0..depth {
+        for index in 0..depth.saturating_sub(1) {
             let current = format!("deep-{label}-node-{index:05}");
             nodes.push(Node {
                 id: current.clone(),
@@ -869,8 +883,8 @@ mod tests {
             bytes.len()
         );
         assert_eq!(input.query.source_ids.len(), 2);
-        assert_eq!(input.nodes.len(), 20_003);
-        assert_eq!(input.hyperedges.len(), 20_002);
+        assert_eq!(input.nodes.len(), 20_001);
+        assert_eq!(input.hyperedges.len(), 20_000);
 
         let report = evaluate_bytes(&bytes);
         assert_eq!(format!("{:?}", report.disposition), expected);
@@ -878,6 +892,8 @@ mod tests {
             report.common_dependency_ids,
             vec!["deep-shared-root".to_owned()]
         );
+        assert_eq!(report.source_ancestors["deep-source-a"].len(), 10_000);
+        assert_eq!(report.source_ancestors["deep-source-b"].len(), 10_000);
         let report_bytes = serde_json::to_vec(&report).unwrap();
         assert_eq!(
             independently_verify(&bytes, &report_bytes).status,
