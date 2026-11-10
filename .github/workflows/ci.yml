@@ -60,6 +60,7 @@ jobs:
               - 'crates/mycelix-bridge-*/**'
             identity:
               - 'mycelix-identity/**'
+              - 'mycelix-workspace/mycelix-identity/**'
               - 'crates/mycelix-bridge-*/**'
             personal:
               - 'mycelix-personal/**'
@@ -298,8 +299,13 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: mycelix-identity
-      - name: Test identity
+      - name: Test legacy identity workspace
         run: cd mycelix-identity && cargo test --workspace
+      - name: Test active Holochain identity crypto envelope boundaries
+        run: |
+          cd mycelix-workspace/mycelix-identity
+          cargo test -p mycelix-crypto --lib
+          cargo build --release --target wasm32-unknown-unknown -p mycelix-crypto --no-default-features --features wasm
 
   test-personal:
     needs: changes
