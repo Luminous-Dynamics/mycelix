@@ -33,6 +33,7 @@ struct BenchmarkDocument {
     operating_system: &'static str,
     architecture: &'static str,
     debug_assertions: bool,
+    build_profile: &'static str,
     repetitions: usize,
     warmup_runs_per_measurement: usize,
     cases: Vec<BenchmarkCase>,
@@ -42,7 +43,11 @@ struct BenchmarkDocument {
 #[derive(Debug, Serialize)]
 struct BenchmarkCase {
     topology: String,
+    dependency_domain: String,
     source_count: usize,
+    subject_reference_count: usize,
+    source_hyperedge_reference_count: usize,
+    hyperedges_per_source: f64,
     expected_disposition: String,
     node_count: usize,
     hyperedge_count: usize,
@@ -61,6 +66,7 @@ struct BenchmarkCase {
 #[derive(Debug, Serialize)]
 struct TimingSummary {
     repetitions: usize,
+    samples_ms: Vec<f64>,
     p50_ms: f64,
     p95_ms: f64,
     p99_ms: f64,
@@ -84,7 +90,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
 
     let mut cases = Vec::new();
 
-    // Star is the only 100k case in v0.2. The 100k input remains below the
+    // Star is the only 100k-source case in v0.3. The 100k input remains below the
     // unchanged production parser cap; richer topologies run through 10k.
     for source_count in SOURCE_COUNTS {
         let (input, expected) = build_star_graph(source_count);
@@ -113,6 +119,20 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             repetitions,
         )?);
 
+        let (input, expected) =
+            build_uncertain_graph(source_count, AssertionState::Stale, "stale_dependency");
+        cases.push(run_case("stale_dependency", input, expected, repetitions)?);
+
+        let (input, expected) = build_uncertain_graph(
+            source_count,
+            AssertionState::Unavailable,
+            "unavailable_dependency",
+        );
+        cases.push(run_case("unavailable_dependency", input, expected, repetitions)?);
+
+        let (input, expected) = build_partial_inventory_graph(source_count);
+        cases.push(run_case("partial_inventory_unknown", input, expected, repetitions)?);
+
         for (domain, label) in [
             (DependencyDomain::Clock, "overlap_clock"),
             (DependencyDomain::Power, "overlap_power"),
@@ -123,9 +143,20 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
+    // Two independent 10,000-edge lineages converge at one common ancestor.
+    // This is a depth stress case with a small source set, so the benchmark
+    // measures traversal depth without multiplying work by 10,000 sources.
+    let (input, expected) = build_paired_deep_chain_graph(10_000);
+    cases.push(run_case(
+        "paired_deep_chains_depth_10000",
+        input,
+        expected,
+        repetitions,
+    )?);
+
     let document = BenchmarkDocument {
         schema: "gcpn.dependency-hypergraph-scale-benchmark",
-        version: "0.2.0",
+        version: "0.3.0",
         state: "SYNTHETIC_MEASUREMENT",
         synthetic_only: true,
         non_operational: true,
@@ -136,6 +167,11 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         operating_system: env::consts::OS,
         architecture: env::consts::ARCH,
         debug_assertions: cfg!(debug_assertions),
+        build_profile: if cfg!(debug_assertions) {
+            "debug"
+        } else {
+            "release"
+        },
         repetitions,
         warmup_runs_per_measurement: 1,
         cases,
@@ -157,13 +193,38 @@ fn run_case(
     repetitions: usize,
 ) -> Result<BenchmarkCase, Box<dyn std::error::Error>> {
     let source_count = input.query.source_ids.len();
+    let dependency_domain = format!("{:?}", input.query.domain);
+    let subject_reference_count = input
+        .hyperedges
+        .iter()
+        .map(|edge| edge.subject_ids.len())
+        .sum::<usize>();
+    let source_hyperedge_reference_count = input
+        .hyperedges
+        .iter()
+        .map(|edge| {
+            edge.subject_ids
+                .iter()
+                .filter(|subject| input.query.source_ids.binary_search(*subject).is_ok())
+                .count()
+        })
+        .sum::<usize>();
+    let hyperedges_per_source = if source_count == 0 {
+        0.0
+    } else {
+        source_hyperedge_reference_count as f64 / source_count as f64
+    };
     let input_bytes = serde_json::to_vec(&input)?;
     let input_sha256 = sha256_hex(&input_bytes);
 
     if input_bytes.len() > INPUT_LIMIT_BYTES {
         return Ok(BenchmarkCase {
             topology: topology.to_owned(),
+            dependency_domain,
             source_count,
+            subject_reference_count,
+            source_hyperedge_reference_count,
+            hyperedges_per_source,
             expected_disposition: expected_disposition.to_owned(),
             node_count: input.nodes.len(),
             hyperedge_count: input.hyperedges.len(),
@@ -218,14 +279,18 @@ fn run_case(
 
     Ok(BenchmarkCase {
         topology: topology.to_owned(),
+        dependency_domain,
         source_count,
+        subject_reference_count,
+        source_hyperedge_reference_count,
+        hyperedges_per_source,
         expected_disposition: expected_disposition.to_owned(),
         node_count: input.nodes.len(),
         hyperedge_count: input.hyperedges.len(),
         input_bytes: input_bytes.len(),
         input_sha256,
-        evaluate: summarize(&mut evaluate_times),
-        independent_reference_verify: summarize(&mut verify_times),
+        evaluate: summarize(&evaluate_times),
+        independent_reference_verify: summarize(&verify_times),
         evaluator_disposition: actual_disposition,
         independent_verifier_status: verification.status,
         independent_verifier_checks: verification.checks.len(),
@@ -319,6 +384,63 @@ fn build_chain_graph(
             DependencyDomain::Clock,
             20,
             "chain",
+        ),
+        "SharedDependency",
+    )
+}
+
+/// Builds two independent lineages of the requested depth that converge on
+/// one shared ancestor.
+fn build_paired_deep_chain_graph(depth: usize) -> (HypergraphInput, &'static str) {
+    let depth = depth.max(1);
+    let source_ids = vec!["deep-source-a".to_owned(), "deep-source-b".to_owned()];
+    let mut nodes = source_ids
+        .iter()
+        .map(|id| Node {
+            id: id.clone(),
+            kind: NodeKind::Source,
+        })
+        .collect::<Vec<_>>();
+    nodes.push(Node {
+        id: "deep-shared-root".to_owned(),
+        kind: NodeKind::Dependency,
+    });
+    let mut edges = Vec::with_capacity(depth.saturating_mul(2));
+
+    for (label, source_id) in [("a", "deep-source-a"), ("b", "deep-source-b")] {
+        let mut previous = source_id.to_owned();
+        for index in 0..depth.saturating_sub(1) {
+            let current = format!("deep-{label}-node-{index:05}");
+            nodes.push(Node {
+                id: current.clone(),
+                kind: NodeKind::Dependency,
+            });
+            edges.push(make_edge(
+                &format!("deep-{label}-edge-{index:05}"),
+                vec![previous],
+                current.clone(),
+                DependencyDomain::Clock,
+                AssertionState::Qualified,
+            ));
+            previous = current;
+        }
+        edges.push(make_edge(
+            &format!("deep-{label}-to-shared-root"),
+            vec![previous],
+            "deep-shared-root",
+            DependencyDomain::Clock,
+            AssertionState::Qualified,
+        ));
+    }
+
+    (
+        build_input(
+            source_ids,
+            nodes,
+            edges,
+            DependencyDomain::Clock,
+            depth as u64,
+            "paired-deep-chain",
         ),
         "SharedDependency",
     )
@@ -545,6 +667,86 @@ fn build_unknown_graph(source_count: usize) -> (HypergraphInput, &'static str) {
     )
 }
 
+
+/// Stale and unavailable edges are explicit uncertainty states, not negative
+/// evidence that a common dependency does not exist.
+fn build_uncertain_graph(
+    source_count: usize,
+    state: AssertionState,
+    topology: &str,
+) -> (HypergraphInput, &'static str) {
+    let source_ids: Vec<String> = (0..source_count)
+        .map(|index| format!("{topology}-source-{index:08}"))
+        .collect();
+    let mut nodes = source_ids
+        .iter()
+        .map(|id| Node {
+            id: id.clone(),
+            kind: NodeKind::Source,
+        })
+        .collect::<Vec<_>>();
+    nodes.push(Node {
+        id: format!("{topology}-shared-root"),
+        kind: NodeKind::Dependency,
+    });
+    let edge = make_edge(
+        &format!("{topology}-shared-edge"),
+        source_ids.clone(),
+        format!("{topology}-shared-root"),
+        DependencyDomain::Clock,
+        state,
+    );
+    (
+        build_input(
+            source_ids,
+            nodes,
+            vec![edge],
+            DependencyDomain::Clock,
+            20,
+            topology,
+        ),
+        "UnknownDependency",
+    )
+}
+
+/// The inventory declares its scope but marks the snapshot incomplete and
+/// omits dependency edges for half of the queried sources. Missing metadata
+/// must not be interpreted as evidence of no common cause.
+fn build_partial_inventory_graph(source_count: usize) -> (HypergraphInput, &'static str) {
+    let source_ids: Vec<String> = (0..source_count)
+        .map(|index| format!("partial-source-{index:08}"))
+        .collect();
+    let mut nodes = source_ids
+        .iter()
+        .map(|id| Node {
+            id: id.clone(),
+            kind: NodeKind::Source,
+        })
+        .collect::<Vec<_>>();
+    nodes.push(Node {
+        id: "partial-shared-root".into(),
+        kind: NodeKind::Dependency,
+    });
+    let known_sources = source_ids[..source_count / 2].to_vec();
+    let edge = make_edge(
+        "partial-known-shared-edge",
+        known_sources,
+        "partial-shared-root",
+        DependencyDomain::Clock,
+        AssertionState::Qualified,
+    );
+    let mut input = build_input(
+        source_ids,
+        nodes,
+        vec![edge],
+        DependencyDomain::Clock,
+        20,
+        "partial-inventory",
+    );
+    input.snapshot.complete = false;
+    (input, "UnknownDependency")
+}
+
 fn make_edge(
     id: &str,
     mut subject_ids: Vec<String>,
@@ -605,19 +807,23 @@ fn build_input(
     }
 }
 
-fn summarize(times: &mut [Duration]) -> TimingSummary {
-    times.sort_unstable();
-    let values: Vec<f64> = times
+fn summarize(times: &[Duration]) -> TimingSummary {
+    // Preserve measurement order in the artifact; sort a copy only for
+    // nearest-rank percentile and range calculations.
+    let samples_ms: Vec<f64> = times
         .iter()
         .map(|time| time.as_secs_f64() * 1_000.0)
         .collect();
+    let mut sorted_ms = samples_ms.clone();
+    sorted_ms.sort_by(f64::total_cmp);
     TimingSummary {
-        repetitions: times.len(),
-        p50_ms: quantile(&values, 0.50),
-        p95_ms: quantile(&values, 0.95),
-        p99_ms: quantile(&values, 0.99),
-        min_ms: values.first().copied().unwrap_or(0.0),
-        max_ms: values.last().copied().unwrap_or(0.0),
+        repetitions: samples_ms.len(),
+        samples_ms,
+        p50_ms: quantile(&sorted_ms, 0.50),
+        p95_ms: quantile(&sorted_ms, 0.95),
+        p99_ms: quantile(&sorted_ms, 0.99),
+        min_ms: sorted_ms.first().copied().unwrap_or(0.0),
+        max_ms: sorted_ms.last().copied().unwrap_or(0.0),
     }
 }
 
@@ -625,13 +831,15 @@ fn quantile(values: &[f64], probability: f64) -> f64 {
     if values.is_empty() {
         return 0.0;
     }
-    let index = ((values.len() - 1) as f64 * probability).ceil() as usize;
-    values[index.min(values.len() - 1)]
+    let rank = (values.len() as f64 * probability).ceil() as usize;
+    let index = rank.saturating_sub(1).min(values.len() - 1);
+    values[index]
 }
 
 fn empty_timing() -> TimingSummary {
     TimingSummary {
         repetitions: 0,
+        samples_ms: Vec::new(),
         p50_ms: 0.0,
         p95_ms: 0.0,
         p99_ms: 0.0,
@@ -711,6 +919,9 @@ mod tests {
             build_layered_graph(1_000),
             build_independent_graph(1_000),
             build_unknown_graph(1_000),
+            build_uncertain_graph(1_000, AssertionState::Stale, "stale"),
+            build_uncertain_graph(1_000, AssertionState::Unavailable, "unavailable"),
+            build_partial_inventory_graph(1_000),
         ];
         for (input, expected) in builders {
             let bytes = serde_json::to_vec(&input).unwrap();
@@ -735,6 +946,9 @@ mod tests {
                 build_layered_graph(source_count),
                 build_independent_graph(source_count),
                 build_unknown_graph(source_count),
+                build_uncertain_graph(source_count, AssertionState::Stale, "stale"),
+                build_uncertain_graph(source_count, AssertionState::Unavailable, "unavailable"),
+                build_partial_inventory_graph(source_count),
             ];
             for (input, expected) in cases {
                 let bytes = serde_json::to_vec(&input).unwrap();
@@ -752,6 +966,74 @@ mod tests {
                 );
             }
         }
+    }
+
+    #[test]
+    fn stale_unavailable_and_partial_inventory_never_claim_no_common_domain() {
+        for source_count in [10, 100, 1_000, 10_000] {
+            let cases = [
+                build_uncertain_graph(source_count, AssertionState::Stale, "stale"),
+                build_uncertain_graph(
+                    source_count,
+                    AssertionState::Unavailable,
+                    "unavailable",
+                ),
+                build_partial_inventory_graph(source_count),
+            ];
+
+            for (input, expected) in cases {
+                let bytes = serde_json::to_vec(&input).unwrap();
+                assert!(bytes.len() <= INPUT_LIMIT_BYTES);
+                let report = evaluate_bytes(&bytes);
+                assert_eq!(format!("{:?}", report.disposition), expected);
+                assert_ne!(
+                    format!("{:?}", report.disposition),
+                    "NoDeclaredCommonDomain",
+                    "uncertain inventory at {source_count} sources must fail closed"
+                );
+                if !input.snapshot.complete {
+                    assert!(
+                        report.reason_codes.contains(&"inventory_snapshot_incomplete".to_owned())
+                    );
+                }
+                let report_bytes = serde_json::to_vec(&report).unwrap();
+                assert_eq!(
+                    independently_verify(&bytes, &report_bytes).status,
+                    "verified"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn paired_ten_thousand_edge_chains_are_deterministic_and_verifiable() {
+        let (input, expected) = build_paired_deep_chain_graph(10_000);
+        let bytes = serde_json::to_vec(&input).unwrap();
+        let repeated_bytes = serde_json::to_vec(&input).unwrap();
+
+        assert_eq!(bytes, repeated_bytes);
+        assert!(
+            bytes.len() <= INPUT_LIMIT_BYTES,
+            "paired deep-chain input is {} bytes, above the unchanged 16 MiB cap",
+            bytes.len()
+        );
+        assert_eq!(input.query.source_ids.len(), 2);
+        assert_eq!(input.nodes.len(), 20_001);
+        assert_eq!(input.hyperedges.len(), 20_000);
+
+        let report = evaluate_bytes(&bytes);
+        assert_eq!(format!("{:?}", report.disposition), expected);
+        assert_eq!(
+            report.common_dependency_ids,
+            vec!["deep-shared-root".to_owned()]
+        );
+        assert_eq!(report.source_ancestors["deep-source-a"].len(), 10_000);
+        assert_eq!(report.source_ancestors["deep-source-b"].len(), 10_000);
+        let report_bytes = serde_json::to_vec(&report).unwrap();
+        assert_eq!(
+            independently_verify(&bytes, &report_bytes).status,
+            "verified"
+        );
     }
 
     #[test]
@@ -798,11 +1080,33 @@ mod tests {
     }
 
     #[test]
+    fn timing_summary_preserves_measurement_order_and_percentiles() {
+        let times = [
+            Duration::from_millis(5),
+            Duration::from_millis(1),
+            Duration::from_millis(3),
+            Duration::from_millis(2),
+            Duration::from_millis(4),
+        ];
+        let summary = summarize(&times);
+        assert_eq!(summary.samples_ms, vec![5.0, 1.0, 3.0, 2.0, 4.0]);
+        assert_eq!(summary.p50_ms, 3.0);
+        assert_eq!(summary.p95_ms, 5.0);
+        assert_eq!(summary.p99_ms, 5.0);
+        assert_eq!(summary.min_ms, 1.0);
+        assert_eq!(summary.max_ms, 5.0);
+    }
+
+    #[test]
     fn quantile_is_deterministic_and_nearest_rank() {
         let values = [1.0, 2.0, 3.0, 4.0, 5.0];
         assert_eq!(quantile(&values, 0.50), 3.0);
         assert_eq!(quantile(&values, 0.95), 5.0);
         assert_eq!(quantile(&values, 0.99), 5.0);
+
+        let five_hundred = (1..=500).map(f64::from).collect::<Vec<_>>();
+        assert_eq!(quantile(&five_hundred, 0.95), 475.0);
+        assert_eq!(quantile(&five_hundred, 0.99), 495.0);
     }
 
     #[test]

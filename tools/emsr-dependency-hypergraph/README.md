@@ -1,6 +1,6 @@
 # EMSR dependency hypergraph reference evaluator 0.1
 
-Status: **research prototype; not yet independently qualified**.
+Status: **research prototype; synthetic software-conformance coverage only; no external organizational qualification or production qualification is claimed**.
 
 This isolated Rust crate is the first executable reference for Mycelix #5923. It models typed, time-qualified dependency hyperedges and derives transitive shared ancestors for a declared observation time and evidence frontier.
 
@@ -29,15 +29,15 @@ The crate is standalone by design. It does not add a Holochain zome, evidence le
 
 ## Independence boundary
 
-The evaluator and reference verifier use separate traversal implementations (iterative breadth-first closure vs recursive depth-first closure) but share the Rust data contract and cryptographic/serialization libraries. This proves code-path disagreement can be detected in the current crate; it does not prove organizational, language, dependency, custody or hardware independence. A second implementation in a different language/library remains required.
+The evaluator and Rust reference verifier use separate traversal implementations (indexed iterative breadth-first closure vs a separately indexed depth-first event stack) but share the Rust data contract and cryptographic/serialization libraries. This proves code-path disagreement can be detected in the current crate; it does not prove organizational, language, dependency, custody or hardware independence. A second implementation in a different language/library remains required.
 
 ## Scale work
 
-The initial prototype does not claim scale or performance. Follow-on measurements must report p50/p95/p99 runtime and peak memory at declared node, hyperedge and reachability densities, plus exact expected outcomes and false-independent negative controls.
+The topology benchmark below measures only deterministic synthetic graph cases. It is intended to expose shape-dependent runtime and memory behavior, not to establish physical independence, field throughput or operational performance.
 
 ## Cross-language report verification
 
-A separate Go implementation is provided in `tools/emsr-dependency-hypergraph-go-verifier`. It uses only the Go standard library, parses the exact input/report contracts, recomputes the dependency closure using its own recursive traversal, and checks the input-byte digest, query/snapshot binding, closure, disposition, reason codes, authority and claim ceiling.
+A separate Go implementation is provided in `tools/emsr-dependency-hypergraph-go-verifier`. It uses only the Go standard library, parses the exact input/report contracts, recomputes the dependency closure with its own indexed, explicit depth-first event stack, and checks the input-byte digest, query/snapshot binding, closure, disposition, reason codes, authority and claim ceiling.
 
 Run:
 
@@ -78,24 +78,33 @@ Each Rust civil-domain profile also passes the existing separate Rust reference 
 
 ## Reproducible scale benchmark
 
-An isolated standard-library benchmark driver is available at `examples/scale_benchmark.rs`. It generates a synthetic star-shaped dependency hypergraph at 10, 100, 1,000, 10,000 and 100,000 sources, with one multi-subject shared-clock hyperedge. For each size it reports input SHA-256/bytes, node/edge counts, evaluator p50/p95/p99/min/max, independent-reference-verifier p50/p95/p99/min/max, disposition, verifier status and Linux process high-water RSS where available.
+The standard-library Rust driver at `examples/scale_benchmark.rs` emits a versioned, synthetic-only report. It measures these graph families:
+
+- `star_shared_root`: 10, 100, 1,000, 10,000 and 100,000 sources sharing one dependency hyperedge.
+- `deep_shared_chain`: 10, 100, 1,000 and 10,000 sources traversing a 256-edge common lineage.
+- `paired_deep_chains_depth_10000`: two independent 10,000-edge dependency lineages converging on one common ancestor. This is a dedicated depth-stress case with two sources, not a 10,000-source case.
+- `layered_hierarchy`, `overlap_clock`, `overlap_power`, `overlap_network`, `sparse_independent`, `unknown_dependency`, `stale_dependency`, `unavailable_dependency` and `partial_inventory_unknown`: each measured at 10, 100, 1,000 and 10,000 sources. The final three uncertainty families explicitly distinguish unqualified common-cause assertions from missing dependency metadata in a snapshot whose `complete` flag is false.
+
+Each case records its topology, dependency domain, source/node/hyperedge counts, total subject-reference count, direct source-hyperedge-reference count, average direct hyperedges per queried source, serialized input bytes and SHA-256, expected and actual disposition, verifier status/check count, and Linux high-water RSS when available. The Rust evaluator and separately implemented Rust reference verifier are timed separately. The evaluator timing includes strict input parsing and evaluation; report serialization is outside the timed interval. Each timing record retains the raw per-run samples in measurement order as well as p50/p95/p99, min and max.
+
+The benchmark defaults to 101 measured repetitions after one unmeasured warm-up. `GCPN_BENCH_REPETITIONS` is clamped to 101–501. Reports include the exact commit SHA when available, host OS/architecture, rustc version and build profile. The Go standard-library verifier is not timed by this Rust harness; its test suite separately checks the public challenge pack, civil-domain cases and a matching two-branch 10,000-edge lineage. Do not interpret that as a performance comparison between languages.
 
 Run in optimized mode:
 
 ```sh
 cargo run --release --manifest-path tools/emsr-dependency-hypergraph/Cargo.toml --example scale_benchmark -- /tmp/emsr-hypergraph-scale.json
-GCPN_BENCH_REPETITIONS=31 cargo run --release --manifest-path tools/emsr-dependency-hypergraph/Cargo.toml --example scale_benchmark
+GCPN_BENCH_REPETITIONS=101 cargo run --release --manifest-path tools/emsr-dependency-hypergraph/Cargo.toml --example scale_benchmark
 ```
 
-The default is 101 measured repetitions after one unmeasured warm-up; `GCPN_BENCH_REPETITIONS` is clamped to 101–501 so the reported nearest-rank p99 is not merely the maximum of a tiny sample. Results include commit SHA (when run in GitHub Actions), OS, architecture, rustc version and debug/release state. The 16 MiB parser limit is not relaxed for the benchmark; oversized synthetic cases are reported as rejected rather than silently excluded or scored.
+The production 16 MiB parser limit is unchanged. Oversized synthetic cases are retained in the output with `REJECTED_BY_INPUT_SIZE_LIMIT`; they are not silently omitted or scored. Results are comparable only when exact input digests, source revision, toolchain, build profile and host are retained. Report each topology separately; do not collapse latency, memory and correctness into a composite score.
 
-The driver is a synthetic scale harness, not an observed result. Do not publish p50/p95/p99 or memory numbers until the exact revision, host, toolchain, input digests and complete output JSON are retained. The star graph is intentionally simple; follow it with chain, fan-in/fan-out, dense dependency, unknown-edge, temporal filtering and many-small-components shapes before making general throughput claims.
+The benchmark is synthetic software evidence only. It does not establish physical or statistical independence, source authenticity, sensor accuracy, field throughput, certification or operational safety.
 
 ## Scale and traversal behavior
 
 The main Rust evaluator retains its indexed breadth-first closure; the independent Rust reference traversal now uses a separately built subject index and explicit depth-first event stack. The Go reference verifier uses its own subject index and explicit DFS event stack. Both avoid recursive stack growth and repeated full-hyperedge scans for each visited node.
 
-The integration tests include two 10,000-edge-deep maritime lineage branches converging on a shared ancestor. This is a stack-safety/correctness stress case, not a latency or throughput benchmark. Benchmark runs must still report p50/p95/p99, peak memory, graph shape and input digests at declared source/hyperedge sizes before any performance claim.
+The Rust and Go integration tests include two 10,000-edge-deep maritime lineage branches converging on a shared ancestor. The Rust benchmark now times a two-source instance of that shape, with raw evaluator and Rust-reference samples. This remains a synthetic traversal stress case, not physical or field-performance evidence.
 
 Both Rust and Go parsers enforce the same 16 MiB input limit. The Rust CLI's bounded reader and both language-level parsers reject oversize input before full deserialization.
 
@@ -107,6 +116,6 @@ Input and report parsing is strict in both language implementations:
 - multiple trailing JSON values are rejected;
 - Rust CLI reads use a capped Read::take(max+1) rather than a metadata-then-unbounded-read sequence; Go uses io.LimitReader.
 
-The parser changes remain subject to exact-head workflow results on the integration PR. A passing parser test proves only deterministic interpretation of supplied JSON bytes, not issuer authenticity.
+Treat qualification as exact-head evidence: a result applies only to the commit SHA whose Rust and Go workflows actually completed. A later code or benchmark change requires fresh exact-head checks. A passing parser test proves only deterministic interpretation of supplied JSON bytes, not issuer authenticity.
 
 Follow-on integration: [#5997 — civil-domain hypergraph and parser integrity](https://github.com/Luminous-Dynamics/mycelix/issues/5997).

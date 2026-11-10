@@ -404,6 +404,52 @@ func TestCivilAviationSharedPowerDoesNotImplySharedClock(t *testing.T) {
 	assertCivilReport(t, input, "SHARED_DEPENDENCY", []string{"airport-power-bus"})
 }
 
+func TestUncertainAndPartialInventoryNeverAssertNoCommonDomain(t *testing.T) {
+	for _, sourceCount := range []int{10, 100, 1_000, 10_000} {
+		sourceIDs := make([]string, sourceCount)
+		nodes := make([]Node, 0, sourceCount+1)
+		for index := 0; index < sourceCount; index++ {
+			sourceID := fmt.Sprintf("uncertain-source-%08d", index)
+			sourceIDs[index] = sourceID
+			nodes = append(nodes, Node{ID: sourceID, Kind: "source"})
+		}
+		nodes = append(nodes, Node{ID: "uncertain-shared-root", Kind: "dependency"})
+
+		for _, state := range []string{"unknown", "stale", "unavailable", "revoked", "conflicted"} {
+			input := civilInput(
+				"clock",
+				sourceIDs,
+				nodes,
+				[]DependencyHyperedge{
+					civilEdge("uncertain-shared-edge", sourceIDs, "uncertain-shared-root", "clock", state),
+				},
+			)
+			report := assertCivilReport(t, input, "UNKNOWN_DEPENDENCY", []string{})
+			if !contains(report.ReasonCodes, "applicable_assertion_not_qualified_or_outside_frontier") {
+				t.Fatalf("%s assertion at %d sources did not preserve its uncertainty reason: %v", state, sourceCount, report.ReasonCodes)
+			}
+		}
+
+		// Half of the queried source set has a known edge. The remaining half
+		// has no declared dependency metadata and the inventory admits that it
+		// is incomplete. Absence in this snapshot is not independence evidence.
+		knownSourceIDs := append([]string(nil), sourceIDs[:sourceCount/2]...)
+		partial := civilInput(
+			"clock",
+			sourceIDs,
+			nodes,
+			[]DependencyHyperedge{
+				civilEdge("partial-known-shared-edge", knownSourceIDs, "uncertain-shared-root", "clock", "qualified"),
+			},
+		)
+		partial.Snapshot.Complete = false
+		report := assertCivilReport(t, partial, "UNKNOWN_DEPENDENCY", []string{})
+		if !contains(report.ReasonCodes, "inventory_snapshot_incomplete") {
+			t.Fatalf("partial inventory at %d sources lost its incompleteness reason: %v", sourceCount, report.ReasonCodes)
+		}
+	}
+}
+
 func TestCivilPositiveControlUsesDeclaredNotPhysicalIndependenceSemantics(t *testing.T) {
 	input := civilInput(
 		"data_pipeline",
@@ -440,7 +486,7 @@ func TestReferenceTraversalHandlesLongMaritimeDependencyChains(t *testing.T) {
 		{ID: "radar-observation-source", Kind: "source"},
 		{ID: "shared-port-core", Kind: "dependency"},
 	}
-	edges := make([]DependencyHyperedge, 0, 2*depth+2)
+	edges := make([]DependencyHyperedge, 0, 2*depth)
 
 	for _, item := range []struct {
 		prefix string
@@ -450,7 +496,7 @@ func TestReferenceTraversalHandlesLongMaritimeDependencyChains(t *testing.T) {
 		{prefix: "radar-dependency", source: "radar-observation-source"},
 	} {
 		previous := item.source
-		for index := 0; index < depth; index++ {
+		for index := 0; index < depth-1; index++ {
 			current := fmt.Sprintf("%s-%05d", item.prefix, index)
 			nodes = append(nodes, Node{ID: current, Kind: "dependency"})
 			edges = append(edges, civilEdge(
@@ -484,6 +530,14 @@ func TestReferenceTraversalHandlesLongMaritimeDependencyChains(t *testing.T) {
 	report := referenceReport(input, sha256Hex(inputBytes))
 	if report.Disposition != "SHARED_DEPENDENCY" || !reflect.DeepEqual(report.CommonDependencyIDs, []string{"shared-port-core"}) {
 		t.Fatalf("unexpected long-chain report: disposition=%s common=%v reasons=%v", report.Disposition, report.CommonDependencyIDs, report.ReasonCodes)
+	}
+	if len(edges) != 2*depth {
+		t.Fatalf("constructed %d edges, want exactly %d", len(edges), 2*depth)
+	}
+	for _, source := range []string{"ais-observation-source", "radar-observation-source"} {
+		if got := len(report.SourceAncestors[source]); got != depth {
+			t.Fatalf("%s has %d ancestors, want %d", source, got, depth)
+		}
 	}
 	reportBytes, err := json.Marshal(report)
 	if err != nil {
