@@ -63,6 +63,22 @@ This is a project-specific canonical binary profile, not a claim of RFC 8785 JSO
 
 The digest now detects changes to typed evidence fields even if the caller recomputes the digest after mutation. It still does not authenticate the source: production code must resolve the cited Holochain actions, verify Ed25519 and predecessor authority, and establish that the signed evidence actually corresponds to committed records. signature_digest remains only a typed digest reference in this model; signature verification is not implemented here.
 
+## Anchored append-only journal replay
+
+The reference model now includes `src/replay.rs`, a separate event-stream representation and reducer for reconstructing the mutable `PaymentJournal` projection.
+
+The log records a typed creation event, authorization/rejection, stable effect preparation, indeterminate outcomes, and typed effect commits. Each frame binds:
+- a monotonically increasing sequence number;
+- the previous frame's digest;
+- a versioned, domain-separated event digest over fixed-width integer and length-prefixed UTF-8 fields;
+- the exact event variant and its immutable subject.
+
+`replay_journal` verifies the sequence, previous-digest chain, event digest, externally supplied event-count/tail anchor, operation identity, and legal saga transitions before returning a newly reconstructed journal. The committed evidence event binds both the recomputed typed evidence digest and the caller-supplied digest; ordinary commit validation still rejects a stale or fabricated digest.
+
+This adds a distinct integrity question beyond "does the current mutable projection look valid?": **can this exact operation state be reconstructed from the retained ordered history, and does that history still match an independently retained tail anchor?** Tests cover full local-payment/Treasury recovery replay, tail truncation, event reordering, event-payload tampering, impossible transition order, and invalid committed evidence.
+
+The event stream is a reference model, not yet the production durable store or Holochain record format. The anchor must be retained outside the stream (for example in an independently protected operation receipt/checkpoint) to detect tail truncation. The model does not authenticate that anchor, authenticate event authors, resolve Holochain ActionHashes, prove distributed append-only storage, or establish monetary movement. A party able to rewrite the entire stream and its anchor can recompute this hash chain; production needs an authenticated, independently retained checkpoint and source-record verification. Event sequence is local logical order, not a global wall-clock or cross-agent total order.
+
 ## Distributed-systems and production limitations
 
 - The Mutex concurrency test proves only that this in-memory registry serializes its own threads.
