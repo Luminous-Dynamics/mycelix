@@ -175,8 +175,7 @@ pub struct Resolution {
 }
 
 fn is_sorted_unique(values: &[String]) -> bool {
-    !values.iter().any(String::is_empty)
-        && values.windows(2).all(|pair| pair[0] < pair[1])
+    !values.iter().any(String::is_empty) && values.windows(2).all(|pair| pair[0] < pair[1])
 }
 
 fn contains(values: &[String], needle: &str) -> bool {
@@ -195,9 +194,7 @@ fn valid_terms_and_state(terms: &ChannelTerms, state: &ChannelState) -> bool {
         return false;
     }
 
-    let initial_total = terms
-        .initial_balance_a
-        .checked_add(terms.initial_balance_b);
+    let initial_total = terms.initial_balance_a.checked_add(terms.initial_balance_b);
     let current_total = state.balance_a.checked_add(state.balance_b);
     initial_total.is_some() && initial_total == current_total
 }
@@ -237,7 +234,10 @@ fn validate_transition(
     }
 
     match &candidate.operation {
-        ChannelOperation::Transfer { debit_party, amount } => {
+        ChannelOperation::Transfer {
+            debit_party,
+            amount,
+        } => {
             if *amount == 0 {
                 return Err(RejectReason::ZeroAmount);
             }
@@ -309,9 +309,7 @@ fn validate_authorization_claim(
     }
 
     match (policy, &claim.sequencing) {
-        (AuthorizationPolicy::ProjectionOnly, _) => {
-            Err(ReasonCode::ProjectionOnlyHasNoAuthority)
-        }
+        (AuthorizationPolicy::ProjectionOnly, _) => Err(ReasonCode::ProjectionOnlyHasNoAuthority),
         (
             AuthorizationPolicy::SingleWriter { writer_did, epoch },
             SequencingClaim::SingleWriter {
@@ -373,10 +371,7 @@ fn validate_authorization_claim(
     }
 }
 
-fn same_operation_intent(
-    left: &CandidateTransition,
-    right: &CandidateTransition,
-) -> bool {
+fn same_operation_intent(left: &CandidateTransition, right: &CandidateTransition) -> bool {
     left.channel_id == right.channel_id
         && left.operation_id == right.operation_id
         && left.predecessor_ref == right.predecessor_ref
@@ -471,12 +466,8 @@ pub fn reconcile(
         let mut reason_codes = vec![ReasonCode::CompetingBranches];
         for left in 0..structurally_valid.len() {
             for right in (left + 1)..structurally_valid.len() {
-                if structurally_valid[left].operation_id
-                    == structurally_valid[right].operation_id
-                    && !same_operation_intent(
-                        &structurally_valid[left],
-                        &structurally_valid[right],
-                    )
+                if structurally_valid[left].operation_id == structurally_valid[right].operation_id
+                    && !same_operation_intent(&structurally_valid[left], &structurally_valid[right])
                 {
                     reason_codes.push(ReasonCode::OperationIdentityPayloadConflict);
                 }
@@ -586,7 +577,10 @@ mod tests {
             predecessor_ref: "action:genesis".into(),
             sequence: 1,
             author: "did:mycelix:alice".into(),
-            operation: ChannelOperation::Transfer { debit_party, amount },
+            operation: ChannelOperation::Transfer {
+                debit_party,
+                amount,
+            },
             authorization: AuthorizationClaim {
                 participant_signers: vec![debtor],
                 sequencing: SequencingClaim::SingleWriter {
@@ -608,10 +602,7 @@ mod tests {
             author: "did:mycelix:alice".into(),
             operation: ChannelOperation::Close,
             authorization: AuthorizationClaim {
-                participant_signers: vec![
-                    "did:mycelix:alice".into(),
-                    "did:mycelix:bob".into(),
-                ],
+                participant_signers: vec!["did:mycelix:alice".into(), "did:mycelix:bob".into()],
                 sequencing: SequencingClaim::SingleWriter {
                     writer_did: "did:mycelix:alice".into(),
                     epoch: 7,
@@ -631,12 +622,7 @@ mod tests {
     #[test]
     fn one_policy_consistent_candidate_is_not_settlement_finality() {
         let candidate = authorized_transfer("action:1", "op-1", Party::A, 10);
-        let result = reconcile(
-            &terms(),
-            &state(),
-            &single_writer_policy(),
-            &[candidate],
-        );
+        let result = reconcile(&terms(), &state(), &single_writer_policy(), &[candidate]);
         assert_eq!(
             result.disposition,
             Disposition::PolicyClaimConsistentPendingFinality
@@ -691,9 +677,11 @@ mod tests {
             &[first, second],
         );
         assert_eq!(result.disposition, Disposition::Conflicted);
-        assert!(result
-            .reason_codes
-            .contains(&ReasonCode::OperationIdentityPayloadConflict));
+        assert!(
+            result
+                .reason_codes
+                .contains(&ReasonCode::OperationIdentityPayloadConflict)
+        );
     }
 
     #[test]
@@ -721,9 +709,11 @@ mod tests {
             &[first, second],
         );
         assert_eq!(result.disposition, Disposition::Conflicted);
-        assert!(result
-            .reason_codes
-            .contains(&ReasonCode::CandidateReferenceCollision));
+        assert!(
+            result
+                .reason_codes
+                .contains(&ReasonCode::CandidateReferenceCollision)
+        );
         assert_eq!(result.observed_candidate_refs, vec!["action:same"]);
         assert_eq!(result.observed_candidate_claims.len(), 2);
         assert_ne!(
@@ -749,12 +739,7 @@ mod tests {
     fn stale_predecessor_is_rejected_and_never_upgraded() {
         let mut candidate = authorized_transfer("action:stale", "op-stale", Party::A, 10);
         candidate.predecessor_ref = "action:other".into();
-        let result = reconcile(
-            &terms(),
-            &state(),
-            &single_writer_policy(),
-            &[candidate],
-        );
+        let result = reconcile(&terms(), &state(), &single_writer_policy(), &[candidate]);
         assert_eq!(result.disposition, Disposition::Rejected);
         assert_eq!(
             result.rejected_candidates[0].reason,
@@ -766,12 +751,7 @@ mod tests {
     fn wrong_sequence_is_rejected() {
         let mut candidate = authorized_transfer("action:gap", "op-gap", Party::A, 10);
         candidate.sequence = 3;
-        let result = reconcile(
-            &terms(),
-            &state(),
-            &single_writer_policy(),
-            &[candidate],
-        );
+        let result = reconcile(&terms(), &state(), &single_writer_policy(), &[candidate]);
         assert_eq!(result.disposition, Disposition::Rejected);
         assert_eq!(
             result.rejected_candidates[0].reason,
@@ -782,12 +762,7 @@ mod tests {
     #[test]
     fn zero_transfer_is_rejected() {
         let candidate = authorized_transfer("action:zero", "op-zero", Party::A, 0);
-        let result = reconcile(
-            &terms(),
-            &state(),
-            &single_writer_policy(),
-            &[candidate],
-        );
+        let result = reconcile(&terms(), &state(), &single_writer_policy(), &[candidate]);
         assert_eq!(result.disposition, Disposition::Rejected);
         assert_eq!(
             result.rejected_candidates[0].reason,
@@ -798,12 +773,7 @@ mod tests {
     #[test]
     fn insufficient_balance_is_rejected() {
         let candidate = authorized_transfer("action:overdraw", "op-overdraw", Party::A, 101);
-        let result = reconcile(
-            &terms(),
-            &state(),
-            &single_writer_policy(),
-            &[candidate],
-        );
+        let result = reconcile(&terms(), &state(), &single_writer_policy(), &[candidate]);
         assert_eq!(result.disposition, Disposition::Rejected);
         assert_eq!(
             result.rejected_candidates[0].reason,
@@ -821,38 +791,31 @@ mod tests {
             &[candidate],
         );
         assert_eq!(result.disposition, Disposition::Indeterminate);
-        assert!(result
-            .reason_codes
-            .contains(&ReasonCode::ProjectionOnlyHasNoAuthority));
+        assert!(
+            result
+                .reason_codes
+                .contains(&ReasonCode::ProjectionOnlyHasNoAuthority)
+        );
     }
 
     #[test]
     fn single_writer_must_be_the_update_author_and_epoch_must_match() {
         let mut candidate = authorized_transfer("action:wrong-writer", "op-1", Party::A, 10);
         candidate.author = "did:mycelix:bob".into();
-        let result = reconcile(
-            &terms(),
-            &state(),
-            &single_writer_policy(),
-            &[candidate],
-        );
+        let result = reconcile(&terms(), &state(), &single_writer_policy(), &[candidate]);
         assert_eq!(result.disposition, Disposition::Indeterminate);
-        assert!(result
-            .reason_codes
-            .contains(&ReasonCode::InvalidSequencerClaim));
+        assert!(
+            result
+                .reason_codes
+                .contains(&ReasonCode::InvalidSequencerClaim)
+        );
     }
 
     #[test]
     fn single_writer_does_not_replace_debtor_consent() {
         let mut candidate = authorized_transfer("action:no-debtor-consent", "op-1", Party::B, 10);
-        candidate.authorization.participant_signers =
-            vec!["did:mycelix:alice".into()];
-        let result = reconcile(
-            &terms(),
-            &state(),
-            &single_writer_policy(),
-            &[candidate],
-        );
+        candidate.authorization.participant_signers = vec!["did:mycelix:alice".into()];
+        let result = reconcile(&terms(), &state(), &single_writer_policy(), &[candidate]);
         assert_eq!(result.disposition, Disposition::Indeterminate);
     }
 
@@ -902,14 +865,9 @@ mod tests {
 
     fn quorum_candidate(candidate_ref: &str, operation_id: &str) -> CandidateTransition {
         let mut candidate = authorized_transfer(candidate_ref, operation_id, Party::A, 10);
-        candidate.authorization.participant_signers =
-            vec!["did:mycelix:alice".into()];
+        candidate.authorization.participant_signers = vec!["did:mycelix:alice".into()];
         candidate.authorization.sequencing = SequencingClaim::WitnessQuorum {
-            witness_signers: vec![
-                "witness-1".into(),
-                "witness-2".into(),
-                "witness-3".into(),
-            ],
+            witness_signers: vec!["witness-1".into(), "witness-2".into(), "witness-3".into()],
         };
         candidate
     }
@@ -917,12 +875,7 @@ mod tests {
     #[test]
     fn intersecting_quorum_claim_meets_two_q_greater_than_n_plus_f() {
         let candidate = quorum_candidate("action:q3", "op-q3");
-        let result = reconcile(
-            &terms(),
-            &state(),
-            &quorum_policy(3),
-            &[candidate],
-        );
+        let result = reconcile(&terms(), &state(), &quorum_policy(3), &[candidate]);
         assert_eq!(
             result.disposition,
             Disposition::PolicyClaimConsistentPendingFinality
@@ -932,16 +885,13 @@ mod tests {
     #[test]
     fn quorum_without_honest_intersection_bound_is_indeterminate() {
         let candidate = quorum_candidate("action:q2", "op-q2");
-        let result = reconcile(
-            &terms(),
-            &state(),
-            &quorum_policy(2),
-            &[candidate],
-        );
+        let result = reconcile(&terms(), &state(), &quorum_policy(2), &[candidate]);
         assert_eq!(result.disposition, Disposition::Indeterminate);
-        assert!(result
-            .reason_codes
-            .contains(&ReasonCode::InvalidQuorumPolicy));
+        assert!(
+            result
+                .reason_codes
+                .contains(&ReasonCode::InvalidQuorumPolicy)
+        );
     }
 
     #[test]
@@ -953,32 +903,17 @@ mod tests {
             amount: 15,
         };
         second.authorization.sequencing = SequencingClaim::WitnessQuorum {
-            witness_signers: vec![
-                "witness-2".into(),
-                "witness-3".into(),
-                "witness-4".into(),
-            ],
+            witness_signers: vec!["witness-2".into(), "witness-3".into(), "witness-4".into()],
         };
-        let result = reconcile(
-            &terms(),
-            &state(),
-            &quorum_policy(3),
-            &[first, second],
-        );
+        let result = reconcile(&terms(), &state(), &quorum_policy(3), &[first, second]);
         assert_eq!(result.disposition, Disposition::Conflicted);
     }
 
     #[test]
     fn close_requires_both_participants_even_under_single_writer_policy() {
         let mut close = authorized_close("action:close");
-        close.authorization.participant_signers =
-            vec!["did:mycelix:alice".into()];
-        let result = reconcile(
-            &terms(),
-            &state(),
-            &single_writer_policy(),
-            &[close],
-        );
+        close.authorization.participant_signers = vec!["did:mycelix:alice".into()];
+        let result = reconcile(&terms(), &state(), &single_writer_policy(), &[close]);
         assert_eq!(result.disposition, Disposition::Indeterminate);
     }
 
@@ -987,12 +922,7 @@ mod tests {
         let mut closed = state();
         closed.closed = true;
         let candidate = authorized_transfer("action:after-close", "op-after-close", Party::A, 1);
-        let result = reconcile(
-            &terms(),
-            &closed,
-            &single_writer_policy(),
-            &[candidate],
-        );
+        let result = reconcile(&terms(), &closed, &single_writer_policy(), &[candidate]);
         assert_eq!(result.disposition, Disposition::Rejected);
         assert_eq!(
             result.rejected_candidates[0].reason,
@@ -1005,12 +935,7 @@ mod tests {
         let mut mutated = state();
         mutated.balance_a += 1;
         let candidate = authorized_transfer("action:1", "op-1", Party::A, 1);
-        let result = reconcile(
-            &terms(),
-            &mutated,
-            &single_writer_policy(),
-            &[candidate],
-        );
+        let result = reconcile(&terms(), &mutated, &single_writer_policy(), &[candidate]);
         assert_eq!(result.disposition, Disposition::Indeterminate);
         assert!(result.reason_codes.contains(&ReasonCode::InvalidBaseState));
     }
