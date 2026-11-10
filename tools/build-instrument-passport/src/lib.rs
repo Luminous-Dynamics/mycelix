@@ -21,7 +21,7 @@ pub const CORPUS_JSON: &str =
 const PROFILE_ID: &str = "MYC-BUILD-METROLOGY-PROFILE-V0.1";
 const PASSPORT_VERSION: &str = "mycelix.building-instrument-passport/0.1";
 const CORPUS_ID: &str = "BUILDING-INSTRUMENT-PASSPORT-CORPUS-V0.1";
-const EXPECTED_CASE_COUNT: usize = 54;
+const EXPECTED_CASE_COUNT: usize = 55;
 
 const ROOT_FIELDS: &[&str] = &[
     "passport_schema_version",
@@ -286,6 +286,7 @@ const EXPECTED_CASES: &[(&str, &str)] = &[
     ("BIP-052", "MORE_EVIDENCE_REQUIRED"),
     ("BIP-053", "NOT_COMPARABLE"),
     ("BIP-054", "MORE_EVIDENCE_REQUIRED"),
+    ("BIP-055", "MORE_EVIDENCE_REQUIRED"),
 ];
 
 #[derive(Debug)]
@@ -514,6 +515,11 @@ pub fn classify_passport(record: &Value) -> &'static str {
     if text(instrument, "identity_state") != "established" {
         return "MORE_EVIDENCE_REQUIRED";
     }
+    // v0.1 supports an absolute accuracy statement only. Percentage bases
+    // require a separate, range-aware conversion model before applicability.
+    if text(&capability["accuracy"], "basis") != "absolute" {
+        return "MORE_EVIDENCE_REQUIRED";
+    }
     if !non_empty_text(instrument, "protocol_profile_id")
         || !non_empty_text(instrument, "protocol_profile_digest")
         || !non_empty_text(instrument, "protocol_profile_verification_receipt_id")
@@ -622,7 +628,18 @@ pub fn classify_passport(record: &Value) -> &'static str {
     let Some(response_time) = number(capability, "response_time_seconds") else {
         return "NOT_COMPARABLE";
     };
-    if range_minimum >= range_maximum || resolution <= 0.0 || accuracy < 0.0 || response_time < 0.0 {
+    let Some(repeatability) = number(&capability["repeatability"], "value") else {
+        return "NOT_COMPARABLE";
+    };
+    let Some(drift) = number(&capability["drift"], "value") else {
+        return "NOT_COMPARABLE";
+    };
+    let Some(drift_period) = number(&capability["drift"], "period_seconds") else {
+        return "NOT_COMPARABLE";
+    };
+    if range_minimum >= range_maximum || resolution <= 0.0 || accuracy < 0.0
+        || response_time < 0.0 || repeatability < 0.0 || drift < 0.0 || drift_period <= 0.0
+    {
         return "NOT_COMPARABLE";
     }
 
@@ -1103,8 +1120,8 @@ mod tests {
     }
 
     #[test]
-    fn tracked_passport_corpus_matches_all_54_known_answers() {
-        assert_eq!(validate_tracked().expect("tracked passport validation"), 54);
+    fn tracked_passport_corpus_matches_all_55_known_answers() {
+        assert_eq!(validate_tracked().expect("tracked passport validation"), 55);
     }
 
     #[test]
@@ -1121,7 +1138,7 @@ mod tests {
             fields.iter().any(|field| field == "acquisition_mode")
                 && fields.iter().any(|field| field == "local_read_only")
         }));
-        assert_eq!(validate_tracked().expect("54-case passport corpus"), 54);
+        assert_eq!(validate_tracked().expect("55-case passport corpus"), 55);
     }
 
     #[test]
@@ -1180,6 +1197,14 @@ mod tests {
     fn local_read_only_session_requires_receipt() {
         assert_eq!(
             classify_passport(&case("BIP-054")["record"]),
+            "MORE_EVIDENCE_REQUIRED"
+        );
+    }
+
+    #[test]
+    fn unsupported_percentage_accuracy_basis_requires_more_evidence() {
+        assert_eq!(
+            classify_passport(&case("BIP-055")["record"]),
             "MORE_EVIDENCE_REQUIRED"
         );
     }
