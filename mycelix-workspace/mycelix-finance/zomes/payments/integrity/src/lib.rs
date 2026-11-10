@@ -548,36 +548,59 @@ fn validate_update_payment(
     action: Update,
     payment: Payment,
 ) -> ExternResult<ValidateCallbackResult> {
-    // Status can change but amount/parties cannot
     if payment.amount == 0 {
         return Ok(ValidateCallbackResult::Invalid(
             "Amount must be positive".into(),
         ));
     }
 
-    // Enforce status transition rules and immutable field invariants
-    if let Ok(original_record) = must_get_valid_record(action.original_action_address) {
-        if let Ok(Some(original)) = original_record.entry().to_app_option::<Payment>() {
-            if original.status != payment.status
-                && !original.status.can_transition_to(&payment.status)
-            {
-                return Ok(ValidateCallbackResult::Invalid(format!(
-                    "Invalid payment status transition: {:?} → {:?}",
-                    original.status, payment.status
-                )));
-            }
-            // Core fields are immutable
-            if original.from_did != payment.from_did
-                || original.to_did != payment.to_did
-                || original.amount != payment.amount
-                || original.currency != payment.currency
-            {
-                return Ok(ValidateCallbackResult::Invalid(
-                    "Cannot change sender, receiver, amount, or currency on an existing payment"
-                        .into(),
-                ));
-            }
+    let original_record = must_get_valid_record(action.original_action_address.clone())?;
+    let original = original_record
+        .entry()
+        .to_app_option::<Payment>()
+        .map_err(|e| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "Failed to decode original Payment predecessor: {e:?}"
+            )))
+        })?
+        .ok_or_else(|| {
+            wasm_error!(WasmErrorInner::Guest(
+                "Original payment update predecessor is not a Payment entry".into(),
+            ))
+        })?;
+
+    if original.status != payment.status && !original.status.can_transition_to(&payment.status) {
+        return Ok(ValidateCallbackResult::Invalid(format!(
+            "Invalid payment status transition: {:?} → {:?}",
+            original.status, payment.status
+        )));
+    }
+
+    if original.id != payment.id
+        || original.from_did != payment.from_did
+        || original.to_did != payment.to_did
+        || original.amount != payment.amount
+        || original.fee != payment.fee
+        || original.currency != payment.currency
+        || original.payment_type != payment.payment_type
+        || original.memo != payment.memo
+        || original.created != payment.created
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Payment identity and economic terms are immutable across updates".into(),
+        ));
+    }
+
+    if original.status == TransferStatus::Completed || payment.status != TransferStatus::Completed {
+        if original.completed != payment.completed {
+            return Ok(ValidateCallbackResult::Invalid(
+                "Payment completed timestamp is immutable after completion".into(),
+            ));
         }
+    } else if payment.completed.is_none() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Completed payments must record a completion timestamp".into(),
+        ));
     }
 
     Ok(ValidateCallbackResult::Valid)
