@@ -121,7 +121,7 @@ impl TraceV1 {
 
         let command_count =
             u32::try_from(self.commands.len()).map_err(|_| TraceError::TooManyCommands)?;
-        let mut output = Vec::with_capacity(37 + self.commands.len() * 20);
+        let mut output = Vec::with_capacity(49 + self.commands.len() * 20);
         output.extend_from_slice(TRACE_DOMAIN);
         append_u64(&mut output, self.seed);
         append_u64(&mut output, self.trace_index);
@@ -254,7 +254,7 @@ impl TraceGeneratorV1 {
                 command(
                     O::ReconcileTreasury,
                     A::Treasury,
-                    F::LookupUncertain,
+                    F::AuthoritativeAbsence,
                     effect_nonce,
                     fee,
                 ),
@@ -430,7 +430,8 @@ mod tests {
         assert_eq!(trace.canonical_bytes(), Err(TraceError::InvalidScenario));
 
         let mut trace = TraceGeneratorV1::generate(1, 0);
-        trace.commands.resize(MAX_TRACE_COMMANDS + 1, trace.commands[0]);
+        let template = trace.commands[0];
+        trace.commands.resize(MAX_TRACE_COMMANDS + 1, template);
         assert_eq!(trace.canonical_bytes(), Err(TraceError::TooManyCommands));
 
         let mut trace = TraceGeneratorV1::generate(1, 0);
