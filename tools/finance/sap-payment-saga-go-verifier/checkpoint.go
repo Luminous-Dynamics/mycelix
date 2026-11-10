@@ -30,6 +30,7 @@ var (
 	ErrCheckpointInvalidSequence = errors.New("owner checkpoint sequence/prior link is invalid")
 	ErrCheckpointJournalIdentity = errors.New("owner checkpoint journal identity does not match operation and intent")
 	ErrCheckpointAuthorityAction = errors.New("owner checkpoint authority ActionHash is invalid")
+	ErrCheckpointTimestamp = errors.New("owner checkpoint timestamp is negative")
 )
 
 type OwnerCheckpointSubjectV1 struct {
@@ -77,6 +78,9 @@ func (s OwnerCheckpointSubjectV1) Validate() error {
 	}
 	if s.EventCount == 0 {
 		return ErrCheckpointInvalid
+	}
+	if s.IssuedAtMicros < 0 {
+		return ErrCheckpointTimestamp
 	}
 	if s.CheckpointSequence == 0 {
 		return ErrCheckpointInvalidSequence
