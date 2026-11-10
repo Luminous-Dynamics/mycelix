@@ -1112,100 +1112,118 @@ pub fn execute_recovery(request_id: String) -> ExternResult<Record> {
     )))
 }
 
-/// Cancel a recovery request (owner only, before execution)
+/// Owner-signed cancellation receipt. Unlike updating RecoveryRequest, this
+/// operation is valid from the owner's source chain even when a trustee
+/// initiated the request on a different agent's source chain.
 #[hdk_extern]
-pub fn cancel_recovery(request_id: String) -> ExternResult<Record> {
+pub fn cancel_recovery(input: CancelRecoveryInput) -> ExternResult<Record> {
+    if input.request_id.is_empty() || input.request_id.len() > 256 {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Request ID must be 1-256 characters".into()
+        )));
+    }
+    if input.reason.is_empty() || input.reason.len() > 2048 {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Cancellation reason must be 1-2048 characters".into()
+        )));
+    }
+    if get_recovery_cancellation(input.request_id.clone())?.is_some() {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Recovery request has already been cancelled".into()
+        )));
+    }
+
+    let request_record = get_recovery_request(input.request_id.clone())?
+        .ok_or(wasm_error!(WasmErrorInner::Guest("Recovery request not found".into())))?;
+    let request: RecoveryRequest = request_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest("Invalid recovery request".into())))?;
+
+    let caller = agent_info()?.agent_initial_pubkey;
+    let config_hash = request.config_action_hash.clone().ok_or(wasm_error!(
+        WasmErrorInner::Guest("Recovery request has no policy revision".into())
+    ))?;
+    let config_record = get(config_hash, GetOptions::default())?
+        .ok_or(wasm_error!(WasmErrorInner::Guest("Recovery policy revision not found".into())))?;
+    let config: RecoveryConfig = config_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest("Invalid recovery policy".into())))?;
+    if config.owner != caller || request.did != format!("did:mycelix:{}", caller) {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Only the owner of the protected DID can cancel recovery".into()
+        )));
+    }
+    if request.status != RecoveryStatus::Pending
+        && request.status != RecoveryStatus::Approved
+        && request.status != RecoveryStatus::ReadyToExecute
+    {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Only an active recovery request can be cancelled".into()
+        )));
+    }
+
+    let cancellation = RecoveryCancellation {
+        request_id: request.id.clone(),
+        did: request.did,
+        request_action_hash: request_record.action_address().clone(),
+        owner: caller,
+        reason: input.reason,
+        cancelled_at: sys_time()?,
+    };
+    let cancellation_hash = create_entry(&EntryTypes::RecoveryCancellation(cancellation))?;
+    create_link(
+        string_to_entry_hash(&request.id),
+        cancellation_hash.clone(),
+        LinkTypes::RequestToCancellations,
+        (),
+    )?;
+    get(cancellation_hash, GetOptions::default())?.ok_or(wasm_error!(
+        WasmErrorInner::Guest("Could not retrieve cancellation receipt".into())
+    ))
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct CancelRecoveryInput {
+    pub request_id: String,
+    pub reason: String,
+}
+
+/// Return the latest owner-signed cancellation receipt for a request.
+#[hdk_extern]
+pub fn get_recovery_cancellation(request_id: String) -> ExternResult<Option<Record>> {
     if request_id.is_empty() || request_id.len() > 256 {
         return Err(wasm_error!(WasmErrorInner::Guest(
             "Request ID must be 1-256 characters".into()
         )));
     }
-    let agent_info = agent_info()?;
-
-    let current_record = get_recovery_request(request_id.clone())?
-        .ok_or(wasm_error!(WasmErrorInner::Guest(
-            "Recovery request not found".into()
-        )))?;
-
-    let current_request: RecoveryRequest = current_record
-        .entry()
-        .to_app_option()
-        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
-        .ok_or(wasm_error!(WasmErrorInner::Guest(
-            "Invalid recovery request".into()
-        )))?;
-
-    // Get recovery config to verify owner
-    let config_record = get_recovery_config(current_request.did.clone())?.ok_or(wasm_error!(
-        WasmErrorInner::Guest("Recovery config not found".into())
-    ))?;
-
-    let config: RecoveryConfig = config_record
-        .entry()
-        .to_app_option()
-        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
-        .ok_or(wasm_error!(WasmErrorInner::Guest(
-            "Invalid recovery config".into()
-        )))?;
-
-    // Verify caller is owner
-    if config.owner != agent_info.agent_initial_pubkey {
-        return Err(wasm_error!(WasmErrorInner::Guest(
-            "Only owner can cancel recovery".into()
-        )));
-    }
-
-    // Verify not already completed
-    if current_request.status == RecoveryStatus::Completed {
-        return Err(wasm_error!(WasmErrorInner::Guest(
-            "Cannot cancel completed recovery".into()
-        )));
-    }
-
-    // Update to cancelled
-    let cancelled_request = RecoveryRequest {
-        id: current_request.id,
-        did: current_request.did,
-        new_agent: current_request.new_agent,
-        initiated_by: current_request.initiated_by,
-        reason: current_request.reason,
-        status: RecoveryStatus::Cancelled,
-        created: current_request.created,
-        time_lock_expires: current_request.time_lock_expires,
-        config_action_hash: current_request.config_action_hash,
-        decision_vote_hashes: current_request.decision_vote_hashes,
-    };
-
-    // Holochain entry updates are source-chain-author restricted. An owner
-    // can only perform this legacy update path when the owner is also the
-    // initiating trustee; a cross-agent cancellation receipt is a separate
-    // protocol extension and must not be simulated as an owner update.
-    if *current_record.action().author() != agent_info.agent_initial_pubkey {
-        return Err(wasm_error!(WasmErrorInner::Guest(
-            "Owner cancellation from a different agent source chain is not yet supported; request author must publish the cancellation".into()
-        )));
-    }
-    let did_for_index = current_request.did.clone();
-    let action_hash = update_entry(
-        current_record.action_address().clone(),
-        &EntryTypes::RecoveryRequest(cancelled_request),
+    let links = get_links(
+        LinkQuery::try_new(
+            string_to_entry_hash(&request_id),
+            LinkTypes::RequestToCancellations,
+        )?,
+        GetStrategy::default(),
     )?;
-    create_link(
-        string_to_entry_hash(&request_id),
-        action_hash.clone(),
-        LinkTypes::RequestIdToRequest,
-        (),
-    )?;
-    create_link(
-        string_to_entry_hash(&did_for_index),
-        action_hash.clone(),
-        LinkTypes::DidToRecoveryRequest,
-        (),
-    )?;
-
-    get(action_hash, GetOptions::default())?.ok_or(wasm_error!(WasmErrorInner::Guest(
-        "Could not find cancelled request".into()
-    )))
+    let mut latest: Option<(Timestamp, Record)> = None;
+    for link in links {
+        let hash = ActionHash::try_from(link.target)
+            .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid cancellation link target".into())))?;
+        if let Some(record) = get(hash, GetOptions::default())? {
+            let cancellation: Option<RecoveryCancellation> = record
+                .entry()
+                .to_app_option()
+                .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?;
+            if cancellation.as_ref().is_some_and(|receipt| receipt.request_id == request_id) {
+                if latest.as_ref().is_none_or(|(timestamp, _)| link.timestamp > *timestamp) {
+                    latest = Some((link.timestamp, record));
+                }
+            }
+        }
+    }
+    Ok(latest.map(|(_, record)| record))
 }
 
 /// Get the latest indexed recovery request version by ID.
