@@ -154,6 +154,9 @@ fn classify(record:&Value)->&'static str{
  let observations=record["observations"].as_array();
  let Some(observations)=observations else{return "MISSING_REQUIRED_CONDITION";}
  let mut result=Vec::new();
+ if observations.iter().any(|o|dimension(p,txt(o,"dimension_id")).is_none()){
+  return "NOT_COMPARABLE";
+ }
  for d in p["dimensions"].as_array().expect("validated profile dimensions"){
   let id=txt(d,"dimension_id");
   let found:Vec<&Value>=observations.iter().filter(|o|txt(o,"dimension_id")==id).collect();
@@ -178,8 +181,9 @@ fn classify(record:&Value)->&'static str{
   match txt(d,"kind"){
    "numeric_range"=>{
     if txt(o,"source_kind")!="reference_instrument"||num(o,"value").is_none()
-     ||num(o,"uncertainty_value").is_none_or(|x|x<0.0)||txt(o,"uncertainty_unit")!=txt(d,"unit")
+     ||num(o,"uncertainty_value").is_none()||txt(o,"uncertainty_unit")!=txt(d,"unit")
     {return "MISSING_REQUIRED_CONDITION";}
+    if num(o,"uncertainty_value").is_some_and(|x|x<0.0){return "NOT_COMPARABLE";}
     let y=num(o,"value").unwrap();let u=num(o,"uncertainty_value").unwrap();
     let lo=y-u;let hi=y+u;
     let min=num(d,"minimum").unwrap();let max=num(d,"maximum").unwrap();
@@ -282,6 +286,9 @@ mod tests{
  #[test]fn schema_contract_checks_the_standalone_profile_schema(){let s=parse(PROFILE_SCHEMA_JSON).unwrap();assert!(schema_object_matches(&s["$defs"]["dimension"],DIMENSION_FIELDS));}
  #[test]fn unknown_nested_fields_are_rejected_even_in_negative_cases(){let mut c=case("CCA-017");c["record"]["observations"][0]["unreviewed"]=Value::Bool(true);assert!(validate_record_shape(&c["record"]).is_err());}
  #[test]fn duplicate_json_member_is_rejected(){assert!(parse(r#"{"a":1,"a":2}"#).is_err());}
+ #[test]fn negative_uncertainty_is_invalid_not_missing(){assert_eq!(classify(&case("CCA-020")["record"]),"NOT_COMPARABLE");}
+ #[test]fn undeclared_observation_dimension_is_not_ignored(){assert_eq!(classify(&case("CCA-023")["record"]),"NOT_COMPARABLE");}
+ #[test]fn negative_sample_tick_is_schema_valid_but_semantically_not_comparable(){let c=case("CCA-035");let p=&c["record"]["profile"];assert!(num(p,"sample_tick").unwrap()<0.0);assert_eq!(classify(&c["record"]),"NOT_COMPARABLE");}
  #[test]fn missing_critical_condition_never_becomes_within(){assert_eq!(classify(&case("CCA-005")["record"]),"MISSING_REQUIRED_CONDITION");}
  #[test]fn boundary_overlap_is_indeterminate(){assert_eq!(classify(&case("CCA-002")["record"]),"INDETERMINATE_BOUNDARY_OVERLAP");}
  #[test]fn entirely_outside_interval_is_outside(){assert_eq!(classify(&case("CCA-003")["record"]),"OUTSIDE_DECLARED_ENVELOPE");}
