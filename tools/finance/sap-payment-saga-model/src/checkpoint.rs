@@ -210,7 +210,7 @@ mod tests {
     }
 
     fn vectors() -> HashMap<String, String> {
-        include_str!("../fixtures/sap-payment-journal-checkpoint-v1.kat")
+        include_str!("../../sap-payment-saga-go-verifier/fixtures/sap-payment-journal-checkpoint-v1.kat")
             .lines()
             .filter(|line| !line.is_empty() && !line.starts_with('#'))
             .map(|line| {
