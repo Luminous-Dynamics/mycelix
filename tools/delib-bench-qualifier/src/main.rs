@@ -614,10 +614,86 @@ fn run(
     validate_fixture_corpus(corpus)
 }
 
+fn validate_summary_intake(manifest: &Value, schema: &Value) -> Result<(), Vec<String>> {
+    let mut errors = Vec::new();
+    validate_schema_definition(schema, "summary_intake_schema", &mut errors);
+    validate_schema_subset(manifest, schema, "summary_intake", &mut errors);
+
+    if non_empty_string(manifest, "schema_version") != Some("delib-summary-baseline-intake-v0.1") {
+        add_error(&mut errors, "summary_intake", "unexpected schema version");
+    }
+    if non_empty_string(manifest, "status") != Some("metadata-audit-only-review-pending") {
+        add_error(&mut errors, "summary_intake", "intake must remain metadata-audit-only until review is complete");
+    }
+    if manifest["data_governance_gate"]["status"] != Value::String("blocked-pending-review".to_string()) {
+        add_error(&mut errors, "summary_intake", "participant data governance gate must remain blocked pending review");
+    }
+    if manifest["baseline_reproduction"]["status"]
+        != Value::String("unsupported-pending-artifact-resolution".to_string())
+    {
+        add_error(&mut errors, "summary_intake", "baseline reproduction must remain unsupported until artifacts are resolved");
+    }
+
+    let artifacts = manifest.get("artifacts").and_then(Value::as_array);
+    if let Some(artifacts) = artifacts {
+        for (index, artifact) in artifacts.iter().enumerate() {
+            let context = format!("summary_intake.artifacts[{index}]");
+            if artifact["data_or_model_payload_downloaded"] != Value::Bool(false) {
+                add_error(&mut errors, &context, "payload download must remain false in metadata-only intake");
+            }
+        }
+    } else {
+        add_error(&mut errors, "summary_intake", "artifacts must be an array");
+    }
+
+    let fail_closed = manifest["evaluator_contract"]["fail_closed_requirements"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter_map(Value::as_str)
+        .collect::<Vec<_>>();
+    if !fail_closed.iter().any(|item| item.to_ascii_lowercase().contains("random initialization")) {
+        add_error(&mut errors, "summary_intake.evaluator_contract", "random initialization rejection is mandatory");
+    }
+    if !fail_closed.iter().any(|item| item.contains("training_args.bin")) {
+        add_error(&mut errors, "summary_intake.evaluator_contract", "pickle-bearing training_args.bin exclusion is mandatory");
+    }
+    if !fail_closed.iter().any(|item| item.contains("SHA-256")) {
+        add_error(&mut errors, "summary_intake.evaluator_contract", "checkpoint digest verification is mandatory");
+    }
+
+    if errors.is_empty() { Ok(()) } else { Err(errors) }
+}
+
 fn main() -> ExitCode {
     let args: Vec<String> = env::args().collect();
+
+    if args.len() == 4 && args[1] == "--summary-intake" {
+        let intake = match read_json(&args[2]) {
+            Ok(value) => value,
+            Err(error) => { eprintln!("{error}"); return ExitCode::FAILURE; }
+        };
+        let schema = match read_json(&args[3]) {
+            Ok(value) => value,
+            Err(error) => { eprintln!("{error}"); return ExitCode::FAILURE; }
+        };
+        return match validate_summary_intake(&intake, &schema) {
+            Ok(()) => {
+                println!("PASS: metadata-only DeliberationBank intake contract; payload downloads remain disabled.");
+                println!("NOT QUALIFIED: participant data-use approval, model checkpoint identity, baseline reproduction, and evaluator performance remain unresolved.");
+                ExitCode::SUCCESS
+            }
+            Err(errors) => {
+                eprintln!("SUMMARY INTAKE QUALIFICATION FAILED ({} findings):", errors.len());
+                for error in errors { eprintln!(" - {error}"); }
+                ExitCode::FAILURE
+            }
+        };
+    }
+
     if args.len() != 5 {
         eprintln!("usage: delib-bench-qualifier <manifest.json> <manifest-schema.json> <fixtures.json> <fixture-schema.json>");
+        eprintln!("   or: delib-bench-qualifier --summary-intake <intake.json> <intake-schema.json>");
         return ExitCode::from(2);
     }
     let manifest = match read_json(&args[1]) {
@@ -667,6 +743,44 @@ mod tests {
 
     fn parsed(text: &str) -> Value {
         serde_json::from_str(text).expect("checked-in JSON fixture must parse")
+    }
+
+    const SUMMARY_INTAKE: &str = include_str!("../../../docs/research/deliberation/delib-summary-baseline-intake-v0.1.json");
+    const SUMMARY_INTAKE_SCHEMA: &str = include_str!("../../../docs/research/deliberation/delib-summary-baseline-intake-v0.1.schema.json");
+
+    #[test]
+    fn summary_intake_remains_metadata_only_and_blocked() {
+        let intake = parsed(SUMMARY_INTAKE);
+        let schema = parsed(SUMMARY_INTAKE_SCHEMA);
+        assert!(validate_summary_intake(&intake, &schema).is_ok());
+        assert_eq!(intake["data_governance_gate"]["status"], "blocked-pending-review");
+        assert_eq!(intake["baseline_reproduction"]["status"], "unsupported-pending-artifact-resolution");
+    }
+
+    #[test]
+    fn summary_intake_rejects_payload_download_promotion() {
+        let mut intake = parsed(SUMMARY_INTAKE);
+        intake["artifacts"][1]["data_or_model_payload_downloaded"] = Value::Bool(true);
+        let errors = validate_summary_intake(&intake, &parsed(SUMMARY_INTAKE_SCHEMA)).unwrap_err();
+        assert!(errors.iter().any(|error| error.contains("data_or_model_payload_downloaded")));
+    }
+
+    #[test]
+    fn summary_intake_rejects_unreviewed_rights_promotion() {
+        let mut intake = parsed(SUMMARY_INTAKE);
+        intake["data_governance_gate"]["status"] = Value::String("approved".to_string());
+        let errors = validate_summary_intake(&intake, &parsed(SUMMARY_INTAKE_SCHEMA)).unwrap_err();
+        assert!(errors.iter().any(|error| error.contains("must remain blocked pending review")));
+    }
+
+    #[test]
+    fn summary_intake_requires_random_weight_and_pickle_guards() {
+        let mut intake = parsed(SUMMARY_INTAKE);
+        intake["evaluator_contract"]["fail_closed_requirements"]
+            .as_array_mut().unwrap()
+            .retain(|value| !value.as_str().unwrap_or_default().contains("random initialization"));
+        let errors = validate_summary_intake(&intake, &parsed(SUMMARY_INTAKE_SCHEMA)).unwrap_err();
+        assert!(errors.iter().any(|error| error.contains("random initialization rejection is mandatory")));
     }
 
     #[test]
