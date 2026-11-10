@@ -29,6 +29,7 @@ var (
 	ErrCheckpointInvalidDigest   = errors.New("owner checkpoint digest is not canonical sha256")
 	ErrCheckpointInvalidSequence = errors.New("owner checkpoint sequence/prior link is invalid")
 	ErrCheckpointJournalIdentity = errors.New("owner checkpoint journal identity does not match operation and intent")
+	ErrCheckpointAuthorityAction = errors.New("owner checkpoint authority ActionHash is invalid")
 )
 
 type OwnerCheckpointSubjectV1 struct {
@@ -41,6 +42,7 @@ type OwnerCheckpointSubjectV1 struct {
 	CheckpointSequence         uint64
 	PriorCheckpointDigest      *string
 	SourceActionHash           []byte
+	OwnerAuthorityActionHash   []byte
 	IssuerDID                  string
 	IssuerKeyFingerprint       string
 	OwnerAuthorityDigest       string
@@ -90,6 +92,9 @@ func (s OwnerCheckpointSubjectV1) Validate() error {
 	if len(s.SourceActionHash) == 0 || len(s.SourceActionHash) > maxOwnerSourceActionHashBytes {
 		return ErrCheckpointInvalid
 	}
+	if len(s.OwnerAuthorityActionHash) == 0 || len(s.OwnerAuthorityActionHash) > maxOwnerSourceActionHashBytes {
+		return ErrCheckpointAuthorityAction
+	}
 	if !strings.HasPrefix(s.IssuerDID, "did:mycelix:") || strings.TrimSpace(s.IssuerDID) != s.IssuerDID {
 		return ErrCheckpointInvalid
 	}
@@ -126,6 +131,10 @@ func (s OwnerCheckpointSubjectV1) CanonicalBytes() ([]byte, error) {
 		return nil, err
 	}
 	encoded, err = appendOwnerCheckpointBytes(encoded, s.SourceActionHash)
+	if err != nil {
+		return nil, err
+	}
+	encoded, err = appendOwnerCheckpointBytes(encoded, s.OwnerAuthorityActionHash)
 	if err != nil {
 		return nil, err
 	}
