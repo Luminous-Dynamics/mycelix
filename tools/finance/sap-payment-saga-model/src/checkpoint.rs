@@ -260,6 +260,64 @@ mod tests {
         }
     }
 
+
+    fn benchmark_action_hash(index: u32) -> Vec<u8> {
+        let mut hash = ACTION_HASH_PREFIX.to_vec();
+        hash.extend(std::iter::repeat((index & 0xff) as u8).take(32));
+        hash.extend(index.to_be_bytes());
+        hash
+    }
+
+    fn benchmark_chain_tail(
+        intent: &PaymentIntent,
+        owner_domain: CheckpointOwnerDomain,
+        checkpoint_count: usize,
+    ) -> String {
+        let intent_digest = canonical_intent_digest(intent).expect("valid benchmark intent");
+        let operation_id = PaymentJournal::new(intent.clone())
+            .operation_id()
+            .to_owned();
+        let (owner_did, event_log_id) = match owner_domain {
+            CheckpointOwnerDomain::Payments => (
+                "did:mycelix:payments:alice",
+                "sap-journal:payments:benchmark",
+            ),
+            CheckpointOwnerDomain::Treasury => (
+                "did:mycelix:treasury:community",
+                "sap-journal:treasury:benchmark",
+            ),
+        };
+
+        let mut previous_checkpoint_digest = None;
+        let mut previous_action_hash = benchmark_action_hash(41);
+        let mut tail_digest = String::new();
+        for index in 0..checkpoint_count {
+            let action_sequence =
+                u32::try_from(index + 42).expect("benchmark sequence fits u32");
+            let current_action_hash = benchmark_action_hash(action_sequence);
+            let subject = JournalCheckpointSubject {
+                owner_domain,
+                operation_id: operation_id.clone(),
+                intent_digest: intent_digest.clone(),
+                owner_did: owner_did.to_owned(),
+                event_log_id: event_log_id.to_owned(),
+                event_count: u64::try_from(index + 1)
+                    .expect("benchmark event count fits u64"),
+                tail_digest: format!("sha256:{:064x}", index + 1),
+                checkpoint_sequence: u64::try_from(index + 1)
+                    .expect("benchmark checkpoint sequence fits u64"),
+                previous_checkpoint_digest: previous_checkpoint_digest.clone(),
+                source_action_hash: current_action_hash.clone(),
+                source_action_sequence: action_sequence,
+                source_previous_action_hash: Some(previous_action_hash),
+            };
+            tail_digest = subject.canonical_digest().expect("valid benchmark checkpoint");
+            previous_checkpoint_digest = Some(tail_digest.clone());
+            previous_action_hash = current_action_hash;
+        }
+        tail_digest
+    }
+
     fn hex(bytes: &[u8]) -> String {
         const DIGITS: &[u8; 16] = b"0123456789abcdef";
         let mut output = String::with_capacity(bytes.len() * 2);
@@ -361,6 +419,23 @@ mod tests {
         assert_eq!(subject.validate(), Err(CheckpointError::InvalidSubject));
     }
 
+
+
+    #[test]
+    fn paired_benchmark_owner_chains_match_shared_terminal_vectors() {
+        let vectors = vectors();
+        let intent = test_intent();
+        for (name, owner_domain) in [
+            ("payments", CheckpointOwnerDomain::Payments),
+            ("treasury", CheckpointOwnerDomain::Treasury),
+        ] {
+            for count in [100_usize, 1_000, 10_000] {
+                let actual = benchmark_chain_tail(&intent, owner_domain, count);
+                let key = format!("benchmark-{name}-{count}-tail");
+                assert_eq!(actual, vectors[&key], "{key}");
+            }
+        }
+    }
 
     #[test]
     fn treasury_checkpoints_extend_their_own_chain_and_source_frontier() {
