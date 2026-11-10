@@ -952,22 +952,20 @@ fn validate_schema_contracts(passport_schema: &Value, corpus_schema: &Value) -> 
             return Err(format!("PASSPORT_SCHEMA_OBJECT_DRIFT:{name}"));
         }
     }
-    for (name, fields) in [
-        ("operating_range", &["minimum","maximum","unit","conditions_id"][..]),
-        ("resolution", &["value","unit"][..]),
-        ("accuracy", &["value","unit","basis","conditions_id","evidence_class","source_record_id"][..]),
-        ("repeatability", &["value","unit","method_id","evidence_class"][..]),
-        ("drift", &["value","unit","period_seconds","conditions_id"][..]),
-        ("position", &["x","y","z","frame_id"][..]),
-    ] {
-        if !schema_object_matches(&passport_schema["$defs"][name], fields) {
+    let nested_objects: &[(&str, &Value, &[&str])] = &[
+        ("operating_range", &passport_schema["$defs"]["capability"]["properties"]["operating_range"], OPERATING_RANGE_FIELDS),
+        ("resolution", &passport_schema["$defs"]["capability"]["properties"]["resolution"], RESOLUTION_FIELDS),
+        ("accuracy", &passport_schema["$defs"]["capability"]["properties"]["accuracy"], ACCURACY_FIELDS),
+        ("repeatability", &passport_schema["$defs"]["capability"]["properties"]["repeatability"], REPEATABILITY_FIELDS),
+        ("drift", &passport_schema["$defs"]["capability"]["properties"]["drift"], DRIFT_FIELDS),
+        ("position", &passport_schema["$defs"]["installation"]["properties"]["position"], POSITION_FIELDS),
+        ("calibration_uncertainty", &passport_schema["$defs"]["calibration"]["properties"]["uncertainty"], CALIBRATION_UNCERTAINTY_FIELDS),
+        ("uncertainty_component", &passport_schema["$defs"]["uncertainty_budget"]["properties"]["components"]["items"], UNCERTAINTY_COMPONENT_FIELDS),
+    ];
+    for (name, schema, fields) in nested_objects {
+        if !schema_object_matches(schema, fields) {
             return Err(format!("PASSPORT_SCHEMA_NESTED_OBJECT_DRIFT:{name}"));
         }
-    }
-    if !schema_object_matches(&passport_schema["$defs"]["calibration"]["properties"]["uncertainty"], &["value","unit","coverage_factor","method_id","correlation_model_id"])
-        || !schema_object_matches(&passport_schema["$defs"]["uncertainty_budget"]["properties"]["components"]["items"], UNCERTAINTY_COMPONENT_FIELDS)
-    {
-        return Err("PASSPORT_SCHEMA_UNCERTAINTY_SHAPE_DRIFT".to_owned());
     }
     if passport_schema["properties"]["independent_assay"]["$ref"] != "#/$defs/independent_assay"
         || passport_schema["$defs"].get("independent_assay").is_none()
