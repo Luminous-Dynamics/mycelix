@@ -1,7 +1,9 @@
 package sagaverifier
 
 import (
+	"encoding/hex"
 	"os"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -27,29 +29,38 @@ func readTraceKAT(t *testing.T) map[string]string {
 
 func TestTraceV1MatchesSharedKnownAnswerFixture(t *testing.T) {
 	kat := readTraceKAT(t)
-	seed, err := parseHexUint64(kat["seed"])
+	seed, err := strconv.ParseUint(kat["seed"], 16, 64)
 	if err != nil {
 		t.Fatalf("parse seed: %v", err)
 	}
-	traceIndex, err := parseDecimalUint64(kat["trace_index"])
+	traceIndex, err := strconv.ParseUint(kat["trace_index"], 10, 64)
 	if err != nil {
 		t.Fatalf("parse trace index: %v", err)
 	}
 	trace := GenerateTraceV1(seed, traceIndex)
-	if got := trace.Scenario; got != 1 {
-		t.Fatalf("scenario = %d, want %s", got, kat["scenario"])
+
+	scenario, err := strconv.ParseUint(kat["scenario"], 10, 8)
+	if err != nil {
+		t.Fatalf("parse scenario: %v", err)
 	}
-	if got := formatHexUint64(trace.OperationNonce); got != kat["operation_nonce"] {
+	if got := uint64(trace.Scenario); got != scenario {
+		t.Fatalf("scenario = %d, want %d", got, scenario)
+	}
+	if got := formatTraceHex64(trace.OperationNonce); got != kat["operation_nonce"] {
 		t.Fatalf("operation nonce = %s, want %s", got, kat["operation_nonce"])
 	}
-	if got := len(trace.Commands); got != 9 {
-		t.Fatalf("command count = %d, want %s", got, kat["command_count"])
+	commandCount, err := strconv.ParseUint(kat["command_count"], 10, 32)
+	if err != nil {
+		t.Fatalf("parse command count: %v", err)
+	}
+	if got := uint64(len(trace.Commands)); got != commandCount {
+		t.Fatalf("command count = %d, want %d", got, commandCount)
 	}
 	encoded, err := trace.CanonicalBytes()
 	if err != nil {
 		t.Fatalf("encode trace: %v", err)
 	}
-	if got := strings.ToLower(encodeHex(encoded)); got != kat["canonical_bytes_hex"] {
+	if got := hex.EncodeToString(encoded); got != kat["canonical_bytes_hex"] {
 		t.Fatalf("canonical bytes differ from shared fixture")
 	}
 	digest, err := trace.CanonicalDigest()
@@ -90,8 +101,9 @@ func TestTraceV1EnforcesScenarioAndCommandBounds(t *testing.T) {
 	}
 
 	trace = GenerateTraceV1(1, 0)
+	template := trace.Commands[0]
 	for len(trace.Commands) <= MaxTraceCommands {
-		trace.Commands = append(trace.Commands, trace.Commands[0])
+		trace.Commands = append(trace.Commands, template)
 	}
 	if _, err := trace.CanonicalBytes(); err != ErrTraceTooManyCommands {
 		t.Fatalf("command bound error = %v", err)
@@ -119,24 +131,8 @@ func equalTraceV1(left, right TraceV1) bool {
 	}
 	return true
 }
-package sagaverifier
 
-import (
-	"encoding/hex"
-	"strconv"
-)
-
-func parseHexUint64(value string) (uint64, error) {
-	parsed, err := strconv.ParseUint(value, 16, 64)
-	return parsed, err
-}
-
-func parseDecimalUint64(value string) (uint64, error) {
-	parsed, err := strconv.ParseUint(value, 10, 64)
-	return parsed, err
-}
-
-func formatHexUint64(value uint64) string {
+func formatTraceHex64(value uint64) string {
 	const digits = "0123456789abcdef"
 	var output [16]byte
 	for index := 15; index >= 0; index-- {
@@ -144,8 +140,4 @@ func formatHexUint64(value uint64) string {
 		value >>= 4
 	}
 	return string(output[:])
-}
-
-func encodeHex(value []byte) string {
-	return hex.EncodeToString(value)
 }
