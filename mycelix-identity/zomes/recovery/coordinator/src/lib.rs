@@ -378,10 +378,11 @@ pub fn initiate_recovery(input: InitiateRecoveryInput) -> ExternResult<Record> {
                     if let Some(latest_record) = latest {
                         if let Some(req) = latest_record.entry().to_app_option::<RecoveryRequest>()
                             .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))? {
+                            let cancelled = get_recovery_cancellation(req.id.clone())?.is_some();
                             match req.status {
                                 RecoveryStatus::Pending
                                 | RecoveryStatus::Approved
-                                | RecoveryStatus::ReadyToExecute => {
+                                | RecoveryStatus::ReadyToExecute if !cancelled => {
                                     return Err(wasm_error!(WasmErrorInner::Guest(
                                         "An active recovery request already exists for this DID. Cancel it first.".into()
                                     )));
@@ -602,6 +603,11 @@ pub fn vote_on_recovery(input: VoteOnRecoveryInput) -> ExternResult<Record> {
             "Recovery request is no longer accepting votes".into()
         )));
     }
+    if get_recovery_cancellation(request.id.clone())?.is_some() {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Recovery request has been cancelled by its owner".into()
+        )));
+    }
     let config_hash = request.config_action_hash.clone().ok_or(wasm_error!(
         WasmErrorInner::Guest("Recovery request has no config revision".into())
     ))?;
@@ -728,7 +734,9 @@ fn check_and_update_request_status(request_id: String) -> ExternResult<()> {
     if *current_record.action().author() != caller {
         return Ok(());
     }
-    if current_request.status != RecoveryStatus::Pending {
+    if current_request.status != RecoveryStatus::Pending
+        || get_recovery_cancellation(current_request.id.clone())?.is_some()
+    {
         return Ok(());
     }
 
@@ -862,6 +870,11 @@ pub fn finalize_recovery(request_id: String) -> ExternResult<Record> {
     }
     let record = get_recovery_request(request_id.clone())?
         .ok_or(wasm_error!(WasmErrorInner::Guest("Recovery request not found".into())))?;
+    if get_recovery_cancellation(request_id.clone())?.is_some() {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Recovery request has been cancelled by its owner".into()
+        )));
+    }
     let caller = agent_info()?.agent_initial_pubkey;
     if *record.action().author() != caller {
         return Err(wasm_error!(WasmErrorInner::Guest(
@@ -971,6 +984,11 @@ pub fn execute_recovery(request_id: String) -> ExternResult<Record> {
         .ok_or(wasm_error!(WasmErrorInner::Guest(
             "Recovery request not found".into()
         )))?;
+    if get_recovery_cancellation(request_id.clone())?.is_some() {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Recovery request has been cancelled by its owner".into()
+        )));
+    }
 
     let current_request: RecoveryRequest = current_record
         .entry()
