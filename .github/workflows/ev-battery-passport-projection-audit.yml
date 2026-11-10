@@ -1,0 +1,38 @@
+name: EV Battery Passport projection v0.1 audit
+
+on:
+  pull_request:
+    paths:
+      - "mycelix-commons/schemas/ev_battery_passport_projection_v0_1.schema.json"
+      - "mycelix-commons/fixtures/ev_battery/passport_projection_scenarios_v0_1.json"
+      - "mycelix-commons/tools/ev-battery-passport-audit/**"
+      - "mycelix-commons/docs/EV_BATTERY_PASSPORT_PROJECTION_V0_1.md"
+      - ".github/workflows/ev-battery-passport-projection-audit.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.96.0
+      - name: Check formatting
+        run: cargo fmt --manifest-path mycelix-commons/tools/ev-battery-passport-audit/Cargo.toml -- --check
+      - name: Run passport projection and lifecycle tests
+        run: cargo test --manifest-path mycelix-commons/tools/ev-battery-passport-audit/Cargo.toml
+      - name: Audit frozen synthetic passport cases
+        run: |
+          cargo run --manifest-path mycelix-commons/tools/ev-battery-passport-audit/Cargo.toml -- --schema mycelix-commons/schemas/ev_battery_passport_projection_v0_1.schema.json --corpus mycelix-commons/fixtures/ev_battery/passport_projection_scenarios_v0_1.json > "$RUNNER_TEMP/ev-battery-passport-report.json"
+          jq -e '
+            .case_count == 22 and
+            .accepted_count == 7 and
+            .rejected_count == 15 and
+            (.report_sha256 | test("^[a-f0-9]{64}$")) and
+            all(.cases[]; .claim_ceiling == "projection_readiness_only_not_legal_or_safety_qualification")
+          ' "$RUNNER_TEMP/ev-battery-passport-report.json"
