@@ -866,13 +866,12 @@ mod tests {
     use std::sync::{Arc, Mutex};
     use std::thread;
 
-    #[test]
-    fn canonical_treasury_fee_digest_matches_shared_v1_known_answer() {
-        let evidence = EffectEvidence {
+    fn treasury_digest_vector(sender_did: &str) -> EffectEvidence {
+        EffectEvidence {
             operation_id: "op:1".into(),
             effect_id: "op:1:treasury-fee".into(),
             leg: PaymentLeg::TreasuryFee,
-            sender_did: "did:a".into(),
+            sender_did: sender_did.into(),
             recipient_did: "did:b".into(),
             principal_minor: 42,
             fee_minor: 3,
@@ -887,12 +886,40 @@ mod tests {
                 predecessor_action: "action:before".into(),
                 treasury_action: "action:fee".into(),
             },
-        };
-        let expected = include_str!(
+        }
+    }
+
+    fn canonical_digest_fixture_value(name: &str) -> &'static str {
+        include_str!(
             "../../sap-payment-saga-go-verifier/fixtures/sap-payment-evidence-v1.kat"
         )
-        .trim();
-        assert_eq!(evidence.canonical_digest().unwrap(), expected);
+        .lines()
+        .find_map(|line| line.strip_prefix(name).and_then(|value| value.strip_prefix('=')))
+        .expect("shared canonical digest vector exists")
+    }
+
+    #[test]
+    fn canonical_treasury_fee_digest_matches_shared_v1_known_answers() {
+        assert_eq!(
+            treasury_digest_vector("did:a").canonical_digest().unwrap(),
+            canonical_digest_fixture_value("treasury-basic")
+        );
+        assert_eq!(
+            treasury_digest_vector("did:é").canonical_digest().unwrap(),
+            canonical_digest_fixture_value("treasury-unicode-sender")
+        );
+    }
+
+    #[test]
+    fn canonical_evidence_string_fields_enforce_4096_utf8_byte_limit() {
+        let mut evidence = treasury_digest_vector("did:a");
+        evidence.currency = "x".repeat(4096);
+        assert!(evidence.canonical_digest().is_ok());
+        evidence.currency.push('x');
+        assert_eq!(
+            evidence.canonical_digest(),
+            Err(SagaError::InvalidEffectEvidence(PaymentLeg::TreasuryFee))
+        );
     }
 
     #[test]
