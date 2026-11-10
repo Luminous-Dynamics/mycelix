@@ -199,13 +199,13 @@ struct Channel {
 
 const CHANNELS: &[Channel] = &[
     Channel { id: "air_temperature", measurand: "habitat.air_temperature", _quantity_kind: "temperature", unit: "degC", raw_or_derived: "raw", independent_assay: false },
-    Channel { id: "mean_radiant_temperature", measurand: "habitat.mean_radiant_temperature", quantity_kind: "temperature", unit: "degC", raw_or_derived: "derived", independent_assay: false },
+    Channel { id: "mean_radiant_temperature", measurand: "habitat.mean_radiant_temperature", _quantity_kind: "temperature", unit: "degC", raw_or_derived: "derived", independent_assay: false },
     Channel { id: "relative_humidity", measurand: "habitat.relative_humidity", _quantity_kind: "ratio", unit: "%RH", raw_or_derived: "raw", independent_assay: false },
     Channel { id: "air_speed", measurand: "habitat.air_speed", _quantity_kind: "velocity", unit: "m/s", raw_or_derived: "raw", independent_assay: false },
     Channel { id: "co2_concentration", measurand: "habitat.co2_concentration", _quantity_kind: "mole_fraction", unit: "ppm", raw_or_derived: "raw", independent_assay: false },
     Channel { id: "pm25_mass_concentration", measurand: "habitat.pm25_mass_concentration", _quantity_kind: "mass_concentration", unit: "ug/m3", raw_or_derived: "raw", independent_assay: false },
     Channel { id: "outdoor_air_volume_flow", measurand: "habitat.outdoor_air_volume_flow", _quantity_kind: "volume_flow", unit: "m3/s", raw_or_derived: "raw", independent_assay: false },
-    Channel { id: "water_volume_flow", measurand: "habitat.water_volume_flow", quantity_kind: "volume_flow", unit: "m3/s", raw_or_derived: "raw", independent_assay: false },
+    Channel { id: "water_volume_flow", measurand: "habitat.water_volume_flow", _quantity_kind: "volume_flow", unit: "m3/s", raw_or_derived: "raw", independent_assay: false },
     Channel { id: "water_volume", measurand: "habitat.water_volume", _quantity_kind: "volume", unit: "m3", raw_or_derived: "raw", independent_assay: false },
     Channel { id: "water_ph", measurand: "habitat.water_ph", _quantity_kind: "pH", unit: "1", raw_or_derived: "raw", independent_assay: true },
     Channel { id: "water_conductivity", measurand: "habitat.water_conductivity", _quantity_kind: "conductivity", unit: "uS/cm", raw_or_derived: "raw", independent_assay: true },
