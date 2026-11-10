@@ -97,6 +97,13 @@ Rust and Go independently implement the profiles and load the same `sap-payment-
 **Current boundary:** this verifies canonical subject bytes, not a production checkpoint. It does not yet validate the native Holochain Create action that commits the checkpoint, bind the checkpoint's action author to the owner DID, authorize that identity for the Payments/Treasury domain, retrieve/type-check the referenced source ActionHash, or rule out source-chain forks/DHT unavailability. The intended in-DNA production mechanism is the native signed Holochain action plus deterministic integrity validation, not a detached signature stored inside the entry. The existing receipt-authentication branch is the identity/signature design boundary; the checkpoint work must compose with it rather than fork it.
 
 
+
+## Checkpoint canonicalization benchmark
+
+The Rust benchmark at `benches/checkpoint_benchmark.rs` and Go benchmark at `checkpoint_benchmark_test.go` generate matching synthetic owner-local checkpoint chains at 100, 1,000 and 10,000 checkpoints for Payments and Treasury. Construction of the checkpoint chain, predecessor links and raw ActionHash-shaped values occurs outside the timed region. Each owner/size group captures 30 raw samples with 100 ms measurement windows on the same CI runner. The workflow records Rust/Go versions and hardware metadata, and the AWK summarizer refuses to publish percentiles unless all six groups in each language are complete.
+
+Rust reports nanoseconds per checkpoint. Go reports batch latency, bytes and allocations, normalized by checkpoint count. The summary publishes nearest-rank p50/p95/p99. This isolates canonical profile validation and SHA-256 cost only; ActionHash host resolution, Holochain validation, DHT propagation, source-chain contention, storage durability and external settlement are not included.
+
 ## Distributed-systems and production limitations
 
 - The Mutex concurrency test proves only that this in-memory registry serializes its own threads.
