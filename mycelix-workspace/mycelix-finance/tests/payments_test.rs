@@ -251,6 +251,74 @@ mod payment_creation {
         );
     }
 
+    /// A peer cannot replay another sender's correctly signed Receipt as its own.
+    /// This isolates the source-chain action-author binding from signature validity.
+    #[tokio::test(flavor = "multi_thread")]
+    #[ignore = "requires the receipt-test-harness Sweettest DNA"]
+    async fn test_raw_receipt_create_rejects_cross_agent_replay() {
+        let dna_path = std::path::PathBuf::from("../dna/mycelix_finance.dna");
+        let dna = SweetDnaFile::from_bundle(&dna_path)
+            .await
+            .expect("Failed to load DNA");
+        let mut conductor = SweetConductor::from_standard_config().await;
+        let agents = SweetAgents::get(conductor.keystore(), 2).await;
+        let apps = conductor
+            .setup_app_for_agents("mycelix-finance", &agents, &[dna])
+            .await
+            .expect("Failed to install app");
+
+        let alice_did = format!("did:mycelix:{}", agents[0]);
+        let bob_cell = &apps[1].cells()[0];
+        let alice_cell = &apps[0].cells()[0];
+
+        let input = SendPaymentInput {
+            from_did: alice_did.clone(),
+            to_did: format!("did:mycelix:{}", agents[1]),
+            amount: 2_000,
+            currency: "TEND".to_string(),
+            payment_type: PaymentType::Direct,
+            memo: Some("receipt-auth cross-agent replay test".to_string()),
+        };
+        let payment_record: Record = conductor
+            .call(&alice_cell.zome("payments"), "send_payment", input)
+            .await;
+        let payment: Payment = payment_record
+            .entry()
+            .to_app_option()
+            .expect("Payment decode failed")
+            .expect("Payment entry missing");
+        let receipt_record: Option<Record> = conductor
+            .call(
+                &alice_cell.zome("payments"),
+                "get_receipt",
+                payment.id.clone(),
+            )
+            .await;
+        let receipt_record = receipt_record.expect("Valid receipt must exist");
+        let receipt: Receipt = receipt_record
+            .entry()
+            .to_app_option()
+            .expect("Receipt decode failed")
+            .expect("Receipt entry missing");
+
+        let result: Result<ActionHash, _> = conductor
+            .call_fallible(
+                &bob_cell.zome("payments"),
+                "test_only_create_receipt_without_business_validation",
+                receipt,
+            )
+            .await;
+        assert!(
+            result.is_err(),
+            "a peer must not be able to replay another agent's Receipt"
+        );
+        let rejection = format!("{:?}", result.unwrap_err());
+        assert!(
+            rejection.contains("committing agent") || rejection.contains("forgery"),
+            "expected an action-author rejection, got: {rejection}"
+        );
+    }
+
     /// Test 1.2: Payment with different payment types
     #[tokio::test(flavor = "multi_thread")]
     #[ignore]
