@@ -4,7 +4,7 @@
     ns = ""
     for (i = 1; i <= NF; i++) {
         if ($i ~ /^owner=/) owner = substr($i, 7)
-        if ($i ~ /^checkpoints=/) checkpoints = substr($i, 12) + 0
+        if ($i ~ /^checkpoints=/) checkpoints = substr($i, 13) + 0
         if ($i ~ /^ns_per_checkpoint=/) ns = substr($i, 19) + 0
     }
     if (owner != "" && checkpoints != "" && ns != "") {
