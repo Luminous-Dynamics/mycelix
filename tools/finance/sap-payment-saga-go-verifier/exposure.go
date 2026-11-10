@@ -117,7 +117,7 @@ const (
 type ExposureResolutionKind uint8
 
 const (
-	ExposureSettlementReceipt ExposureResolutionKind = iota + 1
+	ExposureFinalSettlementEvidence ExposureResolutionKind = iota + 1
 	ExposureAuthoritativeAbsence
 )
 
@@ -156,6 +156,25 @@ var (
 	ErrExposureInvalidTransition   = errors.New("invalid exposure state transition")
 	ErrExposureInvalidResolution   = errors.New("resolution evidence does not match exact effect subject")
 )
+
+type ExposureBreakdownV1 struct {
+	ReservedMinor            uint64
+	DispatchAuthorizedMinor  uint64
+	IndeterminateMinor       uint64
+	CommittedUnsettledMinor  uint64
+}
+
+func (b ExposureBreakdownV1) TotalMinor() (uint64, error) {
+	total := uint64(0)
+	for _, value := range []uint64{
+		b.ReservedMinor, b.DispatchAuthorizedMinor,
+		b.IndeterminateMinor, b.CommittedUnsettledMinor,
+	} {
+		if value > ^uint64(0)-total { return 0, ErrExposureAmountOverflow }
+		total += value
+	}
+	return total, nil
+}
 
 type ExposureBookV1 struct {
 	policy       ExposurePolicyV1
@@ -240,7 +259,7 @@ func (b *ExposureBookV1) MarkSettled(effectID string, evidence DestinationResolu
 	if !ok {
 		return ErrExposureNotFound
 	}
-	if err := evidence.validateAgainst(reservation, ExposureSettlementReceipt); err != nil {
+	if err := evidence.validateAgainst(reservation, ExposureFinalSettlementEvidence); err != nil {
 		return err
 	}
 	if reservation.Status == ExposureSettled {
@@ -286,19 +305,33 @@ func (b *ExposureBookV1) ReservationCount() int {
 	return len(b.reservations)
 }
 
-func (b *ExposureBookV1) TotalExposureMinor() (uint64, error) {
-	var total uint64
+func (b *ExposureBookV1) BreakdownMinor() (ExposureBreakdownV1, error) {
+	var totals ExposureBreakdownV1
 	for _, reservation := range b.reservations {
-		if !reservation.Status.contributesToLimit() {
+		amount := reservation.Intent.MaximumExposureMinor
+		var bucket *uint64
+		switch reservation.Status {
+		case ExposureReserved:
+			bucket = &totals.ReservedMinor
+		case ExposureDispatchAuthorized:
+			bucket = &totals.DispatchAuthorizedMinor
+		case ExposureIndeterminate:
+			bucket = &totals.IndeterminateMinor
+		case ExposureCommittedUnsettled:
+			bucket = &totals.CommittedUnsettledMinor
+		default:
 			continue
 		}
-		amount := reservation.Intent.MaximumExposureMinor
-		if amount > ^uint64(0)-total {
-			return 0, ErrExposureAmountOverflow
-		}
-		total += amount
+		if amount > ^uint64(0)-*bucket { return ExposureBreakdownV1{}, ErrExposureAmountOverflow }
+		*bucket += amount
 	}
-	return total, nil
+	return totals, nil
+}
+
+func (b *ExposureBookV1) TotalExposureMinor() (uint64, error) {
+	totals, err := b.BreakdownMinor()
+	if err != nil { return 0, err }
+	return totals.TotalMinor()
 }
 
 func (b *ExposureBookV1) HeadroomMinor() (uint64, error) {
