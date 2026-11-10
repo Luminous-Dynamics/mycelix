@@ -777,6 +777,20 @@ fn validate_receipt_attestation(
     ValidateCallbackResult::Valid
 }
 
+/// The referenced source must be the exact Payment entry definition and a Create action.
+///
+/// Decoding app-entry bytes into a Rust struct is not proof of their Holochain
+/// entry-definition identity. Update actions also carry entry bytes, but are not
+/// the immutable Payment creation action that a receipt is allowed to attest.
+fn is_payment_create_record(record: &Record) -> ExternResult<bool> {
+    let action = record.action();
+    if action.action_type() != ActionType::Create {
+        return Ok(false);
+    }
+    let payment_entry_type = EntryType::App(UnitEntryTypes::Payment.try_into()?);
+    Ok(action.entry_type() == Some(&payment_entry_type))
+}
+
 fn validate_create_receipt(
     action: EntryCreationAction,
     receipt: Receipt,
@@ -804,6 +818,11 @@ fn validate_create_receipt(
     // string or a detached sender signature is not sufficient to attest that a
     // corresponding Payment entry exists.
     let payment_record = must_get_valid_record(payment_action_hash.clone())?;
+    if !is_payment_create_record(&payment_record)? {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Receipt must reference a Payment Create action".into(),
+        ));
+    }
     // The referenced Payment and its receipt must have the same authenticated
     // sender action author. Matching DIDs/economic fields alone must not allow
     // one agent to attest to another agent's Payment action.
@@ -1107,6 +1126,50 @@ mod tests {
     }
 
     #[test]
+    fn test_receipt_create_rejects_payment_shaped_payload_under_wrong_entry_type() {
+        let author = AgentPubKey::from_raw_36(vec![0; 36]);
+        let payment_record = wrap_entry_record_with_type(
+            author,
+            valid_payment(),
+            EntryType::App(AppEntryDef::new(
+                EntryDefIndex(1),
+                ZomeIndex(0),
+                EntryVisibility::Public,
+            )),
+        );
+        let payment_action_hash = payment_record.action_address().clone();
+        let mut receipt = valid_receipt();
+        receipt.payment_action_hash = Some(payment_action_hash.clone());
+        hdi::hdi::set_hdi(MockReceiptHdi {
+            signature_valid: true,
+            payment_record: Some(payment_record),
+            expected_payment_action_hash: Some(payment_action_hash),
+        });
+
+        let result =
+            validate_create_receipt(EntryCreationAction::Create(make_create()), receipt).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn test_receipt_create_rejects_payment_update_action() {
+        let author = AgentPubKey::from_raw_36(vec![0; 36]);
+        let payment_record = wrap_update_entry_record(author, valid_payment());
+        let payment_action_hash = payment_record.action_address().clone();
+        let mut receipt = valid_receipt();
+        receipt.payment_action_hash = Some(payment_action_hash.clone());
+        hdi::hdi::set_hdi(MockReceiptHdi {
+            signature_valid: true,
+            payment_record: Some(payment_record),
+            expected_payment_action_hash: Some(payment_action_hash),
+        });
+
+        let result =
+            validate_create_receipt(EntryCreationAction::Create(make_create()), receipt).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
     fn test_receipt_create_rejects_payment_authored_by_another_agent() {
         let (mut receipt, _, _) = mock_receipt_and_payment_record();
         let foreign_author = AgentPubKey::from_raw_36(vec![7; 36]);
@@ -1197,6 +1260,26 @@ mod tests {
         T: TryInto<holochain_serialized_bytes::SerializedBytes>,
         <T as TryInto<holochain_serialized_bytes::SerializedBytes>>::Error: std::fmt::Debug,
     {
+        wrap_entry_record_with_type(
+            author,
+            value,
+            EntryType::App(AppEntryDef::new(
+                EntryDefIndex(0),
+                ZomeIndex(0),
+                EntryVisibility::Public,
+            )),
+        )
+    }
+
+    fn wrap_entry_record_with_type<T>(
+        author: AgentPubKey,
+        value: T,
+        entry_type: EntryType,
+    ) -> Record
+    where
+        T: TryInto<holochain_serialized_bytes::SerializedBytes>,
+        <T as TryInto<holochain_serialized_bytes::SerializedBytes>>::Error: std::fmt::Debug,
+    {
         let serialized = value.try_into().unwrap();
         let entry = Entry::App(AppEntryBytes::try_from(serialized).unwrap());
         let action = Action::Create(Create {
@@ -1204,6 +1287,29 @@ mod tests {
             timestamp: ts(0),
             action_seq: 0,
             prev_action: ActionHash::from_raw_36(vec![0; 36]),
+            entry_type,
+            entry_hash: EntryHash::from_raw_36(vec![1; 36]),
+            weight: Default::default(),
+        });
+        let hashed = HoloHashed::from_content_sync(action);
+        let signed_action = SignedActionHashed::with_presigned(hashed, Signature([0; 64]));
+        Record::new(signed_action, Some(entry))
+    }
+
+    fn wrap_update_entry_record<T>(author: AgentPubKey, value: T) -> Record
+    where
+        T: TryInto<holochain_serialized_bytes::SerializedBytes>,
+        <T as TryInto<holochain_serialized_bytes::SerializedBytes>>::Error: std::fmt::Debug,
+    {
+        let serialized = value.try_into().unwrap();
+        let entry = Entry::App(AppEntryBytes::try_from(serialized).unwrap());
+        let action = Action::Update(Update {
+            author,
+            timestamp: ts(0),
+            action_seq: 1,
+            prev_action: ActionHash::from_raw_36(vec![0; 36]),
+            original_action_address: ActionHash::from_raw_36(vec![2; 36]),
+            original_entry_address: EntryHash::from_raw_36(vec![3; 36]),
             entry_type: EntryType::App(AppEntryDef::new(
                 EntryDefIndex(0),
                 ZomeIndex(0),
