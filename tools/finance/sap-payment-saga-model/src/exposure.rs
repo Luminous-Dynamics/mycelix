@@ -3,8 +3,8 @@
 //! This reference kernel bounds aggregate maximum plausible exposure. It does
 //! not establish that a supplied policy or resolution receipt is authentic.
 
-use std::collections::BTreeMap;
 use sha2::{Digest, Sha256};
+use std::collections::BTreeMap;
 
 const SNAPSHOT_DOMAIN: &[u8] = b"MXSAP-EXPOSURE-SNAPSHOT-V1\0";
 const MAX_FIELD_BYTES: usize = 4096;
@@ -19,7 +19,12 @@ pub struct ExposureScopeV1 {
 
 impl ExposureScopeV1 {
     fn validate(&self) -> Result<(), ExposureError> {
-        for value in [&self.owner_id, &self.pool_id, &self.destination_id, &self.currency] {
+        for value in [
+            &self.owner_id,
+            &self.pool_id,
+            &self.destination_id,
+            &self.currency,
+        ] {
             validate_text(value)?;
         }
         Ok(())
@@ -92,7 +97,10 @@ impl ExposureStatus {
     fn contributes_to_limit(self) -> bool {
         matches!(
             self,
-            Self::Reserved | Self::DispatchAuthorized | Self::Indeterminate | Self::CommittedUnsettled
+            Self::Reserved
+                | Self::DispatchAuthorized
+                | Self::Indeterminate
+                | Self::CommittedUnsettled
         )
     }
 }
@@ -257,7 +265,10 @@ impl ExposureBookV1 {
     pub fn mark_indeterminate(&mut self, effect_id: &str) -> Result<(), ExposureError> {
         self.transition(
             effect_id,
-            &[ExposureStatus::DispatchAuthorized, ExposureStatus::Indeterminate],
+            &[
+                ExposureStatus::DispatchAuthorized,
+                ExposureStatus::Indeterminate,
+            ],
             ExposureStatus::Indeterminate,
         )
     }
@@ -290,7 +301,10 @@ impl ExposureBookV1 {
         if reservation.status != ExposureStatus::CommittedUnsettled {
             return Err(ExposureError::InvalidTransition);
         }
-        self.reservations.get_mut(effect_id).expect("checked above").status = ExposureStatus::Settled;
+        self.reservations
+            .get_mut(effect_id)
+            .expect("checked above")
+            .status = ExposureStatus::Settled;
         Ok(())
     }
 
@@ -313,8 +327,10 @@ impl ExposureBookV1 {
         ) {
             return Err(ExposureError::InvalidTransition);
         }
-        self.reservations.get_mut(effect_id).expect("checked above").status =
-            ExposureStatus::AuthoritativelyAbsent;
+        self.reservations
+            .get_mut(effect_id)
+            .expect("checked above")
+            .status = ExposureStatus::AuthoritativelyAbsent;
         Ok(())
     }
 
@@ -354,7 +370,8 @@ impl ExposureBookV1 {
 
     pub fn canonical_snapshot_bytes(&self) -> Result<Vec<u8>, ExposureError> {
         let policy = self.policy();
-        let count = u32::try_from(self.reservations.len()).map_err(|_| ExposureError::InvalidAmount)?;
+        let count =
+            u32::try_from(self.reservations.len()).map_err(|_| ExposureError::InvalidAmount)?;
         let mut output = Vec::with_capacity(256 + self.reservations.len() * 256);
         output.extend_from_slice(SNAPSHOT_DOMAIN);
         for value in [
@@ -425,8 +442,11 @@ fn validate_text(value: &str) -> Result<(), ExposureError> {
 }
 
 fn validate_digest(value: &str) -> Result<(), ExposureError> {
-    if value.len() != 71 || !value.starts_with("sha256:") ||
-        !value[7..].bytes().all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+    if value.len() != 71
+        || !value.starts_with("sha256:")
+        || !value[7..]
+            .bytes()
+            .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
     {
         return Err(ExposureError::InvalidDigest);
     }
@@ -500,7 +520,10 @@ mod tests {
         book.reserve(intent("effect:1", 600)).unwrap();
         book.mark_dispatch_authorized("effect:1").unwrap();
         book.mark_dispatch_authorized("effect:1").unwrap();
-        assert_eq!(book.status("effect:1"), Some(ExposureStatus::DispatchAuthorized));
+        assert_eq!(
+            book.status("effect:1"),
+            Some(ExposureStatus::DispatchAuthorized)
+        );
         assert_eq!(book.total_exposure_minor(), Ok(600));
     }
 
@@ -512,17 +535,29 @@ mod tests {
         assert_eq!(book.reserve(wrong), Err(ExposureError::ScopeMismatch));
         let mut wrong_currency = intent("effect:2", 100);
         wrong_currency.scope.currency = "USD".into();
-        assert_eq!(book.reserve(wrong_currency), Err(ExposureError::ScopeMismatch));
+        assert_eq!(
+            book.reserve(wrong_currency),
+            Err(ExposureError::ScopeMismatch)
+        );
     }
 
     #[test]
     fn reservations_are_owner_scoped_and_idempotent() {
         let mut book = ExposureBookV1::new(policy(1_000)).unwrap();
-        assert_eq!(book.reserve(intent("effect:1", 600)), Ok(ExposureDisposition::Reserved));
-        assert_eq!(book.reserve(intent("effect:1", 600)), Ok(ExposureDisposition::AlreadyReserved));
+        assert_eq!(
+            book.reserve(intent("effect:1", 600)),
+            Ok(ExposureDisposition::Reserved)
+        );
+        assert_eq!(
+            book.reserve(intent("effect:1", 600)),
+            Ok(ExposureDisposition::AlreadyReserved)
+        );
         assert_eq!(book.total_exposure_minor(), Ok(600));
         assert_eq!(book.headroom_minor(), Ok(400));
-        assert_eq!(book.reserve(intent("effect:2", 500)), Err(ExposureError::LimitExceeded));
+        assert_eq!(
+            book.reserve(intent("effect:2", 500)),
+            Err(ExposureError::LimitExceeded)
+        );
     }
 
     #[test]
@@ -531,7 +566,10 @@ mod tests {
         book.reserve(intent("effect:1", 600)).unwrap();
         let mut changed = intent("effect:1", 601);
         changed.payload_digest = digest('c');
-        assert_eq!(book.reserve(changed), Err(ExposureError::ReservationConflict));
+        assert_eq!(
+            book.reserve(changed),
+            Err(ExposureError::ReservationConflict)
+        );
         assert_eq!(book.total_exposure_minor(), Ok(600));
     }
 
@@ -543,7 +581,10 @@ mod tests {
         book.mark_indeterminate("effect:1").unwrap();
         assert_eq!(book.status("effect:1"), Some(ExposureStatus::Indeterminate));
         assert_eq!(book.total_exposure_minor(), Ok(600));
-        assert_eq!(book.reserve(intent("effect:2", 500)), Err(ExposureError::LimitExceeded));
+        assert_eq!(
+            book.reserve(intent("effect:2", 500)),
+            Err(ExposureError::LimitExceeded)
+        );
     }
 
     #[test]
@@ -558,7 +599,8 @@ mod tests {
             book.mark_settled("effect:1", &wrong),
             Err(ExposureError::InvalidResolutionEvidence)
         );
-        book.mark_settled("effect:1", &resolution("effect:1")).unwrap();
+        book.mark_settled("effect:1", &resolution("effect:1"))
+            .unwrap();
         assert_eq!(book.total_exposure_minor(), Ok(0));
     }
 
@@ -576,7 +618,8 @@ mod tests {
         );
         let mut absence = resolution("effect:1");
         absence.kind = ExposureResolutionKind::AuthoritativeAbsence;
-        book.release_authoritative_absence("effect:1", &absence).unwrap();
+        book.release_authoritative_absence("effect:1", &absence)
+            .unwrap();
         assert_eq!(book.total_exposure_minor(), Ok(0));
     }
 
@@ -589,7 +632,10 @@ mod tests {
         book.replace_policy(lower).unwrap();
         assert_eq!(book.total_exposure_minor(), Ok(600));
         assert_eq!(book.headroom_minor(), Ok(0));
-        assert_eq!(book.reserve(intent("effect:2", 100)), Err(ExposureError::LimitExceeded));
+        assert_eq!(
+            book.reserve(intent("effect:2", 100)),
+            Err(ExposureError::LimitExceeded)
+        );
     }
 
     #[test]
@@ -607,7 +653,8 @@ mod tests {
     #[test]
     fn snapshot_is_canonical_and_insertion_order_independent() {
         let kat = include_str!("../fixtures/sap-payment-exposure-v1.kat");
-        let expected = kat.lines()
+        let expected = kat
+            .lines()
             .find_map(|line| line.strip_prefix("snapshot_sha256="))
             .expect("shared exposure snapshot KAT exists");
         let mut first = ExposureBookV1::new(policy(1_000)).unwrap();
