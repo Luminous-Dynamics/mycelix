@@ -1,0 +1,12 @@
+[package]
+name = "payment-channel-fork-reference"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+publish = false
+description = "Effects-disabled reference model for payment-channel fork reconciliation and settlement claim boundaries"
+
+[lib]
+path = "src/lib.rs"
+
+[dependencies]
