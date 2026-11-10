@@ -55,7 +55,8 @@ impl CheckpointSubjectV1 {
         intent: &PaymentIntent,
     ) -> Result<(), CheckpointError> {
         self.validate()?;
-        let expected_operation_id = PaymentJournal::new(intent.clone()).operation_id();
+        let journal = PaymentJournal::new(intent.clone());
+        let expected_operation_id = journal.operation_id();
         let expected_intent_digest = canonical_intent_digest(intent)?;
         if self.operation_id != expected_operation_id
             || self.intent_digest != expected_intent_digest
@@ -222,7 +223,9 @@ mod tests {
     fn subject() -> CheckpointSubjectV1 {
         CheckpointSubjectV1 {
             operation_id: "sap-payment:10:did:sender:14:client-key-001".into(),
-            intent_digest: "sha256:5a6e4c29cb95cee151d9f41ac9a82b6b91f3f4b443f2902a6026c769466f5b07".into(),
+            intent_digest:
+                "sha256:5a6e4c29cb95cee151d9f41ac9a82b6b91f3f4b443f2902a6026c769466f5b07"
+                    .into(),
             owner: CheckpointOwner::Payments,
             event_log_id: "journal:did:sender:payment:001".into(),
             event_count: 8,
@@ -360,8 +363,8 @@ mod tests {
         let subject = subject();
         let original = payment_intent();
         let mut changed = PaymentIntent::new(
-            "did:sender",
-            "did:other-recipient",
+            "did:other-sender",
+            "did:recipient",
             "client-key-001",
             format!("sha256:{}", "a".repeat(64)),
             100,
@@ -438,6 +441,20 @@ mod tests {
             Err(CheckpointError::IntentMismatch)
         );
         assert_eq!(subject.validate_against_intent(&original), Ok(()));
+
+        let mut changed_subject = subject.clone();
+        changed_subject.operation_id.push('x');
+        assert_eq!(
+            changed_subject.validate_against_intent(&original),
+            Err(CheckpointError::IntentMismatch)
+        );
+        let mut changed_subject = subject.clone();
+        changed_subject.intent_digest = format!("sha256:{}", "22".repeat(32));
+        assert_eq!(
+            changed_subject.validate_against_intent(&original),
+            Err(CheckpointError::IntentMismatch)
+        );
+
     }
 
     #[test]
