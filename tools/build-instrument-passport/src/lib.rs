@@ -64,6 +64,13 @@ const CAPABILITY_FIELDS: &[&str] = &[
     "drift",
     "cross_sensitivity_state",
 ];
+const OPERATING_RANGE_FIELDS: &[&str] = &["minimum","maximum","unit","conditions_id"];
+const RESOLUTION_FIELDS: &[&str] = &["value","unit"];
+const ACCURACY_FIELDS: &[&str] = &["value","unit","basis","conditions_id","evidence_class","source_record_id"];
+const REPEATABILITY_FIELDS: &[&str] = &["value","unit","method_id","evidence_class"];
+const DRIFT_FIELDS: &[&str] = &["value","unit","period_seconds","conditions_id"];
+const CALIBRATION_UNCERTAINTY_FIELDS: &[&str] = &["value","unit","coverage_factor","method_id","correlation_model_id"];
+const POSITION_FIELDS: &[&str] = &["x","y","z","frame_id"];
 const CALIBRATION_FIELDS: &[&str] = &[
     "record_id",
     "instrument_id",
