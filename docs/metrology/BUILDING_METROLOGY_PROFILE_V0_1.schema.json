@@ -27,7 +27,7 @@
       "const": "synthetic_measurement_requirements_only"
     },
     "claim_ceiling": {
-      "const": "instrument_profile_schema_and_physical_thresholds_not_set"
+      "const": "instrument_profile_schema_and_synthetic_admission_logic_only"
     },
     "owner": {
       "const": "Mycelix"
