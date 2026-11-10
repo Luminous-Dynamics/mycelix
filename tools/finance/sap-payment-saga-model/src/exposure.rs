@@ -178,7 +178,7 @@ impl DestinationResolutionV1 {
 
 #[derive(Clone, Debug)]
 pub struct ExposureBookV1 {
-    policy: Option<ExposurePolicyV1>,
+    policy: ExposurePolicyV1,
     reservations: BTreeMap<String, ExposureReservationV1>,
 }
 
@@ -186,13 +186,13 @@ impl ExposureBookV1 {
     pub fn new(policy: ExposurePolicyV1) -> Result<Self, ExposureError> {
         policy.validate()?;
         Ok(Self {
-            policy: Some(policy),
+            policy,
             reservations: BTreeMap::new(),
         })
     }
 
     pub fn policy(&self) -> &ExposurePolicyV1 {
-        self.policy.as_ref().expect("book is initialized by new")
+        &self.policy
     }
 
     /// Lowering a limit never removes existing reservations. The book may
@@ -203,7 +203,7 @@ impl ExposureBookV1 {
         if policy.scope != self.policy().scope || policy.sequence <= self.policy().sequence {
             return Err(ExposureError::InvalidPolicy);
         }
-        self.policy = Some(policy);
+        self.policy = policy;
         Ok(())
     }
 
