@@ -62,13 +62,24 @@ jobs:
         if: hashFiles('tools/finance/sap-payment-saga-go-verifier/go.mod') != ''
         working-directory: tools/finance/sap-payment-saga-go-verifier
         run: go test -race -count=1 ./...
-      - name: Measure synthetic journal replay scaling
-        if: hashFiles('tools/finance/sap-payment-saga-go-verifier/go.mod') != ''
-        working-directory: tools/finance/sap-payment-saga-go-verifier
+      - name: Capture paired benchmark environment
         run: |
-          set -euo pipefail
+          rustc --version
+          cargo --version
           go version
           uname -srm
           awk -F: '/model name/ { gsub(/^[[:space:]]+/, "", $2); print "CPU: " $2; exit }' /proc/cpuinfo
-          go test -run 'a^' -bench '^BenchmarkReplayJournal' -benchmem -benchtime=200ms -count=30 | tee /tmp/replay-benchmark.txt
-          awk -f summarize-replay-benchmark.awk /tmp/replay-benchmark.txt
+      - name: Measure Rust synthetic journal replay scaling
+        run: |
+          set -euo pipefail
+          cargo bench --manifest-path tools/finance/sap-payment-saga-model/Cargo.toml --bench replay_benchmark | tee /tmp/replay-rust-benchmark.txt
+      - name: Measure Go synthetic journal replay scaling
+        working-directory: tools/finance/sap-payment-saga-go-verifier
+        run: |
+          set -euo pipefail
+          go test -run 'a^' -bench '^BenchmarkReplayJournal' -benchmem -benchtime=200ms -count=30 | tee /tmp/replay-go-benchmark.txt
+      - name: Summarize paired raw benchmark samples
+        run: |
+          set -euo pipefail
+          cat /tmp/replay-rust-benchmark.txt /tmp/replay-go-benchmark.txt > /tmp/replay-benchmark.txt
+          awk -f tools/finance/sap-payment-saga-go-verifier/summarize-replay-benchmark.awk /tmp/replay-benchmark.txt
