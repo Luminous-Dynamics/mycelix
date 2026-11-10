@@ -1,6 +1,7 @@
 package sagaverifier
 
 import (
+	"fmt"
 	"bytes"
 	"encoding/hex"
 	"os"
@@ -77,6 +78,9 @@ func checkpointTestVectors(t *testing.T) map[string]string {
 		"payments-subject-hex", "payments-subject-digest",
 		"treasury-subject-hex", "treasury-subject-digest",
 		"treasury-next-subject-hex", "treasury-next-subject-digest",
+		"benchmark-payments-100-tail", "benchmark-payments-1000-tail",
+		"benchmark-payments-10000-tail", "benchmark-treasury-100-tail",
+		"benchmark-treasury-1000-tail", "benchmark-treasury-10000-tail",
 	} {
 		if vectors[key] == "" {
 			t.Fatalf("missing checkpoint known-answer key %q", key)
@@ -226,5 +230,29 @@ func TestCheckpointRejectsMalformedOwnerDigestAndActionFrontiers(t *testing.T) {
 				t.Fatalf("Validate() error = %v, want %v", err, test.want)
 			}
 		})
+	}
+}
+
+
+func TestPairedBenchmarkOwnerChainsMatchSharedTerminalVectors(t *testing.T) {
+	vectors := checkpointTestVectors(t)
+	for _, owner := range []struct {
+		name  string
+		value CheckpointOwnerDomain
+	}{
+		{name: "payments", value: CheckpointPayments},
+		{name: "treasury", value: CheckpointTreasury},
+	} {
+		for _, count := range []int{100, 1_000, 10_000} {
+			subjects := checkpointBenchmarkChain(t, owner.value, count)
+			actual, err := subjects[len(subjects)-1].CanonicalDigest()
+			if err != nil {
+				t.Fatalf("%s/%d terminal digest: %v", owner.name, count, err)
+			}
+			key := fmt.Sprintf("benchmark-%s-%d-tail", owner.name, count)
+			if actual != vectors[key] {
+				t.Fatalf("%s = %s, want %s", key, actual, vectors[key])
+			}
+		}
 	}
 }
