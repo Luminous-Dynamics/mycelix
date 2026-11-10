@@ -1,7 +1,9 @@
 package main
 
 import (
+	"os"
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -71,6 +73,48 @@ func replayTestTreasuryEvidence(journal *Journal) Evidence {
 	}
 	evidence.EvidenceDigest, _ = canonicalEvidenceDigest(evidence)
 	return evidence
+}
+
+func TestJournalEventFrameHashesMatchSharedCrossLanguageVectors(t *testing.T) {
+	data, err := os.ReadFile("fixtures/sap-payment-journal-replay-v1.kat")
+	if err != nil {
+		t.Fatal(err)
+	}
+	vectors := make(map[string]string)
+	for _, line := range strings.Split(string(data), "\n") {
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		name, value, ok := strings.Cut(line, "=")
+		if !ok {
+			t.Fatalf("invalid known-answer line: %q", line)
+		}
+		vectors[name] = value
+	}
+
+	log, err := NewJournalEventLog(replayTestIntent())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := log.Frames()[0].EventDigest; got != vectors["created-basic"] {
+		t.Fatalf("created frame digest = %s, want %s", got, vectors["created-basic"])
+	}
+	if err := log.RecordAuthorized(); err != nil {
+		t.Fatal(err)
+	}
+	if got := log.Frames()[1].EventDigest; got != vectors["authorized-after-created"] {
+		t.Fatalf("authorized frame digest = %s, want %s", got, vectors["authorized-after-created"])
+	}
+	journal := newJournal(replayTestIntent())
+	if err := log.RecordEffectPrepared(
+		LocalPaymentTransaction,
+		journal.EffectID(LocalPaymentTransaction),
+	); err != nil {
+		t.Fatal(err)
+	}
+	if got := log.Frames()[2].EventDigest; got != vectors["local-prepared-after-authorized"] {
+		t.Fatalf("prepared frame digest = %s, want %s", got, vectors["local-prepared-after-authorized"])
+	}
 }
 
 func TestJournalEventReplayReconstructsLocalAndTreasuryRecovery(t *testing.T) {
