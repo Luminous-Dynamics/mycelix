@@ -62,3 +62,13 @@ jobs:
         if: hashFiles('tools/finance/sap-payment-saga-go-verifier/go.mod') != ''
         working-directory: tools/finance/sap-payment-saga-go-verifier
         run: go test -race -count=1 ./...
+      - name: Measure synthetic journal replay scaling
+        if: hashFiles('tools/finance/sap-payment-saga-go-verifier/go.mod') != ''
+        working-directory: tools/finance/sap-payment-saga-go-verifier
+        run: |
+          set -euo pipefail
+          go version
+          uname -srm
+          awk -F: '/model name/ { gsub(/^[ \\t]+/, "", $2); print "CPU: " $2; exit }' /proc/cpuinfo
+          go test -run '^ -bench '^BenchmarkReplayJournal -benchmem -benchtime=200ms -count=30 | tee /tmp/replay-benchmark.txt
+          awk -f summarize-replay-benchmark.awk /tmp/replay-benchmark.txt
