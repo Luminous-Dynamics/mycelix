@@ -12,6 +12,7 @@ on:
     branches:
       - main
       - research/gcpn-civil-envelope-validator-v0-2
+      - feat/gcpn-observability-evaluator-v0.1
     paths:
       - "mycelix-workspace/mycelix-praxis/benchmarks/civil-awareness-envelope-validator/**"
       - "mycelix-workspace/mycelix-praxis/docs/research/civil-awareness-observability-dgp-v0.1*"

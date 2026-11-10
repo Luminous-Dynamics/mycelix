@@ -1,0 +1,778 @@
+{
+  "schema": "gcpn.coverage-calibration-dgp",
+  "version": "0.1.0",
+  "state": "FROZEN_PUBLIC_SYNTHETIC_DGP_WITH_EXECUTABLE_GENERATOR_NOT_FIELD_EVALUATION",
+  "synthetic_only": true,
+  "non_operational": true,
+  "parent_issue": 6008,
+  "generator": {
+    "algorithm": "PCG-XSH-RR-64/32",
+    "algorithm_version": "1",
+    "seed": 6008001,
+    "deterministic_stream_per_case": true,
+    "implementation_status": "PCG_STREAM_AND_SCENARIO_GENERATOR_IMPLEMENTED_METRIC_RUNNER_UNDER_TEST",
+    "stream_derivation": "SHA-256(domain_separator || global_seed_le_u64 || case_id_utf8); first 8 digest bytes little-endian are initial state, next 8 are initial sequence."
+  },
+  "unit_of_analysis": {
+    "primary": "site_session_source_dependency_block",
+    "secondary": "eligible_source_exposure_interval",
+    "event_cluster": "steward_defined_event_group",
+    "rule": "Do not treat overlapping windows or feeds sharing a dependency as independent trials.",
+    "exposure_interval_duration_milliseconds": 60000,
+    "calibration_reliability_bin_count": 10
+  },
+  "partitions": {
+    "development": "public_synthetic_development",
+    "confirmatory": "locked_synthetic_confirmatory",
+    "replication": "separately_seeded_external_replication_protocol",
+    "source_group_disjoint": true,
+    "partition_digests_required": true,
+    "all_initiated_runs_captured": true
+  },
+  "metrics_definitions": {
+    "probability_of_detection": "Positive source observations divided by independently confirmed eligible events during valid source observation exposure; undefined if the eligible exposure denominator is zero.",
+    "probability_of_false_alarm": "False event clusters or alerts per predeclared eligible source-hour/exposure unit; report raw alerts and deduplicated event groups.",
+    "score_calibration": "Agreement between a predicted probability for a declared claim and independent Bernoulli outcomes in the declared sampling frame.",
+    "coverage_calibration": "Agreement between declared probability of observation eligibility and independently stewarded realized exposure, stratified by abstract scope/condition cell.",
+    "evidence_confidence": "Provenance, rights, freshness, completeness, dependency and receipt quality; never a probability of physical truth."
+  },
+  "required_outputs": [
+    "per-source and fused Pd with Wilson or exact intervals",
+    "Pfa per eligible exposure and per event cluster",
+    "Brier score, Brier Skill Score versus prevalence baseline, log loss, calibration intercept and slope",
+    "reliability bins with definitions, support counts and uncertainty intervals",
+    "coverage calibration by abstract condition cell",
+    "risk-coverage/abstention curves and selective risk",
+    "missingness and observation-exposure table",
+    "dependency-group/common-mode analysis and leave-one-dependency-group-out results",
+    "all failed, incomplete and abstained runs with exact code/config/input/split digests"
+  ],
+  "hard_gates": {
+    "unknown_or_no_exposure_promoted_to_zero_detections": 0,
+    "model_score_promoted_to_coverage_probability": 0,
+    "model_score_promoted_to_source_independence": 0,
+    "physical_absence_overclaims": 0,
+    "restricted_source_use": 0,
+    "privacy_or_authority_violations": 0,
+    "silent_run_exclusions": 0
+  },
+  "thresholds_policy": {
+    "universal_pd_threshold": null,
+    "universal_pfa_threshold": null,
+    "universal_ece_threshold": null,
+    "rule": "Pre-register modality/class/environment/hazard-specific operating points with denominators and uncertainty. No pooled score can compensate for a hard-gate failure.",
+    "calibration_target": "For a well-specified positive-control DGP, estimate calibration intercept and slope with confidence intervals consistent with 0 and 1 respectively; evaluate nominal interval coverage over repeated seeded replications, not a single run."
+  },
+  "cases": [
+    {
+      "id": "CC-001",
+      "scenario": "well_specified_probability_calibration",
+      "name": "Positive control: declared probabilities equal the Bernoulli event-generating probabilities within every stratum.",
+      "parameters": {
+        "truth": {
+          "prevalence": 0.2,
+          "probability_by_score_bin": [
+            0.1,
+            0.3,
+            0.5,
+            0.7,
+            0.9
+          ]
+        },
+        "score": {
+          "kind": "identity_probability"
+        },
+        "exposure": {
+          "eligible_fraction": 1,
+          "missingness": "none"
+        },
+        "coverage": {
+          "declared_probability": 1,
+          "realized_probability": 1
+        },
+        "dependence": {
+          "source_groups": 100,
+          "within_group_correlation": 0
+        }
+      },
+      "expected_properties": [
+        "calibration_intercept_near_zero",
+        "calibration_slope_near_one",
+        "positive_brier_skill_vs_prevalence",
+        "pd_estimable"
+      ]
+    },
+    {
+      "id": "CC-002",
+      "scenario": "rare_class_overconfidence_hidden_by_pooling",
+      "name": "Pooled metrics can conceal severe overconfidence in a rare class.",
+      "parameters": {
+        "truth": {
+          "class_prevalence": {
+            "common": 0.97,
+            "rare": 0.03
+          },
+          "event_rate": {
+            "common": 0.02,
+            "rare": 0.3
+          }
+        },
+        "score": {
+          "kind": "class_conditional_miscalibration",
+          "predicted_event_probability": {
+            "common": 0.02,
+            "rare": 0.9
+          }
+        },
+        "exposure": {
+          "eligible_fraction": 1,
+          "missingness": "none"
+        },
+        "coverage": {
+          "declared_probability": 1,
+          "realized_probability": 1
+        },
+        "dependence": {
+          "source_groups": 100,
+          "within_group_correlation": 0
+        }
+      },
+      "expected_properties": [
+        "rare_class_calibration_failure_visible",
+        "pooled_metrics_do_not_hide_stratum_failure"
+      ]
+    },
+    {
+      "id": "CC-003",
+      "scenario": "underconfident_rank_preserving_scores",
+      "name": "Scores preserve ranking but are compressed toward the base rate.",
+      "parameters": {
+        "truth": {
+          "event_rate_by_rank_bin": [
+            0.02,
+            0.1,
+            0.5,
+            0.9
+          ]
+        },
+        "score": {
+          "kind": "shrink_toward_prevalence",
+          "shrink_factor": 0.5
+        },
+        "exposure": {
+          "eligible_fraction": 1,
+          "missingness": "none"
+        },
+        "coverage": {
+          "declared_probability": 1,
+          "realized_probability": 1
+        },
+        "dependence": {
+          "source_groups": 100,
+          "within_group_correlation": 0
+        }
+      },
+      "expected_properties": [
+        "ranking_can_remain_good_while_calibration_fails"
+      ]
+    },
+    {
+      "id": "CC-004",
+      "scenario": "prior_prevalence_shift",
+      "name": "Base event prevalence shifts between development and confirmatory partitions while conditional likelihoods remain stable.",
+      "parameters": {
+        "truth": {
+          "development_prevalence": 0.05,
+          "confirmatory_prevalence": 0.2,
+          "conditional_likelihood_stable": true
+        },
+        "score": {
+          "kind": "development_posterior_not_prior_corrected"
+        },
+        "exposure": {
+          "eligible_fraction": 1,
+          "missingness": "none"
+        },
+        "coverage": {
+          "declared_probability": 1,
+          "realized_probability": 1
+        },
+        "dependence": {
+          "source_groups": 100,
+          "within_group_correlation": 0
+        }
+      },
+      "expected_properties": [
+        "calibration_shift_detected",
+        "do_not_conflate_prior_shift_with_conditional_shift"
+      ]
+    },
+    {
+      "id": "CC-005",
+      "scenario": "conditional_distribution_shift",
+      "name": "The conditional relationship between score and event truth changes in a new condition.",
+      "parameters": {
+        "truth": {
+          "development_event_rate_by_score": [
+            0.05,
+            0.2,
+            0.6,
+            0.9
+          ],
+          "confirmatory_event_rate_by_score": [
+            0.02,
+            0.08,
+            0.25,
+            0.55
+          ]
+        },
+        "score": {
+          "kind": "fixed_development_calibration"
+        },
+        "exposure": {
+          "eligible_fraction": 1,
+          "missingness": "none"
+        },
+        "coverage": {
+          "declared_probability": 1,
+          "realized_probability": 1
+        },
+        "dependence": {
+          "source_groups": 100,
+          "within_group_correlation": 0
+        }
+      },
+      "expected_properties": [
+        "ood_calibration_failure_visible",
+        "abstention_or_recalibration_flagged"
+      ]
+    },
+    {
+      "id": "CC-006",
+      "scenario": "missing_at_random_observation_exposure",
+      "name": "A source is randomly unavailable for a fraction of eligible exposure; Pd excludes unobserved exposure.",
+      "parameters": {
+        "truth": {
+          "eligible_event_rate": 0.1,
+          "detection_probability_when_exposed": 0.8
+        },
+        "score": {
+          "kind": "binary_detection"
+        },
+        "exposure": {
+          "eligible_fraction": 0.8,
+          "missingness": "missing_completely_at_random"
+        },
+        "coverage": {
+          "declared_probability": 0.8,
+          "realized_probability": 0.8
+        },
+        "dependence": {
+          "source_groups": 100,
+          "within_group_correlation": 0
+        }
+      },
+      "expected_properties": [
+        "pd_uses_exposed_event_denominator",
+        "coverage_gap_reported_separately"
+      ]
+    },
+    {
+      "id": "CC-007",
+      "scenario": "informative_missingness_correlated_with_event_difficulty",
+      "name": "Feed failure disproportionately occurs in difficult conditions, biasing observed-only performance.",
+      "parameters": {
+        "truth": {
+          "eligible_event_rate": 0.1,
+          "detection_probability_easy": 0.9,
+          "detection_probability_hard": 0.2,
+          "hard_condition_share": 0.4
+        },
+        "score": {
+          "kind": "binary_detection"
+        },
+        "exposure": {
+          "eligible_fraction": 0.7,
+          "missingness": "missing_not_at_random_condition_dependent"
+        },
+        "coverage": {
+          "declared_probability": 1,
+          "realized_probability": 0.7
+        },
+        "dependence": {
+          "source_groups": 100,
+          "within_group_correlation": 0
+        }
+      },
+      "expected_properties": [
+        "missingness_bias_reported",
+        "no_complete_coverage_claim"
+      ]
+    },
+    {
+      "id": "CC-008",
+      "scenario": "shared_collector_common_mode",
+      "name": "Two nominally different feeds share one collector that fails for all feeds in the same top-level blocks.",
+      "parameters": {
+        "truth": {
+          "event_rate": 0.1,
+          "detection_probability_when_available": 0.8
+        },
+        "score": {
+          "kind": "binary_detection"
+        },
+        "exposure": {
+          "eligible_fraction": 1,
+          "missingness": "collector_failure_by_cluster"
+        },
+        "coverage": {
+          "declared_probability": 1,
+          "realized_probability": 0.8
+        },
+        "dependence": {
+          "source_groups": 100,
+          "feeds_per_group": 2,
+          "shared_dependency": "collector",
+          "failure_correlation": 1
+        }
+      },
+      "expected_properties": [
+        "two_feeds_not_counted_as_independent",
+        "common_mode_failure_visible"
+      ]
+    },
+    {
+      "id": "CC-009",
+      "scenario": "independent_source_control",
+      "name": "Two feeds have separate qualified dependencies and independent conditional errors in the synthetic oracle.",
+      "parameters": {
+        "truth": {
+          "event_rate": 0.1
+        },
+        "score": {
+          "kind": "binary_detection"
+        },
+        "exposure": {
+          "eligible_fraction": 1,
+          "missingness": "none"
+        },
+        "coverage": {
+          "declared_probability": 1,
+          "realized_probability": 1
+        },
+        "dependence": {
+          "source_groups": 100,
+          "feeds_per_group": 2,
+          "shared_dependency": null,
+          "failure_correlation": 0
+        }
+      },
+      "expected_properties": [
+        "independent_control_is_only_synthetic_declared_independence"
+      ]
+    },
+    {
+      "id": "CC-010",
+      "scenario": "shared_model_dependency",
+      "name": "Sensors differ physically but share the same upstream classifier artifact; model errors are common mode.",
+      "parameters": {
+        "truth": {
+          "event_rate": 0.1
+        },
+        "score": {
+          "kind": "binary_detection"
+        },
+        "exposure": {
+          "eligible_fraction": 1,
+          "missingness": "none"
+        },
+        "coverage": {
+          "declared_probability": 1,
+          "realized_probability": 1
+        },
+        "dependence": {
+          "feeds_per_group": 2,
+          "shared_dependency": "classifier_artifact_digest",
+          "failure_correlation": 0.8
+        }
+      },
+      "expected_properties": [
+        "model_dependency_invalidates_naive_sensor_independence"
+      ]
+    },
+    {
+      "id": "CC-011",
+      "scenario": "zero_observation_exposure",
+      "name": "There are no eligible source-hours or covered scope/time units; Pd is not estimable.",
+      "parameters": {
+        "truth": {
+          "eligible_event_rate": null
+        },
+        "score": {
+          "kind": "none"
+        },
+        "exposure": {
+          "eligible_fraction": 0,
+          "missingness": "no_exposure"
+        },
+        "coverage": {
+          "declared_probability": 0,
+          "realized_probability": 0
+        },
+        "dependence": {
+          "source_groups": 0
+        }
+      },
+      "expected_properties": [
+        "pd_undefined_not_zero",
+        "no_false_negative_rate_without_denominator"
+      ]
+    },
+    {
+      "id": "CC-012",
+      "scenario": "positive_observation_with_partial_coverage",
+      "name": "A positive observation exists in an exposed subinterval even though the full window has a coverage gap.",
+      "parameters": {
+        "truth": {
+          "event_present": true,
+          "event_time_within_exposed_subinterval": true
+        },
+        "score": {
+          "kind": "positive_source_assertion"
+        },
+        "exposure": {
+          "eligible_fraction": 0.6,
+          "missingness": "known_interval_gap"
+        },
+        "coverage": {
+          "declared_probability": 1,
+          "realized_probability": 0.6
+        },
+        "dependence": {
+          "source_groups": 100,
+          "within_group_correlation": 0
+        }
+      },
+      "expected_properties": [
+        "positive_source_claim_preserved",
+        "no_full_window_negative_claim"
+      ]
+    },
+    {
+      "id": "CC-013",
+      "scenario": "stale_calibration_profile",
+      "name": "A source uses an expired calibration or coverage profile.",
+      "parameters": {
+        "truth": {
+          "event_rate": 0.1
+        },
+        "score": {
+          "kind": "calibrated_under_old_revision"
+        },
+        "exposure": {
+          "eligible_fraction": 1,
+          "missingness": "none"
+        },
+        "coverage": {
+          "declared_probability": 1,
+          "realized_probability": 1,
+          "profile_validity": "expired"
+        },
+        "dependence": {
+          "source_groups": 100,
+          "within_group_correlation": 0
+        }
+      },
+      "expected_properties": [
+        "stale_profile_downgrades_currentness",
+        "no_current_coverage_claim"
+      ]
+    },
+    {
+      "id": "CC-014",
+      "scenario": "qualified_source_conflict",
+      "name": "Two qualified sources provide mutually inconsistent source-level claims for one abstract event window.",
+      "parameters": {
+        "truth": {
+          "event_present": true
+        },
+        "score": {
+          "kind": "contradictory_source_claims"
+        },
+        "exposure": {
+          "eligible_fraction": 1,
+          "missingness": "none"
+        },
+        "coverage": {
+          "declared_probability": 1,
+          "realized_probability": 1
+        },
+        "dependence": {
+          "source_groups": 100,
+          "within_group_correlation": 0
+        }
+      },
+      "expected_properties": [
+        "conflict_preserved",
+        "no_majority_vote_truth_adjudication"
+      ]
+    },
+    {
+      "id": "CC-015",
+      "scenario": "synthetic_noise_does_not_stand_in_for_real_interference",
+      "name": "Synthetic Gaussian noise and a separately governed interference holdout are distinct test conditions.",
+      "parameters": {
+        "truth": {
+          "event_present": true
+        },
+        "score": {
+          "kind": "noise_robustness_test"
+        },
+        "exposure": {
+          "eligible_fraction": 1,
+          "missingness": "none"
+        },
+        "coverage": {
+          "declared_probability": 1,
+          "realized_probability": 1
+        },
+        "dependence": {
+          "source_groups": 100,
+          "within_group_correlation": 0
+        },
+        "holdout": {
+          "synthetic_gaussian_noise": "development_only",
+          "distinct_interference_domain": "external_blind_oracle_required"
+        }
+      },
+      "expected_properties": [
+        "separate_domain_results",
+        "no_transfer_claim_from_synthetic_noise"
+      ]
+    },
+    {
+      "id": "CC-016",
+      "scenario": "imbalanced_cluster_sizes",
+      "name": "Imbalanced site/session blocks can produce Simpson reversal under row weighting; resample top-level groups.",
+      "parameters": {
+        "truth": {
+          "event_rate_by_cluster_type": {
+            "small": 0.1,
+            "large": 0.3
+          }
+        },
+        "score": {
+          "kind": "candidate_minus_baseline_paired"
+        },
+        "exposure": {
+          "eligible_fraction": 1,
+          "missingness": "none"
+        },
+        "coverage": {
+          "declared_probability": 1,
+          "realized_probability": 1
+        },
+        "dependence": {
+          "source_groups": 80,
+          "cluster_size_distribution": "highly_imbalanced",
+          "resampling_unit": "site_session_source_dependency_block"
+        }
+      },
+      "expected_properties": [
+        "cluster_bootstrap_not_row_bootstrap",
+        "weighted_estimand_predeclared"
+      ]
+    },
+    {
+      "id": "CC-017",
+      "scenario": "false_alarm_bursts_and_duplicate_windows",
+      "name": "One false event may produce many overlapping windows; report raw alerts and deduplicated event clusters.",
+      "parameters": {
+        "truth": {
+          "true_event_rate": 0,
+          "synthetic_false_event_bursts": 10
+        },
+        "score": {
+          "kind": "thresholded_alert"
+        },
+        "exposure": {
+          "eligible_fraction": 1,
+          "missingness": "none"
+        },
+        "coverage": {
+          "declared_probability": 1,
+          "realized_probability": 1
+        },
+        "dependence": {
+          "source_groups": 100,
+          "overlap_window_factor": 20
+        }
+      },
+      "expected_properties": [
+        "pfa_per_exposure_and_event_cluster_rate_both_reported",
+        "duplicate_windows_not_independent_events"
+      ]
+    },
+    {
+      "id": "CC-018",
+      "scenario": "source_revision_shift",
+      "name": "Performance changes after a source/device/software revision; revision must be a reporting stratum.",
+      "parameters": {
+        "truth": {
+          "event_rate": 0.1
+        },
+        "score": {
+          "kind": "revision_dependent_miscalibration"
+        },
+        "exposure": {
+          "eligible_fraction": 1,
+          "missingness": "none"
+        },
+        "coverage": {
+          "declared_probability": 1,
+          "realized_probability": 1
+        },
+        "dependence": {
+          "source_groups": 100,
+          "source_revisions": [
+            "rev-a",
+            "rev-b"
+          ],
+          "revision_shift_effect": "material"
+        }
+      },
+      "expected_properties": [
+        "revision_stratified_metrics",
+        "no_cross_revision_pooling_without_evidence"
+      ]
+    },
+    {
+      "id": "CC-019",
+      "scenario": "coverage_probability_calibration",
+      "name": "Declared coverage probabilities are compared with independently generated realized eligibility by abstract scope/condition cell.",
+      "parameters": {
+        "truth": {
+          "coverage_probability_by_cell": [
+            0.1,
+            0.3,
+            0.5,
+            0.7,
+            0.9
+          ]
+        },
+        "score": {
+          "kind": "declared_coverage_probability"
+        },
+        "exposure": {
+          "eligible_fraction": 1,
+          "missingness": "oracle_exposure"
+        },
+        "coverage": {
+          "declared_probability_by_cell": [
+            0.1,
+            0.3,
+            0.5,
+            0.7,
+            0.9
+          ],
+          "realized_probability_by_cell": [
+            0.1,
+            0.3,
+            0.5,
+            0.7,
+            0.9
+          ]
+        },
+        "dependence": {
+          "source_groups": 100,
+          "within_group_correlation": 0
+        }
+      },
+      "expected_properties": [
+        "coverage_calibration_separate_from_detection_calibration",
+        "coverage_cell_uncertainty_reported"
+      ]
+    },
+    {
+      "id": "CC-020",
+      "scenario": "source_attestation_or_content_digest_failure",
+      "name": "A tampered or unauthenticated source assertion cannot be treated as a sensor error or valid observation.",
+      "parameters": {
+        "truth": {
+          "event_present": true
+        },
+        "score": {
+          "kind": "untrusted_assertion_not_scoreable"
+        },
+        "source_integrity": {
+          "expected_status": "authenticated_by_independent_receipt",
+          "actual_status": "digest_mismatch_or_signature_invalid"
+        },
+        "exposure": {
+          "eligible_fraction": 1,
+          "missingness": "none"
+        },
+        "coverage": {
+          "declared_probability": 1,
+          "realized_probability": 1
+        },
+        "dependence": {
+          "source_groups": 100,
+          "within_group_correlation": 0
+        }
+      },
+      "expected_properties": [
+        "source_assertion_rejected_or_quarantined",
+        "not_counted_as_detector_false_positive_or_false_negative",
+        "no_score_calibration_from_untrusted_claim",
+        "source_attestation_gate_precedes_evidence_use"
+      ]
+    },
+    {
+      "id": "CC-021",
+      "scenario": "end_to_end_service_latency_and_clock_uncertainty",
+      "name": "Multi-hop evidence delivery exceeds the predeclared latency budget; event time must not be replaced by receipt time.",
+      "parameters": {
+        "truth": {
+          "event_present": true,
+          "event_time": 100
+        },
+        "score": {
+          "kind": "freshness_and_service_delivery_assessment"
+        },
+        "exposure": {
+          "eligible_fraction": 1,
+          "missingness": "none"
+        },
+        "coverage": {
+          "declared_probability": 1,
+          "realized_probability": 1
+        },
+        "timing": {
+          "event_time": 100,
+          "hop_latencies": [
+            8,
+            12,
+            25
+          ],
+          "end_to_end_latency": 45,
+          "predeclared_latency_budget": 30,
+          "clock_uncertainty": 2,
+          "source_clock_quality": "bounded"
+        },
+        "dependence": {
+          "source_groups": 100,
+          "within_group_correlation": 0
+        }
+      },
+      "expected_properties": [
+        "end_to_end_latency_includes_all_hops",
+        "latency_budget_exceeded_is_reported",
+        "event_time_never_replaced_by_receipt_time",
+        "stale_or_unresolved_disposition_preserved",
+        "no_universal_latency_threshold_inferred"
+      ]
+    }
+  ],
+  "claim_ceiling": "This corpus is a synthetic DGP specification only. It contains no measured detector, field coverage or real sensor performance. Execution can qualify metric implementation and failure detection only, not field capability."
+}

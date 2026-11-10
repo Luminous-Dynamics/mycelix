@@ -1,0 +1,299 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:luminous-dynamics:gcpn:coverage-calibration-dgp:0.1.0",
+  "title": "GCPN coverage calibration DGP v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "version",
+    "state",
+    "synthetic_only",
+    "non_operational",
+    "parent_issue",
+    "generator",
+    "unit_of_analysis",
+    "partitions",
+    "metrics_definitions",
+    "required_outputs",
+    "hard_gates",
+    "thresholds_policy",
+    "cases",
+    "claim_ceiling"
+  ],
+  "properties": {
+    "schema": {
+      "const": "gcpn.coverage-calibration-dgp"
+    },
+    "version": {
+      "const": "0.1.0"
+    },
+    "state": {
+      "const": "FROZEN_PUBLIC_SYNTHETIC_DGP_WITH_EXECUTABLE_GENERATOR_NOT_FIELD_EVALUATION"
+    },
+    "synthetic_only": {
+      "const": true
+    },
+    "non_operational": {
+      "const": true
+    },
+    "parent_issue": {
+      "const": 6008
+    },
+    "generator": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "algorithm",
+        "algorithm_version",
+        "seed",
+        "deterministic_stream_per_case",
+        "implementation_status",
+        "stream_derivation"
+      ],
+      "properties": {
+        "algorithm": {
+          "const": "PCG-XSH-RR-64/32"
+        },
+        "algorithm_version": {
+          "const": "1"
+        },
+        "seed": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "deterministic_stream_per_case": {
+          "const": true
+        },
+        "implementation_status": {
+          "const": "PCG_STREAM_AND_SCENARIO_GENERATOR_IMPLEMENTED_METRIC_RUNNER_UNDER_TEST"
+        },
+        "stream_derivation": {
+          "type": "string",
+          "minLength": 40
+        }
+      }
+    },
+    "unit_of_analysis": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "primary",
+        "secondary",
+        "event_cluster",
+        "rule",
+        "exposure_interval_duration_milliseconds",
+        "calibration_reliability_bin_count"
+      ],
+      "properties": {
+        "primary": {
+          "const": "site_session_source_dependency_block"
+        },
+        "secondary": {
+          "type": "string"
+        },
+        "event_cluster": {
+          "type": "string"
+        },
+        "rule": {
+          "type": "string"
+        },
+        "exposure_interval_duration_milliseconds": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "calibration_reliability_bin_count": {
+          "type": "integer",
+          "minimum": 2,
+          "maximum": 100
+        }
+      }
+    },
+    "partitions": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "development",
+        "confirmatory",
+        "replication",
+        "source_group_disjoint",
+        "partition_digests_required",
+        "all_initiated_runs_captured"
+      ],
+      "properties": {
+        "development": {
+          "type": "string"
+        },
+        "confirmatory": {
+          "type": "string"
+        },
+        "replication": {
+          "type": "string"
+        },
+        "source_group_disjoint": {
+          "const": true
+        },
+        "partition_digests_required": {
+          "const": true
+        },
+        "all_initiated_runs_captured": {
+          "const": true
+        }
+      }
+    },
+    "metrics_definitions": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "probability_of_detection",
+        "probability_of_false_alarm",
+        "score_calibration",
+        "coverage_calibration",
+        "evidence_confidence"
+      ],
+      "properties": {
+        "probability_of_detection": {
+          "type": "string",
+          "minLength": 20
+        },
+        "probability_of_false_alarm": {
+          "type": "string",
+          "minLength": 20
+        },
+        "score_calibration": {
+          "type": "string",
+          "minLength": 20
+        },
+        "coverage_calibration": {
+          "type": "string",
+          "minLength": 20
+        },
+        "evidence_confidence": {
+          "type": "string",
+          "minLength": 20
+        }
+      }
+    },
+    "required_outputs": {
+      "type": "array",
+      "minItems": 8,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "hard_gates": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "unknown_or_no_exposure_promoted_to_zero_detections",
+        "model_score_promoted_to_coverage_probability",
+        "model_score_promoted_to_source_independence",
+        "physical_absence_overclaims",
+        "restricted_source_use",
+        "privacy_or_authority_violations",
+        "silent_run_exclusions"
+      ],
+      "properties": {
+        "unknown_or_no_exposure_promoted_to_zero_detections": {
+          "const": 0
+        },
+        "model_score_promoted_to_coverage_probability": {
+          "const": 0
+        },
+        "model_score_promoted_to_source_independence": {
+          "const": 0
+        },
+        "physical_absence_overclaims": {
+          "const": 0
+        },
+        "restricted_source_use": {
+          "const": 0
+        },
+        "privacy_or_authority_violations": {
+          "const": 0
+        },
+        "silent_run_exclusions": {
+          "const": 0
+        }
+      }
+    },
+    "thresholds_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "universal_pd_threshold",
+        "universal_pfa_threshold",
+        "universal_ece_threshold",
+        "rule",
+        "calibration_target"
+      ],
+      "properties": {
+        "universal_pd_threshold": {
+          "type": "null"
+        },
+        "universal_pfa_threshold": {
+          "type": "null"
+        },
+        "universal_ece_threshold": {
+          "type": "null"
+        },
+        "rule": {
+          "type": "string"
+        },
+        "calibration_target": {
+          "type": "string"
+        }
+      }
+    },
+    "cases": {
+      "type": "array",
+      "minItems": 21,
+      "items": {
+        "$ref": "#/$defs/case"
+      }
+    },
+    "claim_ceiling": {
+      "type": "string",
+      "minLength": 20
+    }
+  },
+  "$defs": {
+    "case": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "scenario",
+        "name",
+        "parameters",
+        "expected_properties"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^CC-[0-9]{3}$"
+        },
+        "scenario": {
+          "type": "string",
+          "minLength": 1
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "parameters": {
+          "type": "object"
+        },
+        "expected_properties": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    }
+  }
+}

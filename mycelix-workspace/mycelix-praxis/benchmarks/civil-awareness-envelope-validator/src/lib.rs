@@ -15,7 +15,10 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Map, Number, Value};
 use sha2::{Digest, Sha256};
 
+pub mod calibration;
+pub mod calibration_dgp;
 pub mod observability;
+pub mod pcg32;
 
 pub const MAX_ENVELOPE_BYTES: usize = 2 * 1024 * 1024;
 pub const SCHEMA_JSON: &str =
