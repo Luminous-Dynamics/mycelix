@@ -43,6 +43,7 @@ pub struct OwnerCheckpointSubjectV1 {
 pub enum CheckpointError {
     EmptyRequiredField,
     TextFieldTooLarge,
+    TextFieldNotAscii,
     InvalidDigest,
     InvalidIssuerDid,
     EmptyEventFrontier,
@@ -157,7 +158,10 @@ fn validate_digest(value: &str) -> Result<(), CheckpointError> {
 
 fn append_text(output: &mut Vec<u8>, value: &str) -> Result<(), CheckpointError> {
     require_text(value)?;
-    append_bytes(output, value.as_bytes())
+    let length = u32::try_from(value.len()).map_err(|_| CheckpointError::TextFieldTooLarge)?;
+    output.extend_from_slice(&length.to_be_bytes());
+    output.extend_from_slice(value.as_bytes());
+    Ok(())
 }
 
 fn append_digest(output: &mut Vec<u8>, value: &str) -> Result<(), CheckpointError> {
@@ -231,7 +235,7 @@ mod tests {
         assert!(first.starts_with(CHECKPOINT_DOMAIN));
         assert_eq!(
             subject.digest().unwrap(),
-            "CHECKPOINT_KAT_DIGEST"
+            "sha256:69e8cd918ccdda9a080af4a48bfd4d0e65b684d8ab584f710926afd673a86e60"
         );
     }
 
