@@ -18,6 +18,7 @@ A model that performs well on one layer has not thereby qualified the next.
 - `delib-bench-protocol-v0.1.schema.json` — strict schema for the protocol manifest.
 - `delib-bench-fixtures-v0.1.json` — 32 deterministic synthetic fixtures: 26 red-team cases across 13 attack families and 6 positive controls.
 - `delib-bench-fixtures-v0.1.schema.json` — strict fixture-corpus schema.
+- `delib-summary-baseline-intake-v0.1.json` / `.schema.json` — metadata-only inventory of DeliberationBank code, dataset and model artifacts, with explicit data-use and checkpoint-loading gates.
 - `tools/delib-bench-qualifier/` — Rust structural and fixture-oracle validator.
 - `.github/workflows/delib-bench-qualifier.yml` — path-filtered hosted qualification workflow.
 
@@ -55,6 +56,18 @@ The principal-roster check is bounded to the principals represented by source cl
 
 
 ## Research grounding and external baselines
+
+### DeliberationBank intake and baseline-safety status
+
+The current public artifact audit is recorded in [#6011](https://github.com/Luminous-Dynamics/mycelix/issues/6011), with a metadata-only machine-readable snapshot in `delib-summary-baseline-intake-v0.1.json`.
+
+Important separations:
+- The upstream code repository is Apache-2.0; the Hub dataset metadata declares MIT; the Hub model metadata declares Apache-2.0. These are three distinct artifacts and license scopes.
+- The dataset Hub page currently exposes ten topic rows / a comments array; this does not establish that the paper's 4,500 summary-judgment annotations are available in that artifact.
+- The dataset and model card README files are metadata-only in the current Hub rendering. The upstream dataset notes online-survey collection but does not disclose enough participant consent, ethics, recruitment, withdrawal or redistribution context for our data-use gate.
+- The upstream DeBERTa evaluator can fall back to randomly initialized weights when checkpoint loading fails. This is a baseline-integrity blocker; see [#6014](https://github.com/Luminous-Dynamics/mycelix/issues/6014). The benchmark path must verify exact safetensors/tokenizer/config hashes, reject fallback and avoid loading pickle-bearing `training_args.bin`.
+
+The current intake state is **metadata-only / review pending**. No participant-level data or model payloads have been downloaded into Mycelix; no full reproduction is claimed. The validator enforces that the rights gate stays blocked, the baseline remains unsupported, payload-download flags remain false, and the fail-closed model requirements remain present.
 
 ### Human-grounded opinion summarization
 
