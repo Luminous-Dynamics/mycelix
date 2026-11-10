@@ -26,12 +26,21 @@ func digest(seed uint64) string {
 	return fmt.Sprintf("sha256:%064x", seed)
 }
 
+func refreshEvidenceDigest(t *testing.T, evidence *Evidence) {
+	t.Helper()
+	digest, err := canonicalEvidenceDigest(*evidence)
+	if err != nil {
+		t.Fatal(err)
+	}
+	evidence.EvidenceDigest = digest
+}
+
 func localEvidence(j *Journal, label string, seed uint64) Evidence {
 	outboxID := ""
 	if j.intent.FeeMinor > 0 {
 		outboxID = j.EffectID(TreasuryFee)
 	}
-	return Evidence{
+	evidence := Evidence{
 		OperationID:    j.operationID,
 		EffectID:       j.EffectID(LocalPaymentTransaction),
 		Leg:            LocalPaymentTransaction,
@@ -40,7 +49,6 @@ func localEvidence(j *Journal, label string, seed uint64) Evidence {
 		PrincipalMinor: j.intent.AmountMinor,
 		FeeMinor:       j.intent.FeeMinor,
 		Currency:       j.intent.Currency,
-		EvidenceDigest: digest(seed),
 		Local: &LocalPaymentEvidence{
 			SenderAccountID:            j.intent.SenderDID,
 			RecipientAccountID:         j.intent.RecipientDID,
@@ -59,10 +67,16 @@ func localEvidence(j *Journal, label string, seed uint64) Evidence {
 			TreasuryFeeOutboxID:         outboxID,
 		},
 	}
+	digestValue, err := canonicalEvidenceDigest(evidence)
+	if err != nil {
+		panic(err)
+	}
+	evidence.EvidenceDigest = digestValue
+	return evidence
 }
 
-func treasuryEvidence(j *Journal, label string, seed uint64) Evidence {
-	return Evidence{
+func treasuryEvidence(j *Journal, label string, _seed uint64) Evidence {
+	evidence := Evidence{
 		OperationID:    j.operationID,
 		EffectID:       j.EffectID(TreasuryFee),
 		Leg:            TreasuryFee,
@@ -71,7 +85,6 @@ func treasuryEvidence(j *Journal, label string, seed uint64) Evidence {
 		PrincipalMinor: j.intent.AmountMinor,
 		FeeMinor:       j.intent.FeeMinor,
 		Currency:       j.intent.Currency,
-		EvidenceDigest: digest(seed),
 		Treasury: &TreasuryFeeEvidence{
 			PoolID:            "treasury:global-fee-pool",
 			SourceMemberDID:   j.intent.SenderDID,
@@ -82,6 +95,12 @@ func treasuryEvidence(j *Journal, label string, seed uint64) Evidence {
 			TreasuryAction:    "action:treasury-fee-" + label,
 		},
 	}
+	digestValue, err := canonicalEvidenceDigest(evidence)
+	if err != nil {
+		panic(err)
+	}
+	evidence.EvidenceDigest = digestValue
+	return evidence
 }
 
 func readyLocalJournal(t *testing.T, intent Intent) *Journal {
