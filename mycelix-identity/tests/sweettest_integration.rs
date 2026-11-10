@@ -336,6 +336,8 @@ pub struct RecoveryRequest {
     pub status: RecoveryStatus,
     pub created: Timestamp,
     pub time_lock_expires: Option<Timestamp>,
+    #[serde(default)]
+    pub config_action_hash: Option<ActionHash>,
 }
 
 /// Mirror of recovery_integrity::RecoveryVote
@@ -346,6 +348,8 @@ pub struct RecoveryVote {
     pub vote: VoteDecision,
     pub comment: Option<String>,
     pub voted_at: Timestamp,
+    #[serde(default)]
+    pub request_action_hash: Option<ActionHash>,
 }
 
 /// Mirror of recovery_integrity::RecoveryStatus
@@ -2857,19 +2861,38 @@ mod social_recovery_tests {
         //   - MFA assurance check passed
         //   - Vote entry was created and linked
 
-        // 7. Verify the request is still retrievable from initiator's chain
-        let updated_request: Option<Record> = conductor
+        // 7. The second trustee writes a vote on its own source chain.
+        // The initiator must explicitly finalize the request on the request
+        // author's chain after vote links have propagated.
+        tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+        let approved_record: Record = conductor
             .call(
                 &trustee1_cell.zome("recovery"),
+                "finalize_recovery",
+                request.id.clone(),
+            )
+            .await;
+        let approved: RecoveryRequest =
+            decode_entry(&approved_record).expect("Failed to decode finalized request");
+        assert_eq!(
+            approved.status,
+            RecoveryStatus::Approved,
+            "Two distinct authorized trustee approvals must reach the 2-of-3 threshold"
+        );
+        assert!(
+            approved.time_lock_expires.is_some(),
+            "Approval must set the configured time lock"
+        );
+
+        // Verify another agent can resolve the indexed latest request version.
+        let resolved: Option<Record> = conductor
+            .call(
+                &owner_cell.zome("recovery"),
                 "get_recovery_request",
                 request.id.clone(),
             )
             .await;
-
-        assert!(
-            updated_request.is_some(),
-            "Recovery request should be retrievable from initiator's cell"
-        );
+        assert!(resolved.is_some(), "Recovery request must be resolvable by request ID");
     }
 
     /// Setup recovery and verify trustee responsibilities query
@@ -2943,7 +2966,7 @@ mod social_recovery_tests {
         let setup_input = SetupRecoveryInput {
             did: owner_did.clone(),
             trustees: vec![
-                "did:mycelix:trustee-cancel-a".to_string(),
+                owner_did.clone(),
                 "did:mycelix:trustee-cancel-b".to_string(),
                 "did:mycelix:trustee-cancel-c".to_string(),
             ],
@@ -2955,19 +2978,14 @@ mod social_recovery_tests {
             .call(&cell.zome("recovery"), "setup_recovery", setup_input)
             .await;
 
-        // Setup MFA state for initiator trustee (required: minimum Basic assurance)
-        let mfa_input = CreateMfaStateInputShared {
-            did: "did:mycelix:trustee-cancel-a".to_string(),
-            primary_key_hash: "sha256:test-key-cancel-a".to_string(),
-        };
-        let _: MfaStateOutputShared = conductor
-            .call(&cell.zome("mfa"), "create_mfa_state", mfa_input)
-            .await;
+        // The owner is also a trustee in this test. create_did() has already
+        // enrolled the owner's primary key as an MFA factor.
 
-        // Trustee initiates recovery
+        // Owner/trustee initiates recovery on the same source chain so the
+        // legacy in-place cancellation update is author-valid.
         let initiate_input = InitiateRecoveryInput {
             did: owner_did.clone(),
-            initiator_did: "did:mycelix:trustee-cancel-a".to_string(),
+            initiator_did: owner_did.clone(),
             new_agent: app.agent().clone(),
             reason: "Testing cancellation flow".to_string(),
         };
