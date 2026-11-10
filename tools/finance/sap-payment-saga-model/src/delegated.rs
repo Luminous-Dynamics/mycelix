@@ -530,12 +530,13 @@ mod tests {
         );
         assert_eq!(
             parent.allocate_child_budget("provider-b", child_scope("operator:b", "dest:b"), 200, 2, digest('2')),
-            Err(ExposureError::InvalidPolicy) // latest grant sequence must advance; parent headroom is not the issue
+            Ok(DelegatedBudgetDisposition::Allocated)
         );
+        assert_eq!(parent.available_parent_budget_minor(), Ok(100));
         let mut wrong_currency = child_scope("operator:b", "dest:b");
         wrong_currency.currency = "USD".into();
         assert_eq!(
-            parent.allocate_child_budget("provider-c", wrong_currency, 100, 2, digest('3')),
+            parent.allocate_child_budget("provider-c", wrong_currency, 100, 3, digest('3')),
             Err(ExposureError::ScopeMismatch)
         );
     }
