@@ -485,7 +485,9 @@ pub fn initiate_recovery(input: InitiateRecoveryInput) -> ExternResult<Record> {
     // Save request_id for bridge event before it's moved
     let request_id_for_event = request_id.clone();
 
-    // Create initial approval vote from initiator
+    // Create initial approval vote from initiator. Every vote must use
+    // the same request-ID entry hash index that remote trustees use.
+    let request_id_for_vote_index = request_id.clone();
     let vote = RecoveryVote {
         request_id,
         trustee: input.initiator_did,
@@ -497,7 +499,7 @@ pub fn initiate_recovery(input: InitiateRecoveryInput) -> ExternResult<Record> {
     let vote_hash = create_entry(&EntryTypes::RecoveryVote(vote))?;
 
     create_link(
-        action_hash.clone(),
+        string_to_entry_hash(&request_id_for_vote_index),
         vote_hash,
         LinkTypes::RequestToVotes,
         (),
