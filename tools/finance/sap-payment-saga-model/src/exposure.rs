@@ -138,8 +138,16 @@ impl std::fmt::Display for ExposureError {
 
 impl std::error::Error for ExposureError {}
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[repr(u8)]
+pub enum ExposureResolutionKind {
+    SettlementReceipt = 1,
+    AuthoritativeAbsence = 2,
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct DestinationResolutionV1 {
+    pub kind: ExposureResolutionKind,
     pub effect_id: String,
     pub destination_id: String,
     pub payload_digest: String,
@@ -148,11 +156,16 @@ pub struct DestinationResolutionV1 {
 }
 
 impl DestinationResolutionV1 {
-    fn validate_against(&self, reservation: &ExposureReservationV1) -> Result<(), ExposureError> {
+    fn validate_against(
+        &self,
+        reservation: &ExposureReservationV1,
+        expected_kind: ExposureResolutionKind,
+    ) -> Result<(), ExposureError> {
         validate_digest(&self.payload_digest)?;
         validate_digest(&self.profile_digest)?;
         validate_digest(&self.evidence_digest)?;
-        if self.effect_id != reservation.intent.effect_id
+        if self.kind != expected_kind
+            || self.effect_id != reservation.intent.effect_id
             || self.destination_id != reservation.intent.scope.destination_id
             || self.payload_digest != reservation.intent.payload_digest
         {
@@ -163,7 +176,7 @@ impl DestinationResolutionV1 {
     }
 }
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug)]
 pub struct ExposureBookV1 {
     policy: Option<ExposurePolicyV1>,
     reservations: BTreeMap<String, ExposureReservationV1>,
@@ -248,7 +261,11 @@ impl ExposureBookV1 {
     pub fn mark_committed_unsettled(&mut self, effect_id: &str) -> Result<(), ExposureError> {
         self.transition(
             effect_id,
-            &[ExposureStatus::DispatchAuthorized, ExposureStatus::Indeterminate],
+            &[
+                ExposureStatus::DispatchAuthorized,
+                ExposureStatus::Indeterminate,
+                ExposureStatus::CommittedUnsettled,
+            ],
             ExposureStatus::CommittedUnsettled,
         )
     }
@@ -262,7 +279,10 @@ impl ExposureBookV1 {
             .reservations
             .get(effect_id)
             .ok_or(ExposureError::ReservationNotFound)?;
-        evidence.validate_against(reservation)?;
+        evidence.validate_against(reservation, ExposureResolutionKind::SettlementReceipt)?;
+        if reservation.status == ExposureStatus::Settled {
+            return Ok(());
+        }
         if reservation.status != ExposureStatus::CommittedUnsettled {
             return Err(ExposureError::InvalidTransition);
         }
@@ -279,7 +299,10 @@ impl ExposureBookV1 {
             .reservations
             .get(effect_id)
             .ok_or(ExposureError::ReservationNotFound)?;
-        evidence.validate_against(reservation)?;
+        evidence.validate_against(reservation, ExposureResolutionKind::AuthoritativeAbsence)?;
+        if reservation.status == ExposureStatus::AuthoritativelyAbsent {
+            return Ok(());
+        }
         if !matches!(
             reservation.status,
             ExposureStatus::DispatchAuthorized | ExposureStatus::Indeterminate
@@ -458,6 +481,7 @@ mod tests {
 
     fn resolution(effect_id: &str) -> DestinationResolutionV1 {
         DestinationResolutionV1 {
+            kind: ExposureResolutionKind::SettlementReceipt,
             effect_id: effect_id.into(),
             destination_id: "dest:provider-a".into(),
             payload_digest: digest('b'),
@@ -525,7 +549,9 @@ mod tests {
             book.release_authoritative_absence("effect:1", &wrong),
             Err(ExposureError::InvalidResolutionEvidence)
         );
-        book.release_authoritative_absence("effect:1", &resolution("effect:1")).unwrap();
+        let mut absence = resolution("effect:1");
+        absence.kind = ExposureResolutionKind::AuthoritativeAbsence;
+        book.release_authoritative_absence("effect:1", &absence).unwrap();
         assert_eq!(book.total_exposure_minor(), Ok(0));
     }
 
