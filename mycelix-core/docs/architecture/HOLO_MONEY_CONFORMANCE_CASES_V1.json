@@ -1,0 +1,329 @@
+{
+  "schema_version": "holo-money-conformance/1",
+  "status": "synthetic design fixtures; no live financial transactions or production guarantees",
+  "amount_semantics": "All amounts are non-negative integer minor units under a versioned instrument profile. Decimal scale and rounding are profile-bound. No binary floating-point money authority.",
+  "scope": "Holochain hApp authorization/evidence semantics and boundaries between community records and external settlement.",
+  "invariant_catalog": [
+    "instrument_rights_are_explicit_before_transfer",
+    "supply_or_credit_limits_are_authority_bound",
+    "exclusive_spends_need_serializing_authority_or_proven_quorum",
+    "dht_publication_is_not_external_settlement",
+    "unknown_is_not_success_or_failure",
+    "replays_are_idempotent",
+    "only_authoritative_issuance_receipts_create_value",
+    "cross_domain_atomicity_is_never_inferred",
+    "zero_protocol_fee_is_not_zero_total_cost",
+    "sensitive_economic_data_is_not_public_by_default"
+  ],
+  "cases": [
+    {
+      "id": "HM-001",
+      "name": "Instrument lacks explicit rights profile",
+      "setup": {
+        "instrument_profile": null,
+        "requested_amount_minor": 100
+      },
+      "attack_or_condition": "A client supplies only a token symbol and an amount.",
+      "expected": {
+        "disposition": "reject_or_abstain",
+        "finality": "none",
+        "must_not_claim": [
+          "transfer_authorized",
+          "redeemable",
+          "cash_equivalent"
+        ]
+      },
+      "invariants": [
+        "instrument_rights_are_explicit_before_transfer"
+      ]
+    },
+    {
+      "id": "HM-002",
+      "name": "Bounded community mutual-credit transfer",
+      "setup": {
+        "instrument_kind": "community_mutual_credit",
+        "redemption": "none_promised",
+        "source_credit_limit_minor": 10000,
+        "source_outstanding_minor": 2000,
+        "requested_amount_minor": 300
+      },
+      "attack_or_condition": "An explicitly authorized issuer/account authority serializes the transfer within profile limits.",
+      "expected": {
+        "disposition": "may_authorize_under_profile",
+        "finality": "community_profile_only",
+        "must_not_claim": [
+          "fiat_settled",
+          "universally_redeemable"
+        ]
+      },
+      "invariants": [
+        "instrument_rights_are_explicit_before_transfer",
+        "supply_or_credit_limits_are_authority_bound"
+      ]
+    },
+    {
+      "id": "HM-003",
+      "name": "Two concurrent spends exceed balance",
+      "setup": {
+        "available_balance_minor": 1000,
+        "proposed_spends_minor": [
+          700,
+          700
+        ],
+        "same_account": true,
+        "concurrent": true
+      },
+      "attack_or_condition": "Two recipients request authorization before either request can observe the other's result.",
+      "expected": {
+        "disposition": "serialize_or_quorum_then_authorize_at_most_one",
+        "authorized_total_must_not_exceed_minor": 1000,
+        "without_authority": "abstain"
+      },
+      "invariants": [
+        "exclusive_spends_need_serializing_authority_or_proven_quorum"
+      ]
+    },
+    {
+      "id": "HM-004",
+      "name": "Source-chain fork becomes visible only after later synchronization",
+      "setup": {
+        "same_account_history": "conflicting_signed_histories",
+        "dht_integrated": false
+      },
+      "attack_or_condition": "A recipient sees one plausible transfer event while another conflicting event is not yet discoverable.",
+      "expected": {
+        "disposition": "do_not_claim_exclusive_ownership",
+        "finality": "unknown_until_authority_resolves",
+        "without_authority": "abstain"
+      },
+      "invariants": [
+        "exclusive_spends_need_serializing_authority_or_proven_quorum",
+        "unknown_is_not_success_or_failure"
+      ]
+    },
+    {
+      "id": "HM-005",
+      "name": "DHT validation dependency is unresolved",
+      "setup": {
+        "required_dependency_available": false
+      },
+      "attack_or_condition": "A record references issuer/credit-limit state not currently retrievable by a validator.",
+      "expected": {
+        "disposition": "pending_or_retry",
+        "finality": "none",
+        "must_not_claim": [
+          "valid",
+          "spend_authorized",
+          "settled"
+        ]
+      },
+      "invariants": [
+        "unknown_is_not_success_or_failure"
+      ]
+    },
+    {
+      "id": "HM-006",
+      "name": "Retry repeats a transfer request",
+      "setup": {
+        "idempotency_key": "hm-006-transfer-a",
+        "same_request_replayed": true
+      },
+      "attack_or_condition": "A client retries after a timeout or duplicate callback.",
+      "expected": {
+        "disposition": "return_original_result_or_unknown",
+        "value_effect_count": 1,
+        "duplicate_value_effects": 0
+      },
+      "invariants": [
+        "replays_are_idempotent",
+        "unknown_is_not_success_or_failure"
+      ]
+    },
+    {
+      "id": "HM-007",
+      "name": "Previously used issuance receipt is replayed",
+      "setup": {
+        "issuance_receipt_id": "receipt-previously-consumed",
+        "receipt_already_consumed": true
+      },
+      "attack_or_condition": "An attacker attempts to create value by reusing an external issuance authorization.",
+      "expected": {
+        "disposition": "reject",
+        "new_value_created_minor": 0
+      },
+      "invariants": [
+        "replays_are_idempotent",
+        "only_authoritative_issuance_receipts_create_value"
+      ]
+    },
+    {
+      "id": "HM-008",
+      "name": "Unauthorized issuer attempts mint",
+      "setup": {
+        "issuer_authorized": false,
+        "requested_mint_minor": 500
+      },
+      "attack_or_condition": "A validly signed request comes from an agent lacking issuance authority.",
+      "expected": {
+        "disposition": "reject",
+        "new_value_created_minor": 0
+      },
+      "invariants": [
+        "only_authoritative_issuance_receipts_create_value",
+        "supply_or_credit_limits_are_authority_bound"
+      ]
+    },
+    {
+      "id": "HM-009",
+      "name": "Overflow or incompatible asset scale",
+      "setup": {
+        "amount_minor": 9223372036854776000,
+        "fee_minor": 1,
+        "source_scale": 2,
+        "destination_scale": 6
+      },
+      "attack_or_condition": "Addition would overflow the chosen integer type or conversion lacks an explicit rounding profile.",
+      "expected": {
+        "disposition": "reject",
+        "ledger_mutation": false
+      },
+      "invariants": [
+        "instrument_rights_are_explicit_before_transfer"
+      ]
+    },
+    {
+      "id": "HM-010",
+      "name": "DHT transfer record exists but bank/PSP transfer has no settlement receipt",
+      "setup": {
+        "holochain_event_present": true,
+        "external_settlement_receipt": null
+      },
+      "attack_or_condition": "A frontend tries to label a token or fiat transfer complete based only on a Holochain record.",
+      "expected": {
+        "disposition": "not_settled",
+        "status": "unknown_or_submitted_under_profile",
+        "must_not_claim": [
+          "fiat_settled",
+          "beneficiary_funds_available"
+        ]
+      },
+      "invariants": [
+        "dht_publication_is_not_external_settlement",
+        "unknown_is_not_success_or_failure"
+      ]
+    },
+    {
+      "id": "HM-011",
+      "name": "One cross-domain leg succeeds and the other fails",
+      "setup": {
+        "source_leg": "committed",
+        "destination_leg": "failed",
+        "shared_atomic_settlement_domain": false
+      },
+      "attack_or_condition": "A bridge/adapter sees only one leg completed.",
+      "expected": {
+        "disposition": "recovery_or_dispute_path",
+        "status": "partial_or_unknown",
+        "must_not_claim": [
+          "atomic",
+          "fully_settled"
+        ]
+      },
+      "invariants": [
+        "cross_domain_atomicity_is_never_inferred",
+        "unknown_is_not_success_or_failure"
+      ]
+    },
+    {
+      "id": "HM-012",
+      "name": "Countersigning unavailable or not qualified",
+      "setup": {
+        "countersigning_feature_enabled": false,
+        "independently_qualified_spend_authority": false
+      },
+      "attack_or_condition": "The implementation assumes an unstable/opt-in Holochain feature is present in the production conductor.",
+      "expected": {
+        "disposition": "abstain_or_use_qualified_alternative",
+        "finality": "none"
+      },
+      "invariants": [
+        "exclusive_spends_need_serializing_authority_or_proven_quorum"
+      ]
+    },
+    {
+      "id": "HM-013",
+      "name": "Offline transfer uses a stale balance",
+      "setup": {
+        "device_offline": true,
+        "balance_snapshot_fresh": false,
+        "offline_value_limit_minor": null
+      },
+      "attack_or_condition": "A disconnected client authorizes arbitrary transfers from an old local balance.",
+      "expected": {
+        "disposition": "reject_or_hold_uncommitted",
+        "spendable_claim_minor": 0
+      },
+      "invariants": [
+        "exclusive_spends_need_serializing_authority_or_proven_quorum",
+        "unknown_is_not_success_or_failure"
+      ]
+    },
+    {
+      "id": "HM-014",
+      "name": "Zero platform fee but unknown total resource cost",
+      "setup": {
+        "app_platform_fee_minor": 0,
+        "provider_fee_known": true,
+        "infrastructure_cost_known": false,
+        "recipient_deduction_known": false
+      },
+      "attack_or_condition": "Marketing labels the route 'free' because the application fee is zero.",
+      "expected": {
+        "disposition": "may_report_platform_fee_zero",
+        "all_in_cost": "unknown",
+        "must_not_claim": [
+          "zero_total_cost",
+          "free_transfer"
+        ]
+      },
+      "invariants": [
+        "zero_protocol_fee_is_not_zero_total_cost"
+      ]
+    },
+    {
+      "id": "HM-015",
+      "name": "Public DHT record leaks financial relationship metadata",
+      "setup": {
+        "economic_amount_public": true,
+        "participant_identity_public": true,
+        "privacy_profile_approved": false
+      },
+      "attack_or_condition": "Validation accepts public amounts, relationships and timestamps without a data-minimization decision.",
+      "expected": {
+        "disposition": "reject_design_or_redesign_data_projection",
+        "public_sensitive_fields": 0
+      },
+      "invariants": [
+        "sensitive_economic_data_is_not_public_by_default"
+      ]
+    },
+    {
+      "id": "HM-016",
+      "name": "Recipient receives a DHT claim but cannot redeem/use the value",
+      "setup": {
+        "claim_record_valid": true,
+        "recipient_eligibility_verified": false,
+        "redemption_terms_known": false
+      },
+      "attack_or_condition": "A token transfer is described as payment despite unknown recipient eligibility or redemption terms.",
+      "expected": {
+        "disposition": "do_not_claim_payment_completion",
+        "status": "claim_transfer_only_or_unknown"
+      },
+      "invariants": [
+        "instrument_rights_are_explicit_before_transfer",
+        "dht_publication_is_not_external_settlement"
+      ]
+    }
+  ]
+}
