@@ -84,7 +84,7 @@ func checkpointFixtureSubject(t *testing.T, fields map[string]string) OwnerCheck
 		OperationID:                fields["operation_id"],
 		IntentDigest:               fields["intent_digest"],
 		OwnerDomain:                owner,
-		EventLogDigest:             fields["event_log_digest"],
+		JournalIdentityDigest:      fields["journal_identity_digest"],
 		EventCount:                 eventCount,
 		TailDigest:                 fields["tail_digest"],
 		CheckpointSequence:         sequence,
@@ -207,6 +207,12 @@ func TestOwnerCheckpointRejectsNoncanonicalAuthorityFields(t *testing.T) {
 	}
 
 	subject = checkpointFixtureSubject(t, fields)
+	subject.SourceActionHash = subject.SourceActionHash[:len(subject.SourceActionHash)-1]
+	if err := subject.Validate(); !errors.Is(err, ErrCheckpointInvalid) {
+		t.Fatalf("short source ActionHash = %v, want %v", err, ErrCheckpointInvalid)
+	}
+
+		subject = checkpointFixtureSubject(t, fields)
 	subject.OwnerAuthorityActionHash = nil
 	if err := subject.Validate(); !errors.Is(err, ErrCheckpointAuthorityAction) {
 		t.Fatalf("empty authority action hash = %v, want %v", err, ErrCheckpointAuthorityAction)
