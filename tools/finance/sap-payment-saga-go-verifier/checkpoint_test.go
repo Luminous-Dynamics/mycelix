@@ -159,6 +159,17 @@ func TestOwnerCheckpointDomainAndSourceActionAreBound(t *testing.T) {
 	if first == third {
 		t.Fatal("source ActionHash substitution did not change checkpoint digest")
 	}
+
+	subject = checkpointFixtureSubject(t, fields)
+	subject.OwnerAuthorityActionHash = append([]byte(nil), subject.OwnerAuthorityActionHash...)
+	subject.OwnerAuthorityActionHash[0] ^= 1
+	fourth, err := subject.Digest()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if first == fourth {
+		t.Fatal("owner-authority ActionHash substitution did not change checkpoint digest")
+	}
 }
 
 func TestOwnerCheckpointRequiresOwnerScopedSequenceLink(t *testing.T) {
@@ -193,6 +204,12 @@ func TestOwnerCheckpointRejectsNoncanonicalAuthorityFields(t *testing.T) {
 	subject.SourceActionHash = nil
 	if err := subject.Validate(); !errors.Is(err, ErrCheckpointInvalid) {
 		t.Fatalf("empty source action hash = %v, want %v", err, ErrCheckpointInvalid)
+	}
+
+	subject = checkpointFixtureSubject(t, fields)
+	subject.OwnerAuthorityActionHash = nil
+	if err := subject.Validate(); !errors.Is(err, ErrCheckpointAuthorityAction) {
+		t.Fatalf("empty authority action hash = %v, want %v", err, ErrCheckpointAuthorityAction)
 	}
 
 	subject = checkpointFixtureSubject(t, fields)
