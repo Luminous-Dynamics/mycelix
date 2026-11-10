@@ -695,117 +695,156 @@ pub fn get_recovery_votes(request_id: String) -> ExternResult<Vec<Record>> {
 
 /// Check threshold and update request status
 fn check_and_update_request_status(request_id: String) -> ExternResult<()> {
-    // Get all votes for this request
+    let current_record = match get_recovery_request(request_id.clone())? {
+        Some(record) => record,
+        None => return Ok(()),
+    };
+    let current_request: RecoveryRequest = current_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Invalid recovery request".into()
+        )))?;
+
+    // RecoveryRequest status is an update to the initiating trustee's source
+    // chain. Other trustees may append votes, but they cannot update that
+    // entry. The initiator can explicitly finalize after DHT propagation.
+    let caller = agent_info()?.agent_initial_pubkey;
+    if *current_record.action().author() != caller {
+        return Ok(());
+    }
+    if current_request.status != RecoveryStatus::Pending {
+        return Ok(());
+    }
+
+    let config_hash = current_request.config_action_hash.clone().ok_or(wasm_error!(
+        WasmErrorInner::Guest("Recovery request has no config revision".into())
+    ))?;
+    let config_record = get(config_hash, GetOptions::default())?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Authorizing recovery config revision not found".into()
+        )))?;
+    let config: RecoveryConfig = config_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Invalid recovery config revision".into()
+        )))?;
+
+    // Count each trustee at most once. If a trustee has conflicting votes,
+    // exclude that trustee entirely (equivocation must never increase quorum).
     let vote_records = get_recovery_votes(request_id.clone())?;
-
-    let mut approve_count = 0u32;
-    let mut reject_count = 0u32;
-
+    let mut votes_by_trustee: HashMap<String, VoteDecision> = HashMap::new();
+    let mut equivocated: HashSet<String> = HashSet::new();
     for record in vote_records {
         if let Some(vote) = record
             .entry()
             .to_app_option::<RecoveryVote>()
             .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
         {
-            match vote.vote {
-                VoteDecision::Approve => approve_count += 1,
-                VoteDecision::Reject => reject_count += 1,
-                VoteDecision::Abstain => {}
+            if !config.trustees.contains(&vote.trustee) {
+                continue;
+            }
+            match votes_by_trustee.get(&vote.trustee) {
+                Some(existing) if existing != &vote.vote => {
+                    equivocated.insert(vote.trustee);
+                }
+                Some(_) => {}
+                None => {
+                    votes_by_trustee.insert(vote.trustee, vote.vote);
+                }
             }
         }
     }
 
-    // Find the recovery request to get the DID
-    let filter = ChainQueryFilter::new()
-        .entry_type(EntryType::App(AppEntryDef::try_from(
-            UnitEntryTypes::RecoveryRequest,
-        )?))
-        .include_entries(true);
-
-    let records = query(filter)?;
-
-    let mut request_record: Option<Record> = None;
-    let mut request_data: Option<RecoveryRequest> = None;
-    for record in records {
-        if let Some(req) = record
-            .entry()
-            .to_app_option::<RecoveryRequest>()
-            .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
-        {
-            if req.id == request_id {
-                // Keep iterating — update_entry appends newer versions later in the chain
-                request_data = Some(req);
-                request_record = Some(record);
-            }
+    let mut approve_count = 0u32;
+    let mut reject_count = 0u32;
+    for (trustee, decision) in votes_by_trustee {
+        if equivocated.contains(&trustee) {
+            continue;
+        }
+        match decision {
+            VoteDecision::Approve => approve_count += 1,
+            VoteDecision::Reject => reject_count += 1,
+            VoteDecision::Abstain => {}
         }
     }
 
-    let (current_record, current_request) = match (request_record, request_data) {
-        (Some(r), Some(d)) => (r, d),
-        _ => return Ok(()), // Request not found on this agent's chain
+    let next_status = if approve_count >= config.threshold {
+        Some(RecoveryStatus::Approved)
+    } else if reject_count > (config.trustees.len() as u32).saturating_sub(config.threshold) {
+        Some(RecoveryStatus::Rejected)
+    } else {
+        None
     };
 
-    // Only process pending requests
-    if current_request.status != RecoveryStatus::Pending {
+    let Some(next_status) = next_status else {
         return Ok(());
-    }
-
-    // Get the recovery config to check threshold
-    let config_record = get_recovery_config(current_request.did.clone())?;
-    let config: RecoveryConfig = match config_record {
-        Some(rec) => rec
-            .entry()
-            .to_app_option()
-            .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
-            .ok_or(wasm_error!(WasmErrorInner::Guest(
-                "Invalid recovery config".into()
-            )))?,
-        None => return Ok(()), // No config found
     };
 
-    let total_trustees = config.trustees.len() as u32;
+    let now = sys_time()?;
+    let time_lock_expires = if next_status == RecoveryStatus::Approved {
+        Some(Timestamp::from_micros(
+            now.as_micros() as i64 + (config.time_lock as i64 * 1_000_000),
+        ))
+    } else {
+        None
+    };
+    let did = current_request.did.clone();
+    let updated_request = RecoveryRequest {
+        id: current_request.id.clone(),
+        did: current_request.did,
+        new_agent: current_request.new_agent,
+        initiated_by: current_request.initiated_by,
+        reason: current_request.reason,
+        status: next_status,
+        created: current_request.created,
+        time_lock_expires,
+        config_action_hash: current_request.config_action_hash,
+    };
 
-    if approve_count >= config.threshold {
-        // Threshold reached — approve and set time lock
-        let now = sys_time()?;
-        let time_lock_expires =
-            Timestamp::from_micros(now.as_micros() as i64 + (config.time_lock as i64 * 1_000_000));
-
-        let approved_request = RecoveryRequest {
-            id: current_request.id,
-            did: current_request.did,
-            new_agent: current_request.new_agent,
-            initiated_by: current_request.initiated_by,
-            reason: current_request.reason,
-            status: RecoveryStatus::Approved,
-            created: current_request.created,
-            time_lock_expires: Some(time_lock_expires),
-        };
-
-        update_entry(
-            current_record.action_address().clone(),
-            &EntryTypes::RecoveryRequest(approved_request),
-        )?;
-    } else if reject_count > total_trustees - config.threshold {
-        // Impossible to reach threshold — reject
-        let rejected_request = RecoveryRequest {
-            id: current_request.id,
-            did: current_request.did,
-            new_agent: current_request.new_agent,
-            initiated_by: current_request.initiated_by,
-            reason: current_request.reason,
-            status: RecoveryStatus::Rejected,
-            created: current_request.created,
-            time_lock_expires: None,
-        };
-
-        update_entry(
-            current_record.action_address().clone(),
-            &EntryTypes::RecoveryRequest(rejected_request),
-        )?;
-    }
-
+    let action_hash = update_entry(
+        current_record.action_address().clone(),
+        &EntryTypes::RecoveryRequest(updated_request),
+    )?;
+    create_link(
+        string_to_entry_hash(&request_id),
+        action_hash.clone(),
+        LinkTypes::RequestIdToRequest,
+        (),
+    )?;
+    create_link(
+        string_to_entry_hash(&did),
+        action_hash,
+        LinkTypes::DidToRecoveryRequest,
+        (),
+    )?;
     Ok(())
+}
+
+/// Explicitly finalize a recovery after trustee votes have propagated.
+/// Only the original request author (the initiating trustee) can write the
+/// status update to that agent's source chain.
+#[hdk_extern]
+pub fn finalize_recovery(request_id: String) -> ExternResult<Record> {
+    if request_id.is_empty() || request_id.len() > 256 {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Request ID must be 1-256 characters".into()
+        )));
+    }
+    let record = get_recovery_request(request_id.clone())?
+        .ok_or(wasm_error!(WasmErrorInner::Guest("Recovery request not found".into())))?;
+    let caller = agent_info()?.agent_initial_pubkey;
+    if *record.action().author() != caller {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Only the initiating trustee can finalize this recovery request".into()
+        )));
+    }
+    check_and_update_request_status(request_id.clone())?;
+    get_recovery_request(request_id)?
+        .ok_or(wasm_error!(WasmErrorInner::Guest("Recovery request not found after finalization".into())))
 }
 
 /// Pure threshold decision logic — no HDK calls, fully testable.
