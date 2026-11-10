@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - 'mycelix-finance/types/**'
+      - 'mycelix-finance/Cargo.lock'
       - 'mycelix-finance/zomes/payments/coordinator/**'
       - 'mycelix-finance/zomes/payments/integrity/**'
       - 'mycelix-finance/tests/payments_test.rs'
