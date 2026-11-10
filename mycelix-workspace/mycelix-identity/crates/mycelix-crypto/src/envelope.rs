@@ -18,7 +18,7 @@ use serde::{Deserialize, Serialize};
 /// A public key tagged with its algorithm, supporting multibase encoding.
 ///
 /// Multibase format: `z` prefix + base58btc( multicodec_prefix || raw_key_bytes )
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct TaggedPublicKey {
     pub algorithm: AlgorithmId,
     pub key_bytes: Vec<u8>,
@@ -27,6 +27,12 @@ pub struct TaggedPublicKey {
 impl TaggedPublicKey {
     /// Create a new tagged public key, validating length.
     pub fn new(algorithm: AlgorithmId, key_bytes: Vec<u8>) -> Result<Self, CryptoError> {
+        if !algorithm.is_public_key_algorithm() {
+            return Err(CryptoError::Validation(format!(
+                "{} cannot be encoded as public-key material",
+                algorithm.did_verification_method_type()
+            )));
+        }
         let expected = algorithm.public_key_size();
         if expected > 0 && key_bytes.len() != expected {
             return Err(CryptoError::InvalidKeyLength {
@@ -82,18 +88,7 @@ impl TaggedPublicKey {
             let prefix = [decoded[0], decoded[1]];
             if let Some(algorithm) = AlgorithmId::from_multicodec_prefix(prefix) {
                 let key_bytes = decoded[2..].to_vec();
-                let expected = algorithm.public_key_size();
-                if expected > 0 && key_bytes.len() != expected {
-                    return Err(CryptoError::InvalidKeyLength {
-                        algorithm: algorithm.did_verification_method_type(),
-                        expected,
-                        actual: key_bytes.len(),
-                    });
-                }
-                return Ok(Self {
-                    algorithm,
-                    key_bytes,
-                });
+                return Self::new(algorithm, key_bytes);
             }
         }
 
@@ -119,7 +114,7 @@ impl TaggedPublicKey {
 /// A signature tagged with its algorithm, supporting multibase encoding.
 ///
 /// For hybrid signatures the raw bytes are `ed25519_sig (64) || mldsa65_sig (3309)`.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct TaggedSignature {
     pub algorithm: AlgorithmId,
     pub signature_bytes: Vec<u8>,
@@ -128,6 +123,12 @@ pub struct TaggedSignature {
 impl TaggedSignature {
     /// Create a new tagged signature, validating length.
     pub fn new(algorithm: AlgorithmId, signature_bytes: Vec<u8>) -> Result<Self, CryptoError> {
+        if !algorithm.is_signature_algorithm() {
+            return Err(CryptoError::Validation(format!(
+                "{} cannot be encoded as signature material",
+                algorithm.did_verification_method_type()
+            )));
+        }
         let expected = algorithm.signature_size();
         if expected > 0 && signature_bytes.len() != expected {
             return Err(CryptoError::InvalidSignatureLength {
@@ -183,18 +184,7 @@ impl TaggedSignature {
             let prefix = [decoded[0], decoded[1]];
             if let Some(algorithm) = AlgorithmId::from_multicodec_prefix(prefix) {
                 let sig_bytes = decoded[2..].to_vec();
-                let expected = algorithm.signature_size();
-                if expected > 0 && sig_bytes.len() != expected {
-                    return Err(CryptoError::InvalidSignatureLength {
-                        algorithm: algorithm.did_verification_method_type(),
-                        expected,
-                        actual: sig_bytes.len(),
-                    });
-                }
-                return Ok(Self {
-                    algorithm,
-                    signature_bytes: sig_bytes,
-                });
+                return Self::new(algorithm, sig_bytes);
             }
         }
 
@@ -250,6 +240,44 @@ impl TaggedSignature {
             | AlgorithmId::SlhDsaShake128s => Some(&self.signature_bytes),
             _ => None,
         }
+    }
+}
+
+// Deserialize through the validating constructors. The fields remain public for
+// source compatibility, so constructor checks alone would still allow invalid
+// algorithm/type combinations to enter through persisted JSON or other Serde
+// transports.
+impl<'de> Deserialize<'de> for TaggedPublicKey {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        struct Wire {
+            algorithm: AlgorithmId,
+            key_bytes: Vec<u8>,
+        }
+
+        let wire = Wire::deserialize(deserializer)?;
+        Self::new(wire.algorithm, wire.key_bytes)
+            .map_err(<D::Error as serde::de::Error>::custom)
+    }
+}
+
+impl<'de> Deserialize<'de> for TaggedSignature {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        struct Wire {
+            algorithm: AlgorithmId,
+            signature_bytes: Vec<u8>,
+        }
+
+        let wire = Wire::deserialize(deserializer)?;
+        Self::new(wire.algorithm, wire.signature_bytes)
+            .map_err(<D::Error as serde::de::Error>::custom)
     }
 }
 
@@ -423,6 +451,70 @@ mod tests {
     fn invalid_signature_length_rejected() {
         let err = TaggedSignature::new(AlgorithmId::Ed25519, vec![0; 32]).unwrap_err();
         assert!(matches!(err, CryptoError::InvalidSignatureLength { .. }));
+    }
+
+    #[test]
+    fn symmetric_algorithm_cannot_be_tagged_as_public_key() {
+        let result = TaggedPublicKey::new(AlgorithmId::XChaCha20Poly1305, vec![]);
+        assert!(matches!(result, Err(CryptoError::Validation(_))));
+    }
+
+    #[test]
+    fn kem_algorithm_cannot_be_tagged_as_signature() {
+        let result = TaggedSignature::new(AlgorithmId::MlKem768, vec![]);
+        assert!(matches!(result, Err(CryptoError::Validation(_))));
+    }
+
+    #[test]
+    fn multibase_decoder_rejects_non_key_algorithm() {
+        let mut payload = AlgorithmId::XChaCha20Poly1305.multicodec_prefix().to_vec();
+        payload.extend_from_slice(&[0xAA; 24]);
+        let encoded = bs58::encode(payload)
+            .with_alphabet(bs58::Alphabet::BITCOIN)
+            .into_string();
+        let result = TaggedPublicKey::from_multibase(&format!("z{encoded}"));
+        assert!(matches!(result, Err(CryptoError::Validation(_))));
+    }
+
+    #[test]
+    fn multibase_decoder_rejects_non_signature_algorithm() {
+        let mut payload = AlgorithmId::MlKem768.multicodec_prefix().to_vec();
+        payload.extend_from_slice(&[0xBB; 1088]);
+        let encoded = bs58::encode(payload)
+            .with_alphabet(bs58::Alphabet::BITCOIN)
+            .into_string();
+        let result = TaggedSignature::from_multibase(&format!("z{encoded}"));
+        assert!(matches!(result, Err(CryptoError::Validation(_))));
+    }
+
+    #[test]
+    fn serde_rejects_invalid_tagged_key_algorithm_and_length() {
+        let wrong_algorithm = serde_json::json!({
+            "algorithm": "XChaCha20Poly1305",
+            "key_bytes": []
+        });
+        assert!(serde_json::from_value::<TaggedPublicKey>(wrong_algorithm).is_err());
+
+        let wrong_length = serde_json::json!({
+            "algorithm": "Ed25519",
+            "key_bytes": [1, 2, 3]
+        });
+        assert!(serde_json::from_value::<TaggedPublicKey>(wrong_length).is_err());
+    }
+
+    #[test]
+    fn serde_rejects_invalid_tagged_signature_algorithm_and_length() {
+        let wrong_algorithm = serde_json::json!({
+            "algorithm": "MlKem768",
+            "signature_bytes": []
+        });
+        assert!(serde_json::from_value::<TaggedSignature>(wrong_algorithm).is_err());
+
+        let wrong_length = serde_json::json!({
+            "algorithm": "Ed25519",
+            "signature_bytes": [1, 2, 3]
+        });
+        assert!(serde_json::from_value::<TaggedSignature>(wrong_length).is_err());
     }
 
     #[test]
