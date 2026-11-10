@@ -13,11 +13,22 @@
         latency[key, count[key]] = ns + 0
         bytes_sum[key] += bytes
         allocs_sum[key] += allocs
+        if (key ~ /events_100-/) samples_100++
+        if (key ~ /events_1000-/) samples_1000++
+        if (key ~ /events_10000-/) samples_10000++
     }
 }
 END {
+    if (samples_100 != 30 || samples_1000 != 30 || samples_10000 != 30) {
+        printf "expected 30 samples per history size; got 100=%d 1000=%d 10000=%d\n", samples_100, samples_1000, samples_10000 > "/dev/stderr"
+        exit 1
+    }
     for (key in count) {
         n = count[key]
+        if (n != 30) {
+            printf "%s expected 30 samples, got %d\n", key, n > "/dev/stderr"
+            exit 1
+        }
         for (i = 2; i <= n; i++) {
             value = latency[key, i]
             j = i - 1
