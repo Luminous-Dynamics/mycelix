@@ -97,7 +97,9 @@ impl OwnerCheckpointSubjectV1 {
         require_text(&self.operation_id)?;
         validate_digest(&self.intent_digest)?;
         validate_digest(&self.event_log_digest)?;
-        if self.event_log_digest != journal_identity_digest(&self.operation_id, &self.intent_digest)? {
+        if self.event_log_digest
+            != journal_identity_digest(&self.operation_id, &self.intent_digest)?
+        {
             return Err(CheckpointError::InvalidJournalIdentity);
         }
         validate_digest(&self.tail_digest)?;
