@@ -1,0 +1,335 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Luminous-Dynamics/mycelix/blob/main/research/deliberation/delib-shift-reference-intake-v0.1.schema.json",
+  "title": "DELIB-SHIFT-001 human-reference metadata intake v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "intake_id",
+    "status",
+    "observed_at",
+    "owning_issue",
+    "parent_issue",
+    "claim_ceiling",
+    "reference_paper",
+    "human_reference",
+    "data_custody_gate",
+    "benchmark_reproduction",
+    "source_urls"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "delib-shift-reference-intake-v0.1"
+    },
+    "intake_id": {
+      "const": "DELIB-SHIFT-A1R-METADATA-001"
+    },
+    "status": {
+      "enum": [
+        "metadata-only-reconciliation-pending",
+        "data-use-review-approved",
+        "blocked"
+      ]
+    },
+    "observed_at": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+    },
+    "owning_issue": {
+      "type": "string",
+      "format": "uri"
+    },
+    "parent_issue": {
+      "type": "string",
+      "format": "uri"
+    },
+    "claim_ceiling": {
+      "type": "string",
+      "minLength": 80
+    },
+    "reference_paper": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "title",
+        "authors",
+        "venue",
+        "paper_url",
+        "arxiv_id",
+        "arxiv_url",
+        "published_claims"
+      ],
+      "properties": {
+        "title": {
+          "type": "string"
+        },
+        "authors": {
+          "type": "array",
+          "minItems": 2,
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        },
+        "venue": {
+          "type": "string"
+        },
+        "paper_url": {
+          "type": "string",
+          "format": "uri"
+        },
+        "arxiv_id": {
+          "type": "string"
+        },
+        "arxiv_url": {
+          "type": "string",
+          "format": "uri"
+        },
+        "published_claims": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "personas",
+            "questions",
+            "models_evaluated",
+            "reported_failure_signatures",
+            "note"
+          ],
+          "properties": {
+            "personas": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "questions": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "models_evaluated": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "reported_failure_signatures": {
+              "type": "array",
+              "minItems": 3,
+              "uniqueItems": true,
+              "items": {
+                "enum": [
+                  "reversal",
+                  "overshoot",
+                  "rigidity",
+                  "heterogeneous_failure"
+                ]
+              }
+            },
+            "note": {
+              "type": "string",
+              "minLength": 20
+            }
+          }
+        }
+      }
+    },
+    "human_reference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "project_name",
+        "event_dates",
+        "sources",
+        "reconciliation"
+      ],
+      "properties": {
+        "project_name": {
+          "type": "string"
+        },
+        "event_dates": {
+          "type": "string"
+        },
+        "sources": {
+          "type": "array",
+          "minItems": 4,
+          "uniqueItems": true,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "source_id",
+              "url",
+              "publisher",
+              "observed_claims",
+              "data_rights_observation"
+            ],
+            "properties": {
+              "source_id": {
+                "type": "string"
+              },
+              "url": {
+                "type": "string",
+                "format": "uri"
+              },
+              "publisher": {
+                "type": "string"
+              },
+              "observed_claims": {
+                "type": "object"
+              },
+              "data_rights_observation": {
+                "type": "string",
+                "minLength": 30
+              }
+            }
+          }
+        },
+        "reconciliation": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "status",
+            "paper_reported_personas",
+            "official_stanford_page_count",
+            "official_norc_page_count",
+            "official_stanford_results_count",
+            "plausible_explanations_not_assumed",
+            "required_resolution"
+          ],
+          "properties": {
+            "status": {
+              "const": "unresolved"
+            },
+            "paper_reported_personas": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "official_stanford_page_count": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "official_norc_page_count": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "official_stanford_results_count": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "plausible_explanations_not_assumed": {
+              "type": "array",
+              "minItems": 2,
+              "uniqueItems": true,
+              "items": {
+                "type": "string"
+              }
+            },
+            "required_resolution": {
+              "type": "array",
+              "minItems": 4,
+              "uniqueItems": true,
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    },
+    "data_custody_gate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "payload_downloaded",
+        "participant_level_access_authorized",
+        "model_training_authorized",
+        "derived_participant_level_publication_authorized",
+        "required_evidence",
+        "prohibited_until_cleared"
+      ],
+      "properties": {
+        "status": {
+          "const": "blocked-pending-authorization"
+        },
+        "payload_downloaded": {
+          "const": false
+        },
+        "participant_level_access_authorized": {
+          "const": false
+        },
+        "model_training_authorized": {
+          "const": false
+        },
+        "derived_participant_level_publication_authorized": {
+          "const": false
+        },
+        "required_evidence": {
+          "type": "array",
+          "minItems": 10,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 10
+          }
+        },
+        "prohibited_until_cleared": {
+          "type": "array",
+          "minItems": 4,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 10
+          }
+        }
+      }
+    },
+    "benchmark_reproduction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "report_dimensions",
+        "outstanding_items",
+        "next_steps"
+      ],
+      "properties": {
+        "status": {
+          "const": "unsupported-pending-provenance-and-access"
+        },
+        "report_dimensions": {
+          "type": "array",
+          "minItems": 5,
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        },
+        "outstanding_items": {
+          "type": "array",
+          "minItems": 5,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 10
+          }
+        },
+        "next_steps": {
+          "type": "array",
+          "minItems": 4,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 10
+          }
+        }
+      }
+    },
+    "source_urls": {
+      "type": "array",
+      "minItems": 7,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "format": "uri"
+      }
+    }
+  }
+}
