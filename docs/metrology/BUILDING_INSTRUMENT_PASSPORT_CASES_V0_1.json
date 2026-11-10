@@ -127,7 +127,6 @@
           "channel_id": "air_temperature",
           "channel_profile_id": "MYC-BUILD-METROLOGY-PROFILE-V0.1",
           "firmware_revision": "FW-1",
-          "raw_value": 20.5,
           "unit": "degC",
           "qc_state": "valid",
           "event_time_seconds": 1000,
@@ -143,7 +142,8 @@
           "raw_source_digest": "sha256:synth-observation-001",
           "calibration_record_id": "SYNTH-CAL-001",
           "installation_record_id": "SYNTH-INSTALL-001",
-          "rights_state": "authorized"
+          "rights_state": "authorized",
+          "value": 20.5
         },
         "uncertainty_budget": {
           "state": "complete",
@@ -311,7 +311,6 @@
           "channel_id": "air_temperature",
           "channel_profile_id": "MYC-BUILD-METROLOGY-PROFILE-V0.1",
           "firmware_revision": "FW-1",
-          "raw_value": 20.5,
           "unit": "degC",
           "qc_state": "valid",
           "event_time_seconds": 1000,
@@ -327,7 +326,8 @@
           "raw_source_digest": "sha256:synth-observation-001",
           "calibration_record_id": "SYNTH-CAL-001",
           "installation_record_id": "SYNTH-INSTALL-001",
-          "rights_state": "authorized"
+          "rights_state": "authorized",
+          "value": 20.5
         },
         "uncertainty_budget": {
           "state": "complete",
@@ -495,7 +495,6 @@
           "channel_id": "air_temperature",
           "channel_profile_id": "MYC-BUILD-METROLOGY-PROFILE-V0.1",
           "firmware_revision": "FW-1",
-          "raw_value": 20.5,
           "unit": "degC",
           "qc_state": "valid",
           "event_time_seconds": 1000,
@@ -511,7 +510,8 @@
           "raw_source_digest": "sha256:synth-observation-001",
           "calibration_record_id": "SYNTH-CAL-001",
           "installation_record_id": "SYNTH-INSTALL-001",
-          "rights_state": "authorized"
+          "rights_state": "authorized",
+          "value": 20.5
         },
         "uncertainty_budget": {
           "state": "complete",
@@ -679,7 +679,6 @@
           "channel_id": "air_temperature",
           "channel_profile_id": "MYC-BUILD-METROLOGY-PROFILE-V0.1",
           "firmware_revision": "FW-1",
-          "raw_value": 20.5,
           "unit": "degC",
           "qc_state": "valid",
           "event_time_seconds": 1000,
@@ -695,7 +694,8 @@
           "raw_source_digest": "sha256:synth-observation-001",
           "calibration_record_id": "SYNTH-CAL-001",
           "installation_record_id": "SYNTH-INSTALL-001",
-          "rights_state": "authorized"
+          "rights_state": "authorized",
+          "value": 20.5
         },
         "uncertainty_budget": {
           "state": "complete",
@@ -863,7 +863,6 @@
           "channel_id": "air_temperature",
           "channel_profile_id": "MYC-BUILD-METROLOGY-PROFILE-V0.1",
           "firmware_revision": "FW-1",
-          "raw_value": 20.5,
           "unit": "degC",
           "qc_state": "valid",
           "event_time_seconds": 1000,
@@ -879,7 +878,8 @@
           "raw_source_digest": "sha256:synth-observation-001",
           "calibration_record_id": "SYNTH-CAL-001",
           "installation_record_id": "SYNTH-INSTALL-001",
-          "rights_state": "authorized"
+          "rights_state": "authorized",
+          "value": 20.5
         },
         "uncertainty_budget": {
           "state": "complete",
@@ -1047,7 +1047,6 @@
           "channel_id": "air_temperature",
           "channel_profile_id": "MYC-BUILD-METROLOGY-PROFILE-V0.1",
           "firmware_revision": "FW-1",
-          "raw_value": 80,
           "unit": "degC",
           "qc_state": "valid",
           "event_time_seconds": 1000,
@@ -1063,7 +1062,8 @@
           "raw_source_digest": "sha256:synth-observation-001",
           "calibration_record_id": "SYNTH-CAL-001",
           "installation_record_id": "SYNTH-INSTALL-001",
-          "rights_state": "authorized"
+          "rights_state": "authorized",
+          "value": 80
         },
         "uncertainty_budget": {
           "state": "complete",
@@ -1231,7 +1231,6 @@
           "channel_id": "air_temperature",
           "channel_profile_id": "MYC-BUILD-METROLOGY-PROFILE-V0.1",
           "firmware_revision": "FW-1",
-          "raw_value": 20.5,
           "unit": "degC",
           "qc_state": "valid",
           "event_time_seconds": 1000,
@@ -1247,7 +1246,8 @@
           "raw_source_digest": "sha256:synth-observation-001",
           "calibration_record_id": "SYNTH-CAL-001",
           "installation_record_id": "SYNTH-INSTALL-001",
-          "rights_state": "authorized"
+          "rights_state": "authorized",
+          "value": 20.5
         },
         "uncertainty_budget": {
           "state": "complete",
@@ -1415,7 +1415,6 @@
           "channel_id": "air_temperature",
           "channel_profile_id": "MYC-BUILD-METROLOGY-PROFILE-V0.1",
           "firmware_revision": "FW-1",
-          "raw_value": 20.5,
           "unit": "degC",
           "qc_state": "valid",
           "event_time_seconds": 1000,
@@ -1431,7 +1430,8 @@
           "raw_source_digest": "sha256:synth-observation-001",
           "calibration_record_id": "SYNTH-CAL-001",
           "installation_record_id": "SYNTH-INSTALL-001",
-          "rights_state": "authorized"
+          "rights_state": "authorized",
+          "value": 20.5
         },
         "uncertainty_budget": {
           "state": "complete",
@@ -1599,7 +1599,6 @@
           "channel_id": "air_temperature",
           "channel_profile_id": "MYC-BUILD-METROLOGY-PROFILE-V0.1",
           "firmware_revision": "FW-1",
-          "raw_value": 20.5,
           "unit": "degC",
           "qc_state": "valid",
           "event_time_seconds": 1000,
@@ -1615,7 +1614,8 @@
           "raw_source_digest": "sha256:synth-observation-001",
           "calibration_record_id": "SYNTH-CAL-001",
           "installation_record_id": "SYNTH-INSTALL-001",
-          "rights_state": "authorized"
+          "rights_state": "authorized",
+          "value": 20.5
         },
         "uncertainty_budget": {
           "state": "complete",
@@ -1783,7 +1783,6 @@
           "channel_id": "air_temperature",
           "channel_profile_id": "MYC-BUILD-METROLOGY-PROFILE-V0.1",
           "firmware_revision": "FW-1",
-          "raw_value": 20.5,
           "unit": "degC",
           "qc_state": "valid",
           "event_time_seconds": 1000,
@@ -1799,7 +1798,8 @@
           "raw_source_digest": "sha256:synth-observation-001",
           "calibration_record_id": "SYNTH-CAL-001",
           "installation_record_id": "SYNTH-INSTALL-001",
-          "rights_state": "authorized"
+          "rights_state": "authorized",
+          "value": 20.5
         },
         "uncertainty_budget": {
           "state": "complete",
@@ -1967,7 +1967,6 @@
           "channel_id": "air_temperature",
           "channel_profile_id": "MYC-BUILD-METROLOGY-PROFILE-V0.1",
           "firmware_revision": "FW-1",
-          "raw_value": 20.5,
           "unit": "degC",
           "qc_state": "valid",
           "event_time_seconds": 1000,
@@ -1983,7 +1982,8 @@
           "raw_source_digest": "sha256:synth-observation-001",
           "calibration_record_id": "SYNTH-CAL-001",
           "installation_record_id": "SYNTH-INSTALL-001",
-          "rights_state": "authorized"
+          "rights_state": "authorized",
+          "value": 20.5
         },
         "uncertainty_budget": {
           "state": "complete",
@@ -2151,7 +2151,6 @@
           "channel_id": "air_temperature",
           "channel_profile_id": "MYC-BUILD-METROLOGY-PROFILE-V0.1",
           "firmware_revision": "FW-1",
-          "raw_value": 20.5,
           "unit": "degC",
           "qc_state": "valid",
           "event_time_seconds": 1000,
@@ -2167,7 +2166,8 @@
           "raw_source_digest": "sha256:synth-observation-001",
           "calibration_record_id": "SYNTH-CAL-001",
           "installation_record_id": "SYNTH-INSTALL-001",
-          "rights_state": "authorized"
+          "rights_state": "authorized",
+          "value": 20.5
         },
         "uncertainty_budget": {
           "state": "complete",
@@ -2335,7 +2335,6 @@
           "channel_id": "air_temperature",
           "channel_profile_id": "MYC-BUILD-METROLOGY-PROFILE-V0.1",
           "firmware_revision": "FW-1",
-          "raw_value": 20.5,
           "unit": "degC",
           "qc_state": "valid",
           "event_time_seconds": 1000,
@@ -2351,7 +2350,8 @@
           "raw_source_digest": "sha256:synth-observation-001",
           "calibration_record_id": "SYNTH-CAL-001",
           "installation_record_id": "SYNTH-INSTALL-001",
-          "rights_state": "authorized"
+          "rights_state": "authorized",
+          "value": 20.5
         },
         "uncertainty_budget": {
           "state": "complete",
@@ -2519,7 +2519,6 @@
           "channel_id": "air_temperature",
           "channel_profile_id": "MYC-BUILD-METROLOGY-PROFILE-V0.1",
           "firmware_revision": "FW-1",
-          "raw_value": 20.5,
           "unit": "degC",
           "qc_state": "valid",
           "event_time_seconds": 1000,
@@ -2535,7 +2534,8 @@
           "raw_source_digest": "sha256:synth-observation-001",
           "calibration_record_id": "SYNTH-CAL-001",
           "installation_record_id": "SYNTH-INSTALL-001",
-          "rights_state": "authorized"
+          "rights_state": "authorized",
+          "value": 20.5
         },
         "uncertainty_budget": {
           "state": "complete",
@@ -2703,7 +2703,6 @@
           "channel_id": "air_temperature",
           "channel_profile_id": "MYC-BUILD-METROLOGY-PROFILE-V0.1",
           "firmware_revision": "FW-1",
-          "raw_value": 20.5,
           "unit": "degC",
           "qc_state": "valid",
           "event_time_seconds": 1000,
@@ -2719,7 +2718,8 @@
           "raw_source_digest": "sha256:synth-observation-001",
           "calibration_record_id": "SYNTH-CAL-001",
           "installation_record_id": "SYNTH-INSTALL-001",
-          "rights_state": "authorized"
+          "rights_state": "authorized",
+          "value": 20.5
         },
         "uncertainty_budget": {
           "state": "complete",
@@ -2887,7 +2887,6 @@
           "channel_id": "air_temperature",
           "channel_profile_id": "MYC-BUILD-METROLOGY-PROFILE-V0.1",
           "firmware_revision": "FW-1",
-          "raw_value": 20.5,
           "unit": "degC",
           "qc_state": "valid",
           "event_time_seconds": 1000,
@@ -2903,7 +2902,8 @@
           "raw_source_digest": "sha256:synth-observation-001",
           "calibration_record_id": "SYNTH-CAL-001",
           "installation_record_id": "SYNTH-INSTALL-001",
-          "rights_state": "authorized"
+          "rights_state": "authorized",
+          "value": 20.5
         },
         "uncertainty_budget": {
           "state": "complete",
@@ -3071,7 +3071,6 @@
           "channel_id": "air_temperature",
           "channel_profile_id": "MYC-BUILD-METROLOGY-PROFILE-V0.1",
           "firmware_revision": "FW-2",
-          "raw_value": 20.5,
           "unit": "degC",
           "qc_state": "valid",
           "event_time_seconds": 1000,
@@ -3087,7 +3086,8 @@
           "raw_source_digest": "sha256:synth-observation-001",
           "calibration_record_id": "SYNTH-CAL-001",
           "installation_record_id": "SYNTH-INSTALL-001",
-          "rights_state": "authorized"
+          "rights_state": "authorized",
+          "value": 20.5
         },
         "uncertainty_budget": {
           "state": "complete",
@@ -3255,7 +3255,6 @@
           "channel_id": "air_temperature",
           "channel_profile_id": "MYC-BUILD-METROLOGY-PROFILE-V0.1",
           "firmware_revision": "FW-1",
-          "raw_value": 20.5,
           "unit": "K",
           "qc_state": "valid",
           "event_time_seconds": 1000,
@@ -3271,7 +3270,8 @@
           "raw_source_digest": "sha256:synth-observation-001",
           "calibration_record_id": "SYNTH-CAL-001",
           "installation_record_id": "SYNTH-INSTALL-001",
-          "rights_state": "authorized"
+          "rights_state": "authorized",
+          "value": 20.5
         },
         "uncertainty_budget": {
           "state": "complete",
@@ -3439,7 +3439,6 @@
           "channel_id": "air_temperature",
           "channel_profile_id": "MYC-BUILD-METROLOGY-PROFILE-V0.1",
           "firmware_revision": "FW-1",
-          "raw_value": 20.5,
           "unit": "degC",
           "qc_state": "valid",
           "event_time_seconds": 1000,
@@ -3455,7 +3454,8 @@
           "raw_source_digest": "sha256:synth-observation-001",
           "calibration_record_id": "SYNTH-CAL-001",
           "installation_record_id": "SYNTH-INSTALL-001",
-          "rights_state": "authorized"
+          "rights_state": "authorized",
+          "value": 20.5
         },
         "uncertainty_budget": {
           "state": "complete",
@@ -3623,7 +3623,6 @@
           "channel_id": "air_temperature",
           "channel_profile_id": "MYC-BUILD-METROLOGY-PROFILE-V0.1",
           "firmware_revision": "FW-1",
-          "raw_value": 20.5,
           "unit": "degC",
           "qc_state": "valid",
           "event_time_seconds": 1000,
@@ -3639,7 +3638,8 @@
           "raw_source_digest": "sha256:synth-observation-001",
           "calibration_record_id": "SYNTH-CAL-001",
           "installation_record_id": "SYNTH-INSTALL-001",
-          "rights_state": "authorized"
+          "rights_state": "authorized",
+          "value": 20.5
         },
         "uncertainty_budget": {
           "state": "complete",
@@ -3807,7 +3807,6 @@
           "channel_id": "air_temperature",
           "channel_profile_id": "MYC-BUILD-METROLOGY-PROFILE-V0.1",
           "firmware_revision": "FW-1",
-          "raw_value": 20.5,
           "unit": "degC",
           "qc_state": "valid",
           "event_time_seconds": 1000,
@@ -3823,7 +3822,8 @@
           "raw_source_digest": "sha256:synth-observation-001",
           "calibration_record_id": "SYNTH-CAL-001",
           "installation_record_id": "SYNTH-INSTALL-001",
-          "rights_state": "authorized"
+          "rights_state": "authorized",
+          "value": 20.5
         },
         "uncertainty_budget": {
           "state": "complete",
@@ -3991,7 +3991,6 @@
           "channel_id": "air_temperature",
           "channel_profile_id": "MYC-BUILD-METROLOGY-PROFILE-V0.1",
           "firmware_revision": "FW-1",
-          "raw_value": 20.5,
           "unit": "degC",
           "qc_state": "saturated",
           "event_time_seconds": 1000,
@@ -4007,7 +4006,8 @@
           "raw_source_digest": "sha256:synth-observation-001",
           "calibration_record_id": "SYNTH-CAL-001",
           "installation_record_id": "SYNTH-INSTALL-001",
-          "rights_state": "authorized"
+          "rights_state": "authorized",
+          "value": 20.5
         },
         "uncertainty_budget": {
           "state": "complete",
@@ -4175,7 +4175,6 @@
           "channel_id": "air_temperature",
           "channel_profile_id": "MYC-BUILD-METROLOGY-PROFILE-V0.1",
           "firmware_revision": "FW-1",
-          "raw_value": 20.5,
           "unit": "degC",
           "qc_state": "device_fault",
           "event_time_seconds": 1000,
@@ -4191,7 +4190,8 @@
           "raw_source_digest": "sha256:synth-observation-001",
           "calibration_record_id": "SYNTH-CAL-001",
           "installation_record_id": "SYNTH-INSTALL-001",
-          "rights_state": "authorized"
+          "rights_state": "authorized",
+          "value": 20.5
         },
         "uncertainty_budget": {
           "state": "complete",
@@ -4359,7 +4359,6 @@
           "channel_id": "air_temperature",
           "channel_profile_id": "MYC-BUILD-METROLOGY-PROFILE-V0.1",
           "firmware_revision": "FW-1",
-          "raw_value": 20.5,
           "unit": "degC",
           "qc_state": "warming_up",
           "event_time_seconds": 1000,
@@ -4375,7 +4374,8 @@
           "raw_source_digest": "sha256:synth-observation-001",
           "calibration_record_id": "SYNTH-CAL-001",
           "installation_record_id": "SYNTH-INSTALL-001",
-          "rights_state": "authorized"
+          "rights_state": "authorized",
+          "value": 20.5
         },
         "uncertainty_budget": {
           "state": "complete",
@@ -4543,7 +4543,6 @@
           "channel_id": "air_temperature",
           "channel_profile_id": "MYC-BUILD-METROLOGY-PROFILE-V0.1",
           "firmware_revision": "FW-1",
-          "raw_value": 20.5,
           "unit": "degC",
           "qc_state": "missing_as_zero",
           "event_time_seconds": 1000,
@@ -4559,7 +4558,8 @@
           "raw_source_digest": "sha256:synth-observation-001",
           "calibration_record_id": "SYNTH-CAL-001",
           "installation_record_id": "SYNTH-INSTALL-001",
-          "rights_state": "authorized"
+          "rights_state": "authorized",
+          "value": 20.5
         },
         "uncertainty_budget": {
           "state": "complete",
@@ -4626,7 +4626,7 @@
           "lifecycle_state": "installed"
         },
         "capability": {
-          "measurement_kind": "raw",
+          "measurement_kind": "derived",
           "operating_range": {
             "minimum": -10,
             "maximum": 60,
@@ -4727,7 +4727,6 @@
           "channel_id": "mean_radiant_temperature",
           "channel_profile_id": "MYC-BUILD-METROLOGY-PROFILE-V0.1",
           "firmware_revision": "FW-1",
-          "raw_value": 20.5,
           "unit": "degC",
           "qc_state": "valid",
           "event_time_seconds": 1000,
@@ -4743,7 +4742,8 @@
           "raw_source_digest": "sha256:synth-observation-001",
           "calibration_record_id": "SYNTH-CAL-001",
           "installation_record_id": "SYNTH-INSTALL-001",
-          "rights_state": "authorized"
+          "rights_state": "authorized",
+          "value": 20.5
         },
         "uncertainty_budget": {
           "state": "complete",
@@ -4911,7 +4911,6 @@
           "channel_id": "mean_radiant_temperature",
           "channel_profile_id": "MYC-BUILD-METROLOGY-PROFILE-V0.1",
           "firmware_revision": "FW-1",
-          "raw_value": 20.5,
           "unit": "degC",
           "qc_state": "valid",
           "event_time_seconds": 1000,
@@ -4927,7 +4926,8 @@
           "raw_source_digest": "sha256:synth-observation-001",
           "calibration_record_id": "SYNTH-CAL-001",
           "installation_record_id": "SYNTH-INSTALL-001",
-          "rights_state": "authorized"
+          "rights_state": "authorized",
+          "value": 20.5
         },
         "uncertainty_budget": {
           "state": "complete",
@@ -5095,7 +5095,6 @@
           "channel_id": "mean_radiant_temperature",
           "channel_profile_id": "MYC-BUILD-METROLOGY-PROFILE-V0.1",
           "firmware_revision": "FW-1",
-          "raw_value": 20.5,
           "unit": "degC",
           "qc_state": "valid",
           "event_time_seconds": 1000,
@@ -5111,7 +5110,8 @@
           "raw_source_digest": "",
           "calibration_record_id": "SYNTH-CAL-001",
           "installation_record_id": "SYNTH-INSTALL-001",
-          "rights_state": "authorized"
+          "rights_state": "authorized",
+          "value": 20.5
         },
         "uncertainty_budget": {
           "state": "complete",
@@ -5279,7 +5279,6 @@
           "channel_id": "air_temperature",
           "channel_profile_id": "MYC-BUILD-METROLOGY-PROFILE-V0.1",
           "firmware_revision": "FW-1",
-          "raw_value": 20.5,
           "unit": "degC",
           "qc_state": "valid",
           "event_time_seconds": 1000,
@@ -5295,7 +5294,8 @@
           "raw_source_digest": "sha256:synth-observation-001",
           "calibration_record_id": "SYNTH-CAL-001",
           "installation_record_id": "SYNTH-INSTALL-001",
-          "rights_state": "authorized"
+          "rights_state": "authorized",
+          "value": 20.5
         },
         "uncertainty_budget": {
           "state": "incomplete",
@@ -5463,7 +5463,6 @@
           "channel_id": "air_temperature",
           "channel_profile_id": "MYC-BUILD-METROLOGY-PROFILE-V0.1",
           "firmware_revision": "FW-1",
-          "raw_value": 20.5,
           "unit": "degC",
           "qc_state": "valid",
           "event_time_seconds": 1000,
@@ -5479,7 +5478,8 @@
           "raw_source_digest": "sha256:synth-observation-001",
           "calibration_record_id": "SYNTH-CAL-001",
           "installation_record_id": "SYNTH-INSTALL-001",
-          "rights_state": "authorized"
+          "rights_state": "authorized",
+          "value": 20.5
         },
         "uncertainty_budget": {
           "state": "complete",
@@ -5647,7 +5647,6 @@
           "channel_id": "air_temperature",
           "channel_profile_id": "MYC-BUILD-METROLOGY-PROFILE-V0.1",
           "firmware_revision": "FW-1",
-          "raw_value": 20.5,
           "unit": "degC",
           "qc_state": "valid",
           "event_time_seconds": 1000,
@@ -5663,7 +5662,8 @@
           "raw_source_digest": "sha256:synth-observation-001",
           "calibration_record_id": "SYNTH-CAL-001",
           "installation_record_id": "SYNTH-INSTALL-001",
-          "rights_state": "authorized"
+          "rights_state": "authorized",
+          "value": 20.5
         },
         "uncertainty_budget": {
           "state": "complete",
@@ -5831,7 +5831,6 @@
           "channel_id": "water_gauge_pressure",
           "channel_profile_id": "MYC-BUILD-METROLOGY-PROFILE-V0.1",
           "firmware_revision": "FW-1",
-          "raw_value": 20.5,
           "unit": "degC",
           "qc_state": "valid",
           "event_time_seconds": 1000,
@@ -5847,7 +5846,8 @@
           "raw_source_digest": "sha256:synth-observation-001",
           "calibration_record_id": "SYNTH-CAL-001",
           "installation_record_id": "SYNTH-INSTALL-001",
-          "rights_state": "authorized"
+          "rights_state": "authorized",
+          "value": 20.5
         },
         "uncertainty_budget": {
           "state": "complete",
@@ -6015,7 +6015,6 @@
           "channel_id": "co2_concentration",
           "channel_profile_id": "MYC-BUILD-METROLOGY-PROFILE-V0.1",
           "firmware_revision": "FW-1",
-          "raw_value": 20.5,
           "unit": "ppm",
           "qc_state": "valid",
           "event_time_seconds": 1000,
@@ -6031,7 +6030,8 @@
           "raw_source_digest": "sha256:synth-observation-001",
           "calibration_record_id": "SYNTH-CAL-001",
           "installation_record_id": "SYNTH-INSTALL-001",
-          "rights_state": "authorized"
+          "rights_state": "authorized",
+          "value": 20.5
         },
         "uncertainty_budget": {
           "state": "complete",
@@ -6199,7 +6199,6 @@
           "channel_id": "electrical_energy",
           "channel_profile_id": "MYC-BUILD-METROLOGY-PROFILE-V0.1",
           "firmware_revision": "FW-1",
-          "raw_value": 20.5,
           "unit": "kWh",
           "qc_state": "valid",
           "event_time_seconds": 1000,
@@ -6215,7 +6214,8 @@
           "raw_source_digest": "",
           "calibration_record_id": "SYNTH-CAL-001",
           "installation_record_id": "SYNTH-INSTALL-001",
-          "rights_state": "authorized"
+          "rights_state": "authorized",
+          "value": 20.5
         },
         "uncertainty_budget": {
           "state": "complete",
@@ -6383,7 +6383,6 @@
           "channel_id": "air_temperature",
           "channel_profile_id": "MYC-BUILD-METROLOGY-PROFILE-V0.1",
           "firmware_revision": "FW-1",
-          "raw_value": 20.5,
           "unit": "degC",
           "qc_state": "valid",
           "event_time_seconds": 1000,
@@ -6399,7 +6398,8 @@
           "raw_source_digest": "sha256:synth-observation-001",
           "calibration_record_id": "SYNTH-CAL-001",
           "installation_record_id": "SYNTH-INSTALL-001",
-          "rights_state": "revoked"
+          "rights_state": "revoked",
+          "value": 20.5
         },
         "uncertainty_budget": {
           "state": "complete",
@@ -6567,7 +6567,6 @@
           "channel_id": "air_temperature",
           "channel_profile_id": "MYC-BUILD-METROLOGY-PROFILE-V0.1",
           "firmware_revision": "FW-1",
-          "raw_value": 20.5,
           "unit": "degC",
           "qc_state": "valid",
           "event_time_seconds": 1000,
@@ -6583,7 +6582,8 @@
           "raw_source_digest": "sha256:synth-observation-001",
           "calibration_record_id": "SYNTH-CAL-001",
           "installation_record_id": "SYNTH-INSTALL-001",
-          "rights_state": "authorized"
+          "rights_state": "authorized",
+          "value": 20.5
         },
         "uncertainty_budget": {
           "state": "complete",
