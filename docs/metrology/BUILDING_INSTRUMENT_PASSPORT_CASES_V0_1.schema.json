@@ -68,62 +68,6 @@
     }
   },
   "$defs": {
-    "passport": {
-      "title": "Mycelix Building Instrument Passport v0.1",
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "passport_schema_version",
-        "profile_id",
-        "instrument",
-        "capability",
-        "calibration",
-        "installation",
-        "sample",
-        "uncertainty_budget",
-        "purpose_profile",
-        "claim_requested",
-        "independent_assay"
-      ],
-      "properties": {
-        "passport_schema_version": {
-          "const": "mycelix.building-instrument-passport/0.1"
-        },
-        "profile_id": {
-          "const": "MYC-BUILD-METROLOGY-PROFILE-V0.1"
-        },
-        "instrument": {
-          "$ref": "#/$defs/instrument"
-        },
-        "capability": {
-          "$ref": "#/$defs/capability"
-        },
-        "calibration": {
-          "$ref": "#/$defs/calibration"
-        },
-        "installation": {
-          "$ref": "#/$defs/installation"
-        },
-        "sample": {
-          "$ref": "#/$defs/sample"
-        },
-        "uncertainty_budget": {
-          "$ref": "#/$defs/uncertainty_budget"
-        },
-        "purpose_profile": {
-          "$ref": "#/$defs/purpose_profile"
-        },
-        "claim_requested": {
-          "enum": [
-            "declared_measurement",
-            "universal_indoor_air_quality"
-          ]
-        },
-        "independent_assay": {
-          "$ref": "#/$defs/independent_assay"
-        }
-      }
-    },
     "instrument": {
       "type": "object",
       "additionalProperties": false,
@@ -1054,6 +998,64 @@
             "unknown",
             "revoked"
           ]
+        }
+      }
+    },
+    "passport": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "$id": "https://github.com/Luminous-Dynamics/mycelix/blob/research/build-metrology-passport-v0.1/docs/metrology/BUILDING_INSTRUMENT_PASSPORT_SCHEMA_V0_1.json",
+      "title": "Mycelix Building Instrument Passport v0.1",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "passport_schema_version",
+        "profile_id",
+        "instrument",
+        "capability",
+        "calibration",
+        "installation",
+        "sample",
+        "uncertainty_budget",
+        "purpose_profile",
+        "claim_requested",
+        "independent_assay"
+      ],
+      "properties": {
+        "passport_schema_version": {
+          "const": "mycelix.building-instrument-passport/0.1"
+        },
+        "profile_id": {
+          "const": "MYC-BUILD-METROLOGY-PROFILE-V0.1"
+        },
+        "instrument": {
+          "$ref": "#/$defs/instrument"
+        },
+        "capability": {
+          "$ref": "#/$defs/capability"
+        },
+        "calibration": {
+          "$ref": "#/$defs/calibration"
+        },
+        "installation": {
+          "$ref": "#/$defs/installation"
+        },
+        "sample": {
+          "$ref": "#/$defs/sample"
+        },
+        "uncertainty_budget": {
+          "$ref": "#/$defs/uncertainty_budget"
+        },
+        "purpose_profile": {
+          "$ref": "#/$defs/purpose_profile"
+        },
+        "claim_requested": {
+          "enum": [
+            "declared_measurement",
+            "universal_indoor_air_quality"
+          ]
+        },
+        "independent_assay": {
+          "$ref": "#/$defs/independent_assay"
         }
       }
     }
