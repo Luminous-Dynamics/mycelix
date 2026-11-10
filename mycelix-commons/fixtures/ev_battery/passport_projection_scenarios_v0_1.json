@@ -1,0 +1,2902 @@
+{
+  "corpus_version": "ev-battery-passport-projection-corpus/0.1",
+  "schema_id": "https://luminousdynamics.io/schemas/transport/ev-battery-passport-projection/0.1",
+  "cases": [
+    {
+      "case_id": "valid-launch-passport",
+      "expectation": "accept",
+      "manifest": {
+        "protocol_version": "ev-battery-passport-projection/0.1",
+        "manifest_id": "valid-launch-passport",
+        "evaluation_time_ms": 1900000000000,
+        "audience": "public",
+        "rulebook": {
+          "version": "commission-battery-guidance-2026-10-19",
+          "source_ref": "https://single-market-economy.ec.europa.eu/single-market/digital-product-passport/batteries_en",
+          "source_date": "2026-10-19",
+          "source_digest": "0000000000000000000000000000000000000000000000000000000000000001",
+          "retrieved_at": "2026-11-10"
+        },
+        "data_model": {
+          "version": "battery-passport-semantic-model-2026-10",
+          "schema_digest": "0000000000000000000000000000000000000000000000000000000000000002"
+        },
+        "finished_battery": {
+          "finished_battery_ref": "finished-battery-001",
+          "identity_digest": "0000000000000000000000000000000000000000000000000000000000000003",
+          "category": "ev",
+          "nominal_energy_kwh": 82.4,
+          "chemistry": "NMC",
+          "boundary_kind": "single_pack_with_bms",
+          "packs": [
+            {
+              "pack_ref": "pack-001",
+              "configuration_digest": "00000000000000000000000000000000000000000000000000000000000001f5"
+            }
+          ],
+          "bms_ref": "bms-001",
+          "bms_digest": "0000000000000000000000000000000000000000000000000000000000000004",
+          "boundary_rationale": "One finished functioning traction battery; BMS is integral to safe operation.",
+          "boundary_evidence_digest": "0000000000000000000000000000000000000000000000000000000000000005"
+        },
+        "responsibility": {
+          "economic_operator_ref": "operator-responsible",
+          "economic_operator_identity_digest": "0000000000000000000000000000000000000000000000000000000000000006",
+          "passport_host_ref": "operator-responsible",
+          "passport_host_identity_digest": "0000000000000000000000000000000000000000000000000000000000000006",
+          "host_role": "responsible_operator",
+          "delegation": null
+        },
+        "passport": {
+          "passport_id": "passport-ev-001",
+          "status": "active",
+          "predecessor_passport_id": null,
+          "created_at_ms": 1000000,
+          "current_configuration_digest": "00000000000000000000000000000000000000000000000000000000000001f5",
+          "events": [
+            {
+              "event_id": "placed-1",
+              "event_kind": "placed_on_market",
+              "event_time_ms": 1000000,
+              "passport_id_before": null,
+              "passport_id_after": "passport-ev-001",
+              "configuration_before_digest": null,
+              "configuration_after_digest": "00000000000000000000000000000000000000000000000000000000000001f5",
+              "actor_ref": "operator-responsible",
+              "actor_identity_digest": "00000000000000000000000000000000000000000000000000000000000f4628",
+              "actor_role": "economic_operator",
+              "mandate_ref": null,
+              "mandate_digest": null,
+              "responsible_operator_before_ref": null,
+              "responsible_operator_after_ref": "operator-responsible",
+              "evidence_digest": "00000000000000000000000000000000000000000000000000000000000f4a10",
+              "evidence_class": "synthetic_fixture"
+            }
+          ]
+        },
+        "applicability_catalog": {
+          "catalog_digest": "0000000000000000000000000000000000000000000000000000000000000007",
+          "data_model_version": "battery-passport-semantic-model-2026-10",
+          "points": [
+            {
+              "data_point_id": "product_identifier",
+              "applicability": "required_at_launch",
+              "condition_met": true,
+              "access_tier": "public",
+              "effective_from_ms": 1
+            },
+            {
+              "data_point_id": "battery_chemistry",
+              "applicability": "required_at_launch",
+              "condition_met": true,
+              "access_tier": "public",
+              "effective_from_ms": 1
+            },
+            {
+              "data_point_id": "carbon_footprint",
+              "applicability": "deferred",
+              "condition_met": false,
+              "access_tier": "public",
+              "effective_from_ms": 2200000000000
+            },
+            {
+              "data_point_id": "detailed_service_record",
+              "applicability": "optional",
+              "condition_met": false,
+              "access_tier": "legitimate_interest_pending",
+              "effective_from_ms": 1
+            }
+          ]
+        },
+        "projected_fields": [
+          {
+            "data_point_id": "product_identifier",
+            "data_model_version": "battery-passport-semantic-model-2026-10",
+            "value_digest": "0000000000000000000000000000000000000000000000000000000000000008",
+            "source_evidence_digest": "0000000000000000000000000000000000000000000000000000000000000009",
+            "evidence_class": "synthetic_fixture"
+          },
+          {
+            "data_point_id": "battery_chemistry",
+            "data_model_version": "battery-passport-semantic-model-2026-10",
+            "value_digest": "000000000000000000000000000000000000000000000000000000000000000a",
+            "source_evidence_digest": "000000000000000000000000000000000000000000000000000000000000000b",
+            "evidence_class": "synthetic_fixture"
+          }
+        ],
+        "access_policy": {
+          "policy_ref": "battery-public-access-v1",
+          "policy_digest": "000000000000000000000000000000000000000000000000000000000000000c",
+          "legal_status": "pending",
+          "legal_basis_ref": "Regulation (EU) 2023/1542 Annex XIII and current adopted implementing acts",
+          "allowed_data_point_ids": [
+            "product_identifier",
+            "battery_chemistry"
+          ]
+        },
+        "registry_packet": {
+          "record_kind": "registration_metadata_only",
+          "includes_full_passport_payload": false,
+          "registration_metadata_digest": "000000000000000000000000000000000000000000000000000000000000000d",
+          "passport_id": "passport-ev-001",
+          "economic_operator_ref": "operator-responsible",
+          "host_ref": "operator-responsible",
+          "rulebook_digest": "0000000000000000000000000000000000000000000000000000000000000001"
+        },
+        "claims": {
+          "legal_compliance_claim": false,
+          "safety_qualification_claim": false
+        }
+      }
+    },
+    {
+      "case_id": "simple-repair-retains-passport",
+      "expectation": "accept",
+      "manifest": {
+        "protocol_version": "ev-battery-passport-projection/0.1",
+        "manifest_id": "simple-repair-retains-passport",
+        "evaluation_time_ms": 1900000000000,
+        "audience": "public",
+        "rulebook": {
+          "version": "commission-battery-guidance-2026-10-19",
+          "source_ref": "https://single-market-economy.ec.europa.eu/single-market/digital-product-passport/batteries_en",
+          "source_date": "2026-10-19",
+          "source_digest": "0000000000000000000000000000000000000000000000000000000000000001",
+          "retrieved_at": "2026-11-10"
+        },
+        "data_model": {
+          "version": "battery-passport-semantic-model-2026-10",
+          "schema_digest": "0000000000000000000000000000000000000000000000000000000000000002"
+        },
+        "finished_battery": {
+          "finished_battery_ref": "finished-battery-001",
+          "identity_digest": "0000000000000000000000000000000000000000000000000000000000000003",
+          "category": "ev",
+          "nominal_energy_kwh": 82.4,
+          "chemistry": "NMC",
+          "boundary_kind": "single_pack_with_bms",
+          "packs": [
+            {
+              "pack_ref": "pack-001",
+              "configuration_digest": "00000000000000000000000000000000000000000000000000000000000001f6"
+            }
+          ],
+          "bms_ref": "bms-001",
+          "bms_digest": "0000000000000000000000000000000000000000000000000000000000000004",
+          "boundary_rationale": "One finished functioning traction battery; BMS is integral to safe operation.",
+          "boundary_evidence_digest": "0000000000000000000000000000000000000000000000000000000000000005"
+        },
+        "responsibility": {
+          "economic_operator_ref": "operator-responsible",
+          "economic_operator_identity_digest": "0000000000000000000000000000000000000000000000000000000000000006",
+          "passport_host_ref": "operator-responsible",
+          "passport_host_identity_digest": "0000000000000000000000000000000000000000000000000000000000000006",
+          "host_role": "responsible_operator",
+          "delegation": null
+        },
+        "passport": {
+          "passport_id": "passport-ev-001",
+          "status": "active",
+          "predecessor_passport_id": null,
+          "created_at_ms": 1000000,
+          "current_configuration_digest": "00000000000000000000000000000000000000000000000000000000000001f6",
+          "events": [
+            {
+              "event_id": "placed-1",
+              "event_kind": "placed_on_market",
+              "event_time_ms": 1000000,
+              "passport_id_before": null,
+              "passport_id_after": "passport-ev-001",
+              "configuration_before_digest": null,
+              "configuration_after_digest": "00000000000000000000000000000000000000000000000000000000000001f5",
+              "actor_ref": "operator-responsible",
+              "actor_identity_digest": "00000000000000000000000000000000000000000000000000000000000f4628",
+              "actor_role": "economic_operator",
+              "mandate_ref": null,
+              "mandate_digest": null,
+              "responsible_operator_before_ref": null,
+              "responsible_operator_after_ref": "operator-responsible",
+              "evidence_digest": "00000000000000000000000000000000000000000000000000000000000f4a10",
+              "evidence_class": "synthetic_fixture"
+            },
+            {
+              "event_id": "repair-1",
+              "event_kind": "simple_repair",
+              "event_time_ms": 2000000,
+              "passport_id_before": "passport-ev-001",
+              "passport_id_after": "passport-ev-001",
+              "configuration_before_digest": "00000000000000000000000000000000000000000000000000000000000001f5",
+              "configuration_after_digest": "00000000000000000000000000000000000000000000000000000000000001f6",
+              "actor_ref": "operator-responsible",
+              "actor_identity_digest": "00000000000000000000000000000000000000000000000000000000001e8868",
+              "actor_role": "economic_operator",
+              "mandate_ref": null,
+              "mandate_digest": null,
+              "responsible_operator_before_ref": "operator-responsible",
+              "responsible_operator_after_ref": "operator-responsible",
+              "evidence_digest": "00000000000000000000000000000000000000000000000000000000001e8c50",
+              "evidence_class": "synthetic_fixture"
+            }
+          ]
+        },
+        "applicability_catalog": {
+          "catalog_digest": "0000000000000000000000000000000000000000000000000000000000000007",
+          "data_model_version": "battery-passport-semantic-model-2026-10",
+          "points": [
+            {
+              "data_point_id": "product_identifier",
+              "applicability": "required_at_launch",
+              "condition_met": true,
+              "access_tier": "public",
+              "effective_from_ms": 1
+            },
+            {
+              "data_point_id": "battery_chemistry",
+              "applicability": "required_at_launch",
+              "condition_met": true,
+              "access_tier": "public",
+              "effective_from_ms": 1
+            },
+            {
+              "data_point_id": "carbon_footprint",
+              "applicability": "deferred",
+              "condition_met": false,
+              "access_tier": "public",
+              "effective_from_ms": 2200000000000
+            },
+            {
+              "data_point_id": "detailed_service_record",
+              "applicability": "optional",
+              "condition_met": false,
+              "access_tier": "legitimate_interest_pending",
+              "effective_from_ms": 1
+            }
+          ]
+        },
+        "projected_fields": [
+          {
+            "data_point_id": "product_identifier",
+            "data_model_version": "battery-passport-semantic-model-2026-10",
+            "value_digest": "0000000000000000000000000000000000000000000000000000000000000008",
+            "source_evidence_digest": "0000000000000000000000000000000000000000000000000000000000000009",
+            "evidence_class": "synthetic_fixture"
+          },
+          {
+            "data_point_id": "battery_chemistry",
+            "data_model_version": "battery-passport-semantic-model-2026-10",
+            "value_digest": "000000000000000000000000000000000000000000000000000000000000000a",
+            "source_evidence_digest": "000000000000000000000000000000000000000000000000000000000000000b",
+            "evidence_class": "synthetic_fixture"
+          }
+        ],
+        "access_policy": {
+          "policy_ref": "battery-public-access-v1",
+          "policy_digest": "000000000000000000000000000000000000000000000000000000000000000c",
+          "legal_status": "pending",
+          "legal_basis_ref": "Regulation (EU) 2023/1542 Annex XIII and current adopted implementing acts",
+          "allowed_data_point_ids": [
+            "product_identifier",
+            "battery_chemistry"
+          ]
+        },
+        "registry_packet": {
+          "record_kind": "registration_metadata_only",
+          "includes_full_passport_payload": false,
+          "registration_metadata_digest": "000000000000000000000000000000000000000000000000000000000000000d",
+          "passport_id": "passport-ev-001",
+          "economic_operator_ref": "operator-responsible",
+          "host_ref": "operator-responsible",
+          "rulebook_digest": "0000000000000000000000000000000000000000000000000000000000000001"
+        },
+        "claims": {
+          "legal_compliance_claim": false,
+          "safety_qualification_claim": false
+        }
+      }
+    },
+    {
+      "case_id": "repurpose-creates-linked-successor",
+      "expectation": "accept",
+      "manifest": {
+        "protocol_version": "ev-battery-passport-projection/0.1",
+        "manifest_id": "repurpose-creates-linked-successor",
+        "evaluation_time_ms": 1900000000000,
+        "audience": "public",
+        "rulebook": {
+          "version": "commission-battery-guidance-2026-10-19",
+          "source_ref": "https://single-market-economy.ec.europa.eu/single-market/digital-product-passport/batteries_en",
+          "source_date": "2026-10-19",
+          "source_digest": "0000000000000000000000000000000000000000000000000000000000000001",
+          "retrieved_at": "2026-11-10"
+        },
+        "data_model": {
+          "version": "battery-passport-semantic-model-2026-10",
+          "schema_digest": "0000000000000000000000000000000000000000000000000000000000000002"
+        },
+        "finished_battery": {
+          "finished_battery_ref": "finished-battery-001",
+          "identity_digest": "0000000000000000000000000000000000000000000000000000000000000003",
+          "category": "ev",
+          "nominal_energy_kwh": 82.4,
+          "chemistry": "NMC",
+          "boundary_kind": "single_pack_with_bms",
+          "packs": [
+            {
+              "pack_ref": "pack-001",
+              "configuration_digest": "00000000000000000000000000000000000000000000000000000000000001f7"
+            }
+          ],
+          "bms_ref": "bms-001",
+          "bms_digest": "0000000000000000000000000000000000000000000000000000000000000004",
+          "boundary_rationale": "One finished functioning traction battery; BMS is integral to safe operation.",
+          "boundary_evidence_digest": "0000000000000000000000000000000000000000000000000000000000000005"
+        },
+        "responsibility": {
+          "economic_operator_ref": "operator-responsible",
+          "economic_operator_identity_digest": "0000000000000000000000000000000000000000000000000000000000000006",
+          "passport_host_ref": "operator-responsible",
+          "passport_host_identity_digest": "0000000000000000000000000000000000000000000000000000000000000006",
+          "host_role": "responsible_operator",
+          "delegation": null
+        },
+        "passport": {
+          "passport_id": "passport-ev-002",
+          "status": "active",
+          "predecessor_passport_id": "passport-ev-001",
+          "created_at_ms": 3000000,
+          "current_configuration_digest": "00000000000000000000000000000000000000000000000000000000000001f7",
+          "events": [
+            {
+              "event_id": "placed-1",
+              "event_kind": "placed_on_market",
+              "event_time_ms": 1000000,
+              "passport_id_before": null,
+              "passport_id_after": "passport-ev-001",
+              "configuration_before_digest": null,
+              "configuration_after_digest": "00000000000000000000000000000000000000000000000000000000000001f5",
+              "actor_ref": "operator-responsible",
+              "actor_identity_digest": "00000000000000000000000000000000000000000000000000000000000f4628",
+              "actor_role": "economic_operator",
+              "mandate_ref": null,
+              "mandate_digest": null,
+              "responsible_operator_before_ref": null,
+              "responsible_operator_after_ref": "operator-responsible",
+              "evidence_digest": "00000000000000000000000000000000000000000000000000000000000f4a10",
+              "evidence_class": "synthetic_fixture"
+            },
+            {
+              "event_id": "repurpose-1",
+              "event_kind": "repurpose",
+              "event_time_ms": 3000000,
+              "passport_id_before": "passport-ev-001",
+              "passport_id_after": "passport-ev-002",
+              "configuration_before_digest": "00000000000000000000000000000000000000000000000000000000000001f5",
+              "configuration_after_digest": "00000000000000000000000000000000000000000000000000000000000001f7",
+              "actor_ref": "operator-responsible",
+              "actor_identity_digest": "00000000000000000000000000000000000000000000000000000000002dcaa8",
+              "actor_role": "economic_operator",
+              "mandate_ref": null,
+              "mandate_digest": null,
+              "responsible_operator_before_ref": "operator-responsible",
+              "responsible_operator_after_ref": "operator-responsible",
+              "evidence_digest": "00000000000000000000000000000000000000000000000000000000002dce90",
+              "evidence_class": "synthetic_fixture"
+            }
+          ]
+        },
+        "applicability_catalog": {
+          "catalog_digest": "0000000000000000000000000000000000000000000000000000000000000007",
+          "data_model_version": "battery-passport-semantic-model-2026-10",
+          "points": [
+            {
+              "data_point_id": "product_identifier",
+              "applicability": "required_at_launch",
+              "condition_met": true,
+              "access_tier": "public",
+              "effective_from_ms": 1
+            },
+            {
+              "data_point_id": "battery_chemistry",
+              "applicability": "required_at_launch",
+              "condition_met": true,
+              "access_tier": "public",
+              "effective_from_ms": 1
+            },
+            {
+              "data_point_id": "carbon_footprint",
+              "applicability": "deferred",
+              "condition_met": false,
+              "access_tier": "public",
+              "effective_from_ms": 2200000000000
+            },
+            {
+              "data_point_id": "detailed_service_record",
+              "applicability": "optional",
+              "condition_met": false,
+              "access_tier": "legitimate_interest_pending",
+              "effective_from_ms": 1
+            }
+          ]
+        },
+        "projected_fields": [
+          {
+            "data_point_id": "product_identifier",
+            "data_model_version": "battery-passport-semantic-model-2026-10",
+            "value_digest": "0000000000000000000000000000000000000000000000000000000000000008",
+            "source_evidence_digest": "0000000000000000000000000000000000000000000000000000000000000009",
+            "evidence_class": "synthetic_fixture"
+          },
+          {
+            "data_point_id": "battery_chemistry",
+            "data_model_version": "battery-passport-semantic-model-2026-10",
+            "value_digest": "000000000000000000000000000000000000000000000000000000000000000a",
+            "source_evidence_digest": "000000000000000000000000000000000000000000000000000000000000000b",
+            "evidence_class": "synthetic_fixture"
+          }
+        ],
+        "access_policy": {
+          "policy_ref": "battery-public-access-v1",
+          "policy_digest": "000000000000000000000000000000000000000000000000000000000000000c",
+          "legal_status": "pending",
+          "legal_basis_ref": "Regulation (EU) 2023/1542 Annex XIII and current adopted implementing acts",
+          "allowed_data_point_ids": [
+            "product_identifier",
+            "battery_chemistry"
+          ]
+        },
+        "registry_packet": {
+          "record_kind": "registration_metadata_only",
+          "includes_full_passport_payload": false,
+          "registration_metadata_digest": "000000000000000000000000000000000000000000000000000000000000000d",
+          "passport_id": "passport-ev-002",
+          "economic_operator_ref": "operator-responsible",
+          "host_ref": "operator-responsible",
+          "rulebook_digest": "0000000000000000000000000000000000000000000000000000000000000001"
+        },
+        "claims": {
+          "legal_compliance_claim": false,
+          "safety_qualification_claim": false
+        }
+      }
+    },
+    {
+      "case_id": "authorized-host-with-active-mandate",
+      "expectation": "accept",
+      "manifest": {
+        "protocol_version": "ev-battery-passport-projection/0.1",
+        "manifest_id": "authorized-host-with-active-mandate",
+        "evaluation_time_ms": 1900000000000,
+        "audience": "public",
+        "rulebook": {
+          "version": "commission-battery-guidance-2026-10-19",
+          "source_ref": "https://single-market-economy.ec.europa.eu/single-market/digital-product-passport/batteries_en",
+          "source_date": "2026-10-19",
+          "source_digest": "0000000000000000000000000000000000000000000000000000000000000001",
+          "retrieved_at": "2026-11-10"
+        },
+        "data_model": {
+          "version": "battery-passport-semantic-model-2026-10",
+          "schema_digest": "0000000000000000000000000000000000000000000000000000000000000002"
+        },
+        "finished_battery": {
+          "finished_battery_ref": "finished-battery-001",
+          "identity_digest": "0000000000000000000000000000000000000000000000000000000000000003",
+          "category": "ev",
+          "nominal_energy_kwh": 82.4,
+          "chemistry": "NMC",
+          "boundary_kind": "single_pack_with_bms",
+          "packs": [
+            {
+              "pack_ref": "pack-001",
+              "configuration_digest": "00000000000000000000000000000000000000000000000000000000000001f5"
+            }
+          ],
+          "bms_ref": "bms-001",
+          "bms_digest": "0000000000000000000000000000000000000000000000000000000000000004",
+          "boundary_rationale": "One finished functioning traction battery; BMS is integral to safe operation.",
+          "boundary_evidence_digest": "0000000000000000000000000000000000000000000000000000000000000005"
+        },
+        "responsibility": {
+          "economic_operator_ref": "operator-responsible",
+          "economic_operator_identity_digest": "0000000000000000000000000000000000000000000000000000000000000006",
+          "passport_host_ref": "passport-host",
+          "passport_host_identity_digest": "00000000000000000000000000000000000000000000000000000000000002bd",
+          "host_role": "authorized_operator",
+          "delegation": {
+            "mandate_ref": "mandate-001",
+            "mandate_digest": "00000000000000000000000000000000000000000000000000000000000002bc",
+            "issuer_operator_ref": "operator-responsible",
+            "delegate_operator_ref": "passport-host",
+            "scope": [
+              "maintain_passport",
+              "publish_projection",
+              "submit_registry_metadata"
+            ],
+            "valid_from_ms": 500000,
+            "valid_to_ms": 2000000000000,
+            "state": "active",
+            "revoked_at_ms": null
+          }
+        },
+        "passport": {
+          "passport_id": "passport-ev-001",
+          "status": "active",
+          "predecessor_passport_id": null,
+          "created_at_ms": 1000000,
+          "current_configuration_digest": "00000000000000000000000000000000000000000000000000000000000001f5",
+          "events": [
+            {
+              "event_id": "placed-1",
+              "event_kind": "placed_on_market",
+              "event_time_ms": 1000000,
+              "passport_id_before": null,
+              "passport_id_after": "passport-ev-001",
+              "configuration_before_digest": null,
+              "configuration_after_digest": "00000000000000000000000000000000000000000000000000000000000001f5",
+              "actor_ref": "operator-responsible",
+              "actor_identity_digest": "00000000000000000000000000000000000000000000000000000000000f4628",
+              "actor_role": "economic_operator",
+              "mandate_ref": null,
+              "mandate_digest": null,
+              "responsible_operator_before_ref": null,
+              "responsible_operator_after_ref": "operator-responsible",
+              "evidence_digest": "00000000000000000000000000000000000000000000000000000000000f4a10",
+              "evidence_class": "synthetic_fixture"
+            },
+            {
+              "event_id": "projection-update-1",
+              "event_kind": "status_change",
+              "event_time_ms": 1500000,
+              "passport_id_before": "passport-ev-001",
+              "passport_id_after": "passport-ev-001",
+              "configuration_before_digest": "00000000000000000000000000000000000000000000000000000000000001f5",
+              "configuration_after_digest": "00000000000000000000000000000000000000000000000000000000000001f5",
+              "actor_ref": "passport-host",
+              "actor_identity_digest": "000000000000000000000000000000000000000000000000000000000016e748",
+              "actor_role": "authorized_operator",
+              "mandate_ref": "mandate-001",
+              "mandate_digest": "00000000000000000000000000000000000000000000000000000000000002bc",
+              "responsible_operator_before_ref": "operator-responsible",
+              "responsible_operator_after_ref": "operator-responsible",
+              "evidence_digest": "000000000000000000000000000000000000000000000000000000000016eb30",
+              "evidence_class": "synthetic_fixture"
+            }
+          ]
+        },
+        "applicability_catalog": {
+          "catalog_digest": "0000000000000000000000000000000000000000000000000000000000000007",
+          "data_model_version": "battery-passport-semantic-model-2026-10",
+          "points": [
+            {
+              "data_point_id": "product_identifier",
+              "applicability": "required_at_launch",
+              "condition_met": true,
+              "access_tier": "public",
+              "effective_from_ms": 1
+            },
+            {
+              "data_point_id": "battery_chemistry",
+              "applicability": "required_at_launch",
+              "condition_met": true,
+              "access_tier": "public",
+              "effective_from_ms": 1
+            },
+            {
+              "data_point_id": "carbon_footprint",
+              "applicability": "deferred",
+              "condition_met": false,
+              "access_tier": "public",
+              "effective_from_ms": 2200000000000
+            },
+            {
+              "data_point_id": "detailed_service_record",
+              "applicability": "optional",
+              "condition_met": false,
+              "access_tier": "legitimate_interest_pending",
+              "effective_from_ms": 1
+            }
+          ]
+        },
+        "projected_fields": [
+          {
+            "data_point_id": "product_identifier",
+            "data_model_version": "battery-passport-semantic-model-2026-10",
+            "value_digest": "0000000000000000000000000000000000000000000000000000000000000008",
+            "source_evidence_digest": "0000000000000000000000000000000000000000000000000000000000000009",
+            "evidence_class": "synthetic_fixture"
+          },
+          {
+            "data_point_id": "battery_chemistry",
+            "data_model_version": "battery-passport-semantic-model-2026-10",
+            "value_digest": "000000000000000000000000000000000000000000000000000000000000000a",
+            "source_evidence_digest": "000000000000000000000000000000000000000000000000000000000000000b",
+            "evidence_class": "synthetic_fixture"
+          }
+        ],
+        "access_policy": {
+          "policy_ref": "battery-public-access-v1",
+          "policy_digest": "000000000000000000000000000000000000000000000000000000000000000c",
+          "legal_status": "pending",
+          "legal_basis_ref": "Regulation (EU) 2023/1542 Annex XIII and current adopted implementing acts",
+          "allowed_data_point_ids": [
+            "product_identifier",
+            "battery_chemistry"
+          ]
+        },
+        "registry_packet": {
+          "record_kind": "registration_metadata_only",
+          "includes_full_passport_payload": false,
+          "registration_metadata_digest": "000000000000000000000000000000000000000000000000000000000000000d",
+          "passport_id": "passport-ev-001",
+          "economic_operator_ref": "operator-responsible",
+          "host_ref": "passport-host",
+          "rulebook_digest": "0000000000000000000000000000000000000000000000000000000000000001"
+        },
+        "claims": {
+          "legal_compliance_claim": false,
+          "safety_qualification_claim": false
+        }
+      }
+    },
+    {
+      "case_id": "required-data-point-missing",
+      "expectation": "reject",
+      "manifest": {
+        "protocol_version": "ev-battery-passport-projection/0.1",
+        "manifest_id": "required-data-point-missing",
+        "evaluation_time_ms": 1900000000000,
+        "audience": "public",
+        "rulebook": {
+          "version": "commission-battery-guidance-2026-10-19",
+          "source_ref": "https://single-market-economy.ec.europa.eu/single-market/digital-product-passport/batteries_en",
+          "source_date": "2026-10-19",
+          "source_digest": "0000000000000000000000000000000000000000000000000000000000000001",
+          "retrieved_at": "2026-11-10"
+        },
+        "data_model": {
+          "version": "battery-passport-semantic-model-2026-10",
+          "schema_digest": "0000000000000000000000000000000000000000000000000000000000000002"
+        },
+        "finished_battery": {
+          "finished_battery_ref": "finished-battery-001",
+          "identity_digest": "0000000000000000000000000000000000000000000000000000000000000003",
+          "category": "ev",
+          "nominal_energy_kwh": 82.4,
+          "chemistry": "NMC",
+          "boundary_kind": "single_pack_with_bms",
+          "packs": [
+            {
+              "pack_ref": "pack-001",
+              "configuration_digest": "00000000000000000000000000000000000000000000000000000000000001f5"
+            }
+          ],
+          "bms_ref": "bms-001",
+          "bms_digest": "0000000000000000000000000000000000000000000000000000000000000004",
+          "boundary_rationale": "One finished functioning traction battery; BMS is integral to safe operation.",
+          "boundary_evidence_digest": "0000000000000000000000000000000000000000000000000000000000000005"
+        },
+        "responsibility": {
+          "economic_operator_ref": "operator-responsible",
+          "economic_operator_identity_digest": "0000000000000000000000000000000000000000000000000000000000000006",
+          "passport_host_ref": "operator-responsible",
+          "passport_host_identity_digest": "0000000000000000000000000000000000000000000000000000000000000006",
+          "host_role": "responsible_operator",
+          "delegation": null
+        },
+        "passport": {
+          "passport_id": "passport-ev-001",
+          "status": "active",
+          "predecessor_passport_id": null,
+          "created_at_ms": 1000000,
+          "current_configuration_digest": "00000000000000000000000000000000000000000000000000000000000001f5",
+          "events": [
+            {
+              "event_id": "placed-1",
+              "event_kind": "placed_on_market",
+              "event_time_ms": 1000000,
+              "passport_id_before": null,
+              "passport_id_after": "passport-ev-001",
+              "configuration_before_digest": null,
+              "configuration_after_digest": "00000000000000000000000000000000000000000000000000000000000001f5",
+              "actor_ref": "operator-responsible",
+              "actor_identity_digest": "00000000000000000000000000000000000000000000000000000000000f4628",
+              "actor_role": "economic_operator",
+              "mandate_ref": null,
+              "mandate_digest": null,
+              "responsible_operator_before_ref": null,
+              "responsible_operator_after_ref": "operator-responsible",
+              "evidence_digest": "00000000000000000000000000000000000000000000000000000000000f4a10",
+              "evidence_class": "synthetic_fixture"
+            }
+          ]
+        },
+        "applicability_catalog": {
+          "catalog_digest": "0000000000000000000000000000000000000000000000000000000000000007",
+          "data_model_version": "battery-passport-semantic-model-2026-10",
+          "points": [
+            {
+              "data_point_id": "product_identifier",
+              "applicability": "required_at_launch",
+              "condition_met": true,
+              "access_tier": "public",
+              "effective_from_ms": 1
+            },
+            {
+              "data_point_id": "battery_chemistry",
+              "applicability": "required_at_launch",
+              "condition_met": true,
+              "access_tier": "public",
+              "effective_from_ms": 1
+            },
+            {
+              "data_point_id": "carbon_footprint",
+              "applicability": "deferred",
+              "condition_met": false,
+              "access_tier": "public",
+              "effective_from_ms": 2200000000000
+            },
+            {
+              "data_point_id": "detailed_service_record",
+              "applicability": "optional",
+              "condition_met": false,
+              "access_tier": "legitimate_interest_pending",
+              "effective_from_ms": 1
+            }
+          ]
+        },
+        "projected_fields": [
+          {
+            "data_point_id": "product_identifier",
+            "data_model_version": "battery-passport-semantic-model-2026-10",
+            "value_digest": "0000000000000000000000000000000000000000000000000000000000000008",
+            "source_evidence_digest": "0000000000000000000000000000000000000000000000000000000000000009",
+            "evidence_class": "synthetic_fixture"
+          }
+        ],
+        "access_policy": {
+          "policy_ref": "battery-public-access-v1",
+          "policy_digest": "000000000000000000000000000000000000000000000000000000000000000c",
+          "legal_status": "pending",
+          "legal_basis_ref": "Regulation (EU) 2023/1542 Annex XIII and current adopted implementing acts",
+          "allowed_data_point_ids": [
+            "product_identifier",
+            "battery_chemistry"
+          ]
+        },
+        "registry_packet": {
+          "record_kind": "registration_metadata_only",
+          "includes_full_passport_payload": false,
+          "registration_metadata_digest": "000000000000000000000000000000000000000000000000000000000000000d",
+          "passport_id": "passport-ev-001",
+          "economic_operator_ref": "operator-responsible",
+          "host_ref": "operator-responsible",
+          "rulebook_digest": "0000000000000000000000000000000000000000000000000000000000000001"
+        },
+        "claims": {
+          "legal_compliance_claim": false,
+          "safety_qualification_claim": false
+        }
+      }
+    },
+    {
+      "case_id": "not-applicable-field-emitted",
+      "expectation": "reject",
+      "manifest": {
+        "protocol_version": "ev-battery-passport-projection/0.1",
+        "manifest_id": "not-applicable-field-emitted",
+        "evaluation_time_ms": 1900000000000,
+        "audience": "public",
+        "rulebook": {
+          "version": "commission-battery-guidance-2026-10-19",
+          "source_ref": "https://single-market-economy.ec.europa.eu/single-market/digital-product-passport/batteries_en",
+          "source_date": "2026-10-19",
+          "source_digest": "0000000000000000000000000000000000000000000000000000000000000001",
+          "retrieved_at": "2026-11-10"
+        },
+        "data_model": {
+          "version": "battery-passport-semantic-model-2026-10",
+          "schema_digest": "0000000000000000000000000000000000000000000000000000000000000002"
+        },
+        "finished_battery": {
+          "finished_battery_ref": "finished-battery-001",
+          "identity_digest": "0000000000000000000000000000000000000000000000000000000000000003",
+          "category": "ev",
+          "nominal_energy_kwh": 82.4,
+          "chemistry": "NMC",
+          "boundary_kind": "single_pack_with_bms",
+          "packs": [
+            {
+              "pack_ref": "pack-001",
+              "configuration_digest": "00000000000000000000000000000000000000000000000000000000000001f5"
+            }
+          ],
+          "bms_ref": "bms-001",
+          "bms_digest": "0000000000000000000000000000000000000000000000000000000000000004",
+          "boundary_rationale": "One finished functioning traction battery; BMS is integral to safe operation.",
+          "boundary_evidence_digest": "0000000000000000000000000000000000000000000000000000000000000005"
+        },
+        "responsibility": {
+          "economic_operator_ref": "operator-responsible",
+          "economic_operator_identity_digest": "0000000000000000000000000000000000000000000000000000000000000006",
+          "passport_host_ref": "operator-responsible",
+          "passport_host_identity_digest": "0000000000000000000000000000000000000000000000000000000000000006",
+          "host_role": "responsible_operator",
+          "delegation": null
+        },
+        "passport": {
+          "passport_id": "passport-ev-001",
+          "status": "active",
+          "predecessor_passport_id": null,
+          "created_at_ms": 1000000,
+          "current_configuration_digest": "00000000000000000000000000000000000000000000000000000000000001f5",
+          "events": [
+            {
+              "event_id": "placed-1",
+              "event_kind": "placed_on_market",
+              "event_time_ms": 1000000,
+              "passport_id_before": null,
+              "passport_id_after": "passport-ev-001",
+              "configuration_before_digest": null,
+              "configuration_after_digest": "00000000000000000000000000000000000000000000000000000000000001f5",
+              "actor_ref": "operator-responsible",
+              "actor_identity_digest": "00000000000000000000000000000000000000000000000000000000000f4628",
+              "actor_role": "economic_operator",
+              "mandate_ref": null,
+              "mandate_digest": null,
+              "responsible_operator_before_ref": null,
+              "responsible_operator_after_ref": "operator-responsible",
+              "evidence_digest": "00000000000000000000000000000000000000000000000000000000000f4a10",
+              "evidence_class": "synthetic_fixture"
+            }
+          ]
+        },
+        "applicability_catalog": {
+          "catalog_digest": "0000000000000000000000000000000000000000000000000000000000000007",
+          "data_model_version": "battery-passport-semantic-model-2026-10",
+          "points": [
+            {
+              "data_point_id": "product_identifier",
+              "applicability": "required_at_launch",
+              "condition_met": true,
+              "access_tier": "public",
+              "effective_from_ms": 1
+            },
+            {
+              "data_point_id": "battery_chemistry",
+              "applicability": "required_at_launch",
+              "condition_met": true,
+              "access_tier": "public",
+              "effective_from_ms": 1
+            },
+            {
+              "data_point_id": "carbon_footprint",
+              "applicability": "deferred",
+              "condition_met": false,
+              "access_tier": "public",
+              "effective_from_ms": 2200000000000
+            },
+            {
+              "data_point_id": "detailed_service_record",
+              "applicability": "optional",
+              "condition_met": false,
+              "access_tier": "legitimate_interest_pending",
+              "effective_from_ms": 1
+            }
+          ]
+        },
+        "projected_fields": [
+          {
+            "data_point_id": "product_identifier",
+            "data_model_version": "battery-passport-semantic-model-2026-10",
+            "value_digest": "0000000000000000000000000000000000000000000000000000000000000008",
+            "source_evidence_digest": "0000000000000000000000000000000000000000000000000000000000000009",
+            "evidence_class": "synthetic_fixture"
+          },
+          {
+            "data_point_id": "battery_chemistry",
+            "data_model_version": "battery-passport-semantic-model-2026-10",
+            "value_digest": "000000000000000000000000000000000000000000000000000000000000000a",
+            "source_evidence_digest": "000000000000000000000000000000000000000000000000000000000000000b",
+            "evidence_class": "synthetic_fixture"
+          },
+          {
+            "data_point_id": "carbon_footprint",
+            "data_model_version": "battery-passport-semantic-model-2026-10",
+            "value_digest": "0000000000000000000000000000000000000000000000000000000000000014",
+            "source_evidence_digest": "0000000000000000000000000000000000000000000000000000000000000015",
+            "evidence_class": "synthetic_fixture"
+          }
+        ],
+        "access_policy": {
+          "policy_ref": "battery-public-access-v1",
+          "policy_digest": "000000000000000000000000000000000000000000000000000000000000000c",
+          "legal_status": "pending",
+          "legal_basis_ref": "Regulation (EU) 2023/1542 Annex XIII and current adopted implementing acts",
+          "allowed_data_point_ids": [
+            "product_identifier",
+            "battery_chemistry"
+          ]
+        },
+        "registry_packet": {
+          "record_kind": "registration_metadata_only",
+          "includes_full_passport_payload": false,
+          "registration_metadata_digest": "000000000000000000000000000000000000000000000000000000000000000d",
+          "passport_id": "passport-ev-001",
+          "economic_operator_ref": "operator-responsible",
+          "host_ref": "operator-responsible",
+          "rulebook_digest": "0000000000000000000000000000000000000000000000000000000000000001"
+        },
+        "claims": {
+          "legal_compliance_claim": false,
+          "safety_qualification_claim": false
+        }
+      }
+    },
+    {
+      "case_id": "deferred-field-emitted",
+      "expectation": "reject",
+      "manifest": {
+        "protocol_version": "ev-battery-passport-projection/0.1",
+        "manifest_id": "deferred-field-emitted",
+        "evaluation_time_ms": 1900000000000,
+        "audience": "public",
+        "rulebook": {
+          "version": "commission-battery-guidance-2026-10-19",
+          "source_ref": "https://single-market-economy.ec.europa.eu/single-market/digital-product-passport/batteries_en",
+          "source_date": "2026-10-19",
+          "source_digest": "0000000000000000000000000000000000000000000000000000000000000001",
+          "retrieved_at": "2026-11-10"
+        },
+        "data_model": {
+          "version": "battery-passport-semantic-model-2026-10",
+          "schema_digest": "0000000000000000000000000000000000000000000000000000000000000002"
+        },
+        "finished_battery": {
+          "finished_battery_ref": "finished-battery-001",
+          "identity_digest": "0000000000000000000000000000000000000000000000000000000000000003",
+          "category": "ev",
+          "nominal_energy_kwh": 82.4,
+          "chemistry": "NMC",
+          "boundary_kind": "single_pack_with_bms",
+          "packs": [
+            {
+              "pack_ref": "pack-001",
+              "configuration_digest": "00000000000000000000000000000000000000000000000000000000000001f5"
+            }
+          ],
+          "bms_ref": "bms-001",
+          "bms_digest": "0000000000000000000000000000000000000000000000000000000000000004",
+          "boundary_rationale": "One finished functioning traction battery; BMS is integral to safe operation.",
+          "boundary_evidence_digest": "0000000000000000000000000000000000000000000000000000000000000005"
+        },
+        "responsibility": {
+          "economic_operator_ref": "operator-responsible",
+          "economic_operator_identity_digest": "0000000000000000000000000000000000000000000000000000000000000006",
+          "passport_host_ref": "operator-responsible",
+          "passport_host_identity_digest": "0000000000000000000000000000000000000000000000000000000000000006",
+          "host_role": "responsible_operator",
+          "delegation": null
+        },
+        "passport": {
+          "passport_id": "passport-ev-001",
+          "status": "active",
+          "predecessor_passport_id": null,
+          "created_at_ms": 1000000,
+          "current_configuration_digest": "00000000000000000000000000000000000000000000000000000000000001f5",
+          "events": [
+            {
+              "event_id": "placed-1",
+              "event_kind": "placed_on_market",
+              "event_time_ms": 1000000,
+              "passport_id_before": null,
+              "passport_id_after": "passport-ev-001",
+              "configuration_before_digest": null,
+              "configuration_after_digest": "00000000000000000000000000000000000000000000000000000000000001f5",
+              "actor_ref": "operator-responsible",
+              "actor_identity_digest": "00000000000000000000000000000000000000000000000000000000000f4628",
+              "actor_role": "economic_operator",
+              "mandate_ref": null,
+              "mandate_digest": null,
+              "responsible_operator_before_ref": null,
+              "responsible_operator_after_ref": "operator-responsible",
+              "evidence_digest": "00000000000000000000000000000000000000000000000000000000000f4a10",
+              "evidence_class": "synthetic_fixture"
+            }
+          ]
+        },
+        "applicability_catalog": {
+          "catalog_digest": "0000000000000000000000000000000000000000000000000000000000000007",
+          "data_model_version": "battery-passport-semantic-model-2026-10",
+          "points": [
+            {
+              "data_point_id": "product_identifier",
+              "applicability": "required_at_launch",
+              "condition_met": true,
+              "access_tier": "public",
+              "effective_from_ms": 1
+            },
+            {
+              "data_point_id": "battery_chemistry",
+              "applicability": "required_at_launch",
+              "condition_met": true,
+              "access_tier": "public",
+              "effective_from_ms": 1
+            },
+            {
+              "data_point_id": "carbon_footprint",
+              "applicability": "deferred",
+              "condition_met": false,
+              "access_tier": "public",
+              "effective_from_ms": 2200000000000
+            },
+            {
+              "data_point_id": "detailed_service_record",
+              "applicability": "optional",
+              "condition_met": false,
+              "access_tier": "legitimate_interest_pending",
+              "effective_from_ms": 1
+            }
+          ]
+        },
+        "projected_fields": [
+          {
+            "data_point_id": "product_identifier",
+            "data_model_version": "battery-passport-semantic-model-2026-10",
+            "value_digest": "0000000000000000000000000000000000000000000000000000000000000008",
+            "source_evidence_digest": "0000000000000000000000000000000000000000000000000000000000000009",
+            "evidence_class": "synthetic_fixture"
+          },
+          {
+            "data_point_id": "battery_chemistry",
+            "data_model_version": "battery-passport-semantic-model-2026-10",
+            "value_digest": "000000000000000000000000000000000000000000000000000000000000000a",
+            "source_evidence_digest": "000000000000000000000000000000000000000000000000000000000000000b",
+            "evidence_class": "synthetic_fixture"
+          },
+          {
+            "data_point_id": "carbon_footprint",
+            "data_model_version": "battery-passport-semantic-model-2026-10",
+            "value_digest": "0000000000000000000000000000000000000000000000000000000000000014",
+            "source_evidence_digest": "0000000000000000000000000000000000000000000000000000000000000015",
+            "evidence_class": "synthetic_fixture"
+          }
+        ],
+        "access_policy": {
+          "policy_ref": "battery-public-access-v1",
+          "policy_digest": "000000000000000000000000000000000000000000000000000000000000000c",
+          "legal_status": "pending",
+          "legal_basis_ref": "Regulation (EU) 2023/1542 Annex XIII and current adopted implementing acts",
+          "allowed_data_point_ids": [
+            "product_identifier",
+            "battery_chemistry"
+          ]
+        },
+        "registry_packet": {
+          "record_kind": "registration_metadata_only",
+          "includes_full_passport_payload": false,
+          "registration_metadata_digest": "000000000000000000000000000000000000000000000000000000000000000d",
+          "passport_id": "passport-ev-001",
+          "economic_operator_ref": "operator-responsible",
+          "host_ref": "operator-responsible",
+          "rulebook_digest": "0000000000000000000000000000000000000000000000000000000000000001"
+        },
+        "claims": {
+          "legal_compliance_claim": false,
+          "safety_qualification_claim": false
+        }
+      }
+    },
+    {
+      "case_id": "expired-delegate-mandate",
+      "expectation": "reject",
+      "manifest": {
+        "protocol_version": "ev-battery-passport-projection/0.1",
+        "manifest_id": "expired-delegate-mandate",
+        "evaluation_time_ms": 1900000000000,
+        "audience": "public",
+        "rulebook": {
+          "version": "commission-battery-guidance-2026-10-19",
+          "source_ref": "https://single-market-economy.ec.europa.eu/single-market/digital-product-passport/batteries_en",
+          "source_date": "2026-10-19",
+          "source_digest": "0000000000000000000000000000000000000000000000000000000000000001",
+          "retrieved_at": "2026-11-10"
+        },
+        "data_model": {
+          "version": "battery-passport-semantic-model-2026-10",
+          "schema_digest": "0000000000000000000000000000000000000000000000000000000000000002"
+        },
+        "finished_battery": {
+          "finished_battery_ref": "finished-battery-001",
+          "identity_digest": "0000000000000000000000000000000000000000000000000000000000000003",
+          "category": "ev",
+          "nominal_energy_kwh": 82.4,
+          "chemistry": "NMC",
+          "boundary_kind": "single_pack_with_bms",
+          "packs": [
+            {
+              "pack_ref": "pack-001",
+              "configuration_digest": "00000000000000000000000000000000000000000000000000000000000001f5"
+            }
+          ],
+          "bms_ref": "bms-001",
+          "bms_digest": "0000000000000000000000000000000000000000000000000000000000000004",
+          "boundary_rationale": "One finished functioning traction battery; BMS is integral to safe operation.",
+          "boundary_evidence_digest": "0000000000000000000000000000000000000000000000000000000000000005"
+        },
+        "responsibility": {
+          "economic_operator_ref": "operator-responsible",
+          "economic_operator_identity_digest": "0000000000000000000000000000000000000000000000000000000000000006",
+          "passport_host_ref": "passport-host",
+          "passport_host_identity_digest": "00000000000000000000000000000000000000000000000000000000000002bd",
+          "host_role": "authorized_operator",
+          "delegation": {
+            "mandate_ref": "mandate-001",
+            "mandate_digest": "00000000000000000000000000000000000000000000000000000000000002bc",
+            "issuer_operator_ref": "operator-responsible",
+            "delegate_operator_ref": "passport-host",
+            "scope": [
+              "maintain_passport",
+              "publish_projection",
+              "submit_registry_metadata"
+            ],
+            "valid_from_ms": 500000,
+            "valid_to_ms": 1600000,
+            "state": "expired",
+            "revoked_at_ms": null
+          }
+        },
+        "passport": {
+          "passport_id": "passport-ev-001",
+          "status": "active",
+          "predecessor_passport_id": null,
+          "created_at_ms": 1000000,
+          "current_configuration_digest": "00000000000000000000000000000000000000000000000000000000000001f5",
+          "events": [
+            {
+              "event_id": "placed-1",
+              "event_kind": "placed_on_market",
+              "event_time_ms": 1000000,
+              "passport_id_before": null,
+              "passport_id_after": "passport-ev-001",
+              "configuration_before_digest": null,
+              "configuration_after_digest": "00000000000000000000000000000000000000000000000000000000000001f5",
+              "actor_ref": "operator-responsible",
+              "actor_identity_digest": "00000000000000000000000000000000000000000000000000000000000f4628",
+              "actor_role": "economic_operator",
+              "mandate_ref": null,
+              "mandate_digest": null,
+              "responsible_operator_before_ref": null,
+              "responsible_operator_after_ref": "operator-responsible",
+              "evidence_digest": "00000000000000000000000000000000000000000000000000000000000f4a10",
+              "evidence_class": "synthetic_fixture"
+            },
+            {
+              "event_id": "projection-update-1",
+              "event_kind": "status_change",
+              "event_time_ms": 1500000,
+              "passport_id_before": "passport-ev-001",
+              "passport_id_after": "passport-ev-001",
+              "configuration_before_digest": "00000000000000000000000000000000000000000000000000000000000001f5",
+              "configuration_after_digest": "00000000000000000000000000000000000000000000000000000000000001f5",
+              "actor_ref": "passport-host",
+              "actor_identity_digest": "000000000000000000000000000000000000000000000000000000000016e748",
+              "actor_role": "authorized_operator",
+              "mandate_ref": "mandate-001",
+              "mandate_digest": "00000000000000000000000000000000000000000000000000000000000002bc",
+              "responsible_operator_before_ref": "operator-responsible",
+              "responsible_operator_after_ref": "operator-responsible",
+              "evidence_digest": "000000000000000000000000000000000000000000000000000000000016eb30",
+              "evidence_class": "synthetic_fixture"
+            }
+          ]
+        },
+        "applicability_catalog": {
+          "catalog_digest": "0000000000000000000000000000000000000000000000000000000000000007",
+          "data_model_version": "battery-passport-semantic-model-2026-10",
+          "points": [
+            {
+              "data_point_id": "product_identifier",
+              "applicability": "required_at_launch",
+              "condition_met": true,
+              "access_tier": "public",
+              "effective_from_ms": 1
+            },
+            {
+              "data_point_id": "battery_chemistry",
+              "applicability": "required_at_launch",
+              "condition_met": true,
+              "access_tier": "public",
+              "effective_from_ms": 1
+            },
+            {
+              "data_point_id": "carbon_footprint",
+              "applicability": "deferred",
+              "condition_met": false,
+              "access_tier": "public",
+              "effective_from_ms": 2200000000000
+            },
+            {
+              "data_point_id": "detailed_service_record",
+              "applicability": "optional",
+              "condition_met": false,
+              "access_tier": "legitimate_interest_pending",
+              "effective_from_ms": 1
+            }
+          ]
+        },
+        "projected_fields": [
+          {
+            "data_point_id": "product_identifier",
+            "data_model_version": "battery-passport-semantic-model-2026-10",
+            "value_digest": "0000000000000000000000000000000000000000000000000000000000000008",
+            "source_evidence_digest": "0000000000000000000000000000000000000000000000000000000000000009",
+            "evidence_class": "synthetic_fixture"
+          },
+          {
+            "data_point_id": "battery_chemistry",
+            "data_model_version": "battery-passport-semantic-model-2026-10",
+            "value_digest": "000000000000000000000000000000000000000000000000000000000000000a",
+            "source_evidence_digest": "000000000000000000000000000000000000000000000000000000000000000b",
+            "evidence_class": "synthetic_fixture"
+          }
+        ],
+        "access_policy": {
+          "policy_ref": "battery-public-access-v1",
+          "policy_digest": "000000000000000000000000000000000000000000000000000000000000000c",
+          "legal_status": "pending",
+          "legal_basis_ref": "Regulation (EU) 2023/1542 Annex XIII and current adopted implementing acts",
+          "allowed_data_point_ids": [
+            "product_identifier",
+            "battery_chemistry"
+          ]
+        },
+        "registry_packet": {
+          "record_kind": "registration_metadata_only",
+          "includes_full_passport_payload": false,
+          "registration_metadata_digest": "000000000000000000000000000000000000000000000000000000000000000d",
+          "passport_id": "passport-ev-001",
+          "economic_operator_ref": "operator-responsible",
+          "host_ref": "passport-host",
+          "rulebook_digest": "0000000000000000000000000000000000000000000000000000000000000001"
+        },
+        "claims": {
+          "legal_compliance_claim": false,
+          "safety_qualification_claim": false
+        }
+      }
+    },
+    {
+      "case_id": "revoked-delegate-mandate",
+      "expectation": "reject",
+      "manifest": {
+        "protocol_version": "ev-battery-passport-projection/0.1",
+        "manifest_id": "revoked-delegate-mandate",
+        "evaluation_time_ms": 1900000000000,
+        "audience": "public",
+        "rulebook": {
+          "version": "commission-battery-guidance-2026-10-19",
+          "source_ref": "https://single-market-economy.ec.europa.eu/single-market/digital-product-passport/batteries_en",
+          "source_date": "2026-10-19",
+          "source_digest": "0000000000000000000000000000000000000000000000000000000000000001",
+          "retrieved_at": "2026-11-10"
+        },
+        "data_model": {
+          "version": "battery-passport-semantic-model-2026-10",
+          "schema_digest": "0000000000000000000000000000000000000000000000000000000000000002"
+        },
+        "finished_battery": {
+          "finished_battery_ref": "finished-battery-001",
+          "identity_digest": "0000000000000000000000000000000000000000000000000000000000000003",
+          "category": "ev",
+          "nominal_energy_kwh": 82.4,
+          "chemistry": "NMC",
+          "boundary_kind": "single_pack_with_bms",
+          "packs": [
+            {
+              "pack_ref": "pack-001",
+              "configuration_digest": "00000000000000000000000000000000000000000000000000000000000001f5"
+            }
+          ],
+          "bms_ref": "bms-001",
+          "bms_digest": "0000000000000000000000000000000000000000000000000000000000000004",
+          "boundary_rationale": "One finished functioning traction battery; BMS is integral to safe operation.",
+          "boundary_evidence_digest": "0000000000000000000000000000000000000000000000000000000000000005"
+        },
+        "responsibility": {
+          "economic_operator_ref": "operator-responsible",
+          "economic_operator_identity_digest": "0000000000000000000000000000000000000000000000000000000000000006",
+          "passport_host_ref": "passport-host",
+          "passport_host_identity_digest": "00000000000000000000000000000000000000000000000000000000000002bd",
+          "host_role": "authorized_operator",
+          "delegation": {
+            "mandate_ref": "mandate-001",
+            "mandate_digest": "00000000000000000000000000000000000000000000000000000000000002bc",
+            "issuer_operator_ref": "operator-responsible",
+            "delegate_operator_ref": "passport-host",
+            "scope": [
+              "maintain_passport",
+              "publish_projection",
+              "submit_registry_metadata"
+            ],
+            "valid_from_ms": 500000,
+            "valid_to_ms": 2000000000000,
+            "state": "revoked",
+            "revoked_at_ms": 1400000
+          }
+        },
+        "passport": {
+          "passport_id": "passport-ev-001",
+          "status": "active",
+          "predecessor_passport_id": null,
+          "created_at_ms": 1000000,
+          "current_configuration_digest": "00000000000000000000000000000000000000000000000000000000000001f5",
+          "events": [
+            {
+              "event_id": "placed-1",
+              "event_kind": "placed_on_market",
+              "event_time_ms": 1000000,
+              "passport_id_before": null,
+              "passport_id_after": "passport-ev-001",
+              "configuration_before_digest": null,
+              "configuration_after_digest": "00000000000000000000000000000000000000000000000000000000000001f5",
+              "actor_ref": "operator-responsible",
+              "actor_identity_digest": "00000000000000000000000000000000000000000000000000000000000f4628",
+              "actor_role": "economic_operator",
+              "mandate_ref": null,
+              "mandate_digest": null,
+              "responsible_operator_before_ref": null,
+              "responsible_operator_after_ref": "operator-responsible",
+              "evidence_digest": "00000000000000000000000000000000000000000000000000000000000f4a10",
+              "evidence_class": "synthetic_fixture"
+            },
+            {
+              "event_id": "projection-update-1",
+              "event_kind": "status_change",
+              "event_time_ms": 1500000,
+              "passport_id_before": "passport-ev-001",
+              "passport_id_after": "passport-ev-001",
+              "configuration_before_digest": "00000000000000000000000000000000000000000000000000000000000001f5",
+              "configuration_after_digest": "00000000000000000000000000000000000000000000000000000000000001f5",
+              "actor_ref": "passport-host",
+              "actor_identity_digest": "000000000000000000000000000000000000000000000000000000000016e748",
+              "actor_role": "authorized_operator",
+              "mandate_ref": "mandate-001",
+              "mandate_digest": "00000000000000000000000000000000000000000000000000000000000002bc",
+              "responsible_operator_before_ref": "operator-responsible",
+              "responsible_operator_after_ref": "operator-responsible",
+              "evidence_digest": "000000000000000000000000000000000000000000000000000000000016eb30",
+              "evidence_class": "synthetic_fixture"
+            }
+          ]
+        },
+        "applicability_catalog": {
+          "catalog_digest": "0000000000000000000000000000000000000000000000000000000000000007",
+          "data_model_version": "battery-passport-semantic-model-2026-10",
+          "points": [
+            {
+              "data_point_id": "product_identifier",
+              "applicability": "required_at_launch",
+              "condition_met": true,
+              "access_tier": "public",
+              "effective_from_ms": 1
+            },
+            {
+              "data_point_id": "battery_chemistry",
+              "applicability": "required_at_launch",
+              "condition_met": true,
+              "access_tier": "public",
+              "effective_from_ms": 1
+            },
+            {
+              "data_point_id": "carbon_footprint",
+              "applicability": "deferred",
+              "condition_met": false,
+              "access_tier": "public",
+              "effective_from_ms": 2200000000000
+            },
+            {
+              "data_point_id": "detailed_service_record",
+              "applicability": "optional",
+              "condition_met": false,
+              "access_tier": "legitimate_interest_pending",
+              "effective_from_ms": 1
+            }
+          ]
+        },
+        "projected_fields": [
+          {
+            "data_point_id": "product_identifier",
+            "data_model_version": "battery-passport-semantic-model-2026-10",
+            "value_digest": "0000000000000000000000000000000000000000000000000000000000000008",
+            "source_evidence_digest": "0000000000000000000000000000000000000000000000000000000000000009",
+            "evidence_class": "synthetic_fixture"
+          },
+          {
+            "data_point_id": "battery_chemistry",
+            "data_model_version": "battery-passport-semantic-model-2026-10",
+            "value_digest": "000000000000000000000000000000000000000000000000000000000000000a",
+            "source_evidence_digest": "000000000000000000000000000000000000000000000000000000000000000b",
+            "evidence_class": "synthetic_fixture"
+          }
+        ],
+        "access_policy": {
+          "policy_ref": "battery-public-access-v1",
+          "policy_digest": "000000000000000000000000000000000000000000000000000000000000000c",
+          "legal_status": "pending",
+          "legal_basis_ref": "Regulation (EU) 2023/1542 Annex XIII and current adopted implementing acts",
+          "allowed_data_point_ids": [
+            "product_identifier",
+            "battery_chemistry"
+          ]
+        },
+        "registry_packet": {
+          "record_kind": "registration_metadata_only",
+          "includes_full_passport_payload": false,
+          "registration_metadata_digest": "000000000000000000000000000000000000000000000000000000000000000d",
+          "passport_id": "passport-ev-001",
+          "economic_operator_ref": "operator-responsible",
+          "host_ref": "passport-host",
+          "rulebook_digest": "0000000000000000000000000000000000000000000000000000000000000001"
+        },
+        "claims": {
+          "legal_compliance_claim": false,
+          "safety_qualification_claim": false
+        }
+      }
+    },
+    {
+      "case_id": "repair-must-not-create-new-passport",
+      "expectation": "reject",
+      "manifest": {
+        "protocol_version": "ev-battery-passport-projection/0.1",
+        "manifest_id": "repair-must-not-create-new-passport",
+        "evaluation_time_ms": 1900000000000,
+        "audience": "public",
+        "rulebook": {
+          "version": "commission-battery-guidance-2026-10-19",
+          "source_ref": "https://single-market-economy.ec.europa.eu/single-market/digital-product-passport/batteries_en",
+          "source_date": "2026-10-19",
+          "source_digest": "0000000000000000000000000000000000000000000000000000000000000001",
+          "retrieved_at": "2026-11-10"
+        },
+        "data_model": {
+          "version": "battery-passport-semantic-model-2026-10",
+          "schema_digest": "0000000000000000000000000000000000000000000000000000000000000002"
+        },
+        "finished_battery": {
+          "finished_battery_ref": "finished-battery-001",
+          "identity_digest": "0000000000000000000000000000000000000000000000000000000000000003",
+          "category": "ev",
+          "nominal_energy_kwh": 82.4,
+          "chemistry": "NMC",
+          "boundary_kind": "single_pack_with_bms",
+          "packs": [
+            {
+              "pack_ref": "pack-001",
+              "configuration_digest": "00000000000000000000000000000000000000000000000000000000000001f6"
+            }
+          ],
+          "bms_ref": "bms-001",
+          "bms_digest": "0000000000000000000000000000000000000000000000000000000000000004",
+          "boundary_rationale": "One finished functioning traction battery; BMS is integral to safe operation.",
+          "boundary_evidence_digest": "0000000000000000000000000000000000000000000000000000000000000005"
+        },
+        "responsibility": {
+          "economic_operator_ref": "operator-responsible",
+          "economic_operator_identity_digest": "0000000000000000000000000000000000000000000000000000000000000006",
+          "passport_host_ref": "operator-responsible",
+          "passport_host_identity_digest": "0000000000000000000000000000000000000000000000000000000000000006",
+          "host_role": "responsible_operator",
+          "delegation": null
+        },
+        "passport": {
+          "passport_id": "passport-ev-002",
+          "status": "active",
+          "predecessor_passport_id": "passport-ev-001",
+          "created_at_ms": 1000000,
+          "current_configuration_digest": "00000000000000000000000000000000000000000000000000000000000001f6",
+          "events": [
+            {
+              "event_id": "placed-1",
+              "event_kind": "placed_on_market",
+              "event_time_ms": 1000000,
+              "passport_id_before": null,
+              "passport_id_after": "passport-ev-001",
+              "configuration_before_digest": null,
+              "configuration_after_digest": "00000000000000000000000000000000000000000000000000000000000001f5",
+              "actor_ref": "operator-responsible",
+              "actor_identity_digest": "00000000000000000000000000000000000000000000000000000000000f4628",
+              "actor_role": "economic_operator",
+              "mandate_ref": null,
+              "mandate_digest": null,
+              "responsible_operator_before_ref": null,
+              "responsible_operator_after_ref": "operator-responsible",
+              "evidence_digest": "00000000000000000000000000000000000000000000000000000000000f4a10",
+              "evidence_class": "synthetic_fixture"
+            },
+            {
+              "event_id": "repair-1",
+              "event_kind": "simple_repair",
+              "event_time_ms": 2000000,
+              "passport_id_before": "passport-ev-001",
+              "passport_id_after": "passport-ev-002",
+              "configuration_before_digest": "00000000000000000000000000000000000000000000000000000000000001f5",
+              "configuration_after_digest": "00000000000000000000000000000000000000000000000000000000000001f6",
+              "actor_ref": "operator-responsible",
+              "actor_identity_digest": "00000000000000000000000000000000000000000000000000000000001e8868",
+              "actor_role": "economic_operator",
+              "mandate_ref": null,
+              "mandate_digest": null,
+              "responsible_operator_before_ref": "operator-responsible",
+              "responsible_operator_after_ref": "operator-responsible",
+              "evidence_digest": "00000000000000000000000000000000000000000000000000000000001e8c50",
+              "evidence_class": "synthetic_fixture"
+            }
+          ]
+        },
+        "applicability_catalog": {
+          "catalog_digest": "0000000000000000000000000000000000000000000000000000000000000007",
+          "data_model_version": "battery-passport-semantic-model-2026-10",
+          "points": [
+            {
+              "data_point_id": "product_identifier",
+              "applicability": "required_at_launch",
+              "condition_met": true,
+              "access_tier": "public",
+              "effective_from_ms": 1
+            },
+            {
+              "data_point_id": "battery_chemistry",
+              "applicability": "required_at_launch",
+              "condition_met": true,
+              "access_tier": "public",
+              "effective_from_ms": 1
+            },
+            {
+              "data_point_id": "carbon_footprint",
+              "applicability": "deferred",
+              "condition_met": false,
+              "access_tier": "public",
+              "effective_from_ms": 2200000000000
+            },
+            {
+              "data_point_id": "detailed_service_record",
+              "applicability": "optional",
+              "condition_met": false,
+              "access_tier": "legitimate_interest_pending",
+              "effective_from_ms": 1
+            }
+          ]
+        },
+        "projected_fields": [
+          {
+            "data_point_id": "product_identifier",
+            "data_model_version": "battery-passport-semantic-model-2026-10",
+            "value_digest": "0000000000000000000000000000000000000000000000000000000000000008",
+            "source_evidence_digest": "0000000000000000000000000000000000000000000000000000000000000009",
+            "evidence_class": "synthetic_fixture"
+          },
+          {
+            "data_point_id": "battery_chemistry",
+            "data_model_version": "battery-passport-semantic-model-2026-10",
+            "value_digest": "000000000000000000000000000000000000000000000000000000000000000a",
+            "source_evidence_digest": "000000000000000000000000000000000000000000000000000000000000000b",
+            "evidence_class": "synthetic_fixture"
+          }
+        ],
+        "access_policy": {
+          "policy_ref": "battery-public-access-v1",
+          "policy_digest": "000000000000000000000000000000000000000000000000000000000000000c",
+          "legal_status": "pending",
+          "legal_basis_ref": "Regulation (EU) 2023/1542 Annex XIII and current adopted implementing acts",
+          "allowed_data_point_ids": [
+            "product_identifier",
+            "battery_chemistry"
+          ]
+        },
+        "registry_packet": {
+          "record_kind": "registration_metadata_only",
+          "includes_full_passport_payload": false,
+          "registration_metadata_digest": "000000000000000000000000000000000000000000000000000000000000000d",
+          "passport_id": "passport-ev-002",
+          "economic_operator_ref": "operator-responsible",
+          "host_ref": "operator-responsible",
+          "rulebook_digest": "0000000000000000000000000000000000000000000000000000000000000001"
+        },
+        "claims": {
+          "legal_compliance_claim": false,
+          "safety_qualification_claim": false
+        }
+      }
+    },
+    {
+      "case_id": "repurpose-missing-predecessor",
+      "expectation": "reject",
+      "manifest": {
+        "protocol_version": "ev-battery-passport-projection/0.1",
+        "manifest_id": "repurpose-missing-predecessor",
+        "evaluation_time_ms": 1900000000000,
+        "audience": "public",
+        "rulebook": {
+          "version": "commission-battery-guidance-2026-10-19",
+          "source_ref": "https://single-market-economy.ec.europa.eu/single-market/digital-product-passport/batteries_en",
+          "source_date": "2026-10-19",
+          "source_digest": "0000000000000000000000000000000000000000000000000000000000000001",
+          "retrieved_at": "2026-11-10"
+        },
+        "data_model": {
+          "version": "battery-passport-semantic-model-2026-10",
+          "schema_digest": "0000000000000000000000000000000000000000000000000000000000000002"
+        },
+        "finished_battery": {
+          "finished_battery_ref": "finished-battery-001",
+          "identity_digest": "0000000000000000000000000000000000000000000000000000000000000003",
+          "category": "ev",
+          "nominal_energy_kwh": 82.4,
+          "chemistry": "NMC",
+          "boundary_kind": "single_pack_with_bms",
+          "packs": [
+            {
+              "pack_ref": "pack-001",
+              "configuration_digest": "00000000000000000000000000000000000000000000000000000000000001f7"
+            }
+          ],
+          "bms_ref": "bms-001",
+          "bms_digest": "0000000000000000000000000000000000000000000000000000000000000004",
+          "boundary_rationale": "One finished functioning traction battery; BMS is integral to safe operation.",
+          "boundary_evidence_digest": "0000000000000000000000000000000000000000000000000000000000000005"
+        },
+        "responsibility": {
+          "economic_operator_ref": "operator-responsible",
+          "economic_operator_identity_digest": "0000000000000000000000000000000000000000000000000000000000000006",
+          "passport_host_ref": "operator-responsible",
+          "passport_host_identity_digest": "0000000000000000000000000000000000000000000000000000000000000006",
+          "host_role": "responsible_operator",
+          "delegation": null
+        },
+        "passport": {
+          "passport_id": "passport-ev-002",
+          "status": "active",
+          "predecessor_passport_id": null,
+          "created_at_ms": 3000000,
+          "current_configuration_digest": "00000000000000000000000000000000000000000000000000000000000001f7",
+          "events": [
+            {
+              "event_id": "placed-1",
+              "event_kind": "placed_on_market",
+              "event_time_ms": 1000000,
+              "passport_id_before": null,
+              "passport_id_after": "passport-ev-001",
+              "configuration_before_digest": null,
+              "configuration_after_digest": "00000000000000000000000000000000000000000000000000000000000001f5",
+              "actor_ref": "operator-responsible",
+              "actor_identity_digest": "00000000000000000000000000000000000000000000000000000000000f4628",
+              "actor_role": "economic_operator",
+              "mandate_ref": null,
+              "mandate_digest": null,
+              "responsible_operator_before_ref": null,
+              "responsible_operator_after_ref": "operator-responsible",
+              "evidence_digest": "00000000000000000000000000000000000000000000000000000000000f4a10",
+              "evidence_class": "synthetic_fixture"
+            },
+            {
+              "event_id": "repurpose-1",
+              "event_kind": "repurpose",
+              "event_time_ms": 3000000,
+              "passport_id_before": "passport-ev-001",
+              "passport_id_after": "passport-ev-002",
+              "configuration_before_digest": "00000000000000000000000000000000000000000000000000000000000001f5",
+              "configuration_after_digest": "00000000000000000000000000000000000000000000000000000000000001f7",
+              "actor_ref": "operator-responsible",
+              "actor_identity_digest": "00000000000000000000000000000000000000000000000000000000002dcaa8",
+              "actor_role": "economic_operator",
+              "mandate_ref": null,
+              "mandate_digest": null,
+              "responsible_operator_before_ref": "operator-responsible",
+              "responsible_operator_after_ref": "operator-responsible",
+              "evidence_digest": "00000000000000000000000000000000000000000000000000000000002dce90",
+              "evidence_class": "synthetic_fixture"
+            }
+          ]
+        },
+        "applicability_catalog": {
+          "catalog_digest": "0000000000000000000000000000000000000000000000000000000000000007",
+          "data_model_version": "battery-passport-semantic-model-2026-10",
+          "points": [
+            {
+              "data_point_id": "product_identifier",
+              "applicability": "required_at_launch",
+              "condition_met": true,
+              "access_tier": "public",
+              "effective_from_ms": 1
+            },
+            {
+              "data_point_id": "battery_chemistry",
+              "applicability": "required_at_launch",
+              "condition_met": true,
+              "access_tier": "public",
+              "effective_from_ms": 1
+            },
+            {
+              "data_point_id": "carbon_footprint",
+              "applicability": "deferred",
+              "condition_met": false,
+              "access_tier": "public",
+              "effective_from_ms": 2200000000000
+            },
+            {
+              "data_point_id": "detailed_service_record",
+              "applicability": "optional",
+              "condition_met": false,
+              "access_tier": "legitimate_interest_pending",
+              "effective_from_ms": 1
+            }
+          ]
+        },
+        "projected_fields": [
+          {
+            "data_point_id": "product_identifier",
+            "data_model_version": "battery-passport-semantic-model-2026-10",
+            "value_digest": "0000000000000000000000000000000000000000000000000000000000000008",
+            "source_evidence_digest": "0000000000000000000000000000000000000000000000000000000000000009",
+            "evidence_class": "synthetic_fixture"
+          },
+          {
+            "data_point_id": "battery_chemistry",
+            "data_model_version": "battery-passport-semantic-model-2026-10",
+            "value_digest": "000000000000000000000000000000000000000000000000000000000000000a",
+            "source_evidence_digest": "000000000000000000000000000000000000000000000000000000000000000b",
+            "evidence_class": "synthetic_fixture"
+          }
+        ],
+        "access_policy": {
+          "policy_ref": "battery-public-access-v1",
+          "policy_digest": "000000000000000000000000000000000000000000000000000000000000000c",
+          "legal_status": "pending",
+          "legal_basis_ref": "Regulation (EU) 2023/1542 Annex XIII and current adopted implementing acts",
+          "allowed_data_point_ids": [
+            "product_identifier",
+            "battery_chemistry"
+          ]
+        },
+        "registry_packet": {
+          "record_kind": "registration_metadata_only",
+          "includes_full_passport_payload": false,
+          "registration_metadata_digest": "000000000000000000000000000000000000000000000000000000000000000d",
+          "passport_id": "passport-ev-002",
+          "economic_operator_ref": "operator-responsible",
+          "host_ref": "operator-responsible",
+          "rulebook_digest": "0000000000000000000000000000000000000000000000000000000000000001"
+        },
+        "claims": {
+          "legal_compliance_claim": false,
+          "safety_qualification_claim": false
+        }
+      }
+    },
+    {
+      "case_id": "registry-must-not-host-full-payload",
+      "expectation": "reject",
+      "manifest": {
+        "protocol_version": "ev-battery-passport-projection/0.1",
+        "manifest_id": "registry-must-not-host-full-payload",
+        "evaluation_time_ms": 1900000000000,
+        "audience": "public",
+        "rulebook": {
+          "version": "commission-battery-guidance-2026-10-19",
+          "source_ref": "https://single-market-economy.ec.europa.eu/single-market/digital-product-passport/batteries_en",
+          "source_date": "2026-10-19",
+          "source_digest": "0000000000000000000000000000000000000000000000000000000000000001",
+          "retrieved_at": "2026-11-10"
+        },
+        "data_model": {
+          "version": "battery-passport-semantic-model-2026-10",
+          "schema_digest": "0000000000000000000000000000000000000000000000000000000000000002"
+        },
+        "finished_battery": {
+          "finished_battery_ref": "finished-battery-001",
+          "identity_digest": "0000000000000000000000000000000000000000000000000000000000000003",
+          "category": "ev",
+          "nominal_energy_kwh": 82.4,
+          "chemistry": "NMC",
+          "boundary_kind": "single_pack_with_bms",
+          "packs": [
+            {
+              "pack_ref": "pack-001",
+              "configuration_digest": "00000000000000000000000000000000000000000000000000000000000001f5"
+            }
+          ],
+          "bms_ref": "bms-001",
+          "bms_digest": "0000000000000000000000000000000000000000000000000000000000000004",
+          "boundary_rationale": "One finished functioning traction battery; BMS is integral to safe operation.",
+          "boundary_evidence_digest": "0000000000000000000000000000000000000000000000000000000000000005"
+        },
+        "responsibility": {
+          "economic_operator_ref": "operator-responsible",
+          "economic_operator_identity_digest": "0000000000000000000000000000000000000000000000000000000000000006",
+          "passport_host_ref": "operator-responsible",
+          "passport_host_identity_digest": "0000000000000000000000000000000000000000000000000000000000000006",
+          "host_role": "responsible_operator",
+          "delegation": null
+        },
+        "passport": {
+          "passport_id": "passport-ev-001",
+          "status": "active",
+          "predecessor_passport_id": null,
+          "created_at_ms": 1000000,
+          "current_configuration_digest": "00000000000000000000000000000000000000000000000000000000000001f5",
+          "events": [
+            {
+              "event_id": "placed-1",
+              "event_kind": "placed_on_market",
+              "event_time_ms": 1000000,
+              "passport_id_before": null,
+              "passport_id_after": "passport-ev-001",
+              "configuration_before_digest": null,
+              "configuration_after_digest": "00000000000000000000000000000000000000000000000000000000000001f5",
+              "actor_ref": "operator-responsible",
+              "actor_identity_digest": "00000000000000000000000000000000000000000000000000000000000f4628",
+              "actor_role": "economic_operator",
+              "mandate_ref": null,
+              "mandate_digest": null,
+              "responsible_operator_before_ref": null,
+              "responsible_operator_after_ref": "operator-responsible",
+              "evidence_digest": "00000000000000000000000000000000000000000000000000000000000f4a10",
+              "evidence_class": "synthetic_fixture"
+            }
+          ]
+        },
+        "applicability_catalog": {
+          "catalog_digest": "0000000000000000000000000000000000000000000000000000000000000007",
+          "data_model_version": "battery-passport-semantic-model-2026-10",
+          "points": [
+            {
+              "data_point_id": "product_identifier",
+              "applicability": "required_at_launch",
+              "condition_met": true,
+              "access_tier": "public",
+              "effective_from_ms": 1
+            },
+            {
+              "data_point_id": "battery_chemistry",
+              "applicability": "required_at_launch",
+              "condition_met": true,
+              "access_tier": "public",
+              "effective_from_ms": 1
+            },
+            {
+              "data_point_id": "carbon_footprint",
+              "applicability": "deferred",
+              "condition_met": false,
+              "access_tier": "public",
+              "effective_from_ms": 2200000000000
+            },
+            {
+              "data_point_id": "detailed_service_record",
+              "applicability": "optional",
+              "condition_met": false,
+              "access_tier": "legitimate_interest_pending",
+              "effective_from_ms": 1
+            }
+          ]
+        },
+        "projected_fields": [
+          {
+            "data_point_id": "product_identifier",
+            "data_model_version": "battery-passport-semantic-model-2026-10",
+            "value_digest": "0000000000000000000000000000000000000000000000000000000000000008",
+            "source_evidence_digest": "0000000000000000000000000000000000000000000000000000000000000009",
+            "evidence_class": "synthetic_fixture"
+          },
+          {
+            "data_point_id": "battery_chemistry",
+            "data_model_version": "battery-passport-semantic-model-2026-10",
+            "value_digest": "000000000000000000000000000000000000000000000000000000000000000a",
+            "source_evidence_digest": "000000000000000000000000000000000000000000000000000000000000000b",
+            "evidence_class": "synthetic_fixture"
+          }
+        ],
+        "access_policy": {
+          "policy_ref": "battery-public-access-v1",
+          "policy_digest": "000000000000000000000000000000000000000000000000000000000000000c",
+          "legal_status": "pending",
+          "legal_basis_ref": "Regulation (EU) 2023/1542 Annex XIII and current adopted implementing acts",
+          "allowed_data_point_ids": [
+            "product_identifier",
+            "battery_chemistry"
+          ]
+        },
+        "registry_packet": {
+          "record_kind": "registration_metadata_only",
+          "includes_full_passport_payload": true,
+          "registration_metadata_digest": "000000000000000000000000000000000000000000000000000000000000000d",
+          "passport_id": "passport-ev-001",
+          "economic_operator_ref": "operator-responsible",
+          "host_ref": "operator-responsible",
+          "rulebook_digest": "0000000000000000000000000000000000000000000000000000000000000001"
+        },
+        "claims": {
+          "legal_compliance_claim": false,
+          "safety_qualification_claim": false
+        }
+      }
+    },
+    {
+      "case_id": "legitimate-interest-policy-pending",
+      "expectation": "reject",
+      "manifest": {
+        "protocol_version": "ev-battery-passport-projection/0.1",
+        "manifest_id": "legitimate-interest-policy-pending",
+        "evaluation_time_ms": 1900000000000,
+        "audience": "legitimate_interest",
+        "rulebook": {
+          "version": "commission-battery-guidance-2026-10-19",
+          "source_ref": "https://single-market-economy.ec.europa.eu/single-market/digital-product-passport/batteries_en",
+          "source_date": "2026-10-19",
+          "source_digest": "0000000000000000000000000000000000000000000000000000000000000001",
+          "retrieved_at": "2026-11-10"
+        },
+        "data_model": {
+          "version": "battery-passport-semantic-model-2026-10",
+          "schema_digest": "0000000000000000000000000000000000000000000000000000000000000002"
+        },
+        "finished_battery": {
+          "finished_battery_ref": "finished-battery-001",
+          "identity_digest": "0000000000000000000000000000000000000000000000000000000000000003",
+          "category": "ev",
+          "nominal_energy_kwh": 82.4,
+          "chemistry": "NMC",
+          "boundary_kind": "single_pack_with_bms",
+          "packs": [
+            {
+              "pack_ref": "pack-001",
+              "configuration_digest": "00000000000000000000000000000000000000000000000000000000000001f5"
+            }
+          ],
+          "bms_ref": "bms-001",
+          "bms_digest": "0000000000000000000000000000000000000000000000000000000000000004",
+          "boundary_rationale": "One finished functioning traction battery; BMS is integral to safe operation.",
+          "boundary_evidence_digest": "0000000000000000000000000000000000000000000000000000000000000005"
+        },
+        "responsibility": {
+          "economic_operator_ref": "operator-responsible",
+          "economic_operator_identity_digest": "0000000000000000000000000000000000000000000000000000000000000006",
+          "passport_host_ref": "operator-responsible",
+          "passport_host_identity_digest": "0000000000000000000000000000000000000000000000000000000000000006",
+          "host_role": "responsible_operator",
+          "delegation": null
+        },
+        "passport": {
+          "passport_id": "passport-ev-001",
+          "status": "active",
+          "predecessor_passport_id": null,
+          "created_at_ms": 1000000,
+          "current_configuration_digest": "00000000000000000000000000000000000000000000000000000000000001f5",
+          "events": [
+            {
+              "event_id": "placed-1",
+              "event_kind": "placed_on_market",
+              "event_time_ms": 1000000,
+              "passport_id_before": null,
+              "passport_id_after": "passport-ev-001",
+              "configuration_before_digest": null,
+              "configuration_after_digest": "00000000000000000000000000000000000000000000000000000000000001f5",
+              "actor_ref": "operator-responsible",
+              "actor_identity_digest": "00000000000000000000000000000000000000000000000000000000000f4628",
+              "actor_role": "economic_operator",
+              "mandate_ref": null,
+              "mandate_digest": null,
+              "responsible_operator_before_ref": null,
+              "responsible_operator_after_ref": "operator-responsible",
+              "evidence_digest": "00000000000000000000000000000000000000000000000000000000000f4a10",
+              "evidence_class": "synthetic_fixture"
+            }
+          ]
+        },
+        "applicability_catalog": {
+          "catalog_digest": "0000000000000000000000000000000000000000000000000000000000000007",
+          "data_model_version": "battery-passport-semantic-model-2026-10",
+          "points": [
+            {
+              "data_point_id": "product_identifier",
+              "applicability": "required_at_launch",
+              "condition_met": true,
+              "access_tier": "public",
+              "effective_from_ms": 1
+            },
+            {
+              "data_point_id": "battery_chemistry",
+              "applicability": "required_at_launch",
+              "condition_met": true,
+              "access_tier": "public",
+              "effective_from_ms": 1
+            },
+            {
+              "data_point_id": "carbon_footprint",
+              "applicability": "deferred",
+              "condition_met": false,
+              "access_tier": "public",
+              "effective_from_ms": 2200000000000
+            },
+            {
+              "data_point_id": "detailed_service_record",
+              "applicability": "optional",
+              "condition_met": false,
+              "access_tier": "legitimate_interest_pending",
+              "effective_from_ms": 1
+            }
+          ]
+        },
+        "projected_fields": [
+          {
+            "data_point_id": "product_identifier",
+            "data_model_version": "battery-passport-semantic-model-2026-10",
+            "value_digest": "0000000000000000000000000000000000000000000000000000000000000008",
+            "source_evidence_digest": "0000000000000000000000000000000000000000000000000000000000000009",
+            "evidence_class": "synthetic_fixture"
+          },
+          {
+            "data_point_id": "battery_chemistry",
+            "data_model_version": "battery-passport-semantic-model-2026-10",
+            "value_digest": "000000000000000000000000000000000000000000000000000000000000000a",
+            "source_evidence_digest": "000000000000000000000000000000000000000000000000000000000000000b",
+            "evidence_class": "synthetic_fixture"
+          },
+          {
+            "data_point_id": "detailed_service_record",
+            "data_model_version": "battery-passport-semantic-model-2026-10",
+            "value_digest": "0000000000000000000000000000000000000000000000000000000000000016",
+            "source_evidence_digest": "0000000000000000000000000000000000000000000000000000000000000017",
+            "evidence_class": "synthetic_fixture"
+          }
+        ],
+        "access_policy": {
+          "policy_ref": "battery-public-access-v1",
+          "policy_digest": "000000000000000000000000000000000000000000000000000000000000000c",
+          "legal_status": "pending",
+          "legal_basis_ref": "Regulation (EU) 2023/1542 Annex XIII and current adopted implementing acts",
+          "allowed_data_point_ids": [
+            "product_identifier",
+            "battery_chemistry"
+          ]
+        },
+        "registry_packet": {
+          "record_kind": "registration_metadata_only",
+          "includes_full_passport_payload": false,
+          "registration_metadata_digest": "000000000000000000000000000000000000000000000000000000000000000d",
+          "passport_id": "passport-ev-001",
+          "economic_operator_ref": "operator-responsible",
+          "host_ref": "operator-responsible",
+          "rulebook_digest": "0000000000000000000000000000000000000000000000000000000000000001"
+        },
+        "claims": {
+          "legal_compliance_claim": false,
+          "safety_qualification_claim": false
+        }
+      }
+    },
+    {
+      "case_id": "recycling-completed-must-cease",
+      "expectation": "reject",
+      "manifest": {
+        "protocol_version": "ev-battery-passport-projection/0.1",
+        "manifest_id": "recycling-completed-must-cease",
+        "evaluation_time_ms": 1900000000000,
+        "audience": "public",
+        "rulebook": {
+          "version": "commission-battery-guidance-2026-10-19",
+          "source_ref": "https://single-market-economy.ec.europa.eu/single-market/digital-product-passport/batteries_en",
+          "source_date": "2026-10-19",
+          "source_digest": "0000000000000000000000000000000000000000000000000000000000000001",
+          "retrieved_at": "2026-11-10"
+        },
+        "data_model": {
+          "version": "battery-passport-semantic-model-2026-10",
+          "schema_digest": "0000000000000000000000000000000000000000000000000000000000000002"
+        },
+        "finished_battery": {
+          "finished_battery_ref": "finished-battery-001",
+          "identity_digest": "0000000000000000000000000000000000000000000000000000000000000003",
+          "category": "ev",
+          "nominal_energy_kwh": 82.4,
+          "chemistry": "NMC",
+          "boundary_kind": "single_pack_with_bms",
+          "packs": [
+            {
+              "pack_ref": "pack-001",
+              "configuration_digest": "00000000000000000000000000000000000000000000000000000000000001f5"
+            }
+          ],
+          "bms_ref": "bms-001",
+          "bms_digest": "0000000000000000000000000000000000000000000000000000000000000004",
+          "boundary_rationale": "One finished functioning traction battery; BMS is integral to safe operation.",
+          "boundary_evidence_digest": "0000000000000000000000000000000000000000000000000000000000000005"
+        },
+        "responsibility": {
+          "economic_operator_ref": "operator-responsible",
+          "economic_operator_identity_digest": "0000000000000000000000000000000000000000000000000000000000000006",
+          "passport_host_ref": "operator-responsible",
+          "passport_host_identity_digest": "0000000000000000000000000000000000000000000000000000000000000006",
+          "host_role": "responsible_operator",
+          "delegation": null
+        },
+        "passport": {
+          "passport_id": "passport-ev-001",
+          "status": "active",
+          "predecessor_passport_id": null,
+          "created_at_ms": 1000000,
+          "current_configuration_digest": "00000000000000000000000000000000000000000000000000000000000001f5",
+          "events": [
+            {
+              "event_id": "placed-1",
+              "event_kind": "placed_on_market",
+              "event_time_ms": 1000000,
+              "passport_id_before": null,
+              "passport_id_after": "passport-ev-001",
+              "configuration_before_digest": null,
+              "configuration_after_digest": "00000000000000000000000000000000000000000000000000000000000001f5",
+              "actor_ref": "operator-responsible",
+              "actor_identity_digest": "00000000000000000000000000000000000000000000000000000000000f4628",
+              "actor_role": "economic_operator",
+              "mandate_ref": null,
+              "mandate_digest": null,
+              "responsible_operator_before_ref": null,
+              "responsible_operator_after_ref": "operator-responsible",
+              "evidence_digest": "00000000000000000000000000000000000000000000000000000000000f4a10",
+              "evidence_class": "synthetic_fixture"
+            },
+            {
+              "event_id": "recycle-1",
+              "event_kind": "recycling_completed",
+              "event_time_ms": 2000000,
+              "passport_id_before": "passport-ev-001",
+              "passport_id_after": null,
+              "configuration_before_digest": "00000000000000000000000000000000000000000000000000000000000001f5",
+              "configuration_after_digest": null,
+              "actor_ref": "operator-responsible",
+              "actor_identity_digest": "00000000000000000000000000000000000000000000000000000000001e8868",
+              "actor_role": "economic_operator",
+              "mandate_ref": null,
+              "mandate_digest": null,
+              "responsible_operator_before_ref": "operator-responsible",
+              "responsible_operator_after_ref": "operator-responsible",
+              "evidence_digest": "00000000000000000000000000000000000000000000000000000000001e8c50",
+              "evidence_class": "synthetic_fixture"
+            }
+          ]
+        },
+        "applicability_catalog": {
+          "catalog_digest": "0000000000000000000000000000000000000000000000000000000000000007",
+          "data_model_version": "battery-passport-semantic-model-2026-10",
+          "points": [
+            {
+              "data_point_id": "product_identifier",
+              "applicability": "required_at_launch",
+              "condition_met": true,
+              "access_tier": "public",
+              "effective_from_ms": 1
+            },
+            {
+              "data_point_id": "battery_chemistry",
+              "applicability": "required_at_launch",
+              "condition_met": true,
+              "access_tier": "public",
+              "effective_from_ms": 1
+            },
+            {
+              "data_point_id": "carbon_footprint",
+              "applicability": "deferred",
+              "condition_met": false,
+              "access_tier": "public",
+              "effective_from_ms": 2200000000000
+            },
+            {
+              "data_point_id": "detailed_service_record",
+              "applicability": "optional",
+              "condition_met": false,
+              "access_tier": "legitimate_interest_pending",
+              "effective_from_ms": 1
+            }
+          ]
+        },
+        "projected_fields": [
+          {
+            "data_point_id": "product_identifier",
+            "data_model_version": "battery-passport-semantic-model-2026-10",
+            "value_digest": "0000000000000000000000000000000000000000000000000000000000000008",
+            "source_evidence_digest": "0000000000000000000000000000000000000000000000000000000000000009",
+            "evidence_class": "synthetic_fixture"
+          },
+          {
+            "data_point_id": "battery_chemistry",
+            "data_model_version": "battery-passport-semantic-model-2026-10",
+            "value_digest": "000000000000000000000000000000000000000000000000000000000000000a",
+            "source_evidence_digest": "000000000000000000000000000000000000000000000000000000000000000b",
+            "evidence_class": "synthetic_fixture"
+          }
+        ],
+        "access_policy": {
+          "policy_ref": "battery-public-access-v1",
+          "policy_digest": "000000000000000000000000000000000000000000000000000000000000000c",
+          "legal_status": "pending",
+          "legal_basis_ref": "Regulation (EU) 2023/1542 Annex XIII and current adopted implementing acts",
+          "allowed_data_point_ids": [
+            "product_identifier",
+            "battery_chemistry"
+          ]
+        },
+        "registry_packet": {
+          "record_kind": "registration_metadata_only",
+          "includes_full_passport_payload": false,
+          "registration_metadata_digest": "000000000000000000000000000000000000000000000000000000000000000d",
+          "passport_id": "passport-ev-001",
+          "economic_operator_ref": "operator-responsible",
+          "host_ref": "operator-responsible",
+          "rulebook_digest": "0000000000000000000000000000000000000000000000000000000000000001"
+        },
+        "claims": {
+          "legal_compliance_claim": false,
+          "safety_qualification_claim": false
+        }
+      }
+    },
+    {
+      "case_id": "delegation-must-not-transfer-accountability",
+      "expectation": "reject",
+      "manifest": {
+        "protocol_version": "ev-battery-passport-projection/0.1",
+        "manifest_id": "delegation-must-not-transfer-accountability",
+        "evaluation_time_ms": 1900000000000,
+        "audience": "public",
+        "rulebook": {
+          "version": "commission-battery-guidance-2026-10-19",
+          "source_ref": "https://single-market-economy.ec.europa.eu/single-market/digital-product-passport/batteries_en",
+          "source_date": "2026-10-19",
+          "source_digest": "0000000000000000000000000000000000000000000000000000000000000001",
+          "retrieved_at": "2026-11-10"
+        },
+        "data_model": {
+          "version": "battery-passport-semantic-model-2026-10",
+          "schema_digest": "0000000000000000000000000000000000000000000000000000000000000002"
+        },
+        "finished_battery": {
+          "finished_battery_ref": "finished-battery-001",
+          "identity_digest": "0000000000000000000000000000000000000000000000000000000000000003",
+          "category": "ev",
+          "nominal_energy_kwh": 82.4,
+          "chemistry": "NMC",
+          "boundary_kind": "single_pack_with_bms",
+          "packs": [
+            {
+              "pack_ref": "pack-001",
+              "configuration_digest": "00000000000000000000000000000000000000000000000000000000000001f5"
+            }
+          ],
+          "bms_ref": "bms-001",
+          "bms_digest": "0000000000000000000000000000000000000000000000000000000000000004",
+          "boundary_rationale": "One finished functioning traction battery; BMS is integral to safe operation.",
+          "boundary_evidence_digest": "0000000000000000000000000000000000000000000000000000000000000005"
+        },
+        "responsibility": {
+          "economic_operator_ref": "passport-host",
+          "economic_operator_identity_digest": "00000000000000000000000000000000000000000000000000000000000002bd",
+          "passport_host_ref": "passport-host",
+          "passport_host_identity_digest": "00000000000000000000000000000000000000000000000000000000000002bd",
+          "host_role": "authorized_operator",
+          "delegation": {
+            "mandate_ref": "mandate-001",
+            "mandate_digest": "00000000000000000000000000000000000000000000000000000000000002bc",
+            "issuer_operator_ref": "operator-responsible",
+            "delegate_operator_ref": "passport-host",
+            "scope": [
+              "maintain_passport",
+              "publish_projection",
+              "submit_registry_metadata"
+            ],
+            "valid_from_ms": 500000,
+            "valid_to_ms": 2000000000000,
+            "state": "active",
+            "revoked_at_ms": null
+          }
+        },
+        "passport": {
+          "passport_id": "passport-ev-001",
+          "status": "active",
+          "predecessor_passport_id": null,
+          "created_at_ms": 1000000,
+          "current_configuration_digest": "00000000000000000000000000000000000000000000000000000000000001f5",
+          "events": [
+            {
+              "event_id": "placed-1",
+              "event_kind": "placed_on_market",
+              "event_time_ms": 1000000,
+              "passport_id_before": null,
+              "passport_id_after": "passport-ev-001",
+              "configuration_before_digest": null,
+              "configuration_after_digest": "00000000000000000000000000000000000000000000000000000000000001f5",
+              "actor_ref": "operator-responsible",
+              "actor_identity_digest": "00000000000000000000000000000000000000000000000000000000000f4628",
+              "actor_role": "economic_operator",
+              "mandate_ref": null,
+              "mandate_digest": null,
+              "responsible_operator_before_ref": null,
+              "responsible_operator_after_ref": "operator-responsible",
+              "evidence_digest": "00000000000000000000000000000000000000000000000000000000000f4a10",
+              "evidence_class": "synthetic_fixture"
+            },
+            {
+              "event_id": "projection-update-1",
+              "event_kind": "status_change",
+              "event_time_ms": 1500000,
+              "passport_id_before": "passport-ev-001",
+              "passport_id_after": "passport-ev-001",
+              "configuration_before_digest": "00000000000000000000000000000000000000000000000000000000000001f5",
+              "configuration_after_digest": "00000000000000000000000000000000000000000000000000000000000001f5",
+              "actor_ref": "passport-host",
+              "actor_identity_digest": "000000000000000000000000000000000000000000000000000000000016e748",
+              "actor_role": "authorized_operator",
+              "mandate_ref": "mandate-001",
+              "mandate_digest": "00000000000000000000000000000000000000000000000000000000000002bc",
+              "responsible_operator_before_ref": "operator-responsible",
+              "responsible_operator_after_ref": "operator-responsible",
+              "evidence_digest": "000000000000000000000000000000000000000000000000000000000016eb30",
+              "evidence_class": "synthetic_fixture"
+            }
+          ]
+        },
+        "applicability_catalog": {
+          "catalog_digest": "0000000000000000000000000000000000000000000000000000000000000007",
+          "data_model_version": "battery-passport-semantic-model-2026-10",
+          "points": [
+            {
+              "data_point_id": "product_identifier",
+              "applicability": "required_at_launch",
+              "condition_met": true,
+              "access_tier": "public",
+              "effective_from_ms": 1
+            },
+            {
+              "data_point_id": "battery_chemistry",
+              "applicability": "required_at_launch",
+              "condition_met": true,
+              "access_tier": "public",
+              "effective_from_ms": 1
+            },
+            {
+              "data_point_id": "carbon_footprint",
+              "applicability": "deferred",
+              "condition_met": false,
+              "access_tier": "public",
+              "effective_from_ms": 2200000000000
+            },
+            {
+              "data_point_id": "detailed_service_record",
+              "applicability": "optional",
+              "condition_met": false,
+              "access_tier": "legitimate_interest_pending",
+              "effective_from_ms": 1
+            }
+          ]
+        },
+        "projected_fields": [
+          {
+            "data_point_id": "product_identifier",
+            "data_model_version": "battery-passport-semantic-model-2026-10",
+            "value_digest": "0000000000000000000000000000000000000000000000000000000000000008",
+            "source_evidence_digest": "0000000000000000000000000000000000000000000000000000000000000009",
+            "evidence_class": "synthetic_fixture"
+          },
+          {
+            "data_point_id": "battery_chemistry",
+            "data_model_version": "battery-passport-semantic-model-2026-10",
+            "value_digest": "000000000000000000000000000000000000000000000000000000000000000a",
+            "source_evidence_digest": "000000000000000000000000000000000000000000000000000000000000000b",
+            "evidence_class": "synthetic_fixture"
+          }
+        ],
+        "access_policy": {
+          "policy_ref": "battery-public-access-v1",
+          "policy_digest": "000000000000000000000000000000000000000000000000000000000000000c",
+          "legal_status": "pending",
+          "legal_basis_ref": "Regulation (EU) 2023/1542 Annex XIII and current adopted implementing acts",
+          "allowed_data_point_ids": [
+            "product_identifier",
+            "battery_chemistry"
+          ]
+        },
+        "registry_packet": {
+          "record_kind": "registration_metadata_only",
+          "includes_full_passport_payload": false,
+          "registration_metadata_digest": "000000000000000000000000000000000000000000000000000000000000000d",
+          "passport_id": "passport-ev-001",
+          "economic_operator_ref": "operator-responsible",
+          "host_ref": "passport-host",
+          "rulebook_digest": "0000000000000000000000000000000000000000000000000000000000000001"
+        },
+        "claims": {
+          "legal_compliance_claim": false,
+          "safety_qualification_claim": false
+        }
+      }
+    },
+    {
+      "case_id": "lifecycle-events-must-be-chronological",
+      "expectation": "reject",
+      "manifest": {
+        "protocol_version": "ev-battery-passport-projection/0.1",
+        "manifest_id": "lifecycle-events-must-be-chronological",
+        "evaluation_time_ms": 1900000000000,
+        "audience": "public",
+        "rulebook": {
+          "version": "commission-battery-guidance-2026-10-19",
+          "source_ref": "https://single-market-economy.ec.europa.eu/single-market/digital-product-passport/batteries_en",
+          "source_date": "2026-10-19",
+          "source_digest": "0000000000000000000000000000000000000000000000000000000000000001",
+          "retrieved_at": "2026-11-10"
+        },
+        "data_model": {
+          "version": "battery-passport-semantic-model-2026-10",
+          "schema_digest": "0000000000000000000000000000000000000000000000000000000000000002"
+        },
+        "finished_battery": {
+          "finished_battery_ref": "finished-battery-001",
+          "identity_digest": "0000000000000000000000000000000000000000000000000000000000000003",
+          "category": "ev",
+          "nominal_energy_kwh": 82.4,
+          "chemistry": "NMC",
+          "boundary_kind": "single_pack_with_bms",
+          "packs": [
+            {
+              "pack_ref": "pack-001",
+              "configuration_digest": "00000000000000000000000000000000000000000000000000000000000001f6"
+            }
+          ],
+          "bms_ref": "bms-001",
+          "bms_digest": "0000000000000000000000000000000000000000000000000000000000000004",
+          "boundary_rationale": "One finished functioning traction battery; BMS is integral to safe operation.",
+          "boundary_evidence_digest": "0000000000000000000000000000000000000000000000000000000000000005"
+        },
+        "responsibility": {
+          "economic_operator_ref": "operator-responsible",
+          "economic_operator_identity_digest": "0000000000000000000000000000000000000000000000000000000000000006",
+          "passport_host_ref": "operator-responsible",
+          "passport_host_identity_digest": "0000000000000000000000000000000000000000000000000000000000000006",
+          "host_role": "responsible_operator",
+          "delegation": null
+        },
+        "passport": {
+          "passport_id": "passport-ev-001",
+          "status": "active",
+          "predecessor_passport_id": null,
+          "created_at_ms": 1000000,
+          "current_configuration_digest": "00000000000000000000000000000000000000000000000000000000000001f6",
+          "events": [
+            {
+              "event_id": "placed-1",
+              "event_kind": "placed_on_market",
+              "event_time_ms": 1000000,
+              "passport_id_before": null,
+              "passport_id_after": "passport-ev-001",
+              "configuration_before_digest": null,
+              "configuration_after_digest": "00000000000000000000000000000000000000000000000000000000000001f5",
+              "actor_ref": "operator-responsible",
+              "actor_identity_digest": "00000000000000000000000000000000000000000000000000000000000f4628",
+              "actor_role": "economic_operator",
+              "mandate_ref": null,
+              "mandate_digest": null,
+              "responsible_operator_before_ref": null,
+              "responsible_operator_after_ref": "operator-responsible",
+              "evidence_digest": "00000000000000000000000000000000000000000000000000000000000f4a10",
+              "evidence_class": "synthetic_fixture"
+            },
+            {
+              "event_id": "repair-1",
+              "event_kind": "simple_repair",
+              "event_time_ms": 500000,
+              "passport_id_before": "passport-ev-001",
+              "passport_id_after": "passport-ev-001",
+              "configuration_before_digest": "00000000000000000000000000000000000000000000000000000000000001f5",
+              "configuration_after_digest": "00000000000000000000000000000000000000000000000000000000000001f6",
+              "actor_ref": "operator-responsible",
+              "actor_identity_digest": "00000000000000000000000000000000000000000000000000000000001e8868",
+              "actor_role": "economic_operator",
+              "mandate_ref": null,
+              "mandate_digest": null,
+              "responsible_operator_before_ref": "operator-responsible",
+              "responsible_operator_after_ref": "operator-responsible",
+              "evidence_digest": "00000000000000000000000000000000000000000000000000000000001e8c50",
+              "evidence_class": "synthetic_fixture"
+            }
+          ]
+        },
+        "applicability_catalog": {
+          "catalog_digest": "0000000000000000000000000000000000000000000000000000000000000007",
+          "data_model_version": "battery-passport-semantic-model-2026-10",
+          "points": [
+            {
+              "data_point_id": "product_identifier",
+              "applicability": "required_at_launch",
+              "condition_met": true,
+              "access_tier": "public",
+              "effective_from_ms": 1
+            },
+            {
+              "data_point_id": "battery_chemistry",
+              "applicability": "required_at_launch",
+              "condition_met": true,
+              "access_tier": "public",
+              "effective_from_ms": 1
+            },
+            {
+              "data_point_id": "carbon_footprint",
+              "applicability": "deferred",
+              "condition_met": false,
+              "access_tier": "public",
+              "effective_from_ms": 2200000000000
+            },
+            {
+              "data_point_id": "detailed_service_record",
+              "applicability": "optional",
+              "condition_met": false,
+              "access_tier": "legitimate_interest_pending",
+              "effective_from_ms": 1
+            }
+          ]
+        },
+        "projected_fields": [
+          {
+            "data_point_id": "product_identifier",
+            "data_model_version": "battery-passport-semantic-model-2026-10",
+            "value_digest": "0000000000000000000000000000000000000000000000000000000000000008",
+            "source_evidence_digest": "0000000000000000000000000000000000000000000000000000000000000009",
+            "evidence_class": "synthetic_fixture"
+          },
+          {
+            "data_point_id": "battery_chemistry",
+            "data_model_version": "battery-passport-semantic-model-2026-10",
+            "value_digest": "000000000000000000000000000000000000000000000000000000000000000a",
+            "source_evidence_digest": "000000000000000000000000000000000000000000000000000000000000000b",
+            "evidence_class": "synthetic_fixture"
+          }
+        ],
+        "access_policy": {
+          "policy_ref": "battery-public-access-v1",
+          "policy_digest": "000000000000000000000000000000000000000000000000000000000000000c",
+          "legal_status": "pending",
+          "legal_basis_ref": "Regulation (EU) 2023/1542 Annex XIII and current adopted implementing acts",
+          "allowed_data_point_ids": [
+            "product_identifier",
+            "battery_chemistry"
+          ]
+        },
+        "registry_packet": {
+          "record_kind": "registration_metadata_only",
+          "includes_full_passport_payload": false,
+          "registration_metadata_digest": "000000000000000000000000000000000000000000000000000000000000000d",
+          "passport_id": "passport-ev-001",
+          "economic_operator_ref": "operator-responsible",
+          "host_ref": "operator-responsible",
+          "rulebook_digest": "0000000000000000000000000000000000000000000000000000000000000001"
+        },
+        "claims": {
+          "legal_compliance_claim": false,
+          "safety_qualification_claim": false
+        }
+      }
+    },
+    {
+      "case_id": "projected-field-needs-source-evidence",
+      "expectation": "reject",
+      "manifest": {
+        "protocol_version": "ev-battery-passport-projection/0.1",
+        "manifest_id": "projected-field-needs-source-evidence",
+        "evaluation_time_ms": 1900000000000,
+        "audience": "public",
+        "rulebook": {
+          "version": "commission-battery-guidance-2026-10-19",
+          "source_ref": "https://single-market-economy.ec.europa.eu/single-market/digital-product-passport/batteries_en",
+          "source_date": "2026-10-19",
+          "source_digest": "0000000000000000000000000000000000000000000000000000000000000001",
+          "retrieved_at": "2026-11-10"
+        },
+        "data_model": {
+          "version": "battery-passport-semantic-model-2026-10",
+          "schema_digest": "0000000000000000000000000000000000000000000000000000000000000002"
+        },
+        "finished_battery": {
+          "finished_battery_ref": "finished-battery-001",
+          "identity_digest": "0000000000000000000000000000000000000000000000000000000000000003",
+          "category": "ev",
+          "nominal_energy_kwh": 82.4,
+          "chemistry": "NMC",
+          "boundary_kind": "single_pack_with_bms",
+          "packs": [
+            {
+              "pack_ref": "pack-001",
+              "configuration_digest": "00000000000000000000000000000000000000000000000000000000000001f5"
+            }
+          ],
+          "bms_ref": "bms-001",
+          "bms_digest": "0000000000000000000000000000000000000000000000000000000000000004",
+          "boundary_rationale": "One finished functioning traction battery; BMS is integral to safe operation.",
+          "boundary_evidence_digest": "0000000000000000000000000000000000000000000000000000000000000005"
+        },
+        "responsibility": {
+          "economic_operator_ref": "operator-responsible",
+          "economic_operator_identity_digest": "0000000000000000000000000000000000000000000000000000000000000006",
+          "passport_host_ref": "operator-responsible",
+          "passport_host_identity_digest": "0000000000000000000000000000000000000000000000000000000000000006",
+          "host_role": "responsible_operator",
+          "delegation": null
+        },
+        "passport": {
+          "passport_id": "passport-ev-001",
+          "status": "active",
+          "predecessor_passport_id": null,
+          "created_at_ms": 1000000,
+          "current_configuration_digest": "00000000000000000000000000000000000000000000000000000000000001f5",
+          "events": [
+            {
+              "event_id": "placed-1",
+              "event_kind": "placed_on_market",
+              "event_time_ms": 1000000,
+              "passport_id_before": null,
+              "passport_id_after": "passport-ev-001",
+              "configuration_before_digest": null,
+              "configuration_after_digest": "00000000000000000000000000000000000000000000000000000000000001f5",
+              "actor_ref": "operator-responsible",
+              "actor_identity_digest": "00000000000000000000000000000000000000000000000000000000000f4628",
+              "actor_role": "economic_operator",
+              "mandate_ref": null,
+              "mandate_digest": null,
+              "responsible_operator_before_ref": null,
+              "responsible_operator_after_ref": "operator-responsible",
+              "evidence_digest": "00000000000000000000000000000000000000000000000000000000000f4a10",
+              "evidence_class": "synthetic_fixture"
+            }
+          ]
+        },
+        "applicability_catalog": {
+          "catalog_digest": "0000000000000000000000000000000000000000000000000000000000000007",
+          "data_model_version": "battery-passport-semantic-model-2026-10",
+          "points": [
+            {
+              "data_point_id": "product_identifier",
+              "applicability": "required_at_launch",
+              "condition_met": true,
+              "access_tier": "public",
+              "effective_from_ms": 1
+            },
+            {
+              "data_point_id": "battery_chemistry",
+              "applicability": "required_at_launch",
+              "condition_met": true,
+              "access_tier": "public",
+              "effective_from_ms": 1
+            },
+            {
+              "data_point_id": "carbon_footprint",
+              "applicability": "deferred",
+              "condition_met": false,
+              "access_tier": "public",
+              "effective_from_ms": 2200000000000
+            },
+            {
+              "data_point_id": "detailed_service_record",
+              "applicability": "optional",
+              "condition_met": false,
+              "access_tier": "legitimate_interest_pending",
+              "effective_from_ms": 1
+            }
+          ]
+        },
+        "projected_fields": [
+          {
+            "data_point_id": "product_identifier",
+            "data_model_version": "battery-passport-semantic-model-2026-10",
+            "value_digest": "0000000000000000000000000000000000000000000000000000000000000008",
+            "source_evidence_digest": "bad",
+            "evidence_class": "synthetic_fixture"
+          },
+          {
+            "data_point_id": "battery_chemistry",
+            "data_model_version": "battery-passport-semantic-model-2026-10",
+            "value_digest": "000000000000000000000000000000000000000000000000000000000000000a",
+            "source_evidence_digest": "000000000000000000000000000000000000000000000000000000000000000b",
+            "evidence_class": "synthetic_fixture"
+          }
+        ],
+        "access_policy": {
+          "policy_ref": "battery-public-access-v1",
+          "policy_digest": "000000000000000000000000000000000000000000000000000000000000000c",
+          "legal_status": "pending",
+          "legal_basis_ref": "Regulation (EU) 2023/1542 Annex XIII and current adopted implementing acts",
+          "allowed_data_point_ids": [
+            "product_identifier",
+            "battery_chemistry"
+          ]
+        },
+        "registry_packet": {
+          "record_kind": "registration_metadata_only",
+          "includes_full_passport_payload": false,
+          "registration_metadata_digest": "000000000000000000000000000000000000000000000000000000000000000d",
+          "passport_id": "passport-ev-001",
+          "economic_operator_ref": "operator-responsible",
+          "host_ref": "operator-responsible",
+          "rulebook_digest": "0000000000000000000000000000000000000000000000000000000000000001"
+        },
+        "claims": {
+          "legal_compliance_claim": false,
+          "safety_qualification_claim": false
+        }
+      }
+    },
+    {
+      "case_id": "unknown-data-point-rejected",
+      "expectation": "reject",
+      "manifest": {
+        "protocol_version": "ev-battery-passport-projection/0.1",
+        "manifest_id": "unknown-data-point-rejected",
+        "evaluation_time_ms": 1900000000000,
+        "audience": "public",
+        "rulebook": {
+          "version": "commission-battery-guidance-2026-10-19",
+          "source_ref": "https://single-market-economy.ec.europa.eu/single-market/digital-product-passport/batteries_en",
+          "source_date": "2026-10-19",
+          "source_digest": "0000000000000000000000000000000000000000000000000000000000000001",
+          "retrieved_at": "2026-11-10"
+        },
+        "data_model": {
+          "version": "battery-passport-semantic-model-2026-10",
+          "schema_digest": "0000000000000000000000000000000000000000000000000000000000000002"
+        },
+        "finished_battery": {
+          "finished_battery_ref": "finished-battery-001",
+          "identity_digest": "0000000000000000000000000000000000000000000000000000000000000003",
+          "category": "ev",
+          "nominal_energy_kwh": 82.4,
+          "chemistry": "NMC",
+          "boundary_kind": "single_pack_with_bms",
+          "packs": [
+            {
+              "pack_ref": "pack-001",
+              "configuration_digest": "00000000000000000000000000000000000000000000000000000000000001f5"
+            }
+          ],
+          "bms_ref": "bms-001",
+          "bms_digest": "0000000000000000000000000000000000000000000000000000000000000004",
+          "boundary_rationale": "One finished functioning traction battery; BMS is integral to safe operation.",
+          "boundary_evidence_digest": "0000000000000000000000000000000000000000000000000000000000000005"
+        },
+        "responsibility": {
+          "economic_operator_ref": "operator-responsible",
+          "economic_operator_identity_digest": "0000000000000000000000000000000000000000000000000000000000000006",
+          "passport_host_ref": "operator-responsible",
+          "passport_host_identity_digest": "0000000000000000000000000000000000000000000000000000000000000006",
+          "host_role": "responsible_operator",
+          "delegation": null
+        },
+        "passport": {
+          "passport_id": "passport-ev-001",
+          "status": "active",
+          "predecessor_passport_id": null,
+          "created_at_ms": 1000000,
+          "current_configuration_digest": "00000000000000000000000000000000000000000000000000000000000001f5",
+          "events": [
+            {
+              "event_id": "placed-1",
+              "event_kind": "placed_on_market",
+              "event_time_ms": 1000000,
+              "passport_id_before": null,
+              "passport_id_after": "passport-ev-001",
+              "configuration_before_digest": null,
+              "configuration_after_digest": "00000000000000000000000000000000000000000000000000000000000001f5",
+              "actor_ref": "operator-responsible",
+              "actor_identity_digest": "00000000000000000000000000000000000000000000000000000000000f4628",
+              "actor_role": "economic_operator",
+              "mandate_ref": null,
+              "mandate_digest": null,
+              "responsible_operator_before_ref": null,
+              "responsible_operator_after_ref": "operator-responsible",
+              "evidence_digest": "00000000000000000000000000000000000000000000000000000000000f4a10",
+              "evidence_class": "synthetic_fixture"
+            }
+          ]
+        },
+        "applicability_catalog": {
+          "catalog_digest": "0000000000000000000000000000000000000000000000000000000000000007",
+          "data_model_version": "battery-passport-semantic-model-2026-10",
+          "points": [
+            {
+              "data_point_id": "product_identifier",
+              "applicability": "required_at_launch",
+              "condition_met": true,
+              "access_tier": "public",
+              "effective_from_ms": 1
+            },
+            {
+              "data_point_id": "battery_chemistry",
+              "applicability": "required_at_launch",
+              "condition_met": true,
+              "access_tier": "public",
+              "effective_from_ms": 1
+            },
+            {
+              "data_point_id": "carbon_footprint",
+              "applicability": "deferred",
+              "condition_met": false,
+              "access_tier": "public",
+              "effective_from_ms": 2200000000000
+            },
+            {
+              "data_point_id": "detailed_service_record",
+              "applicability": "optional",
+              "condition_met": false,
+              "access_tier": "legitimate_interest_pending",
+              "effective_from_ms": 1
+            }
+          ]
+        },
+        "projected_fields": [
+          {
+            "data_point_id": "unknown_field",
+            "data_model_version": "battery-passport-semantic-model-2026-10",
+            "value_digest": "0000000000000000000000000000000000000000000000000000000000000008",
+            "source_evidence_digest": "0000000000000000000000000000000000000000000000000000000000000009",
+            "evidence_class": "synthetic_fixture"
+          },
+          {
+            "data_point_id": "battery_chemistry",
+            "data_model_version": "battery-passport-semantic-model-2026-10",
+            "value_digest": "000000000000000000000000000000000000000000000000000000000000000a",
+            "source_evidence_digest": "000000000000000000000000000000000000000000000000000000000000000b",
+            "evidence_class": "synthetic_fixture"
+          }
+        ],
+        "access_policy": {
+          "policy_ref": "battery-public-access-v1",
+          "policy_digest": "000000000000000000000000000000000000000000000000000000000000000c",
+          "legal_status": "pending",
+          "legal_basis_ref": "Regulation (EU) 2023/1542 Annex XIII and current adopted implementing acts",
+          "allowed_data_point_ids": [
+            "product_identifier",
+            "battery_chemistry"
+          ]
+        },
+        "registry_packet": {
+          "record_kind": "registration_metadata_only",
+          "includes_full_passport_payload": false,
+          "registration_metadata_digest": "000000000000000000000000000000000000000000000000000000000000000d",
+          "passport_id": "passport-ev-001",
+          "economic_operator_ref": "operator-responsible",
+          "host_ref": "operator-responsible",
+          "rulebook_digest": "0000000000000000000000000000000000000000000000000000000000000001"
+        },
+        "claims": {
+          "legal_compliance_claim": false,
+          "safety_qualification_claim": false
+        }
+      }
+    }
+  ]
+}
