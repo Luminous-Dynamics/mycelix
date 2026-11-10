@@ -5,7 +5,6 @@ import (
 	"crypto/sha256"
 	"encoding/binary"
 	"encoding/hex"
-	"errors"
 	"sort"
 )
 
@@ -339,4 +338,3 @@ func (b *ParentDelegatedExposureBookV1) childGrant(grantID string) (delegatedBud
 	return grant, nil
 }
 
-var ErrDelegatedExposureUnsupported = errors.New("delegated exposure protocol unsupported")
