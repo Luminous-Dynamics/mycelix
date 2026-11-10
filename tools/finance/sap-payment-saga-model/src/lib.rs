@@ -293,7 +293,7 @@ pub enum EffectState {
     },
     Committed {
         effect_id: String,
-        evidence: EffectEvidence,
+        evidence: Box<EffectEvidence>,
     },
 }
 
@@ -733,7 +733,7 @@ impl PaymentJournal {
                     leg,
                     EffectState::Committed {
                         effect_id,
-                        evidence,
+                        evidence: Box::new(evidence),
                     },
                 );
                 Ok(Transition::Committed)
@@ -741,7 +741,7 @@ impl PaymentJournal {
             EffectState::Committed {
                 effect_id: current,
                 evidence: current_evidence,
-            } if current == effect_id && current_evidence == evidence => {
+            } if current == effect_id && current_evidence.as_ref() == &evidence => {
                 Ok(Transition::AlreadyCommitted)
             }
             EffectState::Committed {
@@ -1166,18 +1166,18 @@ mod tests {
         assert!(matches!(
             journal.effect_state(PaymentLeg::LocalPaymentTransaction),
             EffectState::Committed {
-                evidence: EffectEvidence {
-                    kind: EffectEvidenceKind::LocalPaymentTransaction { .. },
-                    ..
-                },
+                evidence,
                 ..
-            }
+            } if matches!(
+                &evidence.kind,
+                EffectEvidenceKind::LocalPaymentTransaction { .. }
+            )
         ));
         assert_eq!(
             journal.effect_state(PaymentLeg::TreasuryFee),
             &EffectState::Committed {
                 effect_id: journal.effect_id(PaymentLeg::TreasuryFee),
-                evidence: treasury_fee_evidence(&journal, "treasury", 2)
+                evidence: Box::new(treasury_fee_evidence(&journal, "treasury", 2))
             }
         );
         assert!(journal.is_completed());
@@ -1241,7 +1241,7 @@ mod tests {
 
     #[test]
     fn local_transaction_rejects_non_completed_payment_and_missing_outbox_intent() {
-        let mut journal = ready_local_payment();
+        let journal = ready_local_payment();
 
         let mut pending_payment = local_payment_evidence(&journal, "pending-payment", 6);
         if let EffectEvidenceKind::LocalPaymentTransaction { payment_status, .. } =
