@@ -60,7 +60,7 @@ END {
             printf "Rust expected 30 samples for %s events; got %d\n", size, n > "/dev/stderr"
             failed = 1
         } else {
-            delete values
+            for (i in values) delete values[i]
             for (i = 1; i <= n; i++) values[i] = rust_latency[key, i]
             sort_samples(values, n)
             printf "Rust replay events=%s samples=%d p50_ns/op=%.3f p95_ns/op=%.3f p99_ns/op=%.3f\n", size, n, values[percentile_rank(50,n)], values[percentile_rank(95,n)], values[percentile_rank(99,n)]
@@ -74,7 +74,7 @@ END {
             failed = 1
             continue
         }
-        delete values
+        for (i in values) delete values[i]
         for (i = 1; i <= n; i++) values[i] = go_latency[key, i]
         sort_samples(values, n)
         printf "Go replay %s samples=%d p50_ns/op=%.3f p95_ns/op=%.3f p99_ns/op=%.3f mean_B/op=%.1f mean_allocs/op=%.1f\n", key, n, values[percentile_rank(50,n)], values[percentile_rank(95,n)], values[percentile_rank(99,n)], bytes_sum[key] / n, allocs_sum[key] / n
