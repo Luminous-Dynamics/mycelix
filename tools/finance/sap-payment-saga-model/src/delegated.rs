@@ -223,7 +223,9 @@ impl ParentDelegatedExposureBookV1 {
         if grant.status != DelegatedBudgetStatus::Active {
             return Err(ExposureError::InvalidTransition);
         }
-        if self.allocated_budget_minor()? > self.policy.maximum_total_minor {
+        if grant.budget_minor > self.policy.maximum_child_budget_minor
+            || self.allocated_budget_minor()? > self.policy.maximum_total_minor
+        {
             return Err(ExposureError::LimitExceeded);
         }
         self.grants
@@ -607,6 +609,32 @@ mod tests {
             parent.reserve("provider-a", child_intent(first_scope, "effect:new", 50)),
             Ok(ExposureDisposition::Reserved)
         ));
+    }
+
+    #[test]
+    fn reduced_child_cap_blocks_new_effects_but_preserves_existing_retry() {
+        let mut parent = ParentDelegatedExposureBookV1::new(parent_policy(1_000)).unwrap();
+        let scope = child_scope("operator:a", "dest:a");
+        let existing = child_intent(scope.clone(), "effect:existing", 100);
+        parent
+            .allocate_child_budget("provider-a", scope.clone(), 700, 1, digest('1'))
+            .unwrap();
+        parent.reserve("provider-a", existing.clone()).unwrap();
+
+        let mut lower = parent_policy(800);
+        lower.sequence = 2;
+        lower.maximum_child_budget_minor = 600;
+        lower.policy_digest = digest('e');
+        parent.replace_policy(lower).unwrap();
+
+        assert_eq!(
+            parent.reserve("provider-a", existing),
+            Ok(ExposureDisposition::AlreadyReserved)
+        );
+        assert_eq!(
+            parent.reserve("provider-a", child_intent(scope, "effect:new", 50)),
+            Err(ExposureError::LimitExceeded)
+        );
     }
 
     #[test]
