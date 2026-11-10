@@ -122,6 +122,37 @@ func TestGrantIdentityScopeAndSequenceAreBound(t *testing.T) {
 	}
 }
 
+func TestParentPolicyReductionFreezesNewChildRiskUntilBudgetIsReclaimed(t *testing.T) {
+	parent, _ := NewParentDelegatedExposureBookV1(parentExposureTestPolicy(1_000))
+	firstScope := parentExposureChildScope("operator:a", "dest:a")
+	secondScope := parentExposureChildScope("operator:b", "dest:b")
+	_, _ = parent.AllocateChildBudget("provider-a", firstScope, 600, 1, exposureTestDigest(1))
+	if _, err := parent.Reserve("provider-a", parentExposureIntent(firstScope, "effect:existing", 200)); err != nil { t.Fatal(err) }
+	_, _ = parent.AllocateChildBudget("provider-b", secondScope, 300, 2, exposureTestDigest(2))
+
+	lower := parentExposureTestPolicy(800)
+	lower.Sequence = 2
+	lower.MaximumChildBudgetMinor = 600
+	lower.PolicyDigest = exposureTestDigest(14)
+	if err := parent.ReplacePolicy(lower); err != nil { t.Fatal(err) }
+	if available, _ := parent.AvailableParentBudgetMinor(); available != 0 { t.Fatalf("available = %d", available) }
+	if _, err := parent.Reserve("provider-a", parentExposureIntent(firstScope, "effect:new", 50)); err != ErrExposureLimitExceeded {
+		t.Fatalf("new effect after cap reduction = %v", err)
+	}
+
+	// Existing effects remain resolvable while new risk is frozen.
+	if err := parent.MarkDispatchAuthorized("provider-a", "effect:existing"); err != nil { t.Fatal(err) }
+	if err := parent.MarkCommittedUnsettled("provider-a", "effect:existing"); err != nil { t.Fatal(err) }
+	evidence := parentExposureResolution("effect:existing", "dest:a", ExposureFinalSettlementEvidence)
+	if err := parent.MarkSettled("provider-a", "effect:existing", evidence); err != nil { t.Fatal(err) }
+	if err := parent.BeginRevocation("provider-b"); err != nil { t.Fatal(err) }
+	if err := parent.CloseGrant("provider-b"); err != nil { t.Fatal(err) }
+	if available, _ := parent.AvailableParentBudgetMinor(); available != 200 { t.Fatalf("available after close = %d", available) }
+	if _, err := parent.Reserve("provider-a", parentExposureIntent(firstScope, "effect:new", 50)); err != nil {
+		t.Fatalf("new effect after encumbrance returned within cap = %v", err)
+	}
+}
+
 func TestDelegatedSnapshotMatchesSharedKnownAnswer(t *testing.T) {
 	raw, err := os.ReadFile("../sap-payment-saga-model/fixtures/sap-payment-delegated-exposure-v1.kat")
 	if err != nil { t.Fatal(err) }
