@@ -4,11 +4,11 @@ This is a synthetic typed-record and applicability-check slice for Mycelix #6034
 
 ## Object boundaries
 
-- Instrument identity/configuration is separate from vendor capability claims.
+- Instrument identity/configuration is separate from vendor capability claims. The protocol profile has its own digest and independently verified status; local read-only capability is distinct from per-sample acquisition_mode and local_read_only evidence.
 - Capability records preserve operating range and conditions, resolution, accuracy basis/evidence class, response time, repeatability, drift and cross-sensitivity state.
 - Calibration records preserve certificate identity/authentication, laboratory accreditation scope, method/revision, measurand/unit/range, reference standards, traceability, as-found/as-left results, prior-data impact, and uncertainty.
 - Installation records preserve exact asset/building/room, geometry revision, local frame, placement, mounting/shielding and relocation state.
-- Samples preserve value, raw/derived processing state, QC state, observation date, event/acquisition time, time unit/timezone/clock source, synchronization uncertainty, sequence, processing method, source digest and exact calibration/installation/firmware/profile references.
+- Samples preserve value, raw/derived processing state, QC state, observation date, event/acquisition time, time unit/timezone/clock source, synchronization uncertainty, sequence, processing method, source digest and exact calibration/installation/firmware/profile references. The passport rejects remote acquisition or a write-capable protocol for channels whose profile requires local read-only acquisition.
 - The independent-assay object is separate from the instrument sample. Channels that require an independent assay must bind the assay to the exact measured sample ID/digest, measurand, method/revision, laboratory scope, certificate and rights. An instrument reading cannot self-certify water quality.
 - Uncertainty components preserve source records and correlation groups. This slice does not silently treat correlated inputs as independent, combine an uncertainty budget, or calculate a propagated uncertainty.
 - A purpose profile defines synthetic decision-specific range, response-time, time-synchronization and uncertainty limits. It is not a universal comfort, safety or code threshold.
@@ -27,7 +27,7 @@ An eligible record is not a PASS, measurement certification or device command. N
 
 ## Synthetic corpus
 
-48 frozen cases cover vendor-only capability, mismatched measurand/unit/range, calibration certificate and scope, traceability, as-found problems, relocation, serial reuse, firmware revisions, timebase/sequence, saturation and faults, derived-measure lineage, uncertainty/correlation, independent-assay binding, rights revocation and overbroad IAQ claims.
+51 frozen cases cover vendor-only capability, mismatched measurand/unit/range, calibration certificate and scope, traceability, as-found problems, relocation, serial reuse, firmware revisions, timebase/sequence, saturation and faults, derived-measure lineage, uncertainty/correlation, independent-assay binding, rights revocation and overbroad IAQ claims.
 
 ## Standards and method sources
 
@@ -52,3 +52,18 @@ The sample carries an explicit ISO-style observation date. The oracle checks tha
 ## Independent assay applicability
 
 Channels whose v0.1 profile requires an independent assay (water pH and conductivity) cannot reach review eligibility without a separately identified assay record. The assay must bind the same observation/sample digest, exact channel measurand and unit, named method/revision, laboratory and accreditation scope, authenticated certificate and authorized rights. A valid assay record is evidence about that exact sample; it is not a general potability certificate or a sensor calibration.
+
+
+## Local read-only acquisition boundary
+
+The instrument passport requires:
+- an exact protocol-profile ID and digest;
+- independent verification of that protocol profile;
+- an instrument capability declaration for local read-only operation;
+- a per-sample declaration that acquisition was local and read-only.
+
+This is a declared applicability check, not cryptographic verification of a protocol implementation. The protocol digest and verification receipt must be backed by a separate independent protocol/capability verification record before real instrument admission. Remote acquisition, command-capable write paths and provider-only protocol claims are negative cases.
+
+## What v0.1 does not yet compute
+
+The passport retains uncertainty inputs, calibration uncertainty, expanded uncertainty and correlation groups. It does not calculate covariance propagation, Monte Carlo distributions, coverage intervals, or conformity guard bands. Those are separate method-qualified tasks under #6034. Likewise, the certificate_state=authenticated field is a classified evidence state, not a built-in XML signature verifier; the DCC interoperability follow-on must verify the source certificate itself.
