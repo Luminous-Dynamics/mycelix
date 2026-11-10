@@ -264,7 +264,7 @@ fn build_star_graph(source_count: usize) -> (HypergraphInput, &'static str) {
             nodes,
             vec![edge],
             DependencyDomain::Clock,
-            source_count,
+            u64::try_from(source_count).expect("synthetic source count fits in u64"),
             "star",
         ),
         "SharedDependency",
