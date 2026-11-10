@@ -119,9 +119,9 @@ impl OwnerCheckpointSubjectV1 {
         {
             return Err(CheckpointError::InvalidSourceActionHash);
         }
-        if !self.issuer_did.starts_with("did:mycelix:")
+        if require_text(&self.issuer_did).is_err()
+            || !self.issuer_did.starts_with("did:mycelix:")
             || self.issuer_did.trim() != self.issuer_did
-            || self.issuer_did.len() > MAX_TEXT_BYTES
         {
             return Err(CheckpointError::InvalidIssuerDid);
         }
