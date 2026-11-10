@@ -90,14 +90,14 @@ func TestCheckpointSubjectMatchesSharedKnownAnswer(t *testing.T) {
 	if err := subject.ValidateAgainstIntent(intent); err != nil {
 		t.Fatalf("subject does not bind canonical intent: %v", err)
 	}
-	encoded, err := subject.CanonicalBytes()
+	encoded, err := subject.CanonicalBytesAgainstIntent(intent)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if got := hexString(encoded); got != vectors["subject-bytes-hex"] {
 		t.Fatalf("canonical bytes mismatch:\n got %s\nwant %s", got, vectors["subject-bytes-hex"])
 	}
-	digest, err := subject.CanonicalDigest()
+	digest, err := subject.CanonicalDigestAgainstIntent(intent)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -125,6 +125,7 @@ func TestCheckpointRejectsSubjectIntentSubstitution(t *testing.T) {
 func TestCheckpointRejectsDifferentImmutableIntent(t *testing.T) {
 	subject := checkpointTestSubject()
 	mutations := []func(*Intent){
+		func(i *Intent) { i.SenderDID = "did:other-sender" },
 		func(i *Intent) { i.RecipientDID = "did:other-recipient" },
 		func(i *Intent) { i.ClientIdempotencyKey = "client-key-002" },
 		func(i *Intent) { i.PayloadFingerprint = "sha256:" + strings.Repeat("b", 64) },
@@ -142,7 +143,7 @@ func TestCheckpointRejectsDifferentImmutableIntent(t *testing.T) {
 }
 
 func TestEveryCheckpointSubjectDimensionChangesDigest(t *testing.T) {
-	original, err := checkpointTestSubject().CanonicalDigest()
+	original, err := checkpointTestSubject().canonicalDigest()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -171,7 +172,7 @@ func TestEveryCheckpointSubjectDimensionChangesDigest(t *testing.T) {
 	for index, mutate := range mutations {
 		subject := checkpointTestSubject()
 		mutate(&subject)
-		got, err := subject.CanonicalDigest()
+		got, err := subject.canonicalDigest()
 		if err != nil {
 			t.Fatalf("mutation %d invalid: %v", index, err)
 		}
