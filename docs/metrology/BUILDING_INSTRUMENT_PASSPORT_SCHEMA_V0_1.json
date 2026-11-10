@@ -647,7 +647,8 @@
         "raw_source_digest",
         "calibration_record_id",
         "installation_record_id",
-        "rights_state"
+        "rights_state",
+        "observed_at_date"
       ],
       "properties": {
         "observation_id": {
@@ -747,6 +748,10 @@
         },
         "value": {
           "type": "number"
+        },
+        "observed_at_date": {
+          "type": "string",
+          "format": "date"
         }
       }
     },
