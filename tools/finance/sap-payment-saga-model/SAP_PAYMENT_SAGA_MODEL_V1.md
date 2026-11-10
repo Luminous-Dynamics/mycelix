@@ -75,7 +75,7 @@ Production implementation must compose with #4491 (sender-scoped operation ident
 
 ## Exact tests and next gate
 
-The model has **21 unit tests authored**, including the shared canonical-digest known-answer vector, typed-field mutation check and over-limit field rejection. The dedicated workflow pins Rust 1.96.0 and runs formatting, tests and Clippy. A queued run is not PASS; tests have not been locally compiled in the authoring environment because no Rust/Cargo/Nix toolchain is available.
+The model has **20 unit tests authored**, including two shared canonical-digest known-answer vectors, typed-field mutation check and over-limit field rejection. The dedicated workflow pins Rust 1.96.0 and runs formatting, tests and Clippy. A queued run is not PASS; tests have not been locally compiled in the authoring environment because no Rust/Cargo/Nix toolchain is available.
 
 Next production gates:
 - same-sender concurrent zome-call test: one transaction commits; stale chain-head attempt leaves no partial local write set;
