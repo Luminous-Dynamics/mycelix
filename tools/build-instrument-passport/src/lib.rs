@@ -21,7 +21,7 @@ pub const CORPUS_JSON: &str =
 const PROFILE_ID: &str = "MYC-BUILD-METROLOGY-PROFILE-V0.1";
 const PASSPORT_VERSION: &str = "mycelix.building-instrument-passport/0.1";
 const CORPUS_ID: &str = "BUILDING-INSTRUMENT-PASSPORT-CORPUS-V0.1";
-const EXPECTED_CASE_COUNT: usize = 48;
+const EXPECTED_CASE_COUNT: usize = 51;
 
 const ROOT_FIELDS: &[&str] = &[
     "passport_schema_version",
@@ -44,6 +44,9 @@ const INSTRUMENT_FIELDS: &[&str] = &[
     "hardware_revision",
     "firmware_revision",
     "protocol_profile_id",
+    "protocol_profile_digest",
+    "protocol_profile_state",
+    "local_read_only_supported",
     "channel_id",
     "channel_profile_id",
     "identity_state",
@@ -132,6 +135,8 @@ const SAMPLE_FIELDS: &[&str] = &[
     "calibration_record_id",
     "installation_record_id",
     "rights_state",
+    "acquisition_mode",
+    "local_read_only",
 ];
 const UNCERTAINTY_FIELDS: &[&str] = &[
     "state",
@@ -264,6 +269,9 @@ const EXPECTED_CASES: &[(&str, &str)] = &[
     ("BIP-046", "EXPIRED_OR_INVALIDATED"),
     ("BIP-047", "EXPIRED_OR_INVALIDATED"),
     ("BIP-048", "NOT_COMPARABLE"),
+    ("BIP-049", "REJECTED_FOR_DECLARED_PURPOSE"),
+    ("BIP-050", "REJECTED_FOR_DECLARED_PURPOSE"),
+    ("BIP-051", "MORE_EVIDENCE_REQUIRED"),
 ];
 
 #[derive(Debug)]
@@ -468,6 +476,11 @@ pub fn classify_passport(record: &Value) -> &'static str {
     if text(record, "claim_requested") == "universal_indoor_air_quality" {
         return "REJECTED_CLAIM_PROMOTION";
     }
+    if text(record, "claim_requested") != "declared_measurement"
+        || text(&record["purpose_profile"], "classification") != "synthetic_measurement_purpose_only"
+    {
+        return "NOT_COMPARABLE";
+    }
 
     let instrument = &record["instrument"];
     let capability = &record["capability"];
@@ -486,6 +499,18 @@ pub fn classify_passport(record: &Value) -> &'static str {
     }
     if text(instrument, "identity_state") != "established" {
         return "MORE_EVIDENCE_REQUIRED";
+    }
+    if !non_empty_text(instrument, "protocol_profile_id")
+        || !non_empty_text(instrument, "protocol_profile_digest")
+        || text(instrument, "protocol_profile_state") != "independently_verified"
+    {
+        return "MORE_EVIDENCE_REQUIRED";
+    }
+    if instrument["local_read_only_supported"].as_bool() != Some(true)
+        || text(sample, "acquisition_mode") != "local"
+        || sample["local_read_only"].as_bool() != Some(true)
+    {
+        return "REJECTED_FOR_DECLARED_PURPOSE";
     }
 
     if text(instrument, "channel_profile_id") != PROFILE_ID
@@ -584,6 +609,12 @@ pub fn classify_passport(record: &Value) -> &'static str {
             text(&capability["accuracy"], "evidence_class"),
             "independent_type_test" | "independent_characterization"
         )
+        || !non_empty_text(&capability["accuracy"], "source_record_id")
+        || !matches!(
+            text(&capability["repeatability"], "evidence_class"),
+            "independent_type_test" | "independent_characterization"
+        )
+        || !non_empty_text(&capability["repeatability"], "method_id")
         || text(capability, "cross_sensitivity_state") != "characterized_or_not_applicable"
     {
         return "MORE_EVIDENCE_REQUIRED";
@@ -611,6 +642,14 @@ pub fn classify_passport(record: &Value) -> &'static str {
         && text(calibration, "prior_data_impact_state") != "reviewed"
     {
         return "EXPIRED_OR_INVALIDATED";
+    }
+    if text(calibration, "as_left_state") == "out_of_tolerance" {
+        return "EXPIRED_OR_INVALIDATED";
+    }
+    if text(calibration, "as_found_state") == "unknown"
+        || text(calibration, "as_left_state") == "unknown"
+    {
+        return "MORE_EVIDENCE_REQUIRED";
     }
 
     let calibration_date = text(calibration, "calibration_date");
@@ -640,6 +679,8 @@ pub fn classify_passport(record: &Value) -> &'static str {
     if !non_empty_text(&calibration["uncertainty"], "method_id")
         || !non_empty_text(&calibration["uncertainty"], "correlation_model_id")
         || text(&calibration["uncertainty"], "unit") != channel.unit
+        || number(&calibration["uncertainty"], "value").is_none_or(|value| value < 0.0)
+        || number(&calibration["uncertainty"], "coverage_factor").is_none_or(|factor| factor <= 0.0)
     {
         return "MORE_EVIDENCE_REQUIRED";
     }
@@ -994,8 +1035,8 @@ mod tests {
     }
 
     #[test]
-    fn tracked_passport_corpus_matches_all_42_known_answers() {
-        assert_eq!(validate_tracked().expect("tracked passport validation"), 42);
+    fn tracked_passport_corpus_matches_all_51_known_answers() {
+        assert_eq!(validate_tracked().expect("tracked passport validation"), 51);
     }
 
     #[test]
@@ -1008,6 +1049,30 @@ mod tests {
         let mut record = case("BIP-001")["record"].clone();
         record["instrument"]["unreviewed_vendor_score"] = Value::from(99);
         assert!(validate_passport_shape(&record).is_err());
+    }
+
+    #[test]
+    fn remote_acquisition_is_rejected_for_local_read_only_channels() {
+        assert_eq!(
+            classify_passport(&case("BIP-049")["record"]),
+            "REJECTED_FOR_DECLARED_PURPOSE"
+        );
+    }
+
+    #[test]
+    fn write_capable_protocol_is_rejected_for_local_read_only_channels() {
+        assert_eq!(
+            classify_passport(&case("BIP-050")["record"]),
+            "REJECTED_FOR_DECLARED_PURPOSE"
+        );
+    }
+
+    #[test]
+    fn provider_asserted_protocol_profile_is_not_independent_evidence() {
+        assert_eq!(
+            classify_passport(&case("BIP-051")["record"]),
+            "MORE_EVIDENCE_REQUIRED"
+        );
     }
 
     #[test]
