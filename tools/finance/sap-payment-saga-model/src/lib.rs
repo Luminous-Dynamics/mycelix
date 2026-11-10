@@ -1,6 +1,7 @@
 #![forbid(unsafe_code)]
 
 pub mod replay;
+pub mod checkpoint;
 
 //! Effects-disabled reference model for a sender-owned SAP payment.
 //!
