@@ -64,7 +64,7 @@ pub fn MfaPage() -> impl IntoView {
 
                     // ── Factor Inventory ──
                     <section class="mfa-section">
-                        <h2>{format!("Enrolled Factors ({})", active_count)}</h2>
+                        <h2>{format!("Enrolled Factors ({} active / {} total)", active_count, state.factors.len())}</h2>
                         <div class="factor-list">
                             {state.factors.iter().map(|factor| {
                                 let strength = factor.visual_strength(now);
@@ -74,8 +74,8 @@ pub fn MfaPage() -> impl IntoView {
                                 let icon = factor.factor_type.icon().to_string();
                                 let label = factor.factor_type.label().to_string();
                                 let category = factor.factor_type.category().to_string();
-                                let active_label = if factor.active { "Active" } else { "Revoked" };
-                                let active_class = if factor.active { "factor-active" } else { "factor-revoked" };
+                                let active_label = if factor.active { "Active" } else { "Pending verification" };
+                                let active_class = if factor.active { "factor-active" } else { "factor-pending" };
                                 let days_since = ((now - factor.last_verified) as f64 / 86400.0).max(0.0) as u32;
 
                                 view! {
@@ -96,7 +96,9 @@ pub fn MfaPage() -> impl IntoView {
                                             <div class="factor-strength-meta">
                                                 <span>{format!("{strength:.0}%")}</span>
                                                 <span class="factor-age">
-                                                    {if days_since == 0 {
+                                                    {if !factor.active {
+                                                        "not yet verified".to_string()
+                                                    } else if days_since == 0 {
                                                         "verified today".to_string()
                                                     } else {
                                                         format!("verified {days_since}d ago")
