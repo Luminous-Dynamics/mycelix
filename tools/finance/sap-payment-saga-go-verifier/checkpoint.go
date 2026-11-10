@@ -25,26 +25,26 @@ const (
 )
 
 var (
-	ErrCheckpointInvalid = errors.New("owner checkpoint subject is invalid")
-	ErrCheckpointInvalidDigest = errors.New("owner checkpoint digest is not canonical sha256")
+	ErrCheckpointInvalid         = errors.New("owner checkpoint subject is invalid")
+	ErrCheckpointInvalidDigest   = errors.New("owner checkpoint digest is not canonical sha256")
 	ErrCheckpointInvalidSequence = errors.New("owner checkpoint sequence/prior link is invalid")
 	ErrCheckpointJournalIdentity = errors.New("owner checkpoint journal identity does not match operation and intent")
 )
 
 type OwnerCheckpointSubjectV1 struct {
-	OperationID string
-	IntentDigest string
-	OwnerDomain CheckpointOwnerDomain
-	EventLogDigest string
-	EventCount uint64
-	TailDigest string
-	CheckpointSequence uint64
-	PriorCheckpointDigest *string
-	SourceActionHash []byte
-	IssuerDID string
-	IssuerKeyFingerprint string
-	OwnerAuthorityDigest string
-	IssuedAtMicros int64
+	OperationID                string
+	IntentDigest               string
+	OwnerDomain                CheckpointOwnerDomain
+	EventLogDigest             string
+	EventCount                 uint64
+	TailDigest                 string
+	CheckpointSequence         uint64
+	PriorCheckpointDigest      *string
+	SourceActionHash           []byte
+	IssuerDID                  string
+	IssuerKeyFingerprint       string
+	OwnerAuthorityDigest       string
+	IssuedAtMicros             int64
 	SupersedesCheckpointDigest *string
 }
 
