@@ -381,7 +381,9 @@ impl ExposureBookV1 {
                 | ExposureStatus::AuthoritativelyAbsent
                 | ExposureStatus::CancelledBeforeDispatch => continue,
             };
-            *bucket = bucket.checked_add(amount).ok_or(ExposureError::AmountOverflow)?;
+            *bucket = bucket
+                .checked_add(amount)
+                .ok_or(ExposureError::AmountOverflow)?;
         }
         Ok(totals)
     }
