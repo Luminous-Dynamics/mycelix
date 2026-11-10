@@ -44,7 +44,7 @@ func readOwnerCheckpointFixture(t *testing.T) map[string]string {
 
 func checkpointFixtureSubject(t *testing.T, fields map[string]string) OwnerCheckpointSubjectV1 {
 	t.Helper()
-	owner := CheckpointOwnerDomain(0)
+	var owner CheckpointOwnerDomain
 	switch fields["owner_domain"] {
 	case "payments_local_transaction":
 		owner = CheckpointPaymentsLocalTransaction
@@ -54,33 +54,42 @@ func checkpointFixtureSubject(t *testing.T, fields map[string]string) OwnerCheck
 		t.Fatalf("unknown fixture owner domain %q", fields["owner_domain"])
 	}
 	eventCount, err := strconv.ParseUint(fields["event_count"], 10, 64)
-	if err != nil { t.Fatalf("parse event count: %v", err) }
+	if err != nil {
+		t.Fatalf("parse event count: %v", err)
+	}
 	sequence, err := strconv.ParseUint(fields["checkpoint_sequence"], 10, 64)
-	if err != nil { t.Fatalf("parse checkpoint sequence: %v", err) }
+	if err != nil {
+		t.Fatalf("parse checkpoint sequence: %v", err)
+	}
 	issuedAt, err := strconv.ParseInt(fields["issued_at_micros"], 10, 64)
-	if err != nil { t.Fatalf("parse issued_at_micros: %v", err) }
+	if err != nil {
+		t.Fatalf("parse issued_at_micros: %v", err)
+	}
 	actionHash, err := hex.DecodeString(fields["source_action_hash_hex"])
-	if err != nil { t.Fatalf("decode source action hash: %v", err) }
-
+	if err != nil {
+		t.Fatalf("decode source action hash: %v", err)
+	}
 	optional := func(name string) *string {
-		if fields[name] == "-" { return nil }
+		if fields[name] == "-" {
+			return nil
+		}
 		value := fields[name]
 		return &value
 	}
 	return OwnerCheckpointSubjectV1{
-		OperationID: fields["operation_id"],
-		IntentDigest: fields["intent_digest"],
-		OwnerDomain: owner,
-		EventLogDigest: fields["event_log_digest"],
-		EventCount: eventCount,
-		TailDigest: fields["tail_digest"],
-		CheckpointSequence: sequence,
-		PriorCheckpointDigest: optional("prior_checkpoint_digest"),
-		SourceActionHash: actionHash,
-		IssuerDID: fields["issuer_did"],
-		IssuerKeyFingerprint: fields["issuer_key_fingerprint"],
-		OwnerAuthorityDigest: fields["owner_authority_digest"],
-		IssuedAtMicros: issuedAt,
+		OperationID:                fields["operation_id"],
+		IntentDigest:               fields["intent_digest"],
+		OwnerDomain:                owner,
+		EventLogDigest:             fields["event_log_digest"],
+		EventCount:                 eventCount,
+		TailDigest:                 fields["tail_digest"],
+		CheckpointSequence:         sequence,
+		PriorCheckpointDigest:      optional("prior_checkpoint_digest"),
+		SourceActionHash:           actionHash,
+		IssuerDID:                  fields["issuer_did"],
+		IssuerKeyFingerprint:       fields["issuer_key_fingerprint"],
+		OwnerAuthorityDigest:       fields["owner_authority_digest"],
+		IssuedAtMicros:             issuedAt,
 		SupersedesCheckpointDigest: optional("supersedes_checkpoint_digest"),
 	}
 }
@@ -95,12 +104,16 @@ func TestOwnerCheckpointSubjectKnownAnswer(t *testing.T) {
 	}
 	subject := checkpointFixtureSubject(t, fields)
 	canonical, err := subject.CanonicalBytes()
-	if err != nil { t.Fatalf("canonicalize checkpoint: %v", err) }
+	if err != nil {
+		t.Fatalf("canonicalize checkpoint: %v", err)
+	}
 	if got := hex.EncodeToString(canonical); got != fields["canonical_hex"] {
 		t.Fatalf("canonical bytes = %s, want %s", got, fields["canonical_hex"])
 	}
 	digest, err := subject.Digest()
-	if err != nil { t.Fatalf("digest checkpoint: %v", err) }
+	if err != nil {
+		t.Fatalf("digest checkpoint: %v", err)
+	}
 	if digest != fields["digest"] {
 		t.Fatalf("checkpoint digest = %s, want %s", digest, fields["digest"])
 	}
@@ -119,18 +132,28 @@ func TestOwnerCheckpointDomainAndSourceActionAreBound(t *testing.T) {
 	fields := readOwnerCheckpointFixture(t)
 	subject := checkpointFixtureSubject(t, fields)
 	first, err := subject.Digest()
-	if err != nil { t.Fatal(err) }
+	if err != nil {
+		t.Fatal(err)
+	}
 	subject.OwnerDomain = CheckpointTreasuryFeeEffect
 	second, err := subject.Digest()
-	if err != nil { t.Fatal(err) }
-	if first == second { t.Fatal("owner-domain substitution did not change checkpoint digest") }
+	if err != nil {
+		t.Fatal(err)
+	}
+	if first == second {
+		t.Fatal("owner-domain substitution did not change checkpoint digest")
+	}
 
 	subject = checkpointFixtureSubject(t, fields)
 	subject.SourceActionHash = append([]byte(nil), subject.SourceActionHash...)
 	subject.SourceActionHash[0] ^= 1
 	third, err := subject.Digest()
-	if err != nil { t.Fatal(err) }
-	if first == third { t.Fatal("source ActionHash substitution did not change checkpoint digest") }
+	if err != nil {
+		t.Fatal(err)
+	}
+	if first == third {
+		t.Fatal("source ActionHash substitution did not change checkpoint digest")
+	}
 }
 
 func TestOwnerCheckpointRequiresOwnerScopedSequenceLink(t *testing.T) {
@@ -142,7 +165,9 @@ func TestOwnerCheckpointRequiresOwnerScopedSequenceLink(t *testing.T) {
 	}
 	prior := "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
 	subject.PriorCheckpointDigest = &prior
-	if err := subject.Validate(); err != nil { t.Fatalf("valid second checkpoint rejected: %v", err) }
+	if err := subject.Validate(); err != nil {
+		t.Fatalf("valid second checkpoint rejected: %v", err)
+	}
 }
 
 func TestOwnerCheckpointRejectsNoncanonicalAuthorityFields(t *testing.T) {
@@ -169,5 +194,23 @@ func TestOwnerCheckpointRejectsNoncanonicalAuthorityFields(t *testing.T) {
 	subject.EventCount = 0
 	if err := subject.Validate(); !errors.Is(err, ErrCheckpointInvalid) {
 		t.Fatalf("zero event frontier = %v, want %v", err, ErrCheckpointInvalid)
+	}
+}
+
+func TestOwnerCheckpointSupersessionIsBound(t *testing.T) {
+	fields := readOwnerCheckpointFixture(t)
+	subject := checkpointFixtureSubject(t, fields)
+	first, err := subject.Digest()
+	if err != nil {
+		t.Fatal(err)
+	}
+	supersedes := "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+	subject.SupersedesCheckpointDigest = &supersedes
+	second, err := subject.Digest()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if first == second {
+		t.Fatal("supersession reference did not change checkpoint digest")
 	}
 }
