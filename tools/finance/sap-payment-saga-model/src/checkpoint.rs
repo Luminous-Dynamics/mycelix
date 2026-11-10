@@ -107,9 +107,26 @@ impl CheckpointSubjectV1 {
         Ok(())
     }
 
-    /// Returns the exact versioned subject bytes used by the shared Rust/Go
-    /// known-answer profile. No generic serializer is involved.
-    pub fn canonical_bytes(&self) -> Result<Vec<u8>, CheckpointError> {
+    /// Returns canonical bytes only after binding the subject to the exact intent.
+    pub fn canonical_bytes_against_intent(
+        &self,
+        intent: &PaymentIntent,
+    ) -> Result<Vec<u8>, CheckpointError> {
+        self.validate_against_intent(intent)?;
+        self.canonical_bytes()
+    }
+
+    /// Returns a subject digest only after binding the subject to the exact intent.
+    pub fn canonical_digest_against_intent(
+        &self,
+        intent: &PaymentIntent,
+    ) -> Result<String, CheckpointError> {
+        let bytes = self.canonical_bytes_against_intent(intent)?;
+        digest_bytes(&bytes)
+    }
+
+    /// Internal profile encoder. External callers must use the intent-bound API.
+    fn canonical_bytes(&self) -> Result<Vec<u8>, CheckpointError> {
         self.validate()?;
         let mut bytes = Vec::with_capacity(512);
         bytes.extend_from_slice(DOMAIN);
@@ -136,19 +153,24 @@ impl CheckpointSubjectV1 {
         Ok(bytes)
     }
 
-    pub fn canonical_digest(&self) -> Result<String, CheckpointError> {
+    fn canonical_digest(&self) -> Result<String, CheckpointError> {
         let bytes = self.canonical_bytes()?;
-        let digest = Sha256::digest(&bytes);
-        let mut output = String::with_capacity(71);
-        output.push_str("sha256:");
-        for byte in digest {
-            use std::fmt::Write as _;
-            write!(&mut output, "{byte:02x}").expect("writing to String cannot fail");
-        }
-        Ok(output)
+        digest_bytes(&bytes)
     }
 }
 
+
+
+fn digest_bytes(bytes: &[u8]) -> Result<String, CheckpointError> {
+    let digest = Sha256::digest(bytes);
+    let mut output = String::with_capacity(71);
+    output.push_str("sha256:");
+    for byte in digest {
+        use std::fmt::Write as _;
+        write!(&mut output, "{byte:02x}").expect("writing to String cannot fail");
+    }
+    Ok(output)
+}
 
 /// Canonical intent bytes: fixed field order, length-prefixed UTF-8 strings,
 /// integer minor units as u64 big-endian. The profile is independent of
@@ -285,8 +307,8 @@ mod tests {
         let subject = subject();
         assert_eq!(subject.validate_against_intent(&intent), Ok(()));
         let bytes_hex: String = subject
-            .canonical_bytes()
-            .expect("canonical bytes")
+            .canonical_bytes_against_intent(&intent)
+            .expect("intent-bound canonical bytes")
             .iter()
             .map(|byte| format!("{byte:02x}"))
             .collect();
@@ -294,7 +316,9 @@ mod tests {
             Some(bytes_hex.as_str()),
             vectors.get("subject-bytes-hex").copied()
         );
-        let subject_digest = subject.canonical_digest().expect("canonical digest");
+        let subject_digest = subject
+            .canonical_digest_against_intent(&intent)
+            .expect("intent-bound canonical digest");
         assert_eq!(Some(subject_digest.as_str()), vectors.get("subject-digest").copied());
     }
 
