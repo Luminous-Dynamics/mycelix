@@ -27,7 +27,7 @@ An eligible record is not a PASS, measurement certification or device command. N
 
 ## Synthetic corpus
 
-51 frozen cases cover vendor-only capability, mismatched measurand/unit/range, calibration certificate and scope, traceability, as-found problems, relocation, serial reuse, firmware revisions, timebase/sequence, saturation and faults, derived-measure lineage, uncertainty/correlation, independent-assay binding, rights revocation and overbroad IAQ claims.
+55 frozen cases cover vendor-only capability, mismatched measurand/unit/range, calibration certificate and scope, traceability, as-found problems, relocation, serial reuse, firmware revisions, timebase/sequence, saturation and faults, derived-measure lineage, uncertainty/correlation, independent-assay binding, rights revocation and overbroad IAQ claims.
 
 ## Standards and method sources
 
