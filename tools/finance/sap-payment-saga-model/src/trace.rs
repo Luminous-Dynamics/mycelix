@@ -240,14 +240,14 @@ fn read_byte(bytes: &[u8], offset: &mut usize) -> Result<u8, TraceError> {
 }
 
 fn read_u32(bytes: &[u8], offset: &mut usize) -> Result<u32, TraceError> {
-    let end = offset.checked_add(4).ok_or(TraceError::TruncatedInput)?;
+    let end = (*offset).checked_add(4).ok_or(TraceError::TruncatedInput)?;
     let value = bytes.get(*offset..end).ok_or(TraceError::TruncatedInput)?;
     *offset = end;
     Ok(u32::from_be_bytes(value.try_into().map_err(|_| TraceError::TruncatedInput)?))
 }
 
 fn read_u64(bytes: &[u8], offset: &mut usize) -> Result<u64, TraceError> {
-    let end = offset.checked_add(8).ok_or(TraceError::TruncatedInput)?;
+    let end = (*offset).checked_add(8).ok_or(TraceError::TruncatedInput)?;
     let value = bytes.get(*offset..end).ok_or(TraceError::TruncatedInput)?;
     *offset = end;
     Ok(u64::from_be_bytes(value.try_into().map_err(|_| TraceError::TruncatedInput)?))
@@ -588,6 +588,18 @@ mod tests {
         let mut bad_opcode = encoded.clone();
         bad_opcode[TRACE_DOMAIN.len() + 8 + 8 + 1 + 8 + 4] = 255;
         assert_eq!(TraceV1::decode(&bad_opcode), Err(TraceError::InvalidOpcode));
+
+        let mut bad_owner = encoded.clone();
+        bad_owner[TRACE_DOMAIN.len() + 8 + 8 + 1 + 8 + 4 + 1] = 255;
+        assert_eq!(TraceV1::decode(&bad_owner), Err(TraceError::InvalidOwner));
+
+        let mut bad_fault = encoded.clone();
+        bad_fault[TRACE_DOMAIN.len() + 8 + 8 + 1 + 8 + 4 + 2] = 255;
+        assert_eq!(TraceV1::decode(&bad_fault), Err(TraceError::InvalidFault));
+
+        let mut bad_magic = encoded.clone();
+        bad_magic[0] ^= 1;
+        assert_eq!(TraceV1::decode(&bad_magic), Err(TraceError::InvalidMagic));
 
         let mut trailing = encoded.clone();
         trailing.push(0);
