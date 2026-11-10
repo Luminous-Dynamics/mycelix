@@ -11,6 +11,7 @@ import (
 const (
 	journalEventDomain = "MXSAP-JOURNAL-EVENT-V1\x00"
 	journalGenesisHash = "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+	maxJournalEventFieldBytes = 16 * 1024
 )
 
 type JournalEventKind uint8
@@ -309,7 +310,7 @@ func journalEventDigest(sequence uint64, previous string, event JournalEvent) (s
 }
 
 func appendJournalEventText(output *[]byte, value string) error {
-	if !utf8.ValidString(value) || uint64(len(value)) > uint64(^uint32(0)) {
+	if !utf8.ValidString(value) || len(value) > maxJournalEventFieldBytes || uint64(len(value)) > uint64(^uint32(0)) {
 		return ErrReplayInvalidEvent
 	}
 	var length [4]byte
