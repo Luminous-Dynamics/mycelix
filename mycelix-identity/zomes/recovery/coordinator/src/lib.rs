@@ -941,32 +941,10 @@ pub fn execute_recovery(request_id: String) -> ExternResult<Record> {
             "Request ID must be 1-256 characters".into()
         )));
     }
-    // Find the request
-    let filter = ChainQueryFilter::new()
-        .entry_type(EntryType::App(AppEntryDef::try_from(
-            UnitEntryTypes::RecoveryRequest,
-        )?))
-        .include_entries(true);
-
-    let records = query(filter)?;
-
-    let mut request_record: Option<Record> = None;
-    for record in records {
-        if let Some(req) = record
-            .entry()
-            .to_app_option::<RecoveryRequest>()
-            .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
-        {
-            if req.id == request_id {
-                // Keep iterating — update_entry appends newer versions later in the chain
-                request_record = Some(record);
-            }
-        }
-    }
-
-    let current_record = request_record.ok_or(wasm_error!(WasmErrorInner::Guest(
-        "Recovery request not found".into()
-    )))?;
+    let current_record = get_recovery_request(request_id.clone())?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Recovery request not found".into()
+        )))?;
 
     let current_request: RecoveryRequest = current_record
         .entry()
@@ -976,12 +954,13 @@ pub fn execute_recovery(request_id: String) -> ExternResult<Record> {
             "Invalid recovery request".into()
         )))?;
 
-    // Verify caller is the designated new agent or the recovery initiator
+    // The request author is the only agent allowed to update it on-chain.
+    // The designated new agent claims the recovered DID in a separate call.
     let caller = agent_info()?.agent_initial_pubkey;
     let caller_did = format!("did:mycelix:{}", caller);
-    if caller != current_request.new_agent && caller_did != current_request.initiated_by {
+    if caller_did != current_request.initiated_by || *current_record.action().author() != caller {
         return Err(wasm_error!(WasmErrorInner::Guest(
-            "Only the designated new agent or recovery initiator can execute recovery".into()
+            "Only the initiating trustee can finalize recovery execution; the new agent claims the DID separately".into()
         )));
     }
 
@@ -1022,11 +1001,26 @@ pub fn execute_recovery(request_id: String) -> ExternResult<Record> {
         status: RecoveryStatus::Completed,
         created: current_request.created,
         time_lock_expires: current_request.time_lock_expires,
+        config_action_hash: current_request.config_action_hash,
     };
 
+    let request_id_for_index = current_request.id.clone();
+    let did_for_index = current_request.did.clone();
     let action_hash = update_entry(
         current_record.action_address().clone(),
         &EntryTypes::RecoveryRequest(completed_request),
+    )?;
+    create_link(
+        string_to_entry_hash(&request_id_for_index),
+        action_hash.clone(),
+        LinkTypes::RequestIdToRequest,
+        (),
+    )?;
+    create_link(
+        string_to_entry_hash(&did_for_index),
+        action_hash.clone(),
+        LinkTypes::DidToRecoveryRequest,
+        (),
     )?;
 
     // Broadcast recovery event to bridge so other hApps are informed
@@ -1053,32 +1047,10 @@ pub fn cancel_recovery(request_id: String) -> ExternResult<Record> {
     }
     let agent_info = agent_info()?;
 
-    // Find the request
-    let filter = ChainQueryFilter::new()
-        .entry_type(EntryType::App(AppEntryDef::try_from(
-            UnitEntryTypes::RecoveryRequest,
-        )?))
-        .include_entries(true);
-
-    let records = query(filter)?;
-
-    let mut request_record: Option<Record> = None;
-    for record in records {
-        if let Some(req) = record
-            .entry()
-            .to_app_option::<RecoveryRequest>()
-            .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
-        {
-            if req.id == request_id {
-                // Keep iterating — update_entry appends newer versions later in the chain
-                request_record = Some(record);
-            }
-        }
-    }
-
-    let current_record = request_record.ok_or(wasm_error!(WasmErrorInner::Guest(
-        "Recovery request not found".into()
-    )))?;
+    let current_record = get_recovery_request(request_id.clone())?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Recovery request not found".into()
+        )))?;
 
     let current_request: RecoveryRequest = current_record
         .entry()
@@ -1125,11 +1097,34 @@ pub fn cancel_recovery(request_id: String) -> ExternResult<Record> {
         status: RecoveryStatus::Cancelled,
         created: current_request.created,
         time_lock_expires: current_request.time_lock_expires,
+        config_action_hash: current_request.config_action_hash,
     };
 
+    // Holochain entry updates are source-chain-author restricted. An owner
+    // can only perform this legacy update path when the owner is also the
+    // initiating trustee; a cross-agent cancellation receipt is a separate
+    // protocol extension and must not be simulated as an owner update.
+    if *current_record.action().author() != agent_info.agent_initial_pubkey {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Owner cancellation from a different agent source chain is not yet supported; request author must publish the cancellation".into()
+        )));
+    }
+    let did_for_index = current_request.did.clone();
     let action_hash = update_entry(
         current_record.action_address().clone(),
         &EntryTypes::RecoveryRequest(cancelled_request),
+    )?;
+    create_link(
+        string_to_entry_hash(&request_id),
+        action_hash.clone(),
+        LinkTypes::RequestIdToRequest,
+        (),
+    )?;
+    create_link(
+        string_to_entry_hash(&did_for_index),
+        action_hash.clone(),
+        LinkTypes::DidToRecoveryRequest,
+        (),
     )?;
 
     get(action_hash, GetOptions::default())?.ok_or(wasm_error!(WasmErrorInner::Guest(
