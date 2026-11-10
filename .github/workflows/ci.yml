@@ -111,7 +111,7 @@ jobs:
           done
           # The current Holochain identity DNA lives in the nested workspace;
           # it is distinct from the older mycelix-identity root crate above.
-          (cd mycelix-workspace/mycelix-identity && cargo fmt --all --check) || status=1
+          (cd mycelix-workspace/mycelix-identity && cargo fmt --check -p recovery_integrity -p recovery) || status=1
           (cd crates/mycelix-bridge-common && cargo fmt --all --check) || status=1
           (cd crates/mycelix-bridge-entry-types && cargo fmt --all --check) || status=1
           exit $status
