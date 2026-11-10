@@ -207,18 +207,30 @@ impl ParentDelegatedExposureBookV1 {
         grant_id: &str,
         intent: ExposureIntentV1,
     ) -> Result<ExposureDisposition, ExposureError> {
-        if self.allocated_budget_minor()? > self.policy.maximum_total_minor {
-            return Err(ExposureError::LimitExceeded);
-        }
-        let grant = self.grants.get_mut(grant_id).ok_or(ExposureError::ReservationNotFound)?;
-        let existing_effect = grant.child_book.status(&intent.effect_id).is_some();
-        if grant.status != DelegatedBudgetStatus::Active && !existing_effect {
-            return Err(ExposureError::InvalidTransition);
-        }
+        let grant = self.grants.get(grant_id).ok_or(ExposureError::ReservationNotFound)?;
         if intent.scope != grant.child_scope {
             return Err(ExposureError::ScopeMismatch);
         }
-        grant.child_book.reserve(intent)
+        let existing_effect = grant.child_book.status(&intent.effect_id).is_some();
+        if existing_effect {
+            return self
+                .grants
+                .get_mut(grant_id)
+                .expect("grant was checked above")
+                .child_book
+                .reserve(intent);
+        }
+        if grant.status != DelegatedBudgetStatus::Active {
+            return Err(ExposureError::InvalidTransition);
+        }
+        if self.allocated_budget_minor()? > self.policy.maximum_total_minor {
+            return Err(ExposureError::LimitExceeded);
+        }
+        self.grants
+            .get_mut(grant_id)
+            .expect("grant was checked above")
+            .child_book
+            .reserve(intent)
     }
 
     pub fn mark_dispatch_authorized(
