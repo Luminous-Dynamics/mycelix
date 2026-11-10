@@ -1,0 +1,694 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Luminous-Dynamics/mycelix/blob/main/docs/gmd/schemas/gmd_incident_envelope_v0_1.schema.json",
+  "title": "Mycelix GMD Offline Incident Envelope v0.1",
+  "description": "Strict signed-content envelope for offline GMD evidence coordination. Schema conformance does not verify signatures, semantic truth, authority or operational safety.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "protocol",
+    "schema_version",
+    "content",
+    "integrity"
+  ],
+  "properties": {
+    "protocol": {
+      "const": "MYCELIX_GMD_INCIDENT_ENVELOPE"
+    },
+    "schema_version": {
+      "const": "0.1.0"
+    },
+    "content": {
+      "$ref": "#/$defs/content"
+    },
+    "integrity": {
+      "$ref": "#/$defs/integrity"
+    }
+  },
+  "$defs": {
+    "id": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 160,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9:._/@+-]+$"
+    },
+    "utc": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "Z$"
+    },
+    "digest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "algorithm",
+        "value"
+      ],
+      "properties": {
+        "algorithm": {
+          "const": "SHA-256"
+        },
+        "value": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      }
+    },
+    "content": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "message_id",
+        "event_id",
+        "message_type",
+        "created_at_utc",
+        "origin",
+        "authority_claim",
+        "authority_ceiling",
+        "geographic_scope",
+        "subjects",
+        "evidence",
+        "causal_context",
+        "correction"
+      ],
+      "properties": {
+        "message_id": {
+          "$ref": "#/$defs/id"
+        },
+        "event_id": {
+          "$ref": "#/$defs/id"
+        },
+        "message_type": {
+          "enum": [
+            "OBSERVATION",
+            "REQUEST",
+            "PROPOSAL",
+            "OWNER_ACKNOWLEDGEMENT",
+            "STATUS_UPDATE",
+            "CORRECTION"
+          ]
+        },
+        "created_at_utc": {
+          "$ref": "#/$defs/utc"
+        },
+        "expires_at_utc": {
+          "$ref": "#/$defs/utc"
+        },
+        "origin": {
+          "$ref": "#/$defs/origin"
+        },
+        "authority_claim": {
+          "$ref": "#/$defs/authority_claim"
+        },
+        "authority_ceiling": {
+          "enum": [
+            "OBSERVATION_ONLY",
+            "REQUEST_ONLY",
+            "PROPOSAL_ONLY",
+            "OWNER_ACKNOWLEDGEMENT_ONLY"
+          ]
+        },
+        "geographic_scope": {
+          "$ref": "#/$defs/geographic_scope"
+        },
+        "subjects": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/subject"
+          }
+        },
+        "evidence": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/evidence"
+          }
+        },
+        "causal_context": {
+          "$ref": "#/$defs/causal_context"
+        },
+        "correction": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/correction"
+            }
+          ]
+        },
+        "notes": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 1000
+          }
+        }
+      }
+    },
+    "origin": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "principal_ref",
+        "key_ref",
+        "claimed_role"
+      ],
+      "properties": {
+        "principal_ref": {
+          "$ref": "#/$defs/id"
+        },
+        "key_ref": {
+          "$ref": "#/$defs/id"
+        },
+        "claimed_role": {
+          "enum": [
+            "SPACE_WEATHER_OBSERVER",
+            "GRID_OPERATOR",
+            "UTILITY_ASSET_OWNER",
+            "EMERGENCY_COORDINATOR",
+            "SERVICE_OWNER",
+            "RESEARCHER",
+            "MODEL_SERVICE",
+            "COMMUNITY_NODE",
+            "OTHER"
+          ]
+        }
+      }
+    },
+    "authority_claim": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "credential_ref",
+        "purpose",
+        "jurisdiction_refs",
+        "scope_refs",
+        "revocation_generation",
+        "valid_from_utc",
+        "expires_at_utc"
+      ],
+      "properties": {
+        "credential_ref": {
+          "$ref": "#/$defs/id"
+        },
+        "delegation_ref": {
+          "$ref": "#/$defs/id"
+        },
+        "purpose": {
+          "enum": [
+            "EMERGENCY_OBSERVATION_EXCHANGE",
+            "RESEARCH_REPLAY",
+            "SERVICE_STATUS_REPORTING",
+            "RESOURCE_REQUEST",
+            "CONTINGENCY_PROPOSAL",
+            "OWNER_ACKNOWLEDGEMENT"
+          ]
+        },
+        "jurisdiction_refs": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/id"
+          },
+          "uniqueItems": true
+        },
+        "scope_refs": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/id"
+          },
+          "uniqueItems": true
+        },
+        "revocation_generation": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "valid_from_utc": {
+          "$ref": "#/$defs/utc"
+        },
+        "expires_at_utc": {
+          "$ref": "#/$defs/utc"
+        },
+        "max_consequence_class": {
+          "enum": [
+            "INFORMATIONAL",
+            "SERVICE_REQUEST",
+            "OWNER_REVIEW_REQUIRED"
+          ]
+        }
+      }
+    },
+    "geographic_scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "jurisdiction_ref",
+        "crs",
+        "coverage_state",
+        "spatial_refs"
+      ],
+      "properties": {
+        "jurisdiction_ref": {
+          "$ref": "#/$defs/id"
+        },
+        "crs": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "coverage_state": {
+          "enum": [
+            "DECLARED_COMPLETE_FOR_SCOPE",
+            "PARTIAL",
+            "UNKNOWN",
+            "NOT_SPATIALLY_APPLICABLE"
+          ]
+        },
+        "spatial_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/id"
+          },
+          "uniqueItems": true
+        },
+        "coarse_region_codes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true
+        }
+      }
+    },
+    "subject": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "subject_ref",
+        "subject_type",
+        "revision_ref"
+      ],
+      "properties": {
+        "subject_ref": {
+          "$ref": "#/$defs/id"
+        },
+        "subject_type": {
+          "enum": [
+            "GRID_ASSET",
+            "TRANSFORMER",
+            "SUBSTATION",
+            "TRANSMISSION_LINE",
+            "MICROGRID",
+            "WATER_SERVICE",
+            "TELECOM_SERVICE",
+            "HOSPITAL_SERVICE",
+            "FUEL_SUPPLY",
+            "FOOD_SUPPLY",
+            "COMMUNITY",
+            "GEOGRAPHIC_AREA",
+            "OTHER"
+          ]
+        },
+        "revision_ref": {
+          "$ref": "#/$defs/id"
+        },
+        "display_label": {
+          "type": "string",
+          "maxLength": 200
+        }
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "evidence_id",
+        "evidence_class",
+        "claim_state",
+        "source",
+        "observed_interval",
+        "time_quality",
+        "measurements",
+        "limitations"
+      ],
+      "properties": {
+        "evidence_id": {
+          "$ref": "#/$defs/id"
+        },
+        "evidence_class": {
+          "enum": [
+            "MEASURED",
+            "PUBLISHED_DERIVED",
+            "INFERRED",
+            "SIMULATED",
+            "UNKNOWN"
+          ]
+        },
+        "claim_state": {
+          "enum": [
+            "CLAIMED_PRESENT",
+            "CLAIMED_ABSENT",
+            "UNKNOWN",
+            "NOT_OBSERVED",
+            "NOT_SEARCHED",
+            "UNAVAILABLE"
+          ]
+        },
+        "source": {
+          "$ref": "#/$defs/source"
+        },
+        "observed_interval": {
+          "$ref": "#/$defs/observed_interval"
+        },
+        "time_quality": {
+          "$ref": "#/$defs/time_quality"
+        },
+        "model": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/model"
+            }
+          ]
+        },
+        "measurements": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/measurement"
+          }
+        },
+        "limitations": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_ref",
+        "source_type",
+        "source_revision",
+        "content_digest",
+        "rights_status",
+        "owner_ref"
+      ],
+      "properties": {
+        "source_ref": {
+          "$ref": "#/$defs/id"
+        },
+        "source_type": {
+          "enum": [
+            "INSTRUMENT",
+            "UTILITY_TELEMETRY",
+            "OFFICIAL_BULLETIN",
+            "PUBLISHED_DATASET",
+            "OPERATOR_RECORD",
+            "MODEL_OUTPUT",
+            "SYNTHETIC_FIXTURE",
+            "OTHER"
+          ]
+        },
+        "source_revision": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "content_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "rights_status": {
+          "enum": [
+            "PUBLIC_REUSE_PERMITTED",
+            "RESEARCH_ONLY",
+            "COMMERCIAL_CONTRACT_REQUIRED",
+            "PARTNER_RESTRICTED",
+            "UNKNOWN",
+            "REVOKED"
+          ]
+        },
+        "owner_ref": {
+          "$ref": "#/$defs/id"
+        },
+        "uri": {
+          "type": "string",
+          "format": "uri"
+        }
+      }
+    },
+    "observed_interval": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "start_utc",
+        "end_utc"
+      ],
+      "properties": {
+        "start_utc": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/utc"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "end_utc": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/utc"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "time_quality": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_clock_state",
+        "uncertainty_ms"
+      ],
+      "properties": {
+        "source_clock_state": {
+          "enum": [
+            "GNSS_DISCIPLINED",
+            "NETWORK_SYNCHRONIZED",
+            "LOCAL_CLOCK",
+            "ESTIMATED",
+            "UNKNOWN"
+          ]
+        },
+        "uncertainty_ms": {
+          "oneOf": [
+            {
+              "type": "number",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "clock_source_ref": {
+          "$ref": "#/$defs/id"
+        }
+      }
+    },
+    "measurement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "quantity",
+        "value_kind",
+        "value",
+        "unit"
+      ],
+      "properties": {
+        "quantity": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "value_kind": {
+          "enum": [
+            "NUMERIC",
+            "TEXT",
+            "BOOLEAN",
+            "UNKNOWN"
+          ]
+        },
+        "value": {
+          "oneOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "string"
+            },
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "unit": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "uncertainty_lower": {
+          "type": "number"
+        },
+        "uncertainty_upper": {
+          "type": "number"
+        },
+        "uncertainty_unit": {
+          "type": "string"
+        }
+      }
+    },
+    "model": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "model_ref",
+        "model_revision",
+        "validity_domain",
+        "configuration_digest"
+      ],
+      "properties": {
+        "model_ref": {
+          "$ref": "#/$defs/id"
+        },
+        "model_revision": {
+          "type": "string",
+          "minLength": 1
+        },
+        "validity_domain": {
+          "type": "string",
+          "minLength": 5
+        },
+        "configuration_digest": {
+          "$ref": "#/$defs/digest"
+        }
+      }
+    },
+    "causal_context": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "parent_refs",
+        "local_sequence"
+      ],
+      "properties": {
+        "parent_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/parent_ref"
+          },
+          "uniqueItems": true
+        },
+        "local_sequence": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "node_generation": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "parent_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "message_id",
+        "content_digest"
+      ],
+      "properties": {
+        "message_id": {
+          "$ref": "#/$defs/id"
+        },
+        "content_digest": {
+          "$ref": "#/$defs/digest"
+        }
+      }
+    },
+    "correction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "supersedes",
+        "reason"
+      ],
+      "properties": {
+        "supersedes": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/parent_ref"
+          },
+          "uniqueItems": true
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 5,
+          "maxLength": 1000
+        }
+      }
+    },
+    "integrity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "canonicalization",
+        "content_digest",
+        "signature_algorithm",
+        "signing_key_ref",
+        "signature_encoding",
+        "signature"
+      ],
+      "properties": {
+        "canonicalization": {
+          "const": "RFC8785_JCS"
+        },
+        "content_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "signature_algorithm": {
+          "enum": [
+            "ED25519",
+            "ML-DSA-65"
+          ]
+        },
+        "signing_key_ref": {
+          "$ref": "#/$defs/id"
+        },
+        "signature_encoding": {
+          "const": "BASE64"
+        },
+        "signature": {
+          "type": "string",
+          "minLength": 8,
+          "pattern": "^[A-Za-z0-9+/]+={0,2}$"
+        }
+      }
+    }
+  }
+}
