@@ -14,7 +14,8 @@
     "sample",
     "uncertainty_budget",
     "purpose_profile",
-    "claim_requested"
+    "claim_requested",
+    "independent_assay"
   ],
   "properties": {
     "passport_schema_version": {
@@ -49,6 +50,9 @@
         "declared_measurement",
         "universal_indoor_air_quality"
       ]
+    },
+    "independent_assay": {
+      "$ref": "#/$defs/independent_assay"
     }
   },
   "$defs": {
@@ -884,6 +888,99 @@
         },
         "classification": {
           "const": "synthetic_measurement_purpose_only"
+        }
+      }
+    },
+    "independent_assay": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "state",
+        "assay_id",
+        "laboratory_id",
+        "accreditation_scope_id",
+        "method_id",
+        "method_revision",
+        "sample_id",
+        "sample_digest",
+        "measurand_id",
+        "value",
+        "unit",
+        "certificate_digest",
+        "certificate_state",
+        "accreditation_scope_state",
+        "rights_state"
+      ],
+      "properties": {
+        "state": {
+          "enum": [
+            "not_required",
+            "identified",
+            "missing",
+            "unknown",
+            "revoked"
+          ]
+        },
+        "assay_id": {
+          "type": "string"
+        },
+        "laboratory_id": {
+          "type": "string"
+        },
+        "accreditation_scope_id": {
+          "type": "string"
+        },
+        "method_id": {
+          "type": "string"
+        },
+        "method_revision": {
+          "type": "string"
+        },
+        "sample_id": {
+          "type": "string"
+        },
+        "sample_digest": {
+          "type": "string"
+        },
+        "measurand_id": {
+          "type": "string"
+        },
+        "value": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "unit": {
+          "type": "string"
+        },
+        "certificate_digest": {
+          "type": "string"
+        },
+        "certificate_state": {
+          "enum": [
+            "not_applicable",
+            "authenticated",
+            "unauthenticated",
+            "missing",
+            "revoked"
+          ]
+        },
+        "accreditation_scope_state": {
+          "enum": [
+            "not_applicable",
+            "covers_measurand_method",
+            "not_covering",
+            "unknown"
+          ]
+        },
+        "rights_state": {
+          "enum": [
+            "not_applicable",
+            "authorized",
+            "unknown",
+            "revoked"
+          ]
         }
       }
     }
