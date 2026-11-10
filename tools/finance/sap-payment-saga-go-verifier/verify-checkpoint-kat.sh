@@ -3,7 +3,7 @@ set -euo pipefail
 
 fixture="${1:-tools/finance/sap-payment-saga-go-verifier/fixtures/sap-payment-journal-checkpoint-v1.kat}"
 command -v awk >/dev/null
-command -v xxd >/dev/null
+command -v perl >/dev/null
 command -v sha256sum >/dev/null
 test -f "$fixture"
 
@@ -29,7 +29,7 @@ verify_vector() {
     printf 'invalid hex bytes for %s\n' "$byte_key" >&2
     return 1
   fi
-  actual="$(printf '%s' "$bytes" | xxd -r -p | sha256sum | awk '{ print "sha256:" $1 }')"
+  actual="$(printf '%s' "$bytes" | perl -e 'print pack("H*", shift)' | sha256sum | awk '{ print "sha256:" $1 }')"
   if [[ "$actual" != "$expected" ]]; then
     printf '%s mismatch: got %s, expected %s\n' "$byte_key" "$actual" "$expected" >&2
     return 1

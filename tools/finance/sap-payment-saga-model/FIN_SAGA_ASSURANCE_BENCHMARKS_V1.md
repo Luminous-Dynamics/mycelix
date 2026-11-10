@@ -209,4 +209,4 @@ The new Mycelix claim is therefore not “better workflow engine” or “exactl
 
 ### Third-path checkpoint KAT verification
 
-The checkpoint qualification workflow also runs `tools/finance/sap-payment-saga-go-verifier/verify-checkpoint-kat.sh`. This shell check decodes the exact intent and checkpoint-subject byte strings from the shared KAT and recomputes their SHA-256 digests with the runner's `xxd` and `sha256sum` tools. It is an independent byte-to-digest check, not a third semantic encoder; Rust/Go remain the two profile implementations. The script adds no Python or npm dependency.
+The checkpoint qualification workflow also runs `tools/finance/sap-payment-saga-go-verifier/verify-checkpoint-kat.sh`. This shell check decodes the exact intent and checkpoint-subject byte strings from the shared KAT and recomputes their SHA-256 digests with the runner's Perl `pack("H*", ...)` decoder and `sha256sum` tools. It is an independent byte-to-digest check, not a third semantic encoder; Rust/Go remain the two profile implementations. The script adds no Python or npm dependency.
