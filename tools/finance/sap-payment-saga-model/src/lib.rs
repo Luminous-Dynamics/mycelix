@@ -1,7 +1,5 @@
 #![forbid(unsafe_code)]
 
-pub mod replay;
-pub mod checkpoint;
 
 //! Effects-disabled reference model for a sender-owned SAP payment.
 //!
@@ -13,7 +11,10 @@ pub mod checkpoint;
 //!
 //! This crate does not prove Holochain DHT uniqueness, action authenticity,
 //! predecessor authorization, monetary conservation in production, or legal
-//!/external settlement finality.
+//! / external settlement finality.
+
+pub mod replay;
+pub mod checkpoint;
 
 use std::collections::{BTreeMap, btree_map::Entry};
 use std::fmt;
