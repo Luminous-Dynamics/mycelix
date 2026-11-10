@@ -10788,8 +10788,8 @@
           "protocol_profile_digest": "sha256:synth-protocol-profile-v1",
           "protocol_profile_state": "independently_verified",
           "local_read_only_supported": true,
-          "protocol_profile_verification_receipt_id": "",
-          "protocol_profile_verifier_id": ""
+          "protocol_profile_verification_receipt_id": null,
+          "protocol_profile_verifier_id": null
         },
         "capability": {
           "measurement_kind": "raw",
@@ -11336,7 +11336,7 @@
           "acquisition_mode": "local",
           "local_read_only": true,
           "protocol_profile_digest": "sha256:synth-protocol-profile-v1",
-          "read_only_session_receipt_id": ""
+          "read_only_session_receipt_id": null
         },
         "uncertainty_budget": {
           "state": "complete",
