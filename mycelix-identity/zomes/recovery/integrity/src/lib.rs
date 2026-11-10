@@ -658,6 +658,14 @@ fn validate_update_recovery_request(
         ));
     }
 
+    if request.time_lock_expires != original.time_lock_expires
+        && original.time_lock_expires.is_some()
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Recovery time-lock expiry cannot be shortened or changed".into(),
+        ));
+    }
+
     if request.config_action_hash != original.config_action_hash {
         return Ok(ValidateCallbackResult::Invalid(
             "Recovery request config revision cannot be changed".into(),
@@ -677,8 +685,9 @@ fn validate_update_recovery_request(
         // ReadyToExecute → Completed or Cancelled
         (RecoveryStatus::ReadyToExecute, RecoveryStatus::Completed)
         | (RecoveryStatus::ReadyToExecute, RecoveryStatus::Cancelled) => true,
-        // Same status (no-op update) is allowed
-        (a, b) if a == b => true,
+        // No-op status updates are unnecessary and would create room for
+        // mutating time-lock or other decision metadata.
+        (a, b) if a == b => false,
         _ => false,
     };
     if !valid_transition {
@@ -764,6 +773,17 @@ fn validate_update_recovery_request(
                 "Recovery status transition lacks a distinct-trustee quorum".into(),
             ));
         }
+        if request.status == RecoveryStatus::Approved {
+            let minimum_expiry = action.timestamp.as_micros()
+                + (config.time_lock as i64 * 1_000_000);
+            if request.time_lock_expires.map(|expiry| expiry.as_micros()).unwrap_or(0)
+                < minimum_expiry
+            {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Recovery time lock must run for the full configured duration after approval".into(),
+                ));
+            }
+        }
     }
 
     // Approved status must have time_lock_expires set
@@ -771,6 +791,32 @@ fn validate_update_recovery_request(
         return Ok(ValidateCallbackResult::Invalid(
             "Approved recovery must have time_lock_expires set".into(),
         ));
+    }
+
+    // The timelock must have expired before entering ReadyToExecute or Completed.
+    if original.status == RecoveryStatus::Approved
+        && request.status == RecoveryStatus::ReadyToExecute
+    {
+        let expires = original.time_lock_expires.ok_or(wasm_error!(
+            WasmErrorInner::Guest("Approved request has no time lock expiry".into())
+        ))?;
+        if action.timestamp < expires {
+            return Ok(ValidateCallbackResult::Invalid(
+                "Recovery cannot enter ReadyToExecute before the time lock expires".into(),
+            ));
+        }
+    }
+    if original.status == RecoveryStatus::ReadyToExecute
+        && request.status == RecoveryStatus::Completed
+    {
+        let expires = original.time_lock_expires.ok_or(wasm_error!(
+            WasmErrorInner::Guest("ReadyToExecute request has no time lock expiry".into())
+        ))?;
+        if action.timestamp < expires {
+            return Ok(ValidateCallbackResult::Invalid(
+                "Recovery cannot complete before the time lock expires".into(),
+            ));
+        }
     }
 
     // Completed status requires time_lock_expires to be set
