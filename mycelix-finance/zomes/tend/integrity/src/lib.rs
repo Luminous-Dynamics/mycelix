@@ -870,28 +870,55 @@ fn validate_update_exchange(
         ));
     }
 
-    // Enforce status transition rules and immutable field invariants
-    if let Ok(original_record) = must_get_valid_record(action.original_action_address) {
-        if let Ok(Some(original)) = original_record.entry().to_app_option::<TendExchange>() {
-            // Status transitions must follow the state machine
-            if original.status != exchange.status
-                && !original.status.can_transition_to(&exchange.status)
-            {
-                return Ok(ValidateCallbackResult::Invalid(format!(
-                    "Invalid exchange status transition: {:?} → {:?}",
-                    original.status, exchange.status
-                )));
-            }
-            // Core fields are immutable after creation
-            if original.provider_did != exchange.provider_did
-                || original.receiver_did != exchange.receiver_did
-                || original.hours != exchange.hours
-            {
-                return Ok(ValidateCallbackResult::Invalid(
-                    "Cannot change provider, receiver, or hours on an existing exchange".into(),
-                ));
-            }
+    // Propagate unavailable dependencies: an absent predecessor is not evidence
+    // that an update is valid. Holochain can retry unresolved validation.
+    let original_record = must_get_valid_record(action.original_action_address)?;
+    let original_action = original_record.action();
+    if !matches!(
+        original_action.action_type(),
+        ActionType::Create | ActionType::Update
+    ) {
+        return Ok(ValidateCallbackResult::Invalid(
+            "TEND exchange predecessor must be a Create or Update action".into(),
+        ));
+    }
+    let expected_entry_type = EntryType::App(UnitEntryTypes::TendExchange.try_into()?);
+    if original_action.entry_type() != Some(&expected_entry_type) {
+        return Ok(ValidateCallbackResult::Invalid(
+            "TEND exchange predecessor must have the TendExchange entry type".into(),
+        ));
+    }
+    let original = match original_record.entry().to_app_option::<TendExchange>() {
+        Ok(Some(original)) => original,
+        Ok(None) => {
+            return Ok(ValidateCallbackResult::Invalid(
+                "TEND exchange predecessor is missing its TendExchange entry".into(),
+            ));
         }
+        Err(error) => {
+            return Ok(ValidateCallbackResult::Invalid(format!(
+                "TEND exchange predecessor could not be decoded: {error}"
+            )));
+        }
+    };
+
+    // Status transitions must follow the state machine.
+    if original.status != exchange.status
+        && !original.status.can_transition_to(&exchange.status)
+    {
+        return Ok(ValidateCallbackResult::Invalid(format!(
+            "Invalid exchange status transition: {:?} → {:?}",
+            original.status, exchange.status
+        )));
+    }
+    // Core fields are immutable after creation.
+    if original.provider_did != exchange.provider_did
+        || original.receiver_did != exchange.receiver_did
+        || original.hours != exchange.hours
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Cannot change provider, receiver, or hours on an existing exchange".into(),
+        ));
     }
 
     Ok(ValidateCallbackResult::Valid)
@@ -1574,6 +1601,23 @@ mod tests {
             entry_hash: EntryHash::from_raw_36(vec![0; 36]),
             weight: Default::default(),
         }
+    }
+
+    #[test]
+    fn test_exchange_update_propagates_unavailable_predecessor() {
+        let result = validate_update_exchange(make_update(), valid_exchange());
+        assert!(
+            result.is_err(),
+            "unavailable predecessor must remain unresolved, never become Valid"
+        );
+    }
+
+    #[test]
+    fn test_exchange_update_rejects_invalid_replacement_before_dependency_lookup() {
+        let mut exchange = valid_exchange();
+        exchange.hours = 0.0;
+        let result = validate_update_exchange(make_update(), exchange).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
     }
 
     fn valid_listing() -> ServiceListing {
