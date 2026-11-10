@@ -10,6 +10,7 @@ on:
     branches: [main]
     paths:
       - 'tools/finance/sap-payment-saga-model/**'
+      - 'tools/finance/sap-payment-saga-go-verifier/**'
       - '.github/workflows/sap-payment-saga-model-qualification.yml'
   workflow_dispatch:
 
@@ -41,7 +42,7 @@ jobs:
         if: hashFiles('tools/finance/sap-payment-saga-go-verifier/go.mod') != ''
         uses: actions/setup-go@v5
         with:
-          go-version: "1.24.0"
+          go-version: "1.27.3"
           cache: false
       - name: Check Go formatting
         if: hashFiles('tools/finance/sap-payment-saga-go-verifier/go.mod') != ''
@@ -49,7 +50,7 @@ jobs:
         run: |
           unformatted="$(gofmt -l .)"
           if [ -n "$unformatted" ]; then
-            printf 'Files requiring gofmt:\\n%s\\n' "$unformatted"
+            printf 'Files requiring gofmt:\n%s\n' "$unformatted"
             gofmt -d $unformatted
             exit 1
           fi
