@@ -1112,6 +1112,7 @@ pub fn cancel_recovery(request_id: String) -> ExternResult<Record> {
         created: current_request.created,
         time_lock_expires: current_request.time_lock_expires,
         config_action_hash: current_request.config_action_hash,
+        decision_vote_hashes: current_request.decision_vote_hashes,
     };
 
     // Holochain entry updates are source-chain-author restricted. An owner
