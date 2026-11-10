@@ -72,3 +72,19 @@ The CI qualification captures the Go version, OS/architecture and CPU model, ret
 A passing test suite demonstrates agreement of this Go implementation with its own frozen synthetic scenario expectations. It does not establish equivalence to Rust unless the same scenarios are executed against the Rust model; Holochain source-chain singleton uniqueness, DHT convergence, cross-agent exclusivity or fork exclusion; Ed25519 verification, ActionHash resolution or predecessor authorisation; actual SAP account movement or Treasury receipt; provider idempotency, external bank settlement, recipient availability or legal finality; live performance, regulatory compliance or production readiness.
 
 The Go registry's mutex test only demonstrates in-process serialization. It is not a distributed exactly-once theorem.
+
+
+## Paired Rust / Go replay benchmark
+
+The replay benchmark now measures the same deterministic synthetic histories in both implementations on one CI runner:
+
+- exact sizes: 100, 1,000 and 10,000 event frames;
+- identical history shape: Created, Authorized, local Payment prepared/committed, Treasury prepared, repeated Indeterminate → same-effect Prepared recovery cycles, then Treasury committed;
+- the fixture and evidence construction are outside the timed region;
+- each implementation captures 30 raw samples per size, using a 200 ms sample window;
+- the Rust harness reports nanoseconds per replay; the Go harness reports nanoseconds, bytes and allocations per replay;
+- a single summary step refuses to report percentiles unless every language/size has exactly 30 samples, then computes nearest-rank p50/p95/p99 from sorted copies.
+
+The Rust harness is at tools/finance/sap-payment-saga-model/benches/replay_benchmark.rs. Both benchmarks run in the same Actions job and print the Rust/Go toolchain versions, OS/architecture and CPU model. Raw sample output remains in the job log.
+
+This is a matched in-memory microbenchmark, not a production performance claim. It excludes conductor scheduling, DHT retrieval/validation, source-chain writes, fsync or database durability, network latency, provider APIs and real settlement. Sequential language runs may experience clock/thermal variation; preserve raw samples and rerun on controlled hardware before making a performance claim. Go allocation counts and Rust latency are not directly interchangeable metrics.
