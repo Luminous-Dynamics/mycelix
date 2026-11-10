@@ -9,9 +9,12 @@ use serde_json::{Map, Value};
 use std::collections::BTreeSet;
 use std::fmt;
 
-pub const PROFILE_JSON: &str = include_str!("../../../docs/metrology/BUILDING_METROLOGY_PROFILE_V0_1.json");
-pub const CORPUS_JSON: &str = include_str!("../../../docs/metrology/BUILDING_METROLOGY_CORPUS_V0_1.json");
-pub const PROFILE_SCHEMA_JSON: &str = include_str!("../../../docs/metrology/BUILDING_METROLOGY_PROFILE_V0_1.schema.json");
+pub const PROFILE_JSON: &str =
+    include_str!("../../../docs/metrology/BUILDING_METROLOGY_PROFILE_V0_1.json");
+pub const CORPUS_JSON: &str =
+    include_str!("../../../docs/metrology/BUILDING_METROLOGY_CORPUS_V0_1.json");
+pub const PROFILE_SCHEMA_JSON: &str =
+    include_str!("../../../docs/metrology/BUILDING_METROLOGY_PROFILE_V0_1.schema.json");
 
 const PROFILE_ID: &str = "MYC-BUILD-METROLOGY-PROFILE-V0.1";
 const CORPUS_ID: &str = "MYC-BUILD-METROLOGY-CORPUS-V0.1";
@@ -34,30 +37,146 @@ const NON_AUTHORITY_FIELDS: &[&str] = &[
     "instrument_admission_proves_physical_outcome",
 ];
 const MEASUREMENT_FIELDS: &[&str] = &[
-    "profile_id", "instrument_identity_state", "instrument_id", "measurand_id", "quantity_kind",
-    "unit", "raw_or_derived", "data_purpose", "firmware_profile_state", "acquisition_mode",
-    "local_read_only", "calibration_state", "installation_state", "range_state", "uncertainty_state",
-    "response_time_state", "timebase_state", "method_identity_state", "independent_assay_state",
-    "rights_state", "reading_state", "serial_identity_reused",
+    "profile_id",
+    "instrument_identity_state",
+    "instrument_id",
+    "measurand_id",
+    "quantity_kind",
+    "unit",
+    "raw_or_derived",
+    "data_purpose",
+    "firmware_profile_state",
+    "acquisition_mode",
+    "local_read_only",
+    "calibration_state",
+    "installation_state",
+    "range_state",
+    "uncertainty_state",
+    "response_time_state",
+    "timebase_state",
+    "method_identity_state",
+    "independent_assay_state",
+    "rights_state",
+    "reading_state",
+    "serial_identity_reused",
 ];
 
 /// Frozen v0.1 channel vocabulary. A profile and its corpus cannot redefine these
 /// identities/units together and thereby certify a different physical measurand.
 const EXPECTED_CHANNELS: &[(&str, &str, &str, &str, &str, &str, bool)] = &[
-    ("air_temperature", "habitat.air_temperature", "temperature", "degC", "raw", "thermal_environment", false),
-    ("mean_radiant_temperature", "habitat.mean_radiant_temperature", "temperature", "degC", "derived", "thermal_environment", false),
-    ("relative_humidity", "habitat.relative_humidity", "ratio", "%RH", "raw", "thermal_environment", false),
-    ("air_speed", "habitat.air_speed", "velocity", "m/s", "raw", "thermal_environment", false),
-    ("co2_concentration", "habitat.co2_concentration", "mole_fraction", "ppm", "raw", "indoor_air_quality", false),
-    ("pm25_mass_concentration", "habitat.pm25_mass_concentration", "mass_concentration", "ug/m3", "raw", "indoor_air_quality", false),
-    ("outdoor_air_volume_flow", "habitat.outdoor_air_volume_flow", "volume_flow", "m3/s", "raw", "ventilation", false),
-    ("water_volume_flow", "habitat.water_volume_flow", "volume_flow", "m3/s", "raw", "water_service", false),
-    ("water_volume", "habitat.water_volume", "volume", "m3", "raw", "water_service", false),
-    ("water_ph", "habitat.water_ph", "pH", "1", "raw", "water_quality_assay", true),
-    ("water_conductivity", "habitat.water_conductivity", "conductivity", "uS/cm", "raw", "water_quality_assay", true),
-    ("electrical_power", "habitat.electrical_power", "power", "W", "raw", "electrical_energy", false),
-    ("electrical_energy", "habitat.electrical_energy", "energy", "kWh", "raw", "electrical_energy", false),
-    ("useful_thermal_energy", "habitat.useful_thermal_energy", "thermal_energy", "kWh_th", "derived", "thermal_service", false),
+    (
+        "air_temperature,
+        "habitat.air_temperature,
+        "temperature,
+        "degC,
+        "raw,
+        "thermal_environment", false,
+    ),
+    (
+        "mean_radiant_temperature,
+        "habitat.mean_radiant_temperature,
+        "temperature,
+        "degC,
+        "derived,
+        "thermal_environment", false,
+    ),
+    (
+        "relative_humidity,
+        "habitat.relative_humidity,
+        "ratio,
+        "%RH,
+        "raw,
+        "thermal_environment", false,
+    ),
+    (
+        "air_speed,
+        "habitat.air_speed,
+        "velocity,
+        "m/s,
+        "raw,
+        "thermal_environment", false,
+    ),
+    (
+        "co2_concentration,
+        "habitat.co2_concentration,
+        "mole_fraction,
+        "ppm,
+        "raw,
+        "indoor_air_quality", false,
+    ),
+    (
+        "pm25_mass_concentration,
+        "habitat.pm25_mass_concentration,
+        "mass_concentration,
+        "ug/m3,
+        "raw,
+        "indoor_air_quality", false,
+    ),
+    (
+        "outdoor_air_volume_flow,
+        "habitat.outdoor_air_volume_flow,
+        "volume_flow,
+        "m3/s,
+        "raw,
+        "ventilation", false,
+    ),
+    (
+        "water_volume_flow,
+        "habitat.water_volume_flow,
+        "volume_flow,
+        "m3/s,
+        "raw,
+        "water_service", false,
+    ),
+    (
+        "water_volume,
+        "habitat.water_volume,
+        "volume,
+        "m3,
+        "raw,
+        "water_service", false,
+    ),
+    (
+        "water_ph,
+        "habitat.water_ph,
+        "pH,
+        "1,
+        "raw,
+        "water_quality_assay", true,
+    ),
+    (
+        "water_conductivity,
+        "habitat.water_conductivity,
+        "conductivity,
+        "uS/cm,
+        "raw,
+        "water_quality_assay", true,
+    ),
+    (
+        "electrical_power,
+        "habitat.electrical_power,
+        "power,
+        "W,
+        "raw,
+        "electrical_energy", false,
+    ),
+    (
+        "electrical_energy,
+        "habitat.electrical_energy,
+        "energy,
+        "kWh,
+        "raw,
+        "electrical_energy", false,
+    ),
+    (
+        "useful_thermal_energy,
+        "habitat.useful_thermal_energy,
+        "thermal_energy,
+        "kWh_th,
+        "derived,
+        "thermal_service", false,
+    ),
+
 ];
 
 const EXPECTED_CASES: &[(&str, &str)] = &[
@@ -254,10 +373,13 @@ fn validate_profile_schema(schema: &Value) -> Result<(), String> {
         return Err("PROFILE_SCHEMA_ROOT_CONTRACT_INVALID".to_owned());
     }
 
-    if schema["properties"]["schema_version"]["const"] != "mycelix.building-metrology-profile/0.1"
+    if schema["properties"]["schema_version"]["const"]
+        != "mycelix.building-metrology-profile/0.1"
         || schema["properties"]["profile_id"]["const"] != PROFILE_ID
-        || schema["properties"]["classification"]["const"] != "synthetic_measurement_requirements_only"
-        || schema["properties"]["claim_ceiling"]["const"] != "instrument_profile_schema_and_synthetic_admission_logic_only"
+        || schema["properties"]["classification"]["const"]
+            != "synthetic_measurement_requirements_only"
+        || schema["properties"]["claim_ceiling"]["const"]
+            != "instrument_profile_schema_and_synthetic_admission_logic_only"
         || schema["properties"]["owner"]["const"] != "Mycelix"
         || schema["properties"]["owner_issue"]["const"]
             != "https://github.com/Luminous-Dynamics/mycelix/issues/6025"
@@ -329,8 +451,10 @@ fn validate_profile_schema(schema: &Value) -> Result<(), String> {
         || channel_schema["properties"]["synchronized_timebase_required"]["const"] != true
         || channel_schema["properties"]["method_identity_required"]["const"] != true
         || channel_schema["properties"]["independent_assay_required"]["type"] != "boolean"
-        || channel_schema["properties"]["acceptance_tolerances"]["const"] != "NOT_SET_BY_THIS_PROFILE"
-        || channel_schema["properties"]["physical_thresholds"]["const"] != "NOT_SET_BY_THIS_PROFILE"
+        || channel_schema["properties"]["acceptance_tolerances"]["const"]
+            != "NOT_SET_BY_THIS_PROFILE"
+        || channel_schema["properties"]["physical_thresholds"]["const"]
+            != "NOT_SET_BY_THIS_PROFILE"
     {
         return Err("PROFILE_SCHEMA_CHANNEL_CONSTRAINT_DRIFT".to_owned());
     }
@@ -393,7 +517,11 @@ pub fn classify_measurement(profile: &Value, measurement: &Value) -> AdmissionSt
         || !exact_keys(measurement, MEASUREMENT_FIELDS)
         || !measurement["local_read_only"].is_boolean()
         || !measurement["serial_identity_reused"].is_boolean()
-        || MEASUREMENT_FIELDS.iter().filter(|field| **field != "local_read_only" && **field != "serial_identity_reused")
+        || MEASUREMENT_FIELDS
+            .iter()
+            .filter(|field| {
+                **field != "local_read_only" && **field != "serial_identity_reused"
+            })
             .any(|field| measurement[*field].as_str().is_none())
     {
         return AdmissionState::MoreEvidenceRequired;
@@ -417,7 +545,10 @@ pub fn classify_measurement(profile: &Value, measurement: &Value) -> AdmissionSt
     }
 
     if text(measurement, "firmware_profile_state") != "current"
-        || matches!(text(measurement, "reading_state"), "stale" | "missing_as_zero" | "out_of_range" | "device_fault" | "conflicting")
+        || matches!(
+            text(measurement, "reading_state"),
+            "stale" | "missing_as_zero" | "out_of_range" | "device_fault" | "conflicting"
+        )
     {
         return AdmissionState::ExpiredOrInvalidated;
     }
@@ -464,9 +595,11 @@ fn validate_profile(profile: &Value) -> Result<(), String> {
     if text(profile, "schema_version") != "mycelix.building-metrology-profile/0.1"
         || text(profile, "profile_id") != PROFILE_ID
         || text(profile, "classification") != "synthetic_measurement_requirements_only"
-        || text(profile, "claim_ceiling") != "instrument_profile_schema_and_synthetic_admission_logic_only"
+        || text(profile, "claim_ceiling")
+            != "instrument_profile_schema_and_synthetic_admission_logic_only"
         || text(profile, "owner") != "Mycelix"
-        || text(profile, "owner_issue") != "https://github.com/Luminous-Dynamics/mycelix/issues/6025"
+        || text(profile, "owner_issue")
+            != "https://github.com/Luminous-Dynamics/mycelix/issues/6025"
     {
         return Err("PROFILE_IDENTITY_OR_CLAIM_CEILING_INVALID".to_owned());
     }
@@ -653,7 +786,8 @@ mod tests {
 
     #[test]
     fn profile_schema_matches_the_closed_rust_contract() {
-        let schema = parse_unique_json(PROFILE_SCHEMA_JSON).expect("schema JSON parses without duplicate keys");
+        let schema = parse_unique_json(PROFILE_SCHEMA_JSON)
+            .expect("schema JSON parses without duplicate keys");
         validate_profile_schema(&schema).expect("schema matches exact Rust contract");
     }
 
@@ -690,13 +824,31 @@ mod tests {
 
     #[test]
     fn measurement_boolean_fields_must_be_booleans() {
-        let mut measurement = parse_unique_json(CORPUS_JSON).unwrap()["cases"][0]["measurement"].clone();
+        let mut measurement =
+            parse_unique_json(CORPUS_JSON).unwrap()["cases"][0]["measurement"].clone();
         measurement["serial_identity_reused"] = serde_json::Value::String("false".to_owned());
         let profile = parse_unique_json(PROFILE_JSON).unwrap();
         assert_eq!(
             classify_measurement(&profile, &measurement),
             AdmissionState::MoreEvidenceRequired
         );
+    }
+
+    #[test]
+    fn schema_cannot_add_unreviewed_admission_state() {
+        let mut schema = parse_unique_json(PROFILE_SCHEMA_JSON).unwrap();
+        schema["properties"]["admission_states"]["items"]["enum"]
+            .as_array_mut()
+            .unwrap()
+            .push(serde_json::Value::String("AutomaticPass".to_owned()));
+        assert!(validate_profile_schema(&schema).is_err());
+    }
+
+    #[test]
+    fn schema_cannot_enable_extra_channel_fields() {
+        let mut schema = parse_unique_json(PROFILE_SCHEMA_JSON).unwrap();
+        schema["$defs"]["channel"]["additionalProperties"] = serde_json::Value::Bool(true);
+        assert!(validate_profile_schema(&schema).is_err());
     }
 
     #[test]
