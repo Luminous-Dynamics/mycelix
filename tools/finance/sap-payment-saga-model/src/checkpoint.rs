@@ -50,6 +50,7 @@ pub enum CheckpointError {
     InvalidIssuerDid,
     EmptyEventFrontier,
     InvalidCheckpointSequence,
+    InvalidTimestamp,
     InvalidSourceActionHash,
     InvalidAuthorityActionHash,
 }
@@ -111,6 +112,9 @@ impl OwnerCheckpointSubjectV1 {
 
         if self.event_count == 0 {
             return Err(CheckpointError::EmptyEventFrontier);
+        }
+        if self.issued_at_micros < 0 {
+            return Err(CheckpointError::InvalidTimestamp);
         }
         if self.checkpoint_sequence == 0 {
             return Err(CheckpointError::InvalidCheckpointSequence);
@@ -403,6 +407,13 @@ mod tests {
             subject.validate(),
             Err(CheckpointError::InvalidAuthorityActionHash)
         );
+    }
+
+    #[test]
+    fn negative_checkpoint_timestamp_is_rejected() {
+        let mut subject = valid_subject();
+        subject.issued_at_micros = -1;
+        assert_eq!(subject.validate(), Err(CheckpointError::InvalidTimestamp));
     }
 
     #[test]
