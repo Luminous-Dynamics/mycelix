@@ -235,9 +235,8 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 EntryTypes::RecoveryVote(_) => Ok(ValidateCallbackResult::Invalid(
                     "Recovery votes cannot be updated".into(),
                 )),
-                EntryTypes::SelfRecoveryConfig(_) => {
-                    // Updates allowed (adding/removing anchors, marking superseded)
-                    Ok(ValidateCallbackResult::Valid)
+                EntryTypes::SelfRecoveryConfig(config) => {
+                    validate_update_self_recovery_config(action, config)
                 }
                 EntryTypes::SelfRecoveryRequest(request) => {
                     validate_update_self_recovery_request(action, request)
@@ -606,35 +605,119 @@ fn validate_update_recovery_request(
 // =============================================================================
 
 /// Validate self-recovery config creation
+/// Validate the structural and ownership invariants of a self-recovery
+/// configuration. The expected owner is supplied by the committing action,
+/// never by the entry itself.
+fn validate_self_recovery_config_fields(
+    config: &SelfRecoveryConfig,
+    expected_owner: &AgentPubKey,
+) -> Result<(), &'static str> {
+    if !config.did.starts_with("did:mycelix:") {
+        return Err("DID must start with 'did:mycelix:'");
+    }
+
+    let expected_did = format!("did:mycelix:{}", expected_owner);
+    if config.did != expected_did {
+        return Err("Self-recovery config DID must correspond to the committing owner");
+    }
+    if config.owner != *expected_owner {
+        return Err("Self-recovery config owner must be the committing agent");
+    }
+    if config.time_lock < SELF_RECOVERY_MIN_TIME_LOCK {
+        return Err("Self-recovery time lock must be at least 72 hours");
+    }
+    if config.anchor_threshold == 0 {
+        return Err("Self-recovery anchor threshold must be at least one");
+    }
+    if !config.anchors.is_empty() && config.anchor_threshold as usize > config.anchors.len() {
+        return Err("Anchor threshold cannot exceed anchor count");
+    }
+
+    // Duplicate anchors must not increase the apparent number of independent
+    // recovery factors. Use equality over the typed anchor values rather than
+    // relying on a non-cryptographic string/hash cardinality.
+    for (index, anchor) in config.anchors.iter().enumerate() {
+        if config.anchors[..index].contains(anchor) {
+            return Err("Duplicate self-recovery anchors are not allowed");
+        }
+        let value = match anchor {
+            VerificationAnchor::PhoneHash(value)
+            | VerificationAnchor::EmailHash(value)
+            | VerificationAnchor::PasskeyCredentialId(value)
+            | VerificationAnchor::DeviceAttestation(value)
+            | VerificationAnchor::BiometricHash(value) => value,
+        };
+        if value.trim().is_empty() {
+            return Err("Self-recovery anchor values must not be empty");
+        }
+    }
+
+    Ok(())
+}
+
+/// Validate immutable identity and append-only anchor semantics for a
+/// self-recovery configuration update. Existing anchor removal/replacement
+/// requires a future explicit revocation workflow with its own audit record.
+fn validate_self_recovery_config_update_fields(
+    original: &SelfRecoveryConfig,
+    updated: &SelfRecoveryConfig,
+) -> Result<(), &'static str> {
+    if updated.did != original.did {
+        return Err("Self-recovery config DID cannot be changed");
+    }
+    if updated.owner != original.owner {
+        return Err("Self-recovery config owner cannot be changed");
+    }
+    if updated.created != original.created {
+        return Err("Self-recovery config creation timestamp cannot be changed");
+    }
+    if updated.updated <= original.updated {
+        return Err("Self-recovery config updated timestamp must advance");
+    }
+    if original.superseded_by_social && !updated.superseded_by_social {
+        return Err("Self-recovery cannot be unsuperseded by an update");
+    }
+    if original.anchors.iter().any(|anchor| !updated.anchors.contains(anchor)) {
+        return Err("Previously enrolled self-recovery anchors cannot be removed or replaced");
+    }
+    validate_self_recovery_config_fields(updated, &original.owner)
+}
+
+/// Validate self-recovery config creation. A DID's self-recovery config must
+/// be committed by the agent whose key is embedded in that DID. Checking only
+/// config.owner is insufficient: without the DID binding, an attacker could
+/// create a config that names a victim DID while recording the attacker as
+/// owner, then place an attacker-controlled link under the victim DID.
 fn validate_create_self_recovery_config(
     action: EntryCreationAction,
     config: SelfRecoveryConfig,
 ) -> ExternResult<ValidateCallbackResult> {
-    if !config.did.starts_with("did:mycelix:") {
-        return Ok(ValidateCallbackResult::Invalid(
-            "DID must start with 'did:mycelix:'".into(),
-        ));
+    match validate_self_recovery_config_fields(&config, action.author()) {
+        Ok(()) => Ok(ValidateCallbackResult::Valid),
+        Err(reason) => Ok(ValidateCallbackResult::Invalid(reason.into())),
     }
-    if config.owner != *action.author() {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Owner must be the author".into(),
-        ));
+}
+
+/// Validate self-recovery config updates. The generic RegisterUpdate callback
+/// also enforces that the original entry author committed the update; this
+/// function additionally protects the identity and recovery-factor history.
+fn validate_update_self_recovery_config(
+    action: Update,
+    config: SelfRecoveryConfig,
+) -> ExternResult<ValidateCallbackResult> {
+    let original_record = must_get_valid_record(action.original_action_address.clone())?;
+    let original: SelfRecoveryConfig = original_record
+        .entry()
+        .to_app_option()
+        .map_err(|error| wasm_error!(WasmErrorInner::Guest(error.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Original self-recovery config not found".into()
+        )))?;
+
+    match validate_self_recovery_config_update_fields(&original, &config) {
+        Ok(()) => Ok(ValidateCallbackResult::Valid),
+        Err(reason) => Ok(ValidateCallbackResult::Invalid(reason.into())),
     }
-    // Time lock minimum: 72 hours for self-recovery (stronger than social's 24h)
-    if config.time_lock < SELF_RECOVERY_MIN_TIME_LOCK {
-        return Ok(ValidateCallbackResult::Invalid(format!(
-            "Self-recovery time lock must be at least {} seconds (72 hours)",
-            SELF_RECOVERY_MIN_TIME_LOCK
-        )));
-    }
-    // Anchors can be empty at creation (progressive enrollment)
-    // Threshold must not exceed anchor count (when anchors exist)
-    if !config.anchors.is_empty() && config.anchor_threshold as usize > config.anchors.len() {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Anchor threshold cannot exceed anchor count".into(),
-        ));
-    }
-    Ok(ValidateCallbackResult::Valid)
 }
 
 /// Validate self-recovery request creation
@@ -860,6 +943,107 @@ mod tests {
                 prop_assert!(t.starts_with("did:mycelix:"));
             }
         }
+    }
+
+    // ── Self-Recovery Configuration Boundary Tests ──
+
+    fn test_agent() -> AgentPubKey {
+        AgentPubKey::from_raw_36(vec![0u8; 36])
+    }
+
+    fn test_other_agent() -> AgentPubKey {
+        AgentPubKey::from_raw_36(vec![1u8; 36])
+    }
+
+    fn test_self_recovery_config(owner: AgentPubKey) -> SelfRecoveryConfig {
+        SelfRecoveryConfig {
+            did: format!("did:mycelix:{}", owner),
+            owner,
+            anchors: vec![],
+            anchor_threshold: 1,
+            time_lock: SELF_RECOVERY_DEFAULT_TIME_LOCK,
+            active: true,
+            superseded_by_social: false,
+            created: Timestamp::from_micros(1),
+            updated: Timestamp::from_micros(1),
+        }
+    }
+
+    #[test]
+    fn self_recovery_config_must_bind_did_to_committing_owner() {
+        let owner = test_agent();
+        let config = test_self_recovery_config(owner.clone());
+        assert!(validate_self_recovery_config_fields(&config, &owner).is_ok());
+
+        let attacker = test_other_agent();
+        let mut forged = test_self_recovery_config(attacker.clone());
+        forged.did = format!("did:mycelix:{}", owner);
+        assert!(
+            validate_self_recovery_config_fields(&forged, &attacker).is_err(),
+            "an attacker must not create a recovery config for another agent's DID"
+        );
+    }
+
+    #[test]
+    fn self_recovery_config_rejects_zero_or_excessive_anchor_threshold() {
+        let owner = test_agent();
+        let mut config = test_self_recovery_config(owner.clone());
+        config.anchor_threshold = 0;
+        assert!(validate_self_recovery_config_fields(&config, &owner).is_err());
+
+        config.anchor_threshold = 2;
+        config.anchors = vec![VerificationAnchor::PhoneHash("sha256:one".into())];
+        assert!(validate_self_recovery_config_fields(&config, &owner).is_err());
+    }
+
+    #[test]
+    fn self_recovery_config_rejects_duplicate_or_empty_anchors() {
+        let owner = test_agent();
+        let mut config = test_self_recovery_config(owner.clone());
+        let anchor = VerificationAnchor::EmailHash("sha256:mail".into());
+        config.anchors = vec![anchor.clone(), anchor];
+        config.anchor_threshold = 1;
+        assert!(validate_self_recovery_config_fields(&config, &owner).is_err());
+
+        config.anchors = vec![VerificationAnchor::PhoneHash("  ".into())];
+        assert!(validate_self_recovery_config_fields(&config, &owner).is_err());
+    }
+
+    #[test]
+    fn self_recovery_config_update_preserves_identity_and_anchor_history() {
+        let owner = test_agent();
+        let original = test_self_recovery_config(owner.clone());
+        let mut valid = original.clone();
+        valid.updated = Timestamp::from_micros(2);
+        valid.anchors.push(VerificationAnchor::EmailHash("sha256:mail".into()));
+        assert!(validate_self_recovery_config_update_fields(&original, &valid).is_ok());
+
+        let mut retargeted = valid.clone();
+        retargeted.did = format!("did:mycelix:{}", test_other_agent());
+        assert!(validate_self_recovery_config_update_fields(&original, &retargeted).is_err());
+
+        let mut owner_changed = valid.clone();
+        owner_changed.owner = test_other_agent();
+        assert!(validate_self_recovery_config_update_fields(&original, &owner_changed).is_err());
+
+        let mut no_timestamp_advance = valid.clone();
+        no_timestamp_advance.updated = original.updated;
+        assert!(validate_self_recovery_config_update_fields(&original, &no_timestamp_advance).is_err());
+
+        let mut removed = valid.clone();
+        removed.anchors.clear();
+        assert!(validate_self_recovery_config_update_fields(&valid, &removed).is_err());
+    }
+
+    #[test]
+    fn self_recovery_social_supersession_is_monotonic() {
+        let owner = test_agent();
+        let mut original = test_self_recovery_config(owner);
+        original.superseded_by_social = true;
+        let mut updated = original.clone();
+        updated.updated = Timestamp::from_micros(2);
+        updated.superseded_by_social = false;
+        assert!(validate_self_recovery_config_update_fields(&original, &updated).is_err());
     }
 
     // ── Self-Recovery Tests ──
