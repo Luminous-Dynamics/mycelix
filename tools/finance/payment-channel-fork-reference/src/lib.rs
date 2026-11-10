@@ -326,8 +326,9 @@ fn validate_authorization_claim(
             Ok(())
         }
         (AuthorizationPolicy::MutualConsent, SequencingClaim::None) => {
-            if claim.participant_signers
-                == vec![terms.party_a.clone(), terms.party_b.clone()]
+            if claim.participant_signers.len() == 2
+                && contains(&claim.participant_signers, &terms.party_a)
+                && contains(&claim.participant_signers, &terms.party_b)
             {
                 Ok(())
             } else {
@@ -492,14 +493,14 @@ pub fn reconcile(
         };
     };
 
-    if validate_authorization_claim(terms, candidate, policy).is_err() {
+    if let Err(reason) = validate_authorization_claim(terms, candidate, policy) {
         return Resolution {
             disposition: Disposition::Indeterminate,
             policy_consistent_candidate_ref: None,
             observed_candidate_refs,
             duplicate_delivery_count,
             rejected_candidates,
-            reason_codes: vec![ReasonCode::AuthorizationClaimNotQualified],
+            reason_codes: vec![reason],
         };
     }
 
