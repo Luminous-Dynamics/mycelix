@@ -219,7 +219,37 @@ func TestOwnerCheckpointRejectsNoncanonicalAuthorityFields(t *testing.T) {
 	}
 
 	subject = checkpointFixtureSubject(t, fields)
-	subject.EventCount = 0
+	subject = checkpointFixtureSubject(t, fields)
+		subject.SourceActionHash = make([]byte, holochainActionHashBytes+1)
+		if err := subject.Validate(); !errors.Is(err, ErrCheckpointInvalid) {
+			t.Fatalf("long source ActionHash = %v, want %v", err, ErrCheckpointInvalid)
+		}
+
+		subject = checkpointFixtureSubject(t, fields)
+		subject.OwnerAuthorityActionHash = make([]byte, holochainActionHashBytes-1)
+		if err := subject.Validate(); !errors.Is(err, ErrCheckpointAuthorityAction) {
+			t.Fatalf("short authority ActionHash = %v, want %v", err, ErrCheckpointAuthorityAction)
+		}
+
+		subject = checkpointFixtureSubject(t, fields)
+		subject.OwnerAuthorityActionHash = make([]byte, holochainActionHashBytes+1)
+		if err := subject.Validate(); !errors.Is(err, ErrCheckpointAuthorityAction) {
+			t.Fatalf("long authority ActionHash = %v, want %v", err, ErrCheckpointAuthorityAction)
+		}
+
+		subject = checkpointFixtureSubject(t, fields)
+		subject.OwnerDomain = CheckpointOwnerDomain(255)
+		if err := subject.Validate(); !errors.Is(err, ErrCheckpointInvalid) {
+			t.Fatalf("unknown owner domain = %v, want %v", err, ErrCheckpointInvalid)
+		}
+
+		subject = checkpointFixtureSubject(t, fields)
+		subject.IssuedAtMicros = -1
+		if err := subject.Validate(); !errors.Is(err, ErrCheckpointTimestamp) {
+			t.Fatalf("negative checkpoint timestamp = %v, want %v", err, ErrCheckpointTimestamp)
+		}
+
+		subject.EventCount = 0
 	if err := subject.Validate(); !errors.Is(err, ErrCheckpointInvalid) {
 		t.Fatalf("zero event frontier = %v, want %v", err, ErrCheckpointInvalid)
 	}
