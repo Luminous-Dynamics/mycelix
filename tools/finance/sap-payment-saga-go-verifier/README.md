@@ -67,6 +67,25 @@ go test -run 'a^' -bench '^BenchmarkReplayJournal' -benchmem -benchtime=200ms -c
 
 The CI qualification captures the Go version, OS/architecture and CPU model, retains the 30 raw samples per history size in the job log, and fails the summary step unless all three groups contain exactly 30 samples. It computes nearest-rank p50/p95/p99 latency plus mean bytes and allocations per operation. For publishable cross-language comparisons, preserve the exact commit SHA, hardware, build mode, fixture bytes, and full raw output. This is a synthetic in-memory replay microbenchmark: it excludes Holochain DHT retrieval, source-chain validation, conductor restart, storage fsync, remote peers, and real monetary effects. No performance result is claimed until executed on the exact head.
 
+## Owner-specific checkpoint subject v1
+
+The sibling Rust reference model and this Go verifier now define the same canonical owner-checkpoint subject codec and consume the shared known-answer fixture at `../sap-payment-saga-model/fixtures/sap-payment-owner-checkpoint-v1.kat`.
+
+The subject binds:
+- owner domain (local payment transaction or Treasury fee effect);
+- operation ID, immutable intent digest and a derived journal identity digest;
+- exact event count and tail digest;
+- a 1-based checkpoint sequence and the previous checkpoint digest for that owner only;
+- the exact owner-effect ActionHash and exact owner-authority-grant ActionHash, plus a digest of the grant subject;
+- issuer DID, SHA-256 fingerprint of the Holochain author key, native action-signature profile tag and source-chain action timestamp;
+- an optional prior checkpoint that the new record explicitly supersedes.
+
+The journal identity is derived as SHA-256 over `MXSAP-JOURNAL-IDENTITY-V1\\0` plus length-prefixed operation ID and intent digest. A caller cannot choose an unrelated event-log identity. The checkpoint codec uses a separate domain `MXSAP-OWNER-CHECKPOINT-SUBJECT-V1\\0`, fixed-width big-endian counters/timestamp, length-prefixed text/ActionHash bytes and explicit option tags. The shared KAT fixes both the complete canonical byte string and its SHA-256 digest.
+
+For a checkpoint stored in the same Holochain DNA, the Create action's native signature is the authorship attestation; no detached signature is duplicated inside the entry. A production integrity callback must still: bind the Create action author and key fingerprint to the issuer DID; retrieve and verify the authority-grant record and its owner/operation scope; retrieve the exact source action and check its entry type, owner, operation and author; verify the checkpoint predecessor on that owner's chain; and compare the entry's computed subject digest. The codec itself does none of these DHT or authorization checks.
+
+The optional `supersedes_checkpoint_digest` is a correction relationship, not deletion or automatic revocation. Runtime policy must retain the earlier checkpoint and determine whether the replacement is authorized. The checkpoint subject does not prove settlement, DHT convergence, fork exclusion or external legal finality.
+
 ## Claim ceiling
 
 A passing test suite demonstrates agreement of this Go implementation with its own frozen synthetic scenario expectations. It does not establish equivalence to Rust unless the same scenarios are executed against the Rust model; Holochain source-chain singleton uniqueness, DHT convergence, cross-agent exclusivity or fork exclusion; Ed25519 verification, ActionHash resolution or predecessor authorisation; actual SAP account movement or Treasury receipt; provider idempotency, external bank settlement, recipient availability or legal finality; live performance, regulatory compliance or production readiness.
