@@ -3129,7 +3129,7 @@
           }
         ]
       },
-      "expected_disposition": "NOT_COMPARABLE"
+      "expected_disposition": "MISSING_REQUIRED_CONDITION"
     },
     {
       "case_id": "CCA-033",
