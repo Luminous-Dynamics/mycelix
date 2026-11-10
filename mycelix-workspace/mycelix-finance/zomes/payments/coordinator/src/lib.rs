@@ -1335,6 +1335,17 @@ pub fn send_payment(input: SendPaymentInput) -> ExternResult<Record> {
     ))))
 }
 
+/// Test-only adversarial path: attempt a Receipt create without the payment coordinator's
+/// business flow. This extern is compiled only into the dedicated Sweettest DNA;
+/// production builds must not enable `receipt-test-harness`.
+#[cfg(feature = "receipt-test-harness")]
+#[hdk_extern]
+pub fn test_only_create_receipt_without_business_validation(
+    receipt: Receipt,
+) -> ExternResult<ActionHash> {
+    create_entry(&EntryTypes::Receipt(receipt))
+}
+
 #[derive(Serialize, Deserialize, Debug)]
 pub struct SendPaymentInput {
     pub from_did: String,
