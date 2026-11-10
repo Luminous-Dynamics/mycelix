@@ -1,0 +1,120 @@
+{
+  "protocol": "MYCELIX_GMD_INCIDENT_ENVELOPE",
+  "schema_version": "0.1.0",
+  "content": {
+    "message_id": "urn:mycelix:gmd:msg:demo-0001",
+    "event_id": "urn:mycelix:gmd:event:synthetic-demo-2026",
+    "message_type": "OBSERVATION",
+    "created_at_utc": "2026-11-10T10:00:00Z",
+    "expires_at_utc": "2026-11-10T16:00:00Z",
+    "origin": {
+      "principal_ref": "did:example:synthetic-observer-01",
+      "key_ref": "did:example:synthetic-observer-01#key-01",
+      "claimed_role": "SPACE_WEATHER_OBSERVER"
+    },
+    "authority_claim": {
+      "credential_ref": "urn:mycelix:credential:synthetic-observer-01",
+      "purpose": "EMERGENCY_OBSERVATION_EXCHANGE",
+      "jurisdiction_refs": [
+        "urn:example:jurisdiction:synthetic-region"
+      ],
+      "scope_refs": [
+        "urn:example:scope:synthetic-magnetometer-network"
+      ],
+      "revocation_generation": 4,
+      "valid_from_utc": "2026-11-10T00:00:00Z",
+      "expires_at_utc": "2026-11-10T18:00:00Z",
+      "max_consequence_class": "INFORMATIONAL"
+    },
+    "authority_ceiling": "OBSERVATION_ONLY",
+    "geographic_scope": {
+      "jurisdiction_ref": "urn:example:jurisdiction:synthetic-region",
+      "crs": "EPSG:4326",
+      "coverage_state": "PARTIAL",
+      "spatial_refs": [
+        "urn:example:region:grid-north-sector"
+      ],
+      "coarse_region_codes": [
+        "SYNTH-NORTH"
+      ]
+    },
+    "subjects": [
+      {
+        "subject_ref": "urn:example:asset:synthetic-magnetometer-01",
+        "subject_type": "GEOGRAPHIC_AREA",
+        "revision_ref": "urn:example:asset-revision:synthetic-magnetometer-01-r1",
+        "display_label": "Synthetic magnetometer area"
+      }
+    ],
+    "evidence": [
+      {
+        "evidence_id": "urn:mycelix:evidence:gmd-synthetic-0001",
+        "evidence_class": "SIMULATED",
+        "claim_state": "CLAIMED_PRESENT",
+        "source": {
+          "source_ref": "urn:example:source:synthetic-gmd-fixture-01",
+          "source_type": "SYNTHETIC_FIXTURE",
+          "source_revision": "fixture-v0.1",
+          "content_digest": {
+            "algorithm": "SHA-256",
+            "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          "rights_status": "PUBLIC_REUSE_PERMITTED",
+          "owner_ref": "urn:example:owner:luminous-research"
+        },
+        "observed_interval": {
+          "start_utc": "2026-11-10T09:55:00Z",
+          "end_utc": "2026-11-10T10:00:00Z"
+        },
+        "time_quality": {
+          "source_clock_state": "ESTIMATED",
+          "uncertainty_ms": 2500
+        },
+        "model": {
+          "model_ref": "urn:example:model:synthetic-gmd-forcing",
+          "model_revision": "0.1.0",
+          "validity_domain": "Synthetic local field fixture only",
+          "configuration_digest": {
+            "algorithm": "SHA-256",
+            "value": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+          }
+        },
+        "measurements": [
+          {
+            "quantity": "horizontal_geoelectric_field_magnitude",
+            "value_kind": "NUMERIC",
+            "value": 0.0042,
+            "unit": "V/m",
+            "uncertainty_lower": 0.0035,
+            "uncertainty_upper": 0.0049,
+            "uncertainty_unit": "V/m"
+          }
+        ],
+        "limitations": [
+          "Synthetic fixture; not a real observation.",
+          "No ground-conductivity or power-network model is represented."
+        ]
+      }
+    ],
+    "causal_context": {
+      "parent_refs": [],
+      "local_sequence": 1,
+      "node_generation": 1
+    },
+    "correction": null,
+    "notes": [
+      "Schema example only. No real asset, identity or operational condition."
+    ]
+  },
+  "integrity": {
+    "canonicalization": "RFC8785_JCS",
+    "content_digest": {
+      "algorithm": "SHA-256",
+      "value": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    },
+    "signature_algorithm": "ED25519",
+    "signing_key_ref": "did:example:synthetic-observer-01#key-01",
+    "signature_encoding": "BASE64",
+    "signature": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=="
+  }
+}
