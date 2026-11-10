@@ -1,0 +1,4 @@
+# MXSAP-JOURNAL-CHECKPOINT-V1 known-answer vectors
+# Payments owner, first checkpoint, current lifecycle. All values are synthetic.
+intent-digest=sha256:4226d08540bfc19a3dfd9249480cfe21d1358c2b6153919ec137f691ebd46348
+payments-checkpoint-digest=sha256:369cfa206f8ba9cbdeb866bb1672cdb14369ce8046c0166319c397e446d52081
