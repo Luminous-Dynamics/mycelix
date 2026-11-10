@@ -70,7 +70,7 @@ The reference model now includes `src/replay.rs`, a separate event-stream repres
 The log records a typed creation event, authorization/rejection, stable effect preparation, indeterminate outcomes, and typed effect commits. Each frame binds:
 - a monotonically increasing sequence number;
 - the previous frame's digest;
-- a versioned, domain-separated event digest over fixed-width integer and length-prefixed UTF-8 fields;
+- a versioned, domain-separated event digest over fixed-width integer and length-prefixed UTF-8 fields (event text fields are capped at 16 KiB);
 - the exact event variant and its immutable subject.
 
 `replay_journal` verifies the sequence, previous-digest chain, event digest, externally supplied event-count/tail anchor, operation identity, and legal saga transitions before returning a newly reconstructed journal. The committed evidence event binds both the recomputed typed evidence digest and the caller-supplied digest; ordinary commit validation still rejects a stale or fabricated digest.
