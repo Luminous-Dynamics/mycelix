@@ -4,6 +4,7 @@ use super::{
 use sha2::{Digest, Sha256};
 
 const EVENT_DOMAIN: &[u8] = b"MXSAP-JOURNAL-EVENT-V1\0";
+const MAX_EVENT_FIELD_BYTES: usize = 16 * 1024;
 const GENESIS_DIGEST: &str =
     "sha256:0000000000000000000000000000000000000000000000000000000000000000";
 
@@ -305,6 +306,9 @@ fn event_digest(
 
 fn append_text(output: &mut Vec<u8>, value: &str) -> Result<(), ReplayError> {
     let bytes = value.as_bytes();
+    if bytes.len() > MAX_EVENT_FIELD_BYTES {
+        return Err(ReplayError::InvalidEvent);
+    }
     let length = u32::try_from(bytes.len()).map_err(|_| ReplayError::InvalidEvent)?;
     output.extend_from_slice(&length.to_be_bytes());
     output.extend_from_slice(bytes);
@@ -528,6 +532,19 @@ mod tests {
         let replayed = replay_journal(log.frames(), &log.anchor()).expect("replay");
         assert_eq!(replayed, journal);
         assert_eq!(replayed.status(), super::super::OperationStatus::Completed);
+    }
+
+    #[test]
+    fn event_text_fields_are_bounded_before_hashing() {
+        let mut output = Vec::new();
+        assert_eq!(
+            append_text(&mut output, &"x".repeat(MAX_EVENT_FIELD_BYTES)),
+            Ok(())
+        );
+        assert_eq!(
+            append_text(&mut output, &"x".repeat(MAX_EVENT_FIELD_BYTES + 1)),
+            Err(ReplayError::InvalidEvent)
+        );
     }
 
     #[test]
