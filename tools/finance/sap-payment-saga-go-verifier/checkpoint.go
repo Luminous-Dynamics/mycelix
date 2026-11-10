@@ -13,7 +13,7 @@ import (
 const (
 	ownerCheckpointDomain                                  = "MXSAP-OWNER-CHECKPOINT-SUBJECT-V1\x00"
 	maxOwnerCheckpointTextBytes                            = 4 * 1024
-	holochainActionHashBytes                             = 39
+	holochainActionHashBytes                               = 39
 	ownerCheckpointKeyProfileHolochainActionEd25519V1 byte = 1
 )
 
@@ -51,7 +51,8 @@ type OwnerCheckpointSubjectV1 struct {
 }
 
 func (s OwnerCheckpointSubjectV1) Validate() error {
-	if s.OwnerDomain != CheckpointPaymentsLocalTransaction && s.OwnerDomain != CheckpointTreasuryFeeEffect {
+	if s.OwnerDomain != CheckpointPaymentsLocalTransaction &&
+		s.OwnerDomain != CheckpointTreasuryFeeEffect {
 		return ErrCheckpointInvalid
 	}
 	for _, value := range []string{s.OperationID, s.IssuerDID} {
@@ -59,7 +60,10 @@ func (s OwnerCheckpointSubjectV1) Validate() error {
 			return err
 		}
 	}
-	for _, value := range []string{s.IntentDigest, s.JournalIdentityDigest, s.TailDigest, s.IssuerKeyFingerprint, s.OwnerAuthorityDigest} {
+	for _, value := range []string{
+		s.IntentDigest, s.JournalIdentityDigest, s.TailDigest,
+		s.IssuerKeyFingerprint, s.OwnerAuthorityDigest,
+	} {
 		if err := validateOwnerCheckpointDigest(value); err != nil {
 			return err
 		}
@@ -95,7 +99,8 @@ func (s OwnerCheckpointSubjectV1) Validate() error {
 	if len(s.OwnerAuthorityActionHash) != holochainActionHashBytes {
 		return ErrCheckpointAuthorityAction
 	}
-	if !strings.HasPrefix(s.IssuerDID, "did:mycelix:") || strings.TrimSpace(s.IssuerDID) != s.IssuerDID {
+	if !strings.HasPrefix(s.IssuerDID, "did:mycelix:") ||
+		strings.TrimSpace(s.IssuerDID) != s.IssuerDID {
 		return ErrCheckpointInvalid
 	}
 	if s.SupersedesCheckpointDigest != nil {
