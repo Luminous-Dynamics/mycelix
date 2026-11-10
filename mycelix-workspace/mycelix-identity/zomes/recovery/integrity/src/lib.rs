@@ -244,19 +244,274 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             },
             _ => Ok(ValidateCallbackResult::Valid),
         },
-        FlatOp::RegisterCreateLink { link_type, tag, .. } => {
+        FlatOp::RegisterCreateLink {
+            link_type,
+            base_address,
+            target_address,
+            tag,
+            action,
+        } => {
             if tag.0.len() > 1024 {
                 return Ok(ValidateCallbackResult::Invalid(
                     "Link tag exceeds maximum length of 1024 bytes".into(),
                 ));
             }
+
             match link_type {
-                LinkTypes::DidToRecoveryConfig
-                | LinkTypes::DidToRecoveryRequest
-                | LinkTypes::RequestToVotes
-                | LinkTypes::TrusteeToConfig
-                | LinkTypes::DidToSelfRecoveryConfig
-                | LinkTypes::DidToSelfRecoveryRequest => Ok(ValidateCallbackResult::Valid),
+                LinkTypes::DidToRecoveryConfig => {
+                    let target_hash = match target_address.into_action_hash() {
+                        Some(hash) => hash,
+                        None => {
+                            return Ok(ValidateCallbackResult::Invalid(
+                                "Recovery config link target must be an action hash".into(),
+                            ));
+                        }
+                    };
+                    let record = must_get_valid_record(target_hash)?;
+                    let Some(config) = record
+                        .entry()
+                        .to_app_option::<RecoveryConfig>()
+                        .map_err(|error| wasm_error!(WasmErrorInner::Guest(error.to_string())))?
+                    else {
+                        return Ok(ValidateCallbackResult::Invalid(
+                            "DID recovery-config link must target a RecoveryConfig".into(),
+                        ));
+                    };
+                    let base_hash = match base_address.into_entry_hash() {
+                        Some(hash) => hash,
+                        None => {
+                            return Ok(ValidateCallbackResult::Invalid(
+                                "DID recovery-config link base must be an entry hash".into(),
+                            ));
+                        }
+                    };
+                    match validate_recovery_config_link_fields(
+                        &base_hash,
+                        &config.did,
+                        &config.owner,
+                        &action.author,
+                    ) {
+                        Ok(()) => Ok(ValidateCallbackResult::Valid),
+                        Err(reason) => Ok(ValidateCallbackResult::Invalid(reason.into())),
+                    }
+                }
+                LinkTypes::DidToSelfRecoveryConfig => {
+                    let target_hash = match target_address.into_action_hash() {
+                        Some(hash) => hash,
+                        None => {
+                            return Ok(ValidateCallbackResult::Invalid(
+                                "Self-recovery config link target must be an action hash".into(),
+                            ));
+                        }
+                    };
+                    let record = must_get_valid_record(target_hash)?;
+                    let Some(config) = record
+                        .entry()
+                        .to_app_option::<SelfRecoveryConfig>()
+                        .map_err(|error| wasm_error!(WasmErrorInner::Guest(error.to_string())))?
+                    else {
+                        return Ok(ValidateCallbackResult::Invalid(
+                            "DID self-recovery link must target a SelfRecoveryConfig".into(),
+                        ));
+                    };
+                    let base_hash = match base_address.into_entry_hash() {
+                        Some(hash) => hash,
+                        None => {
+                            return Ok(ValidateCallbackResult::Invalid(
+                                "DID self-recovery config link base must be an entry hash".into(),
+                            ));
+                        }
+                    };
+                    match validate_recovery_config_link_fields(
+                        &base_hash,
+                        &config.did,
+                        &config.owner,
+                        &action.author,
+                    ) {
+                        Ok(()) => Ok(ValidateCallbackResult::Valid),
+                        Err(reason) => Ok(ValidateCallbackResult::Invalid(reason.into())),
+                    }
+                }
+                LinkTypes::DidToRecoveryRequest => {
+                    let target_hash = match target_address.into_action_hash() {
+                        Some(hash) => hash,
+                        None => {
+                            return Ok(ValidateCallbackResult::Invalid(
+                                "Recovery request link target must be an action hash".into(),
+                            ));
+                        }
+                    };
+                    let record = must_get_valid_record(target_hash)?;
+                    let Some(request) = record
+                        .entry()
+                        .to_app_option::<RecoveryRequest>()
+                        .map_err(|error| wasm_error!(WasmErrorInner::Guest(error.to_string())))?
+                    else {
+                        return Ok(ValidateCallbackResult::Invalid(
+                            "DID recovery-request link must target a RecoveryRequest".into(),
+                        ));
+                    };
+                    let base_hash = match base_address.into_entry_hash() {
+                        Some(hash) => hash,
+                        None => {
+                            return Ok(ValidateCallbackResult::Invalid(
+                                "DID recovery-request link base must be an entry hash".into(),
+                            ));
+                        }
+                    };
+                    if base_hash != did_to_entry_hash(&request.did) {
+                        return Ok(ValidateCallbackResult::Invalid(
+                            "Recovery request link base must match the request DID".into(),
+                        ));
+                    }
+                    if record.action().author() != &action.author {
+                        return Ok(ValidateCallbackResult::Invalid(
+                            "Only the recovery-request author may create its DID index link".into(),
+                        ));
+                    }
+                    if request.initiated_by != format!("did:mycelix:{}", action.author) {
+                        return Ok(ValidateCallbackResult::Invalid(
+                            "Recovery-request link author must match the authenticated initiator".into(),
+                        ));
+                    }
+                    Ok(ValidateCallbackResult::Valid)
+                }
+                LinkTypes::DidToSelfRecoveryRequest => {
+                    let target_hash = match target_address.into_action_hash() {
+                        Some(hash) => hash,
+                        None => {
+                            return Ok(ValidateCallbackResult::Invalid(
+                                "Self-recovery request link target must be an action hash".into(),
+                            ));
+                        }
+                    };
+                    let record = must_get_valid_record(target_hash)?;
+                    let Some(request) = record
+                        .entry()
+                        .to_app_option::<SelfRecoveryRequest>()
+                        .map_err(|error| wasm_error!(WasmErrorInner::Guest(error.to_string())))?
+                    else {
+                        return Ok(ValidateCallbackResult::Invalid(
+                            "DID self-recovery link must target a SelfRecoveryRequest".into(),
+                        ));
+                    };
+                    let base_hash = match base_address.into_entry_hash() {
+                        Some(hash) => hash,
+                        None => {
+                            return Ok(ValidateCallbackResult::Invalid(
+                                "DID self-recovery request link base must be an entry hash".into(),
+                            ));
+                        }
+                    };
+                    if base_hash != did_to_entry_hash(&request.did) {
+                        return Ok(ValidateCallbackResult::Invalid(
+                            "Self-recovery request link base must match the request DID".into(),
+                        ));
+                    }
+                    if record.action().author() != &action.author {
+                        return Ok(ValidateCallbackResult::Invalid(
+                            "Only the self-recovery request author may create its DID index link".into(),
+                        ));
+                    }
+                    Ok(ValidateCallbackResult::Valid)
+                }
+                LinkTypes::TrusteeToConfig => {
+                    let target_hash = match target_address.into_action_hash() {
+                        Some(hash) => hash,
+                        None => {
+                            return Ok(ValidateCallbackResult::Invalid(
+                                "Trustee config link target must be an action hash".into(),
+                            ));
+                        }
+                    };
+                    let record = must_get_valid_record(target_hash)?;
+                    let Some(config) = record
+                        .entry()
+                        .to_app_option::<RecoveryConfig>()
+                        .map_err(|error| wasm_error!(WasmErrorInner::Guest(error.to_string())))?
+                    else {
+                        return Ok(ValidateCallbackResult::Invalid(
+                            "Trustee config link must target a RecoveryConfig".into(),
+                        ));
+                    };
+                    if record.action().author() != &action.author || config.owner != action.author {
+                        return Ok(ValidateCallbackResult::Invalid(
+                            "Only the recovery-config owner may create trustee index links".into(),
+                        ));
+                    }
+                    let base_hash = match base_address.into_entry_hash() {
+                        Some(hash) => hash,
+                        None => {
+                            return Ok(ValidateCallbackResult::Invalid(
+                                "Trustee config link base must be an entry hash".into(),
+                            ));
+                        }
+                    };
+                    if !config
+                        .trustees
+                        .iter()
+                        .any(|trustee| did_to_entry_hash(trustee) == base_hash)
+                    {
+                        return Ok(ValidateCallbackResult::Invalid(
+                            "Trustee config link base must match an enrolled trustee DID".into(),
+                        ));
+                    }
+                    Ok(ValidateCallbackResult::Valid)
+                }
+                LinkTypes::RequestToVotes => {
+                    let request_hash = match base_address.into_action_hash() {
+                        Some(hash) => hash,
+                        None => {
+                            return Ok(ValidateCallbackResult::Invalid(
+                                "Request vote link base must be an action hash".into(),
+                            ));
+                        }
+                    };
+                    let vote_hash = match target_address.into_action_hash() {
+                        Some(hash) => hash,
+                        None => {
+                            return Ok(ValidateCallbackResult::Invalid(
+                                "Request vote link target must be an action hash".into(),
+                            ));
+                        }
+                    };
+                    let request_record = must_get_valid_record(request_hash)?;
+                    let Some(request) = request_record
+                        .entry()
+                        .to_app_option::<RecoveryRequest>()
+                        .map_err(|error| wasm_error!(WasmErrorInner::Guest(error.to_string())))?
+                    else {
+                        return Ok(ValidateCallbackResult::Invalid(
+                            "Request vote link base must target a RecoveryRequest".into(),
+                        ));
+                    };
+                    let vote_record = must_get_valid_record(vote_hash)?;
+                    let Some(vote) = vote_record
+                        .entry()
+                        .to_app_option::<RecoveryVote>()
+                        .map_err(|error| wasm_error!(WasmErrorInner::Guest(error.to_string())))?
+                    else {
+                        return Ok(ValidateCallbackResult::Invalid(
+                            "Request vote link target must target a RecoveryVote".into(),
+                        ));
+                    };
+                    if vote.request_id != request.id {
+                        return Ok(ValidateCallbackResult::Invalid(
+                            "Vote request ID must match the linked recovery request".into(),
+                        ));
+                    }
+                    if vote_record.action().author() != &action.author {
+                        return Ok(ValidateCallbackResult::Invalid(
+                            "Only the vote author may create its request index link".into(),
+                        ));
+                    }
+                    if vote.trustee != format!("did:mycelix:{}", action.author) {
+                        return Ok(ValidateCallbackResult::Invalid(
+                            "Vote index link author must match the authenticated trustee".into(),
+                        ));
+                    }
+                    Ok(ValidateCallbackResult::Valid)
+                }
             }
         }
         FlatOp::RegisterDeleteLink {
@@ -301,6 +556,40 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     }
 }
 
+/// Deterministically reproduce the DID-string link base used by the
+/// recovery coordinator. This hash is an index only; identity authority is
+/// checked separately against the config owner and the committing action.
+fn did_to_entry_hash(did: &str) -> EntryHash {
+    EntryHash::from_raw_36(
+        holo_hash::blake2b_256(did.as_bytes())
+            .into_iter()
+            .chain([0u8; 4])
+            .collect(),
+    )
+}
+
+/// Check the ownership and target/base binding for a DID-to-recovery-config
+/// link. This is integrity validation, so a coordinator cannot substitute a
+/// config for a different DID by writing an arbitrary DHT link.
+fn validate_recovery_config_link_fields(
+    base_hash: &EntryHash,
+    did: &str,
+    owner: &AgentPubKey,
+    link_author: &AgentPubKey,
+) -> Result<(), &'static str> {
+    let expected_did = format!("did:mycelix:{}", owner);
+    if did != expected_did {
+        return Err("Recovery config DID must correspond to its owner");
+    }
+    if owner != link_author {
+        return Err("Only the recovery-config owner may create its DID index link");
+    }
+    if base_hash != &did_to_entry_hash(did) {
+        return Err("Recovery config link base must match the config DID");
+    }
+    Ok(())
+}
+
 /// Validate recovery config creation
 fn validate_create_recovery_config(
     action: EntryCreationAction,
@@ -313,7 +602,13 @@ fn validate_create_recovery_config(
         ));
     }
 
-    // Validate owner is author
+    // Bind the config DID to the committing agent as well as the owner
+    // field. Checking config.owner alone allows a caller to claim a victim DID.
+    if config.did != format!("did:mycelix:{}", action.author()) {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Recovery config DID must correspond to the committing owner".into(),
+        ));
+    }
     if config.owner != *action.author() {
         return Ok(ValidateCallbackResult::Invalid(
             "Owner must be the author".into(),
