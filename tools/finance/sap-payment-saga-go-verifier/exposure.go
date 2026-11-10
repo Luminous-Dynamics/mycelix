@@ -170,7 +170,9 @@ func (b ExposureBreakdownV1) TotalMinor() (uint64, error) {
 		b.ReservedMinor, b.DispatchAuthorizedMinor,
 		b.IndeterminateMinor, b.CommittedUnsettledMinor,
 	} {
-		if value > ^uint64(0)-total { return 0, ErrExposureAmountOverflow }
+		if value > ^uint64(0)-total {
+			return 0, ErrExposureAmountOverflow
+		}
 		total += value
 	}
 	return total, nil
@@ -322,7 +324,9 @@ func (b *ExposureBookV1) BreakdownMinor() (ExposureBreakdownV1, error) {
 		default:
 			continue
 		}
-		if amount > ^uint64(0)-*bucket { return ExposureBreakdownV1{}, ErrExposureAmountOverflow }
+		if amount > ^uint64(0)-*bucket {
+			return ExposureBreakdownV1{}, ErrExposureAmountOverflow
+		}
 		*bucket += amount
 	}
 	return totals, nil
@@ -330,7 +334,9 @@ func (b *ExposureBookV1) BreakdownMinor() (ExposureBreakdownV1, error) {
 
 func (b *ExposureBookV1) TotalExposureMinor() (uint64, error) {
 	totals, err := b.BreakdownMinor()
-	if err != nil { return 0, err }
+	if err != nil {
+		return 0, err
+	}
 	return totals.TotalMinor()
 }
 
