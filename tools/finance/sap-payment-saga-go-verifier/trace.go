@@ -303,13 +303,14 @@ func GenerateTraceV1(seed, traceIndex uint64) TraceV1 {
 			makeTraceCommand(TracePrepareTreasury, TraceTreasury, TraceNoFault, effectNonce, fee),
 			makeTraceCommand(TraceDispatchTreasury, TraceTreasury, TraceNoFault, effectNonce, fee),
 			makeTraceCommand(TraceDuplicateDelivery, TraceAdversary, TraceDuplicateDeliveryFault, effectNonce, fee),
-			makeTraceCommand(TraceCommitTreasury, TraceTreasury, TraceNoFault, effectNonce, fee),
+			makeTraceCommand(TraceReconcileTreasury, TraceTreasury, TraceReceiptMismatch, effectNonce, fee),
 			makeTraceCommand(TraceMutateEvent, TraceAdversary, TracePayloadMutation, operationNonce, checkpointNonce),
 		)
 	case 7:
 		commands = append(commands,
 			makeTraceCommand(TraceCheckpointPayments, TracePayments, TraceNoFault, operationNonce, checkpointNonce),
 			makeTraceCommand(TraceCheckpointTreasury, TraceTreasury, TraceStaleFrontier, effectNonce, checkpointNonce),
+			makeTraceCommand(TraceStaleCheckpoint, TraceAdversary, TraceWrongOwner, effectNonce, checkpointNonce),
 			makeTraceCommand(TraceForkCheckpoint, TraceAdversary, TraceForkedCheckpoint, effectNonce, checkpointNonce),
 		)
 	case 8:
