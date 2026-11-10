@@ -1,4 +1,4 @@
-use building_condition_applicability::{parse, validate_tracked};
+use building_condition_applicability::validate_tracked;
 use std::process::ExitCode;
 
 fn main()->ExitCode{
