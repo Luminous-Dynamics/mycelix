@@ -234,6 +234,87 @@ func TestJournalEventReplayReconstructsLocalAndTreasuryRecovery(t *testing.T) {
 	}
 }
 
+func TestEveryValidReplayPrefixReconstructsTheLiveJournalProjection(t *testing.T) {
+	journal := newJournal(replayTestIntent())
+	log, err := NewJournalEventLog(replayTestIntent())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	assertPrefix := func(stage string) {
+		t.Helper()
+		replayed, err := ReplayJournal(log.Frames(), log.Anchor())
+		if err != nil {
+			t.Fatalf("%s: replay failed: %v", stage, err)
+		}
+		if !reflect.DeepEqual(replayed, journal) {
+			t.Fatalf("%s: replayed prefix differs from live journal projection:\nreplayed=%#v\nlive=%#v", stage, replayed, journal)
+		}
+	}
+
+	assertPrefix("created")
+
+	if err := journal.Authorize(); err != nil {
+		t.Fatal(err)
+	}
+	if err := log.RecordAuthorized(); err != nil {
+		t.Fatal(err)
+	}
+	assertPrefix("authorized")
+
+	localID := journal.EffectID(LocalPaymentTransaction)
+	if _, err := journal.PrepareLeg(LocalPaymentTransaction, localID); err != nil {
+		t.Fatal(err)
+	}
+	if err := log.RecordEffectPrepared(LocalPaymentTransaction, localID); err != nil {
+		t.Fatal(err)
+	}
+	assertPrefix("local-prepared")
+
+	local := replayTestLocalEvidence(journal)
+	if _, err := journal.CommitLeg(LocalPaymentTransaction, local); err != nil {
+		t.Fatal(err)
+	}
+	if err := log.RecordEffectCommitted(local); err != nil {
+		t.Fatal(err)
+	}
+	assertPrefix("local-committed")
+
+	treasuryID := journal.EffectID(TreasuryFee)
+	if _, err := journal.PrepareLeg(TreasuryFee, treasuryID); err != nil {
+		t.Fatal(err)
+	}
+	if err := log.RecordEffectPrepared(TreasuryFee, treasuryID); err != nil {
+		t.Fatal(err)
+	}
+	assertPrefix("treasury-prepared")
+
+	if err := journal.MarkIndeterminate(TreasuryFee, treasuryID); err != nil {
+		t.Fatal(err)
+	}
+	if err := log.RecordEffectIndeterminate(TreasuryFee, treasuryID); err != nil {
+		t.Fatal(err)
+	}
+	assertPrefix("treasury-indeterminate")
+
+	if transition, err := journal.PrepareLeg(TreasuryFee, treasuryID); err != nil || transition != TransitionResumedSameEffect {
+		t.Fatalf("same-effect Treasury recovery = %q, %v", transition, err)
+	}
+	if err := log.RecordEffectPrepared(TreasuryFee, treasuryID); err != nil {
+		t.Fatal(err)
+	}
+	assertPrefix("treasury-resumed-same-effect")
+
+	treasury := replayTestTreasuryEvidence(journal)
+	if _, err := journal.CommitLeg(TreasuryFee, treasury); err != nil {
+		t.Fatal(err)
+	}
+	if err := log.RecordEffectCommitted(treasury); err != nil {
+		t.Fatal(err)
+	}
+	assertPrefix("completed")
+}
+
 func TestJournalEventTextFieldsAreBoundedBeforeHashing(t *testing.T) {
 	var output []byte
 	if err := appendJournalEventText(&output, strings.Repeat("x", maxJournalEventFieldBytes)); err != nil {
