@@ -544,6 +544,30 @@ mod tests {
     }
 
     #[test]
+    fn exposure_breakdown_tracks_each_at_risk_state() {
+        let mut book = ExposureBookV1::new(policy(2_000)).unwrap();
+        book.reserve(intent("reserved", 100)).unwrap();
+        book.reserve(intent("dispatch", 200)).unwrap();
+        book.reserve(intent("indeterminate", 300)).unwrap();
+        book.reserve(intent("committed", 400)).unwrap();
+        book.mark_dispatch_authorized("dispatch").unwrap();
+        book.mark_dispatch_authorized("indeterminate").unwrap();
+        book.mark_indeterminate("indeterminate").unwrap();
+        book.mark_dispatch_authorized("committed").unwrap();
+        book.mark_committed_unsettled("committed").unwrap();
+        assert_eq!(
+            book.breakdown_minor().unwrap(),
+            ExposureBreakdownV1 {
+                reserved_minor: 100,
+                dispatch_authorized_minor: 200,
+                indeterminate_minor: 300,
+                committed_unsettled_minor: 400,
+            }
+        );
+        assert_eq!(book.total_exposure_minor(), Ok(1_000));
+    }
+
+    #[test]
     fn dispatch_authorization_is_idempotent_and_keeps_exposure_reserved() {
         let mut book = ExposureBookV1::new(policy(1_000)).unwrap();
         book.reserve(intent("effect:1", 600)).unwrap();
