@@ -75,24 +75,24 @@ type TraceCommandV1 struct {
 }
 
 type TraceV1 struct {
-	Seed          uint64
-	TraceIndex    uint64
-	Scenario      uint8
+	Seed           uint64
+	TraceIndex     uint64
+	Scenario       uint8
 	OperationNonce uint64
-	Commands      []TraceCommandV1
+	Commands       []TraceCommandV1
 }
 
 var (
 	ErrTraceInvalidScenario = errors.New("trace scenario must be in 1..=8")
 	ErrTraceEmptyCommands   = errors.New("trace must contain at least one command")
 	ErrTraceTooManyCommands = errors.New("trace exceeds the 64-command bound")
-	ErrTraceInvalidMagic = errors.New("trace domain separator is invalid")
-	ErrTraceTruncatedInput = errors.New("trace input is truncated")
-	ErrTraceInvalidOpcode = errors.New("trace contains an unknown opcode")
-	ErrTraceInvalidOwner = errors.New("trace contains an unknown owner")
-	ErrTraceInvalidFault = errors.New("trace contains an unknown fault code")
+	ErrTraceInvalidMagic    = errors.New("trace domain separator is invalid")
+	ErrTraceTruncatedInput  = errors.New("trace input is truncated")
+	ErrTraceInvalidOpcode   = errors.New("trace contains an unknown opcode")
+	ErrTraceInvalidOwner    = errors.New("trace contains an unknown owner")
+	ErrTraceInvalidFault    = errors.New("trace contains an unknown fault code")
 	ErrTraceNonzeroReserved = errors.New("trace reserved byte must be zero")
-	ErrTraceTrailingBytes = errors.New("trace contains trailing bytes")
+	ErrTraceTrailingBytes   = errors.New("trace contains trailing bytes")
 )
 
 func (trace TraceV1) CanonicalBytes() ([]byte, error) {
