@@ -32,6 +32,7 @@ pub struct OwnerCheckpointSubjectV1 {
     pub checkpoint_sequence: u64,
     pub prior_checkpoint_digest: Option<String>,
     pub source_action_hash: Vec<u8>,
+    pub owner_authority_action_hash: Vec<u8>,
     pub issuer_did: String,
     pub issuer_key_fingerprint: String,
     pub owner_authority_digest: String,
@@ -50,6 +51,7 @@ pub enum CheckpointError {
     EmptyEventFrontier,
     InvalidCheckpointSequence,
     InvalidSourceActionHash,
+    InvalidAuthorityActionHash,
 }
 
 impl fmt::Display for CheckpointError {
@@ -75,6 +77,7 @@ impl OwnerCheckpointSubjectV1 {
         bytes.extend_from_slice(&self.checkpoint_sequence.to_be_bytes());
         append_optional_digest(&mut bytes, self.prior_checkpoint_digest.as_deref())?;
         append_bytes(&mut bytes, &self.source_action_hash)?;
+        append_action_hash(&mut bytes, &self.owner_authority_action_hash)?;
         append_text(&mut bytes, &self.issuer_did)?;
         bytes.push(KEY_PROFILE_HOLOCHAIN_ACTION_ED25519_V1);
         append_digest(&mut bytes, &self.issuer_key_fingerprint)?;
@@ -124,6 +127,11 @@ impl OwnerCheckpointSubjectV1 {
             || self.source_action_hash.len() > MAX_SOURCE_ACTION_HASH_BYTES
         {
             return Err(CheckpointError::InvalidSourceActionHash);
+        }
+        if self.owner_authority_action_hash.is_empty()
+            || self.owner_authority_action_hash.len() > MAX_SOURCE_ACTION_HASH_BYTES
+        {
+            return Err(CheckpointError::InvalidAuthorityActionHash);
         }
         if require_text(&self.issuer_did).is_err()
             || !self.issuer_did.starts_with("did:mycelix:")
@@ -203,6 +211,17 @@ fn append_optional_digest(
     Ok(())
 }
 
+fn append_action_hash(output: &mut Vec<u8>, value: &[u8]) -> Result<(), CheckpointError> {
+    if value.is_empty() || value.len() > MAX_SOURCE_ACTION_HASH_BYTES {
+        return Err(CheckpointError::InvalidAuthorityActionHash);
+    }
+    let length =
+        u32::try_from(value.len()).map_err(|_| CheckpointError::InvalidAuthorityActionHash)?;
+    output.extend_from_slice(&length.to_be_bytes());
+    output.extend_from_slice(value);
+    Ok(())
+}
+
 fn append_bytes(output: &mut Vec<u8>, value: &[u8]) -> Result<(), CheckpointError> {
     if value.len() > MAX_SOURCE_ACTION_HASH_BYTES {
         return Err(CheckpointError::InvalidSourceActionHash);
@@ -275,6 +294,7 @@ mod tests {
             checkpoint_sequence: fixture_field("checkpoint_sequence").parse().unwrap(),
             prior_checkpoint_digest: optional_digest("prior_checkpoint_digest"),
             source_action_hash: decode_hex(fixture_field("source_action_hash_hex")),
+            owner_authority_action_hash: decode_hex(fixture_field("owner_authority_action_hash_hex")),
             issuer_did: fixture_field("issuer_did").into(),
             issuer_key_fingerprint: fixture_field("issuer_key_fingerprint").into(),
             owner_authority_digest: fixture_field("owner_authority_digest").into(),
@@ -359,6 +379,21 @@ mod tests {
         assert_eq!(
             subject.validate(),
             Err(CheckpointError::InvalidSourceActionHash)
+        );
+    }
+
+    #[test]
+    fn checkpoint_requires_a_bounded_owner_authority_action_hash() {
+        let mut subject = valid_subject();
+        subject.owner_authority_action_hash.clear();
+        assert_eq!(
+            subject.validate(),
+            Err(CheckpointError::InvalidAuthorityActionHash)
+        );
+        subject.owner_authority_action_hash = vec![0; MAX_SOURCE_ACTION_HASH_BYTES + 1];
+        assert_eq!(
+            subject.validate(),
+            Err(CheckpointError::InvalidAuthorityActionHash)
         );
     }
 
