@@ -72,6 +72,51 @@ func TestTraceV1MatchesSharedKnownAnswerFixture(t *testing.T) {
 	}
 }
 
+func TestAllEightTraceScenariosMatchIndependentKnownAnswers(t *testing.T) {
+	raw, err := os.ReadFile("../sap-payment-saga-model/fixtures/saga-trace-v1.kat")
+	if err != nil {
+		t.Fatalf("read shared trace KAT: %v", err)
+	}
+	seen := make(map[uint8]bool)
+	for _, line := range strings.Split(string(raw), "\n") {
+		if !strings.HasPrefix(line, "vector=") {
+			continue
+		}
+		fields := strings.Split(strings.TrimPrefix(line, "vector="), ",")
+		if len(fields) != 6 {
+			t.Fatalf("invalid vector row %q", line)
+		}
+		seed, err := strconv.ParseUint(fields[0], 16, 64)
+		if err != nil {
+			t.Fatalf("parse vector seed: %v", err)
+		}
+		traceIndex, err := strconv.ParseUint(fields[1], 10, 64)
+		if err != nil {
+			t.Fatalf("parse vector index: %v", err)
+		}
+		trace := GenerateTraceV1(seed, traceIndex)
+		scenario, err := strconv.ParseUint(fields[2], 10, 8)
+		if err != nil || uint64(trace.Scenario) != scenario {
+			t.Fatalf("scenario mismatch for vector %q", line)
+		}
+		if formatTraceHex64(trace.OperationNonce) != fields[3] {
+			t.Fatalf("operation nonce mismatch for vector %q", line)
+		}
+		commandCount, err := strconv.ParseUint(fields[4], 10, 32)
+		if err != nil || uint64(len(trace.Commands)) != commandCount {
+			t.Fatalf("command count mismatch for vector %q", line)
+		}
+		digest, err := trace.CanonicalDigest()
+		if err != nil || strings.TrimPrefix(digest, "sha256:") != fields[5] {
+			t.Fatalf("digest mismatch for vector %q: %v", line, err)
+		}
+		seen[trace.Scenario] = true
+	}
+	if len(seen) != 8 {
+		t.Fatalf("known-answer scenario coverage = %d, want 8", len(seen))
+	}
+}
+
 func TestTraceV1IsDeterministicAndCoversAllScenarios(t *testing.T) {
 	var scenarios [8]bool
 	for seed := uint64(0); seed < 4096; seed++ {
