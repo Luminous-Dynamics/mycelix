@@ -160,7 +160,7 @@ func (s OwnerCheckpointSubjectV1) Digest() (string, error) {
 }
 
 func ownerCheckpointJournalIdentityDigest(operationID, intentDigest string) (string, error) {
-	encoded := []byte("MXSAP-JOURNAL-IDENTITY-V1\\x00")
+	encoded := []byte("MXSAP-JOURNAL-IDENTITY-V1\x00")
 	var length [4]byte
 	binary.BigEndian.PutUint32(length[:], uint32(len(operationID)))
 	encoded = append(encoded, length[:]...)
