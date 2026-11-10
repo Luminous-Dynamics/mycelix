@@ -89,6 +89,15 @@ The checkpoint sequence is owner-local: Payments and Treasury do not share one i
 
 This is a canonical subject/reference model only. The digest is not an authorship proof. The model does not yet validate the native Holochain Create action that commits a checkpoint, map an owner DID to that action's author, check authority for the exact Payments/Treasury scope, resolve the referenced source ActionHash, prove predecessor/fork exclusion, or establish DHT convergence. The intended native path should reuse Holochain's signed action and integrity validation rather than layering a second detached signature system over the same source chain. External portable attestations can be considered separately when an actual cross-DNA or non-Holochain verifier requires them.
 
+
+## Checkpoint canonicalization benchmark
+
+`checkpoint_benchmark_test.go` measures canonical subject validation plus SHA-256 digest generation over synthetic owner-local checkpoint chains of exact sizes 100, 1,000 and 10,000 for both Payments and Treasury. Chain construction, prior-checkpoint linking and source-frontier construction occur before the timed region. Each language captures 30 raw 100 ms samples per owner/size on the same CI runner.
+
+The Go benchmark reports batch `ns/op`, `B/op` and `allocs/op`; the summary normalizes these by checkpoint count. The Rust harness reports ns/checkpoint directly. The summarizer requires all six Rust and all six Go groups to contain exactly 30 samples before emitting nearest-rank p50/p95/p99 and Go per-checkpoint allocation metrics.
+
+This measures only local canonicalization/validation and hashing. It does not measure Holochain host calls, ActionHash resolution, native action validation, DHT visibility, network transport, source-chain contention or storage durability. Do not compare it with an end-to-end payment API latency or a production Holochain benchmark.
+
 ## Claim ceiling
 
 A passing test suite demonstrates agreement of this Go implementation with its own frozen synthetic scenario expectations. It does not establish equivalence to Rust unless the same scenarios are executed against the Rust model; Holochain source-chain singleton uniqueness, DHT convergence, cross-agent exclusivity or fork exclusion; Ed25519 verification, ActionHash resolution or predecessor authorisation; actual SAP account movement or Treasury receipt; provider idempotency, external bank settlement, recipient availability or legal finality; live performance, regulatory compliance or production readiness.
