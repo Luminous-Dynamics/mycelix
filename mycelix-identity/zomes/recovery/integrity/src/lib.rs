@@ -249,9 +249,8 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 EntryTypes::RecoveryVote(_) => Ok(ValidateCallbackResult::Invalid(
                     "Recovery votes cannot be updated".into(),
                 )),
-                EntryTypes::SelfRecoveryConfig(_) => {
-                    // Updates allowed (adding/removing anchors, marking superseded)
-                    Ok(ValidateCallbackResult::Valid)
+                EntryTypes::SelfRecoveryConfig(config) => {
+                    validate_update_self_recovery_config(action, config)
                 }
                 EntryTypes::SelfRecoveryRequest(request) => {
                     validate_update_self_recovery_request(action, request)
@@ -803,6 +802,18 @@ fn validate_create_self_recovery_config(
             "Owner must be the author".into(),
         ));
     }
+    if !recovery_config_matches_owner_did(&config.did, action.author()) {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Self-recovery DID must correspond to the committing owner".into(),
+        ));
+    }
+    // This implementation intentionally keeps self-recovery inactive until
+    // enrolled anchors are backed by cryptographic challenge-response proofs.
+    if config.active {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Self-recovery cannot be activated without challenge-backed anchor verification".into(),
+        ));
+    }
     // Time lock minimum: 72 hours for self-recovery (stronger than social's 24h)
     if config.time_lock < SELF_RECOVERY_MIN_TIME_LOCK {
         return Ok(ValidateCallbackResult::Invalid(format!(
@@ -861,58 +872,67 @@ fn validate_create_self_recovery_request(
     Ok(ValidateCallbackResult::Valid)
 }
 
-/// Validate self-recovery request updates (same state machine as social recovery)
-///
-/// Author-binding for updates is enforced universally by this crate's
-/// `FlatOp::RegisterUpdate` handler (same author as original creator).
-/// This is consistent with self-recovery's model: since verify_self_recovery_anchor
-/// is called by the SAME requesting agent repeatedly (accumulating verified
-/// anchors), requiring the same author across updates is correct here --
-/// unlike RecoveryRequest's cross-trustee tallying, there's no legitimate
-/// need for a DIFFERENT agent to update a SelfRecoveryRequest.
-fn validate_update_self_recovery_request(
+/// Only an inactive self-recovery configuration may be maintained. Anchor
+/// enrollment and activation are deliberately blocked until every anchor type
+/// has a real proof-of-control protocol.
+fn validate_update_self_recovery_config(
     action: Update,
-    request: SelfRecoveryRequest,
+    config: SelfRecoveryConfig,
 ) -> ExternResult<ValidateCallbackResult> {
     let original_record = must_get_valid_record(action.original_action_address.clone())?;
-    let original: SelfRecoveryRequest = original_record
+    let original: SelfRecoveryConfig = original_record
         .entry()
         .to_app_option()
         .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
         .ok_or(wasm_error!(WasmErrorInner::Guest(
-            "Original self-recovery request not found".into()
+            "Original self-recovery config not found".into()
         )))?;
 
-    // Immutable fields
-    if request.id != original.id
-        || request.did != original.did
-        || request.new_agent != original.new_agent
-        || request.created != original.created
+    if config.did != original.did
+        || config.owner != original.owner
+        || config.created != original.created
+        || config.anchors != original.anchors
+        || config.anchor_threshold != original.anchor_threshold
+        || config.time_lock != original.time_lock
+        || config.active
+        || original.active
+        || (original.superseded_by_social && !config.superseded_by_social)
+        || config.updated <= original.updated
     {
         return Ok(ValidateCallbackResult::Invalid(
-            "Self-recovery request immutable fields cannot be changed".into(),
+            "Self-recovery configuration must remain inactive and cannot change anchors or ownership".into(),
         ));
     }
-
-    // Same state machine as social recovery
-    let valid_transition = match (&original.status, &request.status) {
-        (RecoveryStatus::Pending, RecoveryStatus::Approved)
-        | (RecoveryStatus::Pending, RecoveryStatus::Cancelled) => true,
-        (RecoveryStatus::Approved, RecoveryStatus::ReadyToExecute)
-        | (RecoveryStatus::Approved, RecoveryStatus::Cancelled) => true,
-        (RecoveryStatus::ReadyToExecute, RecoveryStatus::Completed)
-        | (RecoveryStatus::ReadyToExecute, RecoveryStatus::Cancelled) => true,
-        (a, b) if a == b => true,
-        _ => false,
-    };
-    if !valid_transition {
-        return Ok(ValidateCallbackResult::Invalid(format!(
-            "Invalid self-recovery status transition from {:?} to {:?}",
-            original.status, request.status
-        )));
+    if *original_record.action().author() != action.author {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Only the original self-recovery config author may update it".into(),
+        ));
     }
-
     Ok(ValidateCallbackResult::Valid)
+}
+
+/// Self-recovery request creation is disabled until the proof-of-control
+/// protocol is implemented. A caller-supplied hash is not evidence that the
+/// caller controls the phone, email, device, passkey, or biometric factor.
+fn validate_create_self_recovery_request(
+    _action: EntryCreationAction,
+    _request: SelfRecoveryRequest,
+) -> ExternResult<ValidateCallbackResult> {
+    Ok(ValidateCallbackResult::Invalid(
+        "Self-recovery requests are disabled until challenge-backed anchor proof is implemented".into(),
+    ))
+}
+
+/// Existing self-recovery requests cannot transition while the verification
+/// mechanism is disabled. This prevents historical hash-only requests from
+/// being completed through an old coordinator path.
+fn validate_update_self_recovery_request(
+    _action: Update,
+    _request: SelfRecoveryRequest,
+) -> ExternResult<ValidateCallbackResult> {
+    Ok(ValidateCallbackResult::Invalid(
+        "Self-recovery state transitions are disabled pending proof-of-control support".into(),
+    ))
 }
 
 #[cfg(test)]
