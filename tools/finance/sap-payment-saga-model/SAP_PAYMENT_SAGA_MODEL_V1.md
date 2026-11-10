@@ -81,6 +81,29 @@ The Go standard-library verifier now implements the same event framing and a sep
 
 The event stream is a reference model, not yet the production durable store or Holochain record format. The anchor must be retained outside the stream (for example in an independently protected operation receipt/checkpoint) to detect tail truncation. The model does not authenticate that anchor, authenticate event authors, resolve Holochain ActionHashes, prove distributed append-only storage, or establish monetary movement. A party able to rewrite the entire stream and its anchor can recompute this hash chain; production needs an authenticated, independently retained checkpoint and source-record verification. Event sequence is local logical order, not a global wall-clock or cross-agent total order.
 
+
+## Owner-scoped authenticated-checkpoint preparation
+
+`src/checkpoint.rs` defines the first reference-only increment for #6022. It does not add a second journal or identity authority. The checkpoint subject is a deterministic statement about one owner-scoped prefix of the existing replay stream:
+
+`owner domain + operation + intent digest + event-log identity + count/tail + owner-local sequence + prior checkpoint + source ActionHash frontier`
+
+The versioned `MXSAP-JOURNAL-CHECKPOINT-V1` fixed-field profile binds Payments (tag 1) and Treasury (tag 2) separately. It includes the exact owner DID, operation ID, immutable intent digest, event-log ID, event count, tail digest, checkpoint sequence, optional prior-checkpoint digest, raw 39-byte Holochain ActionHash, source-chain sequence, and optional raw 39-byte predecessor ActionHash. Strings use u32 big-endian byte-length prefixes and a 4,096-byte maximum; integer fields use fixed-width big-endian encoding; optional fields have explicit presence tags. ActionHash values are checked for the exact Holochain type prefix and 39-byte shape.
+
+The separate `MXSAP-PAYMENT-INTENT-V1` profile recomputes the immutable payment-intent digest. The operation ID is also directly bound into the checkpoint subject. Payments and Treasury maintain independent checkpoint sequences; the profile does not invent a cross-agent total order. The source frontier requires a predecessor for source action sequence greater than zero.
+
+Rust and Go independently implement the profiles and load the same `sap-payment-journal-checkpoint-v1.kat` fixture. The fixture pins canonical bytes and SHA-256 outputs for Payments, Treasury, and a second Treasury checkpoint that links to its prior checkpoint and source-action frontier. Hostile controls cover owner/operation/tail/action-hash substitution, malformed digest, wrong ActionHash type, missing predecessor, invalid checkpoint sequence, and over-limit text.
+
+**Current boundary:** this verifies canonical subject bytes, not a production checkpoint. It does not yet validate the native Holochain Create action that commits the checkpoint, bind the checkpoint's action author to the owner DID, authorize that identity for the Payments/Treasury domain, retrieve/type-check the referenced source ActionHash, or rule out source-chain forks/DHT unavailability. The intended in-DNA production mechanism is the native signed Holochain action plus deterministic integrity validation, not a detached signature stored inside the entry. The existing receipt-authentication branch is the identity/signature design boundary; the checkpoint work must compose with it rather than fork it.
+
+
+
+## Checkpoint canonicalization benchmark
+
+The Rust benchmark at `benches/checkpoint_benchmark.rs` and Go benchmark at `checkpoint_benchmark_test.go` generate matching synthetic owner-local checkpoint chains at 100, 1,000 and 10,000 checkpoints for Payments and Treasury. Construction of the checkpoint chain, predecessor links and raw ActionHash-shaped values occurs outside the timed region. Each owner/size group captures 30 raw samples with 100 ms measurement windows on the same CI runner. The workflow records Rust/Go versions and hardware metadata, and the AWK summarizer refuses to publish percentiles unless all six groups in each language are complete.
+
+Rust reports nanoseconds per checkpoint. Go reports batch latency, bytes and allocations, normalized by checkpoint count. The summary publishes nearest-rank p50/p95/p99. This isolates canonical profile validation and SHA-256 cost only; ActionHash host resolution, Holochain validation, DHT propagation, source-chain contention, storage durability and external settlement are not included.
+
 ## Distributed-systems and production limitations
 
 - The Mutex concurrency test proves only that this in-memory registry serializes its own threads.
@@ -93,7 +116,7 @@ Production implementation must compose with #4491 (sender-scoped operation ident
 
 ## Exact tests and next gate
 
-The model has **20 unit tests authored**, including two shared canonical-digest known-answer vectors, typed-field mutation check and over-limit field rejection. The dedicated workflow pins Rust 1.96.0 and runs formatting, tests and Clippy. A queued run is not PASS; tests have not been locally compiled in the authoring environment because no Rust/Cargo/Nix toolchain is available.
+The effects-disabled reference suite includes the saga, typed-evidence, replay and owner-scoped checkpoint tests. Shared known-answer fixtures pin cross-language canonical bytes and digests, with typed-field, event-history, owner-domain, action-hash and bound negative controls. The dedicated workflow pins Rust 1.96.0 and runs formatting, tests and Clippy. A queued run is not PASS; tests have not been locally compiled in the authoring environment because no Rust/Cargo/Nix toolchain is available.
 
 Next production gates:
 - same-sender concurrent zome-call test: one transaction commits; stale chain-head attempt leaves no partial local write set;

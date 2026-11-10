@@ -67,6 +67,40 @@ go test -run 'a^' -bench '^BenchmarkReplayJournal' -benchmem -benchtime=200ms -c
 
 The CI qualification captures the Go version, OS/architecture and CPU model, retains the 30 raw samples per history size in the job log, and fails the summary step unless all three groups contain exactly 30 samples. It computes nearest-rank p50/p95/p99 latency plus mean bytes and allocations per operation. For publishable cross-language comparisons, preserve the exact commit SHA, hardware, build mode, fixture bytes, and full raw output. This is a synthetic in-memory replay microbenchmark: it excludes Holochain DHT retrieval, source-chain validation, conductor restart, storage fsync, remote peers, and real monetary effects. No performance result is claimed until executed on the exact head.
 
+
+## Owner-scoped journal checkpoint subject v1
+
+`checkpoint.go` independently implements the same fixed-field checkpoint subject profile as Rust `src/checkpoint.rs`. The shared `fixtures/sap-payment-journal-checkpoint-v1.kat` pins exact canonical preimage bytes and SHA-256 digests for Payments, Treasury, a second Treasury checkpoint in the same owner-scoped sequence, and the terminal digests of paired synthetic Payments/Treasury chains at 100, 1,000 and 10,000 checkpoints.
+
+The `MXSAP-JOURNAL-CHECKPOINT-V1` profile binds, in fixed order:
+
+- owner-domain tag (Payments = 1; Treasury = 2);
+- operation ID and separately recomputed immutable-intent digest;
+- owner DID and stable event-log identity;
+- event count and exact tail digest;
+- owner-local checkpoint sequence and optional prior-checkpoint digest;
+- raw 39-byte Holochain ActionHash for the source action, its source-chain sequence, and an optional raw 39-byte predecessor ActionHash.
+
+Text values use four-byte unsigned big-endian UTF-8 byte lengths, with a 4,096-byte maximum per field. Event/checkpoint counts use unsigned 64-bit big-endian integers; source-chain sequence uses unsigned 32-bit big-endian. Optional prior-checkpoint and source-predecessor values have explicit one-byte presence tags. ActionHash values must have the exact Holochain ActionHash type prefix and 39-byte shape; the reference model does not recompute a source action's hash from a signed header.
+
+The separate `MXSAP-PAYMENT-INTENT-V1` digest binds sender DID, recipient DID, client key, payload fingerprint, integer amount, fee and currency. The operation ID is also included directly in the checkpoint subject, so the subject cannot be transplanted to another operation without changing its digest.
+
+
+The 39-byte raw ActionHash framing follows Holochain's documented address layout: three-byte multihash type prefix, 32-byte hash core and four-byte DHT location; the ActionHash prefix is `hCkk` / `0x842924`. See [Holochain identifiers](https://developer.holochain.org/build/identifiers/). The reference validator checks the type and byte shape only; it does not recompute an action hash from a signed header.
+
+The checkpoint sequence is owner-local: Payments and Treasury do not share one imaginary global order. A sequence-1 checkpoint has no prior checkpoint digest; later sequences require one. The source-action frontier has the analogous genesis/predecessor rule.
+
+This is a canonical subject/reference model only. The digest is not an authorship proof. The model does not yet validate the native Holochain Create action that commits a checkpoint, map an owner DID to that action's author, check authority for the exact Payments/Treasury scope, resolve the referenced source ActionHash, prove predecessor/fork exclusion, or establish DHT convergence. The intended native path should reuse Holochain's signed action and integrity validation rather than layering a second detached signature system over the same source chain. External portable attestations can be considered separately when an actual cross-DNA or non-Holochain verifier requires them.
+
+
+## Checkpoint canonicalization benchmark
+
+`checkpoint_benchmark_test.go` measures canonical subject validation plus SHA-256 digest generation over synthetic owner-local checkpoint chains of exact sizes 100, 1,000 and 10,000 for both Payments and Treasury. Chain construction, prior-checkpoint linking and source-frontier construction occur before the timed region. Each language captures 30 raw 100 ms samples per owner/size on the same CI runner.
+
+The Go benchmark reports batch `ns/op`, `B/op` and `allocs/op`; the summary normalizes these by checkpoint count. The Rust harness reports ns/checkpoint directly. The summarizer requires all six Rust and all six Go groups to contain exactly 30 samples before emitting nearest-rank p50/p95/p99 and Go per-checkpoint allocation metrics.
+
+This measures only local canonicalization/validation and hashing. It does not measure Holochain host calls, ActionHash resolution, native action validation, DHT visibility, network transport, source-chain contention or storage durability. Do not compare it with an end-to-end payment API latency or a production Holochain benchmark.
+
 ## Claim ceiling
 
 A passing test suite demonstrates agreement of this Go implementation with its own frozen synthetic scenario expectations. It does not establish equivalence to Rust unless the same scenarios are executed against the Rust model; Holochain source-chain singleton uniqueness, DHT convergence, cross-agent exclusivity or fork exclusion; Ed25519 verification, ActionHash resolution or predecessor authorisation; actual SAP account movement or Treasury receipt; provider idempotency, external bank settlement, recipient availability or legal finality; live performance, regulatory compliance or production readiness.

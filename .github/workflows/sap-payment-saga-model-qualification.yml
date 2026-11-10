@@ -83,3 +83,18 @@ jobs:
           set -euo pipefail
           cat /tmp/replay-rust-benchmark.txt /tmp/replay-go-benchmark.txt > /tmp/replay-benchmark.txt
           awk -f tools/finance/sap-payment-saga-go-verifier/summarize-replay-benchmark.awk /tmp/replay-benchmark.txt
+
+      - name: Measure Rust owner-scoped checkpoint hashing
+        run: |
+          set -euo pipefail
+          cargo bench --manifest-path tools/finance/sap-payment-saga-model/Cargo.toml --bench checkpoint_benchmark | tee /tmp/checkpoint-rust-benchmark.txt
+      - name: Measure Go owner-scoped checkpoint hashing
+        working-directory: tools/finance/sap-payment-saga-go-verifier
+        run: |
+          set -euo pipefail
+          go test -run 'a^' -bench '^BenchmarkCheckpointDigest' -benchmem -benchtime=100ms -count=30 | tee /tmp/checkpoint-go-benchmark.txt
+      - name: Summarize paired checkpoint benchmark samples
+        run: |
+          set -euo pipefail
+          cat /tmp/checkpoint-rust-benchmark.txt /tmp/checkpoint-go-benchmark.txt > /tmp/checkpoint-benchmark.txt
+          awk -f tools/finance/sap-payment-saga-go-verifier/summarize-checkpoint-benchmark.awk /tmp/checkpoint-benchmark.txt

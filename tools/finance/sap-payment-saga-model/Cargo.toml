@@ -16,3 +16,8 @@ sha2 = "=0.10.9"
 name = "replay_benchmark"
 path = "benches/replay_benchmark.rs"
 harness = false
+
+[[bench]]
+name = "checkpoint_benchmark"
+path = "benches/checkpoint_benchmark.rs"
+harness = false
