@@ -8,7 +8,7 @@
 use super::{PaymentIntent, PaymentJournal};
 use sha2::{Digest, Sha256};
 
-const INTENT_DOMAIN: &[u8] = b"MXSAP-PAYMENT-INTENT-V1\\0";
+const INTENT_DOMAIN: &[u8] = b"MXSAP-PAYMENT-INTENT-V1\0";
 const DOMAIN: &[u8] = b"MXSAP-JOURNAL-CHECKPOINT-SUBJECT-V1\0";
 const MAX_FIELD_BYTES: usize = 4096;
 
@@ -57,7 +57,9 @@ impl CheckpointSubjectV1 {
         self.validate()?;
         let expected_operation_id = PaymentJournal::new(intent.clone()).operation_id();
         let expected_intent_digest = canonical_intent_digest(intent)?;
-        if self.operation_id != expected_operation_id || self.intent_digest != expected_intent_digest {
+        if self.operation_id != expected_operation_id
+            || self.intent_digest != expected_intent_digest
+        {
             return Err(CheckpointError::IntentMismatch);
         }
         Ok(())
@@ -274,16 +276,11 @@ mod tests {
             Some(intent_bytes_hex.as_str()),
             vectors.get("intent-bytes-hex").copied()
         );
-        assert_eq!(
-            Some(canonical_intent_digest(&intent).expect("intent digest").as_str()),
-            vectors.get("intent-digest").copied()
-        );
+        let intent_digest = canonical_intent_digest(&intent).expect("intent digest");
+        assert_eq!(Some(intent_digest.as_str()), vectors.get("intent-digest").copied());
 
         let subject = subject();
-        assert_eq!(
-            subject.validate_against_intent(&intent),
-            Ok(())
-        );
+        assert_eq!(subject.validate_against_intent(&intent), Ok(()));
         let bytes_hex: String = subject
             .canonical_bytes()
             .expect("canonical bytes")
@@ -294,10 +291,8 @@ mod tests {
             Some(bytes_hex.as_str()),
             vectors.get("subject-bytes-hex").copied()
         );
-        assert_eq!(
-            Some(subject.canonical_digest().expect("canonical digest").as_str()),
-            vectors.get("subject-digest").copied()
-        );
+        let subject_digest = subject.canonical_digest().expect("canonical digest");
+        assert_eq!(Some(subject_digest.as_str()), vectors.get("subject-digest").copied());
     }
 
     #[test]
