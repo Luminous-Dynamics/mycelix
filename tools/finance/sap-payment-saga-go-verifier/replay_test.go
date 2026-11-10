@@ -118,10 +118,29 @@ func TestJournalEventFrameHashesMatchSharedCrossLanguageVectors(t *testing.T) {
 }
 
 func TestJournalEventReplayReconstructsLocalAndTreasuryRecovery(t *testing.T) {
+	data, err := os.ReadFile("fixtures/sap-payment-journal-replay-v1.kat")
+	if err != nil {
+		t.Fatal(err)
+	}
+	vectors := make(map[string]string)
+	for _, line := range strings.Split(string(data), "\n") {
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		name, value, ok := strings.Cut(line, "=")
+		if !ok {
+			t.Fatalf("invalid known-answer line: %q", line)
+		}
+		vectors[name] = value
+	}
+
 	journal := newJournal(replayTestIntent())
 	log, err := NewJournalEventLog(replayTestIntent())
 	if err != nil {
 		t.Fatal(err)
+	}
+	if got := log.Frames()[0].EventDigest; got != vectors["history-frame-00"] {
+		t.Fatalf("created event digest = %s, want %s", got, vectors["history-frame-00"])
 	}
 
 	if err := journal.Authorize(); err != nil {
@@ -129,6 +148,9 @@ func TestJournalEventReplayReconstructsLocalAndTreasuryRecovery(t *testing.T) {
 	}
 	if err := log.RecordAuthorized(); err != nil {
 		t.Fatal(err)
+	}
+	if got := log.Frames()[1].EventDigest; got != vectors["history-frame-01"] {
+		t.Fatalf("authorized event digest = %s, want %s", got, vectors["history-frame-01"])
 	}
 
 	localID := journal.EffectID(LocalPaymentTransaction)
@@ -138,12 +160,21 @@ func TestJournalEventReplayReconstructsLocalAndTreasuryRecovery(t *testing.T) {
 	if err := log.RecordEffectPrepared(LocalPaymentTransaction, localID); err != nil {
 		t.Fatal(err)
 	}
+	if got := log.Frames()[2].EventDigest; got != vectors["history-frame-02"] {
+		t.Fatalf("local prepare digest = %s, want %s", got, vectors["history-frame-02"])
+	}
 	local := replayTestLocalEvidence(journal)
+	if local.EvidenceDigest != vectors["local-effect-evidence"] {
+		t.Fatalf("local effect evidence digest = %s, want %s", local.EvidenceDigest, vectors["local-effect-evidence"])
+	}
 	if _, err := journal.CommitLeg(LocalPaymentTransaction, local); err != nil {
 		t.Fatal(err)
 	}
 	if err := log.RecordEffectCommitted(local); err != nil {
 		t.Fatal(err)
+	}
+	if got := log.Frames()[3].EventDigest; got != vectors["history-frame-03"] {
+		t.Fatalf("local commit digest = %s, want %s", got, vectors["history-frame-03"])
 	}
 
 	treasuryID := journal.EffectID(TreasuryFee)
@@ -153,11 +184,17 @@ func TestJournalEventReplayReconstructsLocalAndTreasuryRecovery(t *testing.T) {
 	if err := log.RecordEffectPrepared(TreasuryFee, treasuryID); err != nil {
 		t.Fatal(err)
 	}
+	if got := log.Frames()[4].EventDigest; got != vectors["history-frame-04"] {
+		t.Fatalf("Treasury prepare digest = %s, want %s", got, vectors["history-frame-04"])
+	}
 	if err := journal.MarkIndeterminate(TreasuryFee, treasuryID); err != nil {
 		t.Fatal(err)
 	}
 	if err := log.RecordEffectIndeterminate(TreasuryFee, treasuryID); err != nil {
 		t.Fatal(err)
+	}
+	if got := log.Frames()[5].EventDigest; got != vectors["history-frame-05"] {
+		t.Fatalf("Treasury indeterminate digest = %s, want %s", got, vectors["history-frame-05"])
 	}
 	if transition, err := journal.PrepareLeg(TreasuryFee, treasuryID); err != nil || transition != TransitionResumedSameEffect {
 		t.Fatalf("same-effect recovery = %q, %v", transition, err)
@@ -165,12 +202,24 @@ func TestJournalEventReplayReconstructsLocalAndTreasuryRecovery(t *testing.T) {
 	if err := log.RecordEffectPrepared(TreasuryFee, treasuryID); err != nil {
 		t.Fatal(err)
 	}
+	if got := log.Frames()[6].EventDigest; got != vectors["history-frame-06"] {
+		t.Fatalf("Treasury retry prepare digest = %s, want %s", got, vectors["history-frame-06"])
+	}
 	treasury := replayTestTreasuryEvidence(journal)
+	if treasury.EvidenceDigest != vectors["treasury-effect-evidence"] {
+		t.Fatalf("Treasury effect evidence digest = %s, want %s", treasury.EvidenceDigest, vectors["treasury-effect-evidence"])
+	}
 	if _, err := journal.CommitLeg(TreasuryFee, treasury); err != nil {
 		t.Fatal(err)
 	}
 	if err := log.RecordEffectCommitted(treasury); err != nil {
 		t.Fatal(err)
+	}
+	if got := log.Frames()[7].EventDigest; got != vectors["history-frame-07"] {
+		t.Fatalf("Treasury commit digest = %s, want %s", got, vectors["history-frame-07"])
+	}
+	if got := log.Anchor().TailDigest; got != vectors["history-tail-anchor"] {
+		t.Fatalf("history tail anchor = %s, want %s", got, vectors["history-tail-anchor"])
 	}
 
 	if got := journal.Status(); got != Completed {
