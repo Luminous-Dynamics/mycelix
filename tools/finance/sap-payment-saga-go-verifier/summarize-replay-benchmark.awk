@@ -1,4 +1,4 @@
-/^BenchmarkReplayJournal\\/events_[0-9]+-/ {
+/^BenchmarkReplayJournal\/events_[0-9]+-/ {
     key = $1
     ns = ""
     bytes = ""
@@ -30,6 +30,6 @@ END {
         p50 = int((50 * n + 99) / 100)
         p95 = int((95 * n + 99) / 100)
         p99 = int((99 * n + 99) / 100)
-        printf "%s samples=%d p50_ns=%g p95_ns=%g p99_ns=%g mean_B_per_op=%.1f mean_allocs_per_op=%.1f\\n", key, n, latency[key, p50], latency[key, p95], latency[key, p99], bytes_sum[key] / n, allocs_sum[key] / n
+        printf "%s samples=%d p50_ns=%g p95_ns=%g p99_ns=%g mean_B_per_op=%.1f mean_allocs_per_op=%.1f\n", key, n, latency[key, p50], latency[key, p95], latency[key, p99], bytes_sum[key] / n, allocs_sum[key] / n
     }
 }
