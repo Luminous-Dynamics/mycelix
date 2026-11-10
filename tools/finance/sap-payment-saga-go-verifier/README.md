@@ -95,3 +95,12 @@ This is a matched in-memory microbenchmark, not a production performance claim. 
 Rust and Go tests now reconstruct the live journal projection after every valid prefix of the local-Payment/Treasury-recovery path: Created, Authorized, local Prepared, local Committed, Treasury Prepared, Treasury Indeterminate, same-effect Treasury Prepared, and final Treasury Committed. Each prefix is replayed against its own event-count/tail anchor and compared with the live in-memory journal. This tests intermediate recovery states rather than only the terminal Completed state.
 
 These are deterministic state-machine prefix checks. They do not inject process termination into a real conductor, storage engine, message broker or provider API; those remain a separate runtime qualification layer.
+
+## Owner-scoped journal checkpoint subject v1
+
+The reference module in `checkpoint.go` and Rust `src/checkpoint.rs` defines a canonical checkpoint subject for one economic owner at a time. It recomputes the operation identity and immutable-intent digest, binds the owner domain, event-log identity/count/tail, owner-local checkpoint sequence and previous-checkpoint digest, source-action reference, issuer/verification method, authority-profile digest, issuance time and correction/retraction target.
+
+The shared Rust/Go known-answer fixture is `fixtures/sap-payment-journal-checkpoint-v1.kat`. The fixed binary profile uses `MXSAP-PAYMENT-INTENT-V1` and `MXSAP-JOURNAL-CHECKPOINT-V1`, exact UTF-8 length-prefixed strings, u64 big-endian integers and a 16 KiB text-field cap. Payments and Treasury use separate owner sequences; this does not impose a fictitious global order across Holochain source chains.
+
+For same-DNA Holochain storage, the intended authorship evidence is the native signed Create action. The canonical digest identifies the subject; it is not a signature, an authorization grant or proof of source-action validity. Runtime action-author binding, owner-scope authorization, ActionHash resolution, fork/rollback detection and multi-agent DHT qualification remain unimplemented.
+
