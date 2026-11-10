@@ -13,6 +13,7 @@
 //! predecessor authorization, monetary conservation in production, or legal
 //! / external settlement finality.
 
+pub mod checkpoint;
 pub mod replay;
 
 use std::collections::{BTreeMap, btree_map::Entry};
