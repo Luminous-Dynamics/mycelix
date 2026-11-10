@@ -11,7 +11,6 @@ use sha2::{Digest, Sha256};
 use super::exposure::{
     DestinationResolutionV1, ExposureBookV1, ExposureDisposition, ExposureError,
     ExposureIntentV1, ExposurePolicyV1, ExposureResolutionKind, ExposureScopeV1,
-    ExposureStatus,
 };
 
 const DELEGATED_DOMAIN: &[u8] = b"MXSAP-DELEGATED-EXPOSURE-V1\0";
