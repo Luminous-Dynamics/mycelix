@@ -114,6 +114,21 @@ func TestTraceV1DecoderRoundTripsAndRejectsNoncanonicalBytes(t *testing.T) {
 	if _, err := DecodeTraceV1(badOpcode); err != ErrTraceInvalidOpcode {
 		t.Fatalf("opcode error = %v", err)
 	}
+	badOwner := append([]byte(nil), encoded...)
+	badOwner[20+8+8+1+8+4+1] = 255
+	if _, err := DecodeTraceV1(badOwner); err != ErrTraceInvalidOwner {
+		t.Fatalf("owner error = %v", err)
+	}
+	badFault := append([]byte(nil), encoded...)
+	badFault[20+8+8+1+8+4+2] = 255
+	if _, err := DecodeTraceV1(badFault); err != ErrTraceInvalidFault {
+		t.Fatalf("fault error = %v", err)
+	}
+	badMagic := append([]byte(nil), encoded...)
+	badMagic[0] ^= 1
+	if _, err := DecodeTraceV1(badMagic); err != ErrTraceInvalidMagic {
+		t.Fatalf("magic error = %v", err)
+	}
 	if _, err := DecodeTraceV1(encoded[:len(encoded)-1]); err != ErrTraceTruncatedInput {
 		t.Fatalf("truncated input error = %v", err)
 	}
