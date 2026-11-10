@@ -136,7 +136,7 @@ func (trace TraceV1) CanonicalDigest() (string, error) {
 // DecodeTraceV1 accepts one complete canonical trace and rejects unknown enum
 // values, nonzero reserved bytes, truncated records and trailing data.
 func DecodeTraceV1(encoded []byte) (TraceV1, error) {
-	const headerLength = 20 + 8 + 8 + 1 + 8 + 4
+	const headerLength = len(traceDomain) + 8 + 8 + 1 + 8 + 4
 	if len(encoded) < headerLength {
 		return TraceV1{}, ErrTraceTruncatedInput
 	}
