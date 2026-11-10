@@ -875,6 +875,19 @@ fn verify_oracle_attestation(attestation: &OracleAttestation, context: &str) -> 
 ///
 /// This function implements real cryptographic verification for each MFA factor type.
 /// Security-critical: all comparisons use constant-time operations where applicable.
+/// Only factor verifiers that currently establish a complete proof are allowed
+/// to contribute to assurance. Structural evidence, caller-supplied oracle keys,
+/// partial hybrid verification, and incomplete WebAuthn bindings remain disabled.
+fn factor_type_has_complete_verifier(factor_type: &FactorType) -> bool {
+    matches!(
+        factor_type,
+        FactorType::PrimaryKeyPair
+            | FactorType::SocialRecovery
+            | FactorType::SecurityQuestions
+            | FactorType::RecoveryPhrase
+    )
+}
+
 fn verify_factor_proof(
     factor_type: &FactorType,
     factor_id: &str,
@@ -882,6 +895,13 @@ fn verify_factor_proof(
     challenge: &Option<String>,
     agent_pub_key: &AgentPubKey,
 ) -> ExternResult<bool> {
+    if !factor_type_has_complete_verifier(factor_type) {
+        return Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "{:?} factor verification is not enabled: its proof/authority contract is not fully verified",
+            factor_type
+        ))));
+    }
+
     match factor_type {
         FactorType::PrimaryKeyPair => {
             verify_primary_key_pair(factor_id, proof, challenge, agent_pub_key)
@@ -980,33 +1000,16 @@ fn verify_primary_key_pair(
         })?;
         let hdk_signature = Signature::from(signature_arr);
         verify_signature(agent_pub_key.clone(), hdk_signature, message_to_verify)
-    } else if sig_bytes.len() == hybrid_size {
-        // Hybrid: verify Ed25519 component (first 64 bytes), PQC verified off-chain
-        let ed_bytes: [u8; 64] = sig_bytes[..64].try_into().map_err(|_| {
-            wasm_error!(WasmErrorInner::Guest(
-                "Failed to extract Ed25519 component".into()
-            ))
-        })?;
-        let hdk_signature = Signature::from(ed_bytes);
-        verify_signature(agent_pub_key.clone(), hdk_signature, message_to_verify)
     } else {
-        // Check if it's a known PQC signature size (structural accept, verified off-chain)
-        let known_pqc_sizes = [
-            AlgorithmId::MlDsa65.signature_size(),
-            AlgorithmId::MlDsa87.signature_size(),
-        ];
-        if known_pqc_sizes.contains(&sig_bytes.len()) {
-            Ok(true) // Structural accept; real PQC verification happens off-chain
-        } else {
-            Err(wasm_error!(WasmErrorInner::Guest(format!(
-                "Unrecognized signature length: {} bytes (expected {} for Ed25519 or {} for hybrid)",
-                sig_bytes.len(),
-                ed25519_size,
-                hybrid_size
-            ))))
-        }
+        // A hybrid signature is only valid if both its Ed25519 and ML-DSA
+        // components are verified. This WASM path currently verifies only
+        // Ed25519, so accepting the hybrid length would overstate assurance.
+        // Pure ML-DSA is likewise unavailable in this verifier.
+        Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Unsupported or incompletely verified signature: {} bytes; only complete Ed25519 verification is currently enabled",
+            sig_bytes.len()
+        ))))
     }
-}
 
 /// Verify HardwareKey (WebAuthn) factor
 ///
@@ -1532,19 +1535,11 @@ fn verify_social_recovery(
                             if verify_signature(guardian_key, sig, msg_bytes).unwrap_or(false) {
                                 valid_count += 1;
                             }
-                        } else if sig_bytes.len() == hybrid_size {
-                            // Hybrid: verify Ed25519 component (first 64 bytes)
-                            let ed_bytes: [u8; 64] =
-                                sig_bytes[..64].try_into().unwrap_or([0u8; 64]);
-                            let sig = Signature::from(ed_bytes);
-                            if verify_signature(guardian_key, sig, msg_bytes).unwrap_or(false) {
-                                valid_count += 1;
-                            }
-                        } else if sig_bytes.len() == AlgorithmId::MlDsa65.signature_size() {
-                            // Pure PQC: structural accept (real verification off-chain)
-                            valid_count += 1;
+                        } else {
+                            // Unknown, hybrid or PQC signatures are not counted.
+                            // A hybrid must verify both halves; this WASM path does
+                            // not yet have the ML-DSA verifier.
                         }
-                        // Other sizes: silently skip (unrecognized algorithm)
                     }
                 }
             }
@@ -2450,6 +2445,22 @@ mod tests {
         let mut f = fresh_factor(factor_type, factor_id, now);
         f.active = false;
         f
+    }
+
+    // --- proof-verifier qualification boundaries ---
+
+    #[test]
+    fn only_complete_factor_verifiers_can_activate_assurance() {
+        assert!(factor_type_has_complete_verifier(&FactorType::PrimaryKeyPair));
+        assert!(factor_type_has_complete_verifier(&FactorType::SocialRecovery));
+        assert!(factor_type_has_complete_verifier(&FactorType::SecurityQuestions));
+        assert!(factor_type_has_complete_verifier(&FactorType::RecoveryPhrase));
+
+        assert!(!factor_type_has_complete_verifier(&FactorType::HardwareKey));
+        assert!(!factor_type_has_complete_verifier(&FactorType::Biometric));
+        assert!(!factor_type_has_complete_verifier(&FactorType::GitcoinPassport));
+        assert!(!factor_type_has_complete_verifier(&FactorType::VerifiableCredential));
+        assert!(!factor_type_has_complete_verifier(&FactorType::ReputationAttestation));
     }
 
     // --- enrollment and assurance boundaries ---
