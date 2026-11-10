@@ -89,7 +89,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
 
     let mut cases = Vec::new();
 
-    // Star is the only 100k case in v0.2. The 100k input remains below the
+    // Star is the only 100k-source case in v0.3. The 100k input remains below the
     // unchanged production parser cap; richer topologies run through 10k.
     for source_count in SOURCE_COUNTS {
         let (input, expected) = build_star_graph(source_count);
@@ -141,7 +141,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
 
     let document = BenchmarkDocument {
         schema: "gcpn.dependency-hypergraph-scale-benchmark",
-        version: "0.2.0",
+        version: "0.3.0",
         state: "SYNTHETIC_MEASUREMENT",
         synthetic_only: true,
         non_operational: true,
@@ -152,7 +152,11 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         operating_system: env::consts::OS,
         architecture: env::consts::ARCH,
         debug_assertions: cfg!(debug_assertions),
-        build_profile: if cfg!(debug_assertions) { "debug" } else { "release" },
+        build_profile: if cfg!(debug_assertions) {
+            "debug"
+        } else {
+            "release"
+        },
         repetitions,
         warmup_runs_per_measurement: 1,
         cases,
@@ -258,8 +262,8 @@ fn run_case(
         hyperedge_count: input.hyperedges.len(),
         input_bytes: input_bytes.len(),
         input_sha256,
-        evaluate: summarize(&mut evaluate_times),
-        independent_reference_verify: summarize(&mut verify_times),
+        evaluate: summarize(&evaluate_times),
+        independent_reference_verify: summarize(&verify_times),
         evaluator_disposition: actual_disposition,
         independent_verifier_status: verification.status,
         independent_verifier_checks: verification.checks.len(),
@@ -358,13 +362,10 @@ fn build_chain_graph(
     )
 }
 
-/// Sources are partitioned into local regions; region dependencies converge
-/// through zones and a common root.
+/// Builds two independent lineages of the requested depth that converge on
+/// one shared ancestor.
 fn build_paired_deep_chain_graph(depth: usize) -> (HypergraphInput, &'static str) {
-    let source_ids = vec![
-        "deep-source-a".to_owned(),
-        "deep-source-b".to_owned(),
-    ];
+    let source_ids = vec!["deep-source-a".to_owned(), "deep-source-b".to_owned()];
     let mut nodes = source_ids
         .iter()
         .map(|id| Node {
@@ -378,7 +379,10 @@ fn build_paired_deep_chain_graph(depth: usize) -> (HypergraphInput, &'static str
     });
     let mut edges = Vec::with_capacity(depth.saturating_mul(2).saturating_add(2));
 
-    for (label, source_id) in [("a", "deep-source-a"), ("b", "deep-source-b")] {
+    for (label, source_id) in [
+        ("a", "deep-source-a"),
+        ("b", "deep-source-b"),
+    ] {
         let mut previous = source_id.to_owned();
         for index in 0..depth {
             let current = format!("deep-{label}-node-{index:05}");
@@ -417,6 +421,8 @@ fn build_paired_deep_chain_graph(depth: usize) -> (HypergraphInput, &'static str
     )
 }
 
+/// Sources are partitioned into local regions; region dependencies converge
+/// through zones and a common root.
 fn build_layered_graph(source_count: usize) -> (HypergraphInput, &'static str) {
     let source_ids: Vec<String> = (0..source_count)
         .map(|index| format!("layer-source-{index:08}"))
@@ -696,20 +702,23 @@ fn build_input(
     }
 }
 
-fn summarize(times: &mut [Duration]) -> TimingSummary {
-    times.sort_unstable();
-    let values: Vec<f64> = times
+fn summarize(times: &[Duration]) -> TimingSummary {
+    // Preserve measurement order in the artifact; sort a copy only for
+    // nearest-rank percentile and range calculations.
+    let samples_ms: Vec<f64> = times
         .iter()
         .map(|time| time.as_secs_f64() * 1_000.0)
         .collect();
+    let mut sorted_ms = samples_ms.clone();
+    sorted_ms.sort_by(f64::total_cmp);
     TimingSummary {
-        repetitions: times.len(),
-        samples_ms: values.clone(),
-        p50_ms: quantile(&values, 0.50),
-        p95_ms: quantile(&values, 0.95),
-        p99_ms: quantile(&values, 0.99),
-        min_ms: values.first().copied().unwrap_or(0.0),
-        max_ms: values.last().copied().unwrap_or(0.0),
+        repetitions: samples_ms.len(),
+        samples_ms,
+        p50_ms: quantile(&sorted_ms, 0.50),
+        p95_ms: quantile(&sorted_ms, 0.95),
+        p99_ms: quantile(&sorted_ms, 0.99),
+        min_ms: sorted_ms.first().copied().unwrap_or(0.0),
+        max_ms: sorted_ms.last().copied().unwrap_or(0.0),
     }
 }
 
@@ -917,6 +926,24 @@ mod tests {
                 "verified"
             );
         }
+    }
+
+    #[test]
+    fn timing_summary_preserves_measurement_order_and_percentiles() {
+        let times = [
+            Duration::from_millis(5),
+            Duration::from_millis(1),
+            Duration::from_millis(3),
+            Duration::from_millis(2),
+            Duration::from_millis(4),
+        ];
+        let summary = summarize(&times);
+        assert_eq!(summary.samples_ms, vec![5.0, 1.0, 3.0, 2.0, 4.0]);
+        assert_eq!(summary.p50_ms, 3.0);
+        assert_eq!(summary.p95_ms, 5.0);
+        assert_eq!(summary.p99_ms, 5.0);
+        assert_eq!(summary.min_ms, 1.0);
+        assert_eq!(summary.max_ms, 5.0);
     }
 
     #[test]
