@@ -1,23 +1,31 @@
 package sagaverifier
 
 import (
+	"encoding/binary"
 	"fmt"
 	"testing"
 )
+
+func checkpointBenchmarkActionHash(index uint32) []byte {
+	hash := []byte{0x84, 0x29, 0x24}
+	for i := 0; i < 32; i++ {
+		hash = append(hash, byte(index))
+	}
+	var location [4]byte
+	binary.BigEndian.PutUint32(location[:], index)
+	return append(hash, location[:]...)
+}
 
 func checkpointBenchmarkChain(tb testing.TB, owner CheckpointOwnerDomain, count int) []JournalCheckpointSubject {
 	tb.Helper()
 	intent := replayTestIntent()
 	subjects := make([]JournalCheckpointSubject, 0, count)
 	previousCheckpointDigest := ""
-	previousActionHash := checkpointTestActionHash(41, 0)
+	previousActionHash := checkpointBenchmarkActionHash(41)
 
 	for index := 0; index < count; index++ {
 		actionSequence := uint32(index + 42)
-		currentActionHash := checkpointTestActionHash(
-			byte(actionSequence),
-			byte(actionSequence>>8),
-		)
+		currentActionHash := checkpointBenchmarkActionHash(actionSequence)
 		subject := checkpointTestSubject(intent, owner)
 		subject.EventCount = uint64(index + 1)
 		subject.TailDigest = fmt.Sprintf("sha256:%064x", index+1)
