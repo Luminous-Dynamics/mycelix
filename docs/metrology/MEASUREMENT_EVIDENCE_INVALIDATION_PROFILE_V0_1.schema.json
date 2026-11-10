@@ -1,0 +1,104 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Measurement Evidence Invalidation Profile v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "profile_id",
+    "classification",
+    "claim_ceiling",
+    "parent_issue",
+    "parent_passport_pr",
+    "node_states",
+    "event_states",
+    "dependency_direction",
+    "exact_parent_binding_required",
+    "exact_event_target_binding_required",
+    "identical_duplicate_node_is_idempotent",
+    "conflicting_duplicate_node_is_rejected",
+    "duplicate_edges_are_rejected",
+    "duplicate_or_multiple_target_events_are_rejected",
+    "canonical_topological_order",
+    "descendant_only_invalidation",
+    "unrelated_nodes_remain_current",
+    "no_mutation_or_authority"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "mycelix.measurement-evidence-invalidation-profile/0.1"
+    },
+    "profile_id": {
+      "const": "BUILD-MEASUREMENT-INVALIDATION-PROFILE-V0.1"
+    },
+    "classification": {
+      "const": "synthetic_read_only_dependency_semantics"
+    },
+    "claim_ceiling": {
+      "const": "deterministic_dependency_and_invalidation_semantics_only"
+    },
+    "parent_issue": {
+      "const": "https://github.com/Luminous-Dynamics/mycelix/issues/6042"
+    },
+    "parent_passport_pr": {
+      "const": "https://github.com/Luminous-Dynamics/mycelix/pull/6040"
+    },
+    "node_states": {
+      "const": [
+        "current",
+        "unknown",
+        "revoked",
+        "expired",
+        "superseded",
+        "corrected"
+      ]
+    },
+    "event_states": {
+      "const": [
+        "correction",
+        "revocation",
+        "expiry",
+        "supersession",
+        "rights_revocation",
+        "firmware_change",
+        "installation_change",
+        "method_change",
+        "uncertainty_change",
+        "assay_revocation"
+      ]
+    },
+    "dependency_direction": {
+      "const": "dependency_to_dependent"
+    },
+    "exact_parent_binding_required": {
+      "const": true
+    },
+    "exact_event_target_binding_required": {
+      "const": true
+    },
+    "identical_duplicate_node_is_idempotent": {
+      "const": true
+    },
+    "conflicting_duplicate_node_is_rejected": {
+      "const": true
+    },
+    "duplicate_edges_are_rejected": {
+      "const": true
+    },
+    "duplicate_or_multiple_target_events_are_rejected": {
+      "const": true
+    },
+    "canonical_topological_order": {
+      "const": "lexicographically_smallest_ready_node_first"
+    },
+    "descendant_only_invalidation": {
+      "const": true
+    },
+    "unrelated_nodes_remain_current": {
+      "const": true
+    },
+    "no_mutation_or_authority": {
+      "const": true
+    }
+  }
+}
