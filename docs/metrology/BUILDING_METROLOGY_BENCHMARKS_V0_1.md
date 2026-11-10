@@ -8,7 +8,7 @@ Most building data stacks start with a point name, time series and dashboard. A 
 
 `measurand/channel profile → instrument identity and capability → calibration certificate and scope → installation and geometry → raw sample and timebase → processing lineage → uncertainty components/correlation → decision-purpose profile → independent review → owner-native service outcome`
 
-That changes the unit of trust. The unit is no longer a device or a `calibrated=true` flag; it is a *specific observation under a specific purpose with its full, current applicability chain*.
+That changes the unit of trust. The unit is no longer a device or a `calibrated=true` flag; it is a *specific observation under a specific purpose with its full, current applicability chain*. Calibration date and due date are checked against the sample's observation date; a state flag cannot override an expired interval.
 
 ### Paradigm shifts to pursue
 
@@ -38,7 +38,7 @@ That changes the unit of trust. The unit is no longer a device or a `calibrated=
 ### A. Synthetic contract correctness (current software gate)
 
 - Frozen v0.1 channels: 14.
-- Instrument passport corpus: 45 synthetic known-answer/adversarial cases.
+- Instrument passport corpus: 48 synthetic known-answer/adversarial cases.
 - Current synthetic target: 100% expected-disposition agreement; **zero false admission**; zero unknown fields or duplicate JSON member acceptance; zero silent missing-as-zero, stale, saturated or out-of-envelope readings; 100% of channel IDs/units/raw-derived semantics pinned independently of the fixture.
 - A complete synthetic chain may reach only `ELIGIBLE_FOR_INDEPENDENT_ADMISSION_REVIEW_ONLY`.
 - No physical tolerance or calibration range is invented by the software profile.
