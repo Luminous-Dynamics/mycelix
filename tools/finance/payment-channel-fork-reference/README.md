@@ -26,7 +26,7 @@ It models:
 - witness-quorum claims with the intersection condition (2q > n + f), where (n) is the witness roster size, (q) the threshold and (f) the declared Byzantine bound;
 - deterministic, order-invariant conflict census.
 
-A distinct, structurally valid candidate from the same predecessor produces `Conflicted`, including a close racing a transfer. Exact repeat delivery of the same candidate reference and payload is counted as a duplicate observation. Reusing one operation ID with a changed payload is a conflict.
+A distinct, structurally valid candidate from the same predecessor produces `Conflicted`, including a close racing a transfer. The resolution retains the full distinct candidate claim payloads as well as the action-reference list, including both payloads if one action reference is reused for different content. Exact repeat delivery of the same candidate reference and payload is counted as a duplicate observation and stored only once in the distinct census. Reusing one operation ID with a changed payload is a conflict.
 
 A single candidate whose policy claims are structurally consistent yields `PolicyClaimConsistentPendingFinality`. That name is intentionally weaker than `Authorized`, `Committed` or `Settled`. No settlement-finality state exists in this model.
 
