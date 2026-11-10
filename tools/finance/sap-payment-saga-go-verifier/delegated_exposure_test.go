@@ -1,6 +1,10 @@
 package sagaverifier
 
-import "testing"
+import (
+	"os"
+	"strings"
+	"testing"
+)
 
 func parentExposureTestPolicy(maximum uint64) DelegatedExposurePolicyV1 {
 	childMaximum := maximum
@@ -115,6 +119,31 @@ func TestGrantIdentityScopeAndSequenceAreBound(t *testing.T) {
 	wrongCurrency.Currency = "USD"
 	if _, err := parent.AllocateChildBudget("provider-c", wrongCurrency, 100, 3, exposureTestDigest(3)); err != ErrExposureScopeMismatch {
 		t.Fatalf("cross-currency grant = %v", err)
+	}
+}
+
+func TestDelegatedSnapshotMatchesSharedKnownAnswer(t *testing.T) {
+	raw, err := os.ReadFile("../sap-payment-saga-model/fixtures/sap-payment-delegated-exposure-v1.kat")
+	if err != nil { t.Fatal(err) }
+	var expected string
+	for _, line := range strings.Split(string(raw), "\n") {
+		if strings.HasPrefix(line, "parent_snapshot_sha256=") {
+			expected = strings.TrimPrefix(line, "parent_snapshot_sha256=")
+			break
+		}
+	}
+	if expected == "" { t.Fatal("missing delegated exposure KAT") }
+	parent, err := NewParentDelegatedExposureBookV1(parentExposureTestPolicy(1_000))
+	if err != nil { t.Fatal(err) }
+	_, err = parent.AllocateChildBudget(
+		"provider-a", parentExposureChildScope("operator:a", "dest:a"),
+		700, 1, exposureTestDigest(1),
+	)
+	if err != nil { t.Fatal(err) }
+	actual, err := parent.CanonicalSnapshotDigest()
+	if err != nil { t.Fatal(err) }
+	if actual != "sha256:"+expected {
+		t.Fatalf("delegated snapshot = %s, want sha256:%s", actual, expected)
 	}
 }
 
