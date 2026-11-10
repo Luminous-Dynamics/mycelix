@@ -560,6 +560,25 @@ mod tests {
     }
 
     #[test]
+    fn all_eight_scenarios_match_independent_known_answers() {
+        for line in KAT.lines().filter_map(|line| line.strip_prefix("vector=")) {
+            let fields: Vec<_> = line.split(',').collect();
+            assert_eq!(fields.len(), 6);
+            let seed = u64::from_str_radix(fields[0], 16).unwrap();
+            let trace_index = fields[1].parse::<u64>().unwrap();
+            let expected_scenario = fields[2].parse::<u8>().unwrap();
+            let expected_nonce = fields[3];
+            let expected_count = fields[4].parse::<usize>().unwrap();
+            let expected_digest = format!("sha256:{}", fields[5]);
+            let trace = TraceGeneratorV1::generate(seed, trace_index);
+            assert_eq!(trace.scenario, expected_scenario);
+            assert_eq!(format!("{:016x}", trace.operation_nonce), expected_nonce);
+            assert_eq!(trace.commands.len(), expected_count);
+            assert_eq!(trace.canonical_digest().unwrap(), expected_digest);
+        }
+    }
+
+    #[test]
     fn generator_is_deterministic_and_covers_all_scenarios() {
         let mut scenarios = [false; 8];
         for seed in 0..4096 {
