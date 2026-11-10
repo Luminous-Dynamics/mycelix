@@ -1,0 +1,197 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Luminous-Dynamics/mycelix/blob/research/build-metrology-channel-extension-v0.1/docs/metrology/BUILDING_METROLOGY_CHANNEL_GAP_MATRIX_V0_1.schema.json",
+  "title": "Mycelix Building Metrology Channel Gap Matrix v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "matrix_id",
+    "parent_issue",
+    "profile_base",
+    "classification",
+    "claim_ceiling",
+    "source_gap_groups",
+    "channels",
+    "change_policy"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "mycelix.building-metrology-channel-gap-matrix/0.1"
+    },
+    "matrix_id": {
+      "const": "MYC-BUILD-METROLOGY-CHANNEL-GAP-MATRIX-V0.1"
+    },
+    "parent_issue": {
+      "const": "https://github.com/Luminous-Dynamics/mycelix/issues/6029"
+    },
+    "profile_base": {
+      "const": "MYC-BUILD-METROLOGY-PROFILE-V0.1"
+    },
+    "classification": {
+      "const": "proposal_only_not_profile_promotion"
+    },
+    "claim_ceiling": {
+      "const": "candidate_measurand_taxonomy_and_method_requirements_only"
+    },
+    "source_gap_groups": {
+      "type": "array",
+      "minItems": 7,
+      "maxItems": 7,
+      "items": {
+        "$ref": "#/$defs/gap"
+      }
+    },
+    "channels": {
+      "type": "array",
+      "minItems": 14,
+      "maxItems": 14,
+      "items": {
+        "$ref": "#/$defs/channel"
+      }
+    },
+    "change_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "existing_v0_1_channel_ids_mutable",
+        "profile_v0_2_required_before_admission",
+        "all_normative_methods_require_exact_edition_and_scope",
+        "all_numerical_tolerances_remain_unset",
+        "all_physical_thresholds_remain_unset"
+      ],
+      "properties": {
+        "existing_v0_1_channel_ids_mutable": {
+          "const": false
+        },
+        "profile_v0_2_required_before_admission": {
+          "const": true
+        },
+        "all_normative_methods_require_exact_edition_and_scope": {
+          "const": true
+        },
+        "all_numerical_tolerances_remain_unset": {
+          "const": true
+        },
+        "all_physical_thresholds_remain_unset": {
+          "const": true
+        }
+      }
+    }
+  },
+  "$defs": {
+    "gap": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "source",
+        "candidate_channel_ids"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source": {
+          "const": "HABITAT_SERVICE_BENCH_M0_V0_1"
+        },
+        "candidate_channel_ids": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "channel": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "measurand_id",
+        "quantity_kind",
+        "unit",
+        "raw_or_derived",
+        "data_purpose",
+        "reference_convention",
+        "location_context_required",
+        "method_state",
+        "calibration_route_state",
+        "uncertainty_budget_required",
+        "response_time_required",
+        "timebase_required",
+        "installation_geometry_required",
+        "range_tolerance",
+        "physical_threshold",
+        "status"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "measurand_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "quantity_kind": {
+          "type": "string",
+          "minLength": 1
+        },
+        "unit": {
+          "type": "string",
+          "minLength": 1
+        },
+        "raw_or_derived": {
+          "enum": [
+            "raw",
+            "derived"
+          ]
+        },
+        "data_purpose": {
+          "type": "string",
+          "minLength": 1
+        },
+        "reference_convention": {
+          "type": "string",
+          "minLength": 1
+        },
+        "location_context_required": {
+          "type": "string",
+          "minLength": 1
+        },
+        "method_state": {
+          "const": "TO_BE_VERIFIED"
+        },
+        "calibration_route_state": {
+          "const": "TO_BE_VERIFIED"
+        },
+        "uncertainty_budget_required": {
+          "const": true
+        },
+        "response_time_required": {
+          "const": true
+        },
+        "timebase_required": {
+          "const": true
+        },
+        "installation_geometry_required": {
+          "const": true
+        },
+        "range_tolerance": {
+          "const": "NOT_SET"
+        },
+        "physical_threshold": {
+          "const": "NOT_SET"
+        },
+        "status": {
+          "const": "PROPOSED_NOT_ADMITTED"
+        }
+      }
+    }
+  }
+}
