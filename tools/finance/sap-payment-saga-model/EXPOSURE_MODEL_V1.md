@@ -37,13 +37,15 @@ An ExposurePolicyV1 binds a monotonic policy sequence, maximum total exposure, m
 
 The aggregate is the checked integer sum of every reservation in the first four states. A timeout, lease expiry or age threshold does not release exposure.
 
+The reference also exposes a per-state integer breakdown: reserved, dispatch-authorized, indeterminate and committed-unsettled. Its total must equal the aggregate used for the limit check. This prevents a single headline number from hiding whether risk is queued, already dispatched or awaiting settlement.
+
 The reserve operation is idempotent for an exact effect identity and exact immutable intent. Reusing that effect ID with changed scope, intent digest, payload digest or maximum exposure is a conflict. A new reservation is admitted only when both the per-effect and aggregate limits are respected.
 
 A lower policy never deletes old reservations. The existing book may temporarily exceed its new limit; new risk-increasing reservations fail closed until the outstanding obligations are resolved.
 
 ## Resolution evidence
 
-Settlement and authoritative absence have different typed resolution kinds. Both bind:
+Final settlement and authoritative absence have different typed resolution kinds. A provider acceptance acknowledgement or a pending/accepted processing status is not final settlement evidence and must not release exposure. Both bind:
 
 - exact effect ID;
 - exact destination;
@@ -53,7 +55,7 @@ Settlement and authoritative absence have different typed resolution kinds. Both
 
 The pure model checks canonical digest syntax and exact subject binding only. It does not authenticate the provider, validate a signature, establish query consistency, prove destination finality or determine whether an absence query is authoritative. Those checks belong to a provider-specific adapter and independent trust policy.
 
-A settlement receipt moves CommittedUnsettled to Settled. An authoritative-absence result releases a DispatchAuthorized or Indeterminate reservation. A settlement receipt cannot be used as absence evidence, or vice versa.
+A final-settlement resolution moves CommittedUnsettled to Settled. An authoritative-absence result releases a DispatchAuthorized or Indeterminate reservation. These are separate typed kinds; neither can be substituted for the other. The reference checks the kind and exact subject fields but cannot prove that the referenced provider profile actually defines finality; that is a provider-adapter qualification obligation.
 
 ## Canonical snapshot
 
