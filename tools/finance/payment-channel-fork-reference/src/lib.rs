@@ -40,7 +40,7 @@ pub enum Party {
 }
 
 impl Party {
-    fn did<'a>(self, terms: &'a ChannelTerms) -> &'a str {
+    fn did(self, terms: &ChannelTerms) -> &str {
         match self {
             Self::A => &terms.party_a,
             Self::B => &terms.party_b,
