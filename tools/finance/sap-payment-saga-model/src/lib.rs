@@ -1,5 +1,7 @@
 #![forbid(unsafe_code)]
 
+pub mod replay;
+
 //! Effects-disabled reference model for a sender-owned SAP payment.
 //!
 //! The local Payment coordinator calls its debit/credit helpers directly during
