@@ -355,12 +355,12 @@
     },
     {
       "case_id": "BM-013",
-      "description": "Purifier clean-air delivery is substituted for outdoor-air ventilation.",
+      "description": "A purifier clean-air delivery output is not admitted as an outdoor-air ventilation flow measurement.",
       "measurement": {
         "profile_id": "MYC-BUILD-METROLOGY-PROFILE-V0.1",
         "instrument_identity_state": "established",
         "instrument_id": "SYNTHETIC-PM25_MASS_CONCENTRATION-001",
-        "measurand_id": "habitat.outdoor_air_volume_flow",
+        "measurand_id": "habitat.clean_air_delivery_rate",
         "quantity_kind": "volume_flow",
         "unit": "m3/s",
         "raw_or_derived": "raw",
@@ -529,7 +529,7 @@
     },
     {
       "case_id": "BM-019",
-      "description": "Electrical power is confused with accumulated electrical energy.",
+      "description": "An electrical power channel is relabelled with accumulated-energy quantity semantics and units.",
       "measurement": {
         "profile_id": "MYC-BUILD-METROLOGY-PROFILE-V0.1",
         "instrument_identity_state": "established",
@@ -993,7 +993,7 @@
     },
     {
       "case_id": "BM-035",
-      "description": "A useful thermal energy channel has no independent check of the derived calculation path.",
+      "description": "A derived useful thermal energy channel has no documented derivation method identity.",
       "measurement": {
         "profile_id": "MYC-BUILD-METROLOGY-PROFILE-V0.1",
         "instrument_identity_state": "established",
@@ -1012,7 +1012,7 @@
         "uncertainty_state": "documented",
         "response_time_state": "documented",
         "timebase_state": "synchronized",
-        "method_identity_state": "identified",
+        "method_identity_state": "unknown",
         "independent_assay_state": "not_available",
         "rights_state": "permitted_for_declared_purpose",
         "reading_state": "current",
