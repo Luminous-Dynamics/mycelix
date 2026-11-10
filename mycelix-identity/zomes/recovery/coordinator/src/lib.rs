@@ -1013,28 +1013,76 @@ pub fn execute_recovery(request_id: String) -> ExternResult<Record> {
         )));
     }
 
-    // Save values for MFA notification before moving
-    let did_for_mfa = current_request.did.clone();
-    let new_agent_for_mfa = current_request.new_agent.clone();
-
-    // Update request to completed
-    let completed_request = RecoveryRequest {
-        id: current_request.id,
-        did: current_request.did,
-        new_agent: current_request.new_agent,
-        initiated_by: current_request.initiated_by,
-        reason: current_request.reason,
-        status: RecoveryStatus::Completed,
-        created: current_request.created,
-        time_lock_expires: current_request.time_lock_expires,
-        config_action_hash: current_request.config_action_hash,
-        decision_vote_hashes: current_request.decision_vote_hashes,
+    // Move through the explicit ReadyToExecute state so the integrity
+    // validator can enforce the time-lock boundary as a separate transition.
+    let ready_record = if current_request.status == RecoveryStatus::Approved {
+        let ready_request = RecoveryRequest {
+            id: current_request.id.clone(),
+            did: current_request.did.clone(),
+            new_agent: current_request.new_agent.clone(),
+            initiated_by: current_request.initiated_by.clone(),
+            reason: current_request.reason.clone(),
+            status: RecoveryStatus::ReadyToExecute,
+            created: current_request.created,
+            time_lock_expires: current_request.time_lock_expires,
+            config_action_hash: current_request.config_action_hash.clone(),
+            decision_vote_hashes: current_request.decision_vote_hashes.clone(),
+        };
+        let ready_hash = update_entry(
+            current_record.action_address().clone(),
+            &EntryTypes::RecoveryRequest(ready_request),
+        )?;
+        create_link(
+            string_to_entry_hash(&request_id),
+            ready_hash.clone(),
+            LinkTypes::RequestIdToRequest,
+            (),
+        )?;
+        create_link(
+            string_to_entry_hash(&current_request.did),
+            ready_hash.clone(),
+            LinkTypes::DidToRecoveryRequest,
+            (),
+        )?;
+        get(ready_hash, GetOptions::default())?.ok_or(wasm_error!(
+            WasmErrorInner::Guest("Could not retrieve ReadyToExecute request".into())
+        ))?
+    } else {
+        current_record
     };
 
-    let request_id_for_index = current_request.id.clone();
-    let did_for_index = current_request.did.clone();
+    let ready_request: RecoveryRequest = ready_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Invalid ReadyToExecute request".into()
+        )))?;
+    if ready_request.status != RecoveryStatus::ReadyToExecute {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Recovery request did not reach ReadyToExecute".into()
+        )));
+    }
+
+    let did_for_mfa = ready_request.did.clone();
+    let new_agent_for_mfa = ready_request.new_agent.clone();
+    let completed_request = RecoveryRequest {
+        id: ready_request.id.clone(),
+        did: ready_request.did.clone(),
+        new_agent: ready_request.new_agent,
+        initiated_by: ready_request.initiated_by,
+        reason: ready_request.reason,
+        status: RecoveryStatus::Completed,
+        created: ready_request.created,
+        time_lock_expires: ready_request.time_lock_expires,
+        config_action_hash: ready_request.config_action_hash,
+        decision_vote_hashes: ready_request.decision_vote_hashes,
+    };
+
+    let request_id_for_index = ready_request.id;
+    let did_for_index = ready_request.did;
     let action_hash = update_entry(
-        current_record.action_address().clone(),
+        ready_record.action_address().clone(),
         &EntryTypes::RecoveryRequest(completed_request),
     )?;
     create_link(
