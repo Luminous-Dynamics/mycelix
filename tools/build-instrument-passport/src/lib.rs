@@ -952,6 +952,207 @@ fn schema_object_matches(schema: &Value, fields: &[&str]) -> bool {
         })
 }
 
+fn json_schema_type_matches(instance: &Value, type_name: &str) -> bool {
+    match type_name {
+        "object" => instance.is_object(),
+        "array" => instance.is_array(),
+        "string" => instance.is_string(),
+        "number" => instance.as_f64().is_some_and(f64::is_finite),
+        "integer" => instance.as_i64().is_some()
+            || instance.as_u64().is_some()
+            || instance.as_f64().is_some_and(|value| value.is_finite() && value.fract() == 0.0),
+        "boolean" => instance.is_boolean(),
+        "null" => instance.is_null(),
+        _ => false,
+    }
+}
+
+fn resolve_local_schema_reference<'a>(schema_root: &'a Value, reference: &str) -> Option<&'a Value> {
+    let mut current = schema_root;
+    let pointer = reference.strip_prefix("#/")?;
+    for encoded_key in pointer.split('/') {
+        let key = encoded_key.replace("~1", "/").replace("~0", "~");
+        current = current.get(key)?;
+    }
+    Some(current)
+}
+
+fn schema_pattern_matches(pattern: &str, value: &str) -> bool {
+    // The checked-in schema currently uses only the BIP-NNN case identifier pattern.
+    if pattern == "^BIP-[0-9]{3}$" {
+        let bytes = value.as_bytes();
+        return bytes.len() == 7
+            && &bytes[0..4] == b"BIP-"
+            && bytes[4..7].iter().all(|byte| byte.is_ascii_digit());
+    }
+    false
+}
+
+fn validate_json_schema(
+    instance: &Value,
+    schema: &Value,
+    schema_root: &Value,
+    path: &str,
+    errors: &mut Vec<String>,
+    depth: usize,
+) {
+    if depth > 128 {
+        errors.push(format!("{path}:SCHEMA_RECURSION_LIMIT"));
+        return;
+    }
+
+    if let Some(reference) = schema.get("$ref").and_then(Value::as_str) {
+        let Some(target) = resolve_local_schema_reference(schema_root, reference) else {
+            errors.push(format!("{path}:SCHEMA_REFERENCE_UNRESOLVED:{reference}"));
+            return;
+        };
+        validate_json_schema(instance, target, schema_root, path, errors, depth + 1);
+        return;
+    }
+
+    if let Some(expected) = schema.get("const") {
+        if instance != expected {
+            errors.push(format!("{path}:SCHEMA_CONST_MISMATCH"));
+        }
+    }
+    if let Some(allowed) = schema.get("enum").and_then(Value::as_array) {
+        if !allowed.iter().any(|candidate| candidate == instance) {
+            errors.push(format!("{path}:SCHEMA_ENUM_MISMATCH"));
+        }
+    }
+
+    if let Some(expected_type) = schema.get("type") {
+        let matches = if let Some(type_name) = expected_type.as_str() {
+            json_schema_type_matches(instance, type_name)
+        } else if let Some(type_names) = expected_type.as_array() {
+            type_names.iter().any(|name| {
+                name.as_str()
+                    .is_some_and(|type_name| json_schema_type_matches(instance, type_name))
+            })
+        } else {
+            false
+        };
+        if !matches {
+            errors.push(format!("{path}:SCHEMA_TYPE_MISMATCH"));
+            return;
+        }
+    }
+
+    if let Some(object) = instance.as_object() {
+        if let Some(required) = schema.get("required").and_then(Value::as_array) {
+            for field in required.iter().filter_map(Value::as_str) {
+                if !object.contains_key(field) {
+                    errors.push(format!("{path}:SCHEMA_REQUIRED_MISSING:{field}"));
+                }
+            }
+        }
+
+        let properties = schema.get("properties").and_then(Value::as_object);
+        for (key, value) in object {
+            if let Some(property_schema) = properties.and_then(|map| map.get(key)) {
+                validate_json_schema(
+                    value,
+                    property_schema,
+                    schema_root,
+                    &format!("{path}.{key}"),
+                    errors,
+                    depth + 1,
+                );
+            } else if schema.get("additionalProperties") == Some(&Value::Bool(false)) {
+                errors.push(format!("{path}:SCHEMA_ADDITIONAL_PROPERTY:{key}"));
+            } else if let Some(additional_schema) = schema
+                .get("additionalProperties")
+                .filter(|value| value.is_object())
+            {
+                validate_json_schema(
+                    value,
+                    additional_schema,
+                    schema_root,
+                    &format!("{path}.{key}"),
+                    errors,
+                    depth + 1,
+                );
+            }
+        }
+    }
+
+    if let Some(array) = instance.as_array() {
+        if schema
+            .get("minItems")
+            .and_then(Value::as_u64)
+            .is_some_and(|minimum| array.len() < minimum as usize)
+        {
+            errors.push(format!("{path}:SCHEMA_MIN_ITEMS"));
+        }
+        if schema
+            .get("maxItems")
+            .and_then(Value::as_u64)
+            .is_some_and(|maximum| array.len() > maximum as usize)
+        {
+            errors.push(format!("{path}:SCHEMA_MAX_ITEMS"));
+        }
+        if schema.get("uniqueItems") == Some(&Value::Bool(true)) {
+            let mut seen = BTreeSet::new();
+            if array.iter().any(|item| !seen.insert(item.to_string())) {
+                errors.push(format!("{path}:SCHEMA_DUPLICATE_ARRAY_ITEM"));
+            }
+        }
+        if let Some(item_schema) = schema.get("items") {
+            for (index, item) in array.iter().enumerate() {
+                validate_json_schema(
+                    item,
+                    item_schema,
+                    schema_root,
+                    &format!("{path}[{index}]"),
+                    errors,
+                    depth + 1,
+                );
+            }
+        }
+    }
+
+    if let Some(value) = instance.as_str() {
+        if schema
+            .get("minLength")
+            .and_then(Value::as_u64)
+            .is_some_and(|minimum| value.chars().count() < minimum as usize)
+        {
+            errors.push(format!("{path}:SCHEMA_MIN_LENGTH"));
+        }
+        if schema
+            .get("maxLength")
+            .and_then(Value::as_u64)
+            .is_some_and(|maximum| value.chars().count() > maximum as usize)
+        {
+            errors.push(format!("{path}:SCHEMA_MAX_LENGTH"));
+        }
+        if let Some(pattern) = schema.get("pattern").and_then(Value::as_str) {
+            if !schema_pattern_matches(pattern, value) {
+                errors.push(format!("{path}:SCHEMA_PATTERN_MISMATCH_OR_UNSUPPORTED"));
+            }
+        }
+        // Draft 2020-12 treats format as annotation unless format-assertion is enabled.
+        // Calendar-date semantics are checked by the purpose classifier below.
+    }
+
+    if let Some(value) = instance.as_f64().filter(|number| number.is_finite()) {
+        if schema
+            .get("minimum")
+            .and_then(Value::as_f64)
+            .is_some_and(|minimum| value < minimum)
+        {
+            errors.push(format!("{path}:SCHEMA_MINIMUM"));
+        }
+        if schema
+            .get("maximum")
+            .and_then(Value::as_f64)
+            .is_some_and(|maximum| value > maximum)
+        {
+            errors.push(format!("{path}:SCHEMA_MAXIMUM"));
+        }
+    }
+}
+
 fn validate_schema_contracts(passport_schema: &Value, corpus_schema: &Value) -> Result<(), String> {
     if text(passport_schema, "title") != "Mycelix Building Instrument Passport v0.1"
         || passport_schema["type"] != "object"
@@ -1101,6 +1302,39 @@ pub fn validate_tracked() -> Result<usize, String> {
     let corpus_schema = parse_unique_json(CORPUS_SCHEMA_JSON)?;
     validate_schema_contracts(&passport_schema, &corpus_schema)?;
     let corpus = parse_unique_json(CORPUS_JSON)?;
+
+    let mut schema_errors = Vec::new();
+    validate_json_schema(
+        &corpus,
+        &corpus_schema,
+        &corpus_schema,
+        "$corpus",
+        &mut schema_errors,
+        0,
+    );
+    if let Some(cases) = corpus.get("cases").and_then(Value::as_array) {
+        for (index, case) in cases.iter().enumerate() {
+            if let Some(record) = case.get("record") {
+                let case_id = text(case, "case_id");
+                validate_json_schema(
+                    record,
+                    &passport_schema,
+                    &passport_schema,
+                    &format!("$corpus.cases[{index}:{case_id}].record"),
+                    &mut schema_errors,
+                    0,
+                );
+            }
+        }
+    }
+    if !schema_errors.is_empty() {
+        schema_errors.sort();
+        return Err(format!(
+            "PASSPORT_JSON_SCHEMA_VALIDATION_FAILED:{}",
+            schema_errors.join("|")
+        ));
+    }
+
     validate_corpus(&corpus)
 }
 
@@ -1117,6 +1351,46 @@ mod tests {
             .find(|case| text(case, "case_id") == id)
             .expect("known case")
             .clone()
+    }
+
+    #[test]
+    fn json_schema_validation_accepts_the_full_tracked_corpus_and_passports() {
+        assert_eq!(validate_tracked().expect("all 55 schemas and cases"), 55);
+    }
+
+    #[test]
+    fn json_schema_validation_rejects_unknown_nested_properties() {
+        let passport_schema = parse_unique_json(PASSPORT_SCHEMA_JSON).expect("schema");
+        let mut record = case("BIP-001")["record"].clone();
+        record["sample"]["unreviewed_value"] = Value::from(42);
+        let mut errors = Vec::new();
+        validate_json_schema(
+            &record,
+            &passport_schema,
+            &passport_schema,
+            "$record",
+            &mut errors,
+            0,
+        );
+        assert!(errors.iter().any(|error| error.contains("SCHEMA_ADDITIONAL_PROPERTY")));
+    }
+
+    #[test]
+    fn json_schema_validation_accepts_explicit_null_missing_protocol_evidence() {
+        let passport_schema = parse_unique_json(PASSPORT_SCHEMA_JSON).expect("schema");
+        for case_id in ["BIP-052", "BIP-054"] {
+            let record = case(case_id)["record"].clone();
+            let mut errors = Vec::new();
+            validate_json_schema(
+                &record,
+                &passport_schema,
+                &passport_schema,
+                "$record",
+                &mut errors,
+                0,
+            );
+            assert!(errors.is_empty(), "{case_id}: {errors:?}");
+        }
     }
 
     #[test]
