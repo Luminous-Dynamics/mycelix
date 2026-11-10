@@ -13,6 +13,7 @@ import (
 	"reflect"
 	"strings"
 	"sync"
+	"unicode/utf8"
 )
 
 const ReceiptProfileV1 = "mycelix.finance.payment-receipt.v1"
@@ -527,7 +528,7 @@ func (r *Registry) Len() int {
 const maxCanonicalEvidenceFieldBytes = 4096
 
 func appendCanonicalEvidenceString(output *bytes.Buffer, value string) error {
-	if len(value) > maxCanonicalEvidenceFieldBytes {
+	if len(value) > maxCanonicalEvidenceFieldBytes || !utf8.ValidString(value) {
 		return ErrEvidenceInvalid
 	}
 	var length [4]byte
