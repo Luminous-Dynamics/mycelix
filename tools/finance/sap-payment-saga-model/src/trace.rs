@@ -85,6 +85,13 @@ pub enum TraceError {
     InvalidScenario,
     EmptyCommands,
     TooManyCommands,
+    InvalidMagic,
+    TruncatedInput,
+    InvalidOpcode,
+    InvalidOwner,
+    InvalidFault,
+    NonzeroReservedByte,
+    TrailingBytes,
 }
 
 impl std::fmt::Display for TraceError {
@@ -93,6 +100,13 @@ impl std::fmt::Display for TraceError {
             Self::InvalidScenario => "trace scenario must be in 1..=8",
             Self::EmptyCommands => "trace must contain at least one command",
             Self::TooManyCommands => "trace exceeds the 64-command bound",
+            Self::InvalidMagic => "trace domain separator is invalid",
+            Self::TruncatedInput => "trace input is truncated",
+            Self::InvalidOpcode => "trace contains an unknown opcode",
+            Self::InvalidOwner => "trace contains an unknown owner",
+            Self::InvalidFault => "trace contains an unknown fault code",
+            Self::NonzeroReservedByte => "trace reserved byte must be zero",
+            Self::TrailingBytes => "trace contains trailing bytes",
         };
         formatter.write_str(message)
     }
@@ -150,10 +164,145 @@ impl TraceV1 {
         }
         Ok(output)
     }
+
+    /// Decode one complete canonical trace. Unknown enum values, nonzero
+    /// reserved bytes, truncated records and trailing data are rejected.
+    pub fn decode(bytes: &[u8]) -> Result<Self, TraceError> {
+        let domain_len = TRACE_DOMAIN.len();
+        let header_len = domain_len + 8 + 8 + 1 + 8 + 4;
+        if bytes.len() < header_len {
+            return Err(TraceError::TruncatedInput);
+        }
+        if &bytes[..domain_len] != TRACE_DOMAIN {
+            return Err(TraceError::InvalidMagic);
+        }
+
+        let mut offset = domain_len;
+        let seed = read_u64(bytes, &mut offset)?;
+        let trace_index = read_u64(bytes, &mut offset)?;
+        let scenario = read_byte(bytes, &mut offset)?;
+        let operation_nonce = read_u64(bytes, &mut offset)?;
+        let command_count = read_u32(bytes, &mut offset)?;
+        if command_count == 0 {
+            return Err(TraceError::EmptyCommands);
+        }
+        if command_count as usize > MAX_TRACE_COMMANDS {
+            return Err(TraceError::TooManyCommands);
+        }
+
+        let expected_len = header_len + command_count as usize * 20;
+        if bytes.len() < expected_len {
+            return Err(TraceError::TruncatedInput);
+        }
+        if bytes.len() > expected_len {
+            return Err(TraceError::TrailingBytes);
+        }
+
+        let mut commands = Vec::with_capacity(command_count as usize);
+        for _ in 0..command_count {
+            let opcode = decode_opcode(read_byte(bytes, &mut offset)?)?;
+            let owner = decode_owner(read_byte(bytes, &mut offset)?)?;
+            let fault = decode_fault(read_byte(bytes, &mut offset)?)?;
+            if read_byte(bytes, &mut offset)? != 0 {
+                return Err(TraceError::NonzeroReservedByte);
+            }
+            let subject = read_u64(bytes, &mut offset)?;
+            let value = read_u64(bytes, &mut offset)?;
+            commands.push(TraceCommandV1 {
+                opcode,
+                owner,
+                fault,
+                subject,
+                value,
+            });
+        }
+
+        let trace = Self {
+            seed,
+            trace_index,
+            scenario,
+            operation_nonce,
+            commands,
+        };
+        trace.canonical_bytes()?;
+        Ok(trace)
+    }
 }
 
 fn append_u64(output: &mut Vec<u8>, value: u64) {
     output.extend_from_slice(&value.to_be_bytes());
+}
+
+fn read_byte(bytes: &[u8], offset: &mut usize) -> Result<u8, TraceError> {
+    let value = *bytes.get(*offset).ok_or(TraceError::TruncatedInput)?;
+    *offset += 1;
+    Ok(value)
+}
+
+fn read_u32(bytes: &[u8], offset: &mut usize) -> Result<u32, TraceError> {
+    let end = offset.checked_add(4).ok_or(TraceError::TruncatedInput)?;
+    let value = bytes.get(*offset..end).ok_or(TraceError::TruncatedInput)?;
+    *offset = end;
+    Ok(u32::from_be_bytes(value.try_into().map_err(|_| TraceError::TruncatedInput)?))
+}
+
+fn read_u64(bytes: &[u8], offset: &mut usize) -> Result<u64, TraceError> {
+    let end = offset.checked_add(8).ok_or(TraceError::TruncatedInput)?;
+    let value = bytes.get(*offset..end).ok_or(TraceError::TruncatedInput)?;
+    *offset = end;
+    Ok(u64::from_be_bytes(value.try_into().map_err(|_| TraceError::TruncatedInput)?))
+}
+
+fn decode_opcode(value: u8) -> Result<TraceOpcode, TraceError> {
+    match value {
+        1 => Ok(TraceOpcode::CreateIntent),
+        2 => Ok(TraceOpcode::Authorize),
+        3 => Ok(TraceOpcode::PrepareLocal),
+        4 => Ok(TraceOpcode::CommitLocal),
+        5 => Ok(TraceOpcode::PrepareTreasury),
+        6 => Ok(TraceOpcode::DispatchTreasury),
+        7 => Ok(TraceOpcode::MarkIndeterminate),
+        8 => Ok(TraceOpcode::ReconcileTreasury),
+        9 => Ok(TraceOpcode::RetrySameEffect),
+        10 => Ok(TraceOpcode::CommitTreasury),
+        11 => Ok(TraceOpcode::CheckpointPayments),
+        12 => Ok(TraceOpcode::CheckpointTreasury),
+        13 => Ok(TraceOpcode::MutateIntent),
+        14 => Ok(TraceOpcode::DuplicateDelivery),
+        15 => Ok(TraceOpcode::MutateEvent),
+        16 => Ok(TraceOpcode::StaleCheckpoint),
+        17 => Ok(TraceOpcode::ForkCheckpoint),
+        18 => Ok(TraceOpcode::Compensate),
+        _ => Err(TraceError::InvalidOpcode),
+    }
+}
+
+fn decode_owner(value: u8) -> Result<TraceOwner, TraceError> {
+    match value {
+        1 => Ok(TraceOwner::Sender),
+        2 => Ok(TraceOwner::Payments),
+        3 => Ok(TraceOwner::Treasury),
+        4 => Ok(TraceOwner::Adversary),
+        _ => Err(TraceError::InvalidOwner),
+    }
+}
+
+fn decode_fault(value: u8) -> Result<TraceFault, TraceError> {
+    match value {
+        0 => Ok(TraceFault::None),
+        1 => Ok(TraceFault::ResponseLostBeforeEffect),
+        2 => Ok(TraceFault::ResponseLostAfterEffect),
+        3 => Ok(TraceFault::LookupUncertain),
+        4 => Ok(TraceFault::ReceiptMismatch),
+        5 => Ok(TraceFault::StaleFrontier),
+        6 => Ok(TraceFault::WrongOwner),
+        7 => Ok(TraceFault::PayloadMutation),
+        8 => Ok(TraceFault::DuplicateDelivery),
+        9 => Ok(TraceFault::ForkedCheckpoint),
+        10 => Ok(TraceFault::MissingDependency),
+        11 => Ok(TraceFault::AuthoritativeAbsence),
+        _ => Err(TraceError::InvalidFault),
+    }
 }
 
 fn command(
@@ -421,6 +570,30 @@ mod tests {
             scenarios[usize::from(first.scenario - 1)] = true;
         }
         assert!(scenarios.into_iter().all(|observed| observed));
+    }
+
+    #[test]
+    fn trace_v1_decoder_round_trips_and_rejects_noncanonical_bytes() {
+        let trace = TraceGeneratorV1::generate(0x0123_4567_89ab_cdef, 7);
+        let encoded = trace.canonical_bytes().unwrap();
+        assert_eq!(TraceV1::decode(&encoded), Ok(trace));
+
+        let mut bad_reserved = encoded.clone();
+        bad_reserved[TRACE_DOMAIN.len() + 8 + 8 + 1 + 8 + 4 + 3] = 1;
+        assert_eq!(
+            TraceV1::decode(&bad_reserved),
+            Err(TraceError::NonzeroReservedByte)
+        );
+
+        let mut bad_opcode = encoded.clone();
+        bad_opcode[TRACE_DOMAIN.len() + 8 + 8 + 1 + 8 + 4] = 255;
+        assert_eq!(TraceV1::decode(&bad_opcode), Err(TraceError::InvalidOpcode));
+
+        let mut trailing = encoded.clone();
+        trailing.push(0);
+        assert_eq!(TraceV1::decode(&trailing), Err(TraceError::TrailingBytes));
+
+        assert_eq!(TraceV1::decode(&encoded[..encoded.len() - 1]), Err(TraceError::TruncatedInput));
     }
 
     #[test]
