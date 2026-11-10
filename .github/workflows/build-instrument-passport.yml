@@ -1,0 +1,41 @@
+name: Building Instrument Passport Synthetic Oracle
+
+on:
+  push:
+    paths:
+      - "docs/metrology/BUILDING_INSTRUMENT_PASSPORT_*"
+      - "tools/build-instrument-passport/**"
+      - ".github/workflows/build-instrument-passport.yml"
+  pull_request:
+    paths:
+      - "docs/metrology/BUILDING_INSTRUMENT_PASSPORT_*"
+      - "tools/build-instrument-passport/**"
+      - ".github/workflows/build-instrument-passport.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: building-instrument-passport-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  synthetic-passport:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install stable Rust and rustfmt
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - name: Fetch locked dependencies
+        run: cargo fetch --locked --manifest-path tools/build-instrument-passport/Cargo.toml
+      - name: Check formatting
+        run: cargo fmt --manifest-path tools/build-instrument-passport/Cargo.toml --all -- --check
+      - name: Run locked offline mutation tests
+        run: cargo test --locked --offline --manifest-path tools/build-instrument-passport/Cargo.toml
+      - name: Run strict Clippy
+        run: cargo clippy --locked --offline --manifest-path tools/build-instrument-passport/Cargo.toml --all-targets -- -D warnings
+      - name: Validate tracked passport corpus
+        run: cargo run --locked --offline --manifest-path tools/build-instrument-passport/Cargo.toml
