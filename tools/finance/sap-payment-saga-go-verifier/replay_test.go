@@ -331,3 +331,80 @@ func TestJournalReplayRejectsInvalidCommittedEvidenceDigest(t *testing.T) {
 		t.Fatalf("invalid evidence error = %v, want %v", err, ErrReplayInvalidEvidence)
 	}
 }
+
+
+func TestJournalReplayRejectsNonCanonicalIgnoredVariantFields(t *testing.T) {
+	cases := []struct {
+		name   string
+		frames []JournalEventFrame
+		anchor ReplayAnchor
+		index  int
+		mutate func(*JournalEvent)
+	}{
+		{
+			name: "created event cannot carry a leg",
+			frames: func() []JournalEventFrame {
+				log, err := NewJournalEventLog(replayTestIntent())
+				if err != nil { t.Fatal(err) }
+				return log.Frames()
+			}(),
+			index: 0,
+			mutate: func(event *JournalEvent) { event.Leg = LocalPaymentTransaction },
+		},
+		{
+			name: "authorization cannot carry an operation identity",
+			frames: func() []JournalEventFrame {
+				log, err := NewJournalEventLog(replayTestIntent())
+				if err != nil { t.Fatal(err) }
+				if err := log.RecordAuthorized(); err != nil { t.Fatal(err) }
+				return log.Frames()
+			}(),
+			index: 1,
+			mutate: func(event *JournalEvent) { event.OperationID = "unbound-operation" },
+		},
+		{
+			name: "prepared event cannot carry committed evidence",
+			frames: func() []JournalEventFrame {
+				log, err := NewJournalEventLog(replayTestIntent())
+				if err != nil { t.Fatal(err) }
+				if err := log.RecordAuthorized(); err != nil { t.Fatal(err) }
+				journal := newJournal(replayTestIntent())
+				if _, err := journal.PrepareLeg(LocalPaymentTransaction, journal.EffectID(LocalPaymentTransaction)); err != nil { t.Fatal(err) }
+				if err := log.RecordEffectPrepared(LocalPaymentTransaction, journal.EffectID(LocalPaymentTransaction)); err != nil { t.Fatal(err) }
+				return log.Frames()
+			}(),
+			index: 2,
+			mutate: func(event *JournalEvent) { event.Evidence = &Evidence{} },
+		},
+		{
+			name: "committed event cannot carry a second effect identity",
+			frames: func() []JournalEventFrame {
+				journal := newJournal(replayTestIntent())
+				log, err := NewJournalEventLog(replayTestIntent())
+				if err != nil { t.Fatal(err) }
+				if err := journal.Authorize(); err != nil { t.Fatal(err) }
+				if err := log.RecordAuthorized(); err != nil { t.Fatal(err) }
+				localID := journal.EffectID(LocalPaymentTransaction)
+				if _, err := journal.PrepareLeg(LocalPaymentTransaction, localID); err != nil { t.Fatal(err) }
+				if err := log.RecordEffectPrepared(LocalPaymentTransaction, localID); err != nil { t.Fatal(err) }
+				if err := journal.CommitLeg(LocalPaymentTransaction, replayTestLocalEvidence(journal)); err != nil { t.Fatal(err) }
+				if err := log.RecordEffectCommitted(replayTestLocalEvidence(journal)); err != nil { t.Fatal(err) }
+				return log.Frames()
+			}(),
+			index: 3,
+			mutate: func(event *JournalEvent) { event.EffectID = "unbound-effect" },
+		},
+	}
+
+	for _, testCase := range cases {
+		t.Run(testCase.name, func(t *testing.T) {
+			frames := append([]JournalEventFrame(nil), testCase.frames...)
+			frames[testCase.index].Event = frames[testCase.index].Event.clone()
+			testCase.mutate(&frames[testCase.index].Event)
+			anchor := ReplayAnchor{EventCount: uint64(len(frames)), TailDigest: frames[len(frames)-1].EventDigest}
+			if _, err := ReplayJournal(frames, anchor); err != ErrReplayInvalidEvent {
+				t.Fatalf("non-canonical event error = %v, want %v", err, ErrReplayInvalidEvent)
+			}
+		})
+	}
+}
