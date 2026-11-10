@@ -882,29 +882,14 @@ mod tests {
         format!("sha256:{seed:064x}")
     }
 
+    fn refresh_evidence_digest(evidence: &mut EffectEvidence) {
+        evidence.evidence_digest = evidence
+            .canonical_digest()
+            .expect("synthetic evidence fields fit the canonical profile");
+    }
+
     fn local_payment_evidence(journal: &PaymentJournal, label: &str, seed: u64) -> EffectEvidence {
-        let kind = EffectEvidenceKind::LocalPaymentTransaction {
-            sender_account_id: journal.intent.sender_did.clone(),
-            recipient_account_id: journal.intent.recipient_did.clone(),
-            sender_debit_minor: journal.intent.amount_minor + journal.intent.fee_minor,
-            recipient_credit_minor: journal.intent.amount_minor,
-            sender_predecessor_action: format!("action:sender-before-{label}"),
-            sender_debit_action: format!("action:sender-debit-{label}"),
-            recipient_predecessor_action: format!("action:recipient-before-{label}"),
-            recipient_credit_action: format!("action:recipient-credit-{label}"),
-            payment_action_hash: format!("action:payment-{label}"),
-            payment_status: PaymentRecordStatus::Completed,
-            receipt_action_hash: format!("action:receipt-{label}"),
-            receipt_signer_did: journal.intent.sender_did.clone(),
-            signing_profile: "mycelix.finance.payment-receipt.v1".into(),
-            signature_digest: digest(seed + 10_000),
-            treasury_fee_outbox_id: if journal.intent.fee_minor == 0 {
-                None
-            } else {
-                Some(journal.effect_id(PaymentLeg::TreasuryFee))
-            },
-        };
-        EffectEvidence {
+        let mut evidence = EffectEvidence {
             operation_id: journal.operation_id.clone(),
             effect_id: journal.effect_id(PaymentLeg::LocalPaymentTransaction),
             leg: PaymentLeg::LocalPaymentTransaction,
@@ -913,17 +898,43 @@ mod tests {
             principal_minor: journal.intent.amount_minor,
             fee_minor: journal.intent.fee_minor,
             currency: journal.intent.currency.clone(),
-            evidence_digest: digest(seed),
-            kind,
-        }
+            evidence_digest: String::new(),
+            kind: EffectEvidenceKind::LocalPaymentTransaction {
+                sender_account_id: journal.intent.sender_did.clone(),
+                recipient_account_id: journal.intent.recipient_did.clone(),
+                sender_debit_minor: journal.intent.amount_minor + journal.intent.fee_minor,
+                recipient_credit_minor: journal.intent.amount_minor,
+                sender_predecessor_action: format!("action:sender-before-{label}"),
+                sender_debit_action: format!("action:sender-debit-{label}"),
+                recipient_predecessor_action: format!("action:recipient-before-{label}"),
+                recipient_credit_action: format!("action:recipient-credit-{label}"),
+                payment_action_hash: format!("action:payment-{label}"),
+                payment_status: PaymentRecordStatus::Completed,
+                receipt_action_hash: format!("action:receipt-{label}"),
+                receipt_signer_did: journal.intent.sender_did.clone(),
+                signing_profile: "mycelix.finance.payment-receipt.v1".into(),
+                signature_digest: digest(seed + 10_000),
+                treasury_fee_outbox_id: if journal.intent.fee_minor == 0 {
+                    None
+                } else {
+                    Some(journal.effect_id(PaymentLeg::TreasuryFee))
+                },
+            },
+        };
+        refresh_evidence_digest(&mut evidence);
+        evidence
     }
 
-    fn treasury_fee_evidence(journal: &PaymentJournal, label: &str, seed: u64) -> EffectEvidence {
+    fn treasury_fee_evidence(
+        journal: &PaymentJournal,
+        label: &str,
+        _seed: u64,
+    ) -> EffectEvidence {
         let payment_action_hash = journal
             .committed_payment_action_hash()
             .expect("local Payment transaction must be committed")
             .to_owned();
-        EffectEvidence {
+        let mut evidence = EffectEvidence {
             operation_id: journal.operation_id.clone(),
             effect_id: journal.effect_id(PaymentLeg::TreasuryFee),
             leg: PaymentLeg::TreasuryFee,
@@ -932,7 +943,7 @@ mod tests {
             principal_minor: journal.intent.amount_minor,
             fee_minor: journal.intent.fee_minor,
             currency: journal.intent.currency.clone(),
-            evidence_digest: digest(seed),
+            evidence_digest: String::new(),
             kind: EffectEvidenceKind::TreasuryFee {
                 pool_id: "treasury:global-fee-pool".into(),
                 source_member_did: journal.intent.sender_did.clone(),
@@ -942,7 +953,9 @@ mod tests {
                 predecessor_action: format!("action:treasury-before-{label}"),
                 treasury_action: format!("action:treasury-fee-{label}"),
             },
-        }
+        };
+        refresh_evidence_digest(&mut evidence);
+        evidence
     }
 
     fn commit_local(
