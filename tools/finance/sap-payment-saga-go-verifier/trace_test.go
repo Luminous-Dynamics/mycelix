@@ -93,6 +93,35 @@ func TestTraceV1IsDeterministicAndCoversAllScenarios(t *testing.T) {
 	}
 }
 
+func TestTraceV1DecoderRoundTripsAndRejectsNoncanonicalBytes(t *testing.T) {
+	trace := GenerateTraceV1(0x0123456789abcdef, 7)
+	encoded, err := trace.CanonicalBytes()
+	if err != nil {
+		t.Fatalf("encode trace: %v", err)
+	}
+	decoded, err := DecodeTraceV1(encoded)
+	if err != nil || !equalTraceV1(decoded, trace) {
+		t.Fatalf("decode round trip failed: err=%v", err)
+	}
+
+	badReserved := append([]byte(nil), encoded...)
+	badReserved[20+8+8+1+8+4+3] = 1
+	if _, err := DecodeTraceV1(badReserved); err != ErrTraceNonzeroReserved {
+		t.Fatalf("reserved byte error = %v", err)
+	}
+	badOpcode := append([]byte(nil), encoded...)
+	badOpcode[20+8+8+1+8+4] = 255
+	if _, err := DecodeTraceV1(badOpcode); err != ErrTraceInvalidOpcode {
+		t.Fatalf("opcode error = %v", err)
+	}
+	if _, err := DecodeTraceV1(encoded[:len(encoded)-1]); err != ErrTraceTruncatedInput {
+		t.Fatalf("truncated input error = %v", err)
+	}
+	if _, err := DecodeTraceV1(append(encoded, 0)); err != ErrTraceTrailingBytes {
+		t.Fatalf("trailing bytes error = %v", err)
+	}
+}
+
 func TestTraceV1EnforcesScenarioAndCommandBounds(t *testing.T) {
 	trace := GenerateTraceV1(1, 0)
 	trace.Scenario = 0
