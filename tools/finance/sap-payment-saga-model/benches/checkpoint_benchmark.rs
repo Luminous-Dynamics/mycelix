@@ -101,11 +101,20 @@ fn main() {
                     iterations += 1;
                 }
                 let elapsed = start.elapsed();
-                let denominator = iterations * u64::try_from(subjects.len()).expect("size fits u64");
+                let denominator = iterations
+                    * u64::try_from(subjects.len()).expect("size fits u64");
                 let ns_per_checkpoint = elapsed.as_nanos() as f64 / denominator as f64;
                 println!(
-                    "RUST_CHECKPOINT_SAMPLE owner={owner_name} checkpoints={checkpoint_count} sample={sample} iterations={iterations} elapsed_ns={} ns_per_checkpoint={ns_per_checkpoint:.3}",
-                    elapsed.as_nanos()
+                    concat!(
+                        "RUST_CHECKPOINT_SAMPLE owner={} checkpoints={} ",
+                        "sample={} iterations={} elapsed_ns={} ns_per_checkpoint={:.3}"
+                    ),
+                    owner_name,
+                    checkpoint_count,
+                    sample,
+                    iterations,
+                    elapsed.as_nanos(),
+                    ns_per_checkpoint
                 );
             }
         }
