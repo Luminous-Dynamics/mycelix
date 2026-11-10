@@ -11,7 +11,7 @@ use std::fmt;
 
 const CHECKPOINT_DOMAIN: &[u8] = b"MXSAP-OWNER-CHECKPOINT-SUBJECT-V1\0";
 const MAX_TEXT_BYTES: usize = 4 * 1024;
-const MAX_SOURCE_ACTION_HASH_BYTES: usize = 256;
+const HOLOCHAIN_ACTION_HASH_BYTES: usize = 39;
 const KEY_PROFILE_HOLOCHAIN_ACTION_ED25519_V1: u8 = 1;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -26,7 +26,7 @@ pub struct OwnerCheckpointSubjectV1 {
     pub operation_id: String,
     pub intent_digest: String,
     pub owner_domain: CheckpointOwnerDomain,
-    pub event_log_digest: String,
+    pub journal_identity_digest: String,
     pub event_count: u64,
     pub tail_digest: String,
     pub checkpoint_sequence: u64,
@@ -71,7 +71,7 @@ impl OwnerCheckpointSubjectV1 {
         bytes.push(self.owner_domain as u8);
         append_text(&mut bytes, &self.operation_id)?;
         append_digest(&mut bytes, &self.intent_digest)?;
-        append_digest(&mut bytes, &self.event_log_digest)?;
+        append_digest(&mut bytes, &self.journal_identity_digest)?;
         bytes.extend_from_slice(&self.event_count.to_be_bytes());
         append_digest(&mut bytes, &self.tail_digest)?;
         bytes.extend_from_slice(&self.checkpoint_sequence.to_be_bytes());
@@ -99,8 +99,8 @@ impl OwnerCheckpointSubjectV1 {
     pub fn validate(&self) -> Result<(), CheckpointError> {
         require_text(&self.operation_id)?;
         validate_digest(&self.intent_digest)?;
-        validate_digest(&self.event_log_digest)?;
-        if self.event_log_digest
+        validate_digest(&self.journal_identity_digest)?;
+        if self.journal_identity_digest
             != journal_identity_digest(&self.operation_id, &self.intent_digest)?
         {
             return Err(CheckpointError::InvalidJournalIdentity);
@@ -123,13 +123,11 @@ impl OwnerCheckpointSubjectV1 {
             (_, Some(digest)) => validate_digest(digest)?,
         }
 
-        if self.source_action_hash.is_empty()
-            || self.source_action_hash.len() > MAX_SOURCE_ACTION_HASH_BYTES
+        if self.source_action_hash.len() != HOLOCHAIN_ACTION_HASH_BYTES
         {
             return Err(CheckpointError::InvalidSourceActionHash);
         }
-        if self.owner_authority_action_hash.is_empty()
-            || self.owner_authority_action_hash.len() > MAX_SOURCE_ACTION_HASH_BYTES
+        if self.owner_authority_action_hash.len() != HOLOCHAIN_ACTION_HASH_BYTES
         {
             return Err(CheckpointError::InvalidAuthorityActionHash);
         }
@@ -212,7 +210,7 @@ fn append_optional_digest(
 }
 
 fn append_action_hash(output: &mut Vec<u8>, value: &[u8]) -> Result<(), CheckpointError> {
-    if value.is_empty() || value.len() > MAX_SOURCE_ACTION_HASH_BYTES {
+    if value.len() != HOLOCHAIN_ACTION_HASH_BYTES {
         return Err(CheckpointError::InvalidAuthorityActionHash);
     }
     let length =
@@ -223,7 +221,7 @@ fn append_action_hash(output: &mut Vec<u8>, value: &[u8]) -> Result<(), Checkpoi
 }
 
 fn append_bytes(output: &mut Vec<u8>, value: &[u8]) -> Result<(), CheckpointError> {
-    if value.len() > MAX_SOURCE_ACTION_HASH_BYTES {
+    if value.len() != HOLOCHAIN_ACTION_HASH_BYTES {
         return Err(CheckpointError::InvalidSourceActionHash);
     }
     let length = u32::try_from(value.len()).map_err(|_| CheckpointError::InvalidSourceActionHash)?;
@@ -288,7 +286,7 @@ mod tests {
             operation_id: fixture_field("operation_id").into(),
             intent_digest: fixture_field("intent_digest").into(),
             owner_domain,
-            event_log_digest: fixture_field("event_log_digest").into(),
+            journal_identity_digest: fixture_field("journal_identity_digest").into(),
             event_count: fixture_field("event_count").parse().unwrap(),
             tail_digest: fixture_field("tail_digest").into(),
             checkpoint_sequence: fixture_field("checkpoint_sequence").parse().unwrap(),
@@ -377,7 +375,12 @@ mod tests {
             subject.validate(),
             Err(CheckpointError::InvalidSourceActionHash)
         );
-        subject.source_action_hash = vec![0; MAX_SOURCE_ACTION_HASH_BYTES + 1];
+        subject.source_action_hash = vec![0; HOLOCHAIN_ACTION_HASH_BYTES - 1];
+        assert_eq!(
+            subject.validate(),
+            Err(CheckpointError::InvalidSourceActionHash)
+        );
+        subject.source_action_hash = vec![0; HOLOCHAIN_ACTION_HASH_BYTES + 1];
         assert_eq!(
             subject.validate(),
             Err(CheckpointError::InvalidSourceActionHash)
@@ -392,7 +395,12 @@ mod tests {
             subject.validate(),
             Err(CheckpointError::InvalidAuthorityActionHash)
         );
-        subject.owner_authority_action_hash = vec![0; MAX_SOURCE_ACTION_HASH_BYTES + 1];
+        subject.owner_authority_action_hash = vec![0; HOLOCHAIN_ACTION_HASH_BYTES - 1];
+        assert_eq!(
+            subject.validate(),
+            Err(CheckpointError::InvalidAuthorityActionHash)
+        );
+        subject.owner_authority_action_hash = vec![0; HOLOCHAIN_ACTION_HASH_BYTES + 1];
         assert_eq!(
             subject.validate(),
             Err(CheckpointError::InvalidAuthorityActionHash)
