@@ -401,10 +401,15 @@ pub fn reconcile(
         return Resolution {
             disposition: Disposition::Indeterminate,
             policy_consistent_candidate_ref: None,
-            observed_candidate_refs: candidates
-                .iter()
-                .map(|candidate| candidate.candidate_ref.clone())
-                .collect(),
+            observed_candidate_refs: {
+                let mut refs = candidates
+                    .iter()
+                    .map(|candidate| candidate.candidate_ref.clone())
+                    .collect::<Vec<_>>();
+                refs.sort();
+                refs.dedup();
+                refs
+            },
             observed_candidate_claims: {
                 let mut claims = candidates.to_vec();
                 claims.sort_by_key(|candidate| format!("{candidate:?}"));
@@ -526,6 +531,7 @@ pub fn reconcile(
         disposition: Disposition::PolicyClaimConsistentPendingFinality,
         policy_consistent_candidate_ref: Some(candidate.candidate_ref.clone()),
         observed_candidate_refs,
+        observed_candidate_claims,
         duplicate_delivery_count,
         rejected_candidates,
         reason_codes: Vec::new(),
@@ -656,6 +662,7 @@ mod tests {
         );
         assert_eq!(result.duplicate_delivery_count, 1);
         assert_eq!(result.observed_candidate_refs, vec!["action:1"]);
+        assert_eq!(result.observed_candidate_claims.len(), 1);
     }
 
     #[test]
@@ -717,6 +724,12 @@ mod tests {
         assert!(result
             .reason_codes
             .contains(&ReasonCode::CandidateReferenceCollision));
+        assert_eq!(result.observed_candidate_refs, vec!["action:same"]);
+        assert_eq!(result.observed_candidate_claims.len(), 2);
+        assert_ne!(
+            result.observed_candidate_claims[0].operation,
+            result.observed_candidate_claims[1].operation
+        );
     }
 
     #[test]
