@@ -8,3 +8,6 @@ description = "Pure Rust reference model for idempotent SAP payment effects and 
 
 [lib]
 path = "src/lib.rs"
+
+[dependencies]
+sha2 = "=0.10.9"
