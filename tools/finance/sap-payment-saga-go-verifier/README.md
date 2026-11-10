@@ -49,7 +49,7 @@ This is a project-specific canonical binary profile, not a claim of RFC 8785/JCS
 
 `replay.go` adds a standard-library-only reducer for the same typed event stream as Rust `src/replay.rs`. It reconstructs a fresh `Journal` from create, authorize/reject, effect-prepared, indeterminate and effect-committed events.
 
-Each frame binds a sequence number, prior-frame digest, versioned event encoding and event digest. Event text fields are capped at 16 KiB before hashing. Replay verifies sequence continuity, the hash chain, operation identity, external event-count/tail anchor and legal journal transitions. Committed effects re-run typed evidence and canonical digest validation.
+Each frame binds a sequence number, prior-frame digest, versioned event encoding and event digest. Event text fields are capped at 16 KiB before hashing. Replay verifies sequence continuity, the hash chain, operation identity, external event-count/tail anchor and legal journal transitions. Committed effects re-run typed evidence and canonical digest validation. The Go verifier also rejects non-canonical event shapes (unused identity, intent, leg, effect-ID or evidence fields) so payload omitted from the digest cannot be smuggled into an otherwise valid event.
 
 Both languages consume `fixtures/sap-payment-journal-replay-v1.kat`, which pins the local and Treasury typed-evidence digests, all eight event-frame digests for the full local-payment/Treasury-recovery history, and its final tail anchor. The Go tests also replay a full local-payment/Treasury recovery with an indeterminate fee result, and reject tail truncation, reordered/tampered events, impossible transitions and invalid committed evidence.
 
