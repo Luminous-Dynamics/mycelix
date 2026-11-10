@@ -1,0 +1,39 @@
+name: Building Metrology Synthetic Admission Oracle
+
+on:
+  push:
+    paths:
+      - "docs/metrology/**"
+      - "tools/build-metrology-qualifier/**"
+      - ".github/workflows/build-metrology-qualifier.yml"
+  pull_request:
+    paths:
+      - "docs/metrology/**"
+      - "tools/build-metrology-qualifier/**"
+      - ".github/workflows/build-metrology-qualifier.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-metrology-qualifier-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  synthetic-admission:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install stable Rust and rustfmt
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - name: Check formatting
+        run: cargo fmt --manifest-path tools/build-metrology-qualifier/Cargo.toml --all -- --check
+      - name: Run locked offline mutation tests
+        run: cargo test --locked --offline --manifest-path tools/build-metrology-qualifier/Cargo.toml
+      - name: Run warning-free Clippy
+        run: cargo clippy --locked --offline --manifest-path tools/build-metrology-qualifier/Cargo.toml --all-targets -- -D warnings
+      - name: Validate tracked profile and corpus
+        run: cargo run --locked --offline --manifest-path tools/build-metrology-qualifier/Cargo.toml
