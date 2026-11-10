@@ -57,23 +57,15 @@ This is a reference replay model, not a durable Holochain event store. The ancho
 
 ## Replay scale benchmark
 
-`replay_benchmark_test.go` measures pure in-memory journal validation/reconstruction for exact 100, 1,000 and 10,000 frame histories. Each history contains the same local-payment and Treasury legs; its variable depth is repeated `Indeterminate → same-effect Prepared` recovery cycles. Fixture construction is outside the timed region, and the benchmark reports Go's `ns/op`, `B/op` and `allocs/op`.
+`replay_benchmark_test.go` measures pure in-memory journal validation/reconstruction for exact 100, 1,000 and 10,000 frame histories. Each history contains the same local-payment and Treasury legs; variable depth comes from repeated `Indeterminate → same-effect Prepared` recovery cycles. Fixture construction is outside the timed region. The benchmark reports elapsed time and allocation metrics.
 
 Run with the Go version declared by `go.mod` (1.27.0):
 
 ```sh
-go test -run '^
-A passing test suite demonstrates agreement of this Go implementation with its own frozen synthetic scenario expectations. It does not establish equivalence to Rust unless the same scenarios are executed against the Rust model; Holochain source-chain singleton uniqueness, DHT convergence, cross-agent exclusivity or fork exclusion; Ed25519 verification, ActionHash resolution or predecessor authorisation; actual SAP account movement or Treasury receipt; provider idempotency, external bank settlement, recipient availability or legal finality; live performance, regulatory compliance or production readiness.
-
-The Go registry's mutex test only demonstrates in-process serialization. It is not a distributed exactly-once theorem.
- -bench '^BenchmarkReplayJournal
-A passing test suite demonstrates agreement of this Go implementation with its own frozen synthetic scenario expectations. It does not establish equivalence to Rust unless the same scenarios are executed against the Rust model; Holochain source-chain singleton uniqueness, DHT convergence, cross-agent exclusivity or fork exclusion; Ed25519 verification, ActionHash resolution or predecessor authorisation; actual SAP account movement or Treasury receipt; provider idempotency, external bank settlement, recipient availability or legal finality; live performance, regulatory compliance or production readiness.
-
-The Go registry's mutex test only demonstrates in-process serialization. It is not a distributed exactly-once theorem.
- -benchmem -count=30
+go test -run 'a^' -bench '^BenchmarkReplayJournal' -benchmem -benchtime=200ms -count=30
 ```
 
-For a publishable result, retain all raw samples and record the exact commit SHA, Go version, OS/architecture, CPU model, power mode and benchmark command. Compute p50/p95/p99 over the 30 independent benchmark outputs per event count; do not substitute Go's aggregate `ns/op` for a percentile. Compare Rust and Go only with matched fixture bytes, hardware, build mode and measurement procedure. This is a synthetic in-memory replay microbenchmark: it excludes Holochain DHT retrieval, source-chain validation, conductor restart, storage fsync, remote peers and real monetary effects. No performance result is claimed until executed on the exact head.
+The CI qualification also captures the Go version, OS/architecture and CPU model, retains the 30 raw samples in the job log, and computes nearest-rank p50/p95/p99 latency plus mean bytes and allocations per operation. For publishable cross-language comparisons, preserve the exact commit SHA, hardware, build mode, fixture bytes, and full raw output. This is a synthetic in-memory replay microbenchmark: it excludes Holochain DHT retrieval, source-chain validation, conductor restart, storage fsync, remote peers, and real monetary effects. No performance result is claimed until executed on the exact head.
 
 ## Claim ceiling
 
