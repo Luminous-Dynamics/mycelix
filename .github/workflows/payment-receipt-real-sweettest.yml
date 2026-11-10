@@ -73,3 +73,13 @@ jobs:
           --ignored
           --exact
           --test-threads=1
+      - name: Run coordinator-bypass forged-signature rejection
+        run: >
+          cargo test
+          --manifest-path mycelix-finance/tests/Cargo.toml
+          --test payments_test
+          payment_creation::test_raw_receipt_create_rejects_fabricated_signature
+          --
+          --ignored
+          --exact
+          --test-threads=1
