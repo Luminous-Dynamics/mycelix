@@ -45,8 +45,53 @@ Both languages load the same known-answer file at fixtures/sap-payment-evidence-
 
 This is a project-specific canonical binary profile, not a claim of RFC 8785/JCS or CBOR conformance. It detects typed-field mutation, but it does not prove that the fields describe authentic Holochain actions or a real ledger movement.
 
+## Anchored append-only journal replay
+
+`replay.go` adds a standard-library-only reducer for the same typed event stream as Rust `src/replay.rs`. It reconstructs a fresh `Journal` from create, authorize/reject, effect-prepared, indeterminate and effect-committed events.
+
+Each frame binds a sequence number, prior-frame digest, versioned event encoding and event digest. Event text fields are capped at 16 KiB before hashing. Replay verifies sequence continuity, the hash chain, operation identity, external event-count/tail anchor and legal journal transitions. Committed effects re-run typed evidence and canonical digest validation. The Go verifier also rejects non-canonical event shapes (unused identity, intent, leg, effect-ID or evidence fields) so payload omitted from the digest cannot be smuggled into an otherwise valid event.
+
+Both languages consume `fixtures/sap-payment-journal-replay-v1.kat`, which pins the local and Treasury typed-evidence digests, all eight event-frame digests for the full local-payment/Treasury-recovery history, and its final tail anchor. The Go tests also replay a full local-payment/Treasury recovery with an indeterminate fee result, and reject tail truncation, reordered/tampered events, impossible transitions and invalid committed evidence.
+
+This is a reference replay model, not a durable Holochain event store. The anchor must be held independently to detect tail truncation, and the anchor itself is not authenticated by this model. A fully rewritten stream plus rewritten anchor can be rehashed. Production still requires independently protected checkpoints, authenticated source records and ActionHash/predecessor verification.
+
+## Replay scale benchmark
+
+`replay_benchmark_test.go` measures pure in-memory journal validation/reconstruction for exact 100, 1,000 and 10,000 frame histories. Each history contains the same local-payment and Treasury legs; variable depth comes from repeated `Indeterminate → same-effect Prepared` recovery cycles. Fixture construction is outside the timed region. The benchmark reports elapsed time and allocation metrics.
+
+Run with the Go version declared by `go.mod` (1.27.0):
+
+```sh
+go test -run 'a^' -bench '^BenchmarkReplayJournal' -benchmem -benchtime=200ms -count=30
+```
+
+The CI qualification captures the Go version, OS/architecture and CPU model, retains the 30 raw samples per history size in the job log, and fails the summary step unless all three groups contain exactly 30 samples. It computes nearest-rank p50/p95/p99 latency plus mean bytes and allocations per operation. For publishable cross-language comparisons, preserve the exact commit SHA, hardware, build mode, fixture bytes, and full raw output. This is a synthetic in-memory replay microbenchmark: it excludes Holochain DHT retrieval, source-chain validation, conductor restart, storage fsync, remote peers, and real monetary effects. No performance result is claimed until executed on the exact head.
+
 ## Claim ceiling
 
-A passing test suite demonstrates agreement of this Go implementation with its own frozen synthetic scenario expectations. It does not establish equivalence to Rust unless the same scenarios are executed against the Rust model; Holochain source-chain singleton uniqueness, DHT convergence, cross-agent exclusivity or fork exclusion; evidence-digest recomputation, Ed25519 verification, ActionHash resolution or predecessor authorisation; actual SAP account movement or Treasury receipt; provider idempotency, external bank settlement, recipient availability or legal finality; live performance, regulatory compliance or production readiness.
+A passing test suite demonstrates agreement of this Go implementation with its own frozen synthetic scenario expectations. It does not establish equivalence to Rust unless the same scenarios are executed against the Rust model; Holochain source-chain singleton uniqueness, DHT convergence, cross-agent exclusivity or fork exclusion; Ed25519 verification, ActionHash resolution or predecessor authorisation; actual SAP account movement or Treasury receipt; provider idempotency, external bank settlement, recipient availability or legal finality; live performance, regulatory compliance or production readiness.
 
 The Go registry's mutex test only demonstrates in-process serialization. It is not a distributed exactly-once theorem.
+
+
+## Paired Rust / Go replay benchmark
+
+The replay benchmark now measures the same deterministic synthetic histories in both implementations on one CI runner:
+
+- exact sizes: 100, 1,000 and 10,000 event frames;
+- identical history shape: Created, Authorized, local Payment prepared/committed, Treasury prepared, repeated Indeterminate → same-effect Prepared recovery cycles, then Treasury committed;
+- the fixture and evidence construction are outside the timed region;
+- each implementation captures 30 raw samples per size, using a 200 ms sample window;
+- the Rust harness reports nanoseconds per replay; the Go harness reports nanoseconds, bytes and allocations per replay;
+- a single summary step refuses to report percentiles unless every language/size has exactly 30 samples, then computes nearest-rank p50/p95/p99 from sorted copies.
+
+The Rust harness is at tools/finance/sap-payment-saga-model/benches/replay_benchmark.rs. Both benchmarks run in the same Actions job and print the Rust/Go toolchain versions, OS/architecture and CPU model. Raw sample output remains in the job log.
+
+This is a matched in-memory microbenchmark, not a production performance claim. It excludes conductor scheduling, DHT retrieval/validation, source-chain writes, fsync or database durability, network latency, provider APIs and real settlement. Sequential language runs may experience clock/thermal variation; preserve raw samples and rerun on controlled hardware before making a performance claim. Go allocation counts and Rust latency are not directly interchangeable metrics.
+
+
+## Prefix-by-prefix crash-window reconstruction
+
+Rust and Go tests now reconstruct the live journal projection after every valid prefix of the local-Payment/Treasury-recovery path: Created, Authorized, local Prepared, local Committed, Treasury Prepared, Treasury Indeterminate, same-effect Treasury Prepared, and final Treasury Committed. Each prefix is replayed against its own event-count/tail anchor and compared with the live in-memory journal. This tests intermediate recovery states rather than only the terminal Completed state.
+
+These are deterministic state-machine prefix checks. They do not inject process termination into a real conductor, storage engine, message broker or provider API; those remain a separate runtime qualification layer.
