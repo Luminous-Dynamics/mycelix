@@ -359,7 +359,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                             ));
                         }
                     };
-                    if base_hash != did_to_entry_hash(&request.did) {
+                    if base_hash != string_index_hash(&request.did) {
                         return Ok(ValidateCallbackResult::Invalid(
                             "Recovery request link base must match the request DID".into(),
                         ));
@@ -403,7 +403,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                             ));
                         }
                     };
-                    if base_hash != did_to_entry_hash(&request.did) {
+                    if base_hash != string_index_hash(&request.did) {
                         return Ok(ValidateCallbackResult::Invalid(
                             "Self-recovery request link base must match the request DID".into(),
                         ));
@@ -450,7 +450,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                     if !config
                         .trustees
                         .iter()
-                        .any(|trustee| did_to_entry_hash(trustee) == base_hash)
+                        .any(|trustee| string_index_hash(trustee) == base_hash)
                     {
                         return Ok(ValidateCallbackResult::Invalid(
                             "Trustee config link base must match an enrolled trustee DID".into(),
@@ -459,11 +459,15 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                     Ok(ValidateCallbackResult::Valid)
                 }
                 LinkTypes::RequestToVotes => {
-                    let request_hash = match base_address.into_action_hash() {
+                    // The coordinator indexes votes beneath the deterministic
+                    // request_id entry hash, not the request action hash. This
+                    // shared anchor lets every conductor query the same DHT
+                    // vote set without depending on the initiator's local chain.
+                    let request_id_hash = match base_address.into_entry_hash() {
                         Some(hash) => hash,
                         None => {
                             return Ok(ValidateCallbackResult::Invalid(
-                                "Request vote link base must be an action hash".into(),
+                                "Request vote link base must be a request-ID entry hash".into(),
                             ));
                         }
                     };
@@ -475,16 +479,6 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                             ));
                         }
                     };
-                    let request_record = must_get_valid_record(request_hash)?;
-                    let Some(request) = request_record
-                        .entry()
-                        .to_app_option::<RecoveryRequest>()
-                        .map_err(|error| wasm_error!(WasmErrorInner::Guest(error.to_string())))?
-                    else {
-                        return Ok(ValidateCallbackResult::Invalid(
-                            "Request vote link base must target a RecoveryRequest".into(),
-                        ));
-                    };
                     let vote_record = must_get_valid_record(vote_hash)?;
                     let Some(vote) = vote_record
                         .entry()
@@ -495,9 +489,9 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                             "Request vote link target must target a RecoveryVote".into(),
                         ));
                     };
-                    if vote.request_id != request.id {
+                    if request_id_hash != string_index_hash(&vote.request_id) {
                         return Ok(ValidateCallbackResult::Invalid(
-                            "Vote request ID must match the linked recovery request".into(),
+                            "Vote link base must match the vote's request ID".into(),
                         ));
                     }
                     if vote_record.action().author() != &action.author {
@@ -559,9 +553,9 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
 /// Deterministically reproduce the DID-string link base used by the
 /// recovery coordinator. This hash is an index only; identity authority is
 /// checked separately against the config owner and the committing action.
-fn did_to_entry_hash(did: &str) -> EntryHash {
+fn string_index_hash(value: &str) -> EntryHash {
     EntryHash::from_raw_36(
-        holo_hash::blake2b_256(did.as_bytes())
+        holo_hash::blake2b_256(value.as_bytes())
             .into_iter()
             .chain([0u8; 4])
             .collect(),
@@ -584,7 +578,7 @@ fn validate_recovery_config_link_fields(
     if owner != link_author {
         return Err("Only the recovery-config owner may create its DID index link");
     }
-    if base_hash != &did_to_entry_hash(did) {
+    if base_hash != &string_index_hash(did) {
         return Err("Recovery config link base must match the config DID");
     }
     Ok(())
@@ -1592,7 +1586,7 @@ mod author_binding_tests {
     fn recovery_config_link_must_match_did_base_and_owner_author() {
         let owner = me();
         let did = format!("did:mycelix:{}", owner);
-        let correct_base = did_to_entry_hash(&did);
+        let correct_base = string_index_hash(&did);
         assert!(validate_recovery_config_link_fields(
             &correct_base,
             &did,
@@ -1600,7 +1594,7 @@ mod author_binding_tests {
             &owner
         ).is_ok());
 
-        let victim_base = did_to_entry_hash(&format!("did:mycelix:{}", other_agent()));
+        let victim_base = string_index_hash(&format!("did:mycelix:{}", other_agent()));
         assert!(validate_recovery_config_link_fields(
             &victim_base,
             &did,
