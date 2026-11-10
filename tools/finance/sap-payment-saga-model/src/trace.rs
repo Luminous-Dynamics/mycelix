@@ -561,7 +561,9 @@ mod tests {
 
     #[test]
     fn all_eight_scenarios_match_independent_known_answers() {
+        let mut vectors_seen = 0;
         for line in KAT.lines().filter_map(|line| line.strip_prefix("vector=")) {
+            vectors_seen += 1;
             let fields: Vec<_> = line.split(',').collect();
             assert_eq!(fields.len(), 6);
             let seed = u64::from_str_radix(fields[0], 16).unwrap();
@@ -576,6 +578,7 @@ mod tests {
             assert_eq!(trace.commands.len(), expected_count);
             assert_eq!(trace.canonical_digest().unwrap(), expected_digest);
         }
+        assert_eq!(vectors_seen, 8);
     }
 
     #[test]
