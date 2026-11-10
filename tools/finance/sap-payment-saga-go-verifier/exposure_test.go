@@ -26,7 +26,7 @@ func exposureTestPolicy(maximum uint64) ExposurePolicyV1 {
 		Scope:                 exposureTestScope(),
 		Sequence:              1,
 		MaximumTotalMinor:     maximum,
-		MaximumPerEffectMinor: 800,
+		MaximumPerEffectMinor: minExposureTest(maximum, 800),
 		PolicyDigest:          exposureTestDigest(13),
 	}
 }
@@ -195,4 +195,9 @@ func TestSnapshotOrderingIsIndependentOfInsertionOrder(t *testing.T) {
 	secondDigest, err := second.CanonicalSnapshotDigest()
 	if err != nil { t.Fatal(err) }
 	if firstDigest != secondDigest { t.Fatalf("insertion order changed snapshot: %s != %s", firstDigest, secondDigest) }
+}
+
+func minExposureTest(left, right uint64) uint64 {
+	if left < right { return left }
+	return right
 }
