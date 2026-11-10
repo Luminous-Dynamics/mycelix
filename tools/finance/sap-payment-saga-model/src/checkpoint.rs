@@ -5,8 +5,10 @@
 //! digest identifies the exact subject; it is not an authorship signature,
 //! owner authorization proof, source-action proof, or settlement receipt.
 
+use super::{PaymentIntent, PaymentJournal};
 use sha2::{Digest, Sha256};
 
+const INTENT_DOMAIN: &[u8] = b"MXSAP-PAYMENT-INTENT-V1\\0";
 const DOMAIN: &[u8] = b"MXSAP-JOURNAL-CHECKPOINT-SUBJECT-V1\0";
 const MAX_FIELD_BYTES: usize = 4096;
 
@@ -37,6 +39,8 @@ pub struct CheckpointSubjectV1 {
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum CheckpointError {
+    InvalidIntent,
+    IntentMismatch,
     MissingField,
     InvalidDigest,
     InvalidSequence,
@@ -45,6 +49,20 @@ pub enum CheckpointError {
 }
 
 impl CheckpointSubjectV1 {
+    /// Confirms that this checkpoint names the exact immutable payment intent.
+    pub fn validate_against_intent(
+        &self,
+        intent: &PaymentIntent,
+    ) -> Result<(), CheckpointError> {
+        self.validate()?;
+        let expected_operation_id = PaymentJournal::new(intent.clone()).operation_id();
+        let expected_intent_digest = canonical_intent_digest(intent)?;
+        if self.operation_id != expected_operation_id || self.intent_digest != expected_intent_digest {
+            return Err(CheckpointError::IntentMismatch);
+        }
+        Ok(())
+    }
+
     pub fn validate(&self) -> Result<(), CheckpointError> {
         for value in [
             self.operation_id.as_str(),
@@ -128,6 +146,40 @@ impl CheckpointSubjectV1 {
     }
 }
 
+
+/// Canonical intent bytes: fixed field order, length-prefixed UTF-8 strings,
+/// integer minor units as u64 big-endian. The profile is independent of
+/// serializer ordering and is shared with the Go reference implementation.
+pub fn canonical_intent_bytes(intent: &PaymentIntent) -> Result<Vec<u8>, CheckpointError> {
+    intent.validate().map_err(|_| CheckpointError::InvalidIntent)?;
+    let mut bytes = Vec::with_capacity(256);
+    bytes.extend_from_slice(INTENT_DOMAIN);
+    for value in [
+        intent.sender_did.as_str(),
+        intent.recipient_did.as_str(),
+        intent.client_idempotency_key.as_str(),
+        intent.payload_fingerprint.as_str(),
+    ] {
+        append_text(&mut bytes, value)?;
+    }
+    bytes.extend_from_slice(&intent.amount_minor.to_be_bytes());
+    bytes.extend_from_slice(&intent.fee_minor.to_be_bytes());
+    append_text(&mut bytes, &intent.currency)?;
+    Ok(bytes)
+}
+
+pub fn canonical_intent_digest(intent: &PaymentIntent) -> Result<String, CheckpointError> {
+    let bytes = canonical_intent_bytes(intent)?;
+    let digest = Sha256::digest(&bytes);
+    let mut output = String::with_capacity(71);
+    output.push_str("sha256:");
+    for byte in digest {
+        use std::fmt::Write as _;
+        write!(&mut output, "{byte:02x}").expect("writing to String cannot fail");
+    }
+    Ok(output)
+}
+
 fn append_text(output: &mut Vec<u8>, value: &str) -> Result<(), CheckpointError> {
     let encoded = value.as_bytes();
     if encoded.len() > MAX_FIELD_BYTES {
@@ -153,10 +205,22 @@ mod tests {
     use super::*;
     use std::fs;
 
+    fn payment_intent() -> PaymentIntent {
+        PaymentIntent::new(
+            "did:sender",
+            "did:recipient",
+            "client-key-001",
+            format!("sha256:{}", "a".repeat(64)),
+            100,
+            3,
+            "SAP",
+        )
+    }
+
     fn subject() -> CheckpointSubjectV1 {
         CheckpointSubjectV1 {
             operation_id: "sap-payment:10:did:sender:14:client-key-001".into(),
-            intent_digest: format!("sha256:{}", "11".repeat(32)),
+            intent_digest: "sha256:5a6e4c29cb95cee151d9f41ac9a82b6b91f3f4b443f2902a6026c769466f5b07".into(),
             owner: CheckpointOwner::Payments,
             event_log_id: "journal:did:sender:payment:001".into(),
             event_count: 8,
@@ -190,13 +254,36 @@ mod tests {
             let (key, value) = line.split_once('=').expect("fixture line must contain =");
             assert!(vectors.insert(key, value).is_none(), "duplicate fixture key: {key}");
         }
-        assert_eq!(vectors.len(), 3, "fixture must contain exactly three vectors");
+        assert_eq!(vectors.len(), 6, "fixture must contain exactly six vectors");
         assert_eq!(
             vectors.get("profile"),
             Some(&"MXSAP-JOURNAL-CHECKPOINT-SUBJECT-V1")
         );
 
+        let intent = payment_intent();
+        assert_eq!(
+            vectors.get("intent-profile"),
+            Some(&"MXSAP-PAYMENT-INTENT-V1")
+        );
+        let intent_bytes_hex: String = canonical_intent_bytes(&intent)
+            .expect("canonical intent bytes")
+            .iter()
+            .map(|byte| format!("{byte:02x}"))
+            .collect();
+        assert_eq!(
+            Some(intent_bytes_hex.as_str()),
+            vectors.get("intent-bytes-hex").copied()
+        );
+        assert_eq!(
+            Some(canonical_intent_digest(&intent).expect("intent digest").as_str()),
+            vectors.get("intent-digest").copied()
+        );
+
         let subject = subject();
+        assert_eq!(
+            subject.validate_against_intent(&intent),
+            Ok(())
+        );
         let bytes_hex: String = subject
             .canonical_bytes()
             .expect("canonical bytes")
@@ -270,6 +357,92 @@ mod tests {
                 "subject mutation {index} must change its digest"
             );
         }
+    }
+
+
+    #[test]
+    fn checkpoint_rejects_a_different_immutable_intent() {
+        let subject = subject();
+        let original = payment_intent();
+        let mut changed = PaymentIntent::new(
+            "did:sender",
+            "did:other-recipient",
+            "client-key-001",
+            format!("sha256:{}", "a".repeat(64)),
+            100,
+            3,
+            "SAP",
+        );
+        assert_eq!(
+            subject.validate_against_intent(&changed),
+            Err(CheckpointError::IntentMismatch)
+        );
+        changed = PaymentIntent::new(
+            "did:sender",
+            "did:recipient",
+            "client-key-002",
+            format!("sha256:{}", "a".repeat(64)),
+            100,
+            3,
+            "SAP",
+        );
+        assert_eq!(
+            subject.validate_against_intent(&changed),
+            Err(CheckpointError::IntentMismatch)
+        );
+        changed = PaymentIntent::new(
+            "did:sender",
+            "did:recipient",
+            "client-key-001",
+            format!("sha256:{}", "b".repeat(64)),
+            100,
+            3,
+            "SAP",
+        );
+        assert_eq!(
+            subject.validate_against_intent(&changed),
+            Err(CheckpointError::IntentMismatch)
+        );
+        changed = PaymentIntent::new(
+            "did:sender",
+            "did:recipient",
+            "client-key-001",
+            format!("sha256:{}", "a".repeat(64)),
+            101,
+            3,
+            "SAP",
+        );
+        assert_eq!(
+            subject.validate_against_intent(&changed),
+            Err(CheckpointError::IntentMismatch)
+        );
+        changed = PaymentIntent::new(
+            "did:sender",
+            "did:recipient",
+            "client-key-001",
+            format!("sha256:{}", "a".repeat(64)),
+            100,
+            4,
+            "SAP",
+        );
+        assert_eq!(
+            subject.validate_against_intent(&changed),
+            Err(CheckpointError::IntentMismatch)
+        );
+        changed = PaymentIntent::new(
+            "did:sender",
+            "did:recipient",
+            "client-key-001",
+            format!("sha256:{}", "a".repeat(64)),
+            100,
+            3,
+            "EUR",
+        );
+        assert_eq!(
+            subject.validate_against_intent(&changed),
+            Err(CheckpointError::IntentMismatch)
+        );
+        assert_eq!(subject.validate_against_intent(&original), Ok(()));
     }
 
     #[test]
