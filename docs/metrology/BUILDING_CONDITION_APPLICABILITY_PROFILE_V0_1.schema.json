@@ -1,0 +1,141 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Mycelix Building Condition Profile v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "profile_id",
+    "profile_revision",
+    "domain_id",
+    "classification",
+    "claim_ceiling",
+    "subject_instrument_id",
+    "sample_tick",
+    "timebase_id",
+    "clock_epoch_id",
+    "spatial_scope_id",
+    "dimensions"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "mycelix.building-condition-profile/0.1"
+    },
+    "profile_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "profile_revision": {
+      "type": "string",
+      "minLength": 1
+    },
+    "domain_id": {
+      "enum": [
+        "thermal-environment",
+        "water-closed-conduit",
+        "ac-power-quality-50hz",
+        "pm25-monitoring"
+      ]
+    },
+    "classification": {
+      "const": "synthetic_condition_applicability_profile"
+    },
+    "claim_ceiling": {
+      "const": "synthetic_condition_envelope_match_only"
+    },
+    "subject_instrument_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "sample_tick": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "timebase_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "clock_epoch_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "spatial_scope_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "dimensions": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/dimension"
+      }
+    }
+  },
+  "$defs": {
+    "dimension": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "dimension_id",
+        "kind",
+        "quantity_kind",
+        "unit",
+        "minimum",
+        "maximum",
+        "allowed_values",
+        "method_id",
+        "method_revision",
+        "critical"
+      ],
+      "properties": {
+        "dimension_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "kind": {
+          "enum": [
+            "numeric_range",
+            "categorical"
+          ]
+        },
+        "quantity_kind": {
+          "type": "string",
+          "minLength": 1
+        },
+        "unit": {
+          "type": "string",
+          "minLength": 1
+        },
+        "minimum": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "maximum": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "allowed_values": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "method_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "method_revision": {
+          "type": "string",
+          "minLength": 1
+        },
+        "critical": {
+          "const": true
+        }
+      }
+    }
+  }
+}
