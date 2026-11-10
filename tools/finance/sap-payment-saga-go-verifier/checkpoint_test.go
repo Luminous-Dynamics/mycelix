@@ -26,14 +26,14 @@ func checkpointTestSubject(intent Intent, owner CheckpointOwnerDomain) JournalCh
 		panic(err)
 	}
 	subject := JournalCheckpointSubject{
-		OwnerDomain:          owner,
-		OperationID:          operationID,
-		IntentDigest:         intentDigest,
-		EventCount:           8,
-		TailDigest:           "sha256:a1e5b966be2b6aab453c65370639d702e6d83b3097c9a542a0d85d28bf6ed899",
-		CheckpointSequence:   1,
-		SourceActionHash:     checkpointTestActionHash(0x11, 0x22),
-		SourceActionSequence: 42,
+		OwnerDomain:              owner,
+		OperationID:              operationID,
+		IntentDigest:             intentDigest,
+		EventCount:               8,
+		TailDigest:               "sha256:a1e5b966be2b6aab453c65370639d702e6d83b3097c9a542a0d85d28bf6ed899",
+		CheckpointSequence:       1,
+		SourceActionHash:         checkpointTestActionHash(0x11, 0x22),
+		SourceActionSequence:     42,
 		SourcePreviousActionHash: checkpointTestActionHash(0x33, 0x44),
 		HasSourcePreviousAction:  true,
 	}
@@ -177,7 +177,9 @@ func TestCheckpointOwnerAndEvidenceMutationsChangeTheSubjectDigest(t *testing.T)
 		func(s *JournalCheckpointSubject) { s.OwnerDID += ":substituted" },
 		func(s *JournalCheckpointSubject) { s.OperationID += ":other" },
 		func(s *JournalCheckpointSubject) { s.EventCount++ },
-		func(s *JournalCheckpointSubject) { s.TailDigest = "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" },
+		func(s *JournalCheckpointSubject) {
+			s.TailDigest = "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+		},
 		func(s *JournalCheckpointSubject) { s.SourceActionHash[10] ^= 1 },
 	}
 	for index, mutate := range mutations {
@@ -207,7 +209,10 @@ func TestCheckpointRejectsMalformedOwnerDigestAndActionFrontiers(t *testing.T) {
 		{"empty-history", func(s *JournalCheckpointSubject) { s.EventCount = 0 }, ErrCheckpointInvalidSequence},
 		{"uppercase-digest", func(s *JournalCheckpointSubject) { s.IntentDigest = "SHA256:" + strings.Repeat("a", 64) }, ErrCheckpointInvalidDigest},
 		{"missing-prior-checkpoint", func(s *JournalCheckpointSubject) { s.CheckpointSequence = 2 }, ErrCheckpointInvalidSequence},
-		{"genesis-with-prior-checkpoint", func(s *JournalCheckpointSubject) { s.PreviousCheckpointDigest = "sha256:" + strings.Repeat("b", 64); s.HasPreviousCheckpoint = true }, ErrCheckpointInvalidSequence},
+		{"genesis-with-prior-checkpoint", func(s *JournalCheckpointSubject) {
+			s.PreviousCheckpointDigest = "sha256:" + strings.Repeat("b", 64)
+			s.HasPreviousCheckpoint = true
+		}, ErrCheckpointInvalidSequence},
 		{"wrong-action-hash-type", func(s *JournalCheckpointSubject) { s.SourceActionHash[0] = 0 }, ErrCheckpointInvalidActionHash},
 		{"missing-source-predecessor", func(s *JournalCheckpointSubject) { s.SourceActionSequence = 0 }, ErrCheckpointInvalidSourceFrontier},
 		{"overlong-event-log-id", func(s *JournalCheckpointSubject) { s.EventLogID = strings.Repeat("x", maxCheckpointTextBytes+1) }, ErrCheckpointInvalidSubject},
