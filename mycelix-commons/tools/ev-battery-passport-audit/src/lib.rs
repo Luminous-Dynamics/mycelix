@@ -256,12 +256,13 @@ fn validate_event_delegation(
 ) {
     let role = event["actor_role"].as_str().unwrap_or_default();
     let actor = event["actor_ref"].as_str().unwrap_or_default();
-    let operator = responsibility["economic_operator_ref"]
+    let operator_at_event = event["responsible_operator_before_ref"]
         .as_str()
+        .or_else(|| event["responsible_operator_after_ref"].as_str())
         .unwrap_or_default();
 
     if role == "economic_operator" {
-        if actor != operator {
+        if actor != operator_at_event {
             push_error(
                 errors,
                 "economic-operator lifecycle event actor does not match the responsible operator",
