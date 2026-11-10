@@ -1,0 +1,664 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/transport/ev-battery-passport-projection/0.1",
+  "title": "EV Battery Passport projection readiness manifest v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "protocol_version",
+    "manifest_id",
+    "evaluation_time_ms",
+    "audience",
+    "rulebook",
+    "data_model",
+    "finished_battery",
+    "responsibility",
+    "passport",
+    "applicability_catalog",
+    "projected_fields",
+    "access_policy",
+    "registry_packet",
+    "claims"
+  ],
+  "properties": {
+    "protocol_version": {
+      "const": "ev-battery-passport-projection/0.1"
+    },
+    "manifest_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "evaluation_time_ms": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "audience": {
+      "enum": [
+        "public",
+        "authority",
+        "economic_operator",
+        "delegated_host",
+        "legitimate_interest"
+      ]
+    },
+    "rulebook": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "source_ref",
+        "source_date",
+        "source_digest",
+        "retrieved_at"
+      ],
+      "properties": {
+        "version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_ref": {
+          "type": "string",
+          "format": "uri"
+        },
+        "source_date": {
+          "const": "2026-10-19"
+        },
+        "source_digest": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "retrieved_at": {
+          "type": "string",
+          "format": "date"
+        }
+      }
+    },
+    "data_model": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "schema_digest"
+      ],
+      "properties": {
+        "version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "schema_digest": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      }
+    },
+    "finished_battery": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "finished_battery_ref",
+        "identity_digest",
+        "category",
+        "nominal_energy_kwh",
+        "chemistry",
+        "boundary_kind",
+        "packs",
+        "bms_ref",
+        "bms_digest",
+        "boundary_rationale",
+        "boundary_evidence_digest"
+      ],
+      "properties": {
+        "finished_battery_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "identity_digest": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "category": {
+          "enum": [
+            "ev",
+            "lmt",
+            "industrial",
+            "other"
+          ]
+        },
+        "nominal_energy_kwh": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "chemistry": {
+          "type": "string",
+          "minLength": 1
+        },
+        "boundary_kind": {
+          "enum": [
+            "single_pack_with_bms",
+            "multiple_packs_common_bms",
+            "independent_finished_pack"
+          ]
+        },
+        "packs": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "pack_ref",
+              "configuration_digest"
+            ],
+            "properties": {
+              "pack_ref": {
+                "type": "string",
+                "minLength": 1
+              },
+              "configuration_digest": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              }
+            }
+          }
+        },
+        "bms_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "bms_digest": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "boundary_rationale": {
+          "type": "string",
+          "minLength": 1
+        },
+        "boundary_evidence_digest": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      }
+    },
+    "responsibility": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "economic_operator_ref",
+        "economic_operator_identity_digest",
+        "passport_host_ref",
+        "passport_host_identity_digest",
+        "host_role",
+        "delegation"
+      ],
+      "properties": {
+        "economic_operator_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "economic_operator_identity_digest": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "passport_host_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "passport_host_identity_digest": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "host_role": {
+          "enum": [
+            "responsible_operator",
+            "authorized_operator"
+          ]
+        },
+        "delegation": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "additionalProperties": false,
+          "required": [
+            "mandate_ref",
+            "mandate_digest",
+            "issuer_operator_ref",
+            "delegate_operator_ref",
+            "scope",
+            "valid_from_ms",
+            "valid_to_ms",
+            "state",
+            "revoked_at_ms"
+          ],
+          "properties": {
+            "mandate_ref": {
+              "type": "string",
+              "minLength": 1
+            },
+            "mandate_digest": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "issuer_operator_ref": {
+              "type": "string",
+              "minLength": 1
+            },
+            "delegate_operator_ref": {
+              "type": "string",
+              "minLength": 1
+            },
+            "scope": {
+              "type": "array",
+              "minItems": 1,
+              "uniqueItems": true,
+              "items": {
+                "enum": [
+                  "maintain_passport",
+                  "publish_projection",
+                  "submit_registry_metadata",
+                  "respond_to_authority"
+                ]
+              }
+            },
+            "valid_from_ms": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "valid_to_ms": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "state": {
+              "enum": [
+                "active",
+                "revoked",
+                "expired"
+              ]
+            },
+            "revoked_at_ms": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 1
+            }
+          }
+        }
+      }
+    },
+    "passport": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "passport_id",
+        "status",
+        "predecessor_passport_id",
+        "created_at_ms",
+        "current_configuration_digest",
+        "events"
+      ],
+      "properties": {
+        "passport_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "status": {
+          "enum": [
+            "active",
+            "ceased"
+          ]
+        },
+        "predecessor_passport_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "created_at_ms": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "current_configuration_digest": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "events": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "event_id",
+              "event_kind",
+              "event_time_ms",
+              "passport_id_before",
+              "passport_id_after",
+              "configuration_before_digest",
+              "configuration_after_digest",
+              "actor_ref",
+              "actor_identity_digest",
+              "actor_role",
+              "mandate_ref",
+              "mandate_digest",
+              "responsible_operator_before_ref",
+              "responsible_operator_after_ref",
+              "evidence_digest",
+              "evidence_class"
+            ],
+            "properties": {
+              "event_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "event_kind": {
+                "enum": [
+                  "placed_on_market",
+                  "status_change",
+                  "inspection",
+                  "diagnostic_test",
+                  "maintenance",
+                  "simple_repair",
+                  "remanufacture",
+                  "repurpose",
+                  "waste_prepared_for_reuse",
+                  "waste_transfer",
+                  "recycling_completed"
+                ]
+              },
+              "event_time_ms": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "passport_id_before": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "passport_id_after": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "configuration_before_digest": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "pattern": "^[a-f0-9]{64}$"
+              },
+              "configuration_after_digest": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "pattern": "^[a-f0-9]{64}$"
+              },
+              "actor_ref": {
+                "type": "string",
+                "minLength": 1
+              },
+              "actor_identity_digest": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              },
+              "actor_role": {
+                "enum": [
+                  "economic_operator",
+                  "authorized_operator",
+                  "repairer",
+                  "remanufacturer",
+                  "recycler",
+                  "other"
+                ]
+              },
+              "mandate_ref": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "mandate_digest": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "pattern": "^[a-f0-9]{64}$"
+              },
+              "responsible_operator_before_ref": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "responsible_operator_after_ref": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "evidence_digest": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              },
+              "evidence_class": {
+                "enum": [
+                  "physical_observation",
+                  "derived_from_physical",
+                  "simulation",
+                  "synthetic_fixture",
+                  "vendor_claim",
+                  "legal_record"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "applicability_catalog": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "catalog_digest",
+        "data_model_version",
+        "points"
+      ],
+      "properties": {
+        "catalog_digest": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "data_model_version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "points": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "data_point_id",
+              "applicability",
+              "condition_met",
+              "access_tier",
+              "effective_from_ms"
+            ],
+            "properties": {
+              "data_point_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "applicability": {
+                "enum": [
+                  "required_at_launch",
+                  "conditional_required",
+                  "optional",
+                  "deferred",
+                  "not_applicable"
+                ]
+              },
+              "condition_met": {
+                "type": "boolean"
+              },
+              "access_tier": {
+                "enum": [
+                  "public",
+                  "authority_only",
+                  "restricted",
+                  "legitimate_interest_pending"
+                ]
+              },
+              "effective_from_ms": {
+                "type": "integer",
+                "minimum": 1
+              }
+            }
+          }
+        }
+      }
+    },
+    "projected_fields": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "data_point_id",
+          "data_model_version",
+          "value_digest",
+          "source_evidence_digest",
+          "evidence_class"
+        ],
+        "properties": {
+          "data_point_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "data_model_version": {
+            "type": "string",
+            "minLength": 1
+          },
+          "value_digest": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "source_evidence_digest": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "evidence_class": {
+            "enum": [
+              "physical_observation",
+              "derived_from_physical",
+              "simulation",
+              "synthetic_fixture",
+              "vendor_claim",
+              "legal_record"
+            ]
+          }
+        }
+      }
+    },
+    "access_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "policy_ref",
+        "policy_digest",
+        "legal_status",
+        "legal_basis_ref",
+        "allowed_data_point_ids"
+      ],
+      "properties": {
+        "policy_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "policy_digest": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "legal_status": {
+          "enum": [
+            "finalized",
+            "pending"
+          ]
+        },
+        "legal_basis_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "allowed_data_point_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "registry_packet": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "record_kind",
+        "includes_full_passport_payload",
+        "registration_metadata_digest",
+        "passport_id",
+        "economic_operator_ref",
+        "host_ref",
+        "rulebook_digest"
+      ],
+      "properties": {
+        "record_kind": {
+          "const": "registration_metadata_only"
+        },
+        "includes_full_passport_payload": {
+          "const": false
+        },
+        "registration_metadata_digest": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "passport_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "economic_operator_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "host_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "rulebook_digest": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      }
+    },
+    "claims": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "legal_compliance_claim",
+        "safety_qualification_claim"
+      ],
+      "properties": {
+        "legal_compliance_claim": {
+          "const": false
+        },
+        "safety_qualification_claim": {
+          "const": false
+        }
+      }
+    }
+  }
+}
