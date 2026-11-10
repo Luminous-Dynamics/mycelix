@@ -1,0 +1,41 @@
+name: Building Condition Applicability Synthetic Oracle
+
+on:
+  push:
+    paths:
+      - "docs/metrology/BUILDING_CONDITION_APPLICABILITY_*"
+      - "tools/building-condition-applicability/**"
+      - ".github/workflows/building-condition-applicability.yml"
+  pull_request:
+    paths:
+      - "docs/metrology/BUILDING_CONDITION_APPLICABILITY_*"
+      - "tools/building-condition-applicability/**"
+      - ".github/workflows/building-condition-applicability.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: building-condition-applicability-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  condition-applicability:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install stable Rust and rustfmt
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - name: Fetch locked dependencies
+        run: cargo fetch --locked --manifest-path tools/building-condition-applicability/Cargo.toml
+      - name: Check formatting
+        run: cargo fmt --manifest-path tools/building-condition-applicability/Cargo.toml --all -- --check
+      - name: Run locked offline mutation tests
+        run: cargo test --locked --offline --manifest-path tools/building-condition-applicability/Cargo.toml
+      - name: Run strict Clippy
+        run: cargo clippy --locked --offline --manifest-path tools/building-condition-applicability/Cargo.toml --all-targets -- -D warnings
+      - name: Validate tracked condition applicability corpus
+        run: cargo run --locked --offline --manifest-path tools/building-condition-applicability/Cargo.toml
