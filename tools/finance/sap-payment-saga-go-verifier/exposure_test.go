@@ -112,12 +112,12 @@ func TestSettlementReleasesOnlyMatchingReceiptBoundExposure(t *testing.T) {
 	_, _ = book.Reserve(exposureTestIntent("effect:1", 600))
 	_ = book.MarkDispatchAuthorized("effect:1")
 	_ = book.MarkCommittedUnsettled("effect:1")
-	wrong := exposureTestResolution("effect:1", ExposureSettlementReceipt)
+	wrong := exposureTestResolution("effect:1", ExposureFinalSettlementEvidence)
 	wrong.PayloadDigest = exposureTestDigest(12)
 	if err := book.MarkSettled("effect:1", wrong); err != ErrExposureInvalidResolution {
 		t.Fatalf("wrong receipt accepted: %v", err)
 	}
-	if err := book.MarkSettled("effect:1", exposureTestResolution("effect:1", ExposureSettlementReceipt)); err != nil {
+	if err := book.MarkSettled("effect:1", exposureTestResolution("effect:1", ExposureFinalSettlementEvidence)); err != nil {
 		t.Fatal(err)
 	}
 	if total, _ := book.TotalExposureMinor(); total != 0 {
@@ -130,7 +130,7 @@ func TestAuthoritativeAbsenceMustBeTypedAndSubjectBound(t *testing.T) {
 	_, _ = book.Reserve(exposureTestIntent("effect:1", 600))
 	_ = book.MarkDispatchAuthorized("effect:1")
 	_ = book.MarkIndeterminate("effect:1")
-	wrong := exposureTestResolution("effect:1", ExposureSettlementReceipt)
+	wrong := exposureTestResolution("effect:1", ExposureFinalSettlementEvidence)
 	if err := book.ReleaseAuthoritativeAbsence("effect:1", wrong); err != ErrExposureInvalidResolution {
 		t.Fatalf("settlement receipt used as absence proof: %v", err)
 	}
@@ -250,3 +250,26 @@ func TestDispatchAuthorizationIsIdempotent(t *testing.T) {
 	if !ok || status != ExposureDispatchAuthorized { t.Fatalf("status = %v, %v", status, ok) }
 	if total, _ := book.TotalExposureMinor(); total != 600 { t.Fatalf("total = %d", total) }
 }
+func TestExposureBreakdownTracksEachAtRiskState(t *testing.T) {
+	book, _ := NewExposureBookV1(exposureTestPolicy(2_000))
+	_, _ = book.Reserve(exposureTestIntent("reserved", 100))
+	_, _ = book.Reserve(exposureTestIntent("dispatch", 200))
+	_, _ = book.Reserve(exposureTestIntent("indeterminate", 300))
+	_, _ = book.Reserve(exposureTestIntent("committed", 400))
+	if err := book.MarkDispatchAuthorized("dispatch"); err != nil { t.Fatal(err) }
+	if err := book.MarkDispatchAuthorized("indeterminate"); err != nil { t.Fatal(err) }
+	if err := book.MarkIndeterminate("indeterminate"); err != nil { t.Fatal(err) }
+	if err := book.MarkDispatchAuthorized("committed"); err != nil { t.Fatal(err) }
+	if err := book.MarkCommittedUnsettled("committed"); err != nil { t.Fatal(err) }
+	got, err := book.BreakdownMinor()
+	if err != nil { t.Fatal(err) }
+	want := ExposureBreakdownV1{
+		ReservedMinor: 100, DispatchAuthorizedMinor: 200,
+		IndeterminateMinor: 300, CommittedUnsettledMinor: 400,
+	}
+	if got != want { t.Fatalf("breakdown = %+v, want %+v", got, want) }
+	if total, err := got.TotalMinor(); err != nil || total != 1_000 {
+		t.Fatalf("breakdown total = %d, %v; want 1000", total, err)
+	}
+}
+
