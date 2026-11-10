@@ -106,6 +106,22 @@ func TestCheckpointSubjectMatchesSharedKnownAnswer(t *testing.T) {
 	}
 }
 
+func TestCheckpointRejectsSubjectIntentSubstitution(t *testing.T) {
+	intent := checkpointTestIntent()
+	subject := checkpointTestSubject()
+
+	subject.OperationID += "x"
+	if err := subject.ValidateAgainstIntent(intent); err != ErrCheckpointIntentMismatch {
+		t.Fatalf("changed operation ID returned %v", err)
+	}
+
+	subject = checkpointTestSubject()
+	subject.IntentDigest = "sha256:" + strings.Repeat("2", 64)
+	if err := subject.ValidateAgainstIntent(intent); err != ErrCheckpointIntentMismatch {
+		t.Fatalf("changed intent digest returned %v", err)
+	}
+}
+
 func TestCheckpointRejectsDifferentImmutableIntent(t *testing.T) {
 	subject := checkpointTestSubject()
 	mutations := []func(*Intent){
