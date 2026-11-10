@@ -394,6 +394,39 @@ mod tests {
         evidence
     }
 
+    fn journal_replay_known_answer(name: &str) -> &'static str {
+        include_str!("../../sap-payment-saga-go-verifier/fixtures/sap-payment-journal-replay-v1.kat")
+            .lines()
+            .find_map(|line| {
+                line.strip_prefix(name)
+                    .and_then(|value| value.strip_prefix('='))
+            })
+            .expect("shared journal replay known-answer vector exists")
+    }
+
+    #[test]
+    fn journal_event_frame_hashes_match_shared_cross_language_vectors() {
+        let mut log = JournalEventLog::new(intent()).expect("event log");
+        assert_eq!(
+            log.frames()[0].event_digest,
+            journal_replay_known_answer("created-basic")
+        );
+
+        log.record_authorized().expect("authorization");
+        assert_eq!(
+            log.frames()[1].event_digest,
+            journal_replay_known_answer("authorized-after-created")
+        );
+
+        let operation_id = PaymentJournal::new(intent()).effect_id(PaymentLeg::LocalPaymentTransaction);
+        log.record_effect_prepared(PaymentLeg::LocalPaymentTransaction, operation_id)
+            .expect("local prepare");
+        assert_eq!(
+            log.frames()[2].event_digest,
+            journal_replay_known_answer("local-prepared-after-authorized")
+        );
+    }
+
     #[test]
     fn replays_local_payment_and_treasury_recovery_history() {
         let mut journal = PaymentJournal::new(intent());
