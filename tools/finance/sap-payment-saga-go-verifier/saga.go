@@ -4,6 +4,10 @@
 package sagaverifier
 
 import (
+	"bytes"
+	"crypto/sha256"
+	"encoding/binary"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"reflect"
@@ -341,6 +345,7 @@ func (j *Journal) MarkIndeterminate(leg Leg, effectID string) error {
 }
 
 func (j *Journal) validateEvidence(leg Leg, evidence Evidence) error {
+	expectedDigest, digestErr := canonicalEvidenceDigest(evidence)
 	commonValid := evidence.OperationID == j.operationID &&
 		evidence.EffectID == j.EffectID(leg) &&
 		evidence.Leg == leg &&
@@ -349,7 +354,8 @@ func (j *Journal) validateEvidence(leg Leg, evidence Evidence) error {
 		evidence.PrincipalMinor == j.intent.AmountMinor &&
 		evidence.FeeMinor == j.intent.FeeMinor &&
 		evidence.Currency == j.intent.Currency &&
-		isSHA256Digest(evidence.EvidenceDigest)
+		digestErr == nil &&
+		evidence.EvidenceDigest == expectedDigest
 	if !commonValid {
 		return ErrEvidenceInvalid
 	}
@@ -516,6 +522,140 @@ func (r *Registry) Len() int {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	return len(r.operations)
+}
+
+const maxCanonicalEvidenceFieldBytes = 4096
+
+func appendCanonicalEvidenceString(output *bytes.Buffer, value string) error {
+	if len(value) > maxCanonicalEvidenceFieldBytes {
+		return ErrEvidenceInvalid
+	}
+	var length [4]byte
+	binary.BigEndian.PutUint32(length[:], uint32(len(value)))
+	output.Write(length[:])
+	output.WriteString(value)
+	return nil
+}
+
+func appendCanonicalEvidenceU64(output *bytes.Buffer, value uint64) {
+	var encoded [8]byte
+	binary.BigEndian.PutUint64(encoded[:], value)
+	output.Write(encoded[:])
+}
+
+// canonicalEvidenceDigest uses the fixed-field MXSAP-EFFECT-EVIDENCE-V1
+// profile: UTF-8 strings are u32-length-prefixed, integer units are u64
+// big-endian, and effect variants have explicit one-byte tags. The digest
+// field itself is intentionally excluded.
+func canonicalEvidenceDigest(evidence Evidence) (string, error) {
+	var output bytes.Buffer
+	output.WriteString("MXSAP-EFFECT-EVIDENCE-V1\x00")
+
+	for _, value := range []string{
+		evidence.OperationID,
+		evidence.EffectID,
+		evidence.Leg.suffix(),
+		evidence.SenderDID,
+		evidence.RecipientDID,
+	} {
+		if err := appendCanonicalEvidenceString(&output, value); err != nil {
+			return "", err
+		}
+	}
+	appendCanonicalEvidenceU64(&output, evidence.PrincipalMinor)
+	appendCanonicalEvidenceU64(&output, evidence.FeeMinor)
+	if err := appendCanonicalEvidenceString(&output, evidence.Currency); err != nil {
+		return "", err
+	}
+
+	switch evidence.Leg {
+	case LocalPaymentTransaction:
+		if evidence.Local == nil || evidence.Treasury != nil {
+			return "", ErrEvidenceInvalid
+		}
+		local := evidence.Local
+		output.WriteByte(1)
+		for _, value := range []string{
+			local.SenderAccountID,
+			local.RecipientAccountID,
+		} {
+			if err := appendCanonicalEvidenceString(&output, value); err != nil {
+				return "", err
+			}
+		}
+		appendCanonicalEvidenceU64(&output, local.SenderDebitMinor)
+		appendCanonicalEvidenceU64(&output, local.RecipientCreditMinor)
+		for _, value := range []string{
+			local.SenderPredecessorAction,
+			local.SenderDebitAction,
+			local.RecipientPredecessorAction,
+			local.RecipientCreditAction,
+			local.PaymentActionHash,
+		} {
+			if err := appendCanonicalEvidenceString(&output, value); err != nil {
+				return "", err
+			}
+		}
+		switch local.PaymentStatus {
+		case "Completed":
+			output.WriteByte(1)
+		case "Pending":
+			output.WriteByte(2)
+		case "Failed":
+			output.WriteByte(3)
+		default:
+			return "", ErrEvidenceInvalid
+		}
+		for _, value := range []string{
+			local.ReceiptActionHash,
+			local.ReceiptSignerDID,
+			local.SigningProfile,
+			local.SignatureDigest,
+		} {
+			if err := appendCanonicalEvidenceString(&output, value); err != nil {
+				return "", err
+			}
+		}
+		if local.TreasuryFeeOutboxID == "" {
+			output.WriteByte(0)
+		} else {
+			output.WriteByte(1)
+			if err := appendCanonicalEvidenceString(&output, local.TreasuryFeeOutboxID); err != nil {
+				return "", err
+			}
+		}
+
+	case TreasuryFee:
+		if evidence.Treasury == nil || evidence.Local != nil {
+			return "", ErrEvidenceInvalid
+		}
+		treasury := evidence.Treasury
+		output.WriteByte(2)
+		for _, value := range []string{
+			treasury.PoolID,
+			treasury.SourceMemberDID,
+		} {
+			if err := appendCanonicalEvidenceString(&output, value); err != nil {
+				return "", err
+			}
+		}
+		appendCanonicalEvidenceU64(&output, treasury.AmountMinor)
+		for _, value := range []string{
+			treasury.PaymentActionHash,
+			treasury.IdempotencyKey,
+			treasury.PredecessorAction,
+			treasury.TreasuryAction,
+		} {
+			if err := appendCanonicalEvidenceString(&output, value); err != nil {
+				return "", err
+			}
+		}
+	default:
+		return "", ErrEvidenceInvalid
+	}
+
+	digest := sha256.Sum256(output.Bytes())
+	return "sha256:" + hex.EncodeToString(digest[:]), nil
 }
 
 func isSHA256Digest(value string) bool {
