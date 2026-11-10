@@ -483,7 +483,7 @@ pub fn initiate_recovery(input: InitiateRecoveryInput) -> ExternResult<Record> {
     let vote_hash = create_entry(&EntryTypes::RecoveryVote(vote))?;
 
     create_link(
-        action_hash.clone(),
+        string_to_entry_hash(&request_id),
         vote_hash,
         LinkTypes::RequestToVotes,
         (),
