@@ -470,12 +470,12 @@ func scenarioHandlers() map[string]func(*testing.T) {
 	}
 }
 
-func TestCanonicalTreasuryFeeDigestMatchesSharedV1KnownAnswer(t *testing.T) {
-	evidence := Evidence{
+func treasuryDigestVector(senderDID string) Evidence {
+	return Evidence{
 		OperationID:    "op:1",
 		EffectID:       "op:1:treasury-fee",
 		Leg:            TreasuryFee,
-		SenderDID:      "did:a",
+		SenderDID:      senderDID,
 		RecipientDID:   "did:b",
 		PrincipalMinor: 42,
 		FeeMinor:       3,
@@ -490,17 +490,57 @@ func TestCanonicalTreasuryFeeDigestMatchesSharedV1KnownAnswer(t *testing.T) {
 			TreasuryAction:    "action:fee",
 		},
 	}
-	expectedBytes, err := os.ReadFile("fixtures/sap-payment-evidence-v1.kat")
+}
+
+func canonicalDigestFixtureValue(t *testing.T, key string) string {
+	t.Helper()
+	data, err := os.ReadFile("fixtures/sap-payment-evidence-v1.kat")
 	if err != nil {
 		t.Fatal(err)
 	}
-	expected := strings.TrimSpace(string(expectedBytes))
-	got, err := canonicalEvidenceDigest(evidence)
-	if err != nil {
-		t.Fatal(err)
+	for _, line := range strings.Split(string(data), "\n") {
+		name, value, ok := strings.Cut(line, "=")
+		if ok && name == key {
+			return strings.TrimSpace(value)
+		}
 	}
-	if got != expected {
-		t.Fatalf("canonical digest=%s, want %s", got, expected)
+	t.Fatalf("canonical digest fixture has no %q vector", key)
+	return ""
+}
+
+func TestCanonicalTreasuryFeeDigestMatchesSharedV1KnownAnswers(t *testing.T) {
+	for _, vector := range []struct {
+		name   string
+		sender string
+	}{
+		{name: "treasury-basic", sender: "did:a"},
+		{name: "treasury-unicode-sender", sender: "did:é"},
+	} {
+		got, err := canonicalEvidenceDigest(treasuryDigestVector(vector.sender))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if want := canonicalDigestFixtureValue(t, vector.name); got != want {
+			t.Fatalf("%s digest=%s, want %s", vector.name, got, want)
+		}
+	}
+}
+
+func TestCanonicalEvidenceStringFieldsEnforce4096UTF8ByteLimit(t *testing.T) {
+	evidence := treasuryDigestVector("did:a")
+	evidence.Currency = strings.Repeat("x", maxCanonicalEvidenceFieldBytes)
+	if _, err := canonicalEvidenceDigest(evidence); err != nil {
+		t.Fatalf("4,096-byte field rejected: %v", err)
+	}
+	evidence.Currency += "x"
+	if _, err := canonicalEvidenceDigest(evidence); err != ErrEvidenceInvalid {
+		t.Fatalf("4,097-byte field error=%v", err)
+	}
+
+	evidence = treasuryDigestVector("did:a")
+	evidence.SenderDID = string([]byte{0xff})
+	if _, err := canonicalEvidenceDigest(evidence); err != ErrEvidenceInvalid {
+		t.Fatalf("invalid UTF-8 field error=%v", err)
 	}
 }
 
