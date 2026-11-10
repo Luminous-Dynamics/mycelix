@@ -338,6 +338,8 @@ pub struct RecoveryRequest {
     pub time_lock_expires: Option<Timestamp>,
     #[serde(default)]
     pub config_action_hash: Option<ActionHash>,
+    #[serde(default)]
+    pub decision_vote_hashes: Vec<ActionHash>,
 }
 
 /// Mirror of recovery_integrity::RecoveryVote
