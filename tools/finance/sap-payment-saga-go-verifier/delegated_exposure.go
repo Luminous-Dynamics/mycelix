@@ -86,8 +86,8 @@ func (g delegatedBudgetGrant) countsAgainstParent() bool {
 }
 
 type ParentDelegatedExposureBookV1 struct {
-	Policy DelegatedExposurePolicyV1
-	Grants map[string]delegatedBudgetGrant
+	policy DelegatedExposurePolicyV1
+	grants map[string]delegatedBudgetGrant
 }
 
 func NewParentDelegatedExposureBookV1(policy DelegatedExposurePolicyV1) (*ParentDelegatedExposureBookV1, error) {
@@ -95,13 +95,25 @@ func NewParentDelegatedExposureBookV1(policy DelegatedExposurePolicyV1) (*Parent
 		return nil, err
 	}
 	return &ParentDelegatedExposureBookV1{
-		Policy: policy,
-		Grants: make(map[string]delegatedBudgetGrant),
+		policy: policy,
+		grants: make(map[string]delegatedBudgetGrant),
 	}, nil
 }
 
 // AllocateChildBudget encumbers the whole sublimit at the parent until the
 // child grant is closed. Child books can only reserve within that delegation.
+// ReplacePolicy preserves every existing delegation. If active/revoking
+// encumbrance exceeds the lower cap, new child reservations pause until grants
+// are safely closed; resolution of existing effects remains available.
+func (b *ParentDelegatedExposureBookV1) ReplacePolicy(policy DelegatedExposurePolicyV1) error {
+	if err := policy.validate(); err != nil { return err }
+	if policy.Scope != b.policy.Scope || policy.Sequence <= b.policy.Sequence {
+		return ErrExposureInvalidPolicy
+	}
+	b.policy = policy
+	return nil
+}
+
 func (b *ParentDelegatedExposureBookV1) AllocateChildBudget(
 	grantID string,
 	childScope ExposureScopeV1,
@@ -115,8 +127,8 @@ func (b *ParentDelegatedExposureBookV1) AllocateChildBudget(
 	if err := validateExposureDigest(grantDigest); err != nil {
 		return 0, err
 	}
-	if childScope.PoolID != b.Policy.Scope.PoolID ||
-		childScope.Currency != b.Policy.Scope.Currency {
+	if childScope.PoolID != b.policy.Scope.PoolID ||
+		childScope.Currency != b.policy.Scope.Currency {
 		return 0, ErrExposureScopeMismatch
 	}
 	childPolicy := ExposurePolicyV1{
@@ -129,17 +141,17 @@ func (b *ParentDelegatedExposureBookV1) AllocateChildBudget(
 	if err := childPolicy.Validate(); err != nil {
 		return 0, err
 	}
-	if budgetMinor > b.Policy.MaximumChildBudgetMinor {
+	if budgetMinor > b.policy.MaximumChildBudgetMinor {
 		return 0, ErrExposureLimitExceeded
 	}
-	if existing, ok := b.Grants[grantID]; ok {
+	if existing, ok := b.grants[grantID]; ok {
 		if existing.sameTerms(childScope, budgetMinor, grantSequence, grantDigest) {
 			return DelegatedBudgetAlreadyAllocated, nil
 		}
 		return 0, ErrExposureReservationConflict
 	}
 	var latestSequence uint64
-	for _, existing := range b.Grants {
+	for _, existing := range b.grants {
 		if existing.Sequence > latestSequence {
 			latestSequence = existing.Sequence
 		}
@@ -154,14 +166,14 @@ func (b *ParentDelegatedExposureBookV1) AllocateChildBudget(
 	if budgetMinor > ^uint64(0)-allocated {
 		return 0, ErrExposureAmountOverflow
 	}
-	if allocated+budgetMinor > b.Policy.MaximumTotalMinor {
+	if allocated+budgetMinor > b.policy.MaximumTotalMinor {
 		return 0, ErrExposureLimitExceeded
 	}
 	childBook, err := NewExposureBookV1(childPolicy)
 	if err != nil {
 		return 0, err
 	}
-	b.Grants[grantID] = delegatedBudgetGrant{
+	b.grants[grantID] = delegatedBudgetGrant{
 		GrantID: grantID,
 		ChildScope: childScope,
 		BudgetMinor: budgetMinor,
@@ -179,7 +191,10 @@ func (b *ParentDelegatedExposureBookV1) Reserve(
 	grantID string,
 	intent ExposureIntentV1,
 ) (ExposureDisposition, error) {
-	grant, ok := b.Grants[grantID]
+	allocated, err := b.AllocatedBudgetMinor()
+	if err != nil { return 0, err }
+	if allocated > b.policy.MaximumTotalMinor { return 0, ErrExposureLimitExceeded }
+	grant, ok := b.grants[grantID]
 	if !ok {
 		return 0, ErrExposureNotFound
 	}
@@ -232,12 +247,12 @@ func (b *ParentDelegatedExposureBookV1) ReleaseAuthoritativeAbsence(
 // BeginRevocation blocks new reservations but preserves all current child
 // reservations and keeps their entire sublimit encumbered at the parent.
 func (b *ParentDelegatedExposureBookV1) BeginRevocation(grantID string) error {
-	grant, ok := b.Grants[grantID]
+	grant, ok := b.grants[grantID]
 	if !ok { return ErrExposureNotFound }
 	switch grant.Status {
 	case DelegatedBudgetActive:
 		grant.Status = DelegatedBudgetRevoking
-		b.Grants[grantID] = grant
+		b.grants[grantID] = grant
 		return nil
 	case DelegatedBudgetRevoking:
 		return nil
@@ -250,7 +265,7 @@ func (b *ParentDelegatedExposureBookV1) BeginRevocation(grantID string) error {
 // been resolved. Production must replace this in-memory observation with an
 // authenticated child close report and an owner-native parent action.
 func (b *ParentDelegatedExposureBookV1) CloseGrant(grantID string) error {
-	grant, ok := b.Grants[grantID]
+	grant, ok := b.grants[grantID]
 	if !ok { return ErrExposureNotFound }
 	if grant.Status == DelegatedBudgetClosed { return nil }
 	if grant.Status != DelegatedBudgetRevoking {
@@ -260,24 +275,24 @@ func (b *ParentDelegatedExposureBookV1) CloseGrant(grantID string) error {
 	if err != nil { return err }
 	if total != 0 { return ErrExposureInvalidTransition }
 	grant.Status = DelegatedBudgetClosed
-	b.Grants[grantID] = grant
+	b.grants[grantID] = grant
 	return nil
 }
 
 func (b *ParentDelegatedExposureBookV1) GrantStatus(grantID string) (DelegatedBudgetStatus, bool) {
-	grant, ok := b.Grants[grantID]
+	grant, ok := b.grants[grantID]
 	return grant.Status, ok
 }
 
 func (b *ParentDelegatedExposureBookV1) ChildExposureMinor(grantID string) (uint64, error) {
-	grant, ok := b.Grants[grantID]
+	grant, ok := b.grants[grantID]
 	if !ok { return 0, ErrExposureNotFound }
 	return grant.ChildBook.TotalExposureMinor()
 }
 
 func (b *ParentDelegatedExposureBookV1) AllocatedBudgetMinor() (uint64, error) {
 	var total uint64
-	for _, grant := range b.Grants {
+	for _, grant := range b.grants {
 		if !grant.countsAgainstParent() { continue }
 		if grant.BudgetMinor > ^uint64(0)-total {
 			return 0, ErrExposureAmountOverflow
@@ -290,31 +305,31 @@ func (b *ParentDelegatedExposureBookV1) AllocatedBudgetMinor() (uint64, error) {
 func (b *ParentDelegatedExposureBookV1) AvailableParentBudgetMinor() (uint64, error) {
 	allocated, err := b.AllocatedBudgetMinor()
 	if err != nil { return 0, err }
-	if allocated >= b.Policy.MaximumTotalMinor { return 0, nil }
-	return b.Policy.MaximumTotalMinor - allocated, nil
+	if allocated >= b.policy.MaximumTotalMinor { return 0, nil }
+	return b.policy.MaximumTotalMinor - allocated, nil
 }
 
 func (b *ParentDelegatedExposureBookV1) CanonicalSnapshotDigest() (string, error) {
 	var output bytes.Buffer
 	output.WriteString(delegatedExposureDomain)
 	for _, value := range []string{
-		b.Policy.Scope.OwnerID, b.Policy.Scope.PoolID, b.Policy.Scope.Currency,
+		b.policy.Scope.OwnerID, b.policy.Scope.PoolID, b.policy.Scope.Currency,
 	} {
 		if err := appendExposureText(&output, value); err != nil { return "", err }
 	}
-	appendExposureU64(&output, b.Policy.Sequence)
-	appendExposureU64(&output, b.Policy.MaximumTotalMinor)
-	appendExposureU64(&output, b.Policy.MaximumChildBudgetMinor)
-	if err := appendExposureText(&output, b.Policy.PolicyDigest); err != nil { return "", err }
-	keys := make([]string, 0, len(b.Grants))
-	for key := range b.Grants { keys = append(keys, key) }
+	appendExposureU64(&output, b.policy.Sequence)
+	appendExposureU64(&output, b.policy.MaximumTotalMinor)
+	appendExposureU64(&output, b.policy.MaximumChildBudgetMinor)
+	if err := appendExposureText(&output, b.policy.PolicyDigest); err != nil { return "", err }
+	keys := make([]string, 0, len(b.grants))
+	for key := range b.grants { keys = append(keys, key) }
 	sort.Strings(keys)
 	if uint64(len(keys)) > uint64(^uint32(0)) { return "", ErrExposureInvalidAmount }
 	var count [4]byte
 	binary.BigEndian.PutUint32(count[:], uint32(len(keys)))
 	output.Write(count[:])
 	for _, key := range keys {
-		grant := b.Grants[key]
+		grant := b.grants[key]
 		for _, value := range []string{
 			grant.GrantID, grant.ChildScope.OwnerID, grant.ChildScope.PoolID,
 			grant.ChildScope.DestinationID, grant.ChildScope.Currency, grant.GrantDigest,
@@ -333,7 +348,7 @@ func (b *ParentDelegatedExposureBookV1) CanonicalSnapshotDigest() (string, error
 }
 
 func (b *ParentDelegatedExposureBookV1) childGrant(grantID string) (delegatedBudgetGrant, error) {
-	grant, ok := b.Grants[grantID]
+	grant, ok := b.grants[grantID]
 	if !ok { return delegatedBudgetGrant{}, ErrExposureNotFound }
 	return grant, nil
 }
