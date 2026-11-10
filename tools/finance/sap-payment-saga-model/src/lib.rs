@@ -866,6 +866,58 @@ mod tests {
     use std::sync::{Arc, Mutex};
     use std::thread;
 
+    #[test]
+    fn canonical_treasury_fee_digest_matches_shared_v1_known_answer() {
+        let evidence = EffectEvidence {
+            operation_id: "op:1".into(),
+            effect_id: "op:1:treasury-fee".into(),
+            leg: PaymentLeg::TreasuryFee,
+            sender_did: "did:a".into(),
+            recipient_did: "did:b".into(),
+            principal_minor: 42,
+            fee_minor: 3,
+            currency: "SAP".into(),
+            evidence_digest: String::new(),
+            kind: EffectEvidenceKind::TreasuryFee {
+                pool_id: "treasury:global-fee-pool".into(),
+                source_member_did: "did:a".into(),
+                amount_minor: 3,
+                payment_action_hash: "action:p".into(),
+                idempotency_key: "op:1:treasury-fee".into(),
+                predecessor_action: "action:before".into(),
+                treasury_action: "action:fee".into(),
+            },
+        };
+        let expected = include_str!(
+            "../../sap-payment-saga-go-verifier/fixtures/sap-payment-evidence-v1.kat"
+        )
+        .trim();
+        assert_eq!(evidence.canonical_digest().unwrap(), expected);
+    }
+
+    #[test]
+    fn canonical_digest_binds_typed_fields_before_semantic_validation() {
+        let journal = ready_local_payment();
+        let original = local_payment_evidence(&journal, "canonical", 31);
+        let mut changed = original.clone();
+        if let EffectEvidenceKind::LocalPaymentTransaction {
+            recipient_credit_minor,
+            ..
+        } = &mut changed.kind
+        {
+            *recipient_credit_minor += 1;
+        }
+        let changed_digest = changed.canonical_digest().unwrap();
+        assert_ne!(original.evidence_digest, changed_digest);
+        changed.evidence_digest = changed_digest;
+        assert_eq!(
+            journal.validate_effect_evidence(PaymentLeg::LocalPaymentTransaction, &changed),
+            Err(SagaError::InvalidEffectEvidence(
+                PaymentLeg::LocalPaymentTransaction
+            ))
+        );
+    }
+
     fn intent() -> PaymentIntent {
         PaymentIntent::new(
             "did:mycelix:alice",
