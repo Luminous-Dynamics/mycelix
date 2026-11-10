@@ -165,6 +165,9 @@ pub struct Resolution {
     pub policy_consistent_candidate_ref: Option<String>,
     /// All distinct candidate action references observed in this evaluation.
     pub observed_candidate_refs: Vec<String>,
+    /// Every distinct observed candidate claim, retained even when the same
+    /// action reference is presented with conflicting payloads.
+    pub observed_candidate_claims: Vec<CandidateTransition>,
     /// Exact duplicate deliveries of the same candidate reference and bytes.
     pub duplicate_delivery_count: usize,
     pub rejected_candidates: Vec<RejectedCandidate>,
@@ -398,42 +401,54 @@ pub fn reconcile(
         return Resolution {
             disposition: Disposition::Indeterminate,
             policy_consistent_candidate_ref: None,
-            observed_candidate_refs: Vec::new(),
+            observed_candidate_refs: candidates
+                .iter()
+                .map(|candidate| candidate.candidate_ref.clone())
+                .collect(),
+            observed_candidate_claims: {
+                let mut claims = candidates.to_vec();
+                claims.sort_by_key(|candidate| format!("{candidate:?}"));
+                claims.dedup();
+                claims
+            },
             duplicate_delivery_count: 0,
             rejected_candidates: Vec::new(),
             reason_codes: vec![ReasonCode::InvalidBaseState],
         };
     }
 
-    let mut distinct = BTreeMap::<String, CandidateTransition>::new();
+    let mut grouped = BTreeMap::<String, Vec<CandidateTransition>>::new();
     let mut duplicate_delivery_count = 0usize;
-    let mut reference_collision = false;
 
     for candidate in candidates {
-        match distinct.get(&candidate.candidate_ref) {
-            Some(existing) if existing == candidate => {
-                duplicate_delivery_count = duplicate_delivery_count.saturating_add(1);
-            }
-            Some(_) => reference_collision = true,
-            None => {
-                distinct.insert(candidate.candidate_ref.clone(), candidate.clone());
-            }
+        let claims = grouped.entry(candidate.candidate_ref.clone()).or_default();
+        if claims.iter().any(|observed| observed == candidate) {
+            duplicate_delivery_count = duplicate_delivery_count.saturating_add(1);
+        } else {
+            claims.push(candidate.clone());
         }
     }
 
-    let observed_candidate_refs = distinct.keys().cloned().collect::<Vec<_>>();
+    let observed_candidate_refs = grouped.keys().cloned().collect::<Vec<_>>();
+    let reference_collision = grouped.values().any(|claims| claims.len() > 1);
+    let mut observed_candidate_claims = grouped
+        .values()
+        .flat_map(|claims| claims.iter().cloned())
+        .collect::<Vec<_>>();
+    observed_candidate_claims.sort_by_key(|candidate| format!("{candidate:?}"));
     if reference_collision {
         return Resolution {
             disposition: Disposition::Conflicted,
             policy_consistent_candidate_ref: None,
             observed_candidate_refs,
+            observed_candidate_claims,
             duplicate_delivery_count,
             rejected_candidates: Vec::new(),
             reason_codes: vec![ReasonCode::CandidateReferenceCollision],
         };
     }
 
-    let unique_candidates = distinct.values().cloned().collect::<Vec<_>>();
+    let unique_candidates = observed_candidate_claims.clone();
     let mut rejected_candidates = Vec::new();
     let mut structurally_valid = Vec::new();
 
@@ -468,6 +483,7 @@ pub fn reconcile(
             disposition: Disposition::Conflicted,
             policy_consistent_candidate_ref: None,
             observed_candidate_refs,
+            observed_candidate_claims,
             duplicate_delivery_count,
             rejected_candidates,
             reason_codes,
@@ -483,6 +499,7 @@ pub fn reconcile(
             },
             policy_consistent_candidate_ref: None,
             observed_candidate_refs,
+            observed_candidate_claims,
             duplicate_delivery_count,
             rejected_candidates,
             reason_codes: if candidates.is_empty() {
@@ -498,6 +515,7 @@ pub fn reconcile(
             disposition: Disposition::Indeterminate,
             policy_consistent_candidate_ref: None,
             observed_candidate_refs,
+            observed_candidate_claims,
             duplicate_delivery_count,
             rejected_candidates,
             reason_codes: vec![reason],
