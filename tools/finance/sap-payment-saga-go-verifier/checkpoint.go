@@ -13,7 +13,7 @@ import (
 const (
 	ownerCheckpointDomain                                  = "MXSAP-OWNER-CHECKPOINT-SUBJECT-V1\x00"
 	maxOwnerCheckpointTextBytes                            = 4 * 1024
-	maxOwnerSourceActionHashBytes                          = 256
+	holochainActionHashBytes                             = 39
 	ownerCheckpointKeyProfileHolochainActionEd25519V1 byte = 1
 )
 
@@ -36,7 +36,7 @@ type OwnerCheckpointSubjectV1 struct {
 	OperationID                string
 	IntentDigest               string
 	OwnerDomain                CheckpointOwnerDomain
-	EventLogDigest             string
+	JournalIdentityDigest     string
 	EventCount                 uint64
 	TailDigest                 string
 	CheckpointSequence         uint64
@@ -59,7 +59,7 @@ func (s OwnerCheckpointSubjectV1) Validate() error {
 			return err
 		}
 	}
-	for _, value := range []string{s.IntentDigest, s.EventLogDigest, s.TailDigest, s.IssuerKeyFingerprint, s.OwnerAuthorityDigest} {
+	for _, value := range []string{s.IntentDigest, s.JournalIdentityDigest, s.TailDigest, s.IssuerKeyFingerprint, s.OwnerAuthorityDigest} {
 		if err := validateOwnerCheckpointDigest(value); err != nil {
 			return err
 		}
@@ -68,7 +68,7 @@ func (s OwnerCheckpointSubjectV1) Validate() error {
 	if err != nil {
 		return err
 	}
-	if s.EventLogDigest != expectedLogDigest {
+	if s.JournalIdentityDigest != expectedLogDigest {
 		return ErrCheckpointJournalIdentity
 	}
 	if s.EventCount == 0 {
@@ -89,10 +89,10 @@ func (s OwnerCheckpointSubjectV1) Validate() error {
 			return err
 		}
 	}
-	if len(s.SourceActionHash) == 0 || len(s.SourceActionHash) > maxOwnerSourceActionHashBytes {
+	if len(s.SourceActionHash) != holochainActionHashBytes {
 		return ErrCheckpointInvalid
 	}
-	if len(s.OwnerAuthorityActionHash) == 0 || len(s.OwnerAuthorityActionHash) > maxOwnerSourceActionHashBytes {
+	if len(s.OwnerAuthorityActionHash) != holochainActionHashBytes {
 		return ErrCheckpointAuthorityAction
 	}
 	if !strings.HasPrefix(s.IssuerDID, "did:mycelix:") || strings.TrimSpace(s.IssuerDID) != s.IssuerDID {
@@ -228,7 +228,7 @@ func appendOwnerCheckpointOptionalDigest(output []byte, value *string) ([]byte, 
 }
 
 func appendOwnerCheckpointBytes(output []byte, value []byte) ([]byte, error) {
-	if len(value) > maxOwnerSourceActionHashBytes {
+	if len(value) != holochainActionHashBytes {
 		return nil, ErrCheckpointInvalid
 	}
 	var length [4]byte
