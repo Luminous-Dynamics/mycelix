@@ -95,3 +95,11 @@ This is a matched in-memory microbenchmark, not a production performance claim. 
 Rust and Go tests now reconstruct the live journal projection after every valid prefix of the local-Payment/Treasury-recovery path: Created, Authorized, local Prepared, local Committed, Treasury Prepared, Treasury Indeterminate, same-effect Treasury Prepared, and final Treasury Committed. Each prefix is replayed against its own event-count/tail anchor and compared with the live in-memory journal. This tests intermediate recovery states rather than only the terminal Completed state.
 
 These are deterministic state-machine prefix checks. They do not inject process termination into a real conductor, storage engine, message broker or provider API; those remain a separate runtime qualification layer.
+
+## Owner-scoped journal checkpoint subject v1
+
+The Go checkpoint module independently encodes the Payments/Treasury checkpoint subject using the fixed MXSAP-JOURNAL-CHECKPOINT-SUBJECT-V1 binary profile. It binds operation and intent identity, owner domain, event-log identity/count/tail, owner-local checkpoint sequence and prior digest, source action/frontier, issuer DID and verification method, an authority-grant reference, and issuance time.
+
+The shared fixture fixtures/sap-payment-journal-checkpoint-v1.kat pins canonical bytes and SHA-256 output. The tests mutate every subject dimension and reject malformed digests, empty/oversized fields, unknown owners, zero counters/timestamps and inconsistent prior-checkpoint sequencing.
+
+This remains a reference subject encoder/verifier. The digest is not authorship or authorization proof. A native Holochain Create action and its author must be validated by the production integrity boundary; owner authorization and exact source ActionHash/frontier checks remain separate. The reference model does not establish DHT convergence, fork exclusion, physical effect, external settlement or legal finality.
