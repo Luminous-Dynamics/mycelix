@@ -247,7 +247,11 @@ impl ExposureBookV1 {
     }
 
     pub fn mark_dispatch_authorized(&mut self, effect_id: &str) -> Result<(), ExposureError> {
-        self.transition(effect_id, &[ExposureStatus::Reserved], ExposureStatus::DispatchAuthorized)
+        self.transition(
+            effect_id,
+            &[ExposureStatus::Reserved, ExposureStatus::DispatchAuthorized],
+            ExposureStatus::DispatchAuthorized,
+        )
     }
 
     pub fn mark_indeterminate(&mut self, effect_id: &str) -> Result<(), ExposureError> {
@@ -488,6 +492,27 @@ mod tests {
             profile_digest: digest('e'),
             evidence_digest: digest('f'),
         }
+    }
+
+    #[test]
+    fn dispatch_authorization_is_idempotent_and_keeps_exposure_reserved() {
+        let mut book = ExposureBookV1::new(policy(1_000)).unwrap();
+        book.reserve(intent("effect:1", 600)).unwrap();
+        book.mark_dispatch_authorized("effect:1").unwrap();
+        book.mark_dispatch_authorized("effect:1").unwrap();
+        assert_eq!(book.status("effect:1"), Some(ExposureStatus::DispatchAuthorized));
+        assert_eq!(book.total_exposure_minor(), Ok(600));
+    }
+
+    #[test]
+    fn reservation_scope_must_match_owner_pool_destination_and_currency() {
+        let mut book = ExposureBookV1::new(policy(1_000)).unwrap();
+        let mut wrong = intent("effect:1", 100);
+        wrong.scope.owner_id = "owner:other".into();
+        assert_eq!(book.reserve(wrong), Err(ExposureError::ScopeMismatch));
+        let mut wrong_currency = intent("effect:2", 100);
+        wrong_currency.scope.currency = "USD".into();
+        assert_eq!(book.reserve(wrong_currency), Err(ExposureError::ScopeMismatch));
     }
 
     #[test]
