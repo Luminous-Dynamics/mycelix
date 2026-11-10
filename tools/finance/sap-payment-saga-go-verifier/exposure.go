@@ -93,15 +93,6 @@ const (
 	ExposureCancelledBeforeDispatch
 )
 
-func (s ExposureStatus) contributesToLimit() bool {
-	switch s {
-	case ExposureReserved, ExposureDispatchAuthorized, ExposureIndeterminate, ExposureCommittedUnsettled:
-		return true
-	default:
-		return false
-	}
-}
-
 type ExposureReservationV1 struct {
 	Intent ExposureIntentV1
 	Status ExposureStatus
