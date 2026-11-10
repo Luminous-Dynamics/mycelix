@@ -418,16 +418,15 @@ fn validate_lifecycle(manifest: &Value, errors: &mut Vec<String>) {
             "placed_on_market" => {
                 if index != 0
                     || before.is_some()
-                    || after.as_deref() != Some(passport_id)
+                    || after.as_deref().is_none_or(|value| !nonempty(value))
                     || config_before.is_some()
                     || config_after.is_none()
                     || operator_before.is_some()
-                    || operator_after.as_deref()
-                        != responsibility["economic_operator_ref"].as_str()
+                    || operator_after.as_deref().is_none_or(|value| !nonempty(value))
                 {
                     push_error(
                         errors,
-                        "placed-on-market event must establish the initial passport, configuration and responsible operator",
+                        "placed-on-market event must establish the initial passport, configuration and responsible operator at that historical time",
                     );
                 }
                 current_passport = after.clone();
