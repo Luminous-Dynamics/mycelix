@@ -11,9 +11,9 @@ import (
 )
 
 const (
-	ownerCheckpointDomain = "MXSAP-OWNER-CHECKPOINT-SUBJECT-V1\x00"
-	maxOwnerCheckpointTextBytes = 4 * 1024
-	maxOwnerSourceActionHashBytes = 256
+	ownerCheckpointDomain                                  = "MXSAP-OWNER-CHECKPOINT-SUBJECT-V1\x00"
+	maxOwnerCheckpointTextBytes                            = 4 * 1024
+	maxOwnerSourceActionHashBytes                          = 256
 	ownerCheckpointKeyProfileHolochainActionEd25519V1 byte = 1
 )
 
@@ -21,7 +21,7 @@ type CheckpointOwnerDomain uint8
 
 const (
 	CheckpointPaymentsLocalTransaction CheckpointOwnerDomain = 1
-	CheckpointTreasuryFeeEffect CheckpointOwnerDomain = 2
+	CheckpointTreasuryFeeEffect        CheckpointOwnerDomain = 2
 )
 
 var (
