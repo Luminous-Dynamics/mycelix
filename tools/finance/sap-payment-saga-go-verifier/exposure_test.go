@@ -1,0 +1,198 @@
+package sagaverifier
+
+import "testing"
+
+func exposureTestDigest(value byte) string {
+	const hex = "0123456789abcdef"
+	result := make([]byte, 71)
+	copy(result, "sha256:")
+	for i := 7; i < len(result); i++ {
+		result[i] = hex[value%16]
+	}
+	return string(result)
+}
+
+func exposureTestScope() ExposureScopeV1 {
+	return ExposureScopeV1{
+		OwnerID:       "owner:coop-a",
+		PoolID:        "pool:treasury",
+		DestinationID: "dest:provider-a",
+		Currency:      "SAP",
+	}
+}
+
+func exposureTestPolicy(maximum uint64) ExposurePolicyV1 {
+	return ExposurePolicyV1{
+		Scope:                 exposureTestScope(),
+		Sequence:              1,
+		MaximumTotalMinor:     maximum,
+		MaximumPerEffectMinor: 800,
+		PolicyDigest:          exposureTestDigest(13),
+	}
+}
+
+func exposureTestIntent(effectID string, maximum uint64) ExposureIntentV1 {
+	return ExposureIntentV1{
+		Scope:                exposureTestScope(),
+		OperationID:          "op:1",
+		EffectID:             effectID,
+		IntentDigest:         exposureTestDigest(10),
+		PayloadDigest:        exposureTestDigest(11),
+		MaximumExposureMinor: maximum,
+	}
+}
+
+func exposureTestResolution(effectID string, kind ExposureResolutionKind) DestinationResolutionV1 {
+	return DestinationResolutionV1{
+		Kind:           kind,
+		EffectID:       effectID,
+		DestinationID:  "dest:provider-a",
+		PayloadDigest:  exposureTestDigest(11),
+		ProfileDigest:  exposureTestDigest(14),
+		EvidenceDigest: exposureTestDigest(15),
+	}
+}
+
+func TestExposureReservationsAreScopedAndIdempotent(t *testing.T) {
+	book, err := NewExposureBookV1(exposureTestPolicy(1_000))
+	if err != nil {
+		t.Fatal(err)
+	}
+	first, err := book.Reserve(exposureTestIntent("effect:1", 600))
+	if err != nil || first != ExposureWasReserved {
+		t.Fatalf("first reserve = %v, %v", first, err)
+	}
+	second, err := book.Reserve(exposureTestIntent("effect:1", 600))
+	if err != nil || second != ExposureAlreadyReserved {
+		t.Fatalf("duplicate reserve = %v, %v", second, err)
+	}
+	if total, _ := book.TotalExposureMinor(); total != 600 {
+		t.Fatalf("total exposure = %d, want 600", total)
+	}
+	if headroom, _ := book.HeadroomMinor(); headroom != 400 {
+		t.Fatalf("headroom = %d, want 400", headroom)
+	}
+	if _, err := book.Reserve(exposureTestIntent("effect:2", 500)); err != ErrExposureLimitExceeded {
+		t.Fatalf("over-limit reserve = %v", err)
+	}
+}
+
+func TestExposureChangedIntentConflictsWithoutChangingReservation(t *testing.T) {
+	book, _ := NewExposureBookV1(exposureTestPolicy(1_000))
+	_, _ = book.Reserve(exposureTestIntent("effect:1", 600))
+	changed := exposureTestIntent("effect:1", 601)
+	changed.PayloadDigest = exposureTestDigest(12)
+	if _, err := book.Reserve(changed); err != ErrExposureReservationConflict {
+		t.Fatalf("changed retry = %v", err)
+	}
+	if total, _ := book.TotalExposureMinor(); total != 600 {
+		t.Fatalf("total exposure changed to %d", total)
+	}
+}
+
+func TestIndeterminateExposureRemainsReserved(t *testing.T) {
+	book, _ := NewExposureBookV1(exposureTestPolicy(1_000))
+	_, _ = book.Reserve(exposureTestIntent("effect:1", 600))
+	if err := book.MarkDispatchAuthorized("effect:1"); err != nil { t.Fatal(err) }
+	if err := book.MarkIndeterminate("effect:1"); err != nil { t.Fatal(err) }
+	if total, _ := book.TotalExposureMinor(); total != 600 {
+		t.Fatalf("indeterminate exposure = %d, want 600", total)
+	}
+	if _, err := book.Reserve(exposureTestIntent("effect:2", 500)); err != ErrExposureLimitExceeded {
+		t.Fatalf("new reserve under unresolved exposure = %v", err)
+	}
+}
+
+func TestSettlementReleasesOnlyMatchingReceiptBoundExposure(t *testing.T) {
+	book, _ := NewExposureBookV1(exposureTestPolicy(1_000))
+	_, _ = book.Reserve(exposureTestIntent("effect:1", 600))
+	_ = book.MarkDispatchAuthorized("effect:1")
+	_ = book.MarkCommittedUnsettled("effect:1")
+	wrong := exposureTestResolution("effect:1", ExposureSettlementReceipt)
+	wrong.PayloadDigest = exposureTestDigest(12)
+	if err := book.MarkSettled("effect:1", wrong); err != ErrExposureInvalidResolution {
+		t.Fatalf("wrong receipt accepted: %v", err)
+	}
+	if err := book.MarkSettled("effect:1", exposureTestResolution("effect:1", ExposureSettlementReceipt)); err != nil {
+		t.Fatal(err)
+	}
+	if total, _ := book.TotalExposureMinor(); total != 0 {
+		t.Fatalf("settled exposure = %d", total)
+	}
+}
+
+func TestAuthoritativeAbsenceMustBeTypedAndSubjectBound(t *testing.T) {
+	book, _ := NewExposureBookV1(exposureTestPolicy(1_000))
+	_, _ = book.Reserve(exposureTestIntent("effect:1", 600))
+	_ = book.MarkDispatchAuthorized("effect:1")
+	_ = book.MarkIndeterminate("effect:1")
+	wrong := exposureTestResolution("effect:1", ExposureSettlementReceipt)
+	if err := book.ReleaseAuthoritativeAbsence("effect:1", wrong); err != ErrExposureInvalidResolution {
+		t.Fatalf("settlement receipt used as absence proof: %v", err)
+	}
+	wrong = exposureTestResolution("effect:1", ExposureAuthoritativeAbsence)
+	wrong.DestinationID = "dest:other"
+	if err := book.ReleaseAuthoritativeAbsence("effect:1", wrong); err != ErrExposureInvalidResolution {
+		t.Fatalf("wrong destination absence accepted: %v", err)
+	}
+	if err := book.ReleaseAuthoritativeAbsence("effect:1", exposureTestResolution("effect:1", ExposureAuthoritativeAbsence)); err != nil {
+		t.Fatal(err)
+	}
+	if total, _ := book.TotalExposureMinor(); total != 0 {
+		t.Fatalf("released exposure = %d", total)
+	}
+}
+
+func TestLowerPolicyRetainsExistingReservations(t *testing.T) {
+	book, _ := NewExposureBookV1(exposureTestPolicy(1_000))
+	_, _ = book.Reserve(exposureTestIntent("effect:1", 600))
+	lower := exposureTestPolicy(500)
+	lower.Sequence = 2
+	if err := book.ReplacePolicy(lower); err != nil { t.Fatal(err) }
+	if total, _ := book.TotalExposureMinor(); total != 600 {
+		t.Fatalf("existing reservation was erased: %d", total)
+	}
+	if headroom, _ := book.HeadroomMinor(); headroom != 0 {
+		t.Fatalf("headroom = %d, want 0", headroom)
+	}
+	if _, err := book.Reserve(exposureTestIntent("effect:2", 100)); err != ErrExposureLimitExceeded {
+		t.Fatalf("new reserve after limit reduction = %v", err)
+	}
+}
+
+func TestCancellationOnlyBeforeDispatch(t *testing.T) {
+	book, _ := NewExposureBookV1(exposureTestPolicy(1_000))
+	_, _ = book.Reserve(exposureTestIntent("effect:1", 600))
+	if err := book.CancelBeforeDispatch("effect:1"); err != nil { t.Fatal(err) }
+	if total, _ := book.TotalExposureMinor(); total != 0 {
+		t.Fatalf("cancelled reservation = %d", total)
+	}
+	if err := book.MarkDispatchAuthorized("effect:1"); err != ErrExposureInvalidTransition {
+		t.Fatalf("cancelled reservation dispatched: %v", err)
+	}
+}
+
+func TestExposureSnapshotMatchesSharedKnownAnswer(t *testing.T) {
+	book, err := NewExposureBookV1(exposureTestPolicy(1_000))
+	if err != nil { t.Fatal(err) }
+	intent := exposureTestIntent("effect:1", 600)
+	if _, err := book.Reserve(intent); err != nil { t.Fatal(err) }
+	got, err := book.CanonicalSnapshotDigest()
+	if err != nil { t.Fatal(err) }
+	const want = "sha256:8dd30c578ad7cf3f0a648aae137593a4d767d899099732433fa5da4d8186ae17"
+	if got != want { t.Fatalf("snapshot digest = %s, want %s", got, want) }
+}
+
+func TestSnapshotOrderingIsIndependentOfInsertionOrder(t *testing.T) {
+	first, _ := NewExposureBookV1(exposureTestPolicy(1_000))
+	second, _ := NewExposureBookV1(exposureTestPolicy(1_000))
+	_, _ = first.Reserve(exposureTestIntent("effect:1", 100))
+	_, _ = first.Reserve(exposureTestIntent("effect:2", 200))
+	_, _ = second.Reserve(exposureTestIntent("effect:2", 200))
+	_, _ = second.Reserve(exposureTestIntent("effect:1", 100))
+	firstDigest, err := first.CanonicalSnapshotDigest()
+	if err != nil { t.Fatal(err) }
+	secondDigest, err := second.CanonicalSnapshotDigest()
+	if err != nil { t.Fatal(err) }
+	if firstDigest != secondDigest { t.Fatalf("insertion order changed snapshot: %s != %s", firstDigest, secondDigest) }
+}
