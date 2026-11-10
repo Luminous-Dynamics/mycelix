@@ -629,7 +629,7 @@
         "channel_id",
         "channel_profile_id",
         "firmware_revision",
-        "raw_value",
+        "value",
         "unit",
         "qc_state",
         "event_time_seconds",
@@ -667,9 +667,6 @@
         "firmware_revision": {
           "type": "string",
           "minLength": 1
-        },
-        "raw_value": {
-          "type": "number"
         },
         "unit": {
           "type": "string",
@@ -748,6 +745,9 @@
             "unknown",
             "revoked"
           ]
+        },
+        "value": {
+          "type": "number"
         }
       }
     },
