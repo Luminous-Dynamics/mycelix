@@ -118,6 +118,18 @@ impl ParentDelegatedExposureBookV1 {
         &self.policy
     }
 
+    /// A lowered parent limit preserves existing child grants. If their
+    /// encumbered total exceeds the new cap, new child reservations pause until
+    /// enough grants are safely closed; existing effects may still reconcile.
+    pub fn replace_policy(&mut self, policy: DelegatedExposurePolicyV1) -> Result<(), ExposureError> {
+        policy.validate()?;
+        if policy.scope != self.policy.scope || policy.sequence <= self.policy.sequence {
+            return Err(ExposureError::InvalidPolicy);
+        }
+        self.policy = policy;
+        Ok(())
+    }
+
     /// Allocates a bounded child sublimit. The full sublimit remains encumbered
     /// at the parent until the grant is closed, even when child exposure is zero.
     pub fn allocate_child_budget(
@@ -195,6 +207,9 @@ impl ParentDelegatedExposureBookV1 {
         grant_id: &str,
         intent: ExposureIntentV1,
     ) -> Result<ExposureDisposition, ExposureError> {
+        if self.allocated_budget_minor()? > self.policy.maximum_total_minor {
+            return Err(ExposureError::LimitExceeded);
+        }
         let grant = self.grants.get_mut(grant_id).ok_or(ExposureError::ReservationNotFound)?;
         let existing_effect = grant.child_book.status(&intent.effect_id).is_some();
         if grant.status != DelegatedBudgetStatus::Active && !existing_effect {
@@ -538,6 +553,43 @@ mod tests {
             parent.allocate_child_budget("provider-c", wrong_currency, 100, 3, digest('3')),
             Err(ExposureError::ScopeMismatch)
         );
+    }
+
+    #[test]
+    fn parent_policy_reduction_freezes_new_child_risk_until_budget_is_reclaimed() {
+        let mut parent = ParentDelegatedExposureBookV1::new(parent_policy(1_000)).unwrap();
+        let first_scope = child_scope("operator:a", "dest:a");
+        let second_scope = child_scope("operator:b", "dest:b");
+        parent.allocate_child_budget("provider-a", first_scope.clone(), 600, 1, digest('1')).unwrap();
+        parent.reserve("provider-a", child_intent(first_scope.clone(), "effect:existing", 200)).unwrap();
+        parent.allocate_child_budget("provider-b", second_scope, 300, 2, digest('2')).unwrap();
+
+        let mut lower = parent_policy(800);
+        lower.sequence = 2;
+        lower.maximum_child_budget_minor = 600;
+        lower.policy_digest = digest('e');
+        parent.replace_policy(lower).unwrap();
+        assert_eq!(parent.available_parent_budget_minor(), Ok(0));
+        assert_eq!(
+            parent.reserve("provider-a", child_intent(first_scope.clone(), "effect:new", 50)),
+            Err(ExposureError::LimitExceeded)
+        );
+
+        // The old effect remains fully resolvable while new exposure is frozen.
+        parent.mark_dispatch_authorized("provider-a", "effect:existing").unwrap();
+        parent.mark_committed_unsettled("provider-a", "effect:existing").unwrap();
+        parent.mark_settled(
+            "provider-a",
+            "effect:existing",
+            &final_settlement("effect:existing", "dest:a"),
+        ).unwrap();
+        parent.begin_revocation("provider-b").unwrap();
+        parent.close_grant("provider-b").unwrap();
+        assert_eq!(parent.available_parent_budget_minor(), Ok(200));
+        assert!(matches!(
+            parent.reserve("provider-a", child_intent(first_scope, "effect:new", 50)),
+            Ok(ExposureDisposition::Reserved)
+        ));
     }
 
     #[test]
