@@ -555,29 +555,55 @@ fn validate_update_payment(
         ));
     }
 
-    // Enforce status transition rules and immutable field invariants
-    if let Ok(original_record) = must_get_valid_record(action.original_action_address) {
-        if let Ok(Some(original)) = original_record.entry().to_app_option::<Payment>() {
-            if original.status != payment.status
-                && !original.status.can_transition_to(&payment.status)
-            {
-                return Ok(ValidateCallbackResult::Invalid(format!(
-                    "Invalid payment status transition: {:?} → {:?}",
-                    original.status, payment.status
-                )));
-            }
-            // Core fields are immutable
-            if original.from_did != payment.from_did
-                || original.to_did != payment.to_did
-                || original.amount != payment.amount
-                || original.currency != payment.currency
-            {
-                return Ok(ValidateCallbackResult::Invalid(
-                    "Cannot change sender, receiver, amount, or currency on an existing payment"
-                        .into(),
-                ));
-            }
+    // Never convert an unavailable predecessor into Valid. Holochain's
+    // unresolved-dependency result must propagate so validation can be retried.
+    let original_record = must_get_valid_record(action.original_action_address)?;
+    let original_action = original_record.action();
+    if !matches!(
+        original_action.action_type(),
+        ActionType::Create | ActionType::Update
+    ) {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Payment update predecessor must be a Create or Update action".into(),
+        ));
+    }
+    let expected_entry_type = EntryType::App(UnitEntryTypes::Payment.try_into()?);
+    if original_action.entry_type() != Some(&expected_entry_type) {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Payment update predecessor must have the Payment entry type".into(),
+        ));
+    }
+    let original = match original_record.entry().to_app_option::<Payment>() {
+        Ok(Some(original)) => original,
+        Ok(None) => {
+            return Ok(ValidateCallbackResult::Invalid(
+                "Payment update predecessor is missing its Payment entry".into(),
+            ));
         }
+        Err(error) => {
+            return Ok(ValidateCallbackResult::Invalid(format!(
+                "Payment update predecessor could not be decoded: {error}"
+            )));
+        }
+    };
+
+    if original.status != payment.status
+        && !original.status.can_transition_to(&payment.status)
+    {
+        return Ok(ValidateCallbackResult::Invalid(format!(
+            "Invalid payment status transition: {:?} → {:?}",
+            original.status, payment.status
+        )));
+    }
+    // Preserve the existing identity/economic invariants against the exact predecessor.
+    if original.from_did != payment.from_did
+        || original.to_did != payment.to_did
+        || original.amount != payment.amount
+        || original.currency != payment.currency
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Cannot change sender, receiver, amount, or currency on an existing payment".into(),
+        ));
     }
 
     Ok(ValidateCallbackResult::Valid)
@@ -873,6 +899,20 @@ mod tests {
         format!("did:mycelix:{}", AgentPubKey::from_raw_36(vec![0; 36]))
     }
 
+    fn make_update() -> Update {
+        Update {
+            author: AgentPubKey::from_raw_36(vec![0; 36]),
+            timestamp: ts(2_000_000),
+            action_seq: 1,
+            prev_action: ActionHash::from_raw_36(vec![0; 36]),
+            original_action_address: ActionHash::from_raw_36(vec![0; 36]),
+            original_entry_address: EntryHash::from_raw_36(vec![0; 36]),
+            entry_type: EntryType::CapClaim,
+            entry_hash: EntryHash::from_raw_36(vec![0; 36]),
+            weight: Default::default(),
+        }
+    }
+
     fn valid_payment() -> Payment {
         Payment {
             id: "pay:test:001".into(),
@@ -948,6 +988,23 @@ mod tests {
             mycel_dissolved: false,
             exited_at: ts(1_000_000),
         }
+    }
+
+    #[test]
+    fn test_payment_update_propagates_unavailable_predecessor() {
+        let result = validate_update_payment(make_update(), valid_payment());
+        assert!(
+            result.is_err(),
+            "unavailable predecessor must remain unresolved, never become Valid"
+        );
+    }
+
+    #[test]
+    fn test_payment_update_rejects_invalid_replacement_before_dependency_lookup() {
+        let mut payment = valid_payment();
+        payment.amount = 0;
+        let result = validate_update_payment(make_update(), payment).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
     }
 
     // ---- 1. Valid Payment (SAP with fee) ----
