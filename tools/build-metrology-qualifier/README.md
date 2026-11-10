@@ -20,4 +20,4 @@ Admission is purpose-specific. A channel admitted for one declared measurand/uni
 
 ## Claim ceiling
 
-The Rust oracle only validates the synthetic profile and 36 synthetic known-answer admissions. It does not qualify a real instrument, lab, sensor placement, building, comfort condition, air or water quality, energy outcome, device, or safety/code claim.
+The Rust oracle includes a strict JSON parser that rejects duplicate object member names, a closed schema/profile validator and independently pinned known-answer dispositions. It only validates the synthetic profile and 36 synthetic known-answer admissions, with channel identities, units, expected dispositions and schema enums independently pinned in Rust tests. It does not qualify a real instrument, lab, sensor placement, building, comfort condition, air or water quality, energy outcome, device, or safety/code claim.
