@@ -240,6 +240,7 @@ pub fn validate_battery_passport_lineage(
     let mut event_ids = BTreeSet::new();
     let mut used_issue_events = BTreeSet::new();
     let mut previous_digest: Option<String> = None;
+    let mut previous_recorded_at_ms = 0u64;
     let mut current_passport_id: Option<String> = None;
     let mut current_configuration_digest: Option<String> = None;
     let mut expected_status: BTreeMap<String, BatteryPassportStatus> = BTreeMap::new();
@@ -256,6 +257,8 @@ pub fn validate_battery_passport_lineage(
             || !valid_digest(&event.resulting_configuration_digest)
             || event.occurred_at_ms == 0
             || event.recorded_at_ms < event.occurred_at_ms
+            || event.recorded_at_ms < previous_recorded_at_ms
+            || event.evidence.is_empty()
         {
             return Err(format!("event {} has invalid identity, time or configuration", event.event_id));
         }
@@ -417,6 +420,15 @@ pub fn validate_battery_passport_lineage(
             return Err("remanufacture/repurpose requires revalidation obligations".to_owned());
         }
 
+        if !matches!(
+            event.kind,
+            BatteryLifecycleEventKind::PlacedOnMarket
+                | BatteryLifecycleEventKind::ResponsibilityTransferred
+        ) && event.responsible_operator_after.is_some()
+        {
+            return Err("responsible operator may change only at placement or an explicit transfer event".to_owned());
+        }
+        previous_recorded_at_ms = event.recorded_at_ms;
         previous_digest = Some(event.event_digest.clone());
     }
 
@@ -759,6 +771,7 @@ mod tests {
             &digest(1),
             Some(&digest(0)),
         );
+        placed.actor_ref = "operator-a".to_owned();
         placed.responsible_operator_after = Some("operator-a".to_owned());
         placed.seal().unwrap();
         let mut repaired = event(
@@ -779,6 +792,7 @@ mod tests {
             &digest(2),
             Some(&repaired.event_digest),
         );
+        remanufactured.actor_ref = "operator-b".to_owned();
         remanufactured.revalidation_obligation_refs = vec!["revalidation://pack-test-02".to_owned()];
         remanufactured.seal().unwrap();
 
@@ -1126,6 +1140,22 @@ mod tests {
         let restored: BatteryPassportRegistry = serde_json::from_str(&json).unwrap();
         assert_eq!(restored, registry);
         assert_eq!(restored.version, "commission-guidance-2026-08-21");
+    }
+
+    #[test]
+    fn responsible_operator_can_access_restricted_passport_data() {
+        assert!(PassportAccessClass::Public.allows(PassportAudience::ResponsibleOperator));
+        assert!(PassportAccessClass::AuthorityRestricted.allows(PassportAudience::ResponsibleOperator));
+        assert!(PassportAccessClass::LegitimateInterest.allows(PassportAudience::ResponsibleOperator));
+        assert!(PassportAccessClass::OperatorConfidential.allows(PassportAudience::ResponsibleOperator));
+    }
+
+    #[test]
+    fn event_record_time_cannot_move_backwards() {
+        let mut lineage = make_lineage();
+        lineage.events[3].recorded_at_ms = lineage.events[2].recorded_at_ms - 1;
+        lineage.events[3].seal().unwrap();
+        assert!(validate_battery_passport_lineage(&lineage).is_err());
     }
 
     #[test]
