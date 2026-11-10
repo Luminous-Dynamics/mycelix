@@ -4773,8 +4773,8 @@
         },
         "purpose_profile": {
           "purpose_id": "SYNTH-TREND-MONITORING-01",
-          "channel_id": "air_temperature",
-          "measurand_id": "habitat.air_temperature",
+          "channel_id": "mean_radiant_temperature",
+          "measurand_id": "habitat.mean_radiant_temperature",
           "unit": "degC",
           "acceptable_minimum": -5,
           "acceptable_maximum": 50,
@@ -4957,8 +4957,8 @@
         },
         "purpose_profile": {
           "purpose_id": "SYNTH-TREND-MONITORING-01",
-          "channel_id": "air_temperature",
-          "measurand_id": "habitat.air_temperature",
+          "channel_id": "mean_radiant_temperature",
+          "measurand_id": "habitat.mean_radiant_temperature",
           "unit": "degC",
           "acceptable_minimum": -5,
           "acceptable_maximum": 50,
@@ -5141,8 +5141,8 @@
         },
         "purpose_profile": {
           "purpose_id": "SYNTH-TREND-MONITORING-01",
-          "channel_id": "air_temperature",
-          "measurand_id": "habitat.air_temperature",
+          "channel_id": "mean_radiant_temperature",
+          "measurand_id": "habitat.mean_radiant_temperature",
           "unit": "degC",
           "acceptable_minimum": -5,
           "acceptable_maximum": 50,
