@@ -150,3 +150,58 @@ A workflow that is queued, skipped, uninitialized or run on a merge ref is not a
 | Database comparison | Defined here | Implement and run the matched transactional-outbox baseline |
 
 This table is a status boundary, not a green dashboard. Draft PRs, queued workflows and reference-only tests do not qualify their pending rows.
+
+
+## 8. Industry baseline extension: saga/outbox and durable workflow engines
+
+The fair comparison must include more than provider idempotency:
+
+### AWS saga and transactional-outbox patterns
+
+AWS's Prescriptive Guidance describes sagas as sequences of local transactions with forward recovery and compensating transactions. It distinguishes choreography and orchestration, and calls out idempotency, observability, eventual consistency and isolation as operational concerns. Its transactional-outbox guidance addresses the database/message dual-write problem, but explicitly warns that duplicate messages can still occur; consumers must be idempotent.
+
+References:
+- [AWS saga patterns](https://docs.aws.amazon.com/prescriptive-guidance/latest/cloud-design-patterns/saga-patterns.html)
+- [AWS saga choreography and its dual-write/idempotency considerations](https://docs.aws.amazon.com/prescriptive-guidance/latest/cloud-design-patterns/saga-choreography.html)
+- [AWS transactional outbox pattern](https://docs.aws.amazon.com/prescriptive-guidance/latest/cloud-design-patterns/transactional-outbox.html)
+
+This is the minimum operational baseline for recovery. Mycelix should not claim novelty for “saga”, “outbox”, retries, compensation or replay alone. It must demonstrate stronger owner/source evidence and cross-domain reconciliation while retaining the familiar outbox safety properties.
+
+### Temporal durable execution and event-history replay
+
+Temporal documents a complete ordered Workflow Event History as the source of truth for workflow reconstruction. On resume, workflow code is replayed against that event history rather than relying solely on a persisted in-memory snapshot.
+
+Reference: [Temporal Workflow replay](https://docs.temporal.io/workflows).
+
+This is a direct comparator for deterministic workflow replay and crash recovery. The current Mycelix Rust/Go replay reducer is a small in-memory reference model; it is not a Temporal replacement and has not been compared with Temporal under equivalent workloads. The target should be to compose with or complement durable execution where appropriate, not to assert that an eight/ten-thousand-event synthetic reducer beats a production workflow platform.
+
+### What Mycelix must add beyond those baselines
+
+1. **Evidence is owner-authenticated, not merely workflow-recorded.** Replay histories and outbox rows show what a workflow recorded; Mycelix must additionally bind each attestation to the correct owner-native Holochain action, actual action author, source entry type and authorized owner scope.
+2. **Separate authorities remain separate.** Payments may attest its local transaction; Treasury attests its fee receipt; the bank/provider attests its rail outcome. No single orchestrator can promote another owner's missing evidence to success.
+3. **Unknown remains explicit.** Partial DHT visibility, lost provider acknowledgements, stale or revoked credentials, and absent owner checkpoints remain unavailable/indeterminate until reconciled.
+4. **Evidence outlives workflow and provider retention.** Immutable effect IDs and independently retained owner checkpoints must remain reconcilable after provider idempotency keys expire and workflow execution history is archived or compacted.
+5. **Every assertion has a claim ceiling.** A valid journal, source-chain action, credential or provider message proves only the claim defined by that evidence class; it does not by itself prove cross-agent finality or legal settlement.
+
+### Matched competitor matrix
+
+| Capability | PostgreSQL + transactional outbox | AWS-style saga/outbox | Temporal durable workflow | Mycelix target (not yet qualified) |
+|---|---|---|---|---|
+| Local atomic transaction | Database transaction | Participant's local transaction | Activity/application transaction | Owner-local source-chain transaction |
+| Retry identity | Unique DB key + consumer dedupe | Participant idempotency | Activity/workflow idempotency still required | Sender/key intent + stable per-owner effect ID |
+| Recovery history | Outbox/status/event rows | Saga events/compensation | Ordered workflow event history | Typed journal replay + owner-scoped checkpoints |
+| Cross-owner authorship | Application-specific | Service identities | Workflow/activity identities | Native owner action author + explicit authority grant |
+| Unknown remote outcome | Reconcile/query adapter | Retry/compensate per participant | Activity retry/timeout policy | Explicit indeterminate + query original effect |
+| External finality | Provider/bank-specific | Provider/bank-specific | Provider/bank-specific | Separately reconciled owner/rail evidence |
+| Publicly reproducible evidence | Depends on implementation | Depends on implementation | Platform history plus application evidence | Canonical KATs, source refs, owner checkpoints and independent verifier |
+
+Do not interpret the matrix as a claim that the first three platforms lack security controls. It identifies the specific Mycelix target that needs independent testing. A fair benchmark must compare the same local effects, workflow history retention, external idempotency profile, retry schedule, crash points, fault rates, storage durability and hardware.
+
+### Additional benchmark targets
+
+- Replay a matched Temporal workflow/event-history implementation and the Mycelix reducer at 100, 1k, 10k and 100k transitions; report startup/replay time, history bytes, cache effects, compaction/continue-as-new behavior, and deterministic nondeterminism failures separately.
+- Compare AWS-style choreography and orchestration baselines with 2, 5, 10 and 25 participants. Measure operational complexity: number of retry/compensation branches, correlated failures, mean time to reconcile and operator interventions.
+- For outbox consumers, inject duplicate and reordered delivery at 1×, 2×, 10× and burst fan-out; assert zero duplicate economic effects and retain all delivery attempts.
+- Run archive/requalification tests after history compaction, workflow export and key rotation. An archived history must either requalify from retained evidence or explicitly return incomplete; missing history is never interpreted as a successful terminal state.
+
+The new Mycelix claim is therefore not “better workflow engine” or “exactly-once payments.” It is **owner-authenticated, evidence-carrying recovery across independently controlled economic domains**. That claim is only earned after native Holochain, multi-agent, outbox, named-provider and external reconciliation tests pass.
