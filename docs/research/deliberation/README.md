@@ -145,17 +145,20 @@ No local-language corpus ingestion, recruitment, model training, language-capabi
 
 ## Validation state for this branch
 
-The checked-in synthetic corpus contains 32 fixtures: 26 red-team cases across 13 registered attack families (two cases per family) and six positive controls. The protocol and fixture manifests were fetched back from GitHub and independently replayed against their declared schema subsets with zero errors. An independent evaluator replay matched all 32 expected dispositions.
+The checked-in synthetic corpus contains 32 fixtures: 26 red-team cases across 13 registered attack families (two cases per family) and six positive controls. The protocol and fixture manifests were independently checked against their bounded schema contracts, and the fixture evaluator reproduced every expected result.
 
-The Rust qualifier has since been hardened to:
-- audit the complete schema definition tree, including optional properties absent from the current instance;
-- reject unsupported schema keywords, patterns and formats rather than silently skipping them;
-- reject unsupported extra source citations and uncertainty claims that are not grounded in the source claims;
-- require counted principal IDs to match the unique speakers represented by the source claims, in addition to detecting duplicate IDs;
-- retain the existing omission, misattribution, uncertainty, consensus, authority, injection, steering and open-world evidence checks.
+The Rust qualifier is deliberately bounded; it recursively audits the complete schema tree, rejects unsupported schema keywords/patterns/formats, checks structural and fixture-oracle invariants, and verifies the external baseline-intake gates. It does not claim full JSON Schema conformance.
 
-The corresponding local replay against the 32 checked-in fixtures found no expected-oracle mismatches. This is a local source/fixture inspection, not Rust execution.
+**Exact-head hosted execution:** GitHub Actions [Deliberation Benchmark Qualifier run #42756023917](https://github.com/Luminous-Dynamics/mycelix/actions/runs/42756023917) completed successfully on exact PR head `44b0059286b3e991b096ea0f851452e36808fc6d`.
 
-**Hosted execution evidence:** GitHub Actions run [#21](https://github.com/Luminous-Dynamics/mycelix/actions/runs/42667916578) completed successfully on exact commit `a4d5e68c3132fc3a3167d4d994cf21105b4690d9`. It reports 13 Rust tests passed, 0 failed, and the four-input CLI reported 32 fixtures, 26 red-team cases, six positive controls and 13 attack families. The subsequent Rust source hardening added four tests and the stricter checks described above. A successful hosted run on that later source revision has not yet been recorded here; do not treat a queued workflow as a pass. The generic Mycelix CI job was skipped and is not counted as a pass.
+The job reported:
+- **21 Rust tests passed, 0 failed**.
+- Synthetic CLI: `fixtures=32 red_team=26 positive_controls=6 attack_families=13`.
+- Metadata-only DeliberationBank intake CLI: PASS, with payload downloads disabled.
+- Intake CLI claim ceiling: participant data-use approval, model checkpoint identity, baseline reproduction and evaluator performance remain unresolved.
 
-This qualifies only the Rust structural and declared synthetic fixture-oracle contract. No human-subject study, independent human annotation, natural-language semantic fidelity, actual deliberation quality, AI efficacy, legitimacy, fairness, inclusion, welfare, causal policy impact, production UX, or deployment readiness is established. Human recruitment requires applicable ethics review, informed consent, privacy safeguards, preregistration and independent evaluation.
+The external data/model intake manifest deliberately remains `metadata-audit-only-review-pending`, with the data-governance gate `blocked-pending-review` and baseline reproduction `unsupported-pending-artifact-resolution`. No participant-level dataset or model payload was downloaded or added to the repository. The upstream evaluator's random-weight fallback and pickle-bearing training-args artifact are separately tracked in [#6014](https://github.com/Luminous-Dynamics/mycelix/issues/6014).
+
+The generic Mycelix CI workflow was skipped and is not counted as a pass.
+
+This qualifies only the checked-in bounded structural and synthetic fixture-oracle contract and the metadata-only intake guardrails. It does not measure natural-language semantic fidelity, human deliberation quality, AI efficacy, legitimacy, fairness, inclusion, trust, welfare, causal impact, participant consent, data-use rights, production UX or deployment readiness. Any human-subject work remains gated on applicable ethics review, informed consent, privacy safeguards, preregistration and independent human evaluation.
