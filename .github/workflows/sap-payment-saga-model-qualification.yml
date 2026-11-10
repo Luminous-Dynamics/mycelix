@@ -53,6 +53,8 @@ jobs:
         with:
           go-version: "1.27.3"
           cache: false
+      - name: Verify checkpoint KAT with independent SHA-256 CLI
+        run: bash tools/finance/sap-payment-saga-go-verifier/verify-checkpoint-kat.sh
       - name: Check Go formatting
         if: hashFiles('tools/finance/sap-payment-saga-go-verifier/go.mod') != ''
         working-directory: tools/finance/sap-payment-saga-go-verifier

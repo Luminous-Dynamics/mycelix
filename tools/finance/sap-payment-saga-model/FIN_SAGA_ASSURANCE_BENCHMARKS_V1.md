@@ -205,3 +205,8 @@ Do not interpret the matrix as a claim that the first three platforms lack secur
 - Run archive/requalification tests after history compaction, workflow export and key rotation. An archived history must either requalify from retained evidence or explicitly return incomplete; missing history is never interpreted as a successful terminal state.
 
 The new Mycelix claim is therefore not “better workflow engine” or “exactly-once payments.” It is **owner-authenticated, evidence-carrying recovery across independently controlled economic domains**. That claim is only earned after native Holochain, multi-agent, outbox, named-provider and external reconciliation tests pass.
+
+
+### Third-path checkpoint KAT verification
+
+The checkpoint qualification workflow also runs `tools/finance/sap-payment-saga-go-verifier/verify-checkpoint-kat.sh`. This shell check decodes the exact intent and checkpoint-subject byte strings from the shared KAT and recomputes their SHA-256 digests with the runner's `xxd` and `sha256sum` tools. It is an independent byte-to-digest check, not a third semantic encoder; Rust/Go remain the two profile implementations. The script adds no Python or npm dependency.
