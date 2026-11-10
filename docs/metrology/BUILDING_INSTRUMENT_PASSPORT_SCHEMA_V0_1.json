@@ -363,8 +363,7 @@
           "minLength": 1
         },
         "certificate_digest": {
-          "type": "string",
-          "minLength": 1
+          "type": "string"
         },
         "certificate_state": {
           "enum": [
@@ -403,8 +402,7 @@
           ]
         },
         "method_id": {
-          "type": "string",
-          "minLength": 1
+          "type": "string"
         },
         "method_revision": {
           "type": "string",
@@ -697,8 +695,7 @@
           ]
         },
         "timezone": {
-          "type": "string",
-          "minLength": 1
+          "type": "string"
         },
         "clock_source": {
           "type": "string",
@@ -720,16 +717,14 @@
           ]
         },
         "processing_method_id": {
-          "type": "string",
-          "minLength": 1
+          "type": "string"
         },
         "processing_method_revision": {
           "type": "string",
           "minLength": 1
         },
         "raw_source_digest": {
-          "type": "string",
-          "minLength": 1
+          "type": "string"
         },
         "calibration_record_id": {
           "type": "string",
@@ -776,8 +771,7 @@
           "minLength": 1
         },
         "correlation_model_id": {
-          "type": "string",
-          "minLength": 1
+          "type": "string"
         },
         "coverage_factor": {
           "type": "number"
