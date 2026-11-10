@@ -1094,6 +1094,18 @@ mod tests {
 
     #[test]
     fn protocol_profile_digest_and_local_only_fields_are_schema_pinned() {
+        let passport_schema = parse_unique_json(PASSPORT_SCHEMA_JSON).expect("passport schema");
+        let instrument = &passport_schema["$defs"]["instrument"];
+        let sample = &passport_schema["$defs"]["sample"];
+        assert!(instrument["required"].as_array().is_some_and(|fields| {
+            fields.iter().any(|field| field == "protocol_profile_digest")
+                && fields.iter().any(|field| field == "protocol_profile_state")
+                && fields.iter().any(|field| field == "local_read_only_supported")
+        }));
+        assert!(sample["required"].as_array().is_some_and(|fields| {
+            fields.iter().any(|field| field == "acquisition_mode")
+                && fields.iter().any(|field| field == "local_read_only")
+        }));
         assert_eq!(validate_tracked().expect("51-case passport corpus"), 51);
     }
 
