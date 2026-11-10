@@ -61,6 +61,19 @@ pub struct RecoveryRequest {
     pub decision_vote_hashes: Vec<ActionHash>,
 }
 
+/// Owner-signed cancellation receipt. This is an independent DHT event,
+/// not an update to another agent's source-chain entry.
+#[hdk_entry_helper]
+#[derive(Clone, PartialEq)]
+pub struct RecoveryCancellation {
+    pub request_id: String,
+    pub did: String,
+    pub request_action_hash: ActionHash,
+    pub owner: AgentPubKey,
+    pub reason: String,
+    pub cancelled_at: Timestamp,
+}
+
 /// Trustee vote on a recovery request
 #[hdk_entry_helper]
 #[derive(Clone, PartialEq)]
@@ -186,6 +199,7 @@ pub enum EntryTypes {
     RecoveryConfig(RecoveryConfig),
     RecoveryRequest(RecoveryRequest),
     RecoveryVote(RecoveryVote),
+    RecoveryCancellation(RecoveryCancellation),
     SelfRecoveryConfig(SelfRecoveryConfig),
     SelfRecoveryRequest(SelfRecoveryRequest),
 }
@@ -200,6 +214,8 @@ pub enum LinkTypes {
     RequestToVotes,
     /// Request identifier to all versions of its RecoveryRequest entry
     RequestIdToRequest,
+    /// Request identifier to owner-signed cancellation receipts
+    RequestToCancellations,
     /// Trustee to their responsibilities
     TrusteeToConfig,
     /// DID to self-recovery config (progressive recovery)
@@ -229,6 +245,12 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 EntryTypes::RecoveryVote(vote) => {
                     validate_create_recovery_vote(EntryCreationAction::Create(action), vote)
                 }
+                EntryTypes::RecoveryCancellation(cancellation) => {
+                    validate_create_recovery_cancellation(
+                        EntryCreationAction::Create(action),
+                        cancellation,
+                    )
+                }
                 EntryTypes::SelfRecoveryConfig(config) => validate_create_self_recovery_config(
                     EntryCreationAction::Create(action),
                     config,
@@ -248,6 +270,9 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 }
                 EntryTypes::RecoveryVote(_) => Ok(ValidateCallbackResult::Invalid(
                     "Recovery votes cannot be updated".into(),
+                )),
+                EntryTypes::RecoveryCancellation(_) => Ok(ValidateCallbackResult::Invalid(
+                    "Recovery cancellation receipts cannot be updated".into(),
                 )),
                 EntryTypes::SelfRecoveryConfig(config) => {
                     validate_update_self_recovery_config(action, config)
@@ -269,6 +294,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 | LinkTypes::DidToRecoveryRequest
                 | LinkTypes::RequestToVotes
                 | LinkTypes::RequestIdToRequest
+                | LinkTypes::RequestToCancellations
                 | LinkTypes::TrusteeToConfig
                 | LinkTypes::DidToSelfRecoveryConfig
                 | LinkTypes::DidToSelfRecoveryRequest => Ok(ValidateCallbackResult::Valid),
@@ -349,6 +375,70 @@ fn recovery_vote_matches_policy(
         && config.did == request.did
         && config.active
         && config.trustees.contains(&vote.trustee)
+}
+
+/// Validate an owner cancellation receipt against the frozen recovery
+/// configuration and current request state.
+fn validate_create_recovery_cancellation(
+    action: EntryCreationAction,
+    cancellation: RecoveryCancellation,
+) -> ExternResult<ValidateCallbackResult> {
+    if cancellation.request_id.is_empty()
+        || cancellation.request_id.len() > 256
+        || cancellation.reason.is_empty()
+        || cancellation.reason.len() > 2048
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Cancellation request ID and reason must be non-empty and bounded".into(),
+        ));
+    }
+    if cancellation.owner != *action.author() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Cancellation owner must be the committing agent".into(),
+        ));
+    }
+    let expected_owner_did = format!("did:mycelix:{}", action.author());
+    let request_record = must_get_valid_record(cancellation.request_action_hash.clone())?;
+    let request: RecoveryRequest = request_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Cancellation references an invalid recovery request".into()
+        )))?;
+    if request.id != cancellation.request_id || request.did != cancellation.did {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Cancellation receipt does not match the referenced recovery request".into(),
+        ));
+    }
+    if request.status != RecoveryStatus::Pending
+        && request.status != RecoveryStatus::Approved
+        && request.status != RecoveryStatus::ReadyToExecute
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Only an active recovery request can be cancelled".into(),
+        ));
+    }
+    let config_hash = request.config_action_hash.as_ref().ok_or(wasm_error!(
+        WasmErrorInner::Guest("Recovery request has no policy revision".into())
+    ))?;
+    let config_record = must_get_valid_record(config_hash.clone())?;
+    let config: RecoveryConfig = config_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Cancellation references an invalid recovery policy".into()
+        )))?;
+    if config.did != cancellation.did
+        || config.owner != *action.author()
+        || expected_owner_did != cancellation.did
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Only the owner of the protected DID may cancel recovery".into(),
+        ));
+    }
+    Ok(ValidateCallbackResult::Valid)
 }
 
 /// Validate recovery config creation
