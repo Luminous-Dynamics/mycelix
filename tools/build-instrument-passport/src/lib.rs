@@ -21,7 +21,7 @@ pub const CORPUS_JSON: &str =
 const PROFILE_ID: &str = "MYC-BUILD-METROLOGY-PROFILE-V0.1";
 const PASSPORT_VERSION: &str = "mycelix.building-instrument-passport/0.1";
 const CORPUS_ID: &str = "BUILDING-INSTRUMENT-PASSPORT-CORPUS-V0.1";
-const EXPECTED_CASE_COUNT: usize = 45;
+const EXPECTED_CASE_COUNT: usize = 48;
 
 const ROOT_FIELDS: &[&str] = &[
     "passport_schema_version",
@@ -116,6 +116,7 @@ const SAMPLE_FIELDS: &[&str] = &[
     "firmware_revision",
     "value",
     "unit",
+    "observed_at_date",
     "qc_state",
     "event_time_seconds",
     "acquisition_time_seconds",
@@ -260,6 +261,9 @@ const EXPECTED_CASES: &[(&str, &str)] = &[
     ("BIP-043", "MORE_EVIDENCE_REQUIRED"),
     ("BIP-044", "ELIGIBLE_FOR_INDEPENDENT_ADMISSION_REVIEW_ONLY"),
     ("BIP-045", "NOT_COMPARABLE"),
+    ("BIP-046", "EXPIRED_OR_INVALIDATED"),
+    ("BIP-047", "EXPIRED_OR_INVALIDATED"),
+    ("BIP-048", "NOT_COMPARABLE"),
 ];
 
 #[derive(Debug)]
@@ -417,6 +421,40 @@ fn non_empty_text(value: &Value, key: &str) -> bool {
     !text(value, key).trim().is_empty()
 }
 
+fn valid_iso_date(value: &str) -> bool {
+    let bytes = value.as_bytes();
+    if bytes.len() != 10 || bytes[4] != b'-' || bytes[7] != b'-' {
+        return false;
+    }
+    if !bytes.iter().enumerate().all(|(index, byte)| {
+        index == 4 || index == 7 || byte.is_ascii_digit()
+    }) {
+        return false;
+    }
+    let Ok(year) = value[0..4].parse::<u32>() else {
+        return false;
+    };
+    let Ok(month) = value[5..7].parse::<u32>() else {
+        return false;
+    };
+    let Ok(day) = value[8..10].parse::<u32>() else {
+        return false;
+    };
+    if month == 0 || month > 12 || day == 0 {
+        return false;
+    }
+    let leap = year % 4 == 0 && (year % 100 != 0 || year % 400 == 0);
+    let days_in_month = match month {
+        1 | 3 | 5 | 7 | 8 | 10 | 12 => 31,
+        4 | 6 | 9 | 11 => 30,
+        2 if leap => 29,
+        2 => 28,
+        _ => return false,
+    };
+    day <= days_in_month
+}
+
+
 fn channel_by_id(id: &str) -> Option<&'static Channel> {
     CHANNELS.iter().find(|channel| channel.id == id)
 }
@@ -572,6 +610,20 @@ pub fn classify_passport(record: &Value) -> &'static str {
     if text(calibration, "as_found_state") == "out_of_tolerance"
         && text(calibration, "prior_data_impact_state") != "reviewed"
     {
+        return "EXPIRED_OR_INVALIDATED";
+    }
+
+    let calibration_date = text(calibration, "calibration_date");
+    let calibration_due_date = text(calibration, "due_date");
+    let sample_date = text(sample, "observed_at_date");
+    if !valid_iso_date(calibration_date)
+        || !valid_iso_date(calibration_due_date)
+        || !valid_iso_date(sample_date)
+        || calibration_date > calibration_due_date
+    {
+        return "NOT_COMPARABLE";
+    }
+    if sample_date < calibration_date || sample_date > calibration_due_date {
         return "EXPIRED_OR_INVALIDATED";
     }
 
@@ -839,6 +891,9 @@ fn validate_schema_contracts(passport_schema: &Value, corpus_schema: &Value) -> 
     {
         return Err("INDEPENDENT_ASSAY_SCHEMA_INVALID".to_owned());
     }
+    if passport_schema["$defs"]["sample"]["properties"]["observed_at_date"]["format"] != "date" {
+        return Err("SAMPLE_DATE_SCHEMA_INVALID".to_owned());
+    }
     if text(corpus_schema, "title") != "Mycelix Building Instrument Passport Corpus v0.1"
         || corpus_schema["type"] != "object"
         || corpus_schema["additionalProperties"] != false
@@ -1103,6 +1158,22 @@ mod tests {
     fn independent_assay_must_match_the_exact_physical_sample() {
         assert_eq!(
             classify_passport(&case("BIP-045")["record"]),
+            "NOT_COMPARABLE"
+        );
+    }
+
+    #[test]
+    fn calibration_date_is_checked_against_the_sample_observation_date() {
+        assert_eq!(
+            classify_passport(&case("BIP-046")["record"]),
+            "EXPIRED_OR_INVALIDATED"
+        );
+        assert_eq!(
+            classify_passport(&case("BIP-047")["record"]),
+            "EXPIRED_OR_INVALIDATED"
+        );
+        assert_eq!(
+            classify_passport(&case("BIP-048")["record"]),
             "NOT_COMPARABLE"
         );
     }
