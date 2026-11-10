@@ -440,7 +440,7 @@ func TestReferenceTraversalHandlesLongMaritimeDependencyChains(t *testing.T) {
 		{ID: "radar-observation-source", Kind: "source"},
 		{ID: "shared-port-core", Kind: "dependency"},
 	}
-	edges := make([]DependencyHyperedge, 0, 2*depth+2)
+	edges := make([]DependencyHyperedge, 0, 2*depth)
 
 	for _, item := range []struct {
 		prefix string
@@ -450,7 +450,7 @@ func TestReferenceTraversalHandlesLongMaritimeDependencyChains(t *testing.T) {
 		{prefix: "radar-dependency", source: "radar-observation-source"},
 	} {
 		previous := item.source
-		for index := 0; index < depth; index++ {
+		for index := 0; index < depth-1; index++ {
 			current := fmt.Sprintf("%s-%05d", item.prefix, index)
 			nodes = append(nodes, Node{ID: current, Kind: "dependency"})
 			edges = append(edges, civilEdge(
@@ -484,6 +484,14 @@ func TestReferenceTraversalHandlesLongMaritimeDependencyChains(t *testing.T) {
 	report := referenceReport(input, sha256Hex(inputBytes))
 	if report.Disposition != "SHARED_DEPENDENCY" || !reflect.DeepEqual(report.CommonDependencyIDs, []string{"shared-port-core"}) {
 		t.Fatalf("unexpected long-chain report: disposition=%s common=%v reasons=%v", report.Disposition, report.CommonDependencyIDs, report.ReasonCodes)
+	}
+	if len(edges) != 2*depth {
+		t.Fatalf("constructed %d edges, want exactly %d", len(edges), 2*depth)
+	}
+	for _, source := range []string{"ais-observation-source", "radar-observation-source"} {
+		if got := len(report.SourceAncestors[source]); got != depth {
+			t.Fatalf("%s has %d ancestors, want %d", source, got, depth)
+		}
 	}
 	reportBytes, err := json.Marshal(report)
 	if err != nil {
