@@ -1292,6 +1292,66 @@ mod author_binding_tests {
     }
 
     #[test]
+    fn recovery_decision_requires_distinct_trustee_quorum() {
+        let target_did = format!("did:mycelix:{}", other_agent());
+        let trustees = vec![
+            format!("did:mycelix:{}", me()),
+            "did:mycelix:trustee-two".into(),
+            "did:mycelix:trustee-three".into(),
+        ];
+        let policy = config(target_did, trustees, true);
+        let approvals = vec![
+            (format!("did:mycelix:{}", me()), VoteDecision::Approve),
+            ("did:mycelix:trustee-two".into(), VoteDecision::Approve),
+        ];
+        assert!(recovery_decision_has_quorum(
+            &approvals,
+            &policy,
+            &RecoveryStatus::Approved
+        ));
+
+        let one_approval = vec![(
+            format!("did:mycelix:{}", me()),
+            VoteDecision::Approve,
+        )];
+        assert!(!recovery_decision_has_quorum(
+            &one_approval,
+            &policy,
+            &RecoveryStatus::Approved
+        ));
+
+        let duplicate_signer = vec![
+            (format!("did:mycelix:{}", me()), VoteDecision::Approve),
+            (format!("did:mycelix:{}", me()), VoteDecision::Approve),
+        ];
+        assert!(!recovery_decision_has_quorum(
+            &duplicate_signer,
+            &policy,
+            &RecoveryStatus::Approved
+        ));
+
+        let outsider = vec![
+            (format!("did:mycelix:{}", me()), VoteDecision::Approve),
+            ("did:mycelix:outside-policy".into(), VoteDecision::Approve),
+        ];
+        assert!(!recovery_decision_has_quorum(
+            &outsider,
+            &policy,
+            &RecoveryStatus::Approved
+        ));
+
+        let rejections = vec![
+            (format!("did:mycelix:{}", me()), VoteDecision::Reject),
+            ("did:mycelix:trustee-two".into(), VoteDecision::Reject),
+        ];
+        assert!(recovery_decision_has_quorum(
+            &rejections,
+            &policy,
+            &RecoveryStatus::Rejected
+        ));
+    }
+
+    #[test]
     fn recovery_vote_requires_trustee_membership_and_author_binding() {
         let author = me();
         let trustee_did = format!("did:mycelix:{}", author);
