@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"reflect"
+	"strings"
 	"sync"
 	"testing"
 )
@@ -240,6 +241,7 @@ func scenarioHandlers() map[string]func(*testing.T) {
 			j := readyLocalJournal(t, testIntent())
 			e := localEvidence(j, "wrong-debit", 2)
 			e.Local.SenderDebitMinor--
+			refreshEvidenceDigest(t, &e)
 			if err := j.validateEvidence(LocalPaymentTransaction, e); err != ErrEvidenceInvalid {
 				t.Fatalf("wrong sender debit error=%v", err)
 			}
@@ -248,6 +250,7 @@ func scenarioHandlers() map[string]func(*testing.T) {
 			j := readyLocalJournal(t, testIntent())
 			e := localEvidence(j, "wrong-credit", 3)
 			e.Local.RecipientCreditMinor++
+			refreshEvidenceDigest(t, &e)
 			if err := j.validateEvidence(LocalPaymentTransaction, e); err != ErrEvidenceInvalid {
 				t.Fatalf("wrong recipient credit error=%v", err)
 			}
@@ -256,6 +259,7 @@ func scenarioHandlers() map[string]func(*testing.T) {
 			j := readyLocalJournal(t, testIntent())
 			e := localEvidence(j, "pending", 4)
 			e.Local.PaymentStatus = "Pending"
+			refreshEvidenceDigest(t, &e)
 			if err := j.validateEvidence(LocalPaymentTransaction, e); err != ErrEvidenceInvalid {
 				t.Fatalf("pending Payment status error=%v", err)
 			}
@@ -264,6 +268,7 @@ func scenarioHandlers() map[string]func(*testing.T) {
 			j := readyLocalJournal(t, testIntent())
 			e := localEvidence(j, "missing-outbox", 5)
 			e.Local.TreasuryFeeOutboxID = ""
+			refreshEvidenceDigest(t, &e)
 			if err := j.validateEvidence(LocalPaymentTransaction, e); err != ErrEvidenceInvalid {
 				t.Fatalf("missing outbox error=%v", err)
 			}
@@ -272,6 +277,7 @@ func scenarioHandlers() map[string]func(*testing.T) {
 			j := readyLocalJournal(t, testIntent())
 			e := localEvidence(j, "wrong-signer", 6)
 			e.Local.ReceiptSignerDID = "did:mycelix:mallory"
+			refreshEvidenceDigest(t, &e)
 			if err := j.validateEvidence(LocalPaymentTransaction, e); err != ErrEvidenceInvalid {
 				t.Fatalf("wrong signer error=%v", err)
 			}
@@ -280,6 +286,7 @@ func scenarioHandlers() map[string]func(*testing.T) {
 			j := readyLocalJournal(t, testIntent())
 			e := localEvidence(j, "wrong-profile", 7)
 			e.Local.SigningProfile = "legacy-unversioned"
+			refreshEvidenceDigest(t, &e)
 			if err := j.validateEvidence(LocalPaymentTransaction, e); err != ErrEvidenceInvalid {
 				t.Fatalf("wrong profile error=%v", err)
 			}
@@ -292,6 +299,7 @@ func scenarioHandlers() map[string]func(*testing.T) {
 			}
 			e := treasuryEvidence(j, "wrong-pool", 8)
 			e.Treasury.PoolID = "treasury:other-pool"
+			refreshEvidenceDigest(t, &e)
 			if err := j.validateEvidence(TreasuryFee, e); err != ErrEvidenceInvalid {
 				t.Fatalf("wrong Treasury pool error=%v", err)
 			}
@@ -303,6 +311,7 @@ func scenarioHandlers() map[string]func(*testing.T) {
 			}
 			e := treasuryEvidence(j, "wrong-fee", 9)
 			e.Treasury.AmountMinor++
+			refreshEvidenceDigest(t, &e)
 			if err := j.validateEvidence(TreasuryFee, e); err != ErrEvidenceInvalid {
 				t.Fatalf("wrong Treasury amount error=%v", err)
 			}
@@ -314,6 +323,7 @@ func scenarioHandlers() map[string]func(*testing.T) {
 			}
 			e := treasuryEvidence(j, "wrong-payment", 10)
 			e.Treasury.PaymentActionHash = "action:unrelated-payment"
+			refreshEvidenceDigest(t, &e)
 			if err := j.validateEvidence(TreasuryFee, e); err != ErrEvidenceInvalid {
 				t.Fatalf("wrong Payment link error=%v", err)
 			}
@@ -374,6 +384,8 @@ func scenarioHandlers() map[string]func(*testing.T) {
 				t.Fatalf("duplicate fee evidence transition=%s err=%v", got, err)
 			}
 			changed := treasuryEvidence(j, "fee-recovered", 13)
+			changed.Treasury.TreasuryAction = "action:treasury-fee-conflict"
+			refreshEvidenceDigest(t, &changed)
 			if _, err := j.CommitLeg(TreasuryFee, changed); err != ErrEvidenceConflict {
 				t.Fatalf("changed evidence error=%v", err)
 			}
@@ -455,6 +467,56 @@ func scenarioHandlers() map[string]func(*testing.T) {
 				t.Fatalf("noncanonical digest error=%v", err)
 			}
 		},
+	}
+}
+
+func TestCanonicalTreasuryFeeDigestMatchesSharedV1KnownAnswer(t *testing.T) {
+	evidence := Evidence{
+		OperationID:    "op:1",
+		EffectID:       "op:1:treasury-fee",
+		Leg:            TreasuryFee,
+		SenderDID:      "did:a",
+		RecipientDID:   "did:b",
+		PrincipalMinor: 42,
+		FeeMinor:       3,
+		Currency:       "SAP",
+		Treasury: &TreasuryFeeEvidence{
+			PoolID:            "treasury:global-fee-pool",
+			SourceMemberDID:   "did:a",
+			AmountMinor:       3,
+			PaymentActionHash: "action:p",
+			IdempotencyKey:    "op:1:treasury-fee",
+			PredecessorAction: "action:before",
+			TreasuryAction:    "action:fee",
+		},
+	}
+	expectedBytes, err := os.ReadFile("fixtures/sap-payment-evidence-v1.kat")
+	if err != nil {
+		t.Fatal(err)
+	}
+	expected := strings.TrimSpace(string(expectedBytes))
+	got, err := canonicalEvidenceDigest(evidence)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != expected {
+		t.Fatalf("canonical digest=%s, want %s", got, expected)
+	}
+}
+
+func TestCanonicalDigestBindsTypedFields(t *testing.T) {
+	j := readyLocalJournal(t, testIntent())
+	original := localEvidence(j, "canonical", 31)
+	changed := original
+	local := *original.Local
+	local.RecipientCreditMinor++
+	changed.Local = &local
+	refreshEvidenceDigest(t, &changed)
+	if changed.EvidenceDigest == original.EvidenceDigest {
+		t.Fatal("mutated typed evidence retained the same canonical digest")
+	}
+	if err := j.validateEvidence(LocalPaymentTransaction, changed); err != ErrEvidenceInvalid {
+		t.Fatalf("semantically invalid but freshly digested evidence error=%v", err)
 	}
 }
 
