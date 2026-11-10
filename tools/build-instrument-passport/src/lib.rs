@@ -903,6 +903,16 @@ fn validate_passport_shape(record: &Value) -> Result<(), String> {
     Ok(())
 }
 
+fn schema_object_matches(schema: &Value, fields: &[&str]) -> bool {
+    schema["type"] == "object"
+        && schema["additionalProperties"] == false
+        && string_array_equals(&schema["required"], fields)
+        && schema["properties"].as_object().is_some_and(|properties| {
+            properties.len() == fields.len()
+                && fields.iter().all(|field| properties.contains_key(*field))
+        })
+}
+
 fn validate_schema_contracts(passport_schema: &Value, corpus_schema: &Value) -> Result<(), String> {
     if text(passport_schema, "title") != "Mycelix Building Instrument Passport v0.1"
         || passport_schema["type"] != "object"
@@ -927,6 +937,38 @@ fn validate_schema_contracts(passport_schema: &Value, corpus_schema: &Value) -> 
             return Err("PASSPORT_SCHEMA_REFERENCE_INVALID".to_owned());
         }
     }
+    let required_definitions: &[(&str, &[&str])] = &[
+        ("instrument", INSTRUMENT_FIELDS),
+        ("capability", CAPABILITY_FIELDS),
+        ("calibration", CALIBRATION_FIELDS),
+        ("installation", INSTALLATION_FIELDS),
+        ("sample", SAMPLE_FIELDS),
+        ("uncertainty_budget", UNCERTAINTY_FIELDS),
+        ("purpose_profile", PURPOSE_FIELDS),
+        ("independent_assay", INDEPENDENT_ASSAY_FIELDS),
+    ];
+    for (name, fields) in required_definitions {
+        if !schema_object_matches(&passport_schema["$defs"][*name], fields) {
+            return Err(format!("PASSPORT_SCHEMA_OBJECT_DRIFT:{name}"));
+        }
+    }
+    for (name, fields) in [
+        ("operating_range", &["minimum","maximum","unit","conditions_id"][..]),
+        ("resolution", &["value","unit"][..]),
+        ("accuracy", &["value","unit","basis","conditions_id","evidence_class","source_record_id"][..]),
+        ("repeatability", &["value","unit","method_id","evidence_class"][..]),
+        ("drift", &["value","unit","period_seconds","conditions_id"][..]),
+        ("position", &["x","y","z","frame_id"][..]),
+    ] {
+        if !schema_object_matches(&passport_schema["$defs"][name], fields) {
+            return Err(format!("PASSPORT_SCHEMA_NESTED_OBJECT_DRIFT:{name}"));
+        }
+    }
+    if !schema_object_matches(&passport_schema["$defs"]["calibration"]["properties"]["uncertainty"], &["value","unit","coverage_factor","method_id","correlation_model_id"])
+        || !schema_object_matches(&passport_schema["$defs"]["uncertainty_budget"]["properties"]["components"]["items"], UNCERTAINTY_COMPONENT_FIELDS)
+    {
+        return Err("PASSPORT_SCHEMA_UNCERTAINTY_SHAPE_DRIFT".to_owned());
+    }
     if passport_schema["properties"]["independent_assay"]["$ref"] != "#/$defs/independent_assay"
         || passport_schema["$defs"].get("independent_assay").is_none()
     {
@@ -946,8 +988,14 @@ fn validate_schema_contracts(passport_schema: &Value, corpus_schema: &Value) -> 
         || corpus_schema["properties"]["cases"]["maxItems"] != EXPECTED_CASE_COUNT
         || corpus_schema["properties"]["cases"]["items"]["properties"]["record"]["$ref"]
             != "#/$defs/passport"
+        || !schema_object_matches(&corpus_schema["$defs"]["passport"], ROOT_FIELDS)
         || corpus_schema["$defs"]["passport"]["properties"]["independent_assay"]["$ref"]
             != "#/$defs/independent_assay"
+        || corpus_schema["$defs"]["passport"]["properties"]["instrument"]["$ref"] != "#/$defs/instrument"
+        || corpus_schema["$defs"]["passport"]["properties"]["sample"]["$ref"] != "#/$defs/sample"
+        || corpus_schema["$defs"]["sample"]["properties"]["observed_at_date"].get("format").is_some()
+        || !schema_object_matches(&corpus_schema["$defs"]["instrument"], INSTRUMENT_FIELDS)
+        || !schema_object_matches(&corpus_schema["$defs"]["sample"], SAMPLE_FIELDS)
     {
         return Err("PASSPORT_CORPUS_SCHEMA_INVALID".to_owned());
     }
@@ -1037,6 +1085,11 @@ mod tests {
     #[test]
     fn tracked_passport_corpus_matches_all_51_known_answers() {
         assert_eq!(validate_tracked().expect("tracked passport validation"), 51);
+    }
+
+    #[test]
+    fn protocol_profile_digest_and_local_only_fields_are_schema_pinned() {
+        assert_eq!(validate_tracked().expect("51-case passport corpus"), 51);
     }
 
     #[test]
