@@ -38,7 +38,7 @@ That changes the unit of trust. The unit is no longer a device or a `calibrated=
 ### A. Synthetic contract correctness (current software gate)
 
 - Frozen v0.1 channels: 14.
-- Instrument passport corpus: 48 synthetic known-answer/adversarial cases.
+- Instrument passport corpus: 51 synthetic known-answer/adversarial cases.
 - Current synthetic target: 100% expected-disposition agreement; **zero false admission**; zero unknown fields or duplicate JSON member acceptance; zero silent missing-as-zero, stale, saturated or out-of-envelope readings; 100% of channel IDs/units/raw-derived semantics pinned independently of the fixture.
 - A complete synthetic chain may reach only `ELIGIBLE_FOR_INDEPENDENT_ADMISSION_REVIEW_ONLY`.
 - No physical tolerance or calibration range is invented by the software profile.
@@ -51,7 +51,7 @@ Measure the percentage of downstream claims for which the following are independ
 
 ### C. Mutation and adversarial robustness
 
-Expand from 45 to at least 100 cases before physical use. Add: forged/revoked certificate; wrong standard/reference artifact; a calibration point outside claimed scope; calibration correction applied to only some channels; certificate issued after sample date; NTP rollback and reboot sequence; daylight-saving ambiguity; duplicated/reordered packets; firmware scaling change; correlated drift; out-of-tolerance as-found review; missing raw data behind a derived value; invalid measurement rights; false assay sample ID; and selective deletion of inconvenient observations.
+Expand from 51 to at least 100 cases before physical use. Add: forged/revoked certificate; wrong standard/reference artifact; a calibration point outside claimed scope; calibration correction applied to only some channels; certificate issued after sample date; NTP rollback and reboot sequence; daylight-saving ambiguity; duplicated/reordered packets; firmware scaling change; correlated drift; out-of-tolerance as-found review; missing raw data behind a derived value; invalid measurement rights; false assay sample ID; and selective deletion of inconvenient observations.
 
 **Target:** 100% frozen known answers; zero seeded false admissions; mutation controls must prove each mutation changes the input and is rejected for the intended reason.
 
@@ -137,3 +137,37 @@ These targets must be costed end-to-end: instrumentation, accredited calibration
 - Sol-Atlas #704/#700: semantic interoperability and read-only in-use outcome binding.
 
 All exact-head software workflows must pass before a software PASS is claimed. Queued/skipped/pending is not PASS. All physical gates remain unrun.
+
+
+## 8. Two research frontiers beyond passport completeness
+
+### Digital calibration certificate interoperability
+
+PTB's Digital Calibration Certificate (DCC) is a machine-readable, XML/XSD-based certificate model. The Luminous adapter should consume and preserve the original signed certificate, not invent a replacement certificate format. The research test is whether it can validate the exact DCC schema/version, signature/trust material, certificate issuer and accreditation-scope binding, then map each result to the precise instrument/channel/measurand/method/range/unit/uncertainty/sample relationship without losing semantics.
+
+Benchmark against:
+- valid, correctly signed and schema-valid DCC;
+- schema-valid but unsigned or invalidly signed certificate;
+- revoked/expired certificate and stale trust material;
+- valid certificate for wrong measurand, unit, method or range;
+- DCC from a laboratory whose current accreditation schedule does not cover the method/range;
+- certificate correction or replacement with dependency-aware invalidation;
+- lossless round-trip of original XML bytes/digest and semantically normalized fields.
+
+Targets: zero false-authenticity acceptance; 100% exact issuer/scope/result binding; zero silent field loss; 100% reproducible verification receipts. The parser's capability is not the same as the laboratory's accreditation or the truth of a physical reading.
+
+### Uncertainty and decision-fit computation
+
+The 2026 GUM amendment explicitly addresses nonlinearity in measurement models. A next-generation measurement layer should not stop at storing a list of uncertainty components. It should represent the measurement equation, input distributions, sensitivity coefficients, covariance/correlation structure, model revision, environmental conditions, and output distribution/coverage interval. It should compare a linearized GUM calculation with Monte Carlo propagation where nonlinearities, non-normal distributions or asymmetric output make that appropriate.
+
+For decision fitness, keep measurement uncertainty separate from the decision threshold and loss model. A downstream owner must select the conformity/guard-band rule and acceptable false-accept/false-reject risk. The passport should never silently choose the threshold or decision rule.
+
+Benchmarks:
+- analytically solvable linear measurement models with known covariance;
+- correlated common-reference inputs that defeat naive root-sum-square treatment;
+- nonlinear thermal-energy calculation under varying flow and temperature;
+- non-normal/asymmetric uncertainty propagation with Monte Carlo reference;
+- near-threshold cases under explicitly declared guard-band rules;
+- changed model/correlation/calibration inputs with targeted descendant invalidation.
+
+Targets: reproduce reference results within the preregistered numerical tolerance for each exact method; zero covariance omissions; zero unsupported independence assumptions; complete traceability of every propagated input; calibrated coverage on held-out reference cases; zero silent change of conformity rule. Tolerances are set per method and use case, not universally.
