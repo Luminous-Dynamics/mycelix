@@ -21,7 +21,7 @@ pub const CORPUS_JSON: &str =
 const PROFILE_ID: &str = "MYC-BUILD-METROLOGY-PROFILE-V0.1";
 const PASSPORT_VERSION: &str = "mycelix.building-instrument-passport/0.1";
 const CORPUS_ID: &str = "BUILDING-INSTRUMENT-PASSPORT-CORPUS-V0.1";
-const EXPECTED_CASE_COUNT: usize = 42;
+const EXPECTED_CASE_COUNT: usize = 45;
 
 const ROOT_FIELDS: &[&str] = &[
     "passport_schema_version",
@@ -34,6 +34,7 @@ const ROOT_FIELDS: &[&str] = &[
     "uncertainty_budget",
     "purpose_profile",
     "claim_requested",
+    "independent_assay",
 ];
 const INSTRUMENT_FIELDS: &[&str] = &[
     "instrument_id",
@@ -162,6 +163,23 @@ const PURPOSE_FIELDS: &[&str] = &[
     "required_location_context_id",
     "classification",
 ];
+const INDEPENDENT_ASSAY_FIELDS: &[&str] = &[
+    "state",
+    "assay_id",
+    "laboratory_id",
+    "accreditation_scope_id",
+    "method_id",
+    "method_revision",
+    "sample_id",
+    "sample_digest",
+    "measurand_id",
+    "value",
+    "unit",
+    "certificate_digest",
+    "certificate_state",
+    "accreditation_scope_state",
+    "rights_state",
+];
 const CASE_FIELDS: &[&str] = &[
     "case_id",
     "description",
@@ -173,27 +191,27 @@ const CASE_FIELDS: &[&str] = &[
 struct Channel {
     id: &'static str,
     measurand: &'static str,
-    quantity_kind: &'static str,
+    _quantity_kind: &'static str,
     unit: &'static str,
     raw_or_derived: &'static str,
     independent_assay: bool,
 }
 
 const CHANNELS: &[Channel] = &[
-    Channel { id: "air_temperature", measurand: "habitat.air_temperature", quantity_kind: "temperature", unit: "degC", raw_or_derived: "raw", independent_assay: false },
+    Channel { id: "air_temperature", measurand: "habitat.air_temperature", _quantity_kind: "temperature", unit: "degC", raw_or_derived: "raw", independent_assay: false },
     Channel { id: "mean_radiant_temperature", measurand: "habitat.mean_radiant_temperature", quantity_kind: "temperature", unit: "degC", raw_or_derived: "derived", independent_assay: false },
-    Channel { id: "relative_humidity", measurand: "habitat.relative_humidity", quantity_kind: "ratio", unit: "%RH", raw_or_derived: "raw", independent_assay: false },
-    Channel { id: "air_speed", measurand: "habitat.air_speed", quantity_kind: "velocity", unit: "m/s", raw_or_derived: "raw", independent_assay: false },
-    Channel { id: "co2_concentration", measurand: "habitat.co2_concentration", quantity_kind: "mole_fraction", unit: "ppm", raw_or_derived: "raw", independent_assay: false },
-    Channel { id: "pm25_mass_concentration", measurand: "habitat.pm25_mass_concentration", quantity_kind: "mass_concentration", unit: "ug/m3", raw_or_derived: "raw", independent_assay: false },
-    Channel { id: "outdoor_air_volume_flow", measurand: "habitat.outdoor_air_volume_flow", quantity_kind: "volume_flow", unit: "m3/s", raw_or_derived: "raw", independent_assay: false },
+    Channel { id: "relative_humidity", measurand: "habitat.relative_humidity", _quantity_kind: "ratio", unit: "%RH", raw_or_derived: "raw", independent_assay: false },
+    Channel { id: "air_speed", measurand: "habitat.air_speed", _quantity_kind: "velocity", unit: "m/s", raw_or_derived: "raw", independent_assay: false },
+    Channel { id: "co2_concentration", measurand: "habitat.co2_concentration", _quantity_kind: "mole_fraction", unit: "ppm", raw_or_derived: "raw", independent_assay: false },
+    Channel { id: "pm25_mass_concentration", measurand: "habitat.pm25_mass_concentration", _quantity_kind: "mass_concentration", unit: "ug/m3", raw_or_derived: "raw", independent_assay: false },
+    Channel { id: "outdoor_air_volume_flow", measurand: "habitat.outdoor_air_volume_flow", _quantity_kind: "volume_flow", unit: "m3/s", raw_or_derived: "raw", independent_assay: false },
     Channel { id: "water_volume_flow", measurand: "habitat.water_volume_flow", quantity_kind: "volume_flow", unit: "m3/s", raw_or_derived: "raw", independent_assay: false },
-    Channel { id: "water_volume", measurand: "habitat.water_volume", quantity_kind: "volume", unit: "m3", raw_or_derived: "raw", independent_assay: false },
-    Channel { id: "water_ph", measurand: "habitat.water_ph", quantity_kind: "pH", unit: "1", raw_or_derived: "raw", independent_assay: true },
-    Channel { id: "water_conductivity", measurand: "habitat.water_conductivity", quantity_kind: "conductivity", unit: "uS/cm", raw_or_derived: "raw", independent_assay: true },
-    Channel { id: "electrical_power", measurand: "habitat.electrical_power", quantity_kind: "power", unit: "W", raw_or_derived: "raw", independent_assay: false },
-    Channel { id: "electrical_energy", measurand: "habitat.electrical_energy", quantity_kind: "energy", unit: "kWh", raw_or_derived: "raw", independent_assay: false },
-    Channel { id: "useful_thermal_energy", measurand: "habitat.useful_thermal_energy", quantity_kind: "thermal_energy", unit: "kWh_th", raw_or_derived: "derived", independent_assay: false },
+    Channel { id: "water_volume", measurand: "habitat.water_volume", _quantity_kind: "volume", unit: "m3", raw_or_derived: "raw", independent_assay: false },
+    Channel { id: "water_ph", measurand: "habitat.water_ph", _quantity_kind: "pH", unit: "1", raw_or_derived: "raw", independent_assay: true },
+    Channel { id: "water_conductivity", measurand: "habitat.water_conductivity", _quantity_kind: "conductivity", unit: "uS/cm", raw_or_derived: "raw", independent_assay: true },
+    Channel { id: "electrical_power", measurand: "habitat.electrical_power", _quantity_kind: "power", unit: "W", raw_or_derived: "raw", independent_assay: false },
+    Channel { id: "electrical_energy", measurand: "habitat.electrical_energy", _quantity_kind: "energy", unit: "kWh", raw_or_derived: "raw", independent_assay: false },
+    Channel { id: "useful_thermal_energy", measurand: "habitat.useful_thermal_energy", _quantity_kind: "thermal_energy", unit: "kWh_th", raw_or_derived: "derived", independent_assay: false },
 ];
 
 const EXPECTED_CASES: &[(&str, &str)] = &[
@@ -239,6 +257,9 @@ const EXPECTED_CASES: &[(&str, &str)] = &[
     ("BIP-040", "MORE_EVIDENCE_REQUIRED"),
     ("BIP-041", "MORE_EVIDENCE_REQUIRED"),
     ("BIP-042", "REJECTED_FOR_DECLARED_PURPOSE"),
+    ("BIP-043", "MORE_EVIDENCE_REQUIRED"),
+    ("BIP-044", "ELIGIBLE_FOR_INDEPENDENT_ADMISSION_REVIEW_ONLY"),
+    ("BIP-045", "NOT_COMPARABLE"),
 ];
 
 #[derive(Debug)]
@@ -445,6 +466,44 @@ pub fn classify_passport(record: &Value) -> &'static str {
         || text(instrument, "firmware_revision") != text(sample, "firmware_revision")
     {
         return "EXPIRED_OR_INVALIDATED";
+    }
+
+    let independent_assay = &record["independent_assay"];
+    if channel.independent_assay {
+        if text(independent_assay, "state") == "revoked"
+            || text(independent_assay, "certificate_state") == "revoked"
+            || text(independent_assay, "rights_state") == "revoked"
+        {
+            return "REJECTED_FOR_DECLARED_PURPOSE";
+        }
+        if text(independent_assay, "state") != "identified" {
+            return "MORE_EVIDENCE_REQUIRED";
+        }
+        if text(independent_assay, "sample_id") != text(sample, "observation_id")
+            || text(independent_assay, "sample_digest") != text(sample, "raw_source_digest")
+        {
+            return "NOT_COMPARABLE";
+        }
+        if text(independent_assay, "measurand_id") != channel.measurand
+            || text(independent_assay, "unit") != channel.unit
+        {
+            return "NOT_COMPARABLE";
+        }
+        if text(independent_assay, "certificate_state") != "authenticated"
+            || text(independent_assay, "accreditation_scope_state") != "covers_measurand_method"
+            || text(independent_assay, "rights_state") != "authorized"
+            || !non_empty_text(independent_assay, "assay_id")
+            || !non_empty_text(independent_assay, "laboratory_id")
+            || !non_empty_text(independent_assay, "accreditation_scope_id")
+            || !non_empty_text(independent_assay, "method_id")
+            || !non_empty_text(independent_assay, "method_revision")
+            || !non_empty_text(independent_assay, "certificate_digest")
+            || number(independent_assay, "value").is_none()
+        {
+            return "MORE_EVIDENCE_REQUIRED";
+        }
+    } else if text(independent_assay, "state") != "not_required" {
+        return "NOT_COMPARABLE";
     }
 
     if text(calibration, "measurand_id") != channel.measurand
@@ -698,6 +757,7 @@ fn validate_passport_shape(record: &Value) -> Result<(), String> {
         || !exact_keys(sample, SAMPLE_FIELDS)
         || !exact_keys(uncertainty, UNCERTAINTY_FIELDS)
         || !exact_keys(purpose, PURPOSE_FIELDS)
+        || !exact_keys(&record["independent_assay"], INDEPENDENT_ASSAY_FIELDS)
         || !exact_keys(&capability["operating_range"], &["minimum", "maximum", "unit", "conditions_id"])
         || !exact_keys(&capability["resolution"], &["value", "unit"])
         || !exact_keys(
@@ -771,6 +831,11 @@ fn validate_schema_contracts(passport_schema: &Value, corpus_schema: &Value) -> 
             return Err("PASSPORT_SCHEMA_REFERENCE_INVALID".to_owned());
         }
     }
+    if passport_schema["properties"]["independent_assay"]["$ref"] != "#/$defs/independent_assay"
+        || passport_schema["$defs"].get("independent_assay").is_none()
+    {
+        return Err("INDEPENDENT_ASSAY_SCHEMA_INVALID".to_owned());
+    }
     if text(corpus_schema, "title") != "Mycelix Building Instrument Passport Corpus v0.1"
         || corpus_schema["type"] != "object"
         || corpus_schema["additionalProperties"] != false
@@ -782,6 +847,8 @@ fn validate_schema_contracts(passport_schema: &Value, corpus_schema: &Value) -> 
         || corpus_schema["properties"]["cases"]["maxItems"] != EXPECTED_CASE_COUNT
         || corpus_schema["properties"]["cases"]["items"]["properties"]["record"]["$ref"]
             != "#/$defs/passport"
+        || corpus_schema["$defs"]["passport"]["properties"]["independent_assay"]["$ref"]
+            != "#/$defs/independent_assay"
     {
         return Err("PASSPORT_CORPUS_SCHEMA_INVALID".to_owned());
     }
@@ -794,6 +861,7 @@ fn validate_schema_contracts(passport_schema: &Value, corpus_schema: &Value) -> 
         "sample",
         "uncertainty_budget",
         "purpose_profile",
+        "independent_assay",
     ] {
         if corpus_schema["$defs"].get(definition).is_none() {
             return Err(format!("PASSPORT_CORPUS_SCHEMA_DEF_MISSING:{definition}"));
@@ -1013,6 +1081,26 @@ mod tests {
         assert_eq!(
             classify_passport(&case("BIP-042")["record"]),
             "REJECTED_FOR_DECLARED_PURPOSE"
+        );
+    }
+
+    #[test]
+    fn water_quality_channel_requires_independent_assay() {
+        assert_eq!(
+            classify_passport(&case("BIP-043")["record"]),
+            "MORE_EVIDENCE_REQUIRED"
+        );
+        assert_eq!(
+            classify_passport(&case("BIP-044")["record"]),
+            "ELIGIBLE_FOR_INDEPENDENT_ADMISSION_REVIEW_ONLY"
+        );
+    }
+
+    #[test]
+    fn independent_assay_must_match_the_exact_physical_sample() {
+        assert_eq!(
+            classify_passport(&case("BIP-045")["record"]),
+            "NOT_COMPARABLE"
         );
     }
 
