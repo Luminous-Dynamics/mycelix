@@ -243,14 +243,18 @@ fn read_u32(bytes: &[u8], offset: &mut usize) -> Result<u32, TraceError> {
     let end = (*offset).checked_add(4).ok_or(TraceError::TruncatedInput)?;
     let value = bytes.get(*offset..end).ok_or(TraceError::TruncatedInput)?;
     *offset = end;
-    Ok(u32::from_be_bytes(value.try_into().map_err(|_| TraceError::TruncatedInput)?))
+    Ok(u32::from_be_bytes(
+        value.try_into().map_err(|_| TraceError::TruncatedInput)?,
+    ))
 }
 
 fn read_u64(bytes: &[u8], offset: &mut usize) -> Result<u64, TraceError> {
     let end = (*offset).checked_add(8).ok_or(TraceError::TruncatedInput)?;
     let value = bytes.get(*offset..end).ok_or(TraceError::TruncatedInput)?;
     *offset = end;
-    Ok(u64::from_be_bytes(value.try_into().map_err(|_| TraceError::TruncatedInput)?))
+    Ok(u64::from_be_bytes(
+        value.try_into().map_err(|_| TraceError::TruncatedInput)?,
+    ))
 }
 
 fn decode_opcode(value: u8) -> Result<TraceOpcode, TraceError> {
@@ -366,7 +370,13 @@ impl TraceGeneratorV1 {
         let mut commands = vec![
             command(O::CreateIntent, A::Sender, F::None, operation_nonce, amount),
             command(O::Authorize, A::Sender, F::None, operation_nonce, fee),
-            command(O::PrepareLocal, A::Payments, F::None, operation_nonce, total),
+            command(
+                O::PrepareLocal,
+                A::Payments,
+                F::None,
+                operation_nonce,
+                total,
+            ),
             command(O::CommitLocal, A::Payments, F::None, operation_nonce, total),
         ];
 
@@ -421,7 +431,13 @@ impl TraceGeneratorV1 {
                     effect_nonce,
                     fee,
                 ),
-                command(O::ReconcileTreasury, A::Treasury, F::None, effect_nonce, fee),
+                command(
+                    O::ReconcileTreasury,
+                    A::Treasury,
+                    F::None,
+                    effect_nonce,
+                    fee,
+                ),
                 command(O::CommitTreasury, A::Treasury, F::None, effect_nonce, fee),
             ]),
             4 => commands.extend([
@@ -515,13 +531,7 @@ impl TraceGeneratorV1 {
                 command(O::PrepareTreasury, A::Treasury, F::None, effect_nonce, fee),
                 command(O::DispatchTreasury, A::Treasury, F::None, effect_nonce, fee),
                 command(O::CommitTreasury, A::Treasury, F::None, effect_nonce, fee),
-                command(
-                    O::Compensate,
-                    A::Sender,
-                    F::None,
-                    checkpoint_nonce,
-                    total,
-                ),
+                command(O::Compensate, A::Sender, F::None, checkpoint_nonce, total),
             ]),
             _ => unreachable!("scenario is reduced to 1..=8"),
         }
@@ -568,8 +578,14 @@ mod tests {
             kat_value("operation_nonce")
         );
         assert_eq!(trace.commands.len().to_string(), kat_value("command_count"));
-        assert_eq!(hex(&trace.canonical_bytes().unwrap()), kat_value("canonical_bytes_hex"));
-        assert_eq!(trace.canonical_digest().unwrap(), format!("sha256:{}", kat_value("sha256")));
+        assert_eq!(
+            hex(&trace.canonical_bytes().unwrap()),
+            kat_value("canonical_bytes_hex")
+        );
+        assert_eq!(
+            trace.canonical_digest().unwrap(),
+            format!("sha256:{}", kat_value("sha256"))
+        );
     }
 
     #[test]
@@ -640,7 +656,10 @@ mod tests {
         trailing.push(0);
         assert_eq!(TraceV1::decode(&trailing), Err(TraceError::TrailingBytes));
 
-        assert_eq!(TraceV1::decode(&encoded[..encoded.len() - 1]), Err(TraceError::TruncatedInput));
+        assert_eq!(
+            TraceV1::decode(&encoded[..encoded.len() - 1]),
+            Err(TraceError::TruncatedInput)
+        );
     }
 
     #[test]
