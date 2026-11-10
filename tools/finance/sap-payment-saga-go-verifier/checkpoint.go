@@ -10,9 +10,9 @@ import (
 )
 
 const (
-	checkpointDomainV1 = "MXSAP-JOURNAL-CHECKPOINT-V1\x00"
-	intentDomainV1     = "MXSAP-PAYMENT-INTENT-V1\x00"
-	maxCheckpointTextBytes = 4096
+	checkpointDomainV1      = "MXSAP-JOURNAL-CHECKPOINT-V1\x00"
+	intentDomainV1          = "MXSAP-PAYMENT-INTENT-V1\x00"
+	maxCheckpointTextBytes  = 4096
 	holochainActionHashSize = 39
 )
 
@@ -24,32 +24,29 @@ const (
 )
 
 var (
-	ErrCheckpointInvalidSubject       = errors.New("checkpoint rejected: invalid subject")
-	ErrCheckpointInvalidDigest        = errors.New("checkpoint rejected: invalid digest")
-	ErrCheckpointInvalidActionHash    = errors.New("checkpoint rejected: invalid ActionHash")
-	ErrCheckpointInvalidSequence      = errors.New("checkpoint rejected: invalid checkpoint sequence")
+	ErrCheckpointInvalidSubject        = errors.New("checkpoint rejected: invalid subject")
+	ErrCheckpointInvalidDigest         = errors.New("checkpoint rejected: invalid digest")
+	ErrCheckpointInvalidActionHash     = errors.New("checkpoint rejected: invalid ActionHash")
+	ErrCheckpointInvalidSequence       = errors.New("checkpoint rejected: invalid checkpoint sequence")
 	ErrCheckpointInvalidSourceFrontier = errors.New("checkpoint rejected: invalid source-chain frontier")
-	ErrCheckpointInvalidIntent        = errors.New("checkpoint rejected: invalid payment intent")
+	ErrCheckpointInvalidIntent         = errors.New("checkpoint rejected: invalid payment intent")
 )
 
-// JournalCheckpointSubject is an effects-disabled, owner-scoped statement about
-// one exact journal prefix. It is not a signature, source-action proof, or
-// settlement claim. Raw ActionHash values use Holochain's 39-byte typed form.
 type JournalCheckpointSubject struct {
-	OwnerDomain                CheckpointOwnerDomain
-	OperationID                string
-	IntentDigest               string
-	OwnerDID                   string
-	EventLogID                 string
-	EventCount                 uint64
-	TailDigest                 string
-	CheckpointSequence         uint64
-	PreviousCheckpointDigest   string
-	HasPreviousCheckpoint      bool
-	SourceActionHash           []byte
-	SourceActionSequence       uint32
-	SourcePreviousActionHash   []byte
-	HasSourcePreviousAction    bool
+	OwnerDomain              CheckpointOwnerDomain
+	OperationID              string
+	IntentDigest             string
+	OwnerDID                 string
+	EventLogID               string
+	EventCount               uint64
+	TailDigest               string
+	CheckpointSequence       uint64
+	PreviousCheckpointDigest string
+	HasPreviousCheckpoint    bool
+	SourceActionHash         []byte
+	SourceActionSequence     uint32
+	SourcePreviousActionHash []byte
+	HasSourcePreviousAction  bool
 }
 
 // CanonicalPaymentIntentDigest hashes every immutable intent field under a
