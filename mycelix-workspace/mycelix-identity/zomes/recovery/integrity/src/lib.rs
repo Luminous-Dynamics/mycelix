@@ -740,33 +740,54 @@ fn validate_update_self_recovery_config(
 /// proof-of-possession gap, architecturally different from the
 /// author-identity forgeries fixed elsewhere this pass (same class as the
 /// report_reputation forgery gap documented in the bridge zome).
+/// Validate the initial self-recovery request fields. The request is
+/// deliberately not bound to the recovered DID owner's key because a new
+/// device must be able to initiate recovery after the old key is lost.
+/// Until cryptographic proof receipts exist, however, no anchor may be
+/// recorded as already verified.
+fn validate_self_recovery_request_creation_fields(
+    request: &SelfRecoveryRequest,
+) -> Result<(), &'static str> {
+    if !request.did.starts_with("did:mycelix:") {
+        return Err("DID must start with 'did:mycelix:'");
+    }
+    if request.reason.is_empty() {
+        return Err("Recovery reason is required");
+    }
+    if request.status != RecoveryStatus::Pending {
+        return Err("Initial status must be Pending");
+    }
+    if !request.verified_anchors.is_empty() {
+        return Err("Self-recovery cannot record verified anchors without proof receipts");
+    }
+    Ok(())
+}
+
+/// Self-recovery approval is deliberately unavailable in v1. There is no
+/// proof receipt in SelfRecoveryRequest, so a transition to Approved would
+/// rely only on mutable caller-supplied strings rather than proof-of-control.
+fn self_recovery_status_transition_allowed(
+    from: &RecoveryStatus,
+    to: &RecoveryStatus,
+) -> bool {
+    match (from, to) {
+        (RecoveryStatus::Pending, RecoveryStatus::Cancelled) => true,
+        (RecoveryStatus::Approved, RecoveryStatus::ReadyToExecute)
+        | (RecoveryStatus::Approved, RecoveryStatus::Cancelled) => true,
+        (RecoveryStatus::ReadyToExecute, RecoveryStatus::Completed)
+        | (RecoveryStatus::ReadyToExecute, RecoveryStatus::Cancelled) => true,
+        (a, b) if a == b => true,
+        _ => false,
+    }
+}
+
 fn validate_create_self_recovery_request(
     request: SelfRecoveryRequest,
 ) -> ExternResult<ValidateCallbackResult> {
-    if !request.did.starts_with("did:mycelix:") {
-        return Ok(ValidateCallbackResult::Invalid(
-            "DID must start with 'did:mycelix:'".into(),
-        ));
+    match validate_self_recovery_request_creation_fields(&request) {
+        Ok(()) => Ok(ValidateCallbackResult::Valid),
+        Err(reason) => Ok(ValidateCallbackResult::Invalid(reason.into())),
     }
-    if request.reason.is_empty() {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Recovery reason is required".into(),
-        ));
-    }
-    if request.status != RecoveryStatus::Pending {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Initial status must be Pending".into(),
-        ));
-    }
-    // The legacy field stores caller-supplied anchor identifiers, not
-    // cryptographic proof receipts. Do not let those values be represented as
-    // already-verified possession evidence.
-    if !request.verified_anchors.is_empty() {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Self-recovery cannot record verified anchors without proof receipts".into(),
-        ));
-    }
-    Ok(ValidateCallbackResult::Valid)
 }
 
 /// Validate self-recovery request updates (same state machine as social recovery)
@@ -816,29 +837,19 @@ fn validate_update_self_recovery_request(
         ));
     }
 
-    // Verified-anchor history is append-only. Removal/replacement must use a
-    // future explicit, auditable anchor-revocation protocol.
-    if original
-        .verified_anchors
-        .iter()
-        .any(|anchor| !request.verified_anchors.contains(anchor))
-    {
+    // No proof receipt is available in v1. Until that is fixed, changes to
+    // the verified_anchors field are rejected rather than treating caller-
+    // supplied strings as authenticated proof of control.
+    if request.verified_anchors != original.verified_anchors {
         return Ok(ValidateCallbackResult::Invalid(
-            "Previously recorded self-recovery anchors cannot be removed or replaced".into(),
+            "Self-recovery anchor verification is disabled until proof receipts are implemented".into(),
         ));
     }
 
     // Same state machine as social recovery, except the proofless v1
     // Pending -> Approved transition is intentionally unavailable.
-    let valid_transition = match (&original.status, &request.status) {
-        (RecoveryStatus::Pending, RecoveryStatus::Cancelled) => true,
-        (RecoveryStatus::Approved, RecoveryStatus::ReadyToExecute)
-        | (RecoveryStatus::Approved, RecoveryStatus::Cancelled) => true,
-        (RecoveryStatus::ReadyToExecute, RecoveryStatus::Completed)
-        | (RecoveryStatus::ReadyToExecute, RecoveryStatus::Cancelled) => true,
-        (a, b) if a == b => true,
-        _ => false,
-    };
+    let valid_transition =
+        self_recovery_status_transition_allowed(&original.status, &request.status);
     if !valid_transition {
         return Ok(ValidateCallbackResult::Invalid(format!(
             "Invalid self-recovery status transition from {:?} to {:?}",
@@ -1078,6 +1089,40 @@ mod tests {
         updated.updated = Timestamp::from_micros(2);
         updated.superseded_by_social = false;
         assert!(validate_self_recovery_config_update_fields(&original, &updated).is_err());
+    }
+
+    #[test]
+    fn self_recovery_request_creation_rejects_claimed_verified_anchors() {
+        let mut request = SelfRecoveryRequest {
+            id: "self-recovery-test".into(),
+            did: "did:mycelix:owner".into(),
+            new_agent: test_agent(),
+            verified_anchors: vec![],
+            status: RecoveryStatus::Pending,
+            created: Timestamp::from_micros(1),
+            time_lock_expires: None,
+            reason: "lost original device".into(),
+        };
+        assert!(validate_self_recovery_request_creation_fields(&request).is_ok());
+
+        request.verified_anchors.push(VerificationAnchor::EmailHash("sha256:known".into()));
+        assert!(validate_self_recovery_request_creation_fields(&request).is_err());
+    }
+
+    #[test]
+    fn self_recovery_cannot_be_approved_without_a_proof_receipt() {
+        assert!(!self_recovery_status_transition_allowed(
+            &RecoveryStatus::Pending,
+            &RecoveryStatus::Approved
+        ));
+        assert!(self_recovery_status_transition_allowed(
+            &RecoveryStatus::Pending,
+            &RecoveryStatus::Cancelled
+        ));
+        assert!(self_recovery_status_transition_allowed(
+            &RecoveryStatus::Approved,
+            &RecoveryStatus::ReadyToExecute
+        ));
     }
 
     // ── Self-Recovery Tests ──
