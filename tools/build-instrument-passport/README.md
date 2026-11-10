@@ -44,3 +44,11 @@ See [`BUILDING_INSTRUMENT_PASSPORT_METHOD_CROSSWALK_V0_1.md`](../../docs/metrolo
 ## Claim ceiling
 
 All passport data and results are synthetic. This does not qualify a real sensor, calibration laboratory, accreditation scope, room placement, measurement accuracy, uncertainty statement, indoor air/water quality, comfort, energy, safety or regulatory claim.
+
+## Calibration-time applicability
+
+The sample carries an explicit ISO-style observation date. The oracle checks that the calibration date is not after the sample date and that the sample date is not after the calibration due date. The `calibration_state=current` label cannot override an expired interval. Invalid date representations remain non-comparable rather than being guessed.
+
+## Independent assay applicability
+
+Channels whose v0.1 profile requires an independent assay (water pH and conductivity) cannot reach review eligibility without a separately identified assay record. The assay must bind the same observation/sample digest, exact channel measurand and unit, named method/revision, laboratory and accreditation scope, authenticated certificate and authorized rights. A valid assay record is evidence about that exact sample; it is not a general potability certificate or a sensor calibration.
