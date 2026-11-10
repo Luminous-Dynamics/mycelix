@@ -132,9 +132,11 @@ These targets must be costed end-to-end: instrumentation, accredited calibration
 
 - Mycelix #6028: 14 v0.1 channel state-gating oracle, 36 synthetic cases.
 - Mycelix #6036: seven missing-channel gap groups and 14 proposed v0.2 channel IDs; not admitted.
-- Mycelix #6034: numerical capability/calibration/installation/sample passport phase; current branch adds 45 synthetic passport cases and a typed independent-assay record.
+- Mycelix #6034: numerical capability/calibration/installation/sample passport phase; draft PR #6040 adds 55 synthetic passport cases, a typed independent-assay record and schema-enforced Rust validation.
 - Symtropy #4507/#4531: thermal-resilience measurement/trajectory and unoccupied service-cell design.
 - Sol-Atlas #704/#700: semantic interoperability and read-only in-use outcome binding.
+- Mycelix #6047/#6048/#6042: signed DCC interoperability, nonlinear/correlated uncertainty and dependency-aware invalidation follow-ons.
+- Mycelix #6054: stream-level clock/boot/sequence/replay qualification; sample-level passport evidence alone does not validate a time series.
 
 All exact-head software workflows must pass before a software PASS is claimed. Queued/skipped/pending is not PASS. All physical gates remain unrun.
 
@@ -171,3 +173,79 @@ Benchmarks:
 - changed model/correlation/calibration inputs with targeted descendant invalidation.
 
 Targets: reproduce reference results within the preregistered numerical tolerance for each exact method; zero covariance omissions; zero unsupported independence assumptions; complete traceability of every propagated input; calibrated coverage on held-out reference cases; zero silent change of conformity rule. Tolerances are set per method and use case, not universally.
+
+
+## 9. 2026 controls and operational-twin baseline refresh — 10 November 2026
+
+### What the current literature says (bounded review cohorts)
+
+Al-Azba and Beitelmal's 15 October 2026 scoping review screened 2,301 records and included 37 studies that met its operational-DT criteria (live physical instrumentation and operational deployment evidence). In that selected cohort, 48.6% were descriptive, 24.3% prescriptive/control-driving, and 27% reported quantitative outcomes; 97.3% integrated BIM. These are review-cohort statistics, not market-wide vendor prevalence or evidence that any Luminous implementation has reached the same maturity. [Energy and Buildings, 369 (2026), 117935](https://doi.org/10.1016/j.enbuild.2026.117935).
+
+D'Amico, Curra and Bluyssen's 1 October 2026 review mapped 62 IEQ digital-twin contributions. It reports dominant dose/environmental indicators and quantitative sensor pipelines, alongside limited integration of semantic building models and occupant-centric measurements; hybrid quantitative/qualitative approaches are emerging. The review does not rank individual systems. [Building and Environment, 304 (2026), 115014](https://doi.org/10.1016/j.buildenv.2026.115014).
+
+**Benchmark implication:** Do not count live points, BIM integration or model sophistication as outcomes. Require evidence across five separate stages: descriptive observation; diagnostic fault detection/isolation; predictive generalization with uncertainty; prescriptive/advisory decisions under constraints; and operationally qualified measured service outcomes. A dashboard can be correct at stage 1 and still fail to diagnose, predict, recommend safely or demonstrate service improvement.
+
+### Matched controls baselines
+
+1. **BOPTEST v0.9.0** is an incumbent virtual control-benchmark platform, not a controller or a physical-building qualification. It provides a REST runtime, building emulators, predefined scenarios and standardized KPIs. Its released cases include BESTEST Air/Hydronic, heat-pump hydronic, two-zone apartment, multizone residential and multizone office variants. Pin the exact release, test case, scenario, weather, initial conditions, actuator/sensor interfaces and KPI implementation. [BOPTEST v0.9.0 test-case catalogue](https://ibpsa.github.io/project1-boptest/testcases/index.html); [BOPTEST framework](https://ibpsa.github.io/project1-boptest/index.html).
+
+2. **ASHRAE Guideline 36-2024** is the advanced-sequence incumbent for common HVAC systems where its equipment topology and scope apply. Include an exact implemented G36 sequence as a matched rule-based baseline; do not compare a partially implemented local sequence against an imagined ideal G36 implementation. [ASHRAE Guideline 36-2024](https://store.accuristech.com/ashrae/standards/guideline-36-2024-high-performance-sequences-of-operation-for-hvac-systems-includes-supporting-files).
+
+3. **EnergyPlus 26.2.0** is a current whole-building energy simulation engine (released 30 September 2026). Pin its full version/build and exact input-model digest. EnergyPlus documents analytical, comparative (including ASHRAE 140/BESTEST) and empirical validation/testing classes. A solver passing software capability tests is not site-specific calibration or physical validation. [EnergyPlus 26.2.0 release](https://energyplus.net/epupdate.htm); [EnergyPlus testing overview](https://energyplus.readthedocs.io/en/v26.2.0/tips_and_tricks/tips_and_tricks.html); [ASHRAE/IBPSA Standard 140 resources](https://www.ashrae.org/technical-resources/bookstore/ashrae-building-energy-simulation-and-performance-modeling-resources).
+
+4. **NIST / ASHRAE 223P**: as of NIST's 2 November 2026 update, comments on the draft are being addressed and the committee is awaiting a vote for second public review. Keep 223P in a clearly marked proposed lane until a stable official artifact/release can be pinned. NIST reports integration of a 223P model with ASHRAE 231P on selected facility equipment and an open-source two-way co-simulation platform; do not describe 223P as finalized at this cut. [NIST Building Digitization and Semantic Interoperability](https://www.nist.gov/programs-projects/building-digitization-and-semantic-interoperability).
+
+### Fair paired experiment
+
+For each matching BOPTEST case, run at minimum:
+- native/default incumbent control;
+- an exact applicable Guideline 36-2024 sequence (where supported);
+- a well-tuned model-predictive-control baseline;
+- an adaptive/learning controller only after its training data, online information, compute and adaptation budgets are frozen;
+- the Luminous evidence-gated advisory policy, initially read-only.
+
+All arms receive identical weather, occupancy/demand, tariffs, disturbances, forecasts, sensor availability, initial state and run horizon. The same KPI implementation must evaluate every arm. Compare the controller's *recommendations* first; a recommendation must not directly acquire device authority from the benchmark. Unsafe or unresolved actions abstain.
+
+A second-stage EnergyPlus analysis checks whole-building effects and trade-offs, but cannot replace the BOPTEST matched controller experiment. A later unoccupied physical-cell run checks whether simulated improvements survive measured instrument error, actuator limits, spatial heterogeneity and common-mode failures.
+
+### Multi-objective outcome vector — no scalar score
+
+Report separately:
+- energy by carrier and end use, peak kW and tariff cost;
+- heating/cooling/service delivery and unmet demand;
+- occupied-zone temperature and humidity distributions using a declared method;
+- pollutant-specific IAQ, outdoor-air delivery, filtration pressure drop and rebound;
+- demand flexibility and recovery after price/grid/weather events;
+- fault-detection precision/recall, detection latency, isolation accuracy and false interventions;
+- constraint violations, uncertainty/OOD abstentions and worst-zone/worst-stratum results;
+- commissioning and mapping hours, operator workload, maintenance, spares and lifecycle burden;
+- consented resident experience as its own evidence class, never as a substitute for calibrated measurement.
+
+Hard service, safety, accessibility, consent and instrument-evidence floors are non-compensatory. Do not allow energy or cost savings to hide poor IAQ, an overheated zone, inaccessible fallback or a false service claim.
+
+### Research targets to preregister (not achieved results)
+
+- 0 false exact-equivalence or false measurement admissions on the frozen 100+ hostile cross-standard / physical-evidence corpus.
+- 100% of recommendations reconstructable to exact input samples, timebase, instrument/calibration scope, geometry/configuration revision, model and policy revision.
+- 0 silent imputation and 0 current decisions with unresolved parent evidence.
+- 100% seeded affected descendants invalidated after upstream changes, with zero unrelated evidence invalidation.
+- At least 50% lower human evidence-reconciliation time than a measured manual certificate/CSV/BMS baseline, with no worse false-accept/false-reject performance.
+- At least 30% lower bespoke point-to-measurement mapping effort than the matched manual Brick/IFC/Haystack workflow, with equal or lower semantic-loss and abstention error.
+- For physical service claims, at least one preregistered practical improvement in service continuity, recovery, lifecycle effort or resource use against the best matched incumbent while all hard floors remain met. Report ties and incumbent wins.
+
+The first four targets are software/contract gates; the latter three require timed, matched engineering and physical studies. All resource accounting must include instrumentation, calibration, modelling, commissioning, operators, maintenance, compute and lifecycle replacements.
+
+### Benchmark freeze requirements
+
+Every report must publish a reproducible run manifest with:
+- exact code/model/container digests and versions;
+- benchmark/test-case/weather/occupancy/scenario digests;
+- initial conditions, disturbances and data splits;
+- controller tuning/training/adaptation and compute/human-time budgets;
+- exact KPI version and objective directions/units;
+- random seeds or deterministic-source manifests;
+- calibration/validation/test separation and held-out transfer scenarios;
+- measurement coverage, uncertainty and exclusions;
+- all failures, abstentions, negative controls and deviations.
+
+A leaderboard without matched conditions and frozen evaluation code is not evidence of superiority.
