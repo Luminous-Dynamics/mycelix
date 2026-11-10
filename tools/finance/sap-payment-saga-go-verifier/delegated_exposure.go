@@ -191,19 +191,24 @@ func (b *ParentDelegatedExposureBookV1) Reserve(
 	grantID string,
 	intent ExposureIntentV1,
 ) (ExposureDisposition, error) {
-	allocated, err := b.AllocatedBudgetMinor()
-	if err != nil { return 0, err }
-	if allocated > b.policy.MaximumTotalMinor { return 0, ErrExposureLimitExceeded }
 	grant, ok := b.grants[grantID]
 	if !ok {
 		return 0, ErrExposureNotFound
 	}
-	_, exists := grant.ChildBook.Status(intent.EffectID)
-	if grant.Status != DelegatedBudgetActive && !exists {
-		return 0, ErrExposureInvalidTransition
-	}
 	if intent.Scope != grant.ChildScope {
 		return 0, ErrExposureScopeMismatch
+	}
+	_, exists := grant.ChildBook.Status(intent.EffectID)
+	if exists {
+		return grant.ChildBook.Reserve(intent)
+	}
+	if grant.Status != DelegatedBudgetActive {
+		return 0, ErrExposureInvalidTransition
+	}
+	allocated, err := b.AllocatedBudgetMinor()
+	if err != nil { return 0, err }
+	if allocated > b.policy.MaximumTotalMinor {
+		return 0, ErrExposureLimitExceeded
 	}
 	return grant.ChildBook.Reserve(intent)
 }
