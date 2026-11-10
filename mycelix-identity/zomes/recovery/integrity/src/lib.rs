@@ -51,6 +51,11 @@ pub struct RecoveryRequest {
     pub created: Timestamp,
     /// When time lock expires (if approved)
     pub time_lock_expires: Option<Timestamp>,
+    /// Exact recovery configuration revision authorizing this request.
+    /// Optional in the Rust type for decoding historical entries; required
+    /// for every newly-created request by integrity validation.
+    #[serde(default)]
+    pub config_action_hash: Option<ActionHash>,
 }
 
 /// Trustee vote on a recovery request
@@ -67,6 +72,10 @@ pub struct RecoveryVote {
     pub comment: Option<String>,
     /// Vote timestamp
     pub voted_at: Timestamp,
+    /// Exact RecoveryRequest action being voted on.
+    /// Optional only to keep historical records decodable; required for new votes.
+    #[serde(default)]
+    pub request_action_hash: Option<ActionHash>,
 }
 
 /// Status of a recovery request
@@ -186,6 +195,8 @@ pub enum LinkTypes {
     DidToRecoveryRequest,
     /// Recovery request to votes
     RequestToVotes,
+    /// Request identifier to all versions of its RecoveryRequest entry
+    RequestIdToRequest,
     /// Trustee to their responsibilities
     TrusteeToConfig,
     /// DID to self-recovery config (progressive recovery)
@@ -255,6 +266,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 LinkTypes::DidToRecoveryConfig
                 | LinkTypes::DidToRecoveryRequest
                 | LinkTypes::RequestToVotes
+                | LinkTypes::RequestIdToRequest
                 | LinkTypes::TrusteeToConfig
                 | LinkTypes::DidToSelfRecoveryConfig
                 | LinkTypes::DidToSelfRecoveryRequest => Ok(ValidateCallbackResult::Valid),
@@ -318,6 +330,16 @@ fn validate_create_recovery_config(
     if config.owner != *action.author() {
         return Ok(ValidateCallbackResult::Invalid(
             "Owner must be the author".into(),
+        ));
+    }
+
+    // Bind the protected DID itself to the owner. Without this check an
+    // attacker can create a config whose owner is their own key but whose
+    // DID names a victim, then publish attacker-controlled trustees for it.
+    let expected_owner_did = format!("did:mycelix:{}", action.author());
+    if config.did != expected_owner_did {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Recovery config DID must correspond to the committing owner".into(),
         ));
     }
 
@@ -472,6 +494,31 @@ fn validate_create_recovery_request(
     if request.initiated_by != expected_initiator_did {
         return Ok(ValidateCallbackResult::Invalid(
             "Recovery request initiator DID must correspond to the committing agent".into(),
+        ));
+    }
+
+    // The request must reference the exact config revision that authorized it.
+    // This makes trustee membership independently verifiable by every peer,
+    // without trusting the coordinator zome's checks or current config state.
+    let config_action_hash = match request.config_action_hash.as_ref() {
+        Some(hash) => hash,
+        None => {
+            return Ok(ValidateCallbackResult::Invalid(
+                "Recovery request must reference its authorizing config revision".into(),
+            ));
+        }
+    };
+    let config_record = must_get_valid_record(config_action_hash.clone())?;
+    let config: RecoveryConfig = config_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Referenced recovery config entry is invalid".into()
+        )))?;
+    if config.did != request.did || !config.active || !config.trustees.contains(&request.initiated_by) {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Recovery request must target an active config and be initiated by one of its trustees".into(),
         ));
     }
 
@@ -946,6 +993,54 @@ fn validate_create_recovery_vote(
         ));
     }
 
+    // Resolve the exact request revision. A caller must not be able to vote
+    // by inventing a request id or by omitting the DHT action reference.
+    let request_action_hash = match vote.request_action_hash.as_ref() {
+        Some(hash) => hash,
+        None => {
+            return Ok(ValidateCallbackResult::Invalid(
+                "Recovery vote must reference its RecoveryRequest action".into(),
+            ));
+        }
+    };
+    let request_record = must_get_valid_record(request_action_hash.clone())?;
+    let request: RecoveryRequest = request_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Referenced recovery request entry is invalid".into()
+        )))?;
+    if request.id != vote.request_id {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Recovery vote request ID does not match the referenced request".into(),
+        ));
+    }
+
+    // Resolve the frozen config revision and enforce trustee membership at
+    // the integrity layer. Coordinator-only checks are not a security boundary.
+    let config_action_hash = match request.config_action_hash.as_ref() {
+        Some(hash) => hash,
+        None => {
+            return Ok(ValidateCallbackResult::Invalid(
+                "Referenced recovery request has no config revision".into(),
+            ));
+        }
+    };
+    let config_record = must_get_valid_record(config_action_hash.clone())?;
+    let config: RecoveryConfig = config_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+               .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Referenced recovery config entry is invalid".into()
+        )))?;
+    if config.did != request.did || !config.active || !config.trustees.contains(&vote.trustee) {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Recovery vote author is not an authorized trustee for this request".into(),
+        ));
+    }
+
     // Author-binding: the coordinator's vote_on_recovery already checks
     // `input.trustee_did != caller_did` ("Caller must be the claimed
     // trustee") before creating the entry, but that check is bypassable by
@@ -1002,6 +1097,7 @@ mod author_binding_tests {
             status: RecoveryStatus::Pending,
             created: Timestamp::from_micros(0),
             time_lock_expires: None,
+            config_action_hash: None,
         }
     }
 
@@ -1032,6 +1128,7 @@ mod author_binding_tests {
             vote: VoteDecision::Approve,
             comment: None,
             voted_at: Timestamp::from_micros(0),
+            request_action_hash: None,
         }
     }
 
