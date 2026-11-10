@@ -414,15 +414,17 @@ pub fn enroll_factor(input: EnrollFactorInput) -> ExternResult<MfaStateOutput> {
         )));
     }
 
-    // Create new factor
+    // Enrollment records an unverified claim, not proof that the factor is
+    // under the owner's control. Keep it out of assurance calculations until
+    // verify_factor accepts a factor-specific proof.
     let new_factor = EnrolledFactor {
         factor_type: input.factor_type.clone(),
         factor_id: input.factor_id.clone(),
         enrolled_at: now,
         last_verified: now,
         metadata: input.metadata,
-        effective_strength: 1.0,
-        active: true,
+        effective_strength: 0.0,
+        active: false,
     };
 
     // Add the new factor
@@ -655,10 +657,9 @@ pub fn verify_factor(input: VerifyFactorInput) -> ExternResult<MfaStateOutput> {
         )));
     }
 
-    // Update the factor's last_verified timestamp on successful verification
+    // Only successful factor-specific verification activates a pending factor.
     let mut new_factors = current_state.factors.clone();
-    new_factors[factor_idx].last_verified = now;
-    new_factors[factor_idx].effective_strength = 1.0;
+    activate_factor_after_verified_proof(&mut new_factors[factor_idx], now);
 
     // Recalculate assurance
     let (level, strength, category_count) = calculate_assurance_internal(&new_factors, now);
@@ -2359,6 +2360,13 @@ fn get_mfa_state_internal(did: &str) -> ExternResult<(MfaState, ActionHash)> {
 }
 
 /// Calculate assurance level internally
+/// Activate a factor only after its type-specific verification proof succeeds.
+fn activate_factor_after_verified_proof(factor: &mut EnrolledFactor, now: Timestamp) {
+    factor.last_verified = now;
+    factor.effective_strength = 1.0;
+    factor.active = true;
+}
+
 fn calculate_assurance_internal(
     factors: &[EnrolledFactor],
     now: Timestamp,
@@ -2442,6 +2450,57 @@ mod tests {
         let mut f = fresh_factor(factor_type, factor_id, now);
         f.active = false;
         f
+    }
+
+    // --- enrollment and assurance boundaries ---
+
+    #[test]
+    fn newly_enrolled_factor_contributes_zero_until_verified() {
+        let now = Timestamp::from_micros(1_700_000_000_000_000);
+        let primary = fresh_factor(FactorType::PrimaryKeyPair, "primary", now);
+        let pending = EnrolledFactor {
+            factor_type: FactorType::Biometric,
+            factor_id: "biometric-factor".into(),
+            enrolled_at: now,
+            last_verified: now,
+            metadata: "{}".into(),
+            effective_strength: 0.0,
+            active: false,
+        };
+
+        let (before_level, before_strength, before_categories) =
+            calculate_assurance_internal(&[primary.clone(), pending.clone()], now);
+        let (primary_level, primary_strength, primary_categories) =
+            calculate_assurance_internal(&[primary.clone()], now);
+
+        assert_eq!(before_level, primary_level);
+        assert_eq!(before_strength, primary_strength);
+        assert_eq!(before_categories, primary_categories);
+
+        let mut verified = pending;
+        activate_factor_after_verified_proof(&mut verified, now);
+        let (_, after_strength, after_categories) =
+            calculate_assurance_internal(&[primary, verified], now);
+
+        assert!(after_strength > before_strength);
+        assert!(after_categories > before_categories);
+    }
+
+    #[test]
+    fn failed_or_unattempted_verification_cannot_activate_factor() {
+        let now = Timestamp::from_micros(1_700_000_000_000_000);
+        let pending = EnrolledFactor {
+            factor_type: FactorType::GitcoinPassport,
+            factor_id: "passport-factor".into(),
+            enrolled_at: now,
+            last_verified: now,
+            metadata: "{}".into(),
+            effective_strength: 0.0,
+            active: false,
+        };
+
+        assert!(!pending.active);
+        assert_eq!(pending.current_strength(now), 0.0);
     }
 
     // --- calculate_assurance_internal ---
