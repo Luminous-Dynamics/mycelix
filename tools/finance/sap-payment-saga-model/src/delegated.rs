@@ -541,6 +541,29 @@ mod tests {
     }
 
     #[test]
+    fn delegated_snapshot_matches_shared_known_answer() {
+        let fixture = include_str!("../fixtures/sap-payment-delegated-exposure-v1.kat");
+        let expected = fixture
+            .lines()
+            .find_map(|line| line.strip_prefix("parent_snapshot_sha256="))
+            .expect("shared delegated exposure KAT exists");
+        let mut parent = ParentDelegatedExposureBookV1::new(parent_policy(1_000)).unwrap();
+        parent
+            .allocate_child_budget(
+                "provider-a",
+                child_scope("operator:a", "dest:a"),
+                700,
+                1,
+                digest('1'),
+            )
+            .unwrap();
+        assert_eq!(
+            parent.canonical_snapshot_digest().unwrap().strip_prefix("sha256:"),
+            Some(expected)
+        );
+    }
+
+    #[test]
     fn delegated_snapshot_is_insertion_order_independent() {
         let mut first = ParentDelegatedExposureBookV1::new(parent_policy(1_000)).unwrap();
         first.allocate_child_budget("provider-a", child_scope("operator:a", "dest:a"), 300, 1, digest('1')).unwrap();
