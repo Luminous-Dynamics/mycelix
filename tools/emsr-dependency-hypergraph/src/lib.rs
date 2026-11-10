@@ -1,12 +1,142 @@
+use serde::de::{self, MapAccess, SeqAccess, Visitor};
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
+use serde_json::{Map, Number, Value};
 use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
+use std::fmt;
+
+/// Parse exactly one JSON value and reject duplicate property names at every
+/// nesting level. serde_json::Value's default parser is last-key-wins; that is
+/// unsafe for byte-bound evidence contracts because different implementations
+/// can otherwise interpret the same signed bytes differently.
+#[derive(Debug)]
+struct StrictValue(Value);
+
+impl<'de> Deserialize<'de> for StrictValue {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        struct StrictVisitor;
+
+        impl<'de> Visitor<'de> for StrictVisitor {
+            type Value = StrictValue;
+
+            fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+                formatter.write_str("JSON with unique object property names")
+            }
+
+            fn visit_bool<E>(self, value: bool) -> Result<Self::Value, E>
+            where
+                E: de::Error,
+            {
+                Ok(StrictValue(Value::Bool(value)))
+            }
+
+            fn visit_i64<E>(self, value: i64) -> Result<Self::Value, E>
+            where
+                E: de::Error,
+            {
+                Ok(StrictValue(Value::Number(Number::from(value))))
+            }
+
+            fn visit_u64<E>(self, value: u64) -> Result<Self::Value, E>
+            where
+                E: de::Error,
+            {
+                Ok(StrictValue(Value::Number(Number::from(value))))
+            }
+
+            fn visit_f64<E>(self, value: f64) -> Result<Self::Value, E>
+            where
+                E: de::Error,
+            {
+                Number::from_f64(value)
+                    .map(|number| StrictValue(Value::Number(number)))
+                    .ok_or_else(|| E::custom("non-finite JSON number"))
+            }
+
+            fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
+            where
+                E: de::Error,
+            {
+                Ok(StrictValue(Value::String(value.to_owned())))
+            }
+
+            fn visit_string<E>(self, value: String) -> Result<Self::Value, E>
+            where
+                E: de::Error,
+            {
+                Ok(StrictValue(Value::String(value)))
+            }
+
+            fn visit_unit<E>(self) -> Result<Self::Value, E>
+            where
+                E: de::Error,
+            {
+                Ok(StrictValue(Value::Null))
+            }
+
+            fn visit_none<E>(self) -> Result<Self::Value, E>
+            where
+                E: de::Error,
+            {
+                Ok(StrictValue(Value::Null))
+            }
+
+            fn visit_some<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
+            where
+                D: serde::Deserializer<'de>,
+            {
+                StrictValue::deserialize(deserializer)
+            }
+
+            fn visit_seq<A>(self, mut sequence: A) -> Result<Self::Value, A::Error>
+            where
+                A: SeqAccess<'de>,
+            {
+                let mut values = Vec::new();
+                while let Some(value) = sequence.next_element::<StrictValue>()? {
+                    values.push(value.0);
+                }
+                Ok(StrictValue(Value::Array(values)))
+            }
+
+            fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+            where
+                A: MapAccess<'de>,
+            {
+                let mut values = Map::new();
+                while let Some(key) = map.next_key::<String>()? {
+                    if values.contains_key(&key) {
+                        return Err(de::Error::custom("duplicate JSON object property"));
+                    }
+                    let value = map.next_value::<StrictValue>()?;
+                    values.insert(key, value.0);
+                }
+                Ok(StrictValue(Value::Object(values)))
+            }
+        }
+
+        deserializer.deserialize_any(StrictVisitor)
+    }
+}
+
+fn parse_strict_json(bytes: &[u8]) -> Result<Value, ()> {
+    if bytes.len() > MAX_INPUT_BYTES {
+        return Err(());
+    }
+    let mut deserializer = serde_json::Deserializer::from_slice(bytes);
+    let value = StrictValue::deserialize(&mut deserializer).map_err(|_| ())?;
+    deserializer.end().map_err(|_| ())?;
+    Ok(value.0)
+}
 
 pub const INPUT_CONTRACT: &str = "emsr-dependency-hypergraph-input/0.1";
 pub const REPORT_CONTRACT: &str = "emsr-dependency-hypergraph-report/0.1";
 pub const VERIFIER_CONTRACT: &str = "emsr-dependency-hypergraph-reference-verifier/0.1";
-const MAX_NODES: usize = 100_000;
+const MAX_INPUT_BYTES: usize = 16 * 1024 * 1024;
+const MAX_NODES: usize = 100_001;
 const MAX_HYPEREDGES: usize = 500_000;
 const CLAIM_CEILING: &str = "Declared common-dependency assessment over the exact supplied inventory snapshot and evidence frontier; not proof of physical or statistical independence, and not evidence that unknown common causes do not exist.";
 
@@ -147,11 +277,13 @@ struct Validated<'a> {
 
 pub fn evaluate_bytes(input_bytes: &[u8]) -> EvaluationReport {
     let input_sha256 = sha256_hex(input_bytes);
-    match serde_json::from_slice::<HypergraphInput>(input_bytes) {
+    let parsed = parse_strict_json(input_bytes)
+        .and_then(|value| serde_json::from_value::<HypergraphInput>(value).map_err(|_| ()));
+    match parsed {
         Ok(input) => evaluate(&input, input_sha256),
         Err(_) => invalid_report(
             input_sha256,
-            "input_json_invalid_or_contract_fields_unknown",
+            "input_json_invalid_duplicate_or_unknown_contract_fields",
             DependencyDomain::Clock,
             0,
             String::new(),
@@ -276,8 +408,10 @@ pub fn evaluate(input: &HypergraphInput, input_sha256: String) -> EvaluationRepo
 pub fn independently_verify(input_bytes: &[u8], report_bytes: &[u8]) -> VerificationReport {
     let mut checks = Vec::new();
     let input_hash = sha256_hex(input_bytes);
-    let parsed_input = serde_json::from_slice::<HypergraphInput>(input_bytes);
-    let parsed_report = serde_json::from_slice::<EvaluationReport>(report_bytes);
+    let parsed_input = parse_strict_json(input_bytes)
+        .and_then(|value| serde_json::from_value::<HypergraphInput>(value).map_err(|_| ()));
+    let parsed_report = parse_strict_json(report_bytes)
+        .and_then(|value| serde_json::from_value::<EvaluationReport>(value).map_err(|_| ()));
 
     match (parsed_input, parsed_report) {
         (Ok(input), Ok(report)) => {
@@ -384,9 +518,12 @@ fn validate_contract(input: &HypergraphInput, errors: &mut Vec<String>) {
             errors.push("snapshot_scope_entry_is_not_a_source".to_owned());
         }
     }
+    // node_kinds is the authoritative validation index built above. A scan
+    // of the full node vector per source made this O(|sources| * |nodes|);
+    // indexed lookup keeps large frozen inventories linear/log-linear.
     for source_id in &input.query.source_ids {
-        match input.nodes.iter().find(|node| node.id == *source_id) {
-            Some(node) if node.kind == NodeKind::Source => {}
+        match node_kinds.get(source_id.as_str()) {
+            Some(kind) if **kind == NodeKind::Source => {}
             Some(_) => errors.push("queried_node_is_not_a_source".to_owned()),
             None => errors.push("queried_source_missing_from_graph".to_owned()),
         }
@@ -576,6 +713,7 @@ fn reference_report(input: &HypergraphInput, input_sha256: String) -> Evaluation
 
     let mut source_ancestors = BTreeMap::new();
     let mut unknown = Vec::new();
+    let (reference_edges, uncertain_reference_edges) = reference_adjacency(input);
     if !input.snapshot.complete {
         unknown.push("inventory_snapshot_incomplete".to_owned());
     }
@@ -600,14 +738,12 @@ fn reference_report(input: &HypergraphInput, input_sha256: String) -> Evaluation
         {
             unknown.push("source_not_covered_by_inventory_snapshot".to_owned());
         }
-        let mut visiting = BTreeSet::new();
-        let mut done = BTreeSet::new();
         let mut ancestors = BTreeSet::new();
         if reference_visit(
             source,
             input,
-            &mut visiting,
-            &mut done,
+            &reference_edges,
+            &uncertain_reference_edges,
             &mut ancestors,
             &mut unknown,
         ) {
@@ -662,56 +798,86 @@ fn reference_report(input: &HypergraphInput, input_sha256: String) -> Evaluation
     }
 }
 
+type ReferenceEdges<'a> = BTreeMap<&'a str, Vec<&'a DependencyHyperedge>>;
+type ReferenceAdjacency<'a> = (ReferenceEdges<'a>, ReferenceEdges<'a>);
+
+fn reference_adjacency(input: &HypergraphInput) -> ReferenceAdjacency<'_> {
+    let mut qualified = BTreeMap::<&str, Vec<&DependencyHyperedge>>::new();
+    let mut uncertain = BTreeMap::<&str, Vec<&DependencyHyperedge>>::new();
+    for edge in &input.hyperedges {
+        if edge.domain != input.query.domain || !valid_at(edge, input.query.event_time) {
+            continue;
+        }
+        let target = if edge.state == AssertionState::Qualified
+            && edge.recorded_at <= input.snapshot.evidence_frontier
+        {
+            &mut qualified
+        } else {
+            &mut uncertain
+        };
+        for subject in &edge.subject_ids {
+            target.entry(subject.as_str()).or_default().push(edge);
+        }
+    }
+    for edges in qualified.values_mut() {
+        edges.sort_by(|left, right| left.id.cmp(&right.id));
+    }
+    for edges in uncertain.values_mut() {
+        edges.sort_by(|left, right| left.id.cmp(&right.id));
+    }
+    (qualified, uncertain)
+}
+
+/// Independent depth-first reference traversal. It uses an explicit event
+/// stack rather than recursion and a separately built index, so long valid
+/// chains cannot exhaust the verifier thread stack.
 fn reference_visit(
-    node_id: &str,
+    start: &str,
     input: &HypergraphInput,
-    visiting: &mut BTreeSet<String>,
-    done: &mut BTreeSet<String>,
+    qualified: &BTreeMap<&str, Vec<&DependencyHyperedge>>,
+    uncertain: &BTreeMap<&str, Vec<&DependencyHyperedge>>,
     ancestors: &mut BTreeSet<String>,
     unknown: &mut Vec<String>,
 ) -> bool {
-    if done.contains(node_id) {
-        return false;
-    }
-    if !visiting.insert(node_id.to_owned()) {
-        return true;
-    }
-    if input
-        .snapshot
-        .covered_node_ids
-        .binary_search(&node_id.to_owned())
-        .is_err()
-    {
-        unknown.push("reachable_node_not_covered_by_inventory_snapshot".to_owned());
-    }
+    let mut visiting = BTreeSet::<String>::new();
+    let mut done = BTreeSet::<String>::new();
+    let mut stack = vec![(start.to_owned(), false)];
 
-    for edge in &input.hyperedges {
-        if edge.domain != input.query.domain
-            || !edge.subject_ids.iter().any(|subject| subject == node_id)
-            || !valid_at(edge, input.query.event_time)
-        {
+    while let Some((node_id, exiting)) = stack.pop() {
+        if exiting {
+            visiting.remove(&node_id);
+            done.insert(node_id);
             continue;
         }
-        if edge.state != AssertionState::Qualified
-            || edge.recorded_at > input.snapshot.evidence_frontier
-        {
-            unknown.push("applicable_assertion_not_qualified_or_outside_frontier".to_owned());
+        if done.contains(&node_id) {
             continue;
         }
-        ancestors.insert(edge.dependency_id.clone());
-        if reference_visit(
-            &edge.dependency_id,
-            input,
-            visiting,
-            done,
-            ancestors,
-            unknown,
-        ) {
+        if !visiting.insert(node_id.clone()) {
             return true;
         }
+        if input
+            .snapshot
+            .covered_node_ids
+            .binary_search(&node_id)
+            .is_err()
+        {
+            unknown.push("reachable_node_not_covered_by_inventory_snapshot".to_owned());
+        }
+        if uncertain
+            .get(node_id.as_str())
+            .is_some_and(|edges| !edges.is_empty())
+        {
+            unknown.push("applicable_assertion_not_qualified_or_outside_frontier".to_owned());
+        }
+
+        stack.push((node_id.clone(), true));
+        if let Some(edges) = qualified.get(node_id.as_str()) {
+            for edge in edges.iter().rev() {
+                ancestors.insert(edge.dependency_id.clone());
+                stack.push((edge.dependency_id.clone(), false));
+            }
+        }
     }
-    visiting.remove(node_id);
-    done.insert(node_id.to_owned());
     false
 }
 
@@ -857,6 +1023,68 @@ mod tests {
     fn evaluate_fixture(input: &HypergraphInput) -> EvaluationReport {
         let bytes = serde_json::to_vec(input).unwrap();
         evaluate_bytes(&bytes)
+    }
+
+    #[test]
+    fn strict_json_parser_rejects_oversized_input_before_deserialization() {
+        let bytes = vec![b' '; MAX_INPUT_BYTES + 1];
+        assert!(parse_strict_json(&bytes).is_err());
+    }
+
+    #[test]
+    fn duplicate_top_level_json_properties_are_rejected() {
+        let input = br#"{"contract":"emsr-dependency-hypergraph-input/0.1","contract":"emsr-dependency-hypergraph-input/0.1"}"#;
+        let report = evaluate_bytes(input);
+        assert_eq!(report.disposition, Disposition::InvalidInput);
+        assert_eq!(
+            report.reason_codes,
+            vec!["input_json_invalid_duplicate_or_unknown_contract_fields"]
+        );
+    }
+
+    #[test]
+    fn duplicate_nested_json_properties_are_rejected() {
+        let input = br#"{"contract":"emsr-dependency-hypergraph-input/0.1","snapshot":{"snapshot_id":"one","snapshot_id":"two"}}"#;
+        let report = evaluate_bytes(input);
+        assert_eq!(report.disposition, Disposition::InvalidInput);
+        assert_eq!(
+            report.reason_codes,
+            vec!["input_json_invalid_duplicate_or_unknown_contract_fields"]
+        );
+    }
+
+    #[test]
+    fn unknown_top_level_contract_fields_are_rejected() {
+        let input = fixture();
+        let mut value = serde_json::to_value(&input).unwrap();
+        value
+            .as_object_mut()
+            .unwrap()
+            .insert("unexpected".into(), Value::Bool(true));
+        let bytes = serde_json::to_vec(&value).unwrap();
+        let report = evaluate_bytes(&bytes);
+        assert_eq!(report.disposition, Disposition::InvalidInput);
+        assert_eq!(
+            report.reason_codes,
+            vec!["input_json_invalid_duplicate_or_unknown_contract_fields"]
+        );
+        let report_bytes = serde_json::to_vec(&report).unwrap();
+        assert_eq!(
+            independently_verify(&bytes, &report_bytes).status,
+            "rejected"
+        );
+    }
+
+    #[test]
+    fn trailing_json_values_are_rejected() {
+        let mut bytes = serde_json::to_vec(&fixture()).unwrap();
+        bytes.extend_from_slice(br#" {}"#);
+        let report = evaluate_bytes(&bytes);
+        assert_eq!(report.disposition, Disposition::InvalidInput);
+        assert_eq!(
+            report.reason_codes,
+            vec!["input_json_invalid_duplicate_or_unknown_contract_fields"]
+        );
     }
 
     #[test]

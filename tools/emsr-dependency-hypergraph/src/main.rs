@@ -1,6 +1,7 @@
 use emsr_dependency_hypergraph::{evaluate_bytes, independently_verify};
 use std::env;
-use std::fs;
+use std::fs::{self, File};
+use std::io::Read;
 
 fn main() {
     if let Err(error) = run() {
@@ -35,14 +36,54 @@ fn run() -> Result<(), String> {
 }
 
 fn read_bounded(path: &str) -> Result<Vec<u8>, String> {
-    let metadata = fs::metadata(path).map_err(|e| format!("cannot inspect {path}: {e}"))?;
-    if metadata.len() > 16 * 1024 * 1024 {
+    const MAX_BYTES: usize = 16 * 1024 * 1024;
+    let file = File::open(path).map_err(|e| format!("cannot open {path}: {e}"))?;
+    let mut bytes = Vec::with_capacity(64 * 1024);
+    file.take((MAX_BYTES + 1) as u64)
+        .read_to_end(&mut bytes)
+        .map_err(|e| format!("cannot read {path}: {e}"))?;
+    if bytes.len() > MAX_BYTES {
         return Err(format!("input exceeds 16 MiB: {path}"));
     }
-    fs::read(path).map_err(|e| format!("cannot read {path}: {e}"))
+    Ok(bytes)
 }
 
 fn write_json(path: &str, value: &impl serde::Serialize) -> Result<(), String> {
     let bytes = serde_json::to_vec_pretty(value).map_err(|e| e.to_string())?;
     fs::write(path, bytes).map_err(|e| format!("cannot write {path}: {e}"))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::read_bounded;
+    use std::fs;
+
+    #[test]
+    fn bounded_reader_rejects_files_larger_than_sixteen_mib() {
+        const LIMIT: usize = 16 * 1024 * 1024;
+        let mut path = std::env::temp_dir();
+        path.push(format!(
+            "emsr-dependency-hypergraph-oversize-{}-{}.json",
+            std::process::id(),
+            std::thread::current().name().unwrap_or("test")
+        ));
+        fs::write(&path, vec![b' '; LIMIT + 1]).expect("write temporary test input");
+        let result = read_bounded(path.to_str().expect("UTF-8 temporary path"));
+        let _ = fs::remove_file(&path);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn bounded_reader_accepts_small_files_without_metadata_precheck() {
+        let mut path = std::env::temp_dir();
+        path.push(format!(
+            "emsr-dependency-hypergraph-small-{}-{}.json",
+            std::process::id(),
+            std::thread::current().name().unwrap_or("test")
+        ));
+        fs::write(&path, b"{}").expect("write temporary test input");
+        let result = read_bounded(path.to_str().expect("UTF-8 temporary path"));
+        let _ = fs::remove_file(&path);
+        assert_eq!(result.expect("small file is below the byte limit"), b"{}");
+    }
 }

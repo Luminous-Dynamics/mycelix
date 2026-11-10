@@ -63,3 +63,50 @@ The Rust suite also includes metamorphic tests that do not depend on a single ha
 - Inserting a qualified common ancestor changes the result from no declared common domain to shared dependency; making that edge stale produces unknown, never a clean independent result.
 
 These are metamorphic software properties, not statistical independence or physical fault-injection results.
+
+
+## Civil-domain consumer profiles
+
+The same graph evaluator is now exercised by a separate civil-domain integration test module, without changing the graph vocabulary or adding a second implementation:
+
+- **UAS:** two RF observation feeds with distinct immediate collectors but one shared collector ancestor (collector).
+- **Maritime:** AIS and radar processing paths with distinct immediate pipelines but one shared port-correlation platform (data_pipeline).
+- **Civil aviation:** ADS-B and MLAT paths with separate clock domains but a shared airport power bus. A clock query remains NO_DECLARED_COMMON_DOMAIN; a power query returns SHARED_DEPENDENCY.
+- **Positive control:** a complete inventory with no common ancestor remains NO_DECLARED_COMMON_DOMAIN; the report claim ceiling explicitly says this is not proof of physical/statistical independence.
+
+Each Rust civil-domain profile also passes the existing separate Rust reference traversal. The Go standard-library verifier has matching profile tests and verifies the same report contract.
+
+## Reproducible scale benchmark
+
+An isolated standard-library benchmark driver is available at `examples/scale_benchmark.rs`. It generates a synthetic star-shaped dependency hypergraph at 10, 100, 1,000, 10,000 and 100,000 sources, with one multi-subject shared-clock hyperedge. For each size it reports input SHA-256/bytes, node/edge counts, evaluator p50/p95/p99/min/max, independent-reference-verifier p50/p95/p99/min/max, disposition, verifier status and Linux process high-water RSS where available.
+
+Run in optimized mode:
+
+```sh
+cargo run --release --manifest-path tools/emsr-dependency-hypergraph/Cargo.toml --example scale_benchmark -- /tmp/emsr-hypergraph-scale.json
+GCPN_BENCH_REPETITIONS=31 cargo run --release --manifest-path tools/emsr-dependency-hypergraph/Cargo.toml --example scale_benchmark
+```
+
+The default is 101 measured repetitions after one unmeasured warm-up; `GCPN_BENCH_REPETITIONS` is clamped to 101–501 so the reported nearest-rank p99 is not merely the maximum of a tiny sample. Results include commit SHA (when run in GitHub Actions), OS, architecture, rustc version and debug/release state. The 16 MiB parser limit is not relaxed for the benchmark; oversized synthetic cases are reported as rejected rather than silently excluded or scored.
+
+The driver is a synthetic scale harness, not an observed result. Do not publish p50/p95/p99 or memory numbers until the exact revision, host, toolchain, input digests and complete output JSON are retained. The star graph is intentionally simple; follow it with chain, fan-in/fan-out, dense dependency, unknown-edge, temporal filtering and many-small-components shapes before making general throughput claims.
+
+## Scale and traversal behavior
+
+The main Rust evaluator retains its indexed breadth-first closure; the independent Rust reference traversal now uses a separately built subject index and explicit depth-first event stack. The Go reference verifier uses its own subject index and explicit DFS event stack. Both avoid recursive stack growth and repeated full-hyperedge scans for each visited node.
+
+The integration tests include two 10,000-edge-deep maritime lineage branches converging on a shared ancestor. This is a stack-safety/correctness stress case, not a latency or throughput benchmark. Benchmark runs must still report p50/p95/p99, peak memory, graph shape and input digests at declared source/hyperedge sizes before any performance claim.
+
+Both Rust and Go parsers enforce the same 16 MiB input limit. The Rust CLI's bounded reader and both language-level parsers reject oversize input before full deserialization.
+
+## Parser and byte-boundary hardening
+
+Input and report parsing is strict in both language implementations:
+- duplicate JSON object keys are rejected at every nesting level;
+- unknown input fields are rejected (Rust uses deny_unknown_fields; Go uses DisallowUnknownFields);
+- multiple trailing JSON values are rejected;
+- Rust CLI reads use a capped Read::take(max+1) rather than a metadata-then-unbounded-read sequence; Go uses io.LimitReader.
+
+The parser changes remain subject to exact-head workflow results on the integration PR. A passing parser test proves only deterministic interpretation of supplied JSON bytes, not issuer authenticity.
+
+Follow-on integration: [#5997 — civil-domain hypergraph and parser integrity](https://github.com/Luminous-Dynamics/mycelix/issues/5997).

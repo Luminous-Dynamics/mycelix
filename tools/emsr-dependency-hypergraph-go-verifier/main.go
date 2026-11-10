@@ -22,7 +22,7 @@ const (
 	authority        = "declared_dependency_assessment_only"
 	maxNodes         = 100_000
 	maxHyperedges    = 500_000
-	maxFileBytes     = 128 << 20
+	maxFileBytes     = 16 << 20
 )
 
 type Input struct {
@@ -141,8 +141,15 @@ func readBounded(path string, maxBytes int64) ([]byte, error) {
 
 func decodeStrict[T any](data []byte) (T, error) {
 	var value T
+	if int64(len(data)) > maxFileBytes {
+		return value, errors.New("JSON input exceeds the 16 MiB limit")
+	}
+	if err := rejectDuplicateJSONKeys(data); err != nil {
+		return value, err
+	}
 	decoder := json.NewDecoder(bytes.NewReader(data))
 	decoder.DisallowUnknownFields()
+	decoder.UseNumber()
 	if err := decoder.Decode(&value); err != nil {
 		return value, err
 	}
@@ -154,6 +161,82 @@ func decodeStrict[T any](data []byte) (T, error) {
 		return value, err
 	}
 	return value, nil
+}
+
+// rejectDuplicateJSONKeys walks decoder tokens before typed decoding. The Go
+// encoding/json package otherwise accepts duplicate names and keeps the last
+// value, which can make byte-identical signed evidence mean different things
+// to different parsers.
+func rejectDuplicateJSONKeys(data []byte) error {
+	decoder := json.NewDecoder(bytes.NewReader(data))
+	decoder.UseNumber()
+	if err := walkUniqueJSONValue(decoder); err != nil {
+		return err
+	}
+	if _, err := decoder.Token(); !errors.Is(err, io.EOF) {
+		if err == nil {
+			return errors.New("multiple JSON values are not permitted")
+		}
+		return err
+	}
+	return nil
+}
+
+func walkUniqueJSONValue(decoder *json.Decoder) error {
+	token, err := decoder.Token()
+	if err != nil {
+		return err
+	}
+	delim, isDelimiter := token.(json.Delim)
+	if !isDelimiter {
+		return nil
+	}
+
+	switch delim {
+	case '{':
+		seen := make(map[string]struct{})
+		for decoder.More() {
+			keyToken, err := decoder.Token()
+			if err != nil {
+				return err
+			}
+			key, ok := keyToken.(string)
+			if !ok {
+				return errors.New("JSON object property name is not a string")
+			}
+			if _, exists := seen[key]; exists {
+				return errors.New("duplicate JSON object property")
+			}
+			seen[key] = struct{}{}
+			if err := walkUniqueJSONValue(decoder); err != nil {
+				return err
+			}
+		}
+		end, err := decoder.Token()
+		if err != nil {
+			return err
+		}
+		if end != json.Delim('}') {
+			return errors.New("unterminated JSON object")
+		}
+		return nil
+	case '[':
+		for decoder.More() {
+			if err := walkUniqueJSONValue(decoder); err != nil {
+				return err
+			}
+		}
+		end, err := decoder.Token()
+		if err != nil {
+			return err
+		}
+		if end != json.Delim(']') {
+			return errors.New("unterminated JSON array")
+		}
+		return nil
+	default:
+		return errors.New("unexpected JSON closing delimiter")
+	}
 }
 
 func verify(inputBytes, reportBytes []byte) VerificationReport {
@@ -265,18 +348,26 @@ func referenceReport(input Input, inputHash string) Report {
 		unknown = append(unknown, "inventory_snapshot_older_than_event_time")
 	}
 
+	qualified, uncertain := referenceAdjacency(input)
+	scopedSources := make(map[string]bool, len(input.Snapshot.ScopedSourceIDs))
+	for _, source := range input.Snapshot.ScopedSourceIDs {
+		scopedSources[source] = true
+	}
+	coveredNodes := make(map[string]bool, len(input.Snapshot.CoveredNodeIDs))
+	for _, node := range input.Snapshot.CoveredNodeIDs {
+		coveredNodes[node] = true
+	}
+
 	sourceAncestors := make(map[string][]string, len(input.Query.SourceIDs))
 	for _, source := range input.Query.SourceIDs {
-		if !contains(input.Snapshot.ScopedSourceIDs, source) {
+		if !scopedSources[source] {
 			unknown = append(unknown, "source_outside_inventory_scope")
 		}
-		if !contains(input.Snapshot.CoveredNodeIDs, source) {
+		if !coveredNodes[source] {
 			unknown = append(unknown, "source_not_covered_by_inventory_snapshot")
 		}
-		visiting := make(map[string]bool)
-		done := make(map[string]bool)
 		ancestors := make(map[string]bool)
-		if visit(source, input, visiting, done, ancestors, &unknown) {
+		if referenceVisit(source, qualified, uncertain, coveredNodes, ancestors, &unknown) {
 			return invalidReport(inputHash, []string{"dependency_cycle_detected"},
 				input.Query.Domain, input.Query.EventTime, input.Snapshot.SnapshotID,
 				input.Query.SourceIDs, input.Snapshot.EvidenceFrontier)
@@ -313,35 +404,82 @@ func referenceReport(input Input, inputHash string) Report {
 	}
 }
 
-func visit(nodeID string, input Input, visiting, done, ancestors map[string]bool, unknown *[]string) bool {
-	if done[nodeID] {
-		return false
-	}
-	if visiting[nodeID] {
-		return true
-	}
-	visiting[nodeID] = true
+type referenceVisitEvent struct {
+	nodeID  string
+	exiting bool
+}
 
-	if !contains(input.Snapshot.CoveredNodeIDs, nodeID) {
-		*unknown = append(*unknown, "reachable_node_not_covered_by_inventory_snapshot")
-	}
+// The Go reference uses a depth-first event stack and one-time subject index.
+// It is algorithmically separate from the Rust evaluator's breadth-first
+// closure and avoids recursion and O(V*E) full-edge rescans on long chains.
+func referenceAdjacency(input Input) (map[string][]DependencyHyperedge, map[string][]DependencyHyperedge) {
+	qualified := make(map[string][]DependencyHyperedge)
+	uncertain := make(map[string][]DependencyHyperedge)
 	for _, edge := range input.Hyperedges {
-		if edge.Domain != input.Query.Domain ||
-			!contains(edge.SubjectIDs, nodeID) ||
-			!validAt(edge, input.Query.EventTime) {
+		if edge.Domain != input.Query.Domain || !validAt(edge, input.Query.EventTime) {
 			continue
 		}
+		target := qualified
 		if edge.State != "qualified" || edge.RecordedAt > input.Snapshot.EvidenceFrontier {
-			*unknown = append(*unknown, "applicable_assertion_not_qualified_or_outside_frontier")
+			target = uncertain
+		}
+		for _, subject := range edge.SubjectIDs {
+			target[subject] = append(target[subject], edge)
+		}
+	}
+	for _, edges := range qualified {
+		sort.Slice(edges, func(i, j int) bool { return edges[i].ID < edges[j].ID })
+	}
+	for _, edges := range uncertain {
+		sort.Slice(edges, func(i, j int) bool { return edges[i].ID < edges[j].ID })
+	}
+	return qualified, uncertain
+}
+
+func referenceVisit(
+	start string,
+	qualified map[string][]DependencyHyperedge,
+	uncertain map[string][]DependencyHyperedge,
+	covered map[string]bool,
+	ancestors map[string]bool,
+	unknown *[]string,
+) bool {
+	visiting := make(map[string]bool)
+	done := make(map[string]bool)
+	stack := []referenceVisitEvent{{nodeID: start}}
+
+	for len(stack) > 0 {
+		event := stack[len(stack)-1]
+		stack = stack[:len(stack)-1]
+
+		if event.exiting {
+			delete(visiting, event.nodeID)
+			done[event.nodeID] = true
 			continue
 		}
-		ancestors[edge.DependencyID] = true
-		if visit(edge.DependencyID, input, visiting, done, ancestors, unknown) {
+		if done[event.nodeID] {
+			continue
+		}
+		if visiting[event.nodeID] {
 			return true
 		}
+		visiting[event.nodeID] = true
+
+		if !covered[event.nodeID] {
+			*unknown = append(*unknown, "reachable_node_not_covered_by_inventory_snapshot")
+		}
+		if len(uncertain[event.nodeID]) > 0 {
+			*unknown = append(*unknown, "applicable_assertion_not_qualified_or_outside_frontier")
+		}
+
+		stack = append(stack, referenceVisitEvent{nodeID: event.nodeID, exiting: true})
+		edges := qualified[event.nodeID]
+		for index := len(edges) - 1; index >= 0; index-- {
+			edge := edges[index]
+			ancestors[edge.DependencyID] = true
+			stack = append(stack, referenceVisitEvent{nodeID: edge.DependencyID})
+		}
 	}
-	delete(visiting, nodeID)
-	done[nodeID] = true
 	return false
 }
 
