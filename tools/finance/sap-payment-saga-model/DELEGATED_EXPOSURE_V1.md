@@ -41,6 +41,8 @@ A closed grant remains in canonical history and cannot be reactivated. A new gra
 
 This is intentionally conservative. Unused child sublimits remain encumbered until the grant is explicitly closed. That sacrifices dynamic utilization but prevents multiple destinations from independently spending the same parent headroom while partitioned.
 
+A monotonic parent policy reduction preserves all current child grants. If the sum of Active and Revoking grants exceeds the new parent total cap, new child effects are blocked until enough grants are resolved and closed to bring encumbrance back within the new cap. A child grant that exceeds the new per-child ceiling is also blocked from creating new effects. Exact retries for existing effect identities and resolution of existing effects remain available. A reduced policy never deletes, shrinks or silently reassigns an existing child grant.
+
 The parent can reallocate a closed budget through a new grant. This reference does not implement cross-owner atomic rebalancing or mid-flight budget shrink.
 
 ## Retry, finality and reconciliation
@@ -48,6 +50,7 @@ The parent can reallocate a closed budget through a new grant. This reference do
 - An exact retry for an existing effect resolves idempotently, including while the grant is Revoking.
 - A changed intent under the same effect ID conflicts.
 - New effects cannot reserve under Revoking or Closed grants.
+- New effects also fail closed when existing parent encumbrance or an existing child grant exceeds a lowered policy cap.
 - Final settlement and authoritative absence are distinct typed resolution kinds.
 - A provider acceptance acknowledgement is not final settlement evidence.
 - Reconciliation continues during revocation.
