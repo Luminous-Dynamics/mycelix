@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - 'tools/finance/sap-payment-saga-model/**'
+      - 'tools/finance/sap-payment-saga-go-verifier/**'
       - '.github/workflows/sap-payment-saga-model-qualification.yml'
   push:
     branches: [main]
@@ -36,3 +37,27 @@ jobs:
         run: cargo test --manifest-path tools/finance/sap-payment-saga-model/Cargo.toml
       - name: Run Clippy
         run: cargo clippy --manifest-path tools/finance/sap-payment-saga-model/Cargo.toml --all-targets -- -D warnings
+      - name: Set up independent Go reference verifier
+        if: hashFiles('tools/finance/sap-payment-saga-go-verifier/go.mod') != ''
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.24.0"
+          cache: false
+      - name: Check Go formatting
+        if: hashFiles('tools/finance/sap-payment-saga-go-verifier/go.mod') != ''
+        working-directory: tools/finance/sap-payment-saga-go-verifier
+        run: |
+          unformatted="$(gofmt -l .)"
+          if [ -n "$unformatted" ]; then
+            printf 'Files requiring gofmt:\\n%s\\n' "$unformatted"
+            gofmt -d $unformatted
+            exit 1
+          fi
+      - name: Run Go static analysis
+        if: hashFiles('tools/finance/sap-payment-saga-go-verifier/go.mod') != ''
+        working-directory: tools/finance/sap-payment-saga-go-verifier
+        run: go vet ./...
+      - name: Run independent Go reference tests
+        if: hashFiles('tools/finance/sap-payment-saga-go-verifier/go.mod') != ''
+        working-directory: tools/finance/sap-payment-saga-go-verifier
+        run: go test -race -count=1 ./...
