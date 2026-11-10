@@ -8,6 +8,7 @@ import (
 	"errors"
 	"sort"
 	"strings"
+	"unicode/utf8"
 )
 
 const (
@@ -384,7 +385,7 @@ func (b *ExposureBookV1) transition(effectID string, allowed []ExposureStatus, n
 }
 
 func validateExposureText(value string) error {
-	if value == "" || len(value) > maxExposureFieldBytes {
+	if value == "" || len(value) > maxExposureFieldBytes || !utf8.ValidString(value) {
 		return ErrExposureInvalidText
 	}
 	return nil
