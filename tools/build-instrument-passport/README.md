@@ -8,7 +8,7 @@ This is a synthetic typed-record and applicability-check slice for Mycelix #6034
 - Capability records preserve operating range and conditions, resolution, accuracy basis/evidence class, response time, repeatability, drift and cross-sensitivity state.
 - Calibration records preserve certificate identity/authentication, laboratory accreditation scope, method/revision, measurand/unit/range, reference standards, traceability, as-found/as-left results, prior-data impact, and uncertainty.
 - Installation records preserve exact asset/building/room, geometry revision, local frame, placement, mounting/shielding and relocation state.
-- Samples preserve value, raw/derived processing state, QC state, event/acquisition time, time unit/timezone/clock source, synchronization uncertainty, sequence, processing method, source digest and exact calibration/installation/firmware/profile references.
+- Samples preserve value, raw/derived processing state, QC state, observation date, event/acquisition time, time unit/timezone/clock source, synchronization uncertainty, sequence, processing method, source digest and exact calibration/installation/firmware/profile references.
 - The independent-assay object is separate from the instrument sample. Channels that require an independent assay must bind the assay to the exact measured sample ID/digest, measurand, method/revision, laboratory scope, certificate and rights. An instrument reading cannot self-certify water quality.
 - Uncertainty components preserve source records and correlation groups. This slice does not silently treat correlated inputs as independent, combine an uncertainty budget, or calculate a propagated uncertainty.
 - A purpose profile defines synthetic decision-specific range, response-time, time-synchronization and uncertainty limits. It is not a universal comfort, safety or code threshold.
@@ -27,7 +27,7 @@ An eligible record is not a PASS, measurement certification or device command. N
 
 ## Synthetic corpus
 
-45 frozen cases cover vendor-only capability, mismatched measurand/unit/range, calibration certificate and scope, traceability, as-found problems, relocation, serial reuse, firmware revisions, timebase/sequence, saturation and faults, derived-measure lineage, uncertainty/correlation, independent-assay binding, rights revocation and overbroad IAQ claims.
+48 frozen cases cover vendor-only capability, mismatched measurand/unit/range, calibration certificate and scope, traceability, as-found problems, relocation, serial reuse, firmware revisions, timebase/sequence, saturation and faults, derived-measure lineage, uncertainty/correlation, independent-assay binding, rights revocation and overbroad IAQ claims.
 
 ## Standards and method sources
 
