@@ -1,0 +1,270 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Luminous-Dynamics/mycelix/blob/research/build-measurement-invalidation-v0.1/docs/metrology/MEASUREMENT_EVIDENCE_INVALIDATION_CORPUS_V0_1.schema.json",
+  "title": "Measurement Evidence Invalidation Corpus v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "corpus_id",
+    "classification",
+    "claim_ceiling",
+    "cases"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "mycelix.measurement-evidence-invalidation-corpus/0.1"
+    },
+    "corpus_id": {
+      "const": "BUILD-MEASUREMENT-INVALIDATION-CORPUS-V0.1"
+    },
+    "classification": {
+      "const": "synthetic_dependency_and_invalidation_cases"
+    },
+    "claim_ceiling": {
+      "const": "synthetic_graph_semantics_only"
+    },
+    "cases": {
+      "type": "array",
+      "minItems": 28,
+      "maxItems": 28,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "case_id",
+          "description",
+          "graph",
+          "expected"
+        ],
+        "properties": {
+          "case_id": {
+            "type": "string",
+            "pattern": "^MEI-[0-9]{3}$"
+          },
+          "description": {
+            "type": "string",
+            "minLength": 20
+          },
+          "graph": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "nodes",
+              "edges",
+              "events"
+            ],
+            "properties": {
+              "nodes": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "node_id",
+                    "node_kind",
+                    "subject_id",
+                    "revision",
+                    "content_digest",
+                    "state"
+                  ],
+                  "properties": {
+                    "node_id": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "node_kind": {
+                      "enum": [
+                        "instrument_configuration",
+                        "calibration",
+                        "installation",
+                        "raw_sample",
+                        "derived_transform",
+                        "uncertainty_budget",
+                        "independent_assay",
+                        "purpose_profile",
+                        "measurement_claim",
+                        "configuration_revision"
+                      ]
+                    },
+                    "subject_id": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "revision": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "content_digest": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "state": {
+                      "enum": [
+                        "current",
+                        "unknown",
+                        "revoked",
+                        "expired",
+                        "superseded",
+                        "corrected"
+                      ]
+                    }
+                  }
+                }
+              },
+              "edges": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "dependency_id",
+                    "dependent_id",
+                    "dependency_revision",
+                    "dependency_digest"
+                  ],
+                  "properties": {
+                    "dependency_id": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "dependent_id": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "dependency_revision": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "dependency_digest": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  }
+                }
+              },
+              "events": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "event_id",
+                    "target_node_id",
+                    "target_revision",
+                    "target_digest",
+                    "event_kind",
+                    "reason_code"
+                  ],
+                  "properties": {
+                    "event_id": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "target_node_id": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "target_revision": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "target_digest": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "event_kind": {
+                      "enum": [
+                        "correction",
+                        "revocation",
+                        "expiry",
+                        "supersession",
+                        "rights_revocation",
+                        "firmware_change",
+                        "installation_change",
+                        "method_change",
+                        "uncertainty_change",
+                        "assay_revocation"
+                      ]
+                    },
+                    "reason_code": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "expected": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "disposition",
+              "error_code",
+              "topological_order",
+              "node_states",
+              "invalidated_nodes"
+            ],
+            "properties": {
+              "disposition": {
+                "enum": [
+                  "CURRENT",
+                  "PARTIALLY_INVALIDATED",
+                  "NO_CURRENT_EVIDENCE",
+                  "INVALID_GRAPH"
+                ]
+              },
+              "error_code": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "topological_order": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "node_states": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "node_id",
+                    "state"
+                  ],
+                  "properties": {
+                    "node_id": {
+                      "type": "string"
+                    },
+                    "state": {
+                      "enum": [
+                        "current",
+                        "unknown",
+                        "revoked",
+                        "expired",
+                        "superseded",
+                        "corrected",
+                        "invalidated"
+                      ]
+                    }
+                  }
+                }
+              },
+              "invalidated_nodes": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
