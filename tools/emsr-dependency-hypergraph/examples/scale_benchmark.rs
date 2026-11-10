@@ -740,8 +740,9 @@ fn quantile(values: &[f64], probability: f64) -> f64 {
     if values.is_empty() {
         return 0.0;
     }
-    let index = ((values.len() - 1) as f64 * probability).ceil() as usize;
-    values[index.min(values.len() - 1)]
+    let rank = (values.len() as f64 * probability).ceil() as usize;
+    let index = rank.saturating_sub(1).min(values.len() - 1);
+    values[index]
 }
 
 fn empty_timing() -> TimingSummary {
@@ -968,6 +969,10 @@ mod tests {
         assert_eq!(quantile(&values, 0.50), 3.0);
         assert_eq!(quantile(&values, 0.95), 5.0);
         assert_eq!(quantile(&values, 0.99), 5.0);
+
+        let five_hundred = (1..=500).map(f64::from).collect::<Vec<_>>();
+        assert_eq!(quantile(&five_hundred, 0.95), 475.0);
+        assert_eq!(quantile(&five_hundred, 0.99), 495.0);
     }
 
     #[test]
