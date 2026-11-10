@@ -762,8 +762,7 @@
           "type": "number"
         },
         "observed_at_date": {
-          "type": "string",
-          "format": "date"
+          "type": "string"
         }
       }
     },
