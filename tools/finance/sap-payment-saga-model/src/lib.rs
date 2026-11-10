@@ -12,6 +12,7 @@
 //! predecessor authorization, monetary conservation in production, or legal
 //!/external settlement finality.
 
+pub mod exposure;
 pub mod trace;
 
 use std::collections::{BTreeMap, btree_map::Entry};
