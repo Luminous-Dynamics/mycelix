@@ -248,7 +248,45 @@ func applyJournalEvent(journal *Journal, event JournalEvent) error {
 	}
 }
 
+// validateJournalEventShape rejects fields that are not part of the selected event variant.
+// Without this check, callers could attach ignored payload to an event: the digest
+// would omit those bytes while the in-memory event still carried them. Rust's enum
+// representation makes these impossible to construct; enforce the same invariant in Go.
+func validateJournalEventShape(event JournalEvent) error {
+	zeroIntent := Intent{}
+	validLeg := event.Leg == LocalPaymentTransaction || event.Leg == TreasuryFee
+
+	switch event.Kind {
+	case JournalCreated:
+		if event.OperationID == "" || event.Leg != "" || event.EffectID != "" || event.Evidence != nil {
+			return ErrReplayInvalidEvent
+		}
+	case JournalAuthorized, JournalRejected:
+		if event.OperationID != "" || event.Intent != zeroIntent ||
+			event.Leg != "" || event.EffectID != "" || event.Evidence != nil {
+			return ErrReplayInvalidEvent
+		}
+	case JournalEffectPrepared, JournalEffectIndeterminate:
+		if event.OperationID != "" || event.Intent != zeroIntent ||
+			!validLeg || event.EffectID == "" || event.Evidence != nil {
+			return ErrReplayInvalidEvent
+		}
+	case JournalEffectCommitted:
+		if event.OperationID != "" || event.Intent != zeroIntent ||
+			!validLeg || event.EffectID != "" || event.Evidence == nil ||
+			event.Evidence.Leg != event.Leg {
+			return ErrReplayInvalidEvent
+		}
+	default:
+		return ErrReplayInvalidEvent
+	}
+	return nil
+}
+
 func journalEventDigest(sequence uint64, previous string, event JournalEvent) (string, error) {
+	if err := validateJournalEventShape(event); err != nil {
+		return "", err
+	}
 	var encoded []byte
 	encoded = append(encoded, []byte(journalEventDomain)...)
 	var number [8]byte
