@@ -69,6 +69,10 @@ func checkpointFixtureSubject(t *testing.T, fields map[string]string) OwnerCheck
 	if err != nil {
 		t.Fatalf("decode source action hash: %v", err)
 	}
+	authorityActionHash, err := hex.DecodeString(fields["owner_authority_action_hash_hex"])
+	if err != nil {
+		t.Fatalf("decode owner authority action hash: %v", err)
+	}
 	optional := func(name string) *string {
 		if fields[name] == "-" {
 			return nil
@@ -86,6 +90,7 @@ func checkpointFixtureSubject(t *testing.T, fields map[string]string) OwnerCheck
 		CheckpointSequence:         sequence,
 		PriorCheckpointDigest:      optional("prior_checkpoint_digest"),
 		SourceActionHash:           actionHash,
+		OwnerAuthorityActionHash:   authorityActionHash,
 		IssuerDID:                  fields["issuer_did"],
 		IssuerKeyFingerprint:       fields["issuer_key_fingerprint"],
 		OwnerAuthorityDigest:       fields["owner_authority_digest"],
