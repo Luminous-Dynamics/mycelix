@@ -88,3 +88,10 @@ The replay benchmark now measures the same deterministic synthetic histories in 
 The Rust harness is at tools/finance/sap-payment-saga-model/benches/replay_benchmark.rs. Both benchmarks run in the same Actions job and print the Rust/Go toolchain versions, OS/architecture and CPU model. Raw sample output remains in the job log.
 
 This is a matched in-memory microbenchmark, not a production performance claim. It excludes conductor scheduling, DHT retrieval/validation, source-chain writes, fsync or database durability, network latency, provider APIs and real settlement. Sequential language runs may experience clock/thermal variation; preserve raw samples and rerun on controlled hardware before making a performance claim. Go allocation counts and Rust latency are not directly interchangeable metrics.
+
+
+## Prefix-by-prefix crash-window reconstruction
+
+Rust and Go tests now reconstruct the live journal projection after every valid prefix of the local-Payment/Treasury-recovery path: Created, Authorized, local Prepared, local Committed, Treasury Prepared, Treasury Indeterminate, same-effect Treasury Prepared, and final Treasury Committed. Each prefix is replayed against its own event-count/tail anchor and compared with the live in-memory journal. This tests intermediate recovery states rather than only the terminal Completed state.
+
+These are deterministic state-machine prefix checks. They do not inject process termination into a real conductor, storage engine, message broker or provider API; those remain a separate runtime qualification layer.
