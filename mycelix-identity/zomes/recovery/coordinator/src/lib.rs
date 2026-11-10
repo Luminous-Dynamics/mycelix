@@ -472,7 +472,7 @@ pub fn initiate_recovery(input: InitiateRecoveryInput) -> ExternResult<Record> {
 
     // Create initial approval vote from initiator
     let vote = RecoveryVote {
-        request_id,
+        request_id: request_id.clone(),
         trustee: input.initiator_did,
         vote: VoteDecision::Approve,
         comment: Some("Initiated recovery".to_string()),
