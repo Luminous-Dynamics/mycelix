@@ -60,6 +60,7 @@ jobs:
               - 'crates/mycelix-bridge-*/**'
             identity:
               - 'mycelix-identity/**'
+              - 'mycelix-workspace/mycelix-identity/**'
               - 'crates/mycelix-bridge-*/**'
             personal:
               - 'mycelix-personal/**'
@@ -110,6 +111,7 @@ jobs:
           done
           (cd crates/mycelix-bridge-common && cargo fmt --all --check) || status=1
           (cd crates/mycelix-bridge-entry-types && cargo fmt --all --check) || status=1
+          (cd mycelix-workspace/mycelix-identity && cargo fmt --all --check) || status=1
           exit $status
 
   # Per-cluster test jobs
@@ -297,9 +299,16 @@ jobs:
           targets: wasm32-unknown-unknown
       - uses: Swatinem/rust-cache@v2
         with:
-          workspaces: mycelix-identity
-      - name: Test identity
+          workspaces: |
+            mycelix-identity
+            mycelix-workspace/mycelix-identity
+      - name: Test legacy identity workspace
         run: cd mycelix-identity && cargo test --workspace
+      - name: Test active MFA coordinator
+        run: |
+          cd mycelix-workspace/mycelix-identity
+          cargo test -p mfa_coordinator --lib
+          cargo build --release --target wasm32-unknown-unknown -p mfa_coordinator
 
   test-personal:
     needs: changes
