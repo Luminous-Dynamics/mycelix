@@ -21,7 +21,7 @@ pub const CORPUS_JSON: &str =
 const PROFILE_ID: &str = "MYC-BUILD-METROLOGY-PROFILE-V0.1";
 const PASSPORT_VERSION: &str = "mycelix.building-instrument-passport/0.1";
 const CORPUS_ID: &str = "BUILDING-INSTRUMENT-PASSPORT-CORPUS-V0.1";
-const EXPECTED_CASE_COUNT: usize = 51;
+const EXPECTED_CASE_COUNT: usize = 54;
 
 const ROOT_FIELDS: &[&str] = &[
     "passport_schema_version",
@@ -47,6 +47,8 @@ const INSTRUMENT_FIELDS: &[&str] = &[
     "protocol_profile_digest",
     "protocol_profile_state",
     "local_read_only_supported",
+    "protocol_profile_verification_receipt_id",
+    "protocol_profile_verifier_id",
     "channel_id",
     "channel_profile_id",
     "identity_state",
@@ -144,6 +146,8 @@ const SAMPLE_FIELDS: &[&str] = &[
     "rights_state",
     "acquisition_mode",
     "local_read_only",
+    "protocol_profile_digest",
+    "read_only_session_receipt_id",
 ];
 const UNCERTAINTY_FIELDS: &[&str] = &[
     "state",
@@ -279,6 +283,9 @@ const EXPECTED_CASES: &[(&str, &str)] = &[
     ("BIP-049", "REJECTED_FOR_DECLARED_PURPOSE"),
     ("BIP-050", "REJECTED_FOR_DECLARED_PURPOSE"),
     ("BIP-051", "MORE_EVIDENCE_REQUIRED"),
+    ("BIP-052", "MORE_EVIDENCE_REQUIRED"),
+    ("BIP-053", "NOT_COMPARABLE"),
+    ("BIP-054", "MORE_EVIDENCE_REQUIRED"),
 ];
 
 #[derive(Debug)]
@@ -509,6 +516,8 @@ pub fn classify_passport(record: &Value) -> &'static str {
     }
     if !non_empty_text(instrument, "protocol_profile_id")
         || !non_empty_text(instrument, "protocol_profile_digest")
+        || !non_empty_text(instrument, "protocol_profile_verification_receipt_id")
+        || !non_empty_text(instrument, "protocol_profile_verifier_id")
         || text(instrument, "protocol_profile_state") != "independently_verified"
     {
         return "MORE_EVIDENCE_REQUIRED";
@@ -518,6 +527,12 @@ pub fn classify_passport(record: &Value) -> &'static str {
         || sample["local_read_only"].as_bool() != Some(true)
     {
         return "REJECTED_FOR_DECLARED_PURPOSE";
+    }
+    if !non_empty_text(sample, "read_only_session_receipt_id") {
+        return "MORE_EVIDENCE_REQUIRED";
+    }
+    if text(sample, "protocol_profile_digest") != text(instrument, "protocol_profile_digest") {
+        return "NOT_COMPARABLE";
     }
 
     if text(instrument, "channel_profile_id") != PROFILE_ID
@@ -1088,8 +1103,8 @@ mod tests {
     }
 
     #[test]
-    fn tracked_passport_corpus_matches_all_51_known_answers() {
-        assert_eq!(validate_tracked().expect("tracked passport validation"), 51);
+    fn tracked_passport_corpus_matches_all_54_known_answers() {
+        assert_eq!(validate_tracked().expect("tracked passport validation"), 54);
     }
 
     #[test]
@@ -1106,7 +1121,7 @@ mod tests {
             fields.iter().any(|field| field == "acquisition_mode")
                 && fields.iter().any(|field| field == "local_read_only")
         }));
-        assert_eq!(validate_tracked().expect("51-case passport corpus"), 51);
+        assert_eq!(validate_tracked().expect("54-case passport corpus"), 54);
     }
 
     #[test]
@@ -1141,6 +1156,30 @@ mod tests {
     fn provider_asserted_protocol_profile_is_not_independent_evidence() {
         assert_eq!(
             classify_passport(&case("BIP-051")["record"]),
+            "MORE_EVIDENCE_REQUIRED"
+        );
+    }
+
+    #[test]
+    fn protocol_verification_requires_named_verifier_and_receipt() {
+        assert_eq!(
+            classify_passport(&case("BIP-052")["record"]),
+            "MORE_EVIDENCE_REQUIRED"
+        );
+    }
+
+    #[test]
+    fn sample_must_bind_exact_protocol_digest() {
+        assert_eq!(
+            classify_passport(&case("BIP-053")["record"]),
+            "NOT_COMPARABLE"
+        );
+    }
+
+    #[test]
+    fn local_read_only_session_requires_receipt() {
+        assert_eq!(
+            classify_passport(&case("BIP-054")["record"]),
             "MORE_EVIDENCE_REQUIRED"
         );
     }
