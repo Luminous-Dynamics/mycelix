@@ -45,6 +45,7 @@ pub enum CheckpointError {
     TextFieldTooLarge,
     TextFieldNotAscii,
     InvalidDigest,
+    InvalidJournalIdentity,
     InvalidIssuerDid,
     EmptyEventFrontier,
     InvalidCheckpointSequence,
@@ -96,6 +97,9 @@ impl OwnerCheckpointSubjectV1 {
         require_text(&self.operation_id)?;
         validate_digest(&self.intent_digest)?;
         validate_digest(&self.event_log_digest)?;
+        if self.event_log_digest != journal_identity_digest(&self.operation_id, &self.intent_digest)? {
+            return Err(CheckpointError::InvalidJournalIdentity);
+        }
         validate_digest(&self.tail_digest)?;
         validate_digest(&self.issuer_key_fingerprint)?;
         validate_digest(&self.owner_authority_digest)?;
@@ -157,6 +161,17 @@ fn validate_digest(value: &str) -> Result<(), CheckpointError> {
         return Err(CheckpointError::InvalidDigest);
     }
     Ok(())
+}
+
+fn journal_identity_digest(
+    operation_id: &str,
+    intent_digest: &str,
+) -> Result<String, CheckpointError> {
+    let mut bytes = b"MXSAP-JOURNAL-IDENTITY-V1\\0".to_vec();
+    append_text(&mut bytes, operation_id)?;
+    append_digest(&mut bytes, intent_digest)?;
+    let digest = Sha256::digest(bytes);
+    Ok(format!("sha256:{}", hex_lower(&digest)))
 }
 
 fn append_text(output: &mut Vec<u8>, value: &str) -> Result<(), CheckpointError> {
