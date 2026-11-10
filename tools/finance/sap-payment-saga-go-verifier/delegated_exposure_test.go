@@ -127,7 +127,8 @@ func TestParentPolicyReductionFreezesNewChildRiskUntilBudgetIsReclaimed(t *testi
 	firstScope := parentExposureChildScope("operator:a", "dest:a")
 	secondScope := parentExposureChildScope("operator:b", "dest:b")
 	_, _ = parent.AllocateChildBudget("provider-a", firstScope, 600, 1, exposureTestDigest(1))
-	if _, err := parent.Reserve("provider-a", parentExposureIntent(firstScope, "effect:existing", 200)); err != nil { t.Fatal(err) }
+	existingIntent := parentExposureIntent(firstScope, "effect:existing", 200)
+	if _, err := parent.Reserve("provider-a", existingIntent); err != nil { t.Fatal(err) }
 	_, _ = parent.AllocateChildBudget("provider-b", secondScope, 300, 2, exposureTestDigest(2))
 
 	lower := parentExposureTestPolicy(800)
@@ -136,6 +137,9 @@ func TestParentPolicyReductionFreezesNewChildRiskUntilBudgetIsReclaimed(t *testi
 	lower.PolicyDigest = exposureTestDigest(14)
 	if err := parent.ReplacePolicy(lower); err != nil { t.Fatal(err) }
 	if available, _ := parent.AvailableParentBudgetMinor(); available != 0 { t.Fatalf("available = %d", available) }
+	if disposition, err := parent.Reserve("provider-a", existingIntent); err != nil || disposition != ExposureAlreadyReserved {
+		t.Fatalf("existing exact retry while over cap = %v, %v", disposition, err)
+	}
 	if _, err := parent.Reserve("provider-a", parentExposureIntent(firstScope, "effect:new", 50)); err != ErrExposureLimitExceeded {
 		t.Fatalf("new effect after cap reduction = %v", err)
 	}
