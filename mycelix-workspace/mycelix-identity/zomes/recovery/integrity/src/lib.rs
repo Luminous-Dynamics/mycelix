@@ -1550,6 +1550,72 @@ mod author_binding_tests {
         AgentPubKey::from_raw_36(vec![1u8; 36])
     }
 
+    fn valid_social_config(did: String, owner: AgentPubKey) -> RecoveryConfig {
+        RecoveryConfig {
+            did,
+            owner,
+            trustees: vec![
+                format!("did:mycelix:{}", AgentPubKey::from_raw_36(vec![2u8; 36])),
+                format!("did:mycelix:{}", AgentPubKey::from_raw_36(vec![3u8; 36])),
+                format!("did:mycelix:{}", AgentPubKey::from_raw_36(vec![4u8; 36])),
+            ],
+            threshold: 2,
+            time_lock: 86400,
+            active: true,
+            created: Timestamp::from_micros(1),
+            updated: Timestamp::from_micros(1),
+        }
+    }
+
+    #[test]
+    fn social_recovery_config_must_bind_did_to_committing_owner() {
+        let owner = me();
+        let valid = valid_social_config(format!("did:mycelix:{}", owner), owner.clone());
+        assert_eq!(
+            validate_create_recovery_config(EntryCreationAction::Create(test_action(owner.clone())), valid)
+                .unwrap(),
+            ValidateCallbackResult::Valid
+        );
+
+        let forged = valid_social_config(
+            format!("did:mycelix:{}", other_agent()),
+            owner.clone(),
+        );
+        assert!(matches!(
+            validate_create_recovery_config(EntryCreationAction::Create(test_action(owner)), forged)
+                .unwrap(),
+            ValidateCallbackResult::Invalid(_)
+        ));
+    }
+
+    #[test]
+    fn recovery_config_link_must_match_did_base_and_owner_author() {
+        let owner = me();
+        let did = format!("did:mycelix:{}", owner);
+        let correct_base = did_to_entry_hash(&did);
+        assert!(validate_recovery_config_link_fields(
+            &correct_base,
+            &did,
+            &owner,
+            &owner
+        ).is_ok());
+
+        let victim_base = did_to_entry_hash(&format!("did:mycelix:{}", other_agent()));
+        assert!(validate_recovery_config_link_fields(
+            &victim_base,
+            &did,
+            &owner,
+            &owner
+        ).is_err());
+
+        assert!(validate_recovery_config_link_fields(
+            &correct_base,
+            &did,
+            &owner,
+            &other_agent()
+        ).is_err());
+    }
+
     fn valid_request(initiated_by: String) -> RecoveryRequest {
         RecoveryRequest {
             id: "req-1".into(),
