@@ -1,7 +1,5 @@
 #![forbid(unsafe_code)]
 
-pub mod trace;
-
 //! Effects-disabled reference model for a sender-owned SAP payment.
 //!
 //! The local Payment coordinator calls its debit/credit helpers directly during
@@ -13,6 +11,8 @@ pub mod trace;
 //! This crate does not prove Holochain DHT uniqueness, action authenticity,
 //! predecessor authorization, monetary conservation in production, or legal
 //!/external settlement finality.
+
+pub mod trace;
 
 use std::collections::{BTreeMap, btree_map::Entry};
 use std::fmt;
