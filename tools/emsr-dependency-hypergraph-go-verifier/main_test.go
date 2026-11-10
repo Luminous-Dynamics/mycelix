@@ -404,6 +404,52 @@ func TestCivilAviationSharedPowerDoesNotImplySharedClock(t *testing.T) {
 	assertCivilReport(t, input, "SHARED_DEPENDENCY", []string{"airport-power-bus"})
 }
 
+func TestUncertainAndPartialInventoryNeverAssertNoCommonDomain(t *testing.T) {
+	for _, sourceCount := range []int{10, 100, 1_000, 10_000} {
+		sourceIDs := make([]string, sourceCount)
+		nodes := make([]Node, 0, sourceCount+1)
+		for index := 0; index < sourceCount; index++ {
+			sourceID := fmt.Sprintf("uncertain-source-%08d", index)
+			sourceIDs[index] = sourceID
+			nodes = append(nodes, Node{ID: sourceID, Kind: "source"})
+		}
+		nodes = append(nodes, Node{ID: "uncertain-shared-root", Kind: "dependency"})
+
+		for _, state := range []string{"unknown", "stale", "unavailable", "revoked", "conflicted"} {
+			input := civilInput(
+				"clock",
+				sourceIDs,
+				nodes,
+				[]DependencyHyperedge{
+					civilEdge("uncertain-shared-edge", sourceIDs, "uncertain-shared-root", "clock", state),
+				},
+			)
+			report := assertCivilReport(t, input, "UNKNOWN_DEPENDENCY", []string{})
+			if !contains(report.ReasonCodes, "applicable_assertion_not_qualified_or_outside_frontier") {
+				t.Fatalf("%s assertion at %d sources did not preserve its uncertainty reason: %v", state, sourceCount, report.ReasonCodes)
+			}
+		}
+
+		// Half of the queried source set has a known edge. The remaining half
+		// has no declared dependency metadata and the inventory admits that it
+		// is incomplete. Absence in this snapshot is not independence evidence.
+		knownSourceIDs := append([]string(nil), sourceIDs[:sourceCount/2]...)
+		partial := civilInput(
+			"clock",
+			sourceIDs,
+			nodes,
+			[]DependencyHyperedge{
+				civilEdge("partial-known-shared-edge", knownSourceIDs, "uncertain-shared-root", "clock", "qualified"),
+			},
+		)
+		partial.Snapshot.Complete = false
+		report := assertCivilReport(t, partial, "UNKNOWN_DEPENDENCY", []string{})
+		if !contains(report.ReasonCodes, "inventory_snapshot_incomplete") {
+			t.Fatalf("partial inventory at %d sources lost its incompleteness reason: %v", sourceCount, report.ReasonCodes)
+		}
+	}
+}
+
 func TestCivilPositiveControlUsesDeclaredNotPhysicalIndependenceSemantics(t *testing.T) {
 	input := civilInput(
 		"data_pipeline",
