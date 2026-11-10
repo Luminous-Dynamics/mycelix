@@ -186,8 +186,7 @@ fn append_evidence_text(
     if bytes.len() > MAX_CANONICAL_EVIDENCE_FIELD_BYTES {
         return Err(SagaError::InvalidEffectEvidence(leg));
     }
-    let length = u32::try_from(bytes.len())
-        .map_err(|_| SagaError::InvalidEffectEvidence(leg))?;
+    let length = u32::try_from(bytes.len()).map_err(|_| SagaError::InvalidEffectEvidence(leg))?;
     output.extend_from_slice(&length.to_be_bytes());
     output.extend_from_slice(bytes);
     Ok(())
@@ -197,9 +196,7 @@ fn append_evidence_u64(output: &mut Vec<u8>, value: u64) {
     output.extend_from_slice(&value.to_be_bytes());
 }
 
-fn canonical_effect_evidence_bytes(
-    evidence: &EffectEvidence,
-) -> Result<Vec<u8>, SagaError> {
+fn canonical_effect_evidence_bytes(evidence: &EffectEvidence) -> Result<Vec<u8>, SagaError> {
     let leg = evidence.leg;
     let mut output = Vec::with_capacity(1024);
     output.extend_from_slice(b"MXSAP-EFFECT-EVIDENCE-V1\0");
@@ -890,12 +887,13 @@ mod tests {
     }
 
     fn canonical_digest_fixture_value(name: &str) -> &'static str {
-        include_str!(
-            "../../sap-payment-saga-go-verifier/fixtures/sap-payment-evidence-v1.kat"
-        )
-        .lines()
-        .find_map(|line| line.strip_prefix(name).and_then(|value| value.strip_prefix('=')))
-        .expect("shared canonical digest vector exists")
+        include_str!("../../sap-payment-saga-go-verifier/fixtures/sap-payment-evidence-v1.kat")
+            .lines()
+            .find_map(|line| {
+                line.strip_prefix(name)
+                    .and_then(|value| value.strip_prefix('='))
+            })
+            .expect("shared canonical digest vector exists")
     }
 
     #[test]
@@ -1004,11 +1002,7 @@ mod tests {
         evidence
     }
 
-    fn treasury_fee_evidence(
-        journal: &PaymentJournal,
-        label: &str,
-        _seed: u64,
-    ) -> EffectEvidence {
+    fn treasury_fee_evidence(journal: &PaymentJournal, label: &str, _seed: u64) -> EffectEvidence {
         let payment_action_hash = journal
             .committed_payment_action_hash()
             .expect("local Payment transaction must be committed")
@@ -1473,7 +1467,10 @@ mod tests {
             .unwrap();
         commit_fee(&mut journal, "treasury", 16).unwrap();
         let mut changed = treasury_fee_evidence(&journal, "treasury", 17);
-        if let EffectEvidenceKind::TreasuryFee { treasury_action, .. } = &mut changed.kind {
+        if let EffectEvidenceKind::TreasuryFee {
+            treasury_action, ..
+        } = &mut changed.kind
+        {
             *treasury_action = "action:treasury-fee-conflict".into();
         }
         refresh_evidence_digest(&mut changed);
