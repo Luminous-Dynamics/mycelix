@@ -1,0 +1,29 @@
+{
+  "schema": "mycelix.sap-payment-saga-conformance/1",
+  "version": "1.0.0",
+  "state": "FROZEN_PUBLIC_SYNTHETIC_CONFORMANCE",
+  "case_count": 20,
+  "claim_ceiling": "Independent Go agreement with declared SAP saga model semantics only; no proof of Holochain uniqueness, evidence authenticity, account movement, rail settlement or legal finality.",
+  "cases": [
+    {"id":"SAP-SAGA-001","scenario":"exact_retry","expected":"one sender/key/intent resolves to one operation"},
+    {"id":"SAP-SAGA-002","scenario":"same_key_changed_intent","expected":"same sender/key with changed immutable intent conflicts"},
+    {"id":"SAP-SAGA-003","scenario":"sender_scoped_key","expected":"different sender DIDs can reuse a client key without aliasing"},
+    {"id":"SAP-SAGA-004","scenario":"amount_overflow","expected":"principal plus fee overflow rejects before journal creation"},
+    {"id":"SAP-SAGA-005","scenario":"fee_before_local_commit","expected":"Treasury fee cannot prepare before local transaction commit"},
+    {"id":"SAP-SAGA-006","scenario":"wrong_sender_debit","expected":"sender debit equals principal plus fee"},
+    {"id":"SAP-SAGA-007","scenario":"wrong_recipient_credit","expected":"recipient credit equals principal only"},
+    {"id":"SAP-SAGA-008","scenario":"pending_payment_record","expected":"local transaction evidence requires a Completed Payment record"},
+    {"id":"SAP-SAGA-009","scenario":"missing_fee_outbox","expected":"non-zero fee requires exact stable outbox identity"},
+    {"id":"SAP-SAGA-010","scenario":"wrong_receipt_signer","expected":"receipt signer must be the sender"},
+    {"id":"SAP-SAGA-011","scenario":"wrong_receipt_profile","expected":"receipt profile must be versioned v1"},
+    {"id":"SAP-SAGA-012","scenario":"wrong_treasury_pool","expected":"Treasury effect must target the declared global fee pool"},
+    {"id":"SAP-SAGA-013","scenario":"wrong_treasury_amount","expected":"Treasury effect amount equals the immutable fee"},
+    {"id":"SAP-SAGA-014","scenario":"wrong_treasury_payment_link","expected":"Treasury receipt binds the exact committed Payment action"},
+    {"id":"SAP-SAGA-015","scenario":"local_response_loss","expected":"local effect retry resumes the same effect ID and cannot overstate saga completion"},
+    {"id":"SAP-SAGA-016","scenario":"treasury_response_loss","expected":"fee timeout resumes the same outbox effect; same evidence is idempotent and changed evidence conflicts"},
+    {"id":"SAP-SAGA-017","scenario":"zero_fee","expected":"zero fee is NotRequired and does not block completion"},
+    {"id":"SAP-SAGA-018","scenario":"cannot_reject_after_effect","expected":"operation cannot be rejected after an effect may have occurred"},
+    {"id":"SAP-SAGA-019","scenario":"concurrent_same_key","expected":"concurrent in-memory callers converge on one sender/key operation"},
+    {"id":"SAP-SAGA-020","scenario":"noncanonical_digest","expected":"noncanonical evidence digest is rejected"}
+  ]
+}
