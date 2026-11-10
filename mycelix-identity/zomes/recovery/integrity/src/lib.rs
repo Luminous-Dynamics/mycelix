@@ -56,6 +56,9 @@ pub struct RecoveryRequest {
     /// for every newly-created request by integrity validation.
     #[serde(default)]
     pub config_action_hash: Option<ActionHash>,
+    /// Vote records that independently justify an Approved/Rejected transition.
+    #[serde(default)]
+    pub decision_vote_hashes: Vec<ActionHash>,
 }
 
 /// Trustee vote on a recovery request
@@ -559,6 +562,35 @@ fn validate_create_recovery_request(
     Ok(ValidateCallbackResult::Valid)
 }
 
+/// Count quorum only from distinct, authorized trustees. Repeated entries from
+/// the same trustee are rejected instead of contributing additional weight.
+fn recovery_decision_has_quorum(
+    votes: &[(String, VoteDecision)],
+    config: &RecoveryConfig,
+    target: &RecoveryStatus,
+) -> bool {
+    let mut seen = HashSet::new();
+    let mut approvals = 0usize;
+    let mut rejections = 0usize;
+    for (trustee, decision) in votes {
+        if !config.trustees.contains(trustee) || !seen.insert(trustee) {
+            return false;
+        }
+        match decision {
+            VoteDecision::Approve => approvals += 1,
+            VoteDecision::Reject => rejections += 1,
+            VoteDecision::Abstain => {}
+        }
+    }
+    match target {
+        RecoveryStatus::Approved => approvals >= config.threshold as usize,
+        RecoveryStatus::Rejected => {
+            rejections > config.trustees.len().saturating_sub(config.threshold as usize)
+        }
+        _ => false,
+    }
+}
+
 /// Validate recovery request update (status transitions)
 ///
 /// Author-binding for updates is already enforced universally by this
@@ -627,6 +659,12 @@ fn validate_update_recovery_request(
         ));
     }
 
+    if request.config_action_hash != original.config_action_hash {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Recovery request config revision cannot be changed".into(),
+        ));
+    }
+
     // Validate status transitions via state machine
     // Terminal states: Completed, Rejected, Cancelled cannot transition further
     let valid_transition = match (&original.status, &request.status) {
@@ -649,6 +687,84 @@ fn validate_update_recovery_request(
             "Invalid recovery status transition from {:?} to {:?}",
             original.status, request.status
         )));
+    }
+
+    // Decision evidence is fixed once the request leaves Pending.
+    if original.status != RecoveryStatus::Pending
+        && request.decision_vote_hashes != original.decision_vote_hashes
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Recovery decision evidence cannot be changed after finalization".into(),
+        ));
+    }
+
+    // An Approved/Rejected transition must carry verifiable, author-bound
+    // vote records. This prevents a malicious coordinator from changing the
+    // status to Approved without a real trustee quorum.
+    if original.status == RecoveryStatus::Pending
+        && (request.status == RecoveryStatus::Approved
+            || request.status == RecoveryStatus::Rejected)
+    {
+        let config_hash = original.config_action_hash.as_ref().ok_or(wasm_error!(
+            WasmErrorInner::Guest("Original recovery request has no config revision".into())
+        ))?;
+        let config_record = must_get_valid_record(config_hash.clone())?;
+        let config: RecoveryConfig = config_record
+            .entry()
+            .to_app_option()
+            .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+            .ok_or(wasm_error!(WasmErrorInner::Guest(
+                "Original recovery config entry is invalid".into()
+            )))?;
+
+        let mut verified_votes = Vec::new();
+        let mut unique_vote_hashes = HashSet::new();
+        for vote_hash in &request.decision_vote_hashes {
+            if !unique_vote_hashes.insert(vote_hash.clone()) {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Recovery decision evidence contains duplicate vote references".into(),
+                ));
+            }
+            let vote_record = must_get_valid_record(vote_hash.clone())?;
+            let vote: RecoveryVote = vote_record
+                .entry()
+                .to_app_option()
+                .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+                .ok_or(wasm_error!(WasmErrorInner::Guest(
+                    "Recovery decision evidence references a non-vote entry".into()
+                )))?;
+            let vote_request_hash = vote.request_action_hash.as_ref().ok_or(wasm_error!(
+                WasmErrorInner::Guest("Evidence vote has no request action reference".into())
+            ))?;
+            let vote_request_record = must_get_valid_record(vote_request_hash.clone())?;
+            let vote_request: RecoveryRequest = vote_request_record
+                .entry()
+                .to_app_option()
+                .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+                .ok_or(wasm_error!(WasmErrorInner::Guest(
+                    "Evidence vote references an invalid recovery request".into()
+                )))?;
+            if vote_request.id != original.id
+                || vote_request.config_action_hash != original.config_action_hash
+                || !recovery_vote_matches_policy(
+                    &vote,
+                    &vote_request,
+                    &config,
+                    vote_record.action().author(),
+                )
+            {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Recovery decision evidence contains an unauthorized or unrelated vote".into(),
+                ));
+            }
+            verified_votes.push((vote.trustee, vote.vote));
+        }
+
+        if !recovery_decision_has_quorum(&verified_votes, &config, &request.status) {
+            return Ok(ValidateCallbackResult::Invalid(
+                "Recovery status transition lacks a distinct-trustee quorum".into(),
+            ));
+        }
     }
 
     // Approved status must have time_lock_expires set
@@ -1115,6 +1231,7 @@ mod author_binding_tests {
             created: Timestamp::from_micros(0),
             time_lock_expires: None,
             config_action_hash: None,
+            decision_vote_hashes: Vec::new(),
         }
     }
 
