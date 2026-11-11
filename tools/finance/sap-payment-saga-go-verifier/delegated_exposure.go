@@ -141,14 +141,14 @@ func (b *ParentDelegatedExposureBookV1) AllocateChildBudget(
 	if err := childPolicy.Validate(); err != nil {
 		return 0, err
 	}
-	if budgetMinor > b.policy.MaximumChildBudgetMinor {
-		return 0, ErrExposureLimitExceeded
-	}
 	if existing, ok := b.grants[grantID]; ok {
 		if existing.sameTerms(childScope, budgetMinor, grantSequence, grantDigest) {
 			return DelegatedBudgetAlreadyAllocated, nil
 		}
 		return 0, ErrExposureReservationConflict
+	}
+	if budgetMinor > b.policy.MaximumChildBudgetMinor {
+		return 0, ErrExposureLimitExceeded
 	}
 	var latestSequence uint64
 	for _, existing := range b.grants {
@@ -214,10 +214,35 @@ func (b *ParentDelegatedExposureBookV1) Reserve(
 	return grant.ChildBook.Reserve(intent)
 }
 
+// MarkDispatchAuthorized is risk-increasing. It is blocked after grant
+// revocation or a policy reduction that makes current encumbrance inadmissible.
+// An effect already authorized for dispatch remains idempotent.
 func (b *ParentDelegatedExposureBookV1) MarkDispatchAuthorized(grantID, effectID string) error {
+	grant, ok := b.grants[grantID]
+	if !ok { return ErrExposureNotFound }
+	status, exists := grant.ChildBook.Status(effectID)
+	if !exists { return ErrExposureNotFound }
+	if status == ExposureDispatchAuthorized {
+		return grant.ChildBook.MarkDispatchAuthorized(effectID)
+	}
+	if status != ExposureReserved || grant.Status != DelegatedBudgetActive {
+		return ErrExposureInvalidTransition
+	}
+	allocated, err := b.AllocatedBudgetMinor()
+	if err != nil { return err }
+	if grant.BudgetMinor > b.policy.MaximumChildBudgetMinor ||
+		allocated > b.policy.MaximumTotalMinor {
+		return ErrExposureLimitExceeded
+	}
+	return grant.ChildBook.MarkDispatchAuthorized(effectID)
+}
+
+// CancelBeforeDispatch is risk-reducing and remains available after revocation,
+// but only before an effect has crossed the dispatch boundary.
+func (b *ParentDelegatedExposureBookV1) CancelBeforeDispatch(grantID, effectID string) error {
 	grant, err := b.childGrant(grantID)
 	if err != nil { return err }
-	return grant.ChildBook.MarkDispatchAuthorized(effectID)
+	return grant.ChildBook.CancelBeforeDispatch(effectID)
 }
 
 func (b *ParentDelegatedExposureBookV1) MarkIndeterminate(grantID, effectID string) error {
