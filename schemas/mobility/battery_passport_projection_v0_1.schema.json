@@ -381,7 +381,8 @@
             "vendor_claim",
             "document",
             "operator_attestation",
-            "unknown"
+            "unknown",
+            "synthetic_fixture"
           ]
         },
         "digest": {
