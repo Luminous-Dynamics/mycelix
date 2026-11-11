@@ -43,11 +43,17 @@ fn compile_schema(bytes: &[u8]) -> Result<Validator, String> {
 }
 
 fn validate_instance(validator: &Validator, value: &Value, label: &str) -> Result<(), String> {
-    let errors: Vec<String> = validator.iter_errors(value).map(|error| error.to_string()).collect();
+    let errors: Vec<String> = validator
+        .iter_errors(value)
+        .map(|error| error.to_string())
+        .collect();
     if errors.is_empty() {
         Ok(())
     } else {
-        Err(format!("{label} failed JSON Schema validation: {}", errors.join("; ")))
+        Err(format!(
+            "{label} failed JSON Schema validation: {}",
+            errors.join("; ")
+        ))
     }
 }
 
@@ -98,14 +104,12 @@ fn object_map<'a>(registry: &'a Value) -> Result<BTreeMap<u64, &'a Value>, Strin
             .and_then(Value::as_u64)
             .ok_or_else(|| "registry contains a data point without an integer number".to_owned())?;
         if map.insert(number, point).is_some() {
-            return Err(format!("registry contains duplicate data point number {number}"));
+            return Err(format!(
+                "registry contains duplicate data point number {number}"
+            ));
         }
     }
-    if registry
-        .get("data_point_count")
-        .and_then(Value::as_u64)
-        != Some(map.len() as u64)
-    {
+    if registry.get("data_point_count").and_then(Value::as_u64) != Some(map.len() as u64) {
         return Err("registry data_point_count does not match its data_points array".to_owned());
     }
     if map.len() != 71 || (1_u64..=71).any(|number| !map.contains_key(&number)) {
@@ -135,7 +139,10 @@ fn check_predecessor_lineage(projection: &Value) -> Result<(), String> {
     Ok(())
 }
 
-fn check_projection_semantics(registry: &Value, projection: &Value) -> Result<BTreeMap<String, usize>, String> {
+fn check_projection_semantics(
+    registry: &Value,
+    projection: &Value,
+) -> Result<BTreeMap<String, usize>, String> {
     let registry_points = object_map(registry)?;
     let category = required_string(projection, "/battery/category")?;
     let audience = required_string(projection, "/target/audience")?;
@@ -158,15 +165,19 @@ fn check_projection_semantics(registry: &Value, projection: &Value) -> Result<BT
             .and_then(Value::as_u64)
             .ok_or_else(|| "projection data point has no integer number".to_owned())?;
         if !seen.insert(number) {
-            return Err(format!("projection contains duplicate data point number {number}"));
+            return Err(format!(
+                "projection contains duplicate data point number {number}"
+            ));
         }
-        let registry_point = registry_points
-            .get(&number)
-            .ok_or_else(|| format!("projection references unknown/unadmitted data point {number}"))?;
+        let registry_point = registry_points.get(&number).ok_or_else(|| {
+            format!("projection references unknown/unadmitted data point {number}")
+        })?;
         let expected_applicability = registry_point
             .pointer(&format!("/applicability/{category}/status"))
             .and_then(Value::as_str)
-            .ok_or_else(|| format!("registry has no {category} applicability for data point {number}"))?;
+            .ok_or_else(|| {
+                format!("registry has no {category} applicability for data point {number}")
+            })?;
         let expected_disclosure = registry_point
             .get("disclosure")
             .and_then(Value::as_str)
@@ -235,7 +246,8 @@ fn check_projection_semantics(registry: &Value, projection: &Value) -> Result<BT
 
         let audience_allowed = audience_can_view(audience, expected_disclosure);
         let has_value = item.get("value").is_some_and(|value| !value.is_null());
-        let has_evidence = item.get("evidence")
+        let has_evidence = item
+            .get("evidence")
             .and_then(Value::as_array)
             .is_some_and(|evidence| !evidence.is_empty());
         let payload_empty = !has_value && !has_evidence;
@@ -267,7 +279,11 @@ fn check_projection_semantics(registry: &Value, projection: &Value) -> Result<BT
                 let class = required_string(record, "/evidence_class")?;
                 if matches!(
                     class,
-                    "synthetic_fixture" | "vendor_claim" | "unknown" | "model_prediction" | "simulation_output"
+                    "synthetic_fixture"
+                        | "vendor_claim"
+                        | "unknown"
+                        | "model_prediction"
+                        | "simulation_output"
                 ) {
                     return Err(format!(
                         "data point {number} cannot be READY_TO_PUBLISH from evidence class {class}"
@@ -275,7 +291,9 @@ fn check_projection_semantics(registry: &Value, projection: &Value) -> Result<BT
                 }
                 let digest = required_string(record, "/digest")?;
                 if digest.len() != 64
-                    || !digest.bytes().all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+                    || !digest
+                        .bytes()
+                        .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
                 {
                     return Err(format!("data point {number} has malformed evidence digest"));
                 }
@@ -296,10 +314,16 @@ fn check_projection_semantics(registry: &Value, projection: &Value) -> Result<BT
         ("MISSING_REQUIRED_EVIDENCE", "missing_required_evidence"),
         ("BLOCKED_UNQUALIFIED_SOURCE", "blocked_unqualified_source"),
         ("WITHHELD_BY_ACCESS_POLICY", "withheld_by_access_policy"),
-        ("NOT_REQUIRED_AT_EFFECTIVE_DATE", "not_required_at_effective_date"),
+        (
+            "NOT_REQUIRED_AT_EFFECTIVE_DATE",
+            "not_required_at_effective_date",
+        ),
         ("NOT_APPLICABLE", "not_applicable"),
         ("CONDITIONAL_REVIEW_REQUIRED", "conditional_review_required"),
-        ("OPERATOR_AUTHORIZATION_REQUIRED", "operator_authorization_required"),
+        (
+            "OPERATOR_AUTHORIZATION_REQUIRED",
+            "operator_authorization_required",
+        ),
     ] {
         let actual = summary.get(key).and_then(Value::as_u64);
         let expected = counts.get(outcome).copied().unwrap_or(0) as u64;
@@ -331,19 +355,33 @@ pub fn audit_projection(
         return Err("unexpected registry identity".to_owned());
     }
     let registry_digest = sha256(registry_bytes);
-    if projection.pointer("/registry/registry_id").and_then(Value::as_str)
+    if projection
+        .pointer("/registry/registry_id")
+        .and_then(Value::as_str)
         != registry.get("registry_id").and_then(Value::as_str)
-        || projection.pointer("/registry/registry_version").and_then(Value::as_str)
+        || projection
+            .pointer("/registry/registry_version")
+            .and_then(Value::as_str)
             != registry.get("registry_version").and_then(Value::as_str)
-        || projection.pointer("/registry/guidance_version").and_then(Value::as_str)
-            != registry.pointer("/source/guidance_version").and_then(Value::as_str)
+        || projection
+            .pointer("/registry/guidance_version")
+            .and_then(Value::as_str)
+            != registry
+                .pointer("/source/guidance_version")
+                .and_then(Value::as_str)
     {
-        return Err("projection registry/guidance identity does not match the supplied registry".to_owned());
+        return Err(
+            "projection registry/guidance identity does not match the supplied registry".to_owned(),
+        );
     }
-    if projection.pointer("/registry/source_registry_sha256").and_then(Value::as_str)
+    if projection
+        .pointer("/registry/source_registry_sha256")
+        .and_then(Value::as_str)
         != Some(registry_digest.as_str())
     {
-        return Err("projection source_registry_sha256 does not match the exact registry bytes".to_owned());
+        return Err(
+            "projection source_registry_sha256 does not match the exact registry bytes".to_owned(),
+        );
     }
     let counts = check_projection_semantics(&registry, &projection)?;
     let data_point_count = projection
@@ -356,14 +394,31 @@ pub fn audit_projection(
         .get_mut("data_points")
         .and_then(Value::as_array_mut)
     {
-        points.sort_by_key(|point| point.get("number").and_then(Value::as_u64).unwrap_or(u64::MAX));
+        points.sort_by_key(|point| {
+            point
+                .get("number")
+                .and_then(Value::as_u64)
+                .unwrap_or(u64::MAX)
+        });
     }
     let canonical_projection_bytes = serde_json::to_vec(&canonical_projection)
         .map_err(|error| format!("cannot canonicalize projection: {error}"))?;
     Ok(AuditReport {
-        registry_id: registry.get("registry_id").and_then(Value::as_str).unwrap_or_default().to_owned(),
-        registry_version: registry.get("registry_version").and_then(Value::as_str).unwrap_or_default().to_owned(),
-        projection_version: projection.get("projection_version").and_then(Value::as_str).unwrap_or_default().to_owned(),
+        registry_id: registry
+            .get("registry_id")
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+            .to_owned(),
+        registry_version: registry
+            .get("registry_version")
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+            .to_owned(),
+        projection_version: projection
+            .get("projection_version")
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+            .to_owned(),
         projection_input_sha256: sha256(projection_bytes),
         canonical_projection_sha256: sha256(&canonical_projection_bytes),
         registry_sha256: sha256(registry_bytes),
@@ -377,12 +432,23 @@ mod tests {
     use super::*;
     use serde_json::json;
 
-    const REGISTRY_SCHEMA: &[u8] = include_bytes!("../../../schemas/mobility/eu_battery_passport_guidance_registry_v0_1.schema.json");
-    const PROJECTION_SCHEMA: &[u8] = include_bytes!("../../../schemas/mobility/battery_passport_projection_v0_1.schema.json");
-    const REGISTRY: &[u8] = include_bytes!("../../../registries/eu_battery_passport_guidance_v3_2_complete_71_points.json");
-    const EV_PUBLIC: &[u8] = include_bytes!("../../../fixtures/mobility/battery_passport_projection_ev_public_v0_1.json");
-    const LMT_INTEREST: &[u8] = include_bytes!("../../../fixtures/mobility/battery_passport_projection_lmt_legitimate_interest_v0_1.json");
-    const BESS_INTEREST: &[u8] = include_bytes!("../../../fixtures/mobility/battery_passport_projection_industrial_stationary_bess_v0_1.json");
+    const REGISTRY_SCHEMA: &[u8] = include_bytes!(
+        "../../../schemas/mobility/eu_battery_passport_guidance_registry_v0_1.schema.json"
+    );
+    const PROJECTION_SCHEMA: &[u8] =
+        include_bytes!("../../../schemas/mobility/battery_passport_projection_v0_1.schema.json");
+    const REGISTRY: &[u8] = include_bytes!(
+        "../../../registries/eu_battery_passport_guidance_v3_2_complete_71_points.json"
+    );
+    const EV_PUBLIC: &[u8] = include_bytes!(
+        "../../../fixtures/mobility/battery_passport_projection_ev_public_v0_1.json"
+    );
+    const LMT_INTEREST: &[u8] = include_bytes!(
+        "../../../fixtures/mobility/battery_passport_projection_lmt_legitimate_interest_v0_1.json"
+    );
+    const BESS_INTEREST: &[u8] = include_bytes!(
+        "../../../fixtures/mobility/battery_passport_projection_industrial_stationary_bess_v0_1.json"
+    );
 
     #[test]
     fn complete_71_point_registry_is_schema_valid_and_gap_free() {
@@ -392,7 +458,8 @@ mod tests {
         assert_eq!(registry["complete_71_point_transcription"], true);
         assert_eq!(registry["data_point_count"], 71);
         let ids: BTreeSet<u64> = registry["data_points"]
-            .as_array().expect("registry points")
+            .as_array()
+            .expect("registry points")
             .iter()
             .map(|point| point["number"].as_u64().expect("point number"))
             .collect();
@@ -403,7 +470,9 @@ mod tests {
     fn removing_any_guidance_point_rejects_the_registry() {
         let registry_schema = compile_schema(REGISTRY_SCHEMA).expect("registry schema compiles");
         let mut registry: Value = serde_json::from_slice(REGISTRY).expect("registry JSON");
-        registry["data_points"].as_array_mut().unwrap()
+        registry["data_points"]
+            .as_array_mut()
+            .unwrap()
             .retain(|point| point["number"] != 29);
         registry["data_point_count"] = json!(71);
         assert!(object_map(&registry).is_err());
@@ -424,9 +493,11 @@ mod tests {
     fn public_audience_cannot_receive_restricted_soce() {
         let mut projection: Value = serde_json::from_slice(EV_PUBLIC).expect("EV fixture");
         let soce = projection["data_points"]
-            .as_array_mut().unwrap()
+            .as_array_mut()
+            .unwrap()
             .iter_mut()
-            .find(|point| point["number"] == 61).unwrap();
+            .find(|point| point["number"] == 61)
+            .unwrap();
         soce["outcome"] = json!("READY_TO_PUBLISH");
         soce["value"] = json!(98.4);
         soce["evidence"] = json!([{
@@ -446,9 +517,11 @@ mod tests {
     fn synthetic_sources_cannot_be_promoted_to_ready_to_publish() {
         let mut projection: Value = serde_json::from_slice(EV_PUBLIC).expect("EV fixture");
         let identity = projection["data_points"]
-            .as_array_mut().unwrap()
+            .as_array_mut()
+            .unwrap()
             .iter_mut()
-            .find(|point| point["number"] == 1).unwrap();
+            .find(|point| point["number"] == 1)
+            .unwrap();
         identity["outcome"] = json!("READY_TO_PUBLISH");
         identity["value"] = json!("synthetic:physical-id");
         identity["evidence"] = json!([{
@@ -468,9 +541,11 @@ mod tests {
     fn not_to_be_displayed_is_not_counted_as_missing_required_evidence() {
         let mut projection: Value = serde_json::from_slice(EV_PUBLIC).expect("EV fixture");
         let capacity = projection["data_points"]
-            .as_array_mut().unwrap()
+            .as_array_mut()
+            .unwrap()
             .iter_mut()
-            .find(|point| point["number"] == 62).unwrap();
+            .find(|point| point["number"] == 62)
+            .unwrap();
         capacity["outcome"] = json!("MISSING_REQUIRED_EVIDENCE");
         projection["summary"]["not_required_at_effective_date"] = json!(0);
         projection["summary"]["missing_required_evidence"] = json!(1);
@@ -491,9 +566,11 @@ mod tests {
     fn mismatched_category_applicability_and_disclosure_are_rejected() {
         let mut projection: Value = serde_json::from_slice(EV_PUBLIC).expect("EV fixture");
         let soce = projection["data_points"]
-            .as_array_mut().unwrap()
+            .as_array_mut()
+            .unwrap()
             .iter_mut()
-            .find(|point| point["number"] == 61).unwrap();
+            .find(|point| point["number"] == 61)
+            .unwrap();
         soce["disclosure"] = json!("PUBLIC");
         let bytes = serde_json::to_vec(&projection).unwrap();
         assert!(audit_projection(REGISTRY_SCHEMA, REGISTRY, PROJECTION_SCHEMA, &bytes).is_err());
@@ -502,9 +579,8 @@ mod tests {
     #[test]
     fn source_registry_digest_mismatch_is_rejected() {
         let mut projection: Value = serde_json::from_slice(EV_PUBLIC).expect("EV fixture");
-        projection["registry"]["source_registry_sha256"] = json!(
-            "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
-        );
+        projection["registry"]["source_registry_sha256"] =
+            json!("ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
         let bytes = serde_json::to_vec(&projection).unwrap();
         assert!(audit_projection(REGISTRY_SCHEMA, REGISTRY, PROJECTION_SCHEMA, &bytes).is_err());
     }
@@ -518,7 +594,10 @@ mod tests {
         let permuted = serde_json::to_vec(&projection).unwrap();
         let replay = audit_projection(REGISTRY_SCHEMA, REGISTRY, PROJECTION_SCHEMA, &permuted)
             .expect("permuted EV projection");
-        assert_ne!(original.projection_input_sha256, replay.projection_input_sha256);
+        assert_ne!(
+            original.projection_input_sha256,
+            replay.projection_input_sha256
+        );
         assert_eq!(
             original.canonical_projection_sha256,
             replay.canonical_projection_sha256
@@ -528,15 +607,23 @@ mod tests {
     fn article_8_recycled_material_fields_remain_deferred_at_february_2027() {
         let registry: Value = serde_json::from_slice(REGISTRY).expect("registry JSON");
         for number in [20, 21, 22, 23] {
-            let point = registry["data_points"].as_array().unwrap()
-                .iter().find(|point| point["number"] == number).unwrap();
+            let point = registry["data_points"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|point| point["number"] == number)
+                .unwrap();
             for category in ["EV", "LMT", "INDUSTRIAL"] {
                 assert_eq!(
                     point["applicability"][category]["status"],
                     "NOT_TO_BE_FILLED_DISPLAYED_AT_2027_02_18"
                 );
-                assert!(point["applicability"][category]["condition"]
-                    .as_str().unwrap().contains("Article 8"));
+                assert!(
+                    point["applicability"][category]["condition"]
+                        .as_str()
+                        .unwrap()
+                        .contains("Article 8")
+                );
             }
         }
     }
@@ -545,15 +632,23 @@ mod tests {
     fn duplicate_material_and_capacity_summaries_are_explicitly_not_displayed() {
         let registry: Value = serde_json::from_slice(REGISTRY).expect("registry JSON");
         for number in [16, 25] {
-            let point = registry["data_points"].as_array().unwrap()
-                .iter().find(|point| point["number"] == number).unwrap();
+            let point = registry["data_points"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|point| point["number"] == number)
+                .unwrap();
             for category in ["EV", "LMT", "INDUSTRIAL"] {
                 assert_eq!(
                     point["applicability"][category]["status"],
                     "NOT_TO_BE_FILLED_DISPLAYED_AT_2027_02_18"
                 );
-                assert!(point["applicability"][category]["condition"]
-                    .as_str().unwrap().contains("Repeated information"));
+                assert!(
+                    point["applicability"][category]["condition"]
+                        .as_str()
+                        .unwrap()
+                        .contains("Repeated information")
+                );
             }
         }
     }
@@ -562,8 +657,12 @@ mod tests {
     fn voltage_and_original_power_points_are_mandatory_public_fields() {
         let registry: Value = serde_json::from_slice(REGISTRY).expect("registry JSON");
         for number in [24, 26, 27, 28, 29] {
-            let point = registry["data_points"].as_array().unwrap()
-                .iter().find(|point| point["number"] == number).unwrap();
+            let point = registry["data_points"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|point| point["number"] == number)
+                .unwrap();
             assert_eq!(point["disclosure"], "PUBLIC");
             for category in ["EV", "LMT", "INDUSTRIAL"] {
                 assert_eq!(point["applicability"][category]["status"], "MANDATORY");
@@ -574,17 +673,35 @@ mod tests {
     #[test]
     fn article_13_marking_fields_preserve_mandatory_and_conditional_semantics() {
         let registry: Value = serde_json::from_slice(REGISTRY).expect("registry JSON");
-        let required_mark = registry["data_points"].as_array().unwrap()
-            .iter().find(|point| point["number"] == 41).unwrap();
-        let conditional_symbol = registry["data_points"].as_array().unwrap()
-            .iter().find(|point| point["number"] == 42).unwrap();
+        let required_mark = registry["data_points"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|point| point["number"] == 41)
+            .unwrap();
+        let conditional_symbol = registry["data_points"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|point| point["number"] == 42)
+            .unwrap();
         assert_eq!(required_mark["disclosure"], "PUBLIC");
         assert_eq!(conditional_symbol["disclosure"], "PUBLIC");
         for category in ["EV", "LMT", "INDUSTRIAL"] {
-            assert_eq!(required_mark["applicability"][category]["status"], "MANDATORY");
-            assert_eq!(conditional_symbol["applicability"][category]["status"], "CONDITIONAL");
-            assert!(conditional_symbol["applicability"][category]["condition"]
-                .as_str().unwrap().contains("cadmium or lead symbol"));
+            assert_eq!(
+                required_mark["applicability"][category]["status"],
+                "MANDATORY"
+            );
+            assert_eq!(
+                conditional_symbol["applicability"][category]["status"],
+                "CONDITIONAL"
+            );
+            assert!(
+                conditional_symbol["applicability"][category]["condition"]
+                    .as_str()
+                    .unwrap()
+                    .contains("cadmium or lead symbol")
+            );
         }
     }
 
@@ -592,8 +709,12 @@ mod tests {
     fn unknown_first_use_date_requires_conditional_review_for_dynamic_points() {
         let mut projection: Value = serde_json::from_slice(EV_PUBLIC).expect("EV fixture");
         projection["battery"]["first_use_date"] = Value::Null;
-        let cycles = projection["data_points"].as_array_mut().unwrap()
-            .iter_mut().find(|point| point["number"] == 68).unwrap();
+        let cycles = projection["data_points"]
+            .as_array_mut()
+            .unwrap()
+            .iter_mut()
+            .find(|point| point["number"] == 68)
+            .unwrap();
         cycles["outcome"] = json!("CONDITIONAL_REVIEW_REQUIRED");
         projection["summary"]["withheld_by_access_policy"] = json!(2);
         projection["summary"]["conditional_review_required"] = json!(1);
@@ -605,8 +726,12 @@ mod tests {
     fn unknown_first_use_date_cannot_be_promoted_to_not_applicable() {
         let mut projection: Value = serde_json::from_slice(EV_PUBLIC).expect("EV fixture");
         projection["battery"]["first_use_date"] = Value::Null;
-        let cycles = projection["data_points"].as_array_mut().unwrap()
-            .iter_mut().find(|point| point["number"] == 68).unwrap();
+        let cycles = projection["data_points"]
+            .as_array_mut()
+            .unwrap()
+            .iter_mut()
+            .find(|point| point["number"] == 68)
+            .unwrap();
         cycles["outcome"] = json!("NOT_APPLICABLE");
         projection["summary"]["withheld_by_access_policy"] = json!(2);
         projection["summary"]["not_applicable"] = json!(1);
@@ -618,8 +743,12 @@ mod tests {
     fn evidenced_future_first_use_keeps_dynamic_points_not_applicable() {
         let mut projection: Value = serde_json::from_slice(EV_PUBLIC).expect("EV fixture");
         projection["battery"]["first_use_date"] = json!("2027-03-01");
-        let cycles = projection["data_points"].as_array_mut().unwrap()
-            .iter_mut().find(|point| point["number"] == 68).unwrap();
+        let cycles = projection["data_points"]
+            .as_array_mut()
+            .unwrap()
+            .iter_mut()
+            .find(|point| point["number"] == 68)
+            .unwrap();
         cycles["outcome"] = json!("NOT_APPLICABLE");
         projection["summary"]["withheld_by_access_policy"] = json!(2);
         projection["summary"]["not_applicable"] = json!(1);
@@ -631,8 +760,12 @@ mod tests {
     fn restricted_conditional_review_may_expose_only_applicability_state() {
         let mut projection: Value = serde_json::from_slice(EV_PUBLIC).expect("EV fixture");
         projection["battery"]["first_use_date"] = Value::Null;
-        let cycles = projection["data_points"].as_array_mut().unwrap()
-            .iter_mut().find(|point| point["number"] == 68).unwrap();
+        let cycles = projection["data_points"]
+            .as_array_mut()
+            .unwrap()
+            .iter_mut()
+            .find(|point| point["number"] == 68)
+            .unwrap();
         cycles["outcome"] = json!("CONDITIONAL_REVIEW_REQUIRED");
         cycles["value"] = json!(123);
         cycles["evidence"] = json!([{
@@ -651,8 +784,12 @@ mod tests {
     #[test]
     fn withheld_restricted_point_cannot_carry_value_or_evidence_payload() {
         let mut projection: Value = serde_json::from_slice(EV_PUBLIC).expect("EV fixture");
-        let soce = projection["data_points"].as_array_mut().unwrap()
-            .iter_mut().find(|point| point["number"] == 61).unwrap();
+        let soce = projection["data_points"]
+            .as_array_mut()
+            .unwrap()
+            .iter_mut()
+            .find(|point| point["number"] == 61)
+            .unwrap();
         soce["value"] = json!(98.4);
         soce["evidence"] = json!([{
             "evidence_ref":"synthetic:restricted-soce",
@@ -668,8 +805,12 @@ mod tests {
     #[test]
     fn not_required_at_effective_date_cannot_carry_a_value() {
         let mut projection: Value = serde_json::from_slice(EV_PUBLIC).expect("EV fixture");
-        let capacity = projection["data_points"].as_array_mut().unwrap()
-            .iter_mut().find(|point| point["number"] == 62).unwrap();
+        let capacity = projection["data_points"]
+            .as_array_mut()
+            .unwrap()
+            .iter_mut()
+            .find(|point| point["number"] == 62)
+            .unwrap();
         capacity["value"] = json!(42.0);
         let bytes = serde_json::to_vec(&projection).unwrap();
         assert!(audit_projection(REGISTRY_SCHEMA, REGISTRY, PROJECTION_SCHEMA, &bytes).is_err());
