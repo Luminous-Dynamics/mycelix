@@ -447,7 +447,6 @@ fn validate_profile(profile: &Value) -> Result<(), String> {
     if text(mrt,"output_channel_id")!="mean_radiant_temperature"
         ||text(mrt,"output_unit")!="degC"
         ||text(mrt,"method_status")!="BLOCKED_PENDING_INPUT_CHANNEL_ADMISSION"
-        ||array_strings(&mrt["required_inputs"]).is_some()
     {return Err("MRT_METHOD_PROFILE_DRIFT".into());}
     let mrt_inputs=mrt["required_inputs"].as_array().ok_or("MRT_METHOD_INPUTS_MISSING")?;
     let mrt_directions=["up","down","left","right","front","back"];
