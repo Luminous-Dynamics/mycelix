@@ -21,7 +21,7 @@ pub const CORPUS_JSON: &str =
 const PROFILE_ID: &str = "MYC-BUILD-METROLOGY-PROFILE-V0.1";
 const PASSPORT_VERSION: &str = "mycelix.building-instrument-passport/0.1";
 const CORPUS_ID: &str = "BUILDING-INSTRUMENT-PASSPORT-CORPUS-V0.1";
-const EXPECTED_CASE_COUNT: usize = 59;
+const EXPECTED_CASE_COUNT: usize = 60;
 
 const ROOT_FIELDS: &[&str] = &[
     "passport_schema_version",
@@ -291,6 +291,7 @@ const EXPECTED_CASES: &[(&str, &str)] = &[
     ("BIP-057", "MORE_EVIDENCE_REQUIRED"),
     ("BIP-058", "NOT_COMPARABLE"),
     ("BIP-059", "EXPIRED_OR_INVALIDATED"),
+    ("BIP-060", "MORE_EVIDENCE_REQUIRED"),
 ];
 
 #[derive(Debug)]
@@ -820,6 +821,11 @@ pub fn classify_passport(record: &Value) -> &'static str {
 
     if text(sample, "processing_mode") != channel.raw_or_derived {
         return "NOT_COMPARABLE";
+    }
+    // Derived v0.1 measurands cannot be admitted from a single sensor-style
+    // passport. They require the explicit source graph owned by #6064.
+    if channel.raw_or_derived == "derived" {
+        return "MORE_EVIDENCE_REQUIRED";
     }
     if channel.raw_or_derived == "derived"
         && (!non_empty_text(sample, "processing_method_id")
@@ -1726,6 +1732,14 @@ mod tests {
         corpus_schema["$defs"]["passport"]["$id"] =
             Value::String("https://example.invalid/passport.json".to_owned());
         assert!(validate_schema_contracts(&passport_schema, &corpus_schema).is_err());
+    }
+
+    #[test]
+    fn derived_measurands_require_a_typed_source_graph() {
+        assert_eq!(
+            classify_passport(&case("BIP-060")["record"]),
+            "MORE_EVIDENCE_REQUIRED"
+        );
     }
 
     #[test]
