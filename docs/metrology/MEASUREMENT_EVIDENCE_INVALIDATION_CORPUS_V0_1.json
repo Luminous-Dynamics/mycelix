@@ -7321,6 +7321,881 @@
         ],
         "invalidated_nodes": []
       }
+    },
+    {
+      "case_id": "MEI-029",
+      "description": "Two distinct invalidation events target the same node and are rejected rather than applying conflicting transitions.",
+      "graph": {
+        "nodes": [
+          {
+            "node_id": "instrument-A",
+            "node_kind": "instrument_configuration",
+            "subject_id": "sensor-A",
+            "revision": "r1",
+            "content_digest": "sha256:instA-r1",
+            "state": "current"
+          },
+          {
+            "node_id": "calibration-A",
+            "node_kind": "calibration",
+            "subject_id": "sensor-A/channel-1",
+            "revision": "r1",
+            "content_digest": "sha256:calA-r1",
+            "state": "current"
+          },
+          {
+            "node_id": "installation-A",
+            "node_kind": "installation",
+            "subject_id": "sensor-A/location-1",
+            "revision": "r1",
+            "content_digest": "sha256:installA-r1",
+            "state": "current"
+          },
+          {
+            "node_id": "sample-A",
+            "node_kind": "raw_sample",
+            "subject_id": "obs-A-001",
+            "revision": "r1",
+            "content_digest": "sha256:sampleA-r1",
+            "state": "current"
+          },
+          {
+            "node_id": "transform-A",
+            "node_kind": "derived_transform",
+            "subject_id": "derive-A-001",
+            "revision": "r1",
+            "content_digest": "sha256:transformA-r1",
+            "state": "current"
+          },
+          {
+            "node_id": "uncertainty-A",
+            "node_kind": "uncertainty_budget",
+            "subject_id": "unc-A-001",
+            "revision": "r1",
+            "content_digest": "sha256:uncA-r1",
+            "state": "current"
+          },
+          {
+            "node_id": "assay-A",
+            "node_kind": "independent_assay",
+            "subject_id": "assay-A-001",
+            "revision": "r1",
+            "content_digest": "sha256:assayA-r1",
+            "state": "current"
+          },
+          {
+            "node_id": "purpose-A",
+            "node_kind": "purpose_profile",
+            "subject_id": "purpose-A-001",
+            "revision": "r1",
+            "content_digest": "sha256:purposeA-r1",
+            "state": "current"
+          },
+          {
+            "node_id": "claim-A",
+            "node_kind": "measurement_claim",
+            "subject_id": "claim-A-001",
+            "revision": "r1",
+            "content_digest": "sha256:claimA-r1",
+            "state": "current"
+          },
+          {
+            "node_id": "instrument-B",
+            "node_kind": "instrument_configuration",
+            "subject_id": "sensor-B",
+            "revision": "r1",
+            "content_digest": "sha256:instB-r1",
+            "state": "current"
+          },
+          {
+            "node_id": "calibration-B",
+            "node_kind": "calibration",
+            "subject_id": "sensor-B/channel-1",
+            "revision": "r1",
+            "content_digest": "sha256:calB-r1",
+            "state": "current"
+          },
+          {
+            "node_id": "sample-B",
+            "node_kind": "raw_sample",
+            "subject_id": "obs-B-001",
+            "revision": "r1",
+            "content_digest": "sha256:sampleB-r1",
+            "state": "current"
+          }
+        ],
+        "edges": [
+          {
+            "dependency_id": "instrument-A",
+            "dependent_id": "calibration-A",
+            "dependency_revision": "r1",
+            "dependency_digest": "sha256:instA-r1"
+          },
+          {
+            "dependency_id": "instrument-A",
+            "dependent_id": "installation-A",
+            "dependency_revision": "r1",
+            "dependency_digest": "sha256:instA-r1"
+          },
+          {
+            "dependency_id": "instrument-A",
+            "dependent_id": "sample-A",
+            "dependency_revision": "r1",
+            "dependency_digest": "sha256:instA-r1"
+          },
+          {
+            "dependency_id": "calibration-A",
+            "dependent_id": "sample-A",
+            "dependency_revision": "r1",
+            "dependency_digest": "sha256:calA-r1"
+          },
+          {
+            "dependency_id": "installation-A",
+            "dependent_id": "sample-A",
+            "dependency_revision": "r1",
+            "dependency_digest": "sha256:installA-r1"
+          },
+          {
+            "dependency_id": "sample-A",
+            "dependent_id": "transform-A",
+            "dependency_revision": "r1",
+            "dependency_digest": "sha256:sampleA-r1"
+          },
+          {
+            "dependency_id": "sample-A",
+            "dependent_id": "uncertainty-A",
+            "dependency_revision": "r1",
+            "dependency_digest": "sha256:sampleA-r1"
+          },
+          {
+            "dependency_id": "calibration-A",
+            "dependent_id": "uncertainty-A",
+            "dependency_revision": "r1",
+            "dependency_digest": "sha256:calA-r1"
+          },
+          {
+            "dependency_id": "sample-A",
+            "dependent_id": "assay-A",
+            "dependency_revision": "r1",
+            "dependency_digest": "sha256:sampleA-r1"
+          },
+          {
+            "dependency_id": "transform-A",
+            "dependent_id": "claim-A",
+            "dependency_revision": "r1",
+            "dependency_digest": "sha256:transformA-r1"
+          },
+          {
+            "dependency_id": "uncertainty-A",
+            "dependent_id": "claim-A",
+            "dependency_revision": "r1",
+            "dependency_digest": "sha256:uncA-r1"
+          },
+          {
+            "dependency_id": "assay-A",
+            "dependent_id": "claim-A",
+            "dependency_revision": "r1",
+            "dependency_digest": "sha256:assayA-r1"
+          },
+          {
+            "dependency_id": "purpose-A",
+            "dependent_id": "claim-A",
+            "dependency_revision": "r1",
+            "dependency_digest": "sha256:purposeA-r1"
+          },
+          {
+            "dependency_id": "instrument-B",
+            "dependent_id": "calibration-B",
+            "dependency_revision": "r1",
+            "dependency_digest": "sha256:instB-r1"
+          },
+          {
+            "dependency_id": "instrument-B",
+            "dependent_id": "sample-B",
+            "dependency_revision": "r1",
+            "dependency_digest": "sha256:instB-r1"
+          },
+          {
+            "dependency_id": "calibration-B",
+            "dependent_id": "sample-B",
+            "dependency_revision": "r1",
+            "dependency_digest": "sha256:calB-r1"
+          }
+        ],
+        "events": [
+          {
+            "event_id": "evt-029a",
+            "target_node_id": "calibration-A",
+            "target_revision": "r1",
+            "target_digest": "sha256:calA-r1",
+            "event_kind": "revocation",
+            "reason_code": "synthetic_revision_event"
+          },
+          {
+            "event_id": "evt-029b",
+            "target_node_id": "calibration-A",
+            "target_revision": "r1",
+            "target_digest": "sha256:calA-r1",
+            "event_kind": "expiry",
+            "reason_code": "synthetic_revision_event"
+          }
+        ]
+      },
+      "expected": {
+        "disposition": "INVALID_GRAPH",
+        "error_code": "DUPLICATE_EVENT_TARGET",
+        "topological_order": [],
+        "node_states": [],
+        "invalidated_nodes": []
+      }
+    },
+    {
+      "case_id": "MEI-030",
+      "description": "An invalidation event targets a node absent from the graph.",
+      "graph": {
+        "nodes": [
+          {
+            "node_id": "instrument-A",
+            "node_kind": "instrument_configuration",
+            "subject_id": "sensor-A",
+            "revision": "r1",
+            "content_digest": "sha256:instA-r1",
+            "state": "current"
+          },
+          {
+            "node_id": "calibration-A",
+            "node_kind": "calibration",
+            "subject_id": "sensor-A/channel-1",
+            "revision": "r1",
+            "content_digest": "sha256:calA-r1",
+            "state": "current"
+          },
+          {
+            "node_id": "installation-A",
+            "node_kind": "installation",
+            "subject_id": "sensor-A/location-1",
+            "revision": "r1",
+            "content_digest": "sha256:installA-r1",
+            "state": "current"
+          },
+          {
+            "node_id": "sample-A",
+            "node_kind": "raw_sample",
+            "subject_id": "obs-A-001",
+            "revision": "r1",
+            "content_digest": "sha256:sampleA-r1",
+            "state": "current"
+          },
+          {
+            "node_id": "transform-A",
+            "node_kind": "derived_transform",
+            "subject_id": "derive-A-001",
+            "revision": "r1",
+            "content_digest": "sha256:transformA-r1",
+            "state": "current"
+          },
+          {
+            "node_id": "uncertainty-A",
+            "node_kind": "uncertainty_budget",
+            "subject_id": "unc-A-001",
+            "revision": "r1",
+            "content_digest": "sha256:uncA-r1",
+            "state": "current"
+          },
+          {
+            "node_id": "assay-A",
+            "node_kind": "independent_assay",
+            "subject_id": "assay-A-001",
+            "revision": "r1",
+            "content_digest": "sha256:assayA-r1",
+            "state": "current"
+          },
+          {
+            "node_id": "purpose-A",
+            "node_kind": "purpose_profile",
+            "subject_id": "purpose-A-001",
+            "revision": "r1",
+            "content_digest": "sha256:purposeA-r1",
+            "state": "current"
+          },
+          {
+            "node_id": "claim-A",
+            "node_kind": "measurement_claim",
+            "subject_id": "claim-A-001",
+            "revision": "r1",
+            "content_digest": "sha256:claimA-r1",
+            "state": "current"
+          },
+          {
+            "node_id": "instrument-B",
+            "node_kind": "instrument_configuration",
+            "subject_id": "sensor-B",
+            "revision": "r1",
+            "content_digest": "sha256:instB-r1",
+            "state": "current"
+          },
+          {
+            "node_id": "calibration-B",
+            "node_kind": "calibration",
+            "subject_id": "sensor-B/channel-1",
+            "revision": "r1",
+            "content_digest": "sha256:calB-r1",
+            "state": "current"
+          },
+          {
+            "node_id": "sample-B",
+            "node_kind": "raw_sample",
+            "subject_id": "obs-B-001",
+            "revision": "r1",
+            "content_digest": "sha256:sampleB-r1",
+            "state": "current"
+          }
+        ],
+        "edges": [
+          {
+            "dependency_id": "instrument-A",
+            "dependent_id": "calibration-A",
+            "dependency_revision": "r1",
+            "dependency_digest": "sha256:instA-r1"
+          },
+          {
+            "dependency_id": "instrument-A",
+            "dependent_id": "installation-A",
+            "dependency_revision": "r1",
+            "dependency_digest": "sha256:instA-r1"
+          },
+          {
+            "dependency_id": "instrument-A",
+            "dependent_id": "sample-A",
+            "dependency_revision": "r1",
+            "dependency_digest": "sha256:instA-r1"
+          },
+          {
+            "dependency_id": "calibration-A",
+            "dependent_id": "sample-A",
+            "dependency_revision": "r1",
+            "dependency_digest": "sha256:calA-r1"
+          },
+          {
+            "dependency_id": "installation-A",
+            "dependent_id": "sample-A",
+            "dependency_revision": "r1",
+            "dependency_digest": "sha256:installA-r1"
+          },
+          {
+            "dependency_id": "sample-A",
+            "dependent_id": "transform-A",
+            "dependency_revision": "r1",
+            "dependency_digest": "sha256:sampleA-r1"
+          },
+          {
+            "dependency_id": "sample-A",
+            "dependent_id": "uncertainty-A",
+            "dependency_revision": "r1",
+            "dependency_digest": "sha256:sampleA-r1"
+          },
+          {
+            "dependency_id": "calibration-A",
+            "dependent_id": "uncertainty-A",
+            "dependency_revision": "r1",
+            "dependency_digest": "sha256:calA-r1"
+          },
+          {
+            "dependency_id": "sample-A",
+            "dependent_id": "assay-A",
+            "dependency_revision": "r1",
+            "dependency_digest": "sha256:sampleA-r1"
+          },
+          {
+            "dependency_id": "transform-A",
+            "dependent_id": "claim-A",
+            "dependency_revision": "r1",
+            "dependency_digest": "sha256:transformA-r1"
+          },
+          {
+            "dependency_id": "uncertainty-A",
+            "dependent_id": "claim-A",
+            "dependency_revision": "r1",
+            "dependency_digest": "sha256:uncA-r1"
+          },
+          {
+            "dependency_id": "assay-A",
+            "dependent_id": "claim-A",
+            "dependency_revision": "r1",
+            "dependency_digest": "sha256:assayA-r1"
+          },
+          {
+            "dependency_id": "purpose-A",
+            "dependent_id": "claim-A",
+            "dependency_revision": "r1",
+            "dependency_digest": "sha256:purposeA-r1"
+          },
+          {
+            "dependency_id": "instrument-B",
+            "dependent_id": "calibration-B",
+            "dependency_revision": "r1",
+            "dependency_digest": "sha256:instB-r1"
+          },
+          {
+            "dependency_id": "instrument-B",
+            "dependent_id": "sample-B",
+            "dependency_revision": "r1",
+            "dependency_digest": "sha256:instB-r1"
+          },
+          {
+            "dependency_id": "calibration-B",
+            "dependent_id": "sample-B",
+            "dependency_revision": "r1",
+            "dependency_digest": "sha256:calB-r1"
+          }
+        ],
+        "events": [
+          {
+            "event_id": "evt-030",
+            "target_node_id": "missing-node",
+            "target_revision": "r1",
+            "target_digest": "sha256:missing",
+            "event_kind": "revocation",
+            "reason_code": "synthetic_revision_event"
+          }
+        ]
+      },
+      "expected": {
+        "disposition": "INVALID_GRAPH",
+        "error_code": "DANGLING_EVENT_TARGET",
+        "topological_order": [],
+        "node_states": [],
+        "invalidated_nodes": []
+      }
+    },
+    {
+      "case_id": "MEI-031",
+      "description": "Every source node is unknown, so there is no current evidence and no dependent node may be called current.",
+      "graph": {
+        "nodes": [
+          {
+            "node_id": "instrument-A",
+            "node_kind": "instrument_configuration",
+            "subject_id": "sensor-A",
+            "revision": "r1",
+            "content_digest": "sha256:instA-r1",
+            "state": "unknown"
+          },
+          {
+            "node_id": "calibration-A",
+            "node_kind": "calibration",
+            "subject_id": "sensor-A/channel-1",
+            "revision": "r1",
+            "content_digest": "sha256:calA-r1",
+            "state": "unknown"
+          },
+          {
+            "node_id": "installation-A",
+            "node_kind": "installation",
+            "subject_id": "sensor-A/location-1",
+            "revision": "r1",
+            "content_digest": "sha256:installA-r1",
+            "state": "unknown"
+          },
+          {
+            "node_id": "sample-A",
+            "node_kind": "raw_sample",
+            "subject_id": "obs-A-001",
+            "revision": "r1",
+            "content_digest": "sha256:sampleA-r1",
+            "state": "unknown"
+          },
+          {
+            "node_id": "transform-A",
+            "node_kind": "derived_transform",
+            "subject_id": "derive-A-001",
+            "revision": "r1",
+            "content_digest": "sha256:transformA-r1",
+            "state": "unknown"
+          },
+          {
+            "node_id": "uncertainty-A",
+            "node_kind": "uncertainty_budget",
+            "subject_id": "unc-A-001",
+            "revision": "r1",
+            "content_digest": "sha256:uncA-r1",
+            "state": "unknown"
+          },
+          {
+            "node_id": "assay-A",
+            "node_kind": "independent_assay",
+            "subject_id": "assay-A-001",
+            "revision": "r1",
+            "content_digest": "sha256:assayA-r1",
+            "state": "unknown"
+          },
+          {
+            "node_id": "purpose-A",
+            "node_kind": "purpose_profile",
+            "subject_id": "purpose-A-001",
+            "revision": "r1",
+            "content_digest": "sha256:purposeA-r1",
+            "state": "unknown"
+          },
+          {
+            "node_id": "claim-A",
+            "node_kind": "measurement_claim",
+            "subject_id": "claim-A-001",
+            "revision": "r1",
+            "content_digest": "sha256:claimA-r1",
+            "state": "unknown"
+          },
+          {
+            "node_id": "instrument-B",
+            "node_kind": "instrument_configuration",
+            "subject_id": "sensor-B",
+            "revision": "r1",
+            "content_digest": "sha256:instB-r1",
+            "state": "unknown"
+          },
+          {
+            "node_id": "calibration-B",
+            "node_kind": "calibration",
+            "subject_id": "sensor-B/channel-1",
+            "revision": "r1",
+            "content_digest": "sha256:calB-r1",
+            "state": "unknown"
+          },
+          {
+            "node_id": "sample-B",
+            "node_kind": "raw_sample",
+            "subject_id": "obs-B-001",
+            "revision": "r1",
+            "content_digest": "sha256:sampleB-r1",
+            "state": "unknown"
+          }
+        ],
+        "edges": [
+          {
+            "dependency_id": "instrument-A",
+            "dependent_id": "calibration-A",
+            "dependency_revision": "r1",
+            "dependency_digest": "sha256:instA-r1"
+          },
+          {
+            "dependency_id": "instrument-A",
+            "dependent_id": "installation-A",
+            "dependency_revision": "r1",
+            "dependency_digest": "sha256:instA-r1"
+          },
+          {
+            "dependency_id": "instrument-A",
+            "dependent_id": "sample-A",
+            "dependency_revision": "r1",
+            "dependency_digest": "sha256:instA-r1"
+          },
+          {
+            "dependency_id": "calibration-A",
+            "dependent_id": "sample-A",
+            "dependency_revision": "r1",
+            "dependency_digest": "sha256:calA-r1"
+          },
+          {
+            "dependency_id": "installation-A",
+            "dependent_id": "sample-A",
+            "dependency_revision": "r1",
+            "dependency_digest": "sha256:installA-r1"
+          },
+          {
+            "dependency_id": "sample-A",
+            "dependent_id": "transform-A",
+            "dependency_revision": "r1",
+            "dependency_digest": "sha256:sampleA-r1"
+          },
+          {
+            "dependency_id": "sample-A",
+            "dependent_id": "uncertainty-A",
+            "dependency_revision": "r1",
+            "dependency_digest": "sha256:sampleA-r1"
+          },
+          {
+            "dependency_id": "calibration-A",
+            "dependent_id": "uncertainty-A",
+            "dependency_revision": "r1",
+            "dependency_digest": "sha256:calA-r1"
+          },
+          {
+            "dependency_id": "sample-A",
+            "dependent_id": "assay-A",
+            "dependency_revision": "r1",
+            "dependency_digest": "sha256:sampleA-r1"
+          },
+          {
+            "dependency_id": "transform-A",
+            "dependent_id": "claim-A",
+            "dependency_revision": "r1",
+            "dependency_digest": "sha256:transformA-r1"
+          },
+          {
+            "dependency_id": "uncertainty-A",
+            "dependent_id": "claim-A",
+            "dependency_revision": "r1",
+            "dependency_digest": "sha256:uncA-r1"
+          },
+          {
+            "dependency_id": "assay-A",
+            "dependent_id": "claim-A",
+            "dependency_revision": "r1",
+            "dependency_digest": "sha256:assayA-r1"
+          },
+          {
+            "dependency_id": "purpose-A",
+            "dependent_id": "claim-A",
+            "dependency_revision": "r1",
+            "dependency_digest": "sha256:purposeA-r1"
+          },
+          {
+            "dependency_id": "instrument-B",
+            "dependent_id": "calibration-B",
+            "dependency_revision": "r1",
+            "dependency_digest": "sha256:instB-r1"
+          },
+          {
+            "dependency_id": "instrument-B",
+            "dependent_id": "sample-B",
+            "dependency_revision": "r1",
+            "dependency_digest": "sha256:instB-r1"
+          },
+          {
+            "dependency_id": "calibration-B",
+            "dependent_id": "sample-B",
+            "dependency_revision": "r1",
+            "dependency_digest": "sha256:calB-r1"
+          }
+        ],
+        "events": []
+      },
+      "expected": {
+        "disposition": "NO_CURRENT_EVIDENCE",
+        "error_code": null,
+        "topological_order": [],
+        "node_states": [],
+        "invalidated_nodes": []
+      }
+    },
+    {
+      "case_id": "MEI-032",
+      "description": "An invalidation event names the correct digest but a stale target revision.",
+      "graph": {
+        "nodes": [
+          {
+            "node_id": "instrument-A",
+            "node_kind": "instrument_configuration",
+            "subject_id": "sensor-A",
+            "revision": "r1",
+            "content_digest": "sha256:instA-r1",
+            "state": "current"
+          },
+          {
+            "node_id": "calibration-A",
+            "node_kind": "calibration",
+            "subject_id": "sensor-A/channel-1",
+            "revision": "r1",
+            "content_digest": "sha256:calA-r1",
+            "state": "current"
+          },
+          {
+            "node_id": "installation-A",
+            "node_kind": "installation",
+            "subject_id": "sensor-A/location-1",
+            "revision": "r1",
+            "content_digest": "sha256:installA-r1",
+            "state": "current"
+          },
+          {
+            "node_id": "sample-A",
+            "node_kind": "raw_sample",
+            "subject_id": "obs-A-001",
+            "revision": "r1",
+            "content_digest": "sha256:sampleA-r1",
+            "state": "current"
+          },
+          {
+            "node_id": "transform-A",
+            "node_kind": "derived_transform",
+            "subject_id": "derive-A-001",
+            "revision": "r1",
+            "content_digest": "sha256:transformA-r1",
+            "state": "current"
+          },
+          {
+            "node_id": "uncertainty-A",
+            "node_kind": "uncertainty_budget",
+            "subject_id": "unc-A-001",
+            "revision": "r1",
+            "content_digest": "sha256:uncA-r1",
+            "state": "current"
+          },
+          {
+            "node_id": "assay-A",
+            "node_kind": "independent_assay",
+            "subject_id": "assay-A-001",
+            "revision": "r1",
+            "content_digest": "sha256:assayA-r1",
+            "state": "current"
+          },
+          {
+            "node_id": "purpose-A",
+            "node_kind": "purpose_profile",
+            "subject_id": "purpose-A-001",
+            "revision": "r1",
+            "content_digest": "sha256:purposeA-r1",
+            "state": "current"
+          },
+          {
+            "node_id": "claim-A",
+            "node_kind": "measurement_claim",
+            "subject_id": "claim-A-001",
+            "revision": "r1",
+            "content_digest": "sha256:claimA-r1",
+            "state": "current"
+          },
+          {
+            "node_id": "instrument-B",
+            "node_kind": "instrument_configuration",
+            "subject_id": "sensor-B",
+            "revision": "r1",
+            "content_digest": "sha256:instB-r1",
+            "state": "current"
+          },
+          {
+            "node_id": "calibration-B",
+            "node_kind": "calibration",
+            "subject_id": "sensor-B/channel-1",
+            "revision": "r1",
+            "content_digest": "sha256:calB-r1",
+            "state": "current"
+          },
+          {
+            "node_id": "sample-B",
+            "node_kind": "raw_sample",
+            "subject_id": "obs-B-001",
+            "revision": "r1",
+            "content_digest": "sha256:sampleB-r1",
+            "state": "current"
+          }
+        ],
+        "edges": [
+          {
+            "dependency_id": "instrument-A",
+            "dependent_id": "calibration-A",
+            "dependency_revision": "r1",
+            "dependency_digest": "sha256:instA-r1"
+          },
+          {
+            "dependency_id": "instrument-A",
+            "dependent_id": "installation-A",
+            "dependency_revision": "r1",
+            "dependency_digest": "sha256:instA-r1"
+          },
+          {
+            "dependency_id": "instrument-A",
+            "dependent_id": "sample-A",
+            "dependency_revision": "r1",
+            "dependency_digest": "sha256:instA-r1"
+          },
+          {
+            "dependency_id": "calibration-A",
+            "dependent_id": "sample-A",
+            "dependency_revision": "r1",
+            "dependency_digest": "sha256:calA-r1"
+          },
+          {
+            "dependency_id": "installation-A",
+            "dependent_id": "sample-A",
+            "dependency_revision": "r1",
+            "dependency_digest": "sha256:installA-r1"
+          },
+          {
+            "dependency_id": "sample-A",
+            "dependent_id": "transform-A",
+            "dependency_revision": "r1",
+            "dependency_digest": "sha256:sampleA-r1"
+          },
+          {
+            "dependency_id": "sample-A",
+            "dependent_id": "uncertainty-A",
+            "dependency_revision": "r1",
+            "dependency_digest": "sha256:sampleA-r1"
+          },
+          {
+            "dependency_id": "calibration-A",
+            "dependent_id": "uncertainty-A",
+            "dependency_revision": "r1",
+            "dependency_digest": "sha256:calA-r1"
+          },
+          {
+            "dependency_id": "sample-A",
+            "dependent_id": "assay-A",
+            "dependency_revision": "r1",
+            "dependency_digest": "sha256:sampleA-r1"
+          },
+          {
+            "dependency_id": "transform-A",
+            "dependent_id": "claim-A",
+            "dependency_revision": "r1",
+            "dependency_digest": "sha256:transformA-r1"
+          },
+          {
+            "dependency_id": "uncertainty-A",
+            "dependent_id": "claim-A",
+            "dependency_revision": "r1",
+            "dependency_digest": "sha256:uncA-r1"
+          },
+          {
+            "dependency_id": "assay-A",
+            "dependent_id": "claim-A",
+            "dependency_revision": "r1",
+            "dependency_digest": "sha256:assayA-r1"
+          },
+          {
+            "dependency_id": "purpose-A",
+            "dependent_id": "claim-A",
+            "dependency_revision": "r1",
+            "dependency_digest": "sha256:purposeA-r1"
+          },
+          {
+            "dependency_id": "instrument-B",
+            "dependent_id": "calibration-B",
+            "dependency_revision": "r1",
+            "dependency_digest": "sha256:instB-r1"
+          },
+          {
+            "dependency_id": "instrument-B",
+            "dependent_id": "sample-B",
+            "dependency_revision": "r1",
+            "dependency_digest": "sha256:instB-r1"
+          },
+          {
+            "dependency_id": "calibration-B",
+            "dependent_id": "sample-B",
+            "dependency_revision": "r1",
+            "dependency_digest": "sha256:calB-r1"
+          }
+        ],
+        "events": [
+          {
+            "event_id": "evt-032",
+            "target_node_id": "calibration-A",
+            "target_revision": "r0",
+            "target_digest": "sha256:calA-r1",
+            "event_kind": "revocation",
+            "reason_code": "synthetic_revision_event"
+          }
+        ]
+      },
+      "expected": {
+        "disposition": "INVALID_GRAPH",
+        "error_code": "EVENT_TARGET_MISMATCH",
+        "topological_order": [],
+        "node_states": [],
+        "invalidated_nodes": []
+      }
     }
   ]
 }
