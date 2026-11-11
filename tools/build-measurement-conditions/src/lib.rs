@@ -200,7 +200,7 @@ const EXPECTED_PROFILES: &[(&str, &str, &str, &str, &str, &str, usize)] = &[
     ("COND-ACOUSTIC-001", "SYNTH-ACOUSTIC-ENV-01", "air_speed", "habitat.air_speed", "FW-SYNTH-1", "fixture-config-v1", 3),
 ];
 const EXPECTED_CASES: &[(&str, &str)] = &[
-    ("MC-001", "ELIGIBLE_FOR_INDEPENDENT_CONDITIONS_REVIEW_ONLY"),
+    ("MC-001", "SYNTHETIC_CONDITION_CONTRACT_VALIDATION_ONLY"),
     ("MC-002", "NOT_COMPARABLE"),
     ("MC-003", "NOT_COMPARABLE"),
     ("MC-004", "MORE_EVIDENCE_REQUIRED"),
@@ -1058,7 +1058,7 @@ pub fn classify_record(record: &Value) -> &'static str {
         }
     }
 
-    "ELIGIBLE_FOR_INDEPENDENT_CONDITIONS_REVIEW_ONLY"
+    "SYNTHETIC_CONDITION_CONTRACT_VALIDATION_ONLY"
 }
 
 fn validate_registry(registry: &Value) -> Result<usize, String> {
@@ -1284,7 +1284,7 @@ mod tests {
         let mut positive = case("MC-001")["record"].clone();
         assert_eq!(
             classify_record(&positive),
-            "ELIGIBLE_FOR_INDEPENDENT_CONDITIONS_REVIEW_ONLY"
+            "SYNTHETIC_CONDITION_CONTRACT_VALIDATION_ONLY"
         );
         positive["registry_binding"]["profile_evidence_state"] =
             Value::String("independently_characterized".to_owned());
