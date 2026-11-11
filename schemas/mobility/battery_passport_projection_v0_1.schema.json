@@ -1,0 +1,417 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/mobility/battery-passport-projection/0.1",
+  "title": "Evidence-qualified Battery Passport projection v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "projection_version",
+    "registry",
+    "battery",
+    "target",
+    "operator",
+    "data_points",
+    "summary",
+    "generated_at"
+  ],
+  "properties": {
+    "projection_version": {
+      "const": "battery-passport-projection/0.1"
+    },
+    "registry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "registry_id",
+        "registry_version",
+        "source_registry_sha256",
+        "guidance_version"
+      ],
+      "properties": {
+        "registry_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "registry_version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_registry_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "guidance_version": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "battery": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "battery_ref",
+        "category",
+        "configuration_sha256",
+        "lifecycle_status",
+        "passport_ref"
+      ],
+      "properties": {
+        "battery_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "category": {
+          "enum": [
+            "EV",
+            "LMT",
+            "INDUSTRIAL"
+          ]
+        },
+        "configuration_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "lifecycle_status": {
+          "enum": [
+            "original",
+            "repurposed",
+            "re-used",
+            "remanufactured",
+            "waste"
+          ]
+        },
+        "passport_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "predecessor_passport_ref": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "first_use_date": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date"
+        },
+        "stationary_bess": {
+          "type": "boolean"
+        },
+        "has_bms": {
+          "type": "boolean"
+        }
+      }
+    },
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "jurisdiction",
+        "effective_date",
+        "audience"
+      ],
+      "properties": {
+        "jurisdiction": {
+          "const": "EU"
+        },
+        "effective_date": {
+          "type": "string",
+          "format": "date"
+        },
+        "audience": {
+          "enum": [
+            "PUBLIC",
+            "LEGITIMATE_INTEREST",
+            "NOTIFIED_BODY",
+            "MEMBER_STATE_AUTHORITY",
+            "EU_COMMISSION",
+            "RESPONSIBLE_OPERATOR_PREVIEW"
+          ]
+        }
+      }
+    },
+    "operator": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "responsible_operator_ref",
+        "acting_operator_ref",
+        "authorization_state"
+      ],
+      "properties": {
+        "responsible_operator_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "acting_operator_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "authorization_state": {
+          "enum": [
+            "RESPONSIBLE_OPERATOR_DIRECT",
+            "VERIFIED_WRITTEN_DELEGATION",
+            "MISSING",
+            "EXPIRED",
+            "INSUFFICIENT_SCOPE",
+            "NOT_EVALUATED"
+          ]
+        },
+        "written_delegation_sha256": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "scope": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true
+        },
+        "valid_until": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date"
+        }
+      }
+    },
+    "data_points": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "number",
+          "applicability_status",
+          "disclosure",
+          "outcome"
+        ],
+        "properties": {
+          "number": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 71
+          },
+          "applicability_status": {
+            "enum": [
+              "MANDATORY",
+              "OPTIONAL_IF_AVAILABLE",
+              "CONDITIONAL",
+              "NOT_TO_BE_FILLED_DISPLAYED_AT_2027_02_18",
+              "APPLICABLE_FROM_FIRST_USE"
+            ]
+          },
+          "disclosure": {
+            "enum": [
+              "PUBLIC",
+              "LEGITIMATE_INTEREST_RESTRICTED",
+              "LEGITIMATE_INTEREST_AND_DESIGNATED_AUTHORITIES",
+              "NOTIFIED_BODIES_MEMBER_STATE_AUTHORITIES_COMMISSION"
+            ]
+          },
+          "outcome": {
+            "enum": [
+              "READY_TO_PUBLISH",
+              "MISSING_REQUIRED_EVIDENCE",
+              "BLOCKED_UNQUALIFIED_SOURCE",
+              "WITHHELD_BY_ACCESS_POLICY",
+              "NOT_REQUIRED_AT_EFFECTIVE_DATE",
+              "NOT_APPLICABLE",
+              "CONDITIONAL_REVIEW_REQUIRED",
+              "OPERATOR_AUTHORIZATION_REQUIRED"
+            ]
+          },
+          "value": {},
+          "unit": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "evidence": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/evidence"
+            }
+          },
+          "condition": {
+            "type": "string"
+          }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "outcome": {
+                  "const": "READY_TO_PUBLISH"
+                }
+              },
+              "required": [
+                "outcome"
+              ]
+            },
+            "then": {
+              "required": [
+                "value",
+                "evidence"
+              ],
+              "properties": {
+                "evidence": {
+                  "minItems": 1
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "outcome": {
+                  "enum": [
+                    "WITHHELD_BY_ACCESS_POLICY",
+                    "NOT_REQUIRED_AT_EFFECTIVE_DATE",
+                    "NOT_APPLICABLE",
+                    "MISSING_REQUIRED_EVIDENCE",
+                    "BLOCKED_UNQUALIFIED_SOURCE",
+                    "CONDITIONAL_REVIEW_REQUIRED",
+                    "OPERATOR_AUTHORIZATION_REQUIRED"
+                  ]
+                }
+              },
+              "required": [
+                "outcome"
+              ]
+            },
+            "then": {
+              "not": {
+                "required": [
+                  "value"
+                ]
+              }
+            }
+          }
+        ]
+      }
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "ready_to_publish",
+        "missing_required_evidence",
+        "blocked_unqualified_source",
+        "withheld_by_access_policy",
+        "not_required_at_effective_date",
+        "not_applicable",
+        "conditional_review_required",
+        "operator_authorization_required"
+      ],
+      "properties": {
+        "ready_to_publish": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "missing_required_evidence": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "blocked_unqualified_source": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "withheld_by_access_policy": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "not_required_at_effective_date": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "not_applicable": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "conditional_review_required": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "operator_authorization_required": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "generated_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "$defs": {
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "evidence_ref",
+        "evidence_class",
+        "digest",
+        "issuer_ref",
+        "recorded_at"
+      ],
+      "properties": {
+        "evidence_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "evidence_class": {
+          "enum": [
+            "measurement",
+            "reference_test_measurement",
+            "derived_estimate",
+            "model_prediction",
+            "simulation_output",
+            "vendor_claim",
+            "document",
+            "operator_attestation",
+            "unknown"
+          ]
+        },
+        "digest": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "issuer_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "recorded_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "method_ref": {
+          "type": "string"
+        },
+        "protocol_ref": {
+          "type": "string"
+        },
+        "reference_condition_ref": {
+          "type": "string"
+        },
+        "uncertainty": {
+          "type": "object"
+        },
+        "validity_domain_ref": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}
