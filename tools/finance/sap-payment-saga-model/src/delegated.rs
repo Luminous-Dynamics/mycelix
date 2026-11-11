@@ -628,6 +628,7 @@ mod tests {
             .unwrap();
         let intent = child_intent(child_scope("operator:a", "dest:a"), "effect:1", 400);
         parent.reserve("provider-a", intent.clone()).unwrap();
+        parent.mark_dispatch_authorized("provider-a", "effect:1").unwrap();
         parent.begin_revocation("provider-a").unwrap();
         assert_eq!(
             parent.reserve(
@@ -642,9 +643,6 @@ mod tests {
             Ok(ExposureDisposition::AlreadyReserved)
         );
         parent
-            .mark_dispatch_authorized("provider-a", "effect:1")
-            .unwrap();
-        parent
             .mark_committed_unsettled(
                 "provider-a",
                 "effect:1",
@@ -657,6 +655,28 @@ mod tests {
                 "effect:1",
                 &final_settlement("effect:1", "dest:a"),
             )
+            .unwrap();
+        parent.close_grant("provider-a").unwrap();
+        assert_eq!(parent.available_parent_budget_minor(), Ok(1_000));
+    }
+
+    #[test]
+    fn revocation_blocks_dispatch_of_previously_reserved_but_undispatched_effect() {
+        let mut parent = ParentDelegatedExposureBookV1::new(parent_policy(1_000)).unwrap();
+        let scope = child_scope("operator:a", "dest:a");
+        parent
+            .allocate_child_budget("provider-a", scope.clone(), 700, 1, digest('1'))
+            .unwrap();
+        parent
+            .reserve("provider-a", child_intent(scope, "effect:reserved", 100))
+            .unwrap();
+        parent.begin_revocation("provider-a").unwrap();
+        assert_eq!(
+            parent.mark_dispatch_authorized("provider-a", "effect:reserved"),
+            Err(ExposureError::InvalidTransition)
+        );
+        parent
+            .cancel_before_dispatch("provider-a", "effect:reserved")
             .unwrap();
         parent.close_grant("provider-a").unwrap();
         assert_eq!(parent.available_parent_budget_minor(), Ok(1_000));
@@ -751,6 +771,9 @@ mod tests {
             .reserve("provider-a", existing_intent.clone())
             .unwrap();
         parent
+            .mark_dispatch_authorized("provider-a", "effect:existing")
+            .unwrap();
+        parent
             .allocate_child_budget("provider-b", second_scope, 300, 2, digest('2'))
             .unwrap();
 
@@ -774,10 +797,11 @@ mod tests {
 
         // The old effect remains fully resolvable while new exposure is frozen.
         parent
-            .mark_dispatch_authorized("provider-a", "effect:existing")
-            .unwrap();
-        parent
-            .mark_committed_unsettled("provider-a", "effect:existing")
+            .mark_committed_unsettled(
+                "provider-a",
+                "effect:existing",
+                &observed_unsettled("effect:existing", "dest:a"),
+            )
             .unwrap();
         parent
             .mark_settled(
@@ -815,6 +839,15 @@ mod tests {
             parent.reserve("provider-a", existing),
             Ok(ExposureDisposition::AlreadyReserved)
         );
+        // The old sublimit now exceeds the lowered per-child ceiling. A merely
+        // reserved effect cannot cross the dispatch boundary under stale policy.
+        assert_eq!(
+            parent.mark_dispatch_authorized("provider-a", "effect:existing"),
+            Err(ExposureError::LimitExceeded)
+        );
+        parent
+            .cancel_before_dispatch("provider-a", "effect:existing")
+            .unwrap();
         assert_eq!(
             parent.reserve("provider-a", child_intent(scope, "effect:new", 50)),
             Err(ExposureError::LimitExceeded)
