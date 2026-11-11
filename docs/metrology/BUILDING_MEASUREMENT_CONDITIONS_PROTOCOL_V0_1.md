@@ -43,7 +43,7 @@ When a profile does not require correction, an unexpected correction is rejected
 - `OUTSIDE_VALIDATED_ENVELOPE`: an observed numeric condition exceeds the synthetic profile envelope.
 - `EXPIRED_OR_INVALIDATED`: profile validity or firmware/install applicability is superseded.
 - `REJECTED_FOR_DECLARED_PURPOSE`: rights are revoked or correction policy is violated.
-- `ELIGIBLE_FOR_INDEPENDENT_CONDITIONS_REVIEW_ONLY`: all synthetic gates match; this is not passport admission or a physical claim.
+- `SYNTHETIC_CONDITION_CONTRACT_VALIDATION_ONLY`: all synthetic gates match; this is not passport admission or a physical claim.
 
 ## Claim ceiling
 
