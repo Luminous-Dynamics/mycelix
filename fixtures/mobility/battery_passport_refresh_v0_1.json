@@ -1,0 +1,1154 @@
+{
+  "corpus_version": "battery-passport-refresh-corpus/0.1",
+  "registry_reference": {
+    "registry_id": "eu-battery-passport-data-point-guidance",
+    "registry_version": "1.0.0",
+    "guidance_version": "3.2",
+    "registry_sha256": "e6856565b05508dfd15eaa0500aa7239240854f2824737114ffe11811c3602f3"
+  },
+  "cases": [
+    {
+      "case_id": "status_change_considered_before_transition",
+      "battery": {
+        "battery_ref": "synthetic:battery-001",
+        "category": "EV",
+        "pack_configuration_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "passport_ref": "synthetic:passport-001",
+        "lifecycle_status": "original",
+        "connectivity_mode": "CONNECTED",
+        "responsible_operator_ref": "synthetic:operator-001",
+        "first_use_date": null
+      },
+      "applicability": {
+        "registry_sha256": "e6856565b05508dfd15eaa0500aa7239240854f2824737114ffe11811c3602f3",
+        "resolved_at": "2026-11-11T09:00:00Z",
+        "applicable_dynamic_data_points": [
+          51,
+          52,
+          53,
+          54,
+          55,
+          56,
+          57,
+          58,
+          59,
+          60,
+          61,
+          62,
+          63,
+          64,
+          65,
+          66,
+          67,
+          68,
+          69,
+          70,
+          71
+        ]
+      },
+      "policy": {
+        "policy_ref": "synthetic:refresh-policy-v0.1",
+        "policy_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "periodic_usage_capture_policy_ref": "synthetic:usage-policy-v1",
+        "soh_monitoring_purpose_ref": "synthetic:soh-monitoring-purpose"
+      },
+      "events": [
+        {
+          "event_id": "evt-status-considered",
+          "sequence": 1,
+          "event_type": "STATUS_CHANGE_CONSIDERED",
+          "battery_ref": "synthetic:battery-001",
+          "pack_configuration_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "passport_ref": "synthetic:passport-001",
+          "occurred_at": "2026-11-11T10:01:00Z",
+          "received_at": "2026-11-11T10:01:05Z",
+          "actor_ref": "synthetic:operator-001",
+          "authority_state": "RESPONSIBLE_OPERATOR_DIRECT",
+          "authorization_ref": null,
+          "authorization_sha256": null,
+          "authorization_scope": [],
+          "source_class": "SYNTHETIC_KNOWN_TRUTH",
+          "evidence_ref": "synthetic:evidence:evt-status-considered",
+          "evidence_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "proposed_status": "remanufactured",
+          "resulting_status": null,
+          "material_change": null,
+          "technical_feasible": null,
+          "purpose_ref": null,
+          "capture_policy_ref": null,
+          "source_window_start": null,
+          "source_window_end": null
+        }
+      ],
+      "expected": {
+        "event_dispositions": [
+          "UPDATE_REQUIRED"
+        ],
+        "pending_data_points": [
+          51,
+          52,
+          53,
+          54,
+          55,
+          56,
+          57,
+          58,
+          59,
+          60,
+          61,
+          62,
+          63,
+          64,
+          65,
+          66,
+          67
+        ],
+        "new_passport_link_required": false,
+        "case_state": "OPERATOR_ACTION_REQUIRED"
+      }
+    },
+    {
+      "case_id": "remanufacture_requires_new_passport_link",
+      "battery": {
+        "battery_ref": "synthetic:battery-001",
+        "category": "EV",
+        "pack_configuration_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "passport_ref": "synthetic:passport-001",
+        "lifecycle_status": "original",
+        "connectivity_mode": "CONNECTED",
+        "responsible_operator_ref": "synthetic:operator-001",
+        "first_use_date": null
+      },
+      "applicability": {
+        "registry_sha256": "e6856565b05508dfd15eaa0500aa7239240854f2824737114ffe11811c3602f3",
+        "resolved_at": "2026-11-11T09:00:00Z",
+        "applicable_dynamic_data_points": [
+          51,
+          52,
+          53,
+          54,
+          55,
+          56,
+          57,
+          58,
+          59,
+          60,
+          61,
+          62,
+          63,
+          64,
+          65,
+          66,
+          67,
+          68,
+          69,
+          70,
+          71
+        ]
+      },
+      "policy": {
+        "policy_ref": "synthetic:refresh-policy-v0.1",
+        "policy_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "periodic_usage_capture_policy_ref": "synthetic:usage-policy-v1",
+        "soh_monitoring_purpose_ref": "synthetic:soh-monitoring-purpose"
+      },
+      "events": [
+        {
+          "event_id": "evt-remanufactured",
+          "sequence": 1,
+          "event_type": "STATUS_CHANGED",
+          "battery_ref": "synthetic:battery-001",
+          "pack_configuration_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "passport_ref": "synthetic:passport-001",
+          "occurred_at": "2026-11-11T10:01:00Z",
+          "received_at": "2026-11-11T10:01:05Z",
+          "actor_ref": "synthetic:operator-001",
+          "authority_state": "RESPONSIBLE_OPERATOR_DIRECT",
+          "authorization_ref": null,
+          "authorization_sha256": null,
+          "authorization_scope": [],
+          "source_class": "SYNTHETIC_KNOWN_TRUTH",
+          "evidence_ref": "synthetic:evidence:evt-remanufactured",
+          "evidence_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "proposed_status": null,
+          "resulting_status": "remanufactured",
+          "material_change": null,
+          "technical_feasible": null,
+          "purpose_ref": null,
+          "capture_policy_ref": null,
+          "source_window_start": null,
+          "source_window_end": null
+        }
+      ],
+      "expected": {
+        "event_dispositions": [
+          "UPDATE_REQUIRED"
+        ],
+        "pending_data_points": [
+          51,
+          52,
+          53,
+          54,
+          55,
+          56,
+          57,
+          58,
+          59,
+          60,
+          61,
+          62,
+          63,
+          64,
+          65,
+          66,
+          67
+        ],
+        "new_passport_link_required": true,
+        "case_state": "OPERATOR_ACTION_REQUIRED"
+      }
+    },
+    {
+      "case_id": "offline_service_visit_is_review_opportunity",
+      "battery": {
+        "battery_ref": "synthetic:battery-001",
+        "category": "EV",
+        "pack_configuration_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "passport_ref": "synthetic:passport-001",
+        "lifecycle_status": "original",
+        "connectivity_mode": "OFFLINE_INTERMITTENT",
+        "responsible_operator_ref": "synthetic:operator-001",
+        "first_use_date": null
+      },
+      "applicability": {
+        "registry_sha256": "e6856565b05508dfd15eaa0500aa7239240854f2824737114ffe11811c3602f3",
+        "resolved_at": "2026-11-11T09:00:00Z",
+        "applicable_dynamic_data_points": [
+          51,
+          52,
+          53,
+          54,
+          55,
+          56,
+          57,
+          58,
+          59,
+          60,
+          61,
+          62,
+          63,
+          64,
+          65,
+          66,
+          67,
+          68,
+          69,
+          70,
+          71
+        ]
+      },
+      "policy": {
+        "policy_ref": "synthetic:refresh-policy-v0.1",
+        "policy_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "periodic_usage_capture_policy_ref": "synthetic:usage-policy-v1",
+        "soh_monitoring_purpose_ref": "synthetic:soh-monitoring-purpose"
+      },
+      "events": [
+        {
+          "event_id": "evt-service-visit",
+          "sequence": 1,
+          "event_type": "SERVICE_VISIT",
+          "battery_ref": "synthetic:battery-001",
+          "pack_configuration_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "passport_ref": "synthetic:passport-001",
+          "occurred_at": "2026-11-11T10:01:00Z",
+          "received_at": "2026-11-11T10:01:05Z",
+          "actor_ref": "synthetic:operator-001",
+          "authority_state": "RESPONSIBLE_OPERATOR_DIRECT",
+          "authorization_ref": null,
+          "authorization_sha256": null,
+          "authorization_scope": [],
+          "source_class": "SYNTHETIC_KNOWN_TRUTH",
+          "evidence_ref": "synthetic:evidence:evt-service-visit",
+          "evidence_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "proposed_status": null,
+          "resulting_status": null,
+          "material_change": null,
+          "technical_feasible": null,
+          "purpose_ref": null,
+          "capture_policy_ref": null,
+          "source_window_start": null,
+          "source_window_end": null
+        }
+      ],
+      "expected": {
+        "event_dispositions": [
+          "REVIEW_REQUIRED"
+        ],
+        "pending_data_points": [
+          68,
+          69,
+          70,
+          71
+        ],
+        "new_passport_link_required": false,
+        "case_state": "OPERATOR_ACTION_REQUIRED"
+      }
+    },
+    {
+      "case_id": "first_use_activates_usage_points",
+      "battery": {
+        "battery_ref": "synthetic:battery-001",
+        "category": "EV",
+        "pack_configuration_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "passport_ref": "synthetic:passport-001",
+        "lifecycle_status": "original",
+        "connectivity_mode": "CONNECTED",
+        "responsible_operator_ref": "synthetic:operator-001",
+        "first_use_date": "2026-11-11"
+      },
+      "applicability": {
+        "registry_sha256": "e6856565b05508dfd15eaa0500aa7239240854f2824737114ffe11811c3602f3",
+        "resolved_at": "2026-11-11T09:00:00Z",
+        "applicable_dynamic_data_points": [
+          51,
+          52,
+          53,
+          54,
+          55,
+          56,
+          57,
+          58,
+          59,
+          60,
+          61,
+          62,
+          63,
+          64,
+          65,
+          66,
+          67,
+          68,
+          69,
+          70,
+          71
+        ]
+      },
+      "policy": {
+        "policy_ref": "synthetic:refresh-policy-v0.1",
+        "policy_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "periodic_usage_capture_policy_ref": "synthetic:usage-policy-v1",
+        "soh_monitoring_purpose_ref": "synthetic:soh-monitoring-purpose"
+      },
+      "events": [
+        {
+          "event_id": "evt-first-use",
+          "sequence": 1,
+          "event_type": "FIRST_USE_CONFIRMED",
+          "battery_ref": "synthetic:battery-001",
+          "pack_configuration_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "passport_ref": "synthetic:passport-001",
+          "occurred_at": "2026-11-11T10:01:00Z",
+          "received_at": "2026-11-11T10:01:05Z",
+          "actor_ref": "synthetic:operator-001",
+          "authority_state": "RESPONSIBLE_OPERATOR_DIRECT",
+          "authorization_ref": null,
+          "authorization_sha256": null,
+          "authorization_scope": [],
+          "source_class": "SYNTHETIC_KNOWN_TRUTH",
+          "evidence_ref": "synthetic:evidence:evt-first-use",
+          "evidence_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "proposed_status": null,
+          "resulting_status": null,
+          "material_change": null,
+          "technical_feasible": null,
+          "purpose_ref": null,
+          "capture_policy_ref": null,
+          "source_window_start": null,
+          "source_window_end": null
+        }
+      ],
+      "expected": {
+        "event_dispositions": [
+          "REVIEW_REQUIRED"
+        ],
+        "pending_data_points": [
+          68,
+          69,
+          70,
+          71
+        ],
+        "new_passport_link_required": false,
+        "case_state": "OPERATOR_ACTION_REQUIRED"
+      }
+    },
+    {
+      "case_id": "connectivity_loss_does_not_satisfy_due_work",
+      "battery": {
+        "battery_ref": "synthetic:battery-001",
+        "category": "EV",
+        "pack_configuration_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "passport_ref": "synthetic:passport-001",
+        "lifecycle_status": "original",
+        "connectivity_mode": "CONNECTED",
+        "responsible_operator_ref": "synthetic:operator-001",
+        "first_use_date": null
+      },
+      "applicability": {
+        "registry_sha256": "e6856565b05508dfd15eaa0500aa7239240854f2824737114ffe11811c3602f3",
+        "resolved_at": "2026-11-11T09:00:00Z",
+        "applicable_dynamic_data_points": [
+          51,
+          52,
+          53,
+          54,
+          55,
+          56,
+          57,
+          58,
+          59,
+          60,
+          61,
+          62,
+          63,
+          64,
+          65,
+          66,
+          67,
+          68,
+          69,
+          70,
+          71
+        ]
+      },
+      "policy": {
+        "policy_ref": "synthetic:refresh-policy-v0.1",
+        "policy_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "periodic_usage_capture_policy_ref": "synthetic:usage-policy-v1",
+        "soh_monitoring_purpose_ref": "synthetic:soh-monitoring-purpose"
+      },
+      "events": [
+        {
+          "event_id": "evt-status-due",
+          "sequence": 1,
+          "event_type": "STATUS_CHANGED",
+          "battery_ref": "synthetic:battery-001",
+          "pack_configuration_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "passport_ref": "synthetic:passport-001",
+          "occurred_at": "2026-11-11T10:01:00Z",
+          "received_at": "2026-11-11T10:01:05Z",
+          "actor_ref": "synthetic:operator-001",
+          "authority_state": "RESPONSIBLE_OPERATOR_DIRECT",
+          "authorization_ref": null,
+          "authorization_sha256": null,
+          "authorization_scope": [],
+          "source_class": "SYNTHETIC_KNOWN_TRUTH",
+          "evidence_ref": "synthetic:evidence:evt-status-due",
+          "evidence_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "proposed_status": null,
+          "resulting_status": "original",
+          "material_change": null,
+          "technical_feasible": null,
+          "purpose_ref": null,
+          "capture_policy_ref": null,
+          "source_window_start": null,
+          "source_window_end": null
+        },
+        {
+          "event_id": "evt-network-loss",
+          "sequence": 2,
+          "event_type": "CONNECTIVITY_UNAVAILABLE",
+          "battery_ref": "synthetic:battery-001",
+          "pack_configuration_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "passport_ref": "synthetic:passport-001",
+          "occurred_at": "2026-11-11T10:02:00Z",
+          "received_at": "2026-11-11T10:02:05Z",
+          "actor_ref": "synthetic:operator-001",
+          "authority_state": "RESPONSIBLE_OPERATOR_DIRECT",
+          "authorization_ref": null,
+          "authorization_sha256": null,
+          "authorization_scope": [],
+          "source_class": "SYNTHETIC_KNOWN_TRUTH",
+          "evidence_ref": "synthetic:evidence:evt-network-loss",
+          "evidence_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "proposed_status": null,
+          "resulting_status": null,
+          "material_change": null,
+          "technical_feasible": null,
+          "purpose_ref": null,
+          "capture_policy_ref": null,
+          "source_window_start": null,
+          "source_window_end": null
+        }
+      ],
+      "expected": {
+        "event_dispositions": [
+          "UPDATE_REQUIRED",
+          "CONNECTIVITY_BLOCKED"
+        ],
+        "pending_data_points": [
+          51,
+          52,
+          53,
+          54,
+          55,
+          56,
+          57,
+          58,
+          59,
+          60,
+          61,
+          62,
+          63,
+          64,
+          65,
+          66,
+          67
+        ],
+        "new_passport_link_required": false,
+        "case_state": "OPERATOR_ACTION_REQUIRED"
+      }
+    },
+    {
+      "case_id": "no_material_soh_change_records_review",
+      "battery": {
+        "battery_ref": "synthetic:battery-001",
+        "category": "EV",
+        "pack_configuration_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "passport_ref": "synthetic:passport-001",
+        "lifecycle_status": "original",
+        "connectivity_mode": "CONNECTED",
+        "responsible_operator_ref": "synthetic:operator-001",
+        "first_use_date": null
+      },
+      "applicability": {
+        "registry_sha256": "e6856565b05508dfd15eaa0500aa7239240854f2824737114ffe11811c3602f3",
+        "resolved_at": "2026-11-11T09:00:00Z",
+        "applicable_dynamic_data_points": [
+          51,
+          52,
+          53,
+          54,
+          55,
+          56,
+          57,
+          58,
+          59,
+          60,
+          61,
+          62,
+          63,
+          64,
+          65,
+          66,
+          67,
+          68,
+          69,
+          70,
+          71
+        ]
+      },
+      "policy": {
+        "policy_ref": "synthetic:refresh-policy-v0.1",
+        "policy_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "periodic_usage_capture_policy_ref": "synthetic:usage-policy-v1",
+        "soh_monitoring_purpose_ref": "synthetic:soh-monitoring-purpose"
+      },
+      "events": [
+        {
+          "event_id": "evt-soh-no-change",
+          "sequence": 1,
+          "event_type": "SOH_MONITORING_REVIEW",
+          "battery_ref": "synthetic:battery-001",
+          "pack_configuration_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "passport_ref": "synthetic:passport-001",
+          "occurred_at": "2026-11-11T10:01:00Z",
+          "received_at": "2026-11-11T10:01:05Z",
+          "actor_ref": "synthetic:operator-001",
+          "authority_state": "RESPONSIBLE_OPERATOR_DIRECT",
+          "authorization_ref": null,
+          "authorization_sha256": null,
+          "authorization_scope": [],
+          "source_class": "SYNTHETIC_KNOWN_TRUTH",
+          "evidence_ref": "synthetic:evidence:evt-soh-no-change",
+          "evidence_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "proposed_status": null,
+          "resulting_status": null,
+          "material_change": false,
+          "technical_feasible": true,
+          "purpose_ref": "synthetic:soh-monitoring-purpose",
+          "capture_policy_ref": null,
+          "source_window_start": null,
+          "source_window_end": null
+        }
+      ],
+      "expected": {
+        "event_dispositions": [
+          "NO_CHANGE_RECORDED"
+        ],
+        "pending_data_points": [],
+        "new_passport_link_required": false,
+        "case_state": "REVIEW_RECORDED"
+      }
+    },
+    {
+      "case_id": "no_universal_weekly_update",
+      "battery": {
+        "battery_ref": "synthetic:battery-001",
+        "category": "EV",
+        "pack_configuration_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "passport_ref": "synthetic:passport-001",
+        "lifecycle_status": "original",
+        "connectivity_mode": "CONNECTED",
+        "responsible_operator_ref": "synthetic:operator-001",
+        "first_use_date": null
+      },
+      "applicability": {
+        "registry_sha256": "e6856565b05508dfd15eaa0500aa7239240854f2824737114ffe11811c3602f3",
+        "resolved_at": "2026-11-11T09:00:00Z",
+        "applicable_dynamic_data_points": [
+          51,
+          52,
+          53,
+          54,
+          55,
+          56,
+          57,
+          58,
+          59,
+          60,
+          61,
+          62,
+          63,
+          64,
+          65,
+          66,
+          67,
+          68,
+          69,
+          70,
+          71
+        ]
+      },
+      "policy": {
+        "policy_ref": "synthetic:refresh-policy-v0.1",
+        "policy_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "periodic_usage_capture_policy_ref": "synthetic:usage-policy-v1",
+        "soh_monitoring_purpose_ref": "synthetic:soh-monitoring-purpose"
+      },
+      "events": [
+        {
+          "event_id": "evt-connectivity-only",
+          "sequence": 1,
+          "event_type": "CONNECTIVITY_UNAVAILABLE",
+          "battery_ref": "synthetic:battery-001",
+          "pack_configuration_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "passport_ref": "synthetic:passport-001",
+          "occurred_at": "2026-11-11T10:01:00Z",
+          "received_at": "2026-11-11T10:01:05Z",
+          "actor_ref": "synthetic:operator-001",
+          "authority_state": "RESPONSIBLE_OPERATOR_DIRECT",
+          "authorization_ref": null,
+          "authorization_sha256": null,
+          "authorization_scope": [],
+          "source_class": "SYNTHETIC_KNOWN_TRUTH",
+          "evidence_ref": "synthetic:evidence:evt-connectivity-only",
+          "evidence_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "proposed_status": null,
+          "resulting_status": null,
+          "material_change": null,
+          "technical_feasible": null,
+          "purpose_ref": null,
+          "capture_policy_ref": null,
+          "source_window_start": null,
+          "source_window_end": null
+        }
+      ],
+      "expected": {
+        "event_dispositions": [
+          "CONNECTIVITY_BLOCKED"
+        ],
+        "pending_data_points": [],
+        "new_passport_link_required": false,
+        "case_state": "NO_TRIGGER_RECORDED"
+      }
+    },
+    {
+      "case_id": "declared_periodic_usage_capture",
+      "battery": {
+        "battery_ref": "synthetic:battery-001",
+        "category": "EV",
+        "pack_configuration_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "passport_ref": "synthetic:passport-001",
+        "lifecycle_status": "original",
+        "connectivity_mode": "CONNECTED",
+        "responsible_operator_ref": "synthetic:operator-001",
+        "first_use_date": null
+      },
+      "applicability": {
+        "registry_sha256": "e6856565b05508dfd15eaa0500aa7239240854f2824737114ffe11811c3602f3",
+        "resolved_at": "2026-11-11T09:00:00Z",
+        "applicable_dynamic_data_points": [
+          51,
+          52,
+          53,
+          54,
+          55,
+          56,
+          57,
+          58,
+          59,
+          60,
+          61,
+          62,
+          63,
+          64,
+          65,
+          66,
+          67,
+          68,
+          69,
+          70,
+          71
+        ]
+      },
+      "policy": {
+        "policy_ref": "synthetic:refresh-policy-v0.1",
+        "policy_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "periodic_usage_capture_policy_ref": "synthetic:usage-policy-v1",
+        "soh_monitoring_purpose_ref": "synthetic:soh-monitoring-purpose"
+      },
+      "events": [
+        {
+          "event_id": "evt-usage-capture",
+          "sequence": 1,
+          "event_type": "PERIODIC_USAGE_CAPTURE",
+          "battery_ref": "synthetic:battery-001",
+          "pack_configuration_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "passport_ref": "synthetic:passport-001",
+          "occurred_at": "2026-11-11T10:01:00Z",
+          "received_at": "2026-11-11T10:01:05Z",
+          "actor_ref": "synthetic:operator-001",
+          "authority_state": "RESPONSIBLE_OPERATOR_DIRECT",
+          "authorization_ref": null,
+          "authorization_sha256": null,
+          "authorization_scope": [],
+          "source_class": "SYNTHETIC_KNOWN_TRUTH",
+          "evidence_ref": "synthetic:evidence:evt-usage-capture",
+          "evidence_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "proposed_status": null,
+          "resulting_status": null,
+          "material_change": null,
+          "technical_feasible": null,
+          "purpose_ref": null,
+          "capture_policy_ref": "synthetic:usage-policy-v1",
+          "source_window_start": "2026-11-10T00:00:00Z",
+          "source_window_end": "2026-11-11T00:00:00Z"
+        }
+      ],
+      "expected": {
+        "event_dispositions": [
+          "UPDATE_REQUIRED"
+        ],
+        "pending_data_points": [
+          68,
+          69,
+          70,
+          71
+        ],
+        "new_passport_link_required": false,
+        "case_state": "OPERATOR_ACTION_REQUIRED"
+      }
+    },
+    {
+      "case_id": "delegated_actor_missing_scope_is_blocked",
+      "battery": {
+        "battery_ref": "synthetic:battery-001",
+        "category": "EV",
+        "pack_configuration_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "passport_ref": "synthetic:passport-001",
+        "lifecycle_status": "original",
+        "connectivity_mode": "CONNECTED",
+        "responsible_operator_ref": "synthetic:operator-001",
+        "first_use_date": null
+      },
+      "applicability": {
+        "registry_sha256": "e6856565b05508dfd15eaa0500aa7239240854f2824737114ffe11811c3602f3",
+        "resolved_at": "2026-11-11T09:00:00Z",
+        "applicable_dynamic_data_points": [
+          51,
+          52,
+          53,
+          54,
+          55,
+          56,
+          57,
+          58,
+          59,
+          60,
+          61,
+          62,
+          63,
+          64,
+          65,
+          66,
+          67,
+          68,
+          69,
+          70,
+          71
+        ]
+      },
+      "policy": {
+        "policy_ref": "synthetic:refresh-policy-v0.1",
+        "policy_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "periodic_usage_capture_policy_ref": "synthetic:usage-policy-v1",
+        "soh_monitoring_purpose_ref": "synthetic:soh-monitoring-purpose"
+      },
+      "events": [
+        {
+          "event_id": "evt-invalid-delegate",
+          "sequence": 1,
+          "event_type": "STATUS_CHANGED",
+          "battery_ref": "synthetic:battery-001",
+          "pack_configuration_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "passport_ref": "synthetic:passport-001",
+          "occurred_at": "2026-11-11T10:01:00Z",
+          "received_at": "2026-11-11T10:01:05Z",
+          "actor_ref": "synthetic:service-partner-001",
+          "authority_state": "WRITTEN_DELEGATE",
+          "authorization_ref": null,
+          "authorization_sha256": null,
+          "authorization_scope": [],
+          "source_class": "SYNTHETIC_KNOWN_TRUTH",
+          "evidence_ref": "synthetic:evidence:evt-invalid-delegate",
+          "evidence_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "proposed_status": null,
+          "resulting_status": "original",
+          "material_change": null,
+          "technical_feasible": null,
+          "purpose_ref": null,
+          "capture_policy_ref": null,
+          "source_window_start": null,
+          "source_window_end": null
+        }
+      ],
+      "expected": {
+        "event_dispositions": [
+          "BLOCKED_UNQUALIFIED_EVENT"
+        ],
+        "pending_data_points": [],
+        "new_passport_link_required": false,
+        "case_state": "NEEDS_RECONCILIATION"
+      }
+    },
+    {
+      "case_id": "wrong_configuration_event_is_conflict",
+      "battery": {
+        "battery_ref": "synthetic:battery-001",
+        "category": "EV",
+        "pack_configuration_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "passport_ref": "synthetic:passport-001",
+        "lifecycle_status": "original",
+        "connectivity_mode": "CONNECTED",
+        "responsible_operator_ref": "synthetic:operator-001",
+        "first_use_date": null
+      },
+      "applicability": {
+        "registry_sha256": "e6856565b05508dfd15eaa0500aa7239240854f2824737114ffe11811c3602f3",
+        "resolved_at": "2026-11-11T09:00:00Z",
+        "applicable_dynamic_data_points": [
+          51,
+          52,
+          53,
+          54,
+          55,
+          56,
+          57,
+          58,
+          59,
+          60,
+          61,
+          62,
+          63,
+          64,
+          65,
+          66,
+          67,
+          68,
+          69,
+          70,
+          71
+        ]
+      },
+      "policy": {
+        "policy_ref": "synthetic:refresh-policy-v0.1",
+        "policy_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "periodic_usage_capture_policy_ref": "synthetic:usage-policy-v1",
+        "soh_monitoring_purpose_ref": "synthetic:soh-monitoring-purpose"
+      },
+      "events": [
+        {
+          "event_id": "evt-wrong-configuration",
+          "sequence": 1,
+          "event_type": "STATUS_CHANGED",
+          "battery_ref": "synthetic:battery-001",
+          "pack_configuration_sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+          "passport_ref": "synthetic:passport-001",
+          "occurred_at": "2026-11-11T10:01:00Z",
+          "received_at": "2026-11-11T10:01:05Z",
+          "actor_ref": "synthetic:operator-001",
+          "authority_state": "RESPONSIBLE_OPERATOR_DIRECT",
+          "authorization_ref": null,
+          "authorization_sha256": null,
+          "authorization_scope": [],
+          "source_class": "SYNTHETIC_KNOWN_TRUTH",
+          "evidence_ref": "synthetic:evidence:evt-wrong-configuration",
+          "evidence_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "proposed_status": null,
+          "resulting_status": "original",
+          "material_change": null,
+          "technical_feasible": null,
+          "purpose_ref": null,
+          "capture_policy_ref": null,
+          "source_window_start": null,
+          "source_window_end": null
+        }
+      ],
+      "expected": {
+        "event_dispositions": [
+          "CONFLICTING_EVENT"
+        ],
+        "pending_data_points": [],
+        "new_passport_link_required": false,
+        "case_state": "NEEDS_RECONCILIATION"
+      }
+    },
+    {
+      "case_id": "out_of_order_event_sequence_is_conflict",
+      "battery": {
+        "battery_ref": "synthetic:battery-001",
+        "category": "EV",
+        "pack_configuration_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "passport_ref": "synthetic:passport-001",
+        "lifecycle_status": "original",
+        "connectivity_mode": "CONNECTED",
+        "responsible_operator_ref": "synthetic:operator-001",
+        "first_use_date": null
+      },
+      "applicability": {
+        "registry_sha256": "e6856565b05508dfd15eaa0500aa7239240854f2824737114ffe11811c3602f3",
+        "resolved_at": "2026-11-11T09:00:00Z",
+        "applicable_dynamic_data_points": [
+          51,
+          52,
+          53,
+          54,
+          55,
+          56,
+          57,
+          58,
+          59,
+          60,
+          61,
+          62,
+          63,
+          64,
+          65,
+          66,
+          67,
+          68,
+          69,
+          70,
+          71
+        ]
+      },
+      "policy": {
+        "policy_ref": "synthetic:refresh-policy-v0.1",
+        "policy_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "periodic_usage_capture_policy_ref": "synthetic:usage-policy-v1",
+        "soh_monitoring_purpose_ref": "synthetic:soh-monitoring-purpose"
+      },
+      "events": [
+        {
+          "event_id": "evt-seq-2",
+          "sequence": 2,
+          "event_type": "STATUS_CHANGED",
+          "battery_ref": "synthetic:battery-001",
+          "pack_configuration_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "passport_ref": "synthetic:passport-001",
+          "occurred_at": "2026-11-11T10:02:00Z",
+          "received_at": "2026-11-11T10:02:05Z",
+          "actor_ref": "synthetic:operator-001",
+          "authority_state": "RESPONSIBLE_OPERATOR_DIRECT",
+          "authorization_ref": null,
+          "authorization_sha256": null,
+          "authorization_scope": [],
+          "source_class": "SYNTHETIC_KNOWN_TRUTH",
+          "evidence_ref": "synthetic:evidence:evt-seq-2",
+          "evidence_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "proposed_status": null,
+          "resulting_status": "original",
+          "material_change": null,
+          "technical_feasible": null,
+          "purpose_ref": null,
+          "capture_policy_ref": null,
+          "source_window_start": null,
+          "source_window_end": null
+        },
+        {
+          "event_id": "evt-seq-1",
+          "sequence": 1,
+          "event_type": "STATUS_CHANGE_CONSIDERED",
+          "battery_ref": "synthetic:battery-001",
+          "pack_configuration_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "passport_ref": "synthetic:passport-001",
+          "occurred_at": "2026-11-11T10:01:00Z",
+          "received_at": "2026-11-11T10:03:05Z",
+          "actor_ref": "synthetic:operator-001",
+          "authority_state": "RESPONSIBLE_OPERATOR_DIRECT",
+          "authorization_ref": null,
+          "authorization_sha256": null,
+          "authorization_scope": [],
+          "source_class": "SYNTHETIC_KNOWN_TRUTH",
+          "evidence_ref": "synthetic:evidence:evt-seq-1",
+          "evidence_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "proposed_status": "repurposed",
+          "resulting_status": null,
+          "material_change": null,
+          "technical_feasible": null,
+          "purpose_ref": null,
+          "capture_policy_ref": null,
+          "source_window_start": null,
+          "source_window_end": null
+        }
+      ],
+      "expected": {
+        "event_dispositions": [
+          "UPDATE_REQUIRED",
+          "CONFLICTING_EVENT"
+        ],
+        "pending_data_points": [
+          51,
+          52,
+          53,
+          54,
+          55,
+          56,
+          57,
+          58,
+          59,
+          60,
+          61,
+          62,
+          63,
+          64,
+          65,
+          66,
+          67
+        ],
+        "new_passport_link_required": false,
+        "case_state": "NEEDS_RECONCILIATION"
+      }
+    },
+    {
+      "case_id": "waste_preparation_for_reuse_requires_link",
+      "battery": {
+        "battery_ref": "synthetic:battery-001",
+        "category": "EV",
+        "pack_configuration_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "passport_ref": "synthetic:passport-001",
+        "lifecycle_status": "waste",
+        "connectivity_mode": "CONNECTED",
+        "responsible_operator_ref": "synthetic:operator-001",
+        "first_use_date": null
+      },
+      "applicability": {
+        "registry_sha256": "e6856565b05508dfd15eaa0500aa7239240854f2824737114ffe11811c3602f3",
+        "resolved_at": "2026-11-11T09:00:00Z",
+        "applicable_dynamic_data_points": [
+          51,
+          52,
+          53,
+          54,
+          55,
+          56,
+          57,
+          58,
+          59,
+          60,
+          61,
+          62,
+          63,
+          64,
+          65,
+          66,
+          67,
+          68,
+          69,
+          70,
+          71
+        ]
+      },
+      "policy": {
+        "policy_ref": "synthetic:refresh-policy-v0.1",
+        "policy_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "periodic_usage_capture_policy_ref": "synthetic:usage-policy-v1",
+        "soh_monitoring_purpose_ref": "synthetic:soh-monitoring-purpose"
+      },
+      "events": [
+        {
+          "event_id": "evt-waste-reuse",
+          "sequence": 1,
+          "event_type": "WASTE_PREPARATION_FOR_REUSE_OR_REPURPOSE",
+          "battery_ref": "synthetic:battery-001",
+          "pack_configuration_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "passport_ref": "synthetic:passport-001",
+          "occurred_at": "2026-11-11T10:01:00Z",
+          "received_at": "2026-11-11T10:01:05Z",
+          "actor_ref": "synthetic:operator-001",
+          "authority_state": "RESPONSIBLE_OPERATOR_DIRECT",
+          "authorization_ref": null,
+          "authorization_sha256": null,
+          "authorization_scope": [],
+          "source_class": "SYNTHETIC_KNOWN_TRUTH",
+          "evidence_ref": "synthetic:evidence:evt-waste-reuse",
+          "evidence_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "proposed_status": null,
+          "resulting_status": "re-used",
+          "material_change": null,
+          "technical_feasible": null,
+          "purpose_ref": null,
+          "capture_policy_ref": null,
+          "source_window_start": null,
+          "source_window_end": null
+        }
+      ],
+      "expected": {
+        "event_dispositions": [
+          "UPDATE_REQUIRED"
+        ],
+        "pending_data_points": [
+          51,
+          52,
+          53,
+          54,
+          55,
+          56,
+          57,
+          58,
+          59,
+          60,
+          61,
+          62,
+          63,
+          64,
+          65,
+          66,
+          67
+        ],
+        "new_passport_link_required": true,
+        "case_state": "OPERATOR_ACTION_REQUIRED"
+      }
+    }
+  ]
+}
