@@ -1,0 +1,179 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/mobility/eu-battery-passport-guidance-registry/0.1",
+  "title": "EU Battery Passport guidance registry selected-point transcription",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "registry_id",
+    "registry_version",
+    "source",
+    "passport_obligation_date",
+    "categories",
+    "complete_71_point_transcription",
+    "selected_data_point_count",
+    "data_points"
+  ],
+  "properties": {
+    "registry_id": {
+      "const": "eu-battery-passport-data-point-guidance"
+    },
+    "registry_version": {
+      "type": "string",
+      "minLength": 1
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "title",
+        "publisher",
+        "guidance_version",
+        "published_on",
+        "source_url",
+        "source_document_sha256",
+        "authoritative_interpretation",
+        "notice"
+      ],
+      "properties": {
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "publisher": {
+          "type": "string",
+          "minLength": 1
+        },
+        "guidance_version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "published_on": {
+          "type": "string",
+          "format": "date"
+        },
+        "source_url": {
+          "type": "string",
+          "format": "uri"
+        },
+        "source_document_sha256": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "authoritative_interpretation": {
+          "const": false
+        },
+        "notice": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "passport_obligation_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "categories": {
+      "const": [
+        "EV",
+        "LMT",
+        "INDUSTRIAL"
+      ]
+    },
+    "complete_71_point_transcription": {
+      "type": "boolean"
+    },
+    "selected_data_point_count": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "data_points": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "number",
+          "name",
+          "legal_source",
+          "disclosure",
+          "applicability"
+        ],
+        "properties": {
+          "number": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 71
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "legal_source": {
+            "type": "string",
+            "minLength": 1
+          },
+          "disclosure": {
+            "enum": [
+              "PUBLIC",
+              "LEGITIMATE_INTEREST_RESTRICTED",
+              "LEGITIMATE_INTEREST_AND_DESIGNATED_AUTHORITIES",
+              "NOTIFIED_BODIES_MEMBER_STATE_AUTHORITIES_COMMISSION"
+            ]
+          },
+          "applicability": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "EV",
+              "LMT",
+              "INDUSTRIAL"
+            ],
+            "properties": {
+              "EV": {
+                "$ref": "#/$defs/applicability"
+              },
+              "LMT": {
+                "$ref": "#/$defs/applicability"
+              },
+              "INDUSTRIAL": {
+                "$ref": "#/$defs/applicability"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "applicability": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "condition"
+      ],
+      "properties": {
+        "status": {
+          "enum": [
+            "MANDATORY",
+            "OPTIONAL_IF_AVAILABLE",
+            "CONDITIONAL",
+            "NOT_TO_BE_FILLED_DISPLAYED_AT_2027_02_18",
+            "APPLICABLE_FROM_FIRST_USE"
+          ]
+        },
+        "condition": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    }
+  }
+}
