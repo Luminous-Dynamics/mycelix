@@ -499,4 +499,68 @@ mod tests {
             replay.canonical_projection_sha256
         );
     }
+    #[test]
+    fn article_8_recycled_material_fields_remain_deferred_at_february_2027() {
+        let registry: Value = serde_json::from_slice(REGISTRY).expect("registry JSON");
+        for number in [20, 21, 22, 23] {
+            let point = registry["data_points"].as_array().unwrap()
+                .iter().find(|point| point["number"] == number).unwrap();
+            for category in ["EV", "LMT", "INDUSTRIAL"] {
+                assert_eq!(
+                    point["applicability"][category]["status"],
+                    "NOT_TO_BE_FILLED_DISPLAYED_AT_2027_02_18"
+                );
+                assert!(point["applicability"][category]["condition"]
+                    .as_str().unwrap().contains("Article 8"));
+            }
+        }
+    }
+
+    #[test]
+    fn duplicate_material_and_capacity_summaries_are_explicitly_not_displayed() {
+        let registry: Value = serde_json::from_slice(REGISTRY).expect("registry JSON");
+        for number in [16, 25] {
+            let point = registry["data_points"].as_array().unwrap()
+                .iter().find(|point| point["number"] == number).unwrap();
+            for category in ["EV", "LMT", "INDUSTRIAL"] {
+                assert_eq!(
+                    point["applicability"][category]["status"],
+                    "NOT_TO_BE_FILLED_DISPLAYED_AT_2027_02_18"
+                );
+                assert!(point["applicability"][category]["condition"]
+                    .as_str().unwrap().contains("Repeated information"));
+            }
+        }
+    }
+
+    #[test]
+    fn voltage_and_original_power_points_are_mandatory_public_fields() {
+        let registry: Value = serde_json::from_slice(REGISTRY).expect("registry JSON");
+        for number in [24, 26, 27, 28, 29] {
+            let point = registry["data_points"].as_array().unwrap()
+                .iter().find(|point| point["number"] == number).unwrap();
+            assert_eq!(point["disclosure"], "PUBLIC");
+            for category in ["EV", "LMT", "INDUSTRIAL"] {
+                assert_eq!(point["applicability"][category]["status"], "MANDATORY");
+            }
+        }
+    }
+
+    #[test]
+    fn article_13_marking_fields_preserve_mandatory_and_conditional_semantics() {
+        let registry: Value = serde_json::from_slice(REGISTRY).expect("registry JSON");
+        let required_mark = registry["data_points"].as_array().unwrap()
+            .iter().find(|point| point["number"] == 41).unwrap();
+        let conditional_symbol = registry["data_points"].as_array().unwrap()
+            .iter().find(|point| point["number"] == 42).unwrap();
+        assert_eq!(required_mark["disclosure"], "PUBLIC");
+        assert_eq!(conditional_symbol["disclosure"], "PUBLIC");
+        for category in ["EV", "LMT", "INDUSTRIAL"] {
+            assert_eq!(required_mark["applicability"][category]["status"], "MANDATORY");
+            assert_eq!(conditional_symbol["applicability"][category]["status"], "CONDITIONAL");
+            assert!(conditional_symbol["applicability"][category]["condition"]
+                .as_str().unwrap().contains("cadmium or lead symbol"));
+        }
+    }
+
 }
