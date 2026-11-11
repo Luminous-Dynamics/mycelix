@@ -26,7 +26,7 @@ Regulation (EU) 2023/1542:
 
 https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32023R1542
 
-The Commission guidance documents 71 data points and differentiates EV, LMT and industrial applicability, information access and February 2027 fill/display status. It explicitly states that it is guidance, can evolve, is not authoritative interpretation and does not add legal requirements. Production mappings must be reconciled against the Regulation and any then-applicable delegated/implementing acts. This v0.1 registry is an engineering transcription of selected points, not a legal opinion.
+The Commission guidance documents 71 data points and differentiates EV, LMT and industrial applicability, information access and February 2027 fill/display status. It explicitly states that it is guidance, can evolve, is not authoritative interpretation and does not add legal requirements. Production mappings must be reconciled against the Regulation and any then-applicable delegated/implementing acts. This v0.1 registry is a complete 71-point engineering transcription of Guidance v3.2, not a legal opinion or authoritative legal ruleset.
 
 The mapping effective date for relevant battery passports is 18 February 2027. The registry-launch date (20 July 2026) is not the same as the battery-passport obligation date.
 
@@ -43,9 +43,9 @@ Each data point has independent dimensions:
 
 No dimension can be inferred from another. A field may be legally required and restricted; it may be technically measurable but not publishable to the public. An estimate cannot silently become a measurement. Not-to-be-filled/displayed is not missing evidence. A hash or signature establishes byte identity/issuer binding, not physical truth or regulatory compliance.
 
-## Selected v0.1 mapping
+## Complete 71-point v0.1 mapping
 
-See `registries/eu_battery_passport_guidance_v3_2_selected_points.json` for the machine-readable selected-point matrix.
+See `registries/eu_battery_passport_guidance_v3_2_complete_71_points.json` for the machine-readable 1–71 point matrix. The Rust audit requires every ID from 1 through 71 exactly once, a count of 71, and an explicit complete-transcription declaration. A missing point cannot be hidden by changing the count field.
 
 High-value distinctions from Guidance v3.2 include:
 
@@ -75,6 +75,21 @@ The summary table is deliberately compressed. The JSON registry carries the indi
 - Dynamic information should be updated when battery status changes or is being considered, with update frequency proportionate to the data and purpose.
 - The current economic operator remains responsible for passport contents even when another operator is authorised to maintain them.
 
+### Completion of the initially omitted 13 points
+
+The complete transcription now includes:
+
+- **16** — repeated material-composition summary: not to be filled/displayed because the constituent information is already required by points 12, 13 and 15.
+- **20–23** — recovered cobalt, lithium, nickel and lead shares: not to be filled/displayed on 18 February 2027; Guidance v3.2 says their application is as envisaged by Article 8. The registry preserves this future legal condition rather than guessing a later effective date.
+- **24** — share of renewable content: mandatory and public across EV, LMT and industrial batteries.
+- **25** — rated capacity: not to be filled/displayed because point 11 already requires capacity.
+- **26–28** — minimum, nominal and maximum voltage, with temperature range when relevant: mandatory and public across the three categories.
+- **29** — original power capability: mandatory and public across the three categories.
+- **41** — Article 13(4) marking requirements: mandatory yes/no field.
+- **42** — Article 13(5) marking: conditional public code list for the cadmium or lead symbol, if applicable.
+
+These are transcriptions of the Commission's 19 October 2026 guidance. They remain subject to revision when the source guidance or applicable legislation changes.
+
 ## Projection input contract
 
 A projection input must bind:
@@ -96,7 +111,7 @@ A source record also carries its own evidence class, measurement/protocol condit
 The compiler returns explicit per-data-point outcomes:
 
 - `READY_TO_PUBLISH` — applicable, source-supported and allowed for the requested audience.
-- `MISSING_REQUIRED_EVIDENCE` — required by the selected mapping, but no admissible evidence is present.
+- `MISSING_REQUIRED_EVIDENCE` — required by the complete versioned mapping, but no admissible evidence is present.
 - `BLOCKED_UNQUALIFIED_SOURCE` — a value exists but evidence class/domain/identity is not sufficient for this use.
 - `WITHHELD_BY_ACCESS_POLICY` — source exists but audience does not have access.
 - `NOT_REQUIRED_AT_EFFECTIVE_DATE` — guidance marks it not to be filled/displayed yet.
