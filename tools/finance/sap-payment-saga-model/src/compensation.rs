@@ -1067,8 +1067,12 @@ mod tests {
         }
     }
 
-    fn authorization(plan: &CompensationPlanV2, maximum: u64) -> CompensationAuthorizationV2 {
-        let plan_digest = plan.canonical_digest(&forward()).unwrap();
+    fn authorization(
+        plan: &CompensationPlanV2,
+        forward: &ForwardEffectV2,
+        maximum: u64,
+    ) -> CompensationAuthorizationV2 {
+        let plan_digest = plan.canonical_digest(forward).unwrap();
         CompensationAuthorizationV2 {
             capability_id: "capability:refund-01".into(),
             issuer_owner_id: plan.funding_owner_id.clone(),
@@ -1103,7 +1107,7 @@ mod tests {
             compensation_id: id.into(),
             actor_owner_id: "owner:refund-operator".into(),
             amount_minor: amount,
-            authorization: authorization(&book.plan, auth_maximum),
+            authorization: authorization(&book.plan, &book.forward, auth_maximum),
             liquidity_reservation: LiquidityReservationV2 {
                 reservation_id: reservation_id.into(),
                 source_owner_id: book.plan.funding_owner_id.clone(),
@@ -1428,6 +1432,41 @@ mod tests {
         assert_eq!(book.encumbered_minor(), Ok(20));
     }
 
+
+
+    #[test]
+    fn indexed_reservation_admission_scales_to_ten_thousand_partial_refunds() {
+        let mut forward = forward();
+        forward.amount_minor = 10_000;
+        forward.reversible_ceiling_minor = 10_000;
+        let plan = plan(&forward, 10_000);
+        let mut book = CompensationBookV2::new(forward.clone(), plan.clone(), 10_000).unwrap();
+        let authorization = authorization(&plan, &forward, 10_000);
+        for index in 0..10_000_u64 {
+            let id = format!("refund:indexed:{index}");
+            let request = CompensationRequestV2 {
+                compensation_id: id.clone(),
+                actor_owner_id: authorization.grantee_owner_id.clone(),
+                amount_minor: 1,
+                authorization: authorization.clone(),
+                liquidity_reservation: LiquidityReservationV2 {
+                    reservation_id: format!("liquidity:indexed:{index}"),
+                    source_owner_id: plan.funding_owner_id.clone(),
+                    source_account_id: plan.funding_account_id.clone(),
+                    asset: plan.asset.clone(),
+                    amount_minor: 1,
+                },
+            };
+            assert_eq!(
+                book.reserve(request, NOW),
+                Ok(CompensationDispositionV2::Created)
+            );
+        }
+        assert_eq!(book.settled_minor(), Ok(0));
+        assert_eq!(book.encumbered_minor(), Ok(10_000));
+        assert_eq!(book.remaining_reversible_minor(), Ok(0));
+        assert_eq!(book.available_liquidity_minor(), Ok(0));
+    }
 
     #[test]
     fn shared_v2_known_answers_match_every_canonical_subject() {
