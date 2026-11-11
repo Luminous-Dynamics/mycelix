@@ -168,6 +168,36 @@ func NewParentHandoffBookV1(policy DelegatedExposurePolicyV1) (*ParentHandoffBoo
 	return &ParentHandoffBookV1{policy: policy, grants: make(map[string]parentGrantRecordV1)}, nil
 }
 
+// Clone models a process restart from a fully persisted parent-chain snapshot.
+// Pointer fields are copied so later mutations do not alias the old process.
+func (b *ParentHandoffBookV1) Clone() *ParentHandoffBookV1 {
+	clone := &ParentHandoffBookV1{policy: b.policy, grants: make(map[string]parentGrantRecordV1, len(b.grants))}
+	for key, record := range b.grants {
+		if record.Acceptance != nil {
+			value := *record.Acceptance
+			record.Acceptance = &value
+		}
+		if record.RevokeActionHash != nil {
+			value := *record.RevokeActionHash
+			record.RevokeActionHash = &value
+		}
+		if record.Revocation != nil {
+			value := *record.Revocation
+			record.Revocation = &value
+		}
+		if record.Closure != nil {
+			value := *record.Closure
+			if value.ChildAcceptActionHash != nil {
+				hash := *value.ChildAcceptActionHash
+				value.ChildAcceptActionHash = &hash
+			}
+			record.Closure = &value
+		}
+		clone.grants[key] = record
+	}
+	return clone
+}
+
 func (b *ParentHandoffBookV1) Policy() DelegatedExposurePolicyV1 { return b.policy }
 
 func (b *ParentHandoffBookV1) IssueGrant(
@@ -460,6 +490,42 @@ func NewChildHandoffBookV1(terms GrantTermsV1, parentActionHash string) (*ChildH
 		terms: terms, grantDigest: grantDigest, parentActionHash: parentActionHash,
 		childOwnerID: terms.ChildScope.OwnerID, exposure: book,
 	}, nil
+}
+
+// Clone models restoring child-local durable state after a conductor restart.
+func (b *ChildHandoffBookV1) Clone() *ChildHandoffBookV1 {
+	clone := *b
+	clone.exposure = cloneExposureBookForHandoff(b.exposure)
+	if b.acceptance != nil {
+		value := *b.acceptance
+		clone.acceptance = &value
+	}
+	if b.revocation != nil {
+		value := *b.revocation
+		clone.revocation = &value
+	}
+	if b.closure != nil {
+		value := *b.closure
+		if value.ChildAcceptActionHash != nil {
+			hash := *value.ChildAcceptActionHash
+			value.ChildAcceptActionHash = &hash
+		}
+		clone.closure = &value
+	}
+	return &clone
+}
+
+func cloneExposureBookForHandoff(source *ExposureBookV1) *ExposureBookV1 {
+	clone := *source
+	clone.reservations = make(map[string]ExposureReservationV1, len(source.reservations))
+	for key, reservation := range source.reservations {
+		if reservation.Resolution != nil {
+			receipt := *reservation.Resolution
+			reservation.Resolution = &receipt
+		}
+		clone.reservations[key] = reservation
+	}
+	return &clone
 }
 
 func (b *ChildHandoffBookV1) AcceptGrant(parentActionHash, childAcceptActionHash string) (HandoffDisposition, GrantAcceptanceReceiptV1, error) {
