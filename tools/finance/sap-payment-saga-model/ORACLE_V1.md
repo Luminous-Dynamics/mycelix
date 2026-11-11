@@ -158,3 +158,18 @@ A passing KAT and oracle suite proves only that the two reference interpreters a
 - real liquidity, collateral sufficiency, solvency, legal netting or regulatory compliance.
 
 Production and provider qualification remain independent stages.
+
+
+## Deterministic counterexample shrinking
+
+The separate Rust and Go shrinkers operate on canonical Trace V1 inputs and receive a caller-supplied failure-signature callback. The callback must identify the same first violated invariant/disposition after each candidate reduction.
+
+The reducer:
+- performs deterministic delta debugging over contiguous command chunks;
+- lowers operation nonce, command subject and amount fields toward zero;
+- never edits opcode, owner, fault code, seed, trace index or scenario;
+- rejects a candidate if it is no longer canonical or if the target failure signature changes;
+- enforces a bounded attempt count;
+- emits original/minimized canonical digests, attempt count, removed-command count and changed-numeric-field count.
+
+The shrinker does not decide correctness. A production executor/oracle harness must define a stable failure signature that includes the first failing invariant and disposition. The same input/signature pair must produce the same minimized digest in Rust and Go. A minimized trace is only a witness for the supplied failure classification; it is not a proof that no other failures exist.
