@@ -1,0 +1,308 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Luminous-Dynamics/mycelix/blob/research/build-measurement-conditions-v0.1/docs/metrology/BUILDING_MEASUREMENT_CONDITION_PROFILES_V0_1.schema.json",
+  "title": "Mycelix Building Measurement Condition Registry v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "registry_id",
+    "classification",
+    "claim_ceiling",
+    "profiles"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "mycelix.building-measurement-condition-registry/0.1"
+    },
+    "registry_id": {
+      "const": "MYC-BUILD-MEASUREMENT-CONDITIONS-V0.1"
+    },
+    "classification": {
+      "const": "synthetic_condition_profiles_only"
+    },
+    "claim_ceiling": {
+      "const": "profile_and_sample_condition_applicability_conformance_only"
+    },
+    "profiles": {
+      "type": "array",
+      "minItems": 6,
+      "maxItems": 6,
+      "items": {
+        "$ref": "#/$defs/profile"
+      }
+    }
+  },
+  "$defs": {
+    "profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "profile_id",
+        "conditions_id",
+        "revision",
+        "channel_profile_id",
+        "channel_id",
+        "measurand_id",
+        "firmware_revision",
+        "instrument_configuration_digest",
+        "profile_evidence_state",
+        "valid_from_date",
+        "valid_to_date",
+        "variables",
+        "spatial_requirements",
+        "temporal_requirements",
+        "correction_policy"
+      ],
+      "properties": {
+        "profile_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "conditions_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "revision": {
+          "type": "string",
+          "minLength": 1
+        },
+        "channel_profile_id": {
+          "const": "MYC-BUILD-METROLOGY-PROFILE-V0.1"
+        },
+        "channel_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "measurand_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "firmware_revision": {
+          "type": "string",
+          "minLength": 1
+        },
+        "instrument_configuration_digest": {
+          "type": "string",
+          "minLength": 1
+        },
+        "profile_evidence_state": {
+          "enum": [
+            "synthetic_reference_only",
+            "provider_asserted",
+            "unverified",
+            "revoked"
+          ]
+        },
+        "valid_from_date": {
+          "type": "string",
+          "format": "date"
+        },
+        "valid_to_date": {
+          "type": "string",
+          "format": "date"
+        },
+        "variables": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": false,
+          "items": {
+            "$ref": "#/$defs/variable"
+          }
+        },
+        "spatial_requirements": {
+          "$ref": "#/$defs/spatial"
+        },
+        "temporal_requirements": {
+          "$ref": "#/$defs/temporal"
+        },
+        "correction_policy": {
+          "$ref": "#/$defs/correction"
+        }
+      }
+    },
+    "variable": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "variable_id",
+        "quantity_kind",
+        "unit",
+        "value_kind",
+        "minimum",
+        "maximum",
+        "allowed_values",
+        "maximum_uncertainty",
+        "required"
+      ],
+      "properties": {
+        "variable_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "quantity_kind": {
+          "type": "string",
+          "minLength": 1
+        },
+        "unit": {
+          "type": "string",
+          "minLength": 1
+        },
+        "value_kind": {
+          "enum": [
+            "numeric",
+            "categorical"
+          ]
+        },
+        "minimum": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "maximum": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "allowed_values": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true
+        },
+        "maximum_uncertainty": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "required": {
+          "const": true
+        }
+      }
+    },
+    "spatial": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "geometry_revision",
+        "location_context_id",
+        "required_relation",
+        "max_transfer_distance_m",
+        "transfer_method_id",
+        "transfer_validation_receipt_id"
+      ],
+      "properties": {
+        "geometry_revision": {
+          "type": "string",
+          "minLength": 1
+        },
+        "location_context_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "required_relation": {
+          "enum": [
+            "colocated",
+            "validated_transfer"
+          ]
+        },
+        "max_transfer_distance_m": {
+          "type": "number",
+          "minimum": 0
+        },
+        "transfer_method_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "transfer_validation_receipt_id": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "temporal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "timebase_contract_id",
+        "require_full_sample_window",
+        "minimum_coverage_fraction",
+        "clock_domain_id",
+        "boot_epoch_id",
+        "tick_unit"
+      ],
+      "properties": {
+        "timebase_contract_id": {
+          "const": "MYC-BUILD-STREAM-TIMEBASE-001"
+        },
+        "require_full_sample_window": {
+          "const": true
+        },
+        "minimum_coverage_fraction": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "clock_domain_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "boot_epoch_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "tick_unit": {
+          "enum": [
+            "s",
+            "ms",
+            "us",
+            "ns"
+          ]
+        }
+      }
+    },
+    "correction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "state",
+        "method_id",
+        "method_revision",
+        "method_digest",
+        "validation_receipt_id",
+        "must_apply_once"
+      ],
+      "properties": {
+        "state": {
+          "enum": [
+            "not_required",
+            "required"
+          ]
+        },
+        "method_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "method_revision": {
+          "type": "string",
+          "minLength": 1
+        },
+        "method_digest": {
+          "type": "string",
+          "minLength": 1
+        },
+        "validation_receipt_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "must_apply_once": {
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}

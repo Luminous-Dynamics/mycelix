@@ -1,0 +1,43 @@
+name: Building Measurement Conditions Synthetic Oracle
+
+on:
+  push:
+    paths:
+      - "docs/metrology/BUILDING_MEASUREMENT_CONDITION_PROFILES_V0_1.*"
+      - "docs/metrology/BUILDING_MEASUREMENT_CONDITION_CORPUS_V0_1.*"
+      - "tools/build-measurement-conditions/**"
+      - ".github/workflows/build-measurement-conditions.yml"
+  pull_request:
+    paths:
+      - "docs/metrology/BUILDING_MEASUREMENT_CONDITION_PROFILES_V0_1.*"
+      - "docs/metrology/BUILDING_MEASUREMENT_CONDITION_CORPUS_V0_1.*"
+      - "tools/build-measurement-conditions/**"
+      - ".github/workflows/build-measurement-conditions.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: building-measurement-conditions-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  synthetic-conditions:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install stable Rust, rustfmt and Clippy
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - name: Fetch locked dependencies
+        run: cargo fetch --locked --manifest-path tools/build-measurement-conditions/Cargo.toml
+      - name: Check formatting
+        run: cargo fmt --manifest-path tools/build-measurement-conditions/Cargo.toml --all -- --check
+      - name: Run locked offline mutation tests
+        run: cargo test --locked --offline --manifest-path tools/build-measurement-conditions/Cargo.toml
+      - name: Run strict Clippy
+        run: cargo clippy --locked --offline --manifest-path tools/build-measurement-conditions/Cargo.toml --all-targets -- -D warnings
+      - name: Validate tracked condition contracts
+        run: cargo run --locked --offline --manifest-path tools/build-measurement-conditions/Cargo.toml

@@ -1,0 +1,480 @@
+{
+  "schema_version": "mycelix.building-measurement-condition-registry/0.1",
+  "registry_id": "MYC-BUILD-MEASUREMENT-CONDITIONS-V0.1",
+  "classification": "synthetic_condition_profiles_only",
+  "claim_ceiling": "profile_and_sample_condition_applicability_conformance_only",
+  "profiles": [
+    {
+      "profile_id": "COND-AIR-TEMP-001",
+      "conditions_id": "SYNTH-ENV-01",
+      "revision": "1",
+      "channel_profile_id": "MYC-BUILD-METROLOGY-PROFILE-V0.1",
+      "channel_id": "air_temperature",
+      "measurand_id": "habitat.air_temperature",
+      "firmware_revision": "FW-SYNTH-1",
+      "instrument_configuration_digest": "fixture-config-v1",
+      "profile_evidence_state": "synthetic_reference_only",
+      "valid_from_date": "2026-01-01",
+      "valid_to_date": "2027-12-31",
+      "variables": [
+        {
+          "variable_id": "ambient_temperature",
+          "quantity_kind": "temperature",
+          "unit": "degC",
+          "value_kind": "numeric",
+          "minimum": 10,
+          "maximum": 40,
+          "allowed_values": [],
+          "maximum_uncertainty": 0.2,
+          "required": true
+        },
+        {
+          "variable_id": "ambient_relative_humidity",
+          "quantity_kind": "ratio",
+          "unit": "%RH",
+          "value_kind": "numeric",
+          "minimum": 20,
+          "maximum": 80,
+          "allowed_values": [],
+          "maximum_uncertainty": 2,
+          "required": true
+        }
+      ],
+      "spatial_requirements": {
+        "geometry_revision": "GEOM-SYNTH-1",
+        "location_context_id": "SENSOR-LOCAL-01",
+        "required_relation": "colocated",
+        "max_transfer_distance_m": 0,
+        "transfer_method_id": "NOT_APPLICABLE",
+        "transfer_validation_receipt_id": "NOT_APPLICABLE"
+      },
+      "temporal_requirements": {
+        "timebase_contract_id": "MYC-BUILD-STREAM-TIMEBASE-001",
+        "require_full_sample_window": true,
+        "minimum_coverage_fraction": 1,
+        "clock_domain_id": "CLOCK-SYNTH-01",
+        "boot_epoch_id": "BOOT-SYNTH-01",
+        "tick_unit": "s"
+      },
+      "correction_policy": {
+        "state": "not_required",
+        "method_id": "NOT_APPLICABLE",
+        "method_revision": "NOT_APPLICABLE",
+        "method_digest": "NOT_APPLICABLE",
+        "validation_receipt_id": "NOT_APPLICABLE",
+        "must_apply_once": false
+      }
+    },
+    {
+      "profile_id": "COND-OPTICAL-PM-001",
+      "conditions_id": "SYNTH-PM-ENV-01",
+      "revision": "1",
+      "channel_profile_id": "MYC-BUILD-METROLOGY-PROFILE-V0.1",
+      "channel_id": "pm25_mass_concentration",
+      "measurand_id": "habitat.pm25_mass_concentration",
+      "firmware_revision": "FW-SYNTH-1",
+      "instrument_configuration_digest": "fixture-config-v1",
+      "profile_evidence_state": "synthetic_reference_only",
+      "valid_from_date": "2026-01-01",
+      "valid_to_date": "2027-12-31",
+      "variables": [
+        {
+          "variable_id": "ambient_relative_humidity",
+          "quantity_kind": "ratio",
+          "unit": "%RH",
+          "value_kind": "numeric",
+          "minimum": 10,
+          "maximum": 70,
+          "allowed_values": [],
+          "maximum_uncertainty": 2,
+          "required": true
+        },
+        {
+          "variable_id": "aerosol_challenge_class",
+          "quantity_kind": "aerosol_class",
+          "unit": "1",
+          "value_kind": "categorical",
+          "minimum": null,
+          "maximum": null,
+          "allowed_values": [
+            "SYNTH_AEROSOL_A"
+          ],
+          "maximum_uncertainty": null,
+          "required": true
+        },
+        {
+          "variable_id": "particle_size_profile",
+          "quantity_kind": "particle_size_distribution",
+          "unit": "1",
+          "value_kind": "categorical",
+          "minimum": null,
+          "maximum": null,
+          "allowed_values": [
+            "SYNTH_PM_PROFILE_A"
+          ],
+          "maximum_uncertainty": null,
+          "required": true
+        }
+      ],
+      "spatial_requirements": {
+        "geometry_revision": "GEOM-SYNTH-1",
+        "location_context_id": "SENSOR-LOCAL-01",
+        "required_relation": "colocated",
+        "max_transfer_distance_m": 0,
+        "transfer_method_id": "NOT_APPLICABLE",
+        "transfer_validation_receipt_id": "NOT_APPLICABLE"
+      },
+      "temporal_requirements": {
+        "timebase_contract_id": "MYC-BUILD-STREAM-TIMEBASE-001",
+        "require_full_sample_window": true,
+        "minimum_coverage_fraction": 1,
+        "clock_domain_id": "CLOCK-SYNTH-01",
+        "boot_epoch_id": "BOOT-SYNTH-01",
+        "tick_unit": "s"
+      },
+      "correction_policy": {
+        "state": "not_required",
+        "method_id": "NOT_APPLICABLE",
+        "method_revision": "NOT_APPLICABLE",
+        "method_digest": "NOT_APPLICABLE",
+        "validation_receipt_id": "NOT_APPLICABLE",
+        "must_apply_once": false
+      }
+    },
+    {
+      "profile_id": "COND-GAS-001",
+      "conditions_id": "SYNTH-GAS-ENV-01",
+      "revision": "1",
+      "channel_profile_id": "MYC-BUILD-METROLOGY-PROFILE-V0.1",
+      "channel_id": "co2_concentration",
+      "measurand_id": "habitat.co2_concentration",
+      "firmware_revision": "FW-SYNTH-1",
+      "instrument_configuration_digest": "fixture-config-v1",
+      "profile_evidence_state": "synthetic_reference_only",
+      "valid_from_date": "2026-01-01",
+      "valid_to_date": "2027-12-31",
+      "variables": [
+        {
+          "variable_id": "ambient_temperature",
+          "quantity_kind": "temperature",
+          "unit": "degC",
+          "value_kind": "numeric",
+          "minimum": 10,
+          "maximum": 40,
+          "allowed_values": [],
+          "maximum_uncertainty": 0.2,
+          "required": true
+        },
+        {
+          "variable_id": "ambient_relative_humidity",
+          "quantity_kind": "ratio",
+          "unit": "%RH",
+          "value_kind": "numeric",
+          "minimum": 20,
+          "maximum": 80,
+          "allowed_values": [],
+          "maximum_uncertainty": 2,
+          "required": true
+        },
+        {
+          "variable_id": "interferent_profile",
+          "quantity_kind": "gas_interference_profile",
+          "unit": "1",
+          "value_kind": "categorical",
+          "minimum": null,
+          "maximum": null,
+          "allowed_values": [
+            "SYNTH_GAS_MIX_A"
+          ],
+          "maximum_uncertainty": null,
+          "required": true
+        }
+      ],
+      "spatial_requirements": {
+        "geometry_revision": "GEOM-SYNTH-1",
+        "location_context_id": "SENSOR-LOCAL-01",
+        "required_relation": "colocated",
+        "max_transfer_distance_m": 0,
+        "transfer_method_id": "NOT_APPLICABLE",
+        "transfer_validation_receipt_id": "NOT_APPLICABLE"
+      },
+      "temporal_requirements": {
+        "timebase_contract_id": "MYC-BUILD-STREAM-TIMEBASE-001",
+        "require_full_sample_window": true,
+        "minimum_coverage_fraction": 1,
+        "clock_domain_id": "CLOCK-SYNTH-01",
+        "boot_epoch_id": "BOOT-SYNTH-01",
+        "tick_unit": "s"
+      },
+      "correction_policy": {
+        "state": "required",
+        "method_id": "SYNTH-GAS-COMP-01",
+        "method_revision": "1",
+        "method_digest": "fixture-gas-correction-v1",
+        "validation_receipt_id": "SYNTH-GAS-CORRECTION-VALIDATION-01",
+        "must_apply_once": true
+      }
+    },
+    {
+      "profile_id": "COND-WATER-FLOW-001",
+      "conditions_id": "SYNTH-FLOW-ENV-01",
+      "revision": "1",
+      "channel_profile_id": "MYC-BUILD-METROLOGY-PROFILE-V0.1",
+      "channel_id": "water_volume_flow",
+      "measurand_id": "habitat.water_volume_flow",
+      "firmware_revision": "FW-SYNTH-1",
+      "instrument_configuration_digest": "fixture-config-v1",
+      "profile_evidence_state": "synthetic_reference_only",
+      "valid_from_date": "2026-01-01",
+      "valid_to_date": "2027-12-31",
+      "variables": [
+        {
+          "variable_id": "fluid_identity",
+          "quantity_kind": "fluid_identity",
+          "unit": "1",
+          "value_kind": "categorical",
+          "minimum": null,
+          "maximum": null,
+          "allowed_values": [
+            "water"
+          ],
+          "maximum_uncertainty": null,
+          "required": true
+        },
+        {
+          "variable_id": "fluid_temperature",
+          "quantity_kind": "temperature",
+          "unit": "degC",
+          "value_kind": "numeric",
+          "minimum": 5,
+          "maximum": 40,
+          "allowed_values": [],
+          "maximum_uncertainty": 0.2,
+          "required": true
+        },
+        {
+          "variable_id": "dynamic_viscosity",
+          "quantity_kind": "dynamic_viscosity",
+          "unit": "mPa.s",
+          "value_kind": "numeric",
+          "minimum": 0.5,
+          "maximum": 2,
+          "allowed_values": [],
+          "maximum_uncertainty": 0.05,
+          "required": true
+        },
+        {
+          "variable_id": "flow_profile",
+          "quantity_kind": "flow_regime",
+          "unit": "1",
+          "value_kind": "categorical",
+          "minimum": null,
+          "maximum": null,
+          "allowed_values": [
+            "fully_developed"
+          ],
+          "maximum_uncertainty": null,
+          "required": true
+        },
+        {
+          "variable_id": "meter_installation_profile",
+          "quantity_kind": "installation_profile",
+          "unit": "1",
+          "value_kind": "categorical",
+          "minimum": null,
+          "maximum": null,
+          "allowed_values": [
+            "SYNTH_STRAIGHT_RUN_A"
+          ],
+          "maximum_uncertainty": null,
+          "required": true
+        }
+      ],
+      "spatial_requirements": {
+        "geometry_revision": "GEOM-SYNTH-1",
+        "location_context_id": "SENSOR-LOCAL-01",
+        "required_relation": "colocated",
+        "max_transfer_distance_m": 0,
+        "transfer_method_id": "NOT_APPLICABLE",
+        "transfer_validation_receipt_id": "NOT_APPLICABLE"
+      },
+      "temporal_requirements": {
+        "timebase_contract_id": "MYC-BUILD-STREAM-TIMEBASE-001",
+        "require_full_sample_window": true,
+        "minimum_coverage_fraction": 1,
+        "clock_domain_id": "CLOCK-SYNTH-01",
+        "boot_epoch_id": "BOOT-SYNTH-01",
+        "tick_unit": "s"
+      },
+      "correction_policy": {
+        "state": "not_required",
+        "method_id": "NOT_APPLICABLE",
+        "method_revision": "NOT_APPLICABLE",
+        "method_digest": "NOT_APPLICABLE",
+        "validation_receipt_id": "NOT_APPLICABLE",
+        "must_apply_once": false
+      }
+    },
+    {
+      "profile_id": "COND-ELECTRICAL-001",
+      "conditions_id": "SYNTH-ELEC-ENV-01",
+      "revision": "1",
+      "channel_profile_id": "MYC-BUILD-METROLOGY-PROFILE-V0.1",
+      "channel_id": "electrical_power",
+      "measurand_id": "habitat.electrical_power",
+      "firmware_revision": "FW-SYNTH-1",
+      "instrument_configuration_digest": "fixture-config-v1",
+      "profile_evidence_state": "synthetic_reference_only",
+      "valid_from_date": "2026-01-01",
+      "valid_to_date": "2027-12-31",
+      "variables": [
+        {
+          "variable_id": "supply_frequency",
+          "quantity_kind": "frequency",
+          "unit": "Hz",
+          "value_kind": "numeric",
+          "minimum": 49.5,
+          "maximum": 50.5,
+          "allowed_values": [],
+          "maximum_uncertainty": 0.01,
+          "required": true
+        },
+        {
+          "variable_id": "phase_configuration",
+          "quantity_kind": "phase_configuration",
+          "unit": "1",
+          "value_kind": "categorical",
+          "minimum": null,
+          "maximum": null,
+          "allowed_values": [
+            "single_phase"
+          ],
+          "maximum_uncertainty": null,
+          "required": true
+        },
+        {
+          "variable_id": "waveform_profile",
+          "quantity_kind": "waveform_profile",
+          "unit": "1",
+          "value_kind": "categorical",
+          "minimum": null,
+          "maximum": null,
+          "allowed_values": [
+            "SYNTH_GRID_WAVEFORM_A"
+          ],
+          "maximum_uncertainty": null,
+          "required": true
+        },
+        {
+          "variable_id": "power_factor",
+          "quantity_kind": "ratio",
+          "unit": "1",
+          "value_kind": "numeric",
+          "minimum": 0.7,
+          "maximum": 1,
+          "allowed_values": [],
+          "maximum_uncertainty": 0.01,
+          "required": true
+        }
+      ],
+      "spatial_requirements": {
+        "geometry_revision": "GEOM-SYNTH-1",
+        "location_context_id": "SENSOR-LOCAL-01",
+        "required_relation": "colocated",
+        "max_transfer_distance_m": 0,
+        "transfer_method_id": "NOT_APPLICABLE",
+        "transfer_validation_receipt_id": "NOT_APPLICABLE"
+      },
+      "temporal_requirements": {
+        "timebase_contract_id": "MYC-BUILD-STREAM-TIMEBASE-001",
+        "require_full_sample_window": true,
+        "minimum_coverage_fraction": 1,
+        "clock_domain_id": "CLOCK-SYNTH-01",
+        "boot_epoch_id": "BOOT-SYNTH-01",
+        "tick_unit": "s"
+      },
+      "correction_policy": {
+        "state": "not_required",
+        "method_id": "NOT_APPLICABLE",
+        "method_revision": "NOT_APPLICABLE",
+        "method_digest": "NOT_APPLICABLE",
+        "validation_receipt_id": "NOT_APPLICABLE",
+        "must_apply_once": false
+      }
+    },
+    {
+      "profile_id": "COND-ACOUSTIC-001",
+      "conditions_id": "SYNTH-ACOUSTIC-ENV-01",
+      "revision": "1",
+      "channel_profile_id": "MYC-BUILD-METROLOGY-PROFILE-V0.1",
+      "channel_id": "air_speed",
+      "measurand_id": "habitat.air_speed",
+      "firmware_revision": "FW-SYNTH-1",
+      "instrument_configuration_digest": "fixture-config-v1",
+      "profile_evidence_state": "synthetic_reference_only",
+      "valid_from_date": "2026-01-01",
+      "valid_to_date": "2027-12-31",
+      "variables": [
+        {
+          "variable_id": "microphone_orientation_error",
+          "quantity_kind": "angle",
+          "unit": "deg",
+          "value_kind": "numeric",
+          "minimum": 0,
+          "maximum": 10,
+          "allowed_values": [],
+          "maximum_uncertainty": 1,
+          "required": true
+        },
+        {
+          "variable_id": "wind_speed",
+          "quantity_kind": "velocity",
+          "unit": "m/s",
+          "value_kind": "numeric",
+          "minimum": 0,
+          "maximum": 0.5,
+          "allowed_values": [],
+          "maximum_uncertainty": 0.05,
+          "required": true
+        },
+        {
+          "variable_id": "background_noise_profile",
+          "quantity_kind": "acoustic_background_profile",
+          "unit": "1",
+          "value_kind": "categorical",
+          "minimum": null,
+          "maximum": null,
+          "allowed_values": [
+            "SYNTH_BACKGROUND_A"
+          ],
+          "maximum_uncertainty": null,
+          "required": true
+        }
+      ],
+      "spatial_requirements": {
+        "geometry_revision": "GEOM-SYNTH-1",
+        "location_context_id": "SENSOR-LOCAL-01",
+        "required_relation": "colocated",
+        "max_transfer_distance_m": 0,
+        "transfer_method_id": "NOT_APPLICABLE",
+        "transfer_validation_receipt_id": "NOT_APPLICABLE"
+      },
+      "temporal_requirements": {
+        "timebase_contract_id": "MYC-BUILD-STREAM-TIMEBASE-001",
+        "require_full_sample_window": true,
+        "minimum_coverage_fraction": 1,
+        "clock_domain_id": "CLOCK-SYNTH-01",
+        "boot_epoch_id": "BOOT-SYNTH-01",
+        "tick_unit": "s"
+      },
+      "correction_policy": {
+        "state": "not_required",
+        "method_id": "NOT_APPLICABLE",
+        "method_revision": "NOT_APPLICABLE",
+        "method_digest": "NOT_APPLICABLE",
+        "validation_receipt_id": "NOT_APPLICABLE",
+        "must_apply_once": false
+      }
+    }
+  ]
+}

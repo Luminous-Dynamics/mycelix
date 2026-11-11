@@ -1,0 +1,499 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Luminous-Dynamics/mycelix/blob/research/build-measurement-conditions-v0.1/docs/metrology/BUILDING_MEASUREMENT_CONDITION_CORPUS_V0_1.schema.json",
+  "title": "Mycelix Measurement Condition Applicability Corpus v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "corpus_id",
+    "registry_id",
+    "registry_blob_sha1",
+    "classification",
+    "claim_ceiling",
+    "cases"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "mycelix.building.measurement-condition-corpus/0.1"
+    },
+    "corpus_id": {
+      "const": "MYC-BUILD-MEASUREMENT-CONDITIONS-CORPUS-V0.1"
+    },
+    "registry_id": {
+      "const": "MYC-BUILD-MEASUREMENT-CONDITIONS-V0.1"
+    },
+    "registry_blob_sha1": {
+      "const": "69b7fcbce60fde5b1aab9ee1088efe826d6b33ef"
+    },
+    "classification": {
+      "const": "synthetic_condition_applicability_cases"
+    },
+    "claim_ceiling": {
+      "const": "synthetic_environmental_and_influence_condition_applicability_only"
+    },
+    "cases": {
+      "type": "array",
+      "minItems": 43,
+      "maxItems": 43,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "case_id",
+          "description",
+          "record",
+          "expected_disposition"
+        ],
+        "properties": {
+          "case_id": {
+            "type": "string",
+            "pattern": "^MC-[0-9]{3}$"
+          },
+          "description": {
+            "type": "string",
+            "minLength": 20
+          },
+          "record": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "schema_version",
+              "passport_binding",
+              "registry_binding",
+              "condition_observations",
+              "correction_application"
+            ],
+            "properties": {
+              "schema_version": {
+                "const": "mycelix.building.measurement-condition-applicability/0.1"
+              },
+              "passport_binding": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "passport_profile_id",
+                  "instrument_id",
+                  "channel_id",
+                  "measurand_id",
+                  "firmware_revision",
+                  "instrument_configuration_digest",
+                  "capability_conditions_id",
+                  "calibration_conditions_id",
+                  "accuracy_conditions_id",
+                  "drift_conditions_id",
+                  "sample_observation_id",
+                  "sample_digest",
+                  "observed_at_date",
+                  "sample_rights_state",
+                  "sample_geometry_revision",
+                  "sample_location_context_id",
+                  "sample_time_support"
+                ],
+                "properties": {
+                  "passport_profile_id": {
+                    "const": "MYC-BUILD-METROLOGY-PROFILE-V0.1"
+                  },
+                  "instrument_id": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "channel_id": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "measurand_id": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "firmware_revision": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "instrument_configuration_digest": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "capability_conditions_id": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "calibration_conditions_id": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "accuracy_conditions_id": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "drift_conditions_id": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "sample_observation_id": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "sample_digest": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "observed_at_date": {
+                    "type": "string",
+                    "format": "date"
+                  },
+                  "sample_rights_state": {
+                    "enum": [
+                      "synthetic_reference_only",
+                      "unknown",
+                      "revoked"
+                    ]
+                  },
+                  "sample_geometry_revision": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "sample_location_context_id": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "sample_time_support": {
+                    "$ref": "#/$defs/time"
+                  }
+                }
+              },
+              "registry_binding": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "registry_id",
+                  "registry_blob_sha1",
+                  "profile_id",
+                  "profile_revision",
+                  "conditions_id",
+                  "profile_evidence_state"
+                ],
+                "properties": {
+                  "registry_id": {
+                    "const": "MYC-BUILD-MEASUREMENT-CONDITIONS-V0.1"
+                  },
+                  "registry_blob_sha1": {
+                    "type": "string"
+                  },
+                  "profile_id": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "profile_revision": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "conditions_id": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "profile_evidence_state": {
+                    "enum": [
+                      "synthetic_reference_only",
+                      "provider_asserted",
+                      "unverified",
+                      "revoked"
+                    ]
+                  }
+                }
+              },
+              "condition_observations": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "$ref": "#/$defs/observation"
+                }
+              },
+              "correction_application": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "state",
+                  "method_id",
+                  "method_revision",
+                  "method_digest",
+                  "validation_receipt_id",
+                  "application_count",
+                  "source_conditions_digest",
+                  "output_sample_digest"
+                ],
+                "properties": {
+                  "state": {
+                    "enum": [
+                      "not_applied",
+                      "applied"
+                    ]
+                  },
+                  "method_id": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "method_revision": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "method_digest": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "validation_receipt_id": {
+                    "type": "string"
+                  },
+                  "application_count": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "source_conditions_digest": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "output_sample_digest": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                }
+              }
+            }
+          },
+          "expected_disposition": {
+            "enum": [
+              "SYNTHETIC_CONDITION_CONTRACT_VALIDATION_ONLY",
+              "NOT_COMPARABLE",
+              "MORE_EVIDENCE_REQUIRED",
+              "REJECTED_FOR_DECLARED_PURPOSE",
+              "OUTSIDE_VALIDATED_ENVELOPE",
+              "EXPIRED_OR_INVALIDATED"
+            ]
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "time": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "timebase_contract_id",
+        "stream_id",
+        "clock_domain_id",
+        "boot_epoch_id",
+        "start_tick",
+        "end_tick",
+        "tick_unit",
+        "coverage_fraction",
+        "timebase_state",
+        "timebase_receipt_id"
+      ],
+      "properties": {
+        "timebase_contract_id": {
+          "const": "MYC-BUILD-STREAM-TIMEBASE-001"
+        },
+        "stream_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "clock_domain_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "boot_epoch_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "start_tick": {
+          "type": "number"
+        },
+        "end_tick": {
+          "type": "number"
+        },
+        "tick_unit": {
+          "enum": [
+            "s",
+            "ms",
+            "us",
+            "ns"
+          ]
+        },
+        "coverage_fraction": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "timebase_state": {
+          "enum": [
+            "synthetic_reference_only",
+            "owner_verified",
+            "unresolved"
+          ]
+        },
+        "timebase_receipt_id": {
+          "type": "string"
+        }
+      }
+    },
+    "observation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "variable_id",
+        "value_kind",
+        "numeric_value",
+        "category_value",
+        "unit",
+        "observation_id",
+        "source_digest",
+        "source_evidence_state",
+        "source_instrument_id",
+        "source_channel_id",
+        "calibration_record_id",
+        "calibration_state",
+        "installation_record_id",
+        "installation_state",
+        "geometry_revision",
+        "location_context_id",
+        "spatial_relation",
+        "transfer_method_id",
+        "transfer_validation_receipt_id",
+        "distance_m",
+        "uncertainty_value",
+        "uncertainty_unit",
+        "evidence_class",
+        "rights_state",
+        "time_support"
+      ],
+      "properties": {
+        "variable_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "value_kind": {
+          "enum": [
+            "numeric",
+            "categorical"
+          ]
+        },
+        "numeric_value": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "category_value": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "unit": {
+          "type": "string",
+          "minLength": 1
+        },
+        "observation_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_digest": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_evidence_state": {
+          "enum": [
+            "synthetic_reference_only",
+            "stale",
+            "revoked",
+            "provider_asserted"
+          ]
+        },
+        "source_instrument_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_channel_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "calibration_record_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "calibration_state": {
+          "enum": [
+            "synthetic_reference_only",
+            "expired",
+            "unknown"
+          ]
+        },
+        "installation_record_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "installation_state": {
+          "enum": [
+            "synthetic_reference_only",
+            "unknown",
+            "invalidated"
+          ]
+        },
+        "geometry_revision": {
+          "type": "string",
+          "minLength": 1
+        },
+        "location_context_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "spatial_relation": {
+          "enum": [
+            "colocated",
+            "same_zone_only",
+            "validated_transfer",
+            "different_zone"
+          ]
+        },
+        "transfer_method_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "transfer_validation_receipt_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "distance_m": {
+          "type": "number"
+        },
+        "uncertainty_value": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "uncertainty_unit": {
+          "type": "string",
+          "minLength": 1
+        },
+        "evidence_class": {
+          "enum": [
+            "synthetic_reference_only",
+            "provider_assertion"
+          ]
+        },
+        "rights_state": {
+          "enum": [
+            "synthetic_reference_only",
+            "unknown",
+            "revoked"
+          ]
+        },
+        "time_support": {
+          "$ref": "#/$defs/time"
+        }
+      }
+    }
+  }
+}
