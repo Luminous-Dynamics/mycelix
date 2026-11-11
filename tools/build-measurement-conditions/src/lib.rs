@@ -31,7 +31,7 @@ const CORPUS_SCHEMA_VERSION: &str = "mycelix.building.measurement-condition-corp
 const CONDITION_RECORD_VERSION: &str = "mycelix.building.measurement-condition-applicability/0.1";
 const PASSPORT_PROFILE_ID: &str = "MYC-BUILD-METROLOGY-PROFILE-V0.1";
 const TIMEBASE_CONTRACT_ID: &str = "MYC-BUILD-STREAM-TIMEBASE-001";
-const EXPECTED_CASE_COUNT: usize = 36;
+const EXPECTED_CASE_COUNT: usize = 43;
 
 const REGISTRY_FIELDS: &[&str] = &[
     "schema_version",
@@ -236,6 +236,13 @@ const EXPECTED_CASES: &[(&str, &str)] = &[
     ("MC-034", "NOT_COMPARABLE"),
     ("MC-035", "OUTSIDE_VALIDATED_ENVELOPE"),
     ("MC-036", "MORE_EVIDENCE_REQUIRED"),
+    ("MC-037", "MORE_EVIDENCE_REQUIRED"),
+    ("MC-038", "MORE_EVIDENCE_REQUIRED"),
+    ("MC-039", "EXPIRED_OR_INVALIDATED"),
+    ("MC-040", "EXPIRED_OR_INVALIDATED"),
+    ("MC-041", "REJECTED_FOR_DECLARED_PURPOSE"),
+    ("MC-042", "MORE_EVIDENCE_REQUIRED"),
+    ("MC-043", "MORE_EVIDENCE_REQUIRED"),
 ];
 
 #[derive(Debug)]
@@ -887,6 +894,24 @@ pub fn classify_record(record: &Value) -> &'static str {
         return "MORE_EVIDENCE_REQUIRED";
     }
 
+    let sample_time = &passport["sample_time_support"];
+    if string_value(sample_time, "timebase_contract_id") != TIMEBASE_CONTRACT_ID
+        || string_value(sample_time, "clock_domain_id") != "CLOCK-SYNTH-01"
+        || string_value(sample_time, "boot_epoch_id") != "BOOT-SYNTH-01"
+        || string_value(sample_time, "tick_unit") != "s"
+    {
+        return "NOT_COMPARABLE";
+    }
+    if string_value(sample_time, "timebase_state") != "synthetic_reference_only"
+        || !required_text(sample_time, "timebase_receipt_id")
+        || number_value(sample_time, "coverage_fraction") != Some(1.0)
+        || number_value(sample_time, "start_tick").is_none_or(|start| {
+            start > number_value(sample_time, "end_tick").unwrap_or(f64::NEG_INFINITY)
+        })
+    {
+        return "MORE_EVIDENCE_REQUIRED";
+    }
+
     let observations = match record["condition_observations"].as_array() {
         Some(values) => values,
         None => return "MORE_EVIDENCE_REQUIRED",
@@ -912,6 +937,11 @@ pub fn classify_record(record: &Value) -> &'static str {
             || string_value(observation, "rights_state") == "revoked"
         {
             return "REJECTED_FOR_DECLARED_PURPOSE";
+        }
+        if string_value(observation, "calibration_state") == "expired"
+            || string_value(observation, "installation_state") == "invalidated"
+        {
+            return "EXPIRED_OR_INVALIDATED";
         }
         if string_value(observation, "source_evidence_state") != "synthetic_reference_only"
             || string_value(observation, "calibration_state") != "synthetic_reference_only"
@@ -1259,6 +1289,41 @@ mod tests {
         positive["registry_binding"]["profile_evidence_state"] =
             Value::String("independently_characterized".to_owned());
         assert_eq!(classify_record(&positive), "MORE_EVIDENCE_REQUIRED");
+    }
+
+    #[test]
+    fn passport_sample_timebase_must_be_resolved() {
+        assert_eq!(classify_record(&case("MC-037")["record"]), "MORE_EVIDENCE_REQUIRED");
+    }
+
+    #[test]
+    fn passport_sample_rights_state_is_checked_independently() {
+        assert_eq!(classify_record(&case("MC-038")["record"]), "MORE_EVIDENCE_REQUIRED");
+    }
+
+    #[test]
+    fn expired_condition_calibration_invalidates_applicability() {
+        assert_eq!(classify_record(&case("MC-039")["record"]), "EXPIRED_OR_INVALIDATED");
+    }
+
+    #[test]
+    fn invalidated_condition_installation_invalidates_applicability() {
+        assert_eq!(classify_record(&case("MC-040")["record"]), "EXPIRED_OR_INVALIDATED");
+    }
+
+    #[test]
+    fn revoked_condition_source_is_rejected() {
+        assert_eq!(classify_record(&case("MC-041")["record"]), "REJECTED_FOR_DECLARED_PURPOSE");
+    }
+
+    #[test]
+    fn unknown_condition_data_rights_require_more_evidence() {
+        assert_eq!(classify_record(&case("MC-042")["record"]), "MORE_EVIDENCE_REQUIRED");
+    }
+
+    #[test]
+    fn required_correction_needs_an_exact_validation_receipt() {
+        assert_eq!(classify_record(&case("MC-043")["record"]), "MORE_EVIDENCE_REQUIRED");
     }
 
     #[test]
