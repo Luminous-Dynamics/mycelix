@@ -107,11 +107,42 @@ func TestIndeterminateExposureRemainsReserved(t *testing.T) {
 	}
 }
 
+func TestObservedUnsettledRequiresEvidenceAndPersistsReceipt(t *testing.T) {
+	book, _ := NewExposureBookV1(exposureTestPolicy(1_000))
+	_, _ = book.Reserve(exposureTestIntent("effect:1", 600))
+	if err := book.MarkDispatchAuthorized("effect:1"); err != nil { t.Fatal(err) }
+
+	wrongKind := exposureTestResolution("effect:1", ExposureFinalSettlementEvidence)
+	if err := book.MarkCommittedUnsettled("effect:1", wrongKind); err != ErrExposureInvalidResolution {
+		t.Fatalf("final settlement used as observation evidence: %v", err)
+	}
+	wrongSubject := exposureTestResolution("effect:1", ExposureObservedUnsettledEffect)
+	wrongSubject.PayloadDigest = exposureTestDigest(12)
+	if err := book.MarkCommittedUnsettled("effect:1", wrongSubject); err != ErrExposureInvalidResolution {
+		t.Fatalf("wrong payload observation accepted: %v", err)
+	}
+	if status, _ := book.Status("effect:1"); status != ExposureDispatchAuthorized {
+		t.Fatalf("invalid observation changed state to %v", status)
+	}
+
+	valid := exposureTestResolution("effect:1", ExposureObservedUnsettledEffect)
+	if err := book.MarkCommittedUnsettled("effect:1", valid); err != nil { t.Fatal(err) }
+	if err := book.MarkCommittedUnsettled("effect:1", valid); err != nil { t.Fatal(err) }
+	changed := valid
+	changed.EvidenceDigest = exposureTestDigest(2)
+	if err := book.MarkCommittedUnsettled("effect:1", changed); err != ErrExposureResolutionConflict {
+		t.Fatalf("changed observation receipt did not conflict: %v", err)
+	}
+	if total, _ := book.TotalExposureMinor(); total != 600 {
+		t.Fatalf("observed unsettled exposure = %d", total)
+	}
+}
+
 func TestSettlementReleasesOnlyMatchingReceiptBoundExposure(t *testing.T) {
 	book, _ := NewExposureBookV1(exposureTestPolicy(1_000))
 	_, _ = book.Reserve(exposureTestIntent("effect:1", 600))
 	_ = book.MarkDispatchAuthorized("effect:1")
-	_ = book.MarkCommittedUnsettled("effect:1")
+	_ = book.MarkCommittedUnsettled("effect:1", exposureTestResolution("effect:1", ExposureObservedUnsettledEffect))
 	wrong := exposureTestResolution("effect:1", ExposureFinalSettlementEvidence)
 	wrong.PayloadDigest = exposureTestDigest(12)
 	if err := book.MarkSettled("effect:1", wrong); err != ErrExposureInvalidResolution {
@@ -153,6 +184,9 @@ func TestLowerPolicyRetainsExistingReservations(t *testing.T) {
 	lower := exposureTestPolicy(500)
 	lower.Sequence = 2
 	if err := book.ReplacePolicy(lower); err != nil { t.Fatal(err) }
+	if disposition, err := book.Reserve(exposureTestIntent("effect:1", 600)); err != nil || disposition != ExposureAlreadyReserved {
+		t.Fatalf("exact retry after per-effect limit reduction = %v, %v", disposition, err)
+	}
 	if total, _ := book.TotalExposureMinor(); total != 600 {
 		t.Fatalf("existing reservation was erased: %d", total)
 	}
