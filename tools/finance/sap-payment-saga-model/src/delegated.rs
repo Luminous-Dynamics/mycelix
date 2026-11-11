@@ -24,7 +24,7 @@ pub struct ParentExposureScopeV1 {
 }
 
 impl ParentExposureScopeV1 {
-    fn validate(&self) -> Result<(), ExposureError> {
+    pub(crate) fn validate(&self) -> Result<(), ExposureError> {
         for value in [&self.owner_id, &self.pool_id, &self.currency] {
             validate_text(value)?;
         }
