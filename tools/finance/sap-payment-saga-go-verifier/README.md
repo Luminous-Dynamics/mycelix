@@ -141,3 +141,30 @@ go test -run 'a^' -bench '^BenchmarkCompensationReserve(V2|ParallelV2)$' -benchm
 This benchmark includes canonical hashing, map-index checks, aggregate cap checks and mutex contention. It excludes durable storage, Holochain validation, external account holds, provider calls and settlement. No latency or throughput claim is made until the exact-head runner has completed and the hardware/toolchain/raw samples are retained.
 
 See `../sap-payment-saga-model/COMPENSATION_V2.md` for the state machine, safety invariants, industry comparison, benchmark protocol and the required provider-signature / durable-reservation / actual-SUT qualification stages.
+
+
+## Provider retry and refund contract V1
+
+The provider reference profile is implemented independently in Rust `../sap-payment-saga-model/src/provider.rs` and Go `provider.go`. It models provider account scope, region deduplication, key character limit, retention window, in-progress retry rule, method-specific partial-refund policy, captured-amount ceiling and absence-query capability.
+
+Rust and Go compare shared known answers in `../sap-payment-saga-model/fixtures/sap-provider-contract-v1.kat` for the contract, operation key, ordinary provider observation, dedicated absence subject and proof-carrying retry permit.
+
+The Adyen baseline reflects documented constraints: 64-character keys, company-account key scope, 7–14 day validity, no cross-region duplicate checking, and retry of an in-progress duplicate only when the response explicitly carries `transient-error: true`. Partial/multiple refunds are payment-method-dependent and the aggregate refund total is bounded by captured amount. This profile is documentation-baseline maturity only; it is not live-dispatch qualified. API version and webhook verification profile remain operator-pinned, and authoritative absence is unsupported.
+
+A retry permit is bound to provider/account/region, the exact request digest and provider contract digest. It expires at the end of the minimum guaranteed retention period. The permit is a local decision receipt, not a signature, provider acknowledgement or bank settlement.
+
+The dedicated absence subject cannot be inferred from a regular provider observation. It requires an explicitly supported complete-lookup contract and a visibility horizon; the current Adyen documentation baseline fails closed.
+
+Go benchmarks:
+
+```sh
+go test -run 'a^' -bench '^BenchmarkProvider(KeyValidateV1|RetryPermitQualifyV1|RetryPermitRevalidateV1|RetryPermitQualifyParallelV1)$' -benchmem -benchtime=200ms -count=30
+```
+
+Rust emits 30 raw samples each for key validation, permit qualification and permit revalidation:
+
+```sh
+cargo bench --manifest-path ../sap-payment-saga-model/Cargo.toml --bench provider_benchmark
+```
+
+These are canonical hashing and retry-eligibility microbenchmarks. They exclude provider HTTP calls, webhook authentication, durable storage, bank settlement, account liquidity holds and Holochain/DHT execution. See `../sap-payment-saga-model/PROVIDER_CONTRACT_V1.md` for source-backed contract notes, safety rules, industry comparisons and the full benchmark matrix.
