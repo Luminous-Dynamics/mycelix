@@ -311,7 +311,8 @@
                 "required": [
                   "state",
                   "source_receipt_id",
-                  "resolved_profile_digest"
+                  "resolved_profile_digest",
+                  "validity_state"
                 ],
                 "properties": {
                   "state": {
