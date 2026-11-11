@@ -1424,6 +1424,61 @@ mod tests {
         assert_eq!(book.encumbered_minor(), Ok(20));
     }
 
+
+    #[test]
+    fn shared_v2_known_answers_match_every_canonical_subject() {
+        let book = book(100, 100);
+        let request = request(&book, "refund:kat-01", 60, "liquidity:kat-01", 100);
+        let outcome = outcome(
+            &book,
+            &request,
+            CompensationOutcomeKindV2::FinalSettlement,
+            "evidence:kat-settlement",
+        );
+        let values = [
+            ("forward", book.forward.canonical_digest().unwrap()),
+            ("plan", book.plan_digest.clone()),
+            ("authorization_scope", request.authorization.canonical_scope_digest().unwrap()),
+            ("authorization", request.authorization.canonical_digest().unwrap()),
+            ("liquidity", request.liquidity_reservation.canonical_digest().unwrap()),
+            ("request", request.canonical_digest().unwrap()),
+            ("outcome", outcome.canonical_digest().unwrap()),
+        ];
+        let fixture = include_str!("../fixtures/sap-compensation-v2.kat");
+        for (name, digest) in values {
+            let expected = fixture
+                .lines()
+                .find_map(|line| line.strip_prefix(&format!("{name}=")))
+                .unwrap_or_else(|| panic!("missing KAT field {name}"));
+            assert_eq!(digest, expected, "canonical {name} digest differs");
+        }
+    }
+
+    #[test]
+    fn same_capability_id_cannot_change_scope_to_reset_aggregate_limit() {
+        let mut book = book(100, 100);
+        let first = request(&book, "refund:cap-scope-1", 40, "liquidity:cap-scope-1", 70);
+        book.reserve(first, NOW).unwrap();
+
+        let mut second = request(&book, "refund:cap-scope-2", 40, "liquidity:cap-scope-2", 100);
+        second.authorization.capability_id = "capability:refund-01".into();
+        assert_eq!(
+            book.reserve(second, NOW),
+            Err(CompensationErrorV2::CapabilityIdentityConflict)
+        );
+        assert_eq!(book.encumbered_minor(), Ok(40));
+    }
+
+    #[test]
+    fn invalid_forward_finality_discriminant_is_rejected() {
+        let mut forward = forward();
+        forward.finality = unsafe { std::mem::transmute(0_u8) };
+        assert_eq!(
+            forward.validate(),
+            Err(CompensationErrorV2::InvalidFinality)
+        );
+    }
+
     #[test]
     fn cancellation_releases_only_never_dispatched_reservation() {
         let mut book = book(100, 100);
