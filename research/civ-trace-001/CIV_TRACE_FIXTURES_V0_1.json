@@ -37,7 +37,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c06b",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-DEC-001",
+          "observer_ref": "NONE"
         },
         {
           "event_id": "EVID-1",
@@ -55,7 +57,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c07e",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-EVID-1",
+          "observer_ref": "NONE"
         },
         {
           "event_id": "GRANT-001",
@@ -73,7 +77,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c09f",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-GRANT-001",
+          "observer_ref": "NONE"
         },
         {
           "event_id": "ATT-001",
@@ -92,7 +98,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0cf",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "EXECUTOR-ATT-001",
+          "observer_ref": "NONE"
         },
         {
           "event_id": "OBS-1",
@@ -110,7 +118,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0e1",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-OBS-1",
+          "observer_ref": "OBSERVER-OBS-1"
         },
         {
           "event_id": "H-EARLY-1",
@@ -128,7 +138,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0b3",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-H-EARLY-1",
+          "observer_ref": "NONE"
         }
       ],
       "expected": {
@@ -170,7 +182,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c06b",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-DEC-002",
+          "observer_ref": "NONE"
         },
         {
           "event_id": "EVID-2",
@@ -188,7 +202,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c07e",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-EVID-2",
+          "observer_ref": "NONE"
         },
         {
           "event_id": "GRANT-002",
@@ -206,7 +222,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c09f",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-GRANT-002",
+          "observer_ref": "NONE"
         },
         {
           "event_id": "ATT-002",
@@ -225,7 +243,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0cf",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "EXECUTOR-ATT-002",
+          "observer_ref": "NONE"
         },
         {
           "event_id": "OBS-2",
@@ -243,7 +263,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0e1",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-OBS-2",
+          "observer_ref": "OBSERVER-OBS-2"
         },
         {
           "event_id": "H-LATE-BACKDATED-2",
@@ -261,7 +283,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c116",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-H-LATE-BACKDATED-2",
+          "observer_ref": "NONE"
         }
       ],
       "expected": {
@@ -302,7 +326,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c06b",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-DEC-003",
+          "observer_ref": "NONE"
         },
         {
           "event_id": "EVID-3",
@@ -320,7 +346,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c07e",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-EVID-3",
+          "observer_ref": "NONE"
         },
         {
           "event_id": "GRANT-003",
@@ -338,7 +366,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c09f",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-GRANT-003",
+          "observer_ref": "NONE"
         },
         {
           "event_id": "ATT-003",
@@ -357,7 +387,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0cf",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "EXECUTOR-ATT-003",
+          "observer_ref": "NONE"
         },
         {
           "event_id": "OBS-3",
@@ -375,7 +407,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0e1",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-OBS-3",
+          "observer_ref": "OBSERVER-OBS-3"
         },
         {
           "event_id": "H-POST-3",
@@ -393,7 +427,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0c6",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-H-POST-3",
+          "observer_ref": "NONE"
         }
       ],
       "expected": {
@@ -434,7 +470,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c06b",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-DEC-004",
+          "observer_ref": "NONE"
         },
         {
           "event_id": "EVID-4",
@@ -452,7 +490,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c07e",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-EVID-4",
+          "observer_ref": "NONE"
         },
         {
           "event_id": "GRANT-004",
@@ -470,7 +510,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c09f",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-GRANT-004",
+          "observer_ref": "NONE"
         },
         {
           "event_id": "ATT-004",
@@ -489,7 +531,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0cf",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "EXECUTOR-ATT-004",
+          "observer_ref": "NONE"
         },
         {
           "event_id": "OBS-4",
@@ -507,7 +551,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0e1",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-OBS-4",
+          "observer_ref": "OBSERVER-OBS-4"
         },
         {
           "event_id": "H-LATE-CORRECTION-4",
@@ -525,7 +571,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c12b",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-H-LATE-CORRECTION-4",
+          "observer_ref": "NONE"
         }
       ],
       "expected": {
@@ -566,7 +614,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c06b",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-DEC-005",
+          "observer_ref": "NONE"
         },
         {
           "event_id": "EVID-5",
@@ -584,7 +634,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c07e",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-EVID-5",
+          "observer_ref": "NONE"
         },
         {
           "event_id": "GRANT-005",
@@ -602,7 +654,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c09f",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-GRANT-005",
+          "observer_ref": "NONE"
         },
         {
           "event_id": "ATT-005",
@@ -621,7 +675,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0cf",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "EXECUTOR-ATT-005",
+          "observer_ref": "NONE"
         },
         {
           "event_id": "OBS-5",
@@ -639,7 +695,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0e1",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-OBS-5",
+          "observer_ref": "OBSERVER-OBS-5"
         },
         {
           "event_id": "H-UNTRUSTED-5",
@@ -657,7 +715,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0b2",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-H-UNTRUSTED-5",
+          "observer_ref": "NONE"
         }
       ],
       "expected": {
@@ -699,7 +759,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c06b",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-DEC-006",
+          "observer_ref": "NONE"
         },
         {
           "event_id": "EVID-6",
@@ -717,7 +779,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c07e",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-EVID-6",
+          "observer_ref": "NONE"
         },
         {
           "event_id": "GRANT-006",
@@ -735,7 +799,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c09f",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-GRANT-006",
+          "observer_ref": "NONE"
         },
         {
           "event_id": "ATT-006",
@@ -754,7 +820,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0cf",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "EXECUTOR-ATT-006",
+          "observer_ref": "NONE"
         },
         {
           "event_id": "OBS-6",
@@ -766,13 +834,15 @@
           "principal_ref": "PRIN-006",
           "target_ref": "TGT-006",
           "parent_refs": [
-            "ATT-006"
+            "OTHER-ATTEMPT"
           ],
           "status": "Confirmed",
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0e1",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-OBS-6",
+          "observer_ref": "OBSERVER-OBS-6"
         },
         {
           "event_id": "H-REPLAY-6",
@@ -790,7 +860,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0b9",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-H-REPLAY-6",
+          "observer_ref": "NONE"
         }
       ],
       "expected": {
@@ -802,7 +874,7 @@
         ],
         "authority_as_known_at_action": "AUTHORIZED",
         "authority_current_assessment": "AUTHORIZED",
-        "outcome_state": "CONFIRMED",
+        "outcome_state": "UNOBSERVED",
         "challenge_state": "NONE",
         "current_decision_ref": "DEC-006",
         "privacy_violation": false
@@ -832,7 +904,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c06b",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-DEC-011",
+          "observer_ref": "NONE"
         },
         {
           "event_id": "EVID-11",
@@ -850,7 +924,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c07f",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-EVID-11",
+          "observer_ref": "NONE"
         },
         {
           "event_id": "GRANT-011",
@@ -868,7 +944,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c09f",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-GRANT-011",
+          "observer_ref": "NONE"
         },
         {
           "event_id": "ATT-011",
@@ -887,7 +965,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0cf",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "EXECUTOR-ATT-011",
+          "observer_ref": "NONE"
         },
         {
           "event_id": "OBS-11",
@@ -905,7 +985,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0e2",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-OBS-11",
+          "observer_ref": "OBSERVER-OBS-11"
         }
       ],
       "expected": {
@@ -946,7 +1028,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c06b",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-DEC-012",
+          "observer_ref": "NONE"
         },
         {
           "event_id": "EVID-12",
@@ -964,7 +1048,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c07f",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-EVID-12",
+          "observer_ref": "NONE"
         },
         {
           "event_id": "GRANT-012",
@@ -982,7 +1068,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c09f",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-GRANT-012",
+          "observer_ref": "NONE"
         },
         {
           "event_id": "ATT-012",
@@ -1001,7 +1089,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0cf",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "EXECUTOR-ATT-012",
+          "observer_ref": "NONE"
         },
         {
           "event_id": "OBS-12",
@@ -1019,7 +1109,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0e2",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-OBS-12",
+          "observer_ref": "OBSERVER-OBS-12"
         }
       ],
       "expected": {
@@ -1060,7 +1152,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c06b",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-DEC-013",
+          "observer_ref": "NONE"
         },
         {
           "event_id": "EVID-13",
@@ -1078,7 +1172,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c07f",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-EVID-13",
+          "observer_ref": "NONE"
         },
         {
           "event_id": "GRANT-013",
@@ -1096,7 +1192,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c09f",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-GRANT-013",
+          "observer_ref": "NONE"
         },
         {
           "event_id": "ATT-013",
@@ -1115,7 +1213,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0cf",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "EXECUTOR-ATT-013",
+          "observer_ref": "NONE"
         },
         {
           "event_id": "OBS-13",
@@ -1133,7 +1233,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0e2",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-OBS-13",
+          "observer_ref": "OBSERVER-OBS-13"
         },
         {
           "event_id": "REV-3",
@@ -1151,7 +1253,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0c3",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-REV-3",
+          "observer_ref": "NONE"
         }
       ],
       "expected": {
@@ -1192,7 +1296,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c06b",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-DEC-014",
+          "observer_ref": "NONE"
         },
         {
           "event_id": "EVID-14",
@@ -1210,7 +1316,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c07f",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-EVID-14",
+          "observer_ref": "NONE"
         },
         {
           "event_id": "GRANT-014",
@@ -1228,7 +1336,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c09f",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-GRANT-014",
+          "observer_ref": "NONE"
         },
         {
           "event_id": "ATT-014",
@@ -1247,7 +1357,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0cf",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "EXECUTOR-ATT-014",
+          "observer_ref": "NONE"
         },
         {
           "event_id": "OBS-14",
@@ -1265,7 +1377,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0e2",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-OBS-14",
+          "observer_ref": "OBSERVER-OBS-14"
         },
         {
           "event_id": "REV-LATE-4",
@@ -1283,7 +1397,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c10e",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-REV-LATE-4",
+          "observer_ref": "NONE"
         }
       ],
       "expected": {
@@ -1324,7 +1440,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c06b",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-DEC-015",
+          "observer_ref": "NONE"
         },
         {
           "event_id": "EVID-15",
@@ -1342,7 +1460,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c07f",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-EVID-15",
+          "observer_ref": "NONE"
         },
         {
           "event_id": "GRANT-015",
@@ -1360,7 +1480,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c09f",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-GRANT-015",
+          "observer_ref": "NONE"
         },
         {
           "event_id": "ATT-015",
@@ -1379,7 +1501,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0cf",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "EXECUTOR-ATT-015",
+          "observer_ref": "NONE"
         },
         {
           "event_id": "OBS-15",
@@ -1397,7 +1521,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0e2",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-OBS-15",
+          "observer_ref": "OBSERVER-OBS-15"
         }
       ],
       "expected": {
@@ -1437,7 +1563,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c06b",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-DEC-016",
+          "observer_ref": "NONE"
         },
         {
           "event_id": "EVID-16",
@@ -1455,7 +1583,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c07f",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-EVID-16",
+          "observer_ref": "NONE"
         },
         {
           "event_id": "GRANT-016",
@@ -1473,7 +1603,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c09f",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-GRANT-016",
+          "observer_ref": "NONE"
         },
         {
           "event_id": "ATT-016",
@@ -1492,7 +1624,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0cf",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "EXECUTOR-ATT-016",
+          "observer_ref": "NONE"
         },
         {
           "event_id": "OBS-16",
@@ -1510,7 +1644,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0e2",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-OBS-16",
+          "observer_ref": "OBSERVER-OBS-16"
         }
       ],
       "expected": {
@@ -1551,7 +1687,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c06b",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-DEC-021",
+          "observer_ref": "NONE"
         },
         {
           "event_id": "EVID-21",
@@ -1569,7 +1707,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c07f",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-EVID-21",
+          "observer_ref": "NONE"
         },
         {
           "event_id": "GRANT-021",
@@ -1587,7 +1727,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c09f",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-GRANT-021",
+          "observer_ref": "NONE"
         },
         {
           "event_id": "ATT-021",
@@ -1606,7 +1748,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0cf",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "EXECUTOR-ATT-021",
+          "observer_ref": "NONE"
         },
         {
           "event_id": "OBS-21",
@@ -1624,7 +1768,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0e2",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-OBS-21",
+          "observer_ref": "OBSERVER-OBS-21"
         }
       ],
       "expected": {
@@ -1665,7 +1811,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c06b",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-DEC-022",
+          "observer_ref": "NONE"
         },
         {
           "event_id": "EVID-22",
@@ -1683,7 +1831,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c07f",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-EVID-22",
+          "observer_ref": "NONE"
         },
         {
           "event_id": "GRANT-022",
@@ -1701,7 +1851,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c09f",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-GRANT-022",
+          "observer_ref": "NONE"
         },
         {
           "event_id": "ATT-022",
@@ -1720,7 +1872,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0cf",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "EXECUTOR-ATT-022",
+          "observer_ref": "NONE"
         },
         {
           "event_id": "OBS-22",
@@ -1738,7 +1892,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0e2",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-OBS-22",
+          "observer_ref": "OBSERVER-OBS-22"
         },
         {
           "event_id": "DEC2-2",
@@ -1756,7 +1912,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c114",
           "projection_includes_payload": false,
-          "supersedes_ref": "DEC-022"
+          "supersedes_ref": "DEC-022",
+          "issuer_ref": "ISSUER-DEC2-2",
+          "observer_ref": "NONE"
         }
       ],
       "expected": {
@@ -1797,7 +1955,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c06b",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-DEC-023",
+          "observer_ref": "NONE"
         },
         {
           "event_id": "EVID-23",
@@ -1815,7 +1975,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c07f",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-EVID-23",
+          "observer_ref": "NONE"
         },
         {
           "event_id": "GRANT-023",
@@ -1833,7 +1995,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c09f",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-GRANT-023",
+          "observer_ref": "NONE"
         },
         {
           "event_id": "ATT-023",
@@ -1852,7 +2016,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0cf",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "EXECUTOR-ATT-023",
+          "observer_ref": "NONE"
         },
         {
           "event_id": "OBS-23",
@@ -1870,7 +2036,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0e2",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-OBS-23",
+          "observer_ref": "OBSERVER-OBS-23"
         },
         {
           "event_id": "DEC2-3",
@@ -1888,7 +2056,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c114",
           "projection_includes_payload": false,
-          "supersedes_ref": "DEC-023"
+          "supersedes_ref": "DEC-023",
+          "issuer_ref": "ISSUER-DEC2-3",
+          "observer_ref": "NONE"
         },
         {
           "event_id": "DEC3-3",
@@ -1906,7 +2076,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c132",
           "projection_includes_payload": false,
-          "supersedes_ref": "DEC2-3"
+          "supersedes_ref": "DEC2-3",
+          "issuer_ref": "ISSUER-DEC3-3",
+          "observer_ref": "NONE"
         }
       ],
       "expected": {
@@ -1947,7 +2119,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c06b",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-DEC-024",
+          "observer_ref": "NONE"
         },
         {
           "event_id": "EVID-24",
@@ -1965,7 +2139,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c07f",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-EVID-24",
+          "observer_ref": "NONE"
         },
         {
           "event_id": "GRANT-024",
@@ -1983,7 +2159,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c09f",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-GRANT-024",
+          "observer_ref": "NONE"
         },
         {
           "event_id": "ATT-024",
@@ -2002,7 +2180,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0cf",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "EXECUTOR-ATT-024",
+          "observer_ref": "NONE"
         },
         {
           "event_id": "OBS-24",
@@ -2020,7 +2200,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0e2",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-OBS-24",
+          "observer_ref": "OBSERVER-OBS-24"
         },
         {
           "event_id": "CORR-4",
@@ -2038,7 +2220,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c119",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-CORR-4",
+          "observer_ref": "NONE"
         }
       ],
       "expected": {
@@ -2079,7 +2263,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c06b",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-DEC-025",
+          "observer_ref": "NONE"
         },
         {
           "event_id": "EVID-25",
@@ -2097,7 +2283,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c07f",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-EVID-25",
+          "observer_ref": "NONE"
         },
         {
           "event_id": "GRANT-025",
@@ -2115,7 +2303,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c09f",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-GRANT-025",
+          "observer_ref": "NONE"
         },
         {
           "event_id": "ATT-025",
@@ -2134,7 +2324,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0cf",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "EXECUTOR-ATT-025",
+          "observer_ref": "NONE"
         },
         {
           "event_id": "OBS-25",
@@ -2152,7 +2344,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0e2",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-OBS-25",
+          "observer_ref": "OBSERVER-OBS-25"
         },
         {
           "event_id": "DEC2-5",
@@ -2170,7 +2364,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c114",
           "projection_includes_payload": false,
-          "supersedes_ref": "DEC-025"
+          "supersedes_ref": "DEC-025",
+          "issuer_ref": "ISSUER-DEC2-5",
+          "observer_ref": "NONE"
         },
         {
           "event_id": "APPEAL-5",
@@ -2188,7 +2384,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c10c",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-APPEAL-5",
+          "observer_ref": "NONE"
         }
       ],
       "expected": {
@@ -2229,7 +2427,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c06b",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-DEC-026",
+          "observer_ref": "NONE"
         },
         {
           "event_id": "EVID-26",
@@ -2247,7 +2447,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c07f",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-EVID-26",
+          "observer_ref": "NONE"
         },
         {
           "event_id": "GRANT-026",
@@ -2265,7 +2467,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c09f",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-GRANT-026",
+          "observer_ref": "NONE"
         },
         {
           "event_id": "ATT-026",
@@ -2284,7 +2488,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0cf",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "EXECUTOR-ATT-026",
+          "observer_ref": "NONE"
         },
         {
           "event_id": "OBS-26",
@@ -2302,7 +2508,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0e2",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-OBS-26",
+          "observer_ref": "OBSERVER-OBS-26"
         },
         {
           "event_id": "APPEAL-6",
@@ -2320,7 +2528,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c10c",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-APPEAL-6",
+          "observer_ref": "NONE"
         }
       ],
       "expected": {
@@ -2361,7 +2571,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c06b",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-DEC-031",
+          "observer_ref": "NONE"
         },
         {
           "event_id": "EVID-31",
@@ -2379,7 +2591,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c07f",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-EVID-31",
+          "observer_ref": "NONE"
         },
         {
           "event_id": "GRANT-031",
@@ -2397,7 +2611,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c09f",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-GRANT-031",
+          "observer_ref": "NONE"
         },
         {
           "event_id": "ATT-031",
@@ -2416,7 +2632,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0cf",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "EXECUTOR-ATT-031",
+          "observer_ref": "NONE"
         }
       ],
       "expected": {
@@ -2457,7 +2675,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c06b",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-DEC-032",
+          "observer_ref": "NONE"
         },
         {
           "event_id": "EVID-32",
@@ -2475,7 +2695,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c07f",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-EVID-32",
+          "observer_ref": "NONE"
         },
         {
           "event_id": "GRANT-032",
@@ -2493,7 +2715,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c09f",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-GRANT-032",
+          "observer_ref": "NONE"
         },
         {
           "event_id": "ATT-032",
@@ -2512,7 +2736,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0cf",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "EXECUTOR-ATT-032",
+          "observer_ref": "NONE"
         },
         {
           "event_id": "OBS-32",
@@ -2530,7 +2756,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0e2",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-OBS-32",
+          "observer_ref": "OBSERVER-OBS-32"
         }
       ],
       "expected": {
@@ -2571,7 +2799,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c06b",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-DEC-033",
+          "observer_ref": "NONE"
         },
         {
           "event_id": "EVID-33",
@@ -2589,7 +2819,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c07f",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-EVID-33",
+          "observer_ref": "NONE"
         },
         {
           "event_id": "GRANT-033",
@@ -2607,7 +2839,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c09f",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-GRANT-033",
+          "observer_ref": "NONE"
         },
         {
           "event_id": "ATT-033",
@@ -2626,7 +2860,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0cf",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "EXECUTOR-ATT-033",
+          "observer_ref": "NONE"
         },
         {
           "event_id": "OBS-33",
@@ -2644,7 +2880,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0e2",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-OBS-33",
+          "observer_ref": "OBSERVER-OBS-33"
         }
       ],
       "expected": {
@@ -2685,7 +2923,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c06b",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-DEC-034",
+          "observer_ref": "NONE"
         },
         {
           "event_id": "EVID-34",
@@ -2703,7 +2943,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c07f",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-EVID-34",
+          "observer_ref": "NONE"
         },
         {
           "event_id": "GRANT-034",
@@ -2721,7 +2963,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c09f",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-GRANT-034",
+          "observer_ref": "NONE"
         },
         {
           "event_id": "ATT-034",
@@ -2740,7 +2984,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0cf",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "EXECUTOR-ATT-034",
+          "observer_ref": "NONE"
         },
         {
           "event_id": "OBS-34",
@@ -2758,7 +3004,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0e2",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-OBS-34",
+          "observer_ref": "OBSERVER-OBS-34"
         },
         {
           "event_id": "OBS2-4",
@@ -2776,7 +3024,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0ec",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-OBS2-4",
+          "observer_ref": "OBSERVER-OBS2-4"
         }
       ],
       "expected": {
@@ -2817,7 +3067,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c06b",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-DEC-035",
+          "observer_ref": "NONE"
         },
         {
           "event_id": "EVID-35",
@@ -2835,7 +3087,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c07f",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-EVID-35",
+          "observer_ref": "NONE"
         },
         {
           "event_id": "GRANT-035",
@@ -2853,7 +3107,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c09f",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-GRANT-035",
+          "observer_ref": "NONE"
         },
         {
           "event_id": "ATT-035",
@@ -2872,25 +3128,29 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0cf",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "EXECUTOR-ATT-035",
+          "observer_ref": "NONE"
         },
         {
-          "event_id": "OBS-WRONG-5",
+          "event_id": "OBS-SAME-EXECUTOR-05",
           "kind": "EffectObservation",
-          "transaction_time": 230,
-          "valid_from": 230,
+          "transaction_time": 260,
+          "valid_from": 260,
           "valid_until": null,
           "subject_ref": "DEC-035",
           "principal_ref": "PRIN-035",
           "target_ref": "TGT-035",
           "parent_refs": [
-            "OTHER-ATTEMPT"
+            "ATT-035"
           ],
           "status": "Confirmed",
           "visibility": "Public",
-          "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0f1",
+          "payload_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "OBSERVER-RECORDER-OBS-SAME-EXECUTOR-05",
+          "observer_ref": "EXECUTOR-ATT-035"
         }
       ],
       "expected": {
@@ -2901,7 +3161,7 @@
         ],
         "authority_as_known_at_action": "AUTHORIZED",
         "authority_current_assessment": "AUTHORIZED",
-        "outcome_state": "UNOBSERVED",
+        "outcome_state": "INDEPENDENCE_UNESTABLISHED",
         "challenge_state": "NONE",
         "current_decision_ref": "DEC-035",
         "privacy_violation": false
@@ -2931,7 +3191,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c06b",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-DEC-036",
+          "observer_ref": "NONE"
         },
         {
           "event_id": "EVID-36",
@@ -2949,7 +3211,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c07f",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-EVID-36",
+          "observer_ref": "NONE"
         },
         {
           "event_id": "GRANT-036",
@@ -2967,7 +3231,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c09f",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-GRANT-036",
+          "observer_ref": "NONE"
         },
         {
           "event_id": "ATT-036",
@@ -2986,7 +3252,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0cf",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "EXECUTOR-ATT-036",
+          "observer_ref": "NONE"
         },
         {
           "event_id": "OBS-36",
@@ -3004,7 +3272,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0e2",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-OBS-36",
+          "observer_ref": "OBSERVER-OBS-36"
         },
         {
           "event_id": "OBS-LATE-6",
@@ -3022,7 +3292,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c136",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-OBS-LATE-6",
+          "observer_ref": "OBSERVER-OBS-LATE-6"
         }
       ],
       "expected": {
@@ -3063,7 +3335,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c06b",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-DEC-041",
+          "observer_ref": "NONE"
         },
         {
           "event_id": "EVID-41",
@@ -3081,7 +3355,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c07f",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-EVID-41",
+          "observer_ref": "NONE"
         },
         {
           "event_id": "GRANT-041",
@@ -3099,7 +3375,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c09f",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-GRANT-041",
+          "observer_ref": "NONE"
         },
         {
           "event_id": "ATT-041",
@@ -3118,7 +3396,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0cf",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "EXECUTOR-ATT-041",
+          "observer_ref": "NONE"
         },
         {
           "event_id": "OBS-41",
@@ -3136,7 +3416,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0e2",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-OBS-41",
+          "observer_ref": "OBSERVER-OBS-41"
         }
       ],
       "expected": {
@@ -3177,7 +3459,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c06b",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-DEC-042",
+          "observer_ref": "NONE"
         },
         {
           "event_id": "EVID-42",
@@ -3195,7 +3479,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c07f",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-EVID-42",
+          "observer_ref": "NONE"
         },
         {
           "event_id": "GRANT-042",
@@ -3213,7 +3499,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c09f",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-GRANT-042",
+          "observer_ref": "NONE"
         },
         {
           "event_id": "ATT-042",
@@ -3232,7 +3520,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0cf",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "EXECUTOR-ATT-042",
+          "observer_ref": "NONE"
         },
         {
           "event_id": "OBS-42",
@@ -3250,7 +3540,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0e2",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-OBS-42",
+          "observer_ref": "OBSERVER-OBS-42"
         },
         {
           "event_id": "CH-2",
@@ -3268,7 +3560,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c108",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-CH-2",
+          "observer_ref": "NONE"
         }
       ],
       "expected": {
@@ -3309,7 +3603,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c06b",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-DEC-043",
+          "observer_ref": "NONE"
         },
         {
           "event_id": "EVID-43",
@@ -3327,7 +3623,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c07f",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-EVID-43",
+          "observer_ref": "NONE"
         },
         {
           "event_id": "GRANT-043",
@@ -3345,7 +3643,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c09f",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-GRANT-043",
+          "observer_ref": "NONE"
         },
         {
           "event_id": "ATT-043",
@@ -3364,7 +3664,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0cf",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "EXECUTOR-ATT-043",
+          "observer_ref": "NONE"
         },
         {
           "event_id": "OBS-43",
@@ -3382,7 +3684,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0e2",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-OBS-43",
+          "observer_ref": "OBSERVER-OBS-43"
         },
         {
           "event_id": "CH-3",
@@ -3400,7 +3704,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c108",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-CH-3",
+          "observer_ref": "NONE"
         }
       ],
       "expected": {
@@ -3441,7 +3747,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c06b",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-DEC-044",
+          "observer_ref": "NONE"
         },
         {
           "event_id": "EVID-44",
@@ -3459,7 +3767,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c07f",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-EVID-44",
+          "observer_ref": "NONE"
         },
         {
           "event_id": "GRANT-044",
@@ -3477,7 +3787,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c09f",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-GRANT-044",
+          "observer_ref": "NONE"
         },
         {
           "event_id": "ATT-044",
@@ -3496,7 +3808,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0cf",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "EXECUTOR-ATT-044",
+          "observer_ref": "NONE"
         },
         {
           "event_id": "OBS-44",
@@ -3514,7 +3828,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0e2",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-OBS-44",
+          "observer_ref": "OBSERVER-OBS-44"
         },
         {
           "event_id": "CH-OPEN-4",
@@ -3532,7 +3848,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c103",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-CH-OPEN-4",
+          "observer_ref": "NONE"
         },
         {
           "event_id": "CH-RESOLVED-4",
@@ -3550,7 +3868,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c125",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-CH-RESOLVED-4",
+          "observer_ref": "NONE"
         }
       ],
       "expected": {
@@ -3591,7 +3911,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c06b",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-DEC-045",
+          "observer_ref": "NONE"
         },
         {
           "event_id": "EVID-45",
@@ -3609,7 +3931,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c07f",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-EVID-45",
+          "observer_ref": "NONE"
         },
         {
           "event_id": "GRANT-045",
@@ -3627,7 +3951,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c09f",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-GRANT-045",
+          "observer_ref": "NONE"
         },
         {
           "event_id": "ATT-045",
@@ -3646,7 +3972,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0cf",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "EXECUTOR-ATT-045",
+          "observer_ref": "NONE"
         },
         {
           "event_id": "OBS-45",
@@ -3664,7 +3992,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0e2",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-OBS-45",
+          "observer_ref": "OBSERVER-OBS-45"
         },
         {
           "event_id": "CH-EVID-5",
@@ -3682,7 +4012,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c10d",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-CH-EVID-5",
+          "observer_ref": "NONE"
         }
       ],
       "expected": {
@@ -3723,7 +4055,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c06b",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-DEC-046",
+          "observer_ref": "NONE"
         },
         {
           "event_id": "EVID-46",
@@ -3741,7 +4075,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c07f",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-EVID-46",
+          "observer_ref": "NONE"
         },
         {
           "event_id": "GRANT-046",
@@ -3759,7 +4095,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c09f",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-GRANT-046",
+          "observer_ref": "NONE"
         },
         {
           "event_id": "ATT-046",
@@ -3778,7 +4116,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0cf",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "EXECUTOR-ATT-046",
+          "observer_ref": "NONE"
         },
         {
           "event_id": "OBS-46",
@@ -3796,7 +4136,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0e2",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-OBS-46",
+          "observer_ref": "OBSERVER-OBS-46"
         },
         {
           "event_id": "CH-SECOND-6",
@@ -3814,7 +4156,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c11e",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-CH-SECOND-6",
+          "observer_ref": "NONE"
         }
       ],
       "expected": {
@@ -3855,7 +4199,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c06b",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-DEC-051",
+          "observer_ref": "NONE"
         },
         {
           "event_id": "EVID-51",
@@ -3873,7 +4219,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c07f",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-EVID-51",
+          "observer_ref": "NONE"
         },
         {
           "event_id": "GRANT-051",
@@ -3891,7 +4239,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c09f",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-GRANT-051",
+          "observer_ref": "NONE"
         },
         {
           "event_id": "ATT-051",
@@ -3910,7 +4260,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0cf",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "EXECUTOR-ATT-051",
+          "observer_ref": "NONE"
         },
         {
           "event_id": "OBS-51",
@@ -3928,7 +4280,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0e2",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-OBS-51",
+          "observer_ref": "OBSERVER-OBS-51"
         },
         {
           "event_id": "PR-1",
@@ -3946,7 +4300,9 @@
           "visibility": "Protected",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c086",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-PR-1",
+          "observer_ref": "NONE"
         }
       ],
       "expected": {
@@ -3988,7 +4344,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c06b",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-DEC-052",
+          "observer_ref": "NONE"
         },
         {
           "event_id": "EVID-52",
@@ -4006,7 +4364,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c07f",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-EVID-52",
+          "observer_ref": "NONE"
         },
         {
           "event_id": "GRANT-052",
@@ -4024,7 +4384,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c09f",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-GRANT-052",
+          "observer_ref": "NONE"
         },
         {
           "event_id": "ATT-052",
@@ -4043,7 +4405,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0cf",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "EXECUTOR-ATT-052",
+          "observer_ref": "NONE"
         },
         {
           "event_id": "OBS-52",
@@ -4061,7 +4425,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0e2",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-OBS-52",
+          "observer_ref": "OBSERVER-OBS-52"
         },
         {
           "event_id": "PR-2",
@@ -4079,7 +4445,9 @@
           "visibility": "Protected",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c086",
           "projection_includes_payload": true,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-PR-2",
+          "observer_ref": "NONE"
         }
       ],
       "expected": {
@@ -4121,7 +4489,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c06b",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-DEC-053",
+          "observer_ref": "NONE"
         },
         {
           "event_id": "EVID-53",
@@ -4139,7 +4509,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c07f",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-EVID-53",
+          "observer_ref": "NONE"
         },
         {
           "event_id": "GRANT-053",
@@ -4157,7 +4529,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c09f",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-GRANT-053",
+          "observer_ref": "NONE"
         },
         {
           "event_id": "ATT-053",
@@ -4176,7 +4550,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0cf",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "EXECUTOR-ATT-053",
+          "observer_ref": "NONE"
         },
         {
           "event_id": "OBS-53",
@@ -4194,7 +4570,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0e2",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-OBS-53",
+          "observer_ref": "OBSERVER-OBS-53"
         },
         {
           "event_id": "PR-3",
@@ -4212,7 +4590,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c086",
           "projection_includes_payload": true,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-PR-3",
+          "observer_ref": "NONE"
         }
       ],
       "expected": {
@@ -4254,7 +4634,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c06b",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-DEC-054",
+          "observer_ref": "NONE"
         },
         {
           "event_id": "EVID-54",
@@ -4272,7 +4654,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c07f",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-EVID-54",
+          "observer_ref": "NONE"
         },
         {
           "event_id": "GRANT-054",
@@ -4290,7 +4674,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c09f",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-GRANT-054",
+          "observer_ref": "NONE"
         },
         {
           "event_id": "ATT-054",
@@ -4309,7 +4695,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0cf",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "EXECUTOR-ATT-054",
+          "observer_ref": "NONE"
         },
         {
           "event_id": "OBS-54",
@@ -4327,7 +4715,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0e2",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-OBS-54",
+          "observer_ref": "OBSERVER-OBS-54"
         },
         {
           "event_id": "PR-PUBLIC-4",
@@ -4345,7 +4735,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c08d",
           "projection_includes_payload": true,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-PR-PUBLIC-4",
+          "observer_ref": "NONE"
         },
         {
           "event_id": "PR-SEALED-4",
@@ -4363,7 +4755,9 @@
           "visibility": "Protected",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c092",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-PR-SEALED-4",
+          "observer_ref": "NONE"
         }
       ],
       "expected": {
@@ -4406,7 +4800,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c06b",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-DEC-055",
+          "observer_ref": "NONE"
         },
         {
           "event_id": "EVID-55",
@@ -4424,7 +4820,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c07f",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-EVID-55",
+          "observer_ref": "NONE"
         },
         {
           "event_id": "GRANT-055",
@@ -4442,7 +4840,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c09f",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-GRANT-055",
+          "observer_ref": "NONE"
         },
         {
           "event_id": "ATT-055",
@@ -4461,7 +4861,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0cf",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "EXECUTOR-ATT-055",
+          "observer_ref": "NONE"
         },
         {
           "event_id": "OBS-55",
@@ -4479,7 +4881,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0e2",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-OBS-55",
+          "observer_ref": "OBSERVER-OBS-55"
         },
         {
           "event_id": "PR-SEALED-5",
@@ -4497,7 +4901,9 @@
           "visibility": "Protected",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c092",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-PR-SEALED-5",
+          "observer_ref": "NONE"
         }
       ],
       "expected": {
@@ -4539,7 +4945,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c06b",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-DEC-056",
+          "observer_ref": "NONE"
         },
         {
           "event_id": "EVID-56",
@@ -4557,7 +4965,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c07f",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-EVID-56",
+          "observer_ref": "NONE"
         },
         {
           "event_id": "GRANT-056",
@@ -4575,7 +4985,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c09f",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-GRANT-056",
+          "observer_ref": "NONE"
         },
         {
           "event_id": "ATT-056",
@@ -4594,7 +5006,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0cf",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "EXECUTOR-ATT-056",
+          "observer_ref": "NONE"
         },
         {
           "event_id": "OBS-56",
@@ -4612,7 +5026,9 @@
           "visibility": "Public",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c0e2",
           "projection_includes_payload": false,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-OBS-56",
+          "observer_ref": "OBSERVER-OBS-56"
         },
         {
           "event_id": "PR-SEALED-6",
@@ -4630,7 +5046,9 @@
           "visibility": "Protected",
           "payload_sha256": "000000000000000000000000000000000000000000000000000000000000c092",
           "projection_includes_payload": true,
-          "supersedes_ref": "NONE"
+          "supersedes_ref": "NONE",
+          "issuer_ref": "ISSUER-PR-SEALED-6",
+          "observer_ref": "NONE"
         }
       ],
       "expected": {
