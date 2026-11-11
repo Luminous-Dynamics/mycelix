@@ -1186,7 +1186,7 @@ mod tests {
 
     #[test]
     fn tracked_registry_and_all_thirty_six_known_answers_validate() {
-        assert_eq!(validate_tracked().expect("tracked validation"), (6, 36));
+        assert_eq!(validate_tracked().expect("tracked validation"), (6, 43));
     }
 
     #[test]
