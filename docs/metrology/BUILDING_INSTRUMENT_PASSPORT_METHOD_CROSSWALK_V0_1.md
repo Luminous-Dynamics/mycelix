@@ -87,3 +87,13 @@ Passport v0.1 now requires the calibration certificate's uncertainty to appear e
 ### Calibration scope containment
 
 The certificate range must be valid and lie wholly inside the independently characterized instrument capability interval. The certificate cannot enlarge a device's range. The actual lab accreditation schedule must still be checked independently against exact measurand, method, range and uncertainty capability; an authenticated document alone does not prove accreditation scope.
+## Interlaboratory reproducibility and proficiency-testing update — 11 November 2026
+
+- **ISO 5725-1:2023, Edition 2** is the current general reference for accuracy (trueness and precision), study organization, definitions and statistical principles.
+- **ISO 5725-2:2025, Edition 3** is the current published basic method for interlaboratory determination of repeatability and reproducibility for standard measurement methods. ISO 5725-2:2019 is withdrawn; do not cite it as current.
+- **ISO 5725-3:2023** addresses intermediate precision and alternative collaborative-study designs. It is relevant where time, operator, equipment or other intermediate conditions must be separated from pure within-lab repeatability and between-lab reproducibility.
+- **ISO/IEC 17043:2023** addresses proficiency-testing provider competence and impartiality. **ISO 13528:2022/Amd 1:2026** is the current statistical method reference for proficiency-testing schemes.
+
+These references are complementary, not interchangeable. A proficiency test compares a participant's result to an assigned value or consensus under a particular PT scheme. It does not estimate the complete between-laboratory reproducibility of a product-performance method, production-lot variation, or household ecological validity. Keep PT participation/status as a separate laboratory-competence evidence item and never treat its score as a replacement for the four household-appliance study strata.
+
+Official catalogue links: [ISO 5725-1:2023](https://www.iso.org/standard/69418.html); [ISO 5725-2:2025](https://www.iso.org/standard/90054.html); [ISO 5725-3:2023](https://www.iso.org/ics/17.020/x/); [ISO/IEC 17043:2023](https://www.iso.org/standard/80864.html); [ISO 13528:2022/Amd 1:2026](https://www.iso.org/standard/90057.html).
