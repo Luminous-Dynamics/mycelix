@@ -4,7 +4,7 @@
 //! independent from the shrinker and prevents it from declaring a new failure
 //! equivalent merely because a different invariant also fails.
 
-use crate::trace::{TraceCommandV1, TraceError, TraceOpcode, TraceV1};
+use crate::trace::{TraceError, TraceV1};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct TraceShrinkResultV1 {
@@ -119,13 +119,10 @@ where
     })
 }
 
-#[allow(dead_code)]
-fn _command_type_is_frozen(_: TraceCommandV1, _: TraceOpcode) {}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::trace::{TraceFault, TraceGeneratorV1};
+    use crate::trace::{TraceFault, TraceGeneratorV1, TraceOpcode};
 
     #[test]
     fn shrinker_preserves_failure_predicate_and_frozen_trace_encoding() {
@@ -166,7 +163,10 @@ mod tests {
 
     #[test]
     fn shrinker_does_not_edit_profile_version_or_scenario() {
-        let original = TraceGeneratorV1::generate(0x5eed_2026, 17);
+        let original = (0..4096)
+            .map(|index| TraceGeneratorV1::generate(0x5eed_2026, index))
+            .find(|trace| trace.scenario == 7)
+            .expect("scenario seven appears in fixed corpus);
         let scenario = original.scenario;
         let seed = original.seed;
         let index = original.trace_index;
