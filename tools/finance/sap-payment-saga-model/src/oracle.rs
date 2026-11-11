@@ -844,6 +844,18 @@ mod tests {
             .expect("scenario is reachable in the frozen trace generator")
     }
 
+    fn find_scenario_with_nonzero_fee(scenario: u8) -> TraceV1 {
+        (0..100_000)
+            .map(|index| TraceGeneratorV1::generate(0x0123_4567_89ab_cdef, index))
+            .find(|trace| {
+                trace.scenario == scenario
+                    && trace.commands.iter().any(|command| {
+                        command.opcode == TraceOpcode::PrepareTreasury && command.value > 0
+                    })
+            })
+            .expect("scenario with nonzero fee is reachable")
+    }
+
     #[test]
     fn every_generated_scenario_has_expected_safe_evaluation() {
         let mut scenarios_seen = [false; 8];
@@ -886,7 +898,7 @@ mod tests {
 
     #[test]
     fn treasury_checkpoint_requires_matching_payments_checkpoint() {
-        let mut trace = find_scenario(1);
+        let mut trace = find_scenario_with_nonzero_fee(1);
         trace
             .commands
             .retain(|command| command.opcode != TraceOpcode::CheckpointPayments);
