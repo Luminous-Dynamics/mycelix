@@ -134,7 +134,8 @@ pub fn classify_record(r:&Value)->&'static str{
     }
     let mut max_event=i64::MIN;
     let reorder=num(s,"maximum_reorder_window_ns").unwrap_or(-1);
-    for x in &all{
+    // Exact duplicate packets are idempotent replay, not late arrivals.
+    for x in &unique{
         let event=num(x,"event_tick").unwrap_or(i64::MIN);
         if event<max_event&&max_event-event>reorder{return "NOT_COMPARABLE";}
         max_event=max_event.max(event);
