@@ -1,0 +1,3860 @@
+{
+  "schema_version": "mycelix.building-dcc-evidence-corpus/0.1",
+  "corpus_id": "BUILDING-DCC-EVIDENCE-CORPUS-V0.1",
+  "classification": "synthetic_dcc_evidence_state_machine_cases",
+  "claim_ceiling": "normalized_synthetic_dcc_evidence_contract_only",
+  "cases": [
+    {
+      "case_id": "DCC-001",
+      "description": "A synthetic pinned DCC 3.3.0 has trusted signature coverage, verified lab scope and exact passport applicability.",
+      "record": {
+        "artifact": {
+          "source_uri": "https://provider.example.invalid/certificates/CAL-001.xml",
+          "original_bytes_digest": "sha256:synthetic-dcc-bytes-001",
+          "received_bytes_digest": "sha256:synthetic-dcc-bytes-001",
+          "byte_length": 4096,
+          "media_type": "application/xml",
+          "source_receipt_id": "SYNTH-DCC-RECEIPT-001",
+          "retention_state": "retained_original_bytes"
+        },
+        "document": {
+          "well_formed_state": "well_formed",
+          "namespace_uri": "https://ptb.de/dcc",
+          "root_element": "digitalCalibrationCertificate",
+          "schema_version": "3.3.0",
+          "xsd_artifact_state": "pinned",
+          "xsd_digest": "sha256:synthetic-ptb-dcc-xsd-3.3.0",
+          "xsd_validation_state": "valid",
+          "id_reference_state": "valid",
+          "parser_profile_id": "SYNTH-DCC-PARSER-3.3.0",
+          "parser_profile_state": "independently_reviewed"
+        },
+        "signature": {
+          "presence_state": "present",
+          "signature_count": 1,
+          "reference_digest_state": "valid",
+          "signature_value_state": "valid",
+          "signer_certificate_state": "valid",
+          "signer_trust_state": "trusted",
+          "signer_id": "SYNTH-SIGNER-001",
+          "signer_role_state": "authorized_calibration_signer",
+          "signed_reference_uris": [
+            "#DCC-RESULT-001"
+          ],
+          "covered_object_ids": [
+            "DCC-RESULT-001"
+          ],
+          "consumed_object_ids": [
+            "DCC-RESULT-001"
+          ],
+          "external_reference_count": 0,
+          "duplicate_id_count": 0,
+          "transform_policy_state": "allowlisted",
+          "wrapping_check_state": "safe"
+        },
+        "laboratory_scope": {
+          "laboratory_id": "SYNTH-LAB-001",
+          "accreditation_body_id": "SYNTH-ACCREDITATION-BODY-001",
+          "schedule_id": "SYNTH-SCHEDULE-001",
+          "schedule_digest": "sha256:synth-schedule-001",
+          "schedule_state": "authenticated_current",
+          "scope_id": "SYNTH-SCOPE-TEMP-01",
+          "scope_state": "covers_measurand_method_range",
+          "measurand_id": "habitat.air_temperature",
+          "method_id": "SYNTH-METHOD-TEMP",
+          "method_revision": "1",
+          "unit": "degC",
+          "range_min": 0,
+          "range_max": 50,
+          "valid_from": "2026-01-01",
+          "valid_to": "2027-12-31"
+        },
+        "calibration_result": {
+          "result_id": "CAL-RESULT-001",
+          "dcc_object_id": "DCC-RESULT-001",
+          "instrument_id": "SYNTH-INSTRUMENT-001",
+          "channel_id": "air_temperature",
+          "measurand_id": "habitat.air_temperature",
+          "unit": "degC",
+          "method_id": "SYNTH-METHOD-TEMP",
+          "method_revision": "1",
+          "range_min": 0,
+          "range_max": 50,
+          "calibration_date": "2026-10-01",
+          "due_date": "2027-10-01",
+          "firmware_revision": "FW-1",
+          "result_state": "within_tolerance",
+          "uncertainty_value": 0.08,
+          "uncertainty_unit": "degC",
+          "coverage_factor": 2,
+          "certificate_rights_state": "authorized"
+        },
+        "passport_binding": {
+          "instrument_id": "SYNTH-INSTRUMENT-001",
+          "channel_id": "air_temperature",
+          "measurand_id": "habitat.air_temperature",
+          "unit": "degC",
+          "method_id": "SYNTH-METHOD-TEMP",
+          "method_revision": "1",
+          "firmware_revision": "FW-1",
+          "sample_observation_id": "SYNTH-OBS-001",
+          "sample_digest": "sha256:synth-observation-001",
+          "sample_date": "2026-11-10",
+          "sample_value": 20.5
+        },
+        "correction": {
+          "supersession_state": "current",
+          "previous_artifact_digest": "NOT_APPLICABLE",
+          "correction_notice_id": "NOT_APPLICABLE",
+          "dependency_impact_state": "not_required"
+        }
+      },
+      "expected_disposition": "ELIGIBLE_FOR_INDEPENDENT_PASSPORT_REVIEW_ONLY"
+    },
+    {
+      "case_id": "DCC-002",
+      "description": "The DCC is well-formed and XSD-valid but has no XML signature, which is optional in the XSD.",
+      "record": {
+        "artifact": {
+          "source_uri": "https://provider.example.invalid/certificates/CAL-001.xml",
+          "original_bytes_digest": "sha256:synthetic-dcc-bytes-001",
+          "received_bytes_digest": "sha256:synthetic-dcc-bytes-001",
+          "byte_length": 4096,
+          "media_type": "application/xml",
+          "source_receipt_id": "SYNTH-DCC-RECEIPT-001",
+          "retention_state": "retained_original_bytes"
+        },
+        "document": {
+          "well_formed_state": "well_formed",
+          "namespace_uri": "https://ptb.de/dcc",
+          "root_element": "digitalCalibrationCertificate",
+          "schema_version": "3.3.0",
+          "xsd_artifact_state": "pinned",
+          "xsd_digest": "sha256:synthetic-ptb-dcc-xsd-3.3.0",
+          "xsd_validation_state": "valid",
+          "id_reference_state": "valid",
+          "parser_profile_id": "SYNTH-DCC-PARSER-3.3.0",
+          "parser_profile_state": "independently_reviewed"
+        },
+        "signature": {
+          "presence_state": "absent",
+          "signature_count": 0,
+          "reference_digest_state": "not_applicable",
+          "signature_value_state": "not_applicable",
+          "signer_certificate_state": "valid",
+          "signer_trust_state": "trusted",
+          "signer_id": "SYNTH-SIGNER-001",
+          "signer_role_state": "authorized_calibration_signer",
+          "signed_reference_uris": [
+            "#DCC-RESULT-001"
+          ],
+          "covered_object_ids": [
+            "DCC-RESULT-001"
+          ],
+          "consumed_object_ids": [
+            "DCC-RESULT-001"
+          ],
+          "external_reference_count": 0,
+          "duplicate_id_count": 0,
+          "transform_policy_state": "allowlisted",
+          "wrapping_check_state": "safe"
+        },
+        "laboratory_scope": {
+          "laboratory_id": "SYNTH-LAB-001",
+          "accreditation_body_id": "SYNTH-ACCREDITATION-BODY-001",
+          "schedule_id": "SYNTH-SCHEDULE-001",
+          "schedule_digest": "sha256:synth-schedule-001",
+          "schedule_state": "authenticated_current",
+          "scope_id": "SYNTH-SCOPE-TEMP-01",
+          "scope_state": "covers_measurand_method_range",
+          "measurand_id": "habitat.air_temperature",
+          "method_id": "SYNTH-METHOD-TEMP",
+          "method_revision": "1",
+          "unit": "degC",
+          "range_min": 0,
+          "range_max": 50,
+          "valid_from": "2026-01-01",
+          "valid_to": "2027-12-31"
+        },
+        "calibration_result": {
+          "result_id": "CAL-RESULT-001",
+          "dcc_object_id": "DCC-RESULT-001",
+          "instrument_id": "SYNTH-INSTRUMENT-001",
+          "channel_id": "air_temperature",
+          "measurand_id": "habitat.air_temperature",
+          "unit": "degC",
+          "method_id": "SYNTH-METHOD-TEMP",
+          "method_revision": "1",
+          "range_min": 0,
+          "range_max": 50,
+          "calibration_date": "2026-10-01",
+          "due_date": "2027-10-01",
+          "firmware_revision": "FW-1",
+          "result_state": "within_tolerance",
+          "uncertainty_value": 0.08,
+          "uncertainty_unit": "degC",
+          "coverage_factor": 2,
+          "certificate_rights_state": "authorized"
+        },
+        "passport_binding": {
+          "instrument_id": "SYNTH-INSTRUMENT-001",
+          "channel_id": "air_temperature",
+          "measurand_id": "habitat.air_temperature",
+          "unit": "degC",
+          "method_id": "SYNTH-METHOD-TEMP",
+          "method_revision": "1",
+          "firmware_revision": "FW-1",
+          "sample_observation_id": "SYNTH-OBS-001",
+          "sample_digest": "sha256:synth-observation-001",
+          "sample_date": "2026-11-10",
+          "sample_value": 20.5
+        },
+        "correction": {
+          "supersession_state": "current",
+          "previous_artifact_digest": "NOT_APPLICABLE",
+          "correction_notice_id": "NOT_APPLICABLE",
+          "dependency_impact_state": "not_required"
+        }
+      },
+      "expected_disposition": "MORE_EVIDENCE_REQUIRED"
+    },
+    {
+      "case_id": "DCC-003",
+      "description": "The DCC signature value is cryptographically invalid.",
+      "record": {
+        "artifact": {
+          "source_uri": "https://provider.example.invalid/certificates/CAL-001.xml",
+          "original_bytes_digest": "sha256:synthetic-dcc-bytes-001",
+          "received_bytes_digest": "sha256:synthetic-dcc-bytes-001",
+          "byte_length": 4096,
+          "media_type": "application/xml",
+          "source_receipt_id": "SYNTH-DCC-RECEIPT-001",
+          "retention_state": "retained_original_bytes"
+        },
+        "document": {
+          "well_formed_state": "well_formed",
+          "namespace_uri": "https://ptb.de/dcc",
+          "root_element": "digitalCalibrationCertificate",
+          "schema_version": "3.3.0",
+          "xsd_artifact_state": "pinned",
+          "xsd_digest": "sha256:synthetic-ptb-dcc-xsd-3.3.0",
+          "xsd_validation_state": "valid",
+          "id_reference_state": "valid",
+          "parser_profile_id": "SYNTH-DCC-PARSER-3.3.0",
+          "parser_profile_state": "independently_reviewed"
+        },
+        "signature": {
+          "presence_state": "present",
+          "signature_count": 1,
+          "reference_digest_state": "valid",
+          "signature_value_state": "invalid",
+          "signer_certificate_state": "valid",
+          "signer_trust_state": "trusted",
+          "signer_id": "SYNTH-SIGNER-001",
+          "signer_role_state": "authorized_calibration_signer",
+          "signed_reference_uris": [
+            "#DCC-RESULT-001"
+          ],
+          "covered_object_ids": [
+            "DCC-RESULT-001"
+          ],
+          "consumed_object_ids": [
+            "DCC-RESULT-001"
+          ],
+          "external_reference_count": 0,
+          "duplicate_id_count": 0,
+          "transform_policy_state": "allowlisted",
+          "wrapping_check_state": "safe"
+        },
+        "laboratory_scope": {
+          "laboratory_id": "SYNTH-LAB-001",
+          "accreditation_body_id": "SYNTH-ACCREDITATION-BODY-001",
+          "schedule_id": "SYNTH-SCHEDULE-001",
+          "schedule_digest": "sha256:synth-schedule-001",
+          "schedule_state": "authenticated_current",
+          "scope_id": "SYNTH-SCOPE-TEMP-01",
+          "scope_state": "covers_measurand_method_range",
+          "measurand_id": "habitat.air_temperature",
+          "method_id": "SYNTH-METHOD-TEMP",
+          "method_revision": "1",
+          "unit": "degC",
+          "range_min": 0,
+          "range_max": 50,
+          "valid_from": "2026-01-01",
+          "valid_to": "2027-12-31"
+        },
+        "calibration_result": {
+          "result_id": "CAL-RESULT-001",
+          "dcc_object_id": "DCC-RESULT-001",
+          "instrument_id": "SYNTH-INSTRUMENT-001",
+          "channel_id": "air_temperature",
+          "measurand_id": "habitat.air_temperature",
+          "unit": "degC",
+          "method_id": "SYNTH-METHOD-TEMP",
+          "method_revision": "1",
+          "range_min": 0,
+          "range_max": 50,
+          "calibration_date": "2026-10-01",
+          "due_date": "2027-10-01",
+          "firmware_revision": "FW-1",
+          "result_state": "within_tolerance",
+          "uncertainty_value": 0.08,
+          "uncertainty_unit": "degC",
+          "coverage_factor": 2,
+          "certificate_rights_state": "authorized"
+        },
+        "passport_binding": {
+          "instrument_id": "SYNTH-INSTRUMENT-001",
+          "channel_id": "air_temperature",
+          "measurand_id": "habitat.air_temperature",
+          "unit": "degC",
+          "method_id": "SYNTH-METHOD-TEMP",
+          "method_revision": "1",
+          "firmware_revision": "FW-1",
+          "sample_observation_id": "SYNTH-OBS-001",
+          "sample_digest": "sha256:synth-observation-001",
+          "sample_date": "2026-11-10",
+          "sample_value": 20.5
+        },
+        "correction": {
+          "supersession_state": "current",
+          "previous_artifact_digest": "NOT_APPLICABLE",
+          "correction_notice_id": "NOT_APPLICABLE",
+          "dependency_impact_state": "not_required"
+        }
+      },
+      "expected_disposition": "REJECTED_SIGNATURE_INVALID"
+    },
+    {
+      "case_id": "DCC-004",
+      "description": "The signed reference digest is invalid.",
+      "record": {
+        "artifact": {
+          "source_uri": "https://provider.example.invalid/certificates/CAL-001.xml",
+          "original_bytes_digest": "sha256:synthetic-dcc-bytes-001",
+          "received_bytes_digest": "sha256:synthetic-dcc-bytes-001",
+          "byte_length": 4096,
+          "media_type": "application/xml",
+          "source_receipt_id": "SYNTH-DCC-RECEIPT-001",
+          "retention_state": "retained_original_bytes"
+        },
+        "document": {
+          "well_formed_state": "well_formed",
+          "namespace_uri": "https://ptb.de/dcc",
+          "root_element": "digitalCalibrationCertificate",
+          "schema_version": "3.3.0",
+          "xsd_artifact_state": "pinned",
+          "xsd_digest": "sha256:synthetic-ptb-dcc-xsd-3.3.0",
+          "xsd_validation_state": "valid",
+          "id_reference_state": "valid",
+          "parser_profile_id": "SYNTH-DCC-PARSER-3.3.0",
+          "parser_profile_state": "independently_reviewed"
+        },
+        "signature": {
+          "presence_state": "present",
+          "signature_count": 1,
+          "reference_digest_state": "invalid",
+          "signature_value_state": "valid",
+          "signer_certificate_state": "valid",
+          "signer_trust_state": "trusted",
+          "signer_id": "SYNTH-SIGNER-001",
+          "signer_role_state": "authorized_calibration_signer",
+          "signed_reference_uris": [
+            "#DCC-RESULT-001"
+          ],
+          "covered_object_ids": [
+            "DCC-RESULT-001"
+          ],
+          "consumed_object_ids": [
+            "DCC-RESULT-001"
+          ],
+          "external_reference_count": 0,
+          "duplicate_id_count": 0,
+          "transform_policy_state": "allowlisted",
+          "wrapping_check_state": "safe"
+        },
+        "laboratory_scope": {
+          "laboratory_id": "SYNTH-LAB-001",
+          "accreditation_body_id": "SYNTH-ACCREDITATION-BODY-001",
+          "schedule_id": "SYNTH-SCHEDULE-001",
+          "schedule_digest": "sha256:synth-schedule-001",
+          "schedule_state": "authenticated_current",
+          "scope_id": "SYNTH-SCOPE-TEMP-01",
+          "scope_state": "covers_measurand_method_range",
+          "measurand_id": "habitat.air_temperature",
+          "method_id": "SYNTH-METHOD-TEMP",
+          "method_revision": "1",
+          "unit": "degC",
+          "range_min": 0,
+          "range_max": 50,
+          "valid_from": "2026-01-01",
+          "valid_to": "2027-12-31"
+        },
+        "calibration_result": {
+          "result_id": "CAL-RESULT-001",
+          "dcc_object_id": "DCC-RESULT-001",
+          "instrument_id": "SYNTH-INSTRUMENT-001",
+          "channel_id": "air_temperature",
+          "measurand_id": "habitat.air_temperature",
+          "unit": "degC",
+          "method_id": "SYNTH-METHOD-TEMP",
+          "method_revision": "1",
+          "range_min": 0,
+          "range_max": 50,
+          "calibration_date": "2026-10-01",
+          "due_date": "2027-10-01",
+          "firmware_revision": "FW-1",
+          "result_state": "within_tolerance",
+          "uncertainty_value": 0.08,
+          "uncertainty_unit": "degC",
+          "coverage_factor": 2,
+          "certificate_rights_state": "authorized"
+        },
+        "passport_binding": {
+          "instrument_id": "SYNTH-INSTRUMENT-001",
+          "channel_id": "air_temperature",
+          "measurand_id": "habitat.air_temperature",
+          "unit": "degC",
+          "method_id": "SYNTH-METHOD-TEMP",
+          "method_revision": "1",
+          "firmware_revision": "FW-1",
+          "sample_observation_id": "SYNTH-OBS-001",
+          "sample_digest": "sha256:synth-observation-001",
+          "sample_date": "2026-11-10",
+          "sample_value": 20.5
+        },
+        "correction": {
+          "supersession_state": "current",
+          "previous_artifact_digest": "NOT_APPLICABLE",
+          "correction_notice_id": "NOT_APPLICABLE",
+          "dependency_impact_state": "not_required"
+        }
+      },
+      "expected_disposition": "REJECTED_SIGNATURE_INVALID"
+    },
+    {
+      "case_id": "DCC-005",
+      "description": "The signer certificate is valid but the signer is outside the configured trust policy.",
+      "record": {
+        "artifact": {
+          "source_uri": "https://provider.example.invalid/certificates/CAL-001.xml",
+          "original_bytes_digest": "sha256:synthetic-dcc-bytes-001",
+          "received_bytes_digest": "sha256:synthetic-dcc-bytes-001",
+          "byte_length": 4096,
+          "media_type": "application/xml",
+          "source_receipt_id": "SYNTH-DCC-RECEIPT-001",
+          "retention_state": "retained_original_bytes"
+        },
+        "document": {
+          "well_formed_state": "well_formed",
+          "namespace_uri": "https://ptb.de/dcc",
+          "root_element": "digitalCalibrationCertificate",
+          "schema_version": "3.3.0",
+          "xsd_artifact_state": "pinned",
+          "xsd_digest": "sha256:synthetic-ptb-dcc-xsd-3.3.0",
+          "xsd_validation_state": "valid",
+          "id_reference_state": "valid",
+          "parser_profile_id": "SYNTH-DCC-PARSER-3.3.0",
+          "parser_profile_state": "independently_reviewed"
+        },
+        "signature": {
+          "presence_state": "present",
+          "signature_count": 1,
+          "reference_digest_state": "valid",
+          "signature_value_state": "valid",
+          "signer_certificate_state": "valid",
+          "signer_trust_state": "untrusted",
+          "signer_id": "SYNTH-SIGNER-001",
+          "signer_role_state": "authorized_calibration_signer",
+          "signed_reference_uris": [
+            "#DCC-RESULT-001"
+          ],
+          "covered_object_ids": [
+            "DCC-RESULT-001"
+          ],
+          "consumed_object_ids": [
+            "DCC-RESULT-001"
+          ],
+          "external_reference_count": 0,
+          "duplicate_id_count": 0,
+          "transform_policy_state": "allowlisted",
+          "wrapping_check_state": "safe"
+        },
+        "laboratory_scope": {
+          "laboratory_id": "SYNTH-LAB-001",
+          "accreditation_body_id": "SYNTH-ACCREDITATION-BODY-001",
+          "schedule_id": "SYNTH-SCHEDULE-001",
+          "schedule_digest": "sha256:synth-schedule-001",
+          "schedule_state": "authenticated_current",
+          "scope_id": "SYNTH-SCOPE-TEMP-01",
+          "scope_state": "covers_measurand_method_range",
+          "measurand_id": "habitat.air_temperature",
+          "method_id": "SYNTH-METHOD-TEMP",
+          "method_revision": "1",
+          "unit": "degC",
+          "range_min": 0,
+          "range_max": 50,
+          "valid_from": "2026-01-01",
+          "valid_to": "2027-12-31"
+        },
+        "calibration_result": {
+          "result_id": "CAL-RESULT-001",
+          "dcc_object_id": "DCC-RESULT-001",
+          "instrument_id": "SYNTH-INSTRUMENT-001",
+          "channel_id": "air_temperature",
+          "measurand_id": "habitat.air_temperature",
+          "unit": "degC",
+          "method_id": "SYNTH-METHOD-TEMP",
+          "method_revision": "1",
+          "range_min": 0,
+          "range_max": 50,
+          "calibration_date": "2026-10-01",
+          "due_date": "2027-10-01",
+          "firmware_revision": "FW-1",
+          "result_state": "within_tolerance",
+          "uncertainty_value": 0.08,
+          "uncertainty_unit": "degC",
+          "coverage_factor": 2,
+          "certificate_rights_state": "authorized"
+        },
+        "passport_binding": {
+          "instrument_id": "SYNTH-INSTRUMENT-001",
+          "channel_id": "air_temperature",
+          "measurand_id": "habitat.air_temperature",
+          "unit": "degC",
+          "method_id": "SYNTH-METHOD-TEMP",
+          "method_revision": "1",
+          "firmware_revision": "FW-1",
+          "sample_observation_id": "SYNTH-OBS-001",
+          "sample_digest": "sha256:synth-observation-001",
+          "sample_date": "2026-11-10",
+          "sample_value": 20.5
+        },
+        "correction": {
+          "supersession_state": "current",
+          "previous_artifact_digest": "NOT_APPLICABLE",
+          "correction_notice_id": "NOT_APPLICABLE",
+          "dependency_impact_state": "not_required"
+        }
+      },
+      "expected_disposition": "UNTRUSTED_SIGNER"
+    },
+    {
+      "case_id": "DCC-006",
+      "description": "The signing certificate is revoked.",
+      "record": {
+        "artifact": {
+          "source_uri": "https://provider.example.invalid/certificates/CAL-001.xml",
+          "original_bytes_digest": "sha256:synthetic-dcc-bytes-001",
+          "received_bytes_digest": "sha256:synthetic-dcc-bytes-001",
+          "byte_length": 4096,
+          "media_type": "application/xml",
+          "source_receipt_id": "SYNTH-DCC-RECEIPT-001",
+          "retention_state": "retained_original_bytes"
+        },
+        "document": {
+          "well_formed_state": "well_formed",
+          "namespace_uri": "https://ptb.de/dcc",
+          "root_element": "digitalCalibrationCertificate",
+          "schema_version": "3.3.0",
+          "xsd_artifact_state": "pinned",
+          "xsd_digest": "sha256:synthetic-ptb-dcc-xsd-3.3.0",
+          "xsd_validation_state": "valid",
+          "id_reference_state": "valid",
+          "parser_profile_id": "SYNTH-DCC-PARSER-3.3.0",
+          "parser_profile_state": "independently_reviewed"
+        },
+        "signature": {
+          "presence_state": "present",
+          "signature_count": 1,
+          "reference_digest_state": "valid",
+          "signature_value_state": "valid",
+          "signer_certificate_state": "revoked",
+          "signer_trust_state": "trusted",
+          "signer_id": "SYNTH-SIGNER-001",
+          "signer_role_state": "authorized_calibration_signer",
+          "signed_reference_uris": [
+            "#DCC-RESULT-001"
+          ],
+          "covered_object_ids": [
+            "DCC-RESULT-001"
+          ],
+          "consumed_object_ids": [
+            "DCC-RESULT-001"
+          ],
+          "external_reference_count": 0,
+          "duplicate_id_count": 0,
+          "transform_policy_state": "allowlisted",
+          "wrapping_check_state": "safe"
+        },
+        "laboratory_scope": {
+          "laboratory_id": "SYNTH-LAB-001",
+          "accreditation_body_id": "SYNTH-ACCREDITATION-BODY-001",
+          "schedule_id": "SYNTH-SCHEDULE-001",
+          "schedule_digest": "sha256:synth-schedule-001",
+          "schedule_state": "authenticated_current",
+          "scope_id": "SYNTH-SCOPE-TEMP-01",
+          "scope_state": "covers_measurand_method_range",
+          "measurand_id": "habitat.air_temperature",
+          "method_id": "SYNTH-METHOD-TEMP",
+          "method_revision": "1",
+          "unit": "degC",
+          "range_min": 0,
+          "range_max": 50,
+          "valid_from": "2026-01-01",
+          "valid_to": "2027-12-31"
+        },
+        "calibration_result": {
+          "result_id": "CAL-RESULT-001",
+          "dcc_object_id": "DCC-RESULT-001",
+          "instrument_id": "SYNTH-INSTRUMENT-001",
+          "channel_id": "air_temperature",
+          "measurand_id": "habitat.air_temperature",
+          "unit": "degC",
+          "method_id": "SYNTH-METHOD-TEMP",
+          "method_revision": "1",
+          "range_min": 0,
+          "range_max": 50,
+          "calibration_date": "2026-10-01",
+          "due_date": "2027-10-01",
+          "firmware_revision": "FW-1",
+          "result_state": "within_tolerance",
+          "uncertainty_value": 0.08,
+          "uncertainty_unit": "degC",
+          "coverage_factor": 2,
+          "certificate_rights_state": "authorized"
+        },
+        "passport_binding": {
+          "instrument_id": "SYNTH-INSTRUMENT-001",
+          "channel_id": "air_temperature",
+          "measurand_id": "habitat.air_temperature",
+          "unit": "degC",
+          "method_id": "SYNTH-METHOD-TEMP",
+          "method_revision": "1",
+          "firmware_revision": "FW-1",
+          "sample_observation_id": "SYNTH-OBS-001",
+          "sample_digest": "sha256:synth-observation-001",
+          "sample_date": "2026-11-10",
+          "sample_value": 20.5
+        },
+        "correction": {
+          "supersession_state": "current",
+          "previous_artifact_digest": "NOT_APPLICABLE",
+          "correction_notice_id": "NOT_APPLICABLE",
+          "dependency_impact_state": "not_required"
+        }
+      },
+      "expected_disposition": "REJECTED_SIGNATURE_INVALID"
+    },
+    {
+      "case_id": "DCC-007",
+      "description": "The document is not well-formed XML.",
+      "record": {
+        "artifact": {
+          "source_uri": "https://provider.example.invalid/certificates/CAL-001.xml",
+          "original_bytes_digest": "sha256:synthetic-dcc-bytes-001",
+          "received_bytes_digest": "sha256:synthetic-dcc-bytes-001",
+          "byte_length": 4096,
+          "media_type": "application/xml",
+          "source_receipt_id": "SYNTH-DCC-RECEIPT-001",
+          "retention_state": "retained_original_bytes"
+        },
+        "document": {
+          "well_formed_state": "malformed",
+          "namespace_uri": "https://ptb.de/dcc",
+          "root_element": "digitalCalibrationCertificate",
+          "schema_version": "3.3.0",
+          "xsd_artifact_state": "pinned",
+          "xsd_digest": "sha256:synthetic-ptb-dcc-xsd-3.3.0",
+          "xsd_validation_state": "valid",
+          "id_reference_state": "valid",
+          "parser_profile_id": "SYNTH-DCC-PARSER-3.3.0",
+          "parser_profile_state": "independently_reviewed"
+        },
+        "signature": {
+          "presence_state": "present",
+          "signature_count": 1,
+          "reference_digest_state": "valid",
+          "signature_value_state": "valid",
+          "signer_certificate_state": "valid",
+          "signer_trust_state": "trusted",
+          "signer_id": "SYNTH-SIGNER-001",
+          "signer_role_state": "authorized_calibration_signer",
+          "signed_reference_uris": [
+            "#DCC-RESULT-001"
+          ],
+          "covered_object_ids": [
+            "DCC-RESULT-001"
+          ],
+          "consumed_object_ids": [
+            "DCC-RESULT-001"
+          ],
+          "external_reference_count": 0,
+          "duplicate_id_count": 0,
+          "transform_policy_state": "allowlisted",
+          "wrapping_check_state": "safe"
+        },
+        "laboratory_scope": {
+          "laboratory_id": "SYNTH-LAB-001",
+          "accreditation_body_id": "SYNTH-ACCREDITATION-BODY-001",
+          "schedule_id": "SYNTH-SCHEDULE-001",
+          "schedule_digest": "sha256:synth-schedule-001",
+          "schedule_state": "authenticated_current",
+          "scope_id": "SYNTH-SCOPE-TEMP-01",
+          "scope_state": "covers_measurand_method_range",
+          "measurand_id": "habitat.air_temperature",
+          "method_id": "SYNTH-METHOD-TEMP",
+          "method_revision": "1",
+          "unit": "degC",
+          "range_min": 0,
+          "range_max": 50,
+          "valid_from": "2026-01-01",
+          "valid_to": "2027-12-31"
+        },
+        "calibration_result": {
+          "result_id": "CAL-RESULT-001",
+          "dcc_object_id": "DCC-RESULT-001",
+          "instrument_id": "SYNTH-INSTRUMENT-001",
+          "channel_id": "air_temperature",
+          "measurand_id": "habitat.air_temperature",
+          "unit": "degC",
+          "method_id": "SYNTH-METHOD-TEMP",
+          "method_revision": "1",
+          "range_min": 0,
+          "range_max": 50,
+          "calibration_date": "2026-10-01",
+          "due_date": "2027-10-01",
+          "firmware_revision": "FW-1",
+          "result_state": "within_tolerance",
+          "uncertainty_value": 0.08,
+          "uncertainty_unit": "degC",
+          "coverage_factor": 2,
+          "certificate_rights_state": "authorized"
+        },
+        "passport_binding": {
+          "instrument_id": "SYNTH-INSTRUMENT-001",
+          "channel_id": "air_temperature",
+          "measurand_id": "habitat.air_temperature",
+          "unit": "degC",
+          "method_id": "SYNTH-METHOD-TEMP",
+          "method_revision": "1",
+          "firmware_revision": "FW-1",
+          "sample_observation_id": "SYNTH-OBS-001",
+          "sample_digest": "sha256:synth-observation-001",
+          "sample_date": "2026-11-10",
+          "sample_value": 20.5
+        },
+        "correction": {
+          "supersession_state": "current",
+          "previous_artifact_digest": "NOT_APPLICABLE",
+          "correction_notice_id": "NOT_APPLICABLE",
+          "dependency_impact_state": "not_required"
+        }
+      },
+      "expected_disposition": "REJECTED_DOCUMENT"
+    },
+    {
+      "case_id": "DCC-008",
+      "description": "The document uses an unsupported DCC schema version.",
+      "record": {
+        "artifact": {
+          "source_uri": "https://provider.example.invalid/certificates/CAL-001.xml",
+          "original_bytes_digest": "sha256:synthetic-dcc-bytes-001",
+          "received_bytes_digest": "sha256:synthetic-dcc-bytes-001",
+          "byte_length": 4096,
+          "media_type": "application/xml",
+          "source_receipt_id": "SYNTH-DCC-RECEIPT-001",
+          "retention_state": "retained_original_bytes"
+        },
+        "document": {
+          "well_formed_state": "well_formed",
+          "namespace_uri": "https://ptb.de/dcc",
+          "root_element": "digitalCalibrationCertificate",
+          "schema_version": "3.2.0",
+          "xsd_artifact_state": "pinned",
+          "xsd_digest": "sha256:synthetic-ptb-dcc-xsd-3.3.0",
+          "xsd_validation_state": "valid",
+          "id_reference_state": "valid",
+          "parser_profile_id": "SYNTH-DCC-PARSER-3.3.0",
+          "parser_profile_state": "independently_reviewed"
+        },
+        "signature": {
+          "presence_state": "present",
+          "signature_count": 1,
+          "reference_digest_state": "valid",
+          "signature_value_state": "valid",
+          "signer_certificate_state": "valid",
+          "signer_trust_state": "trusted",
+          "signer_id": "SYNTH-SIGNER-001",
+          "signer_role_state": "authorized_calibration_signer",
+          "signed_reference_uris": [
+            "#DCC-RESULT-001"
+          ],
+          "covered_object_ids": [
+            "DCC-RESULT-001"
+          ],
+          "consumed_object_ids": [
+            "DCC-RESULT-001"
+          ],
+          "external_reference_count": 0,
+          "duplicate_id_count": 0,
+          "transform_policy_state": "allowlisted",
+          "wrapping_check_state": "safe"
+        },
+        "laboratory_scope": {
+          "laboratory_id": "SYNTH-LAB-001",
+          "accreditation_body_id": "SYNTH-ACCREDITATION-BODY-001",
+          "schedule_id": "SYNTH-SCHEDULE-001",
+          "schedule_digest": "sha256:synth-schedule-001",
+          "schedule_state": "authenticated_current",
+          "scope_id": "SYNTH-SCOPE-TEMP-01",
+          "scope_state": "covers_measurand_method_range",
+          "measurand_id": "habitat.air_temperature",
+          "method_id": "SYNTH-METHOD-TEMP",
+          "method_revision": "1",
+          "unit": "degC",
+          "range_min": 0,
+          "range_max": 50,
+          "valid_from": "2026-01-01",
+          "valid_to": "2027-12-31"
+        },
+        "calibration_result": {
+          "result_id": "CAL-RESULT-001",
+          "dcc_object_id": "DCC-RESULT-001",
+          "instrument_id": "SYNTH-INSTRUMENT-001",
+          "channel_id": "air_temperature",
+          "measurand_id": "habitat.air_temperature",
+          "unit": "degC",
+          "method_id": "SYNTH-METHOD-TEMP",
+          "method_revision": "1",
+          "range_min": 0,
+          "range_max": 50,
+          "calibration_date": "2026-10-01",
+          "due_date": "2027-10-01",
+          "firmware_revision": "FW-1",
+          "result_state": "within_tolerance",
+          "uncertainty_value": 0.08,
+          "uncertainty_unit": "degC",
+          "coverage_factor": 2,
+          "certificate_rights_state": "authorized"
+        },
+        "passport_binding": {
+          "instrument_id": "SYNTH-INSTRUMENT-001",
+          "channel_id": "air_temperature",
+          "measurand_id": "habitat.air_temperature",
+          "unit": "degC",
+          "method_id": "SYNTH-METHOD-TEMP",
+          "method_revision": "1",
+          "firmware_revision": "FW-1",
+          "sample_observation_id": "SYNTH-OBS-001",
+          "sample_digest": "sha256:synth-observation-001",
+          "sample_date": "2026-11-10",
+          "sample_value": 20.5
+        },
+        "correction": {
+          "supersession_state": "current",
+          "previous_artifact_digest": "NOT_APPLICABLE",
+          "correction_notice_id": "NOT_APPLICABLE",
+          "dependency_impact_state": "not_required"
+        }
+      },
+      "expected_disposition": "REJECTED_DOCUMENT"
+    },
+    {
+      "case_id": "DCC-009",
+      "description": "The root namespace does not match the pinned PTB DCC namespace.",
+      "record": {
+        "artifact": {
+          "source_uri": "https://provider.example.invalid/certificates/CAL-001.xml",
+          "original_bytes_digest": "sha256:synthetic-dcc-bytes-001",
+          "received_bytes_digest": "sha256:synthetic-dcc-bytes-001",
+          "byte_length": 4096,
+          "media_type": "application/xml",
+          "source_receipt_id": "SYNTH-DCC-RECEIPT-001",
+          "retention_state": "retained_original_bytes"
+        },
+        "document": {
+          "well_formed_state": "well_formed",
+          "namespace_uri": "https://example.invalid/dcc",
+          "root_element": "digitalCalibrationCertificate",
+          "schema_version": "3.3.0",
+          "xsd_artifact_state": "pinned",
+          "xsd_digest": "sha256:synthetic-ptb-dcc-xsd-3.3.0",
+          "xsd_validation_state": "valid",
+          "id_reference_state": "valid",
+          "parser_profile_id": "SYNTH-DCC-PARSER-3.3.0",
+          "parser_profile_state": "independently_reviewed"
+        },
+        "signature": {
+          "presence_state": "present",
+          "signature_count": 1,
+          "reference_digest_state": "valid",
+          "signature_value_state": "valid",
+          "signer_certificate_state": "valid",
+          "signer_trust_state": "trusted",
+          "signer_id": "SYNTH-SIGNER-001",
+          "signer_role_state": "authorized_calibration_signer",
+          "signed_reference_uris": [
+            "#DCC-RESULT-001"
+          ],
+          "covered_object_ids": [
+            "DCC-RESULT-001"
+          ],
+          "consumed_object_ids": [
+            "DCC-RESULT-001"
+          ],
+          "external_reference_count": 0,
+          "duplicate_id_count": 0,
+          "transform_policy_state": "allowlisted",
+          "wrapping_check_state": "safe"
+        },
+        "laboratory_scope": {
+          "laboratory_id": "SYNTH-LAB-001",
+          "accreditation_body_id": "SYNTH-ACCREDITATION-BODY-001",
+          "schedule_id": "SYNTH-SCHEDULE-001",
+          "schedule_digest": "sha256:synth-schedule-001",
+          "schedule_state": "authenticated_current",
+          "scope_id": "SYNTH-SCOPE-TEMP-01",
+          "scope_state": "covers_measurand_method_range",
+          "measurand_id": "habitat.air_temperature",
+          "method_id": "SYNTH-METHOD-TEMP",
+          "method_revision": "1",
+          "unit": "degC",
+          "range_min": 0,
+          "range_max": 50,
+          "valid_from": "2026-01-01",
+          "valid_to": "2027-12-31"
+        },
+        "calibration_result": {
+          "result_id": "CAL-RESULT-001",
+          "dcc_object_id": "DCC-RESULT-001",
+          "instrument_id": "SYNTH-INSTRUMENT-001",
+          "channel_id": "air_temperature",
+          "measurand_id": "habitat.air_temperature",
+          "unit": "degC",
+          "method_id": "SYNTH-METHOD-TEMP",
+          "method_revision": "1",
+          "range_min": 0,
+          "range_max": 50,
+          "calibration_date": "2026-10-01",
+          "due_date": "2027-10-01",
+          "firmware_revision": "FW-1",
+          "result_state": "within_tolerance",
+          "uncertainty_value": 0.08,
+          "uncertainty_unit": "degC",
+          "coverage_factor": 2,
+          "certificate_rights_state": "authorized"
+        },
+        "passport_binding": {
+          "instrument_id": "SYNTH-INSTRUMENT-001",
+          "channel_id": "air_temperature",
+          "measurand_id": "habitat.air_temperature",
+          "unit": "degC",
+          "method_id": "SYNTH-METHOD-TEMP",
+          "method_revision": "1",
+          "firmware_revision": "FW-1",
+          "sample_observation_id": "SYNTH-OBS-001",
+          "sample_digest": "sha256:synth-observation-001",
+          "sample_date": "2026-11-10",
+          "sample_value": 20.5
+        },
+        "correction": {
+          "supersession_state": "current",
+          "previous_artifact_digest": "NOT_APPLICABLE",
+          "correction_notice_id": "NOT_APPLICABLE",
+          "dependency_impact_state": "not_required"
+        }
+      },
+      "expected_disposition": "REJECTED_DOCUMENT"
+    },
+    {
+      "case_id": "DCC-010",
+      "description": "The bytes received differ from the retained original artifact digest.",
+      "record": {
+        "artifact": {
+          "source_uri": "https://provider.example.invalid/certificates/CAL-001.xml",
+          "original_bytes_digest": "sha256:synthetic-dcc-bytes-001",
+          "received_bytes_digest": "sha256:tampered-bytes",
+          "byte_length": 4096,
+          "media_type": "application/xml",
+          "source_receipt_id": "SYNTH-DCC-RECEIPT-001",
+          "retention_state": "retained_original_bytes"
+        },
+        "document": {
+          "well_formed_state": "well_formed",
+          "namespace_uri": "https://ptb.de/dcc",
+          "root_element": "digitalCalibrationCertificate",
+          "schema_version": "3.3.0",
+          "xsd_artifact_state": "pinned",
+          "xsd_digest": "sha256:synthetic-ptb-dcc-xsd-3.3.0",
+          "xsd_validation_state": "valid",
+          "id_reference_state": "valid",
+          "parser_profile_id": "SYNTH-DCC-PARSER-3.3.0",
+          "parser_profile_state": "independently_reviewed"
+        },
+        "signature": {
+          "presence_state": "present",
+          "signature_count": 1,
+          "reference_digest_state": "valid",
+          "signature_value_state": "valid",
+          "signer_certificate_state": "valid",
+          "signer_trust_state": "trusted",
+          "signer_id": "SYNTH-SIGNER-001",
+          "signer_role_state": "authorized_calibration_signer",
+          "signed_reference_uris": [
+            "#DCC-RESULT-001"
+          ],
+          "covered_object_ids": [
+            "DCC-RESULT-001"
+          ],
+          "consumed_object_ids": [
+            "DCC-RESULT-001"
+          ],
+          "external_reference_count": 0,
+          "duplicate_id_count": 0,
+          "transform_policy_state": "allowlisted",
+          "wrapping_check_state": "safe"
+        },
+        "laboratory_scope": {
+          "laboratory_id": "SYNTH-LAB-001",
+          "accreditation_body_id": "SYNTH-ACCREDITATION-BODY-001",
+          "schedule_id": "SYNTH-SCHEDULE-001",
+          "schedule_digest": "sha256:synth-schedule-001",
+          "schedule_state": "authenticated_current",
+          "scope_id": "SYNTH-SCOPE-TEMP-01",
+          "scope_state": "covers_measurand_method_range",
+          "measurand_id": "habitat.air_temperature",
+          "method_id": "SYNTH-METHOD-TEMP",
+          "method_revision": "1",
+          "unit": "degC",
+          "range_min": 0,
+          "range_max": 50,
+          "valid_from": "2026-01-01",
+          "valid_to": "2027-12-31"
+        },
+        "calibration_result": {
+          "result_id": "CAL-RESULT-001",
+          "dcc_object_id": "DCC-RESULT-001",
+          "instrument_id": "SYNTH-INSTRUMENT-001",
+          "channel_id": "air_temperature",
+          "measurand_id": "habitat.air_temperature",
+          "unit": "degC",
+          "method_id": "SYNTH-METHOD-TEMP",
+          "method_revision": "1",
+          "range_min": 0,
+          "range_max": 50,
+          "calibration_date": "2026-10-01",
+          "due_date": "2027-10-01",
+          "firmware_revision": "FW-1",
+          "result_state": "within_tolerance",
+          "uncertainty_value": 0.08,
+          "uncertainty_unit": "degC",
+          "coverage_factor": 2,
+          "certificate_rights_state": "authorized"
+        },
+        "passport_binding": {
+          "instrument_id": "SYNTH-INSTRUMENT-001",
+          "channel_id": "air_temperature",
+          "measurand_id": "habitat.air_temperature",
+          "unit": "degC",
+          "method_id": "SYNTH-METHOD-TEMP",
+          "method_revision": "1",
+          "firmware_revision": "FW-1",
+          "sample_observation_id": "SYNTH-OBS-001",
+          "sample_digest": "sha256:synth-observation-001",
+          "sample_date": "2026-11-10",
+          "sample_value": 20.5
+        },
+        "correction": {
+          "supersession_state": "current",
+          "previous_artifact_digest": "NOT_APPLICABLE",
+          "correction_notice_id": "NOT_APPLICABLE",
+          "dependency_impact_state": "not_required"
+        }
+      },
+      "expected_disposition": "REJECTED_SOURCE_INTEGRITY"
+    },
+    {
+      "case_id": "DCC-011",
+      "description": "The XML signature does not cover the calibration result consumed by the passport.",
+      "record": {
+        "artifact": {
+          "source_uri": "https://provider.example.invalid/certificates/CAL-001.xml",
+          "original_bytes_digest": "sha256:synthetic-dcc-bytes-001",
+          "received_bytes_digest": "sha256:synthetic-dcc-bytes-001",
+          "byte_length": 4096,
+          "media_type": "application/xml",
+          "source_receipt_id": "SYNTH-DCC-RECEIPT-001",
+          "retention_state": "retained_original_bytes"
+        },
+        "document": {
+          "well_formed_state": "well_formed",
+          "namespace_uri": "https://ptb.de/dcc",
+          "root_element": "digitalCalibrationCertificate",
+          "schema_version": "3.3.0",
+          "xsd_artifact_state": "pinned",
+          "xsd_digest": "sha256:synthetic-ptb-dcc-xsd-3.3.0",
+          "xsd_validation_state": "valid",
+          "id_reference_state": "valid",
+          "parser_profile_id": "SYNTH-DCC-PARSER-3.3.0",
+          "parser_profile_state": "independently_reviewed"
+        },
+        "signature": {
+          "presence_state": "present",
+          "signature_count": 1,
+          "reference_digest_state": "valid",
+          "signature_value_state": "valid",
+          "signer_certificate_state": "valid",
+          "signer_trust_state": "trusted",
+          "signer_id": "SYNTH-SIGNER-001",
+          "signer_role_state": "authorized_calibration_signer",
+          "signed_reference_uris": [
+            "#DCC-ADMIN-001"
+          ],
+          "covered_object_ids": [
+            "DCC-ADMIN-001"
+          ],
+          "consumed_object_ids": [
+            "DCC-RESULT-001"
+          ],
+          "external_reference_count": 0,
+          "duplicate_id_count": 0,
+          "transform_policy_state": "allowlisted",
+          "wrapping_check_state": "safe"
+        },
+        "laboratory_scope": {
+          "laboratory_id": "SYNTH-LAB-001",
+          "accreditation_body_id": "SYNTH-ACCREDITATION-BODY-001",
+          "schedule_id": "SYNTH-SCHEDULE-001",
+          "schedule_digest": "sha256:synth-schedule-001",
+          "schedule_state": "authenticated_current",
+          "scope_id": "SYNTH-SCOPE-TEMP-01",
+          "scope_state": "covers_measurand_method_range",
+          "measurand_id": "habitat.air_temperature",
+          "method_id": "SYNTH-METHOD-TEMP",
+          "method_revision": "1",
+          "unit": "degC",
+          "range_min": 0,
+          "range_max": 50,
+          "valid_from": "2026-01-01",
+          "valid_to": "2027-12-31"
+        },
+        "calibration_result": {
+          "result_id": "CAL-RESULT-001",
+          "dcc_object_id": "DCC-RESULT-001",
+          "instrument_id": "SYNTH-INSTRUMENT-001",
+          "channel_id": "air_temperature",
+          "measurand_id": "habitat.air_temperature",
+          "unit": "degC",
+          "method_id": "SYNTH-METHOD-TEMP",
+          "method_revision": "1",
+          "range_min": 0,
+          "range_max": 50,
+          "calibration_date": "2026-10-01",
+          "due_date": "2027-10-01",
+          "firmware_revision": "FW-1",
+          "result_state": "within_tolerance",
+          "uncertainty_value": 0.08,
+          "uncertainty_unit": "degC",
+          "coverage_factor": 2,
+          "certificate_rights_state": "authorized"
+        },
+        "passport_binding": {
+          "instrument_id": "SYNTH-INSTRUMENT-001",
+          "channel_id": "air_temperature",
+          "measurand_id": "habitat.air_temperature",
+          "unit": "degC",
+          "method_id": "SYNTH-METHOD-TEMP",
+          "method_revision": "1",
+          "firmware_revision": "FW-1",
+          "sample_observation_id": "SYNTH-OBS-001",
+          "sample_digest": "sha256:synth-observation-001",
+          "sample_date": "2026-11-10",
+          "sample_value": 20.5
+        },
+        "correction": {
+          "supersession_state": "current",
+          "previous_artifact_digest": "NOT_APPLICABLE",
+          "correction_notice_id": "NOT_APPLICABLE",
+          "dependency_impact_state": "not_required"
+        }
+      },
+      "expected_disposition": "REJECTED_SIGNED_OBJECT_COVERAGE"
+    },
+    {
+      "case_id": "DCC-012",
+      "description": "Duplicate XML IDs make reference resolution ambiguous.",
+      "record": {
+        "artifact": {
+          "source_uri": "https://provider.example.invalid/certificates/CAL-001.xml",
+          "original_bytes_digest": "sha256:synthetic-dcc-bytes-001",
+          "received_bytes_digest": "sha256:synthetic-dcc-bytes-001",
+          "byte_length": 4096,
+          "media_type": "application/xml",
+          "source_receipt_id": "SYNTH-DCC-RECEIPT-001",
+          "retention_state": "retained_original_bytes"
+        },
+        "document": {
+          "well_formed_state": "well_formed",
+          "namespace_uri": "https://ptb.de/dcc",
+          "root_element": "digitalCalibrationCertificate",
+          "schema_version": "3.3.0",
+          "xsd_artifact_state": "pinned",
+          "xsd_digest": "sha256:synthetic-ptb-dcc-xsd-3.3.0",
+          "xsd_validation_state": "valid",
+          "id_reference_state": "duplicate_id",
+          "parser_profile_id": "SYNTH-DCC-PARSER-3.3.0",
+          "parser_profile_state": "independently_reviewed"
+        },
+        "signature": {
+          "presence_state": "present",
+          "signature_count": 1,
+          "reference_digest_state": "valid",
+          "signature_value_state": "valid",
+          "signer_certificate_state": "valid",
+          "signer_trust_state": "trusted",
+          "signer_id": "SYNTH-SIGNER-001",
+          "signer_role_state": "authorized_calibration_signer",
+          "signed_reference_uris": [
+            "#DCC-RESULT-001"
+          ],
+          "covered_object_ids": [
+            "DCC-RESULT-001"
+          ],
+          "consumed_object_ids": [
+            "DCC-RESULT-001"
+          ],
+          "external_reference_count": 0,
+          "duplicate_id_count": 1,
+          "transform_policy_state": "allowlisted",
+          "wrapping_check_state": "safe"
+        },
+        "laboratory_scope": {
+          "laboratory_id": "SYNTH-LAB-001",
+          "accreditation_body_id": "SYNTH-ACCREDITATION-BODY-001",
+          "schedule_id": "SYNTH-SCHEDULE-001",
+          "schedule_digest": "sha256:synth-schedule-001",
+          "schedule_state": "authenticated_current",
+          "scope_id": "SYNTH-SCOPE-TEMP-01",
+          "scope_state": "covers_measurand_method_range",
+          "measurand_id": "habitat.air_temperature",
+          "method_id": "SYNTH-METHOD-TEMP",
+          "method_revision": "1",
+          "unit": "degC",
+          "range_min": 0,
+          "range_max": 50,
+          "valid_from": "2026-01-01",
+          "valid_to": "2027-12-31"
+        },
+        "calibration_result": {
+          "result_id": "CAL-RESULT-001",
+          "dcc_object_id": "DCC-RESULT-001",
+          "instrument_id": "SYNTH-INSTRUMENT-001",
+          "channel_id": "air_temperature",
+          "measurand_id": "habitat.air_temperature",
+          "unit": "degC",
+          "method_id": "SYNTH-METHOD-TEMP",
+          "method_revision": "1",
+          "range_min": 0,
+          "range_max": 50,
+          "calibration_date": "2026-10-01",
+          "due_date": "2027-10-01",
+          "firmware_revision": "FW-1",
+          "result_state": "within_tolerance",
+          "uncertainty_value": 0.08,
+          "uncertainty_unit": "degC",
+          "coverage_factor": 2,
+          "certificate_rights_state": "authorized"
+        },
+        "passport_binding": {
+          "instrument_id": "SYNTH-INSTRUMENT-001",
+          "channel_id": "air_temperature",
+          "measurand_id": "habitat.air_temperature",
+          "unit": "degC",
+          "method_id": "SYNTH-METHOD-TEMP",
+          "method_revision": "1",
+          "firmware_revision": "FW-1",
+          "sample_observation_id": "SYNTH-OBS-001",
+          "sample_digest": "sha256:synth-observation-001",
+          "sample_date": "2026-11-10",
+          "sample_value": 20.5
+        },
+        "correction": {
+          "supersession_state": "current",
+          "previous_artifact_digest": "NOT_APPLICABLE",
+          "correction_notice_id": "NOT_APPLICABLE",
+          "dependency_impact_state": "not_required"
+        }
+      },
+      "expected_disposition": "MORE_EVIDENCE_REQUIRED"
+    },
+    {
+      "case_id": "DCC-013",
+      "description": "The XML document contains external signature references.",
+      "record": {
+        "artifact": {
+          "source_uri": "https://provider.example.invalid/certificates/CAL-001.xml",
+          "original_bytes_digest": "sha256:synthetic-dcc-bytes-001",
+          "received_bytes_digest": "sha256:synthetic-dcc-bytes-001",
+          "byte_length": 4096,
+          "media_type": "application/xml",
+          "source_receipt_id": "SYNTH-DCC-RECEIPT-001",
+          "retention_state": "retained_original_bytes"
+        },
+        "document": {
+          "well_formed_state": "well_formed",
+          "namespace_uri": "https://ptb.de/dcc",
+          "root_element": "digitalCalibrationCertificate",
+          "schema_version": "3.3.0",
+          "xsd_artifact_state": "pinned",
+          "xsd_digest": "sha256:synthetic-ptb-dcc-xsd-3.3.0",
+          "xsd_validation_state": "valid",
+          "id_reference_state": "valid",
+          "parser_profile_id": "SYNTH-DCC-PARSER-3.3.0",
+          "parser_profile_state": "independently_reviewed"
+        },
+        "signature": {
+          "presence_state": "present",
+          "signature_count": 1,
+          "reference_digest_state": "valid",
+          "signature_value_state": "valid",
+          "signer_certificate_state": "valid",
+          "signer_trust_state": "trusted",
+          "signer_id": "SYNTH-SIGNER-001",
+          "signer_role_state": "authorized_calibration_signer",
+          "signed_reference_uris": [
+            "https://attacker.example.invalid/result.xml"
+          ],
+          "covered_object_ids": [
+            "DCC-RESULT-001"
+          ],
+          "consumed_object_ids": [
+            "DCC-RESULT-001"
+          ],
+          "external_reference_count": 1,
+          "duplicate_id_count": 0,
+          "transform_policy_state": "allowlisted",
+          "wrapping_check_state": "safe"
+        },
+        "laboratory_scope": {
+          "laboratory_id": "SYNTH-LAB-001",
+          "accreditation_body_id": "SYNTH-ACCREDITATION-BODY-001",
+          "schedule_id": "SYNTH-SCHEDULE-001",
+          "schedule_digest": "sha256:synth-schedule-001",
+          "schedule_state": "authenticated_current",
+          "scope_id": "SYNTH-SCOPE-TEMP-01",
+          "scope_state": "covers_measurand_method_range",
+          "measurand_id": "habitat.air_temperature",
+          "method_id": "SYNTH-METHOD-TEMP",
+          "method_revision": "1",
+          "unit": "degC",
+          "range_min": 0,
+          "range_max": 50,
+          "valid_from": "2026-01-01",
+          "valid_to": "2027-12-31"
+        },
+        "calibration_result": {
+          "result_id": "CAL-RESULT-001",
+          "dcc_object_id": "DCC-RESULT-001",
+          "instrument_id": "SYNTH-INSTRUMENT-001",
+          "channel_id": "air_temperature",
+          "measurand_id": "habitat.air_temperature",
+          "unit": "degC",
+          "method_id": "SYNTH-METHOD-TEMP",
+          "method_revision": "1",
+          "range_min": 0,
+          "range_max": 50,
+          "calibration_date": "2026-10-01",
+          "due_date": "2027-10-01",
+          "firmware_revision": "FW-1",
+          "result_state": "within_tolerance",
+          "uncertainty_value": 0.08,
+          "uncertainty_unit": "degC",
+          "coverage_factor": 2,
+          "certificate_rights_state": "authorized"
+        },
+        "passport_binding": {
+          "instrument_id": "SYNTH-INSTRUMENT-001",
+          "channel_id": "air_temperature",
+          "measurand_id": "habitat.air_temperature",
+          "unit": "degC",
+          "method_id": "SYNTH-METHOD-TEMP",
+          "method_revision": "1",
+          "firmware_revision": "FW-1",
+          "sample_observation_id": "SYNTH-OBS-001",
+          "sample_digest": "sha256:synth-observation-001",
+          "sample_date": "2026-11-10",
+          "sample_value": 20.5
+        },
+        "correction": {
+          "supersession_state": "current",
+          "previous_artifact_digest": "NOT_APPLICABLE",
+          "correction_notice_id": "NOT_APPLICABLE",
+          "dependency_impact_state": "not_required"
+        }
+      },
+      "expected_disposition": "REJECTED_EXTERNAL_REFERENCE"
+    },
+    {
+      "case_id": "DCC-014",
+      "description": "A signature transform falls outside the pinned verifier policy.",
+      "record": {
+        "artifact": {
+          "source_uri": "https://provider.example.invalid/certificates/CAL-001.xml",
+          "original_bytes_digest": "sha256:synthetic-dcc-bytes-001",
+          "received_bytes_digest": "sha256:synthetic-dcc-bytes-001",
+          "byte_length": 4096,
+          "media_type": "application/xml",
+          "source_receipt_id": "SYNTH-DCC-RECEIPT-001",
+          "retention_state": "retained_original_bytes"
+        },
+        "document": {
+          "well_formed_state": "well_formed",
+          "namespace_uri": "https://ptb.de/dcc",
+          "root_element": "digitalCalibrationCertificate",
+          "schema_version": "3.3.0",
+          "xsd_artifact_state": "pinned",
+          "xsd_digest": "sha256:synthetic-ptb-dcc-xsd-3.3.0",
+          "xsd_validation_state": "valid",
+          "id_reference_state": "valid",
+          "parser_profile_id": "SYNTH-DCC-PARSER-3.3.0",
+          "parser_profile_state": "independently_reviewed"
+        },
+        "signature": {
+          "presence_state": "present",
+          "signature_count": 1,
+          "reference_digest_state": "valid",
+          "signature_value_state": "valid",
+          "signer_certificate_state": "valid",
+          "signer_trust_state": "trusted",
+          "signer_id": "SYNTH-SIGNER-001",
+          "signer_role_state": "authorized_calibration_signer",
+          "signed_reference_uris": [
+            "#DCC-RESULT-001"
+          ],
+          "covered_object_ids": [
+            "DCC-RESULT-001"
+          ],
+          "consumed_object_ids": [
+            "DCC-RESULT-001"
+          ],
+          "external_reference_count": 0,
+          "duplicate_id_count": 0,
+          "transform_policy_state": "not_allowlisted",
+          "wrapping_check_state": "safe"
+        },
+        "laboratory_scope": {
+          "laboratory_id": "SYNTH-LAB-001",
+          "accreditation_body_id": "SYNTH-ACCREDITATION-BODY-001",
+          "schedule_id": "SYNTH-SCHEDULE-001",
+          "schedule_digest": "sha256:synth-schedule-001",
+          "schedule_state": "authenticated_current",
+          "scope_id": "SYNTH-SCOPE-TEMP-01",
+          "scope_state": "covers_measurand_method_range",
+          "measurand_id": "habitat.air_temperature",
+          "method_id": "SYNTH-METHOD-TEMP",
+          "method_revision": "1",
+          "unit": "degC",
+          "range_min": 0,
+          "range_max": 50,
+          "valid_from": "2026-01-01",
+          "valid_to": "2027-12-31"
+        },
+        "calibration_result": {
+          "result_id": "CAL-RESULT-001",
+          "dcc_object_id": "DCC-RESULT-001",
+          "instrument_id": "SYNTH-INSTRUMENT-001",
+          "channel_id": "air_temperature",
+          "measurand_id": "habitat.air_temperature",
+          "unit": "degC",
+          "method_id": "SYNTH-METHOD-TEMP",
+          "method_revision": "1",
+          "range_min": 0,
+          "range_max": 50,
+          "calibration_date": "2026-10-01",
+          "due_date": "2027-10-01",
+          "firmware_revision": "FW-1",
+          "result_state": "within_tolerance",
+          "uncertainty_value": 0.08,
+          "uncertainty_unit": "degC",
+          "coverage_factor": 2,
+          "certificate_rights_state": "authorized"
+        },
+        "passport_binding": {
+          "instrument_id": "SYNTH-INSTRUMENT-001",
+          "channel_id": "air_temperature",
+          "measurand_id": "habitat.air_temperature",
+          "unit": "degC",
+          "method_id": "SYNTH-METHOD-TEMP",
+          "method_revision": "1",
+          "firmware_revision": "FW-1",
+          "sample_observation_id": "SYNTH-OBS-001",
+          "sample_digest": "sha256:synth-observation-001",
+          "sample_date": "2026-11-10",
+          "sample_value": 20.5
+        },
+        "correction": {
+          "supersession_state": "current",
+          "previous_artifact_digest": "NOT_APPLICABLE",
+          "correction_notice_id": "NOT_APPLICABLE",
+          "dependency_impact_state": "not_required"
+        }
+      },
+      "expected_disposition": "REJECTED_SIGNATURE_COVERAGE"
+    },
+    {
+      "case_id": "DCC-015",
+      "description": "A signature-wrapping ambiguity means the application may consume a different result than the signed one.",
+      "record": {
+        "artifact": {
+          "source_uri": "https://provider.example.invalid/certificates/CAL-001.xml",
+          "original_bytes_digest": "sha256:synthetic-dcc-bytes-001",
+          "received_bytes_digest": "sha256:synthetic-dcc-bytes-001",
+          "byte_length": 4096,
+          "media_type": "application/xml",
+          "source_receipt_id": "SYNTH-DCC-RECEIPT-001",
+          "retention_state": "retained_original_bytes"
+        },
+        "document": {
+          "well_formed_state": "well_formed",
+          "namespace_uri": "https://ptb.de/dcc",
+          "root_element": "digitalCalibrationCertificate",
+          "schema_version": "3.3.0",
+          "xsd_artifact_state": "pinned",
+          "xsd_digest": "sha256:synthetic-ptb-dcc-xsd-3.3.0",
+          "xsd_validation_state": "valid",
+          "id_reference_state": "valid",
+          "parser_profile_id": "SYNTH-DCC-PARSER-3.3.0",
+          "parser_profile_state": "independently_reviewed"
+        },
+        "signature": {
+          "presence_state": "present",
+          "signature_count": 1,
+          "reference_digest_state": "valid",
+          "signature_value_state": "valid",
+          "signer_certificate_state": "valid",
+          "signer_trust_state": "trusted",
+          "signer_id": "SYNTH-SIGNER-001",
+          "signer_role_state": "authorized_calibration_signer",
+          "signed_reference_uris": [
+            "#DCC-RESULT-001"
+          ],
+          "covered_object_ids": [
+            "DCC-RESULT-001"
+          ],
+          "consumed_object_ids": [
+            "DCC-RESULT-001"
+          ],
+          "external_reference_count": 0,
+          "duplicate_id_count": 0,
+          "transform_policy_state": "allowlisted",
+          "wrapping_check_state": "unsafe"
+        },
+        "laboratory_scope": {
+          "laboratory_id": "SYNTH-LAB-001",
+          "accreditation_body_id": "SYNTH-ACCREDITATION-BODY-001",
+          "schedule_id": "SYNTH-SCHEDULE-001",
+          "schedule_digest": "sha256:synth-schedule-001",
+          "schedule_state": "authenticated_current",
+          "scope_id": "SYNTH-SCOPE-TEMP-01",
+          "scope_state": "covers_measurand_method_range",
+          "measurand_id": "habitat.air_temperature",
+          "method_id": "SYNTH-METHOD-TEMP",
+          "method_revision": "1",
+          "unit": "degC",
+          "range_min": 0,
+          "range_max": 50,
+          "valid_from": "2026-01-01",
+          "valid_to": "2027-12-31"
+        },
+        "calibration_result": {
+          "result_id": "CAL-RESULT-001",
+          "dcc_object_id": "DCC-RESULT-001",
+          "instrument_id": "SYNTH-INSTRUMENT-001",
+          "channel_id": "air_temperature",
+          "measurand_id": "habitat.air_temperature",
+          "unit": "degC",
+          "method_id": "SYNTH-METHOD-TEMP",
+          "method_revision": "1",
+          "range_min": 0,
+          "range_max": 50,
+          "calibration_date": "2026-10-01",
+          "due_date": "2027-10-01",
+          "firmware_revision": "FW-1",
+          "result_state": "within_tolerance",
+          "uncertainty_value": 0.08,
+          "uncertainty_unit": "degC",
+          "coverage_factor": 2,
+          "certificate_rights_state": "authorized"
+        },
+        "passport_binding": {
+          "instrument_id": "SYNTH-INSTRUMENT-001",
+          "channel_id": "air_temperature",
+          "measurand_id": "habitat.air_temperature",
+          "unit": "degC",
+          "method_id": "SYNTH-METHOD-TEMP",
+          "method_revision": "1",
+          "firmware_revision": "FW-1",
+          "sample_observation_id": "SYNTH-OBS-001",
+          "sample_digest": "sha256:synth-observation-001",
+          "sample_date": "2026-11-10",
+          "sample_value": 20.5
+        },
+        "correction": {
+          "supersession_state": "current",
+          "previous_artifact_digest": "NOT_APPLICABLE",
+          "correction_notice_id": "NOT_APPLICABLE",
+          "dependency_impact_state": "not_required"
+        }
+      },
+      "expected_disposition": "REJECTED_SIGNATURE_COVERAGE"
+    },
+    {
+      "case_id": "DCC-016",
+      "description": "The laboratory accreditation schedule has not been independently authenticated or checked current.",
+      "record": {
+        "artifact": {
+          "source_uri": "https://provider.example.invalid/certificates/CAL-001.xml",
+          "original_bytes_digest": "sha256:synthetic-dcc-bytes-001",
+          "received_bytes_digest": "sha256:synthetic-dcc-bytes-001",
+          "byte_length": 4096,
+          "media_type": "application/xml",
+          "source_receipt_id": "SYNTH-DCC-RECEIPT-001",
+          "retention_state": "retained_original_bytes"
+        },
+        "document": {
+          "well_formed_state": "well_formed",
+          "namespace_uri": "https://ptb.de/dcc",
+          "root_element": "digitalCalibrationCertificate",
+          "schema_version": "3.3.0",
+          "xsd_artifact_state": "pinned",
+          "xsd_digest": "sha256:synthetic-ptb-dcc-xsd-3.3.0",
+          "xsd_validation_state": "valid",
+          "id_reference_state": "valid",
+          "parser_profile_id": "SYNTH-DCC-PARSER-3.3.0",
+          "parser_profile_state": "independently_reviewed"
+        },
+        "signature": {
+          "presence_state": "present",
+          "signature_count": 1,
+          "reference_digest_state": "valid",
+          "signature_value_state": "valid",
+          "signer_certificate_state": "valid",
+          "signer_trust_state": "trusted",
+          "signer_id": "SYNTH-SIGNER-001",
+          "signer_role_state": "authorized_calibration_signer",
+          "signed_reference_uris": [
+            "#DCC-RESULT-001"
+          ],
+          "covered_object_ids": [
+            "DCC-RESULT-001"
+          ],
+          "consumed_object_ids": [
+            "DCC-RESULT-001"
+          ],
+          "external_reference_count": 0,
+          "duplicate_id_count": 0,
+          "transform_policy_state": "allowlisted",
+          "wrapping_check_state": "safe"
+        },
+        "laboratory_scope": {
+          "laboratory_id": "SYNTH-LAB-001",
+          "accreditation_body_id": "SYNTH-ACCREDITATION-BODY-001",
+          "schedule_id": "SYNTH-SCHEDULE-001",
+          "schedule_digest": "sha256:synth-schedule-001",
+          "schedule_state": "unknown",
+          "scope_id": "SYNTH-SCOPE-TEMP-01",
+          "scope_state": "covers_measurand_method_range",
+          "measurand_id": "habitat.air_temperature",
+          "method_id": "SYNTH-METHOD-TEMP",
+          "method_revision": "1",
+          "unit": "degC",
+          "range_min": 0,
+          "range_max": 50,
+          "valid_from": "2026-01-01",
+          "valid_to": "2027-12-31"
+        },
+        "calibration_result": {
+          "result_id": "CAL-RESULT-001",
+          "dcc_object_id": "DCC-RESULT-001",
+          "instrument_id": "SYNTH-INSTRUMENT-001",
+          "channel_id": "air_temperature",
+          "measurand_id": "habitat.air_temperature",
+          "unit": "degC",
+          "method_id": "SYNTH-METHOD-TEMP",
+          "method_revision": "1",
+          "range_min": 0,
+          "range_max": 50,
+          "calibration_date": "2026-10-01",
+          "due_date": "2027-10-01",
+          "firmware_revision": "FW-1",
+          "result_state": "within_tolerance",
+          "uncertainty_value": 0.08,
+          "uncertainty_unit": "degC",
+          "coverage_factor": 2,
+          "certificate_rights_state": "authorized"
+        },
+        "passport_binding": {
+          "instrument_id": "SYNTH-INSTRUMENT-001",
+          "channel_id": "air_temperature",
+          "measurand_id": "habitat.air_temperature",
+          "unit": "degC",
+          "method_id": "SYNTH-METHOD-TEMP",
+          "method_revision": "1",
+          "firmware_revision": "FW-1",
+          "sample_observation_id": "SYNTH-OBS-001",
+          "sample_digest": "sha256:synth-observation-001",
+          "sample_date": "2026-11-10",
+          "sample_value": 20.5
+        },
+        "correction": {
+          "supersession_state": "current",
+          "previous_artifact_digest": "NOT_APPLICABLE",
+          "correction_notice_id": "NOT_APPLICABLE",
+          "dependency_impact_state": "not_required"
+        }
+      },
+      "expected_disposition": "MORE_EVIDENCE_REQUIRED"
+    },
+    {
+      "case_id": "DCC-017",
+      "description": "The verified laboratory scope excludes the declared measurement method.",
+      "record": {
+        "artifact": {
+          "source_uri": "https://provider.example.invalid/certificates/CAL-001.xml",
+          "original_bytes_digest": "sha256:synthetic-dcc-bytes-001",
+          "received_bytes_digest": "sha256:synthetic-dcc-bytes-001",
+          "byte_length": 4096,
+          "media_type": "application/xml",
+          "source_receipt_id": "SYNTH-DCC-RECEIPT-001",
+          "retention_state": "retained_original_bytes"
+        },
+        "document": {
+          "well_formed_state": "well_formed",
+          "namespace_uri": "https://ptb.de/dcc",
+          "root_element": "digitalCalibrationCertificate",
+          "schema_version": "3.3.0",
+          "xsd_artifact_state": "pinned",
+          "xsd_digest": "sha256:synthetic-ptb-dcc-xsd-3.3.0",
+          "xsd_validation_state": "valid",
+          "id_reference_state": "valid",
+          "parser_profile_id": "SYNTH-DCC-PARSER-3.3.0",
+          "parser_profile_state": "independently_reviewed"
+        },
+        "signature": {
+          "presence_state": "present",
+          "signature_count": 1,
+          "reference_digest_state": "valid",
+          "signature_value_state": "valid",
+          "signer_certificate_state": "valid",
+          "signer_trust_state": "trusted",
+          "signer_id": "SYNTH-SIGNER-001",
+          "signer_role_state": "authorized_calibration_signer",
+          "signed_reference_uris": [
+            "#DCC-RESULT-001"
+          ],
+          "covered_object_ids": [
+            "DCC-RESULT-001"
+          ],
+          "consumed_object_ids": [
+            "DCC-RESULT-001"
+          ],
+          "external_reference_count": 0,
+          "duplicate_id_count": 0,
+          "transform_policy_state": "allowlisted",
+          "wrapping_check_state": "safe"
+        },
+        "laboratory_scope": {
+          "laboratory_id": "SYNTH-LAB-001",
+          "accreditation_body_id": "SYNTH-ACCREDITATION-BODY-001",
+          "schedule_id": "SYNTH-SCHEDULE-001",
+          "schedule_digest": "sha256:synth-schedule-001",
+          "schedule_state": "authenticated_current",
+          "scope_id": "SYNTH-SCOPE-TEMP-01",
+          "scope_state": "method_not_in_scope",
+          "measurand_id": "habitat.air_temperature",
+          "method_id": "SYNTH-METHOD-TEMP",
+          "method_revision": "1",
+          "unit": "degC",
+          "range_min": 0,
+          "range_max": 50,
+          "valid_from": "2026-01-01",
+          "valid_to": "2027-12-31"
+        },
+        "calibration_result": {
+          "result_id": "CAL-RESULT-001",
+          "dcc_object_id": "DCC-RESULT-001",
+          "instrument_id": "SYNTH-INSTRUMENT-001",
+          "channel_id": "air_temperature",
+          "measurand_id": "habitat.air_temperature",
+          "unit": "degC",
+          "method_id": "SYNTH-METHOD-TEMP",
+          "method_revision": "1",
+          "range_min": 0,
+          "range_max": 50,
+          "calibration_date": "2026-10-01",
+          "due_date": "2027-10-01",
+          "firmware_revision": "FW-1",
+          "result_state": "within_tolerance",
+          "uncertainty_value": 0.08,
+          "uncertainty_unit": "degC",
+          "coverage_factor": 2,
+          "certificate_rights_state": "authorized"
+        },
+        "passport_binding": {
+          "instrument_id": "SYNTH-INSTRUMENT-001",
+          "channel_id": "air_temperature",
+          "measurand_id": "habitat.air_temperature",
+          "unit": "degC",
+          "method_id": "SYNTH-METHOD-TEMP",
+          "method_revision": "1",
+          "firmware_revision": "FW-1",
+          "sample_observation_id": "SYNTH-OBS-001",
+          "sample_digest": "sha256:synth-observation-001",
+          "sample_date": "2026-11-10",
+          "sample_value": 20.5
+        },
+        "correction": {
+          "supersession_state": "current",
+          "previous_artifact_digest": "NOT_APPLICABLE",
+          "correction_notice_id": "NOT_APPLICABLE",
+          "dependency_impact_state": "not_required"
+        }
+      },
+      "expected_disposition": "NOT_COMPARABLE"
+    },
+    {
+      "case_id": "DCC-018",
+      "description": "The laboratory scope range does not cover the calibration result range.",
+      "record": {
+        "artifact": {
+          "source_uri": "https://provider.example.invalid/certificates/CAL-001.xml",
+          "original_bytes_digest": "sha256:synthetic-dcc-bytes-001",
+          "received_bytes_digest": "sha256:synthetic-dcc-bytes-001",
+          "byte_length": 4096,
+          "media_type": "application/xml",
+          "source_receipt_id": "SYNTH-DCC-RECEIPT-001",
+          "retention_state": "retained_original_bytes"
+        },
+        "document": {
+          "well_formed_state": "well_formed",
+          "namespace_uri": "https://ptb.de/dcc",
+          "root_element": "digitalCalibrationCertificate",
+          "schema_version": "3.3.0",
+          "xsd_artifact_state": "pinned",
+          "xsd_digest": "sha256:synthetic-ptb-dcc-xsd-3.3.0",
+          "xsd_validation_state": "valid",
+          "id_reference_state": "valid",
+          "parser_profile_id": "SYNTH-DCC-PARSER-3.3.0",
+          "parser_profile_state": "independently_reviewed"
+        },
+        "signature": {
+          "presence_state": "present",
+          "signature_count": 1,
+          "reference_digest_state": "valid",
+          "signature_value_state": "valid",
+          "signer_certificate_state": "valid",
+          "signer_trust_state": "trusted",
+          "signer_id": "SYNTH-SIGNER-001",
+          "signer_role_state": "authorized_calibration_signer",
+          "signed_reference_uris": [
+            "#DCC-RESULT-001"
+          ],
+          "covered_object_ids": [
+            "DCC-RESULT-001"
+          ],
+          "consumed_object_ids": [
+            "DCC-RESULT-001"
+          ],
+          "external_reference_count": 0,
+          "duplicate_id_count": 0,
+          "transform_policy_state": "allowlisted",
+          "wrapping_check_state": "safe"
+        },
+        "laboratory_scope": {
+          "laboratory_id": "SYNTH-LAB-001",
+          "accreditation_body_id": "SYNTH-ACCREDITATION-BODY-001",
+          "schedule_id": "SYNTH-SCHEDULE-001",
+          "schedule_digest": "sha256:synth-schedule-001",
+          "schedule_state": "authenticated_current",
+          "scope_id": "SYNTH-SCOPE-TEMP-01",
+          "scope_state": "covers_measurand_method_range",
+          "measurand_id": "habitat.air_temperature",
+          "method_id": "SYNTH-METHOD-TEMP",
+          "method_revision": "1",
+          "unit": "degC",
+          "range_min": 5,
+          "range_max": 40,
+          "valid_from": "2026-01-01",
+          "valid_to": "2027-12-31"
+        },
+        "calibration_result": {
+          "result_id": "CAL-RESULT-001",
+          "dcc_object_id": "DCC-RESULT-001",
+          "instrument_id": "SYNTH-INSTRUMENT-001",
+          "channel_id": "air_temperature",
+          "measurand_id": "habitat.air_temperature",
+          "unit": "degC",
+          "method_id": "SYNTH-METHOD-TEMP",
+          "method_revision": "1",
+          "range_min": 0,
+          "range_max": 50,
+          "calibration_date": "2026-10-01",
+          "due_date": "2027-10-01",
+          "firmware_revision": "FW-1",
+          "result_state": "within_tolerance",
+          "uncertainty_value": 0.08,
+          "uncertainty_unit": "degC",
+          "coverage_factor": 2,
+          "certificate_rights_state": "authorized"
+        },
+        "passport_binding": {
+          "instrument_id": "SYNTH-INSTRUMENT-001",
+          "channel_id": "air_temperature",
+          "measurand_id": "habitat.air_temperature",
+          "unit": "degC",
+          "method_id": "SYNTH-METHOD-TEMP",
+          "method_revision": "1",
+          "firmware_revision": "FW-1",
+          "sample_observation_id": "SYNTH-OBS-001",
+          "sample_digest": "sha256:synth-observation-001",
+          "sample_date": "2026-11-10",
+          "sample_value": 20.5
+        },
+        "correction": {
+          "supersession_state": "current",
+          "previous_artifact_digest": "NOT_APPLICABLE",
+          "correction_notice_id": "NOT_APPLICABLE",
+          "dependency_impact_state": "not_required"
+        }
+      },
+      "expected_disposition": "NOT_COMPARABLE"
+    },
+    {
+      "case_id": "DCC-019",
+      "description": "The DCC laboratory identity differs from the accredited schedule subject.",
+      "record": {
+        "artifact": {
+          "source_uri": "https://provider.example.invalid/certificates/CAL-001.xml",
+          "original_bytes_digest": "sha256:synthetic-dcc-bytes-001",
+          "received_bytes_digest": "sha256:synthetic-dcc-bytes-001",
+          "byte_length": 4096,
+          "media_type": "application/xml",
+          "source_receipt_id": "SYNTH-DCC-RECEIPT-001",
+          "retention_state": "retained_original_bytes"
+        },
+        "document": {
+          "well_formed_state": "well_formed",
+          "namespace_uri": "https://ptb.de/dcc",
+          "root_element": "digitalCalibrationCertificate",
+          "schema_version": "3.3.0",
+          "xsd_artifact_state": "pinned",
+          "xsd_digest": "sha256:synthetic-ptb-dcc-xsd-3.3.0",
+          "xsd_validation_state": "valid",
+          "id_reference_state": "valid",
+          "parser_profile_id": "SYNTH-DCC-PARSER-3.3.0",
+          "parser_profile_state": "independently_reviewed"
+        },
+        "signature": {
+          "presence_state": "present",
+          "signature_count": 1,
+          "reference_digest_state": "valid",
+          "signature_value_state": "valid",
+          "signer_certificate_state": "valid",
+          "signer_trust_state": "trusted",
+          "signer_id": "SYNTH-SIGNER-001",
+          "signer_role_state": "authorized_calibration_signer",
+          "signed_reference_uris": [
+            "#DCC-RESULT-001"
+          ],
+          "covered_object_ids": [
+            "DCC-RESULT-001"
+          ],
+          "consumed_object_ids": [
+            "DCC-RESULT-001"
+          ],
+          "external_reference_count": 0,
+          "duplicate_id_count": 0,
+          "transform_policy_state": "allowlisted",
+          "wrapping_check_state": "safe"
+        },
+        "laboratory_scope": {
+          "laboratory_id": "SYNTH-LAB-OTHER",
+          "accreditation_body_id": "SYNTH-ACCREDITATION-BODY-001",
+          "schedule_id": "SYNTH-SCHEDULE-001",
+          "schedule_digest": "sha256:synth-schedule-001",
+          "schedule_state": "authenticated_current",
+          "scope_id": "SYNTH-SCOPE-TEMP-01",
+          "scope_state": "covers_measurand_method_range",
+          "measurand_id": "habitat.air_temperature",
+          "method_id": "SYNTH-METHOD-TEMP",
+          "method_revision": "1",
+          "unit": "degC",
+          "range_min": 0,
+          "range_max": 50,
+          "valid_from": "2026-01-01",
+          "valid_to": "2027-12-31"
+        },
+        "calibration_result": {
+          "result_id": "CAL-RESULT-001",
+          "dcc_object_id": "DCC-RESULT-001",
+          "instrument_id": "SYNTH-INSTRUMENT-001",
+          "channel_id": "air_temperature",
+          "measurand_id": "habitat.air_temperature",
+          "unit": "degC",
+          "method_id": "SYNTH-METHOD-TEMP",
+          "method_revision": "1",
+          "range_min": 0,
+          "range_max": 50,
+          "calibration_date": "2026-10-01",
+          "due_date": "2027-10-01",
+          "firmware_revision": "FW-1",
+          "result_state": "within_tolerance",
+          "uncertainty_value": 0.08,
+          "uncertainty_unit": "degC",
+          "coverage_factor": 2,
+          "certificate_rights_state": "authorized"
+        },
+        "passport_binding": {
+          "instrument_id": "SYNTH-INSTRUMENT-001",
+          "channel_id": "air_temperature",
+          "measurand_id": "habitat.air_temperature",
+          "unit": "degC",
+          "method_id": "SYNTH-METHOD-TEMP",
+          "method_revision": "1",
+          "firmware_revision": "FW-1",
+          "sample_observation_id": "SYNTH-OBS-001",
+          "sample_digest": "sha256:synth-observation-001",
+          "sample_date": "2026-11-10",
+          "sample_value": 20.5
+        },
+        "correction": {
+          "supersession_state": "current",
+          "previous_artifact_digest": "NOT_APPLICABLE",
+          "correction_notice_id": "NOT_APPLICABLE",
+          "dependency_impact_state": "not_required"
+        }
+      },
+      "expected_disposition": "ELIGIBLE_FOR_INDEPENDENT_PASSPORT_REVIEW_ONLY"
+    },
+    {
+      "case_id": "DCC-020",
+      "description": "The calibration result measurand differs from the instrument passport channel.",
+      "record": {
+        "artifact": {
+          "source_uri": "https://provider.example.invalid/certificates/CAL-001.xml",
+          "original_bytes_digest": "sha256:synthetic-dcc-bytes-001",
+          "received_bytes_digest": "sha256:synthetic-dcc-bytes-001",
+          "byte_length": 4096,
+          "media_type": "application/xml",
+          "source_receipt_id": "SYNTH-DCC-RECEIPT-001",
+          "retention_state": "retained_original_bytes"
+        },
+        "document": {
+          "well_formed_state": "well_formed",
+          "namespace_uri": "https://ptb.de/dcc",
+          "root_element": "digitalCalibrationCertificate",
+          "schema_version": "3.3.0",
+          "xsd_artifact_state": "pinned",
+          "xsd_digest": "sha256:synthetic-ptb-dcc-xsd-3.3.0",
+          "xsd_validation_state": "valid",
+          "id_reference_state": "valid",
+          "parser_profile_id": "SYNTH-DCC-PARSER-3.3.0",
+          "parser_profile_state": "independently_reviewed"
+        },
+        "signature": {
+          "presence_state": "present",
+          "signature_count": 1,
+          "reference_digest_state": "valid",
+          "signature_value_state": "valid",
+          "signer_certificate_state": "valid",
+          "signer_trust_state": "trusted",
+          "signer_id": "SYNTH-SIGNER-001",
+          "signer_role_state": "authorized_calibration_signer",
+          "signed_reference_uris": [
+            "#DCC-RESULT-001"
+          ],
+          "covered_object_ids": [
+            "DCC-RESULT-001"
+          ],
+          "consumed_object_ids": [
+            "DCC-RESULT-001"
+          ],
+          "external_reference_count": 0,
+          "duplicate_id_count": 0,
+          "transform_policy_state": "allowlisted",
+          "wrapping_check_state": "safe"
+        },
+        "laboratory_scope": {
+          "laboratory_id": "SYNTH-LAB-001",
+          "accreditation_body_id": "SYNTH-ACCREDITATION-BODY-001",
+          "schedule_id": "SYNTH-SCHEDULE-001",
+          "schedule_digest": "sha256:synth-schedule-001",
+          "schedule_state": "authenticated_current",
+          "scope_id": "SYNTH-SCOPE-TEMP-01",
+          "scope_state": "covers_measurand_method_range",
+          "measurand_id": "habitat.air_temperature",
+          "method_id": "SYNTH-METHOD-TEMP",
+          "method_revision": "1",
+          "unit": "degC",
+          "range_min": 0,
+          "range_max": 50,
+          "valid_from": "2026-01-01",
+          "valid_to": "2027-12-31"
+        },
+        "calibration_result": {
+          "result_id": "CAL-RESULT-001",
+          "dcc_object_id": "DCC-RESULT-001",
+          "instrument_id": "SYNTH-INSTRUMENT-001",
+          "channel_id": "air_temperature",
+          "measurand_id": "habitat.relative_humidity",
+          "unit": "degC",
+          "method_id": "SYNTH-METHOD-TEMP",
+          "method_revision": "1",
+          "range_min": 0,
+          "range_max": 50,
+          "calibration_date": "2026-10-01",
+          "due_date": "2027-10-01",
+          "firmware_revision": "FW-1",
+          "result_state": "within_tolerance",
+          "uncertainty_value": 0.08,
+          "uncertainty_unit": "degC",
+          "coverage_factor": 2,
+          "certificate_rights_state": "authorized"
+        },
+        "passport_binding": {
+          "instrument_id": "SYNTH-INSTRUMENT-001",
+          "channel_id": "air_temperature",
+          "measurand_id": "habitat.air_temperature",
+          "unit": "degC",
+          "method_id": "SYNTH-METHOD-TEMP",
+          "method_revision": "1",
+          "firmware_revision": "FW-1",
+          "sample_observation_id": "SYNTH-OBS-001",
+          "sample_digest": "sha256:synth-observation-001",
+          "sample_date": "2026-11-10",
+          "sample_value": 20.5
+        },
+        "correction": {
+          "supersession_state": "current",
+          "previous_artifact_digest": "NOT_APPLICABLE",
+          "correction_notice_id": "NOT_APPLICABLE",
+          "dependency_impact_state": "not_required"
+        }
+      },
+      "expected_disposition": "NOT_COMPARABLE"
+    },
+    {
+      "case_id": "DCC-021",
+      "description": "The calibration result unit differs from the passport unit.",
+      "record": {
+        "artifact": {
+          "source_uri": "https://provider.example.invalid/certificates/CAL-001.xml",
+          "original_bytes_digest": "sha256:synthetic-dcc-bytes-001",
+          "received_bytes_digest": "sha256:synthetic-dcc-bytes-001",
+          "byte_length": 4096,
+          "media_type": "application/xml",
+          "source_receipt_id": "SYNTH-DCC-RECEIPT-001",
+          "retention_state": "retained_original_bytes"
+        },
+        "document": {
+          "well_formed_state": "well_formed",
+          "namespace_uri": "https://ptb.de/dcc",
+          "root_element": "digitalCalibrationCertificate",
+          "schema_version": "3.3.0",
+          "xsd_artifact_state": "pinned",
+          "xsd_digest": "sha256:synthetic-ptb-dcc-xsd-3.3.0",
+          "xsd_validation_state": "valid",
+          "id_reference_state": "valid",
+          "parser_profile_id": "SYNTH-DCC-PARSER-3.3.0",
+          "parser_profile_state": "independently_reviewed"
+        },
+        "signature": {
+          "presence_state": "present",
+          "signature_count": 1,
+          "reference_digest_state": "valid",
+          "signature_value_state": "valid",
+          "signer_certificate_state": "valid",
+          "signer_trust_state": "trusted",
+          "signer_id": "SYNTH-SIGNER-001",
+          "signer_role_state": "authorized_calibration_signer",
+          "signed_reference_uris": [
+            "#DCC-RESULT-001"
+          ],
+          "covered_object_ids": [
+            "DCC-RESULT-001"
+          ],
+          "consumed_object_ids": [
+            "DCC-RESULT-001"
+          ],
+          "external_reference_count": 0,
+          "duplicate_id_count": 0,
+          "transform_policy_state": "allowlisted",
+          "wrapping_check_state": "safe"
+        },
+        "laboratory_scope": {
+          "laboratory_id": "SYNTH-LAB-001",
+          "accreditation_body_id": "SYNTH-ACCREDITATION-BODY-001",
+          "schedule_id": "SYNTH-SCHEDULE-001",
+          "schedule_digest": "sha256:synth-schedule-001",
+          "schedule_state": "authenticated_current",
+          "scope_id": "SYNTH-SCOPE-TEMP-01",
+          "scope_state": "covers_measurand_method_range",
+          "measurand_id": "habitat.air_temperature",
+          "method_id": "SYNTH-METHOD-TEMP",
+          "method_revision": "1",
+          "unit": "degC",
+          "range_min": 0,
+          "range_max": 50,
+          "valid_from": "2026-01-01",
+          "valid_to": "2027-12-31"
+        },
+        "calibration_result": {
+          "result_id": "CAL-RESULT-001",
+          "dcc_object_id": "DCC-RESULT-001",
+          "instrument_id": "SYNTH-INSTRUMENT-001",
+          "channel_id": "air_temperature",
+          "measurand_id": "habitat.air_temperature",
+          "unit": "K",
+          "method_id": "SYNTH-METHOD-TEMP",
+          "method_revision": "1",
+          "range_min": 0,
+          "range_max": 50,
+          "calibration_date": "2026-10-01",
+          "due_date": "2027-10-01",
+          "firmware_revision": "FW-1",
+          "result_state": "within_tolerance",
+          "uncertainty_value": 0.08,
+          "uncertainty_unit": "degC",
+          "coverage_factor": 2,
+          "certificate_rights_state": "authorized"
+        },
+        "passport_binding": {
+          "instrument_id": "SYNTH-INSTRUMENT-001",
+          "channel_id": "air_temperature",
+          "measurand_id": "habitat.air_temperature",
+          "unit": "degC",
+          "method_id": "SYNTH-METHOD-TEMP",
+          "method_revision": "1",
+          "firmware_revision": "FW-1",
+          "sample_observation_id": "SYNTH-OBS-001",
+          "sample_digest": "sha256:synth-observation-001",
+          "sample_date": "2026-11-10",
+          "sample_value": 20.5
+        },
+        "correction": {
+          "supersession_state": "current",
+          "previous_artifact_digest": "NOT_APPLICABLE",
+          "correction_notice_id": "NOT_APPLICABLE",
+          "dependency_impact_state": "not_required"
+        }
+      },
+      "expected_disposition": "NOT_COMPARABLE"
+    },
+    {
+      "case_id": "DCC-022",
+      "description": "The certificate is replayed against a different instrument identity.",
+      "record": {
+        "artifact": {
+          "source_uri": "https://provider.example.invalid/certificates/CAL-001.xml",
+          "original_bytes_digest": "sha256:synthetic-dcc-bytes-001",
+          "received_bytes_digest": "sha256:synthetic-dcc-bytes-001",
+          "byte_length": 4096,
+          "media_type": "application/xml",
+          "source_receipt_id": "SYNTH-DCC-RECEIPT-001",
+          "retention_state": "retained_original_bytes"
+        },
+        "document": {
+          "well_formed_state": "well_formed",
+          "namespace_uri": "https://ptb.de/dcc",
+          "root_element": "digitalCalibrationCertificate",
+          "schema_version": "3.3.0",
+          "xsd_artifact_state": "pinned",
+          "xsd_digest": "sha256:synthetic-ptb-dcc-xsd-3.3.0",
+          "xsd_validation_state": "valid",
+          "id_reference_state": "valid",
+          "parser_profile_id": "SYNTH-DCC-PARSER-3.3.0",
+          "parser_profile_state": "independently_reviewed"
+        },
+        "signature": {
+          "presence_state": "present",
+          "signature_count": 1,
+          "reference_digest_state": "valid",
+          "signature_value_state": "valid",
+          "signer_certificate_state": "valid",
+          "signer_trust_state": "trusted",
+          "signer_id": "SYNTH-SIGNER-001",
+          "signer_role_state": "authorized_calibration_signer",
+          "signed_reference_uris": [
+            "#DCC-RESULT-001"
+          ],
+          "covered_object_ids": [
+            "DCC-RESULT-001"
+          ],
+          "consumed_object_ids": [
+            "DCC-RESULT-001"
+          ],
+          "external_reference_count": 0,
+          "duplicate_id_count": 0,
+          "transform_policy_state": "allowlisted",
+          "wrapping_check_state": "safe"
+        },
+        "laboratory_scope": {
+          "laboratory_id": "SYNTH-LAB-001",
+          "accreditation_body_id": "SYNTH-ACCREDITATION-BODY-001",
+          "schedule_id": "SYNTH-SCHEDULE-001",
+          "schedule_digest": "sha256:synth-schedule-001",
+          "schedule_state": "authenticated_current",
+          "scope_id": "SYNTH-SCOPE-TEMP-01",
+          "scope_state": "covers_measurand_method_range",
+          "measurand_id": "habitat.air_temperature",
+          "method_id": "SYNTH-METHOD-TEMP",
+          "method_revision": "1",
+          "unit": "degC",
+          "range_min": 0,
+          "range_max": 50,
+          "valid_from": "2026-01-01",
+          "valid_to": "2027-12-31"
+        },
+        "calibration_result": {
+          "result_id": "CAL-RESULT-001",
+          "dcc_object_id": "DCC-RESULT-001",
+          "instrument_id": "SYNTH-INSTRUMENT-OTHER",
+          "channel_id": "air_temperature",
+          "measurand_id": "habitat.air_temperature",
+          "unit": "degC",
+          "method_id": "SYNTH-METHOD-TEMP",
+          "method_revision": "1",
+          "range_min": 0,
+          "range_max": 50,
+          "calibration_date": "2026-10-01",
+          "due_date": "2027-10-01",
+          "firmware_revision": "FW-1",
+          "result_state": "within_tolerance",
+          "uncertainty_value": 0.08,
+          "uncertainty_unit": "degC",
+          "coverage_factor": 2,
+          "certificate_rights_state": "authorized"
+        },
+        "passport_binding": {
+          "instrument_id": "SYNTH-INSTRUMENT-001",
+          "channel_id": "air_temperature",
+          "measurand_id": "habitat.air_temperature",
+          "unit": "degC",
+          "method_id": "SYNTH-METHOD-TEMP",
+          "method_revision": "1",
+          "firmware_revision": "FW-1",
+          "sample_observation_id": "SYNTH-OBS-001",
+          "sample_digest": "sha256:synth-observation-001",
+          "sample_date": "2026-11-10",
+          "sample_value": 20.5
+        },
+        "correction": {
+          "supersession_state": "current",
+          "previous_artifact_digest": "NOT_APPLICABLE",
+          "correction_notice_id": "NOT_APPLICABLE",
+          "dependency_impact_state": "not_required"
+        }
+      },
+      "expected_disposition": "NOT_COMPARABLE"
+    },
+    {
+      "case_id": "DCC-023",
+      "description": "The calibration result channel does not match the passport channel.",
+      "record": {
+        "artifact": {
+          "source_uri": "https://provider.example.invalid/certificates/CAL-001.xml",
+          "original_bytes_digest": "sha256:synthetic-dcc-bytes-001",
+          "received_bytes_digest": "sha256:synthetic-dcc-bytes-001",
+          "byte_length": 4096,
+          "media_type": "application/xml",
+          "source_receipt_id": "SYNTH-DCC-RECEIPT-001",
+          "retention_state": "retained_original_bytes"
+        },
+        "document": {
+          "well_formed_state": "well_formed",
+          "namespace_uri": "https://ptb.de/dcc",
+          "root_element": "digitalCalibrationCertificate",
+          "schema_version": "3.3.0",
+          "xsd_artifact_state": "pinned",
+          "xsd_digest": "sha256:synthetic-ptb-dcc-xsd-3.3.0",
+          "xsd_validation_state": "valid",
+          "id_reference_state": "valid",
+          "parser_profile_id": "SYNTH-DCC-PARSER-3.3.0",
+          "parser_profile_state": "independently_reviewed"
+        },
+        "signature": {
+          "presence_state": "present",
+          "signature_count": 1,
+          "reference_digest_state": "valid",
+          "signature_value_state": "valid",
+          "signer_certificate_state": "valid",
+          "signer_trust_state": "trusted",
+          "signer_id": "SYNTH-SIGNER-001",
+          "signer_role_state": "authorized_calibration_signer",
+          "signed_reference_uris": [
+            "#DCC-RESULT-001"
+          ],
+          "covered_object_ids": [
+            "DCC-RESULT-001"
+          ],
+          "consumed_object_ids": [
+            "DCC-RESULT-001"
+          ],
+          "external_reference_count": 0,
+          "duplicate_id_count": 0,
+          "transform_policy_state": "allowlisted",
+          "wrapping_check_state": "safe"
+        },
+        "laboratory_scope": {
+          "laboratory_id": "SYNTH-LAB-001",
+          "accreditation_body_id": "SYNTH-ACCREDITATION-BODY-001",
+          "schedule_id": "SYNTH-SCHEDULE-001",
+          "schedule_digest": "sha256:synth-schedule-001",
+          "schedule_state": "authenticated_current",
+          "scope_id": "SYNTH-SCOPE-TEMP-01",
+          "scope_state": "covers_measurand_method_range",
+          "measurand_id": "habitat.air_temperature",
+          "method_id": "SYNTH-METHOD-TEMP",
+          "method_revision": "1",
+          "unit": "degC",
+          "range_min": 0,
+          "range_max": 50,
+          "valid_from": "2026-01-01",
+          "valid_to": "2027-12-31"
+        },
+        "calibration_result": {
+          "result_id": "CAL-RESULT-001",
+          "dcc_object_id": "DCC-RESULT-001",
+          "instrument_id": "SYNTH-INSTRUMENT-001",
+          "channel_id": "relative_humidity",
+          "measurand_id": "habitat.air_temperature",
+          "unit": "degC",
+          "method_id": "SYNTH-METHOD-TEMP",
+          "method_revision": "1",
+          "range_min": 0,
+          "range_max": 50,
+          "calibration_date": "2026-10-01",
+          "due_date": "2027-10-01",
+          "firmware_revision": "FW-1",
+          "result_state": "within_tolerance",
+          "uncertainty_value": 0.08,
+          "uncertainty_unit": "degC",
+          "coverage_factor": 2,
+          "certificate_rights_state": "authorized"
+        },
+        "passport_binding": {
+          "instrument_id": "SYNTH-INSTRUMENT-001",
+          "channel_id": "air_temperature",
+          "measurand_id": "habitat.air_temperature",
+          "unit": "degC",
+          "method_id": "SYNTH-METHOD-TEMP",
+          "method_revision": "1",
+          "firmware_revision": "FW-1",
+          "sample_observation_id": "SYNTH-OBS-001",
+          "sample_digest": "sha256:synth-observation-001",
+          "sample_date": "2026-11-10",
+          "sample_value": 20.5
+        },
+        "correction": {
+          "supersession_state": "current",
+          "previous_artifact_digest": "NOT_APPLICABLE",
+          "correction_notice_id": "NOT_APPLICABLE",
+          "dependency_impact_state": "not_required"
+        }
+      },
+      "expected_disposition": "NOT_COMPARABLE"
+    },
+    {
+      "case_id": "DCC-024",
+      "description": "The calibration method revision differs from the passport requirement.",
+      "record": {
+        "artifact": {
+          "source_uri": "https://provider.example.invalid/certificates/CAL-001.xml",
+          "original_bytes_digest": "sha256:synthetic-dcc-bytes-001",
+          "received_bytes_digest": "sha256:synthetic-dcc-bytes-001",
+          "byte_length": 4096,
+          "media_type": "application/xml",
+          "source_receipt_id": "SYNTH-DCC-RECEIPT-001",
+          "retention_state": "retained_original_bytes"
+        },
+        "document": {
+          "well_formed_state": "well_formed",
+          "namespace_uri": "https://ptb.de/dcc",
+          "root_element": "digitalCalibrationCertificate",
+          "schema_version": "3.3.0",
+          "xsd_artifact_state": "pinned",
+          "xsd_digest": "sha256:synthetic-ptb-dcc-xsd-3.3.0",
+          "xsd_validation_state": "valid",
+          "id_reference_state": "valid",
+          "parser_profile_id": "SYNTH-DCC-PARSER-3.3.0",
+          "parser_profile_state": "independently_reviewed"
+        },
+        "signature": {
+          "presence_state": "present",
+          "signature_count": 1,
+          "reference_digest_state": "valid",
+          "signature_value_state": "valid",
+          "signer_certificate_state": "valid",
+          "signer_trust_state": "trusted",
+          "signer_id": "SYNTH-SIGNER-001",
+          "signer_role_state": "authorized_calibration_signer",
+          "signed_reference_uris": [
+            "#DCC-RESULT-001"
+          ],
+          "covered_object_ids": [
+            "DCC-RESULT-001"
+          ],
+          "consumed_object_ids": [
+            "DCC-RESULT-001"
+          ],
+          "external_reference_count": 0,
+          "duplicate_id_count": 0,
+          "transform_policy_state": "allowlisted",
+          "wrapping_check_state": "safe"
+        },
+        "laboratory_scope": {
+          "laboratory_id": "SYNTH-LAB-001",
+          "accreditation_body_id": "SYNTH-ACCREDITATION-BODY-001",
+          "schedule_id": "SYNTH-SCHEDULE-001",
+          "schedule_digest": "sha256:synth-schedule-001",
+          "schedule_state": "authenticated_current",
+          "scope_id": "SYNTH-SCOPE-TEMP-01",
+          "scope_state": "covers_measurand_method_range",
+          "measurand_id": "habitat.air_temperature",
+          "method_id": "SYNTH-METHOD-TEMP",
+          "method_revision": "1",
+          "unit": "degC",
+          "range_min": 0,
+          "range_max": 50,
+          "valid_from": "2026-01-01",
+          "valid_to": "2027-12-31"
+        },
+        "calibration_result": {
+          "result_id": "CAL-RESULT-001",
+          "dcc_object_id": "DCC-RESULT-001",
+          "instrument_id": "SYNTH-INSTRUMENT-001",
+          "channel_id": "air_temperature",
+          "measurand_id": "habitat.air_temperature",
+          "unit": "degC",
+          "method_id": "SYNTH-METHOD-TEMP",
+          "method_revision": "2",
+          "range_min": 0,
+          "range_max": 50,
+          "calibration_date": "2026-10-01",
+          "due_date": "2027-10-01",
+          "firmware_revision": "FW-1",
+          "result_state": "within_tolerance",
+          "uncertainty_value": 0.08,
+          "uncertainty_unit": "degC",
+          "coverage_factor": 2,
+          "certificate_rights_state": "authorized"
+        },
+        "passport_binding": {
+          "instrument_id": "SYNTH-INSTRUMENT-001",
+          "channel_id": "air_temperature",
+          "measurand_id": "habitat.air_temperature",
+          "unit": "degC",
+          "method_id": "SYNTH-METHOD-TEMP",
+          "method_revision": "1",
+          "firmware_revision": "FW-1",
+          "sample_observation_id": "SYNTH-OBS-001",
+          "sample_digest": "sha256:synth-observation-001",
+          "sample_date": "2026-11-10",
+          "sample_value": 20.5
+        },
+        "correction": {
+          "supersession_state": "current",
+          "previous_artifact_digest": "NOT_APPLICABLE",
+          "correction_notice_id": "NOT_APPLICABLE",
+          "dependency_impact_state": "not_required"
+        }
+      },
+      "expected_disposition": "NOT_COMPARABLE"
+    },
+    {
+      "case_id": "DCC-025",
+      "description": "The calibration range does not contain the sample observation value.",
+      "record": {
+        "artifact": {
+          "source_uri": "https://provider.example.invalid/certificates/CAL-001.xml",
+          "original_bytes_digest": "sha256:synthetic-dcc-bytes-001",
+          "received_bytes_digest": "sha256:synthetic-dcc-bytes-001",
+          "byte_length": 4096,
+          "media_type": "application/xml",
+          "source_receipt_id": "SYNTH-DCC-RECEIPT-001",
+          "retention_state": "retained_original_bytes"
+        },
+        "document": {
+          "well_formed_state": "well_formed",
+          "namespace_uri": "https://ptb.de/dcc",
+          "root_element": "digitalCalibrationCertificate",
+          "schema_version": "3.3.0",
+          "xsd_artifact_state": "pinned",
+          "xsd_digest": "sha256:synthetic-ptb-dcc-xsd-3.3.0",
+          "xsd_validation_state": "valid",
+          "id_reference_state": "valid",
+          "parser_profile_id": "SYNTH-DCC-PARSER-3.3.0",
+          "parser_profile_state": "independently_reviewed"
+        },
+        "signature": {
+          "presence_state": "present",
+          "signature_count": 1,
+          "reference_digest_state": "valid",
+          "signature_value_state": "valid",
+          "signer_certificate_state": "valid",
+          "signer_trust_state": "trusted",
+          "signer_id": "SYNTH-SIGNER-001",
+          "signer_role_state": "authorized_calibration_signer",
+          "signed_reference_uris": [
+            "#DCC-RESULT-001"
+          ],
+          "covered_object_ids": [
+            "DCC-RESULT-001"
+          ],
+          "consumed_object_ids": [
+            "DCC-RESULT-001"
+          ],
+          "external_reference_count": 0,
+          "duplicate_id_count": 0,
+          "transform_policy_state": "allowlisted",
+          "wrapping_check_state": "safe"
+        },
+        "laboratory_scope": {
+          "laboratory_id": "SYNTH-LAB-001",
+          "accreditation_body_id": "SYNTH-ACCREDITATION-BODY-001",
+          "schedule_id": "SYNTH-SCHEDULE-001",
+          "schedule_digest": "sha256:synth-schedule-001",
+          "schedule_state": "authenticated_current",
+          "scope_id": "SYNTH-SCOPE-TEMP-01",
+          "scope_state": "covers_measurand_method_range",
+          "measurand_id": "habitat.air_temperature",
+          "method_id": "SYNTH-METHOD-TEMP",
+          "method_revision": "1",
+          "unit": "degC",
+          "range_min": 0,
+          "range_max": 50,
+          "valid_from": "2026-01-01",
+          "valid_to": "2027-12-31"
+        },
+        "calibration_result": {
+          "result_id": "CAL-RESULT-001",
+          "dcc_object_id": "DCC-RESULT-001",
+          "instrument_id": "SYNTH-INSTRUMENT-001",
+          "channel_id": "air_temperature",
+          "measurand_id": "habitat.air_temperature",
+          "unit": "degC",
+          "method_id": "SYNTH-METHOD-TEMP",
+          "method_revision": "1",
+          "range_min": 25,
+          "range_max": 50,
+          "calibration_date": "2026-10-01",
+          "due_date": "2027-10-01",
+          "firmware_revision": "FW-1",
+          "result_state": "within_tolerance",
+          "uncertainty_value": 0.08,
+          "uncertainty_unit": "degC",
+          "coverage_factor": 2,
+          "certificate_rights_state": "authorized"
+        },
+        "passport_binding": {
+          "instrument_id": "SYNTH-INSTRUMENT-001",
+          "channel_id": "air_temperature",
+          "measurand_id": "habitat.air_temperature",
+          "unit": "degC",
+          "method_id": "SYNTH-METHOD-TEMP",
+          "method_revision": "1",
+          "firmware_revision": "FW-1",
+          "sample_observation_id": "SYNTH-OBS-001",
+          "sample_digest": "sha256:synth-observation-001",
+          "sample_date": "2026-11-10",
+          "sample_value": 20.5
+        },
+        "correction": {
+          "supersession_state": "current",
+          "previous_artifact_digest": "NOT_APPLICABLE",
+          "correction_notice_id": "NOT_APPLICABLE",
+          "dependency_impact_state": "not_required"
+        }
+      },
+      "expected_disposition": "EXPIRED_OR_INVALIDATED"
+    },
+    {
+      "case_id": "DCC-026",
+      "description": "The calibration date is after the sample observation date.",
+      "record": {
+        "artifact": {
+          "source_uri": "https://provider.example.invalid/certificates/CAL-001.xml",
+          "original_bytes_digest": "sha256:synthetic-dcc-bytes-001",
+          "received_bytes_digest": "sha256:synthetic-dcc-bytes-001",
+          "byte_length": 4096,
+          "media_type": "application/xml",
+          "source_receipt_id": "SYNTH-DCC-RECEIPT-001",
+          "retention_state": "retained_original_bytes"
+        },
+        "document": {
+          "well_formed_state": "well_formed",
+          "namespace_uri": "https://ptb.de/dcc",
+          "root_element": "digitalCalibrationCertificate",
+          "schema_version": "3.3.0",
+          "xsd_artifact_state": "pinned",
+          "xsd_digest": "sha256:synthetic-ptb-dcc-xsd-3.3.0",
+          "xsd_validation_state": "valid",
+          "id_reference_state": "valid",
+          "parser_profile_id": "SYNTH-DCC-PARSER-3.3.0",
+          "parser_profile_state": "independently_reviewed"
+        },
+        "signature": {
+          "presence_state": "present",
+          "signature_count": 1,
+          "reference_digest_state": "valid",
+          "signature_value_state": "valid",
+          "signer_certificate_state": "valid",
+          "signer_trust_state": "trusted",
+          "signer_id": "SYNTH-SIGNER-001",
+          "signer_role_state": "authorized_calibration_signer",
+          "signed_reference_uris": [
+            "#DCC-RESULT-001"
+          ],
+          "covered_object_ids": [
+            "DCC-RESULT-001"
+          ],
+          "consumed_object_ids": [
+            "DCC-RESULT-001"
+          ],
+          "external_reference_count": 0,
+          "duplicate_id_count": 0,
+          "transform_policy_state": "allowlisted",
+          "wrapping_check_state": "safe"
+        },
+        "laboratory_scope": {
+          "laboratory_id": "SYNTH-LAB-001",
+          "accreditation_body_id": "SYNTH-ACCREDITATION-BODY-001",
+          "schedule_id": "SYNTH-SCHEDULE-001",
+          "schedule_digest": "sha256:synth-schedule-001",
+          "schedule_state": "authenticated_current",
+          "scope_id": "SYNTH-SCOPE-TEMP-01",
+          "scope_state": "covers_measurand_method_range",
+          "measurand_id": "habitat.air_temperature",
+          "method_id": "SYNTH-METHOD-TEMP",
+          "method_revision": "1",
+          "unit": "degC",
+          "range_min": 0,
+          "range_max": 50,
+          "valid_from": "2026-01-01",
+          "valid_to": "2027-12-31"
+        },
+        "calibration_result": {
+          "result_id": "CAL-RESULT-001",
+          "dcc_object_id": "DCC-RESULT-001",
+          "instrument_id": "SYNTH-INSTRUMENT-001",
+          "channel_id": "air_temperature",
+          "measurand_id": "habitat.air_temperature",
+          "unit": "degC",
+          "method_id": "SYNTH-METHOD-TEMP",
+          "method_revision": "1",
+          "range_min": 0,
+          "range_max": 50,
+          "calibration_date": "2026-12-01",
+          "due_date": "2027-10-01",
+          "firmware_revision": "FW-1",
+          "result_state": "within_tolerance",
+          "uncertainty_value": 0.08,
+          "uncertainty_unit": "degC",
+          "coverage_factor": 2,
+          "certificate_rights_state": "authorized"
+        },
+        "passport_binding": {
+          "instrument_id": "SYNTH-INSTRUMENT-001",
+          "channel_id": "air_temperature",
+          "measurand_id": "habitat.air_temperature",
+          "unit": "degC",
+          "method_id": "SYNTH-METHOD-TEMP",
+          "method_revision": "1",
+          "firmware_revision": "FW-1",
+          "sample_observation_id": "SYNTH-OBS-001",
+          "sample_digest": "sha256:synth-observation-001",
+          "sample_date": "2026-11-10",
+          "sample_value": 20.5
+        },
+        "correction": {
+          "supersession_state": "current",
+          "previous_artifact_digest": "NOT_APPLICABLE",
+          "correction_notice_id": "NOT_APPLICABLE",
+          "dependency_impact_state": "not_required"
+        }
+      },
+      "expected_disposition": "EXPIRED_OR_INVALIDATED"
+    },
+    {
+      "case_id": "DCC-027",
+      "description": "The calibration due date precedes the sample observation date.",
+      "record": {
+        "artifact": {
+          "source_uri": "https://provider.example.invalid/certificates/CAL-001.xml",
+          "original_bytes_digest": "sha256:synthetic-dcc-bytes-001",
+          "received_bytes_digest": "sha256:synthetic-dcc-bytes-001",
+          "byte_length": 4096,
+          "media_type": "application/xml",
+          "source_receipt_id": "SYNTH-DCC-RECEIPT-001",
+          "retention_state": "retained_original_bytes"
+        },
+        "document": {
+          "well_formed_state": "well_formed",
+          "namespace_uri": "https://ptb.de/dcc",
+          "root_element": "digitalCalibrationCertificate",
+          "schema_version": "3.3.0",
+          "xsd_artifact_state": "pinned",
+          "xsd_digest": "sha256:synthetic-ptb-dcc-xsd-3.3.0",
+          "xsd_validation_state": "valid",
+          "id_reference_state": "valid",
+          "parser_profile_id": "SYNTH-DCC-PARSER-3.3.0",
+          "parser_profile_state": "independently_reviewed"
+        },
+        "signature": {
+          "presence_state": "present",
+          "signature_count": 1,
+          "reference_digest_state": "valid",
+          "signature_value_state": "valid",
+          "signer_certificate_state": "valid",
+          "signer_trust_state": "trusted",
+          "signer_id": "SYNTH-SIGNER-001",
+          "signer_role_state": "authorized_calibration_signer",
+          "signed_reference_uris": [
+            "#DCC-RESULT-001"
+          ],
+          "covered_object_ids": [
+            "DCC-RESULT-001"
+          ],
+          "consumed_object_ids": [
+            "DCC-RESULT-001"
+          ],
+          "external_reference_count": 0,
+          "duplicate_id_count": 0,
+          "transform_policy_state": "allowlisted",
+          "wrapping_check_state": "safe"
+        },
+        "laboratory_scope": {
+          "laboratory_id": "SYNTH-LAB-001",
+          "accreditation_body_id": "SYNTH-ACCREDITATION-BODY-001",
+          "schedule_id": "SYNTH-SCHEDULE-001",
+          "schedule_digest": "sha256:synth-schedule-001",
+          "schedule_state": "authenticated_current",
+          "scope_id": "SYNTH-SCOPE-TEMP-01",
+          "scope_state": "covers_measurand_method_range",
+          "measurand_id": "habitat.air_temperature",
+          "method_id": "SYNTH-METHOD-TEMP",
+          "method_revision": "1",
+          "unit": "degC",
+          "range_min": 0,
+          "range_max": 50,
+          "valid_from": "2026-01-01",
+          "valid_to": "2027-12-31"
+        },
+        "calibration_result": {
+          "result_id": "CAL-RESULT-001",
+          "dcc_object_id": "DCC-RESULT-001",
+          "instrument_id": "SYNTH-INSTRUMENT-001",
+          "channel_id": "air_temperature",
+          "measurand_id": "habitat.air_temperature",
+          "unit": "degC",
+          "method_id": "SYNTH-METHOD-TEMP",
+          "method_revision": "1",
+          "range_min": 0,
+          "range_max": 50,
+          "calibration_date": "2026-10-01",
+          "due_date": "2026-11-01",
+          "firmware_revision": "FW-1",
+          "result_state": "within_tolerance",
+          "uncertainty_value": 0.08,
+          "uncertainty_unit": "degC",
+          "coverage_factor": 2,
+          "certificate_rights_state": "authorized"
+        },
+        "passport_binding": {
+          "instrument_id": "SYNTH-INSTRUMENT-001",
+          "channel_id": "air_temperature",
+          "measurand_id": "habitat.air_temperature",
+          "unit": "degC",
+          "method_id": "SYNTH-METHOD-TEMP",
+          "method_revision": "1",
+          "firmware_revision": "FW-1",
+          "sample_observation_id": "SYNTH-OBS-001",
+          "sample_digest": "sha256:synth-observation-001",
+          "sample_date": "2026-11-10",
+          "sample_value": 20.5
+        },
+        "correction": {
+          "supersession_state": "current",
+          "previous_artifact_digest": "NOT_APPLICABLE",
+          "correction_notice_id": "NOT_APPLICABLE",
+          "dependency_impact_state": "not_required"
+        }
+      },
+      "expected_disposition": "EXPIRED_OR_INVALIDATED"
+    },
+    {
+      "case_id": "DCC-028",
+      "description": "The DCC reports an out-of-tolerance calibration result.",
+      "record": {
+        "artifact": {
+          "source_uri": "https://provider.example.invalid/certificates/CAL-001.xml",
+          "original_bytes_digest": "sha256:synthetic-dcc-bytes-001",
+          "received_bytes_digest": "sha256:synthetic-dcc-bytes-001",
+          "byte_length": 4096,
+          "media_type": "application/xml",
+          "source_receipt_id": "SYNTH-DCC-RECEIPT-001",
+          "retention_state": "retained_original_bytes"
+        },
+        "document": {
+          "well_formed_state": "well_formed",
+          "namespace_uri": "https://ptb.de/dcc",
+          "root_element": "digitalCalibrationCertificate",
+          "schema_version": "3.3.0",
+          "xsd_artifact_state": "pinned",
+          "xsd_digest": "sha256:synthetic-ptb-dcc-xsd-3.3.0",
+          "xsd_validation_state": "valid",
+          "id_reference_state": "valid",
+          "parser_profile_id": "SYNTH-DCC-PARSER-3.3.0",
+          "parser_profile_state": "independently_reviewed"
+        },
+        "signature": {
+          "presence_state": "present",
+          "signature_count": 1,
+          "reference_digest_state": "valid",
+          "signature_value_state": "valid",
+          "signer_certificate_state": "valid",
+          "signer_trust_state": "trusted",
+          "signer_id": "SYNTH-SIGNER-001",
+          "signer_role_state": "authorized_calibration_signer",
+          "signed_reference_uris": [
+            "#DCC-RESULT-001"
+          ],
+          "covered_object_ids": [
+            "DCC-RESULT-001"
+          ],
+          "consumed_object_ids": [
+            "DCC-RESULT-001"
+          ],
+          "external_reference_count": 0,
+          "duplicate_id_count": 0,
+          "transform_policy_state": "allowlisted",
+          "wrapping_check_state": "safe"
+        },
+        "laboratory_scope": {
+          "laboratory_id": "SYNTH-LAB-001",
+          "accreditation_body_id": "SYNTH-ACCREDITATION-BODY-001",
+          "schedule_id": "SYNTH-SCHEDULE-001",
+          "schedule_digest": "sha256:synth-schedule-001",
+          "schedule_state": "authenticated_current",
+          "scope_id": "SYNTH-SCOPE-TEMP-01",
+          "scope_state": "covers_measurand_method_range",
+          "measurand_id": "habitat.air_temperature",
+          "method_id": "SYNTH-METHOD-TEMP",
+          "method_revision": "1",
+          "unit": "degC",
+          "range_min": 0,
+          "range_max": 50,
+          "valid_from": "2026-01-01",
+          "valid_to": "2027-12-31"
+        },
+        "calibration_result": {
+          "result_id": "CAL-RESULT-001",
+          "dcc_object_id": "DCC-RESULT-001",
+          "instrument_id": "SYNTH-INSTRUMENT-001",
+          "channel_id": "air_temperature",
+          "measurand_id": "habitat.air_temperature",
+          "unit": "degC",
+          "method_id": "SYNTH-METHOD-TEMP",
+          "method_revision": "1",
+          "range_min": 0,
+          "range_max": 50,
+          "calibration_date": "2026-10-01",
+          "due_date": "2027-10-01",
+          "firmware_revision": "FW-1",
+          "result_state": "out_of_tolerance",
+          "uncertainty_value": 0.08,
+          "uncertainty_unit": "degC",
+          "coverage_factor": 2,
+          "certificate_rights_state": "authorized"
+        },
+        "passport_binding": {
+          "instrument_id": "SYNTH-INSTRUMENT-001",
+          "channel_id": "air_temperature",
+          "measurand_id": "habitat.air_temperature",
+          "unit": "degC",
+          "method_id": "SYNTH-METHOD-TEMP",
+          "method_revision": "1",
+          "firmware_revision": "FW-1",
+          "sample_observation_id": "SYNTH-OBS-001",
+          "sample_digest": "sha256:synth-observation-001",
+          "sample_date": "2026-11-10",
+          "sample_value": 20.5
+        },
+        "correction": {
+          "supersession_state": "current",
+          "previous_artifact_digest": "NOT_APPLICABLE",
+          "correction_notice_id": "NOT_APPLICABLE",
+          "dependency_impact_state": "not_required"
+        }
+      },
+      "expected_disposition": "EXPIRED_OR_INVALIDATED"
+    },
+    {
+      "case_id": "DCC-029",
+      "description": "The DCC has been superseded by a corrected certificate.",
+      "record": {
+        "artifact": {
+          "source_uri": "https://provider.example.invalid/certificates/CAL-001.xml",
+          "original_bytes_digest": "sha256:synthetic-dcc-bytes-001",
+          "received_bytes_digest": "sha256:synthetic-dcc-bytes-001",
+          "byte_length": 4096,
+          "media_type": "application/xml",
+          "source_receipt_id": "SYNTH-DCC-RECEIPT-001",
+          "retention_state": "retained_original_bytes"
+        },
+        "document": {
+          "well_formed_state": "well_formed",
+          "namespace_uri": "https://ptb.de/dcc",
+          "root_element": "digitalCalibrationCertificate",
+          "schema_version": "3.3.0",
+          "xsd_artifact_state": "pinned",
+          "xsd_digest": "sha256:synthetic-ptb-dcc-xsd-3.3.0",
+          "xsd_validation_state": "valid",
+          "id_reference_state": "valid",
+          "parser_profile_id": "SYNTH-DCC-PARSER-3.3.0",
+          "parser_profile_state": "independently_reviewed"
+        },
+        "signature": {
+          "presence_state": "present",
+          "signature_count": 1,
+          "reference_digest_state": "valid",
+          "signature_value_state": "valid",
+          "signer_certificate_state": "valid",
+          "signer_trust_state": "trusted",
+          "signer_id": "SYNTH-SIGNER-001",
+          "signer_role_state": "authorized_calibration_signer",
+          "signed_reference_uris": [
+            "#DCC-RESULT-001"
+          ],
+          "covered_object_ids": [
+            "DCC-RESULT-001"
+          ],
+          "consumed_object_ids": [
+            "DCC-RESULT-001"
+          ],
+          "external_reference_count": 0,
+          "duplicate_id_count": 0,
+          "transform_policy_state": "allowlisted",
+          "wrapping_check_state": "safe"
+        },
+        "laboratory_scope": {
+          "laboratory_id": "SYNTH-LAB-001",
+          "accreditation_body_id": "SYNTH-ACCREDITATION-BODY-001",
+          "schedule_id": "SYNTH-SCHEDULE-001",
+          "schedule_digest": "sha256:synth-schedule-001",
+          "schedule_state": "authenticated_current",
+          "scope_id": "SYNTH-SCOPE-TEMP-01",
+          "scope_state": "covers_measurand_method_range",
+          "measurand_id": "habitat.air_temperature",
+          "method_id": "SYNTH-METHOD-TEMP",
+          "method_revision": "1",
+          "unit": "degC",
+          "range_min": 0,
+          "range_max": 50,
+          "valid_from": "2026-01-01",
+          "valid_to": "2027-12-31"
+        },
+        "calibration_result": {
+          "result_id": "CAL-RESULT-001",
+          "dcc_object_id": "DCC-RESULT-001",
+          "instrument_id": "SYNTH-INSTRUMENT-001",
+          "channel_id": "air_temperature",
+          "measurand_id": "habitat.air_temperature",
+          "unit": "degC",
+          "method_id": "SYNTH-METHOD-TEMP",
+          "method_revision": "1",
+          "range_min": 0,
+          "range_max": 50,
+          "calibration_date": "2026-10-01",
+          "due_date": "2027-10-01",
+          "firmware_revision": "FW-1",
+          "result_state": "within_tolerance",
+          "uncertainty_value": 0.08,
+          "uncertainty_unit": "degC",
+          "coverage_factor": 2,
+          "certificate_rights_state": "authorized"
+        },
+        "passport_binding": {
+          "instrument_id": "SYNTH-INSTRUMENT-001",
+          "channel_id": "air_temperature",
+          "measurand_id": "habitat.air_temperature",
+          "unit": "degC",
+          "method_id": "SYNTH-METHOD-TEMP",
+          "method_revision": "1",
+          "firmware_revision": "FW-1",
+          "sample_observation_id": "SYNTH-OBS-001",
+          "sample_digest": "sha256:synth-observation-001",
+          "sample_date": "2026-11-10",
+          "sample_value": 20.5
+        },
+        "correction": {
+          "supersession_state": "superseded",
+          "previous_artifact_digest": "sha256:older-dcc",
+          "correction_notice_id": "SYNTH-CORRECTION-001",
+          "dependency_impact_state": "not_required"
+        }
+      },
+      "expected_disposition": "EXPIRED_OR_INVALIDATED"
+    },
+    {
+      "case_id": "DCC-030",
+      "description": "The certificate artifact rights have been revoked for the declared use.",
+      "record": {
+        "artifact": {
+          "source_uri": "https://provider.example.invalid/certificates/CAL-001.xml",
+          "original_bytes_digest": "sha256:synthetic-dcc-bytes-001",
+          "received_bytes_digest": "sha256:synthetic-dcc-bytes-001",
+          "byte_length": 4096,
+          "media_type": "application/xml",
+          "source_receipt_id": "SYNTH-DCC-RECEIPT-001",
+          "retention_state": "retained_original_bytes"
+        },
+        "document": {
+          "well_formed_state": "well_formed",
+          "namespace_uri": "https://ptb.de/dcc",
+          "root_element": "digitalCalibrationCertificate",
+          "schema_version": "3.3.0",
+          "xsd_artifact_state": "pinned",
+          "xsd_digest": "sha256:synthetic-ptb-dcc-xsd-3.3.0",
+          "xsd_validation_state": "valid",
+          "id_reference_state": "valid",
+          "parser_profile_id": "SYNTH-DCC-PARSER-3.3.0",
+          "parser_profile_state": "independently_reviewed"
+        },
+        "signature": {
+          "presence_state": "present",
+          "signature_count": 1,
+          "reference_digest_state": "valid",
+          "signature_value_state": "valid",
+          "signer_certificate_state": "valid",
+          "signer_trust_state": "trusted",
+          "signer_id": "SYNTH-SIGNER-001",
+          "signer_role_state": "authorized_calibration_signer",
+          "signed_reference_uris": [
+            "#DCC-RESULT-001"
+          ],
+          "covered_object_ids": [
+            "DCC-RESULT-001"
+          ],
+          "consumed_object_ids": [
+            "DCC-RESULT-001"
+          ],
+          "external_reference_count": 0,
+          "duplicate_id_count": 0,
+          "transform_policy_state": "allowlisted",
+          "wrapping_check_state": "safe"
+        },
+        "laboratory_scope": {
+          "laboratory_id": "SYNTH-LAB-001",
+          "accreditation_body_id": "SYNTH-ACCREDITATION-BODY-001",
+          "schedule_id": "SYNTH-SCHEDULE-001",
+          "schedule_digest": "sha256:synth-schedule-001",
+          "schedule_state": "authenticated_current",
+          "scope_id": "SYNTH-SCOPE-TEMP-01",
+          "scope_state": "covers_measurand_method_range",
+          "measurand_id": "habitat.air_temperature",
+          "method_id": "SYNTH-METHOD-TEMP",
+          "method_revision": "1",
+          "unit": "degC",
+          "range_min": 0,
+          "range_max": 50,
+          "valid_from": "2026-01-01",
+          "valid_to": "2027-12-31"
+        },
+        "calibration_result": {
+          "result_id": "CAL-RESULT-001",
+          "dcc_object_id": "DCC-RESULT-001",
+          "instrument_id": "SYNTH-INSTRUMENT-001",
+          "channel_id": "air_temperature",
+          "measurand_id": "habitat.air_temperature",
+          "unit": "degC",
+          "method_id": "SYNTH-METHOD-TEMP",
+          "method_revision": "1",
+          "range_min": 0,
+          "range_max": 50,
+          "calibration_date": "2026-10-01",
+          "due_date": "2027-10-01",
+          "firmware_revision": "FW-1",
+          "result_state": "within_tolerance",
+          "uncertainty_value": 0.08,
+          "uncertainty_unit": "degC",
+          "coverage_factor": 2,
+          "certificate_rights_state": "revoked"
+        },
+        "passport_binding": {
+          "instrument_id": "SYNTH-INSTRUMENT-001",
+          "channel_id": "air_temperature",
+          "measurand_id": "habitat.air_temperature",
+          "unit": "degC",
+          "method_id": "SYNTH-METHOD-TEMP",
+          "method_revision": "1",
+          "firmware_revision": "FW-1",
+          "sample_observation_id": "SYNTH-OBS-001",
+          "sample_digest": "sha256:synth-observation-001",
+          "sample_date": "2026-11-10",
+          "sample_value": 20.5
+        },
+        "correction": {
+          "supersession_state": "current",
+          "previous_artifact_digest": "NOT_APPLICABLE",
+          "correction_notice_id": "NOT_APPLICABLE",
+          "dependency_impact_state": "not_required"
+        }
+      },
+      "expected_disposition": "REJECTED_FOR_DECLARED_PURPOSE"
+    },
+    {
+      "case_id": "DCC-031",
+      "description": "The calibration uncertainty is absent.",
+      "record": {
+        "artifact": {
+          "source_uri": "https://provider.example.invalid/certificates/CAL-001.xml",
+          "original_bytes_digest": "sha256:synthetic-dcc-bytes-001",
+          "received_bytes_digest": "sha256:synthetic-dcc-bytes-001",
+          "byte_length": 4096,
+          "media_type": "application/xml",
+          "source_receipt_id": "SYNTH-DCC-RECEIPT-001",
+          "retention_state": "retained_original_bytes"
+        },
+        "document": {
+          "well_formed_state": "well_formed",
+          "namespace_uri": "https://ptb.de/dcc",
+          "root_element": "digitalCalibrationCertificate",
+          "schema_version": "3.3.0",
+          "xsd_artifact_state": "pinned",
+          "xsd_digest": "sha256:synthetic-ptb-dcc-xsd-3.3.0",
+          "xsd_validation_state": "valid",
+          "id_reference_state": "valid",
+          "parser_profile_id": "SYNTH-DCC-PARSER-3.3.0",
+          "parser_profile_state": "independently_reviewed"
+        },
+        "signature": {
+          "presence_state": "present",
+          "signature_count": 1,
+          "reference_digest_state": "valid",
+          "signature_value_state": "valid",
+          "signer_certificate_state": "valid",
+          "signer_trust_state": "trusted",
+          "signer_id": "SYNTH-SIGNER-001",
+          "signer_role_state": "authorized_calibration_signer",
+          "signed_reference_uris": [
+            "#DCC-RESULT-001"
+          ],
+          "covered_object_ids": [
+            "DCC-RESULT-001"
+          ],
+          "consumed_object_ids": [
+            "DCC-RESULT-001"
+          ],
+          "external_reference_count": 0,
+          "duplicate_id_count": 0,
+          "transform_policy_state": "allowlisted",
+          "wrapping_check_state": "safe"
+        },
+        "laboratory_scope": {
+          "laboratory_id": "SYNTH-LAB-001",
+          "accreditation_body_id": "SYNTH-ACCREDITATION-BODY-001",
+          "schedule_id": "SYNTH-SCHEDULE-001",
+          "schedule_digest": "sha256:synth-schedule-001",
+          "schedule_state": "authenticated_current",
+          "scope_id": "SYNTH-SCOPE-TEMP-01",
+          "scope_state": "covers_measurand_method_range",
+          "measurand_id": "habitat.air_temperature",
+          "method_id": "SYNTH-METHOD-TEMP",
+          "method_revision": "1",
+          "unit": "degC",
+          "range_min": 0,
+          "range_max": 50,
+          "valid_from": "2026-01-01",
+          "valid_to": "2027-12-31"
+        },
+        "calibration_result": {
+          "result_id": "CAL-RESULT-001",
+          "dcc_object_id": "DCC-RESULT-001",
+          "instrument_id": "SYNTH-INSTRUMENT-001",
+          "channel_id": "air_temperature",
+          "measurand_id": "habitat.air_temperature",
+          "unit": "degC",
+          "method_id": "SYNTH-METHOD-TEMP",
+          "method_revision": "1",
+          "range_min": 0,
+          "range_max": 50,
+          "calibration_date": "2026-10-01",
+          "due_date": "2027-10-01",
+          "firmware_revision": "FW-1",
+          "result_state": "within_tolerance",
+          "uncertainty_value": null,
+          "uncertainty_unit": "degC",
+          "coverage_factor": 2,
+          "certificate_rights_state": "authorized"
+        },
+        "passport_binding": {
+          "instrument_id": "SYNTH-INSTRUMENT-001",
+          "channel_id": "air_temperature",
+          "measurand_id": "habitat.air_temperature",
+          "unit": "degC",
+          "method_id": "SYNTH-METHOD-TEMP",
+          "method_revision": "1",
+          "firmware_revision": "FW-1",
+          "sample_observation_id": "SYNTH-OBS-001",
+          "sample_digest": "sha256:synth-observation-001",
+          "sample_date": "2026-11-10",
+          "sample_value": 20.5
+        },
+        "correction": {
+          "supersession_state": "current",
+          "previous_artifact_digest": "NOT_APPLICABLE",
+          "correction_notice_id": "NOT_APPLICABLE",
+          "dependency_impact_state": "not_required"
+        }
+      },
+      "expected_disposition": "MORE_EVIDENCE_REQUIRED"
+    },
+    {
+      "case_id": "DCC-032",
+      "description": "The calibration uncertainty lacks a valid coverage factor.",
+      "record": {
+        "artifact": {
+          "source_uri": "https://provider.example.invalid/certificates/CAL-001.xml",
+          "original_bytes_digest": "sha256:synthetic-dcc-bytes-001",
+          "received_bytes_digest": "sha256:synthetic-dcc-bytes-001",
+          "byte_length": 4096,
+          "media_type": "application/xml",
+          "source_receipt_id": "SYNTH-DCC-RECEIPT-001",
+          "retention_state": "retained_original_bytes"
+        },
+        "document": {
+          "well_formed_state": "well_formed",
+          "namespace_uri": "https://ptb.de/dcc",
+          "root_element": "digitalCalibrationCertificate",
+          "schema_version": "3.3.0",
+          "xsd_artifact_state": "pinned",
+          "xsd_digest": "sha256:synthetic-ptb-dcc-xsd-3.3.0",
+          "xsd_validation_state": "valid",
+          "id_reference_state": "valid",
+          "parser_profile_id": "SYNTH-DCC-PARSER-3.3.0",
+          "parser_profile_state": "independently_reviewed"
+        },
+        "signature": {
+          "presence_state": "present",
+          "signature_count": 1,
+          "reference_digest_state": "valid",
+          "signature_value_state": "valid",
+          "signer_certificate_state": "valid",
+          "signer_trust_state": "trusted",
+          "signer_id": "SYNTH-SIGNER-001",
+          "signer_role_state": "authorized_calibration_signer",
+          "signed_reference_uris": [
+            "#DCC-RESULT-001"
+          ],
+          "covered_object_ids": [
+            "DCC-RESULT-001"
+          ],
+          "consumed_object_ids": [
+            "DCC-RESULT-001"
+          ],
+          "external_reference_count": 0,
+          "duplicate_id_count": 0,
+          "transform_policy_state": "allowlisted",
+          "wrapping_check_state": "safe"
+        },
+        "laboratory_scope": {
+          "laboratory_id": "SYNTH-LAB-001",
+          "accreditation_body_id": "SYNTH-ACCREDITATION-BODY-001",
+          "schedule_id": "SYNTH-SCHEDULE-001",
+          "schedule_digest": "sha256:synth-schedule-001",
+          "schedule_state": "authenticated_current",
+          "scope_id": "SYNTH-SCOPE-TEMP-01",
+          "scope_state": "covers_measurand_method_range",
+          "measurand_id": "habitat.air_temperature",
+          "method_id": "SYNTH-METHOD-TEMP",
+          "method_revision": "1",
+          "unit": "degC",
+          "range_min": 0,
+          "range_max": 50,
+          "valid_from": "2026-01-01",
+          "valid_to": "2027-12-31"
+        },
+        "calibration_result": {
+          "result_id": "CAL-RESULT-001",
+          "dcc_object_id": "DCC-RESULT-001",
+          "instrument_id": "SYNTH-INSTRUMENT-001",
+          "channel_id": "air_temperature",
+          "measurand_id": "habitat.air_temperature",
+          "unit": "degC",
+          "method_id": "SYNTH-METHOD-TEMP",
+          "method_revision": "1",
+          "range_min": 0,
+          "range_max": 50,
+          "calibration_date": "2026-10-01",
+          "due_date": "2027-10-01",
+          "firmware_revision": "FW-1",
+          "result_state": "within_tolerance",
+          "uncertainty_value": 0.08,
+          "uncertainty_unit": "degC",
+          "coverage_factor": 0,
+          "certificate_rights_state": "authorized"
+        },
+        "passport_binding": {
+          "instrument_id": "SYNTH-INSTRUMENT-001",
+          "channel_id": "air_temperature",
+          "measurand_id": "habitat.air_temperature",
+          "unit": "degC",
+          "method_id": "SYNTH-METHOD-TEMP",
+          "method_revision": "1",
+          "firmware_revision": "FW-1",
+          "sample_observation_id": "SYNTH-OBS-001",
+          "sample_digest": "sha256:synth-observation-001",
+          "sample_date": "2026-11-10",
+          "sample_value": 20.5
+        },
+        "correction": {
+          "supersession_state": "current",
+          "previous_artifact_digest": "NOT_APPLICABLE",
+          "correction_notice_id": "NOT_APPLICABLE",
+          "dependency_impact_state": "not_required"
+        }
+      },
+      "expected_disposition": "MORE_EVIDENCE_REQUIRED"
+    },
+    {
+      "case_id": "DCC-033",
+      "description": "The certificate applies to a different firmware revision.",
+      "record": {
+        "artifact": {
+          "source_uri": "https://provider.example.invalid/certificates/CAL-001.xml",
+          "original_bytes_digest": "sha256:synthetic-dcc-bytes-001",
+          "received_bytes_digest": "sha256:synthetic-dcc-bytes-001",
+          "byte_length": 4096,
+          "media_type": "application/xml",
+          "source_receipt_id": "SYNTH-DCC-RECEIPT-001",
+          "retention_state": "retained_original_bytes"
+        },
+        "document": {
+          "well_formed_state": "well_formed",
+          "namespace_uri": "https://ptb.de/dcc",
+          "root_element": "digitalCalibrationCertificate",
+          "schema_version": "3.3.0",
+          "xsd_artifact_state": "pinned",
+          "xsd_digest": "sha256:synthetic-ptb-dcc-xsd-3.3.0",
+          "xsd_validation_state": "valid",
+          "id_reference_state": "valid",
+          "parser_profile_id": "SYNTH-DCC-PARSER-3.3.0",
+          "parser_profile_state": "independently_reviewed"
+        },
+        "signature": {
+          "presence_state": "present",
+          "signature_count": 1,
+          "reference_digest_state": "valid",
+          "signature_value_state": "valid",
+          "signer_certificate_state": "valid",
+          "signer_trust_state": "trusted",
+          "signer_id": "SYNTH-SIGNER-001",
+          "signer_role_state": "authorized_calibration_signer",
+          "signed_reference_uris": [
+            "#DCC-RESULT-001"
+          ],
+          "covered_object_ids": [
+            "DCC-RESULT-001"
+          ],
+          "consumed_object_ids": [
+            "DCC-RESULT-001"
+          ],
+          "external_reference_count": 0,
+          "duplicate_id_count": 0,
+          "transform_policy_state": "allowlisted",
+          "wrapping_check_state": "safe"
+        },
+        "laboratory_scope": {
+          "laboratory_id": "SYNTH-LAB-001",
+          "accreditation_body_id": "SYNTH-ACCREDITATION-BODY-001",
+          "schedule_id": "SYNTH-SCHEDULE-001",
+          "schedule_digest": "sha256:synth-schedule-001",
+          "schedule_state": "authenticated_current",
+          "scope_id": "SYNTH-SCOPE-TEMP-01",
+          "scope_state": "covers_measurand_method_range",
+          "measurand_id": "habitat.air_temperature",
+          "method_id": "SYNTH-METHOD-TEMP",
+          "method_revision": "1",
+          "unit": "degC",
+          "range_min": 0,
+          "range_max": 50,
+          "valid_from": "2026-01-01",
+          "valid_to": "2027-12-31"
+        },
+        "calibration_result": {
+          "result_id": "CAL-RESULT-001",
+          "dcc_object_id": "DCC-RESULT-001",
+          "instrument_id": "SYNTH-INSTRUMENT-001",
+          "channel_id": "air_temperature",
+          "measurand_id": "habitat.air_temperature",
+          "unit": "degC",
+          "method_id": "SYNTH-METHOD-TEMP",
+          "method_revision": "1",
+          "range_min": 0,
+          "range_max": 50,
+          "calibration_date": "2026-10-01",
+          "due_date": "2027-10-01",
+          "firmware_revision": "FW-OLD",
+          "result_state": "within_tolerance",
+          "uncertainty_value": 0.08,
+          "uncertainty_unit": "degC",
+          "coverage_factor": 2,
+          "certificate_rights_state": "authorized"
+        },
+        "passport_binding": {
+          "instrument_id": "SYNTH-INSTRUMENT-001",
+          "channel_id": "air_temperature",
+          "measurand_id": "habitat.air_temperature",
+          "unit": "degC",
+          "method_id": "SYNTH-METHOD-TEMP",
+          "method_revision": "1",
+          "firmware_revision": "FW-1",
+          "sample_observation_id": "SYNTH-OBS-001",
+          "sample_digest": "sha256:synth-observation-001",
+          "sample_date": "2026-11-10",
+          "sample_value": 20.5
+        },
+        "correction": {
+          "supersession_state": "current",
+          "previous_artifact_digest": "NOT_APPLICABLE",
+          "correction_notice_id": "NOT_APPLICABLE",
+          "dependency_impact_state": "not_required"
+        }
+      },
+      "expected_disposition": "NOT_COMPARABLE"
+    },
+    {
+      "case_id": "DCC-034",
+      "description": "The XML is schema-valid, but the exact XSD bytes/digest are not pinned in the verifier profile.",
+      "record": {
+        "artifact": {
+          "source_uri": "https://provider.example.invalid/certificates/CAL-001.xml",
+          "original_bytes_digest": "sha256:synthetic-dcc-bytes-001",
+          "received_bytes_digest": "sha256:synthetic-dcc-bytes-001",
+          "byte_length": 4096,
+          "media_type": "application/xml",
+          "source_receipt_id": "SYNTH-DCC-RECEIPT-001",
+          "retention_state": "retained_original_bytes"
+        },
+        "document": {
+          "well_formed_state": "well_formed",
+          "namespace_uri": "https://ptb.de/dcc",
+          "root_element": "digitalCalibrationCertificate",
+          "schema_version": "3.3.0",
+          "xsd_artifact_state": "not_pinned",
+          "xsd_digest": "",
+          "xsd_validation_state": "valid",
+          "id_reference_state": "valid",
+          "parser_profile_id": "SYNTH-DCC-PARSER-3.3.0",
+          "parser_profile_state": "independently_reviewed"
+        },
+        "signature": {
+          "presence_state": "present",
+          "signature_count": 1,
+          "reference_digest_state": "valid",
+          "signature_value_state": "valid",
+          "signer_certificate_state": "valid",
+          "signer_trust_state": "trusted",
+          "signer_id": "SYNTH-SIGNER-001",
+          "signer_role_state": "authorized_calibration_signer",
+          "signed_reference_uris": [
+            "#DCC-RESULT-001"
+          ],
+          "covered_object_ids": [
+            "DCC-RESULT-001"
+          ],
+          "consumed_object_ids": [
+            "DCC-RESULT-001"
+          ],
+          "external_reference_count": 0,
+          "duplicate_id_count": 0,
+          "transform_policy_state": "allowlisted",
+          "wrapping_check_state": "safe"
+        },
+        "laboratory_scope": {
+          "laboratory_id": "SYNTH-LAB-001",
+          "accreditation_body_id": "SYNTH-ACCREDITATION-BODY-001",
+          "schedule_id": "SYNTH-SCHEDULE-001",
+          "schedule_digest": "sha256:synth-schedule-001",
+          "schedule_state": "authenticated_current",
+          "scope_id": "SYNTH-SCOPE-TEMP-01",
+          "scope_state": "covers_measurand_method_range",
+          "measurand_id": "habitat.air_temperature",
+          "method_id": "SYNTH-METHOD-TEMP",
+          "method_revision": "1",
+          "unit": "degC",
+          "range_min": 0,
+          "range_max": 50,
+          "valid_from": "2026-01-01",
+          "valid_to": "2027-12-31"
+        },
+        "calibration_result": {
+          "result_id": "CAL-RESULT-001",
+          "dcc_object_id": "DCC-RESULT-001",
+          "instrument_id": "SYNTH-INSTRUMENT-001",
+          "channel_id": "air_temperature",
+          "measurand_id": "habitat.air_temperature",
+          "unit": "degC",
+          "method_id": "SYNTH-METHOD-TEMP",
+          "method_revision": "1",
+          "range_min": 0,
+          "range_max": 50,
+          "calibration_date": "2026-10-01",
+          "due_date": "2027-10-01",
+          "firmware_revision": "FW-1",
+          "result_state": "within_tolerance",
+          "uncertainty_value": 0.08,
+          "uncertainty_unit": "degC",
+          "coverage_factor": 2,
+          "certificate_rights_state": "authorized"
+        },
+        "passport_binding": {
+          "instrument_id": "SYNTH-INSTRUMENT-001",
+          "channel_id": "air_temperature",
+          "measurand_id": "habitat.air_temperature",
+          "unit": "degC",
+          "method_id": "SYNTH-METHOD-TEMP",
+          "method_revision": "1",
+          "firmware_revision": "FW-1",
+          "sample_observation_id": "SYNTH-OBS-001",
+          "sample_digest": "sha256:synth-observation-001",
+          "sample_date": "2026-11-10",
+          "sample_value": 20.5
+        },
+        "correction": {
+          "supersession_state": "current",
+          "previous_artifact_digest": "NOT_APPLICABLE",
+          "correction_notice_id": "NOT_APPLICABLE",
+          "dependency_impact_state": "not_required"
+        }
+      },
+      "expected_disposition": "MORE_EVIDENCE_REQUIRED"
+    },
+    {
+      "case_id": "DCC-035",
+      "description": "The schema is pinned but XML validation has not been run.",
+      "record": {
+        "artifact": {
+          "source_uri": "https://provider.example.invalid/certificates/CAL-001.xml",
+          "original_bytes_digest": "sha256:synthetic-dcc-bytes-001",
+          "received_bytes_digest": "sha256:synthetic-dcc-bytes-001",
+          "byte_length": 4096,
+          "media_type": "application/xml",
+          "source_receipt_id": "SYNTH-DCC-RECEIPT-001",
+          "retention_state": "retained_original_bytes"
+        },
+        "document": {
+          "well_formed_state": "well_formed",
+          "namespace_uri": "https://ptb.de/dcc",
+          "root_element": "digitalCalibrationCertificate",
+          "schema_version": "3.3.0",
+          "xsd_artifact_state": "pinned",
+          "xsd_digest": "sha256:synthetic-ptb-dcc-xsd-3.3.0",
+          "xsd_validation_state": "not_run",
+          "id_reference_state": "valid",
+          "parser_profile_id": "SYNTH-DCC-PARSER-3.3.0",
+          "parser_profile_state": "independently_reviewed"
+        },
+        "signature": {
+          "presence_state": "present",
+          "signature_count": 1,
+          "reference_digest_state": "valid",
+          "signature_value_state": "valid",
+          "signer_certificate_state": "valid",
+          "signer_trust_state": "trusted",
+          "signer_id": "SYNTH-SIGNER-001",
+          "signer_role_state": "authorized_calibration_signer",
+          "signed_reference_uris": [
+            "#DCC-RESULT-001"
+          ],
+          "covered_object_ids": [
+            "DCC-RESULT-001"
+          ],
+          "consumed_object_ids": [
+            "DCC-RESULT-001"
+          ],
+          "external_reference_count": 0,
+          "duplicate_id_count": 0,
+          "transform_policy_state": "allowlisted",
+          "wrapping_check_state": "safe"
+        },
+        "laboratory_scope": {
+          "laboratory_id": "SYNTH-LAB-001",
+          "accreditation_body_id": "SYNTH-ACCREDITATION-BODY-001",
+          "schedule_id": "SYNTH-SCHEDULE-001",
+          "schedule_digest": "sha256:synth-schedule-001",
+          "schedule_state": "authenticated_current",
+          "scope_id": "SYNTH-SCOPE-TEMP-01",
+          "scope_state": "covers_measurand_method_range",
+          "measurand_id": "habitat.air_temperature",
+          "method_id": "SYNTH-METHOD-TEMP",
+          "method_revision": "1",
+          "unit": "degC",
+          "range_min": 0,
+          "range_max": 50,
+          "valid_from": "2026-01-01",
+          "valid_to": "2027-12-31"
+        },
+        "calibration_result": {
+          "result_id": "CAL-RESULT-001",
+          "dcc_object_id": "DCC-RESULT-001",
+          "instrument_id": "SYNTH-INSTRUMENT-001",
+          "channel_id": "air_temperature",
+          "measurand_id": "habitat.air_temperature",
+          "unit": "degC",
+          "method_id": "SYNTH-METHOD-TEMP",
+          "method_revision": "1",
+          "range_min": 0,
+          "range_max": 50,
+          "calibration_date": "2026-10-01",
+          "due_date": "2027-10-01",
+          "firmware_revision": "FW-1",
+          "result_state": "within_tolerance",
+          "uncertainty_value": 0.08,
+          "uncertainty_unit": "degC",
+          "coverage_factor": 2,
+          "certificate_rights_state": "authorized"
+        },
+        "passport_binding": {
+          "instrument_id": "SYNTH-INSTRUMENT-001",
+          "channel_id": "air_temperature",
+          "measurand_id": "habitat.air_temperature",
+          "unit": "degC",
+          "method_id": "SYNTH-METHOD-TEMP",
+          "method_revision": "1",
+          "firmware_revision": "FW-1",
+          "sample_observation_id": "SYNTH-OBS-001",
+          "sample_digest": "sha256:synth-observation-001",
+          "sample_date": "2026-11-10",
+          "sample_value": 20.5
+        },
+        "correction": {
+          "supersession_state": "current",
+          "previous_artifact_digest": "NOT_APPLICABLE",
+          "correction_notice_id": "NOT_APPLICABLE",
+          "dependency_impact_state": "not_required"
+        }
+      },
+      "expected_disposition": "MORE_EVIDENCE_REQUIRED"
+    },
+    {
+      "case_id": "DCC-036",
+      "description": "All synthetic axes align; the DCC can only be referred for independent passport review.",
+      "record": {
+        "artifact": {
+          "source_uri": "https://provider.example.invalid/certificates/CAL-001.xml",
+          "original_bytes_digest": "sha256:synthetic-dcc-bytes-001",
+          "received_bytes_digest": "sha256:synthetic-dcc-bytes-001",
+          "byte_length": 4096,
+          "media_type": "application/xml",
+          "source_receipt_id": "SYNTH-DCC-RECEIPT-001",
+          "retention_state": "retained_original_bytes"
+        },
+        "document": {
+          "well_formed_state": "well_formed",
+          "namespace_uri": "https://ptb.de/dcc",
+          "root_element": "digitalCalibrationCertificate",
+          "schema_version": "3.3.0",
+          "xsd_artifact_state": "pinned",
+          "xsd_digest": "sha256:synthetic-ptb-dcc-xsd-3.3.0",
+          "xsd_validation_state": "valid",
+          "id_reference_state": "valid",
+          "parser_profile_id": "SYNTH-DCC-PARSER-3.3.0",
+          "parser_profile_state": "independently_reviewed"
+        },
+        "signature": {
+          "presence_state": "present",
+          "signature_count": 1,
+          "reference_digest_state": "valid",
+          "signature_value_state": "valid",
+          "signer_certificate_state": "valid",
+          "signer_trust_state": "trusted",
+          "signer_id": "SYNTH-SIGNER-001",
+          "signer_role_state": "authorized_calibration_signer",
+          "signed_reference_uris": [
+            "#DCC-RESULT-001"
+          ],
+          "covered_object_ids": [
+            "DCC-RESULT-001"
+          ],
+          "consumed_object_ids": [
+            "DCC-RESULT-001"
+          ],
+          "external_reference_count": 0,
+          "duplicate_id_count": 0,
+          "transform_policy_state": "allowlisted",
+          "wrapping_check_state": "safe"
+        },
+        "laboratory_scope": {
+          "laboratory_id": "SYNTH-LAB-001",
+          "accreditation_body_id": "SYNTH-ACCREDITATION-BODY-001",
+          "schedule_id": "SYNTH-SCHEDULE-001",
+          "schedule_digest": "sha256:synth-schedule-001",
+          "schedule_state": "authenticated_current",
+          "scope_id": "SYNTH-SCOPE-TEMP-01",
+          "scope_state": "covers_measurand_method_range",
+          "measurand_id": "habitat.air_temperature",
+          "method_id": "SYNTH-METHOD-TEMP",
+          "method_revision": "1",
+          "unit": "degC",
+          "range_min": 0,
+          "range_max": 50,
+          "valid_from": "2026-01-01",
+          "valid_to": "2027-12-31"
+        },
+        "calibration_result": {
+          "result_id": "CAL-RESULT-001",
+          "dcc_object_id": "DCC-RESULT-001",
+          "instrument_id": "SYNTH-INSTRUMENT-001",
+          "channel_id": "air_temperature",
+          "measurand_id": "habitat.air_temperature",
+          "unit": "degC",
+          "method_id": "SYNTH-METHOD-TEMP",
+          "method_revision": "1",
+          "range_min": 0,
+          "range_max": 50,
+          "calibration_date": "2026-10-01",
+          "due_date": "2027-10-01",
+          "firmware_revision": "FW-1",
+          "result_state": "within_tolerance",
+          "uncertainty_value": 0.08,
+          "uncertainty_unit": "degC",
+          "coverage_factor": 2,
+          "certificate_rights_state": "authorized"
+        },
+        "passport_binding": {
+          "instrument_id": "SYNTH-INSTRUMENT-001",
+          "channel_id": "air_temperature",
+          "measurand_id": "habitat.air_temperature",
+          "unit": "degC",
+          "method_id": "SYNTH-METHOD-TEMP",
+          "method_revision": "1",
+          "firmware_revision": "FW-1",
+          "sample_observation_id": "SYNTH-OBS-001",
+          "sample_digest": "sha256:synth-observation-001",
+          "sample_date": "2026-11-10",
+          "sample_value": 20.5
+        },
+        "correction": {
+          "supersession_state": "current",
+          "previous_artifact_digest": "NOT_APPLICABLE",
+          "correction_notice_id": "NOT_APPLICABLE",
+          "dependency_impact_state": "not_required"
+        }
+      },
+      "expected_disposition": "ELIGIBLE_FOR_INDEPENDENT_PASSPORT_REVIEW_ONLY"
+    }
+  ]
+}
