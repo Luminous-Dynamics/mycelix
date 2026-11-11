@@ -272,6 +272,9 @@ impl ProviderOperationKeyV1 {
         contract
             .validate()
             .map_err(|_| ProviderRetryErrorV1::InvalidContract)?;
+        if !contract.idempotent_post {
+            return Err(ProviderRetryErrorV1::ProviderDoesNotSupportIdempotentPost);
+        }
         for (actual, expected) in [
             (&self.provider_id, &contract.provider_id),
             (&self.profile_id, &contract.profile_id),
@@ -589,6 +592,9 @@ pub fn validate_provider_transition_v1(
     next: ProviderStatusV1,
     same_observation_digest: bool,
 ) -> Result<(), ProviderObservationErrorV1> {
+    if next == ProviderStatusV1::AuthoritativelyAbsent {
+        return Err(ProviderObservationErrorV1::AbsenceNotSupported);
+    }
     if previous == next && same_observation_digest {
         return Ok(());
     }
