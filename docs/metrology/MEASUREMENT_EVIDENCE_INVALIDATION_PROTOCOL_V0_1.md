@@ -21,14 +21,15 @@ A measurement-derived claim is current only while every exact required upstream 
 4. The dependency graph must be acyclic.
 5. Canonical topological order uses lexicographically smallest currently-ready node first, independent of input node/edge array order.
 6. A node starts with its source state; an event may mark its exact target corrected/revoked/expired/superseded.
-7. Any dependent node whose required parent is not current becomes invalidated; this propagates transitively.
+7. Any dependent node whose required parent is not current becomes `invalidated`; this propagates transitively. The source node retains its own `unknown`/`revoked`/`expired`/`superseded`/`corrected` state. `invalidated_nodes` lists only dependent descendants, not the source node.
 8. Independent branches remain current.
 9. A calibration update invalidates dependent measurements/decisions only; a purpose-profile update can invalidate a claim while the raw sample remains current; an assay mismatch/revocation does not rewrite the raw measurement.
 10. A graph error yields `INVALID_GRAPH` and no topological order or currentness claim.
+11. `CURRENT` means every graph node remains current. `PARTIALLY_INVALIDATED` means at least one node is non-current while at least one node remains current, including a revoked/expired source leaf with no dependants. `NO_CURRENT_EVIDENCE` means no graph node is current. These labels do not upgrade any source state.
 
 ## Corpus
 
-28 frozen synthetic cases cover current graphs, calibration revocation/expiry, firmware and installation changes, purpose-profile correction, independent-assay revocation, sample supersession, unknown and already superseded parents, multiple independent branches, parent digest/revision conflicts, dangling/self/duplicate edges, conflicting/idempotent duplicate nodes, two-/three-node cycles, duplicate event IDs, stale event targets, uncertainty/method corrections and rights revocation.
+32 frozen synthetic cases cover current graphs, calibration revocation/expiry, firmware and installation changes, purpose-profile correction, independent-assay revocation, sample supersession, unknown and already superseded parents, multiple independent branches, parent digest/revision conflicts, dangling/self/duplicate edges, conflicting/idempotent duplicate nodes, two-/three-node cycles, duplicate event IDs/targets, absent event targets, stale event revisions/digests, uncertainty/method corrections, rights revocation and a graph with no current evidence.
 
 ## Claim ceiling
 
