@@ -29,8 +29,8 @@ fn strings(v: &Value) -> BTreeSet<String> {
 }
 
 fn validate_event(event: &Value) -> Result<String, String> {
-    if event.as_object().map(serde_json::Map::len) != Some(14) {
-        return Err("event must contain exactly fourteen declared properties".into());
+    if event.as_object().map(serde_json::Map::len) != Some(16) {
+        return Err("event must contain exactly sixteen declared properties".into());
     }
     let id = text(event, "event_id").ok_or_else(|| "event_id missing".to_string())?.to_string();
     if !["Evidence","Decision","AuthorityGrant","AuthorityRevoke","Attempt","EffectObservation","Challenge","Correction"].contains(&text(event,"kind").unwrap_or("")) {
@@ -42,7 +42,7 @@ fn validate_event(event: &Value) -> Result<String, String> {
     if !event["valid_until"].is_null() && event["valid_until"].as_u64().is_none_or(|n| n == 0) {
         return Err(format!("{id}: valid_until must be positive or null"));
     }
-    for key in ["subject_ref","principal_ref","target_ref","status","supersedes_ref"] {
+    for key in ["subject_ref","principal_ref","target_ref","status","supersedes_ref","issuer_ref","observer_ref"] {
         if text(event,key).is_none() { return Err(format!("{id}: {key} missing")); }
     }
     if !["Public","Protected"].contains(&text(event,"visibility").unwrap_or("")) {
@@ -50,6 +50,9 @@ fn validate_event(event: &Value) -> Result<String, String> {
     }
     if !text(event,"payload_sha256").is_some_and(sha256) {
         return Err(format!("{id}: payload digest malformed"));
+    }
+    if text(event,"kind")==Some("EffectObservation") && text(event,"observer_ref")==Some("NONE") {
+        return Err(format!("{id}: EffectObservation requires an observer identity"));
     }
     if event["projection_includes_payload"].as_bool().is_none() {
         return Err(format!("{id}: projection_includes_payload must be boolean"));
@@ -96,10 +99,19 @@ fn authority(fixture: &Value, include_late: bool) -> &'static str {
 fn outcome(fixture: &Value) -> &'static str {
     let attempt=text(fixture,"attempt_ref").unwrap_or("");
     let events=fixture["events"].as_array().unwrap();
-    let states=events.iter().filter(|e|
+    let attempt_event=events.iter().find(|e|
+        text(e,"kind")==Some("Attempt") && text(e,"event_id")==Some(attempt)
+    );
+    let Some(attempt_event)=attempt_event else { return "UNOBSERVED"; };
+    let executor=text(attempt_event,"issuer_ref").unwrap_or("");
+    let observations=events.iter().filter(|e|
         text(e,"kind")==Some("EffectObservation") && strings(&e["parent_refs"]).contains(attempt)
-    ).filter_map(|e|text(e,"status")).collect::<BTreeSet<_>>();
-    if states.is_empty(){return "UNOBSERVED";}
+    ).collect::<Vec<_>>();
+    if observations.is_empty(){return "UNOBSERVED";}
+    if observations.iter().any(|e|
+        text(e,"observer_ref").is_none_or(|observer| observer=="NONE" || observer==executor)
+    ){return "INDEPENDENCE_UNESTABLISHED";}
+    let states=observations.iter().filter_map(|e|text(e,"status")).collect::<BTreeSet<_>>();
     if states.len()>1{return "CONTESTED";}
     match *states.iter().next().unwrap() {
         "Confirmed"=>"CONFIRMED",
@@ -252,6 +264,8 @@ mod tests{
     #[test]fn late_backdated_grant_does_not_change_what_was_known(){let f=fixture("CIVT-AUTHORITY-05");assert_eq!(f["expected"]["authority_as_known_at_action"],"UNAUTHORIZED");assert_eq!(f["expected"]["authority_current_assessment"],"AUTHORIZED");}
     #[test]fn executor_success_without_observation_is_unobserved(){let f=fixture("CIVT-OUTCOME-01");assert_eq!(f["expected"]["outcome_state"],"UNOBSERVED");}
     #[test]fn conflicting_outcome_observations_remain_contested(){let f=fixture("CIVT-OUTCOME-04");assert_eq!(f["expected"]["outcome_state"],"CONTESTED");}
+    #[test]fn executor_identity_cannot_self-observe_an_effect(){let f=fixture("CIVT-OUTCOME-05");assert_eq!(f["expected"]["outcome_state"],"INDEPENDENCE_UNESTABLISHED");}
+    #[test]fn observation_for_wrong_attempt_does_not_prove_outcome(){let f=fixture("CIVT-HINDSIGHT-06");assert_eq!(f["expected"]["outcome_state"],"UNOBSERVED");}
     #[test]fn unresolved_challenge_remains_visible(){let f=fixture("CIVT-CONTEST-04");assert_eq!(f["expected"]["challenge_state"],"OPEN_UNRESOLVED");}
     #[test]fn resolved_challenge_remains_in_history(){let f=fixture("CIVT-CONTEST-03");assert_eq!(f["expected"]["challenge_state"],"RESOLVED_PRESERVED");}
     #[test]fn supersession_selects_successor_without_deleting_predecessor(){let f=fixture("CIVT-SUPERSESSION-03");assert_eq!(f["expected"]["current_decision_ref"],"DEC3-3");assert!(f["events"].as_array().unwrap().iter().any(|e|text(e,"event_id")==Some("DEC-023")));}
