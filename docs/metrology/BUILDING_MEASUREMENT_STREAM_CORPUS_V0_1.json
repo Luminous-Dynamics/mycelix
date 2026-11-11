@@ -3378,7 +3378,7 @@
             "sequence": 2,
             "boot_epoch_id": "BOOT-01",
             "clock_domain_id": "UTC",
-            "instrument_id": "SYNTH-INSTRUMENT-REPLACEMENT",
+            "instrument_id": "SYNTH-INSTRUMENT-01",
             "channel_id": "air_temperature",
             "firmware_digest": "sha256:firmware-v1",
             "protocol_digest": "sha256:protocol-v1",
