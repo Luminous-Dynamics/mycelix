@@ -1,0 +1,349 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Luminous-Dynamics/mycelix/blob/main/docs/research/deliberation/delib-summary-baseline-intake-v0.1.schema.json",
+  "title": "DelibSummary baseline intake manifest v0.1",
+  "description": "Strict metadata-only intake record. Schema conformance is neither data-use approval nor model qualification.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "intake_id",
+    "status",
+    "observed_at",
+    "owning_issue",
+    "safety_issue",
+    "claim_ceiling",
+    "research_reference",
+    "artifacts",
+    "evaluator_contract",
+    "data_governance_gate",
+    "baseline_reproduction",
+    "source_urls"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "delib-summary-baseline-intake-v0.1"
+    },
+    "intake_id": {
+      "const": "DELIB-SUMMARY-BASELINE-001"
+    },
+    "status": {
+      "enum": [
+        "metadata-audit-only-review-pending",
+        "data-use-review-approved",
+        "baseline-qualified",
+        "blocked"
+      ]
+    },
+    "observed_at": {
+      "type": "string",
+      "minLength": 10
+    },
+    "owning_issue": {
+      "type": "string",
+      "format": "uri"
+    },
+    "safety_issue": {
+      "type": "string",
+      "format": "uri"
+    },
+    "claim_ceiling": {
+      "type": "string",
+      "minLength": 30
+    },
+    "research_reference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "title",
+        "arxiv_id",
+        "url",
+        "published_claims"
+      ],
+      "properties": {
+        "title": {
+          "type": "string",
+          "minLength": 10
+        },
+        "arxiv_id": {
+          "type": "string",
+          "minLength": 8
+        },
+        "url": {
+          "type": "string",
+          "format": "uri"
+        },
+        "published_claims": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "initial_opinions",
+            "deliberation_topics",
+            "summary_judgment_annotations",
+            "evaluation_dimensions",
+            "note"
+          ],
+          "properties": {
+            "initial_opinions": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "deliberation_topics": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "summary_judgment_annotations": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "evaluation_dimensions": {
+              "type": "array",
+              "minItems": 4,
+              "uniqueItems": true,
+              "items": {
+                "enum": [
+                  "representativeness",
+                  "informativeness",
+                  "neutrality",
+                  "policy_approval"
+                ]
+              }
+            },
+            "note": {
+              "type": "string",
+              "minLength": 20
+            }
+          }
+        }
+      }
+    },
+    "artifacts": {
+      "type": "array",
+      "minItems": 3,
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "artifact_id",
+          "kind",
+          "url",
+          "repository",
+          "revision",
+          "declared_license",
+          "license_scope",
+          "review_status",
+          "data_or_model_payload_downloaded"
+        ],
+        "properties": {
+          "artifact_id": {
+            "type": "string",
+            "minLength": 3
+          },
+          "kind": {
+            "enum": [
+              "source_repository",
+              "dataset_repository",
+              "trained_model_repository"
+            ]
+          },
+          "url": {
+            "type": "string",
+            "format": "uri"
+          },
+          "repository": {
+            "type": "string",
+            "minLength": 3
+          },
+          "revision": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "ref",
+              "full_commit_sha",
+              "full_sha_status"
+            ],
+            "properties": {
+              "ref": {
+                "type": "string",
+                "minLength": 1
+              },
+              "full_commit_sha": {
+                "type": "string",
+                "minLength": 7
+              },
+              "full_sha_status": {
+                "enum": [
+                  "observed",
+                  "unresolved"
+                ]
+              },
+              "observed_commit_date": {
+                "type": "string"
+              },
+              "displayed_commit_id": {
+                "type": "string"
+              }
+            }
+          },
+          "declared_license": {
+            "type": "string",
+            "minLength": 2
+          },
+          "license_scope": {
+            "type": "string",
+            "minLength": 20
+          },
+          "relevant_files": {
+            "type": "array"
+          },
+          "observed_structure": {
+            "type": "object"
+          },
+          "content_sha256": {
+            "type": "string",
+            "minLength": 3
+          },
+          "observed_files": {
+            "type": "array"
+          },
+          "review_status": {
+            "type": "string",
+            "minLength": 3
+          },
+          "data_or_model_payload_downloaded": {
+            "const": false
+          }
+        }
+      }
+    },
+    "evaluator_contract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "dimensions",
+        "aggregation",
+        "fail_closed_requirements",
+        "unsupported_status_conditions"
+      ],
+      "properties": {
+        "dimensions": {
+          "type": "array",
+          "minItems": 4,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "representativeness",
+              "informativeness",
+              "neutrality",
+              "policy_approval"
+            ]
+          }
+        },
+        "aggregation": {
+          "type": "string",
+          "minLength": 5
+        },
+        "fail_closed_requirements": {
+          "type": "array",
+          "minItems": 8,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 10
+          }
+        },
+        "unsupported_status_conditions": {
+          "type": "array",
+          "minItems": 4,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 10
+          }
+        }
+      }
+    },
+    "data_governance_gate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "required_evidence",
+        "until_cleared"
+      ],
+      "properties": {
+        "status": {
+          "enum": [
+            "blocked-pending-review",
+            "approved",
+            "rejected"
+          ]
+        },
+        "required_evidence": {
+          "type": "array",
+          "minItems": 5,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 5
+          }
+        },
+        "until_cleared": {
+          "type": "array",
+          "minItems": 3,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 5
+          }
+        }
+      }
+    },
+    "baseline_reproduction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "blockers",
+        "next_steps"
+      ],
+      "properties": {
+        "status": {
+          "enum": [
+            "unsupported-pending-artifact-resolution",
+            "reproducible",
+            "not-reproducible"
+          ]
+        },
+        "blockers": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 10
+          }
+        },
+        "next_steps": {
+          "type": "array",
+          "minItems": 3,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 10
+          }
+        }
+      }
+    },
+    "source_urls": {
+      "type": "array",
+      "minItems": 5,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "format": "uri"
+      }
+    }
+  }
+}

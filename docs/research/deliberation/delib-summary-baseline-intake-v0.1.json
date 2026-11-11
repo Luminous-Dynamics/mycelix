@@ -1,0 +1,204 @@
+{
+  "schema_version": "delib-summary-baseline-intake-v0.1",
+  "intake_id": "DELIB-SUMMARY-BASELINE-001",
+  "status": "metadata-audit-only-review-pending",
+  "observed_at": "2026-11-10",
+  "owning_issue": "https://github.com/Luminous-Dynamics/mycelix/issues/6011",
+  "safety_issue": "https://github.com/Luminous-Dynamics/mycelix/issues/6014",
+  "claim_ceiling": "Public metadata and source-code observations only. No participant data or model weights were downloaded, executed, or independently hashed. No legal, consent, ethics, SOTA, or reproduction conclusion is made.",
+  "research_reference": {
+    "title": "Can AI Truly Represent Your Voice in Deliberations? A Comprehensive Study of Large-Scale Opinion Aggregation with LLMs",
+    "arxiv_id": "2510.05154",
+    "url": "https://arxiv.org/abs/2510.05154",
+    "published_claims": {
+      "initial_opinions": 3000,
+      "deliberation_topics": 10,
+      "summary_judgment_annotations": 4500,
+      "evaluation_dimensions": [
+        "representativeness",
+        "informativeness",
+        "neutrality",
+        "policy_approval"
+      ],
+      "note": "Paper-reported dataset statistics; not independently recomputed from downloaded files."
+    }
+  },
+  "artifacts": [
+    {
+      "artifact_id": "upstream-code",
+      "kind": "source_repository",
+      "url": "https://github.com/shuyhere/LLMs-for-Scalable-Deliberation",
+      "repository": "shuyhere/LLMs-for-Scalable-Deliberation",
+      "revision": {
+        "ref": "main",
+        "full_commit_sha": "7746d3d6451e661f26ebc0332d2dff958ec55110",
+        "full_sha_status": "observed",
+        "observed_commit_date": "2026-03-07"
+      },
+      "declared_license": "Apache-2.0",
+      "license_scope": "Repository code license; not the dataset or trained-model license.",
+      "relevant_files": [
+        {
+          "path": "src/llm_evaluation/evaluator.py",
+          "blob_sha": "ed3a763e8a7421743dfd5887a0d9503f0d664527",
+          "observation": "Tries pytorch_model.bin and model.safetensors; after load failure falls back to randomly initialized weights."
+        },
+        {
+          "path": "docs/DebertaEvaluator_Usage.md",
+          "blob_sha": "cbceb81771a20a66259113ffff0432fc80077a54",
+          "observation": "Documents fallback to randomly initialized model weights when model files are missing."
+        },
+        {
+          "path": "datasets/README_dataset.md",
+          "blob_sha": "1e1a3d6fe67e4b3300c3792827d70193617b7edc",
+          "observation": "Describes online-survey collection but does not document provider, recruitment, consent, ethics review, withdrawal, retention, or redistribution authority."
+        }
+      ],
+      "review_status": "source-code-inspected",
+      "data_or_model_payload_downloaded": false
+    },
+    {
+      "artifact_id": "opinion-dataset",
+      "kind": "dataset_repository",
+      "url": "https://huggingface.co/datasets/babytreecc/DeliberationBank",
+      "repository": "babytreecc/DeliberationBank",
+      "revision": {
+        "ref": "main",
+        "displayed_commit_id": "8d0bd7c",
+        "full_commit_sha": "UNRESOLVED",
+        "full_sha_status": "unresolved"
+      },
+      "declared_license": "MIT",
+      "license_scope": "Hub metadata label only; participant data-use, consent, and redistribution rights remain unreviewed.",
+      "observed_structure": {
+        "displayed_size_bytes": 790000,
+        "visible_split": "train",
+        "visible_rows": 10,
+        "interpretation": "Viewer shows ten topic rows with comments arrays; this does not establish that the paper's 4,500 summary-judgment annotations are present in the visible artifact.",
+        "dataset_card_readme_bytes": 24,
+        "dataset_card_content_status": "metadata-only; no substantive dataset card",
+        "listed_topic_files": [
+          "Binary-Health-Care-Policy.json",
+          "Binary-Online-Identity-Policies.json",
+          "Binary-Refugee-Policies.json",
+          "Binary-Tariff-Policy.json",
+          "Binary-Vaccination-Policy.json",
+          "Openqa-AI-changes-human-life.json",
+          "Openqa-Influencers-as-a-job.json",
+          "Openqa-Tipping-System.json",
+          "Openqa-Trump-cutting-funding.json",
+          "Openqa-Updates-of-electronic-products.json"
+        ]
+      },
+      "content_sha256": "NOT_DOWNLOADED",
+      "review_status": "data-use-and-consent-review-pending",
+      "data_or_model_payload_downloaded": false
+    },
+    {
+      "artifact_id": "deliberation-judge-model",
+      "kind": "trained_model_repository",
+      "url": "https://huggingface.co/babytreecc/DeliberationJudge",
+      "repository": "babytreecc/DeliberationJudge",
+      "revision": {
+        "ref": "main",
+        "displayed_commit_id": "f5b0c55",
+        "full_commit_sha": "UNRESOLVED",
+        "full_sha_status": "unresolved"
+      },
+      "declared_license": "Apache-2.0",
+      "license_scope": "Hub model metadata label; training-data rights and model provenance are not independently reviewed.",
+      "observed_files": [
+        {
+          "path": "model.safetensors",
+          "displayed_size_bytes": 737000000,
+          "sha256": "NOT_DOWNLOADED",
+          "status": "listed-not-downloaded"
+        },
+        {
+          "path": "training_args.bin",
+          "displayed_size_bytes": 0,
+          "sha256": "NOT_DOWNLOADED",
+          "status": "listed-not-downloaded",
+          "safety_note": "Hub identifies pickle imports in this file; do not load it in the benchmark path."
+        },
+        {
+          "path": "README.md",
+          "displayed_size_bytes": 31,
+          "sha256": "NOT_DOWNLOADED",
+          "status": "metadata-only; no substantive model card"
+        }
+      ],
+      "review_status": "model-artifact-provenance-and-rights-review-pending",
+      "data_or_model_payload_downloaded": false
+    }
+  ],
+  "evaluator_contract": {
+    "dimensions": [
+      "representativeness",
+      "informativeness",
+      "neutrality",
+      "policy_approval"
+    ],
+    "aggregation": "none-by-default; preserve all four dimensions separately",
+    "fail_closed_requirements": [
+      "Resolve full immutable model revision before qualification.",
+      "Record model.safetensors SHA-256 and byte length.",
+      "Record tokenizer/config hashes and exact upstream evaluator source blob.",
+      "Refuse inference when expected trained weights are absent, mismatched, partial, or corrupt.",
+      "Refuse random initialization and any fallback checkpoint.",
+      "Do not load training_args.bin or other pickle-bearing artifacts in the benchmark path.",
+      "Emit no score when checkpoint identity or load status is unknown.",
+      "Keep raw model outputs, range validation, runtime identity, and input identity.",
+      "Keep model scores separate from human judgments."
+    ],
+    "unsupported_status_conditions": [
+      "Full human-judgment artifacts unavailable.",
+      "Exact published evaluation split unavailable.",
+      "Full model or dataset revision cannot be pinned.",
+      "Data-use and consent review is incomplete.",
+      "Reference evaluator cannot prove exact trained weights were loaded."
+    ]
+  },
+  "data_governance_gate": {
+    "status": "blocked-pending-review",
+    "required_evidence": [
+      "Survey provider and collection protocol.",
+      "Participant consent notice and applicable ethics-review evidence.",
+      "Withdrawal, retention, and de-identification process.",
+      "Permitted research, model-training, processing, and redistribution purposes.",
+      "Rights of the summary-judgment annotation records.",
+      "Whether the visible Hub artifact includes all four-axis judgments or only opinion text.",
+      "Dataset revision, file digests, and exclusion/missingness record."
+    ],
+    "until_cleared": [
+      "Do not download or mirror participant-level dataset files into Mycelix.",
+      "Do not publish participant comments or derived participant-level examples.",
+      "Do not train on participant data."
+    ]
+  },
+  "baseline_reproduction": {
+    "status": "unsupported-pending-artifact-resolution",
+    "blockers": [
+      "Visible Hub viewer exposes ten topic rows but does not establish availability of the paper-reported 4,500 summary-judgment annotations.",
+      "Dataset and model Hub revisions are only observed as short commit identifiers in the current public page rendering.",
+      "Dataset and model cards are metadata-only.",
+      "Participant data collection and consent provenance are not sufficiently documented in the inspected repository materials.",
+      "Upstream evaluator can silently fall back to random initialization."
+    ],
+    "next_steps": [
+      "Resolve full Hub commit SHAs and exact file lists.",
+      "Locate complete judgment artifacts and split definitions.",
+      "Complete data-use and consent review before participant-level intake.",
+      "Implement a wrapper that rejects random initialization and verifies checkpoint hashes.",
+      "Reproduce published results on the exact recoverable split before candidate comparison."
+    ]
+  },
+  "source_urls": [
+    "https://arxiv.org/abs/2510.05154",
+    "https://github.com/shuyhere/LLMs-for-Scalable-Deliberation",
+    "https://huggingface.co/datasets/babytreecc/DeliberationBank",
+    "https://huggingface.co/babytreecc/DeliberationJudge",
+    "https://github.com/Luminous-Dynamics/mycelix/issues/6011",
+    "https://github.com/Luminous-Dynamics/mycelix/issues/6014"
+  ]
+}

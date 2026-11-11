@@ -1,0 +1,48 @@
+name: Deliberation Benchmark Qualifier
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "docs/research/deliberation/**"
+      - "tools/delib-bench-qualifier/**"
+      - ".github/workflows/delib-bench-qualifier.yml"
+  push:
+    branches: [main]
+    paths:
+      - "docs/research/deliberation/**"
+      - "tools/delib-bench-qualifier/**"
+      - ".github/workflows/delib-bench-qualifier.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qualify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact revision
+        uses: actions/checkout@v4
+      - name: Install stable Rust
+        uses: dtolnay/rust-toolchain@stable
+      - name: Run qualifier tests
+        run: cargo test --manifest-path tools/delib-bench-qualifier/Cargo.toml
+      - name: Validate protocol, schema and synthetic corpus
+        run: |
+          cargo run --manifest-path tools/delib-bench-qualifier/Cargo.toml -- \
+            docs/research/deliberation/delib-bench-protocol-v0.1.json \
+            docs/research/deliberation/delib-bench-protocol-v0.1.schema.json \
+            docs/research/deliberation/delib-bench-fixtures-v0.1.json \
+            docs/research/deliberation/delib-bench-fixtures-v0.1.schema.json
+      - name: Validate metadata-only DeliberationBank intake gates
+        run: |
+          cargo run --manifest-path tools/delib-bench-qualifier/Cargo.toml -- \
+            --summary-intake \
+            docs/research/deliberation/delib-summary-baseline-intake-v0.1.json \
+            docs/research/deliberation/delib-summary-baseline-intake-v0.1.schema.json

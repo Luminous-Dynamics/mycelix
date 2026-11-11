@@ -1,0 +1,629 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Luminous-Dynamics/mycelix/blob/main/docs/research/deliberation/delib-bench-protocol-v0.1.schema.json",
+  "title": "DELIB-BENCH-001 Protocol Manifest v0.1",
+  "description": "Strict, version-specific schema for the proposed DelibBench research protocol manifest. Structural conformance does not qualify scientific validity, human-subject evidence, or deployment readiness.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "protocol_id",
+    "version",
+    "status",
+    "title",
+    "owning_repository",
+    "parent_issue",
+    "related_work",
+    "claim_ceiling",
+    "evidence_classes",
+    "intervention_conditions",
+    "metric_families",
+    "adversarial_fixture_families",
+    "reference_workflows",
+    "annotation_policy",
+    "preregistration_requirements",
+    "human_subjects_gate",
+    "terminal_statuses",
+    "non_compensatory_invariants",
+    "initial_targets",
+    "outputs",
+    "research_basis",
+    "evaluation_layers",
+    "multilingual_extension",
+    "jurisdictional_context",
+    "counterfactual_interaction_protocol"
+  ],
+  "properties": {
+    "protocol_id": {
+      "const": "DELIB-BENCH-001"
+    },
+    "version": {
+      "const": "0.1.0"
+    },
+    "status": {
+      "enum": [
+        "research-proposal",
+        "development",
+        "frozen",
+        "retired"
+      ]
+    },
+    "title": {
+      "type": "string",
+      "minLength": 10
+    },
+    "owning_repository": {
+      "const": "Luminous-Dynamics/mycelix"
+    },
+    "parent_issue": {
+      "type": "string",
+      "format": "uri"
+    },
+    "related_work": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "format": "uri"
+      }
+    },
+    "claim_ceiling": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "synthetic_conformance",
+        "human_experiment",
+        "platform_comparison",
+        "institutional_impact"
+      ],
+      "properties": {
+        "synthetic_conformance": {
+          "type": "string",
+          "minLength": 20
+        },
+        "human_experiment": {
+          "type": "string",
+          "minLength": 20
+        },
+        "platform_comparison": {
+          "type": "string",
+          "minLength": 20
+        },
+        "institutional_impact": {
+          "type": "string",
+          "minLength": 20
+        }
+      }
+    },
+    "evidence_classes": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "SyntheticFixture",
+          "HumanAdjudicatedAnnotation",
+          "HumanSubjectExperiment",
+          "ExternalPlatformWorkflow",
+          "InstitutionalDecisionRecord",
+          "DownstreamOutcomeObservation"
+        ]
+      }
+    },
+    "intervention_conditions": {
+      "type": "array",
+      "minItems": 3,
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "description"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]*$"
+          },
+          "description": {
+            "type": "string",
+            "minLength": 10
+          }
+        }
+      }
+    },
+    "metric_families": {
+      "type": "array",
+      "minItems": 4,
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "measures"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]*$"
+          },
+          "measures": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 3
+            }
+          },
+          "primary_method": {
+            "type": "string"
+          },
+          "caveat": {
+            "type": "string"
+          },
+          "gate": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "adversarial_fixture_families": {
+      "type": "array",
+      "minItems": 13,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 4
+      }
+    },
+    "reference_workflows": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "url",
+          "comparison_layer"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]*$"
+          },
+          "url": {
+            "type": "string",
+            "format": "uri"
+          },
+          "comparison_layer": {
+            "type": "string",
+            "minLength": 10
+          }
+        }
+      }
+    },
+    "annotation_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "primary_outcome_source",
+        "coding_manual",
+        "blinding",
+        "disagreement",
+        "llm_annotations",
+        "reliability"
+      ],
+      "properties": {
+        "primary_outcome_source": {
+          "type": "string"
+        },
+        "coding_manual": {
+          "type": "string"
+        },
+        "blinding": {
+          "type": "string"
+        },
+        "disagreement": {
+          "type": "string"
+        },
+        "llm_annotations": {
+          "type": "string"
+        },
+        "reliability": {
+          "type": "string"
+        }
+      }
+    },
+    "preregistration_requirements": {
+      "type": "array",
+      "minItems": 5,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9_]*$"
+      }
+    },
+    "human_subjects_gate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "required_before_recruitment",
+        "synthetic_data_is_not_human_evidence"
+      ],
+      "properties": {
+        "required_before_recruitment": {
+          "type": "array",
+          "minItems": 4,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]*$"
+          }
+        },
+        "synthetic_data_is_not_human_evidence": {
+          "const": true
+        }
+      }
+    },
+    "terminal_statuses": {
+      "type": "array",
+      "minItems": 7,
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "Pass",
+          "Fail",
+          "Indeterminate",
+          "Invalid",
+          "Unsupported",
+          "Timeout",
+          "NotRun"
+        ]
+      }
+    },
+    "non_compensatory_invariants": {
+      "type": "array",
+      "minItems": 5,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9_]*$"
+      }
+    },
+    "initial_targets": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "synthetic_known_answer_and_adversarial_fixtures_minimum",
+        "independent_double_coded_feasibility_corpus",
+        "external_workflow_adapters_minimum",
+        "confirmatory_human_study",
+        "aggregate_deliberation_score",
+        "production_policy_mutation"
+      ],
+      "properties": {
+        "synthetic_known_answer_and_adversarial_fixtures_minimum": {
+          "type": "integer",
+          "minimum": 30
+        },
+        "independent_double_coded_feasibility_corpus": {
+          "type": "string"
+        },
+        "external_workflow_adapters_minimum": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "confirmatory_human_study": {
+          "type": "string"
+        },
+        "aggregate_deliberation_score": {
+          "const": false
+        },
+        "production_policy_mutation": {
+          "const": false
+        }
+      }
+    },
+    "outputs": {
+      "type": "array",
+      "minItems": 5,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 4
+      }
+    },
+    "research_basis": {
+      "type": "array",
+      "minItems": 4,
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "source_type",
+          "title",
+          "url",
+          "reported_evidence",
+          "intended_use",
+          "limitation"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]*$"
+          },
+          "source_type": {
+            "type": "string",
+            "minLength": 4
+          },
+          "title": {
+            "type": "string",
+            "minLength": 10
+          },
+          "url": {
+            "type": "string",
+            "format": "uri"
+          },
+          "reported_evidence": {
+            "type": "string",
+            "minLength": 20
+          },
+          "intended_use": {
+            "type": "string",
+            "minLength": 20
+          },
+          "limitation": {
+            "type": "string",
+            "minLength": 20
+          }
+        }
+      }
+    },
+    "evaluation_layers": {
+      "type": "array",
+      "minItems": 3,
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "purpose",
+          "primary_evidence",
+          "claim_ceiling"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]*$"
+          },
+          "purpose": {
+            "type": "string",
+            "minLength": 20
+          },
+          "primary_evidence": {
+            "type": "string",
+            "minLength": 10
+          },
+          "claim_ceiling": {
+            "type": "string",
+            "minLength": 20
+          }
+        }
+      }
+    },
+    "multilingual_extension": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "initial_text_profiles",
+        "profile_selection_rule",
+        "required_controls",
+        "sign_language_pathway",
+        "compose_with"
+      ],
+      "properties": {
+        "status": {
+          "type": "string",
+          "minLength": 20
+        },
+        "initial_text_profiles": {
+          "type": "array",
+          "minItems": 5,
+          "uniqueItems": true,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "tag",
+              "name"
+            ],
+            "properties": {
+              "tag": {
+                "type": "string",
+                "minLength": 4
+              },
+              "name": {
+                "type": "string",
+                "minLength": 3
+              }
+            }
+          }
+        },
+        "profile_selection_rule": {
+          "type": "string",
+          "minLength": 30
+        },
+        "required_controls": {
+          "type": "array",
+          "minItems": 7,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 10
+          }
+        },
+        "sign_language_pathway": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "name",
+            "modality",
+            "status",
+            "required_expertise"
+          ],
+          "properties": {
+            "name": {
+              "type": "string",
+              "minLength": 3
+            },
+            "modality": {
+              "type": "string",
+              "minLength": 3
+            },
+            "status": {
+              "type": "string",
+              "minLength": 20
+            },
+            "required_expertise": {
+              "type": "string",
+              "minLength": 10
+            }
+          }
+        },
+        "compose_with": {
+          "type": "array",
+          "minItems": 5,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "format": "uri"
+          }
+        }
+      }
+    },
+    "jurisdictional_context": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "country",
+        "constitutional_reference",
+        "source_note"
+      ],
+      "properties": {
+        "country": {
+          "const": "South Africa"
+        },
+        "constitutional_reference": {
+          "type": "string",
+          "format": "uri"
+        },
+        "source_note": {
+          "type": "string",
+          "minLength": 20
+        }
+      }
+    },
+    "counterfactual_interaction_protocol": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "rationale",
+        "randomized_arms",
+        "primary_estimands",
+        "controls",
+        "analysis",
+        "claim_ceiling"
+      ],
+      "properties": {
+        "status": {
+          "type": "string",
+          "minLength": 1
+        },
+        "rationale": {
+          "type": "string",
+          "minLength": 1
+        },
+        "randomized_arms": {
+          "type": "array",
+          "minItems": 6,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "id",
+              "description"
+            ],
+            "properties": {
+              "id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "description": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        },
+        "primary_estimands": {
+          "type": "array",
+          "minItems": 5,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "controls": {
+          "type": "array",
+          "minItems": 7,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "analysis": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "randomization_unit",
+            "primary_cluster",
+            "reporting",
+            "human_subjects"
+          ],
+          "properties": {
+            "randomization_unit": {
+              "type": "string",
+              "minLength": 1
+            },
+            "primary_cluster": {
+              "type": "string",
+              "minLength": 1
+            },
+            "reporting": {
+              "type": "string",
+              "minLength": 1
+            },
+            "human_subjects": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "claim_ceiling": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    }
+  }
+}
