@@ -97,6 +97,14 @@ pub enum ExposureStatus {
 pub struct ExposureReservationV1 {
     pub intent: ExposureIntentV1,
     pub status: ExposureStatus,
+    pub resolution: Option<ExposureResolutionReceiptV1>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ExposureResolutionReceiptV1 {
+    pub kind: ExposureResolutionKind,
+    pub profile_digest: String,
+    pub evidence_digest: String,
 }
 
 impl ExposureReservationV1 {
@@ -124,6 +132,7 @@ pub enum ExposureError {
     AmountOverflow,
     InvalidTransition,
     InvalidResolutionEvidence,
+    ResolutionConflict,
 }
 
 impl std::fmt::Display for ExposureError {
@@ -137,8 +146,9 @@ impl std::error::Error for ExposureError {}
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[repr(u8)]
 pub enum ExposureResolutionKind {
-    FinalSettlementEvidence = 1,
-    AuthoritativeAbsence = 2,
+    ObservedUnsettledEffect = 1,
+    FinalSettlementEvidence = 2,
+    AuthoritativeAbsence = 3,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -230,16 +240,16 @@ impl ExposureBookV1 {
         if intent.scope != policy.scope {
             return Err(ExposureError::ScopeMismatch);
         }
-        if intent.maximum_exposure_minor > policy.maximum_per_effect_minor {
-            return Err(ExposureError::LimitExceeded);
-        }
-
         if let Some(existing) = self.reservations.get(&intent.effect_id) {
             return if existing.same_identity(&intent) {
                 Ok(ExposureDisposition::AlreadyReserved)
             } else {
                 Err(ExposureError::ReservationConflict)
             };
+        }
+
+        if intent.maximum_exposure_minor > policy.maximum_per_effect_minor {
+            return Err(ExposureError::LimitExceeded);
         }
 
         let current = self.total_exposure_minor()?;
@@ -255,6 +265,7 @@ impl ExposureBookV1 {
             ExposureReservationV1 {
                 intent,
                 status: ExposureStatus::Reserved,
+                resolution: None,
             },
         );
         Ok(ExposureDisposition::Reserved)
@@ -279,16 +290,36 @@ impl ExposureBookV1 {
         )
     }
 
-    pub fn mark_committed_unsettled(&mut self, effect_id: &str) -> Result<(), ExposureError> {
-        self.transition(
-            effect_id,
-            &[
-                ExposureStatus::DispatchAuthorized,
-                ExposureStatus::Indeterminate,
-                ExposureStatus::CommittedUnsettled,
-            ],
-            ExposureStatus::CommittedUnsettled,
-        )
+    pub fn mark_committed_unsettled(
+        &mut self,
+        effect_id: &str,
+        evidence: &DestinationResolutionV1,
+    ) -> Result<(), ExposureError> {
+        let reservation = self
+            .reservations
+            .get(effect_id)
+            .ok_or(ExposureError::ReservationNotFound)?;
+        evidence.validate_against(
+            reservation,
+            ExposureResolutionKind::ObservedUnsettledEffect,
+        )?;
+        if reservation.status == ExposureStatus::CommittedUnsettled {
+            return self.validate_repeated_resolution(effect_id, evidence);
+        }
+        if !matches!(
+            reservation.status,
+            ExposureStatus::DispatchAuthorized | ExposureStatus::Indeterminate
+        ) {
+            return Err(ExposureError::InvalidTransition);
+        }
+        let reservation = self.reservations.get_mut(effect_id).expect("checked above");
+        reservation.status = ExposureStatus::CommittedUnsettled;
+        reservation.resolution = Some(ExposureResolutionReceiptV1 {
+            kind: evidence.kind,
+            profile_digest: evidence.profile_digest.clone(),
+            evidence_digest: evidence.evidence_digest.clone(),
+        });
+        Ok(())
     }
 
     pub fn mark_settled(
@@ -302,15 +333,18 @@ impl ExposureBookV1 {
             .ok_or(ExposureError::ReservationNotFound)?;
         evidence.validate_against(reservation, ExposureResolutionKind::FinalSettlementEvidence)?;
         if reservation.status == ExposureStatus::Settled {
-            return Ok(());
+            return self.validate_repeated_resolution(effect_id, evidence);
         }
         if reservation.status != ExposureStatus::CommittedUnsettled {
             return Err(ExposureError::InvalidTransition);
         }
-        self.reservations
-            .get_mut(effect_id)
-            .expect("checked above")
-            .status = ExposureStatus::Settled;
+        let reservation = self.reservations.get_mut(effect_id).expect("checked above");
+        reservation.status = ExposureStatus::Settled;
+        reservation.resolution = Some(ExposureResolutionReceiptV1 {
+            kind: evidence.kind,
+            profile_digest: evidence.profile_digest.clone(),
+            evidence_digest: evidence.evidence_digest.clone(),
+        });
         Ok(())
     }
 
@@ -325,7 +359,7 @@ impl ExposureBookV1 {
             .ok_or(ExposureError::ReservationNotFound)?;
         evidence.validate_against(reservation, ExposureResolutionKind::AuthoritativeAbsence)?;
         if reservation.status == ExposureStatus::AuthoritativelyAbsent {
-            return Ok(());
+            return self.validate_repeated_resolution(effect_id, evidence);
         }
         if !matches!(
             reservation.status,
@@ -333,10 +367,13 @@ impl ExposureBookV1 {
         ) {
             return Err(ExposureError::InvalidTransition);
         }
-        self.reservations
-            .get_mut(effect_id)
-            .expect("checked above")
-            .status = ExposureStatus::AuthoritativelyAbsent;
+        let reservation = self.reservations.get_mut(effect_id).expect("checked above");
+        reservation.status = ExposureStatus::AuthoritativelyAbsent;
+        reservation.resolution = Some(ExposureResolutionReceiptV1 {
+            kind: evidence.kind,
+            profile_digest: evidence.profile_digest.clone(),
+            evidence_digest: evidence.evidence_digest.clone(),
+        });
         Ok(())
     }
 
@@ -420,6 +457,14 @@ impl ExposureBookV1 {
             }
             append_u64(&mut output, intent.maximum_exposure_minor);
             output.push(reservation.status as u8);
+            match &reservation.resolution {
+                None => output.push(0),
+                Some(receipt) => {
+                    output.push(receipt.kind as u8);
+                    append_text(&mut output, &receipt.profile_digest)?;
+                    append_text(&mut output, &receipt.evidence_digest)?;
+                }
+            }
         }
         Ok(output)
     }
@@ -433,6 +478,28 @@ impl ExposureBookV1 {
             write!(&mut output, "{byte:02x}").expect("writing to String cannot fail");
         }
         Ok(output)
+    }
+
+    fn validate_repeated_resolution(
+        &self,
+        effect_id: &str,
+        evidence: &DestinationResolutionV1,
+    ) -> Result<(), ExposureError> {
+        let reservation = self
+            .reservations
+            .get(effect_id)
+            .ok_or(ExposureError::ReservationNotFound)?;
+        let stored = reservation
+            .resolution
+            .as_ref()
+            .ok_or(ExposureError::InvalidResolutionEvidence)?;
+        if stored.kind != evidence.kind
+            || stored.profile_digest != evidence.profile_digest
+            || stored.evidence_digest != evidence.evidence_digest
+        {
+            return Err(ExposureError::ResolutionConflict);
+        }
+        Ok(())
     }
 
     fn transition(
@@ -522,6 +589,17 @@ mod tests {
         }
     }
 
+    fn observed_unsettled(effect_id: &str) -> DestinationResolutionV1 {
+        DestinationResolutionV1 {
+            kind: ExposureResolutionKind::ObservedUnsettledEffect,
+            effect_id: effect_id.into(),
+            destination_id: "dest:provider-a".into(),
+            payload_digest: digest('b'),
+            profile_digest: digest('e'),
+            evidence_digest: digest('1'),
+        }
+    }
+
     fn resolution(effect_id: &str) -> DestinationResolutionV1 {
         DestinationResolutionV1 {
             kind: ExposureResolutionKind::FinalSettlementEvidence,
@@ -544,7 +622,7 @@ mod tests {
         book.mark_dispatch_authorized("indeterminate").unwrap();
         book.mark_indeterminate("indeterminate").unwrap();
         book.mark_dispatch_authorized("committed").unwrap();
-        book.mark_committed_unsettled("committed").unwrap();
+        book.mark_committed_unsettled("committed", &observed_unsettled("committed")).unwrap();
         assert_eq!(
             book.breakdown_minor().unwrap(),
             ExposureBreakdownV1 {
@@ -635,7 +713,7 @@ mod tests {
         let mut book = ExposureBookV1::new(policy(1_000)).unwrap();
         book.reserve(intent("effect:1", 600)).unwrap();
         book.mark_dispatch_authorized("effect:1").unwrap();
-        book.mark_committed_unsettled("effect:1").unwrap();
+        book.mark_committed_unsettled("effect:1", &observed_unsettled("effect:1")).unwrap();
         let mut wrong = resolution("effect:1");
         wrong.payload_digest = digest('c');
         assert_eq!(
@@ -673,6 +751,11 @@ mod tests {
         let mut lower = policy(500);
         lower.sequence = 2;
         book.replace_policy(lower).unwrap();
+        assert_eq!(
+            book.reserve(intent("effect:1", 600)),
+            Ok(ExposureDisposition::AlreadyReserved),
+            "exact retries remain idempotent even when the old effect exceeds the new per-effect limit"
+        );
         assert_eq!(book.total_exposure_minor(), Ok(600));
         assert_eq!(book.headroom_minor(), Ok(0));
         assert_eq!(
