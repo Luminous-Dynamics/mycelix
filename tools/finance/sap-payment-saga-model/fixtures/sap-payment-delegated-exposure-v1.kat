@@ -1,0 +1,19 @@
+# Mycelix delegated exposure escrow KAT v1
+parent_owner=owner:treasury
+parent_pool=pool:one
+currency=SAP
+parent_sequence=1
+parent_maximum_total_minor=1000
+parent_maximum_child_budget_minor=800
+parent_policy_digest=sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+grant_id=provider-a
+child_owner=operator:a
+child_pool=pool:one
+child_destination=dest:a
+child_currency=SAP
+grant_budget_minor=700
+grant_sequence=1
+grant_digest=sha256:1111111111111111111111111111111111111111111111111111111111111111
+grant_status=1
+child_empty_snapshot_sha256=4ba78fd6924600d2e6da482e1118830fb334ac2314e1cfd8dff99b5a08892d0b
+parent_snapshot_sha256=ee86a4113e64001dfa43b4d0dabf7f9bc14db526b5379ae8986edfcb76c24c96
