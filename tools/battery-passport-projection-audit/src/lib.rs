@@ -102,18 +102,21 @@ fn object_map<'a>(registry: &'a Value) -> Result<BTreeMap<u64, &'a Value>, Strin
         }
     }
     if registry
-        .get("selected_data_point_count")
+        .get("data_point_count")
         .and_then(Value::as_u64)
         != Some(map.len() as u64)
     {
-        return Err("registry selected_data_point_count does not match its data_points array".to_owned());
+        return Err("registry data_point_count does not match its data_points array".to_owned());
+    }
+    if map.len() != 71 || (1_u64..=71).any(|number| !map.contains_key(&number)) {
+        return Err("registry must contain the exact complete data-point ID set 1..=71".to_owned());
     }
     if registry
         .get("complete_71_point_transcription")
         .and_then(Value::as_bool)
-        != Some(false)
+        != Some(true)
     {
-        return Err("v0.1 accepts only a clearly marked partial 71-point transcription".to_owned());
+        return Err("registry must declare a complete 71-point transcription".to_owned());
     }
     Ok(map)
 }
@@ -351,18 +354,35 @@ mod tests {
 
     const REGISTRY_SCHEMA: &[u8] = include_bytes!("../../../schemas/mobility/eu_battery_passport_guidance_registry_v0_1.schema.json");
     const PROJECTION_SCHEMA: &[u8] = include_bytes!("../../../schemas/mobility/battery_passport_projection_v0_1.schema.json");
-    const REGISTRY: &[u8] = include_bytes!("../../../registries/eu_battery_passport_guidance_v3_2_selected_points.json");
+    const REGISTRY: &[u8] = include_bytes!("../../../registries/eu_battery_passport_guidance_v3_2_complete_71_points.json");
     const EV_PUBLIC: &[u8] = include_bytes!("../../../fixtures/mobility/battery_passport_projection_ev_public_v0_1.json");
     const LMT_INTEREST: &[u8] = include_bytes!("../../../fixtures/mobility/battery_passport_projection_lmt_legitimate_interest_v0_1.json");
     const BESS_INTEREST: &[u8] = include_bytes!("../../../fixtures/mobility/battery_passport_projection_industrial_stationary_bess_v0_1.json");
 
     #[test]
-    fn selected_registry_is_explicitly_partial_and_schema_valid() {
+    fn complete_71_point_registry_is_schema_valid_and_gap_free() {
         let registry_schema = compile_schema(REGISTRY_SCHEMA).expect("registry schema compiles");
         let registry: Value = serde_json::from_slice(REGISTRY).expect("registry JSON");
         validate_instance(&registry_schema, &registry, "registry").expect("registry conforms");
-        assert_eq!(registry["complete_71_point_transcription"], false);
-        assert_eq!(registry["selected_data_point_count"], 58);
+        assert_eq!(registry["complete_71_point_transcription"], true);
+        assert_eq!(registry["data_point_count"], 71);
+        let ids: BTreeSet<u64> = registry["data_points"]
+            .as_array().expect("registry points")
+            .iter()
+            .map(|point| point["number"].as_u64().expect("point number"))
+            .collect();
+        assert_eq!(ids, (1_u64..=71).collect());
+    }
+
+    #[test]
+    fn removing_any_guidance_point_rejects_the_registry() {
+        let registry_schema = compile_schema(REGISTRY_SCHEMA).expect("registry schema compiles");
+        let mut registry: Value = serde_json::from_slice(REGISTRY).expect("registry JSON");
+        registry["data_points"].as_array_mut().unwrap()
+            .retain(|point| point["number"] != 29);
+        registry["data_point_count"] = json!(70);
+        assert!(validate_instance(&registry_schema, &registry, "registry").is_ok());
+        assert!(object_map(&registry).is_err());
     }
 
     #[test]
