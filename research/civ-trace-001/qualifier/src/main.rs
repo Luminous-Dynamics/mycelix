@@ -304,7 +304,7 @@ mod tests{
     #[test]fn protected_payload_leak_is_explicit(){let f=fixture("CIVT-PRIVACY-02");assert_eq!(f["expected"]["privacy_violation"],true);}
     #[test]fn duplicate_event_id_is_rejected(){let mut f=fixture("CIVT-HINDSIGHT-01");let e=f["events"][0].clone();f["events"].as_array_mut().unwrap().push(e);assert!(validate_fixture(&f).is_err());}
     #[test]fn expected_knowledge_set_tampering_is_rejected(){let mut f=fixture("CIVT-HINDSIGHT-01");f["expected"]["known_event_ids"]=serde_json::json!([]);assert!(validate_fixture(&f).is_err());}
-    #[test]fn missing_attempt_reference_is_invalid_trace(){let mut f=fixture("CIVT-OUTCOME-01");f["events"].as_array_mut().unwrap().retain(|e|text(e,"event_id")!=Some(text(&f,"attempt_ref").unwrap_or("")));assert!(validate_fixture(&f).is_err());}
+    #[test]fn missing_attempt_reference_is_invalid_trace(){let mut f=fixture("CIVT-OUTCOME-01");let attempt_ref=text(&f,"attempt_ref").unwrap().to_string();f["events"].as_array_mut().unwrap().retain(|e|text(e,"event_id")!=Some(attempt_ref.as_str()));assert!(validate_fixture(&f).is_err());}
     #[test]fn event_status_must_match_its_kind(){let mut f=fixture("CIVT-OUTCOME-01");let idx=f["events"].as_array().unwrap().iter().position(|e|text(e,"kind")==Some("Attempt")).unwrap();f["events"][idx]["status"]=Value::String("Confirmed".into());assert!(validate_fixture(&f).is_err());}
     #[test]fn event_digest_must_be_lowercase_sha256(){let mut f=fixture("CIVT-HINDSIGHT-01");f["events"][0]["payload_sha256"]=Value::String("A".repeat(64));assert!(validate_fixture(&f).is_err());}
 }
