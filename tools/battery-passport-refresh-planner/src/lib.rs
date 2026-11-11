@@ -256,9 +256,6 @@ fn validate_case_input(corpus: &RefreshCorpus, case: &RefreshCase) -> Vec<String
             break;
         }
     }
-    if case.events.is_empty() {
-        errors.push("NO_REFRESH_EVENTS".to_owned());
-    }
     errors
 }
 
@@ -489,7 +486,7 @@ fn evaluate_case(case: &RefreshCase) -> CaseAudit {
                     ) {
                         disposition = "BLOCKED_UNQUALIFIED_EVENT".to_owned();
                         reason = "resulting lifecycle status is unsupported".to_owned();
-                    } else if status == case.battery.lifecycle_status {
+                    } else if status == case.battery.lifecycle_status.as_str() {
                         disposition = "CONFLICTING_EVENT".to_owned();
                         reason = "STATUS_CHANGED event does not change the declared lifecycle status".to_owned();
                     } else {
@@ -897,6 +894,7 @@ mod tests {
     fn weekly_refresh_is_not_invented_without_a_declared_trigger() {
         let row = case(&report(), "no_universal_weekly_update");
         assert_eq!(row.case_state, "NO_TRIGGER_RECORDED");
+        assert!(row.event_audits.is_empty());
         assert!(row.pending_data_points.is_empty());
     }
 
