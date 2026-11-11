@@ -709,6 +709,40 @@ mod tests {
     }
 
     #[test]
+    fn observed_unsettled_requires_subject_bound_evidence_and_persists_receipt() {
+        let mut book = ExposureBookV1::new(policy(1_000)).unwrap();
+        book.reserve(intent("effect:1", 600)).unwrap();
+        book.mark_dispatch_authorized("effect:1").unwrap();
+
+        let wrong_kind = resolution("effect:1");
+        assert_eq!(
+            book.mark_committed_unsettled("effect:1", &wrong_kind),
+            Err(ExposureError::InvalidResolutionEvidence)
+        );
+        let mut wrong_subject = observed_unsettled("effect:1");
+        wrong_subject.payload_digest = digest('c');
+        assert_eq!(
+            book.mark_committed_unsettled("effect:1", &wrong_subject),
+            Err(ExposureError::InvalidResolutionEvidence)
+        );
+        assert_eq!(
+            book.status("effect:1"),
+            Some(ExposureStatus::DispatchAuthorized)
+        );
+
+        let valid = observed_unsettled("effect:1");
+        book.mark_committed_unsettled("effect:1", &valid).unwrap();
+        book.mark_committed_unsettled("effect:1", &valid).unwrap();
+        let mut changed = valid;
+        changed.evidence_digest = digest('2');
+        assert_eq!(
+            book.mark_committed_unsettled("effect:1", &changed),
+            Err(ExposureError::ResolutionConflict)
+        );
+        assert_eq!(book.total_exposure_minor(), Ok(600));
+    }
+
+    #[test]
     fn settlement_releases_only_after_matching_receipt_subject() {
         let mut book = ExposureBookV1::new(policy(1_000)).unwrap();
         book.reserve(intent("effect:1", 600)).unwrap();
