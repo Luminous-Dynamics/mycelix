@@ -58,6 +58,15 @@ impl ForwardEffectV2 {
         {
             return Err(CompensationErrorV2::InvalidForwardEffect);
         }
+        if !matches!(
+            self.finality,
+            ForwardFinalityV2::Indeterminate
+                | ForwardFinalityV2::ObservedUnsettled
+                | ForwardFinalityV2::Settled
+                | ForwardFinalityV2::AuthoritativelyAbsent
+        ) {
+            return Err(CompensationErrorV2::InvalidFinality);
+        }
         if self.amount_minor == 0 || self.reversible_ceiling_minor > self.amount_minor {
             return Err(CompensationErrorV2::InvalidForwardEffect);
         }
@@ -494,11 +503,13 @@ pub enum CompensationErrorV2 {
     InvalidText,
     InvalidDigest,
     InvalidForwardEffect,
+    InvalidFinality,
     ForwardNotSettled,
     InvalidPlan,
     AuthorizationRevoked,
     AuthorizationExpired,
     AuthorizationScopeMismatch,
+    CapabilityIdentityConflict,
     CallerNotAuthorized,
     AuthorizationLimitExceeded,
     LiquidityReservationMismatch,
@@ -595,19 +606,20 @@ impl CompensationBookV2 {
             return Err(CompensationErrorV2::LiquidityReservationConflict);
         }
 
-        // One capability can authorize multiple partial components, but its
-        // total settled plus encumbered use cannot exceed maximum_minor.
+        // Capability IDs are immutable identities. A changed scope cannot
+        // evade a previously consumed cumulative grant ceiling.
         let capability_digest = request.authorization.canonical_scope_digest()?;
         let capability_used = self.records.values().try_fold(
             0_u64,
             |total, record| {
-                let same_capability = record
-                    .request
-                    .authorization
-                    .canonical_scope_digest()
-                    .is_ok_and(|digest| digest == capability_digest);
-                if !same_capability {
+                if record.request.authorization.capability_id
+                    != request.authorization.capability_id
+                {
                     return Ok(total);
+                }
+                let existing_digest = record.request.authorization.canonical_scope_digest()?;
+                if existing_digest != capability_digest {
+                    return Err(CompensationErrorV2::CapabilityIdentityConflict);
                 }
                 let amount = record.request.amount_minor;
                 let counted = match record.status {
