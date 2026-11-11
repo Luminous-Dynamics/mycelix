@@ -30,7 +30,7 @@ Neither view rewrites the event history. The distinction is necessary to audit b
 
 ## Independent outcome evidence
 
-An executor's `Succeeded` status is not an outcome observation. Only an `EffectObservation` linked to the exact attempt contributes to outcome state. Contradictory observations remain `CONTESTED`; missing observations remain `UNOBSERVED`.
+An executor's `Succeeded` status is not an outcome observation. Only an `EffectObservation` linked to the exact attempt contributes to outcome state, and it must name an `observer_ref` distinct from the attempt's executor/issuer identity. Same-source observations remain `INDEPENDENCE_UNESTABLISHED`; contradictory independent observations remain `CONTESTED`; missing or unmatched observations remain `UNOBSERVED`.
 
 ## Contestability and supersession
 
