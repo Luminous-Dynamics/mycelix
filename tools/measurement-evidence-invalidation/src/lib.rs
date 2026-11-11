@@ -480,17 +480,13 @@ pub fn evaluate_graph(graph: &Value) -> Value {
         .collect();
 
     let any_current = states.values().any(|state| state == "current");
-    let any_invalidated = states.values().any(|state| state == "invalidated");
-    let disposition = if any_invalidated {
-        if any_current {
-            "PARTIALLY_INVALIDATED"
-        } else {
-            "NO_CURRENT_EVIDENCE"
-        }
-    } else if any_current {
-        "CURRENT"
-    } else {
+    let any_non_current = states.values().any(|state| state != "current");
+    let disposition = if !any_current {
         "NO_CURRENT_EVIDENCE"
+    } else if any_non_current {
+        "PARTIALLY_INVALIDATED"
+    } else {
+        "CURRENT"
     };
 
     json!({
