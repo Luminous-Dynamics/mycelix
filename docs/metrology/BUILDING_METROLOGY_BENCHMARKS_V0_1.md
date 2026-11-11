@@ -38,7 +38,7 @@ That changes the unit of trust. The unit is no longer a device or a `calibrated=
 ### A. Synthetic contract correctness (current software gate)
 
 - Frozen v0.1 channels: 14.
-- Instrument passport corpus: 51 synthetic known-answer/adversarial cases.
+- Instrument passport corpus: 60 synthetic known-answer/adversarial cases (11 Nov 2026 cut).
 - Current synthetic target: 100% expected-disposition agreement; **zero false admission**; zero unknown fields or duplicate JSON member acceptance; zero silent missing-as-zero, stale, saturated or out-of-envelope readings; 100% of channel IDs/units/raw-derived semantics pinned independently of the fixture.
 - A complete synthetic chain may reach only `ELIGIBLE_FOR_INDEPENDENT_ADMISSION_REVIEW_ONLY`.
 - No physical tolerance or calibration range is invented by the software profile.
@@ -51,7 +51,7 @@ Measure the percentage of downstream claims for which the following are independ
 
 ### C. Mutation and adversarial robustness
 
-Expand from 51 to at least 100 cases before physical use. Add: forged/revoked certificate; wrong standard/reference artifact; a calibration point outside claimed scope; calibration correction applied to only some channels; certificate issued after sample date; NTP rollback and reboot sequence; daylight-saving ambiguity; duplicated/reordered packets; firmware scaling change; correlated drift; out-of-tolerance as-found review; missing raw data behind a derived value; invalid measurement rights; false assay sample ID; and selective deletion of inconvenient observations.
+Expand from 60 to at least 100 cases before physical use. Add: forged/revoked certificate; wrong standard/reference artifact; a calibration point outside claimed scope; calibration correction applied to only some channels; certificate issued after sample date; NTP rollback and reboot sequence; daylight-saving ambiguity; duplicated/reordered packets; firmware scaling change; correlated drift; out-of-tolerance as-found review; missing raw data behind a derived value; invalid measurement rights; false assay sample ID; and selective deletion of inconvenient observations.
 
 **Target:** 100% frozen known answers; zero seeded false admissions; mutation controls must prove each mutation changes the input and is rejected for the intended reason.
 
@@ -132,7 +132,7 @@ These targets must be costed end-to-end: instrumentation, accredited calibration
 
 - Mycelix #6028: 14 v0.1 channel state-gating oracle, 36 synthetic cases.
 - Mycelix #6036: seven missing-channel gap groups and 14 proposed v0.2 channel IDs; not admitted.
-- Mycelix #6034: numerical capability/calibration/installation/sample passport phase; draft PR #6040 adds 55 synthetic passport cases, a typed independent-assay record and schema-enforced Rust validation.
+- Mycelix #6034: numerical capability/calibration/installation/sample passport phase; draft PR #6040 adds 60 synthetic passport cases, a typed independent-assay record and schema-enforced Rust validation.
 - Symtropy #4507/#4531: thermal-resilience measurement/trajectory and unoccupied service-cell design.
 - Sol-Atlas #704/#700: semantic interoperability and read-only in-use outcome binding.
 - Mycelix #6047/#6048/#6042: signed DCC interoperability, nonlinear/correlated uncertainty and dependency-aware invalidation follow-ons.
@@ -249,3 +249,21 @@ Every report must publish a reproducible run manifest with:
 - all failures, abstentions, negative controls and deviations.
 
 A leaderboard without matched conditions and frozen evaluation code is not evidence of superiority.
+
+## 11. Passport assurance correction — 11 November 2026
+
+Draft [Mycelix PR #6040](https://github.com/Luminous-Dynamics/mycelix/pull/6040) now carries 60 synthetic cases. Independent schema validation across the corpus and every passport record returned zero errors; independent disposition replay matched all 60 cases and the 60 Rust-pinned expectations. The implementation has 38 Rust test functions authored. This is static replay only: no local Cargo/rustc/rustfmt toolchain is available, and the exact-head hosted workflows remain queued rather than PASS.
+
+Additional fail-closed conditions: the sample uncertainty budget must include exactly one calibration component sourced from the exact calibration record and equal to its declared uncertainty; the calibration range must be wholly contained by the independently verified capability envelope; and retired/replaced/moved instruments invalidate current-sample applicability.
+
+### Derived measurements are not calibrated instruments
+
+ISO 7726:2025 distinguishes basic quantities measured directly from derived quantities measured indirectly. Therefore the passport now blocks all derived v0.1 channels from review eligibility, even if the single-instrument-shaped record contains a method ID and a source digest. A proper typed multi-input calculation/source graph is tracked in [Mycelix #6064](https://github.com/Luminous-Dynamics/mycelix/issues/6064). No derived-measurement superiority claim is available until the graph, method applicability and uncertainty inputs are independently verified.
+
+### Conditions are part of capability applicability
+
+The current v0.1 passport preserves opaque `conditions_id` references but does not bind actual sample-time/environmental condition observations. That is an explicit remaining limitation, not a completed feature. [Mycelix #6065](https://github.com/Luminous-Dynamics/mycelix/issues/6065) owns the condition profile and per-sample applicability binding. Do not claim that the current passport proves a device stayed within its environmental capability envelope.
+
+### Competitive bar remains staged
+
+The software target remains 0 false passport admissions, 100% reconstructability for every admitted-for-review sample, and targeted-only invalidation. Physical targets remain hypotheses until an M1/M2 unoccupied programme can use actual instruments, reference methods, independently checked SANAS scopes and matched controls. Keep the four repeatability/reproducibility/population/ecological-validity strata separate. There are no physical results in this PR.
