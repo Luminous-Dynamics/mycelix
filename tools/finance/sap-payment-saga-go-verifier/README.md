@@ -103,3 +103,10 @@ The Go checkpoint module independently encodes the Payments/Treasury checkpoint 
 The shared fixture fixtures/sap-payment-journal-checkpoint-v1.kat pins canonical intent bytes/digest and checkpoint-subject bytes/digest. ValidateAgainstIntent recomputes MXSAP-PAYMENT-INTENT-V1 from sender, recipient, client idempotency key, payload fingerprint, principal, fee and currency, then checks the sender-scoped operation ID. Tests mutate every checkpoint dimension and immutable-intent field and reject operation/digest substitution, malformed digests, empty/oversized fields, unknown owners, zero counters/timestamps and inconsistent prior-checkpoint sequencing.
 
 This remains a reference subject encoder/verifier. The digest is not authorship or authorization proof. A native Holochain Create action and its author must be validated by the production integrity boundary; owner authorization and exact source ActionHash/frontier checks remain separate. The reference model does not establish DHT convergence, fork exclusion, physical effect, external settlement or legal finality.
+
+
+## Deterministic saga trace profile v1
+
+`trace.go` implements the language-neutral MXSAP-SAGA-TRACE-V1 input profile. Rust and Go use identical SplitMix64 seed derivation, draw order, bounded scenario templates, and fixed-width big-endian encoding. The 20-byte command records bind opcode, owner, fault, reserved-zero byte, subject nonce and value.
+
+Both implementations strictly decode complete traces and reject unknown opcodes/owners/faults, nonzero reserved bytes, truncated inputs and trailing bytes. They consume the shared fixture at `../sap-payment-saga-model/fixtures/saga-trace-v1.kat`; Rust embeds the same fixture in its unit test. The trace generator and decoder are input infrastructure only: the commands are not yet executed against the saga state machine, and the initial 4,096-seed smoke corpus is not the million-trace qualification. See `tools/finance/sap-payment-saga-model/SAGA_TRACE_V1.md` for the frozen grammar, seed algorithm and current claim ceiling.
