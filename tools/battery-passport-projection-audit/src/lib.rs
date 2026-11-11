@@ -815,5 +815,4 @@ mod tests {
         let bytes = serde_json::to_vec(&projection).unwrap();
         assert!(audit_projection(REGISTRY_SCHEMA, REGISTRY, PROJECTION_SCHEMA, &bytes).is_err());
     }
-
 }
