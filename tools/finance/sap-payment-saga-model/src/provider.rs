@@ -354,7 +354,7 @@ impl ProviderOperationKeyV1 {
         Ok(sha256_hex(&bytes))
     }
 
-    pub fn retry_same_request(
+    pub fn qualify_retry(
         &self,
         contract: &ProviderContractV1,
         current_account_scope: &str,
@@ -362,11 +362,8 @@ impl ProviderOperationKeyV1 {
         current_request_digest: &str,
         attempt: ProviderAttemptClassV1,
         now_unix_ms: u64,
-    ) -> Result<(), ProviderRetryErrorV1> {
+    ) -> Result<ProviderRetryPermitV1, ProviderRetryErrorV1> {
         self.validate(contract)?;
-        if !contract.idempotent_post {
-            return Err(ProviderRetryErrorV1::ProviderDoesNotSupportIdempotentPost);
-        }
         if current_account_scope != self.account_scope {
             return Err(ProviderRetryErrorV1::ProviderScopeMismatch);
         }
@@ -378,30 +375,169 @@ impl ProviderOperationKeyV1 {
         if current_request_digest != self.request_digest {
             return Err(ProviderRetryErrorV1::ChangedRequestDigest);
         }
-        let elapsed = now_unix_ms
-            .checked_sub(self.created_at_unix_ms)
-            .ok_or(ProviderRetryErrorV1::ClockMovedBackwards)?;
-        // Retention is deliberately bounded by the published minimum, not
-        // the upper end of a range. After the minimum, presence is uncertain.
-        if elapsed >= contract.retention_min_ms {
+        let valid_until_unix_ms = self
+            .created_at_unix_ms
+            .checked_add(contract.retention_min_ms)
+            .ok_or(ProviderRetryErrorV1::InvalidOperationKey)?;
+        if now_unix_ms < self.created_at_unix_ms {
+            return Err(ProviderRetryErrorV1::ClockMovedBackwards);
+        }
+        if now_unix_ms >= valid_until_unix_ms {
             return Err(ProviderRetryErrorV1::RetentionGuaranteeElapsed);
         }
-        match attempt {
-            ProviderAttemptClassV1::TransportTimeoutUnknown => Ok(()),
-            ProviderAttemptClassV1::InProgressWithTransientSignal
-                if contract.in_progress_behavior
-                    == ProviderInProgressBehaviorV1::RetryOnlyWithTransientErrorSignal =>
-            {
-                Ok(())
-            }
-            ProviderAttemptClassV1::InProgressWithoutTransientSignal => {
-                Err(ProviderRetryErrorV1::InProgressNotRetryable)
-            }
-            ProviderAttemptClassV1::InProgressWithTransientSignal => {
-                Err(ProviderRetryErrorV1::InProgressNotRetryable)
-            }
-            _ => Err(ProviderRetryErrorV1::AttemptClassNotRetryable),
+        validate_retry_attempt(contract, attempt)?;
+        let permit = ProviderRetryPermitV1 {
+            provider_id: self.provider_id.clone(),
+            profile_id: self.profile_id.clone(),
+            api_version: self.api_version.clone(),
+            account_scope: self.account_scope.clone(),
+            region: self.region.clone(),
+            idempotency_key: self.idempotency_key.clone(),
+            request_digest: self.request_digest.clone(),
+            contract_digest: self.contract_digest.clone(),
+            operation_key_digest: self.canonical_digest()?,
+            issued_at_unix_ms: now_unix_ms,
+            valid_until_unix_ms,
+            attempt,
+        };
+        permit.validate_against(self, contract, now_unix_ms)?;
+        Ok(permit)
+    }
+
+    /// Compatibility predicate for callers that only need a pass/fail result.
+    /// New dispatch adapters should carry and revalidate the returned permit.
+    pub fn retry_same_request(
+        &self,
+        contract: &ProviderContractV1,
+        current_account_scope: &str,
+        current_region: &str,
+        current_request_digest: &str,
+        attempt: ProviderAttemptClassV1,
+        now_unix_ms: u64,
+    ) -> Result<(), ProviderRetryErrorV1> {
+        self.qualify_retry(
+            contract,
+            current_account_scope,
+            current_region,
+            current_request_digest,
+            attempt,
+            now_unix_ms,
+        )
+        .map(|_| ())
+    }
+}
+
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ProviderRetryPermitV1 {
+    pub provider_id: String,
+    pub profile_id: String,
+    pub api_version: String,
+    pub account_scope: String,
+    pub region: String,
+    pub idempotency_key: String,
+    pub request_digest: String,
+    pub contract_digest: String,
+    pub operation_key_digest: String,
+    pub issued_at_unix_ms: u64,
+    pub valid_until_unix_ms: u64,
+    pub attempt: ProviderAttemptClassV1,
+}
+
+impl ProviderRetryPermitV1 {
+    pub fn canonical_digest(&self) -> Result<String, ProviderRetryErrorV1> {
+        for value in [
+            &self.provider_id,
+            &self.profile_id,
+            &self.api_version,
+            &self.account_scope,
+            &self.region,
+            &self.idempotency_key,
+        ] {
+            validate_text(value).map_err(|_| ProviderRetryErrorV1::RetryPermitMismatch)?;
         }
+        if !valid_digest(&self.request_digest)
+            || !valid_digest(&self.contract_digest)
+            || !valid_digest(&self.operation_key_digest)
+            || self.issued_at_unix_ms == 0
+            || self.valid_until_unix_ms <= self.issued_at_unix_ms
+        {
+            return Err(ProviderRetryErrorV1::RetryPermitMismatch);
+        }
+        let mut bytes = Vec::new();
+        bytes.extend_from_slice(RETRY_PERMIT_DOMAIN);
+        for value in [
+            &self.provider_id,
+            &self.profile_id,
+            &self.api_version,
+            &self.account_scope,
+            &self.region,
+            &self.idempotency_key,
+            &self.request_digest,
+            &self.contract_digest,
+            &self.operation_key_digest,
+        ] {
+            append_text(&mut bytes, value)
+                .map_err(|_| ProviderRetryErrorV1::RetryPermitMismatch)?;
+        }
+        append_u64(&mut bytes, self.issued_at_unix_ms);
+        append_u64(&mut bytes, self.valid_until_unix_ms);
+        bytes.push(self.attempt as u8);
+        Ok(sha256_hex(&bytes))
+    }
+
+    pub fn validate_against(
+        &self,
+        key: &ProviderOperationKeyV1,
+        contract: &ProviderContractV1,
+        now_unix_ms: u64,
+    ) -> Result<(), ProviderRetryErrorV1> {
+        key.validate(contract)?;
+        let expected_operation_key_digest = key.canonical_digest()?;
+        let expected_valid_until = key
+            .created_at_unix_ms
+            .checked_add(contract.retention_min_ms)
+            .ok_or(ProviderRetryErrorV1::RetryPermitMismatch)?;
+        if self.provider_id != key.provider_id
+            || self.profile_id != key.profile_id
+            || self.api_version != key.api_version
+            || self.account_scope != key.account_scope
+            || self.region != key.region
+            || self.idempotency_key != key.idempotency_key
+            || self.request_digest != key.request_digest
+            || self.contract_digest != key.contract_digest
+            || self.operation_key_digest != expected_operation_key_digest
+            || self.valid_until_unix_ms != expected_valid_until
+        {
+            return Err(ProviderRetryErrorV1::RetryPermitMismatch);
+        }
+        if now_unix_ms < self.issued_at_unix_ms {
+            return Err(ProviderRetryErrorV1::ClockMovedBackwards);
+        }
+        if now_unix_ms >= self.valid_until_unix_ms {
+            return Err(ProviderRetryErrorV1::RetryPermitExpired);
+        }
+        validate_retry_attempt(contract, self.attempt)
+    }
+}
+
+fn validate_retry_attempt(
+    contract: &ProviderContractV1,
+    attempt: ProviderAttemptClassV1,
+) -> Result<(), ProviderRetryErrorV1> {
+    match attempt {
+        ProviderAttemptClassV1::TransportTimeoutUnknown => Ok(()),
+        ProviderAttemptClassV1::InProgressWithTransientSignal
+            if contract.in_progress_behavior
+                == ProviderInProgressBehaviorV1::RetryOnlyWithTransientErrorSignal =>
+        {
+            Ok(())
+        }
+        ProviderAttemptClassV1::InProgressWithoutTransientSignal
+        | ProviderAttemptClassV1::InProgressWithTransientSignal => {
+            Err(ProviderRetryErrorV1::InProgressNotRetryable)
+        }
+        _ => Err(ProviderRetryErrorV1::AttemptClassNotRetryable),
     }
 }
 
