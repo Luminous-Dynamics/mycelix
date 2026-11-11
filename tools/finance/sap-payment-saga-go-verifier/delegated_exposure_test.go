@@ -34,6 +34,14 @@ func parentExposureIntent(scope ExposureScopeV1, effectID string, amount uint64)
 	}
 }
 
+func parentObservedUnsettled(effectID, destination string) DestinationResolutionV1 {
+	return DestinationResolutionV1{
+		Kind: ExposureObservedUnsettledEffect, EffectID: effectID, DestinationID: destination,
+		PayloadDigest: exposureTestDigest(11), ProfileDigest: exposureTestDigest(14),
+		EvidenceDigest: exposureTestDigest(1),
+	}
+}
+
 func parentExposureResolution(effectID, destination string, kind ExposureResolutionKind) DestinationResolutionV1 {
 	return DestinationResolutionV1{
 		Kind: kind, EffectID: effectID, DestinationID: destination,
@@ -80,7 +88,7 @@ func TestRevocationStopsNewRiskButAllowsExistingResolution(t *testing.T) {
 		t.Fatalf("exact retry during revocation = %v, %v", disposition, err)
 	}
 	if err := parent.MarkDispatchAuthorized("provider-a", "effect:1"); err != nil { t.Fatal(err) }
-	if err := parent.MarkCommittedUnsettled("provider-a", "effect:1"); err != nil { t.Fatal(err) }
+	if err := parent.MarkCommittedUnsettled("provider-a", "effect:1", parentObservedUnsettled("effect:1", "dest:a")); err != nil { t.Fatal(err) }
 	evidence := parentExposureResolution("effect:1", "dest:a", ExposureFinalSettlementEvidence)
 	if err := parent.MarkSettled("provider-a", "effect:1", evidence); err != nil { t.Fatal(err) }
 	if err := parent.CloseGrant("provider-a"); err != nil { t.Fatal(err) }
