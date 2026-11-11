@@ -165,10 +165,6 @@ impl ParentDelegatedExposureBookV1 {
             policy_digest: grant_digest.clone(),
         };
         child_policy.validate()?;
-        if budget_minor > self.policy.maximum_child_budget_minor {
-            return Err(ExposureError::LimitExceeded);
-        }
-
         if let Some(existing) = self.grants.get(&grant_id) {
             return if existing.same_terms(&child_scope, budget_minor, grant_sequence, &grant_digest)
             {
@@ -176,6 +172,10 @@ impl ParentDelegatedExposureBookV1 {
             } else {
                 Err(ExposureError::ReservationConflict)
             };
+        }
+
+        if budget_minor > self.policy.maximum_child_budget_minor {
+            return Err(ExposureError::LimitExceeded);
         }
 
         let latest_sequence = self
@@ -250,13 +250,50 @@ impl ParentDelegatedExposureBookV1 {
             .reserve(intent)
     }
 
+    /// Dispatch authorization is a risk-increasing transition. It is blocked
+    /// after grant revocation or when the parent/child policy has been tightened
+    /// below current encumbrance. Already-authorized effects remain idempotent.
     pub fn mark_dispatch_authorized(
         &mut self,
         grant_id: &str,
         effect_id: &str,
     ) -> Result<(), ExposureError> {
+        let grant = self
+            .grants
+            .get(grant_id)
+            .ok_or(ExposureError::ReservationNotFound)?;
+        let status = grant
+            .child_book
+            .status(effect_id)
+            .ok_or(ExposureError::ReservationNotFound)?;
+        if status == ExposureStatus::DispatchAuthorized {
+            return self
+                .child_book_mut(grant_id)?
+                .mark_dispatch_authorized(effect_id);
+        }
+        if status != ExposureStatus::Reserved
+            || grant.status != DelegatedBudgetStatus::Active
+        {
+            return Err(ExposureError::InvalidTransition);
+        }
+        if grant.budget_minor > self.policy.maximum_child_budget_minor
+            || self.allocated_budget_minor()? > self.policy.maximum_total_minor
+        {
+            return Err(ExposureError::LimitExceeded);
+        }
         self.child_book_mut(grant_id)?
             .mark_dispatch_authorized(effect_id)
+    }
+
+    /// Cancellation is risk-reducing and remains possible after revocation,
+    /// but only while an effect has not crossed the dispatch boundary.
+    pub fn cancel_before_dispatch(
+        &mut self,
+        grant_id: &str,
+        effect_id: &str,
+    ) -> Result<(), ExposureError> {
+        self.child_book_mut(grant_id)?
+            .cancel_before_dispatch(effect_id)
     }
 
     pub fn mark_indeterminate(
