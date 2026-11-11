@@ -193,7 +193,7 @@ func TestProviderObservationCannotClaimAuthoritativeAbsenceV1(t *testing.T) {
 	key := providerTestOperationKeyV1(contract)
 	observation := providerTestObservationV1(key)
 	observation.Status = ProviderAuthoritativelyAbsentV1
-	if err := observation.ValidateAgainstKey(contract, key, providerTestNowMSV1); err != ErrProviderAbsenceUnsupportedV1 {
+	if err := observation.ValidateAgainstKey(contract, key, providerTestNowMSV1); err != ErrProviderAbsenceRequiresDedicatedEvidenceV1 {
 		t.Fatalf("ordinary absence observation result = %v", err)
 	}
 	if _, err := observation.CanonicalDigest(); err != ErrProviderObservationInvalidSubjectV1 {
@@ -230,4 +230,37 @@ func TestProviderContractDigestChangesWhenSemanticsChangeV1(t *testing.T) {
 	after, err := contract.CanonicalDigest()
 	if err != nil { t.Fatal(err) }
 	if before == after { t.Fatal("provider contract digest did not bind region scope") }
+}
+
+
+func TestProviderRetryPermitIsDigestBoundAndExpiresAtGuaranteeBoundaryV1(t *testing.T) {
+	contract := providerTestAdyenContractV1()
+	key := providerTestOperationKeyV1(contract)
+	permit, err := key.QualifyRetry(
+		contract,
+		"company:test-account",
+		"eu",
+		key.RequestDigest,
+		ProviderTransportTimeoutUnknownV1,
+		2_000,
+	)
+	if err != nil { t.Fatal(err) }
+	if permit.ValidUntilUnixMS != 1_000+7*providerDayMSV1 {
+		t.Fatalf("permit expiry=%d", permit.ValidUntilUnixMS)
+	}
+	digest, err := permit.CanonicalDigest()
+	if err != nil { t.Fatal(err) }
+	if digest != "sha256:b90b3840d91826f4f79949b8d5872b20de988a677c3be0d62e1b3e86f54c0352" {
+		t.Fatalf("permit digest=%s", digest)
+	}
+	if err := permit.ValidateAgainst(key, contract, 2_000); err != nil { t.Fatal(err) }
+
+	changedRegion := permit
+	changedRegion.Region = "us"
+	if err := changedRegion.ValidateAgainst(key, contract, 2_000); err != ErrProviderRetryPermitMismatchV1 {
+		t.Fatalf("changed region permit=%v", err)
+	}
+	if err := permit.ValidateAgainst(key, contract, 1_000+7*providerDayMSV1); err != ErrProviderRetryPermitExpiredV1 {
+		t.Fatalf("expired permit=%v", err)
+	}
 }
