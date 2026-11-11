@@ -67,3 +67,23 @@ For any real M1 instrument, select a calibration/testing laboratory only after l
 ## Claim ceiling
 
 These are standards/method pointers. This matrix is not an accredited method list, conformity assessment, building-code determination or SANAS scope decision. No instrument is qualified until its exact certificate and current accreditation scope are independently checked by a competent metrology reviewer.
+
+## 11 November 2026: derived quantities and exact-result traceability
+
+### Basic versus derived quantities
+
+ISO 7726:2025 distinguishes basic quantities measured directly from derived quantities measured indirectly (examples include mean radiant temperature and operative temperature). This is not a terminology nicety: the latter are measurement systems/calculations over multiple input observations and method assumptions. A single sensor-style certificate and a `raw_source_digest` cannot establish that graph.
+
+The v0.1 passport deliberately blocks derived channels from review eligibility until the exact source graph is supported. Mycelix [#6064](https://github.com/Luminous-Dynamics/mycelix/issues/6064) owns the versioned derivation graph, source samples, geometry/method inputs and dependency edges; [#6048](https://github.com/Luminous-Dynamics/mycelix/issues/6048) owns numerical uncertainty propagation. Do not treat a derived output as an independently calibrated physical instrument.
+
+### Conditions are applicability evidence
+
+Capability and calibration condition profiles are not yet fully bound to actual sample-time condition observations. Opaque `conditions_id` values in v0.1 do not prove that the instrument operated within its tested environmental envelope. Mycelix [#6065](https://github.com/Luminous-Dynamics/mycelix/issues/6065) owns versioned condition profiles, sample observations, uncertainty and applicability windows.
+
+### Calibration uncertainty lineage
+
+Passport v0.1 now requires the calibration certificate's uncertainty to appear exactly once in the sample-level uncertainty component set, sourced from the exact calibration record. This is a completeness/lineage check only. It does not combine components, establish covariance, or calculate the expanded output uncertainty; those remain with #6048.
+
+### Calibration scope containment
+
+The certificate range must be valid and lie wholly inside the independently characterized instrument capability interval. The certificate cannot enlarge a device's range. The actual lab accreditation schedule must still be checked independently against exact measurand, method, range and uncertainty capability; an authenticated document alone does not prove accreditation scope.
