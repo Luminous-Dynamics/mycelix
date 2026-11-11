@@ -12,9 +12,9 @@
 //! predecessor authorization, monetary conservation in production, or legal
 //!/external settlement finality.
 
+pub mod oracle;
 pub mod replay;
 pub mod trace;
-pub mod oracle;
 
 use std::collections::{BTreeMap, btree_map::Entry};
 use std::fmt;
