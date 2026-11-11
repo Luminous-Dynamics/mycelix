@@ -267,3 +267,14 @@ The current v0.1 passport preserves opaque `conditions_id` references but does n
 ### Competitive bar remains staged
 
 The software target remains 0 false passport admissions, 100% reconstructability for every admitted-for-review sample, and targeted-only invalidation. Physical targets remain hypotheses until an M1/M2 unoccupied programme can use actual instruments, reference methods, independently checked SANAS scopes and matched controls. Keep the four repeatability/reproducibility/population/ecological-validity strata separate. There are no physical results in this PR.
+
+## 11 November 2026 — interlaboratory standards correction
+
+The household-appliance/measurement study references have been refreshed:
+- ISO 5725-2:2025 (Edition 3) is now published as the current basic repeatability/reproducibility interlaboratory method; ISO 5725-2:2019 is withdrawn.
+- ISO 5725-1:2023 is the current general trueness/precision and study-design principles reference; ISO 5725-3:2023 addresses intermediate precision/alternative collaborative designs.
+- ISO/IEC 17043:2023 and ISO 13528:2022/Amd 1:2026 cover proficiency-testing provider competence and statistical scheme methods respectively.
+
+Study design must distinguish four evidence strata and a separate lab-competence/PT axis. A valid proficiency-test score is not a reproducibility estimate; reproducibility is not production-unit variation; and neither is household ecological validity. The executable preregistration gate is tracked in Symthaea [#10341](https://github.com/Luminous-Dynamics/symthaea/issues/10341) / draft [PR #11602](https://github.com/Luminous-Dynamics/symthaea/pull/11602).
+
+Sources: [ISO 5725-2:2025](https://www.iso.org/standard/90054.html); [ISO 5725-1:2023](https://www.iso.org/standard/69418.html); [ISO 5725-3:2023](https://www.iso.org/ics/17.020/x/); [ISO/IEC 17043:2023](https://www.iso.org/standard/80864.html); [ISO 13528:2022/Amd 1:2026](https://www.iso.org/standard/90057.html).
