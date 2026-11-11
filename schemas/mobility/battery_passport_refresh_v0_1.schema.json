@@ -197,7 +197,6 @@
         },
         "events": {
           "type": "array",
-          "minItems": 1,
           "maxItems": 128,
           "items": {
             "$ref": "#/$defs/event"
