@@ -177,7 +177,7 @@
         },
         "registry_binding": {
           "registry_id": "MYC-BUILD-MEASUREMENT-CONDITIONS-V0.1",
-          "registry_blob_sha1": "69b7fcbce60fde5b1aab9ee1088efe826d6b33ef",
+          "registry_blob_sha1": "",
           "profile_id": "COND-AIR-TEMP-001",
           "profile_revision": "1",
           "conditions_id": "SYNTH-ENV-01",
@@ -311,7 +311,7 @@
         },
         "registry_binding": {
           "registry_id": "MYC-BUILD-MEASUREMENT-CONDITIONS-V0.1",
-          "registry_blob_sha1": "69b7fcbce60fde5b1aab9ee1088efe826d6b33ef",
+          "registry_blob_sha1": "ffffffffffffffffffffffffffffffffffffffff",
           "profile_id": "COND-AIR-TEMP-001",
           "profile_revision": "1",
           "conditions_id": "SYNTH-ENV-01",
