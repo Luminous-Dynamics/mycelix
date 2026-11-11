@@ -1,0 +1,57 @@
+name: Battery Passport event-triggered refresh planner v0.1
+
+on:
+  pull_request:
+    paths:
+      - "docs/mobility/BATTERY_PASSPORT_REFRESH_V0_1.md"
+      - "schemas/mobility/battery_passport_refresh_v0_1.schema.json"
+      - "fixtures/mobility/battery_passport_refresh_v0_1.json"
+      - "tools/battery-passport-refresh-planner/**"
+      - ".github/workflows/battery-passport-refresh-planner.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.96.0
+          components: rustfmt
+
+      - name: Check formatting
+        run: cargo fmt --manifest-path tools/battery-passport-refresh-planner/Cargo.toml -- --check
+
+      - name: Run event identity, authority, trigger and reconciliation tests
+        run: cargo test --manifest-path tools/battery-passport-refresh-planner/Cargo.toml
+
+      - name: Audit frozen synthetic event corpus
+        run: |
+          cargo run --manifest-path tools/battery-passport-refresh-planner/Cargo.toml -- \
+            --schema schemas/mobility/battery_passport_refresh_v0_1.schema.json \
+            --corpus fixtures/mobility/battery_passport_refresh_v0_1.json \
+            > "$RUNNER_TEMP/battery-passport-refresh-report.json"
+          jq -e '
+            .case_count == 12 and
+            .operator_action_count == 7 and
+            .reconciliation_count == 3 and
+            .no_trigger_count == 1 and
+            all(.cases[]; .registry_submission_authorized == false) and
+            any(.cases[]; .case_id == "status_change_considered_before_transition" and
+              .event_audits[0].disposition == "UPDATE_REQUIRED" and
+              any(.pending_data_points[]; .data_point == 67)) and
+            any(.cases[]; .case_id == "no_material_soh_change_records_review" and
+              .case_state == "REVIEW_RECORDED" and
+              (.pending_data_points | length) == 0) and
+            any(.cases[]; .case_id == "connectivity_loss_does_not_satisfy_due_work" and
+              .event_audits[1].disposition == "CONNECTIVITY_BLOCKED" and
+              (.pending_data_points | length) > 0) and
+            any(.cases[]; .case_id == "remanufacture_requires_new_passport_link" and
+              .new_passport_link_required == true)
+          ' "$RUNNER_TEMP/battery-passport-refresh-report.json"
