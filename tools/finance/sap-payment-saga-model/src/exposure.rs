@@ -299,10 +299,7 @@ impl ExposureBookV1 {
             .reservations
             .get(effect_id)
             .ok_or(ExposureError::ReservationNotFound)?;
-        evidence.validate_against(
-            reservation,
-            ExposureResolutionKind::ObservedUnsettledEffect,
-        )?;
+        evidence.validate_against(reservation, ExposureResolutionKind::ObservedUnsettledEffect)?;
         if reservation.status == ExposureStatus::CommittedUnsettled {
             return self.validate_repeated_resolution(effect_id, evidence);
         }
@@ -622,7 +619,8 @@ mod tests {
         book.mark_dispatch_authorized("indeterminate").unwrap();
         book.mark_indeterminate("indeterminate").unwrap();
         book.mark_dispatch_authorized("committed").unwrap();
-        book.mark_committed_unsettled("committed", &observed_unsettled("committed")).unwrap();
+        book.mark_committed_unsettled("committed", &observed_unsettled("committed"))
+            .unwrap();
         assert_eq!(
             book.breakdown_minor().unwrap(),
             ExposureBreakdownV1 {
@@ -747,7 +745,8 @@ mod tests {
         let mut book = ExposureBookV1::new(policy(1_000)).unwrap();
         book.reserve(intent("effect:1", 600)).unwrap();
         book.mark_dispatch_authorized("effect:1").unwrap();
-        book.mark_committed_unsettled("effect:1", &observed_unsettled("effect:1")).unwrap();
+        book.mark_committed_unsettled("effect:1", &observed_unsettled("effect:1"))
+            .unwrap();
         let mut wrong = resolution("effect:1");
         wrong.payload_digest = digest('c');
         assert_eq!(
