@@ -727,9 +727,7 @@ impl CompensationBookV2 {
             {
                 Ok(CompensationDispositionV2::AlreadyApplied)
             }
-            CompensationStatusV2::Indeterminate => {
-                Err(CompensationErrorV2::OutcomeConflict)
-            }
+            CompensationStatusV2::Indeterminate => Err(CompensationErrorV2::OutcomeConflict),
             _ => Err(CompensationErrorV2::InvalidTransition),
         }
     }
@@ -810,8 +808,7 @@ impl CompensationBookV2 {
                 Err(CompensationErrorV2::OutcomeConflict)
             };
         }
-        if record.status != CompensationStatusV2::Indeterminate
-            || record.possible_effect_count != 1
+        if record.status != CompensationStatusV2::Indeterminate || record.possible_effect_count != 1
         {
             return Err(CompensationErrorV2::OutcomeContradiction);
         }
@@ -845,8 +842,7 @@ impl CompensationBookV2 {
         ) {
             return Err(CompensationErrorV2::InvalidTransition);
         }
-        if record.status == CompensationStatusV2::Indeterminate
-            && record.possible_effect_count != 1
+        if record.status == CompensationStatusV2::Indeterminate && record.possible_effect_count != 1
         {
             return Err(CompensationErrorV2::OutcomeContradiction);
         }
@@ -921,7 +917,9 @@ impl CompensationBookV2 {
     }
 
     pub fn status(&self, compensation_id: &str) -> Option<CompensationStatusV2> {
-        self.records.get(compensation_id).map(|record| record.status)
+        self.records
+            .get(compensation_id)
+            .map(|record| record.status)
     }
 
     pub fn settled_minor(&self) -> Result<u64, CompensationErrorV2> {
@@ -1024,7 +1022,6 @@ fn sha256_hex(bytes: &[u8]) -> String {
     }
     output
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -1133,10 +1130,7 @@ mod tests {
             plan_digest: book.plan_digest.clone(),
             amount_minor: request.amount_minor,
             authorization_digest: request.authorization.canonical_digest().unwrap(),
-            liquidity_reservation_digest: request
-                .liquidity_reservation
-                .canonical_digest()
-                .unwrap(),
+            liquidity_reservation_digest: request.liquidity_reservation.canonical_digest().unwrap(),
             funding_owner_id: book.plan.funding_owner_id.clone(),
             funding_account_id: book.plan.funding_account_id.clone(),
             beneficiary_owner_id: book.plan.beneficiary_owner_id.clone(),
@@ -1177,7 +1171,12 @@ mod tests {
             Ok(CompensationDispositionV2::Created)
         );
         assert_eq!(
-            book.mark_dispatch_authorized("refund:1", "owner:refund-operator", &first.authorization, NOW),
+            book.mark_dispatch_authorized(
+                "refund:1",
+                "owner:refund-operator",
+                &first.authorization,
+                NOW
+            ),
             Ok(CompensationDispositionV2::Applied)
         );
         let settlement = outcome(
@@ -1208,8 +1207,13 @@ mod tests {
         let mut book = book(100, 100);
         let request = request(&book, "refund:uncertain", 35, "liquidity:uncertain", 100);
         book.reserve(request.clone(), NOW).unwrap();
-        book.mark_dispatch_authorized("refund:uncertain", "owner:refund-operator", &request.authorization, NOW)
-            .unwrap();
+        book.mark_dispatch_authorized(
+            "refund:uncertain",
+            "owner:refund-operator",
+            &request.authorization,
+            NOW,
+        )
+        .unwrap();
         book.mark_indeterminate("refund:uncertain", 1).unwrap();
 
         assert_eq!(book.encumbered_minor(), Ok(35));
@@ -1255,8 +1259,13 @@ mod tests {
         let mut book = book(100, 100);
         let request = request(&book, "refund:retry", 30, "liquidity:retry", 100);
         book.reserve(request.clone(), NOW).unwrap();
-        book.mark_dispatch_authorized("refund:retry", "owner:refund-operator", &request.authorization, NOW)
-            .unwrap();
+        book.mark_dispatch_authorized(
+            "refund:retry",
+            "owner:refund-operator",
+            &request.authorization,
+            NOW,
+        )
+        .unwrap();
         book.mark_indeterminate("refund:retry", 0).unwrap();
         let absence = outcome(
             &book,
@@ -1266,14 +1275,22 @@ mod tests {
         );
         book.resolve_authoritative_absence(absence).unwrap();
         assert_eq!(
-            book.retry_same_effect("refund:retry", "owner:refund-operator", &request.authorization, NOW),
+            book.retry_same_effect(
+                "refund:retry",
+                "owner:refund-operator",
+                &request.authorization,
+                NOW
+            ),
             Ok(CompensationDispositionV2::Applied)
         );
         assert_eq!(
             book.compensation_effect_id("refund:retry").as_deref(),
             Some("mx-compensation:refund:retry")
         );
-        assert_eq!(book.status("refund:retry"), Some(CompensationStatusV2::Reserved));
+        assert_eq!(
+            book.status("refund:retry"),
+            Some(CompensationStatusV2::Reserved)
+        );
         assert_eq!(book.encumbered_minor(), Ok(30));
     }
 
@@ -1321,7 +1338,13 @@ mod tests {
     #[test]
     fn acting_owner_must_match_capability_grantee() {
         let mut book = book(100, 100);
-        let mut request = request(&book, "refund:wrong-actor", 20, "liquidity:wrong-actor", 100);
+        let mut request = request(
+            &book,
+            "refund:wrong-actor",
+            20,
+            "liquidity:wrong-actor",
+            100,
+        );
         request.actor_owner_id = "owner:mallory".into();
         assert_eq!(
             book.reserve(request, NOW),
@@ -1342,7 +1365,10 @@ mod tests {
             book.mark_dispatch_authorized("refund:revoked", "owner:refund-operator", &revoked, NOW),
             Err(CompensationErrorV2::AuthorizationRevoked)
         );
-        assert_eq!(book.status("refund:revoked"), Some(CompensationStatusV2::Reserved));
+        assert_eq!(
+            book.status("refund:revoked"),
+            Some(CompensationStatusV2::Reserved)
+        );
 
         assert_eq!(
             book.mark_dispatch_authorized(
@@ -1370,7 +1396,10 @@ mod tests {
             ),
             Err(CompensationErrorV2::CallerNotAuthorized)
         );
-        assert_eq!(book.status("refund:caller"), Some(CompensationStatusV2::Reserved));
+        assert_eq!(
+            book.status("refund:caller"),
+            Some(CompensationStatusV2::Reserved)
+        );
         assert_eq!(book.encumbered_minor(), Ok(20));
     }
 
@@ -1383,7 +1412,13 @@ mod tests {
             Err(CompensationErrorV2::InsufficientLiquidity)
         );
 
-        let mut wrong_source = request(&book, "refund:wrong-source", 20, "liquidity:wrong-source", 100);
+        let mut wrong_source = request(
+            &book,
+            "refund:wrong-source",
+            20,
+            "liquidity:wrong-source",
+            100,
+        );
         wrong_source.liquidity_reservation.source_account_id = "account:other".into();
         assert_eq!(
             book.reserve(wrong_source, NOW),
@@ -1395,7 +1430,13 @@ mod tests {
     #[test]
     fn compensation_outcome_must_bind_authorization_reservation_and_forward_subject() {
         let mut book = book(100, 100);
-        let request = request(&book, "refund:bad-outcome", 20, "liquidity:bad-outcome", 100);
+        let request = request(
+            &book,
+            "refund:bad-outcome",
+            20,
+            "liquidity:bad-outcome",
+            100,
+        );
         book.reserve(request.clone(), NOW).unwrap();
         book.mark_dispatch_authorized(
             "refund:bad-outcome",
@@ -1403,7 +1444,7 @@ mod tests {
             &request.authorization,
             NOW,
         )
-            .unwrap();
+        .unwrap();
 
         let mut wrong_authority = outcome(
             &book,
@@ -1416,7 +1457,10 @@ mod tests {
             book.settle(wrong_authority),
             Err(CompensationErrorV2::InvalidOutcome)
         );
-        assert_eq!(book.status("refund:bad-outcome"), Some(CompensationStatusV2::DispatchAuthorized));
+        assert_eq!(
+            book.status("refund:bad-outcome"),
+            Some(CompensationStatusV2::DispatchAuthorized)
+        );
 
         let mut wrong_forward = outcome(
             &book,
@@ -1431,8 +1475,6 @@ mod tests {
         );
         assert_eq!(book.encumbered_minor(), Ok(20));
     }
-
-
 
     #[test]
     fn indexed_reservation_admission_scales_to_ten_thousand_partial_refunds() {
@@ -1481,9 +1523,18 @@ mod tests {
         let values = [
             ("forward", book.forward.canonical_digest().unwrap()),
             ("plan", book.plan_digest.clone()),
-            ("authorization_scope", request.authorization.canonical_scope_digest().unwrap()),
-            ("authorization", request.authorization.canonical_digest().unwrap()),
-            ("liquidity", request.liquidity_reservation.canonical_digest().unwrap()),
+            (
+                "authorization_scope",
+                request.authorization.canonical_scope_digest().unwrap(),
+            ),
+            (
+                "authorization",
+                request.authorization.canonical_digest().unwrap(),
+            ),
+            (
+                "liquidity",
+                request.liquidity_reservation.canonical_digest().unwrap(),
+            ),
             ("request", request.canonical_digest().unwrap()),
             ("outcome", outcome.canonical_digest().unwrap()),
         ];
@@ -1503,7 +1554,13 @@ mod tests {
         let first = request(&book, "refund:cap-scope-1", 40, "liquidity:cap-scope-1", 70);
         book.reserve(first, NOW).unwrap();
 
-        let mut second = request(&book, "refund:cap-scope-2", 40, "liquidity:cap-scope-2", 100);
+        let mut second = request(
+            &book,
+            "refund:cap-scope-2",
+            40,
+            "liquidity:cap-scope-2",
+            100,
+        );
         second.authorization.capability_id = "capability:refund-01".into();
         assert_eq!(
             book.reserve(second, NOW),
@@ -1524,7 +1581,13 @@ mod tests {
         );
         assert_eq!(book.encumbered_minor(), Ok(0));
 
-        let dispatched = request(&book, "refund:no-cancel-after-dispatch", 25, "liquidity:dispatched", 100);
+        let dispatched = request(
+            &book,
+            "refund:no-cancel-after-dispatch",
+            25,
+            "liquidity:dispatched",
+            100,
+        );
         book.reserve(dispatched.clone(), NOW).unwrap();
         book.mark_dispatch_authorized(
             "refund:no-cancel-after-dispatch",
