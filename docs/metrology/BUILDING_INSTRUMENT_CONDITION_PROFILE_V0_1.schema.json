@@ -1,0 +1,239 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Mycelix Instrument Condition Applicability Profile v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "profile_id",
+    "classification",
+    "claim_ceiling",
+    "condition_profiles",
+    "invariants"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "mycelix.instrument-condition-applicability/0.1"
+    },
+    "profile_id": {
+      "const": "MYC-BUILD-CONDITIONS-V0.1"
+    },
+    "classification": {
+      "const": "synthetic_condition_applicability_contract"
+    },
+    "claim_ceiling": {
+      "const": "condition_profile_and_sample_context_conformance_only"
+    },
+    "condition_profiles": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": {
+        "$ref": "#/$defs/conditionProfile"
+      }
+    },
+    "invariants": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "capability_conditions_are_part_of_sample_applicability",
+        "opaque_condition_ids_without_resolvable_profile_are_not_applicable",
+        "required_conditions_must_cover_full_sample_window",
+        "condition_observations_must_be_local_to_instrument_context",
+        "measured_conditions_require_current_calibration",
+        "provider_assertions_are_not_independent_measurements",
+        "environmental_correction_requires_exact_validated_method",
+        "corrections_cannot_be_applied_twice",
+        "missing_conditions_are_never_assumed_within_range",
+        "real_sensor_admission_is_not_authorized"
+      ],
+      "properties": {
+        "capability_conditions_are_part_of_sample_applicability": {
+          "const": true
+        },
+        "opaque_condition_ids_without_resolvable_profile_are_not_applicable": {
+          "const": true
+        },
+        "required_conditions_must_cover_full_sample_window": {
+          "const": true
+        },
+        "condition_observations_must_be_local_to_instrument_context": {
+          "const": true
+        },
+        "measured_conditions_require_current_calibration": {
+          "const": true
+        },
+        "provider_assertions_are_not_independent_measurements": {
+          "const": true
+        },
+        "environmental_correction_requires_exact_validated_method": {
+          "const": true
+        },
+        "corrections_cannot_be_applied_twice": {
+          "const": true
+        },
+        "missing_conditions_are_never_assumed_within_range": {
+          "const": true
+        },
+        "real_sensor_admission_is_not_authorized": {
+          "const": true
+        }
+      }
+    }
+  },
+  "$defs": {
+    "conditionProfile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "profile_id",
+        "revision",
+        "digest",
+        "instrument_id",
+        "channel_id",
+        "instrument_configuration_digest",
+        "evidence_class",
+        "method_id",
+        "method_revision",
+        "profile_state",
+        "validity_start_tick",
+        "validity_end_tick",
+        "tick_unit",
+        "location_rule",
+        "required_conditions",
+        "correction_rule"
+      ],
+      "properties": {
+        "profile_id": {
+          "type": "string"
+        },
+        "revision": {
+          "type": "string"
+        },
+        "digest": {
+          "type": "string"
+        },
+        "instrument_id": {
+          "type": "string"
+        },
+        "channel_id": {
+          "type": "string"
+        },
+        "instrument_configuration_digest": {
+          "type": "string"
+        },
+        "evidence_class": {
+          "type": "string"
+        },
+        "method_id": {
+          "type": "string"
+        },
+        "method_revision": {
+          "type": "string"
+        },
+        "profile_state": {
+          "enum": [
+            "synthetic_test_only",
+            "BLOCKED_METHOD_AND_INSTRUMENT_SCOPE"
+          ]
+        },
+        "validity_start_tick": {
+          "type": "integer"
+        },
+        "validity_end_tick": {
+          "type": "integer"
+        },
+        "tick_unit": {
+          "type": "string"
+        },
+        "location_rule": {
+          "type": "string"
+        },
+        "required_conditions": {
+          "type": "array",
+          "minItems": 2,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "condition_id",
+              "quantity_kind",
+              "unit",
+              "minimum",
+              "maximum",
+              "maximum_expanded_uncertainty",
+              "required_state",
+              "maximum_age_seconds"
+            ],
+            "properties": {
+              "condition_id": {
+                "type": "string"
+              },
+              "quantity_kind": {
+                "type": "string"
+              },
+              "unit": {
+                "type": "string"
+              },
+              "minimum": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "maximum": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "maximum_expanded_uncertainty": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "required_state": {
+                "type": "string"
+              },
+              "maximum_age_seconds": {
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              }
+            }
+          }
+        },
+        "correction_rule": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "state",
+            "method_id",
+            "method_revision",
+            "artifact_digest",
+            "maximum_application_count"
+          ],
+          "properties": {
+            "state": {
+              "type": "string"
+            },
+            "method_id": {
+              "type": "string"
+            },
+            "method_revision": {
+              "type": "string"
+            },
+            "artifact_digest": {
+              "type": "string"
+            },
+            "maximum_application_count": {
+              "type": "integer"
+            }
+          }
+        }
+      }
+    }
+  }
+}
