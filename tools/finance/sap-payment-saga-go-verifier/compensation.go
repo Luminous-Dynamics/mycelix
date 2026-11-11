@@ -208,11 +208,27 @@ func (a CompensationAuthorizationV2) CanonicalScopeDigest() (string, error) {
 }
 
 func (a CompensationAuthorizationV2) CanonicalDigest() (string, error) {
-	scope, err := a.CanonicalScopeDigest()
-	if err != nil { return "", err }
+	for _, value := range []string{
+		a.CapabilityID, a.IssuerOwnerID, a.GranteeOwnerID, a.PlanDigest,
+		a.FundingOwnerID, a.FundingAccountID, a.BeneficiaryOwnerID,
+		a.BeneficiaryAccountID, a.Asset,
+	} {
+		if err := validateCompensationTextV2(value); err != nil { return "", err }
+	}
+	if err := validateCompensationDigestV2(a.PlanDigest); err != nil { return "", err }
 	output := []byte(compensationAuthDomainV2)
-	output, err = appendCompensationTextV2(output, scope)
-	if err != nil { return "", err }
+	var err error
+	for _, value := range []string{
+		a.CapabilityID, a.IssuerOwnerID, a.GranteeOwnerID, a.PlanDigest,
+		a.FundingOwnerID, a.FundingAccountID, a.BeneficiaryOwnerID,
+		a.BeneficiaryAccountID, a.Asset,
+	} {
+		output, err = appendCompensationTextV2(output, value)
+		if err != nil { return "", err }
+	}
+	output = appendCompensationU64V2(output, a.MaximumMinor)
+	output = appendCompensationU64V2(output, a.Nonce)
+	output = appendCompensationU64V2(output, a.ExpiresAtUnixMS)
 	if a.Revoked { output = append(output, 1) } else { output = append(output, 0) }
 	return compensationSHA256V2(output), nil
 }
