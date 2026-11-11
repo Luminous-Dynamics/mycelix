@@ -499,6 +499,7 @@ pub enum CompensationErrorV2 {
     AuthorizationRevoked,
     AuthorizationExpired,
     AuthorizationScopeMismatch,
+    CallerNotAuthorized,
     AuthorizationLimitExceeded,
     LiquidityReservationMismatch,
     LiquidityReservationConflict,
@@ -660,6 +661,7 @@ impl CompensationBookV2 {
     pub fn mark_dispatch_authorized(
         &mut self,
         compensation_id: &str,
+        actor_owner_id: &str,
         current_authorization: &CompensationAuthorizationV2,
         now_unix_ms: u64,
     ) -> Result<CompensationDispositionV2, CompensationErrorV2> {
@@ -667,6 +669,16 @@ impl CompensationBookV2 {
             .records
             .get_mut(compensation_id)
             .ok_or(CompensationErrorV2::CompensationNotFound)?;
+        if actor_owner_id != record.request.actor_owner_id
+            || actor_owner_id != current_authorization.grantee_owner_id
+        {
+            return Err(CompensationErrorV2::CallerNotAuthorized);
+        }
+        if actor_owner_id != record.request.actor_owner_id
+            || actor_owner_id != current_authorization.grantee_owner_id
+        {
+            return Err(CompensationErrorV2::CallerNotAuthorized);
+        }
         let stored_digest = record.request.authorization.canonical_scope_digest()?;
         if current_authorization.canonical_scope_digest()? != stored_digest {
             return Err(CompensationErrorV2::AuthorizationScopeMismatch);
@@ -675,7 +687,7 @@ impl CompensationBookV2 {
             &self.plan,
             &self.plan_digest,
             record.request.amount_minor,
-            &record.request.actor_owner_id,
+            actor_owner_id,
             now_unix_ms,
         )?;
         match record.status {
@@ -751,6 +763,7 @@ impl CompensationBookV2 {
     pub fn retry_same_effect(
         &mut self,
         compensation_id: &str,
+        actor_owner_id: &str,
         current_authorization: &CompensationAuthorizationV2,
         now_unix_ms: u64,
     ) -> Result<CompensationDispositionV2, CompensationErrorV2> {
@@ -769,7 +782,7 @@ impl CompensationBookV2 {
             &self.plan,
             &self.plan_digest,
             record.request.amount_minor,
-            &record.request.actor_owner_id,
+            actor_owner_id,
             now_unix_ms,
         )?;
         record.status = CompensationStatusV2::Reserved;
@@ -844,11 +857,17 @@ impl CompensationBookV2 {
     pub fn cancel_before_dispatch(
         &mut self,
         compensation_id: &str,
+        actor_owner_id: &str,
     ) -> Result<CompensationDispositionV2, CompensationErrorV2> {
         let record = self
             .records
             .get_mut(compensation_id)
             .ok_or(CompensationErrorV2::CompensationNotFound)?;
+        if actor_owner_id != record.request.actor_owner_id
+            && actor_owner_id != self.plan.funding_owner_id
+        {
+            return Err(CompensationErrorV2::CallerNotAuthorized);
+        }
         match record.status {
             CompensationStatusV2::Reserved | CompensationStatusV2::AuthoritativelyAbsent => {
                 record.status = CompensationStatusV2::Cancelled;
@@ -1051,7 +1070,7 @@ mod tests {
         }
     }
 
-    fn book(initial_liquidity: u64, plan_maximum: u64, auth_maximum: u64) -> CompensationBookV2 {
+    fn book(initial_liquidity: u64, plan_maximum: u64) -> CompensationBookV2 {
         let forward = forward();
         let plan = plan(&forward, plan_maximum);
         CompensationBookV2::new(forward, plan, initial_liquidity).unwrap()
@@ -1130,7 +1149,7 @@ mod tests {
 
     #[test]
     fn partial_compensation_is_bounded_by_forward_reversible_ceiling() {
-        let mut book = book(100, 100, 100);
+        let mut book = book(100, 100);
         let original_forward = book.forward.clone();
         let first = request(&book, "refund:1", 60, "liquidity:1", 100);
         assert_eq!(
@@ -1138,7 +1157,7 @@ mod tests {
             Ok(CompensationDispositionV2::Created)
         );
         assert_eq!(
-            book.mark_dispatch_authorized("refund:1", &first.authorization, NOW),
+            book.mark_dispatch_authorized("refund:1", "owner:refund-operator", &first.authorization, NOW),
             Ok(CompensationDispositionV2::Applied)
         );
         assert_eq!(
@@ -1165,10 +1184,10 @@ mod tests {
 
     #[test]
     fn indeterminate_compensation_keeps_liquidity_and_cannot_claim_absence_after_effect() {
-        let mut book = book(100, 100, 100);
+        let mut book = book(100, 100);
         let request = request(&book, "refund:uncertain", 35, "liquidity:uncertain", 100);
         book.reserve(request.clone(), NOW).unwrap();
-        book.mark_dispatch_authorized("refund:uncertain", &request.authorization, NOW)
+        book.mark_dispatch_authorized("refund:uncertain", "owner:refund-operator", &request.authorization, NOW)
             .unwrap();
         book.mark_indeterminate("refund:uncertain", 1).unwrap();
 
@@ -1209,10 +1228,10 @@ mod tests {
 
     #[test]
     fn authoritative_absence_allows_only_same_effect_retry() {
-        let mut book = book(100, 100, 100);
+        let mut book = book(100, 100);
         let request = request(&book, "refund:retry", 30, "liquidity:retry", 100);
         book.reserve(request.clone(), NOW).unwrap();
-        book.mark_dispatch_authorized("refund:retry", &request.authorization, NOW)
+        book.mark_dispatch_authorized("refund:retry", "owner:refund-operator", &request.authorization, NOW)
             .unwrap();
         book.mark_indeterminate("refund:retry", 0).unwrap();
         book.resolve_authoritative_absence(outcome(
@@ -1223,7 +1242,7 @@ mod tests {
         ))
         .unwrap();
         assert_eq!(
-            book.retry_same_effect("refund:retry", &request.authorization, NOW),
+            book.retry_same_effect("refund:retry", "owner:refund-operator", &request.authorization, NOW),
             Ok(CompensationDispositionV2::Applied)
         );
         assert_eq!(
@@ -1236,7 +1255,7 @@ mod tests {
 
     #[test]
     fn exact_request_replay_is_idempotent_even_after_capability_expiry() {
-        let mut book = book(100, 100, 100);
+        let mut book = book(100, 100);
         let request = request(&book, "refund:replay", 20, "liquidity:replay", 100);
         assert_eq!(
             book.reserve(request.clone(), NOW),
@@ -1251,7 +1270,7 @@ mod tests {
 
     #[test]
     fn one_reservation_id_cannot_back_two_compensation_effects() {
-        let mut book = book(100, 100, 100);
+        let mut book = book(100, 100);
         let first = request(&book, "refund:first", 20, "liquidity:shared", 100);
         let second = request(&book, "refund:second", 20, "liquidity:shared", 100);
         book.reserve(first, NOW).unwrap();
@@ -1264,7 +1283,7 @@ mod tests {
 
     #[test]
     fn reusable_capability_has_one_aggregate_ceiling_across_partial_refunds() {
-        let mut book = book(100, 100, 70);
+        let mut book = book(100, 100);
         let first = request(&book, "refund:cap-1", 40, "liquidity:cap-1", 70);
         let second = request(&book, "refund:cap-2", 31, "liquidity:cap-2", 70);
         book.reserve(first, NOW).unwrap();
@@ -1277,7 +1296,7 @@ mod tests {
 
     #[test]
     fn acting_owner_must_match_capability_grantee() {
-        let mut book = book(100, 100, 100);
+        let mut book = book(100, 100);
         let mut request = request(&book, "refund:wrong-actor", 20, "liquidity:wrong-actor", 100);
         request.actor_owner_id = "owner:mallory".into();
         assert_eq!(
@@ -1289,14 +1308,14 @@ mod tests {
 
     #[test]
     fn revoked_or_expired_capability_cannot_cross_dispatch_boundary() {
-        let mut book = book(100, 100, 100);
+        let mut book = book(100, 100);
         let request = request(&book, "refund:revoked", 20, "liquidity:revoked", 100);
         book.reserve(request.clone(), NOW).unwrap();
 
         let mut revoked = request.authorization.clone();
         revoked.revoked = true;
         assert_eq!(
-            book.mark_dispatch_authorized("refund:revoked", &revoked, NOW),
+            book.mark_dispatch_authorized("refund:revoked", "owner:refund-operator", &revoked, NOW),
             Err(CompensationErrorV2::AuthorizationRevoked)
         );
         assert_eq!(book.status("refund:revoked"), Some(CompensationStatusV2::Reserved));
@@ -1304,6 +1323,7 @@ mod tests {
         assert_eq!(
             book.mark_dispatch_authorized(
                 "refund:revoked",
+                "owner:refund-operator",
                 &request.authorization,
                 request.authorization.expires_at_unix_ms,
             ),
@@ -1313,8 +1333,26 @@ mod tests {
     }
 
     #[test]
+    fn dispatch_caller_must_be_the_grantee() {
+        let mut book = book(100, 100);
+        let request = request(&book, "refund:caller", 20, "liquidity:caller", 100);
+        book.reserve(request.clone(), NOW).unwrap();
+        assert_eq!(
+            book.mark_dispatch_authorized(
+                "refund:caller",
+                "owner:mallory",
+                &request.authorization,
+                NOW,
+            ),
+            Err(CompensationErrorV2::CallerNotAuthorized)
+        );
+        assert_eq!(book.status("refund:caller"), Some(CompensationStatusV2::Reserved));
+        assert_eq!(book.encumbered_minor(), Ok(20));
+    }
+
+    #[test]
     fn source_liquidity_cap_and_reservation_scope_are_enforced() {
-        let mut book = book(50, 100, 100);
+        let mut book = book(50, 100);
         let too_large = request(&book, "refund:too-large", 51, "liquidity:too-large", 100);
         assert_eq!(
             book.reserve(too_large, NOW),
@@ -1332,7 +1370,7 @@ mod tests {
 
     #[test]
     fn compensation_outcome_must_bind_authorization_reservation_and_forward_subject() {
-        let mut book = book(100, 100, 100);
+        let mut book = book(100, 100);
         let request = request(&book, "refund:bad-outcome", 20, "liquidity:bad-outcome", 100);
         book.reserve(request.clone(), NOW).unwrap();
         book.mark_dispatch_authorized("refund:bad-outcome", &request.authorization, NOW)
@@ -1367,12 +1405,12 @@ mod tests {
 
     #[test]
     fn cancellation_releases_only_never_dispatched_reservation() {
-        let mut book = book(100, 100, 100);
+        let mut book = book(100, 100);
         let request = request(&book, "refund:cancel", 25, "liquidity:cancel", 100);
         book.reserve(request.clone(), NOW).unwrap();
         assert_eq!(book.encumbered_minor(), Ok(25));
         assert_eq!(
-            book.cancel_before_dispatch("refund:cancel"),
+            book.cancel_before_dispatch("refund:cancel", "owner:refund-operator"),
             Ok(CompensationDispositionV2::Cancelled)
         );
         assert_eq!(book.encumbered_minor(), Ok(0));
@@ -1381,12 +1419,13 @@ mod tests {
         book.reserve(dispatched.clone(), NOW).unwrap();
         book.mark_dispatch_authorized(
             "refund:no-cancel-after-dispatch",
+            "owner:refund-operator",
             &dispatched.authorization,
             NOW,
         )
         .unwrap();
         assert_eq!(
-            book.cancel_before_dispatch("refund:no-cancel-after-dispatch"),
+            book.cancel_before_dispatch("refund:no-cancel-after-dispatch", "owner:refund-operator"),
             Err(CompensationErrorV2::InvalidTransition)
         );
         assert_eq!(book.encumbered_minor(), Ok(25));
