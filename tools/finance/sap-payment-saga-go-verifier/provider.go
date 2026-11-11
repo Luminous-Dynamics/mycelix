@@ -56,6 +56,14 @@ const (
 	ProviderInProgressUnspecifiedV1
 )
 
+type ProviderPartialRefundPolicyV1 uint8
+
+const (
+	ProviderPartialRefundUnsupportedV1 ProviderPartialRefundPolicyV1 = iota + 1
+	ProviderPartialRefundSupportedV1
+	ProviderPartialRefundPaymentMethodDependentV1
+)
+
 type ProviderRefundCeilingV1 uint8
 
 const (
@@ -112,6 +120,7 @@ var (
 	ErrProviderObservationScopeMismatchV1 = errors.New("provider observation scope mismatch")
 	ErrProviderObservationInvalidTimestampV1 = errors.New("provider observation timestamp is invalid")
 	ErrProviderAbsenceUnsupportedV1 = errors.New("provider authoritative absence is not supported")
+	ErrProviderAbsenceRequiresDedicatedEvidenceV1 = errors.New("authoritative absence requires dedicated lookup evidence")
 	ErrProviderAbsenceHorizonNotElapsedV1 = errors.New("provider absence visibility horizon not elapsed")
 	ErrProviderObservationAfterNowV1 = errors.New("provider observation is after current time")
 	ErrProviderTransitionInvalidV1 = errors.New("provider status transition is invalid")
@@ -132,7 +141,7 @@ type ProviderContractV1 struct {
 	RetentionMaximumMS uint64
 	InProgressBehavior ProviderInProgressBehaviorV1
 	ChangedPayloadBehavior ProviderChangedPayloadBehaviorV1
-	PartialRefundsAllowed bool
+	PartialRefundPolicy ProviderPartialRefundPolicyV1
 	RefundCeiling ProviderRefundCeilingV1
 	AbsencePolicy ProviderAbsencePolicyV1
 	AbsenceVisibilityHorizonMS uint64
@@ -150,6 +159,7 @@ func (c ProviderContractV1) Validate() error {
 		c.RegionScope < ProviderGlobalRegionScopeV1 || c.RegionScope > ProviderPerRegionScopeV1 ||
 		c.InProgressBehavior < ProviderRetryOnlyWithTransientSignalV1 || c.InProgressBehavior > ProviderInProgressUnspecifiedV1 ||
 		c.ChangedPayloadBehavior < ProviderRejectChangedPayloadV1 || c.ChangedPayloadBehavior > ProviderChangedPayloadUnspecifiedV1 ||
+		c.PartialRefundPolicy < ProviderPartialRefundUnsupportedV1 || c.PartialRefundPolicy > ProviderPartialRefundPaymentMethodDependentV1 ||
 		c.RefundCeiling < ProviderCapturedAmountAggregateV1 || c.RefundCeiling > ProviderRefundCeilingUnknownV1 ||
 		c.AbsencePolicy < ProviderAbsenceUnsupportedV1 || c.AbsencePolicy > ProviderCompleteLookupAfterHorizonV1 ||
 		c.ProfileMaturity < ProviderDocumentationBaselineV1 || c.ProfileMaturity > ProviderProductionQualifiedV1 {
@@ -186,7 +196,7 @@ func (c ProviderContractV1) CanonicalDigest() (string, error) {
 	output = appendProviderU64V1(output, c.RetentionMinimumMS)
 	output = appendProviderU64V1(output, c.RetentionMaximumMS)
 	output = append(output, byte(c.InProgressBehavior), byte(c.ChangedPayloadBehavior))
-	if c.PartialRefundsAllowed { output = append(output, 1) } else { output = append(output, 0) }
+	output = append(output, byte(c.PartialRefundPolicy))
 	output = append(output, byte(c.RefundCeiling), byte(c.AbsencePolicy))
 	output = appendProviderU64V1(output, c.AbsenceVisibilityHorizonMS)
 	output = append(output, byte(c.ProfileMaturity))
@@ -212,7 +222,7 @@ func AdyenDocumentationBaselineV1(accountScope string) ProviderContractV1 {
 		RetentionMaximumMS: 14 * providerDayMSV1,
 		InProgressBehavior: ProviderRetryOnlyWithTransientSignalV1,
 		ChangedPayloadBehavior: ProviderChangedPayloadUnspecifiedV1,
-		PartialRefundsAllowed: true,
+		PartialRefundPolicy: ProviderPartialRefundPaymentMethodDependentV1,
 		RefundCeiling: ProviderCapturedAmountAggregateV1,
 		AbsencePolicy: ProviderAbsenceUnsupportedV1,
 		ProfileMaturity: ProviderDocumentationBaselineV1,
@@ -348,7 +358,7 @@ func (o ProviderObservationV1) ValidateAgainstKey(
 		return ErrProviderObservationInvalidTimestampV1
 	}
 	if o.Status == ProviderAuthoritativelyAbsentV1 {
-		return ErrProviderAbsenceUnsupportedV1
+		return ErrProviderAbsenceRequiresDedicatedEvidenceV1
 	}
 	if !validProviderDigestV1(o.RequestDigest) || !validProviderDigestV1(o.EvidenceDigest) {
 		return ErrProviderObservationInvalidDigestV1
