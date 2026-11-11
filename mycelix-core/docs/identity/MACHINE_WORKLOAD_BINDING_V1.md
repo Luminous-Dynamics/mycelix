@@ -49,7 +49,7 @@ A syntactically valid signature is not an attestation. A signed self-report of T
 - **Key rotation:** increment key epoch with an explicit continuity receipt; old keys remain historically attributable and revoked keys fail new verification.
 - **Re-image/re-enrollment:** create a new instance ID or an explicit successor link; do not silently clone controller or key state.
 - **Workload issue/renew/revoke:** use short-lived SPIFFE/SPIRE SVIDs where the deployment has a trust domain and workload API; require audience, expiry and revocation/freshness checks.
-- **Decommission:** revoke controller/key/instance bindings under a durable lifecycle receipt; do not recycle subject IDs.
+- **Decommission/revocation:** a decommissioned subject, suspended/revoked controller, and retired/revoked/compromised key require explicit lifecycle receipt references. Expired controllers and expired/revoked workload credentials retain their prior identity and validity bounds; a bare status label is not revocation evidence.
 - **Offline boot:** locally cached, bounded trust material may be checked, but Mycelix/DHT/network availability must never be a normal boot prerequisite. Missing or stale remote evidence cannot authorize LKG promotion.
 
 ## 5. Privacy and anti-cloning
@@ -88,4 +88,4 @@ Performance metrics: enrollment and rotation latency; signature and policy verif
 
 ## 8. Claim ceiling
 
-The JSON Schema validates structure, not cryptographic truth, controller authority, anti-cloning, hardware uniqueness, or real SPIFFE issuance. The example is a shape fixture with illustrative signature bytes and does not verify against a production trust root. Production enrollment and verifier implementations require separate qualification.
+The JSON Schema validates structure, not cryptographic truth, controller authority, anti-cloning, hardware uniqueness, or real SPIFFE issuance. It requires lifecycle receipt references for decommissioned subjects, suspended/revoked controllers, and retired/revoked/compromised keys; it requires independent verifier/evidence/measurement fields for both verified and failed hardware-attestation attempts. The example is a shape fixture with illustrative signature bytes and does not verify against a production trust root. Production enrollment and verifier implementations require separate qualification.
