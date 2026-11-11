@@ -1,0 +1,81 @@
+{
+  "projection_version": "battery-passport-projection/0.1",
+  "registry": {
+    "registry_id": "eu-battery-passport-data-point-guidance",
+    "registry_version": "0.1.0",
+    "source_registry_sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "guidance_version": "3.2"
+  },
+  "battery": {
+    "battery_ref": "synthetic:lmt-battery-002",
+    "category": "LMT",
+    "configuration_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "lifecycle_status": "original",
+    "passport_ref": "synthetic:passport-lmt-002",
+    "predecessor_passport_ref": null,
+    "first_use_date": "2025-10-01",
+    "stationary_bess": false,
+    "has_bms": true
+  },
+  "target": {
+    "jurisdiction": "EU",
+    "effective_date": "2027-02-18",
+    "audience": "LEGITIMATE_INTEREST"
+  },
+  "operator": {
+    "responsible_operator_ref": "synthetic:operator-002",
+    "acting_operator_ref": "synthetic:service-provider-002",
+    "authorization_state": "NOT_EVALUATED",
+    "written_delegation_sha256": null,
+    "scope": [],
+    "valid_until": null
+  },
+  "data_points": [
+    {
+      "number": 61,
+      "applicability_status": "NOT_TO_BE_FILLED_DISPLAYED_AT_2027_02_18",
+      "disclosure": "LEGITIMATE_INTEREST_RESTRICTED",
+      "outcome": "NOT_REQUIRED_AT_EFFECTIVE_DATE",
+      "reason": "SOCE is not filled/displayed for LMT in the guidance mapping."
+    },
+    {
+      "number": 62,
+      "applicability_status": "MANDATORY",
+      "disclosure": "LEGITIMATE_INTEREST_RESTRICTED",
+      "outcome": "MISSING_REQUIRED_EVIDENCE",
+      "reason": "No admissible remaining-capacity reference result is supplied."
+    },
+    {
+      "number": 63,
+      "applicability_status": "MANDATORY",
+      "disclosure": "LEGITIMATE_INTEREST_RESTRICTED",
+      "outcome": "BLOCKED_UNQUALIFIED_SOURCE",
+      "reason": "The only available source is a synthetic model prediction, not an admitted battery evidence record."
+    },
+    {
+      "number": 68,
+      "applicability_status": "APPLICABLE_FROM_FIRST_USE",
+      "disclosure": "LEGITIMATE_INTEREST_RESTRICTED",
+      "outcome": "MISSING_REQUIRED_EVIDENCE",
+      "reason": "Battery has entered use but no admissible cycle-count history is supplied."
+    },
+    {
+      "number": 69,
+      "applicability_status": "APPLICABLE_FROM_FIRST_USE",
+      "disclosure": "LEGITIMATE_INTEREST_RESTRICTED",
+      "outcome": "MISSING_REQUIRED_EVIDENCE",
+      "reason": "Battery has entered use but negative-event history has not been reconciled."
+    }
+  ],
+  "summary": {
+    "ready_to_publish": 0,
+    "missing_required_evidence": 3,
+    "blocked_unqualified_source": 1,
+    "withheld_by_access_policy": 0,
+    "not_required_at_effective_date": 1,
+    "not_applicable": 0,
+    "conditional_review_required": 0,
+    "operator_authorization_required": 0
+  },
+  "generated_at": "2026-11-11T03:00:00Z"
+}
