@@ -12,8 +12,8 @@
     "subject_id": "urn:example:operator:operator-01",
     "relationship": "operates",
     "scope": [
-      "machine-enrollment",
-      "identity-rotation"
+      "enroll-machine",
+      "rotate-machine-key"
     ],
     "status": "active",
     "valid_from": "2026-11-11T00:00:00Z",
