@@ -99,6 +99,8 @@ DelibSim makes a measurement gap explicit: a group may produce fluent, orderly, 
 
 The [OECD evaluation guidelines](https://www.oecd.org/en/publications/evaluation-guidelines-for-representative-deliberative-processes_10ccbfcb-en.html) distinguish process-design integrity, deliberative experience and pathways to impact. DelibBench uses those as a lifecycle crosswalk, not as a single scalar score.
 
+The [OECD Digital Government Outlook 2026](https://www.oecd.org/en/publications/digital-government-outlook_0496b2bc-en/full-report/adopting-and-governing-ai-in-government_7ef312a9.html) illustrates why the downstream accountability layer matters: across 36 surveyed OECD national governments, 11 (31%) reported post-deployment AI audits, 10 (28%) impact-measurement studies, 8 (22%) citizen feedback/complaint mechanisms, and 6 (17%) open algorithm registers. These are OECD survey figures, not global estimates. DelibBench should therefore assess not just whether a deliberation interface works, but whether decision lineage, implementation evidence, post-action outcomes, correction and redress are measurable and inspectable.
+
 ## Typed argument and open-world evidence semantics
 
 DelibBench composes with the existing Mycelix domain owners rather than defining another argument graph:
