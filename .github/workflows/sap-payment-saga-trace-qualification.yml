@@ -58,7 +58,7 @@ jobs:
       - name: Go formatting
         working-directory: tools/finance/sap-payment-saga-go-verifier
         run: |
-          test -z "$(gofmt -l trace.go trace_test.go oracle.go oracle_test.go shrinker.go shrinker_test.go compensation.go compensation_test.go compensation_benchmark_test.go provider.go provider_test.go)"
+          test -z "$(gofmt -l trace.go trace_test.go oracle.go oracle_test.go shrinker.go shrinker_test.go compensation.go compensation_test.go compensation_benchmark_test.go provider.go provider_test.go provider_benchmark_test.go)"
 
       - name: Go tests with race detector
         working-directory: tools/finance/sap-payment-saga-go-verifier
