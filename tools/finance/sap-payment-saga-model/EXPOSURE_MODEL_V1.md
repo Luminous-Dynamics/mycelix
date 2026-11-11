@@ -53,9 +53,11 @@ Final settlement and authoritative absence have different typed resolution kinds
 - resolution profile digest;
 - evidence digest.
 
-The pure model checks canonical digest syntax and exact subject binding only. It does not authenticate the provider, validate a signature, establish query consistency, prove destination finality or determine whether an absence query is authoritative. Those checks belong to a provider-specific adapter and independent trust policy.
+The transition to CommittedUnsettled requires a distinct ObservedUnsettledEffect receipt. A FinalSettlementEvidence receipt cannot be used to claim merely that an effect was observed, and an AuthoritativeAbsence result cannot be used for either transition. Repeating a resolution with changed profile/evidence digests conflicts.
 
-A final-settlement resolution moves CommittedUnsettled to Settled. An authoritative-absence result releases a DispatchAuthorized or Indeterminate reservation. These are separate typed kinds; neither can be substituted for the other. The reference checks the kind and exact subject fields but cannot prove that the referenced provider profile actually defines finality; that is a provider-adapter qualification obligation.
+The pure model checks canonical digest syntax and exact subject binding only. It persists the resolution kind, profile digest and evidence digest in the canonical reservation snapshot. It does not authenticate the provider, validate a signature, establish query consistency, prove destination finality or determine whether an absence query is authoritative. Those checks belong to a provider-specific adapter and independent trust policy.
+
+A subject-bound ObservedUnsettledEffect receipt is required to move DispatchAuthorized or Indeterminate to CommittedUnsettled. A final-settlement resolution moves CommittedUnsettled to Settled. An authoritative-absence result releases a DispatchAuthorized or Indeterminate reservation. These are separate typed kinds; neither can be substituted for the other. The reference checks the kind and exact subject fields but cannot prove that the referenced provider profile actually defines finality; that is a provider-adapter qualification obligation.
 
 ## Canonical snapshot
 
