@@ -96,6 +96,13 @@ const (
 type ExposureReservationV1 struct {
 	Intent ExposureIntentV1
 	Status ExposureStatus
+	Resolution *ExposureResolutionReceiptV1
+}
+
+type ExposureResolutionReceiptV1 struct {
+	Kind ExposureResolutionKind
+	ProfileDigest string
+	EvidenceDigest string
 }
 
 type ExposureDisposition uint8
@@ -108,7 +115,8 @@ const (
 type ExposureResolutionKind uint8
 
 const (
-	ExposureFinalSettlementEvidence ExposureResolutionKind = iota + 1
+	ExposureObservedUnsettledEffect ExposureResolutionKind = iota + 1
+	ExposureFinalSettlementEvidence
 	ExposureAuthoritativeAbsence
 )
 
@@ -146,6 +154,7 @@ var (
 	ErrExposureAmountOverflow      = errors.New("exposure amount overflow")
 	ErrExposureInvalidTransition   = errors.New("invalid exposure state transition")
 	ErrExposureInvalidResolution   = errors.New("resolution evidence does not match exact effect subject")
+	ErrExposureResolutionConflict = errors.New("conflicting resolution evidence for the same effect")
 )
 
 type ExposureBreakdownV1 struct {
@@ -208,14 +217,14 @@ func (b *ExposureBookV1) Reserve(intent ExposureIntentV1) (ExposureDisposition, 
 	if intent.Scope != b.policy.Scope {
 		return 0, ErrExposureScopeMismatch
 	}
-	if intent.MaximumExposureMinor > b.policy.MaximumPerEffectMinor {
-		return 0, ErrExposureLimitExceeded
-	}
 	if existing, ok := b.reservations[intent.EffectID]; ok {
 		if existing.Intent == intent {
 			return ExposureAlreadyReserved, nil
 		}
 		return 0, ErrExposureReservationConflict
+	}
+	if intent.MaximumExposureMinor > b.policy.MaximumPerEffectMinor {
+		return 0, ErrExposureLimitExceeded
 	}
 	current, err := b.TotalExposureMinor()
 	if err != nil {
@@ -231,6 +240,7 @@ func (b *ExposureBookV1) Reserve(intent ExposureIntentV1) (ExposureDisposition, 
 	b.reservations[intent.EffectID] = ExposureReservationV1{
 		Intent: intent,
 		Status: ExposureReserved,
+		Resolution: nil,
 	}
 	return ExposureWasReserved, nil
 }
@@ -243,8 +253,26 @@ func (b *ExposureBookV1) MarkIndeterminate(effectID string) error {
 	return b.transition(effectID, []ExposureStatus{ExposureDispatchAuthorized, ExposureIndeterminate}, ExposureIndeterminate)
 }
 
-func (b *ExposureBookV1) MarkCommittedUnsettled(effectID string) error {
-	return b.transition(effectID, []ExposureStatus{ExposureDispatchAuthorized, ExposureIndeterminate, ExposureCommittedUnsettled}, ExposureCommittedUnsettled)
+func (b *ExposureBookV1) MarkCommittedUnsettled(effectID string, evidence DestinationResolutionV1) error {
+	reservation, ok := b.reservations[effectID]
+	if !ok {
+		return ErrExposureNotFound
+	}
+	if err := evidence.validateAgainst(reservation, ExposureObservedUnsettledEffect); err != nil {
+		return err
+	}
+	if reservation.Status == ExposureCommittedUnsettled {
+		return b.validateRepeatedResolution(effectID, evidence)
+	}
+	if reservation.Status != ExposureDispatchAuthorized && reservation.Status != ExposureIndeterminate {
+		return ErrExposureInvalidTransition
+	}
+	reservation.Status = ExposureCommittedUnsettled
+	reservation.Resolution = &ExposureResolutionReceiptV1{
+		Kind: evidence.Kind, ProfileDigest: evidence.ProfileDigest, EvidenceDigest: evidence.EvidenceDigest,
+	}
+	b.reservations[effectID] = reservation
+	return nil
 }
 
 func (b *ExposureBookV1) MarkSettled(effectID string, evidence DestinationResolutionV1) error {
@@ -256,12 +284,15 @@ func (b *ExposureBookV1) MarkSettled(effectID string, evidence DestinationResolu
 		return err
 	}
 	if reservation.Status == ExposureSettled {
-		return nil
+		return b.validateRepeatedResolution(effectID, evidence)
 	}
 	if reservation.Status != ExposureCommittedUnsettled {
 		return ErrExposureInvalidTransition
 	}
 	reservation.Status = ExposureSettled
+	reservation.Resolution = &ExposureResolutionReceiptV1{
+		Kind: evidence.Kind, ProfileDigest: evidence.ProfileDigest, EvidenceDigest: evidence.EvidenceDigest,
+	}
 	b.reservations[effectID] = reservation
 	return nil
 }
@@ -275,12 +306,15 @@ func (b *ExposureBookV1) ReleaseAuthoritativeAbsence(effectID string, evidence D
 		return err
 	}
 	if reservation.Status == ExposureAuthoritativelyAbsent {
-		return nil
+		return b.validateRepeatedResolution(effectID, evidence)
 	}
 	if reservation.Status != ExposureDispatchAuthorized && reservation.Status != ExposureIndeterminate {
 		return ErrExposureInvalidTransition
 	}
 	reservation.Status = ExposureAuthoritativelyAbsent
+	reservation.Resolution = &ExposureResolutionReceiptV1{
+		Kind: evidence.Kind, ProfileDigest: evidence.ProfileDigest, EvidenceDigest: evidence.EvidenceDigest,
+	}
 	b.reservations[effectID] = reservation
 	return nil
 }
@@ -386,6 +420,17 @@ func (b *ExposureBookV1) CanonicalSnapshotBytes() ([]byte, error) {
 		}
 		appendExposureU64(&output, intent.MaximumExposureMinor)
 		output.WriteByte(byte(reservation.Status))
+		if reservation.Resolution == nil {
+			output.WriteByte(0)
+		} else {
+			output.WriteByte(byte(reservation.Resolution.Kind))
+			if err := appendExposureText(&output, reservation.Resolution.ProfileDigest); err != nil {
+				return nil, err
+			}
+			if err := appendExposureText(&output, reservation.Resolution.EvidenceDigest); err != nil {
+				return nil, err
+			}
+		}
 	}
 	return output.Bytes(), nil
 }
@@ -397,6 +442,20 @@ func (b *ExposureBookV1) CanonicalSnapshotDigest() (string, error) {
 	}
 	digest := sha256.Sum256(encoded)
 	return "sha256:" + hex.EncodeToString(digest[:]), nil
+}
+
+func (b *ExposureBookV1) validateRepeatedResolution(effectID string, evidence DestinationResolutionV1) error {
+	reservation, ok := b.reservations[effectID]
+	if !ok {
+		return ErrExposureNotFound
+	}
+	stored := reservation.Resolution
+	if stored == nil || stored.Kind != evidence.Kind ||
+		stored.ProfileDigest != evidence.ProfileDigest ||
+		stored.EvidenceDigest != evidence.EvidenceDigest {
+		return ErrExposureResolutionConflict
+	}
+	return nil
 }
 
 func (b *ExposureBookV1) transition(effectID string, allowed []ExposureStatus, next ExposureStatus) error {
