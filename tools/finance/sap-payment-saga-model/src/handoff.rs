@@ -933,6 +933,70 @@ mod tests {
     }
 
     #[test]
+    fn unaccepted_grant_can_be_revoked_and_closed_without_spending_child_budget() {
+        let (mut parent, mut child) = make_parent_and_child();
+        assert_eq!(parent.allocated_budget_minor(), Ok(700));
+        parent.request_revocation("grant:one", revoke_action_hash()).unwrap();
+        let (_, observed) = child
+            .observe_revocation(&revoke_action_hash(), observe_revoke_hash())
+            .unwrap();
+        parent.observe_revocation(observed).unwrap();
+        let (_, closure) = child.close(child_frontier(), close_action_hash()).unwrap();
+        assert_eq!(closure.child_accept_action_hash, None);
+        assert_eq!(
+            parent.release_grant(closure),
+            Ok(HandoffDisposition::Released)
+        );
+        assert_eq!(parent.allocated_budget_minor(), Ok(0));
+    }
+
+    #[test]
+    fn handoff_known_answer_matches_shared_fixture() {
+        let fixture = include_str!("../fixtures/sap-payment-handoff-v1.kat");
+        let value = |key: &str| {
+            fixture
+                .lines()
+                .find_map(|line| line.strip_prefix(&format!("{key}=")))
+                .unwrap_or_else(|| panic!("missing KAT key {key}"))
+        };
+        let terms = terms();
+        assert_eq!(terms.canonical_digest().unwrap(), value("grant_digest"));
+        let mut parent = ParentHandoffBookV1::new(parent_policy()).unwrap();
+        parent
+            .issue_grant(terms.clone(), parent_receipt_hash())
+            .unwrap();
+        assert_eq!(parent.canonical_snapshot_digest().unwrap(), value("parent_snapshot_sha256"));
+        let child = ChildHandoffBookV1::new(terms, parent_receipt_hash()).unwrap();
+        assert_eq!(
+            child.exposure.canonical_snapshot_digest().unwrap(),
+            value("child_exposure_snapshot_sha256")
+        );
+        assert_eq!(child.canonical_snapshot_digest().unwrap(), value("child_handoff_snapshot_sha256"));
+    }
+
+    #[test]
+    fn late_acknowledgements_remain_idempotent_after_parent_release() {
+        let (mut parent, mut child) = make_parent_and_child();
+        let (_, acceptance) = child
+            .accept_grant(&parent_receipt_hash(), accept_action_hash())
+            .unwrap();
+        parent.request_revocation("grant:one", revoke_action_hash()).unwrap();
+        let (_, observed) = child
+            .observe_revocation(&revoke_action_hash(), observe_revoke_hash())
+            .unwrap();
+        let (_, closure) = child.close(child_frontier(), close_action_hash()).unwrap();
+        parent.release_grant(closure).unwrap();
+        assert_eq!(
+            parent.observe_acceptance(acceptance),
+            Ok(HandoffDisposition::AlreadyObserved)
+        );
+        assert_eq!(
+            parent.observe_revocation(observed),
+            Ok(HandoffDisposition::AlreadyObserved)
+        );
+    }
+
+    #[test]
     fn child_cannot_use_grant_before_acceptance_and_parent_escrow_is_atomic() {
         let (parent, mut child) = make_parent_and_child();
         assert_eq!(parent.allocated_budget_minor(), Ok(700));
