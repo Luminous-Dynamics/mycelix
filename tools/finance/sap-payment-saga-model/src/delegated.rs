@@ -836,8 +836,18 @@ mod tests {
         parent.replace_policy(lower).unwrap();
 
         assert_eq!(
-            parent.reserve("provider-a", existing),
+            parent.reserve("provider-a", existing.clone()),
             Ok(ExposureDisposition::AlreadyReserved)
+        );
+        assert_eq!(
+            parent.allocate_child_budget(
+                "provider-a",
+                scope.clone(),
+                700,
+                1,
+                digest('1'),
+            ),
+            Ok(DelegatedBudgetDisposition::AlreadyAllocated)
         );
         // The old sublimit now exceeds the lowered per-child ceiling. A merely
         // reserved effect cannot cross the dispatch boundary under stale policy.
