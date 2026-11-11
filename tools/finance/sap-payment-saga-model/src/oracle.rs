@@ -187,6 +187,35 @@ struct OracleState {
     compensation: Option<(u64, u64)>,
 }
 
+fn trace_fault_allowed_v1(opcode: TraceOpcode, fault: TraceFault) -> bool {
+    use TraceFault as F;
+    use TraceOpcode as O;
+    match opcode {
+        O::CreateIntent
+        | O::Authorize
+        | O::PrepareLocal
+        | O::CommitLocal
+        | O::PrepareTreasury
+        | O::DispatchTreasury
+        | O::RetrySameEffect
+        | O::CommitTreasury
+        | O::Compensate => fault == F::None,
+        O::MarkIndeterminate => {
+            matches!(fault, F::ResponseLostBeforeEffect | F::ResponseLostAfterEffect)
+        }
+        O::ReconcileTreasury => matches!(
+            fault,
+            F::None | F::LookupUncertain | F::ReceiptMismatch | F::AuthoritativeAbsence
+        ),
+        O::CheckpointPayments => matches!(fault, F::None | F::MissingDependency),
+        O::CheckpointTreasury => matches!(fault, F::None | F::StaleFrontier),
+        O::MutateIntent | O::MutateEvent => fault == F::PayloadMutation,
+        O::DuplicateDelivery => fault == F::DuplicateDelivery,
+        O::StaleCheckpoint => fault == F::WrongOwner,
+        O::ForkCheckpoint => fault == F::ForkedCheckpoint,
+    }
+}
+
 impl Default for TreasuryOracleStateV1 {
     fn default() -> Self {
         Self::NotPrepared
@@ -225,6 +254,9 @@ impl OracleState {
         };
         if command.owner != expected_owner {
             return (D::Rejected, R::OwnerMismatch);
+        }
+        if !trace_fault_allowed_v1(command.opcode, command.fault) {
+            return (D::Rejected, R::InvalidFault);
         }
 
         match command.opcode {
@@ -610,6 +642,9 @@ impl OracleState {
         if self.fee_minor > 0 && self.treasury_effect_id != Some(command.subject) {
             return (D::Rejected, R::WrongSubject);
         }
+        if self.payment_checkpoint != Some(command.value) {
+            return (D::Rejected, R::MissingDependency);
+        }
         if self.fee_minor > 0
             && !matches!(
                 self.treasury_state,
@@ -677,7 +712,9 @@ impl OracleState {
         if self.fee_minor > 0 && self.treasury_state != TreasuryOracleStateV1::Committed {
             return (D::Rejected, R::CompensationUnavailable);
         }
-        if command.subject == self.operation_nonce {
+        if command.subject == self.operation_nonce
+            || self.treasury_effect_id == Some(command.subject)
+        {
             return (D::Rejected, R::CompensationIdentity);
         }
         if command.value != self.total_minor {
