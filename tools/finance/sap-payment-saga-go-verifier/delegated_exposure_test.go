@@ -199,6 +199,13 @@ func TestReducedChildCapBlocksNewEffectsButPreservesExistingRetry(t *testing.T) 
 	if disposition, err := parent.Reserve("provider-a", existing); err != nil || disposition != ExposureAlreadyReserved {
 		t.Fatalf("existing retry = %v, %v", disposition, err)
 	}
+	if disposition, err := parent.AllocateChildBudget("provider-a", scope, 700, 1, exposureTestDigest(1)); err != nil || disposition != DelegatedBudgetAlreadyAllocated {
+		t.Fatalf("exact grant retry after policy reduction = %v, %v", disposition, err)
+	}
+	if err := parent.MarkDispatchAuthorized("provider-a", "effect:existing"); err != ErrExposureLimitExceeded {
+		t.Fatalf("stale child budget dispatched after cap reduction: %v", err)
+	}
+	if err := parent.CancelBeforeDispatch("provider-a", "effect:existing"); err != nil { t.Fatal(err) }
 	if _, err := parent.Reserve("provider-a", parentExposureIntent(scope, "effect:new", 50)); err != ErrExposureLimitExceeded {
 		t.Fatalf("new effect under reduced child cap = %v", err)
 	}
