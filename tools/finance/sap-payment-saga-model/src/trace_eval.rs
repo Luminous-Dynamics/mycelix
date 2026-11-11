@@ -340,6 +340,7 @@ pub fn expected_trace_disposition_v1(
                 | TraceOpcode::RetrySameEffect
                 | TraceOpcode::CommitTreasury
                 | TraceOpcode::DuplicateDelivery
+                | TraceOpcode::CheckpointTreasury
         )
     {
         return TraceDispositionV1::NotRequired;
@@ -505,7 +506,7 @@ fn model_error_disposition<T>(result: Result<T, SagaError>) -> TraceDispositionV
 fn observed_disposition(
     context: &mut ExecutionContext,
     command: &TraceCommandV1,
-    command_index: usize,
+    _command_index: usize,
 ) -> Result<TraceDispositionV1, TraceEvaluationError> {
     if command.owner != expected_owner(command.opcode) {
         return Ok(TraceDispositionV1::Rejected);
