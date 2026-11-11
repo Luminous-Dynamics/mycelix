@@ -264,7 +264,7 @@ mod tests{
     #[test]fn late_backdated_grant_does_not_change_what_was_known(){let f=fixture("CIVT-AUTHORITY-05");assert_eq!(f["expected"]["authority_as_known_at_action"],"UNAUTHORIZED");assert_eq!(f["expected"]["authority_current_assessment"],"AUTHORIZED");}
     #[test]fn executor_success_without_observation_is_unobserved(){let f=fixture("CIVT-OUTCOME-01");assert_eq!(f["expected"]["outcome_state"],"UNOBSERVED");}
     #[test]fn conflicting_outcome_observations_remain_contested(){let f=fixture("CIVT-OUTCOME-04");assert_eq!(f["expected"]["outcome_state"],"CONTESTED");}
-    #[test]fn executor_identity_cannot_self-observe_an_effect(){let f=fixture("CIVT-OUTCOME-05");assert_eq!(f["expected"]["outcome_state"],"INDEPENDENCE_UNESTABLISHED");}
+    #[test]fn executor_identity_cannot_self_observe_an_effect(){let f=fixture("CIVT-OUTCOME-05");assert_eq!(f["expected"]["outcome_state"],"INDEPENDENCE_UNESTABLISHED");}
     #[test]fn observation_for_wrong_attempt_does_not_prove_outcome(){let f=fixture("CIVT-HINDSIGHT-06");assert_eq!(f["expected"]["outcome_state"],"UNOBSERVED");}
     #[test]fn unresolved_challenge_remains_visible(){let f=fixture("CIVT-CONTEST-04");assert_eq!(f["expected"]["challenge_state"],"OPEN_UNRESOLVED");}
     #[test]fn resolved_challenge_remains_in_history(){let f=fixture("CIVT-CONTEST-03");assert_eq!(f["expected"]["challenge_state"],"RESOLVED_PRESERVED");}
