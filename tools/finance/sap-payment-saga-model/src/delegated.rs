@@ -255,8 +255,9 @@ impl ParentDelegatedExposureBookV1 {
         &mut self,
         grant_id: &str,
         effect_id: &str,
+        evidence: &DestinationResolutionV1,
     ) -> Result<(), ExposureError> {
-        self.child_book_mut(grant_id)?.mark_committed_unsettled(effect_id)
+        self.child_book_mut(grant_id)?.mark_committed_unsettled(effect_id, evidence)
     }
 
     pub fn mark_settled(
@@ -461,6 +462,17 @@ mod tests {
         }
     }
 
+    fn observed_unsettled(effect_id: &str, destination: &str) -> DestinationResolutionV1 {
+        DestinationResolutionV1 {
+            kind: ExposureResolutionKind::ObservedUnsettledEffect,
+            effect_id: effect_id.into(),
+            destination_id: destination.into(),
+            payload_digest: digest('b'),
+            profile_digest: digest('e'),
+            evidence_digest: digest('1'),
+        }
+    }
+
     fn final_settlement(effect_id: &str, destination: &str) -> DestinationResolutionV1 {
         DestinationResolutionV1 {
             kind: ExposureResolutionKind::FinalSettlementEvidence,
@@ -527,7 +539,13 @@ mod tests {
             Ok(ExposureDisposition::AlreadyReserved)
         );
         parent.mark_dispatch_authorized("provider-a", "effect:1").unwrap();
-        parent.mark_committed_unsettled("provider-a", "effect:1").unwrap();
+        parent
+            .mark_committed_unsettled(
+                "provider-a",
+                "effect:1",
+                &observed_unsettled("effect:1", "dest:a"),
+            )
+            .unwrap();
         parent.mark_settled("provider-a", "effect:1", &final_settlement("effect:1", "dest:a")).unwrap();
         parent.close_grant("provider-a").unwrap();
         assert_eq!(parent.available_parent_budget_minor(), Ok(1_000));
