@@ -48,3 +48,8 @@ When a profile does not require correction, an unexpected correction is rejected
 ## Claim ceiling
 
 All records are synthetic. Passing this corpus proves only deterministic condition-applicability semantics. It does not prove any actual instrument operated within its capability envelope, validate a real correction algorithm, establish a thermal/IAQ/flow/acoustic/electrical measurement, authorize physical testing, or qualify comfort, safety, health, compliance or service performance.
+
+
+## Evidence-state clarification
+
+All registry profiles and all positive condition-observation fixtures use `synthetic_reference_only`. They do not represent independently characterized instruments, calibrated condition sensors, validated installation observations, or real rights grants. Provider-asserted, stale, revoked, out-of-envelope, non-comparable and incomplete states are negative-control fixtures. Only a future owner-verified condition record, resolved under the exact #6054 timebase and #6042 dependency contracts, may support a real sample-applicability review. This synthetic oracle never admits a physical measurement.
