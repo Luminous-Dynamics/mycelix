@@ -1,0 +1,507 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Mycelix Derived Measurement Graph Corpus v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "corpus_id",
+    "profile_id",
+    "classification",
+    "claim_ceiling",
+    "cases"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "mycelix.derived-measurement-graph-corpus/0.1"
+    },
+    "corpus_id": {
+      "const": "BUILD-DERIVED-MEASUREMENT-GRAPH-CORPUS-V0.1"
+    },
+    "profile_id": {
+      "const": "MYC-BUILD-DERIVED-GRAPH-V0.1"
+    },
+    "classification": {
+      "const": "synthetic_dependency_graph_and_test_method_cases"
+    },
+    "claim_ceiling": {
+      "const": "synthetic_graph_validation_only"
+    },
+    "cases": {
+      "type": "array",
+      "minItems": 36,
+      "maxItems": 36,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "case_id",
+          "description",
+          "record",
+          "expected_disposition"
+        ],
+        "properties": {
+          "case_id": {
+            "type": "string",
+            "pattern": "^DMG-[0-9]{3}$"
+          },
+          "description": {
+            "type": "string",
+            "minLength": 20
+          },
+          "record": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "schema_version",
+              "derivation_id",
+              "claim_ceiling",
+              "calculation_system",
+              "output",
+              "method",
+              "inputs",
+              "selection",
+              "conditions",
+              "uncertainty_model",
+              "source_resolution",
+              "invalidation",
+              "test_only"
+            ],
+            "properties": {
+              "schema_version": {
+                "const": "mycelix.derived-measurement-record/0.1"
+              },
+              "derivation_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "claim_ceiling": {
+                "const": "synthetic_graph_validation_only"
+              },
+              "calculation_system": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "system_id",
+                  "revision",
+                  "configuration_digest",
+                  "runtime_id"
+                ],
+                "properties": {
+                  "system_id": {
+                    "type": "string"
+                  },
+                  "revision": {
+                    "type": "string"
+                  },
+                  "configuration_digest": {
+                    "type": "string"
+                  },
+                  "runtime_id": {
+                    "type": "string"
+                  }
+                }
+              },
+              "output": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "observation_id",
+                  "channel_id",
+                  "measurand_id",
+                  "quantity_kind",
+                  "unit",
+                  "value",
+                  "semantic_kind",
+                  "quality_state",
+                  "space_id",
+                  "geometry_revision",
+                  "window"
+                ],
+                "properties": {
+                  "observation_id": {
+                    "type": "string"
+                  },
+                  "channel_id": {
+                    "type": "string"
+                  },
+                  "measurand_id": {
+                    "type": "string"
+                  },
+                  "quantity_kind": {
+                    "type": "string"
+                  },
+                  "unit": {
+                    "type": "string"
+                  },
+                  "value": {
+                    "type": "number"
+                  },
+                  "semantic_kind": {
+                    "enum": [
+                      "raw",
+                      "derived"
+                    ]
+                  },
+                  "quality_state": {
+                    "enum": [
+                      "valid",
+                      "invalid",
+                      "unknown"
+                    ]
+                  },
+                  "space_id": {
+                    "type": "string"
+                  },
+                  "geometry_revision": {
+                    "type": "string"
+                  },
+                  "window": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "window_id",
+                      "start_tick",
+                      "end_tick",
+                      "tick_unit",
+                      "clock_domain_id",
+                      "clock_epoch_id"
+                    ],
+                    "properties": {
+                      "window_id": {
+                        "type": "string"
+                      },
+                      "start_tick": {
+                        "type": "integer"
+                      },
+                      "end_tick": {
+                        "type": "integer"
+                      },
+                      "tick_unit": {
+                        "type": "string"
+                      },
+                      "clock_domain_id": {
+                        "type": "string"
+                      },
+                      "clock_epoch_id": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                }
+              },
+              "method": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "method_id",
+                  "revision",
+                  "artifact_digest",
+                  "runtime_id",
+                  "expression_kind",
+                  "input_contract_digest",
+                  "source_method_reference",
+                  "method_state"
+                ],
+                "properties": {
+                  "method_id": {
+                    "type": "string"
+                  },
+                  "revision": {
+                    "type": "string"
+                  },
+                  "artifact_digest": {
+                    "type": "string"
+                  },
+                  "runtime_id": {
+                    "type": "string"
+                  },
+                  "expression_kind": {
+                    "type": "string"
+                  },
+                  "input_contract_digest": {
+                    "type": "string"
+                  },
+                  "source_method_reference": {
+                    "type": "string"
+                  },
+                  "method_state": {
+                    "enum": [
+                      "current",
+                      "superseded",
+                      "unknown"
+                    ]
+                  }
+                }
+              },
+              "inputs": {
+                "type": "array",
+                "minItems": 2,
+                "items": {
+                  "$ref": "#/$defs/input"
+                }
+              },
+              "selection": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "ordered_input_observation_ids",
+                  "time_alignment_policy",
+                  "interpolation_policy",
+                  "missingness_policy",
+                  "aggregation_window_id",
+                  "expected_input_count"
+                ],
+                "properties": {
+                  "ordered_input_observation_ids": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "time_alignment_policy": {
+                    "type": "string"
+                  },
+                  "interpolation_policy": {
+                    "type": "string"
+                  },
+                  "missingness_policy": {
+                    "type": "string"
+                  },
+                  "aggregation_window_id": {
+                    "type": "string"
+                  },
+                  "expected_input_count": {
+                    "type": "integer",
+                    "minimum": 1
+                  }
+                }
+              },
+              "conditions": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "conditions_profile_id",
+                  "conditions_digest",
+                  "applicability_state"
+                ],
+                "properties": {
+                  "conditions_profile_id": {
+                    "type": "string"
+                  },
+                  "conditions_digest": {
+                    "type": "string"
+                  },
+                  "applicability_state": {
+                    "type": "string"
+                  }
+                }
+              },
+              "uncertainty_model": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "model_id",
+                  "revision",
+                  "digest",
+                  "state"
+                ],
+                "properties": {
+                  "model_id": {
+                    "type": "string"
+                  },
+                  "revision": {
+                    "type": "string"
+                  },
+                  "digest": {
+                    "type": "string"
+                  },
+                  "state": {
+                    "type": "string"
+                  }
+                }
+              },
+              "source_resolution": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "state",
+                  "resolved_input_count",
+                  "source_graph_digest"
+                ],
+                "properties": {
+                  "state": {
+                    "type": "string"
+                  },
+                  "resolved_input_count": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "source_graph_digest": {
+                    "type": "string"
+                  }
+                }
+              },
+              "invalidation": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "state",
+                  "receipt_id",
+                  "graph_revision"
+                ],
+                "properties": {
+                  "state": {
+                    "type": "string"
+                  },
+                  "receipt_id": {
+                    "type": "string"
+                  },
+                  "graph_revision": {
+                    "type": "string"
+                  }
+                }
+              },
+              "test_only": {
+                "type": "boolean"
+              }
+            },
+            "$defs": {
+              "input": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "ordinal",
+                  "role",
+                  "observation_id",
+                  "source_digest",
+                  "source_revision",
+                  "source_alias",
+                  "instrument_id",
+                  "channel_id",
+                  "channel_profile_id",
+                  "measurand_id",
+                  "unit",
+                  "value",
+                  "evidence_state",
+                  "calibration_record_id",
+                  "calibration_state",
+                  "installation_record_id",
+                  "installation_state",
+                  "firmware_revision",
+                  "stream_id",
+                  "clock_domain_id",
+                  "clock_epoch_id",
+                  "timebase_profile_id",
+                  "event_time_tick",
+                  "sequence",
+                  "rights_state",
+                  "parent_derivation_id",
+                  "parent_graph_digest"
+                ],
+                "properties": {
+                  "ordinal": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "role": {
+                    "type": "string"
+                  },
+                  "observation_id": {
+                    "type": "string"
+                  },
+                  "source_digest": {
+                    "type": "string"
+                  },
+                  "source_revision": {
+                    "type": "string"
+                  },
+                  "source_alias": {
+                    "enum": [
+                      "exact",
+                      "latest"
+                    ]
+                  },
+                  "instrument_id": {
+                    "type": "string"
+                  },
+                  "channel_id": {
+                    "type": "string"
+                  },
+                  "channel_profile_id": {
+                    "type": "string"
+                  },
+                  "measurand_id": {
+                    "type": "string"
+                  },
+                  "unit": {
+                    "type": "string"
+                  },
+                  "value": {
+                    "type": "number"
+                  },
+                  "evidence_state": {
+                    "type": "string"
+                  },
+                  "calibration_record_id": {
+                    "type": "string"
+                  },
+                  "calibration_state": {
+                    "type": "string"
+                  },
+                  "installation_record_id": {
+                    "type": "string"
+                  },
+                  "installation_state": {
+                    "type": "string"
+                  },
+                  "firmware_revision": {
+                    "type": "string"
+                  },
+                  "stream_id": {
+                    "type": "string"
+                  },
+                  "clock_domain_id": {
+                    "type": "string"
+                  },
+                  "clock_epoch_id": {
+                    "type": "string"
+                  },
+                  "timebase_profile_id": {
+                    "type": "string"
+                  },
+                  "event_time_tick": {
+                    "type": "integer"
+                  },
+                  "sequence": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "rights_state": {
+                    "type": "string"
+                  },
+                  "parent_derivation_id": {
+                    "type": "string"
+                  },
+                  "parent_graph_digest": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          },
+          "expected_disposition": {
+            "enum": [
+              "SYNTHETIC_GRAPH_VALIDATION_ONLY",
+              "MORE_EVIDENCE_REQUIRED",
+              "NOT_COMPARABLE",
+              "EXPIRED_OR_INVALIDATED",
+              "REJECTED_FOR_DECLARED_PURPOSE",
+              "REJECTED_CLAIM_PROMOTION"
+            ]
+          }
+        }
+      }
+    }
+  }
+}
