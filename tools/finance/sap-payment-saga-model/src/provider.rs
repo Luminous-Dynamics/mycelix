@@ -1125,3 +1125,38 @@ mod tests {
         assert_ne!(before, contract.canonical_digest().unwrap());
     }
 }
+
+
+    #[test]
+    fn provider_retry_permit_is_digest_bound_and_expires_at_guarantee_boundary() {
+        let contract = adyen_contract();
+        let key = operation_key(&contract);
+        let permit = key
+            .qualify_retry(
+                &contract,
+                "company:test-account",
+                "eu",
+                &key.request_digest,
+                ProviderAttemptClassV1::TransportTimeoutUnknown,
+                2_000,
+            )
+            .unwrap();
+        assert_eq!(permit.valid_until_unix_ms, 1_000 + 7 * DAY_MS);
+        assert_eq!(
+            permit.canonical_digest().unwrap(),
+            "sha256:b90b3840d91826f4f79949b8d5872b20de988a677c3be0d62e1b3e86f54c0352"
+        );
+        assert_eq!(permit.validate_against(&key, &contract, 2_000), Ok(()));
+
+        let mut changed_region = permit.clone();
+        changed_region.region = "us".into();
+        assert_eq!(
+            changed_region.validate_against(&key, &contract, 2_000),
+            Err(ProviderRetryErrorV1::RetryPermitMismatch)
+        );
+
+        assert_eq!(
+            permit.validate_against(&key, &contract, 1_000 + 7 * DAY_MS),
+            Err(ProviderRetryErrorV1::RetryPermitExpired)
+        );
+    }
