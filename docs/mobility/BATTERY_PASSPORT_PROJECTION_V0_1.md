@@ -43,6 +43,8 @@ Each data point has independent dimensions:
 
 No dimension can be inferred from another. A field may be legally required and restricted; it may be technically measurable but not publishable to the public. An estimate cannot silently become a measurement. Not-to-be-filled/displayed is not missing evidence. A hash or signature establishes byte identity/issuer binding, not physical truth or regulatory compliance.
 
+For dynamic points 68–71, an evidenced first-use date on or before the projection effective date activates the first-use rule. An evidenced future first-use date can support NOT_APPLICABLE for that projection date. If the first-use date is absent, the trigger is unknown: the compiler requires CONDITIONAL_REVIEW_REQUIRED, not NOT_APPLICABLE. For restricted data, this applicability-review outcome may be visible without the restricted payload; values and evidence must be absent. WITHHELD_BY_ACCESS_POLICY and NOT_REQUIRED_AT_EFFECTIVE_DATE likewise cannot carry a data value or evidence payload in the projection.
+
 ## Complete 71-point v0.1 mapping
 
 See `registries/eu_battery_passport_guidance_v3_2_complete_71_points.json` for the machine-readable 1–71 point matrix. The Rust audit requires every ID from 1 through 71 exactly once, a count of 71, and an explicit complete-transcription declaration. A missing point cannot be hidden by changing the count field.
