@@ -24,7 +24,7 @@
       "const": "MYC-BUILD-MEASUREMENT-CONDITIONS-V0.1"
     },
     "registry_blob_sha1": {
-      "const": "77a5fae1379d23e9832979aecefaed6a4a19cb4c"
+      "const": "69b7fcbce60fde5b1aab9ee1088efe826d6b33ef"
     },
     "classification": {
       "const": "synthetic_condition_applicability_cases"
@@ -407,7 +407,7 @@
         },
         "source_evidence_state": {
           "enum": [
-            "current",
+            "synthetic_reference_only",
             "stale",
             "revoked",
             "provider_asserted"
@@ -427,7 +427,7 @@
         },
         "calibration_state": {
           "enum": [
-            "current",
+            "synthetic_reference_only",
             "expired",
             "unknown"
           ]
@@ -438,7 +438,7 @@
         },
         "installation_state": {
           "enum": [
-            "verified",
+            "synthetic_reference_only",
             "unknown",
             "invalidated"
           ]
@@ -482,13 +482,13 @@
         },
         "evidence_class": {
           "enum": [
-            "independent_measurement",
+            "synthetic_reference_only",
             "provider_assertion"
           ]
         },
         "rights_state": {
           "enum": [
-            "authorized",
+            "synthetic_reference_only",
             "unknown",
             "revoked"
           ]
