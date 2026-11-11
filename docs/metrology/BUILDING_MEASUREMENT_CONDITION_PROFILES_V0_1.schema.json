@@ -88,7 +88,7 @@
         },
         "profile_evidence_state": {
           "enum": [
-            "independently_characterized",
+            "synthetic_reference_only",
             "provider_asserted",
             "unverified",
             "revoked"
