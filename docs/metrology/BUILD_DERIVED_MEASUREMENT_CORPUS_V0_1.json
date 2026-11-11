@@ -4847,7 +4847,7 @@
       "record": {
         "schema_version": "mycelix.derived-measurement-record/0.1",
         "derivation_id": "DERIVATION-SYNTH-001",
-        "claim_ceiling": "physical_measurement_admitted",
+        "claim_ceiling": "synthetic_graph_validation_only",
         "calculation_system": {
           "system_id": "SYNTH-DERIVATION-SYSTEM-001",
           "revision": "1",
