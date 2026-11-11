@@ -914,7 +914,7 @@ mod tests {
 
     #[test]
     fn unexpected_fault_cannot_authorize_treasury_commit() {
-        let mut trace = find_scenario(1);
+        let mut trace = find_scenario_with_nonzero_fee(1);
         let commit = trace
             .commands
             .iter_mut()
