@@ -49,6 +49,9 @@ jobs:
       - name: Rust Clippy
         run: cargo clippy --manifest-path tools/finance/sap-payment-saga-model/Cargo.toml --all-targets -- -D warnings
 
+      - name: Execute deterministic 10k trace corpus
+        run: cargo run --release --manifest-path tools/finance/sap-payment-saga-model/Cargo.toml --bin trace-eval -- 1592598566 10000 0
+
       - name: Install pinned Go toolchain
         uses: actions/setup-go@v5
         with:
