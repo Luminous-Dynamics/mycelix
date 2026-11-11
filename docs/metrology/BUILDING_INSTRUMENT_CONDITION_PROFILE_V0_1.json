@@ -42,11 +42,11 @@
         }
       ],
       "correction_rule": {
-        "state": "not_required_for_synthetic_profile",
-        "method_id": "NOT_APPLICABLE",
-        "method_revision": "NOT_APPLICABLE",
-        "artifact_digest": "NOT_APPLICABLE",
-        "maximum_application_count": 0
+        "state": "approved_synthetic_correction",
+        "method_id": "SYNTH-CORR-01",
+        "method_revision": "1",
+        "artifact_digest": "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+        "maximum_application_count": 1
       }
     },
     {
