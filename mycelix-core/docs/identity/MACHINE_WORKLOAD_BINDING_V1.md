@@ -24,7 +24,7 @@ No single identifier or signature collapses those subjects into one trust score.
 
 **A valid binding signature proves only that the stated key signed these canonical binding bytes.** The verifier must additionally resolve the signer key, validate its relationship to the controller/enrollment authority receipt, enforce key epoch and revocation state, evaluate trust policy, validate freshness and audience, and independently validate hardware evidence if the status claims it.
 
-The binding does not authorize a NixOS activation, service mutation, generation promotion, payment or other consequential operation. Nixward still requires a separately verified exact ChangePlan permit bound to the target, operation, plan digest, policy epoch, audience, expiry and replay state. A workload SVID is an authenticated process identity, not owner authorization.
+The controller scope is a closed identity-lifecycle set (enroll, rotate key, delegate, revoke, re-enroll, decommission). It cannot contain host-mutation, activation, deployment or boot-promotion authority. The binding does not authorize a NixOS activation, service mutation, generation promotion, payment or other consequential operation. Nixward still requires a separately verified exact ChangePlan permit bound to the target, operation, plan digest, policy epoch, audience, expiry and replay state. A workload SVID is an authenticated process identity, not owner authorization.
 
 ## 3. Canonical signature profile
 
@@ -38,7 +38,7 @@ The signature object declares the context, encoding, signer key ID/role, algorit
 3. recompute and compare the payload digest;
 4. resolve the signer key from an independently trusted enrollment/controller chain;
 5. verify Ed25519 over the domain-separated digest;
-6. validate key epoch, controller scope/validity/revocation, binding freshness, nonce replay state and audience;
+6. validate key epoch, controller scope/validity/revocation, binding freshness, nonce replay state and audience; if signer_role is machine-key, require signer_key_id to match the active key epoch; if it is enrollment-authority, verify the controller/enrollment authority chain;
 7. validate workload and hardware-attestation evidence independently.
 
 A syntactically valid signature is not an attestation. A signed self-report of TPM or Secure Boot state does not become verified hardware evidence.
