@@ -80,6 +80,7 @@ func TestRevocationStopsNewRiskButAllowsExistingResolution(t *testing.T) {
 	_, _ = parent.AllocateChildBudget("provider-a", scope, 700, 1, exposureTestDigest(1))
 	intent := parentExposureIntent(scope, "effect:1", 400)
 	if _, err := parent.Reserve("provider-a", intent); err != nil { t.Fatal(err) }
+	if err := parent.MarkDispatchAuthorized("provider-a", "effect:1"); err != nil { t.Fatal(err) }
 	if err := parent.BeginRevocation("provider-a"); err != nil { t.Fatal(err) }
 	if _, err := parent.Reserve("provider-a", parentExposureIntent(scope, "effect:2", 100)); err != ErrExposureInvalidTransition {
 		t.Fatalf("new reservation during revocation = %v", err)
@@ -87,12 +88,27 @@ func TestRevocationStopsNewRiskButAllowsExistingResolution(t *testing.T) {
 	if disposition, err := parent.Reserve("provider-a", intent); err != nil || disposition != ExposureAlreadyReserved {
 		t.Fatalf("exact retry during revocation = %v, %v", disposition, err)
 	}
-	if err := parent.MarkDispatchAuthorized("provider-a", "effect:1"); err != nil { t.Fatal(err) }
 	if err := parent.MarkCommittedUnsettled("provider-a", "effect:1", parentObservedUnsettled("effect:1", "dest:a")); err != nil { t.Fatal(err) }
 	evidence := parentExposureResolution("effect:1", "dest:a", ExposureFinalSettlementEvidence)
 	if err := parent.MarkSettled("provider-a", "effect:1", evidence); err != nil { t.Fatal(err) }
 	if err := parent.CloseGrant("provider-a"); err != nil { t.Fatal(err) }
 	if available, _ := parent.AvailableParentBudgetMinor(); available != 1_000 { t.Fatalf("available after close = %d", available) }
+}
+
+func TestRevocationBlocksDispatchOfPreviouslyReservedButUndispatchedEffect(t *testing.T) {
+	parent, _ := NewParentDelegatedExposureBookV1(parentExposureTestPolicy(1_000))
+	scope := parentExposureChildScope("operator:a", "dest:a")
+	_, _ = parent.AllocateChildBudget("provider-a", scope, 700, 1, exposureTestDigest(1))
+	_, _ = parent.Reserve("provider-a", parentExposureIntent(scope, "effect:reserved", 100))
+	if err := parent.BeginRevocation("provider-a"); err != nil { t.Fatal(err) }
+	if err := parent.MarkDispatchAuthorized("provider-a", "effect:reserved"); err != ErrExposureInvalidTransition {
+		t.Fatalf("reserved effect dispatched after revocation: %v", err)
+	}
+	if err := parent.CancelBeforeDispatch("provider-a", "effect:reserved"); err != nil { t.Fatal(err) }
+	if err := parent.CloseGrant("provider-a"); err != nil { t.Fatal(err) }
+	if available, _ := parent.AvailableParentBudgetMinor(); available != 1_000 {
+		t.Fatalf("available after safe cancellation = %d", available)
+	}
 }
 
 func TestUnresolvedChildEffectPreventsParentBudgetReclamation(t *testing.T) {
@@ -137,6 +153,7 @@ func TestParentPolicyReductionFreezesNewChildRiskUntilBudgetIsReclaimed(t *testi
 	_, _ = parent.AllocateChildBudget("provider-a", firstScope, 600, 1, exposureTestDigest(1))
 	existingIntent := parentExposureIntent(firstScope, "effect:existing", 200)
 	if _, err := parent.Reserve("provider-a", existingIntent); err != nil { t.Fatal(err) }
+	if err := parent.MarkDispatchAuthorized("provider-a", "effect:existing"); err != nil { t.Fatal(err) }
 	_, _ = parent.AllocateChildBudget("provider-b", secondScope, 300, 2, exposureTestDigest(2))
 
 	lower := parentExposureTestPolicy(800)
@@ -153,8 +170,7 @@ func TestParentPolicyReductionFreezesNewChildRiskUntilBudgetIsReclaimed(t *testi
 	}
 
 	// Existing effects remain resolvable while new risk is frozen.
-	if err := parent.MarkDispatchAuthorized("provider-a", "effect:existing"); err != nil { t.Fatal(err) }
-	if err := parent.MarkCommittedUnsettled("provider-a", "effect:existing"); err != nil { t.Fatal(err) }
+	if err := parent.MarkCommittedUnsettled("provider-a", "effect:existing", parentObservedUnsettled("effect:existing", "dest:a")); err != nil { t.Fatal(err) }
 	evidence := parentExposureResolution("effect:existing", "dest:a", ExposureFinalSettlementEvidence)
 	if err := parent.MarkSettled("provider-a", "effect:existing", evidence); err != nil { t.Fatal(err) }
 	if err := parent.BeginRevocation("provider-b"); err != nil { t.Fatal(err) }
