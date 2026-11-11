@@ -70,6 +70,93 @@ fn non(v:&Value,k:&str)->bool{!text(v,k).trim().is_empty()}
 fn num(v:&Value,k:&str)->Option<f64>{v.get(k).and_then(Value::as_f64).filter(|x|x.is_finite())}
 fn strings(v:&Value,k:&str)->Option<BTreeSet<String>>{let a=v.get(k)?.as_array()?;let mut s=BTreeSet::new();for x in a{let t=x.as_str()?;if !s.insert(t.to_owned()){return None;}}Some(s)}
 
+
+fn str_array_eq(value:&Value,expected:&[&str])->bool{
+ value.as_array().is_some_and(|items|items.len()==expected.len()&&items.iter().zip(expected).all(|(v,e)|v.as_str()==Some(*e)))
+}
+fn json_type_matches(instance:&Value,expected:&str)->bool{
+ match expected{
+  "object"=>instance.is_object(),"array"=>instance.is_array(),"string"=>instance.is_string(),
+  "number"=>instance.as_f64().is_some_and(f64::is_finite),
+  "integer"=>instance.as_i64().is_some()||instance.as_u64().is_some()||instance.as_f64().is_some_and(|v|v.is_finite()&&v.fract()==0.0),
+  "boolean"=>instance.is_boolean(),"null"=>instance.is_null(),_=>false
+ }
+}
+fn resolve_schema_ref<'a>(root:&'a Value,reference:&str)->Option<&'a Value>{
+ let mut current=root;
+ let pointer=reference.strip_prefix("#/")?;
+ for encoded in pointer.split('/'){
+  let key=encoded.replace("~1","/").replace("~0","~");
+  current=current.get(key)?;
+ }
+ Some(current)
+}
+fn dcc_pattern_matches(pattern:&str,value:&str)->bool{
+ if pattern=="^DCC-[0-9]{3}$"{
+  let b=value.as_bytes();
+  return b.len()==7&&&b[0..4]==b"DCC-"&&b[4..7].iter().all(|x|x.is_ascii_digit());
+ }
+ false
+}
+fn validate_json_schema(instance:&Value,schema:&Value,root:&Value,path:&str,errors:&mut Vec<String>,depth:usize){
+ if depth>96{errors.push(format!("{path}:SCHEMA_DEPTH_LIMIT"));return;}
+ if let Some(reference)=schema.get("$ref").and_then(Value::as_str){
+  let Some(target)=resolve_schema_ref(root,reference)else{errors.push(format!("{path}:SCHEMA_REF_UNRESOLVED:{reference}"));return;};
+  validate_json_schema(instance,target,root,path,errors,depth+1);return;
+ }
+ if let Some(constant)=schema.get("const"){if instance!=constant{errors.push(format!("{path}:SCHEMA_CONST"));}}
+ if let Some(allowed)=schema.get("enum").and_then(Value::as_array){
+  if !allowed.iter().any(|value|value==instance){errors.push(format!("{path}:SCHEMA_ENUM"));}
+ }
+ if let Some(expected)=schema.get("type"){
+  let valid=if let Some(name)=expected.as_str(){json_type_matches(instance,name)}
+   else if let Some(names)=expected.as_array(){names.iter().any(|name|name.as_str().is_some_and(|name|json_type_matches(instance,name)))}
+   else{false};
+  if !valid{errors.push(format!("{path}:SCHEMA_TYPE"));return;}
+ }
+ if let Some(object)=instance.as_object(){
+  if let Some(required)=schema.get("required").and_then(Value::as_array){
+   for field in required.iter().filter_map(Value::as_str){
+    if !object.contains_key(field){errors.push(format!("{path}:SCHEMA_REQUIRED:{field}"));}
+   }
+  }
+  let properties=schema.get("properties").and_then(Value::as_object);
+  for(key,value)in object{
+   if let Some(property_schema)=properties.and_then(|properties|properties.get(key)){
+    validate_json_schema(value,property_schema,root,&format!("{path}.{key}"),errors,depth+1);
+   }else if schema.get("additionalProperties")==Some(&Value::Bool(false)){
+    errors.push(format!("{path}:SCHEMA_ADDITIONAL_PROPERTY:{key}"));
+   }else if let Some(additional_schema)=schema.get("additionalProperties").filter(|value|value.is_object()){
+    validate_json_schema(value,additional_schema,root,&format!("{path}.{key}"),errors,depth+1);
+   }
+  }
+ }
+ if let Some(array)=instance.as_array(){
+  if schema.get("minItems").and_then(Value::as_u64).is_some_and(|min|array.len()<min as usize){errors.push(format!("{path}:SCHEMA_MIN_ITEMS"));}
+  if schema.get("maxItems").and_then(Value::as_u64).is_some_and(|max|array.len()>max as usize){errors.push(format!("{path}:SCHEMA_MAX_ITEMS"));}
+  if schema.get("uniqueItems")==Some(&Value::Bool(true)){
+   let mut seen=BTreeSet::new();
+   if array.iter().any(|value|!seen.insert(value.to_string())){errors.push(format!("{path}:SCHEMA_UNIQUE_ITEMS"));}
+  }
+  if let Some(items)=schema.get("items"){
+   for(index,value)in array.iter().enumerate(){validate_json_schema(value,items,root,&format!("{path}[{index}]"),errors,depth+1);}
+  }
+ }
+ if let Some(value)=instance.as_str(){
+  if schema.get("minLength").and_then(Value::as_u64).is_some_and(|min|value.chars().count()<min as usize){errors.push(format!("{path}:SCHEMA_MIN_LENGTH"));}
+  if schema.get("maxLength").and_then(Value::as_u64).is_some_and(|max|value.chars().count()>max as usize){errors.push(format!("{path}:SCHEMA_MAX_LENGTH"));}
+  if let Some(pattern)=schema.get("pattern").and_then(Value::as_str){if !dcc_pattern_matches(pattern,value){errors.push(format!("{path}:SCHEMA_PATTERN"));}}
+ }
+ if let Some(value)=instance.as_f64().filter(|value|value.is_finite()){
+  if schema.get("minimum").and_then(Value::as_f64).is_some_and(|minimum|value<minimum){errors.push(format!("{path}:SCHEMA_MINIMUM"));}
+  if schema.get("maximum").and_then(Value::as_f64).is_some_and(|maximum|value>maximum){errors.push(format!("{path}:SCHEMA_MAXIMUM"));}
+ }
+}
+fn validate_schema_instance(instance:&Value,schema:&Value,path:&str)->Result<(),String>{
+ let mut errors=Vec::new();validate_json_schema(instance,schema,schema,path,&mut errors,0);
+ if errors.is_empty(){Ok(())}else{errors.sort();Err(format!("JSON_SCHEMA_INVALID:{}",errors.join("|")))}
+}
+
 pub fn classify_record(r:&Value)->&'static str{
  let a=&r["artifact"];let d=&r["document"];let s=&r["signature"];let l=&r["laboratory_scope"];let cr=&r["calibration_result"];let p=&r["passport_binding"];let c=&r["correction"];
  if !non(a,"original_bytes_digest")||text(a,"original_bytes_digest")!=text(a,"received_bytes_digest")||!non(a,"source_receipt_id")||text(a,"retention_state")!="retained_original_bytes"{return "REJECTED_SOURCE_INTEGRITY";}
@@ -120,14 +207,35 @@ fn validate_record(r:&Value)->Result<(),String>{
  Ok(())
 }
 fn validate_schema_contract(profile:&Value,ps:&Value,cs:&Value)->Result<(),String>{
- if text(profile,"schema_version")!="mycelix.building-dcc-evidence/0.1"||text(profile,"dcc_profile_id")!="PTB-DCC-3.3.0-TRUST-APPLICABILITY"||text(profile,"claim_ceiling")!="normalized_synthetic_evidence_axes_only"{return Err("DCC_PROFILE_IDENTITY_INVALID".into());}
- if text(&profile["official_reference"],"namespace_uri")!="https://ptb.de/dcc"||text(&profile["official_reference"],"schema_version")!="3.3.0"||profile["official_reference"]["signature_min_occurs"]!=0||profile["official_reference"]["xsd_digest"]!=Value::Null{return Err("DCC_OFFICIAL_REFERENCE_DRIFT".into());}
- if ps["type"]!="object"||ps["additionalProperties"]!=false||cs["type"]!="object"||cs["additionalProperties"]!=false||cs["properties"]["cases"]["minItems"]!=36||cs["properties"]["cases"]["maxItems"]!=36{return Err("DCC_SCHEMAS_INVALID".into());}
+ if !exact(profile,&["schema_version","dcc_profile_id","claim_ceiling","official_reference","trust_axes","source_boundary","non_authority"])
+  ||text(profile,"schema_version")!="mycelix.building-dcc-evidence/0.1"
+  ||text(profile,"dcc_profile_id")!="PTB-DCC-3.3.0-TRUST-APPLICABILITY"
+  ||text(profile,"claim_ceiling")!="normalized_synthetic_evidence_axes_only"{return Err("DCC_PROFILE_IDENTITY_INVALID".into());}
+ if text(&profile["official_reference"],"namespace_uri")!="https://ptb.de/dcc"
+  ||text(&profile["official_reference"],"schema_version")!="3.3.0"
+  ||profile["official_reference"]["signature_min_occurs"]!=0
+  ||profile["official_reference"]["xsd_digest"]!=Value::Null{return Err("DCC_OFFICIAL_REFERENCE_DRIFT".into());}
+ if ps["type"]!="object"||ps["additionalProperties"]!=false
+  ||!str_array_eq(&ps["required"],&["schema_version","dcc_profile_id","claim_ceiling","official_reference","trust_axes","source_boundary","non_authority"])
+  ||cs["type"]!="object"||cs["additionalProperties"]!=false
+  ||!str_array_eq(&cs["required"],&["schema_version","corpus_id","classification","claim_ceiling","cases"])
+  ||cs["properties"]["cases"]["minItems"]!=EXPECTED.len()
+  ||cs["properties"]["cases"]["maxItems"]!=EXPECTED.len()
+  ||cs["properties"]["cases"]["items"]["additionalProperties"]!=false
+  ||!str_array_eq(&cs["properties"]["cases"]["items"]["required"],&["case_id","description","record","expected_disposition"])
+  ||!str_array_eq(&cs["$defs"]["record"]["required"],ROOT_FIELDS)
+  {return Err("DCC_SCHEMAS_INVALID".into());}
+ let expected_dispositions:BTreeSet<&str>=EXPECTED.iter().map(|(_,disposition)|*disposition).collect();
+ let schema_dispositions=cs["properties"]["cases"]["items"]["properties"]["expected_disposition"]["enum"].as_array().ok_or("DCC_DISPOSITION_ENUM_MISSING")?;
+ let schema_disposition_set:BTreeSet<&str>=schema_dispositions.iter().filter_map(Value::as_str).collect();
+ if expected_dispositions!=schema_disposition_set{return Err("DCC_DISPOSITION_ENUM_DRIFT".into());}
  Ok(())
 }
 pub fn validate_tracked()->Result<usize,String>{
  let profile=parse(PROFILE_JSON)?;let ps=parse(PROFILE_SCHEMA_JSON)?;let cs=parse(CORPUS_SCHEMA_JSON)?;validate_schema_contract(&profile,&ps,&cs)?;
+ validate_schema_instance(&profile,&ps,"$profile")?;
  let c=parse(CORPUS_JSON)?;
+ validate_schema_instance(&c,&cs,"$corpus")?;
  if !exact(&c,&["schema_version","corpus_id","classification","claim_ceiling","cases"])
   ||text(&c,"schema_version")!="mycelix.building-dcc-evidence-corpus/0.1"
   ||text(&c,"corpus_id")!="BUILDING-DCC-EVIDENCE-CORPUS-V0.1"
@@ -158,5 +266,9 @@ mod tests{
  #[test]fn duplicate_json_members_are_rejected(){assert!(parse(r#"{"a":1,"a":2}"#).is_err());}
  #[test]fn no_unsigned_dcc_can_reach_review_eligibility(){assert_ne!(classify_record(&case("DCC-002")),"ELIGIBLE_FOR_INDEPENDENT_PASSPORT_REVIEW_ONLY");}
  #[test]fn no_schema_valid_document_promotes_a_signer_or_lab_scope_automatically(){assert_ne!(classify_record(&case("DCC-016")),"ELIGIBLE_FOR_INDEPENDENT_PASSPORT_REVIEW_ONLY");}
+ #[test]fn duplicate_xml_id_is_explicitly_rejected(){assert_eq!(classify_record(&case("DCC-012")),"REJECTED_XML_ID_AMBIGUITY");}
+ #[test]fn accreditation_schedule_lab_must_match_dcc_result_lab(){assert_eq!(classify_record(&case("DCC-019")),"NOT_COMPARABLE");}
+ #[test]fn calibration_after_sample_date_invalidates_applicability(){assert_eq!(classify_record(&case("DCC-026")),"EXPIRED_OR_INVALIDATED");}
+ #[test]fn schema_validator_rejects_unknown_nested_members(){let p=parse(PROFILE_JSON).unwrap();let ps=parse(PROFILE_SCHEMA_JSON).unwrap();let mut bad=p.clone();bad["official_reference"]["unreviewed_field"]=Value::Bool(true);assert!(validate_schema_instance(&bad,&ps,"$profile").is_err());}
  #[test]fn passport_review_eligibility_is_never_pass_or_admission(){assert_eq!(classify_record(&case("DCC-036")),"ELIGIBLE_FOR_INDEPENDENT_PASSPORT_REVIEW_ONLY");}
 }
