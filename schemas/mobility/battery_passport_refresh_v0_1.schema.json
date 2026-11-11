@@ -1,0 +1,433 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/mobility/battery-passport-refresh/0.1",
+  "title": "Battery Passport event-triggered dynamic refresh planner corpus v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "corpus_version",
+    "registry_reference",
+    "cases"
+  ],
+  "properties": {
+    "corpus_version": {
+      "const": "battery-passport-refresh-corpus/0.1"
+    },
+    "registry_reference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "registry_id",
+        "registry_version",
+        "guidance_version",
+        "registry_sha256"
+      ],
+      "properties": {
+        "registry_id": {
+          "const": "eu-battery-passport-data-point-guidance"
+        },
+        "registry_version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "guidance_version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "registry_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      }
+    },
+    "cases": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 128,
+      "items": {
+        "$ref": "#/$defs/case"
+      }
+    }
+  },
+  "$defs": {
+    "case": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "case_id",
+        "battery",
+        "applicability",
+        "policy",
+        "events",
+        "expected"
+      ],
+      "properties": {
+        "case_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "battery": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "battery_ref",
+            "category",
+            "pack_configuration_sha256",
+            "passport_ref",
+            "lifecycle_status",
+            "connectivity_mode",
+            "responsible_operator_ref",
+            "first_use_date"
+          ],
+          "properties": {
+            "battery_ref": {
+              "type": "string",
+              "minLength": 1
+            },
+            "category": {
+              "enum": [
+                "EV",
+                "LMT",
+                "INDUSTRIAL"
+              ]
+            },
+            "pack_configuration_sha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "passport_ref": {
+              "type": "string",
+              "minLength": 1
+            },
+            "lifecycle_status": {
+              "enum": [
+                "original",
+                "repurposed",
+                "re-used",
+                "remanufactured",
+                "waste"
+              ]
+            },
+            "connectivity_mode": {
+              "enum": [
+                "CONNECTED",
+                "OFFLINE_INTERMITTENT"
+              ]
+            },
+            "responsible_operator_ref": {
+              "type": "string",
+              "minLength": 1
+            },
+            "first_use_date": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          }
+        },
+        "applicability": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "registry_sha256",
+            "resolved_at",
+            "applicable_dynamic_data_points"
+          ],
+          "properties": {
+            "registry_sha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "resolved_at": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "applicable_dynamic_data_points": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 21,
+              "uniqueItems": true,
+              "items": {
+                "type": "integer",
+                "minimum": 51,
+                "maximum": 71
+              }
+            }
+          }
+        },
+        "policy": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "policy_ref",
+            "policy_sha256",
+            "periodic_usage_capture_policy_ref",
+            "soh_monitoring_purpose_ref"
+          ],
+          "properties": {
+            "policy_ref": {
+              "type": "string",
+              "minLength": 1
+            },
+            "policy_sha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "periodic_usage_capture_policy_ref": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "minLength": 1
+            },
+            "soh_monitoring_purpose_ref": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "minLength": 1
+            }
+          }
+        },
+        "events": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 128,
+          "items": {
+            "$ref": "#/$defs/event"
+          }
+        },
+        "expected": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "event_dispositions",
+            "pending_data_points",
+            "new_passport_link_required",
+            "case_state"
+          ],
+          "properties": {
+            "event_dispositions": {
+              "type": "array",
+              "items": {
+                "enum": [
+                  "UPDATE_REQUIRED",
+                  "REVIEW_REQUIRED",
+                  "NO_CHANGE_RECORDED",
+                  "CONNECTIVITY_BLOCKED",
+                  "BLOCKED_UNQUALIFIED_EVENT",
+                  "CONFLICTING_EVENT",
+                  "DEFERRED_WAITING_FOR_SOURCE"
+                ]
+              }
+            },
+            "pending_data_points": {
+              "type": "array",
+              "uniqueItems": true,
+              "items": {
+                "type": "integer",
+                "minimum": 51,
+                "maximum": 71
+              }
+            },
+            "new_passport_link_required": {
+              "type": "boolean"
+            },
+            "case_state": {
+              "enum": [
+                "OPERATOR_ACTION_REQUIRED",
+                "NEEDS_RECONCILIATION",
+                "NO_TRIGGER_RECORDED",
+                "REVIEW_RECORDED",
+                "REJECTED_INPUT"
+              ]
+            }
+          }
+        }
+      }
+    },
+    "event": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "event_id",
+        "sequence",
+        "event_type",
+        "battery_ref",
+        "pack_configuration_sha256",
+        "passport_ref",
+        "occurred_at",
+        "received_at",
+        "actor_ref",
+        "authority_state",
+        "authorization_scope",
+        "source_class",
+        "evidence_ref",
+        "evidence_sha256"
+      ],
+      "properties": {
+        "event_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sequence": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "event_type": {
+          "enum": [
+            "STATUS_CHANGE_CONSIDERED",
+            "STATUS_CHANGED",
+            "FIRST_USE_CONFIRMED",
+            "PERIODIC_USAGE_CAPTURE",
+            "SERVICE_VISIT",
+            "SOH_MONITORING_REVIEW",
+            "NO_MATERIAL_CHANGE_ASSESSED",
+            "CONNECTIVITY_UNAVAILABLE",
+            "WASTE_PREPARATION_FOR_REUSE_OR_REPURPOSE"
+          ]
+        },
+        "battery_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "pack_configuration_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "passport_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "occurred_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "received_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "actor_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "authority_state": {
+          "enum": [
+            "RESPONSIBLE_OPERATOR_DIRECT",
+            "WRITTEN_DELEGATE"
+          ]
+        },
+        "authorization_ref": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1
+        },
+        "authorization_sha256": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "authorization_scope": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "source_class": {
+          "enum": [
+            "SYNTHETIC_KNOWN_TRUTH",
+            "OPERATOR_EVENT_RECORD",
+            "MEASURED_OBSERVATION",
+            "LIFECYCLE_DOCUMENT"
+          ]
+        },
+        "evidence_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "evidence_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "proposed_status": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1
+        },
+        "resulting_status": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1
+        },
+        "material_change": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "technical_feasible": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "purpose_ref": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1
+        },
+        "capture_policy_ref": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1
+        },
+        "source_window_start": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date-time"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "source_window_end": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date-time"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    }
+  }
+}
