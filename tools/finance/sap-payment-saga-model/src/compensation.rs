@@ -851,14 +851,16 @@ impl CompensationBookV2 {
             return Err(CompensationErrorV2::OutcomeContradiction);
         }
         let amount = record.request.amount_minor;
-        self.encumbered_minor = self
+        let next_encumbered = self
             .encumbered_minor
             .checked_sub(amount)
             .ok_or(CompensationErrorV2::AmountOverflow)?;
-        self.settled_minor = self
+        let next_settled = self
             .settled_minor
             .checked_add(amount)
             .ok_or(CompensationErrorV2::AmountOverflow)?;
+        self.encumbered_minor = next_encumbered;
+        self.settled_minor = next_settled;
         record.status = CompensationStatusV2::Settled;
         record.possible_effect_count = 1;
         record.last_outcome_digest = Some(digest);
