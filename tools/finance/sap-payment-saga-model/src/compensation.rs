@@ -989,3 +989,406 @@ fn sha256_hex(bytes: &[u8]) -> String {
     }
     output
 }
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const NOW: u64 = 1_000;
+
+    fn digest(ch: char) -> String {
+        format!("sha256:{}", ch.to_string().repeat(64))
+    }
+
+    fn forward() -> ForwardEffectV2 {
+        ForwardEffectV2 {
+            operation_id: "operation:merchant-01".into(),
+            effect_id: "effect:payment-01".into(),
+            source_owner_id: "owner:merchant".into(),
+            source_account_id: "account:merchant".into(),
+            destination_owner_id: "owner:customer".into(),
+            destination_account_id: "account:customer".into(),
+            asset: "USD".into(),
+            amount_minor: 100,
+            finality: ForwardFinalityV2::Settled,
+            reversible_ceiling_minor: 100,
+        }
+    }
+
+    fn plan(forward: &ForwardEffectV2, maximum: u64) -> CompensationPlanV2 {
+        CompensationPlanV2 {
+            plan_id: "plan:refund-01".into(),
+            forward_effect_id: forward.effect_id.clone(),
+            forward_effect_digest: forward.canonical_digest().unwrap(),
+            funding_owner_id: "owner:refund-treasury".into(),
+            funding_account_id: "account:refund-treasury".into(),
+            beneficiary_owner_id: forward.source_owner_id.clone(),
+            beneficiary_account_id: forward.source_account_id.clone(),
+            asset: forward.asset.clone(),
+            maximum_compensation_minor: maximum,
+            policy_digest: digest('d'),
+            recovery_reason: "customer-refund".into(),
+        }
+    }
+
+    fn authorization(plan: &CompensationPlanV2, maximum: u64) -> CompensationAuthorizationV2 {
+        let plan_digest = plan.canonical_digest(&forward()).unwrap();
+        CompensationAuthorizationV2 {
+            capability_id: "capability:refund-01".into(),
+            issuer_owner_id: plan.funding_owner_id.clone(),
+            grantee_owner_id: "owner:refund-operator".into(),
+            plan_digest,
+            funding_owner_id: plan.funding_owner_id.clone(),
+            funding_account_id: plan.funding_account_id.clone(),
+            beneficiary_owner_id: plan.beneficiary_owner_id.clone(),
+            beneficiary_account_id: plan.beneficiary_account_id.clone(),
+            asset: plan.asset.clone(),
+            maximum_minor: maximum,
+            nonce: 1,
+            expires_at_unix_ms: 10_000,
+            revoked: false,
+        }
+    }
+
+    fn book(initial_liquidity: u64, plan_maximum: u64, auth_maximum: u64) -> CompensationBookV2 {
+        let forward = forward();
+        let plan = plan(&forward, plan_maximum);
+        CompensationBookV2::new(forward, plan, initial_liquidity).unwrap()
+    }
+
+    fn request(
+        book: &CompensationBookV2,
+        id: &str,
+        amount: u64,
+        reservation_id: &str,
+        auth_maximum: u64,
+    ) -> CompensationRequestV2 {
+        CompensationRequestV2 {
+            compensation_id: id.into(),
+            actor_owner_id: "owner:refund-operator".into(),
+            amount_minor: amount,
+            authorization: authorization(&book.plan, auth_maximum),
+            liquidity_reservation: LiquidityReservationV2 {
+                reservation_id: reservation_id.into(),
+                source_owner_id: book.plan.funding_owner_id.clone(),
+                source_account_id: book.plan.funding_account_id.clone(),
+                asset: book.plan.asset.clone(),
+                amount_minor: amount,
+            },
+        }
+    }
+
+    fn outcome(
+        book: &CompensationBookV2,
+        request: &CompensationRequestV2,
+        kind: CompensationOutcomeKindV2,
+        evidence_reference: &str,
+    ) -> CompensationOutcomeV2 {
+        CompensationOutcomeV2 {
+            kind,
+            compensation_id: request.compensation_id.clone(),
+            compensation_effect_id: format!("mx-compensation:{}", request.compensation_id),
+            forward_effect_id: book.forward.effect_id.clone(),
+            forward_effect_digest: book.forward.canonical_digest().unwrap(),
+            plan_digest: book.plan_digest.clone(),
+            amount_minor: request.amount_minor,
+            authorization_digest: request.authorization.canonical_digest().unwrap(),
+            liquidity_reservation_digest: request
+                .liquidity_reservation
+                .canonical_digest()
+                .unwrap(),
+            funding_owner_id: book.plan.funding_owner_id.clone(),
+            funding_account_id: book.plan.funding_account_id.clone(),
+            beneficiary_owner_id: book.plan.beneficiary_owner_id.clone(),
+            beneficiary_account_id: book.plan.beneficiary_account_id.clone(),
+            asset: book.plan.asset.clone(),
+            evidence_reference: evidence_reference.into(),
+        }
+    }
+
+    #[test]
+    fn non_settled_forward_effect_cannot_create_compensation_plan() {
+        let mut unsettled = forward();
+        unsettled.finality = ForwardFinalityV2::ObservedUnsettled;
+        unsettled.reversible_ceiling_minor = 0;
+        let plan = plan(&unsettled, 0);
+        assert_eq!(
+            CompensationBookV2::new(unsettled, plan, 100).map(|_| ()),
+            Err(CompensationErrorV2::ForwardNotSettled)
+        );
+
+        let mut absent = forward();
+        absent.finality = ForwardFinalityV2::AuthoritativelyAbsent;
+        absent.reversible_ceiling_minor = 0;
+        let absent_plan = plan(&absent, 0);
+        assert_eq!(
+            CompensationBookV2::new(absent, absent_plan, 100).map(|_| ()),
+            Err(CompensationErrorV2::ForwardNotSettled)
+        );
+    }
+
+    #[test]
+    fn partial_compensation_is_bounded_by_forward_reversible_ceiling() {
+        let mut book = book(100, 100, 100);
+        let original_forward = book.forward.clone();
+        let first = request(&book, "refund:1", 60, "liquidity:1", 100);
+        assert_eq!(
+            book.reserve(first.clone(), NOW),
+            Ok(CompensationDispositionV2::Created)
+        );
+        assert_eq!(
+            book.mark_dispatch_authorized("refund:1", &first.authorization, NOW),
+            Ok(CompensationDispositionV2::Applied)
+        );
+        assert_eq!(
+            book.settle(outcome(
+                &book,
+                &first,
+                CompensationOutcomeKindV2::FinalSettlement,
+                "evidence:refund-1-settled",
+            )),
+            Ok(CompensationDispositionV2::Settled)
+        );
+        assert_eq!(book.settled_minor(), Ok(60));
+        assert_eq!(book.encumbered_minor(), Ok(0));
+        assert_eq!(book.remaining_reversible_minor(), Ok(40));
+
+        let second = request(&book, "refund:2", 41, "liquidity:2", 100);
+        assert_eq!(
+            book.reserve(second, NOW),
+            Err(CompensationErrorV2::InsufficientReversibleCeiling)
+        );
+        assert_eq!(book.forward, original_forward);
+        assert_eq!(book.settled_minor(), Ok(60));
+    }
+
+    #[test]
+    fn indeterminate_compensation_keeps_liquidity_and_cannot_claim_absence_after_effect() {
+        let mut book = book(100, 100, 100);
+        let request = request(&book, "refund:uncertain", 35, "liquidity:uncertain", 100);
+        book.reserve(request.clone(), NOW).unwrap();
+        book.mark_dispatch_authorized("refund:uncertain", &request.authorization, NOW)
+            .unwrap();
+        book.mark_indeterminate("refund:uncertain", 1).unwrap();
+
+        assert_eq!(book.encumbered_minor(), Ok(35));
+        assert_eq!(
+            book.resolve_authoritative_absence(outcome(
+                &book,
+                &request,
+                CompensationOutcomeKindV2::AuthoritativeAbsence,
+                "evidence:absence-contradictory",
+            )),
+            Err(CompensationErrorV2::OutcomeContradiction)
+        );
+        assert_eq!(book.encumbered_minor(), Ok(35));
+
+        assert_eq!(
+            book.observe_unsettled(outcome(
+                &book,
+                &request,
+                CompensationOutcomeKindV2::ObservedUnsettled,
+                "evidence:refund-observed",
+            )),
+            Ok(CompensationDispositionV2::Applied)
+        );
+        assert_eq!(book.encumbered_minor(), Ok(35));
+        assert_eq!(
+            book.settle(outcome(
+                &book,
+                &request,
+                CompensationOutcomeKindV2::FinalSettlement,
+                "evidence:refund-settled",
+            )),
+            Ok(CompensationDispositionV2::Settled)
+        );
+        assert_eq!(book.encumbered_minor(), Ok(0));
+        assert_eq!(book.settled_minor(), Ok(35));
+    }
+
+    #[test]
+    fn authoritative_absence_allows_only_same_effect_retry() {
+        let mut book = book(100, 100, 100);
+        let request = request(&book, "refund:retry", 30, "liquidity:retry", 100);
+        book.reserve(request.clone(), NOW).unwrap();
+        book.mark_dispatch_authorized("refund:retry", &request.authorization, NOW)
+            .unwrap();
+        book.mark_indeterminate("refund:retry", 0).unwrap();
+        book.resolve_authoritative_absence(outcome(
+            &book,
+            &request,
+            CompensationOutcomeKindV2::AuthoritativeAbsence,
+            "evidence:refund-absent",
+        ))
+        .unwrap();
+        assert_eq!(
+            book.retry_same_effect("refund:retry", &request.authorization, NOW),
+            Ok(CompensationDispositionV2::Applied)
+        );
+        assert_eq!(
+            book.compensation_effect_id("refund:retry").as_deref(),
+            Some("mx-compensation:refund:retry")
+        );
+        assert_eq!(book.status("refund:retry"), Some(CompensationStatusV2::Reserved));
+        assert_eq!(book.encumbered_minor(), Ok(30));
+    }
+
+    #[test]
+    fn exact_request_replay_is_idempotent_even_after_capability_expiry() {
+        let mut book = book(100, 100, 100);
+        let request = request(&book, "refund:replay", 20, "liquidity:replay", 100);
+        assert_eq!(
+            book.reserve(request.clone(), NOW),
+            Ok(CompensationDispositionV2::Created)
+        );
+        assert_eq!(
+            book.reserve(request, 20_000),
+            Ok(CompensationDispositionV2::AlreadyExists)
+        );
+        assert_eq!(book.encumbered_minor(), Ok(20));
+    }
+
+    #[test]
+    fn one_reservation_id_cannot_back_two_compensation_effects() {
+        let mut book = book(100, 100, 100);
+        let first = request(&book, "refund:first", 20, "liquidity:shared", 100);
+        let second = request(&book, "refund:second", 20, "liquidity:shared", 100);
+        book.reserve(first, NOW).unwrap();
+        assert_eq!(
+            book.reserve(second, NOW),
+            Err(CompensationErrorV2::LiquidityReservationConflict)
+        );
+        assert_eq!(book.encumbered_minor(), Ok(20));
+    }
+
+    #[test]
+    fn reusable_capability_has_one_aggregate_ceiling_across_partial_refunds() {
+        let mut book = book(100, 100, 70);
+        let first = request(&book, "refund:cap-1", 40, "liquidity:cap-1", 70);
+        let second = request(&book, "refund:cap-2", 31, "liquidity:cap-2", 70);
+        book.reserve(first, NOW).unwrap();
+        assert_eq!(
+            book.reserve(second, NOW),
+            Err(CompensationErrorV2::AuthorizationLimitExceeded)
+        );
+        assert_eq!(book.encumbered_minor(), Ok(40));
+    }
+
+    #[test]
+    fn acting_owner_must_match_capability_grantee() {
+        let mut book = book(100, 100, 100);
+        let mut request = request(&book, "refund:wrong-actor", 20, "liquidity:wrong-actor", 100);
+        request.actor_owner_id = "owner:mallory".into();
+        assert_eq!(
+            book.reserve(request, NOW),
+            Err(CompensationErrorV2::AuthorizationScopeMismatch)
+        );
+        assert_eq!(book.encumbered_minor(), Ok(0));
+    }
+
+    #[test]
+    fn revoked_or_expired_capability_cannot_cross_dispatch_boundary() {
+        let mut book = book(100, 100, 100);
+        let request = request(&book, "refund:revoked", 20, "liquidity:revoked", 100);
+        book.reserve(request.clone(), NOW).unwrap();
+
+        let mut revoked = request.authorization.clone();
+        revoked.revoked = true;
+        assert_eq!(
+            book.mark_dispatch_authorized("refund:revoked", &revoked, NOW),
+            Err(CompensationErrorV2::AuthorizationRevoked)
+        );
+        assert_eq!(book.status("refund:revoked"), Some(CompensationStatusV2::Reserved));
+
+        assert_eq!(
+            book.mark_dispatch_authorized(
+                "refund:revoked",
+                &request.authorization,
+                request.authorization.expires_at_unix_ms,
+            ),
+            Err(CompensationErrorV2::AuthorizationExpired)
+        );
+        assert_eq!(book.encumbered_minor(), Ok(20));
+    }
+
+    #[test]
+    fn source_liquidity_cap_and_reservation_scope_are_enforced() {
+        let mut book = book(50, 100, 100);
+        let too_large = request(&book, "refund:too-large", 51, "liquidity:too-large", 100);
+        assert_eq!(
+            book.reserve(too_large, NOW),
+            Err(CompensationErrorV2::InsufficientLiquidity)
+        );
+
+        let mut wrong_source = request(&book, "refund:wrong-source", 20, "liquidity:wrong-source", 100);
+        wrong_source.liquidity_reservation.source_account_id = "account:other".into();
+        assert_eq!(
+            book.reserve(wrong_source, NOW),
+            Err(CompensationErrorV2::LiquidityReservationMismatch)
+        );
+        assert_eq!(book.encumbered_minor(), Ok(0));
+    }
+
+    #[test]
+    fn compensation_outcome_must_bind_authorization_reservation_and_forward_subject() {
+        let mut book = book(100, 100, 100);
+        let request = request(&book, "refund:bad-outcome", 20, "liquidity:bad-outcome", 100);
+        book.reserve(request.clone(), NOW).unwrap();
+        book.mark_dispatch_authorized("refund:bad-outcome", &request.authorization, NOW)
+            .unwrap();
+
+        let mut wrong_authority = outcome(
+            &book,
+            &request,
+            CompensationOutcomeKindV2::FinalSettlement,
+            "evidence:comp-settled",
+        );
+        wrong_authority.authorization_digest = digest('a');
+        assert_eq!(
+            book.settle(wrong_authority),
+            Err(CompensationErrorV2::InvalidOutcome)
+        );
+        assert_eq!(book.status("refund:bad-outcome"), Some(CompensationStatusV2::DispatchAuthorized));
+
+        let mut wrong_forward = outcome(
+            &book,
+            &request,
+            CompensationOutcomeKindV2::FinalSettlement,
+            "evidence:comp-settled",
+        );
+        wrong_forward.forward_effect_id = "effect:other".into();
+        assert_eq!(
+            book.settle(wrong_forward),
+            Err(CompensationErrorV2::InvalidOutcome)
+        );
+        assert_eq!(book.encumbered_minor(), Ok(20));
+    }
+
+    #[test]
+    fn cancellation_releases_only_never_dispatched_reservation() {
+        let mut book = book(100, 100, 100);
+        let request = request(&book, "refund:cancel", 25, "liquidity:cancel", 100);
+        book.reserve(request.clone(), NOW).unwrap();
+        assert_eq!(book.encumbered_minor(), Ok(25));
+        assert_eq!(
+            book.cancel_before_dispatch("refund:cancel"),
+            Ok(CompensationDispositionV2::Cancelled)
+        );
+        assert_eq!(book.encumbered_minor(), Ok(0));
+
+        let dispatched = request(&book, "refund:no-cancel-after-dispatch", 25, "liquidity:dispatched", 100);
+        book.reserve(dispatched.clone(), NOW).unwrap();
+        book.mark_dispatch_authorized(
+            "refund:no-cancel-after-dispatch",
+            &dispatched.authorization,
+            NOW,
+        )
+        .unwrap();
+        assert_eq!(
+            book.cancel_before_dispatch("refund:no-cancel-after-dispatch"),
+            Err(CompensationErrorV2::InvalidTransition)
+        );
+        assert_eq!(book.encumbered_minor(), Ok(25));
+    }
+}
