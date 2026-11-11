@@ -154,19 +154,37 @@ fn challenge(fixture: &Value) -> &'static str {
     else {"NONE"}
 }
 
-fn current_decision(fixture: &Value) -> String {
-    let events=fixture["events"].as_array().unwrap();
-    let mut current=text(fixture,"decision_ref").unwrap_or("").to_string();
-    let mut seen=BTreeSet::from([current.clone()]);
+fn decision_lineage(fixture: &Value) -> Vec<String> {
+    let events = fixture["events"].as_array().unwrap();
+    let mut current = text(fixture, "decision_ref").unwrap_or("").to_string();
+    let mut seen = BTreeSet::from([current.clone()]);
+    let mut lineage = vec![current.clone()];
     loop {
-        let successors=events.iter().filter(|e|
-            text(e,"kind")==Some("Decision") && text(e,"supersedes_ref")==Some(current.as_str())
-        ).collect::<Vec<_>>();
-        if successors.len()>1{return "AMBIGUOUS_SUCCESSORS".into();}
-        if successors.is_empty(){return current;}
-        current=text(successors[0],"event_id").unwrap_or("").to_string();
-        if !seen.insert(current.clone()){return "CYCLE".into();}
+        let successors = events
+            .iter()
+            .filter(|e| {
+                text(e, "kind") == Some("Decision")
+                    && text(e, "supersedes_ref") == Some(current.as_str())
+            })
+            .collect::<Vec<_>>();
+        if successors.len() > 1 {
+            lineage.push("AMBIGUOUS_SUCCESSORS".into());
+            return lineage;
+        }
+        if successors.is_empty() {
+            return lineage;
+        }
+        current = text(successors[0], "event_id").unwrap_or("").to_string();
+        if !seen.insert(current.clone()) {
+            lineage.push("CYCLE".into());
+            return lineage;
+        }
+        lineage.push(current.clone());
     }
+}
+
+fn current_decision(fixture: &Value) -> String {
+    decision_lineage(fixture).last().cloned().unwrap_or_default()
 }
 
 fn derive(fixture:&Value)->Result<Value,String>{
@@ -175,12 +193,19 @@ fn derive(fixture:&Value)->Result<Value,String>{
     let known=events.iter().filter(|e|number(e,"transaction_time").is_some_and(|t|t<=cutoff))
         .filter_map(|e|text(e,"event_id").map(ToOwned::to_owned)).collect::<BTreeSet<_>>();
     let privacy=events.iter().any(|e|text(e,"visibility")==Some("Protected")&&e["projection_includes_payload"]==true);
+    let decision = text(fixture,"decision_ref").unwrap_or("");
+    let challenge_ids = events.iter().filter(|e|
+        text(e,"kind")==Some("Challenge")
+            && (text(e,"subject_ref")==Some(decision)||strings(&e["parent_refs"]).contains(decision))
+    ).filter_map(|e|text(e,"event_id").map(ToOwned::to_owned)).collect::<BTreeSet<_>>();
     Ok(serde_json::json!({
         "known_event_ids":known.into_iter().collect::<Vec<_>>(),
         "authority_as_known_at_action":authority(fixture,false),
         "authority_current_assessment":authority(fixture,true),
         "outcome_state":outcome(fixture),
         "challenge_state":challenge(fixture),
+        "challenge_event_ids":challenge_ids.into_iter().collect::<Vec<_>>(),
+        "decision_lineage_refs":decision_lineage(fixture),
         "current_decision_ref":current_decision(fixture),
         "privacy_violation":privacy
     }))
@@ -300,6 +325,8 @@ mod tests{
     #[test]fn observation_for_wrong_attempt_does_not_prove_outcome(){let f=fixture("CIVT-HINDSIGHT-06");assert_eq!(f["expected"]["outcome_state"],"UNOBSERVED");}
     #[test]fn unresolved_challenge_remains_visible(){let f=fixture("CIVT-CONTEST-04");assert_eq!(f["expected"]["challenge_state"],"OPEN_UNRESOLVED");}
     #[test]fn resolved_challenge_remains_in_history(){let f=fixture("CIVT-CONTEST-03");assert_eq!(f["expected"]["challenge_state"],"RESOLVED_PRESERVED");}
+    #[test]fn exact_challenge_event_ids_remain_reconstructable(){let f=fixture("CIVT-CONTEST-04");assert_eq!(strings(&f["expected"]["challenge_event_ids"]).len(),2);}
+    #[test]fn full_decision_predecessor_chain_is_preserved(){let f=fixture("CIVT-SUPERSESSION-03");assert_eq!(f["expected"]["decision_lineage_refs"],serde_json::json!(["DEC-023","DEC2-3","DEC3-3"]));}
     #[test]fn supersession_selects_successor_without_deleting_predecessor(){let f=fixture("CIVT-SUPERSESSION-03");assert_eq!(f["expected"]["current_decision_ref"],"DEC3-3");assert!(f["events"].as_array().unwrap().iter().any(|e|text(e,"event_id")==Some("DEC-023")));}
     #[test]fn protected_payload_leak_is_explicit(){let f=fixture("CIVT-PRIVACY-02");assert_eq!(f["expected"]["privacy_violation"],true);}
     #[test]fn duplicate_event_id_is_rejected(){let mut f=fixture("CIVT-HINDSIGHT-01");let e=f["events"][0].clone();f["events"].as_array_mut().unwrap().push(e);assert!(validate_fixture(&f).is_err());}
