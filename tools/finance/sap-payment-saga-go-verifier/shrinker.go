@@ -16,9 +16,9 @@ type TraceShrinkResultV1 struct {
 }
 
 var (
-	ErrTraceShrinkInvalidInput = errors.New("input trace is not canonical Trace V1")
+	ErrTraceShrinkInvalidInput  = errors.New("input trace is not canonical Trace V1")
 	ErrTraceShrinkTargetMissing = errors.New("target failure signature is absent from input")
-	ErrTraceShrinkAttemptLimit = errors.New("trace shrink attempt limit exceeded")
+	ErrTraceShrinkAttemptLimit  = errors.New("trace shrink attempt limit exceeded")
 )
 
 type traceNumericFieldV1 uint8
