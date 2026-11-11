@@ -369,5 +369,58 @@
     "country": "South Africa",
     "constitutional_reference": "https://lawlibrary.org.za/akn/za/act/1996/constitution/eng@2026-06-26",
     "source_note": "The constitutional text version dated 26 June 2026 lists South African Sign Language alongside the other official languages and requires equitable treatment. This is context for the language-access design, not a legal-compliance determination or a substitute for jurisdiction-specific legal review."
+  },
+  "counterfactual_interaction_protocol": {
+    "status": "design_extension_pending_preregistration_and_human_ethics_review",
+    "rationale": "Distinguish participant stance changes caused by private reflection, elapsed time, peer interaction and direct AI facilitation. Stance movement alone does not establish deliberative learning or social influence.",
+    "randomized_arms": [
+      {
+        "id": "no_ai_no_reflection",
+        "description": "Baseline discussion without AI reflection or facilitation."
+      },
+      {
+        "id": "private_ai_reflection",
+        "description": "Non-directive private pre-deliberation reflection; no group message is generated."
+      },
+      {
+        "id": "sealed_monologue",
+        "description": "Matched private reflection and time, but each participant cannot observe peer contributions during the intervention interval."
+      },
+      {
+        "id": "peer_visible_interaction",
+        "description": "Matched private reflection followed by peer-visible exchange; candidate may only summarize or organize contributions if assigned by the randomized condition."
+      },
+      {
+        "id": "retrospective_summary",
+        "description": "Participant-conditioned summary after discussion; no live moderation."
+      },
+      {
+        "id": "live_ai_facilitation",
+        "description": "AI facilitation during discussion, separately randomized from private reflection."
+      }
+    ],
+    "primary_estimands": [
+      "interaction_attributable_stance_shift: randomized peer-visible minus sealed-monologue arm difference in signed position movement",
+      "evidence_warranted_revision: proportion of changes supported by newly observed evidence or a reason traceable to peer contributions",
+      "unwarranted_directional_steering: randomized shift toward a preregistered facilitator recommendation direction without supporting new evidence or participant-stated reasons",
+      "minority_position_retention: fraction of initially held minority claims preserved with their source and scope in final summaries and decision records",
+      "population_representation_error: distance between simulated starting/final stance distributions and independent empirical survey distributions, computed only where the source population and sample design are defined"
+    ],
+    "controls": [
+      "Equalize time, turns, token budget, model/harness version and visible evidence across paired treatment arms.",
+      "Record initial positions before any AI exposure, then post-reflection, post-discussion and final decision positions.",
+      "Keep private reflections private unless the participant explicitly shares them.",
+      "Do not infer social learning from stance movement alone; require argument/evidence uptake adjudication.",
+      "Use sealed-monologue to measure position drift absent peer exposure.",
+      "Do not claim population representativeness from persona prompts without empirical distribution validation.",
+      "Treat participant refusal, attrition, non-response and missing reasons as explicit denominators, not silent exclusions."
+    ],
+    "analysis": {
+      "randomization_unit": "Participant or group depending on treatment spillover; specify and preregister before recruitment.",
+      "primary_cluster": "Deliberation group, with participant nested within group.",
+      "reporting": "Group- and participant-level estimates, subgroup heterogeneity only when adequately powered, uncertainty intervals and sensitivity to missingness.",
+      "human_subjects": "Applicable ethics approval, informed consent, privacy-preserving retention, withdrawal and participant correction/appeal required before data collection."
+    },
+    "claim_ceiling": "No real-world population-representation, social-learning, persuasion, inclusion or causal steering claim follows from synthetic LLM-only simulations. Such claims require suitable human reference data and preregistered human-subject evaluation."
   }
 }
