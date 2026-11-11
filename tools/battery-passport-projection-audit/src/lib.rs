@@ -234,12 +234,18 @@ fn check_projection_semantics(registry: &Value, projection: &Value) -> Result<BT
         }
 
         let audience_allowed = audience_can_view(audience, expected_disclosure);
+        let conditional_without_payload = outcome == "CONDITIONAL_REVIEW_REQUIRED"
+            && item.get("value").is_none_or(Value::is_null)
+            && item.get("evidence")
+                .and_then(Value::as_array)
+                .is_none_or(Vec::is_empty);
         if !audience_allowed
             && outcome != "WITHHELD_BY_ACCESS_POLICY"
             && outcome != "NOT_REQUIRED_AT_EFFECTIVE_DATE"
+            && !conditional_without_payload
         {
             return Err(format!(
-                "data point {number} is restricted from audience {audience}; projection must withhold it"
+                "data point {number} is restricted from audience {audience}; projection must withhold value/evidence payload"
             ));
         }
         if outcome == "READY_TO_PUBLISH" {
@@ -612,6 +618,27 @@ mod tests {
         projection["summary"]["not_applicable"] = json!(1);
         let bytes = serde_json::to_vec(&projection).unwrap();
         assert!(audit_projection(REGISTRY_SCHEMA, REGISTRY, PROJECTION_SCHEMA, &bytes).is_ok());
+    }
+
+    #[test]
+    fn restricted_conditional_review_may_expose_only_applicability_state() {
+        let mut projection: Value = serde_json::from_slice(EV_PUBLIC).expect("EV fixture");
+        projection["battery"]["first_use_date"] = Value::Null;
+        let cycles = projection["data_points"].as_array_mut().unwrap()
+            .iter_mut().find(|point| point["number"] == 68).unwrap();
+        cycles["outcome"] = json!("CONDITIONAL_REVIEW_REQUIRED");
+        cycles["value"] = json!(123);
+        cycles["evidence"] = json!([{
+            "evidence_ref":"synthetic:restricted-cycle-history",
+            "evidence_class":"synthetic_fixture",
+            "digest":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "issuer_ref":"synthetic:issuer",
+            "recorded_at":"2026-11-01T00:00:00Z"
+        }]);
+        projection["summary"]["withheld_by_access_policy"] = json!(2);
+        projection["summary"]["conditional_review_required"] = json!(1);
+        let bytes = serde_json::to_vec(&projection).unwrap();
+        assert!(audit_projection(REGISTRY_SCHEMA, REGISTRY, PROJECTION_SCHEMA, &bytes).is_err());
     }
 
 }
