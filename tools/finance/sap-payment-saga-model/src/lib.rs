@@ -13,8 +13,8 @@
 //!/external settlement finality.
 
 pub mod delegated;
-pub mod handoff;
 pub mod exposure;
+pub mod handoff;
 pub mod replay;
 pub mod trace;
 
