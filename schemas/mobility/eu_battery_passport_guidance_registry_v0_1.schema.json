@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://luminousdynamics.io/schemas/mobility/eu-battery-passport-guidance-registry/0.1",
-  "title": "EU Battery Passport guidance registry selected-point transcription",
+  "title": "EU Battery Passport guidance registry complete 71-point transcription",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -11,7 +11,7 @@
     "passport_obligation_date",
     "categories",
     "complete_71_point_transcription",
-    "selected_data_point_count",
+    "data_point_count",
     "data_points"
   ],
   "properties": {
@@ -86,10 +86,6 @@
     "complete_71_point_transcription": {
       "type": "boolean"
     },
-    "selected_data_point_count": {
-      "type": "integer",
-      "minimum": 1
-    },
     "data_points": {
       "type": "array",
       "minItems": 1,
@@ -147,6 +143,10 @@
           }
         }
       }
+    },
+    "data_point_count": {
+      "type": "integer",
+      "minimum": 1
     }
   },
   "$defs": {
