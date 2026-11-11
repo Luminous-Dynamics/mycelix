@@ -202,16 +202,28 @@ fn check_projection_semantics(registry: &Value, projection: &Value) -> Result<BT
         }
 
         if expected_applicability == "APPLICABLE_FROM_FIRST_USE" {
-            let started = first_use.is_some_and(|date| date <= effective_date);
-            if !started && outcome != "NOT_APPLICABLE" {
-                return Err(format!(
-                    "data point {number} applies from first use but the battery has not started use by the effective date"
-                ));
-            }
-            if started && outcome == "NOT_APPLICABLE" {
-                return Err(format!(
-                    "data point {number} applies from first use and cannot be marked not-applicable after first use"
-                ));
+            match first_use {
+                Some(date) if date <= effective_date => {
+                    if outcome == "NOT_APPLICABLE" {
+                        return Err(format!(
+                            "data point {number} applies from first use and cannot be marked not-applicable after first use"
+                        ));
+                    }
+                }
+                Some(_) => {
+                    if outcome != "NOT_APPLICABLE" {
+                        return Err(format!(
+                            "data point {number} is not applicable before the evidenced first-use date"
+                        ));
+                    }
+                }
+                None => {
+                    if outcome != "CONDITIONAL_REVIEW_REQUIRED" {
+                        return Err(format!(
+                            "data point {number} has an unknown first-use date; applicability requires conditional review"
+                        ));
+                    }
+                }
             }
         }
 
@@ -561,6 +573,45 @@ mod tests {
             assert!(conditional_symbol["applicability"][category]["condition"]
                 .as_str().unwrap().contains("cadmium or lead symbol"));
         }
+    }
+
+    #[test]
+    fn unknown_first_use_date_requires_conditional_review_for_dynamic_points() {
+        let mut projection: Value = serde_json::from_slice(EV_PUBLIC).expect("EV fixture");
+        projection["battery"]["first_use_date"] = Value::Null;
+        let cycles = projection["data_points"].as_array_mut().unwrap()
+            .iter_mut().find(|point| point["number"] == 68).unwrap();
+        cycles["outcome"] = json!("CONDITIONAL_REVIEW_REQUIRED");
+        projection["summary"]["withheld_by_access_policy"] = json!(2);
+        projection["summary"]["conditional_review_required"] = json!(1);
+        let bytes = serde_json::to_vec(&projection).unwrap();
+        assert!(audit_projection(REGISTRY_SCHEMA, REGISTRY, PROJECTION_SCHEMA, &bytes).is_ok());
+    }
+
+    #[test]
+    fn unknown_first_use_date_cannot_be_promoted_to_not_applicable() {
+        let mut projection: Value = serde_json::from_slice(EV_PUBLIC).expect("EV fixture");
+        projection["battery"]["first_use_date"] = Value::Null;
+        let cycles = projection["data_points"].as_array_mut().unwrap()
+            .iter_mut().find(|point| point["number"] == 68).unwrap();
+        cycles["outcome"] = json!("NOT_APPLICABLE");
+        projection["summary"]["withheld_by_access_policy"] = json!(2);
+        projection["summary"]["not_applicable"] = json!(1);
+        let bytes = serde_json::to_vec(&projection).unwrap();
+        assert!(audit_projection(REGISTRY_SCHEMA, REGISTRY, PROJECTION_SCHEMA, &bytes).is_err());
+    }
+
+    #[test]
+    fn evidenced_future_first_use_keeps_dynamic_points_not_applicable() {
+        let mut projection: Value = serde_json::from_slice(EV_PUBLIC).expect("EV fixture");
+        projection["battery"]["first_use_date"] = json!("2027-03-01");
+        let cycles = projection["data_points"].as_array_mut().unwrap()
+            .iter_mut().find(|point| point["number"] == 68).unwrap();
+        cycles["outcome"] = json!("NOT_APPLICABLE");
+        projection["summary"]["withheld_by_access_policy"] = json!(2);
+        projection["summary"]["not_applicable"] = json!(1);
+        let bytes = serde_json::to_vec(&projection).unwrap();
+        assert!(audit_projection(REGISTRY_SCHEMA, REGISTRY, PROJECTION_SCHEMA, &bytes).is_ok());
     }
 
 }
