@@ -29,8 +29,8 @@
     },
     "cases": {
       "type": "array",
-      "minItems": 36,
-      "maxItems": 36,
+      "minItems": 40,
+      "maxItems": 40,
       "items": {
         "type": "object",
         "additionalProperties": false,
@@ -97,7 +97,8 @@
         "sequence",
         "rights_state",
         "parent_derivation_id",
-        "parent_graph_digest"
+        "parent_graph_digest",
+        "tick_unit"
       ],
       "properties": {
         "ordinal": {
@@ -185,6 +186,10 @@
         },
         "parent_graph_digest": {
           "type": "string"
+        },
+        "tick_unit": {
+          "type": "string",
+          "minLength": 1
         }
       }
     },
@@ -466,7 +471,9 @@
           "required": [
             "state",
             "resolved_input_count",
-            "source_graph_digest"
+            "source_graph_digest",
+            "resolved_parent_derivation_ids",
+            "resolved_parent_graph_digests"
           ],
           "properties": {
             "state": {
@@ -478,6 +485,18 @@
             },
             "source_graph_digest": {
               "type": "string"
+            },
+            "resolved_parent_derivation_ids": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "resolved_parent_graph_digests": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
             }
           }
         },
