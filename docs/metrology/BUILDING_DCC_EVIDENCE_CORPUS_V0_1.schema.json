@@ -1,0 +1,643 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Mycelix DCC Evidence Corpus v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "corpus_id",
+    "classification",
+    "claim_ceiling",
+    "cases"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "mycelix.building-dcc-evidence-corpus/0.1"
+    },
+    "corpus_id": {
+      "const": "BUILDING-DCC-EVIDENCE-CORPUS-V0.1"
+    },
+    "classification": {
+      "const": "synthetic_dcc_evidence_state_machine_cases"
+    },
+    "claim_ceiling": {
+      "const": "normalized_synthetic_dcc_evidence_contract_only"
+    },
+    "cases": {
+      "type": "array",
+      "minItems": 36,
+      "maxItems": 36,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "case_id",
+          "description",
+          "record",
+          "expected_disposition"
+        ],
+        "properties": {
+          "case_id": {
+            "type": "string",
+            "pattern": "^DCC-[0-9]{3}$"
+          },
+          "description": {
+            "type": "string",
+            "minLength": 20
+          },
+          "record": {
+            "$ref": "#/$defs/record"
+          },
+          "expected_disposition": {
+            "enum": [
+              "ELIGIBLE_FOR_INDEPENDENT_PASSPORT_REVIEW_ONLY",
+              "MORE_EVIDENCE_REQUIRED",
+              "REJECTED_SIGNATURE_INVALID",
+              "UNTRUSTED_SIGNER",
+              "REJECTED_DOCUMENT",
+              "REJECTED_SOURCE_INTEGRITY",
+              "REJECTED_SIGNED_OBJECT_COVERAGE",
+              "REJECTED_EXTERNAL_REFERENCE",
+              "REJECTED_SIGNATURE_COVERAGE",
+              "NOT_COMPARABLE",
+              "EXPIRED_OR_INVALIDATED",
+              "REJECTED_FOR_DECLARED_PURPOSE"
+            ]
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_uri",
+        "original_bytes_digest",
+        "received_bytes_digest",
+        "byte_length",
+        "media_type",
+        "source_receipt_id",
+        "retention_state"
+      ],
+      "properties": {
+        "source_uri": {
+          "type": "string",
+          "minLength": 1
+        },
+        "original_bytes_digest": {
+          "type": "string",
+          "minLength": 1
+        },
+        "received_bytes_digest": {
+          "type": "string",
+          "minLength": 1
+        },
+        "byte_length": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "media_type": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_receipt_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "retention_state": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "document": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "well_formed_state",
+        "namespace_uri",
+        "root_element",
+        "schema_version",
+        "xsd_artifact_state",
+        "xsd_digest",
+        "xsd_validation_state",
+        "id_reference_state",
+        "parser_profile_id",
+        "parser_profile_state"
+      ],
+      "properties": {
+        "well_formed_state": {
+          "enum": [
+            "well_formed",
+            "malformed",
+            "unknown"
+          ]
+        },
+        "namespace_uri": {
+          "type": "string",
+          "minLength": 1
+        },
+        "root_element": {
+          "type": "string",
+          "minLength": 1
+        },
+        "schema_version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "xsd_artifact_state": {
+          "enum": [
+            "pinned",
+            "not_pinned"
+          ]
+        },
+        "xsd_digest": {
+          "type": "string"
+        },
+        "xsd_validation_state": {
+          "enum": [
+            "valid",
+            "invalid",
+            "not_run"
+          ]
+        },
+        "id_reference_state": {
+          "enum": [
+            "valid",
+            "duplicate_id",
+            "invalid_reference",
+            "unknown"
+          ]
+        },
+        "parser_profile_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "parser_profile_state": {
+          "enum": [
+            "independently_reviewed",
+            "provider_asserted",
+            "unknown"
+          ]
+        }
+      }
+    },
+    "signature": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "presence_state",
+        "signature_count",
+        "reference_digest_state",
+        "signature_value_state",
+        "signer_certificate_state",
+        "signer_trust_state",
+        "signer_id",
+        "signer_role_state",
+        "signed_reference_uris",
+        "covered_object_ids",
+        "consumed_object_ids",
+        "external_reference_count",
+        "duplicate_id_count",
+        "transform_policy_state",
+        "wrapping_check_state"
+      ],
+      "properties": {
+        "presence_state": {
+          "enum": [
+            "present",
+            "absent",
+            "unknown"
+          ]
+        },
+        "signature_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "reference_digest_state": {
+          "enum": [
+            "valid",
+            "invalid",
+            "not_applicable",
+            "unknown"
+          ]
+        },
+        "signature_value_state": {
+          "enum": [
+            "valid",
+            "invalid",
+            "not_applicable",
+            "unknown"
+          ]
+        },
+        "signer_certificate_state": {
+          "enum": [
+            "valid",
+            "expired",
+            "revoked",
+            "unknown",
+            "not_applicable"
+          ]
+        },
+        "signer_trust_state": {
+          "enum": [
+            "trusted",
+            "untrusted",
+            "unknown",
+            "not_applicable"
+          ]
+        },
+        "signer_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "signer_role_state": {
+          "enum": [
+            "authorized_calibration_signer",
+            "unauthorized_role",
+            "unknown",
+            "not_applicable"
+          ]
+        },
+        "signed_reference_uris": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "covered_object_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "consumed_object_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "external_reference_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "duplicate_id_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "transform_policy_state": {
+          "enum": [
+            "allowlisted",
+            "not_allowlisted",
+            "unknown",
+            "not_applicable"
+          ]
+        },
+        "wrapping_check_state": {
+          "enum": [
+            "safe",
+            "unsafe",
+            "unknown",
+            "not_applicable"
+          ]
+        }
+      }
+    },
+    "laboratory_scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "laboratory_id",
+        "accreditation_body_id",
+        "schedule_id",
+        "schedule_digest",
+        "schedule_state",
+        "scope_id",
+        "scope_state",
+        "measurand_id",
+        "method_id",
+        "method_revision",
+        "unit",
+        "range_min",
+        "range_max",
+        "valid_from",
+        "valid_to"
+      ],
+      "properties": {
+        "laboratory_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "accreditation_body_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "schedule_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "schedule_digest": {
+          "type": "string",
+          "minLength": 1
+        },
+        "schedule_state": {
+          "enum": [
+            "authenticated_current",
+            "unknown",
+            "expired",
+            "revoked",
+            "provider_asserted"
+          ]
+        },
+        "scope_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "scope_state": {
+          "enum": [
+            "covers_measurand_method_range",
+            "method_not_in_scope",
+            "range_not_in_scope",
+            "unknown"
+          ]
+        },
+        "measurand_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "method_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "method_revision": {
+          "type": "string",
+          "minLength": 1
+        },
+        "unit": {
+          "type": "string",
+          "minLength": 1
+        },
+        "range_min": {
+          "type": "number"
+        },
+        "range_max": {
+          "type": "number"
+        },
+        "valid_from": {
+          "type": "string",
+          "minLength": 1
+        },
+        "valid_to": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "calibration_result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "result_id",
+        "dcc_object_id",
+        "instrument_id",
+        "channel_id",
+        "measurand_id",
+        "unit",
+        "method_id",
+        "method_revision",
+        "range_min",
+        "range_max",
+        "calibration_date",
+        "due_date",
+        "firmware_revision",
+        "result_state",
+        "uncertainty_value",
+        "uncertainty_unit",
+        "coverage_factor",
+        "certificate_rights_state"
+      ],
+      "properties": {
+        "result_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "dcc_object_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "instrument_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "channel_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "measurand_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "unit": {
+          "type": "string",
+          "minLength": 1
+        },
+        "method_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "method_revision": {
+          "type": "string",
+          "minLength": 1
+        },
+        "range_min": {
+          "type": "number"
+        },
+        "range_max": {
+          "type": "number"
+        },
+        "calibration_date": {
+          "type": "string",
+          "minLength": 1
+        },
+        "due_date": {
+          "type": "string",
+          "minLength": 1
+        },
+        "firmware_revision": {
+          "type": "string",
+          "minLength": 1
+        },
+        "result_state": {
+          "enum": [
+            "within_tolerance",
+            "out_of_tolerance",
+            "unknown"
+          ]
+        },
+        "uncertainty_value": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "uncertainty_unit": {
+          "type": "string",
+          "minLength": 1
+        },
+        "coverage_factor": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "certificate_rights_state": {
+          "enum": [
+            "authorized",
+            "unknown",
+            "revoked"
+          ]
+        }
+      }
+    },
+    "passport_binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "instrument_id",
+        "channel_id",
+        "measurand_id",
+        "unit",
+        "method_id",
+        "method_revision",
+        "firmware_revision",
+        "sample_observation_id",
+        "sample_digest",
+        "sample_date",
+        "sample_value"
+      ],
+      "properties": {
+        "instrument_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "channel_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "measurand_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "unit": {
+          "type": "string",
+          "minLength": 1
+        },
+        "method_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "method_revision": {
+          "type": "string",
+          "minLength": 1
+        },
+        "firmware_revision": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sample_observation_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sample_digest": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sample_date": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sample_value": {
+          "type": "number"
+        }
+      }
+    },
+    "correction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "supersession_state",
+        "previous_artifact_digest",
+        "correction_notice_id",
+        "dependency_impact_state"
+      ],
+      "properties": {
+        "supersession_state": {
+          "enum": [
+            "current",
+            "superseded",
+            "unknown"
+          ]
+        },
+        "previous_artifact_digest": {
+          "type": "string",
+          "minLength": 1
+        },
+        "correction_notice_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "dependency_impact_state": {
+          "enum": [
+            "not_required",
+            "pending",
+            "completed",
+            "unknown"
+          ]
+        }
+      }
+    },
+    "record": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "artifact",
+        "document",
+        "signature",
+        "laboratory_scope",
+        "calibration_result",
+        "passport_binding",
+        "correction"
+      ],
+      "properties": {
+        "artifact": {
+          "$ref": "#/$defs/artifact"
+        },
+        "document": {
+          "$ref": "#/$defs/document"
+        },
+        "signature": {
+          "$ref": "#/$defs/signature"
+        },
+        "laboratory_scope": {
+          "$ref": "#/$defs/laboratory_scope"
+        },
+        "calibration_result": {
+          "$ref": "#/$defs/calibration_result"
+        },
+        "passport_binding": {
+          "$ref": "#/$defs/passport_binding"
+        },
+        "correction": {
+          "$ref": "#/$defs/correction"
+        }
+      }
+    }
+  }
+}
