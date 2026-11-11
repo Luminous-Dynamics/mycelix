@@ -1298,7 +1298,7 @@
           "dependency_impact_state": "not_required"
         }
       },
-      "expected_disposition": "MORE_EVIDENCE_REQUIRED"
+      "expected_disposition": "REJECTED_XML_ID_AMBIGUITY"
     },
     {
       "case_id": "DCC-013",
@@ -2054,7 +2054,7 @@
           "dependency_impact_state": "not_required"
         }
       },
-      "expected_disposition": "ELIGIBLE_FOR_INDEPENDENT_PASSPORT_REVIEW_ONLY"
+      "expected_disposition": "NOT_COMPARABLE"
     },
     {
       "case_id": "DCC-020",
