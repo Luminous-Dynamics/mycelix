@@ -195,6 +195,34 @@ type oracleStateV1 struct {
 	hasCompensation          bool
 }
 
+func traceFaultAllowedV1(opcode TraceOpcode, fault TraceFault) bool {
+	switch opcode {
+	case TraceCreateIntent, TraceAuthorize, TracePrepareLocal, TraceCommitLocal,
+		TracePrepareTreasury, TraceDispatchTreasury, TraceRetrySameEffect,
+		TraceCommitTreasury, TraceCompensate:
+		return fault == TraceNoFault
+	case TraceMarkIndeterminate:
+		return fault == TraceResponseLostBeforeEffect || fault == TraceResponseLostAfterEffect
+	case TraceReconcileTreasury:
+		return fault == TraceNoFault || fault == TraceLookupUncertain ||
+			fault == TraceReceiptMismatch || fault == TraceAuthoritativeAbsence
+	case TraceCheckpointPayments:
+		return fault == TraceNoFault || fault == TraceMissingDependency
+	case TraceCheckpointTreasury:
+		return fault == TraceNoFault || fault == TraceStaleFrontier
+	case TraceMutateIntent, TraceMutateEvent:
+		return fault == TracePayloadMutation
+	case TraceDuplicateDelivery:
+		return fault == TraceDuplicateDeliveryFault
+	case TraceStaleCheckpoint:
+		return fault == TraceWrongOwner
+	case TraceForkCheckpoint:
+		return fault == TraceForkedCheckpoint
+	default:
+		return false
+	}
+}
+
 func newOracleStateV1(operationNonce uint64) oracleStateV1 {
 	return oracleStateV1{
 		operationNonce: operationNonce,
@@ -219,6 +247,9 @@ func (s *oracleStateV1) process(command TraceCommandV1) (TraceDispositionV1, Tra
 	}
 	if command.Owner != expectedOwner {
 		return TraceRejected, TraceReasonOwnerMismatch
+	}
+	if !traceFaultAllowedV1(command.Opcode, command.Fault) {
+		return TraceRejected, TraceReasonInvalidFault
 	}
 
 	switch command.Opcode {
@@ -557,6 +588,9 @@ func (s *oracleStateV1) checkpointTreasury(command TraceCommandV1) (TraceDisposi
 	if s.feeMinor > 0 && (!s.hasTreasuryEffectID || s.treasuryEffectID != command.Subject) {
 		return TraceRejected, TraceReasonWrongSubject
 	}
+	if !s.hasPaymentCheckpoint || s.paymentCheckpoint != command.Value {
+		return TraceRejected, TraceReasonMissingDependency
+	}
 	if s.feeMinor > 0 && s.treasuryState != TreasuryCommitted && s.treasuryState != TreasuryNotRequired {
 		return TraceRejected, TraceReasonMissingDependency
 	}
@@ -605,7 +639,8 @@ func (s *oracleStateV1) compensate(command TraceCommandV1) (TraceDispositionV1, 
 	if !s.localCommitted || (s.feeMinor > 0 && s.treasuryState != TreasuryCommitted) {
 		return TraceRejected, TraceReasonCompensationUnavailable
 	}
-	if command.Subject == s.operationNonce {
+	if command.Subject == s.operationNonce ||
+		(s.hasTreasuryEffectID && command.Subject == s.treasuryEffectID) {
 		return TraceRejected, TraceReasonCompensationIdentity
 	}
 	if command.Value != s.totalMinor {
