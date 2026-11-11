@@ -46,8 +46,8 @@ func compensationTestPlanV2(forward ForwardEffectV2, maximum uint64) Compensatio
 	}
 }
 
-func compensationTestAuthorizationV2(plan CompensationPlanV2, maximum uint64) CompensationAuthorizationV2 {
-	planDigest, _ := plan.CanonicalDigest(compensationTestForwardV2())
+func compensationTestAuthorizationV2(plan CompensationPlanV2, forward ForwardEffectV2, maximum uint64) CompensationAuthorizationV2 {
+	planDigest, _ := plan.CanonicalDigest(forward)
 	return CompensationAuthorizationV2{
 		CapabilityID: "capability:refund-01",
 		IssuerOwnerID: plan.FundingOwnerID,
@@ -86,7 +86,7 @@ func compensationTestRequestV2(
 		CompensationID: id,
 		ActorOwnerID: "owner:refund-operator",
 		AmountMinor: amount,
-		Authorization: compensationTestAuthorizationV2(plan, authMaximum),
+		Authorization: compensationTestAuthorizationV2(plan, book.Forward(), authMaximum),
 		LiquidityReservation: LiquidityReservationV2{
 			ReservationID: reservationID,
 			SourceOwnerID: plan.FundingOwnerID,
@@ -138,6 +138,40 @@ func stringsRepeatCompensationV2(value byte, count int) string {
 	return string(result)
 }
 
+
+
+func TestCompensationIndexedReservationAdmissionAtTenThousandV2(t *testing.T) {
+	forward := compensationTestForwardV2()
+	forward.AmountMinor = 10_000
+	forward.ReversibleCeilingMinor = 10_000
+	plan := compensationTestPlanV2(forward, 10_000)
+	book, err := NewCompensationBookV2(forward, plan, 10_000)
+	if err != nil { t.Fatal(err) }
+	authorization := compensationTestAuthorizationV2(plan, forward, 10_000)
+	for index := 0; index < 10_000; index++ {
+		id := fmt.Sprintf("refund:indexed:%d", index)
+		request := CompensationRequestV2{
+			CompensationID: id,
+			ActorOwnerID: authorization.GranteeOwnerID,
+			AmountMinor: 1,
+			Authorization: authorization,
+			LiquidityReservation: LiquidityReservationV2{
+				ReservationID: fmt.Sprintf("liquidity:indexed:%d", index),
+				SourceOwnerID: plan.FundingOwnerID,
+				SourceAccountID: plan.FundingAccountID,
+				Asset: plan.Asset,
+				AmountMinor: 1,
+			},
+		}
+		if disposition, err := book.Reserve(request, compensationTestNowV2); err != nil || disposition != CompensationCreatedV2 {
+			t.Fatalf("reserve index %d = %v, %v", index, disposition, err)
+		}
+	}
+	if settled, _ := book.SettledMinor(); settled != 0 { t.Fatalf("settled = %d", settled) }
+	if encumbered, _ := book.EncumberedMinor(); encumbered != 10_000 { t.Fatalf("encumbered = %d", encumbered) }
+	if remaining, _ := book.RemainingReversibleMinor(); remaining != 0 { t.Fatalf("remaining reversible = %d", remaining) }
+	if available, _ := book.AvailableLiquidityMinor(); available != 0 { t.Fatalf("available liquidity = %d", available) }
+}
 
 func TestCompensationSharedV2KnownAnswers(t *testing.T) {
 	raw, err := os.ReadFile("../sap-payment-saga-model/fixtures/sap-compensation-v2.kat")
