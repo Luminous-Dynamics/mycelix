@@ -242,8 +242,7 @@
                     "minLength": 1
                   },
                   "validation_receipt_id": {
-                    "type": "string",
-                    "minLength": 1
+                    "type": "string"
                   },
                   "application_count": {
                     "type": "integer",
@@ -334,8 +333,7 @@
           ]
         },
         "timebase_receipt_id": {
-          "type": "string",
-          "minLength": 1
+          "type": "string"
         }
       }
     },
