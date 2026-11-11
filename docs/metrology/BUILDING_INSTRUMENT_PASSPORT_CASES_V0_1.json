@@ -12234,6 +12234,217 @@
         }
       },
       "expected_disposition": "NOT_COMPARABLE"
+    },
+    {
+      "case_id": "BIP-059",
+      "description": "A retired instrument cannot support a current measurement observation even when its older calibration and sample records remain present.",
+      "record": {
+        "passport_schema_version": "mycelix.building-instrument-passport/0.1",
+        "profile_id": "MYC-BUILD-METROLOGY-PROFILE-V0.1",
+        "instrument": {
+          "instrument_id": "SYNTH-INSTRUMENT-001",
+          "manufacturer": "Synthetic Manufacturer",
+          "model": "SYNTH-METER-001",
+          "serial_id": "SYNTH-SERIAL-001",
+          "hardware_revision": "HW-A",
+          "firmware_revision": "FW-1",
+          "protocol_profile_id": "PROTO-LOCAL-READONLY-V1",
+          "channel_id": "air_temperature",
+          "channel_profile_id": "MYC-BUILD-METROLOGY-PROFILE-V0.1",
+          "identity_state": "established",
+          "serial_identity_reused": false,
+          "lifecycle_state": "retired",
+          "protocol_profile_digest": "sha256:synth-protocol-profile-v1",
+          "protocol_profile_state": "independently_verified",
+          "local_read_only_supported": true,
+          "protocol_profile_verification_receipt_id": "SYNTH-PROTOCOL-VERIFY-RECEIPT-001",
+          "protocol_profile_verifier_id": "SYNTH-VERIFIER-PROTOCOL-001"
+        },
+        "capability": {
+          "measurement_kind": "raw",
+          "operating_range": {
+            "minimum": -10,
+            "maximum": 60,
+            "unit": "degC",
+            "conditions_id": "SYNTH-ENV-01"
+          },
+          "resolution": {
+            "value": 0.01,
+            "unit": "degC"
+          },
+          "accuracy": {
+            "value": 0.1,
+            "unit": "degC",
+            "basis": "absolute",
+            "conditions_id": "SYNTH-ENV-01",
+            "evidence_class": "independent_type_test",
+            "source_record_id": "SYNTH-TYPE-TEST-001"
+          },
+          "response_time_seconds": 10,
+          "verification_state": "independently_verified",
+          "repeatability": {
+            "value": 0.05,
+            "unit": "degC",
+            "method_id": "SYNTH-REPEAT-01",
+            "evidence_class": "independent_type_test"
+          },
+          "drift": {
+            "value": 0.02,
+            "unit": "degC",
+            "period_seconds": 86400,
+            "conditions_id": "SYNTH-ENV-01"
+          },
+          "cross_sensitivity_state": "characterized_or_not_applicable"
+        },
+        "calibration": {
+          "record_id": "SYNTH-CAL-001",
+          "instrument_id": "SYNTH-INSTRUMENT-001",
+          "channel_id": "air_temperature",
+          "channel_profile_id": "MYC-BUILD-METROLOGY-PROFILE-V0.1",
+          "firmware_revision": "FW-1",
+          "certificate_digest": "sha256:synth-cal-001",
+          "certificate_state": "authenticated",
+          "calibration_state": "current",
+          "lab_id": "SYNTH-LAB-001",
+          "accreditation_id": "SYNTH-ACC-001",
+          "accreditation_scope_id": "SYNTH-SCOPE-TEMP",
+          "accreditation_scope_state": "covers_measurand_range_method",
+          "method_id": "SYNTH-METHOD-TEMP",
+          "method_revision": "1",
+          "measurand_id": "habitat.air_temperature",
+          "unit": "degC",
+          "range_minimum": -10,
+          "range_maximum": 60,
+          "calibration_date": "2026-10-01",
+          "due_date": "2027-10-01",
+          "reference_standard_ids": [
+            "SYNTH-REF-001"
+          ],
+          "traceability_state": "documented",
+          "as_found_state": "within_tolerance",
+          "as_left_state": "within_tolerance",
+          "prior_data_impact_state": "not_applicable",
+          "uncertainty": {
+            "value": 0.08,
+            "unit": "degC",
+            "coverage_factor": 2,
+            "method_id": "SYNTH-UNC-METHOD",
+            "correlation_model_id": "SYNTH-CORR-01"
+          }
+        },
+        "installation": {
+          "record_id": "SYNTH-INSTALL-001",
+          "asset_id": "SYNTH-ASSET-001",
+          "building_id": "SYNTH-BUILDING-001",
+          "room_zone": "ZONE-01",
+          "geometry_revision": "GEOM-1",
+          "position": {
+            "x": 2,
+            "y": 3,
+            "z": 1.1,
+            "frame_id": "BUILDING-LOCAL-1"
+          },
+          "height_m": 1.1,
+          "orientation_degrees": 0,
+          "mounting_method": "fixed_wall_mount",
+          "shielding_state": "documented",
+          "enclosure_state": "documented",
+          "location_context_id": "ROOM-CENTRE-01",
+          "installation_state": "verified",
+          "verifier_id": "SYNTH-VERIFIER-01",
+          "verifier_competence_state": "documented",
+          "installed_at": "2026-10-10T10:00:00+02:00",
+          "relocation_state": "none_or_reverified"
+        },
+        "sample": {
+          "observation_id": "SYNTH-OBS-001",
+          "instrument_id": "SYNTH-INSTRUMENT-001",
+          "channel_id": "air_temperature",
+          "channel_profile_id": "MYC-BUILD-METROLOGY-PROFILE-V0.1",
+          "firmware_revision": "FW-1",
+          "unit": "degC",
+          "qc_state": "valid",
+          "event_time_seconds": 1000,
+          "acquisition_time_seconds": 1001,
+          "time_unit": "s",
+          "timezone": "Africa/Johannesburg",
+          "clock_source": "LOCAL-NTP",
+          "synchronization_uncertainty_seconds": 0.01,
+          "sequence": 1,
+          "processing_mode": "raw",
+          "processing_method_id": "NOT_APPLICABLE",
+          "processing_method_revision": "NOT_APPLICABLE",
+          "raw_source_digest": "sha256:synth-observation-001",
+          "calibration_record_id": "SYNTH-CAL-001",
+          "installation_record_id": "SYNTH-INSTALL-001",
+          "rights_state": "authorized",
+          "value": 20.5,
+          "observed_at_date": "2026-11-10",
+          "acquisition_mode": "local",
+          "local_read_only": true,
+          "protocol_profile_digest": "sha256:synth-protocol-profile-v1",
+          "read_only_session_receipt_id": "SYNTH-RO-SESSION-001"
+        },
+        "uncertainty_budget": {
+          "state": "complete",
+          "combination_method_id": "SYNTH-UQ-METHOD-01",
+          "correlation_model_id": "SYNTH-CORR-01",
+          "coverage_factor": 2,
+          "expanded_uncertainty_value": 0.12,
+          "unit": "degC",
+          "components": [
+            {
+              "component_id": "CAL",
+              "value": 0.08,
+              "unit": "degC",
+              "component_kind": "calibration",
+              "correlation_group": "REF-001",
+              "source_record_id": "SYNTH-CAL-001"
+            },
+            {
+              "component_id": "RES",
+              "value": 0.01,
+              "unit": "degC",
+              "component_kind": "resolution",
+              "correlation_group": "INSTR-001",
+              "source_record_id": "SYNTH-TYPE-TEST-001"
+            }
+          ]
+        },
+        "purpose_profile": {
+          "purpose_id": "SYNTH-TREND-MONITORING-01",
+          "channel_id": "air_temperature",
+          "measurand_id": "habitat.air_temperature",
+          "unit": "degC",
+          "acceptable_minimum": -5,
+          "acceptable_maximum": 50,
+          "maximum_expanded_uncertainty": 0.2,
+          "maximum_response_time_seconds": 60,
+          "maximum_time_sync_uncertainty_seconds": 1,
+          "required_geometry_revision": "GEOM-1",
+          "required_location_context_id": "ROOM-CENTRE-01",
+          "classification": "synthetic_measurement_purpose_only"
+        },
+        "claim_requested": "declared_measurement",
+        "independent_assay": {
+          "state": "not_required",
+          "assay_id": "NOT_APPLICABLE",
+          "laboratory_id": "NOT_APPLICABLE",
+          "accreditation_scope_id": "NOT_APPLICABLE",
+          "method_id": "NOT_APPLICABLE",
+          "method_revision": "NOT_APPLICABLE",
+          "sample_id": "NOT_APPLICABLE",
+          "sample_digest": "NOT_APPLICABLE",
+          "measurand_id": "NOT_APPLICABLE",
+          "value": null,
+          "unit": "NOT_APPLICABLE",
+          "certificate_digest": "NOT_APPLICABLE",
+          "certificate_state": "not_applicable",
+          "accreditation_scope_state": "not_applicable",
+          "rights_state": "not_applicable"
+        }
+      },
+      "expected_disposition": "EXPIRED_OR_INVALIDATED"
     }
   ]
 }
