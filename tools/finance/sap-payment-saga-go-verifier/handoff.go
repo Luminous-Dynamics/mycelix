@@ -295,6 +295,13 @@ func (b *ParentHandoffBookV1) ObserveAcceptance(receipt GrantAcceptanceReceiptV1
 		if *record.Acceptance == receipt { return HandoffAlreadyObserved, nil }
 		return 0, ErrHandoffAcceptanceConflict
 	}
+	if record.Status == ParentGrantReleased {
+		if record.Closure != nil && record.Closure.ChildAcceptActionHash != nil &&
+			*record.Closure.ChildAcceptActionHash == receipt.ChildAcceptActionHash {
+			return HandoffAlreadyObserved, nil
+		}
+		return 0, ErrHandoffAcceptanceConflict
+	}
 	record.Acceptance = &receipt
 	b.grants[receipt.GrantID] = record
 	return HandoffObserved, nil
@@ -532,8 +539,8 @@ func (b *ChildHandoffBookV1) AcceptGrant(parentActionHash, childAcceptActionHash
 	if err := validateExposureDigest(parentActionHash); err != nil { return 0, GrantAcceptanceReceiptV1{}, err }
 	if err := validateExposureDigest(childAcceptActionHash); err != nil { return 0, GrantAcceptanceReceiptV1{}, err }
 	if parentActionHash != b.parentActionHash { return 0, GrantAcceptanceReceiptV1{}, ErrHandoffInvalidGrant }
-	if b.revocation != nil || b.closure != nil { return 0, GrantAcceptanceReceiptV1{}, ErrHandoffInvalidTransition }
 	if b.acceptance != nil { return HandoffAlreadyObserved, *b.acceptance, nil }
+	if b.revocation != nil || b.closure != nil { return 0, GrantAcceptanceReceiptV1{}, ErrHandoffInvalidTransition }
 	receipt := GrantAcceptanceReceiptV1{
 		GrantID: b.terms.GrantID, GrantDigest: b.grantDigest,
 		ParentActionHash: b.parentActionHash, ChildOwnerID: b.childOwnerID,
