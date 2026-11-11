@@ -1,0 +1,87 @@
+{
+  "schema_version": "mycelix.building-measurement-stream-profile/0.1",
+  "profile_id": "MYC-BUILD-STREAM-TIMEBASE-PROFILE-V0.1",
+  "classification": "synthetic_stream_identity_and_timebase_contract",
+  "claim_ceiling": "synthetic_stream_ordering_and_replay_conformance_only",
+  "owner": "mycelix",
+  "parent_issue": "https://github.com/Luminous-Dynamics/mycelix/issues/6054",
+  "passport_parent": "https://github.com/Luminous-Dynamics/mycelix/pull/6040",
+  "stream_identity_fields": [
+    "stream_id",
+    "instrument_id",
+    "channel_id",
+    "channel_profile_id",
+    "firmware_digest",
+    "protocol_digest",
+    "clock_domain_id",
+    "boot_epoch_id",
+    "sequence_scope",
+    "sequence_width_bits",
+    "wrap_policy",
+    "timestamp_basis",
+    "time_unit",
+    "epoch_origin",
+    "clock_source",
+    "sync_source"
+  ],
+  "sample_identity_fields": [
+    "sample_id",
+    "sequence",
+    "boot_epoch_id",
+    "clock_domain_id",
+    "instrument_id",
+    "channel_id",
+    "firmware_digest",
+    "protocol_digest",
+    "timestamp_basis",
+    "time_unit",
+    "epoch_origin",
+    "event_tick",
+    "acquisition_tick",
+    "collector_receipt_tick",
+    "clock_source",
+    "synchronization_uncertainty_ns",
+    "payload_digest"
+  ],
+  "timestamp_semantics": [
+    "event_time",
+    "acquisition_time",
+    "collector_receipt_time"
+  ],
+  "timestamp_bases": [
+    "utc_unix",
+    "monotonic_counter",
+    "local_wall_time"
+  ],
+  "units": [
+    "ns",
+    "us",
+    "ms",
+    "s"
+  ],
+  "sequence_rule": "monotonic_within_instrument_channel_stream_boot_epoch",
+  "duplicate_rule": "same sample id, sequence and payload digest is idempotent; conflicting identity or payload is rejected",
+  "missing_interval_rule": "missing sequence is a gap; never zero and never silently interpolated",
+  "clock_mapping_rule": "a correction is versioned, source/target-domain bound, validity-window bound, uncertainty bounded and receipt identified",
+  "aggregation_rule": "time-dependent calculations use declared event/acquisition time; collector receipt time is transport metadata only",
+  "owner_boundaries": {
+    "measurement_stream": "mycelix",
+    "dependency_invalidation": "mycelix-6042",
+    "service_availability_events": "symtropy-1849",
+    "thermal_trajectory_interpretation": "symtropy-4507",
+    "in_use_outcome_comparability": "sol-atlas-633",
+    "highveld_service_binding": "sol-atlas-700"
+  },
+  "dispositions": [
+    "REVIEW_ELIGIBLE_ONLY",
+    "MORE_EVIDENCE_REQUIRED",
+    "NOT_COMPARABLE",
+    "CONFLICT_REJECTED",
+    "INVALIDATED",
+    "REJECTED_FOR_PURPOSE",
+    "REJECTED_TIME_BASIS_PROMOTION",
+    "GAP_INDETERMINATE",
+    "TARGETED_INVALIDATION_ONLY",
+    "UNRELATED_STREAM_UNCHANGED"
+  ]
+}
