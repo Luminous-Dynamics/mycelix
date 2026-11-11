@@ -1,0 +1,165 @@
+{
+  "schema_version": "mycelix.instrument-condition-applicability/0.1",
+  "profile_id": "MYC-BUILD-CONDITIONS-V0.1",
+  "classification": "synthetic_condition_applicability_contract",
+  "claim_ceiling": "condition_profile_and_sample_context_conformance_only",
+  "condition_profiles": [
+    {
+      "profile_id": "SYNTH-AIR-TEMP-ENV-01",
+      "revision": "1",
+      "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "instrument_id": "SYNTH-INSTRUMENT-001",
+      "channel_id": "air_temperature",
+      "instrument_configuration_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "evidence_class": "independently_verified_method_conditions",
+      "method_id": "SYNTH-TEMP-CAPABILITY-01",
+      "method_revision": "1",
+      "profile_state": "synthetic_test_only",
+      "validity_start_tick": 0,
+      "validity_end_tick": 10000,
+      "tick_unit": "s",
+      "location_rule": "same_instrument_local_context",
+      "required_conditions": [
+        {
+          "condition_id": "ambient_temperature",
+          "quantity_kind": "temperature",
+          "unit": "degC",
+          "minimum": -10,
+          "maximum": 50,
+          "maximum_expanded_uncertainty": 0.2,
+          "required_state": "measured",
+          "maximum_age_seconds": 60
+        },
+        {
+          "condition_id": "relative_humidity",
+          "quantity_kind": "ratio",
+          "unit": "%RH",
+          "minimum": 10,
+          "maximum": 90,
+          "maximum_expanded_uncertainty": 5,
+          "required_state": "measured",
+          "maximum_age_seconds": 60
+        }
+      ],
+      "correction_rule": {
+        "state": "not_required_for_synthetic_profile",
+        "method_id": "NOT_APPLICABLE",
+        "method_revision": "NOT_APPLICABLE",
+        "artifact_digest": "NOT_APPLICABLE",
+        "maximum_application_count": 0
+      }
+    },
+    {
+      "profile_id": "OPTICAL-PM-HUMIDITY-AEROSOL-CONDITIONS-PROFILE",
+      "revision": "UNPINNED",
+      "digest": "NOT_AVAILABLE",
+      "instrument_id": "UNBOUND",
+      "channel_id": "pm25_mass_concentration",
+      "instrument_configuration_digest": "NOT_AVAILABLE",
+      "evidence_class": "NOT_ESTABLISHED",
+      "method_id": "NOT_SELECTED",
+      "method_revision": "NOT_SELECTED",
+      "profile_state": "BLOCKED_METHOD_AND_INSTRUMENT_SCOPE",
+      "validity_start_tick": 0,
+      "validity_end_tick": 0,
+      "tick_unit": "s",
+      "location_rule": "UNDEFINED",
+      "required_conditions": [
+        {
+          "condition_id": "local_relative_humidity",
+          "quantity_kind": "ratio",
+          "unit": "%RH",
+          "minimum": null,
+          "maximum": null,
+          "maximum_expanded_uncertainty": null,
+          "required_state": "measured",
+          "maximum_age_seconds": null
+        },
+        {
+          "condition_id": "aerosol_composition",
+          "quantity_kind": "categorical",
+          "unit": "1",
+          "minimum": null,
+          "maximum": null,
+          "maximum_expanded_uncertainty": null,
+          "required_state": "independently_characterized",
+          "maximum_age_seconds": null
+        }
+      ],
+      "correction_rule": {
+        "state": "blocked",
+        "method_id": "UNPINNED",
+        "method_revision": "UNPINNED",
+        "artifact_digest": "NOT_AVAILABLE",
+        "maximum_application_count": 0
+      }
+    },
+    {
+      "profile_id": "FLOW-METER-FLUID-CONDITIONS-PROFILE",
+      "revision": "UNPINNED",
+      "digest": "NOT_AVAILABLE",
+      "instrument_id": "UNBOUND",
+      "channel_id": "water_volume_flow",
+      "instrument_configuration_digest": "NOT_AVAILABLE",
+      "evidence_class": "NOT_ESTABLISHED",
+      "method_id": "NOT_SELECTED",
+      "method_revision": "NOT_SELECTED",
+      "profile_state": "BLOCKED_METHOD_AND_INSTRUMENT_SCOPE",
+      "validity_start_tick": 0,
+      "validity_end_tick": 0,
+      "tick_unit": "s",
+      "location_rule": "UNDEFINED",
+      "required_conditions": [
+        {
+          "condition_id": "fluid_identity",
+          "quantity_kind": "categorical",
+          "unit": "1",
+          "minimum": null,
+          "maximum": null,
+          "maximum_expanded_uncertainty": null,
+          "required_state": "measured",
+          "maximum_age_seconds": null
+        },
+        {
+          "condition_id": "fluid_temperature",
+          "quantity_kind": "temperature",
+          "unit": "degC",
+          "minimum": null,
+          "maximum": null,
+          "maximum_expanded_uncertainty": null,
+          "required_state": "measured",
+          "maximum_age_seconds": null
+        },
+        {
+          "condition_id": "fluid_pressure",
+          "quantity_kind": "pressure",
+          "unit": "Pa",
+          "minimum": null,
+          "maximum": null,
+          "maximum_expanded_uncertainty": null,
+          "required_state": "measured",
+          "maximum_age_seconds": null
+        }
+      ],
+      "correction_rule": {
+        "state": "blocked",
+        "method_id": "UNPINNED",
+        "method_revision": "UNPINNED",
+        "artifact_digest": "NOT_AVAILABLE",
+        "maximum_application_count": 0
+      }
+    }
+  ],
+  "invariants": {
+    "capability_conditions_are_part_of_sample_applicability": true,
+    "opaque_condition_ids_without_resolvable_profile_are_not_applicable": false,
+    "required_conditions_must_cover_full_sample_window": true,
+    "condition_observations_must_be_local_to_instrument_context": true,
+    "measured_conditions_require_current_calibration": true,
+    "provider_assertions_are_not_independent_measurements": true,
+    "environmental_correction_requires_exact_validated_method": true,
+    "corrections_cannot_be_applied_twice": true,
+    "missing_conditions_are_never_assumed_within_range": true,
+    "real_sensor_admission_is_not_authorized": true
+  }
+}
