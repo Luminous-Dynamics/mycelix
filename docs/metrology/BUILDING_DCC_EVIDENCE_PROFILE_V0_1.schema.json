@@ -1,0 +1,80 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Mycelix DCC Evidence Envelope v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "dcc_profile_id",
+    "claim_ceiling",
+    "official_reference",
+    "trust_axes",
+    "source_boundary",
+    "non_authority"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "mycelix.building-dcc-evidence/0.1"
+    },
+    "dcc_profile_id": {
+      "const": "PTB-DCC-3.3.0-TRUST-APPLICABILITY"
+    },
+    "claim_ceiling": {
+      "const": "normalized_synthetic_evidence_axes_only"
+    },
+    "official_reference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "namespace_uri",
+        "root_element",
+        "schema_version",
+        "signature_min_occurs",
+        "xsd_byte_state",
+        "xsd_digest"
+      ],
+      "properties": {
+        "namespace_uri": {
+          "const": "https://ptb.de/dcc"
+        },
+        "root_element": {
+          "const": "digitalCalibrationCertificate"
+        },
+        "schema_version": {
+          "const": "3.3.0"
+        },
+        "signature_min_occurs": {
+          "const": 0
+        },
+        "xsd_byte_state": {
+          "const": "reference_verified_bytes_not_pinned"
+        },
+        "xsd_digest": {
+          "type": "null"
+        }
+      }
+    },
+    "trust_axes": {
+      "const": [
+        "original_bytes",
+        "xml_wellformedness",
+        "xsd_validation",
+        "signature_presence",
+        "reference_digest",
+        "signature_value",
+        "signer_trust",
+        "signed_object_coverage",
+        "laboratory_identity",
+        "accreditation_scope",
+        "result_applicability",
+        "correction_lineage"
+      ]
+    },
+    "source_boundary": {
+      "const": "This profile classifies a normalized verification report. It does not parse XML, validate the PTB XSD, perform XMLDSig cryptography, build a trust chain, or query an accreditation body."
+    },
+    "non_authority": {
+      "const": "No DCC evidence is automatically copied into the passport as authenticated or admitted. Final disposition is independent passport review only."
+    }
+  }
+}
