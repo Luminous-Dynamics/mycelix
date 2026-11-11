@@ -1,0 +1,41 @@
+name: Building Measurement Stream Timebase Synthetic Oracle
+
+on:
+  push:
+    paths:
+      - "docs/metrology/BUILDING_MEASUREMENT_STREAM_*"
+      - "tools/build-measurement-stream/**"
+      - ".github/workflows/build-measurement-stream.yml"
+  pull_request:
+    paths:
+      - "docs/metrology/BUILDING_MEASUREMENT_STREAM_*"
+      - "tools/build-measurement-stream/**"
+      - ".github/workflows/build-measurement-stream.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: building-measurement-stream-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  stream-timebase:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install stable Rust and rustfmt
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - name: Fetch locked dependencies
+        run: cargo fetch --locked --manifest-path tools/build-measurement-stream/Cargo.toml
+      - name: Check formatting
+        run: cargo fmt --manifest-path tools/build-measurement-stream/Cargo.toml --all -- --check
+      - name: Run locked offline mutation tests
+        run: cargo test --locked --offline --manifest-path tools/build-measurement-stream/Cargo.toml
+      - name: Run strict Clippy
+        run: cargo clippy --locked --offline --manifest-path tools/build-measurement-stream/Cargo.toml --all-targets -- -D warnings
+      - name: Validate tracked corpus
+        run: cargo run --locked --offline --manifest-path tools/build-measurement-stream/Cargo.toml
