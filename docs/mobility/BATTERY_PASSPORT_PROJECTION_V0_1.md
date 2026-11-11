@@ -73,6 +73,7 @@ The summary table is deliberately compressed. The JSON registry carries the indi
 - Remanufacturing or repurposing requires a new passport linked to the prior passport.
 - The passport status lifecycle (original, repurposed, re-used, remanufactured, waste) is not interchangeable with an internal service-workflow state.
 - Dynamic information should be updated when battery status changes or is being considered, with update frequency proportionate to the data and purpose.
+- For points 68–71, an evidenced first-use date before or on the projection effective date activates the first-use applicability. An evidenced future first-use date permits `NOT_APPLICABLE` for that effective date. A missing first-use date is **unknown**, not proof that the battery is unused; the compiler requires `CONDITIONAL_REVIEW_REQUIRED` instead of silently treating the dynamic fields as not applicable.
 - The current economic operator remains responsible for passport contents even when another operator is authorised to maintain them.
 
 ### Completion of the initially omitted 13 points
