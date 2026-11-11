@@ -10,7 +10,7 @@
       "description": "Two ordered samples in one UTC clock domain and boot epoch are coherent for review.",
       "record": {
         "schema_version": "mycelix.building-measurement-stream/0.1",
-        "profile_id": "MYC-BUILD-METROLOGY-PROFILE-V0.1",
+        "profile_id": "MYC-BUILD-STREAM-TIMEBASE-PROFILE-V0.1",
         "stream": {
           "stream_id": "STREAM-ROOM-01",
           "instrument_id": "SYNTH-INSTRUMENT-01",
@@ -132,7 +132,7 @@
       "description": "An exact duplicate packet with the same sample identity, sequence and payload digest is idempotent.",
       "record": {
         "schema_version": "mycelix.building-measurement-stream/0.1",
-        "profile_id": "MYC-BUILD-METROLOGY-PROFILE-V0.1",
+        "profile_id": "MYC-BUILD-STREAM-TIMEBASE-PROFILE-V0.1",
         "stream": {
           "stream_id": "STREAM-ROOM-01",
           "instrument_id": "SYNTH-INSTRUMENT-01",
@@ -280,7 +280,7 @@
       "description": "The same epoch sequence is reused with a conflicting payload digest.",
       "record": {
         "schema_version": "mycelix.building-measurement-stream/0.1",
-        "profile_id": "MYC-BUILD-METROLOGY-PROFILE-V0.1",
+        "profile_id": "MYC-BUILD-STREAM-TIMEBASE-PROFILE-V0.1",
         "stream": {
           "stream_id": "STREAM-ROOM-01",
           "instrument_id": "SYNTH-INSTRUMENT-01",
@@ -428,7 +428,7 @@
       "description": "Sequence 2 is missing even though the expected stream window contains three observations.",
       "record": {
         "schema_version": "mycelix.building-measurement-stream/0.1",
-        "profile_id": "MYC-BUILD-METROLOGY-PROFILE-V0.1",
+        "profile_id": "MYC-BUILD-STREAM-TIMEBASE-PROFILE-V0.1",
         "stream": {
           "stream_id": "STREAM-ROOM-01",
           "instrument_id": "SYNTH-INSTRUMENT-01",
@@ -550,7 +550,7 @@
       "description": "A late packet arrives out of receipt order but inside the declared bounded reorder window.",
       "record": {
         "schema_version": "mycelix.building-measurement-stream/0.1",
-        "profile_id": "MYC-BUILD-METROLOGY-PROFILE-V0.1",
+        "profile_id": "MYC-BUILD-STREAM-TIMEBASE-PROFILE-V0.1",
         "stream": {
           "stream_id": "STREAM-ROOM-01",
           "instrument_id": "SYNTH-INSTRUMENT-01",
@@ -698,7 +698,7 @@
       "description": "A late packet arrives beyond the declared reorder window.",
       "record": {
         "schema_version": "mycelix.building-measurement-stream/0.1",
-        "profile_id": "MYC-BUILD-METROLOGY-PROFILE-V0.1",
+        "profile_id": "MYC-BUILD-STREAM-TIMEBASE-PROFILE-V0.1",
         "stream": {
           "stream_id": "STREAM-ROOM-01",
           "instrument_id": "SYNTH-INSTRUMENT-01",
@@ -846,7 +846,7 @@
       "description": "A device sequence counter resets inside the same boot epoch without a declared epoch transition.",
       "record": {
         "schema_version": "mycelix.building-measurement-stream/0.1",
-        "profile_id": "MYC-BUILD-METROLOGY-PROFILE-V0.1",
+        "profile_id": "MYC-BUILD-STREAM-TIMEBASE-PROFILE-V0.1",
         "stream": {
           "stream_id": "STREAM-ROOM-01",
           "instrument_id": "SYNTH-INSTRUMENT-01",
@@ -968,7 +968,7 @@
       "description": "A reboot opens a new boot epoch and records the exact transition receipt.",
       "record": {
         "schema_version": "mycelix.building-measurement-stream/0.1",
-        "profile_id": "MYC-BUILD-METROLOGY-PROFILE-V0.1",
+        "profile_id": "MYC-BUILD-STREAM-TIMEBASE-PROFILE-V0.1",
         "stream": {
           "stream_id": "STREAM-ROOM-01",
           "instrument_id": "SYNTH-INSTRUMENT-01",
@@ -1097,7 +1097,7 @@
       "description": "A sequence counter wraps at its declared width under an explicit modulo policy.",
       "record": {
         "schema_version": "mycelix.building-measurement-stream/0.1",
-        "profile_id": "MYC-BUILD-METROLOGY-PROFILE-V0.1",
+        "profile_id": "MYC-BUILD-STREAM-TIMEBASE-PROFILE-V0.1",
         "stream": {
           "stream_id": "STREAM-ROOM-01",
           "instrument_id": "SYNTH-INSTRUMENT-01",
@@ -1245,7 +1245,7 @@
       "description": "The sequence counter width is unknown, so wrap and uniqueness cannot be reconstructed.",
       "record": {
         "schema_version": "mycelix.building-measurement-stream/0.1",
-        "profile_id": "MYC-BUILD-METROLOGY-PROFILE-V0.1",
+        "profile_id": "MYC-BUILD-STREAM-TIMEBASE-PROFILE-V0.1",
         "stream": {
           "stream_id": "STREAM-ROOM-01",
           "instrument_id": "SYNTH-INSTRUMENT-01",
@@ -1367,7 +1367,7 @@
       "description": "An NTP backward clock step occurs without a new epoch or qualified correction.",
       "record": {
         "schema_version": "mycelix.building-measurement-stream/0.1",
-        "profile_id": "MYC-BUILD-METROLOGY-PROFILE-V0.1",
+        "profile_id": "MYC-BUILD-STREAM-TIMEBASE-PROFILE-V0.1",
         "stream": {
           "stream_id": "STREAM-ROOM-01",
           "instrument_id": "SYNTH-INSTRUMENT-01",
@@ -1489,7 +1489,7 @@
       "description": "An NTP forward clock step occurs without a new epoch or qualified correction.",
       "record": {
         "schema_version": "mycelix.building-measurement-stream/0.1",
-        "profile_id": "MYC-BUILD-METROLOGY-PROFILE-V0.1",
+        "profile_id": "MYC-BUILD-STREAM-TIMEBASE-PROFILE-V0.1",
         "stream": {
           "stream_id": "STREAM-ROOM-01",
           "instrument_id": "SYNTH-INSTRUMENT-01",
@@ -1611,7 +1611,7 @@
       "description": "A monotonic counter resets inside the same epoch.",
       "record": {
         "schema_version": "mycelix.building-measurement-stream/0.1",
-        "profile_id": "MYC-BUILD-METROLOGY-PROFILE-V0.1",
+        "profile_id": "MYC-BUILD-STREAM-TIMEBASE-PROFILE-V0.1",
         "stream": {
           "stream_id": "STREAM-ROOM-01",
           "instrument_id": "SYNTH-INSTRUMENT-01",
@@ -1733,7 +1733,7 @@
       "description": "The sample clock source changes from NTP to PTP without a corresponding clock epoch.",
       "record": {
         "schema_version": "mycelix.building-measurement-stream/0.1",
-        "profile_id": "MYC-BUILD-METROLOGY-PROFILE-V0.1",
+        "profile_id": "MYC-BUILD-STREAM-TIMEBASE-PROFILE-V0.1",
         "stream": {
           "stream_id": "STREAM-ROOM-01",
           "instrument_id": "SYNTH-INSTRUMENT-01",
@@ -1855,7 +1855,7 @@
       "description": "Sample synchronization uncertainty exceeds the downstream purpose limit.",
       "record": {
         "schema_version": "mycelix.building-measurement-stream/0.1",
-        "profile_id": "MYC-BUILD-METROLOGY-PROFILE-V0.1",
+        "profile_id": "MYC-BUILD-STREAM-TIMEBASE-PROFILE-V0.1",
         "stream": {
           "stream_id": "STREAM-ROOM-01",
           "instrument_id": "SYNTH-INSTRUMENT-01",
@@ -1977,7 +1977,7 @@
       "description": "A sample is tagged in milliseconds while the stream contract is nanoseconds.",
       "record": {
         "schema_version": "mycelix.building-measurement-stream/0.1",
-        "profile_id": "MYC-BUILD-METROLOGY-PROFILE-V0.1",
+        "profile_id": "MYC-BUILD-STREAM-TIMEBASE-PROFILE-V0.1",
         "stream": {
           "stream_id": "STREAM-ROOM-01",
           "instrument_id": "SYNTH-INSTRUMENT-01",
@@ -2099,7 +2099,7 @@
       "description": "A sample is tagged in microseconds while the stream contract is seconds.",
       "record": {
         "schema_version": "mycelix.building-measurement-stream/0.1",
-        "profile_id": "MYC-BUILD-METROLOGY-PROFILE-V0.1",
+        "profile_id": "MYC-BUILD-STREAM-TIMEBASE-PROFILE-V0.1",
         "stream": {
           "stream_id": "STREAM-ROOM-01",
           "instrument_id": "SYNTH-INSTRUMENT-01",
@@ -2221,7 +2221,7 @@
       "description": "Two samples use different timestamp origins in the same stream.",
       "record": {
         "schema_version": "mycelix.building-measurement-stream/0.1",
-        "profile_id": "MYC-BUILD-METROLOGY-PROFILE-V0.1",
+        "profile_id": "MYC-BUILD-STREAM-TIMEBASE-PROFILE-V0.1",
         "stream": {
           "stream_id": "STREAM-ROOM-01",
           "instrument_id": "SYNTH-INSTRUMENT-01",
@@ -2343,7 +2343,7 @@
       "description": "A local-wall-time sample has no UTC offset or qualified mapping.",
       "record": {
         "schema_version": "mycelix.building-measurement-stream/0.1",
-        "profile_id": "MYC-BUILD-METROLOGY-PROFILE-V0.1",
+        "profile_id": "MYC-BUILD-STREAM-TIMEBASE-PROFILE-V0.1",
         "stream": {
           "stream_id": "STREAM-ROOM-01",
           "instrument_id": "SYNTH-INSTRUMENT-01",
@@ -2465,7 +2465,7 @@
       "description": "A repeated daylight-saving local hour lacks fold/offset disambiguation.",
       "record": {
         "schema_version": "mycelix.building-measurement-stream/0.1",
-        "profile_id": "MYC-BUILD-METROLOGY-PROFILE-V0.1",
+        "profile_id": "MYC-BUILD-STREAM-TIMEBASE-PROFILE-V0.1",
         "stream": {
           "stream_id": "STREAM-ROOM-01",
           "instrument_id": "SYNTH-INSTRUMENT-01",
@@ -2587,7 +2587,7 @@
       "description": "A local calendar instant falls in a skipped daylight-saving interval and is marked invalid.",
       "record": {
         "schema_version": "mycelix.building-measurement-stream/0.1",
-        "profile_id": "MYC-BUILD-METROLOGY-PROFILE-V0.1",
+        "profile_id": "MYC-BUILD-STREAM-TIMEBASE-PROFILE-V0.1",
         "stream": {
           "stream_id": "STREAM-ROOM-01",
           "instrument_id": "SYNTH-INSTRUMENT-01",
@@ -2709,7 +2709,7 @@
       "description": "The declared calendar instant is not a valid date/time.",
       "record": {
         "schema_version": "mycelix.building-measurement-stream/0.1",
-        "profile_id": "MYC-BUILD-METROLOGY-PROFILE-V0.1",
+        "profile_id": "MYC-BUILD-STREAM-TIMEBASE-PROFILE-V0.1",
         "stream": {
           "stream_id": "STREAM-ROOM-01",
           "instrument_id": "SYNTH-INSTRUMENT-01",
@@ -2831,7 +2831,7 @@
       "description": "The source contains a leap-second token unsupported by the declared parser/time mapping.",
       "record": {
         "schema_version": "mycelix.building-measurement-stream/0.1",
-        "profile_id": "MYC-BUILD-METROLOGY-PROFILE-V0.1",
+        "profile_id": "MYC-BUILD-STREAM-TIMEBASE-PROFILE-V0.1",
         "stream": {
           "stream_id": "STREAM-ROOM-01",
           "instrument_id": "SYNTH-INSTRUMENT-01",
@@ -2946,14 +2946,14 @@
           "unrelated_streams_current": true
         }
       },
-      "expected_disposition": "REVIEW_ELIGIBLE_ONLY"
+      "expected_disposition": "MORE_EVIDENCE_REQUIRED"
     },
     {
       "case_id": "MST-024",
       "description": "Subsecond precision was rounded away without a declared precision-loss allowance.",
       "record": {
         "schema_version": "mycelix.building-measurement-stream/0.1",
-        "profile_id": "MYC-BUILD-METROLOGY-PROFILE-V0.1",
+        "profile_id": "MYC-BUILD-STREAM-TIMEBASE-PROFILE-V0.1",
         "stream": {
           "stream_id": "STREAM-ROOM-01",
           "instrument_id": "SYNTH-INSTRUMENT-01",
@@ -3075,7 +3075,7 @@
       "description": "Collector receipt time is substituted for physical event time in a service aggregation.",
       "record": {
         "schema_version": "mycelix.building-measurement-stream/0.1",
-        "profile_id": "MYC-BUILD-METROLOGY-PROFILE-V0.1",
+        "profile_id": "MYC-BUILD-STREAM-TIMEBASE-PROFILE-V0.1",
         "stream": {
           "stream_id": "STREAM-ROOM-01",
           "instrument_id": "SYNTH-INSTRUMENT-01",
@@ -3197,7 +3197,7 @@
       "description": "Acquisition time precedes event time without a buffering or latency explanation.",
       "record": {
         "schema_version": "mycelix.building-measurement-stream/0.1",
-        "profile_id": "MYC-BUILD-METROLOGY-PROFILE-V0.1",
+        "profile_id": "MYC-BUILD-STREAM-TIMEBASE-PROFILE-V0.1",
         "stream": {
           "stream_id": "STREAM-ROOM-01",
           "instrument_id": "SYNTH-INSTRUMENT-01",
@@ -3319,7 +3319,7 @@
       "description": "A sample identity is reused with a different instrument identity.",
       "record": {
         "schema_version": "mycelix.building-measurement-stream/0.1",
-        "profile_id": "MYC-BUILD-METROLOGY-PROFILE-V0.1",
+        "profile_id": "MYC-BUILD-STREAM-TIMEBASE-PROFILE-V0.1",
         "stream": {
           "stream_id": "STREAM-ROOM-01",
           "instrument_id": "SYNTH-INSTRUMENT-01",
@@ -3441,7 +3441,7 @@
       "description": "The instrument serial identity was reused after replacement.",
       "record": {
         "schema_version": "mycelix.building-measurement-stream/0.1",
-        "profile_id": "MYC-BUILD-METROLOGY-PROFILE-V0.1",
+        "profile_id": "MYC-BUILD-STREAM-TIMEBASE-PROFILE-V0.1",
         "stream": {
           "stream_id": "STREAM-ROOM-01",
           "instrument_id": "SYNTH-INSTRUMENT-01",
@@ -3563,7 +3563,7 @@
       "description": "Firmware identity changes inside a supposedly homogeneous stream.",
       "record": {
         "schema_version": "mycelix.building-measurement-stream/0.1",
-        "profile_id": "MYC-BUILD-METROLOGY-PROFILE-V0.1",
+        "profile_id": "MYC-BUILD-STREAM-TIMEBASE-PROFILE-V0.1",
         "stream": {
           "stream_id": "STREAM-ROOM-01",
           "instrument_id": "SYNTH-INSTRUMENT-01",
@@ -3685,7 +3685,7 @@
       "description": "A clock-correction mapping is retrospectively rewritten after downstream use.",
       "record": {
         "schema_version": "mycelix.building-measurement-stream/0.1",
-        "profile_id": "MYC-BUILD-METROLOGY-PROFILE-V0.1",
+        "profile_id": "MYC-BUILD-STREAM-TIMEBASE-PROFILE-V0.1",
         "stream": {
           "stream_id": "STREAM-ROOM-01",
           "instrument_id": "SYNTH-INSTRUMENT-01",
@@ -3807,7 +3807,7 @@
       "description": "The verified clock-correction map validity interval does not cover all samples.",
       "record": {
         "schema_version": "mycelix.building-measurement-stream/0.1",
-        "profile_id": "MYC-BUILD-METROLOGY-PROFILE-V0.1",
+        "profile_id": "MYC-BUILD-STREAM-TIMEBASE-PROFILE-V0.1",
         "stream": {
           "stream_id": "STREAM-ROOM-01",
           "instrument_id": "SYNTH-INSTRUMENT-01",
@@ -3929,7 +3929,7 @@
       "description": "The residual clock-correction error exceeds its declared uncertainty.",
       "record": {
         "schema_version": "mycelix.building-measurement-stream/0.1",
-        "profile_id": "MYC-BUILD-METROLOGY-PROFILE-V0.1",
+        "profile_id": "MYC-BUILD-STREAM-TIMEBASE-PROFILE-V0.1",
         "stream": {
           "stream_id": "STREAM-ROOM-01",
           "instrument_id": "SYNTH-INSTRUMENT-01",
@@ -4051,7 +4051,7 @@
       "description": "A sample from an unrelated boot epoch is inserted without a declared reboot transition.",
       "record": {
         "schema_version": "mycelix.building-measurement-stream/0.1",
-        "profile_id": "MYC-BUILD-METROLOGY-PROFILE-V0.1",
+        "profile_id": "MYC-BUILD-STREAM-TIMEBASE-PROFILE-V0.1",
         "stream": {
           "stream_id": "STREAM-ROOM-01",
           "instrument_id": "SYNTH-INSTRUMENT-01",
@@ -4173,7 +4173,7 @@
       "description": "Sequence order and event-time order disagree, so the stream cannot be replayed consistently.",
       "record": {
         "schema_version": "mycelix.building-measurement-stream/0.1",
-        "profile_id": "MYC-BUILD-METROLOGY-PROFILE-V0.1",
+        "profile_id": "MYC-BUILD-STREAM-TIMEBASE-PROFILE-V0.1",
         "stream": {
           "stream_id": "STREAM-ROOM-01",
           "instrument_id": "SYNTH-INSTRUMENT-01",
@@ -4295,7 +4295,7 @@
       "description": "The declared observation schedule contains a packet-loss gap hidden by a favorable observed count.",
       "record": {
         "schema_version": "mycelix.building-measurement-stream/0.1",
-        "profile_id": "MYC-BUILD-METROLOGY-PROFILE-V0.1",
+        "profile_id": "MYC-BUILD-STREAM-TIMEBASE-PROFILE-V0.1",
         "stream": {
           "stream_id": "STREAM-ROOM-01",
           "instrument_id": "SYNTH-INSTRUMENT-01",
@@ -4417,7 +4417,7 @@
       "description": "Missing intervals are imputed as zero before a downstream aggregate is evaluated.",
       "record": {
         "schema_version": "mycelix.building-measurement-stream/0.1",
-        "profile_id": "MYC-BUILD-METROLOGY-PROFILE-V0.1",
+        "profile_id": "MYC-BUILD-STREAM-TIMEBASE-PROFILE-V0.1",
         "stream": {
           "stream_id": "STREAM-ROOM-01",
           "instrument_id": "SYNTH-INSTRUMENT-01",
@@ -4539,7 +4539,7 @@
       "description": "An integration window crosses an unresolved clock step.",
       "record": {
         "schema_version": "mycelix.building-measurement-stream/0.1",
-        "profile_id": "MYC-BUILD-METROLOGY-PROFILE-V0.1",
+        "profile_id": "MYC-BUILD-STREAM-TIMEBASE-PROFILE-V0.1",
         "stream": {
           "stream_id": "STREAM-ROOM-01",
           "instrument_id": "SYNTH-INSTRUMENT-01",
@@ -4661,7 +4661,7 @@
       "description": "A rate calculation uses collector receipt intervals rather than event-time intervals.",
       "record": {
         "schema_version": "mycelix.building-measurement-stream/0.1",
-        "profile_id": "MYC-BUILD-METROLOGY-PROFILE-V0.1",
+        "profile_id": "MYC-BUILD-STREAM-TIMEBASE-PROFILE-V0.1",
         "stream": {
           "stream_id": "STREAM-ROOM-01",
           "instrument_id": "SYNTH-INSTRUMENT-01",
@@ -4783,7 +4783,7 @@
       "description": "A different room's clock mapping changes; this stream and its raw samples must remain unaffected.",
       "record": {
         "schema_version": "mycelix.building-measurement-stream/0.1",
-        "profile_id": "MYC-BUILD-METROLOGY-PROFILE-V0.1",
+        "profile_id": "MYC-BUILD-STREAM-TIMEBASE-PROFILE-V0.1",
         "stream": {
           "stream_id": "STREAM-ROOM-01",
           "instrument_id": "SYNTH-INSTRUMENT-01",
@@ -4905,7 +4905,7 @@
       "description": "A clock mapping change invalidates only this stream's dependent aggregate while preserving raw samples and unrelated streams.",
       "record": {
         "schema_version": "mycelix.building-measurement-stream/0.1",
-        "profile_id": "MYC-BUILD-METROLOGY-PROFILE-V0.1",
+        "profile_id": "MYC-BUILD-STREAM-TIMEBASE-PROFILE-V0.1",
         "stream": {
           "stream_id": "STREAM-ROOM-01",
           "instrument_id": "SYNTH-INSTRUMENT-01",
