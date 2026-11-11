@@ -9,8 +9,8 @@ use std::collections::BTreeMap;
 use sha2::{Digest, Sha256};
 
 use super::exposure::{
-    DestinationResolutionV1, ExposureBookV1, ExposureDisposition, ExposureError,
-    ExposureIntentV1, ExposurePolicyV1, ExposureResolutionKind, ExposureScopeV1,
+    DestinationResolutionV1, ExposureBookV1, ExposureDisposition, ExposureError, ExposureIntentV1,
+    ExposurePolicyV1, ExposureResolutionKind, ExposureScopeV1,
 };
 
 const DELEGATED_DOMAIN: &[u8] = b"MXSAP-DELEGATED-EXPOSURE-V1\0";
@@ -95,7 +95,10 @@ impl DelegatedBudgetGrant {
     }
 
     fn counts_against_parent(&self) -> bool {
-        matches!(self.status, DelegatedBudgetStatus::Active | DelegatedBudgetStatus::Revoking)
+        matches!(
+            self.status,
+            DelegatedBudgetStatus::Active | DelegatedBudgetStatus::Revoking
+        )
     }
 }
 
@@ -121,7 +124,10 @@ impl ParentDelegatedExposureBookV1 {
     /// A lowered parent limit preserves existing child grants. If their
     /// encumbered total exceeds the new cap, new child reservations pause until
     /// enough grants are safely closed; existing effects may still reconcile.
-    pub fn replace_policy(&mut self, policy: DelegatedExposurePolicyV1) -> Result<(), ExposureError> {
+    pub fn replace_policy(
+        &mut self,
+        policy: DelegatedExposurePolicyV1,
+    ) -> Result<(), ExposureError> {
         policy.validate()?;
         if policy.scope != self.policy.scope || policy.sequence <= self.policy.sequence {
             return Err(ExposureError::InvalidPolicy);
@@ -164,14 +170,20 @@ impl ParentDelegatedExposureBookV1 {
         }
 
         if let Some(existing) = self.grants.get(&grant_id) {
-            return if existing.same_terms(&child_scope, budget_minor, grant_sequence, &grant_digest) {
+            return if existing.same_terms(&child_scope, budget_minor, grant_sequence, &grant_digest)
+            {
                 Ok(DelegatedBudgetDisposition::AlreadyAllocated)
             } else {
                 Err(ExposureError::ReservationConflict)
             };
         }
 
-        let latest_sequence = self.grants.values().map(|grant| grant.sequence).max().unwrap_or(0);
+        let latest_sequence = self
+            .grants
+            .values()
+            .map(|grant| grant.sequence)
+            .max()
+            .unwrap_or(0);
         if grant_sequence <= latest_sequence {
             return Err(ExposureError::InvalidPolicy);
         }
@@ -207,7 +219,10 @@ impl ParentDelegatedExposureBookV1 {
         grant_id: &str,
         intent: ExposureIntentV1,
     ) -> Result<ExposureDisposition, ExposureError> {
-        let grant = self.grants.get(grant_id).ok_or(ExposureError::ReservationNotFound)?;
+        let grant = self
+            .grants
+            .get(grant_id)
+            .ok_or(ExposureError::ReservationNotFound)?;
         if intent.scope != grant.child_scope {
             return Err(ExposureError::ScopeMismatch);
         }
@@ -240,7 +255,8 @@ impl ParentDelegatedExposureBookV1 {
         grant_id: &str,
         effect_id: &str,
     ) -> Result<(), ExposureError> {
-        self.child_book_mut(grant_id)?.mark_dispatch_authorized(effect_id)
+        self.child_book_mut(grant_id)?
+            .mark_dispatch_authorized(effect_id)
     }
 
     pub fn mark_indeterminate(
@@ -257,7 +273,8 @@ impl ParentDelegatedExposureBookV1 {
         effect_id: &str,
         evidence: &DestinationResolutionV1,
     ) -> Result<(), ExposureError> {
-        self.child_book_mut(grant_id)?.mark_committed_unsettled(effect_id, evidence)
+        self.child_book_mut(grant_id)?
+            .mark_committed_unsettled(effect_id, evidence)
     }
 
     pub fn mark_settled(
@@ -266,7 +283,8 @@ impl ParentDelegatedExposureBookV1 {
         effect_id: &str,
         evidence: &DestinationResolutionV1,
     ) -> Result<(), ExposureError> {
-        self.child_book_mut(grant_id)?.mark_settled(effect_id, evidence)
+        self.child_book_mut(grant_id)?
+            .mark_settled(effect_id, evidence)
     }
 
     pub fn release_authoritative_absence(
@@ -275,13 +293,17 @@ impl ParentDelegatedExposureBookV1 {
         effect_id: &str,
         evidence: &DestinationResolutionV1,
     ) -> Result<(), ExposureError> {
-        self.child_book_mut(grant_id)?.release_authoritative_absence(effect_id, evidence)
+        self.child_book_mut(grant_id)?
+            .release_authoritative_absence(effect_id, evidence)
     }
 
     /// Stops new child reservations but does not block settlement, absence
     /// reconciliation or other resolution of existing effects.
     pub fn begin_revocation(&mut self, grant_id: &str) -> Result<(), ExposureError> {
-        let grant = self.grants.get_mut(grant_id).ok_or(ExposureError::ReservationNotFound)?;
+        let grant = self
+            .grants
+            .get_mut(grant_id)
+            .ok_or(ExposureError::ReservationNotFound)?;
         match grant.status {
             DelegatedBudgetStatus::Active => {
                 grant.status = DelegatedBudgetStatus::Revoking;
@@ -295,7 +317,10 @@ impl ParentDelegatedExposureBookV1 {
     /// Closes only after all child exposure is resolved. Production must replace
     /// this in-memory observation with an authenticated child close receipt.
     pub fn close_grant(&mut self, grant_id: &str) -> Result<(), ExposureError> {
-        let grant = self.grants.get_mut(grant_id).ok_or(ExposureError::ReservationNotFound)?;
+        let grant = self
+            .grants
+            .get_mut(grant_id)
+            .ok_or(ExposureError::ReservationNotFound)?;
         if grant.status == DelegatedBudgetStatus::Closed {
             return Ok(());
         }
@@ -325,7 +350,9 @@ impl ParentDelegatedExposureBookV1 {
             .values()
             .filter(|grant| grant.counts_against_parent())
             .try_fold(0_u64, |total, grant| {
-                total.checked_add(grant.budget_minor).ok_or(ExposureError::AmountOverflow)
+                total
+                    .checked_add(grant.budget_minor)
+                    .ok_or(ExposureError::AmountOverflow)
             })
     }
 
@@ -499,12 +526,24 @@ mod tests {
     fn parent_encumbers_full_child_sublimits_across_destinations() {
         let mut parent = ParentDelegatedExposureBookV1::new(parent_policy(1_000)).unwrap();
         assert_eq!(
-            parent.allocate_child_budget("provider-a", child_scope("operator:a", "dest:a"), 700, 1, digest('1')),
+            parent.allocate_child_budget(
+                "provider-a",
+                child_scope("operator:a", "dest:a"),
+                700,
+                1,
+                digest('1')
+            ),
             Ok(DelegatedBudgetDisposition::Allocated)
         );
         assert_eq!(parent.available_parent_budget_minor(), Ok(300));
         assert_eq!(
-            parent.allocate_child_budget("provider-b", child_scope("operator:b", "dest:b"), 700, 2, digest('2')),
+            parent.allocate_child_budget(
+                "provider-b",
+                child_scope("operator:b", "dest:b"),
+                700,
+                2,
+                digest('2')
+            ),
             Err(ExposureError::LimitExceeded)
         );
         assert_eq!(parent.allocated_budget_minor(), Ok(700));
@@ -513,10 +552,26 @@ mod tests {
     #[test]
     fn child_cannot_exceed_its_delegated_budget_even_with_multiple_effects() {
         let mut parent = ParentDelegatedExposureBookV1::new(parent_policy(1_000)).unwrap();
-        parent.allocate_child_budget("provider-a", child_scope("operator:a", "dest:a"), 700, 1, digest('1')).unwrap();
-        parent.reserve("provider-a", child_intent(child_scope("operator:a", "dest:a"), "effect:1", 500)).unwrap();
+        parent
+            .allocate_child_budget(
+                "provider-a",
+                child_scope("operator:a", "dest:a"),
+                700,
+                1,
+                digest('1'),
+            )
+            .unwrap();
+        parent
+            .reserve(
+                "provider-a",
+                child_intent(child_scope("operator:a", "dest:a"), "effect:1", 500),
+            )
+            .unwrap();
         assert_eq!(
-            parent.reserve("provider-a", child_intent(child_scope("operator:a", "dest:a"), "effect:2", 250)),
+            parent.reserve(
+                "provider-a",
+                child_intent(child_scope("operator:a", "dest:a"), "effect:2", 250)
+            ),
             Err(ExposureError::LimitExceeded)
         );
         assert_eq!(parent.child_exposure_minor("provider-a"), Ok(500));
@@ -525,12 +580,23 @@ mod tests {
     #[test]
     fn revocation_blocks_new_risk_but_keeps_reconciliation_available() {
         let mut parent = ParentDelegatedExposureBookV1::new(parent_policy(1_000)).unwrap();
-        parent.allocate_child_budget("provider-a", child_scope("operator:a", "dest:a"), 700, 1, digest('1')).unwrap();
+        parent
+            .allocate_child_budget(
+                "provider-a",
+                child_scope("operator:a", "dest:a"),
+                700,
+                1,
+                digest('1'),
+            )
+            .unwrap();
         let intent = child_intent(child_scope("operator:a", "dest:a"), "effect:1", 400);
         parent.reserve("provider-a", intent.clone()).unwrap();
         parent.begin_revocation("provider-a").unwrap();
         assert_eq!(
-            parent.reserve("provider-a", child_intent(child_scope("operator:a", "dest:a"), "effect:2", 100)),
+            parent.reserve(
+                "provider-a",
+                child_intent(child_scope("operator:a", "dest:a"), "effect:2", 100)
+            ),
             Err(ExposureError::InvalidTransition)
         );
         // Existing exact retries resolve idempotently during revocation.
@@ -538,7 +604,9 @@ mod tests {
             parent.reserve("provider-a", intent),
             Ok(ExposureDisposition::AlreadyReserved)
         );
-        parent.mark_dispatch_authorized("provider-a", "effect:1").unwrap();
+        parent
+            .mark_dispatch_authorized("provider-a", "effect:1")
+            .unwrap();
         parent
             .mark_committed_unsettled(
                 "provider-a",
@@ -546,7 +614,13 @@ mod tests {
                 &observed_unsettled("effect:1", "dest:a"),
             )
             .unwrap();
-        parent.mark_settled("provider-a", "effect:1", &final_settlement("effect:1", "dest:a")).unwrap();
+        parent
+            .mark_settled(
+                "provider-a",
+                "effect:1",
+                &final_settlement("effect:1", "dest:a"),
+            )
+            .unwrap();
         parent.close_grant("provider-a").unwrap();
         assert_eq!(parent.available_parent_budget_minor(), Ok(1_000));
     }
@@ -554,14 +628,34 @@ mod tests {
     #[test]
     fn unresolved_child_effect_prevents_parent_budget_reclamation() {
         let mut parent = ParentDelegatedExposureBookV1::new(parent_policy(1_000)).unwrap();
-        parent.allocate_child_budget("provider-a", child_scope("operator:a", "dest:a"), 700, 1, digest('1')).unwrap();
-        parent.reserve("provider-a", child_intent(child_scope("operator:a", "dest:a"), "effect:1", 400)).unwrap();
-        parent.mark_dispatch_authorized("provider-a", "effect:1").unwrap();
+        parent
+            .allocate_child_budget(
+                "provider-a",
+                child_scope("operator:a", "dest:a"),
+                700,
+                1,
+                digest('1'),
+            )
+            .unwrap();
+        parent
+            .reserve(
+                "provider-a",
+                child_intent(child_scope("operator:a", "dest:a"), "effect:1", 400),
+            )
+            .unwrap();
+        parent
+            .mark_dispatch_authorized("provider-a", "effect:1")
+            .unwrap();
         parent.mark_indeterminate("provider-a", "effect:1").unwrap();
         parent.begin_revocation("provider-a").unwrap();
-        assert_eq!(parent.close_grant("provider-a"), Err(ExposureError::InvalidTransition));
+        assert_eq!(
+            parent.close_grant("provider-a"),
+            Err(ExposureError::InvalidTransition)
+        );
         assert_eq!(parent.available_parent_budget_minor(), Ok(300));
-        parent.release_authoritative_absence("provider-a", "effect:1", &absence("effect:1", "dest:a")).unwrap();
+        parent
+            .release_authoritative_absence("provider-a", "effect:1", &absence("effect:1", "dest:a"))
+            .unwrap();
         parent.close_grant("provider-a").unwrap();
         assert_eq!(parent.available_parent_budget_minor(), Ok(1_000));
     }
@@ -569,13 +663,33 @@ mod tests {
     #[test]
     fn changed_grant_terms_and_cross_pool_or_currency_are_rejected() {
         let mut parent = ParentDelegatedExposureBookV1::new(parent_policy(1_000)).unwrap();
-        parent.allocate_child_budget("provider-a", child_scope("operator:a", "dest:a"), 700, 1, digest('1')).unwrap();
+        parent
+            .allocate_child_budget(
+                "provider-a",
+                child_scope("operator:a", "dest:a"),
+                700,
+                1,
+                digest('1'),
+            )
+            .unwrap();
         assert_eq!(
-            parent.allocate_child_budget("provider-a", child_scope("operator:a", "dest:a"), 600, 1, digest('1')),
+            parent.allocate_child_budget(
+                "provider-a",
+                child_scope("operator:a", "dest:a"),
+                600,
+                1,
+                digest('1')
+            ),
             Err(ExposureError::ReservationConflict)
         );
         assert_eq!(
-            parent.allocate_child_budget("provider-b", child_scope("operator:b", "dest:b"), 200, 2, digest('2')),
+            parent.allocate_child_budget(
+                "provider-b",
+                child_scope("operator:b", "dest:b"),
+                200,
+                2,
+                digest('2')
+            ),
             Ok(DelegatedBudgetDisposition::Allocated)
         );
         assert_eq!(parent.available_parent_budget_minor(), Ok(100));
@@ -592,10 +706,16 @@ mod tests {
         let mut parent = ParentDelegatedExposureBookV1::new(parent_policy(1_000)).unwrap();
         let first_scope = child_scope("operator:a", "dest:a");
         let second_scope = child_scope("operator:b", "dest:b");
-        parent.allocate_child_budget("provider-a", first_scope.clone(), 600, 1, digest('1')).unwrap();
+        parent
+            .allocate_child_budget("provider-a", first_scope.clone(), 600, 1, digest('1'))
+            .unwrap();
         let existing_intent = child_intent(first_scope.clone(), "effect:existing", 200);
-        parent.reserve("provider-a", existing_intent.clone()).unwrap();
-        parent.allocate_child_budget("provider-b", second_scope, 300, 2, digest('2')).unwrap();
+        parent
+            .reserve("provider-a", existing_intent.clone())
+            .unwrap();
+        parent
+            .allocate_child_budget("provider-b", second_scope, 300, 2, digest('2'))
+            .unwrap();
 
         let mut lower = parent_policy(800);
         lower.sequence = 2;
@@ -608,18 +728,27 @@ mod tests {
             Ok(ExposureDisposition::AlreadyReserved)
         );
         assert_eq!(
-            parent.reserve("provider-a", child_intent(first_scope.clone(), "effect:new", 50)),
+            parent.reserve(
+                "provider-a",
+                child_intent(first_scope.clone(), "effect:new", 50)
+            ),
             Err(ExposureError::LimitExceeded)
         );
 
         // The old effect remains fully resolvable while new exposure is frozen.
-        parent.mark_dispatch_authorized("provider-a", "effect:existing").unwrap();
-        parent.mark_committed_unsettled("provider-a", "effect:existing").unwrap();
-        parent.mark_settled(
-            "provider-a",
-            "effect:existing",
-            &final_settlement("effect:existing", "dest:a"),
-        ).unwrap();
+        parent
+            .mark_dispatch_authorized("provider-a", "effect:existing")
+            .unwrap();
+        parent
+            .mark_committed_unsettled("provider-a", "effect:existing")
+            .unwrap();
+        parent
+            .mark_settled(
+                "provider-a",
+                "effect:existing",
+                &final_settlement("effect:existing", "dest:a"),
+            )
+            .unwrap();
         parent.begin_revocation("provider-b").unwrap();
         parent.close_grant("provider-b").unwrap();
         assert_eq!(parent.available_parent_budget_minor(), Ok(200));
@@ -673,7 +802,10 @@ mod tests {
             )
             .unwrap();
         assert_eq!(
-            parent.canonical_snapshot_digest().unwrap().strip_prefix("sha256:"),
+            parent
+                .canonical_snapshot_digest()
+                .unwrap()
+                .strip_prefix("sha256:"),
             Some(expected)
         );
     }
@@ -681,12 +813,44 @@ mod tests {
     #[test]
     fn delegated_snapshot_is_insertion_order_independent() {
         let mut first = ParentDelegatedExposureBookV1::new(parent_policy(1_000)).unwrap();
-        first.allocate_child_budget("provider-a", child_scope("operator:a", "dest:a"), 300, 1, digest('1')).unwrap();
-        first.allocate_child_budget("provider-b", child_scope("operator:b", "dest:b"), 400, 2, digest('2')).unwrap();
+        first
+            .allocate_child_budget(
+                "provider-a",
+                child_scope("operator:a", "dest:a"),
+                300,
+                1,
+                digest('1'),
+            )
+            .unwrap();
+        first
+            .allocate_child_budget(
+                "provider-b",
+                child_scope("operator:b", "dest:b"),
+                400,
+                2,
+                digest('2'),
+            )
+            .unwrap();
 
         let mut second = ParentDelegatedExposureBookV1::new(parent_policy(1_000)).unwrap();
-        second.allocate_child_budget("provider-b", child_scope("operator:b", "dest:b"), 400, 2, digest('2')).unwrap();
-        second.allocate_child_budget("provider-a", child_scope("operator:a", "dest:a"), 300, 1, digest('1')).unwrap();
+        second
+            .allocate_child_budget(
+                "provider-b",
+                child_scope("operator:b", "dest:b"),
+                400,
+                2,
+                digest('2'),
+            )
+            .unwrap();
+        second
+            .allocate_child_budget(
+                "provider-a",
+                child_scope("operator:a", "dest:a"),
+                300,
+                1,
+                digest('1'),
+            )
+            .unwrap();
         assert_eq!(
             first.canonical_snapshot_digest().unwrap(),
             second.canonical_snapshot_digest().unwrap()
