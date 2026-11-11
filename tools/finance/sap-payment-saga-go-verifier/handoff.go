@@ -280,7 +280,7 @@ func (b *ParentHandoffBookV1) RequestRevocation(grantID, revokeActionHash string
 		record.RevokeActionHash = &revokeActionHash
 		b.grants[grantID] = record
 		return HandoffCommitted, nil
-	case ParentGrantRevocationRequested:
+	case ParentGrantRevocationRequested, ParentGrantReleased:
 		if record.RevokeActionHash != nil && *record.RevokeActionHash == revokeActionHash {
 			return HandoffAlreadyCommitted, nil
 		}
@@ -294,8 +294,7 @@ func (b *ParentHandoffBookV1) ObserveRevocation(receipt GrantRevocationReceiptV1
 	if err := validateRevocationReceipt(receipt); err != nil { return 0, err }
 	record, ok := b.grants[receipt.GrantID]
 	if !ok { return 0, ErrHandoffGrantNotFound }
-	if record.Status != ParentGrantRevocationRequested ||
-		record.GrantDigest != receipt.GrantDigest ||
+	if record.GrantDigest != receipt.GrantDigest ||
 		record.RevokeActionHash == nil ||
 		*record.RevokeActionHash != receipt.ParentRevokeActionHash ||
 		record.Terms.ChildScope.OwnerID != receipt.ChildOwnerID {
@@ -304,6 +303,16 @@ func (b *ParentHandoffBookV1) ObserveRevocation(receipt GrantRevocationReceiptV1
 	if record.Revocation != nil {
 		if *record.Revocation == receipt { return HandoffAlreadyObserved, nil }
 		return 0, ErrHandoffRevocationConflict
+	}
+	if record.Status == ParentGrantReleased {
+		if record.Closure != nil &&
+			record.Closure.ChildObservedRevokeActionHash == receipt.ChildObservedActionHash {
+			return HandoffAlreadyObserved, nil
+		}
+		return 0, ErrHandoffRevocationConflict
+	}
+	if record.Status != ParentGrantRevocationRequested {
+		return 0, ErrHandoffInvalidTransition
 	}
 	record.Revocation = &receipt
 	b.grants[receipt.GrantID] = record
@@ -315,7 +324,7 @@ func (b *ParentHandoffBookV1) ReleaseGrant(receipt GrantClosureReceiptV1) (Hando
 	record, ok := b.grants[receipt.GrantID]
 	if !ok { return 0, ErrHandoffGrantNotFound }
 	if record.Status == ParentGrantReleased {
-		if record.Closure != nil && *record.Closure == receipt {
+		if record.Closure != nil && sameHandoffClosure(*record.Closure, receipt) {
 			return HandoffAlreadyReleased, nil
 		}
 		return 0, ErrHandoffClosureConflict
@@ -511,13 +520,13 @@ func (b *ChildHandoffBookV1) ObserveRevocation(
 	if err := validateExposureDigest(childObservedActionHash); err != nil {
 		return 0, GrantRevocationReceiptV1{}, err
 	}
-	if b.closure != nil { return 0, GrantRevocationReceiptV1{}, ErrHandoffInvalidTransition }
 	if b.revocation != nil {
 		if b.revocation.ParentRevokeActionHash != parentRevokeActionHash {
 			return 0, GrantRevocationReceiptV1{}, ErrHandoffRevocationConflict
 		}
 		return HandoffAlreadyObserved, *b.revocation, nil
 	}
+	if b.closure != nil { return 0, GrantRevocationReceiptV1{}, ErrHandoffInvalidTransition }
 	receipt := GrantRevocationReceiptV1{
 		GrantID: b.terms.GrantID, GrantDigest: b.grantDigest,
 		ParentRevokeActionHash: parentRevokeActionHash,
@@ -591,6 +600,25 @@ func (b *ChildHandoffBookV1) CanonicalSnapshotDigest() (string, error) {
 		if err := appendExposureText(&output, b.closure.ChildSourceChainFrontier); err != nil { return "", err }
 	}
 	return handoffSHA256(output.Bytes()), nil
+}
+
+func sameHandoffClosure(left, right GrantClosureReceiptV1) bool {
+	if left.GrantID != right.GrantID ||
+		left.GrantDigest != right.GrantDigest ||
+		left.ParentActionHash != right.ParentActionHash ||
+		left.ParentRevokeActionHash != right.ParentRevokeActionHash ||
+		left.ChildOwnerID != right.ChildOwnerID ||
+		left.ChildObservedRevokeActionHash != right.ChildObservedRevokeActionHash ||
+		left.ChildSourceChainFrontier != right.ChildSourceChainFrontier ||
+		left.ChildSnapshotDigest != right.ChildSnapshotDigest ||
+		left.ChildCloseActionHash != right.ChildCloseActionHash ||
+		left.ZeroUnresolved != right.ZeroUnresolved {
+		return false
+	}
+	if left.ChildAcceptActionHash == nil || right.ChildAcceptActionHash == nil {
+		return left.ChildAcceptActionHash == nil && right.ChildAcceptActionHash == nil
+	}
+	return *left.ChildAcceptActionHash == *right.ChildAcceptActionHash
 }
 
 func validateAcceptanceReceipt(r GrantAcceptanceReceiptV1) error {
