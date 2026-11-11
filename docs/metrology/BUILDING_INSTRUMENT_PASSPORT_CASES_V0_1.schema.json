@@ -30,8 +30,8 @@
     },
     "cases": {
       "type": "array",
-      "minItems": 55,
-      "maxItems": 55,
+      "minItems": 58,
+      "maxItems": 58,
       "items": {
         "type": "object",
         "additionalProperties": false,
@@ -1056,8 +1056,6 @@
       }
     },
     "passport": {
-      "$schema": "https://json-schema.org/draft/2020-12/schema",
-      "$id": "https://github.com/Luminous-Dynamics/mycelix/blob/research/build-metrology-passport-v0.1/docs/metrology/BUILDING_INSTRUMENT_PASSPORT_SCHEMA_V0_1.json",
       "title": "Mycelix Building Instrument Passport v0.1",
       "type": "object",
       "additionalProperties": false,
