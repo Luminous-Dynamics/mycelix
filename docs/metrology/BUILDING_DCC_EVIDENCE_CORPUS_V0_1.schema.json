@@ -61,7 +61,8 @@
               "REJECTED_SIGNATURE_COVERAGE",
               "NOT_COMPARABLE",
               "EXPIRED_OR_INVALIDATED",
-              "REJECTED_FOR_DECLARED_PURPOSE"
+              "REJECTED_FOR_DECLARED_PURPOSE",
+              "REJECTED_XML_ID_AMBIGUITY"
             ]
           }
         }
