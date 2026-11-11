@@ -288,7 +288,7 @@ fn event_is_admitted(battery: &BatteryIdentity, event: &BatteryEvent) -> Result<
         || !is_sha256(&event.evidence_sha256)
         || !valid_utc_timestamp(&event.occurred_at)
         || !valid_utc_timestamp(&event.received_at)
-        || event.received_at < event.occurred_at
+        || event.received_at.as_str() < event.occurred_at.as_str()
     {
         return Err("event identity, timestamps or evidence digest are invalid".to_owned());
     }
@@ -428,7 +428,7 @@ fn evaluate_case(case: &RefreshCase) -> CaseAudit {
             || event.sequence <= last_sequence
             || last_occurred_at
                 .as_ref()
-                .is_some_and(|last| event.occurred_at < *last)
+                .is_some_and(|last| event.occurred_at.as_str() < last.as_str())
         {
             disposition = "CONFLICTING_EVENT".to_owned();
             reason = "duplicate event ID, non-increasing sequence or regressing event time".to_owned();
@@ -445,7 +445,9 @@ fn evaluate_case(case: &RefreshCase) -> CaseAudit {
             last_occurred_at = Some(event.occurred_at.clone());
             match event.event_type.as_str() {
                 "STATUS_CHANGE_CONSIDERED" => {
-                    if event.proposed_status.as_deref().is_none_or(str::is_empty) {
+                    if event.proposed_status.as_deref().is_none_or(str::is_empty)
+                        || event.proposed_status.as_deref() == Some(case.battery.lifecycle_status.as_str())
+                    {
                         disposition = "BLOCKED_UNQUALIFIED_EVENT".to_owned();
                         reason = "status consideration event has no proposed lifecycle status".to_owned();
                     } else {
@@ -487,6 +489,9 @@ fn evaluate_case(case: &RefreshCase) -> CaseAudit {
                     ) {
                         disposition = "BLOCKED_UNQUALIFIED_EVENT".to_owned();
                         reason = "resulting lifecycle status is unsupported".to_owned();
+                    } else if status == case.battery.lifecycle_status {
+                        disposition = "CONFLICTING_EVENT".to_owned();
+                        reason = "STATUS_CHANGED event does not change the declared lifecycle status".to_owned();
                     } else {
                         triggered = performance_and_status.clone();
                         apply_pending(
@@ -509,6 +514,22 @@ fn evaluate_case(case: &RefreshCase) -> CaseAudit {
                     }
                 }
                 "FIRST_USE_CONFIRMED" => {
+                    let event_date = event.occurred_at.split('T').next().unwrap_or_default();
+                    if case.battery.first_use_date.as_deref().is_some_and(|date| date != event_date) {
+                        disposition = "CONFLICTING_EVENT".to_owned();
+                        reason = "first-use event date conflicts with the existing battery first-use record".to_owned();
+                        event_audits.push(EventAudit {
+                            event_id: event.event_id.clone(),
+                            sequence: event.sequence,
+                            disposition,
+                            triggered_data_points: triggered,
+                            cleared_data_points: cleared,
+                            reason,
+                            delivery_state: delivery_state.clone(),
+                            new_passport_link_required: false,
+                        });
+                        continue;
+                    }
                     triggered = usage_data.clone();
                     apply_pending(
                         &mut pending,
@@ -528,6 +549,14 @@ fn evaluate_case(case: &RefreshCase) -> CaseAudit {
                         .is_none_or(|policy| Some(policy) != event.capture_policy_ref.as_deref())
                         || event.source_window_start.as_deref().is_none_or(str::is_empty)
                         || event.source_window_end.as_deref().is_none_or(str::is_empty)
+                        || event
+                            .source_window_start
+                            .as_deref()
+                            .is_none_or(|value| !valid_utc_timestamp(value))
+                        || event
+                            .source_window_end
+                            .as_deref()
+                            .is_none_or(|value| !valid_utc_timestamp(value))
                         || event
                             .source_window_start
                             .as_ref()
@@ -612,10 +641,12 @@ fn evaluate_case(case: &RefreshCase) -> CaseAudit {
                     reason = "connectivity loss is recorded separately and does not satisfy or clear an outstanding refresh".to_owned();
                 }
                 "WASTE_PREPARATION_FOR_REUSE_OR_REPURPOSE" => {
-                    if !matches!(
-                        event.resulting_status.as_deref(),
-                        Some("re-used" | "repurposed")
-                    ) {
+                    if case.battery.lifecycle_status != "waste"
+                        || !matches!(
+                            event.resulting_status.as_deref(),
+                            Some("re-used" | "repurposed")
+                        )
+                    {
                         disposition = "BLOCKED_UNQUALIFIED_EVENT".to_owned();
                         reason = "waste-preparation event must bind the resulting re-used or repurposed status".to_owned();
                     } else {
