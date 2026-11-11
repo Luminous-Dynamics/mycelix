@@ -315,6 +315,16 @@ impl ParentHandoffBookV1 {
         match &record.acceptance {
             Some(existing) if *existing == receipt => Ok(HandoffDisposition::AlreadyObserved),
             Some(_) => Err(HandoffError::AcceptanceConflict),
+            None if record.status == ParentGrantStatus::Released => {
+                if record.closure.as_ref().is_some_and(|closure| {
+                    closure.child_accept_action_hash.as_deref()
+                        == Some(receipt.child_accept_action_hash.as_str())
+                }) {
+                    Ok(HandoffDisposition::AlreadyObserved)
+                } else {
+                    Err(HandoffError::AcceptanceConflict)
+                }
+            }
             None => {
                 record.acceptance = Some(receipt);
                 Ok(HandoffDisposition::Observed)
