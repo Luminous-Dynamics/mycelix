@@ -110,6 +110,7 @@ func TestAdyenDocumentationBaselineIsNotLiveQualifiedV1(t *testing.T) {
 	if contract.KeyScope != ProviderCompanyAccountScopeV1 ||
 		contract.RegionScope != ProviderPerRegionScopeV1 ||
 		contract.MaximumKeyCharacters != 64 ||
+		contract.PartialRefundPolicy != ProviderPartialRefundPaymentMethodDependentV1 ||
 		contract.RetentionMinimumMS != 7*providerDayMSV1 ||
 		contract.RetentionMaximumMS != 14*providerDayMSV1 {
 		t.Fatalf("unexpected Adyen documented constraints: %+v", contract)
