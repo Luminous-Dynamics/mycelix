@@ -110,3 +110,34 @@ This remains a reference subject encoder/verifier. The digest is not authorship 
 `trace.go` implements the language-neutral MXSAP-SAGA-TRACE-V1 input profile. Rust and Go use identical SplitMix64 seed derivation, draw order, bounded scenario templates, and fixed-width big-endian encoding. The 20-byte command records bind opcode, owner, fault, reserved-zero byte, subject nonce and value.
 
 Both implementations strictly decode complete traces and reject unknown opcodes/owners/faults, nonzero reserved bytes, truncated inputs and trailing bytes. They consume the shared fixture at `../sap-payment-saga-model/fixtures/saga-trace-v1.kat`; Rust embeds the same fixture in its unit test. The trace generator and decoder are input infrastructure only: the commands are not yet executed against the saga state machine, and the initial 4,096-seed smoke corpus is not the million-trace qualification. See `tools/finance/sap-payment-saga-model/SAGA_TRACE_V1.md` for the frozen grammar, seed algorithm and current claim ceiling.
+
+
+## Effect-level financial compensation V2
+
+The independent Rust and Go reference models add a separate V2 compensation profile without changing Trace V1 or Oracle V1:
+
+- `../sap-payment-saga-model/src/compensation.rs` and `compensation.go` model a new compensating effect linked to one positively settled forward effect.
+- The exact forward source/destination, funding account, beneficiary account, asset, reversible ceiling, plan digest, owner-scoped grant, liquidity reservation and outcome subject are bound into canonical domain-separated SHA-256 profiles.
+- Partial refunds share cumulative plan and capability ceilings. Capability IDs cannot be reused with changed scope; reservation IDs are consumed once.
+- Indeterminate and observed-unsettled outcomes retain encumbrance. An authoritative absence can permit only the same stable compensation effect to be retried while the same capability remains live.
+- Cancellation releases capability use and liquidity encumbrance only before dispatch or after an authoritative absence.
+- Rust and Go compare all seven canonical subject digests against the shared `../sap-payment-saga-model/fixtures/sap-compensation-v2.kat` vectors.
+
+The current books use indexed reservation/capability maps and incrementally maintained settled/encumbered totals. Go's book serializes the in-memory transitions with a mutex. Rust relies on exclusive mutable access. A shared in-memory total is not a production account hold and is not proof of distributed serialization.
+
+Run the compensation conformance and race tests with:
+
+```sh
+go test -race -count=1 ./...
+go vet ./...
+```
+
+The 10,000-refund regression checks the indexed admission path. `compensation_benchmark_test.go` records single-threaded and parallel in-memory admission throughput, allocations and bytes:
+
+```sh
+go test -run 'a^' -bench '^BenchmarkCompensationReserve(V2|ParallelV2)$' -benchmem -benchtime=200ms -count=10
+```
+
+This benchmark includes canonical hashing, map-index checks, aggregate cap checks and mutex contention. It excludes durable storage, Holochain validation, external account holds, provider calls and settlement. No latency or throughput claim is made until the exact-head runner has completed and the hardware/toolchain/raw samples are retained.
+
+See `../sap-payment-saga-model/COMPENSATION_V2.md` for the state machine, safety invariants, industry comparison, benchmark protocol and the required provider-signature / durable-reservation / actual-SUT qualification stages.
