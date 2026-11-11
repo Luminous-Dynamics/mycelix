@@ -21,6 +21,34 @@ const RECORD_FIELDS: &[&str] = &[
     "schema_version","derivation_id","claim_ceiling","calculation_system","output","method",
     "inputs","selection","conditions","uncertainty_model","source_resolution","invalidation","test_only",
 ];
+const METHOD_FIELDS: &[&str] = &[
+    "method_id","revision","output_channel_id","output_measurand_id","output_quantity_kind","output_unit",
+    "calculation_kind","artifact_digest","runtime_id","method_reference","method_status","required_inputs","admission_note",
+];
+const METHOD_INPUT_FIELDS: &[&str] = &["role","ordinal","channel_id","measurand_id","unit"];
+const TEST_METHOD_INPUT_FIELDS: &[&str] = &[
+    "role","ordinal","channel_id","measurand_id","unit","firmware_revision","source_revision",
+];
+const CALCULATION_SYSTEM_FIELDS: &[&str] = &["system_id","revision","configuration_digest","runtime_id"];
+const OUTPUT_FIELDS: &[&str] = &[
+    "observation_id","channel_id","measurand_id","quantity_kind","unit","value","semantic_kind",
+    "quality_state","space_id","geometry_revision","window",
+];
+const OUTPUT_WINDOW_FIELDS: &[&str] = &[
+    "window_id","start_tick","end_tick","tick_unit","clock_domain_id","clock_epoch_id",
+];
+const METHOD_RECORD_FIELDS: &[&str] = &[
+    "method_id","revision","artifact_digest","runtime_id","expression_kind","input_contract_digest",
+    "source_method_reference","method_state",
+];
+const SELECTION_FIELDS: &[&str] = &[
+    "ordered_input_observation_ids","time_alignment_policy","interpolation_policy","missingness_policy",
+    "aggregation_window_id","expected_input_count",
+];
+const CONDITIONS_FIELDS: &[&str] = &["conditions_profile_id","conditions_digest","applicability_state"];
+const UNCERTAINTY_FIELDS: &[&str] = &["model_id","revision","digest","state"];
+const SOURCE_RESOLUTION_FIELDS: &[&str] = &["state","resolved_input_count","source_graph_digest"];
+const INVALIDATION_FIELDS: &[&str] = &["state","receipt_id","graph_revision"];
 const INPUT_FIELDS: &[&str] = &[
     "ordinal","role","observation_id","source_digest","source_revision","source_alias","instrument_id",
     "channel_id","channel_profile_id","measurand_id","unit","value","evidence_state","calibration_record_id",
@@ -209,11 +237,6 @@ pub fn classify_record(record: &Value, profile: &Value) -> &'static str {
     {
         return "MORE_EVIDENCE_REQUIRED";
     }
-    if record["calculation_system"]["configuration_digest"] != record["method"]["input_contract_digest"]
-        && text(&record["method"], "input_contract_digest").is_empty()
-    {
-        return "MORE_EVIDENCE_REQUIRED";
-    }
     if text(&record["output"], "geometry_revision").is_empty()
         || text(&record["output"], "space_id").is_empty()
     {
@@ -294,6 +317,11 @@ pub fn classify_record(record: &Value, profile: &Value) -> &'static str {
         }
         if let Some(firmware) = expected.get("firmware_revision").and_then(Value::as_str) {
             if text(input, "firmware_revision") != firmware {
+                return "EXPIRED_OR_INVALIDATED";
+            }
+        }
+        if let Some(source_revision) = expected.get("source_revision").and_then(Value::as_str) {
+            if text(input, "source_revision") != source_revision {
                 return "EXPIRED_OR_INVALIDATED";
             }
         }
@@ -385,12 +413,71 @@ fn validate_profile(profile: &Value) -> Result<(), String> {
         "thermal.useful_energy.flow_temperature_integral.v1",
     ];
     for (method, expected_id) in methods.iter().zip(expected_ids) {
-        if text(method, "method_id") != expected_id
+        if !exact_keys(method, METHOD_FIELDS)
+            || text(method, "method_id") != expected_id
             || !is_sha256(text(method, "artifact_digest"))
             || method["required_inputs"].as_array().is_none_or(|items| items.is_empty())
         {
             return Err(format!("METHOD_PROFILE_INVALID:{expected_id}"));
         }
+    }
+    let synthetic = &methods[0];
+    if text(synthetic,"output_channel_id")!="synthetic_derived_scalar"
+        ||text(synthetic,"output_measurand_id")!="synthetic.mean_scalar"
+        ||text(synthetic,"output_quantity_kind")!="ratio"
+        ||text(synthetic,"output_unit")!="1"
+        ||text(synthetic,"calculation_kind")!="arithmetic_mean"
+        ||text(synthetic,"method_status")!="SYNTHETIC_TEST_ONLY"
+        ||text(synthetic,"runtime_id")!="luminous-derived-oracle-synthetic/1.0.0"
+    {return Err("SYNTHETIC_METHOD_PROFILE_DRIFT".into());}
+    let synthetic_inputs=synthetic["required_inputs"].as_array().ok_or("SYNTHETIC_METHOD_INPUTS_MISSING")?;
+    if synthetic_inputs.len()!=2 {return Err("SYNTHETIC_METHOD_INPUT_COUNT_INVALID".into());}
+    for (index,input) in synthetic_inputs.iter().enumerate() {
+        if !exact_keys(input,TEST_METHOD_INPUT_FIELDS)
+            ||text(input,"role")!="sample"
+            ||input["ordinal"].as_u64()!=Some(index as u64)
+            ||text(input,"channel_id")!="synthetic_scalar"
+            ||text(input,"measurand_id")!="synthetic.scalar"
+            ||text(input,"unit")!="1"
+            ||text(input,"firmware_revision")!="FW-1"
+            ||text(input,"source_revision")!="1"
+        {return Err("SYNTHETIC_METHOD_INPUT_CONTRACT_DRIFT".into());}
+    }
+    let mrt=&methods[1];
+    if text(mrt,"output_channel_id")!="mean_radiant_temperature"
+        ||text(mrt,"output_unit")!="degC"
+        ||text(mrt,"method_status")!="BLOCKED_PENDING_INPUT_CHANNEL_ADMISSION"
+        ||array_strings(&mrt["required_inputs"]).is_some()
+    {return Err("MRT_METHOD_PROFILE_DRIFT".into());}
+    let mrt_inputs=mrt["required_inputs"].as_array().ok_or("MRT_METHOD_INPUTS_MISSING")?;
+    let mrt_directions=["up","down","left","right","front","back"];
+    if mrt_inputs.len()!=mrt_directions.len() {return Err("MRT_INPUT_COUNT_INVALID".into());}
+    for (index,(input,direction)) in mrt_inputs.iter().zip(mrt_directions).enumerate() {
+        if !exact_keys(input,METHOD_INPUT_FIELDS)||text(input,"role")!=direction
+            ||input["ordinal"].as_u64()!=Some(index as u64)
+            ||text(input,"channel_id")!="plane_radiant_temperature"
+            ||text(input,"measurand_id")!="habitat.plane_radiant_temperature"
+            ||text(input,"unit")!="degC"
+        {return Err("MRT_INPUT_CONTRACT_DRIFT".into());}
+    }
+    let thermal=&methods[2];
+    if text(thermal,"output_channel_id")!="useful_thermal_energy"
+        ||text(thermal,"output_unit")!="kWh_th"
+        ||text(thermal,"method_status")!="BLOCKED_PENDING_INPUT_CHANNEL_ADMISSION"
+    {return Err("USEFUL_THERMAL_METHOD_PROFILE_DRIFT".into());}
+    let thermal_inputs=thermal["required_inputs"].as_array().ok_or("THERMAL_METHOD_INPUTS_MISSING")?;
+    let thermal_expected=[
+        ("volume_flow","water_volume_flow","habitat.water_volume_flow","m3/s"),
+        ("supply_temperature","water_temperature","habitat.water_temperature","degC"),
+        ("return_temperature","water_temperature","habitat.water_temperature","degC"),
+    ];
+    if thermal_inputs.len()!=thermal_expected.len() {return Err("THERMAL_INPUT_COUNT_INVALID".into());}
+    for (index,(input,(role,channel,measurand,unit))) in thermal_inputs.iter().zip(thermal_expected).enumerate() {
+        if !exact_keys(input,METHOD_INPUT_FIELDS)||text(input,"role")!=role
+            ||input["ordinal"].as_u64()!=Some(index as u64)
+            ||text(input,"channel_id")!=channel||text(input,"measurand_id")!=measurand
+            ||text(input,"unit")!=unit
+        {return Err("THERMAL_INPUT_CONTRACT_DRIFT".into());}
     }
     if text(&methods[1], "method_status") != "BLOCKED_PENDING_INPUT_CHANNEL_ADMISSION"
         || text(&methods[2], "method_status") != "BLOCKED_PENDING_INPUT_CHANNEL_ADMISSION"
@@ -419,16 +506,28 @@ pub fn validate_corpus(profile: &Value, corpus: &Value) -> Result<usize, String>
         return Err("DERIVED_CASE_COUNT_INVALID".into());
     }
     for (index, (case, (expected_id, expected_disposition))) in cases.iter().zip(EXPECTED_CASES).enumerate() {
+        let record=&case["record"];
+        let inputs=record["inputs"].as_array().ok_or("DERIVED_INPUTS_MISSING")?;
+        let nested_ok=exact_keys(&record["calculation_system"],CALCULATION_SYSTEM_FIELDS)
+            &&exact_keys(&record["output"],OUTPUT_FIELDS)
+            &&exact_keys(&record["output"]["window"],OUTPUT_WINDOW_FIELDS)
+            &&exact_keys(&record["method"],METHOD_RECORD_FIELDS)
+            &&exact_keys(&record["selection"],SELECTION_FIELDS)
+            &&exact_keys(&record["conditions"],CONDITIONS_FIELDS)
+            &&exact_keys(&record["uncertainty_model"],UNCERTAINTY_FIELDS)
+            &&exact_keys(&record["source_resolution"],SOURCE_RESOLUTION_FIELDS)
+            &&exact_keys(&record["invalidation"],INVALIDATION_FIELDS)
+            &&inputs.iter().all(|input|exact_keys(input,INPUT_FIELDS));
         if !exact_keys(case, &["case_id","description","record","expected_disposition"])
             || text(case, "case_id") != *expected_id
             || text(case, "description").len() < 20
             || text(case, "expected_disposition") != *expected_disposition
-            || !exact_keys(&case["record"], RECORD_FIELDS)
-            || !exact_keys(&case["record"]["inputs"].get(0).cloned().unwrap_or(Value::Null), INPUT_FIELDS)
+            || !exact_keys(record, RECORD_FIELDS)
+            || !nested_ok
         {
             return Err(format!("DERIVED_CASE_SHAPE_OR_PIN_INVALID:{index}"));
         }
-        let actual = classify_record(&case["record"], profile);
+        let actual = classify_record(record, profile);
         if actual != *expected_disposition {
             return Err(format!("{expected_id}:EXPECTED_{expected_disposition},GOT_{actual}"));
         }
@@ -460,8 +559,11 @@ fn validate_corpus_schema(schema: &Value, corpus: &Value) -> Result<(), String> 
         || schema["type"] != "object" || schema["additionalProperties"] != false
         || schema["properties"]["cases"]["minItems"] != EXPECTED_CASES.len()
         || schema["properties"]["cases"]["maxItems"] != EXPECTED_CASES.len()
-        || schema["properties"]["cases"]["items"]["properties"]["record"]["additionalProperties"] != false
-        || schema["properties"]["cases"]["items"]["properties"]["record"]["properties"]["inputs"]["items"]["additionalProperties"] != false
+        || schema["properties"]["cases"]["items"]["properties"]["record"]["$ref"] != "#/$defs/record"
+        || schema["$defs"]["record"]["additionalProperties"] != false
+        || schema["$defs"]["record"]["properties"]["inputs"]["minItems"] != 0
+        || schema["$defs"]["record"]["properties"]["inputs"]["items"]["$ref"] != "#/$defs/input"
+        || schema["$defs"]["input"]["additionalProperties"] != false
     {
         return Err("DERIVED_CORPUS_SCHEMA_INVALID".into());
     }
