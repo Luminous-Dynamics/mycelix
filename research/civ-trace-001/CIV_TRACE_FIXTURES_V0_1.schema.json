@@ -124,7 +124,9 @@
                 "visibility",
                 "payload_sha256",
                 "projection_includes_payload",
-                "supersedes_ref"
+                "supersedes_ref",
+                "issuer_ref",
+                "observer_ref"
               ],
               "properties": {
                 "event_id": {
@@ -197,6 +199,14 @@
                 },
                 "supersedes_ref": {
                   "type": "string"
+                },
+                "issuer_ref": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "observer_ref": {
+                  "type": "string",
+                  "minLength": 1
                 }
               }
             }
@@ -242,7 +252,8 @@
                   "PARTIAL",
                   "CONTRADICTED",
                   "CONTESTED",
-                  "UNOBSERVED"
+                  "UNOBSERVED",
+                  "INDEPENDENCE_UNESTABLISHED"
                 ]
               },
               "challenge_state": {
