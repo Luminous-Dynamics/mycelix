@@ -55,6 +55,14 @@ pub enum ProviderInProgressBehaviorV1 {
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[repr(u8)]
+pub enum ProviderPartialRefundPolicyV1 {
+    Unsupported = 1,
+    Supported = 2,
+    PaymentMethodDependent = 3,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[repr(u8)]
 pub enum ProviderRefundCeilingV1 {
     CapturedAmountAggregate = 1,
     ProviderReportedRemaining = 2,
@@ -114,6 +122,7 @@ pub enum ProviderObservationErrorV1 {
     ScopeMismatch,
     InvalidTimestamp,
     AbsenceNotSupported,
+    AbsenceRequiresDedicatedEvidence,
     AbsenceHorizonNotElapsed,
     ObservationAfterNow,
     InvalidTransition,
@@ -137,7 +146,7 @@ pub struct ProviderContractV1 {
     pub retention_max_ms: u64,
     pub in_progress_behavior: ProviderInProgressBehaviorV1,
     pub changed_payload_behavior: ProviderChangedPayloadBehaviorV1,
-    pub partial_refunds_allowed: bool,
+    pub partial_refund_policy: ProviderPartialRefundPolicyV1,
     pub refund_ceiling: ProviderRefundCeilingV1,
     pub absence_policy: ProviderAbsencePolicyV1,
     pub absence_visibility_horizon_ms: u64,
@@ -155,6 +164,12 @@ impl ProviderContractV1 {
             &self.webhook_auth_profile,
         ] {
             validate_text(value).map_err(|_| ProviderObservationErrorV1::InvalidSubject)?;
+        }
+        if self.partial_refund_policy != ProviderPartialRefundPolicyV1::Unsupported
+            && self.partial_refund_policy != ProviderPartialRefundPolicyV1::Supported
+            && self.partial_refund_policy != ProviderPartialRefundPolicyV1::PaymentMethodDependent
+        {
+            return Err(ProviderObservationErrorV1::InvalidSubject);
         }
         if self.idempotent_post {
             if self.maximum_key_characters == 0
@@ -202,7 +217,7 @@ impl ProviderContractV1 {
         append_u64(&mut bytes, self.retention_max_ms);
         bytes.push(self.in_progress_behavior as u8);
         bytes.push(self.changed_payload_behavior as u8);
-        bytes.push(u8::from(self.partial_refunds_allowed));
+        bytes.push(self.partial_refund_policy as u8);
         bytes.push(self.refund_ceiling as u8);
         bytes.push(self.absence_policy as u8);
         append_u64(&mut bytes, self.absence_visibility_horizon_ms);
@@ -230,7 +245,7 @@ impl ProviderContractV1 {
             in_progress_behavior:
                 ProviderInProgressBehaviorV1::RetryOnlyWithTransientErrorSignal,
             changed_payload_behavior: ProviderChangedPayloadBehaviorV1::Unspecified,
-            partial_refunds_allowed: true,
+            partial_refund_policy: ProviderPartialRefundPolicyV1::PaymentMethodDependent,
             refund_ceiling: ProviderRefundCeilingV1::CapturedAmountAggregate,
             absence_policy: ProviderAbsencePolicyV1::NotSupported,
             absence_visibility_horizon_ms: 0,
@@ -430,7 +445,7 @@ impl ProviderObservationV1 {
             return Err(ProviderObservationErrorV1::InvalidTimestamp);
         }
         if self.status == ProviderStatusV1::AuthoritativelyAbsent {
-            return Err(ProviderObservationErrorV1::AbsenceNotSupported);
+            return Err(ProviderObservationErrorV1::AbsenceRequiresDedicatedEvidence);
         }
         if !valid_digest(&self.request_digest) || !valid_digest(&self.evidence_digest) {
             return Err(ProviderObservationErrorV1::InvalidDigest);
@@ -462,10 +477,11 @@ impl ProviderObservationV1 {
         if !valid_digest(&self.request_digest) || !valid_digest(&self.evidence_digest) {
             return Err(ProviderObservationErrorV1::InvalidDigest);
         }
-        if self.observed_at_unix_ms == 0
-            || self.status == ProviderStatusV1::AuthoritativelyAbsent
-        {
+        if self.observed_at_unix_ms == 0 {
             return Err(ProviderObservationErrorV1::InvalidSubject);
+        }
+        if self.status == ProviderStatusV1::AuthoritativelyAbsent {
+            return Err(ProviderObservationErrorV1::AbsenceRequiresDedicatedEvidence);
         }
         let mut bytes = Vec::new();
         bytes.extend_from_slice(OBSERVATION_DOMAIN);
@@ -593,7 +609,7 @@ pub fn validate_provider_transition_v1(
     same_observation_digest: bool,
 ) -> Result<(), ProviderObservationErrorV1> {
     if next == ProviderStatusV1::AuthoritativelyAbsent {
-        return Err(ProviderObservationErrorV1::AbsenceNotSupported);
+        return Err(ProviderObservationErrorV1::AbsenceRequiresDedicatedEvidence);
     }
     if previous == next && same_observation_digest {
         return Ok(());
@@ -918,7 +934,7 @@ mod tests {
         observed.status = ProviderStatusV1::AuthoritativelyAbsent;
         assert_eq!(
             observed.validate_against_key(&contract, &key, NOW),
-            Err(ProviderObservationErrorV1::AbsenceNotSupported)
+            Err(ProviderObservationErrorV1::AbsenceRequiresDedicatedEvidence)
         );
         assert_eq!(
             observed.canonical_digest(),
