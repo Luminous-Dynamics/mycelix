@@ -166,7 +166,7 @@ pub struct GrantClosureReceiptV1 {
     pub parent_action_hash: String,
     pub parent_revoke_action_hash: String,
     pub child_owner_id: String,
-    pub child_accept_action_hash: String,
+    pub child_accept_action_hash: Option<String>,
     pub child_observed_revoke_action_hash: String,
     pub child_source_chain_frontier: String,
     pub child_snapshot_digest: String,
@@ -403,7 +403,9 @@ impl ParentHandoffBookV1 {
             return Err(HandoffError::InvalidGrant);
         }
         if let Some(accepted) = &record.acceptance {
-            if accepted.child_accept_action_hash != receipt.child_accept_action_hash {
+            if receipt.child_accept_action_hash.as_deref()
+                != Some(accepted.child_accept_action_hash.as_str())
+            {
                 return Err(HandoffError::AcceptanceConflict);
             }
         }
@@ -481,6 +483,13 @@ impl ParentHandoffBookV1 {
             match &record.closure {
                 Some(receipt) => {
                     bytes.push(1);
+                    match &receipt.child_accept_action_hash {
+                        Some(hash) => {
+                            bytes.push(1);
+                            append_text(&mut bytes, hash)?;
+                        }
+                        None => bytes.push(0),
+                    }
                     append_text(&mut bytes, &receipt.child_close_action_hash)?;
                     append_text(&mut bytes, &receipt.child_snapshot_digest)?;
                 }
@@ -649,7 +658,6 @@ impl ChildHandoffBookV1 {
             return Ok((HandoffDisposition::AlreadyCommitted, existing.clone()));
         }
         let revocation = self.revocation.as_ref().ok_or(HandoffError::InvalidTransition)?;
-        let acceptance = self.acceptance.as_ref().ok_or(HandoffError::InvalidTransition)?;
         if self.exposure.total_exposure_minor()? != 0 {
             return Err(HandoffError::UnresolvedExposure);
         }
@@ -663,7 +671,10 @@ impl ChildHandoffBookV1 {
             parent_action_hash: self.parent_action_hash.clone(),
             parent_revoke_action_hash: revocation.parent_revoke_action_hash.clone(),
             child_owner_id: self.child_owner_id.clone(),
-            child_accept_action_hash: acceptance.child_accept_action_hash.clone(),
+            child_accept_action_hash: self
+                .acceptance
+                .as_ref()
+                .map(|acceptance| acceptance.child_accept_action_hash.clone()),
             child_observed_revoke_action_hash: revocation.child_observed_action_hash.clone(),
             child_source_chain_frontier: frontier,
             child_snapshot_digest: self.exposure.canonical_snapshot_digest()?,
@@ -746,7 +757,6 @@ fn validate_closure(receipt: &GrantClosureReceiptV1) -> Result<(), HandoffError>
         &receipt.grant_digest,
         &receipt.parent_action_hash,
         &receipt.parent_revoke_action_hash,
-        &receipt.child_accept_action_hash,
         &receipt.child_observed_revoke_action_hash,
         &receipt.child_source_chain_frontier,
         &receipt.child_snapshot_digest,
@@ -805,7 +815,6 @@ fn sha256_hex(bytes: &[u8]) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::finance_placeholder::*;
 
     fn digest(byte: char) -> String {
         format!("sha256:{}", byte.to_string().repeat(64))
