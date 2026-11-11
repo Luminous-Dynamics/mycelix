@@ -1,6 +1,11 @@
 package sagaverifier
 
-import "testing"
+import (
+	"os"
+	"strconv"
+	"strings"
+	"testing"
+)
 
 func findTraceScenario(t *testing.T, scenario uint8) TraceV1 {
 	t.Helper()
@@ -13,6 +18,51 @@ func findTraceScenario(t *testing.T, scenario uint8) TraceV1 {
 	}
 	t.Fatalf("could not find scenario %d", scenario)
 	return TraceV1{}
+}
+
+func TestOracleV1MatchesSharedIndependentKnownAnswers(t *testing.T) {
+	raw, err := os.ReadFile("../sap-payment-saga-model/fixtures/saga-oracle-v1.kat")
+	if err != nil {
+		t.Fatalf("read oracle KAT: %v", err)
+	}
+	vectorsSeen := 0
+	for _, line := range strings.Split(string(raw), "\n") {
+		if !strings.HasPrefix(line, "vector=") {
+			continue
+		}
+		fields := strings.Split(strings.TrimPrefix(line, "vector="), ",")
+		if len(fields) != 5 {
+			t.Fatalf("invalid oracle KAT vector: %q", line)
+		}
+		seed, err := strconv.ParseUint(fields[0], 16, 64)
+		if err != nil { t.Fatalf("parse seed: %v", err) }
+		traceIndex, err := strconv.ParseUint(fields[1], 10, 64)
+		if err != nil { t.Fatalf("parse index: %v", err) }
+		scenario, err := strconv.ParseUint(fields[2], 10, 8)
+		if err != nil { t.Fatalf("parse scenario: %v", err) }
+		commandCount, err := strconv.ParseUint(fields[3], 10, 32)
+		if err != nil { t.Fatalf("parse command count: %v", err) }
+
+		trace := GenerateTraceV1(seed, traceIndex)
+		if uint64(trace.Scenario) != scenario {
+			t.Fatalf("scenario = %d, want %d", trace.Scenario, scenario)
+		}
+		if uint64(len(trace.Commands)) != commandCount {
+			t.Fatalf("command count = %d, want %d", len(trace.Commands), commandCount)
+		}
+		evaluation, err := (TraceOracleV1{}).Evaluate(trace)
+		if err != nil { t.Fatalf("evaluate oracle vector: %v", err) }
+		if !evaluation.IsSafe() {
+			t.Fatalf("unsafe oracle KAT seed=%s mask=%d delta=%v", fields[0], evaluation.InvariantFailureMask, evaluation.ConservationDeltaMinor)
+		}
+		digest, err := evaluation.CanonicalDigest()
+		if err != nil { t.Fatalf("canonical oracle digest: %v", err) }
+		if digest != "sha256:"+fields[4] {
+			t.Fatalf("oracle digest = %s, want sha256:%s", digest, fields[4])
+		}
+		vectorsSeen++
+	}
+	if vectorsSeen != 8 { t.Fatalf("oracle KAT vectors = %d, want 8", vectorsSeen) }
 }
 
 func TestGeneratedTraceCorpusEvaluatesSafelyAndConservesMinorUnits(t *testing.T) {
