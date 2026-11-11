@@ -226,10 +226,15 @@ func (b *ParentDelegatedExposureBookV1) MarkIndeterminate(grantID, effectID stri
 	return grant.ChildBook.MarkIndeterminate(effectID)
 }
 
-func (b *ParentDelegatedExposureBookV1) MarkCommittedUnsettled(grantID, effectID string) error {
+func (b *ParentDelegatedExposureBookV1) MarkCommittedUnsettled(
+	grantID, effectID string,
+	evidence DestinationResolutionV1,
+) error {
 	grant, err := b.childGrant(grantID)
-	if err != nil { return err }
-	return grant.ChildBook.MarkCommittedUnsettled(effectID)
+	if err != nil {
+		return err
+	}
+	return grant.ChildBook.MarkCommittedUnsettled(effectID, evidence)
 }
 
 func (b *ParentDelegatedExposureBookV1) MarkSettled(
