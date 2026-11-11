@@ -21,10 +21,21 @@ fn main() -> ExitCode {
             }
         }
     }
-    let (Some(registry_path), Some(registry_schema_path), Some(projection_schema_path), Some(projection_path)) =
-        (registry_path, registry_schema_path, projection_schema_path, projection_path)
+    let (
+        Some(registry_path),
+        Some(registry_schema_path),
+        Some(projection_schema_path),
+        Some(projection_path),
+    ) = (
+        registry_path,
+        registry_schema_path,
+        projection_schema_path,
+        projection_path,
+    )
     else {
-        eprintln!("usage: battery-passport-projection-audit --registry PATH --registry-schema PATH --projection-schema PATH --projection PATH");
+        eprintln!(
+            "usage: battery-passport-projection-audit --registry PATH --registry-schema PATH --projection-schema PATH --projection PATH"
+        );
         return ExitCode::FAILURE;
     };
 
