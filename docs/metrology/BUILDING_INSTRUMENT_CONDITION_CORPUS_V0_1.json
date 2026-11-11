@@ -96,7 +96,8 @@
         "profile_resolution": {
           "state": "resolved_exact_digest",
           "source_receipt_id": "SYNTH-PROFILE-RECEIPT-01",
-          "resolved_profile_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          "resolved_profile_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "validity_state": "within_validity"
         },
         "invalidation": {
           "state": "current",
@@ -198,7 +199,8 @@
         "profile_resolution": {
           "state": "resolved_exact_digest",
           "source_receipt_id": "SYNTH-PROFILE-RECEIPT-01",
-          "resolved_profile_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          "resolved_profile_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "validity_state": "within_validity"
         },
         "invalidation": {
           "state": "current",
@@ -300,7 +302,8 @@
         "profile_resolution": {
           "state": "resolved_exact_digest",
           "source_receipt_id": "SYNTH-PROFILE-RECEIPT-01",
-          "resolved_profile_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          "resolved_profile_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "validity_state": "within_validity"
         },
         "invalidation": {
           "state": "current",
@@ -402,7 +405,8 @@
         "profile_resolution": {
           "state": "resolved_exact_digest",
           "source_receipt_id": "SYNTH-PROFILE-RECEIPT-01",
-          "resolved_profile_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          "resolved_profile_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "validity_state": "within_validity"
         },
         "invalidation": {
           "state": "current",
@@ -504,7 +508,8 @@
         "profile_resolution": {
           "state": "resolved_exact_digest",
           "source_receipt_id": "SYNTH-PROFILE-RECEIPT-01",
-          "resolved_profile_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          "resolved_profile_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "validity_state": "within_validity"
         },
         "invalidation": {
           "state": "current",
@@ -582,7 +587,8 @@
         "profile_resolution": {
           "state": "resolved_exact_digest",
           "source_receipt_id": "SYNTH-PROFILE-RECEIPT-01",
-          "resolved_profile_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          "resolved_profile_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "validity_state": "within_validity"
         },
         "invalidation": {
           "state": "current",
@@ -684,7 +690,8 @@
         "profile_resolution": {
           "state": "resolved_exact_digest",
           "source_receipt_id": "SYNTH-PROFILE-RECEIPT-01",
-          "resolved_profile_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          "resolved_profile_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "validity_state": "within_validity"
         },
         "invalidation": {
           "state": "current",
@@ -786,7 +793,8 @@
         "profile_resolution": {
           "state": "resolved_exact_digest",
           "source_receipt_id": "SYNTH-PROFILE-RECEIPT-01",
-          "resolved_profile_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          "resolved_profile_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "validity_state": "within_validity"
         },
         "invalidation": {
           "state": "current",
@@ -888,7 +896,8 @@
         "profile_resolution": {
           "state": "resolved_exact_digest",
           "source_receipt_id": "SYNTH-PROFILE-RECEIPT-01",
-          "resolved_profile_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          "resolved_profile_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "validity_state": "within_validity"
         },
         "invalidation": {
           "state": "current",
@@ -990,7 +999,8 @@
         "profile_resolution": {
           "state": "resolved_exact_digest",
           "source_receipt_id": "SYNTH-PROFILE-RECEIPT-01",
-          "resolved_profile_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          "resolved_profile_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "validity_state": "within_validity"
         },
         "invalidation": {
           "state": "current",
@@ -1092,7 +1102,8 @@
         "profile_resolution": {
           "state": "resolved_exact_digest",
           "source_receipt_id": "SYNTH-PROFILE-RECEIPT-01",
-          "resolved_profile_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          "resolved_profile_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "validity_state": "within_validity"
         },
         "invalidation": {
           "state": "current",
@@ -1194,7 +1205,8 @@
         "profile_resolution": {
           "state": "resolved_exact_digest",
           "source_receipt_id": "SYNTH-PROFILE-RECEIPT-01",
-          "resolved_profile_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          "resolved_profile_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "validity_state": "within_validity"
         },
         "invalidation": {
           "state": "current",
@@ -1296,7 +1308,8 @@
         "profile_resolution": {
           "state": "resolved_exact_digest",
           "source_receipt_id": "SYNTH-PROFILE-RECEIPT-01",
-          "resolved_profile_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          "resolved_profile_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "validity_state": "within_validity"
         },
         "invalidation": {
           "state": "current",
@@ -1398,7 +1411,8 @@
         "profile_resolution": {
           "state": "resolved_exact_digest",
           "source_receipt_id": "SYNTH-PROFILE-RECEIPT-01",
-          "resolved_profile_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          "resolved_profile_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "validity_state": "within_validity"
         },
         "invalidation": {
           "state": "current",
@@ -1500,7 +1514,8 @@
         "profile_resolution": {
           "state": "resolved_exact_digest",
           "source_receipt_id": "SYNTH-PROFILE-RECEIPT-01",
-          "resolved_profile_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          "resolved_profile_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "validity_state": "within_validity"
         },
         "invalidation": {
           "state": "current",
@@ -1602,7 +1617,8 @@
         "profile_resolution": {
           "state": "resolved_exact_digest",
           "source_receipt_id": "SYNTH-PROFILE-RECEIPT-01",
-          "resolved_profile_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          "resolved_profile_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "validity_state": "within_validity"
         },
         "invalidation": {
           "state": "current",
@@ -1704,7 +1720,8 @@
         "profile_resolution": {
           "state": "resolved_exact_digest",
           "source_receipt_id": "SYNTH-PROFILE-RECEIPT-01",
-          "resolved_profile_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          "resolved_profile_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "validity_state": "within_validity"
         },
         "invalidation": {
           "state": "current",
@@ -1806,7 +1823,8 @@
         "profile_resolution": {
           "state": "resolved_exact_digest",
           "source_receipt_id": "SYNTH-PROFILE-RECEIPT-01",
-          "resolved_profile_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          "resolved_profile_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "validity_state": "within_validity"
         },
         "invalidation": {
           "state": "current",
@@ -1908,7 +1926,8 @@
         "profile_resolution": {
           "state": "resolved_exact_digest",
           "source_receipt_id": "SYNTH-PROFILE-RECEIPT-01",
-          "resolved_profile_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          "resolved_profile_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "validity_state": "within_validity"
         },
         "invalidation": {
           "state": "current",
@@ -2010,7 +2029,8 @@
         "profile_resolution": {
           "state": "resolved_exact_digest",
           "source_receipt_id": "SYNTH-PROFILE-RECEIPT-01",
-          "resolved_profile_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          "resolved_profile_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "validity_state": "within_validity"
         },
         "invalidation": {
           "state": "current",
@@ -2112,7 +2132,8 @@
         "profile_resolution": {
           "state": "resolved_exact_digest",
           "source_receipt_id": "SYNTH-PROFILE-RECEIPT-01",
-          "resolved_profile_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          "resolved_profile_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "validity_state": "within_validity"
         },
         "invalidation": {
           "state": "current",
@@ -2214,7 +2235,8 @@
         "profile_resolution": {
           "state": "resolved_exact_digest",
           "source_receipt_id": "SYNTH-PROFILE-RECEIPT-01",
-          "resolved_profile_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          "resolved_profile_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "validity_state": "within_validity"
         },
         "invalidation": {
           "state": "current",
@@ -2307,16 +2329,17 @@
         "correction": {
           "state": "applied",
           "method_id": "",
-          "method_revision": "NOT_APPLICABLE",
-          "artifact_digest": "NOT_APPLICABLE",
-          "parameters_digest": "NOT_APPLICABLE",
+          "method_revision": "1",
+          "artifact_digest": "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+          "parameters_digest": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
           "application_count": 1,
-          "reason": "profile_requires_no_correction"
+          "reason": "synthetic validated method fixture"
         },
         "profile_resolution": {
           "state": "resolved_exact_digest",
           "source_receipt_id": "SYNTH-PROFILE-RECEIPT-01",
-          "resolved_profile_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          "resolved_profile_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "validity_state": "within_validity"
         },
         "invalidation": {
           "state": "current",
@@ -2413,12 +2436,13 @@
           "artifact_digest": "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
           "parameters_digest": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
           "application_count": 1,
-          "reason": "profile_requires_no_correction"
+          "reason": "synthetic validated method fixture"
         },
         "profile_resolution": {
           "state": "resolved_exact_digest",
           "source_receipt_id": "SYNTH-PROFILE-RECEIPT-01",
-          "resolved_profile_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          "resolved_profile_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "validity_state": "within_validity"
         },
         "invalidation": {
           "state": "current",
@@ -2515,12 +2539,13 @@
           "artifact_digest": "",
           "parameters_digest": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
           "application_count": 1,
-          "reason": "profile_requires_no_correction"
+          "reason": "synthetic validated method fixture"
         },
         "profile_resolution": {
           "state": "resolved_exact_digest",
           "source_receipt_id": "SYNTH-PROFILE-RECEIPT-01",
-          "resolved_profile_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          "resolved_profile_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "validity_state": "within_validity"
         },
         "invalidation": {
           "state": "current",
@@ -2617,12 +2642,13 @@
           "artifact_digest": "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
           "parameters_digest": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
           "application_count": 2,
-          "reason": "profile_requires_no_correction"
+          "reason": "synthetic validated method fixture"
         },
         "profile_resolution": {
           "state": "resolved_exact_digest",
           "source_receipt_id": "SYNTH-PROFILE-RECEIPT-01",
-          "resolved_profile_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          "resolved_profile_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "validity_state": "within_validity"
         },
         "invalidation": {
           "state": "current",
@@ -2724,7 +2750,8 @@
         "profile_resolution": {
           "state": "revoked",
           "source_receipt_id": "SYNTH-PROFILE-RECEIPT-01",
-          "resolved_profile_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          "resolved_profile_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "validity_state": "within_validity"
         },
         "invalidation": {
           "state": "current",
@@ -2826,7 +2853,8 @@
         "profile_resolution": {
           "state": "resolved_exact_digest",
           "source_receipt_id": "SYNTH-PROFILE-RECEIPT-01",
-          "resolved_profile_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          "resolved_profile_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "validity_state": "within_validity"
         },
         "invalidation": {
           "state": "current",
@@ -2928,7 +2956,8 @@
         "profile_resolution": {
           "state": "resolved_exact_digest",
           "source_receipt_id": "SYNTH-PROFILE-RECEIPT-01",
-          "resolved_profile_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          "resolved_profile_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "validity_state": "within_validity"
         },
         "invalidation": {
           "state": "current",
@@ -3030,7 +3059,8 @@
         "profile_resolution": {
           "state": "resolved_exact_digest",
           "source_receipt_id": "SYNTH-PROFILE-RECEIPT-01",
-          "resolved_profile_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          "resolved_profile_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "validity_state": "within_validity"
         },
         "invalidation": {
           "state": "current",
@@ -3132,7 +3162,8 @@
         "profile_resolution": {
           "state": "resolved_exact_digest",
           "source_receipt_id": "SYNTH-PROFILE-RECEIPT-01",
-          "resolved_profile_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          "resolved_profile_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "validity_state": "within_validity"
         },
         "invalidation": {
           "state": "current",
@@ -3234,7 +3265,8 @@
         "profile_resolution": {
           "state": "resolved_exact_digest",
           "source_receipt_id": "SYNTH-PROFILE-RECEIPT-01",
-          "resolved_profile_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          "resolved_profile_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "validity_state": "within_validity"
         },
         "invalidation": {
           "state": "current",
@@ -3336,7 +3368,8 @@
         "profile_resolution": {
           "state": "provider_asserted",
           "source_receipt_id": "SYNTH-PROFILE-RECEIPT-01",
-          "resolved_profile_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          "resolved_profile_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "validity_state": "within_validity"
         },
         "invalidation": {
           "state": "current",
@@ -3438,7 +3471,8 @@
         "profile_resolution": {
           "state": "resolved_exact_digest",
           "source_receipt_id": "SYNTH-PROFILE-RECEIPT-01",
-          "resolved_profile_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          "resolved_profile_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "validity_state": "within_validity"
         },
         "invalidation": {
           "state": "current",
@@ -3541,7 +3575,7 @@
           "state": "resolved_exact_digest",
           "source_receipt_id": "SYNTH-PROFILE-RECEIPT-01",
           "resolved_profile_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-          "validity_state": "outside_validity"
+          "validity_state": "within_validity"
         },
         "invalidation": {
           "state": "current",
@@ -3643,7 +3677,8 @@
         "profile_resolution": {
           "state": "resolved_exact_digest",
           "source_receipt_id": "SYNTH-PROFILE-RECEIPT-01",
-          "resolved_profile_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          "resolved_profile_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "validity_state": "within_validity"
         },
         "invalidation": {
           "state": "current",
