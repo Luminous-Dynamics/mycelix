@@ -29,7 +29,8 @@
     "research_basis",
     "evaluation_layers",
     "multilingual_extension",
-    "jurisdictional_context"
+    "jurisdictional_context",
+    "counterfactual_interaction_protocol"
   ],
   "properties": {
     "protocol_id": {
@@ -528,6 +529,99 @@
         "source_note": {
           "type": "string",
           "minLength": 20
+        }
+      }
+    },
+    "counterfactual_interaction_protocol": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "rationale",
+        "randomized_arms",
+        "primary_estimands",
+        "controls",
+        "analysis",
+        "claim_ceiling"
+      ],
+      "properties": {
+        "status": {
+          "type": "string",
+          "minLength": 1
+        },
+        "rationale": {
+          "type": "string",
+          "minLength": 1
+        },
+        "randomized_arms": {
+          "type": "array",
+          "minItems": 6,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "id",
+              "description"
+            ],
+            "properties": {
+              "id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "description": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        },
+        "primary_estimands": {
+          "type": "array",
+          "minItems": 5,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "controls": {
+          "type": "array",
+          "minItems": 7,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "analysis": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "randomization_unit",
+            "primary_cluster",
+            "reporting",
+            "human_subjects"
+          ],
+          "properties": {
+            "randomization_unit": {
+              "type": "string",
+              "minLength": 1
+            },
+            "primary_cluster": {
+              "type": "string",
+              "minLength": 1
+            },
+            "reporting": {
+              "type": "string",
+              "minLength": 1
+            },
+            "human_subjects": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "claim_ceiling": {
+          "type": "string",
+          "minLength": 1
         }
       }
     }
