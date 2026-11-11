@@ -95,6 +95,14 @@ These results motivate **separate treatment arms**: unassisted discussion, human
 
 DelibSim makes a measurement gap explicit: a group may produce fluent, orderly, high-quality discourse while retaining substantially less viewpoint diversity than human reference groups. DelibBench should therefore report, as separate dimensions, (1) discourse/process quality, (2) perspective diversity and coverage, (3) warranted movement after evidence, (4) unsupported convergence or influence, and (5) task-specific decision outcome. Do not reward minimum stance variance or maximum consensus. Diversity should be interpreted relative to the task's evidence and legitimate normative pluralism, not as a universal preference for disagreement. Pair the aggregate group profile with participant-conditioned voice fidelity from #6011 and the private/public revision trajectory in Symthaea #11320.
 
+### Institutional reconstruction and contestability
+
+The new [CIV-TRACE-001 benchmark (#6069)](https://github.com/Luminous-Dynamics/mycelix/issues/6069) composes the existing decision/authority/attempt/outcome lineage (#2953), governance lifecycle (#3117), bitemporal evidence lifecycle (#5646), open-world uncertainty (#3126), independent evaluation boundary (#4835), and forensic replay semantics (#2922).
+
+Its benchmark question is whether an independent reviewer can reconstruct what was known, what authority was known/current, what was attempted, what was independently observed, what was later corrected or superseded, and what remained contestable at a declared historical cutoff. It deliberately separates the contemporaneous `as-known-at-T` view from the current reassessment of that historical time. Later corrections and appeals must not rewrite historical records; executor success is not an independently observed outcome; unresolved challenges remain visible.
+
+CIV-TRACE is a synthetic qualification programme, not a production event store or legal chain-of-custody assertion. Its intended role is to test the accountability layer that DelibBench #5999 requires after a group recommendation becomes an institutional decision.
+
 ### Process and impact evaluation
 
 The [OECD evaluation guidelines](https://www.oecd.org/en/publications/evaluation-guidelines-for-representative-deliberative-processes_10ccbfcb-en.html) distinguish process-design integrity, deliberative experience and pathways to impact. DelibBench uses those as a lifecycle crosswalk, not as a single scalar score.
