@@ -798,6 +798,15 @@ mod tests {
     use super::*;
     use crate::trace::TraceGeneratorV1;
 
+    fn find_scenario(scenario: u8) -> TraceV1 {
+        (0..100_000)
+            .map(|index| {
+                TraceGeneratorV1::generate(0x0123_4567_89ab_cdef, index)
+            })
+            .find(|trace| trace.scenario == scenario)
+            .expect("scenario is reachable in the frozen trace generator")
+    }
+
     #[test]
     fn every_generated_scenario_has_expected_safe_evaluation() {
         let mut scenarios_seen = [false; 8];
@@ -806,7 +815,7 @@ mod tests {
             scenarios_seen[usize::from(trace.scenario - 1)] = true;
             let evaluation = TraceOracleV1::evaluate(&trace).unwrap();
             assert!(evaluation.is_safe(), "scenario={} seed={seed}", trace.scenario);
-            assert_eq!(evaluation.local_committed, true);
+            assert!(evaluation.local_committed);
             assert_eq!(evaluation.conservation_delta_minor, 0);
             assert!(evaluation.actual_treasury_effect_count <= 1);
             assert!(evaluation.compensation_count <= 1);
@@ -815,19 +824,32 @@ mod tests {
     }
 
     #[test]
-    fn scenario_two_requires_authoritative_absence_before_same_effect_retry() {
-        let mut trace = TraceGeneratorV1::generate(0x0123_4567_89ab_cdef, 0);
-        // Select a scenario-two vector deterministically.
-        let mut found = None;
-        for index in 0..100_000 {
-            let candidate = TraceGeneratorV1::generate(0x0123_4567_89ab_cdef, index);
-            if candidate.scenario == 2 {
-                found = Some(candidate);
-                break;
-            }
+    fn oracle_v1_matches_shared_independent_known_answers() {
+        let kat = include_str!("../fixtures/saga-oracle-v1.kat");
+        let mut vectors_seen = 0;
+        for line in kat.lines().filter_map(|line| line.strip_prefix("vector=")) {
+            let fields: Vec<_> = line.split(',').collect();
+            assert_eq!(fields.len(), 5);
+            let seed = u64::from_str_radix(fields[0], 16).unwrap();
+            let trace_index = fields[1].parse::<u64>().unwrap();
+            let scenario = fields[2].parse::<u8>().unwrap();
+            let command_count = fields[3].parse::<usize>().unwrap();
+            let expected_digest = format!("sha256:{}", fields[4]);
+
+            let trace = TraceGeneratorV1::generate(seed, trace_index);
+            assert_eq!(trace.scenario, scenario);
+            assert_eq!(trace.commands.len(), command_count);
+            let evaluation = TraceOracleV1::evaluate(&trace).unwrap();
+            assert!(evaluation.is_safe(), "seed={} scenario={scenario}", fields[0]);
+            assert_eq!(evaluation.canonical_digest().unwrap(), expected_digest);
+            vectors_seen += 1;
         }
-        trace = found.unwrap();
-        let evaluation = TraceOracleV1::evaluate(&trace).unwrap();
+        assert_eq!(vectors_seen, 8);
+    }
+
+    #[test]
+    fn scenario_two_requires_authoritative_absence_before_same_effect_retry() {
+        let evaluation = TraceOracleV1::evaluate(&find_scenario(2)).unwrap();
         assert_eq!(evaluation.treasury_state, TreasuryOracleStateV1::Committed);
         assert_eq!(evaluation.actual_treasury_effect_count, 1);
         assert_eq!(evaluation.unresolved_treasury_exposure_minor, 0);
@@ -835,15 +857,7 @@ mod tests {
 
     #[test]
     fn uncertain_lookup_never_becomes_commit_or_absence() {
-        let mut trace = TraceGeneratorV1::generate(0x0123_4567_89ab_cdef, 0);
-        for index in 0..100_000 {
-            let candidate = TraceGeneratorV1::generate(0x0123_4567_89ab_cdef, index);
-            if candidate.scenario == 4 {
-                trace = candidate;
-                break;
-            }
-        }
-        let evaluation = TraceOracleV1::evaluate(&trace).unwrap();
+        let evaluation = TraceOracleV1::evaluate(&find_scenario(4)).unwrap();
         assert_eq!(evaluation.treasury_state, TreasuryOracleStateV1::Indeterminate);
         assert_eq!(evaluation.unresolved_treasury_exposure_minor, evaluation.fee_minor);
         assert_eq!(evaluation.actual_treasury_effect_count, 1);
@@ -851,15 +865,7 @@ mod tests {
 
     #[test]
     fn duplicate_delivery_never_increments_effect_count_twice() {
-        let mut trace = TraceGeneratorV1::generate(0x0123_4567_89ab_cdef, 0);
-        for index in 0..100_000 {
-            let candidate = TraceGeneratorV1::generate(0x0123_4567_89ab_cdef, index);
-            if candidate.scenario == 6 {
-                trace = candidate;
-                break;
-            }
-        }
-        let evaluation = TraceOracleV1::evaluate(&trace).unwrap();
+        let evaluation = TraceOracleV1::evaluate(&find_scenario(6)).unwrap();
         assert_eq!(evaluation.actual_treasury_effect_count, 1);
         assert_eq!(evaluation.treasury_state, TreasuryOracleStateV1::Indeterminate);
         assert!(evaluation.steps.iter().any(|step| {
@@ -870,21 +876,42 @@ mod tests {
 
     #[test]
     fn compensation_is_a_separate_effect_and_does_not_erase_original_commit() {
-        let mut trace = TraceGeneratorV1::generate(0x0123_4567_89ab_cdef, 0);
-        for index in 0..100_000 {
-            let candidate = TraceGeneratorV1::generate(0x0123_4567_89ab_cdef, index);
-            if candidate.scenario == 8 {
-                trace = candidate;
-                break;
-            }
-        }
-        let evaluation = TraceOracleV1::evaluate(&trace).unwrap();
-        assert_eq!(evaluation.local_committed, true);
+        let evaluation = TraceOracleV1::evaluate(&find_scenario(8)).unwrap();
+        assert!(evaluation.local_committed);
         assert_eq!(evaluation.compensation_count, 1);
         assert_eq!(
             evaluation.compensation_source_debit_minor,
             evaluation.compensation_recipient_credit_minor
         );
-        assert_eq!(evaluation.payer_debit_minor, evaluation.principal_minor + evaluation.fee_minor);
+        assert_eq!(
+            evaluation.payer_debit_minor,
+            evaluation.principal_minor + evaluation.fee_minor
+        );
+    }
+
+    #[test]
+    fn wrong_owner_and_false_absence_are_explicitly_rejected() {
+        let mut wrong_owner = find_scenario(1);
+        wrong_owner.commands[0].owner = TraceOwner::Adversary;
+        let evaluation = TraceOracleV1::evaluate(&wrong_owner).unwrap();
+        assert_eq!(evaluation.steps[0].disposition, TraceDispositionV1::Rejected);
+        assert_eq!(evaluation.steps[0].reason, TraceReasonV1::OwnerMismatch);
+
+        let mut false_absence = find_scenario(3);
+        let reconcile = false_absence
+            .commands
+            .iter_mut()
+            .find(|command| command.opcode == TraceOpcode::ReconcileTreasury)
+            .expect("scenario three has a reconciliation command");
+        reconcile.fault = TraceFault::AuthoritativeAbsence;
+        let evaluation = TraceOracleV1::evaluate(&false_absence).unwrap();
+        let step = evaluation
+            .steps
+            .iter()
+            .find(|step| step.reason == TraceReasonV1::AuthoritativeAbsenceContradiction)
+            .expect("contradictory absence must be rejected");
+        assert_eq!(step.disposition, TraceDispositionV1::Rejected);
+        assert_eq!(evaluation.treasury_state, TreasuryOracleStateV1::Indeterminate);
+        assert_eq!(evaluation.unresolved_treasury_exposure_minor, evaluation.fee_minor);
     }
 }
