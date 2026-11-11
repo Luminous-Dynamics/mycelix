@@ -278,3 +278,59 @@ The household-appliance/measurement study references have been refreshed:
 Study design must distinguish four evidence strata and a separate lab-competence/PT axis. A valid proficiency-test score is not a reproducibility estimate; reproducibility is not production-unit variation; and neither is household ecological validity. The executable preregistration gate is tracked in Symthaea [#10341](https://github.com/Luminous-Dynamics/symthaea/issues/10341) / draft [PR #11602](https://github.com/Luminous-Dynamics/symthaea/pull/11602).
 
 Sources: [ISO 5725-2:2025](https://www.iso.org/standard/90054.html); [ISO 5725-1:2023](https://www.iso.org/standard/69418.html); [ISO 5725-3:2023](https://www.iso.org/ics/17.020/x/); [ISO/IEC 17043:2023](https://www.iso.org/standard/80864.html); [ISO 13528:2022/Amd 1:2026](https://www.iso.org/standard/90057.html).
+
+## 11 November 2026 — method-aware benchmark arms and acceptance boundaries
+
+### The unit of comparison is a method-qualified evidence chain
+
+Do not compare a calibrated reference method with a low-cost sensor's self-reported unit, or a nameplate capacity with measured service. For each channel, freeze the applicable measurement method, exact standard/method revision, instrument class, operating conditions, sampling design, uncertainty convention, and calibration scope before collecting confirmatory data.
+
+Use these explicit incumbent reference arms where the scope matches:
+
+- Thermal environment: ISO 7726:2025-aligned instrument/method chain; comfort interpretation under a declared method such as ASHRAE 55 is a separate claim.
+- Indoor PM2.5: ISO 16000-37:2019 gravimetric/filter reference with high-time-resolution sensor co-location/QC; do not treat an optical sensor as ground truth.
+- CO₂: ISO 16000-26:2012 sampling strategy plus independently characterized CO₂ measurement equipment; ventilation interpretation remains separate from pollutant-specific IAQ claims.
+- Water pH/conductivity: ISO 10523:2008 and ISO 7888:1985 method families, plus independent sample/assay evidence and explicit sample handling.
+- Closed-conduit water metering: ISO 4064-1/-2:2024 only when the meter and conduit conditions fall inside scope; use a separate method for tanks, drains, open-channel and rain/greywater cases.
+- Electricity: IEC 62052-11:2020 and applicable IEC 62053 product/accuracy class for energy metering; IEC 61000-4-30:2025 Class A/S method only for the power-quality parameters and class actually under test.
+- Acoustics: IEC 61672-1:2013 meter class and IEC 60942:2017 calibrator chain; room positions, background, weighting, intervals and operating modes must be fixed.
+- Useful thermal energy: EN 1434-1:2022 only for applicable closed liquid heat-exchange circuits; other topologies need an explicitly validated measurement equation and component-input traceability.
+
+### Competitive benchmarking ladder
+
+| Level | Comparator | Required report | What a Luminous advantage would mean |
+|---|---|---|---|
+| M0 / contract | Manufacturer self-report, point/tag/time-series dashboard, manual CSV/certificate handling | Exact fields missing, false-current decisions, manual reconciliation time, unknown rate | Fewer false admissions and lower reconciliation effort without hiding unknowns |
+| M1 / measurement | Applicable ISO/IEC reference method, calibrated reference chain and SANAS-scope-checked lab | Bias, repeatability, coverage/uncertainty, response, drift, out-of-domain/abstention, method deviations | At least equal reference agreement and uncertainty coverage, with more complete provenance and targeted invalidation |
+| M2 / interoperability | Source-native files plus Brick / IFC / Haystack / ASHRAE 223 lanes when pinned | Round-trip semantic loss, unit/time-role loss, query disagreement, exact-equivalence false positives | Lower manual mapping effort and zero false exact equivalence; unknown mappings abstain |
+| M3 / operational model | BOPTEST matched building/HVAC cases, EnergyPlus reference, rule-based/G36/MPC baselines | Same weather, initial state, occupancy, controller budget, KPIs, held-out cases and compute | Improvement in multi-objective service outcomes without degrading a hard service floor |
+| M4 / physical service | Qualified unoccupied cell and independent endpoint measurement | Measured delivery, unavailable/unmet service, energy/water, pollutant/thermal trajectories, repair and operator burden | A repeatable practical service improvement against the best matched incumbent with all hard constraints preserved |
+| M5 / population | Multi-lab/multi-unit/production-lot/real-household strata | Variance components, external validity, subgroups, attrition and maintenance/lifecycle | An advantage that survives lab, unit, lot, operator, household and climate variation |
+
+These levels are not interchangeable. A software schema PASS does not pass M1; a BOPTEST win does not pass M4; a one-unit prototype result does not pass M5.
+
+### Scorecard: thresholds that can be frozen now
+
+- **Synthetic conformance:** 100% known-answer agreement; every negative control must change the disposition as designed; zero duplicate-key acceptance; zero unknown-property acceptance.
+- **False admission:** zero false review-eligibility outcomes on the frozen adversarial corpus. Track false rejection and unnecessary abstention separately so fail-closed behavior does not become useless.
+- **Evidence completeness:** 100% review-eligible observations reconstruct the exact instrument, channel, capability, certificate, lab scope, installation, method, conditions, sample timebase, raw/derived lineage and uncertainty records.
+- **Invalidation:** 100% affected descendants stale after an upstream correction/revocation/configuration change and zero unrelated-branch invalidation.
+- **Reference agreement:** preregistered bias/uncertainty/coverage limits supplied by the applicable method and purpose owner; never invent universal tolerances in the benchmark.
+- **Time/cost:** timed manual baseline versus Luminous workflow, including data collection, scope inspection, mapping, exceptions, human review, calibration, commissioning and maintenance—not only code execution.
+- **Control/service:** same traces and model/control resources for all arms; use hard constraints and a multi-objective vector rather than one composite score.
+- **Transfer:** predeclare held-out building, climate, lab, sensor model, production lot and household strata. No tuning on the final evaluation set.
+
+### Research advantage to test, not assert
+
+The strongest differentiator is **cross-layer evidence continuity**: the same physical observation survives method validation, independent laboratory/certificate review, semantic translation, model ingestion, service/outcome evaluation, correction, revocation and downstream invalidation without losing identity or laundering authority. Test it against best available incumbent workflows. If the incumbent performs as well or better on a case, record that as a tie or incumbent win.
+
+### New method-source status caveats
+
+- ISO 16000-26:2012 is a CO₂ sampling-strategy document, not an instrument calibration method.
+- ISO 16000-37:2019's reference principle is filter collection/gravimetric weighing; the standard also addresses supplementary high-resolution instruments and QC.
+- ISO 4064-1/-2:2024 is a fully charged closed-conduit potable/hot-water meter method family, not a method for tanks/open drains/greywater collection.
+- IEC 61000-4-30:2025 (corrected July 2026) covers selected in-situ 50/60 Hz AC power-quality parameters and Class A/Class S methods; it is not an active-energy meter standard, and transducer effects need additional guidance.
+- EN 1434-1:2022 is scoped to applicable closed heat-exchange liquid systems, not pressure/electrical safety or surface-mounted temperature sensors.
+- IEC 61672-1:2013 and IEC 60942:2017 specify sound-level meters and calibrators; they do not establish an acceptable residential noise threshold or occupant preference.
+
+All standards/methods remain candidate references until the exact full text, applicable clause, scope and local regulatory treatment are checked by a competent specialist.
