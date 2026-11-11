@@ -88,11 +88,19 @@ func TestProviderV1SharedKnownAnswers(t *testing.T) {
 	if err != nil { t.Fatal(err) }
 	absenceDigest, err := absence.CanonicalDigest()
 	if err != nil { t.Fatal(err) }
+	permit, err := key.QualifyRetry(
+		contract, "company:test-account", "eu", key.RequestDigest,
+		ProviderTransportTimeoutUnknownV1, 2_000,
+	)
+	if err != nil { t.Fatal(err) }
+	permitDigest, err := permit.CanonicalDigest()
+	if err != nil { t.Fatal(err) }
 	actual := map[string]string{
 		"contract": contractDigest,
 		"operation_key": keyDigest,
 		"observation": observationDigest,
 		"absence_subject": absenceDigest,
+		"retry_permit": permitDigest,
 	}
 	for name, value := range actual {
 		if expected[name] != value {
