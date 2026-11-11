@@ -10,6 +10,7 @@ const CONTRACT_DOMAIN: &[u8] = b"MXSAP-PROVIDER-CONTRACT-V1\0";
 const OPERATION_KEY_DOMAIN: &[u8] = b"MXSAP-PROVIDER-OPERATION-KEY-V1\0";
 const OBSERVATION_DOMAIN: &[u8] = b"MXSAP-PROVIDER-OBSERVATION-V1\0";
 const ABSENCE_DOMAIN: &[u8] = b"MXSAP-PROVIDER-ABSENCE-EVIDENCE-V1\0";
+const RETRY_PERMIT_DOMAIN: &[u8] = b"MXSAP-PROVIDER-RETRY-PERMIT-V1\0";
 const MAX_FIELD_BYTES: usize = 4096;
 
 const DAY_MS: u64 = 24 * 60 * 60 * 1_000;
@@ -113,6 +114,8 @@ pub enum ProviderRetryErrorV1 {
     InProgressNotRetryable,
     AttemptClassNotRetryable,
     ProfileNotQualified,
+    RetryPermitMismatch,
+    RetryPermitExpired,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
