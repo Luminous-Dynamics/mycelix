@@ -84,7 +84,7 @@
       ]
     },
     "complete_71_point_transcription": {
-      "type": "boolean"
+      "const": true
     },
     "data_points": {
       "type": "array",
