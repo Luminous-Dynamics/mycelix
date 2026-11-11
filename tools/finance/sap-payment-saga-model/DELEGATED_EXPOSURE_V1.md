@@ -29,7 +29,7 @@ The child receives an independent ExposureBook whose aggregate and per-effect ca
 | Revoking | Rejected (exact existing retry remains idempotent) | Allowed | Yes |
 | Closed | Rejected | No further transitions | No |
 
-Revocation does not release the budget. It only blocks new risk-increasing reservations. Existing dispatched, indeterminate and committed-unsettled effects remain represented in the child book and must be settled or authoritatively absent before the parent may close the grant.
+Revocation does not release the budget. It blocks both new reservations and the dispatch authorization of effects that were only Reserved when revocation took effect. Those never-dispatched reservations may be cancelled before dispatch. Effects that had already crossed the dispatch-authorization boundary remain represented in the child book and must be settled or authoritatively absent before the parent may close the grant. Exact retries of both grant allocation and effect reservation remain idempotent; an idempotent retry is not fresh authority to dispatch.
 
 A closed grant remains in canonical history and cannot be reactivated. A new grant requires a new grant ID and a higher owner-local grant sequence.
 
