@@ -234,18 +234,25 @@ fn check_projection_semantics(registry: &Value, projection: &Value) -> Result<BT
         }
 
         let audience_allowed = audience_can_view(audience, expected_disclosure);
-        let conditional_without_payload = outcome == "CONDITIONAL_REVIEW_REQUIRED"
-            && item.get("value").is_none_or(Value::is_null)
-            && item.get("evidence")
-                .and_then(Value::as_array)
-                .is_none_or(Vec::is_empty);
-        if !audience_allowed
-            && outcome != "WITHHELD_BY_ACCESS_POLICY"
-            && outcome != "NOT_REQUIRED_AT_EFFECTIVE_DATE"
-            && !conditional_without_payload
+        let has_value = item.get("value").is_some_and(|value| !value.is_null());
+        let has_evidence = item.get("evidence")
+            .and_then(Value::as_array)
+            .is_some_and(|evidence| !evidence.is_empty());
+        let payload_empty = !has_value && !has_evidence;
+        if matches!(
+            outcome,
+            "WITHHELD_BY_ACCESS_POLICY"
+                | "NOT_REQUIRED_AT_EFFECTIVE_DATE"
+                | "CONDITIONAL_REVIEW_REQUIRED"
+        ) && !payload_empty
         {
             return Err(format!(
-                "data point {number} is restricted from audience {audience}; projection must withhold value/evidence payload"
+                "data point {number} has a non-publishable disposition but still carries a value/evidence payload"
+            ));
+        }
+        if !audience_allowed && !payload_empty {
+            return Err(format!(
+                "data point {number} is restricted from audience {audience}; projection must omit value and evidence payload"
             ));
         }
         if outcome == "READY_TO_PUBLISH" {
@@ -637,6 +644,33 @@ mod tests {
         }]);
         projection["summary"]["withheld_by_access_policy"] = json!(2);
         projection["summary"]["conditional_review_required"] = json!(1);
+        let bytes = serde_json::to_vec(&projection).unwrap();
+        assert!(audit_projection(REGISTRY_SCHEMA, REGISTRY, PROJECTION_SCHEMA, &bytes).is_err());
+    }
+
+    #[test]
+    fn withheld_restricted_point_cannot_carry_value_or_evidence_payload() {
+        let mut projection: Value = serde_json::from_slice(EV_PUBLIC).expect("EV fixture");
+        let soce = projection["data_points"].as_array_mut().unwrap()
+            .iter_mut().find(|point| point["number"] == 61).unwrap();
+        soce["value"] = json!(98.4);
+        soce["evidence"] = json!([{
+            "evidence_ref":"synthetic:restricted-soce",
+            "evidence_class":"synthetic_fixture",
+            "digest":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "issuer_ref":"synthetic:issuer",
+            "recorded_at":"2026-11-01T00:00:00Z"
+        }]);
+        let bytes = serde_json::to_vec(&projection).unwrap();
+        assert!(audit_projection(REGISTRY_SCHEMA, REGISTRY, PROJECTION_SCHEMA, &bytes).is_err());
+    }
+
+    #[test]
+    fn not_required_at_effective_date_cannot_carry_a_value() {
+        let mut projection: Value = serde_json::from_slice(EV_PUBLIC).expect("EV fixture");
+        let capacity = projection["data_points"].as_array_mut().unwrap()
+            .iter_mut().find(|point| point["number"] == 62).unwrap();
+        capacity["value"] = json!(42.0);
         let bytes = serde_json::to_vec(&projection).unwrap();
         assert!(audit_projection(REGISTRY_SCHEMA, REGISTRY, PROJECTION_SCHEMA, &bytes).is_err());
     }
