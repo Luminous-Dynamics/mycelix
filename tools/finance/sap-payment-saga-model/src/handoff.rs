@@ -336,14 +336,13 @@ impl ParentHandoffBookV1 {
                 record.revoke_action_hash = Some(hash);
                 Ok(HandoffDisposition::Committed)
             }
-            ParentGrantStatus::RevocationRequested => {
+            ParentGrantStatus::RevocationRequested | ParentGrantStatus::Released => {
                 if record.revoke_action_hash.as_deref() == Some(hash.as_str()) {
                     Ok(HandoffDisposition::AlreadyCommitted)
                 } else {
                     Err(HandoffError::RevocationConflict)
                 }
             }
-            ParentGrantStatus::Released => Err(HandoffError::InvalidTransition),
         }
     }
 
@@ -356,21 +355,33 @@ impl ParentHandoffBookV1 {
             .grants
             .get_mut(&receipt.grant_id)
             .ok_or(HandoffError::GrantNotFound)?;
-        if record.status != ParentGrantStatus::RevocationRequested
-            || record.grant_digest != receipt.grant_digest
+        if record.grant_digest != receipt.grant_digest
             || record.revoke_action_hash.as_deref() != Some(receipt.parent_revoke_action_hash.as_str())
             || record.terms.child_scope.owner_id != receipt.child_owner_id
         {
             return Err(HandoffError::InvalidGrant);
         }
-        match &record.revocation {
-            Some(existing) if *existing == receipt => Ok(HandoffDisposition::AlreadyObserved),
-            Some(_) => Err(HandoffError::RevocationConflict),
-            None => {
-                record.revocation = Some(receipt);
-                Ok(HandoffDisposition::Observed)
-            }
+        if let Some(existing) = &record.revocation {
+            return if *existing == receipt {
+                Ok(HandoffDisposition::AlreadyObserved)
+            } else {
+                Err(HandoffError::RevocationConflict)
+            };
         }
+        if record.status == ParentGrantStatus::Released {
+            return if record.closure.as_ref().is_some_and(|closure| {
+                closure.child_observed_revoke_action_hash == receipt.child_observed_action_hash
+            }) {
+                Ok(HandoffDisposition::AlreadyObserved)
+            } else {
+                Err(HandoffError::RevocationConflict)
+            };
+        }
+        if record.status != ParentGrantStatus::RevocationRequested {
+            return Err(HandoffError::InvalidTransition);
+        }
+        record.revocation = Some(receipt);
+        Ok(HandoffDisposition::Observed)
     }
 
     /// The child closure receipt itself carries the acceptance/revocation
@@ -551,11 +562,11 @@ impl ChildHandoffBookV1 {
         if parent_action_hash != self.parent_action_hash {
             return Err(HandoffError::InvalidGrant);
         }
-        if self.revocation.is_some() || self.closure.is_some() {
-            return Err(HandoffError::InvalidTransition);
-        }
         if let Some(existing) = &self.acceptance {
             return Ok((HandoffDisposition::AlreadyObserved, existing.clone()));
+        }
+        if self.revocation.is_some() || self.closure.is_some() {
+            return Err(HandoffError::InvalidTransition);
         }
         let receipt = GrantAcceptanceReceiptV1 {
             grant_id: self.terms.grant_id.clone(),
@@ -625,14 +636,14 @@ impl ChildHandoffBookV1 {
         validate_digest(parent_revoke_action_hash)?;
         let candidate_action_hash = child_observed_action_hash.into();
         validate_digest(&candidate_action_hash)?;
-        if self.closure.is_some() {
-            return Err(HandoffError::InvalidTransition);
-        }
         if let Some(existing) = &self.revocation {
             if existing.parent_revoke_action_hash != parent_revoke_action_hash {
                 return Err(HandoffError::RevocationConflict);
             }
             return Ok((HandoffDisposition::AlreadyObserved, existing.clone()));
+        }
+        if self.closure.is_some() {
+            return Err(HandoffError::InvalidTransition);
         }
         let receipt = GrantRevocationReceiptV1 {
             grant_id: self.terms.grant_id.clone(),
