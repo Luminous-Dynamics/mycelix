@@ -271,9 +271,7 @@ impl ParentDelegatedExposureBookV1 {
                 .child_book_mut(grant_id)?
                 .mark_dispatch_authorized(effect_id);
         }
-        if status != ExposureStatus::Reserved
-            || grant.status != DelegatedBudgetStatus::Active
-        {
+        if status != ExposureStatus::Reserved || grant.status != DelegatedBudgetStatus::Active {
             return Err(ExposureError::InvalidTransition);
         }
         if grant.budget_minor > self.policy.maximum_child_budget_minor
@@ -628,7 +626,9 @@ mod tests {
             .unwrap();
         let intent = child_intent(child_scope("operator:a", "dest:a"), "effect:1", 400);
         parent.reserve("provider-a", intent.clone()).unwrap();
-        parent.mark_dispatch_authorized("provider-a", "effect:1").unwrap();
+        parent
+            .mark_dispatch_authorized("provider-a", "effect:1")
+            .unwrap();
         parent.begin_revocation("provider-a").unwrap();
         assert_eq!(
             parent.reserve(
@@ -840,13 +840,7 @@ mod tests {
             Ok(ExposureDisposition::AlreadyReserved)
         );
         assert_eq!(
-            parent.allocate_child_budget(
-                "provider-a",
-                scope.clone(),
-                700,
-                1,
-                digest('1'),
-            ),
+            parent.allocate_child_budget("provider-a", scope.clone(), 700, 1, digest('1'),),
             Ok(DelegatedBudgetDisposition::AlreadyAllocated)
         );
         // The old sublimit now exceeds the lowered per-child ceiling. A merely
