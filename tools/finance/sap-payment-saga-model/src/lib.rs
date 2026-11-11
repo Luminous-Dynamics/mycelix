@@ -1466,7 +1466,7 @@ mod tests {
 
     #[test]
     fn changed_evidence_for_same_treasury_effect_conflicts() {
-        let mut journal = ready_local_payment();
+        let journal = ready_local_payment();
         let fee_id = journal.effect_id(PaymentLeg::TreasuryFee);
         journal
             .prepare_leg(PaymentLeg::TreasuryFee, &fee_id)
