@@ -1,0 +1,3658 @@
+{
+  "schema_version": "mycelix.instrument-condition-binding-corpus/0.1",
+  "corpus_id": "BUILDING-INSTRUMENT-CONDITION-CORPUS-V0.1",
+  "profile_id": "MYC-BUILD-CONDITIONS-V0.1",
+  "classification": "synthetic_condition_applicability_cases",
+  "claim_ceiling": "synthetic_condition_context_conformance_only",
+  "cases": [
+    {
+      "case_id": "CAP-001",
+      "description": "Both required synthetic local condition observations cover the full sample window and remain within the declared envelope.",
+      "record": {
+        "schema_version": "mycelix.instrument-condition-binding-record/0.1",
+        "record_id": "SYNTH-CONDITION-BINDING-001",
+        "condition_profile_id": "SYNTH-AIR-TEMP-ENV-01",
+        "profile_revision": "1",
+        "profile_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "instrument": {
+          "instrument_id": "SYNTH-INSTRUMENT-001",
+          "channel_id": "air_temperature",
+          "channel_profile_id": "MYC-BUILD-METROLOGY-PROFILE-V0.1",
+          "firmware_revision": "FW-1",
+          "configuration_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "identity_state": "established"
+        },
+        "target_sample": {
+          "observation_id": "SYNTH-OBS-001",
+          "source_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "observed_start_tick": 1000,
+          "observed_end_tick": 1010,
+          "tick_unit": "s",
+          "clock_domain_id": "CLOCK-1",
+          "clock_epoch_id": "BOOT-1",
+          "location_context_id": "ROOM-01",
+          "rights_state": "authorized",
+          "evidence_state": "current"
+        },
+        "condition_observations": [
+          {
+            "condition_id": "ambient_temperature",
+            "source_observation_id": "COND-OBS-TEMP-001",
+            "source_digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "value": 22,
+            "unit": "degC",
+            "quantity_kind": "temperature",
+            "evidence_state": "current",
+            "source_state": "measured",
+            "instrument_id": "COND-INST-TEMP-01",
+            "calibration_record_id": "COND-CAL-TEMP-01",
+            "calibration_state": "current",
+            "expanded_uncertainty": 0.1,
+            "uncertainty_unit": "degC",
+            "time_window": {
+              "start_tick": 990,
+              "end_tick": 1020,
+              "tick_unit": "s",
+              "clock_domain_id": "CLOCK-1",
+              "clock_epoch_id": "BOOT-1"
+            },
+            "location_context_id": "ROOM-01",
+            "rights_state": "authorized"
+          },
+          {
+            "condition_id": "relative_humidity",
+            "source_observation_id": "COND-OBS-RH-001",
+            "source_digest": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+            "value": 45,
+            "unit": "%RH",
+            "quantity_kind": "ratio",
+            "evidence_state": "current",
+            "source_state": "measured",
+            "instrument_id": "COND-INST-RH-01",
+            "calibration_record_id": "COND-CAL-RH-01",
+            "calibration_state": "current",
+            "expanded_uncertainty": 2,
+            "uncertainty_unit": "%RH",
+            "time_window": {
+              "start_tick": 990,
+              "end_tick": 1020,
+              "tick_unit": "s",
+              "clock_domain_id": "CLOCK-1",
+              "clock_epoch_id": "BOOT-1"
+            },
+            "location_context_id": "ROOM-01",
+            "rights_state": "authorized"
+          }
+        ],
+        "correction": {
+          "state": "not_applied",
+          "method_id": "NOT_APPLICABLE",
+          "method_revision": "NOT_APPLICABLE",
+          "artifact_digest": "NOT_APPLICABLE",
+          "parameters_digest": "NOT_APPLICABLE",
+          "application_count": 0,
+          "reason": "profile_requires_no_correction"
+        },
+        "profile_resolution": {
+          "state": "resolved_exact_digest",
+          "source_receipt_id": "SYNTH-PROFILE-RECEIPT-01",
+          "resolved_profile_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "invalidation": {
+          "state": "current",
+          "receipt_id": "SYNTH-CONDITION-RECEIPT-01",
+          "revision": "1"
+        },
+        "test_only": true
+      },
+      "expected_disposition": "ELIGIBLE_FOR_INDEPENDENT_CONDITION_REVIEW_ONLY"
+    },
+    {
+      "case_id": "CAP-002",
+      "description": "The condition profile identifier is absent.",
+      "record": {
+        "schema_version": "mycelix.instrument-condition-binding-record/0.1",
+        "record_id": "SYNTH-CONDITION-BINDING-001",
+        "condition_profile_id": "",
+        "profile_revision": "1",
+        "profile_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "instrument": {
+          "instrument_id": "SYNTH-INSTRUMENT-001",
+          "channel_id": "air_temperature",
+          "channel_profile_id": "MYC-BUILD-METROLOGY-PROFILE-V0.1",
+          "firmware_revision": "FW-1",
+          "configuration_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "identity_state": "established"
+        },
+        "target_sample": {
+          "observation_id": "SYNTH-OBS-001",
+          "source_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "observed_start_tick": 1000,
+          "observed_end_tick": 1010,
+          "tick_unit": "s",
+          "clock_domain_id": "CLOCK-1",
+          "clock_epoch_id": "BOOT-1",
+          "location_context_id": "ROOM-01",
+          "rights_state": "authorized",
+          "evidence_state": "current"
+        },
+        "condition_observations": [
+          {
+            "condition_id": "ambient_temperature",
+            "source_observation_id": "COND-OBS-TEMP-001",
+            "source_digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "value": 22,
+            "unit": "degC",
+            "quantity_kind": "temperature",
+            "evidence_state": "current",
+            "source_state": "measured",
+            "instrument_id": "COND-INST-TEMP-01",
+            "calibration_record_id": "COND-CAL-TEMP-01",
+            "calibration_state": "current",
+            "expanded_uncertainty": 0.1,
+            "uncertainty_unit": "degC",
+            "time_window": {
+              "start_tick": 990,
+              "end_tick": 1020,
+              "tick_unit": "s",
+              "clock_domain_id": "CLOCK-1",
+              "clock_epoch_id": "BOOT-1"
+            },
+            "location_context_id": "ROOM-01",
+            "rights_state": "authorized"
+          },
+          {
+            "condition_id": "relative_humidity",
+            "source_observation_id": "COND-OBS-RH-001",
+            "source_digest": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+            "value": 45,
+            "unit": "%RH",
+            "quantity_kind": "ratio",
+            "evidence_state": "current",
+            "source_state": "measured",
+            "instrument_id": "COND-INST-RH-01",
+            "calibration_record_id": "COND-CAL-RH-01",
+            "calibration_state": "current",
+            "expanded_uncertainty": 2,
+            "uncertainty_unit": "%RH",
+            "time_window": {
+              "start_tick": 990,
+              "end_tick": 1020,
+              "tick_unit": "s",
+              "clock_domain_id": "CLOCK-1",
+              "clock_epoch_id": "BOOT-1"
+            },
+            "location_context_id": "ROOM-01",
+            "rights_state": "authorized"
+          }
+        ],
+        "correction": {
+          "state": "not_applied",
+          "method_id": "NOT_APPLICABLE",
+          "method_revision": "NOT_APPLICABLE",
+          "artifact_digest": "NOT_APPLICABLE",
+          "parameters_digest": "NOT_APPLICABLE",
+          "application_count": 0,
+          "reason": "profile_requires_no_correction"
+        },
+        "profile_resolution": {
+          "state": "resolved_exact_digest",
+          "source_receipt_id": "SYNTH-PROFILE-RECEIPT-01",
+          "resolved_profile_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "invalidation": {
+          "state": "current",
+          "receipt_id": "SYNTH-CONDITION-RECEIPT-01",
+          "revision": "1"
+        },
+        "test_only": true
+      },
+      "expected_disposition": "MORE_EVIDENCE_REQUIRED"
+    },
+    {
+      "case_id": "CAP-003",
+      "description": "The condition profile digest is not resolvable.",
+      "record": {
+        "schema_version": "mycelix.instrument-condition-binding-record/0.1",
+        "record_id": "SYNTH-CONDITION-BINDING-001",
+        "condition_profile_id": "SYNTH-AIR-TEMP-ENV-01",
+        "profile_revision": "1",
+        "profile_digest": "",
+        "instrument": {
+          "instrument_id": "SYNTH-INSTRUMENT-001",
+          "channel_id": "air_temperature",
+          "channel_profile_id": "MYC-BUILD-METROLOGY-PROFILE-V0.1",
+          "firmware_revision": "FW-1",
+          "configuration_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "identity_state": "established"
+        },
+        "target_sample": {
+          "observation_id": "SYNTH-OBS-001",
+          "source_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "observed_start_tick": 1000,
+          "observed_end_tick": 1010,
+          "tick_unit": "s",
+          "clock_domain_id": "CLOCK-1",
+          "clock_epoch_id": "BOOT-1",
+          "location_context_id": "ROOM-01",
+          "rights_state": "authorized",
+          "evidence_state": "current"
+        },
+        "condition_observations": [
+          {
+            "condition_id": "ambient_temperature",
+            "source_observation_id": "COND-OBS-TEMP-001",
+            "source_digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "value": 22,
+            "unit": "degC",
+            "quantity_kind": "temperature",
+            "evidence_state": "current",
+            "source_state": "measured",
+            "instrument_id": "COND-INST-TEMP-01",
+            "calibration_record_id": "COND-CAL-TEMP-01",
+            "calibration_state": "current",
+            "expanded_uncertainty": 0.1,
+            "uncertainty_unit": "degC",
+            "time_window": {
+              "start_tick": 990,
+              "end_tick": 1020,
+              "tick_unit": "s",
+              "clock_domain_id": "CLOCK-1",
+              "clock_epoch_id": "BOOT-1"
+            },
+            "location_context_id": "ROOM-01",
+            "rights_state": "authorized"
+          },
+          {
+            "condition_id": "relative_humidity",
+            "source_observation_id": "COND-OBS-RH-001",
+            "source_digest": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+            "value": 45,
+            "unit": "%RH",
+            "quantity_kind": "ratio",
+            "evidence_state": "current",
+            "source_state": "measured",
+            "instrument_id": "COND-INST-RH-01",
+            "calibration_record_id": "COND-CAL-RH-01",
+            "calibration_state": "current",
+            "expanded_uncertainty": 2,
+            "uncertainty_unit": "%RH",
+            "time_window": {
+              "start_tick": 990,
+              "end_tick": 1020,
+              "tick_unit": "s",
+              "clock_domain_id": "CLOCK-1",
+              "clock_epoch_id": "BOOT-1"
+            },
+            "location_context_id": "ROOM-01",
+            "rights_state": "authorized"
+          }
+        ],
+        "correction": {
+          "state": "not_applied",
+          "method_id": "NOT_APPLICABLE",
+          "method_revision": "NOT_APPLICABLE",
+          "artifact_digest": "NOT_APPLICABLE",
+          "parameters_digest": "NOT_APPLICABLE",
+          "application_count": 0,
+          "reason": "profile_requires_no_correction"
+        },
+        "profile_resolution": {
+          "state": "resolved_exact_digest",
+          "source_receipt_id": "SYNTH-PROFILE-RECEIPT-01",
+          "resolved_profile_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "invalidation": {
+          "state": "current",
+          "receipt_id": "SYNTH-CONDITION-RECEIPT-01",
+          "revision": "1"
+        },
+        "test_only": true
+      },
+      "expected_disposition": "MORE_EVIDENCE_REQUIRED"
+    },
+    {
+      "case_id": "CAP-004",
+      "description": "The condition profile revision is superseded.",
+      "record": {
+        "schema_version": "mycelix.instrument-condition-binding-record/0.1",
+        "record_id": "SYNTH-CONDITION-BINDING-001",
+        "condition_profile_id": "SYNTH-AIR-TEMP-ENV-01",
+        "profile_revision": "0",
+        "profile_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "instrument": {
+          "instrument_id": "SYNTH-INSTRUMENT-001",
+          "channel_id": "air_temperature",
+          "channel_profile_id": "MYC-BUILD-METROLOGY-PROFILE-V0.1",
+          "firmware_revision": "FW-1",
+          "configuration_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "identity_state": "established"
+        },
+        "target_sample": {
+          "observation_id": "SYNTH-OBS-001",
+          "source_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "observed_start_tick": 1000,
+          "observed_end_tick": 1010,
+          "tick_unit": "s",
+          "clock_domain_id": "CLOCK-1",
+          "clock_epoch_id": "BOOT-1",
+          "location_context_id": "ROOM-01",
+          "rights_state": "authorized",
+          "evidence_state": "current"
+        },
+        "condition_observations": [
+          {
+            "condition_id": "ambient_temperature",
+            "source_observation_id": "COND-OBS-TEMP-001",
+            "source_digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "value": 22,
+            "unit": "degC",
+            "quantity_kind": "temperature",
+            "evidence_state": "current",
+            "source_state": "measured",
+            "instrument_id": "COND-INST-TEMP-01",
+            "calibration_record_id": "COND-CAL-TEMP-01",
+            "calibration_state": "current",
+            "expanded_uncertainty": 0.1,
+            "uncertainty_unit": "degC",
+            "time_window": {
+              "start_tick": 990,
+              "end_tick": 1020,
+              "tick_unit": "s",
+              "clock_domain_id": "CLOCK-1",
+              "clock_epoch_id": "BOOT-1"
+            },
+            "location_context_id": "ROOM-01",
+            "rights_state": "authorized"
+          },
+          {
+            "condition_id": "relative_humidity",
+            "source_observation_id": "COND-OBS-RH-001",
+            "source_digest": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+            "value": 45,
+            "unit": "%RH",
+            "quantity_kind": "ratio",
+            "evidence_state": "current",
+            "source_state": "measured",
+            "instrument_id": "COND-INST-RH-01",
+            "calibration_record_id": "COND-CAL-RH-01",
+            "calibration_state": "current",
+            "expanded_uncertainty": 2,
+            "uncertainty_unit": "%RH",
+            "time_window": {
+              "start_tick": 990,
+              "end_tick": 1020,
+              "tick_unit": "s",
+              "clock_domain_id": "CLOCK-1",
+              "clock_epoch_id": "BOOT-1"
+            },
+            "location_context_id": "ROOM-01",
+            "rights_state": "authorized"
+          }
+        ],
+        "correction": {
+          "state": "not_applied",
+          "method_id": "NOT_APPLICABLE",
+          "method_revision": "NOT_APPLICABLE",
+          "artifact_digest": "NOT_APPLICABLE",
+          "parameters_digest": "NOT_APPLICABLE",
+          "application_count": 0,
+          "reason": "profile_requires_no_correction"
+        },
+        "profile_resolution": {
+          "state": "resolved_exact_digest",
+          "source_receipt_id": "SYNTH-PROFILE-RECEIPT-01",
+          "resolved_profile_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "invalidation": {
+          "state": "current",
+          "receipt_id": "SYNTH-CONDITION-RECEIPT-01",
+          "revision": "1"
+        },
+        "test_only": true
+      },
+      "expected_disposition": "EXPIRED_OR_INVALIDATED"
+    },
+    {
+      "case_id": "CAP-005",
+      "description": "The profile digest does not match the selected exact profile.",
+      "record": {
+        "schema_version": "mycelix.instrument-condition-binding-record/0.1",
+        "record_id": "SYNTH-CONDITION-BINDING-001",
+        "condition_profile_id": "SYNTH-AIR-TEMP-ENV-01",
+        "profile_revision": "1",
+        "profile_digest": "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+        "instrument": {
+          "instrument_id": "SYNTH-INSTRUMENT-001",
+          "channel_id": "air_temperature",
+          "channel_profile_id": "MYC-BUILD-METROLOGY-PROFILE-V0.1",
+          "firmware_revision": "FW-1",
+          "configuration_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "identity_state": "established"
+        },
+        "target_sample": {
+          "observation_id": "SYNTH-OBS-001",
+          "source_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "observed_start_tick": 1000,
+          "observed_end_tick": 1010,
+          "tick_unit": "s",
+          "clock_domain_id": "CLOCK-1",
+          "clock_epoch_id": "BOOT-1",
+          "location_context_id": "ROOM-01",
+          "rights_state": "authorized",
+          "evidence_state": "current"
+        },
+        "condition_observations": [
+          {
+            "condition_id": "ambient_temperature",
+            "source_observation_id": "COND-OBS-TEMP-001",
+            "source_digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "value": 22,
+            "unit": "degC",
+            "quantity_kind": "temperature",
+            "evidence_state": "current",
+            "source_state": "measured",
+            "instrument_id": "COND-INST-TEMP-01",
+            "calibration_record_id": "COND-CAL-TEMP-01",
+            "calibration_state": "current",
+            "expanded_uncertainty": 0.1,
+            "uncertainty_unit": "degC",
+            "time_window": {
+              "start_tick": 990,
+              "end_tick": 1020,
+              "tick_unit": "s",
+              "clock_domain_id": "CLOCK-1",
+              "clock_epoch_id": "BOOT-1"
+            },
+            "location_context_id": "ROOM-01",
+            "rights_state": "authorized"
+          },
+          {
+            "condition_id": "relative_humidity",
+            "source_observation_id": "COND-OBS-RH-001",
+            "source_digest": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+            "value": 45,
+            "unit": "%RH",
+            "quantity_kind": "ratio",
+            "evidence_state": "current",
+            "source_state": "measured",
+            "instrument_id": "COND-INST-RH-01",
+            "calibration_record_id": "COND-CAL-RH-01",
+            "calibration_state": "current",
+            "expanded_uncertainty": 2,
+            "uncertainty_unit": "%RH",
+            "time_window": {
+              "start_tick": 990,
+              "end_tick": 1020,
+              "tick_unit": "s",
+              "clock_domain_id": "CLOCK-1",
+              "clock_epoch_id": "BOOT-1"
+            },
+            "location_context_id": "ROOM-01",
+            "rights_state": "authorized"
+          }
+        ],
+        "correction": {
+          "state": "not_applied",
+          "method_id": "NOT_APPLICABLE",
+          "method_revision": "NOT_APPLICABLE",
+          "artifact_digest": "NOT_APPLICABLE",
+          "parameters_digest": "NOT_APPLICABLE",
+          "application_count": 0,
+          "reason": "profile_requires_no_correction"
+        },
+        "profile_resolution": {
+          "state": "resolved_exact_digest",
+          "source_receipt_id": "SYNTH-PROFILE-RECEIPT-01",
+          "resolved_profile_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "invalidation": {
+          "state": "current",
+          "receipt_id": "SYNTH-CONDITION-RECEIPT-01",
+          "revision": "1"
+        },
+        "test_only": true
+      },
+      "expected_disposition": "NOT_COMPARABLE"
+    },
+    {
+      "case_id": "CAP-006",
+      "description": "A mandatory relative-humidity condition observation is missing.",
+      "record": {
+        "schema_version": "mycelix.instrument-condition-binding-record/0.1",
+        "record_id": "SYNTH-CONDITION-BINDING-001",
+        "condition_profile_id": "SYNTH-AIR-TEMP-ENV-01",
+        "profile_revision": "1",
+        "profile_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "instrument": {
+          "instrument_id": "SYNTH-INSTRUMENT-001",
+          "channel_id": "air_temperature",
+          "channel_profile_id": "MYC-BUILD-METROLOGY-PROFILE-V0.1",
+          "firmware_revision": "FW-1",
+          "configuration_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "identity_state": "established"
+        },
+        "target_sample": {
+          "observation_id": "SYNTH-OBS-001",
+          "source_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "observed_start_tick": 1000,
+          "observed_end_tick": 1010,
+          "tick_unit": "s",
+          "clock_domain_id": "CLOCK-1",
+          "clock_epoch_id": "BOOT-1",
+          "location_context_id": "ROOM-01",
+          "rights_state": "authorized",
+          "evidence_state": "current"
+        },
+        "condition_observations": [
+          {
+            "condition_id": "ambient_temperature",
+            "source_observation_id": "COND-OBS-TEMP-001",
+            "source_digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "value": 22,
+            "unit": "degC",
+            "quantity_kind": "temperature",
+            "evidence_state": "current",
+            "source_state": "measured",
+            "instrument_id": "COND-INST-TEMP-01",
+            "calibration_record_id": "COND-CAL-TEMP-01",
+            "calibration_state": "current",
+            "expanded_uncertainty": 0.1,
+            "uncertainty_unit": "degC",
+            "time_window": {
+              "start_tick": 990,
+              "end_tick": 1020,
+              "tick_unit": "s",
+              "clock_domain_id": "CLOCK-1",
+              "clock_epoch_id": "BOOT-1"
+            },
+            "location_context_id": "ROOM-01",
+            "rights_state": "authorized"
+          }
+        ],
+        "correction": {
+          "state": "not_applied",
+          "method_id": "NOT_APPLICABLE",
+          "method_revision": "NOT_APPLICABLE",
+          "artifact_digest": "NOT_APPLICABLE",
+          "parameters_digest": "NOT_APPLICABLE",
+          "application_count": 0,
+          "reason": "profile_requires_no_correction"
+        },
+        "profile_resolution": {
+          "state": "resolved_exact_digest",
+          "source_receipt_id": "SYNTH-PROFILE-RECEIPT-01",
+          "resolved_profile_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "invalidation": {
+          "state": "current",
+          "receipt_id": "SYNTH-CONDITION-RECEIPT-01",
+          "revision": "1"
+        },
+        "test_only": true
+      },
+      "expected_disposition": "MORE_EVIDENCE_REQUIRED"
+    },
+    {
+      "case_id": "CAP-007",
+      "description": "The same condition is supplied twice and another required variable is therefore absent.",
+      "record": {
+        "schema_version": "mycelix.instrument-condition-binding-record/0.1",
+        "record_id": "SYNTH-CONDITION-BINDING-001",
+        "condition_profile_id": "SYNTH-AIR-TEMP-ENV-01",
+        "profile_revision": "1",
+        "profile_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "instrument": {
+          "instrument_id": "SYNTH-INSTRUMENT-001",
+          "channel_id": "air_temperature",
+          "channel_profile_id": "MYC-BUILD-METROLOGY-PROFILE-V0.1",
+          "firmware_revision": "FW-1",
+          "configuration_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "identity_state": "established"
+        },
+        "target_sample": {
+          "observation_id": "SYNTH-OBS-001",
+          "source_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "observed_start_tick": 1000,
+          "observed_end_tick": 1010,
+          "tick_unit": "s",
+          "clock_domain_id": "CLOCK-1",
+          "clock_epoch_id": "BOOT-1",
+          "location_context_id": "ROOM-01",
+          "rights_state": "authorized",
+          "evidence_state": "current"
+        },
+        "condition_observations": [
+          {
+            "condition_id": "ambient_temperature",
+            "source_observation_id": "COND-OBS-TEMP-001",
+            "source_digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "value": 22,
+            "unit": "degC",
+            "quantity_kind": "temperature",
+            "evidence_state": "current",
+            "source_state": "measured",
+            "instrument_id": "COND-INST-TEMP-01",
+            "calibration_record_id": "COND-CAL-TEMP-01",
+            "calibration_state": "current",
+            "expanded_uncertainty": 0.1,
+            "uncertainty_unit": "degC",
+            "time_window": {
+              "start_tick": 990,
+              "end_tick": 1020,
+              "tick_unit": "s",
+              "clock_domain_id": "CLOCK-1",
+              "clock_epoch_id": "BOOT-1"
+            },
+            "location_context_id": "ROOM-01",
+            "rights_state": "authorized"
+          },
+          {
+            "condition_id": "ambient_temperature",
+            "source_observation_id": "COND-OBS-RH-001",
+            "source_digest": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+            "value": 45,
+            "unit": "%RH",
+            "quantity_kind": "ratio",
+            "evidence_state": "current",
+            "source_state": "measured",
+            "instrument_id": "COND-INST-RH-01",
+            "calibration_record_id": "COND-CAL-RH-01",
+            "calibration_state": "current",
+            "expanded_uncertainty": 2,
+            "uncertainty_unit": "%RH",
+            "time_window": {
+              "start_tick": 990,
+              "end_tick": 1020,
+              "tick_unit": "s",
+              "clock_domain_id": "CLOCK-1",
+              "clock_epoch_id": "BOOT-1"
+            },
+            "location_context_id": "ROOM-01",
+            "rights_state": "authorized"
+          }
+        ],
+        "correction": {
+          "state": "not_applied",
+          "method_id": "NOT_APPLICABLE",
+          "method_revision": "NOT_APPLICABLE",
+          "artifact_digest": "NOT_APPLICABLE",
+          "parameters_digest": "NOT_APPLICABLE",
+          "application_count": 0,
+          "reason": "profile_requires_no_correction"
+        },
+        "profile_resolution": {
+          "state": "resolved_exact_digest",
+          "source_receipt_id": "SYNTH-PROFILE-RECEIPT-01",
+          "resolved_profile_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "invalidation": {
+          "state": "current",
+          "receipt_id": "SYNTH-CONDITION-RECEIPT-01",
+          "revision": "1"
+        },
+        "test_only": true
+      },
+      "expected_disposition": "NOT_COMPARABLE"
+    },
+    {
+      "case_id": "CAP-008",
+      "description": "The ambient-temperature observation uses the wrong unit.",
+      "record": {
+        "schema_version": "mycelix.instrument-condition-binding-record/0.1",
+        "record_id": "SYNTH-CONDITION-BINDING-001",
+        "condition_profile_id": "SYNTH-AIR-TEMP-ENV-01",
+        "profile_revision": "1",
+        "profile_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "instrument": {
+          "instrument_id": "SYNTH-INSTRUMENT-001",
+          "channel_id": "air_temperature",
+          "channel_profile_id": "MYC-BUILD-METROLOGY-PROFILE-V0.1",
+          "firmware_revision": "FW-1",
+          "configuration_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "identity_state": "established"
+        },
+        "target_sample": {
+          "observation_id": "SYNTH-OBS-001",
+          "source_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "observed_start_tick": 1000,
+          "observed_end_tick": 1010,
+          "tick_unit": "s",
+          "clock_domain_id": "CLOCK-1",
+          "clock_epoch_id": "BOOT-1",
+          "location_context_id": "ROOM-01",
+          "rights_state": "authorized",
+          "evidence_state": "current"
+        },
+        "condition_observations": [
+          {
+            "condition_id": "ambient_temperature",
+            "source_observation_id": "COND-OBS-TEMP-001",
+            "source_digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "value": 22,
+            "unit": "K",
+            "quantity_kind": "temperature",
+            "evidence_state": "current",
+            "source_state": "measured",
+            "instrument_id": "COND-INST-TEMP-01",
+            "calibration_record_id": "COND-CAL-TEMP-01",
+            "calibration_state": "current",
+            "expanded_uncertainty": 0.1,
+            "uncertainty_unit": "degC",
+            "time_window": {
+              "start_tick": 990,
+              "end_tick": 1020,
+              "tick_unit": "s",
+              "clock_domain_id": "CLOCK-1",
+              "clock_epoch_id": "BOOT-1"
+            },
+            "location_context_id": "ROOM-01",
+            "rights_state": "authorized"
+          },
+          {
+            "condition_id": "relative_humidity",
+            "source_observation_id": "COND-OBS-RH-001",
+            "source_digest": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+            "value": 45,
+            "unit": "%RH",
+            "quantity_kind": "ratio",
+            "evidence_state": "current",
+            "source_state": "measured",
+            "instrument_id": "COND-INST-RH-01",
+            "calibration_record_id": "COND-CAL-RH-01",
+            "calibration_state": "current",
+            "expanded_uncertainty": 2,
+            "uncertainty_unit": "%RH",
+            "time_window": {
+              "start_tick": 990,
+              "end_tick": 1020,
+              "tick_unit": "s",
+              "clock_domain_id": "CLOCK-1",
+              "clock_epoch_id": "BOOT-1"
+            },
+            "location_context_id": "ROOM-01",
+            "rights_state": "authorized"
+          }
+        ],
+        "correction": {
+          "state": "not_applied",
+          "method_id": "NOT_APPLICABLE",
+          "method_revision": "NOT_APPLICABLE",
+          "artifact_digest": "NOT_APPLICABLE",
+          "parameters_digest": "NOT_APPLICABLE",
+          "application_count": 0,
+          "reason": "profile_requires_no_correction"
+        },
+        "profile_resolution": {
+          "state": "resolved_exact_digest",
+          "source_receipt_id": "SYNTH-PROFILE-RECEIPT-01",
+          "resolved_profile_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "invalidation": {
+          "state": "current",
+          "receipt_id": "SYNTH-CONDITION-RECEIPT-01",
+          "revision": "1"
+        },
+        "test_only": true
+      },
+      "expected_disposition": "NOT_COMPARABLE"
+    },
+    {
+      "case_id": "CAP-009",
+      "description": "The condition quantity kind does not match the required condition variable.",
+      "record": {
+        "schema_version": "mycelix.instrument-condition-binding-record/0.1",
+        "record_id": "SYNTH-CONDITION-BINDING-001",
+        "condition_profile_id": "SYNTH-AIR-TEMP-ENV-01",
+        "profile_revision": "1",
+        "profile_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "instrument": {
+          "instrument_id": "SYNTH-INSTRUMENT-001",
+          "channel_id": "air_temperature",
+          "channel_profile_id": "MYC-BUILD-METROLOGY-PROFILE-V0.1",
+          "firmware_revision": "FW-1",
+          "configuration_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "identity_state": "established"
+        },
+        "target_sample": {
+          "observation_id": "SYNTH-OBS-001",
+          "source_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "observed_start_tick": 1000,
+          "observed_end_tick": 1010,
+          "tick_unit": "s",
+          "clock_domain_id": "CLOCK-1",
+          "clock_epoch_id": "BOOT-1",
+          "location_context_id": "ROOM-01",
+          "rights_state": "authorized",
+          "evidence_state": "current"
+        },
+        "condition_observations": [
+          {
+            "condition_id": "ambient_temperature",
+            "source_observation_id": "COND-OBS-TEMP-001",
+            "source_digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "value": 22,
+            "unit": "degC",
+            "quantity_kind": "temperature",
+            "evidence_state": "current",
+            "source_state": "measured",
+            "instrument_id": "COND-INST-TEMP-01",
+            "calibration_record_id": "COND-CAL-TEMP-01",
+            "calibration_state": "current",
+            "expanded_uncertainty": 0.1,
+            "uncertainty_unit": "degC",
+            "time_window": {
+              "start_tick": 990,
+              "end_tick": 1020,
+              "tick_unit": "s",
+              "clock_domain_id": "CLOCK-1",
+              "clock_epoch_id": "BOOT-1"
+            },
+            "location_context_id": "ROOM-01",
+            "rights_state": "authorized"
+          },
+          {
+            "condition_id": "relative_humidity",
+            "source_observation_id": "COND-OBS-RH-001",
+            "source_digest": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+            "value": 45,
+            "unit": "%RH",
+            "quantity_kind": "temperature",
+            "evidence_state": "current",
+            "source_state": "measured",
+            "instrument_id": "COND-INST-RH-01",
+            "calibration_record_id": "COND-CAL-RH-01",
+            "calibration_state": "current",
+            "expanded_uncertainty": 2,
+            "uncertainty_unit": "%RH",
+            "time_window": {
+              "start_tick": 990,
+              "end_tick": 1020,
+              "tick_unit": "s",
+              "clock_domain_id": "CLOCK-1",
+              "clock_epoch_id": "BOOT-1"
+            },
+            "location_context_id": "ROOM-01",
+            "rights_state": "authorized"
+          }
+        ],
+        "correction": {
+          "state": "not_applied",
+          "method_id": "NOT_APPLICABLE",
+          "method_revision": "NOT_APPLICABLE",
+          "artifact_digest": "NOT_APPLICABLE",
+          "parameters_digest": "NOT_APPLICABLE",
+          "application_count": 0,
+          "reason": "profile_requires_no_correction"
+        },
+        "profile_resolution": {
+          "state": "resolved_exact_digest",
+          "source_receipt_id": "SYNTH-PROFILE-RECEIPT-01",
+          "resolved_profile_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "invalidation": {
+          "state": "current",
+          "receipt_id": "SYNTH-CONDITION-RECEIPT-01",
+          "revision": "1"
+        },
+        "test_only": true
+      },
+      "expected_disposition": "NOT_COMPARABLE"
+    },
+    {
+      "case_id": "CAP-010",
+      "description": "The sample-time ambient temperature is outside the verified condition envelope.",
+      "record": {
+        "schema_version": "mycelix.instrument-condition-binding-record/0.1",
+        "record_id": "SYNTH-CONDITION-BINDING-001",
+        "condition_profile_id": "SYNTH-AIR-TEMP-ENV-01",
+        "profile_revision": "1",
+        "profile_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "instrument": {
+          "instrument_id": "SYNTH-INSTRUMENT-001",
+          "channel_id": "air_temperature",
+          "channel_profile_id": "MYC-BUILD-METROLOGY-PROFILE-V0.1",
+          "firmware_revision": "FW-1",
+          "configuration_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "identity_state": "established"
+        },
+        "target_sample": {
+          "observation_id": "SYNTH-OBS-001",
+          "source_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "observed_start_tick": 1000,
+          "observed_end_tick": 1010,
+          "tick_unit": "s",
+          "clock_domain_id": "CLOCK-1",
+          "clock_epoch_id": "BOOT-1",
+          "location_context_id": "ROOM-01",
+          "rights_state": "authorized",
+          "evidence_state": "current"
+        },
+        "condition_observations": [
+          {
+            "condition_id": "ambient_temperature",
+            "source_observation_id": "COND-OBS-TEMP-001",
+            "source_digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "value": 70,
+            "unit": "degC",
+            "quantity_kind": "temperature",
+            "evidence_state": "current",
+            "source_state": "measured",
+            "instrument_id": "COND-INST-TEMP-01",
+            "calibration_record_id": "COND-CAL-TEMP-01",
+            "calibration_state": "current",
+            "expanded_uncertainty": 0.1,
+            "uncertainty_unit": "degC",
+            "time_window": {
+              "start_tick": 990,
+              "end_tick": 1020,
+              "tick_unit": "s",
+              "clock_domain_id": "CLOCK-1",
+              "clock_epoch_id": "BOOT-1"
+            },
+            "location_context_id": "ROOM-01",
+            "rights_state": "authorized"
+          },
+          {
+            "condition_id": "relative_humidity",
+            "source_observation_id": "COND-OBS-RH-001",
+            "source_digest": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+            "value": 45,
+            "unit": "%RH",
+            "quantity_kind": "ratio",
+            "evidence_state": "current",
+            "source_state": "measured",
+            "instrument_id": "COND-INST-RH-01",
+            "calibration_record_id": "COND-CAL-RH-01",
+            "calibration_state": "current",
+            "expanded_uncertainty": 2,
+            "uncertainty_unit": "%RH",
+            "time_window": {
+              "start_tick": 990,
+              "end_tick": 1020,
+              "tick_unit": "s",
+              "clock_domain_id": "CLOCK-1",
+              "clock_epoch_id": "BOOT-1"
+            },
+            "location_context_id": "ROOM-01",
+            "rights_state": "authorized"
+          }
+        ],
+        "correction": {
+          "state": "not_applied",
+          "method_id": "NOT_APPLICABLE",
+          "method_revision": "NOT_APPLICABLE",
+          "artifact_digest": "NOT_APPLICABLE",
+          "parameters_digest": "NOT_APPLICABLE",
+          "application_count": 0,
+          "reason": "profile_requires_no_correction"
+        },
+        "profile_resolution": {
+          "state": "resolved_exact_digest",
+          "source_receipt_id": "SYNTH-PROFILE-RECEIPT-01",
+          "resolved_profile_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "invalidation": {
+          "state": "current",
+          "receipt_id": "SYNTH-CONDITION-RECEIPT-01",
+          "revision": "1"
+        },
+        "test_only": true
+      },
+      "expected_disposition": "EXPIRED_OR_INVALIDATED"
+    },
+    {
+      "case_id": "CAP-011",
+      "description": "A vendor-provided humidity assertion is used instead of a measured condition observation.",
+      "record": {
+        "schema_version": "mycelix.instrument-condition-binding-record/0.1",
+        "record_id": "SYNTH-CONDITION-BINDING-001",
+        "condition_profile_id": "SYNTH-AIR-TEMP-ENV-01",
+        "profile_revision": "1",
+        "profile_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "instrument": {
+          "instrument_id": "SYNTH-INSTRUMENT-001",
+          "channel_id": "air_temperature",
+          "channel_profile_id": "MYC-BUILD-METROLOGY-PROFILE-V0.1",
+          "firmware_revision": "FW-1",
+          "configuration_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "identity_state": "established"
+        },
+        "target_sample": {
+          "observation_id": "SYNTH-OBS-001",
+          "source_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "observed_start_tick": 1000,
+          "observed_end_tick": 1010,
+          "tick_unit": "s",
+          "clock_domain_id": "CLOCK-1",
+          "clock_epoch_id": "BOOT-1",
+          "location_context_id": "ROOM-01",
+          "rights_state": "authorized",
+          "evidence_state": "current"
+        },
+        "condition_observations": [
+          {
+            "condition_id": "ambient_temperature",
+            "source_observation_id": "COND-OBS-TEMP-001",
+            "source_digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "value": 22,
+            "unit": "degC",
+            "quantity_kind": "temperature",
+            "evidence_state": "current",
+            "source_state": "measured",
+            "instrument_id": "COND-INST-TEMP-01",
+            "calibration_record_id": "COND-CAL-TEMP-01",
+            "calibration_state": "current",
+            "expanded_uncertainty": 0.1,
+            "uncertainty_unit": "degC",
+            "time_window": {
+              "start_tick": 990,
+              "end_tick": 1020,
+              "tick_unit": "s",
+              "clock_domain_id": "CLOCK-1",
+              "clock_epoch_id": "BOOT-1"
+            },
+            "location_context_id": "ROOM-01",
+            "rights_state": "authorized"
+          },
+          {
+            "condition_id": "relative_humidity",
+            "source_observation_id": "COND-OBS-RH-001",
+            "source_digest": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+            "value": 45,
+            "unit": "%RH",
+            "quantity_kind": "ratio",
+            "evidence_state": "current",
+            "source_state": "provider_asserted",
+            "instrument_id": "COND-INST-RH-01",
+            "calibration_record_id": "COND-CAL-RH-01",
+            "calibration_state": "current",
+            "expanded_uncertainty": 2,
+            "uncertainty_unit": "%RH",
+            "time_window": {
+              "start_tick": 990,
+              "end_tick": 1020,
+              "tick_unit": "s",
+              "clock_domain_id": "CLOCK-1",
+              "clock_epoch_id": "BOOT-1"
+            },
+            "location_context_id": "ROOM-01",
+            "rights_state": "authorized"
+          }
+        ],
+        "correction": {
+          "state": "not_applied",
+          "method_id": "NOT_APPLICABLE",
+          "method_revision": "NOT_APPLICABLE",
+          "artifact_digest": "NOT_APPLICABLE",
+          "parameters_digest": "NOT_APPLICABLE",
+          "application_count": 0,
+          "reason": "profile_requires_no_correction"
+        },
+        "profile_resolution": {
+          "state": "resolved_exact_digest",
+          "source_receipt_id": "SYNTH-PROFILE-RECEIPT-01",
+          "resolved_profile_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "invalidation": {
+          "state": "current",
+          "receipt_id": "SYNTH-CONDITION-RECEIPT-01",
+          "revision": "1"
+        },
+        "test_only": true
+      },
+      "expected_disposition": "MORE_EVIDENCE_REQUIRED"
+    },
+    {
+      "case_id": "CAP-012",
+      "description": "A local condition observation is stale.",
+      "record": {
+        "schema_version": "mycelix.instrument-condition-binding-record/0.1",
+        "record_id": "SYNTH-CONDITION-BINDING-001",
+        "condition_profile_id": "SYNTH-AIR-TEMP-ENV-01",
+        "profile_revision": "1",
+        "profile_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "instrument": {
+          "instrument_id": "SYNTH-INSTRUMENT-001",
+          "channel_id": "air_temperature",
+          "channel_profile_id": "MYC-BUILD-METROLOGY-PROFILE-V0.1",
+          "firmware_revision": "FW-1",
+          "configuration_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "identity_state": "established"
+        },
+        "target_sample": {
+          "observation_id": "SYNTH-OBS-001",
+          "source_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "observed_start_tick": 1000,
+          "observed_end_tick": 1010,
+          "tick_unit": "s",
+          "clock_domain_id": "CLOCK-1",
+          "clock_epoch_id": "BOOT-1",
+          "location_context_id": "ROOM-01",
+          "rights_state": "authorized",
+          "evidence_state": "current"
+        },
+        "condition_observations": [
+          {
+            "condition_id": "ambient_temperature",
+            "source_observation_id": "COND-OBS-TEMP-001",
+            "source_digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "value": 22,
+            "unit": "degC",
+            "quantity_kind": "temperature",
+            "evidence_state": "stale",
+            "source_state": "measured",
+            "instrument_id": "COND-INST-TEMP-01",
+            "calibration_record_id": "COND-CAL-TEMP-01",
+            "calibration_state": "current",
+            "expanded_uncertainty": 0.1,
+            "uncertainty_unit": "degC",
+            "time_window": {
+              "start_tick": 990,
+              "end_tick": 1020,
+              "tick_unit": "s",
+              "clock_domain_id": "CLOCK-1",
+              "clock_epoch_id": "BOOT-1"
+            },
+            "location_context_id": "ROOM-01",
+            "rights_state": "authorized"
+          },
+          {
+            "condition_id": "relative_humidity",
+            "source_observation_id": "COND-OBS-RH-001",
+            "source_digest": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+            "value": 45,
+            "unit": "%RH",
+            "quantity_kind": "ratio",
+            "evidence_state": "current",
+            "source_state": "measured",
+            "instrument_id": "COND-INST-RH-01",
+            "calibration_record_id": "COND-CAL-RH-01",
+            "calibration_state": "current",
+            "expanded_uncertainty": 2,
+            "uncertainty_unit": "%RH",
+            "time_window": {
+              "start_tick": 990,
+              "end_tick": 1020,
+              "tick_unit": "s",
+              "clock_domain_id": "CLOCK-1",
+              "clock_epoch_id": "BOOT-1"
+            },
+            "location_context_id": "ROOM-01",
+            "rights_state": "authorized"
+          }
+        ],
+        "correction": {
+          "state": "not_applied",
+          "method_id": "NOT_APPLICABLE",
+          "method_revision": "NOT_APPLICABLE",
+          "artifact_digest": "NOT_APPLICABLE",
+          "parameters_digest": "NOT_APPLICABLE",
+          "application_count": 0,
+          "reason": "profile_requires_no_correction"
+        },
+        "profile_resolution": {
+          "state": "resolved_exact_digest",
+          "source_receipt_id": "SYNTH-PROFILE-RECEIPT-01",
+          "resolved_profile_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "invalidation": {
+          "state": "current",
+          "receipt_id": "SYNTH-CONDITION-RECEIPT-01",
+          "revision": "1"
+        },
+        "test_only": true
+      },
+      "expected_disposition": "EXPIRED_OR_INVALIDATED"
+    },
+    {
+      "case_id": "CAP-013",
+      "description": "A condition instrument has an expired calibration.",
+      "record": {
+        "schema_version": "mycelix.instrument-condition-binding-record/0.1",
+        "record_id": "SYNTH-CONDITION-BINDING-001",
+        "condition_profile_id": "SYNTH-AIR-TEMP-ENV-01",
+        "profile_revision": "1",
+        "profile_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "instrument": {
+          "instrument_id": "SYNTH-INSTRUMENT-001",
+          "channel_id": "air_temperature",
+          "channel_profile_id": "MYC-BUILD-METROLOGY-PROFILE-V0.1",
+          "firmware_revision": "FW-1",
+          "configuration_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "identity_state": "established"
+        },
+        "target_sample": {
+          "observation_id": "SYNTH-OBS-001",
+          "source_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "observed_start_tick": 1000,
+          "observed_end_tick": 1010,
+          "tick_unit": "s",
+          "clock_domain_id": "CLOCK-1",
+          "clock_epoch_id": "BOOT-1",
+          "location_context_id": "ROOM-01",
+          "rights_state": "authorized",
+          "evidence_state": "current"
+        },
+        "condition_observations": [
+          {
+            "condition_id": "ambient_temperature",
+            "source_observation_id": "COND-OBS-TEMP-001",
+            "source_digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "value": 22,
+            "unit": "degC",
+            "quantity_kind": "temperature",
+            "evidence_state": "current",
+            "source_state": "measured",
+            "instrument_id": "COND-INST-TEMP-01",
+            "calibration_record_id": "COND-CAL-TEMP-01",
+            "calibration_state": "expired",
+            "expanded_uncertainty": 0.1,
+            "uncertainty_unit": "degC",
+            "time_window": {
+              "start_tick": 990,
+              "end_tick": 1020,
+              "tick_unit": "s",
+              "clock_domain_id": "CLOCK-1",
+              "clock_epoch_id": "BOOT-1"
+            },
+            "location_context_id": "ROOM-01",
+            "rights_state": "authorized"
+          },
+          {
+            "condition_id": "relative_humidity",
+            "source_observation_id": "COND-OBS-RH-001",
+            "source_digest": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+            "value": 45,
+            "unit": "%RH",
+            "quantity_kind": "ratio",
+            "evidence_state": "current",
+            "source_state": "measured",
+            "instrument_id": "COND-INST-RH-01",
+            "calibration_record_id": "COND-CAL-RH-01",
+            "calibration_state": "current",
+            "expanded_uncertainty": 2,
+            "uncertainty_unit": "%RH",
+            "time_window": {
+              "start_tick": 990,
+              "end_tick": 1020,
+              "tick_unit": "s",
+              "clock_domain_id": "CLOCK-1",
+              "clock_epoch_id": "BOOT-1"
+            },
+            "location_context_id": "ROOM-01",
+            "rights_state": "authorized"
+          }
+        ],
+        "correction": {
+          "state": "not_applied",
+          "method_id": "NOT_APPLICABLE",
+          "method_revision": "NOT_APPLICABLE",
+          "artifact_digest": "NOT_APPLICABLE",
+          "parameters_digest": "NOT_APPLICABLE",
+          "application_count": 0,
+          "reason": "profile_requires_no_correction"
+        },
+        "profile_resolution": {
+          "state": "resolved_exact_digest",
+          "source_receipt_id": "SYNTH-PROFILE-RECEIPT-01",
+          "resolved_profile_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "invalidation": {
+          "state": "current",
+          "receipt_id": "SYNTH-CONDITION-RECEIPT-01",
+          "revision": "1"
+        },
+        "test_only": true
+      },
+      "expected_disposition": "EXPIRED_OR_INVALIDATED"
+    },
+    {
+      "case_id": "CAP-014",
+      "description": "The condition observation has no exact source payload digest.",
+      "record": {
+        "schema_version": "mycelix.instrument-condition-binding-record/0.1",
+        "record_id": "SYNTH-CONDITION-BINDING-001",
+        "condition_profile_id": "SYNTH-AIR-TEMP-ENV-01",
+        "profile_revision": "1",
+        "profile_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "instrument": {
+          "instrument_id": "SYNTH-INSTRUMENT-001",
+          "channel_id": "air_temperature",
+          "channel_profile_id": "MYC-BUILD-METROLOGY-PROFILE-V0.1",
+          "firmware_revision": "FW-1",
+          "configuration_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "identity_state": "established"
+        },
+        "target_sample": {
+          "observation_id": "SYNTH-OBS-001",
+          "source_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "observed_start_tick": 1000,
+          "observed_end_tick": 1010,
+          "tick_unit": "s",
+          "clock_domain_id": "CLOCK-1",
+          "clock_epoch_id": "BOOT-1",
+          "location_context_id": "ROOM-01",
+          "rights_state": "authorized",
+          "evidence_state": "current"
+        },
+        "condition_observations": [
+          {
+            "condition_id": "ambient_temperature",
+            "source_observation_id": "COND-OBS-TEMP-001",
+            "source_digest": "",
+            "value": 22,
+            "unit": "degC",
+            "quantity_kind": "temperature",
+            "evidence_state": "current",
+            "source_state": "measured",
+            "instrument_id": "COND-INST-TEMP-01",
+            "calibration_record_id": "COND-CAL-TEMP-01",
+            "calibration_state": "current",
+            "expanded_uncertainty": 0.1,
+            "uncertainty_unit": "degC",
+            "time_window": {
+              "start_tick": 990,
+              "end_tick": 1020,
+              "tick_unit": "s",
+              "clock_domain_id": "CLOCK-1",
+              "clock_epoch_id": "BOOT-1"
+            },
+            "location_context_id": "ROOM-01",
+            "rights_state": "authorized"
+          },
+          {
+            "condition_id": "relative_humidity",
+            "source_observation_id": "COND-OBS-RH-001",
+            "source_digest": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+            "value": 45,
+            "unit": "%RH",
+            "quantity_kind": "ratio",
+            "evidence_state": "current",
+            "source_state": "measured",
+            "instrument_id": "COND-INST-RH-01",
+            "calibration_record_id": "COND-CAL-RH-01",
+            "calibration_state": "current",
+            "expanded_uncertainty": 2,
+            "uncertainty_unit": "%RH",
+            "time_window": {
+              "start_tick": 990,
+              "end_tick": 1020,
+              "tick_unit": "s",
+              "clock_domain_id": "CLOCK-1",
+              "clock_epoch_id": "BOOT-1"
+            },
+            "location_context_id": "ROOM-01",
+            "rights_state": "authorized"
+          }
+        ],
+        "correction": {
+          "state": "not_applied",
+          "method_id": "NOT_APPLICABLE",
+          "method_revision": "NOT_APPLICABLE",
+          "artifact_digest": "NOT_APPLICABLE",
+          "parameters_digest": "NOT_APPLICABLE",
+          "application_count": 0,
+          "reason": "profile_requires_no_correction"
+        },
+        "profile_resolution": {
+          "state": "resolved_exact_digest",
+          "source_receipt_id": "SYNTH-PROFILE-RECEIPT-01",
+          "resolved_profile_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "invalidation": {
+          "state": "current",
+          "receipt_id": "SYNTH-CONDITION-RECEIPT-01",
+          "revision": "1"
+        },
+        "test_only": true
+      },
+      "expected_disposition": "MORE_EVIDENCE_REQUIRED"
+    },
+    {
+      "case_id": "CAP-015",
+      "description": "The condition measurement is taken after the target observation window.",
+      "record": {
+        "schema_version": "mycelix.instrument-condition-binding-record/0.1",
+        "record_id": "SYNTH-CONDITION-BINDING-001",
+        "condition_profile_id": "SYNTH-AIR-TEMP-ENV-01",
+        "profile_revision": "1",
+        "profile_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "instrument": {
+          "instrument_id": "SYNTH-INSTRUMENT-001",
+          "channel_id": "air_temperature",
+          "channel_profile_id": "MYC-BUILD-METROLOGY-PROFILE-V0.1",
+          "firmware_revision": "FW-1",
+          "configuration_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "identity_state": "established"
+        },
+        "target_sample": {
+          "observation_id": "SYNTH-OBS-001",
+          "source_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "observed_start_tick": 1000,
+          "observed_end_tick": 1010,
+          "tick_unit": "s",
+          "clock_domain_id": "CLOCK-1",
+          "clock_epoch_id": "BOOT-1",
+          "location_context_id": "ROOM-01",
+          "rights_state": "authorized",
+          "evidence_state": "current"
+        },
+        "condition_observations": [
+          {
+            "condition_id": "ambient_temperature",
+            "source_observation_id": "COND-OBS-TEMP-001",
+            "source_digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "value": 22,
+            "unit": "degC",
+            "quantity_kind": "temperature",
+            "evidence_state": "current",
+            "source_state": "measured",
+            "instrument_id": "COND-INST-TEMP-01",
+            "calibration_record_id": "COND-CAL-TEMP-01",
+            "calibration_state": "current",
+            "expanded_uncertainty": 0.1,
+            "uncertainty_unit": "degC",
+            "time_window": {
+              "start_tick": 1011,
+              "end_tick": 1020,
+              "tick_unit": "s",
+              "clock_domain_id": "CLOCK-1",
+              "clock_epoch_id": "BOOT-1"
+            },
+            "location_context_id": "ROOM-01",
+            "rights_state": "authorized"
+          },
+          {
+            "condition_id": "relative_humidity",
+            "source_observation_id": "COND-OBS-RH-001",
+            "source_digest": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+            "value": 45,
+            "unit": "%RH",
+            "quantity_kind": "ratio",
+            "evidence_state": "current",
+            "source_state": "measured",
+            "instrument_id": "COND-INST-RH-01",
+            "calibration_record_id": "COND-CAL-RH-01",
+            "calibration_state": "current",
+            "expanded_uncertainty": 2,
+            "uncertainty_unit": "%RH",
+            "time_window": {
+              "start_tick": 990,
+              "end_tick": 1020,
+              "tick_unit": "s",
+              "clock_domain_id": "CLOCK-1",
+              "clock_epoch_id": "BOOT-1"
+            },
+            "location_context_id": "ROOM-01",
+            "rights_state": "authorized"
+          }
+        ],
+        "correction": {
+          "state": "not_applied",
+          "method_id": "NOT_APPLICABLE",
+          "method_revision": "NOT_APPLICABLE",
+          "artifact_digest": "NOT_APPLICABLE",
+          "parameters_digest": "NOT_APPLICABLE",
+          "application_count": 0,
+          "reason": "profile_requires_no_correction"
+        },
+        "profile_resolution": {
+          "state": "resolved_exact_digest",
+          "source_receipt_id": "SYNTH-PROFILE-RECEIPT-01",
+          "resolved_profile_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "invalidation": {
+          "state": "current",
+          "receipt_id": "SYNTH-CONDITION-RECEIPT-01",
+          "revision": "1"
+        },
+        "test_only": true
+      },
+      "expected_disposition": "NOT_COMPARABLE"
+    },
+    {
+      "case_id": "CAP-016",
+      "description": "The condition window only partially covers the target sample interval.",
+      "record": {
+        "schema_version": "mycelix.instrument-condition-binding-record/0.1",
+        "record_id": "SYNTH-CONDITION-BINDING-001",
+        "condition_profile_id": "SYNTH-AIR-TEMP-ENV-01",
+        "profile_revision": "1",
+        "profile_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "instrument": {
+          "instrument_id": "SYNTH-INSTRUMENT-001",
+          "channel_id": "air_temperature",
+          "channel_profile_id": "MYC-BUILD-METROLOGY-PROFILE-V0.1",
+          "firmware_revision": "FW-1",
+          "configuration_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "identity_state": "established"
+        },
+        "target_sample": {
+          "observation_id": "SYNTH-OBS-001",
+          "source_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "observed_start_tick": 1000,
+          "observed_end_tick": 1010,
+          "tick_unit": "s",
+          "clock_domain_id": "CLOCK-1",
+          "clock_epoch_id": "BOOT-1",
+          "location_context_id": "ROOM-01",
+          "rights_state": "authorized",
+          "evidence_state": "current"
+        },
+        "condition_observations": [
+          {
+            "condition_id": "ambient_temperature",
+            "source_observation_id": "COND-OBS-TEMP-001",
+            "source_digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "value": 22,
+            "unit": "degC",
+            "quantity_kind": "temperature",
+            "evidence_state": "current",
+            "source_state": "measured",
+            "instrument_id": "COND-INST-TEMP-01",
+            "calibration_record_id": "COND-CAL-TEMP-01",
+            "calibration_state": "current",
+            "expanded_uncertainty": 0.1,
+            "uncertainty_unit": "degC",
+            "time_window": {
+              "start_tick": 990,
+              "end_tick": 1005,
+              "tick_unit": "s",
+              "clock_domain_id": "CLOCK-1",
+              "clock_epoch_id": "BOOT-1"
+            },
+            "location_context_id": "ROOM-01",
+            "rights_state": "authorized"
+          },
+          {
+            "condition_id": "relative_humidity",
+            "source_observation_id": "COND-OBS-RH-001",
+            "source_digest": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+            "value": 45,
+            "unit": "%RH",
+            "quantity_kind": "ratio",
+            "evidence_state": "current",
+            "source_state": "measured",
+            "instrument_id": "COND-INST-RH-01",
+            "calibration_record_id": "COND-CAL-RH-01",
+            "calibration_state": "current",
+            "expanded_uncertainty": 2,
+            "uncertainty_unit": "%RH",
+            "time_window": {
+              "start_tick": 990,
+              "end_tick": 1020,
+              "tick_unit": "s",
+              "clock_domain_id": "CLOCK-1",
+              "clock_epoch_id": "BOOT-1"
+            },
+            "location_context_id": "ROOM-01",
+            "rights_state": "authorized"
+          }
+        ],
+        "correction": {
+          "state": "not_applied",
+          "method_id": "NOT_APPLICABLE",
+          "method_revision": "NOT_APPLICABLE",
+          "artifact_digest": "NOT_APPLICABLE",
+          "parameters_digest": "NOT_APPLICABLE",
+          "application_count": 0,
+          "reason": "profile_requires_no_correction"
+        },
+        "profile_resolution": {
+          "state": "resolved_exact_digest",
+          "source_receipt_id": "SYNTH-PROFILE-RECEIPT-01",
+          "resolved_profile_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "invalidation": {
+          "state": "current",
+          "receipt_id": "SYNTH-CONDITION-RECEIPT-01",
+          "revision": "1"
+        },
+        "test_only": true
+      },
+      "expected_disposition": "NOT_COMPARABLE"
+    },
+    {
+      "case_id": "CAP-017",
+      "description": "Outdoor/plant-room conditions are substituted for the instrument's local room context.",
+      "record": {
+        "schema_version": "mycelix.instrument-condition-binding-record/0.1",
+        "record_id": "SYNTH-CONDITION-BINDING-001",
+        "condition_profile_id": "SYNTH-AIR-TEMP-ENV-01",
+        "profile_revision": "1",
+        "profile_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "instrument": {
+          "instrument_id": "SYNTH-INSTRUMENT-001",
+          "channel_id": "air_temperature",
+          "channel_profile_id": "MYC-BUILD-METROLOGY-PROFILE-V0.1",
+          "firmware_revision": "FW-1",
+          "configuration_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "identity_state": "established"
+        },
+        "target_sample": {
+          "observation_id": "SYNTH-OBS-001",
+          "source_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "observed_start_tick": 1000,
+          "observed_end_tick": 1010,
+          "tick_unit": "s",
+          "clock_domain_id": "CLOCK-1",
+          "clock_epoch_id": "BOOT-1",
+          "location_context_id": "ROOM-01",
+          "rights_state": "authorized",
+          "evidence_state": "current"
+        },
+        "condition_observations": [
+          {
+            "condition_id": "ambient_temperature",
+            "source_observation_id": "COND-OBS-TEMP-001",
+            "source_digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "value": 22,
+            "unit": "degC",
+            "quantity_kind": "temperature",
+            "evidence_state": "current",
+            "source_state": "measured",
+            "instrument_id": "COND-INST-TEMP-01",
+            "calibration_record_id": "COND-CAL-TEMP-01",
+            "calibration_state": "current",
+            "expanded_uncertainty": 0.1,
+            "uncertainty_unit": "degC",
+            "time_window": {
+              "start_tick": 990,
+              "end_tick": 1020,
+              "tick_unit": "s",
+              "clock_domain_id": "CLOCK-1",
+              "clock_epoch_id": "BOOT-1"
+            },
+            "location_context_id": "PLANT-ROOM",
+            "rights_state": "authorized"
+          },
+          {
+            "condition_id": "relative_humidity",
+            "source_observation_id": "COND-OBS-RH-001",
+            "source_digest": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+            "value": 45,
+            "unit": "%RH",
+            "quantity_kind": "ratio",
+            "evidence_state": "current",
+            "source_state": "measured",
+            "instrument_id": "COND-INST-RH-01",
+            "calibration_record_id": "COND-CAL-RH-01",
+            "calibration_state": "current",
+            "expanded_uncertainty": 2,
+            "uncertainty_unit": "%RH",
+            "time_window": {
+              "start_tick": 990,
+              "end_tick": 1020,
+              "tick_unit": "s",
+              "clock_domain_id": "CLOCK-1",
+              "clock_epoch_id": "BOOT-1"
+            },
+            "location_context_id": "ROOM-01",
+            "rights_state": "authorized"
+          }
+        ],
+        "correction": {
+          "state": "not_applied",
+          "method_id": "NOT_APPLICABLE",
+          "method_revision": "NOT_APPLICABLE",
+          "artifact_digest": "NOT_APPLICABLE",
+          "parameters_digest": "NOT_APPLICABLE",
+          "application_count": 0,
+          "reason": "profile_requires_no_correction"
+        },
+        "profile_resolution": {
+          "state": "resolved_exact_digest",
+          "source_receipt_id": "SYNTH-PROFILE-RECEIPT-01",
+          "resolved_profile_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "invalidation": {
+          "state": "current",
+          "receipt_id": "SYNTH-CONDITION-RECEIPT-01",
+          "revision": "1"
+        },
+        "test_only": true
+      },
+      "expected_disposition": "NOT_COMPARABLE"
+    },
+    {
+      "case_id": "CAP-018",
+      "description": "The capability condition profile refers to a different instrument configuration.",
+      "record": {
+        "schema_version": "mycelix.instrument-condition-binding-record/0.1",
+        "record_id": "SYNTH-CONDITION-BINDING-001",
+        "condition_profile_id": "SYNTH-AIR-TEMP-ENV-01",
+        "profile_revision": "1",
+        "profile_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "instrument": {
+          "instrument_id": "SYNTH-INSTRUMENT-001",
+          "channel_id": "air_temperature",
+          "channel_profile_id": "MYC-BUILD-METROLOGY-PROFILE-V0.1",
+          "firmware_revision": "FW-1",
+          "configuration_digest": "sha256:9999999999999999999999999999999999999999999999999999999999999999",
+          "identity_state": "established"
+        },
+        "target_sample": {
+          "observation_id": "SYNTH-OBS-001",
+          "source_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "observed_start_tick": 1000,
+          "observed_end_tick": 1010,
+          "tick_unit": "s",
+          "clock_domain_id": "CLOCK-1",
+          "clock_epoch_id": "BOOT-1",
+          "location_context_id": "ROOM-01",
+          "rights_state": "authorized",
+          "evidence_state": "current"
+        },
+        "condition_observations": [
+          {
+            "condition_id": "ambient_temperature",
+            "source_observation_id": "COND-OBS-TEMP-001",
+            "source_digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "value": 22,
+            "unit": "degC",
+            "quantity_kind": "temperature",
+            "evidence_state": "current",
+            "source_state": "measured",
+            "instrument_id": "COND-INST-TEMP-01",
+            "calibration_record_id": "COND-CAL-TEMP-01",
+            "calibration_state": "current",
+            "expanded_uncertainty": 0.1,
+            "uncertainty_unit": "degC",
+            "time_window": {
+              "start_tick": 990,
+              "end_tick": 1020,
+              "tick_unit": "s",
+              "clock_domain_id": "CLOCK-1",
+              "clock_epoch_id": "BOOT-1"
+            },
+            "location_context_id": "ROOM-01",
+            "rights_state": "authorized"
+          },
+          {
+            "condition_id": "relative_humidity",
+            "source_observation_id": "COND-OBS-RH-001",
+            "source_digest": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+            "value": 45,
+            "unit": "%RH",
+            "quantity_kind": "ratio",
+            "evidence_state": "current",
+            "source_state": "measured",
+            "instrument_id": "COND-INST-RH-01",
+            "calibration_record_id": "COND-CAL-RH-01",
+            "calibration_state": "current",
+            "expanded_uncertainty": 2,
+            "uncertainty_unit": "%RH",
+            "time_window": {
+              "start_tick": 990,
+              "end_tick": 1020,
+              "tick_unit": "s",
+              "clock_domain_id": "CLOCK-1",
+              "clock_epoch_id": "BOOT-1"
+            },
+            "location_context_id": "ROOM-01",
+            "rights_state": "authorized"
+          }
+        ],
+        "correction": {
+          "state": "not_applied",
+          "method_id": "NOT_APPLICABLE",
+          "method_revision": "NOT_APPLICABLE",
+          "artifact_digest": "NOT_APPLICABLE",
+          "parameters_digest": "NOT_APPLICABLE",
+          "application_count": 0,
+          "reason": "profile_requires_no_correction"
+        },
+        "profile_resolution": {
+          "state": "resolved_exact_digest",
+          "source_receipt_id": "SYNTH-PROFILE-RECEIPT-01",
+          "resolved_profile_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "invalidation": {
+          "state": "current",
+          "receipt_id": "SYNTH-CONDITION-RECEIPT-01",
+          "revision": "1"
+        },
+        "test_only": true
+      },
+      "expected_disposition": "NOT_COMPARABLE"
+    },
+    {
+      "case_id": "CAP-019",
+      "description": "The instrument firmware revision differs from the bound condition applicability configuration.",
+      "record": {
+        "schema_version": "mycelix.instrument-condition-binding-record/0.1",
+        "record_id": "SYNTH-CONDITION-BINDING-001",
+        "condition_profile_id": "SYNTH-AIR-TEMP-ENV-01",
+        "profile_revision": "1",
+        "profile_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "instrument": {
+          "instrument_id": "SYNTH-INSTRUMENT-001",
+          "channel_id": "air_temperature",
+          "channel_profile_id": "MYC-BUILD-METROLOGY-PROFILE-V0.1",
+          "firmware_revision": "FW-2",
+          "configuration_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "identity_state": "established"
+        },
+        "target_sample": {
+          "observation_id": "SYNTH-OBS-001",
+          "source_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "observed_start_tick": 1000,
+          "observed_end_tick": 1010,
+          "tick_unit": "s",
+          "clock_domain_id": "CLOCK-1",
+          "clock_epoch_id": "BOOT-1",
+          "location_context_id": "ROOM-01",
+          "rights_state": "authorized",
+          "evidence_state": "current"
+        },
+        "condition_observations": [
+          {
+            "condition_id": "ambient_temperature",
+            "source_observation_id": "COND-OBS-TEMP-001",
+            "source_digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "value": 22,
+            "unit": "degC",
+            "quantity_kind": "temperature",
+            "evidence_state": "current",
+            "source_state": "measured",
+            "instrument_id": "COND-INST-TEMP-01",
+            "calibration_record_id": "COND-CAL-TEMP-01",
+            "calibration_state": "current",
+            "expanded_uncertainty": 0.1,
+            "uncertainty_unit": "degC",
+            "time_window": {
+              "start_tick": 990,
+              "end_tick": 1020,
+              "tick_unit": "s",
+              "clock_domain_id": "CLOCK-1",
+              "clock_epoch_id": "BOOT-1"
+            },
+            "location_context_id": "ROOM-01",
+            "rights_state": "authorized"
+          },
+          {
+            "condition_id": "relative_humidity",
+            "source_observation_id": "COND-OBS-RH-001",
+            "source_digest": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+            "value": 45,
+            "unit": "%RH",
+            "quantity_kind": "ratio",
+            "evidence_state": "current",
+            "source_state": "measured",
+            "instrument_id": "COND-INST-RH-01",
+            "calibration_record_id": "COND-CAL-RH-01",
+            "calibration_state": "current",
+            "expanded_uncertainty": 2,
+            "uncertainty_unit": "%RH",
+            "time_window": {
+              "start_tick": 990,
+              "end_tick": 1020,
+              "tick_unit": "s",
+              "clock_domain_id": "CLOCK-1",
+              "clock_epoch_id": "BOOT-1"
+            },
+            "location_context_id": "ROOM-01",
+            "rights_state": "authorized"
+          }
+        ],
+        "correction": {
+          "state": "not_applied",
+          "method_id": "NOT_APPLICABLE",
+          "method_revision": "NOT_APPLICABLE",
+          "artifact_digest": "NOT_APPLICABLE",
+          "parameters_digest": "NOT_APPLICABLE",
+          "application_count": 0,
+          "reason": "profile_requires_no_correction"
+        },
+        "profile_resolution": {
+          "state": "resolved_exact_digest",
+          "source_receipt_id": "SYNTH-PROFILE-RECEIPT-01",
+          "resolved_profile_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "invalidation": {
+          "state": "current",
+          "receipt_id": "SYNTH-CONDITION-RECEIPT-01",
+          "revision": "1"
+        },
+        "test_only": true
+      },
+      "expected_disposition": "EXPIRED_OR_INVALIDATED"
+    },
+    {
+      "case_id": "CAP-020",
+      "description": "Rights to one condition observation have been revoked.",
+      "record": {
+        "schema_version": "mycelix.instrument-condition-binding-record/0.1",
+        "record_id": "SYNTH-CONDITION-BINDING-001",
+        "condition_profile_id": "SYNTH-AIR-TEMP-ENV-01",
+        "profile_revision": "1",
+        "profile_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "instrument": {
+          "instrument_id": "SYNTH-INSTRUMENT-001",
+          "channel_id": "air_temperature",
+          "channel_profile_id": "MYC-BUILD-METROLOGY-PROFILE-V0.1",
+          "firmware_revision": "FW-1",
+          "configuration_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "identity_state": "established"
+        },
+        "target_sample": {
+          "observation_id": "SYNTH-OBS-001",
+          "source_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "observed_start_tick": 1000,
+          "observed_end_tick": 1010,
+          "tick_unit": "s",
+          "clock_domain_id": "CLOCK-1",
+          "clock_epoch_id": "BOOT-1",
+          "location_context_id": "ROOM-01",
+          "rights_state": "authorized",
+          "evidence_state": "current"
+        },
+        "condition_observations": [
+          {
+            "condition_id": "ambient_temperature",
+            "source_observation_id": "COND-OBS-TEMP-001",
+            "source_digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "value": 22,
+            "unit": "degC",
+            "quantity_kind": "temperature",
+            "evidence_state": "current",
+            "source_state": "measured",
+            "instrument_id": "COND-INST-TEMP-01",
+            "calibration_record_id": "COND-CAL-TEMP-01",
+            "calibration_state": "current",
+            "expanded_uncertainty": 0.1,
+            "uncertainty_unit": "degC",
+            "time_window": {
+              "start_tick": 990,
+              "end_tick": 1020,
+              "tick_unit": "s",
+              "clock_domain_id": "CLOCK-1",
+              "clock_epoch_id": "BOOT-1"
+            },
+            "location_context_id": "ROOM-01",
+            "rights_state": "authorized"
+          },
+          {
+            "condition_id": "relative_humidity",
+            "source_observation_id": "COND-OBS-RH-001",
+            "source_digest": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+            "value": 45,
+            "unit": "%RH",
+            "quantity_kind": "ratio",
+            "evidence_state": "current",
+            "source_state": "measured",
+            "instrument_id": "COND-INST-RH-01",
+            "calibration_record_id": "COND-CAL-RH-01",
+            "calibration_state": "current",
+            "expanded_uncertainty": 2,
+            "uncertainty_unit": "%RH",
+            "time_window": {
+              "start_tick": 990,
+              "end_tick": 1020,
+              "tick_unit": "s",
+              "clock_domain_id": "CLOCK-1",
+              "clock_epoch_id": "BOOT-1"
+            },
+            "location_context_id": "ROOM-01",
+            "rights_state": "revoked"
+          }
+        ],
+        "correction": {
+          "state": "not_applied",
+          "method_id": "NOT_APPLICABLE",
+          "method_revision": "NOT_APPLICABLE",
+          "artifact_digest": "NOT_APPLICABLE",
+          "parameters_digest": "NOT_APPLICABLE",
+          "application_count": 0,
+          "reason": "profile_requires_no_correction"
+        },
+        "profile_resolution": {
+          "state": "resolved_exact_digest",
+          "source_receipt_id": "SYNTH-PROFILE-RECEIPT-01",
+          "resolved_profile_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "invalidation": {
+          "state": "current",
+          "receipt_id": "SYNTH-CONDITION-RECEIPT-01",
+          "revision": "1"
+        },
+        "test_only": true
+      },
+      "expected_disposition": "REJECTED_FOR_DECLARED_PURPOSE"
+    },
+    {
+      "case_id": "CAP-021",
+      "description": "A condition observation lacks an uncertainty estimate.",
+      "record": {
+        "schema_version": "mycelix.instrument-condition-binding-record/0.1",
+        "record_id": "SYNTH-CONDITION-BINDING-001",
+        "condition_profile_id": "SYNTH-AIR-TEMP-ENV-01",
+        "profile_revision": "1",
+        "profile_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "instrument": {
+          "instrument_id": "SYNTH-INSTRUMENT-001",
+          "channel_id": "air_temperature",
+          "channel_profile_id": "MYC-BUILD-METROLOGY-PROFILE-V0.1",
+          "firmware_revision": "FW-1",
+          "configuration_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "identity_state": "established"
+        },
+        "target_sample": {
+          "observation_id": "SYNTH-OBS-001",
+          "source_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "observed_start_tick": 1000,
+          "observed_end_tick": 1010,
+          "tick_unit": "s",
+          "clock_domain_id": "CLOCK-1",
+          "clock_epoch_id": "BOOT-1",
+          "location_context_id": "ROOM-01",
+          "rights_state": "authorized",
+          "evidence_state": "current"
+        },
+        "condition_observations": [
+          {
+            "condition_id": "ambient_temperature",
+            "source_observation_id": "COND-OBS-TEMP-001",
+            "source_digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "value": 22,
+            "unit": "degC",
+            "quantity_kind": "temperature",
+            "evidence_state": "current",
+            "source_state": "measured",
+            "instrument_id": "COND-INST-TEMP-01",
+            "calibration_record_id": "COND-CAL-TEMP-01",
+            "calibration_state": "current",
+            "expanded_uncertainty": null,
+            "uncertainty_unit": "degC",
+            "time_window": {
+              "start_tick": 990,
+              "end_tick": 1020,
+              "tick_unit": "s",
+              "clock_domain_id": "CLOCK-1",
+              "clock_epoch_id": "BOOT-1"
+            },
+            "location_context_id": "ROOM-01",
+            "rights_state": "authorized"
+          },
+          {
+            "condition_id": "relative_humidity",
+            "source_observation_id": "COND-OBS-RH-001",
+            "source_digest": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+            "value": 45,
+            "unit": "%RH",
+            "quantity_kind": "ratio",
+            "evidence_state": "current",
+            "source_state": "measured",
+            "instrument_id": "COND-INST-RH-01",
+            "calibration_record_id": "COND-CAL-RH-01",
+            "calibration_state": "current",
+            "expanded_uncertainty": 2,
+            "uncertainty_unit": "%RH",
+            "time_window": {
+              "start_tick": 990,
+              "end_tick": 1020,
+              "tick_unit": "s",
+              "clock_domain_id": "CLOCK-1",
+              "clock_epoch_id": "BOOT-1"
+            },
+            "location_context_id": "ROOM-01",
+            "rights_state": "authorized"
+          }
+        ],
+        "correction": {
+          "state": "not_applied",
+          "method_id": "NOT_APPLICABLE",
+          "method_revision": "NOT_APPLICABLE",
+          "artifact_digest": "NOT_APPLICABLE",
+          "parameters_digest": "NOT_APPLICABLE",
+          "application_count": 0,
+          "reason": "profile_requires_no_correction"
+        },
+        "profile_resolution": {
+          "state": "resolved_exact_digest",
+          "source_receipt_id": "SYNTH-PROFILE-RECEIPT-01",
+          "resolved_profile_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "invalidation": {
+          "state": "current",
+          "receipt_id": "SYNTH-CONDITION-RECEIPT-01",
+          "revision": "1"
+        },
+        "test_only": true
+      },
+      "expected_disposition": "MORE_EVIDENCE_REQUIRED"
+    },
+    {
+      "case_id": "CAP-022",
+      "description": "The condition instrument uncertainty exceeds the method's declared limit.",
+      "record": {
+        "schema_version": "mycelix.instrument-condition-binding-record/0.1",
+        "record_id": "SYNTH-CONDITION-BINDING-001",
+        "condition_profile_id": "SYNTH-AIR-TEMP-ENV-01",
+        "profile_revision": "1",
+        "profile_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "instrument": {
+          "instrument_id": "SYNTH-INSTRUMENT-001",
+          "channel_id": "air_temperature",
+          "channel_profile_id": "MYC-BUILD-METROLOGY-PROFILE-V0.1",
+          "firmware_revision": "FW-1",
+          "configuration_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "identity_state": "established"
+        },
+        "target_sample": {
+          "observation_id": "SYNTH-OBS-001",
+          "source_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "observed_start_tick": 1000,
+          "observed_end_tick": 1010,
+          "tick_unit": "s",
+          "clock_domain_id": "CLOCK-1",
+          "clock_epoch_id": "BOOT-1",
+          "location_context_id": "ROOM-01",
+          "rights_state": "authorized",
+          "evidence_state": "current"
+        },
+        "condition_observations": [
+          {
+            "condition_id": "ambient_temperature",
+            "source_observation_id": "COND-OBS-TEMP-001",
+            "source_digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "value": 22,
+            "unit": "degC",
+            "quantity_kind": "temperature",
+            "evidence_state": "current",
+            "source_state": "measured",
+            "instrument_id": "COND-INST-TEMP-01",
+            "calibration_record_id": "COND-CAL-TEMP-01",
+            "calibration_state": "current",
+            "expanded_uncertainty": 0.5,
+            "uncertainty_unit": "degC",
+            "time_window": {
+              "start_tick": 990,
+              "end_tick": 1020,
+              "tick_unit": "s",
+              "clock_domain_id": "CLOCK-1",
+              "clock_epoch_id": "BOOT-1"
+            },
+            "location_context_id": "ROOM-01",
+            "rights_state": "authorized"
+          },
+          {
+            "condition_id": "relative_humidity",
+            "source_observation_id": "COND-OBS-RH-001",
+            "source_digest": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+            "value": 45,
+            "unit": "%RH",
+            "quantity_kind": "ratio",
+            "evidence_state": "current",
+            "source_state": "measured",
+            "instrument_id": "COND-INST-RH-01",
+            "calibration_record_id": "COND-CAL-RH-01",
+            "calibration_state": "current",
+            "expanded_uncertainty": 2,
+            "uncertainty_unit": "%RH",
+            "time_window": {
+              "start_tick": 990,
+              "end_tick": 1020,
+              "tick_unit": "s",
+              "clock_domain_id": "CLOCK-1",
+              "clock_epoch_id": "BOOT-1"
+            },
+            "location_context_id": "ROOM-01",
+            "rights_state": "authorized"
+          }
+        ],
+        "correction": {
+          "state": "not_applied",
+          "method_id": "NOT_APPLICABLE",
+          "method_revision": "NOT_APPLICABLE",
+          "artifact_digest": "NOT_APPLICABLE",
+          "parameters_digest": "NOT_APPLICABLE",
+          "application_count": 0,
+          "reason": "profile_requires_no_correction"
+        },
+        "profile_resolution": {
+          "state": "resolved_exact_digest",
+          "source_receipt_id": "SYNTH-PROFILE-RECEIPT-01",
+          "resolved_profile_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "invalidation": {
+          "state": "current",
+          "receipt_id": "SYNTH-CONDITION-RECEIPT-01",
+          "revision": "1"
+        },
+        "test_only": true
+      },
+      "expected_disposition": "REJECTED_FOR_DECLARED_PURPOSE"
+    },
+    {
+      "case_id": "CAP-023",
+      "description": "A correction is applied without an exact method identity.",
+      "record": {
+        "schema_version": "mycelix.instrument-condition-binding-record/0.1",
+        "record_id": "SYNTH-CONDITION-BINDING-001",
+        "condition_profile_id": "SYNTH-AIR-TEMP-ENV-01",
+        "profile_revision": "1",
+        "profile_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "instrument": {
+          "instrument_id": "SYNTH-INSTRUMENT-001",
+          "channel_id": "air_temperature",
+          "channel_profile_id": "MYC-BUILD-METROLOGY-PROFILE-V0.1",
+          "firmware_revision": "FW-1",
+          "configuration_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "identity_state": "established"
+        },
+        "target_sample": {
+          "observation_id": "SYNTH-OBS-001",
+          "source_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "observed_start_tick": 1000,
+          "observed_end_tick": 1010,
+          "tick_unit": "s",
+          "clock_domain_id": "CLOCK-1",
+          "clock_epoch_id": "BOOT-1",
+          "location_context_id": "ROOM-01",
+          "rights_state": "authorized",
+          "evidence_state": "current"
+        },
+        "condition_observations": [
+          {
+            "condition_id": "ambient_temperature",
+            "source_observation_id": "COND-OBS-TEMP-001",
+            "source_digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "value": 22,
+            "unit": "degC",
+            "quantity_kind": "temperature",
+            "evidence_state": "current",
+            "source_state": "measured",
+            "instrument_id": "COND-INST-TEMP-01",
+            "calibration_record_id": "COND-CAL-TEMP-01",
+            "calibration_state": "current",
+            "expanded_uncertainty": 0.1,
+            "uncertainty_unit": "degC",
+            "time_window": {
+              "start_tick": 990,
+              "end_tick": 1020,
+              "tick_unit": "s",
+              "clock_domain_id": "CLOCK-1",
+              "clock_epoch_id": "BOOT-1"
+            },
+            "location_context_id": "ROOM-01",
+            "rights_state": "authorized"
+          },
+          {
+            "condition_id": "relative_humidity",
+            "source_observation_id": "COND-OBS-RH-001",
+            "source_digest": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+            "value": 45,
+            "unit": "%RH",
+            "quantity_kind": "ratio",
+            "evidence_state": "current",
+            "source_state": "measured",
+            "instrument_id": "COND-INST-RH-01",
+            "calibration_record_id": "COND-CAL-RH-01",
+            "calibration_state": "current",
+            "expanded_uncertainty": 2,
+            "uncertainty_unit": "%RH",
+            "time_window": {
+              "start_tick": 990,
+              "end_tick": 1020,
+              "tick_unit": "s",
+              "clock_domain_id": "CLOCK-1",
+              "clock_epoch_id": "BOOT-1"
+            },
+            "location_context_id": "ROOM-01",
+            "rights_state": "authorized"
+          }
+        ],
+        "correction": {
+          "state": "applied",
+          "method_id": "",
+          "method_revision": "NOT_APPLICABLE",
+          "artifact_digest": "NOT_APPLICABLE",
+          "parameters_digest": "NOT_APPLICABLE",
+          "application_count": 1,
+          "reason": "profile_requires_no_correction"
+        },
+        "profile_resolution": {
+          "state": "resolved_exact_digest",
+          "source_receipt_id": "SYNTH-PROFILE-RECEIPT-01",
+          "resolved_profile_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "invalidation": {
+          "state": "current",
+          "receipt_id": "SYNTH-CONDITION-RECEIPT-01",
+          "revision": "1"
+        },
+        "test_only": true
+      },
+      "expected_disposition": "MORE_EVIDENCE_REQUIRED"
+    },
+    {
+      "case_id": "CAP-024",
+      "description": "The correction method revision is different from the approved revision.",
+      "record": {
+        "schema_version": "mycelix.instrument-condition-binding-record/0.1",
+        "record_id": "SYNTH-CONDITION-BINDING-001",
+        "condition_profile_id": "SYNTH-AIR-TEMP-ENV-01",
+        "profile_revision": "1",
+        "profile_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "instrument": {
+          "instrument_id": "SYNTH-INSTRUMENT-001",
+          "channel_id": "air_temperature",
+          "channel_profile_id": "MYC-BUILD-METROLOGY-PROFILE-V0.1",
+          "firmware_revision": "FW-1",
+          "configuration_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "identity_state": "established"
+        },
+        "target_sample": {
+          "observation_id": "SYNTH-OBS-001",
+          "source_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "observed_start_tick": 1000,
+          "observed_end_tick": 1010,
+          "tick_unit": "s",
+          "clock_domain_id": "CLOCK-1",
+          "clock_epoch_id": "BOOT-1",
+          "location_context_id": "ROOM-01",
+          "rights_state": "authorized",
+          "evidence_state": "current"
+        },
+        "condition_observations": [
+          {
+            "condition_id": "ambient_temperature",
+            "source_observation_id": "COND-OBS-TEMP-001",
+            "source_digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "value": 22,
+            "unit": "degC",
+            "quantity_kind": "temperature",
+            "evidence_state": "current",
+            "source_state": "measured",
+            "instrument_id": "COND-INST-TEMP-01",
+            "calibration_record_id": "COND-CAL-TEMP-01",
+            "calibration_state": "current",
+            "expanded_uncertainty": 0.1,
+            "uncertainty_unit": "degC",
+            "time_window": {
+              "start_tick": 990,
+              "end_tick": 1020,
+              "tick_unit": "s",
+              "clock_domain_id": "CLOCK-1",
+              "clock_epoch_id": "BOOT-1"
+            },
+            "location_context_id": "ROOM-01",
+            "rights_state": "authorized"
+          },
+          {
+            "condition_id": "relative_humidity",
+            "source_observation_id": "COND-OBS-RH-001",
+            "source_digest": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+            "value": 45,
+            "unit": "%RH",
+            "quantity_kind": "ratio",
+            "evidence_state": "current",
+            "source_state": "measured",
+            "instrument_id": "COND-INST-RH-01",
+            "calibration_record_id": "COND-CAL-RH-01",
+            "calibration_state": "current",
+            "expanded_uncertainty": 2,
+            "uncertainty_unit": "%RH",
+            "time_window": {
+              "start_tick": 990,
+              "end_tick": 1020,
+              "tick_unit": "s",
+              "clock_domain_id": "CLOCK-1",
+              "clock_epoch_id": "BOOT-1"
+            },
+            "location_context_id": "ROOM-01",
+            "rights_state": "authorized"
+          }
+        ],
+        "correction": {
+          "state": "applied",
+          "method_id": "SYNTH-CORR-01",
+          "method_revision": "2",
+          "artifact_digest": "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+          "parameters_digest": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "application_count": 1,
+          "reason": "profile_requires_no_correction"
+        },
+        "profile_resolution": {
+          "state": "resolved_exact_digest",
+          "source_receipt_id": "SYNTH-PROFILE-RECEIPT-01",
+          "resolved_profile_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "invalidation": {
+          "state": "current",
+          "receipt_id": "SYNTH-CONDITION-RECEIPT-01",
+          "revision": "1"
+        },
+        "test_only": true
+      },
+      "expected_disposition": "EXPIRED_OR_INVALIDATED"
+    },
+    {
+      "case_id": "CAP-025",
+      "description": "A correction artifact is missing or not content addressed.",
+      "record": {
+        "schema_version": "mycelix.instrument-condition-binding-record/0.1",
+        "record_id": "SYNTH-CONDITION-BINDING-001",
+        "condition_profile_id": "SYNTH-AIR-TEMP-ENV-01",
+        "profile_revision": "1",
+        "profile_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "instrument": {
+          "instrument_id": "SYNTH-INSTRUMENT-001",
+          "channel_id": "air_temperature",
+          "channel_profile_id": "MYC-BUILD-METROLOGY-PROFILE-V0.1",
+          "firmware_revision": "FW-1",
+          "configuration_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "identity_state": "established"
+        },
+        "target_sample": {
+          "observation_id": "SYNTH-OBS-001",
+          "source_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "observed_start_tick": 1000,
+          "observed_end_tick": 1010,
+          "tick_unit": "s",
+          "clock_domain_id": "CLOCK-1",
+          "clock_epoch_id": "BOOT-1",
+          "location_context_id": "ROOM-01",
+          "rights_state": "authorized",
+          "evidence_state": "current"
+        },
+        "condition_observations": [
+          {
+            "condition_id": "ambient_temperature",
+            "source_observation_id": "COND-OBS-TEMP-001",
+            "source_digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "value": 22,
+            "unit": "degC",
+            "quantity_kind": "temperature",
+            "evidence_state": "current",
+            "source_state": "measured",
+            "instrument_id": "COND-INST-TEMP-01",
+            "calibration_record_id": "COND-CAL-TEMP-01",
+            "calibration_state": "current",
+            "expanded_uncertainty": 0.1,
+            "uncertainty_unit": "degC",
+            "time_window": {
+              "start_tick": 990,
+              "end_tick": 1020,
+              "tick_unit": "s",
+              "clock_domain_id": "CLOCK-1",
+              "clock_epoch_id": "BOOT-1"
+            },
+            "location_context_id": "ROOM-01",
+            "rights_state": "authorized"
+          },
+          {
+            "condition_id": "relative_humidity",
+            "source_observation_id": "COND-OBS-RH-001",
+            "source_digest": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+            "value": 45,
+            "unit": "%RH",
+            "quantity_kind": "ratio",
+            "evidence_state": "current",
+            "source_state": "measured",
+            "instrument_id": "COND-INST-RH-01",
+            "calibration_record_id": "COND-CAL-RH-01",
+            "calibration_state": "current",
+            "expanded_uncertainty": 2,
+            "uncertainty_unit": "%RH",
+            "time_window": {
+              "start_tick": 990,
+              "end_tick": 1020,
+              "tick_unit": "s",
+              "clock_domain_id": "CLOCK-1",
+              "clock_epoch_id": "BOOT-1"
+            },
+            "location_context_id": "ROOM-01",
+            "rights_state": "authorized"
+          }
+        ],
+        "correction": {
+          "state": "applied",
+          "method_id": "SYNTH-CORR-01",
+          "method_revision": "1",
+          "artifact_digest": "",
+          "parameters_digest": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "application_count": 1,
+          "reason": "profile_requires_no_correction"
+        },
+        "profile_resolution": {
+          "state": "resolved_exact_digest",
+          "source_receipt_id": "SYNTH-PROFILE-RECEIPT-01",
+          "resolved_profile_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "invalidation": {
+          "state": "current",
+          "receipt_id": "SYNTH-CONDITION-RECEIPT-01",
+          "revision": "1"
+        },
+        "test_only": true
+      },
+      "expected_disposition": "MORE_EVIDENCE_REQUIRED"
+    },
+    {
+      "case_id": "CAP-026",
+      "description": "The same correction is applied twice.",
+      "record": {
+        "schema_version": "mycelix.instrument-condition-binding-record/0.1",
+        "record_id": "SYNTH-CONDITION-BINDING-001",
+        "condition_profile_id": "SYNTH-AIR-TEMP-ENV-01",
+        "profile_revision": "1",
+        "profile_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "instrument": {
+          "instrument_id": "SYNTH-INSTRUMENT-001",
+          "channel_id": "air_temperature",
+          "channel_profile_id": "MYC-BUILD-METROLOGY-PROFILE-V0.1",
+          "firmware_revision": "FW-1",
+          "configuration_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "identity_state": "established"
+        },
+        "target_sample": {
+          "observation_id": "SYNTH-OBS-001",
+          "source_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "observed_start_tick": 1000,
+          "observed_end_tick": 1010,
+          "tick_unit": "s",
+          "clock_domain_id": "CLOCK-1",
+          "clock_epoch_id": "BOOT-1",
+          "location_context_id": "ROOM-01",
+          "rights_state": "authorized",
+          "evidence_state": "current"
+        },
+        "condition_observations": [
+          {
+            "condition_id": "ambient_temperature",
+            "source_observation_id": "COND-OBS-TEMP-001",
+            "source_digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "value": 22,
+            "unit": "degC",
+            "quantity_kind": "temperature",
+            "evidence_state": "current",
+            "source_state": "measured",
+            "instrument_id": "COND-INST-TEMP-01",
+            "calibration_record_id": "COND-CAL-TEMP-01",
+            "calibration_state": "current",
+            "expanded_uncertainty": 0.1,
+            "uncertainty_unit": "degC",
+            "time_window": {
+              "start_tick": 990,
+              "end_tick": 1020,
+              "tick_unit": "s",
+              "clock_domain_id": "CLOCK-1",
+              "clock_epoch_id": "BOOT-1"
+            },
+            "location_context_id": "ROOM-01",
+            "rights_state": "authorized"
+          },
+          {
+            "condition_id": "relative_humidity",
+            "source_observation_id": "COND-OBS-RH-001",
+            "source_digest": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+            "value": 45,
+            "unit": "%RH",
+            "quantity_kind": "ratio",
+            "evidence_state": "current",
+            "source_state": "measured",
+            "instrument_id": "COND-INST-RH-01",
+            "calibration_record_id": "COND-CAL-RH-01",
+            "calibration_state": "current",
+            "expanded_uncertainty": 2,
+            "uncertainty_unit": "%RH",
+            "time_window": {
+              "start_tick": 990,
+              "end_tick": 1020,
+              "tick_unit": "s",
+              "clock_domain_id": "CLOCK-1",
+              "clock_epoch_id": "BOOT-1"
+            },
+            "location_context_id": "ROOM-01",
+            "rights_state": "authorized"
+          }
+        ],
+        "correction": {
+          "state": "applied",
+          "method_id": "SYNTH-CORR-01",
+          "method_revision": "1",
+          "artifact_digest": "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+          "parameters_digest": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "application_count": 2,
+          "reason": "profile_requires_no_correction"
+        },
+        "profile_resolution": {
+          "state": "resolved_exact_digest",
+          "source_receipt_id": "SYNTH-PROFILE-RECEIPT-01",
+          "resolved_profile_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "invalidation": {
+          "state": "current",
+          "receipt_id": "SYNTH-CONDITION-RECEIPT-01",
+          "revision": "1"
+        },
+        "test_only": true
+      },
+      "expected_disposition": "REJECTED_FOR_DECLARED_PURPOSE"
+    },
+    {
+      "case_id": "CAP-027",
+      "description": "The condition profile was revoked after the sample was collected.",
+      "record": {
+        "schema_version": "mycelix.instrument-condition-binding-record/0.1",
+        "record_id": "SYNTH-CONDITION-BINDING-001",
+        "condition_profile_id": "SYNTH-AIR-TEMP-ENV-01",
+        "profile_revision": "1",
+        "profile_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "instrument": {
+          "instrument_id": "SYNTH-INSTRUMENT-001",
+          "channel_id": "air_temperature",
+          "channel_profile_id": "MYC-BUILD-METROLOGY-PROFILE-V0.1",
+          "firmware_revision": "FW-1",
+          "configuration_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "identity_state": "established"
+        },
+        "target_sample": {
+          "observation_id": "SYNTH-OBS-001",
+          "source_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "observed_start_tick": 1000,
+          "observed_end_tick": 1010,
+          "tick_unit": "s",
+          "clock_domain_id": "CLOCK-1",
+          "clock_epoch_id": "BOOT-1",
+          "location_context_id": "ROOM-01",
+          "rights_state": "authorized",
+          "evidence_state": "current"
+        },
+        "condition_observations": [
+          {
+            "condition_id": "ambient_temperature",
+            "source_observation_id": "COND-OBS-TEMP-001",
+            "source_digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "value": 22,
+            "unit": "degC",
+            "quantity_kind": "temperature",
+            "evidence_state": "current",
+            "source_state": "measured",
+            "instrument_id": "COND-INST-TEMP-01",
+            "calibration_record_id": "COND-CAL-TEMP-01",
+            "calibration_state": "current",
+            "expanded_uncertainty": 0.1,
+            "uncertainty_unit": "degC",
+            "time_window": {
+              "start_tick": 990,
+              "end_tick": 1020,
+              "tick_unit": "s",
+              "clock_domain_id": "CLOCK-1",
+              "clock_epoch_id": "BOOT-1"
+            },
+            "location_context_id": "ROOM-01",
+            "rights_state": "authorized"
+          },
+          {
+            "condition_id": "relative_humidity",
+            "source_observation_id": "COND-OBS-RH-001",
+            "source_digest": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+            "value": 45,
+            "unit": "%RH",
+            "quantity_kind": "ratio",
+            "evidence_state": "current",
+            "source_state": "measured",
+            "instrument_id": "COND-INST-RH-01",
+            "calibration_record_id": "COND-CAL-RH-01",
+            "calibration_state": "current",
+            "expanded_uncertainty": 2,
+            "uncertainty_unit": "%RH",
+            "time_window": {
+              "start_tick": 990,
+              "end_tick": 1020,
+              "tick_unit": "s",
+              "clock_domain_id": "CLOCK-1",
+              "clock_epoch_id": "BOOT-1"
+            },
+            "location_context_id": "ROOM-01",
+            "rights_state": "authorized"
+          }
+        ],
+        "correction": {
+          "state": "not_applied",
+          "method_id": "NOT_APPLICABLE",
+          "method_revision": "NOT_APPLICABLE",
+          "artifact_digest": "NOT_APPLICABLE",
+          "parameters_digest": "NOT_APPLICABLE",
+          "application_count": 0,
+          "reason": "profile_requires_no_correction"
+        },
+        "profile_resolution": {
+          "state": "revoked",
+          "source_receipt_id": "SYNTH-PROFILE-RECEIPT-01",
+          "resolved_profile_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "invalidation": {
+          "state": "current",
+          "receipt_id": "SYNTH-CONDITION-RECEIPT-01",
+          "revision": "1"
+        },
+        "test_only": true
+      },
+      "expected_disposition": "EXPIRED_OR_INVALIDATED"
+    },
+    {
+      "case_id": "CAP-028",
+      "description": "The condition variable changed during the target observation window but a single stale point is supplied.",
+      "record": {
+        "schema_version": "mycelix.instrument-condition-binding-record/0.1",
+        "record_id": "SYNTH-CONDITION-BINDING-001",
+        "condition_profile_id": "SYNTH-AIR-TEMP-ENV-01",
+        "profile_revision": "1",
+        "profile_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "instrument": {
+          "instrument_id": "SYNTH-INSTRUMENT-001",
+          "channel_id": "air_temperature",
+          "channel_profile_id": "MYC-BUILD-METROLOGY-PROFILE-V0.1",
+          "firmware_revision": "FW-1",
+          "configuration_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "identity_state": "established"
+        },
+        "target_sample": {
+          "observation_id": "SYNTH-OBS-001",
+          "source_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "observed_start_tick": 1000,
+          "observed_end_tick": 1010,
+          "tick_unit": "s",
+          "clock_domain_id": "CLOCK-1",
+          "clock_epoch_id": "BOOT-1",
+          "location_context_id": "ROOM-01",
+          "rights_state": "authorized",
+          "evidence_state": "current"
+        },
+        "condition_observations": [
+          {
+            "condition_id": "ambient_temperature",
+            "source_observation_id": "COND-OBS-TEMP-001",
+            "source_digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "value": 22,
+            "unit": "degC",
+            "quantity_kind": "temperature",
+            "evidence_state": "current",
+            "source_state": "measured",
+            "instrument_id": "COND-INST-TEMP-01",
+            "calibration_record_id": "COND-CAL-TEMP-01",
+            "calibration_state": "current",
+            "expanded_uncertainty": 0.1,
+            "uncertainty_unit": "degC",
+            "time_window": {
+              "start_tick": 900,
+              "end_tick": 1000,
+              "tick_unit": "s",
+              "clock_domain_id": "CLOCK-1",
+              "clock_epoch_id": "BOOT-1"
+            },
+            "location_context_id": "ROOM-01",
+            "rights_state": "authorized"
+          },
+          {
+            "condition_id": "relative_humidity",
+            "source_observation_id": "COND-OBS-RH-001",
+            "source_digest": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+            "value": 45,
+            "unit": "%RH",
+            "quantity_kind": "ratio",
+            "evidence_state": "current",
+            "source_state": "measured",
+            "instrument_id": "COND-INST-RH-01",
+            "calibration_record_id": "COND-CAL-RH-01",
+            "calibration_state": "current",
+            "expanded_uncertainty": 2,
+            "uncertainty_unit": "%RH",
+            "time_window": {
+              "start_tick": 990,
+              "end_tick": 1020,
+              "tick_unit": "s",
+              "clock_domain_id": "CLOCK-1",
+              "clock_epoch_id": "BOOT-1"
+            },
+            "location_context_id": "ROOM-01",
+            "rights_state": "authorized"
+          }
+        ],
+        "correction": {
+          "state": "not_applied",
+          "method_id": "NOT_APPLICABLE",
+          "method_revision": "NOT_APPLICABLE",
+          "artifact_digest": "NOT_APPLICABLE",
+          "parameters_digest": "NOT_APPLICABLE",
+          "application_count": 0,
+          "reason": "profile_requires_no_correction"
+        },
+        "profile_resolution": {
+          "state": "resolved_exact_digest",
+          "source_receipt_id": "SYNTH-PROFILE-RECEIPT-01",
+          "resolved_profile_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "invalidation": {
+          "state": "current",
+          "receipt_id": "SYNTH-CONDITION-RECEIPT-01",
+          "revision": "1"
+        },
+        "test_only": true
+      },
+      "expected_disposition": "NOT_COMPARABLE"
+    },
+    {
+      "case_id": "CAP-029",
+      "description": "The condition sample has no clock epoch.",
+      "record": {
+        "schema_version": "mycelix.instrument-condition-binding-record/0.1",
+        "record_id": "SYNTH-CONDITION-BINDING-001",
+        "condition_profile_id": "SYNTH-AIR-TEMP-ENV-01",
+        "profile_revision": "1",
+        "profile_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "instrument": {
+          "instrument_id": "SYNTH-INSTRUMENT-001",
+          "channel_id": "air_temperature",
+          "channel_profile_id": "MYC-BUILD-METROLOGY-PROFILE-V0.1",
+          "firmware_revision": "FW-1",
+          "configuration_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "identity_state": "established"
+        },
+        "target_sample": {
+          "observation_id": "SYNTH-OBS-001",
+          "source_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "observed_start_tick": 1000,
+          "observed_end_tick": 1010,
+          "tick_unit": "s",
+          "clock_domain_id": "CLOCK-1",
+          "clock_epoch_id": "BOOT-1",
+          "location_context_id": "ROOM-01",
+          "rights_state": "authorized",
+          "evidence_state": "current"
+        },
+        "condition_observations": [
+          {
+            "condition_id": "ambient_temperature",
+            "source_observation_id": "COND-OBS-TEMP-001",
+            "source_digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "value": 22,
+            "unit": "degC",
+            "quantity_kind": "temperature",
+            "evidence_state": "current",
+            "source_state": "measured",
+            "instrument_id": "COND-INST-TEMP-01",
+            "calibration_record_id": "COND-CAL-TEMP-01",
+            "calibration_state": "current",
+            "expanded_uncertainty": 0.1,
+            "uncertainty_unit": "degC",
+            "time_window": {
+              "start_tick": 990,
+              "end_tick": 1020,
+              "tick_unit": "s",
+              "clock_domain_id": "CLOCK-1",
+              "clock_epoch_id": ""
+            },
+            "location_context_id": "ROOM-01",
+            "rights_state": "authorized"
+          },
+          {
+            "condition_id": "relative_humidity",
+            "source_observation_id": "COND-OBS-RH-001",
+            "source_digest": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+            "value": 45,
+            "unit": "%RH",
+            "quantity_kind": "ratio",
+            "evidence_state": "current",
+            "source_state": "measured",
+            "instrument_id": "COND-INST-RH-01",
+            "calibration_record_id": "COND-CAL-RH-01",
+            "calibration_state": "current",
+            "expanded_uncertainty": 2,
+            "uncertainty_unit": "%RH",
+            "time_window": {
+              "start_tick": 990,
+              "end_tick": 1020,
+              "tick_unit": "s",
+              "clock_domain_id": "CLOCK-1",
+              "clock_epoch_id": "BOOT-1"
+            },
+            "location_context_id": "ROOM-01",
+            "rights_state": "authorized"
+          }
+        ],
+        "correction": {
+          "state": "not_applied",
+          "method_id": "NOT_APPLICABLE",
+          "method_revision": "NOT_APPLICABLE",
+          "artifact_digest": "NOT_APPLICABLE",
+          "parameters_digest": "NOT_APPLICABLE",
+          "application_count": 0,
+          "reason": "profile_requires_no_correction"
+        },
+        "profile_resolution": {
+          "state": "resolved_exact_digest",
+          "source_receipt_id": "SYNTH-PROFILE-RECEIPT-01",
+          "resolved_profile_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "invalidation": {
+          "state": "current",
+          "receipt_id": "SYNTH-CONDITION-RECEIPT-01",
+          "revision": "1"
+        },
+        "test_only": true
+      },
+      "expected_disposition": "MORE_EVIDENCE_REQUIRED"
+    },
+    {
+      "case_id": "CAP-030",
+      "description": "A mandatory condition is falsely marked not applicable.",
+      "record": {
+        "schema_version": "mycelix.instrument-condition-binding-record/0.1",
+        "record_id": "SYNTH-CONDITION-BINDING-001",
+        "condition_profile_id": "SYNTH-AIR-TEMP-ENV-01",
+        "profile_revision": "1",
+        "profile_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "instrument": {
+          "instrument_id": "SYNTH-INSTRUMENT-001",
+          "channel_id": "air_temperature",
+          "channel_profile_id": "MYC-BUILD-METROLOGY-PROFILE-V0.1",
+          "firmware_revision": "FW-1",
+          "configuration_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "identity_state": "established"
+        },
+        "target_sample": {
+          "observation_id": "SYNTH-OBS-001",
+          "source_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "observed_start_tick": 1000,
+          "observed_end_tick": 1010,
+          "tick_unit": "s",
+          "clock_domain_id": "CLOCK-1",
+          "clock_epoch_id": "BOOT-1",
+          "location_context_id": "ROOM-01",
+          "rights_state": "authorized",
+          "evidence_state": "current"
+        },
+        "condition_observations": [
+          {
+            "condition_id": "ambient_temperature",
+            "source_observation_id": "COND-OBS-TEMP-001",
+            "source_digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "value": 22,
+            "unit": "degC",
+            "quantity_kind": "temperature",
+            "evidence_state": "current",
+            "source_state": "measured",
+            "instrument_id": "COND-INST-TEMP-01",
+            "calibration_record_id": "COND-CAL-TEMP-01",
+            "calibration_state": "current",
+            "expanded_uncertainty": 0.1,
+            "uncertainty_unit": "degC",
+            "time_window": {
+              "start_tick": 990,
+              "end_tick": 1020,
+              "tick_unit": "s",
+              "clock_domain_id": "CLOCK-1",
+              "clock_epoch_id": "BOOT-1"
+            },
+            "location_context_id": "ROOM-01",
+            "rights_state": "authorized"
+          },
+          {
+            "condition_id": "relative_humidity",
+            "source_observation_id": "COND-OBS-RH-001",
+            "source_digest": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+            "value": 45,
+            "unit": "%RH",
+            "quantity_kind": "ratio",
+            "evidence_state": "current",
+            "source_state": "not_applicable",
+            "instrument_id": "COND-INST-RH-01",
+            "calibration_record_id": "COND-CAL-RH-01",
+            "calibration_state": "current",
+            "expanded_uncertainty": 2,
+            "uncertainty_unit": "%RH",
+            "time_window": {
+              "start_tick": 990,
+              "end_tick": 1020,
+              "tick_unit": "s",
+              "clock_domain_id": "CLOCK-1",
+              "clock_epoch_id": "BOOT-1"
+            },
+            "location_context_id": "ROOM-01",
+            "rights_state": "authorized"
+          }
+        ],
+        "correction": {
+          "state": "not_applied",
+          "method_id": "NOT_APPLICABLE",
+          "method_revision": "NOT_APPLICABLE",
+          "artifact_digest": "NOT_APPLICABLE",
+          "parameters_digest": "NOT_APPLICABLE",
+          "application_count": 0,
+          "reason": "profile_requires_no_correction"
+        },
+        "profile_resolution": {
+          "state": "resolved_exact_digest",
+          "source_receipt_id": "SYNTH-PROFILE-RECEIPT-01",
+          "resolved_profile_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "invalidation": {
+          "state": "current",
+          "receipt_id": "SYNTH-CONDITION-RECEIPT-01",
+          "revision": "1"
+        },
+        "test_only": true
+      },
+      "expected_disposition": "REJECTED_FOR_DECLARED_PURPOSE"
+    },
+    {
+      "case_id": "CAP-031",
+      "description": "The target sample interval uses milliseconds while the condition profile uses seconds.",
+      "record": {
+        "schema_version": "mycelix.instrument-condition-binding-record/0.1",
+        "record_id": "SYNTH-CONDITION-BINDING-001",
+        "condition_profile_id": "SYNTH-AIR-TEMP-ENV-01",
+        "profile_revision": "1",
+        "profile_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "instrument": {
+          "instrument_id": "SYNTH-INSTRUMENT-001",
+          "channel_id": "air_temperature",
+          "channel_profile_id": "MYC-BUILD-METROLOGY-PROFILE-V0.1",
+          "firmware_revision": "FW-1",
+          "configuration_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "identity_state": "established"
+        },
+        "target_sample": {
+          "observation_id": "SYNTH-OBS-001",
+          "source_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "observed_start_tick": 1000,
+          "observed_end_tick": 1010,
+          "tick_unit": "ms",
+          "clock_domain_id": "CLOCK-1",
+          "clock_epoch_id": "BOOT-1",
+          "location_context_id": "ROOM-01",
+          "rights_state": "authorized",
+          "evidence_state": "current"
+        },
+        "condition_observations": [
+          {
+            "condition_id": "ambient_temperature",
+            "source_observation_id": "COND-OBS-TEMP-001",
+            "source_digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "value": 22,
+            "unit": "degC",
+            "quantity_kind": "temperature",
+            "evidence_state": "current",
+            "source_state": "measured",
+            "instrument_id": "COND-INST-TEMP-01",
+            "calibration_record_id": "COND-CAL-TEMP-01",
+            "calibration_state": "current",
+            "expanded_uncertainty": 0.1,
+            "uncertainty_unit": "degC",
+            "time_window": {
+              "start_tick": 990,
+              "end_tick": 1020,
+              "tick_unit": "s",
+              "clock_domain_id": "CLOCK-1",
+              "clock_epoch_id": "BOOT-1"
+            },
+            "location_context_id": "ROOM-01",
+            "rights_state": "authorized"
+          },
+          {
+            "condition_id": "relative_humidity",
+            "source_observation_id": "COND-OBS-RH-001",
+            "source_digest": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+            "value": 45,
+            "unit": "%RH",
+            "quantity_kind": "ratio",
+            "evidence_state": "current",
+            "source_state": "measured",
+            "instrument_id": "COND-INST-RH-01",
+            "calibration_record_id": "COND-CAL-RH-01",
+            "calibration_state": "current",
+            "expanded_uncertainty": 2,
+            "uncertainty_unit": "%RH",
+            "time_window": {
+              "start_tick": 990,
+              "end_tick": 1020,
+              "tick_unit": "s",
+              "clock_domain_id": "CLOCK-1",
+              "clock_epoch_id": "BOOT-1"
+            },
+            "location_context_id": "ROOM-01",
+            "rights_state": "authorized"
+          }
+        ],
+        "correction": {
+          "state": "not_applied",
+          "method_id": "NOT_APPLICABLE",
+          "method_revision": "NOT_APPLICABLE",
+          "artifact_digest": "NOT_APPLICABLE",
+          "parameters_digest": "NOT_APPLICABLE",
+          "application_count": 0,
+          "reason": "profile_requires_no_correction"
+        },
+        "profile_resolution": {
+          "state": "resolved_exact_digest",
+          "source_receipt_id": "SYNTH-PROFILE-RECEIPT-01",
+          "resolved_profile_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "invalidation": {
+          "state": "current",
+          "receipt_id": "SYNTH-CONDITION-RECEIPT-01",
+          "revision": "1"
+        },
+        "test_only": true
+      },
+      "expected_disposition": "NOT_COMPARABLE"
+    },
+    {
+      "case_id": "CAP-032",
+      "description": "A sample is assigned a condition profile from an unrelated instrument.",
+      "record": {
+        "schema_version": "mycelix.instrument-condition-binding-record/0.1",
+        "record_id": "SYNTH-CONDITION-BINDING-001",
+        "condition_profile_id": "SYNTH-AIR-TEMP-ENV-01",
+        "profile_revision": "1",
+        "profile_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "instrument": {
+          "instrument_id": "ANOTHER-INSTRUMENT",
+          "channel_id": "air_temperature",
+          "channel_profile_id": "MYC-BUILD-METROLOGY-PROFILE-V0.1",
+          "firmware_revision": "FW-1",
+          "configuration_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "identity_state": "established"
+        },
+        "target_sample": {
+          "observation_id": "SYNTH-OBS-001",
+          "source_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "observed_start_tick": 1000,
+          "observed_end_tick": 1010,
+          "tick_unit": "s",
+          "clock_domain_id": "CLOCK-1",
+          "clock_epoch_id": "BOOT-1",
+          "location_context_id": "ROOM-01",
+          "rights_state": "authorized",
+          "evidence_state": "current"
+        },
+        "condition_observations": [
+          {
+            "condition_id": "ambient_temperature",
+            "source_observation_id": "COND-OBS-TEMP-001",
+            "source_digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "value": 22,
+            "unit": "degC",
+            "quantity_kind": "temperature",
+            "evidence_state": "current",
+            "source_state": "measured",
+            "instrument_id": "COND-INST-TEMP-01",
+            "calibration_record_id": "COND-CAL-TEMP-01",
+            "calibration_state": "current",
+            "expanded_uncertainty": 0.1,
+            "uncertainty_unit": "degC",
+            "time_window": {
+              "start_tick": 990,
+              "end_tick": 1020,
+              "tick_unit": "s",
+              "clock_domain_id": "CLOCK-1",
+              "clock_epoch_id": "BOOT-1"
+            },
+            "location_context_id": "ROOM-01",
+            "rights_state": "authorized"
+          },
+          {
+            "condition_id": "relative_humidity",
+            "source_observation_id": "COND-OBS-RH-001",
+            "source_digest": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+            "value": 45,
+            "unit": "%RH",
+            "quantity_kind": "ratio",
+            "evidence_state": "current",
+            "source_state": "measured",
+            "instrument_id": "COND-INST-RH-01",
+            "calibration_record_id": "COND-CAL-RH-01",
+            "calibration_state": "current",
+            "expanded_uncertainty": 2,
+            "uncertainty_unit": "%RH",
+            "time_window": {
+              "start_tick": 990,
+              "end_tick": 1020,
+              "tick_unit": "s",
+              "clock_domain_id": "CLOCK-1",
+              "clock_epoch_id": "BOOT-1"
+            },
+            "location_context_id": "ROOM-01",
+            "rights_state": "authorized"
+          }
+        ],
+        "correction": {
+          "state": "not_applied",
+          "method_id": "NOT_APPLICABLE",
+          "method_revision": "NOT_APPLICABLE",
+          "artifact_digest": "NOT_APPLICABLE",
+          "parameters_digest": "NOT_APPLICABLE",
+          "application_count": 0,
+          "reason": "profile_requires_no_correction"
+        },
+        "profile_resolution": {
+          "state": "resolved_exact_digest",
+          "source_receipt_id": "SYNTH-PROFILE-RECEIPT-01",
+          "resolved_profile_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "invalidation": {
+          "state": "current",
+          "receipt_id": "SYNTH-CONDITION-RECEIPT-01",
+          "revision": "1"
+        },
+        "test_only": true
+      },
+      "expected_disposition": "NOT_COMPARABLE"
+    },
+    {
+      "case_id": "CAP-033",
+      "description": "The method-condition evidence is provider asserted rather than independently verified.",
+      "record": {
+        "schema_version": "mycelix.instrument-condition-binding-record/0.1",
+        "record_id": "SYNTH-CONDITION-BINDING-001",
+        "condition_profile_id": "SYNTH-AIR-TEMP-ENV-01",
+        "profile_revision": "1",
+        "profile_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "instrument": {
+          "instrument_id": "SYNTH-INSTRUMENT-001",
+          "channel_id": "air_temperature",
+          "channel_profile_id": "MYC-BUILD-METROLOGY-PROFILE-V0.1",
+          "firmware_revision": "FW-1",
+          "configuration_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "identity_state": "established"
+        },
+        "target_sample": {
+          "observation_id": "SYNTH-OBS-001",
+          "source_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "observed_start_tick": 1000,
+          "observed_end_tick": 1010,
+          "tick_unit": "s",
+          "clock_domain_id": "CLOCK-1",
+          "clock_epoch_id": "BOOT-1",
+          "location_context_id": "ROOM-01",
+          "rights_state": "authorized",
+          "evidence_state": "current"
+        },
+        "condition_observations": [
+          {
+            "condition_id": "ambient_temperature",
+            "source_observation_id": "COND-OBS-TEMP-001",
+            "source_digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "value": 22,
+            "unit": "degC",
+            "quantity_kind": "temperature",
+            "evidence_state": "current",
+            "source_state": "measured",
+            "instrument_id": "COND-INST-TEMP-01",
+            "calibration_record_id": "COND-CAL-TEMP-01",
+            "calibration_state": "current",
+            "expanded_uncertainty": 0.1,
+            "uncertainty_unit": "degC",
+            "time_window": {
+              "start_tick": 990,
+              "end_tick": 1020,
+              "tick_unit": "s",
+              "clock_domain_id": "CLOCK-1",
+              "clock_epoch_id": "BOOT-1"
+            },
+            "location_context_id": "ROOM-01",
+            "rights_state": "authorized"
+          },
+          {
+            "condition_id": "relative_humidity",
+            "source_observation_id": "COND-OBS-RH-001",
+            "source_digest": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+            "value": 45,
+            "unit": "%RH",
+            "quantity_kind": "ratio",
+            "evidence_state": "current",
+            "source_state": "measured",
+            "instrument_id": "COND-INST-RH-01",
+            "calibration_record_id": "COND-CAL-RH-01",
+            "calibration_state": "current",
+            "expanded_uncertainty": 2,
+            "uncertainty_unit": "%RH",
+            "time_window": {
+              "start_tick": 990,
+              "end_tick": 1020,
+              "tick_unit": "s",
+              "clock_domain_id": "CLOCK-1",
+              "clock_epoch_id": "BOOT-1"
+            },
+            "location_context_id": "ROOM-01",
+            "rights_state": "authorized"
+          }
+        ],
+        "correction": {
+          "state": "not_applied",
+          "method_id": "NOT_APPLICABLE",
+          "method_revision": "NOT_APPLICABLE",
+          "artifact_digest": "NOT_APPLICABLE",
+          "parameters_digest": "NOT_APPLICABLE",
+          "application_count": 0,
+          "reason": "profile_requires_no_correction"
+        },
+        "profile_resolution": {
+          "state": "provider_asserted",
+          "source_receipt_id": "SYNTH-PROFILE-RECEIPT-01",
+          "resolved_profile_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "invalidation": {
+          "state": "current",
+          "receipt_id": "SYNTH-CONDITION-RECEIPT-01",
+          "revision": "1"
+        },
+        "test_only": true
+      },
+      "expected_disposition": "MORE_EVIDENCE_REQUIRED"
+    },
+    {
+      "case_id": "CAP-034",
+      "description": "A local zone gradient is hidden by reusing a different room's average condition.",
+      "record": {
+        "schema_version": "mycelix.instrument-condition-binding-record/0.1",
+        "record_id": "SYNTH-CONDITION-BINDING-001",
+        "condition_profile_id": "SYNTH-AIR-TEMP-ENV-01",
+        "profile_revision": "1",
+        "profile_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "instrument": {
+          "instrument_id": "SYNTH-INSTRUMENT-001",
+          "channel_id": "air_temperature",
+          "channel_profile_id": "MYC-BUILD-METROLOGY-PROFILE-V0.1",
+          "firmware_revision": "FW-1",
+          "configuration_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "identity_state": "established"
+        },
+        "target_sample": {
+          "observation_id": "SYNTH-OBS-001",
+          "source_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "observed_start_tick": 1000,
+          "observed_end_tick": 1010,
+          "tick_unit": "s",
+          "clock_domain_id": "CLOCK-1",
+          "clock_epoch_id": "BOOT-1",
+          "location_context_id": "ROOM-01",
+          "rights_state": "authorized",
+          "evidence_state": "current"
+        },
+        "condition_observations": [
+          {
+            "condition_id": "ambient_temperature",
+            "source_observation_id": "COND-OBS-TEMP-001",
+            "source_digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "value": 22,
+            "unit": "degC",
+            "quantity_kind": "temperature",
+            "evidence_state": "current",
+            "source_state": "measured",
+            "instrument_id": "COND-INST-TEMP-01",
+            "calibration_record_id": "COND-CAL-TEMP-01",
+            "calibration_state": "current",
+            "expanded_uncertainty": 0.1,
+            "uncertainty_unit": "degC",
+            "time_window": {
+              "start_tick": 990,
+              "end_tick": 1020,
+              "tick_unit": "s",
+              "clock_domain_id": "CLOCK-1",
+              "clock_epoch_id": "BOOT-1"
+            },
+            "location_context_id": "ROOM-01",
+            "rights_state": "authorized"
+          },
+          {
+            "condition_id": "relative_humidity",
+            "source_observation_id": "COND-OBS-RH-001",
+            "source_digest": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+            "value": 45,
+            "unit": "%RH",
+            "quantity_kind": "ratio",
+            "evidence_state": "current",
+            "source_state": "measured",
+            "instrument_id": "COND-INST-RH-01",
+            "calibration_record_id": "COND-CAL-RH-01",
+            "calibration_state": "current",
+            "expanded_uncertainty": 2,
+            "uncertainty_unit": "%RH",
+            "time_window": {
+              "start_tick": 990,
+              "end_tick": 1020,
+              "tick_unit": "s",
+              "clock_domain_id": "CLOCK-1",
+              "clock_epoch_id": "BOOT-1"
+            },
+            "location_context_id": "ROOM-02",
+            "rights_state": "authorized"
+          }
+        ],
+        "correction": {
+          "state": "not_applied",
+          "method_id": "NOT_APPLICABLE",
+          "method_revision": "NOT_APPLICABLE",
+          "artifact_digest": "NOT_APPLICABLE",
+          "parameters_digest": "NOT_APPLICABLE",
+          "application_count": 0,
+          "reason": "profile_requires_no_correction"
+        },
+        "profile_resolution": {
+          "state": "resolved_exact_digest",
+          "source_receipt_id": "SYNTH-PROFILE-RECEIPT-01",
+          "resolved_profile_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "invalidation": {
+          "state": "current",
+          "receipt_id": "SYNTH-CONDITION-RECEIPT-01",
+          "revision": "1"
+        },
+        "test_only": true
+      },
+      "expected_disposition": "NOT_COMPARABLE"
+    },
+    {
+      "case_id": "CAP-035",
+      "description": "The condition profile validity window does not include the target sample.",
+      "record": {
+        "schema_version": "mycelix.instrument-condition-binding-record/0.1",
+        "record_id": "SYNTH-CONDITION-BINDING-001",
+        "condition_profile_id": "SYNTH-AIR-TEMP-ENV-01",
+        "profile_revision": "1",
+        "profile_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "instrument": {
+          "instrument_id": "SYNTH-INSTRUMENT-001",
+          "channel_id": "air_temperature",
+          "channel_profile_id": "MYC-BUILD-METROLOGY-PROFILE-V0.1",
+          "firmware_revision": "FW-1",
+          "configuration_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "identity_state": "established"
+        },
+        "target_sample": {
+          "observation_id": "SYNTH-OBS-001",
+          "source_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "observed_start_tick": 1000,
+          "observed_end_tick": 1010,
+          "tick_unit": "s",
+          "clock_domain_id": "CLOCK-1",
+          "clock_epoch_id": "BOOT-1",
+          "location_context_id": "ROOM-01",
+          "rights_state": "authorized",
+          "evidence_state": "current"
+        },
+        "condition_observations": [
+          {
+            "condition_id": "ambient_temperature",
+            "source_observation_id": "COND-OBS-TEMP-001",
+            "source_digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "value": 22,
+            "unit": "degC",
+            "quantity_kind": "temperature",
+            "evidence_state": "current",
+            "source_state": "measured",
+            "instrument_id": "COND-INST-TEMP-01",
+            "calibration_record_id": "COND-CAL-TEMP-01",
+            "calibration_state": "current",
+            "expanded_uncertainty": 0.1,
+            "uncertainty_unit": "degC",
+            "time_window": {
+              "start_tick": 990,
+              "end_tick": 1020,
+              "tick_unit": "s",
+              "clock_domain_id": "CLOCK-1",
+              "clock_epoch_id": "BOOT-1"
+            },
+            "location_context_id": "ROOM-01",
+            "rights_state": "authorized"
+          },
+          {
+            "condition_id": "relative_humidity",
+            "source_observation_id": "COND-OBS-RH-001",
+            "source_digest": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+            "value": 45,
+            "unit": "%RH",
+            "quantity_kind": "ratio",
+            "evidence_state": "current",
+            "source_state": "measured",
+            "instrument_id": "COND-INST-RH-01",
+            "calibration_record_id": "COND-CAL-RH-01",
+            "calibration_state": "current",
+            "expanded_uncertainty": 2,
+            "uncertainty_unit": "%RH",
+            "time_window": {
+              "start_tick": 990,
+              "end_tick": 1020,
+              "tick_unit": "s",
+              "clock_domain_id": "CLOCK-1",
+              "clock_epoch_id": "BOOT-1"
+            },
+            "location_context_id": "ROOM-01",
+            "rights_state": "authorized"
+          }
+        ],
+        "correction": {
+          "state": "not_applied",
+          "method_id": "NOT_APPLICABLE",
+          "method_revision": "NOT_APPLICABLE",
+          "artifact_digest": "NOT_APPLICABLE",
+          "parameters_digest": "NOT_APPLICABLE",
+          "application_count": 0,
+          "reason": "profile_requires_no_correction"
+        },
+        "profile_resolution": {
+          "state": "resolved_exact_digest",
+          "source_receipt_id": "SYNTH-PROFILE-RECEIPT-01",
+          "resolved_profile_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "validity_state": "outside_validity"
+        },
+        "invalidation": {
+          "state": "current",
+          "receipt_id": "SYNTH-CONDITION-RECEIPT-01",
+          "revision": "1"
+        },
+        "test_only": true
+      },
+      "expected_disposition": "EXPIRED_OR_INVALIDATED"
+    },
+    {
+      "case_id": "CAP-036",
+      "description": "The profile is resolved and conditions are complete, but the record attempts to assert physical admission.",
+      "record": {
+        "schema_version": "mycelix.instrument-condition-binding-record/0.1",
+        "record_id": "SYNTH-CONDITION-BINDING-001",
+        "condition_profile_id": "SYNTH-AIR-TEMP-ENV-01",
+        "profile_revision": "1",
+        "profile_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "instrument": {
+          "instrument_id": "SYNTH-INSTRUMENT-001",
+          "channel_id": "air_temperature",
+          "channel_profile_id": "MYC-BUILD-METROLOGY-PROFILE-V0.1",
+          "firmware_revision": "FW-1",
+          "configuration_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "identity_state": "established"
+        },
+        "target_sample": {
+          "observation_id": "SYNTH-OBS-001",
+          "source_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "observed_start_tick": 1000,
+          "observed_end_tick": 1010,
+          "tick_unit": "s",
+          "clock_domain_id": "CLOCK-1",
+          "clock_epoch_id": "BOOT-1",
+          "location_context_id": "ROOM-01",
+          "rights_state": "authorized",
+          "evidence_state": "current"
+        },
+        "condition_observations": [
+          {
+            "condition_id": "ambient_temperature",
+            "source_observation_id": "COND-OBS-TEMP-001",
+            "source_digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "value": 22,
+            "unit": "degC",
+            "quantity_kind": "temperature",
+            "evidence_state": "current",
+            "source_state": "measured",
+            "instrument_id": "COND-INST-TEMP-01",
+            "calibration_record_id": "COND-CAL-TEMP-01",
+            "calibration_state": "current",
+            "expanded_uncertainty": 0.1,
+            "uncertainty_unit": "degC",
+            "time_window": {
+              "start_tick": 990,
+              "end_tick": 1020,
+              "tick_unit": "s",
+              "clock_domain_id": "CLOCK-1",
+              "clock_epoch_id": "BOOT-1"
+            },
+            "location_context_id": "ROOM-01",
+            "rights_state": "authorized"
+          },
+          {
+            "condition_id": "relative_humidity",
+            "source_observation_id": "COND-OBS-RH-001",
+            "source_digest": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+            "value": 45,
+            "unit": "%RH",
+            "quantity_kind": "ratio",
+            "evidence_state": "current",
+            "source_state": "measured",
+            "instrument_id": "COND-INST-RH-01",
+            "calibration_record_id": "COND-CAL-RH-01",
+            "calibration_state": "current",
+            "expanded_uncertainty": 2,
+            "uncertainty_unit": "%RH",
+            "time_window": {
+              "start_tick": 990,
+              "end_tick": 1020,
+              "tick_unit": "s",
+              "clock_domain_id": "CLOCK-1",
+              "clock_epoch_id": "BOOT-1"
+            },
+            "location_context_id": "ROOM-01",
+            "rights_state": "authorized"
+          }
+        ],
+        "correction": {
+          "state": "not_applied",
+          "method_id": "NOT_APPLICABLE",
+          "method_revision": "NOT_APPLICABLE",
+          "artifact_digest": "NOT_APPLICABLE",
+          "parameters_digest": "NOT_APPLICABLE",
+          "application_count": 0,
+          "reason": "profile_requires_no_correction"
+        },
+        "profile_resolution": {
+          "state": "resolved_exact_digest",
+          "source_receipt_id": "SYNTH-PROFILE-RECEIPT-01",
+          "resolved_profile_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "invalidation": {
+          "state": "current",
+          "receipt_id": "SYNTH-CONDITION-RECEIPT-01",
+          "revision": "1"
+        },
+        "test_only": false
+      },
+      "expected_disposition": "REJECTED_CLAIM_PROMOTION"
+    }
+  ]
+}
