@@ -52,7 +52,7 @@
           "const": true
         },
         "opaque_condition_ids_without_resolvable_profile_are_not_applicable": {
-          "const": true
+          "const": false
         },
         "required_conditions_must_cover_full_sample_window": {
           "const": true
@@ -217,7 +217,10 @@
           ],
           "properties": {
             "state": {
-              "type": "string"
+              "enum": [
+                "approved_synthetic_correction",
+                "blocked"
+              ]
             },
             "method_id": {
               "type": "string"
