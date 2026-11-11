@@ -1,0 +1,1115 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Luminous-Dynamics/mycelix/blob/research/build-metrology-passport-v0.1/docs/metrology/BUILDING_INSTRUMENT_PASSPORT_CASES_V0_1.schema.json",
+  "title": "Mycelix Building Instrument Passport Corpus v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "corpus_id",
+    "classification",
+    "profile_id",
+    "claim_ceiling",
+    "cases"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "mycelix.building-instrument-passport-corpus/0.1"
+    },
+    "corpus_id": {
+      "const": "BUILDING-INSTRUMENT-PASSPORT-CORPUS-V0.1"
+    },
+    "classification": {
+      "const": "synthetic_passport_applicability_cases"
+    },
+    "profile_id": {
+      "const": "MYC-BUILD-METROLOGY-PROFILE-V0.1"
+    },
+    "claim_ceiling": {
+      "const": "synthetic_instrument_passport_applicability_only"
+    },
+    "cases": {
+      "type": "array",
+      "minItems": 60,
+      "maxItems": 60,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "case_id",
+          "description",
+          "record",
+          "expected_disposition"
+        ],
+        "properties": {
+          "case_id": {
+            "type": "string",
+            "pattern": "^BIP-[0-9]{3}$"
+          },
+          "description": {
+            "type": "string",
+            "minLength": 20
+          },
+          "record": {
+            "$ref": "#/$defs/passport"
+          },
+          "expected_disposition": {
+            "enum": [
+              "ELIGIBLE_FOR_INDEPENDENT_ADMISSION_REVIEW_ONLY",
+              "MORE_EVIDENCE_REQUIRED",
+              "NOT_COMPARABLE",
+              "EXPIRED_OR_INVALIDATED",
+              "REJECTED_FOR_DECLARED_PURPOSE",
+              "REJECTED_CLAIM_PROMOTION"
+            ]
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "instrument": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "instrument_id",
+        "manufacturer",
+        "model",
+        "serial_id",
+        "hardware_revision",
+        "firmware_revision",
+        "protocol_profile_id",
+        "protocol_profile_digest",
+        "protocol_profile_state",
+        "local_read_only_supported",
+        "channel_id",
+        "channel_profile_id",
+        "identity_state",
+        "serial_identity_reused",
+        "lifecycle_state",
+        "protocol_profile_verification_receipt_id",
+        "protocol_profile_verifier_id"
+      ],
+      "properties": {
+        "instrument_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "manufacturer": {
+          "type": "string",
+          "minLength": 1
+        },
+        "model": {
+          "type": "string",
+          "minLength": 1
+        },
+        "serial_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "hardware_revision": {
+          "type": "string",
+          "minLength": 1
+        },
+        "firmware_revision": {
+          "type": "string",
+          "minLength": 1
+        },
+        "protocol_profile_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "channel_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "channel_profile_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "identity_state": {
+          "enum": [
+            "established",
+            "unknown",
+            "provider_asserted"
+          ]
+        },
+        "serial_identity_reused": {
+          "type": "boolean"
+        },
+        "lifecycle_state": {
+          "enum": [
+            "received",
+            "installed",
+            "serviced",
+            "moved",
+            "replaced",
+            "retired"
+          ]
+        },
+        "protocol_profile_digest": {
+          "type": "string",
+          "minLength": 1
+        },
+        "protocol_profile_state": {
+          "enum": [
+            "independently_verified",
+            "provider_asserted",
+            "unknown"
+          ]
+        },
+        "local_read_only_supported": {
+          "type": "boolean"
+        },
+        "protocol_profile_verification_receipt_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "protocol_profile_verifier_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "capability": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "measurement_kind",
+        "operating_range",
+        "resolution",
+        "accuracy",
+        "response_time_seconds",
+        "verification_state",
+        "repeatability",
+        "drift",
+        "cross_sensitivity_state"
+      ],
+      "properties": {
+        "measurement_kind": {
+          "enum": [
+            "raw",
+            "derived"
+          ]
+        },
+        "operating_range": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "minimum",
+            "maximum",
+            "unit",
+            "conditions_id"
+          ],
+          "properties": {
+            "minimum": {
+              "type": "number"
+            },
+            "maximum": {
+              "type": "number"
+            },
+            "unit": {
+              "type": "string",
+              "minLength": 1
+            },
+            "conditions_id": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "resolution": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "value",
+            "unit"
+          ],
+          "properties": {
+            "value": {
+              "type": "number"
+            },
+            "unit": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "accuracy": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "value",
+            "unit",
+            "basis",
+            "conditions_id",
+            "evidence_class",
+            "source_record_id"
+          ],
+          "properties": {
+            "value": {
+              "type": "number"
+            },
+            "unit": {
+              "type": "string",
+              "minLength": 1
+            },
+            "basis": {
+              "enum": [
+                "absolute",
+                "percent_of_reading",
+                "percent_full_scale"
+              ]
+            },
+            "conditions_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "evidence_class": {
+              "enum": [
+                "provider_assertion",
+                "independent_type_test",
+                "independent_characterization"
+              ]
+            },
+            "source_record_id": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "response_time_seconds": {
+          "type": "number"
+        },
+        "verification_state": {
+          "enum": [
+            "vendor_declared",
+            "independently_verified",
+            "unverified"
+          ]
+        },
+        "repeatability": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "value",
+            "unit",
+            "method_id",
+            "evidence_class"
+          ],
+          "properties": {
+            "value": {
+              "type": "number"
+            },
+            "unit": {
+              "type": "string",
+              "minLength": 1
+            },
+            "method_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "evidence_class": {
+              "enum": [
+                "provider_assertion",
+                "independent_type_test",
+                "independent_characterization"
+              ]
+            }
+          }
+        },
+        "drift": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "value",
+            "unit",
+            "period_seconds",
+            "conditions_id"
+          ],
+          "properties": {
+            "value": {
+              "type": "number"
+            },
+            "unit": {
+              "type": "string",
+              "minLength": 1
+            },
+            "period_seconds": {
+              "type": "number"
+            },
+            "conditions_id": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "cross_sensitivity_state": {
+          "enum": [
+            "characterized_or_not_applicable",
+            "unknown",
+            "not_characterized"
+          ]
+        }
+      }
+    },
+    "calibration": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "record_id",
+        "instrument_id",
+        "channel_id",
+        "channel_profile_id",
+        "firmware_revision",
+        "certificate_digest",
+        "certificate_state",
+        "calibration_state",
+        "lab_id",
+        "accreditation_id",
+        "accreditation_scope_id",
+        "accreditation_scope_state",
+        "method_id",
+        "method_revision",
+        "measurand_id",
+        "unit",
+        "range_minimum",
+        "range_maximum",
+        "calibration_date",
+        "due_date",
+        "reference_standard_ids",
+        "traceability_state",
+        "as_found_state",
+        "as_left_state",
+        "prior_data_impact_state",
+        "uncertainty"
+      ],
+      "properties": {
+        "record_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "instrument_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "channel_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "channel_profile_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "firmware_revision": {
+          "type": "string",
+          "minLength": 1
+        },
+        "certificate_digest": {
+          "type": "string"
+        },
+        "certificate_state": {
+          "enum": [
+            "authenticated",
+            "unauthenticated",
+            "missing",
+            "revoked",
+            "expired"
+          ]
+        },
+        "calibration_state": {
+          "enum": [
+            "current",
+            "expired",
+            "unknown",
+            "out_of_tolerance"
+          ]
+        },
+        "lab_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "accreditation_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "accreditation_scope_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "accreditation_scope_state": {
+          "enum": [
+            "covers_measurand_range_method",
+            "scope_not_covering_method",
+            "unknown"
+          ]
+        },
+        "method_id": {
+          "type": "string"
+        },
+        "method_revision": {
+          "type": "string",
+          "minLength": 1
+        },
+        "measurand_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "unit": {
+          "type": "string",
+          "minLength": 1
+        },
+        "range_minimum": {
+          "type": "number"
+        },
+        "range_maximum": {
+          "type": "number"
+        },
+        "calibration_date": {
+          "type": "string",
+          "minLength": 1
+        },
+        "due_date": {
+          "type": "string",
+          "minLength": 1
+        },
+        "reference_standard_ids": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "traceability_state": {
+          "enum": [
+            "documented",
+            "unknown",
+            "not_traceable"
+          ]
+        },
+        "as_found_state": {
+          "enum": [
+            "within_tolerance",
+            "out_of_tolerance",
+            "unknown"
+          ]
+        },
+        "as_left_state": {
+          "enum": [
+            "within_tolerance",
+            "out_of_tolerance",
+            "unknown"
+          ]
+        },
+        "prior_data_impact_state": {
+          "enum": [
+            "not_applicable",
+            "reviewed",
+            "not_reviewed"
+          ]
+        },
+        "uncertainty": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "value",
+            "unit",
+            "coverage_factor",
+            "method_id",
+            "correlation_model_id"
+          ],
+          "properties": {
+            "value": {
+              "type": "number"
+            },
+            "unit": {
+              "type": "string",
+              "minLength": 1
+            },
+            "coverage_factor": {
+              "type": "number"
+            },
+            "method_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "correlation_model_id": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        }
+      }
+    },
+    "installation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "record_id",
+        "asset_id",
+        "building_id",
+        "room_zone",
+        "geometry_revision",
+        "position",
+        "height_m",
+        "orientation_degrees",
+        "mounting_method",
+        "shielding_state",
+        "enclosure_state",
+        "location_context_id",
+        "installation_state",
+        "verifier_id",
+        "verifier_competence_state",
+        "installed_at",
+        "relocation_state"
+      ],
+      "properties": {
+        "record_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "asset_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "building_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "room_zone": {
+          "type": "string",
+          "minLength": 1
+        },
+        "geometry_revision": {
+          "type": "string",
+          "minLength": 1
+        },
+        "position": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "x",
+            "y",
+            "z",
+            "frame_id"
+          ],
+          "properties": {
+            "x": {
+              "type": "number"
+            },
+            "y": {
+              "type": "number"
+            },
+            "z": {
+              "type": "number"
+            },
+            "frame_id": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "height_m": {
+          "type": "number"
+        },
+        "orientation_degrees": {
+          "type": "number"
+        },
+        "mounting_method": {
+          "type": "string",
+          "minLength": 1
+        },
+        "shielding_state": {
+          "type": "string",
+          "minLength": 1
+        },
+        "enclosure_state": {
+          "type": "string",
+          "minLength": 1
+        },
+        "location_context_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "installation_state": {
+          "enum": [
+            "verified",
+            "unknown",
+            "invalidated"
+          ]
+        },
+        "verifier_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "verifier_competence_state": {
+          "enum": [
+            "documented",
+            "unknown"
+          ]
+        },
+        "installed_at": {
+          "type": "string",
+          "minLength": 1
+        },
+        "relocation_state": {
+          "enum": [
+            "none_or_reverified",
+            "relocated_unverified"
+          ]
+        }
+      }
+    },
+    "sample": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "observation_id",
+        "instrument_id",
+        "channel_id",
+        "channel_profile_id",
+        "firmware_revision",
+        "value",
+        "unit",
+        "observed_at_date",
+        "qc_state",
+        "event_time_seconds",
+        "acquisition_time_seconds",
+        "time_unit",
+        "timezone",
+        "clock_source",
+        "synchronization_uncertainty_seconds",
+        "sequence",
+        "processing_mode",
+        "processing_method_id",
+        "processing_method_revision",
+        "raw_source_digest",
+        "calibration_record_id",
+        "installation_record_id",
+        "rights_state",
+        "acquisition_mode",
+        "local_read_only",
+        "protocol_profile_digest",
+        "read_only_session_receipt_id"
+      ],
+      "properties": {
+        "observation_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "instrument_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "channel_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "channel_profile_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "firmware_revision": {
+          "type": "string",
+          "minLength": 1
+        },
+        "unit": {
+          "type": "string",
+          "minLength": 1
+        },
+        "qc_state": {
+          "enum": [
+            "valid",
+            "stale",
+            "out_of_range",
+            "saturated",
+            "warming_up",
+            "missing_as_zero",
+            "device_fault"
+          ]
+        },
+        "event_time_seconds": {
+          "type": "number"
+        },
+        "acquisition_time_seconds": {
+          "type": "number"
+        },
+        "time_unit": {
+          "enum": [
+            "s",
+            "ms",
+            "us"
+          ]
+        },
+        "timezone": {
+          "type": "string"
+        },
+        "clock_source": {
+          "type": "string",
+          "minLength": 1
+        },
+        "synchronization_uncertainty_seconds": {
+          "type": "number"
+        },
+        "sequence": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "processing_mode": {
+          "enum": [
+            "raw",
+            "derived",
+            "averaged",
+            "compensated"
+          ]
+        },
+        "processing_method_id": {
+          "type": "string"
+        },
+        "processing_method_revision": {
+          "type": "string",
+          "minLength": 1
+        },
+        "raw_source_digest": {
+          "type": "string"
+        },
+        "calibration_record_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "installation_record_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "rights_state": {
+          "enum": [
+            "authorized",
+            "unknown",
+            "revoked"
+          ]
+        },
+        "value": {
+          "type": "number"
+        },
+        "observed_at_date": {
+          "type": "string"
+        },
+        "acquisition_mode": {
+          "enum": [
+            "local",
+            "remote",
+            "manual"
+          ]
+        },
+        "local_read_only": {
+          "type": "boolean"
+        },
+        "protocol_profile_digest": {
+          "type": "string",
+          "minLength": 1
+        },
+        "read_only_session_receipt_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "uncertainty_budget": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "state",
+        "combination_method_id",
+        "correlation_model_id",
+        "coverage_factor",
+        "expanded_uncertainty_value",
+        "unit",
+        "components"
+      ],
+      "properties": {
+        "state": {
+          "enum": [
+            "complete",
+            "incomplete",
+            "unknown"
+          ]
+        },
+        "combination_method_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "correlation_model_id": {
+          "type": "string"
+        },
+        "coverage_factor": {
+          "type": "number"
+        },
+        "expanded_uncertainty_value": {
+          "type": "number"
+        },
+        "unit": {
+          "type": "string",
+          "minLength": 1
+        },
+        "components": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "component_id",
+              "value",
+              "unit",
+              "component_kind",
+              "correlation_group",
+              "source_record_id"
+            ],
+            "properties": {
+              "component_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "value": {
+                "type": "number"
+              },
+              "unit": {
+                "type": "string",
+                "minLength": 1
+              },
+              "component_kind": {
+                "type": "string",
+                "minLength": 1
+              },
+              "correlation_group": {
+                "type": "string"
+              },
+              "source_record_id": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        }
+      }
+    },
+    "purpose_profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "purpose_id",
+        "channel_id",
+        "measurand_id",
+        "unit",
+        "acceptable_minimum",
+        "acceptable_maximum",
+        "maximum_expanded_uncertainty",
+        "maximum_response_time_seconds",
+        "maximum_time_sync_uncertainty_seconds",
+        "required_geometry_revision",
+        "required_location_context_id",
+        "classification"
+      ],
+      "properties": {
+        "purpose_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "channel_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "measurand_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "unit": {
+          "type": "string",
+          "minLength": 1
+        },
+        "acceptable_minimum": {
+          "type": "number"
+        },
+        "acceptable_maximum": {
+          "type": "number"
+        },
+        "maximum_expanded_uncertainty": {
+          "type": "number"
+        },
+        "maximum_response_time_seconds": {
+          "type": "number"
+        },
+        "maximum_time_sync_uncertainty_seconds": {
+          "type": "number"
+        },
+        "required_geometry_revision": {
+          "type": "string",
+          "minLength": 1
+        },
+        "required_location_context_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "classification": {
+          "const": "synthetic_measurement_purpose_only"
+        }
+      }
+    },
+    "independent_assay": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "state",
+        "assay_id",
+        "laboratory_id",
+        "accreditation_scope_id",
+        "method_id",
+        "method_revision",
+        "sample_id",
+        "sample_digest",
+        "measurand_id",
+        "value",
+        "unit",
+        "certificate_digest",
+        "certificate_state",
+        "accreditation_scope_state",
+        "rights_state"
+      ],
+      "properties": {
+        "state": {
+          "enum": [
+            "not_required",
+            "identified",
+            "missing",
+            "unknown",
+            "revoked"
+          ]
+        },
+        "assay_id": {
+          "type": "string"
+        },
+        "laboratory_id": {
+          "type": "string"
+        },
+        "accreditation_scope_id": {
+          "type": "string"
+        },
+        "method_id": {
+          "type": "string"
+        },
+        "method_revision": {
+          "type": "string"
+        },
+        "sample_id": {
+          "type": "string"
+        },
+        "sample_digest": {
+          "type": "string"
+        },
+        "measurand_id": {
+          "type": "string"
+        },
+        "value": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "unit": {
+          "type": "string"
+        },
+        "certificate_digest": {
+          "type": "string"
+        },
+        "certificate_state": {
+          "enum": [
+            "not_applicable",
+            "authenticated",
+            "unauthenticated",
+            "missing",
+            "revoked"
+          ]
+        },
+        "accreditation_scope_state": {
+          "enum": [
+            "not_applicable",
+            "covers_measurand_method",
+            "not_covering",
+            "unknown"
+          ]
+        },
+        "rights_state": {
+          "enum": [
+            "not_applicable",
+            "authorized",
+            "unknown",
+            "revoked"
+          ]
+        }
+      }
+    },
+    "passport": {
+      "title": "Mycelix Building Instrument Passport v0.1",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "passport_schema_version",
+        "profile_id",
+        "instrument",
+        "capability",
+        "calibration",
+        "installation",
+        "sample",
+        "uncertainty_budget",
+        "purpose_profile",
+        "claim_requested",
+        "independent_assay"
+      ],
+      "properties": {
+        "passport_schema_version": {
+          "const": "mycelix.building-instrument-passport/0.1"
+        },
+        "profile_id": {
+          "const": "MYC-BUILD-METROLOGY-PROFILE-V0.1"
+        },
+        "instrument": {
+          "$ref": "#/$defs/instrument"
+        },
+        "capability": {
+          "$ref": "#/$defs/capability"
+        },
+        "calibration": {
+          "$ref": "#/$defs/calibration"
+        },
+        "installation": {
+          "$ref": "#/$defs/installation"
+        },
+        "sample": {
+          "$ref": "#/$defs/sample"
+        },
+        "uncertainty_budget": {
+          "$ref": "#/$defs/uncertainty_budget"
+        },
+        "purpose_profile": {
+          "$ref": "#/$defs/purpose_profile"
+        },
+        "claim_requested": {
+          "enum": [
+            "declared_measurement",
+            "universal_indoor_air_quality"
+          ]
+        },
+        "independent_assay": {
+          "$ref": "#/$defs/independent_assay"
+        }
+      }
+    }
+  }
+}

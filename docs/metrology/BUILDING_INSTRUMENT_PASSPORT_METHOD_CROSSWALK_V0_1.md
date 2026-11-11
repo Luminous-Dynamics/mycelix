@@ -1,0 +1,159 @@
+# Building instrument passport: methods and accreditation crosswalk
+
+## Scope
+
+This note identifies method families and the evidence they can support. It deliberately does not assign universal tolerances, approve a laboratory, or encode clause-level requirements from copyrighted standards. The exact edition, scope, method, range and installation conditions must be verified for each measurand and decision purpose.
+
+## Thermal environment
+
+- **ISO 7726:2025, Edition 3** is the current published instrument/method reference identified for measuring and monitoring physical quantities characterizing thermal environments. It replaces the 1998 edition. Map air temperature, mean-radiant/globe temperature, humidity and air-speed channels to applicable provisions only after checking the full text, sensor type, response, radiation shielding, placement and averaging assumptions. It does not automatically calibrate a device or make a room placement representative.
+- **ASHRAE Standard 55:2023** addresses combinations of environmental and personal factors that produce satisfactory thermal conditions for most occupants, using standard and adaptive methods. It is a comfort assessment reference, not a calibration certificate or a universal survival/health threshold.
+
+## Indoor air and ventilation
+
+- **ASHRAE 62.2-2025** applies to non-transient residential dwelling units and addresses ventilation, local exhaust and source control. Its scope explicitly says thermal comfort is outside its scope and that acceptable IAQ may not necessarily be achieved even when requirements are met. CO2 alone is not an all-pollutant measurement.
+- PM2.5, CO2, outdoor-air flow, humidity and pollutant-specific gases require separate measurement methods and reference instruments. A low-cost optical PM or gas sensor can be useful for trends only within a validated response/cross-sensitivity envelope; it is not an independent assay by assertion.
+
+## Calibration laboratory and traceability
+
+- **ISO/IEC 17025:2017** is the current published edition identified by ISO; it was reviewed and confirmed in 2023. It addresses laboratory competence, impartiality and consistent operation. Accreditation is not blanket approval for every possible measurand/range.
+- In South Africa, **SANAS** provides a public directory exposing each accredited facility's certificate and scope. Review the actual current scope schedule: exact measurand/discipline, range, method and uncertainty capability must cover the calibration in question. SANAS is the national accreditation body under Act 19 of 2006.
+- **ILAC P10:07/2020** covers metrological traceability of measurement results; **ILAC P14:09/2020** covers measurement uncertainty in calibration. Keep traceability and the calibration statement linked to the exact certificate and scope.
+- **JCGM 100:2008 (GUM)** establishes general rules for evaluating and expressing measurement uncertainty. BIPM currently lists Amendment 1:2026 on nonlinearity in measurement models and the GUM suite. The passport preserves components, source records and correlation groups; it does not calculate an uncertainty budget or assume independent components.
+
+## Cross-laboratory and product-level performance
+
+- **IEC TR 63250:2021** addresses repeatability, reproducibility, uncertainty and round-robin tests for household-appliance performance methods. Its scope explicitly excludes production-unit variability and representativeness of normal household use. For a Luminous appliance claim, join this laboratory repeatability stratum to the four separate evidence strata in Symthaea #10341: within-unit repeatability, between-laboratory reproducibility, production variation and household ecological validity.
+
+## Method-to-channel rules
+
+| Channel family | Method questions that must be explicit | Prohibited shortcut |
+|---|---|---|
+| Temperature / humidity / air speed | sensor principle, range, response, radiation effects, placement, height, shielding, averaging, environmental conditions | equating sensor calibration with comfort assessment |
+| Mean-radiant / globe temperature | globe geometry/emissivity, view factors/air speed where method requires, exact calculation/method revision and input sensors | renaming globe temperature as mean radiant temperature without a method |
+| CO2 / PM2.5 | reference instrument, calibration aerosol/gas, cross-sensitivity, humidity effects, inlet location, time response and co-location protocol | CO2 or AQI alone as universal IAQ / health proof |
+| Air / water volume flow | flow profile, straight lengths/installation, fluid properties, pulsation, meter factor, zero drift, integration and boundary | treating a nameplate or pulse count as verified delivered volume |
+| Water pH / conductivity | reference buffers/solutions, temperature compensation, sampling/handling, independent chemistry/microbiology as purpose requires | conductivity/pH as potability or pathogen-removal proof |
+| Electrical power / energy | meter wiring/topology, phase, power factor, waveform/bandwidth, boundary, integration intervals, clock and calibration | treating instantaneous power as energy or mixing meter boundaries |
+| Useful thermal energy | flow, supply/return temperature, heat capacity/fluid definition, integration interval and covariance of sensors | derived kWh_th without raw input channels and uncertainty propagation |
+
+## Current method-edition refresh — 10 November 2026
+
+This table records current published editions/status located for this research pass. A version pointer is not a substitute for the full standard, exact applicable clause, method procedure, local legal requirement or accredited laboratory scope.
+
+| Measurand / role | Current reference found | Exact boundary and implication |
+|---|---|---|
+| Thermal-environment instruments | [ISO 7726:2025, Ed. 3](https://www.iso.org/standard/78238.html), published October 2025 | Replaces withdrawn ISO 7726:1998. It specifies minimum instrument characteristics and methods for physical quantities characterizing the environment. Bind the actual sensor type, response, radiation effects, placement and method. |
+| Occupant thermal-comfort assessment | [ANSI/ASHRAE 55:2023](https://www.ashrae.org/technical-resources/bookstore/standard-55-thermal-environmental-conditions-for-human-occupancy) | Uses environmental and personal factors and standard/adaptive assessment methods. It is an assessment method, not calibration, thermal-survival, medical or South African statutory approval by itself. |
+| Calibration laboratory competence | [ISO/IEC 17025:2017](https://committee.iso.org/standard/66912.html), confirmed current in 2023 | Applies to laboratory competence, impartiality and consistent operation. The lab's actual current accreditation schedule must cover the exact measurand, range and method. |
+| Metrological traceability | [ILAC P10:07/2020](https://ilac.org/publications-and-resources/ilac-policy-series/) | Policy on traceability of measurement results. Traceability is a chain of calibrations, each contributing uncertainty; a logo/certificate number alone is not a traceability chain. |
+| Calibration uncertainty statement | [ILAC P14:09/2020](https://ilac.org/publications-and-resources/ilac-policy-series/) | Policy for measurement uncertainty in calibration. Keep the certificate's reported uncertainty and coverage convention tied to the exact certificate, result, method and scope. |
+| Measurement uncertainty and nonlinear models | [JCGM 100:2008/Amd.1:2026](https://www.bipm.org/documents/20126/2071204/JCGM_100_Amd1_2026.pdf/) and the [BIPM GUM catalogue](https://www.bipm.org/en/web/guest/publications/guides) | The 2026 amendment adds guidance on significant nonlinearity: use Monte Carlo propagation under JCGM 101:2008 or include higher-order Taylor terms as appropriate. Do not assume first-order linearization is adequate, and do not silently omit covariance. Detailed computation is delegated to Mycelix #6048. |
+| Closed-conduit water volume metering | [ISO 4064-1:2024, Ed. 5](https://www.iso.org/standard/80868.html) and [OIML R 49:2024](https://www.oiml.org/en/publications/recommendations/49/2024/) | Both references concern measurement of actual water volume in a fully charged, closed conduit and meters indicating integrated volume. They are not blanket methods for open channels, partially filled pipes, tanks/level-to-volume inference, rainwater estimation, water quality or potable safety. Tank-level measurement requires its own geometry/datum calibration. |
+| Indoor PM2.5 | [ISO 16000-37:2019](https://www.iso.org/standard/66283.html), reviewed/confirmed current in 2024 | Provides methods/strategies for indoor PM2.5 mass concentration. Its reference principle is filter collection after particle separation and gravimetric weighing; supplementary high-time-resolution instruments can be used for peaks/investigation/QC. A low-cost optical sensor is not the reference method merely because it reports µg/m³. |
+| AC power-quality measurements | [IEC 61000-4-30:2025, Ed. 4, corrected version 2026-07](https://webstore.iec.ch/en/publication/71611) | Defines repeatable in-situ measurement/interpretation methods for 50/60 Hz AC systems, including Class A and Class S. Covered parameters include frequency, supply voltage magnitude, flicker, dips/swells/interruptions, unbalance, voltage harmonics/interharmonics, current magnitude/harmonics, rapid voltage changes and related phenomena. This is distinct from accumulated energy metering and useful thermal-energy measurement. Transducer effects are not fully specified by this standard; see the referenced IEC TR 61869-103 guidance. |
+
+### Applicability consequences for Highveld / M0
+
+1. **Do not use ISO 4064/OIML R 49 outside their closed, fully charged conduit scope.** WaterLoop may have storage tanks, rain capture, greywater treatment, partial-flow drains and non-potable loops. These need separately defined measurands and methods; a water meter is not automatically within R 49 / ISO 4064 scope.
+2. **Separate electrical metering from power-quality characterization.** kWh and instantaneous W do not reveal voltage events, frequency excursions, unbalance or harmonic distortion. If the M0 cell is intended to characterize grid resilience, define a separate 50 Hz AC power-quality profile against IEC 61000-4-30:2025 and the correct instrument class. Do not infer Class A or Class S from a product marketing sheet.
+3. **Separate reference and trend instruments.** For indoor PM2.5, document the reference method and co-location/quality-control procedure before interpreting high-resolution optical readings. Similar principle applies to gas sensors and flow measurement.
+4. **Preserve measurement conditions as data, not as opaque IDs.** A capability claim valid under one conditions profile cannot be applied to a sample with missing or different ambient temperature, humidity, pressure, vibration, fluid, orientation or power-system conditions. This missing condition-binding layer is tracked separately under Mycelix #6065.
+5. **Do not compute uncertainty from a flat list of component values.** The 2026 GUM amendment makes nonlinear measurement models a first-class issue. A future receipt must identify the model, input distributions, correlation structure, propagation method and coverage convention; Mycelix #6048 owns that computation.
+
+### South African accreditation lookup rule
+
+For any real M1 instrument, select a calibration/testing laboratory only after locating its current SANAS accredited-facility entry and exact scope schedule. The schedule must cover the requested measurand, method, range and relevant calibration capability. The accreditation body's public directory is a discovery source, not a substitute for the current scope certificate. No specific laboratory is selected or represented as approved in this synthetic programme.
+## Claim ceiling
+
+These are standards/method pointers. This matrix is not an accredited method list, conformity assessment, building-code determination or SANAS scope decision. No instrument is qualified until its exact certificate and current accreditation scope are independently checked by a competent metrology reviewer.
+
+## 11 November 2026: derived quantities and exact-result traceability
+
+### Basic versus derived quantities
+
+ISO 7726:2025 distinguishes basic quantities measured directly from derived quantities measured indirectly (examples include mean radiant temperature and operative temperature). This is not a terminology nicety: the latter are measurement systems/calculations over multiple input observations and method assumptions. A single sensor-style certificate and a `raw_source_digest` cannot establish that graph.
+
+The v0.1 passport deliberately blocks derived channels from review eligibility until the exact source graph is supported. Mycelix [#6064](https://github.com/Luminous-Dynamics/mycelix/issues/6064) owns the versioned derivation graph, source samples, geometry/method inputs and dependency edges; [#6048](https://github.com/Luminous-Dynamics/mycelix/issues/6048) owns numerical uncertainty propagation. Do not treat a derived output as an independently calibrated physical instrument.
+
+### Conditions are applicability evidence
+
+Capability and calibration condition profiles are not yet fully bound to actual sample-time condition observations. Opaque `conditions_id` values in v0.1 do not prove that the instrument operated within its tested environmental envelope. Mycelix [#6065](https://github.com/Luminous-Dynamics/mycelix/issues/6065) owns versioned condition profiles, sample observations, uncertainty and applicability windows.
+
+### Calibration uncertainty lineage
+
+Passport v0.1 now requires the calibration certificate's uncertainty to appear exactly once in the sample-level uncertainty component set, sourced from the exact calibration record. This is a completeness/lineage check only. It does not combine components, establish covariance, or calculate the expanded output uncertainty; those remain with #6048.
+
+### Calibration scope containment
+
+The certificate range must be valid and lie wholly inside the independently characterized instrument capability interval. The certificate cannot enlarge a device's range. The actual lab accreditation schedule must still be checked independently against exact measurand, method, range and uncertainty capability; an authenticated document alone does not prove accreditation scope.
+## Interlaboratory reproducibility and proficiency-testing update — 11 November 2026
+
+- **ISO 5725-1:2023, Edition 2** is the current general reference for accuracy (trueness and precision), study organization, definitions and statistical principles.
+- **ISO 5725-2:2025, Edition 3** is the current published basic method for interlaboratory determination of repeatability and reproducibility for standard measurement methods. ISO 5725-2:2019 is withdrawn; do not cite it as current.
+- **ISO 5725-3:2023** addresses intermediate precision and alternative collaborative-study designs. It is relevant where time, operator, equipment or other intermediate conditions must be separated from pure within-lab repeatability and between-lab reproducibility.
+- **ISO/IEC 17043:2023** addresses proficiency-testing provider competence and impartiality. **ISO 13528:2022/Amd 1:2026** is the current statistical method reference for proficiency-testing schemes.
+
+These references are complementary, not interchangeable. A proficiency test compares a participant's result to an assigned value or consensus under a particular PT scheme. It does not estimate the complete between-laboratory reproducibility of a product-performance method, production-lot variation, or household ecological validity. Keep PT participation/status as a separate laboratory-competence evidence item and never treat its score as a replacement for the four household-appliance study strata.
+
+Official catalogue links: [ISO 5725-1:2023](https://www.iso.org/standard/69418.html); [ISO 5725-2:2025](https://www.iso.org/standard/90054.html); [ISO 5725-3:2023](https://www.iso.org/ics/17.020/x/); [ISO/IEC 17043:2023](https://www.iso.org/standard/80864.html); [ISO 13528:2022/Amd 1:2026](https://www.iso.org/standard/90057.html).
+
+## 11 November 2026: expanded method-to-measurand scope crosswalk
+
+This is a source/edition and applicability crosswalk, not a selection of a laboratory, product class, numerical tolerance or South African legal requirement. The complete standard text, method procedure, laboratory scope and intended use still require competent review.
+
+### Water measurement
+
+- **pH:** [ISO 10523:2008, Edition 2](https://www.iso.org/standard/51994.html) remains current after ISO review/confirmation in 2023. Its stated scope covers specified natural, drinking, bathing, municipal/industrial wastewater and liquid-sludge samples, within pH 2–12, ionic-strength and temperature bounds. The standard defines a method for pH; it does not establish potability, microbiological safety or suitability for an unspecified reuse endpoint. Method/buffer, temperature, sample handling and measurement-chain evidence must be recorded.
+- **Electrical conductivity:** [ISO 7888:1985, Edition 1](https://www.iso.org/standard/14838.html) was reviewed/confirmed current in 2023. It specifies a conductivity method for water types and notes interferences. Its age is a reason to inspect the full method and any relevant newer sector-specific guidance—not a reason to silently substitute an unverified method. Temperature/reference conditions and calibration solutions remain explicit.
+- **Water volume / meter indication:** [ISO 4064-1:2024, Edition 5](https://www.iso.org/standard/80868.html) and [ISO 4064-2:2024, Edition 5](https://www.iso.org/standard/80869.html) cover metrological/technical requirements and test methods for cold potable/hot water meters in a fully charged, closed conduit. This is not an automatic method for open channels, partially filled drains, rain capture, greywater treatment, tank level, or tank-level-to-volume conversion. Those cases need separately defined measurement equations, geometry/installation checks and reference methods.
+
+### Indoor environment and IAQ
+
+- **Thermal-environment basic quantities:** [ISO 7726:2025, Edition 3](https://www.iso.org/standard/78238.html) specifies minimum instrument characteristics and methods for physical quantities characterizing thermal environments. Map each channel only after reviewing the full method for the actual sensor principle, response, radiation effects, placement, shielding, averaging and environmental conditions. It does not itself make a derived mean-radiant/operative-temperature calculation valid; see Mycelix #6064.
+- **CO₂ sampling plan:** [ISO 16000-26:2012](https://www.iso.org/standard/52140.html), confirmed current in 2023, specifies planning of indoor CO₂ measurement and sampling strategy. It is a strategy document, not an instrument accuracy/calibration standard, ventilation compliance result, or all-pollutant IAQ measure. CO₂ remains one named measurand.
+- **Indoor PM2.5:** [ISO 16000-37:2019](https://www.iso.org/standard/66283.html), reviewed/confirmed current in 2024, specifies indoor PM2.5 mass-concentration methods and strategies. Its reference principle is particle collection on a filter followed by gravimetric weighing; it also allows appropriate high-time-resolution instruments for peaks/investigation and QC. It does not cover bioaerosols or particle chemical characterization. Treat low-cost optical sensors as supplementary only after co-location and method-specific influence/cross-sensitivity characterization.
+
+### Electrical energy and power quality
+
+- **Electricity-meter general type tests:** [IEC 62052-11:2020](https://webstore.iec.ch/en/publication/28212) covers general requirements, tests and test conditions for AC/DC electricity metering equipment in its stated voltage and product scope. It is not a generic field calibration procedure or an instrument-independent truth oracle.
+- **Static active-energy meter classes:** [IEC 62053-21:2020](https://webstore.iec.ch/en/publication/28660) applies to static AC active-energy watt-hour meters in accuracy classes 0.5, 1 and 2, at 50/60 Hz, and to type tests. It is not a blanket requirement for every meter or for power-quality waveforms. Meter boundary, wiring/topology, phase, power factor, transducers and integration semantics remain explicit.
+- **Power quality:** [IEC 61000-4-30:2025, Edition 4](https://webstore.iec.ch/en/publication/71611), including its July 2026 corrected version, defines repeatable in-situ measurement/interpretation methods for 50/60 Hz AC power-quality parameters and distinguishes Class A and Class S. It covers conducted phenomena such as frequency, supply-voltage magnitude, flicker, dips/swells/interruptions, unbalance, harmonics/interharmonics and current-related quantities. It expressly acknowledges but does not fully specify transducer effects; consult IEC TR 61869-103 as applicable. A kWh meter or a single RMS voltage field is not a power-quality qualification.
+
+### Acoustics
+
+- **Sound-level meter:** [IEC 61672-1:2013, Edition 2](https://webstore.iec.ch/en/publication/5708) specifies electroacoustic performance for time-weighted and integrating/averaging sound-level meters, with Class 1 and Class 2 categories and a maximum-permitted measurement-uncertainty condition. The actual microphone, preamplifier, acquisition chain, frequency weighting, time weighting/integration interval and class need to be declared; a device's displayed `dB(A)` alone is insufficient.
+- **Sound calibrator:** [IEC 60942:2017, Edition 4](https://webstore.iec.ch/en/publication/30045) defines sound-calibrator requirements. A sound-level meter's calibration/check record must bind the exact calibrator and microphone chain, acoustic coupler/configuration, frequency/level and before/after check results where the method requires them. The IEC catalogue also shows Edition 5 under development with a forecast publication date in 2027; do not use that future edition as if published at this research cut.
+
+### Useful thermal energy
+
+- **Thermal-energy meter:** [EN 1434-1:2022](https://www.nen.nl/en/nen-en-1434-1-2022-en-300870) covers general requirements for thermal-energy meters for heat-exchange circuits with a heat-conveying liquid and closed-system scope. The cited scope excludes electrical safety, pressure safety and surface-mounted temperature sensors. It cannot be applied automatically to open drain heat recovery, arbitrary fluid mixtures, tank temperature-only estimates or an ad hoc `flow × ΔT` calculation. Exact flow, temperature-pair, fluid/property, integration and uncertainty method must match the system.
+
+### Accreditation and evidence hierarchy
+
+Keep these independent evidence states separate:
+
+1. the method exists and its exact edition/status is known;
+2. the procedure and calculation version are identified and applicable to the sample;
+3. the instrument/capability is independently characterized for the conditions/range;
+4. the calibration certificate is authenticated and its result applies to the exact instrument/channel/measurand/method/range/date;
+5. the laboratory's current accreditation scope covers that exact activity and uncertainty capability;
+6. the installed configuration and sample-time conditions fit the method/capability envelope;
+7. the downstream purpose owner supplies its own decision threshold and guard-band rule.
+
+A laboratory's ISO/IEC 17025 accreditation status does not make every method it performs accredited. Use the [SANAS accredited-facilities directory](https://www.sanas.co.za/pages/index.aspx?page=Accredited-Facilities) and inspect the current individual scope schedule. Do not select or claim a South African laboratory from a brand/name alone.
+
+### Consequences for v0.2 channels
+
+The proposed pressure, differential-pressure, acoustics, voltage/current/power-quality, surface-temperature and globe-temperature channels in #6036 remain `PROPOSED_NOT_ADMITTED`. The above sources identify candidate method families only; they do not establish all channel-specific instrument, range, bandwidth, installation or calibration provisions. Exact clause-level mapping and local engineering applicability remain open.
+## 11 November 2026 — South African calibration-capability evidence
+
+The current [NMISA accreditation page](https://www.nmisa.org/Pages/compliance.aspx) lists its SANAS ISO/IEC 17025-accredited laboratory fields, including acoustics and vibration, gas, temperature, time and frequency, humidity, pressure and flow. This is useful evidence that relevant national metrology capability exists; it is **not** a blanket scope confirmation for every calibration method, range, uncertainty or instrument. The linked SANAS certificates/scope schedules remain the authority for exact applicability.
+
+The [SANAS 2026/27 Annual Performance Plan](https://www.thedtic.gov.za/wp-content/uploads/SANAS-2026-27-Annual-Performance-Plan.pdf) also lists calibration-laboratory programme fields including dimensional, pressure, temperature, force, flow, mass and volume, humidity, acoustics and vibration, and time and frequency. These are programme categories, not proof that a particular laboratory offers or is accredited for a requested point.
+
+**Operational selection rule:** maintain a per-measurand laboratory candidate ledger with the actual SANAS facility/certificate ID, current scope-schedule digest/revision, exact method and edition, range, calibration and expanded uncertainty capability, location, turnaround, traceability chain and any relevant proficiency-testing status. A directory match is discovery only; an independent reviewer must inspect the current scope certificate and confirm that the actual requested activity is within scope.
+
+NMISA currently lists, among other fields, accreditation IDs 1600 (acoustics and vibration), 1603 (temperature), 1604 (time and frequency), 1613 (humidity), 1614 (pressure) and 1620 (flow). Those examples demonstrate named discipline-level scope availability at NMISA, but not an assumed method/range match for a future Highveld instrument. See [NMISA's live accreditation listing](https://www.nmisa.org/Pages/compliance.aspx).
+
+Do not infer that an NMISA or other SANAS-accredited laboratory is suitable for water chemistry/microbiology, optical PM, electrical power quality, tank-level geometry, or any specific calibration without checking its exact current scope and reference capability.

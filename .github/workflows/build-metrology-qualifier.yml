@@ -30,7 +30,10 @@ jobs:
         with:
           components: rustfmt, clippy
       - name: Fetch exact locked dependencies
-        run: cargo fetch --locked --manifest-path tools/build-metrology-qualifier/Cargo.toml
+        run: |
+          cargo fetch --manifest-path tools/build-metrology-qualifier/Cargo.toml
+          git diff -- tools/build-metrology-qualifier/Cargo.lock
+          exit 1
       - name: Check formatting
         run: cargo fmt --manifest-path tools/build-metrology-qualifier/Cargo.toml --all -- --check
       - name: Run locked offline mutation tests
