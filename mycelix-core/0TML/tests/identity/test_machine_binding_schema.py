@@ -67,6 +67,10 @@ def test_binding_signature_is_structurally_present(example: dict[str, Any]) -> N
             lambda value: value.update({"implicit_authorization": True}),
         ),
         (
+            "controller-scope-cannot-authorize-host-mutation",
+            lambda value: value["controller"].update({"scope": ["host-mutation", "activation"]}),
+        ),
+        (
             "bound-workload-without-svid",
             lambda value: value["workload"].update(
                 {"state": "bound", "mechanism": "spiffe-x509-svid"}
