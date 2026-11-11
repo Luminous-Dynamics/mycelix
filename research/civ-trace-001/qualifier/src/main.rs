@@ -45,6 +45,27 @@ fn validate_event(event: &Value) -> Result<String, String> {
     for key in ["subject_ref","principal_ref","target_ref","status","supersedes_ref","issuer_ref","observer_ref"] {
         if text(event,key).is_none() { return Err(format!("{id}: {key} missing")); }
     }
+    if let Some(until) = event["valid_until"].as_u64() {
+        if until <= number(event,"valid_from").unwrap_or(0) {
+            return Err(format!("{id}: validity interval is empty or inverted"));
+        }
+    }
+    let kind = text(event,"kind").unwrap_or("");
+    let status = text(event,"status").unwrap_or("");
+    let valid_status = match kind {
+        "Evidence" => ["Verified","Untrusted"].contains(&status),
+        "Decision" => status == "Adopted",
+        "AuthorityGrant" => status == "Granted",
+        "AuthorityRevoke" => status == "Revoked",
+        "Attempt" => status == "Succeeded",
+        "EffectObservation" => ["Confirmed","Partial","Contradicted"].contains(&status),
+        "Challenge" => ["Open","Resolved"].contains(&status),
+        "Correction" => status == "Corrected",
+        _ => false,
+    };
+    if !valid_status {
+        return Err(format!("{id}: status {status} is invalid for event kind {kind}"));
+    }
     if !["Public","Protected"].contains(&text(event,"visibility").unwrap_or("")) {
         return Err(format!("{id}: visibility invalid"));
     }
@@ -171,9 +192,20 @@ fn validate_fixture(fixture:&Value)->Result<(String,String),String>{
     let family=text(fixture,"family").ok_or_else(||"family missing".to_string())?.to_string();
     if !FAMILIES.contains(&family.as_str()){return Err(format!("{id}: unknown family {family}"));}
     if number(fixture,"cutoff_unix").is_none_or(|x|x==0)||number(fixture,"action_time_unix").is_none_or(|x|x==0){return Err(format!("{id}: cutoff/action time invalid"));}
+    if number(fixture,"action_time_unix").unwrap() < number(fixture,"cutoff_unix").unwrap() {
+        return Err(format!("{id}: action_time_unix cannot precede the decision cutoff"));
+    }
     for key in ["target_ref","principal_ref","decision_ref","attempt_ref"]{if text(fixture,key).is_none(){return Err(format!("{id}: {key} missing"));}}
     let events=fixture["events"].as_array().ok_or_else(||format!("{id}: events must be array"))?;
     if events.is_empty(){return Err(format!("{id}: events cannot be empty"));}
+    let decision_ref=text(fixture,"decision_ref").unwrap();
+    let attempt_ref=text(fixture,"attempt_ref").unwrap();
+    if events.iter().filter(|e|text(e,"kind")==Some("Decision")&&text(e,"event_id")==Some(decision_ref)).count()!=1 {
+        return Err(format!("{id}: decision_ref must resolve to exactly one Decision event"));
+    }
+    if events.iter().filter(|e|text(e,"kind")==Some("Attempt")&&text(e,"event_id")==Some(attempt_ref)).count()!=1 {
+        return Err(format!("{id}: attempt_ref must resolve to exactly one Attempt event"));
+    }
     let mut ids=BTreeSet::new();
     for event in events{
         let event_id=validate_event(event)?;
@@ -272,5 +304,7 @@ mod tests{
     #[test]fn protected_payload_leak_is_explicit(){let f=fixture("CIVT-PRIVACY-02");assert_eq!(f["expected"]["privacy_violation"],true);}
     #[test]fn duplicate_event_id_is_rejected(){let mut f=fixture("CIVT-HINDSIGHT-01");let e=f["events"][0].clone();f["events"].as_array_mut().unwrap().push(e);assert!(validate_fixture(&f).is_err());}
     #[test]fn expected_knowledge_set_tampering_is_rejected(){let mut f=fixture("CIVT-HINDSIGHT-01");f["expected"]["known_event_ids"]=serde_json::json!([]);assert!(validate_fixture(&f).is_err());}
+    #[test]fn missing_attempt_reference_is_invalid_trace(){let mut f=fixture("CIVT-OUTCOME-01");f["events"].as_array_mut().unwrap().retain(|e|text(e,"event_id")!=Some(text(&f,"attempt_ref").unwrap_or("")));assert!(validate_fixture(&f).is_err());}
+    #[test]fn event_status_must_match_its_kind(){let mut f=fixture("CIVT-OUTCOME-01");let idx=f["events"].as_array().unwrap().iter().position(|e|text(e,"kind")==Some("Attempt")).unwrap();f["events"][idx]["status"]=Value::String("Confirmed".into());assert!(validate_fixture(&f).is_err());}
     #[test]fn event_digest_must_be_lowercase_sha256(){let mut f=fixture("CIVT-HINDSIGHT-01");f["events"][0]["payload_sha256"]=Value::String("A".repeat(64));assert!(validate_fixture(&f).is_err());}
 }
