@@ -1,0 +1,370 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Mycelix Instrument Condition Applicability Corpus v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "corpus_id",
+    "profile_id",
+    "classification",
+    "claim_ceiling",
+    "cases"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "mycelix.instrument-condition-binding-corpus/0.1"
+    },
+    "corpus_id": {
+      "const": "BUILDING-INSTRUMENT-CONDITION-CORPUS-V0.1"
+    },
+    "profile_id": {
+      "const": "MYC-BUILD-CONDITIONS-V0.1"
+    },
+    "classification": {
+      "const": "synthetic_condition_applicability_cases"
+    },
+    "claim_ceiling": {
+      "const": "synthetic_condition_context_conformance_only"
+    },
+    "cases": {
+      "type": "array",
+      "minItems": 36,
+      "maxItems": 36,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "case_id",
+          "description",
+          "record",
+          "expected_disposition"
+        ],
+        "properties": {
+          "case_id": {
+            "type": "string",
+            "pattern": "^CAP-[0-9]{3}$"
+          },
+          "description": {
+            "type": "string",
+            "minLength": 20
+          },
+          "record": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "schema_version",
+              "record_id",
+              "condition_profile_id",
+              "profile_revision",
+              "profile_digest",
+              "instrument",
+              "target_sample",
+              "condition_observations",
+              "correction",
+              "profile_resolution",
+              "invalidation",
+              "test_only"
+            ],
+            "properties": {
+              "schema_version": {
+                "const": "mycelix.instrument-condition-binding-record/0.1"
+              },
+              "record_id": {
+                "type": "string"
+              },
+              "condition_profile_id": {
+                "type": "string"
+              },
+              "profile_revision": {
+                "type": "string"
+              },
+              "profile_digest": {
+                "type": "string"
+              },
+              "instrument": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "instrument_id",
+                  "channel_id",
+                  "channel_profile_id",
+                  "firmware_revision",
+                  "configuration_digest",
+                  "identity_state"
+                ],
+                "properties": {
+                  "instrument_id": {
+                    "type": "string"
+                  },
+                  "channel_id": {
+                    "type": "string"
+                  },
+                  "channel_profile_id": {
+                    "type": "string"
+                  },
+                  "firmware_revision": {
+                    "type": "string"
+                  },
+                  "configuration_digest": {
+                    "type": "string"
+                  },
+                  "identity_state": {
+                    "type": "string"
+                  }
+                }
+              },
+              "target_sample": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "observation_id",
+                  "source_digest",
+                  "observed_start_tick",
+                  "observed_end_tick",
+                  "tick_unit",
+                  "clock_domain_id",
+                  "clock_epoch_id",
+                  "location_context_id",
+                  "rights_state",
+                  "evidence_state"
+                ],
+                "properties": {
+                  "observation_id": {
+                    "type": "string"
+                  },
+                  "source_digest": {
+                    "type": "string"
+                  },
+                  "observed_start_tick": {
+                    "type": "integer"
+                  },
+                  "observed_end_tick": {
+                    "type": "integer"
+                  },
+                  "tick_unit": {
+                    "type": "string"
+                  },
+                  "clock_domain_id": {
+                    "type": "string"
+                  },
+                  "clock_epoch_id": {
+                    "type": "string"
+                  },
+                  "location_context_id": {
+                    "type": "string"
+                  },
+                  "rights_state": {
+                    "type": "string"
+                  },
+                  "evidence_state": {
+                    "type": "string"
+                  }
+                }
+              },
+              "condition_observations": {
+                "type": "array",
+                "minItems": 0,
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "condition_id",
+                    "source_observation_id",
+                    "source_digest",
+                    "value",
+                    "unit",
+                    "quantity_kind",
+                    "evidence_state",
+                    "source_state",
+                    "instrument_id",
+                    "calibration_record_id",
+                    "calibration_state",
+                    "expanded_uncertainty",
+                    "uncertainty_unit",
+                    "time_window",
+                    "location_context_id",
+                    "rights_state"
+                  ],
+                  "properties": {
+                    "condition_id": {
+                      "type": "string"
+                    },
+                    "source_observation_id": {
+                      "type": "string"
+                    },
+                    "source_digest": {
+                      "type": "string"
+                    },
+                    "value": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "unit": {
+                      "type": "string"
+                    },
+                    "quantity_kind": {
+                      "type": "string"
+                    },
+                    "evidence_state": {
+                      "type": "string"
+                    },
+                    "source_state": {
+                      "type": "string"
+                    },
+                    "instrument_id": {
+                      "type": "string"
+                    },
+                    "calibration_record_id": {
+                      "type": "string"
+                    },
+                    "calibration_state": {
+                      "type": "string"
+                    },
+                    "expanded_uncertainty": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "uncertainty_unit": {
+                      "type": "string"
+                    },
+                    "time_window": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "start_tick",
+                        "end_tick",
+                        "tick_unit",
+                        "clock_domain_id",
+                        "clock_epoch_id"
+                      ],
+                      "properties": {
+                        "start_tick": {
+                          "type": "integer"
+                        },
+                        "end_tick": {
+                          "type": "integer"
+                        },
+                        "tick_unit": {
+                          "type": "string"
+                        },
+                        "clock_domain_id": {
+                          "type": "string"
+                        },
+                        "clock_epoch_id": {
+                          "type": "string"
+                        }
+                      }
+                    },
+                    "location_context_id": {
+                      "type": "string"
+                    },
+                    "rights_state": {
+                      "type": "string"
+                    }
+                  }
+                }
+              },
+              "correction": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "state",
+                  "method_id",
+                  "method_revision",
+                  "artifact_digest",
+                  "parameters_digest",
+                  "application_count",
+                  "reason"
+                ],
+                "properties": {
+                  "state": {
+                    "type": "string"
+                  },
+                  "method_id": {
+                    "type": "string"
+                  },
+                  "method_revision": {
+                    "type": "string"
+                  },
+                  "artifact_digest": {
+                    "type": "string"
+                  },
+                  "parameters_digest": {
+                    "type": "string"
+                  },
+                  "application_count": {
+                    "type": "integer"
+                  },
+                  "reason": {
+                    "type": "string"
+                  }
+                }
+              },
+              "profile_resolution": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "state",
+                  "source_receipt_id",
+                  "resolved_profile_digest"
+                ],
+                "properties": {
+                  "state": {
+                    "type": "string"
+                  },
+                  "source_receipt_id": {
+                    "type": "string"
+                  },
+                  "resolved_profile_digest": {
+                    "type": "string"
+                  },
+                  "validity_state": {
+                    "type": "string"
+                  }
+                }
+              },
+              "invalidation": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "state",
+                  "receipt_id",
+                  "revision"
+                ],
+                "properties": {
+                  "state": {
+                    "type": "string"
+                  },
+                  "receipt_id": {
+                    "type": "string"
+                  },
+                  "revision": {
+                    "type": "string"
+                  }
+                }
+              },
+              "test_only": {
+                "type": "boolean"
+              }
+            }
+          },
+          "expected_disposition": {
+            "enum": [
+              "ELIGIBLE_FOR_INDEPENDENT_CONDITION_REVIEW_ONLY",
+              "MORE_EVIDENCE_REQUIRED",
+              "EXPIRED_OR_INVALIDATED",
+              "NOT_COMPARABLE",
+              "REJECTED_FOR_DECLARED_PURPOSE",
+              "REJECTED_CLAIM_PROMOTION"
+            ]
+          }
+        }
+      }
+    }
+  }
+}
