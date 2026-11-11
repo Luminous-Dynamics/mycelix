@@ -21,7 +21,7 @@ pub const CORPUS_JSON: &str =
 const PROFILE_ID: &str = "MYC-BUILD-METROLOGY-PROFILE-V0.1";
 const PASSPORT_VERSION: &str = "mycelix.building-instrument-passport/0.1";
 const CORPUS_ID: &str = "BUILDING-INSTRUMENT-PASSPORT-CORPUS-V0.1";
-const EXPECTED_CASE_COUNT: usize = 55;
+const EXPECTED_CASE_COUNT: usize = 59;
 
 const ROOT_FIELDS: &[&str] = &[
     "passport_schema_version",
@@ -287,6 +287,10 @@ const EXPECTED_CASES: &[(&str, &str)] = &[
     ("BIP-053", "NOT_COMPARABLE"),
     ("BIP-054", "MORE_EVIDENCE_REQUIRED"),
     ("BIP-055", "MORE_EVIDENCE_REQUIRED"),
+    ("BIP-056", "MORE_EVIDENCE_REQUIRED"),
+    ("BIP-057", "MORE_EVIDENCE_REQUIRED"),
+    ("BIP-058", "NOT_COMPARABLE"),
+    ("BIP-059", "EXPIRED_OR_INVALIDATED"),
 ];
 
 #[derive(Debug)]
@@ -512,6 +516,12 @@ pub fn classify_passport(record: &Value) -> &'static str {
     if instrument["serial_identity_reused"].as_bool() == Some(true) {
         return "REJECTED_FOR_DECLARED_PURPOSE";
     }
+    if matches!(text(instrument, "lifecycle_state"), "retired" | "replaced" | "moved") {
+        return "EXPIRED_OR_INVALIDATED";
+    }
+    if text(instrument, "lifecycle_state") != "installed" {
+        return "MORE_EVIDENCE_REQUIRED";
+    }
     if text(instrument, "identity_state") != "established" {
         return "MORE_EVIDENCE_REQUIRED";
     }
@@ -733,6 +743,12 @@ pub fn classify_passport(record: &Value) -> &'static str {
     let Some(calibration_maximum) = number(calibration, "range_maximum") else {
         return "MORE_EVIDENCE_REQUIRED";
     };
+    if calibration_minimum >= calibration_maximum
+        || calibration_minimum < range_minimum
+        || calibration_maximum > range_maximum
+    {
+        return "NOT_COMPARABLE";
+    }
     if calibration_minimum > sample_value
         || calibration_maximum < sample_value
         || sample_value < range_minimum
@@ -846,6 +862,24 @@ pub fn classify_passport(record: &Value) -> &'static str {
                 || text(component, "unit") != channel.unit
                 || !non_empty_text(component, "correlation_group")
                 || !non_empty_text(component, "source_record_id")
+        })
+    {
+        return "MORE_EVIDENCE_REQUIRED";
+    }
+    let calibration_component_count = components.iter().filter(|component| {
+        text(component, "component_kind") == "calibration"
+            && text(component, "source_record_id") == text(calibration, "record_id")
+    }).count();
+    let Some(calibration_uncertainty_value) = number(&calibration["uncertainty"], "value") else {
+        return "MORE_EVIDENCE_REQUIRED";
+    };
+    if calibration_component_count != 1
+        || components.iter().filter(|component| {
+            text(component, "component_kind") == "calibration"
+                && text(component, "source_record_id") == text(calibration, "record_id")
+        }).any(|component| {
+            text(component, "unit") != channel.unit
+                || number(component, "value") != Some(calibration_uncertainty_value)
         })
     {
         return "MORE_EVIDENCE_REQUIRED";
@@ -1227,10 +1261,16 @@ fn validate_schema_contracts(passport_schema: &Value, corpus_schema: &Value) -> 
         || corpus_schema["properties"]["cases"]["items"]["properties"]["record"]["$ref"]
             != "#/$defs/passport"
         || !schema_object_matches(&corpus_schema["$defs"]["passport"], ROOT_FIELDS)
-        || corpus_schema["$defs"]["passport"]["properties"]["independent_assay"]["$ref"]
-            != "#/$defs/independent_assay"
+        || corpus_schema["$defs"]["passport"].get("$id").is_some()
+        || corpus_schema["$defs"]["passport"].get("$schema").is_some()
+        || corpus_schema["$defs"]["passport"]["properties"]["independent_assay"]["$ref"] != "#/$defs/independent_assay"
         || corpus_schema["$defs"]["passport"]["properties"]["instrument"]["$ref"] != "#/$defs/instrument"
+        || corpus_schema["$defs"]["passport"]["properties"]["capability"]["$ref"] != "#/$defs/capability"
+        || corpus_schema["$defs"]["passport"]["properties"]["calibration"]["$ref"] != "#/$defs/calibration"
+        || corpus_schema["$defs"]["passport"]["properties"]["installation"]["$ref"] != "#/$defs/installation"
         || corpus_schema["$defs"]["passport"]["properties"]["sample"]["$ref"] != "#/$defs/sample"
+        || corpus_schema["$defs"]["passport"]["properties"]["uncertainty_budget"]["$ref"] != "#/$defs/uncertainty_budget"
+        || corpus_schema["$defs"]["passport"]["properties"]["purpose_profile"]["$ref"] != "#/$defs/purpose_profile"
         || corpus_schema["$defs"]["sample"]["properties"]["observed_at_date"].get("format").is_some()
         || !schema_object_matches(&corpus_schema["$defs"]["instrument"], INSTRUMENT_FIELDS)
         || !schema_object_matches(&corpus_schema["$defs"]["sample"], SAMPLE_FIELDS)
@@ -1649,6 +1689,43 @@ mod tests {
             classify_passport(&case("BIP-048")["record"]),
             "NOT_COMPARABLE"
         );
+    }
+
+    #[test]
+    fn calibration_uncertainty_must_be_present_in_the_exact_sample_budget() {
+        assert_eq!(
+            classify_passport(&case("BIP-056")["record"]),
+            "MORE_EVIDENCE_REQUIRED"
+        );
+        assert_eq!(
+            classify_passport(&case("BIP-057")["record"]),
+            "MORE_EVIDENCE_REQUIRED"
+        );
+    }
+
+    #[test]
+    fn calibration_range_must_fit_the_instrument_capability_envelope() {
+        assert_eq!(
+            classify_passport(&case("BIP-058")["record"]),
+            "NOT_COMPARABLE"
+        );
+    }
+
+    #[test]
+    fn retired_instrument_cannot_support_a_current_sample() {
+        assert_eq!(
+            classify_passport(&case("BIP-059")["record"]),
+            "EXPIRED_OR_INVALIDATED"
+        );
+    }
+
+    #[test]
+    fn embedded_passport_schema_cannot_shadow_the_corpus_reference_scope() {
+        let passport_schema = parse_unique_json(PASSPORT_SCHEMA_JSON).expect("passport schema");
+        let mut corpus_schema = parse_unique_json(CORPUS_SCHEMA_JSON).expect("corpus schema");
+        corpus_schema["$defs"]["passport"]["$id"] =
+            Value::String("https://example.invalid/passport.json".to_owned());
+        assert!(validate_schema_contracts(&passport_schema, &corpus_schema).is_err());
     }
 
     #[test]
