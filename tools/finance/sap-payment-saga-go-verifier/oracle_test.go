@@ -148,3 +148,97 @@ func TestOracleCanonicalDigestIsDeterministic(t *testing.T) {
 func rotateLeft64(value uint64, amount uint) uint64 {
 	return (value << amount) | (value >> (64 - amount))
 }
+func TestTreasuryCheckpointRequiresMatchingPaymentsCheckpoint(t *testing.T) {
+	trace := findTraceScenario(t, 1)
+	commands := make([]TraceCommandV1, 0, len(trace.Commands))
+	for _, command := range trace.Commands {
+		if command.Opcode != TraceCheckpointPayments {
+			commands = append(commands, command)
+		}
+	}
+	trace.Commands = commands
+	evaluation, err := (TraceOracleV1{}).Evaluate(trace)
+	if err != nil { t.Fatal(err) }
+	index := -1
+	for i, command := range trace.Commands {
+		if command.Opcode == TraceCheckpointTreasury { index = i; break }
+	}
+	if index < 0 { t.Fatal("Treasury checkpoint missing") }
+	if evaluation.Steps[index].Disposition != TraceRejected ||
+		evaluation.Steps[index].Reason != TraceReasonMissingDependency {
+		t.Fatalf("Treasury checkpoint = %v/%v, want rejected/missing dependency",
+			evaluation.Steps[index].Disposition, evaluation.Steps[index].Reason)
+	}
+}
+
+func TestUnexpectedFaultCannotAuthorizeTreasuryCommit(t *testing.T) {
+	trace := findTraceScenario(t, 1)
+	index := -1
+	for i := range trace.Commands {
+		if trace.Commands[i].Opcode == TraceCommitTreasury {
+			index = i
+			trace.Commands[i].Fault = TraceLookupUncertain
+			break
+		}
+	}
+	if index < 0 { t.Fatal("Treasury commit missing") }
+	evaluation, err := (TraceOracleV1{}).Evaluate(trace)
+	if err != nil { t.Fatal(err) }
+	if evaluation.Steps[index].Disposition != TraceRejected ||
+		evaluation.Steps[index].Reason != TraceReasonInvalidFault {
+		t.Fatalf("unexpected-fault commit = %v/%v",
+			evaluation.Steps[index].Disposition, evaluation.Steps[index].Reason)
+	}
+	if evaluation.TreasuryState != TreasuryDispatchAuthorized ||
+		evaluation.ActualTreasuryEffectCount != 0 ||
+		evaluation.UnresolvedTreasuryExposureMinor != evaluation.FeeMinor {
+		t.Fatalf("unexpected fault mutated Treasury state: %+v", evaluation)
+	}
+}
+
+func TestCompensationCannotReuseTreasuryEffectIdentity(t *testing.T) {
+	const seed = uint64(0x0123456789abcdef)
+	var trace TraceV1
+	found := false
+	for index := uint64(0); index < 100_000; index++ {
+		candidate := GenerateTraceV1(seed, index)
+		if candidate.Scenario != 8 { continue }
+		for _, command := range candidate.Commands {
+			if command.Opcode == TracePrepareTreasury && command.Value > 0 {
+				trace = candidate
+				found = true
+				break
+			}
+		}
+		if found { break }
+	}
+	if !found { t.Fatal("scenario eight with nonzero Treasury fee not found") }
+	var treasuryEffectID uint64
+	for _, command := range trace.Commands {
+		if command.Opcode == TracePrepareTreasury {
+			treasuryEffectID = command.Subject
+			break
+		}
+	}
+	compensationIndex := -1
+	for i := range trace.Commands {
+		if trace.Commands[i].Opcode == TraceCompensate {
+			compensationIndex = i
+			trace.Commands[i].Subject = treasuryEffectID
+			break
+		}
+	}
+	if compensationIndex < 0 { t.Fatal("compensation command missing") }
+	evaluation, err := (TraceOracleV1{}).Evaluate(trace)
+	if err != nil { t.Fatal(err) }
+	if evaluation.Steps[compensationIndex].Disposition != TraceRejected ||
+		evaluation.Steps[compensationIndex].Reason != TraceReasonCompensationIdentity {
+		t.Fatalf("reused Treasury identity compensation = %v/%v",
+			evaluation.Steps[compensationIndex].Disposition,
+			evaluation.Steps[compensationIndex].Reason)
+	}
+	if evaluation.CompensationCount != 0 || evaluation.ActualTreasuryEffectCount != 1 {
+		t.Fatalf("compensation mutation corrupted original effect: %+v", evaluation)
+	}
+}
+
