@@ -152,23 +152,29 @@ func TestCompensationSharedV2KnownAnswers(t *testing.T) {
 	book := newCompensationTestBookV2(t, 100, 100)
 	request := compensationTestRequestV2(book, "refund:kat-01", 60, "liquidity:kat-01", 100)
 	outcome := compensationTestOutcomeV2(t, book, request, CompensationFinalSettlementV2, "evidence:kat-settlement")
+	forwardDigest, err := book.Forward().CanonicalDigest()
+	if err != nil { t.Fatal(err) }
+	authorizationScopeDigest, err := request.Authorization.CanonicalScopeDigest()
+	if err != nil { t.Fatal(err) }
+	authorizationDigest, err := request.Authorization.CanonicalDigest()
+	if err != nil { t.Fatal(err) }
+	liquidityDigest, err := request.LiquidityReservation.CanonicalDigest()
+	if err != nil { t.Fatal(err) }
+	requestDigest, err := request.CanonicalDigest()
+	if err != nil { t.Fatal(err) }
+	outcomeDigest, err := outcome.CanonicalDigest()
+	if err != nil { t.Fatal(err) }
 	for name, actual := range map[string]string{
-		"forward": mustCompensationDigestV2(t, book.Forward().CanonicalDigest()),
+		"forward": forwardDigest,
 		"plan": book.PlanDigest(),
-		"authorization_scope": mustCompensationDigestV2(t, request.Authorization.CanonicalScopeDigest()),
-		"authorization": mustCompensationDigestV2(t, request.Authorization.CanonicalDigest()),
-		"liquidity": mustCompensationDigestV2(t, request.LiquidityReservation.CanonicalDigest()),
-		"request": mustCompensationDigestV2(t, request.CanonicalDigest()),
-		"outcome": mustCompensationDigestV2(t, outcome.CanonicalDigest()),
+		"authorization_scope": authorizationScopeDigest,
+		"authorization": authorizationDigest,
+		"liquidity": liquidityDigest,
+		"request": requestDigest,
+		"outcome": outcomeDigest,
 	} {
 		if values[name] != actual { t.Fatalf("%s digest = %s, want %s", name, actual, values[name]) }
 	}
-}
-
-func mustCompensationDigestV2(t *testing.T, value string, err error) string {
-	t.Helper()
-	if err != nil { t.Fatal(err) }
-	return value
 }
 
 func TestCompensationCapabilityIDCannotChangeScopeToResetLimitV2(t *testing.T) {
