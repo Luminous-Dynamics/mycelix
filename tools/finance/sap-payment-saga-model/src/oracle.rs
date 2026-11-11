@@ -201,7 +201,10 @@ fn trace_fault_allowed_v1(opcode: TraceOpcode, fault: TraceFault) -> bool {
         | O::CommitTreasury
         | O::Compensate => fault == F::None,
         O::MarkIndeterminate => {
-            matches!(fault, F::ResponseLostBeforeEffect | F::ResponseLostAfterEffect)
+            matches!(
+                fault,
+                F::ResponseLostBeforeEffect | F::ResponseLostAfterEffect
+            )
         }
         O::ReconcileTreasury => matches!(
             fault,
@@ -232,9 +235,9 @@ impl OracleState {
 
     fn process(&mut self, command: TraceCommandV1) -> (TraceDispositionV1, TraceReasonV1) {
         use TraceDispositionV1 as D;
-        use TraceReasonV1 as R;
         use TraceOpcode as O;
         use TraceOwner as A;
+        use TraceReasonV1 as R;
 
         let expected_owner = match command.opcode {
             O::CreateIntent | O::Authorize | O::Compensate => A::Sender,
@@ -305,10 +308,7 @@ impl OracleState {
         }
     }
 
-    fn create_intent(
-        &mut self,
-        command: TraceCommandV1,
-    ) -> (TraceDispositionV1, TraceReasonV1) {
+    fn create_intent(&mut self, command: TraceCommandV1) -> (TraceDispositionV1, TraceReasonV1) {
         use TraceDispositionV1 as D;
         use TraceReasonV1 as R;
         if command.subject != self.operation_nonce {
@@ -398,10 +398,7 @@ impl OracleState {
         (D::Applied, R::None)
     }
 
-    fn prepare_treasury(
-        &mut self,
-        command: TraceCommandV1,
-    ) -> (TraceDispositionV1, TraceReasonV1) {
+    fn prepare_treasury(&mut self, command: TraceCommandV1) -> (TraceDispositionV1, TraceReasonV1) {
         use TraceDispositionV1 as D;
         use TraceReasonV1 as R;
         if !self.local_committed {
@@ -528,9 +525,7 @@ impl OracleState {
             (TreasuryOracleStateV1::ObservedUnsettled, TraceFault::None) => {
                 (D::NoOp, R::AlreadyCommitted)
             }
-            (TreasuryOracleStateV1::Committed, TraceFault::None) => {
-                (D::NoOp, R::AlreadyCommitted)
-            }
+            (TreasuryOracleStateV1::Committed, TraceFault::None) => (D::NoOp, R::AlreadyCommitted),
             _ => (D::Rejected, R::InvalidTreasuryState),
         }
     }
@@ -560,10 +555,7 @@ impl OracleState {
         }
     }
 
-    fn commit_treasury(
-        &mut self,
-        command: TraceCommandV1,
-    ) -> (TraceDispositionV1, TraceReasonV1) {
+    fn commit_treasury(&mut self, command: TraceCommandV1) -> (TraceDispositionV1, TraceReasonV1) {
         use TraceDispositionV1 as D;
         use TraceReasonV1 as R;
         if !self.local_committed {
@@ -584,9 +576,7 @@ impl OracleState {
                 self.treasury_state = TreasuryOracleStateV1::Committed;
                 (D::Applied, R::None)
             }
-            TreasuryOracleStateV1::ObservedUnsettled
-                if self.actual_treasury_effect_count == 1 =>
-            {
+            TreasuryOracleStateV1::ObservedUnsettled if self.actual_treasury_effect_count == 1 => {
                 self.treasury_state = TreasuryOracleStateV1::Committed;
                 (D::Applied, R::None)
             }
@@ -700,10 +690,7 @@ impl OracleState {
         }
     }
 
-    fn compensate(
-        &mut self,
-        command: TraceCommandV1,
-    ) -> (TraceDispositionV1, TraceReasonV1) {
+    fn compensate(&mut self, command: TraceCommandV1) -> (TraceDispositionV1, TraceReasonV1) {
         use TraceDispositionV1 as D;
         use TraceReasonV1 as R;
         if !self.local_committed {
@@ -721,7 +708,9 @@ impl OracleState {
             return (D::Rejected, R::CompensationAmount);
         }
         match self.compensation {
-            Some((effect_id, amount)) if effect_id == command.subject && amount == command.value => {
+            Some((effect_id, amount))
+                if effect_id == command.subject && amount == command.value =>
+            {
                 (D::NoOp, R::AlreadyCommitted)
             }
             Some(_) => (D::Rejected, R::CompensationIdentity),
@@ -737,7 +726,9 @@ pub struct TraceOracleV1;
 
 impl TraceOracleV1 {
     pub fn evaluate(trace: &TraceV1) -> Result<TraceEvaluationV1, TraceOracleError> {
-        let encoded = trace.canonical_bytes().map_err(|_| TraceOracleError::InvalidTrace)?;
+        let encoded = trace
+            .canonical_bytes()
+            .map_err(|_| TraceOracleError::InvalidTrace)?;
         let trace_digest: [u8; 32] = Sha256::digest(encoded).into();
         let mut state = OracleState::new(trace.operation_nonce);
         let mut steps = Vec::with_capacity(trace.commands.len());
@@ -752,8 +743,16 @@ impl TraceOracleV1 {
             });
         }
 
-        let payer_debit_minor = if state.local_committed { state.total_minor } else { 0 };
-        let recipient_credit_minor = if state.local_committed { state.principal_minor } else { 0 };
+        let payer_debit_minor = if state.local_committed {
+            state.total_minor
+        } else {
+            0
+        };
+        let recipient_credit_minor = if state.local_committed {
+            state.principal_minor
+        } else {
+            0
+        };
         let treasury_credit_minor = if state.treasury_state == TreasuryOracleStateV1::Committed {
             state.fee_minor
         } else {
@@ -764,8 +763,7 @@ impl TraceOracleV1 {
         } else {
             0
         };
-        let compensation_source_debit_minor =
-            state.compensation.map_or(0, |(_, amount)| amount);
+        let compensation_source_debit_minor = state.compensation.map_or(0, |(_, amount)| amount);
         let compensation_recipient_credit_minor = compensation_source_debit_minor;
         let unresolved_treasury_exposure_minor = if matches!(
             state.treasury_state,
@@ -793,7 +791,11 @@ impl TraceOracleV1 {
         if state.actual_treasury_effect_count > 1 {
             invariant_failure_mask |= 1 << 1;
         }
-        if state.compensation.is_some() && state.compensation.is_some_and(|(id, _)| id == trace.operation_nonce) {
+        if state.compensation.is_some()
+            && state
+                .compensation
+                .is_some_and(|(id, _)| id == trace.operation_nonce)
+        {
             invariant_failure_mask |= 1 << 2;
         }
         if state.treasury_state == TreasuryOracleStateV1::Committed
@@ -837,9 +839,7 @@ mod tests {
 
     fn find_scenario(scenario: u8) -> TraceV1 {
         (0..100_000)
-            .map(|index| {
-                TraceGeneratorV1::generate(0x0123_4567_89ab_cdef, index)
-            })
+            .map(|index| TraceGeneratorV1::generate(0x0123_4567_89ab_cdef, index))
             .find(|trace| trace.scenario == scenario)
             .expect("scenario is reachable in the frozen trace generator")
     }
@@ -863,7 +863,11 @@ mod tests {
             let trace = TraceGeneratorV1::generate(seed, seed.rotate_left(13));
             scenarios_seen[usize::from(trace.scenario - 1)] = true;
             let evaluation = TraceOracleV1::evaluate(&trace).unwrap();
-            assert!(evaluation.is_safe(), "scenario={} seed={seed}", trace.scenario);
+            assert!(
+                evaluation.is_safe(),
+                "scenario={} seed={seed}",
+                trace.scenario
+            );
             assert!(evaluation.local_committed);
             assert_eq!(evaluation.conservation_delta_minor, 0);
             assert!(evaluation.actual_treasury_effect_count <= 1);
@@ -889,7 +893,11 @@ mod tests {
             assert_eq!(trace.scenario, scenario);
             assert_eq!(trace.commands.len(), command_count);
             let evaluation = TraceOracleV1::evaluate(&trace).unwrap();
-            assert!(evaluation.is_safe(), "seed={} scenario={scenario}", fields[0]);
+            assert!(
+                evaluation.is_safe(),
+                "seed={} scenario={scenario}",
+                fields[0]
+            );
             assert_eq!(evaluation.canonical_digest().unwrap(), expected_digest);
             vectors_seen += 1;
         }
@@ -908,8 +916,14 @@ mod tests {
             .iter()
             .position(|command| command.opcode == TraceOpcode::CheckpointTreasury)
             .expect("treasury checkpoint remains");
-        assert_eq!(evaluation.steps[index].disposition, TraceDispositionV1::Rejected);
-        assert_eq!(evaluation.steps[index].reason, TraceReasonV1::MissingDependency);
+        assert_eq!(
+            evaluation.steps[index].disposition,
+            TraceDispositionV1::Rejected
+        );
+        assert_eq!(
+            evaluation.steps[index].reason,
+            TraceReasonV1::MissingDependency
+        );
     }
 
     #[test]
@@ -927,11 +941,20 @@ mod tests {
             .iter()
             .position(|command| command.opcode == TraceOpcode::CommitTreasury)
             .unwrap();
-        assert_eq!(evaluation.steps[index].disposition, TraceDispositionV1::Rejected);
+        assert_eq!(
+            evaluation.steps[index].disposition,
+            TraceDispositionV1::Rejected
+        );
         assert_eq!(evaluation.steps[index].reason, TraceReasonV1::InvalidFault);
-        assert_eq!(evaluation.treasury_state, TreasuryOracleStateV1::DispatchAuthorized);
+        assert_eq!(
+            evaluation.treasury_state,
+            TreasuryOracleStateV1::DispatchAuthorized
+        );
         assert_eq!(evaluation.actual_treasury_effect_count, 0);
-        assert_eq!(evaluation.unresolved_treasury_exposure_minor, evaluation.fee_minor);
+        assert_eq!(
+            evaluation.unresolved_treasury_exposure_minor,
+            evaluation.fee_minor
+        );
     }
 
     #[test]
@@ -963,8 +986,14 @@ mod tests {
             .iter()
             .position(|command| command.opcode == TraceOpcode::Compensate)
             .unwrap();
-        assert_eq!(evaluation.steps[index].disposition, TraceDispositionV1::Rejected);
-        assert_eq!(evaluation.steps[index].reason, TraceReasonV1::CompensationIdentity);
+        assert_eq!(
+            evaluation.steps[index].disposition,
+            TraceDispositionV1::Rejected
+        );
+        assert_eq!(
+            evaluation.steps[index].reason,
+            TraceReasonV1::CompensationIdentity
+        );
         assert_eq!(evaluation.compensation_count, 0);
         assert_eq!(evaluation.actual_treasury_effect_count, 1);
     }
@@ -980,8 +1009,14 @@ mod tests {
     #[test]
     fn uncertain_lookup_never_becomes_commit_or_absence() {
         let evaluation = TraceOracleV1::evaluate(&find_scenario(4)).unwrap();
-        assert_eq!(evaluation.treasury_state, TreasuryOracleStateV1::Indeterminate);
-        assert_eq!(evaluation.unresolved_treasury_exposure_minor, evaluation.fee_minor);
+        assert_eq!(
+            evaluation.treasury_state,
+            TreasuryOracleStateV1::Indeterminate
+        );
+        assert_eq!(
+            evaluation.unresolved_treasury_exposure_minor,
+            evaluation.fee_minor
+        );
         assert_eq!(evaluation.actual_treasury_effect_count, 1);
     }
 
@@ -989,7 +1024,10 @@ mod tests {
     fn duplicate_delivery_never_increments_effect_count_twice() {
         let evaluation = TraceOracleV1::evaluate(&find_scenario(6)).unwrap();
         assert_eq!(evaluation.actual_treasury_effect_count, 1);
-        assert_eq!(evaluation.treasury_state, TreasuryOracleStateV1::Indeterminate);
+        assert_eq!(
+            evaluation.treasury_state,
+            TreasuryOracleStateV1::Indeterminate
+        );
         assert!(evaluation.steps.iter().any(|step| {
             step.disposition == TraceDispositionV1::Indeterminate
                 && step.reason == TraceReasonV1::DuplicateEffectSuppressed
@@ -1016,7 +1054,10 @@ mod tests {
         let mut wrong_owner = find_scenario(1);
         wrong_owner.commands[0].owner = TraceOwner::Adversary;
         let evaluation = TraceOracleV1::evaluate(&wrong_owner).unwrap();
-        assert_eq!(evaluation.steps[0].disposition, TraceDispositionV1::Rejected);
+        assert_eq!(
+            evaluation.steps[0].disposition,
+            TraceDispositionV1::Rejected
+        );
         assert_eq!(evaluation.steps[0].reason, TraceReasonV1::OwnerMismatch);
 
         let mut false_absence = find_scenario(3);
@@ -1033,7 +1074,13 @@ mod tests {
             .find(|step| step.reason == TraceReasonV1::AuthoritativeAbsenceContradiction)
             .expect("contradictory absence must be rejected");
         assert_eq!(step.disposition, TraceDispositionV1::Rejected);
-        assert_eq!(evaluation.treasury_state, TreasuryOracleStateV1::Indeterminate);
-        assert_eq!(evaluation.unresolved_treasury_exposure_minor, evaluation.fee_minor);
+        assert_eq!(
+            evaluation.treasury_state,
+            TreasuryOracleStateV1::Indeterminate
+        );
+        assert_eq!(
+            evaluation.unresolved_treasury_exposure_minor,
+            evaluation.fee_minor
+        );
     }
 }
