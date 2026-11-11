@@ -66,6 +66,7 @@ impl<'de> Visitor<'de> for UniqueVisitor {
 fn parse_unique(s:&str)->Result<Value,String>{let mut d=serde_json::Deserializer::from_str(s);let v=UniqueJson::deserialize(&mut d).map_err(|e|format!("STRICT_JSON_REJECTED:{e}"))?;d.end().map_err(|e|format!("JSON_TRAILING_DATA:{e}"))?;Ok(v.0)}
 fn text<'a>(v:&'a Value,k:&str)->&'a str{v.get(k).and_then(Value::as_str).unwrap_or("")}
 fn num(v:&Value,k:&str)->Option<i64>{v.get(k).and_then(Value::as_i64)}
+fn uint(v:&Value,k:&str)->Option<u64>{v.get(k).and_then(Value::as_u64)}
 fn flag(v:&Value,k:&str)->bool{v.get(k).and_then(Value::as_bool)==Some(true)}
 fn exact(v:&Value,fields:&[&str])->bool{let Some(o)=v.as_object()else{return false;};o.len()==fields.len()&&fields.iter().all(|k|o.contains_key(*k))}
 fn samples(v:&Value)->Vec<&Value>{v["samples"].as_array().map(|a|a.iter().collect()).unwrap_or_default()}
@@ -76,7 +77,7 @@ pub fn classify_record(r:&Value)->&'static str{
     let all=samples(r);
     if flag(s,"instrument_identity_reused"){return "INVALIDATED";}
     if s["sequence_width_bits"].is_null(){return "MORE_EVIDENCE_REQUIRED";}
-    let Some(width)=num(s,"sequence_width_bits")else{return "MORE_EVIDENCE_REQUIRED";};
+    let Some(width)=uint(s,"sequence_width_bits")else{return "MORE_EVIDENCE_REQUIRED";};
     if width<1||width>64{return "NOT_COMPARABLE";}
     if text(s,"clock_step_state")!="none"{return "INVALIDATED";}
     if flag(agg,"requested")&&(text(agg,"basis")!="event_time"||text(agg,"rate_basis")!="event_time"){return "REJECTED_TIME_BASIS_PROMOTION";}
@@ -98,8 +99,10 @@ pub fn classify_record(r:&Value)->&'static str{
         if text(x,"clock_domain_id")!=text(s,"clock_domain_id"){return "NOT_COMPARABLE";}
         if num(x,"synchronization_uncertainty_ns").zip(num(s,"maximum_sync_uncertainty_ns")).is_some_and(|(u,max)|u>max){return "REJECTED_FOR_PURPOSE";}
         if !matches!(text(x,"time_unit"),"ns"|"us"|"ms"|"s"){return "NOT_COMPARABLE";}
-        let (Some(seq),Some(event),Some(acq),Some(receipt))=(num(x,"sequence"),num(x,"event_tick"),num(x,"acquisition_tick"),num(x,"collector_receipt_tick"))else{return "NOT_COMPARABLE";};
-        if seq<0||event<0||acq<0||receipt<0{return "NOT_COMPARABLE";}
+        let (Some(seq),Some(event),Some(acq),Some(receipt))=(uint(x,"sequence"),num(x,"event_tick"),num(x,"acquisition_tick"),num(x,"collector_receipt_tick"))else{return "NOT_COMPARABLE";};
+        if event<0||acq<0||receipt<0{return "NOT_COMPARABLE";}
+        let sequence_max=if width==64{u64::MAX}else{(1u64<<width)-1};
+        if seq>sequence_max{return "NOT_COMPARABLE";}
         if acq<event&&text(x,"latency_explanation_id").is_empty(){return "NOT_COMPARABLE";}
         if receipt<acq{return "NOT_COMPARABLE";}
         if num(x,"precision_loss_ns").zip(num(s,"maximum_precision_loss_ns")).is_some_and(|(loss,max)|loss>max){return "NOT_COMPARABLE";}
@@ -109,17 +112,17 @@ pub fn classify_record(r:&Value)->&'static str{
             if x["utc_offset_minutes"].is_null(){return "MORE_EVIDENCE_REQUIRED";}
         }
         if let Some(previous)=unique.iter().find(|p|text(p,"sample_id")==text(x,"sample_id")){
-            if text(previous,"payload_digest")!=text(x,"payload_digest")||num(previous,"sequence")!=Some(seq)||text(previous,"instrument_id")!=text(x,"instrument_id"){return "CONFLICT_REJECTED";}
+            if text(previous,"payload_digest")!=text(x,"payload_digest")||uint(previous,"sequence")!=Some(seq)||text(previous,"instrument_id")!=text(x,"instrument_id"){return "CONFLICT_REJECTED";}
             continue;
         }
-        let key_conflict=unique.iter().find(|p|text(p,"boot_epoch_id")==text(x,"boot_epoch_id")&&num(p,"sequence")==Some(seq));
+        let key_conflict=unique.iter().find(|p|text(p,"boot_epoch_id")==text(x,"boot_epoch_id")&&uint(p,"sequence")==Some(seq));
         if let Some(previous)=key_conflict{
             if text(previous,"sample_id")==text(x,"sample_id")&&text(previous,"payload_digest")==text(x,"payload_digest"){continue;}
             return "CONFLICT_REJECTED";
         }
         unique.push(x);
     }
-    if unique.is_empty()||num(s,"expected_sample_count")!=Some(unique.len() as i64){return "GAP_INDETERMINATE";}
+    if unique.is_empty()||uint(s,"expected_sample_count")!=Some(unique.len() as u64){return "GAP_INDETERMINATE";}
     if text(map,"state")=="verified"{
         let min_tick=unique.iter().filter_map(|x|num(x,"event_tick")).min().unwrap_or(i64::MAX);
         let max_tick=unique.iter().filter_map(|x|num(x,"event_tick")).max().unwrap_or(i64::MIN);
@@ -149,9 +152,9 @@ pub fn classify_record(r:&Value)->&'static str{
         let mut group:Vec<&Value>=unique.iter().copied().filter(|x|text(x,"boot_epoch_id")==epoch).collect();
         group.sort_by_key(|x|num(x,"event_tick").unwrap_or(i64::MAX));
         for pair in group.windows(2){
-            let prev=num(pair[0],"sequence").unwrap_or(-1);let next=num(pair[1],"sequence").unwrap_or(-1);
-            if next==prev+1{continue;}
-            let max=if width==64{i64::MAX}else{(1i64<<width)-1};
+            let prev=uint(pair[0],"sequence").unwrap_or(u64::MAX);let next=uint(pair[1],"sequence").unwrap_or(u64::MAX);
+            if next==prev.saturating_add(1){continue;}
+            let max=if width==64{u64::MAX}else{(1u64<<width)-1};
             if next==0&&prev==max&&text(s,"wrap_policy")=="declared_modulo"{continue;}
             if next<prev{return "INVALIDATED";}
             return "GAP_INDETERMINATE";
@@ -159,8 +162,8 @@ pub fn classify_record(r:&Value)->&'static str{
     }
     if epochs.len()==1{
         let mut ordered=unique.clone();ordered.sort_by_key(|x|num(x,"event_tick").unwrap_or(i64::MAX));
-        if !s["expected_sequence_start"].is_null()&&num(&ordered[0],"sequence")!=num(s,"expected_sequence_start"){return "GAP_INDETERMINATE";}
-        if !s["expected_sequence_end"].is_null()&&num(ordered[ordered.len()-1],"sequence")!=num(s,"expected_sequence_end"){return "GAP_INDETERMINATE";}
+        if !s["expected_sequence_start"].is_null()&&uint(&ordered[0],"sequence")!=uint(s,"expected_sequence_start"){return "GAP_INDETERMINATE";}
+        if !s["expected_sequence_end"].is_null()&&uint(ordered[ordered.len()-1],"sequence")!=uint(s,"expected_sequence_end"){return "GAP_INDETERMINATE";}
     }
     match text(inv,"change_scope"){
         "other_stream"=>{
@@ -184,11 +187,17 @@ pub fn validate_corpus(c:&Value)->Result<usize,String>{
     let cases=c["cases"].as_array().ok_or("CASES_MISSING")?;
     if cases.len()!=CASES.len(){return Err("CASE_COUNT_INVALID".into());}
     for(case,(id,expected))in cases.iter().zip(CASES){
+        let record=&case["record"];
+        let sample_array=record["samples"].as_array();
+        let transition_array=record["epoch_transitions"].as_array();
         if !exact(case,&["case_id","description","record","expected_disposition"])
             ||text(case,"case_id")!=*id||text(case,"expected_disposition")!=*expected
-            ||!exact(&case["record"],ROOT_FIELDS)||!exact(&case["record"]["stream"],STREAM_FIELDS)
-            ||!exact(&case["record"]["samples"][0],SAMPLE_FIELDS)
-            ||case["record"]["samples"].as_array().is_none_or(Vec::is_empty)
+            ||!exact(record,ROOT_FIELDS)||!exact(&record["stream"],STREAM_FIELDS)
+            ||sample_array.is_none_or(|a|a.is_empty()||a.iter().any(|x|!exact(x,SAMPLE_FIELDS)))
+            ||transition_array.is_none_or(|a|a.iter().any(|x|!exact(x,TRANSITION_FIELDS)))
+            ||!exact(&record["clock_mapping"],MAPPING_FIELDS)
+            ||!exact(&record["aggregation"],AGGREGATION_FIELDS)
+            ||!exact(&record["invalidation"],INVALIDATION_FIELDS)
         {return Err(format!("CASE_SHAPE_OR_PIN_INVALID:{id}"));}
         let actual=classify_record(&case["record"]);
         if actual!=*expected{return Err(format!("{id}:EXPECTED_{expected}:GOT_{actual}"));}
@@ -197,9 +206,15 @@ pub fn validate_corpus(c:&Value)->Result<usize,String>{
 }
 pub fn validate_tracked()->Result<usize,String>{
     let profile=parse_unique(PROFILE_JSON)?;let schema=parse_unique(SCHEMA_JSON)?;let corpus=parse_unique(CORPUS_JSON)?;
-    if text(&profile,"profile_id")!=PROFILE_ID||schema["type"]!="object"||schema["additionalProperties"]!=false
+    if text(&profile,"profile_id")!=PROFILE_ID
+        ||text(&profile,"classification")!="synthetic_stream_identity_and_timebase_contract"
+        ||text(&profile,"claim_ceiling")!="synthetic_stream_ordering_and_replay_conformance_only"
+        ||schema["type"]!="object"||schema["additionalProperties"]!=false
         ||schema["properties"]["cases"]["minItems"]!=40||schema["properties"]["cases"]["maxItems"]!=40
+        ||schema["properties"]["cases"]["items"]["$ref"]!="#/$defs/case"
         ||schema["$defs"]["record"]["additionalProperties"]!=false
+        ||schema["$defs"]["record"]["properties"]["samples"]["items"]["$ref"]!="#/$defs/sample"
+        ||schema["$defs"]["sample"]["additionalProperties"]!=false
     {return Err("SCHEMA_PROFILE_CONTRACT_INVALID".into());}
     validate_corpus(&corpus)
 }
