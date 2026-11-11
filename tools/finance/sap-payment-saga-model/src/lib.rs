@@ -12,6 +12,7 @@
 //! predecessor authorization, monetary conservation in production, or legal
 //!/external settlement finality.
 
+pub mod replay;
 pub mod trace;
 pub mod oracle;
 
