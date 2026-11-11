@@ -286,7 +286,7 @@ A digest without resolvable parent observations is not reconstructability. A sou
 
 ### What the new v0.1 slice tests—and deliberately does not test
 
-Draft Mycelix PR #6066 adds a strict derivation-graph record, method contracts for mean-radiant temperature and useful thermal energy, a deterministic synthetic arithmetic-mean test method, and 36 adversarial cases. Only the synthetic method is executable. The two physical method contracts remain blocked because the frozen v0.1 channel profile does not yet admit every required input:
+Draft Mycelix PR #6067 adds a strict derivation-graph record, method contracts for mean-radiant temperature and useful thermal energy, a deterministic synthetic arithmetic-mean test method, and 36 adversarial cases. Only the synthetic method is executable. The two physical method contracts remain blocked because the frozen v0.1 channel profile does not yet admit every required input:
 - MRT requires six exact, aligned plane-radiant-temperature input graphs and a declared projected-area/posture profile. Plane-radiant temperature is not a v0.1 admitted channel.
 - Useful thermal energy requires a metered volume/mass-flow series, supply/return water-temperature series, fluid identity and a versioned fluid-property/enthalpy model. Water temperature remains a proposed v0.2 channel, not admitted.
 
