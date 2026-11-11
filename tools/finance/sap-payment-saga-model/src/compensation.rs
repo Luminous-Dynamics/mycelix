@@ -186,6 +186,7 @@ impl CompensationAuthorizationV2 {
         plan: &CompensationPlanV2,
         plan_digest: &str,
         amount_minor: u64,
+        actor_owner_id: &str,
         now_unix_ms: u64,
     ) -> Result<(), CompensationErrorV2> {
         for value in [
@@ -223,6 +224,42 @@ impl CompensationAuthorizationV2 {
             return Err(CompensationErrorV2::AuthorizationScopeMismatch);
         }
         Ok(())
+    }
+
+    pub fn canonical_scope_digest(&self) -> Result<String, CompensationErrorV2> {
+        for value in [
+            &self.capability_id,
+            &self.issuer_owner_id,
+            &self.grantee_owner_id,
+            &self.plan_digest,
+            &self.funding_owner_id,
+            &self.funding_account_id,
+            &self.beneficiary_owner_id,
+            &self.beneficiary_account_id,
+            &self.asset,
+        ] {
+            validate_text(value)?;
+        }
+        validate_digest(&self.plan_digest)?;
+        let mut bytes = Vec::new();
+        bytes.extend_from_slice(AUTH_DOMAIN);
+        for value in [
+            &self.capability_id,
+            &self.issuer_owner_id,
+            &self.grantee_owner_id,
+            &self.plan_digest,
+            &self.funding_owner_id,
+            &self.funding_account_id,
+            &self.beneficiary_owner_id,
+            &self.beneficiary_account_id,
+            &self.asset,
+        ] {
+            append_text(&mut bytes, value)?;
+        }
+        append_u64(&mut bytes, self.maximum_minor);
+        append_u64(&mut bytes, self.nonce);
+        append_u64(&mut bytes, self.expires_at_unix_ms);
+        Ok(sha256_hex(&bytes))
     }
 
     pub fn canonical_digest(&self) -> Result<String, CompensationErrorV2> {
@@ -324,6 +361,7 @@ impl LiquidityReservationV2 {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct CompensationRequestV2 {
     pub compensation_id: String,
+    pub actor_owner_id: String,
     pub amount_minor: u64,
     pub authorization: CompensationAuthorizationV2,
     pub liquidity_reservation: LiquidityReservationV2,
@@ -337,6 +375,7 @@ impl CompensationRequestV2 {
         let mut bytes = Vec::new();
         bytes.extend_from_slice(REQUEST_DOMAIN);
         append_text(&mut bytes, &self.compensation_id)?;
+        append_text(&mut bytes, &self.actor_owner_id)?;
         append_u64(&mut bytes, self.amount_minor);
         append_text(&mut bytes, &auth_digest)?;
         append_text(&mut bytes, &reservation_digest)?;
@@ -382,6 +421,8 @@ pub struct CompensationOutcomeV2 {
     pub forward_effect_digest: String,
     pub plan_digest: String,
     pub amount_minor: u64,
+    pub authorization_digest: String,
+    pub liquidity_reservation_digest: String,
     pub funding_owner_id: String,
     pub funding_account_id: String,
     pub beneficiary_owner_id: String,
@@ -407,6 +448,8 @@ impl CompensationOutcomeV2 {
         }
         validate_digest(&self.forward_effect_digest)?;
         validate_digest(&self.plan_digest)?;
+        validate_digest(&self.authorization_digest)?;
+        validate_digest(&self.liquidity_reservation_digest)?;
         if self.amount_minor == 0 {
             return Err(CompensationErrorV2::InvalidOutcome);
         }
@@ -419,6 +462,8 @@ impl CompensationOutcomeV2 {
             &self.forward_effect_id,
             &self.forward_effect_digest,
             &self.plan_digest,
+            &self.authorization_digest,
+            &self.liquidity_reservation_digest,
             &self.funding_owner_id,
             &self.funding_account_id,
             &self.beneficiary_owner_id,
@@ -452,7 +497,9 @@ pub enum CompensationErrorV2 {
     AuthorizationRevoked,
     AuthorizationExpired,
     AuthorizationScopeMismatch,
+    AuthorizationLimitExceeded,
     LiquidityReservationMismatch,
+    LiquidityReservationConflict,
     InsufficientLiquidity,
     InsufficientReversibleCeiling,
     CompensationConflict,
@@ -520,21 +567,65 @@ impl CompensationBookV2 {
         }
         let request_digest = request.canonical_digest()?;
         validate_text(&request.compensation_id)?;
-        request.authorization.validate(
-            &self.plan,
-            &self.plan_digest,
-            request.amount_minor,
-            now_unix_ms,
-        )?;
-        request
-            .liquidity_reservation
-            .validate(&self.plan, request.amount_minor)?;
+        validate_text(&request.actor_owner_id)?;
         if let Some(existing) = self.records.get(&request.compensation_id) {
             return if existing.request_digest == request_digest {
                 Ok(CompensationDispositionV2::AlreadyExists)
             } else {
                 Err(CompensationErrorV2::CompensationConflict)
             };
+        }
+        request.authorization.validate(
+            &self.plan,
+            &self.plan_digest,
+            request.amount_minor,
+            &request.actor_owner_id,
+            now_unix_ms,
+        )?;
+        request
+            .liquidity_reservation
+            .validate(&self.plan, request.amount_minor)?;
+        if self.records.values().any(|record| {
+            record.request.liquidity_reservation.reservation_id
+                == request.liquidity_reservation.reservation_id
+        }) {
+            return Err(CompensationErrorV2::LiquidityReservationConflict);
+        }
+
+        // One capability can authorize multiple partial components, but its
+        // total settled plus encumbered use cannot exceed maximum_minor.
+        let capability_digest = request.authorization.canonical_scope_digest()?;
+        let capability_used = self.records.values().try_fold(
+            0_u64,
+            |total, record| {
+                let same_capability = record
+                    .request
+                    .authorization
+                    .canonical_scope_digest()
+                    .is_ok_and(|digest| digest == capability_digest);
+                if !same_capability {
+                    return Ok(total);
+                }
+                let amount = record.request.amount_minor;
+                let counted = match record.status {
+                    CompensationStatusV2::Settled
+                    | CompensationStatusV2::Reserved
+                    | CompensationStatusV2::DispatchAuthorized
+                    | CompensationStatusV2::Indeterminate
+                    | CompensationStatusV2::AuthoritativelyAbsent
+                    | CompensationStatusV2::ObservedUnsettled => amount,
+                    CompensationStatusV2::Cancelled => 0,
+                };
+                total
+                    .checked_add(counted)
+                    .ok_or(CompensationErrorV2::AmountOverflow)
+            },
+        )?;
+        let projected_capability_use = capability_used
+            .checked_add(request.amount_minor)
+            .ok_or(CompensationErrorV2::AmountOverflow)?;
+        if projected_capability_use > request.authorization.maximum_minor {
+            return Err(CompensationErrorV2::AuthorizationLimitExceeded);
         }
 
         let (settled, encumbered) = self.totals()?;
@@ -574,14 +665,15 @@ impl CompensationBookV2 {
             .records
             .get_mut(compensation_id)
             .ok_or(CompensationErrorV2::CompensationNotFound)?;
-        let stored_digest = record.request.authorization.canonical_digest()?;
-        if current_authorization.canonical_digest()? != stored_digest {
+        let stored_digest = record.request.authorization.canonical_scope_digest()?;
+        if current_authorization.canonical_scope_digest()? != stored_digest {
             return Err(CompensationErrorV2::AuthorizationScopeMismatch);
         }
         current_authorization.validate(
             &self.plan,
             &self.plan_digest,
             record.request.amount_minor,
+            &record.request.actor_owner_id,
             now_unix_ms,
         )?;
         match record.status {
@@ -667,14 +759,15 @@ impl CompensationBookV2 {
         if record.status != CompensationStatusV2::AuthoritativelyAbsent {
             return Err(CompensationErrorV2::InvalidTransition);
         }
-        let stored_digest = record.request.authorization.canonical_digest()?;
-        if current_authorization.canonical_digest()? != stored_digest {
+        let stored_digest = record.request.authorization.canonical_scope_digest()?;
+        if current_authorization.canonical_scope_digest()? != stored_digest {
             return Err(CompensationErrorV2::AuthorizationScopeMismatch);
         }
         current_authorization.validate(
             &self.plan,
             &self.plan_digest,
             record.request.amount_minor,
+            &record.request.actor_owner_id,
             now_unix_ms,
         )?;
         record.status = CompensationStatusV2::Reserved;
@@ -809,6 +902,9 @@ impl CompensationBookV2 {
             .ok_or(CompensationErrorV2::CompensationNotFound)?;
         let expected_effect_id = format!("mx-compensation:{}", outcome.compensation_id);
         if outcome.kind != expected_kind
+            || outcome.authorization_digest != record.request.authorization.canonical_digest()?
+            || outcome.liquidity_reservation_digest
+                != record.request.liquidity_reservation.canonical_digest()?
             || outcome.compensation_effect_id != expected_effect_id
             || outcome.forward_effect_id != self.forward.effect_id
             || outcome.forward_effect_digest != self.forward.canonical_digest()?
