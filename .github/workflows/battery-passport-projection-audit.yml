@@ -4,7 +4,7 @@ on:
   pull_request:
     paths:
       - "docs/mobility/BATTERY_PASSPORT_PROJECTION_V0_1.md"
-      - "registries/eu_battery_passport_guidance_v3_2_selected_points.json"
+      - "registries/eu_battery_passport_guidance_v3_2_complete_71_points.json"
       - "schemas/mobility/**"
       - "fixtures/mobility/battery_passport_projection_*_v0_1.json"
       - "tools/battery-passport-projection-audit/**"
@@ -35,7 +35,7 @@ jobs:
       - name: Audit EV public projection
         run: |
           cargo run --manifest-path tools/battery-passport-projection-audit/Cargo.toml -- \
-            --registry registries/eu_battery_passport_guidance_v3_2_selected_points.json \
+            --registry registries/eu_battery_passport_guidance_v3_2_complete_71_points.json \
             --registry-schema schemas/mobility/eu_battery_passport_guidance_registry_v0_1.schema.json \
             --projection-schema schemas/mobility/battery_passport_projection_v0_1.schema.json \
             --projection fixtures/mobility/battery_passport_projection_ev_public_v0_1.json \
@@ -46,7 +46,7 @@ jobs:
       - name: Audit LMT legitimate-interest projection
         run: |
           cargo run --manifest-path tools/battery-passport-projection-audit/Cargo.toml -- \
-            --registry registries/eu_battery_passport_guidance_v3_2_selected_points.json \
+            --registry registries/eu_battery_passport_guidance_v3_2_complete_71_points.json \
             --registry-schema schemas/mobility/eu_battery_passport_guidance_registry_v0_1.schema.json \
             --projection-schema schemas/mobility/battery_passport_projection_v0_1.schema.json \
             --projection fixtures/mobility/battery_passport_projection_lmt_legitimate_interest_v0_1.json \
@@ -57,7 +57,7 @@ jobs:
       - name: Audit stationary BESS projection
         run: |
           cargo run --manifest-path tools/battery-passport-projection-audit/Cargo.toml -- \
-            --registry registries/eu_battery_passport_guidance_v3_2_selected_points.json \
+            --registry registries/eu_battery_passport_guidance_v3_2_complete_71_points.json \
             --registry-schema schemas/mobility/eu_battery_passport_guidance_registry_v0_1.schema.json \
             --projection-schema schemas/mobility/battery_passport_projection_v0_1.schema.json \
             --projection fixtures/mobility/battery_passport_projection_industrial_stationary_bess_v0_1.json \
