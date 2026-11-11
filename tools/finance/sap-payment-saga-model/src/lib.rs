@@ -13,6 +13,7 @@
 //!/external settlement finality.
 
 pub mod oracle;
+pub mod shrinker;
 pub mod replay;
 pub mod trace;
 
