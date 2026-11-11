@@ -1,0 +1,10 @@
+# MXSAP compensation profile V2 shared independent known answers.
+# Fixed deterministic fixture: settled forward 100 minor units, reversible ceiling 100;
+# grant ceiling 100; one compensation request for 60; explicit refund-treasury -> merchant.
+forward=sha256:8f604060c1d9eb729475c1d99b60327015cd1b35b9e04daa8afad396b4e13c7c
+plan=sha256:19c8548fcffd64edd587cf31844c2bbff1e54ba33fb11345aab9db1b10e0888a
+authorization_scope=sha256:ee5f4aa344c2aa8f847839305105f5886994930bbed610a195f298df67469654
+authorization=sha256:3acd2b660356bb12919a67b3bf901cfa1f7c4fc55bbe53bd690a147146bcfa28
+liquidity=sha256:cd006ca1708c3f2452df7ed096cfe203b6054f0ac7f4fff44564635a203dde11
+request=sha256:059b61747a9f9d6080bb5820810967c98d2bb7ba9966d5068fd709119fd07f09
+outcome=sha256:5bb64d4a967611bc7e0971dc04234d2160c6d130e4e291769e05829f7c1266a2
