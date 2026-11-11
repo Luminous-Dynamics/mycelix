@@ -24,14 +24,18 @@
           "ordinal": 0,
           "channel_id": "synthetic_scalar",
           "measurand_id": "synthetic.scalar",
-          "unit": "1"
+          "unit": "1",
+          "firmware_revision": "FW-1",
+          "source_revision": "1"
         },
         {
           "role": "sample",
           "ordinal": 1,
           "channel_id": "synthetic_scalar",
           "measurand_id": "synthetic.scalar",
-          "unit": "1"
+          "unit": "1",
+          "firmware_revision": "FW-1",
+          "source_revision": "1"
         }
       ],
       "admission_note": "Exercises deterministic graph resolution and recomputation only. Not a physical measurand or a building channel."
