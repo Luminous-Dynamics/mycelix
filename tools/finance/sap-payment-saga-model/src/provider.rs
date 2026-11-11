@@ -753,7 +753,7 @@ mod tests {
         let contract = adyen_contract();
         assert_eq!(
             contract.canonical_digest().unwrap(),
-            "sha256:557f7aabbe442e7c3d2998b34a8578e0feb2d38db081454dcfc55195256922d1"
+            "sha256:098d8e001c102c80bb1c6fefc9251e9a002c26cde0268d2a8e96f18d1e830822"
         );
     }
 
@@ -764,7 +764,7 @@ mod tests {
         key.validate(&contract).unwrap();
         assert_eq!(
             key.canonical_digest().unwrap(),
-            "sha256:5a7e398353bf1f999062818ca32c34336df724191ec30da798f36f69737843e3"
+            "sha256:d5730c0a62d63505fdfca8d7b7e2770dfa34d548808da7cf67ef0afb4b703dc5"
         );
     }
 
