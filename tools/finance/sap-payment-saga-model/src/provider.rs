@@ -662,3 +662,305 @@ fn sha256_hex(bytes: &[u8]) -> String {
     }
     output
 }
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const NOW: u64 = 100_000_000;
+
+    fn digest(ch: char) -> String {
+        format!("sha256:{}", ch.to_string().repeat(64))
+    }
+
+    fn adyen_contract() -> ProviderContractV1 {
+        ProviderContractV1::adyen_documentation_baseline_v1("company:test-account")
+    }
+
+    fn operation_key(contract: &ProviderContractV1) -> ProviderOperationKeyV1 {
+        ProviderOperationKeyV1 {
+            provider_id: contract.provider_id.clone(),
+            profile_id: contract.profile_id.clone(),
+            api_version: contract.api_version.clone(),
+            account_scope: contract.account_scope.clone(),
+            region: "eu".into(),
+            idempotency_key: "idem-00000000-0000-4000-8000-000000000001".into(),
+            request_digest: digest('a'),
+            created_at_unix_ms: 1_000,
+            contract_digest: contract.canonical_digest().unwrap(),
+        }
+    }
+
+    fn observation(key: &ProviderOperationKeyV1) -> ProviderObservationV1 {
+        ProviderObservationV1 {
+            provider_id: key.provider_id.clone(),
+            profile_id: key.profile_id.clone(),
+            api_version: key.api_version.clone(),
+            account_scope: key.account_scope.clone(),
+            region: key.region.clone(),
+            idempotency_key: key.idempotency_key.clone(),
+            request_digest: key.request_digest.clone(),
+            status: ProviderStatusV1::Accepted,
+            provider_object_id: "psp:123".into(),
+            event_id: "event:456".into(),
+            observed_at_unix_ms: 2_000,
+            evidence_reference: "provider-event:456".into(),
+            evidence_digest: digest('b'),
+        }
+    }
+
+    fn absence_evidence(key: &ProviderOperationKeyV1) -> ProviderAbsenceEvidenceV1 {
+        ProviderAbsenceEvidenceV1 {
+            provider_id: key.provider_id.clone(),
+            profile_id: key.profile_id.clone(),
+            api_version: key.api_version.clone(),
+            account_scope: key.account_scope.clone(),
+            region: key.region.clone(),
+            idempotency_key: key.idempotency_key.clone(),
+            request_digest: key.request_digest.clone(),
+            lookup_reference: "lookup:123".into(),
+            complete_through_unix_ms: 3_000,
+            observed_at_unix_ms: 4_000,
+            evidence_digest: digest('c'),
+        }
+    }
+
+    #[test]
+    fn provider_contract_v1_shared_known_answer() {
+        let contract = adyen_contract();
+        assert_eq!(
+            contract.canonical_digest().unwrap(),
+            "sha256:557f7aabbe442e7c3d2998b34a8578e0feb2d38db081454dcfc55195256922d1"
+        );
+    }
+
+    #[test]
+    fn provider_operation_key_v1_shared_known_answer() {
+        let contract = adyen_contract();
+        let key = operation_key(&contract);
+        key.validate(&contract).unwrap();
+        assert_eq!(
+            key.canonical_digest().unwrap(),
+            "sha256:5a7e398353bf1f999062818ca32c34336df724191ec30da798f36f69737843e3"
+        );
+    }
+
+    #[test]
+    fn provider_observation_v1_shared_known_answer() {
+        let contract = adyen_contract();
+        let key = operation_key(&contract);
+        let observed = observation(&key);
+        observed.validate_against_key(&contract, &key, NOW).unwrap();
+        assert_eq!(
+            observed.canonical_digest().unwrap(),
+            "sha256:a559853b68900442d966c46981abf17823c25e4587b7c3815280d9f68062cdfe"
+        );
+    }
+
+    #[test]
+    fn provider_absence_subject_v1_shared_known_answer() {
+        let contract = adyen_contract();
+        let key = operation_key(&contract);
+        assert_eq!(
+            absence_evidence(&key).canonical_digest().unwrap(),
+            "sha256:a3c2dbee60d654fcaff3191dfed77b2573fe3cd9ae5b3ad3efe8a793e99f919c"
+        );
+        assert_eq!(
+            absence_evidence(&key).validate_as_authoritative_absence(&contract, &key, NOW),
+            Err(ProviderObservationErrorV1::AbsenceNotSupported)
+        );
+    }
+
+    #[test]
+    fn adyen_documentation_baseline_never_authorizes_live_dispatch() {
+        let contract = adyen_contract();
+        assert_eq!(
+            contract.require_live_dispatch(),
+            Err(ProviderRetryErrorV1::ProfileNotQualified)
+        );
+    }
+
+    #[test]
+    fn adyen_retry_is_bound_to_same_account_region_digest_and_guaranteed_retention() {
+        let contract = adyen_contract();
+        let key = operation_key(&contract);
+        assert_eq!(
+            key.retry_same_request(
+                &contract,
+                "company:test-account",
+                "eu",
+                &key.request_digest,
+                ProviderAttemptClassV1::TransportTimeoutUnknown,
+                key.created_at_unix_ms + 1,
+            ),
+            Ok(())
+        );
+        assert_eq!(
+            key.retry_same_request(
+                &contract,
+                "company:test-account",
+                "eu",
+                &key.request_digest,
+                ProviderAttemptClassV1::InProgressWithTransientSignal,
+                key.created_at_unix_ms + 1,
+            ),
+            Ok(())
+        );
+        assert_eq!(
+            key.retry_same_request(
+                &contract,
+                "company:test-account",
+                "eu",
+                &key.request_digest,
+                ProviderAttemptClassV1::InProgressWithoutTransientSignal,
+                key.created_at_unix_ms + 1,
+            ),
+            Err(ProviderRetryErrorV1::InProgressNotRetryable)
+        );
+        assert_eq!(
+            key.retry_same_request(
+                &contract,
+                "company:test-account",
+                "us",
+                &key.request_digest,
+                ProviderAttemptClassV1::TransportTimeoutUnknown,
+                key.created_at_unix_ms + 1,
+            ),
+            Err(ProviderRetryErrorV1::RegionMismatch)
+        );
+        assert_eq!(
+            key.retry_same_request(
+                &contract,
+                "company:other-account",
+                "eu",
+                &key.request_digest,
+                ProviderAttemptClassV1::TransportTimeoutUnknown,
+                key.created_at_unix_ms + 1,
+            ),
+            Err(ProviderRetryErrorV1::ProviderScopeMismatch)
+        );
+        assert_eq!(
+            key.retry_same_request(
+                &contract,
+                "company:test-account",
+                "eu",
+                &digest('d'),
+                ProviderAttemptClassV1::TransportTimeoutUnknown,
+                key.created_at_unix_ms + 1,
+            ),
+            Err(ProviderRetryErrorV1::ChangedRequestDigest)
+        );
+        assert_eq!(
+            key.retry_same_request(
+                &contract,
+                "company:test-account",
+                "eu",
+                &key.request_digest,
+                ProviderAttemptClassV1::TransportTimeoutUnknown,
+                key.created_at_unix_ms + 7 * DAY_MS,
+            ),
+            Err(ProviderRetryErrorV1::RetentionGuaranteeElapsed)
+        );
+    }
+
+    #[test]
+    fn idempotency_key_length_uses_characters_not_utf8_bytes() {
+        let mut contract = adyen_contract();
+        contract.maximum_key_characters = 2;
+        let mut key = operation_key(&contract);
+        key.idempotency_key = "éé".into();
+        key.contract_digest = contract.canonical_digest().unwrap();
+        assert!(key.validate(&contract).is_ok());
+        key.idempotency_key = "ééé".into();
+        assert_eq!(
+            key.validate(&contract),
+            Err(ProviderRetryErrorV1::InvalidOperationKey)
+        );
+    }
+
+    #[test]
+    fn authoritative_absence_requires_complete_lookup_contract_and_horizon() {
+        let mut contract = adyen_contract();
+        contract.profile_id = "test-provider-complete-lookup-v1".into();
+        contract.absence_policy = ProviderAbsencePolicyV1::CompleteLookupAfterHorizon;
+        contract.absence_visibility_horizon_ms = 2_000;
+        let key = operation_key(&contract);
+        let mut evidence = absence_evidence(&key);
+        evidence.complete_through_unix_ms = 2_999;
+        assert_eq!(
+            evidence.validate_as_authoritative_absence(&contract, &key, NOW),
+            Err(ProviderObservationErrorV1::AbsenceHorizonNotElapsed)
+        );
+        evidence.complete_through_unix_ms = 3_000;
+        assert_eq!(
+            evidence.validate_as_authoritative_absence(&contract, &key, NOW),
+            Ok(())
+        );
+        evidence.region = "us".into();
+        assert_eq!(
+            evidence.validate_as_authoritative_absence(&contract, &key, NOW),
+            Err(ProviderObservationErrorV1::ScopeMismatch)
+        );
+    }
+
+    #[test]
+    fn ordinary_observation_cannot_smuggle_authoritative_absence() {
+        let contract = adyen_contract();
+        let key = operation_key(&contract);
+        let mut observed = observation(&key);
+        observed.status = ProviderStatusV1::AuthoritativelyAbsent;
+        assert_eq!(
+            observed.validate_against_key(&contract, &key, NOW),
+            Err(ProviderObservationErrorV1::AbsenceNotSupported)
+        );
+        assert_eq!(
+            observed.canonical_digest(),
+            Err(ProviderObservationErrorV1::InvalidSubject)
+        );
+    }
+
+    #[test]
+    fn provider_status_replay_requires_same_observation_digest() {
+        assert_eq!(
+            validate_provider_transition_v1(
+                ProviderStatusV1::InProgress,
+                ProviderStatusV1::InProgress,
+                true,
+            ),
+            Ok(())
+        );
+        assert_eq!(
+            validate_provider_transition_v1(
+                ProviderStatusV1::InProgress,
+                ProviderStatusV1::InProgress,
+                false,
+            ),
+            Err(ProviderObservationErrorV1::InvalidTransition)
+        );
+        assert_eq!(
+            validate_provider_transition_v1(
+                ProviderStatusV1::Settled,
+                ProviderStatusV1::InProgress,
+                false,
+            ),
+            Err(ProviderObservationErrorV1::InvalidTransition)
+        );
+        assert_eq!(
+            validate_provider_transition_v1(
+                ProviderStatusV1::Rejected,
+                ProviderStatusV1::Settled,
+                false,
+            ),
+            Err(ProviderObservationErrorV1::TerminalContradiction)
+        );
+    }
+
+    #[test]
+    fn provider_contract_digest_changes_when_retry_semantics_change() {
+        let mut contract = adyen_contract();
+        let before = contract.canonical_digest().unwrap();
+        contract.region_scope = ProviderRegionScopeV1::Global;
+        assert_ne!(before, contract.canonical_digest().unwrap());
+    }
+}
