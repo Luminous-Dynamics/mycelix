@@ -20,6 +20,22 @@ func findTraceScenario(t *testing.T, scenario uint8) TraceV1 {
 	return TraceV1{}
 }
 
+func findTraceScenarioWithNonzeroFee(t *testing.T, scenario uint8) TraceV1 {
+	t.Helper()
+	const seed = uint64(0x0123456789abcdef)
+	for index := uint64(0); index < 100_000; index++ {
+		trace := GenerateTraceV1(seed, index)
+		if trace.Scenario != scenario { continue }
+		for _, command := range trace.Commands {
+			if command.Opcode == TracePrepareTreasury && command.Value > 0 {
+				return trace
+			}
+		}
+	}
+	t.Fatalf("could not find nonzero-fee scenario %d", scenario)
+	return TraceV1{}
+}
+
 func TestOracleV1MatchesSharedIndependentKnownAnswers(t *testing.T) {
 	raw, err := os.ReadFile("../sap-payment-saga-model/fixtures/saga-oracle-v1.kat")
 	if err != nil {
@@ -149,7 +165,7 @@ func rotateLeft64(value uint64, amount uint) uint64 {
 	return (value << amount) | (value >> (64 - amount))
 }
 func TestTreasuryCheckpointRequiresMatchingPaymentsCheckpoint(t *testing.T) {
-	trace := findTraceScenario(t, 1)
+	trace := findTraceScenarioWithNonzeroFee(t, 1)
 	commands := make([]TraceCommandV1, 0, len(trace.Commands))
 	for _, command := range trace.Commands {
 		if command.Opcode != TraceCheckpointPayments {
