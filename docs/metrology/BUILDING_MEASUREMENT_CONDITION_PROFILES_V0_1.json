@@ -13,7 +13,7 @@
       "measurand_id": "habitat.air_temperature",
       "firmware_revision": "FW-SYNTH-1",
       "instrument_configuration_digest": "fixture-config-v1",
-      "profile_evidence_state": "independently_characterized",
+      "profile_evidence_state": "synthetic_reference_only",
       "valid_from_date": "2026-01-01",
       "valid_to_date": "2027-12-31",
       "variables": [
@@ -74,7 +74,7 @@
       "measurand_id": "habitat.pm25_mass_concentration",
       "firmware_revision": "FW-SYNTH-1",
       "instrument_configuration_digest": "fixture-config-v1",
-      "profile_evidence_state": "independently_characterized",
+      "profile_evidence_state": "synthetic_reference_only",
       "valid_from_date": "2026-01-01",
       "valid_to_date": "2027-12-31",
       "variables": [
@@ -150,7 +150,7 @@
       "measurand_id": "habitat.co2_concentration",
       "firmware_revision": "FW-SYNTH-1",
       "instrument_configuration_digest": "fixture-config-v1",
-      "profile_evidence_state": "independently_characterized",
+      "profile_evidence_state": "synthetic_reference_only",
       "valid_from_date": "2026-01-01",
       "valid_to_date": "2027-12-31",
       "variables": [
@@ -224,7 +224,7 @@
       "measurand_id": "habitat.water_volume_flow",
       "firmware_revision": "FW-SYNTH-1",
       "instrument_configuration_digest": "fixture-config-v1",
-      "profile_evidence_state": "independently_characterized",
+      "profile_evidence_state": "synthetic_reference_only",
       "valid_from_date": "2026-01-01",
       "valid_to_date": "2027-12-31",
       "variables": [
@@ -324,7 +324,7 @@
       "measurand_id": "habitat.electrical_power",
       "firmware_revision": "FW-SYNTH-1",
       "instrument_configuration_digest": "fixture-config-v1",
-      "profile_evidence_state": "independently_characterized",
+      "profile_evidence_state": "synthetic_reference_only",
       "valid_from_date": "2026-01-01",
       "valid_to_date": "2027-12-31",
       "variables": [
@@ -411,7 +411,7 @@
       "measurand_id": "habitat.air_speed",
       "firmware_revision": "FW-SYNTH-1",
       "instrument_configuration_digest": "fixture-config-v1",
-      "profile_evidence_state": "independently_characterized",
+      "profile_evidence_state": "synthetic_reference_only",
       "valid_from_date": "2026-01-01",
       "valid_to_date": "2027-12-31",
       "variables": [
