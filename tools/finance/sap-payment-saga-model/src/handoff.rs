@@ -923,6 +923,26 @@ mod tests {
     }
 
     #[test]
+    fn unaccepted_grant_can_be_revoked_and_closed_without_spending_child_budget() {
+        let (mut parent, mut child) = make_parent_and_child();
+        assert_eq!(parent.allocated_budget_minor(), Ok(700));
+        parent
+            .request_revocation("grant:one", revoke_action_hash())
+            .unwrap();
+        let (_, observed) = child
+            .observe_revocation(&revoke_action_hash(), observe_revoke_hash())
+            .unwrap();
+        parent.observe_revocation(observed).unwrap();
+        let (_, closure) = child.close(child_frontier(), close_action_hash()).unwrap();
+        assert_eq!(closure.child_accept_action_hash, None);
+        assert_eq!(
+            parent.release_grant(closure),
+            Ok(HandoffDisposition::Released)
+        );
+        assert_eq!(parent.allocated_budget_minor(), Ok(0));
+    }
+
+    #[test]
     fn lost_acceptance_ack_keeps_parent_escrow_and_outbox_retries_same_identity() {
         let (mut parent, mut child) = make_parent_and_child();
         let pending = parent.pending_deliveries();
