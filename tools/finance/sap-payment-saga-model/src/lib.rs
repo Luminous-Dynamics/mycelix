@@ -1243,7 +1243,7 @@ mod tests {
 
     #[test]
     fn local_transaction_rejects_non_completed_payment_and_missing_outbox_intent() {
-        let mut journal = ready_local_payment();
+        let journal = ready_local_payment();
 
         let mut pending_payment = local_payment_evidence(&journal, "pending-payment", 6);
         if let EffectEvidenceKind::LocalPaymentTransaction { payment_status, .. } =
@@ -1466,7 +1466,7 @@ mod tests {
 
     #[test]
     fn changed_evidence_for_same_treasury_effect_conflicts() {
-        let journal = ready_local_payment();
+        let mut journal = ready_local_payment();
         let fee_id = journal.effect_id(PaymentLeg::TreasuryFee);
         journal
             .prepare_leg(PaymentLeg::TreasuryFee, &fee_id)
