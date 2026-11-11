@@ -611,6 +611,9 @@ func (b *CompensationBookV2) Settle(outcome CompensationOutcomeV2) (Compensation
 	default:
 		return 0, ErrCompensationInvalidTransitionV2
 	}
+	if b.encumberedMinor < record.Request.AmountMinor {
+		return 0, ErrCompensationAmountOverflowV2
+	}
 	nextEncumbered := b.encumberedMinor - record.Request.AmountMinor
 	nextSettled, err := checkedCompensationAddV2(b.settledMinor, record.Request.AmountMinor)
 	if err != nil { return 0, err }
