@@ -16,6 +16,7 @@ pub mod delegated;
 pub mod exposure;
 pub mod trace;
 pub mod trace_eval;
+pub mod trace_shrink;
 
 use std::collections::{BTreeMap, btree_map::Entry};
 use std::fmt;
