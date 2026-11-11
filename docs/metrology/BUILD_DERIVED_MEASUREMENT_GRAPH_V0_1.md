@@ -1,6 +1,6 @@
 # Derived building measurement graph v0.1
 
-This first slice implements exact source-graph identity, input ordering, dependency resolution, stale-parent blocking and deterministic execution of a deliberately synthetic arithmetic-mean test method.
+This first slice provides a 40-case adversarial corpus and implements exact source-graph identity, input ordering, dependency resolution, stale-parent blocking and deterministic execution of a deliberately synthetic arithmetic-mean test method.
 
 ## Physical method profiles are defined but blocked
 
@@ -11,7 +11,7 @@ Method reference: [ISO 7726:2025](https://www.iso.org/standard/78238.html), Edit
 
 ## What the executable test proves
 
-The synthetic method takes two scalar parent observations (`2` and `4`) and computes their arithmetic mean (`3`). The oracle requires exact sample IDs/digests, channel/unit identity, calibration/installation/firmware, stream clock domain/epoch, sequence, rights, method/runtime/configuration digests, ordered input list, time window, uncertainty-model reference and invalidation receipt. This is a graph-resolution and deterministic test-method conformance result only.
+The synthetic method takes two scalar parent observations (`2` and `4`) and computes their arithmetic mean (`3`). The oracle requires exact sample IDs/digests, channel/unit identity, calibration/installation/firmware, stream clock domain/epoch and tick-unit equality, sequence, rights, method/runtime/configuration digests, ordered input list, time window, uncertainty-model reference and invalidation receipt. This is a graph-resolution and deterministic test-method conformance result only.
 
 ## What it does not prove
 
