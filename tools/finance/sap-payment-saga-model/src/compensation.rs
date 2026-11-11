@@ -1160,13 +1160,14 @@ mod tests {
             book.mark_dispatch_authorized("refund:1", "owner:refund-operator", &first.authorization, NOW),
             Ok(CompensationDispositionV2::Applied)
         );
+        let settlement = outcome(
+            &book,
+            &first,
+            CompensationOutcomeKindV2::FinalSettlement,
+            "evidence:refund-1-settled",
+        );
         assert_eq!(
-            book.settle(outcome(
-                &book,
-                &first,
-                CompensationOutcomeKindV2::FinalSettlement,
-                "evidence:refund-1-settled",
-            )),
+            book.settle(settlement),
             Ok(CompensationDispositionV2::Settled)
         );
         assert_eq!(book.settled_minor(), Ok(60));
@@ -1192,34 +1193,37 @@ mod tests {
         book.mark_indeterminate("refund:uncertain", 1).unwrap();
 
         assert_eq!(book.encumbered_minor(), Ok(35));
+        let contradictory_absence = outcome(
+            &book,
+            &request,
+            CompensationOutcomeKindV2::AuthoritativeAbsence,
+            "evidence:absence-contradictory",
+        );
         assert_eq!(
-            book.resolve_authoritative_absence(outcome(
-                &book,
-                &request,
-                CompensationOutcomeKindV2::AuthoritativeAbsence,
-                "evidence:absence-contradictory",
-            )),
+            book.resolve_authoritative_absence(contradictory_absence),
             Err(CompensationErrorV2::OutcomeContradiction)
         );
         assert_eq!(book.encumbered_minor(), Ok(35));
 
+        let observed = outcome(
+            &book,
+            &request,
+            CompensationOutcomeKindV2::ObservedUnsettled,
+            "evidence:refund-observed",
+        );
         assert_eq!(
-            book.observe_unsettled(outcome(
-                &book,
-                &request,
-                CompensationOutcomeKindV2::ObservedUnsettled,
-                "evidence:refund-observed",
-            )),
+            book.observe_unsettled(observed),
             Ok(CompensationDispositionV2::Applied)
         );
         assert_eq!(book.encumbered_minor(), Ok(35));
+        let settlement = outcome(
+            &book,
+            &request,
+            CompensationOutcomeKindV2::FinalSettlement,
+            "evidence:refund-settled",
+        );
         assert_eq!(
-            book.settle(outcome(
-                &book,
-                &request,
-                CompensationOutcomeKindV2::FinalSettlement,
-                "evidence:refund-settled",
-            )),
+            book.settle(settlement),
             Ok(CompensationDispositionV2::Settled)
         );
         assert_eq!(book.encumbered_minor(), Ok(0));
@@ -1234,13 +1238,13 @@ mod tests {
         book.mark_dispatch_authorized("refund:retry", "owner:refund-operator", &request.authorization, NOW)
             .unwrap();
         book.mark_indeterminate("refund:retry", 0).unwrap();
-        book.resolve_authoritative_absence(outcome(
+        let absence = outcome(
             &book,
             &request,
             CompensationOutcomeKindV2::AuthoritativeAbsence,
             "evidence:refund-absent",
-        ))
-        .unwrap();
+        );
+        book.resolve_authoritative_absence(absence).unwrap();
         assert_eq!(
             book.retry_same_effect("refund:retry", "owner:refund-operator", &request.authorization, NOW),
             Ok(CompensationDispositionV2::Applied)
