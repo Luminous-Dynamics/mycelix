@@ -1,0 +1,41 @@
+name: Building DCC Evidence Synthetic Oracle
+
+on:
+  push:
+    paths:
+      - "docs/metrology/BUILDING_DCC_EVIDENCE_*"
+      - "tools/build-dcc-evidence/**"
+      - ".github/workflows/build-dcc-evidence.yml"
+  pull_request:
+    paths:
+      - "docs/metrology/BUILDING_DCC_EVIDENCE_*"
+      - "tools/build-dcc-evidence/**"
+      - ".github/workflows/build-dcc-evidence.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: building-dcc-evidence-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  normalized-evidence-contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install stable Rust and rustfmt
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - name: Fetch locked dependencies
+        run: cargo fetch --locked --manifest-path tools/build-dcc-evidence/Cargo.toml
+      - name: Check formatting
+        run: cargo fmt --manifest-path tools/build-dcc-evidence/Cargo.toml --all -- --check
+      - name: Run locked offline mutation tests
+        run: cargo test --locked --offline --manifest-path tools/build-dcc-evidence/Cargo.toml
+      - name: Run strict Clippy
+        run: cargo clippy --locked --offline --manifest-path tools/build-dcc-evidence/Cargo.toml --all-targets -- -D warnings
+      - name: Validate tracked DCC evidence corpus
+        run: cargo run --locked --offline --manifest-path tools/build-dcc-evidence/Cargo.toml
