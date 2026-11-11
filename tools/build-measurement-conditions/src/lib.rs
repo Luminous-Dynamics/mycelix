@@ -1263,7 +1263,7 @@ mod tests {
 
     #[test]
     fn unknown_fields_are_rejected_by_the_closed_schema() {
-        let mut schema = parse_unique_json(CORPUS_SCHEMA_JSON).expect("schema");
+        let schema = parse_unique_json(CORPUS_SCHEMA_JSON).expect("schema");
         let mut corpus = parse_unique_json(CORPUS_JSON).expect("corpus");
         corpus["cases"][0]["record"]["surprise"] = Value::Bool(true);
         let mut errors = Vec::new();
