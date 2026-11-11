@@ -47,13 +47,13 @@ const SELECTION_FIELDS: &[&str] = &[
 ];
 const CONDITIONS_FIELDS: &[&str] = &["conditions_profile_id","conditions_digest","applicability_state"];
 const UNCERTAINTY_FIELDS: &[&str] = &["model_id","revision","digest","state"];
-const SOURCE_RESOLUTION_FIELDS: &[&str] = &["state","resolved_input_count","source_graph_digest"];
+const SOURCE_RESOLUTION_FIELDS: &[&str] = &["state","resolved_input_count","source_graph_digest","resolved_parent_derivation_ids","resolved_parent_graph_digests"];
 const INVALIDATION_FIELDS: &[&str] = &["state","receipt_id","graph_revision"];
 const INPUT_FIELDS: &[&str] = &[
     "ordinal","role","observation_id","source_digest","source_revision","source_alias","instrument_id",
     "channel_id","channel_profile_id","measurand_id","unit","value","evidence_state","calibration_record_id",
     "calibration_state","installation_record_id","installation_state","firmware_revision","stream_id",
-    "clock_domain_id","clock_epoch_id","timebase_profile_id","event_time_tick","sequence","rights_state",
+    "clock_domain_id","clock_epoch_id","timebase_profile_id","tick_unit","event_time_tick","sequence","rights_state",
     "parent_derivation_id","parent_graph_digest",
 ];
 const EXPECTED_CASES: &[(&str,&str)] = &[
@@ -93,6 +93,10 @@ const EXPECTED_CASES: &[(&str,&str)] = &[
     ("DMG-034","EXPIRED_OR_INVALIDATED"),
     ("DMG-035","MORE_EVIDENCE_REQUIRED"),
     ("DMG-036","REJECTED_CLAIM_PROMOTION"),
+    ("DMG-037","NOT_COMPARABLE"),
+    ("DMG-038","NOT_COMPARABLE"),
+    ("DMG-039","MORE_EVIDENCE_REQUIRED"),
+    ("DMG-040","MORE_EVIDENCE_REQUIRED"),
 ];
 
 #[derive(Debug)]
@@ -365,7 +369,9 @@ pub fn classify_record(record: &Value, profile: &Value) -> &'static str {
             return "NOT_COMPARABLE";
         }
         common_tick = tick;
-        if tick.zip(window_start).zip(window_end).is_none_or(|((tick, start), end)| tick < start || tick > end) {
+        if tick.zip(window_start).zip(window_end).is_none_or(|((tick, start), end)| tick < start || tick > end)
+            || text(input,"tick_unit")!=text(window,"tick_unit")
+        {
             return "NOT_COMPARABLE";
         }
         if text(input, "parent_derivation_id") == text(record, "derivation_id") {
@@ -379,9 +385,29 @@ pub fn classify_record(record: &Value, profile: &Value) -> &'static str {
         let Some(value) = finite_number(input, "value") else { return "MORE_EVIDENCE_REQUIRED"; };
         values.push(value);
     }
+    if let Some((clock_domain,clock_epoch))=common_clock {
+        if clock_domain!=text(window,"clock_domain_id")||clock_epoch!=text(window,"clock_epoch_id") {
+            return "NOT_COMPARABLE";
+        }
+    }
     if values.len() != 2 || text(&record["method"], "expression_kind") != "arithmetic_mean" {
         return "NOT_COMPARABLE";
     }
+    let parent_ids=record["source_resolution"]["resolved_parent_derivation_ids"].as_array();
+    let parent_digests=record["source_resolution"]["resolved_parent_graph_digests"].as_array();
+    let (Some(parent_ids),Some(parent_digests))=(parent_ids,parent_digests) else {return "MORE_EVIDENCE_REQUIRED";};
+    let mut expected_parent_ids=Vec::new();
+    let mut expected_parent_digests=Vec::new();
+    for input in inputs {
+        if text(input,"parent_derivation_id")!="NOT_APPLICABLE" {
+            expected_parent_ids.push(text(input,"parent_derivation_id"));
+            expected_parent_digests.push(text(input,"parent_graph_digest"));
+        }
+    }
+    if parent_ids.len()!=expected_parent_ids.len()||parent_digests.len()!=expected_parent_digests.len()
+        ||parent_ids.iter().zip(&expected_parent_ids).any(|(actual,expected)|actual.as_str()!=Some(*expected))
+        ||parent_digests.iter().zip(&expected_parent_digests).any(|(actual,expected)|actual.as_str()!=Some(*expected)||!is_sha256(expected))
+    {return "MORE_EVIDENCE_REQUIRED";}
     let recomputed = values.iter().sum::<f64>() / values.len() as f64;
     let Some(declared) = finite_number(&record["output"], "value") else { return "MORE_EVIDENCE_REQUIRED"; };
     if !approximately_equal(recomputed, declared) {
@@ -563,6 +589,8 @@ fn validate_corpus_schema(schema: &Value, corpus: &Value) -> Result<(), String> 
         || schema["$defs"]["record"]["properties"]["inputs"]["minItems"] != 0
         || schema["$defs"]["record"]["properties"]["inputs"]["items"]["$ref"] != "#/$defs/input"
         || schema["$defs"]["input"]["additionalProperties"] != false
+        || schema["$defs"]["input"]["properties"]["tick_unit"]["type"] != "string"
+        || schema["$defs"]["record"]["properties"]["source_resolution"]["properties"]["resolved_parent_graph_digests"]["type"] != "array"
     {
         return Err("DERIVED_CORPUS_SCHEMA_INVALID".into());
     }
@@ -590,8 +618,8 @@ mod tests {
     use super::*;
 
     #[test]
-    fn tracked_profile_and_all_36_known_answers_validate() {
-        assert_eq!(validate_tracked().unwrap(), 36);
+    fn tracked_profile_and_all_40_known_answers_validate() {
+        assert_eq!(validate_tracked().unwrap(), 40);
     }
     #[test]
     fn duplicate_json_members_are_rejected() {
@@ -639,6 +667,17 @@ mod tests {
         let profile = parse_unique(PROFILE_JSON).unwrap();
         let corpus = parse_unique(CORPUS_JSON).unwrap();
         assert_eq!(classify_record(&corpus["cases"][23]["record"], &profile), "NOT_COMPARABLE");
+    }
+
+    #[test]
+    fn output_clock_epoch_must_match_parent_stream_epoch() {
+        let profile=parse_unique(PROFILE_JSON).unwrap();let corpus=parse_unique(CORPUS_JSON).unwrap();
+        assert_eq!(classify_record(&corpus["cases"][36]["record"],&profile),"NOT_COMPARABLE");
+    }
+    #[test]
+    fn nested_parent_graphs_must_appear_in_the_resolution_receipt() {
+        let profile=parse_unique(PROFILE_JSON).unwrap();let corpus=parse_unique(CORPUS_JSON).unwrap();
+        assert_eq!(classify_record(&corpus["cases"][38]["record"],&profile),"MORE_EVIDENCE_REQUIRED");
     }
     #[test]
     fn changed_input_values_cannot_hide_behind_a_stale_output() {
