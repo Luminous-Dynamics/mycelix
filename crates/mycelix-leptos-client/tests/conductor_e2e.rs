@@ -23,6 +23,18 @@ fn admin_addr() -> String {
     std::env::var("ADMIN_ADDR").unwrap_or_else(|_| "localhost:33743".to_string())
 }
 
+fn require_conductor_e2e() -> bool {
+    std::env::var("REQUIRE_CONDUCTOR_E2E")
+        .map(|value| value == "1" || value.eq_ignore_ascii_case("true"))
+        .unwrap_or(false)
+}
+
+fn require_app_e2e() -> bool {
+    std::env::var("REQUIRE_APP_INTERFACE_E2E")
+        .map(|value| value == "1" || value.eq_ignore_ascii_case("true"))
+        .unwrap_or(false)
+}
+
 /// Connect to admin using official holochain_client and list apps.
 #[tokio::test]
 #[ignore]
@@ -34,6 +46,9 @@ async fn admin_list_apps() {
 
     let admin = match AdminWebsocket::connect(addr).await {
         Ok(a) => a,
+        Err(e) if require_conductor_e2e() => {
+            panic!("required conductor admin connection failed: {e:?}")
+        }
         Err(e) => {
             eprintln!("SKIP: {e:?}");
             return;
@@ -48,7 +63,10 @@ async fn admin_list_apps() {
                 eprintln!("  {} ({:?})", app.installed_app_id, app.status);
             }
         }
-        Err(e) => eprintln!("list_apps: {e:?}"),
+        Err(e) if require_conductor_e2e() => {
+            panic!("required conductor admin probe failed: {e:?}")
+        }
+        Err(e) => eprintln!("SKIP: list_apps failed: {e:?}"),
     }
 }
 
@@ -59,7 +77,7 @@ async fn app_connect_and_info() {
     use holochain_client::{AppWebsocket, ClientAgentSigner};
     use std::sync::Arc;
 
-    let url = "localhost:8888".to_string();
+    let url = app_url();
     let token: Vec<u8> = std::env::var("MYCELIX_APP_TOKEN")
         .unwrap_or_default()
         .into_bytes();
@@ -78,9 +96,18 @@ async fn app_connect_and_info() {
                         eprintln!("  Role: {role} ({} cells)", cells.len());
                     }
                 }
-                Ok(None) => eprintln!("app_info: None"),
-                Err(e) => eprintln!("app_info: {e:?}"),
+                Ok(None) if require_app_e2e() => {
+                    panic!("required app interface probe returned no app info")
+                }
+                Ok(None) => eprintln!("SKIP: app_info returned None"),
+                Err(e) if require_app_e2e() => {
+                    panic!("required app interface probe failed: {e:?}")
+                }
+                Err(e) => eprintln!("SKIP: app_info failed: {e:?}"),
             }
+        }
+        Err(e) if require_app_e2e() => {
+            panic!("required app interface connection failed: {e:?}")
         }
         Err(e) => eprintln!("SKIP: {e:?}"),
     }
