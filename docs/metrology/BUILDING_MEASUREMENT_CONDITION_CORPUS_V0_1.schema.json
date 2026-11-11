@@ -262,7 +262,7 @@
           },
           "expected_disposition": {
             "enum": [
-              "ELIGIBLE_FOR_INDEPENDENT_CONDITIONS_REVIEW_ONLY",
+              "SYNTHETIC_CONDITION_CONTRACT_VALIDATION_ONLY",
               "NOT_COMPARABLE",
               "MORE_EVIDENCE_REQUIRED",
               "REJECTED_FOR_DECLARED_PURPOSE",
