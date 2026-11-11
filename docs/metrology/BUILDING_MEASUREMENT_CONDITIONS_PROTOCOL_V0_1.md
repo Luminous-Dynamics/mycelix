@@ -53,3 +53,8 @@ All records are synthetic. Passing this corpus proves only deterministic conditi
 ## Evidence-state clarification
 
 All registry profiles and all positive condition-observation fixtures use `synthetic_reference_only`. They do not represent independently characterized instruments, calibrated condition sensors, validated installation observations, or real rights grants. Provider-asserted, stale, revoked, out-of-envelope, non-comparable and incomplete states are negative-control fixtures. Only a future owner-verified condition record, resolved under the exact #6054 timebase and #6042 dependency contracts, may support a real sample-applicability review. This synthetic oracle never admits a physical measurement.
+
+
+## Additional negative controls — 11 November 2026
+
+The 43-case corpus separately checks the target passport sample's own timebase and rights state, expired condition calibration, invalidated condition installation, revoked and unknown condition-source states, and missing validation receipt for a required correction. Matching condition timestamps cannot rescue an unresolved target sample timebase; matching synthetic references cannot promote expired or revoked source evidence.
