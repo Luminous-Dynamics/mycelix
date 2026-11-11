@@ -13,6 +13,7 @@ const (
 	providerOperationKeyDomainV1 = "MXSAP-PROVIDER-OPERATION-KEY-V1\x00"
 	providerObservationDomainV1 = "MXSAP-PROVIDER-OBSERVATION-V1\x00"
 	providerAbsenceDomainV1 = "MXSAP-PROVIDER-ABSENCE-EVIDENCE-V1\x00"
+	providerRetryPermitDomainV1 = "MXSAP-PROVIDER-RETRY-PERMIT-V1\x00"
 	providerMaxFieldBytesV1 = 4096
 	providerDayMSV1 uint64 = 24 * 60 * 60 * 1000
 )
@@ -115,6 +116,8 @@ var (
 	ErrProviderInProgressNotRetryableV1 = errors.New("provider in-progress outcome is not retryable")
 	ErrProviderAttemptNotRetryableV1 = errors.New("provider attempt class is not retryable")
 	ErrProviderProfileNotQualifiedV1 = errors.New("provider profile is not production-qualified")
+	ErrProviderRetryPermitMismatchV1 = errors.New("provider retry permit does not match operation scope")
+	ErrProviderRetryPermitExpiredV1 = errors.New("provider retry permit has expired")
 	ErrProviderObservationInvalidSubjectV1 = errors.New("provider observation subject is invalid")
 	ErrProviderObservationInvalidDigestV1 = errors.New("provider observation digest is invalid")
 	ErrProviderObservationScopeMismatchV1 = errors.New("provider observation scope mismatch")
@@ -293,6 +296,53 @@ func (k ProviderOperationKeyV1) CanonicalDigest() (string, error) {
 	return providerSHA256V1(output), nil
 }
 
+func (k ProviderOperationKeyV1) QualifyRetry(
+	contract ProviderContractV1,
+	currentAccountScope string,
+	currentRegion string,
+	currentRequestDigest string,
+	attempt ProviderAttemptClassV1,
+	nowUnixMS uint64,
+) (ProviderRetryPermitV1, error) {
+	if err := contract.Validate(); err != nil { return ProviderRetryPermitV1{}, ErrProviderInvalidContractV1 }
+	if !contract.IdempotentPOST { return ProviderRetryPermitV1{}, ErrProviderIdempotencyUnsupportedV1 }
+	if err := k.Validate(contract); err != nil { return ProviderRetryPermitV1{}, err }
+	if currentAccountScope != k.AccountScope { return ProviderRetryPermitV1{}, ErrProviderScopeMismatchV1 }
+	if contract.RegionScope == ProviderPerRegionScopeV1 && currentRegion != k.Region {
+		return ProviderRetryPermitV1{}, ErrProviderRegionMismatchV1
+	}
+	if currentRequestDigest != k.RequestDigest { return ProviderRetryPermitV1{}, ErrProviderChangedRequestDigestV1 }
+	if nowUnixMS < k.CreatedAtUnixMS { return ProviderRetryPermitV1{}, ErrProviderClockMovedBackwardsV1 }
+	validUntil, ok := checkedProviderAddV1(k.CreatedAtUnixMS, contract.RetentionMinimumMS)
+	if !ok { return ProviderRetryPermitV1{}, ErrProviderInvalidOperationKeyV1 }
+	if nowUnixMS >= validUntil { return ProviderRetryPermitV1{}, ErrProviderRetentionGuaranteeElapsedV1 }
+	if err := validateProviderRetryAttemptV1(contract, attempt); err != nil {
+		return ProviderRetryPermitV1{}, err
+	}
+	keyDigest, err := k.CanonicalDigest()
+	if err != nil { return ProviderRetryPermitV1{}, err }
+	permit := ProviderRetryPermitV1{
+		ProviderID: k.ProviderID,
+		ProfileID: k.ProfileID,
+		APIVersion: k.APIVersion,
+		AccountScope: k.AccountScope,
+		Region: k.Region,
+		IdempotencyKey: k.IdempotencyKey,
+		RequestDigest: k.RequestDigest,
+		ContractDigest: k.ContractDigest,
+		OperationKeyDigest: keyDigest,
+		IssuedAtUnixMS: nowUnixMS,
+		ValidUntilUnixMS: validUntil,
+		Attempt: attempt,
+	}
+	if err := permit.ValidateAgainst(k, contract, nowUnixMS); err != nil {
+		return ProviderRetryPermitV1{}, err
+	}
+	return permit, nil
+}
+
+// RetrySameRequest remains a convenience predicate. Dispatch boundaries should
+// carry and revalidate the returned permit rather than relying on this result.
 func (k ProviderOperationKeyV1) RetrySameRequest(
 	contract ProviderContractV1,
 	currentAccountScope string,
@@ -301,18 +351,81 @@ func (k ProviderOperationKeyV1) RetrySameRequest(
 	attempt ProviderAttemptClassV1,
 	nowUnixMS uint64,
 ) error {
-	if err := contract.Validate(); err != nil { return ErrProviderInvalidContractV1 }
-	if !contract.IdempotentPOST { return ErrProviderIdempotencyUnsupportedV1 }
-	if err := k.Validate(contract); err != nil { return err }
-	if currentAccountScope != k.AccountScope { return ErrProviderScopeMismatchV1 }
-	if contract.RegionScope == ProviderPerRegionScopeV1 && currentRegion != k.Region {
-		return ErrProviderRegionMismatchV1
+	_, err := k.QualifyRetry(
+		contract, currentAccountScope, currentRegion,
+		currentRequestDigest, attempt, nowUnixMS,
+	)
+	return err
+}
+
+type ProviderRetryPermitV1 struct {
+	ProviderID string
+	ProfileID string
+	APIVersion string
+	AccountScope string
+	Region string
+	IdempotencyKey string
+	RequestDigest string
+	ContractDigest string
+	OperationKeyDigest string
+	IssuedAtUnixMS uint64
+	ValidUntilUnixMS uint64
+	Attempt ProviderAttemptClassV1
+}
+
+func (p ProviderRetryPermitV1) CanonicalDigest() (string, error) {
+	for _, value := range []string{
+		p.ProviderID, p.ProfileID, p.APIVersion, p.AccountScope,
+		p.Region, p.IdempotencyKey,
+	} {
+		if err := validateProviderTextV1(value); err != nil { return "", ErrProviderRetryPermitMismatchV1 }
 	}
-	if currentRequestDigest != k.RequestDigest { return ErrProviderChangedRequestDigestV1 }
-	if nowUnixMS < k.CreatedAtUnixMS { return ErrProviderClockMovedBackwardsV1 }
-	if nowUnixMS-k.CreatedAtUnixMS >= contract.RetentionMinimumMS {
-		return ErrProviderRetentionGuaranteeElapsedV1
+	if !validProviderDigestV1(p.RequestDigest) ||
+		!validProviderDigestV1(p.ContractDigest) ||
+		!validProviderDigestV1(p.OperationKeyDigest) ||
+		p.IssuedAtUnixMS == 0 || p.ValidUntilUnixMS <= p.IssuedAtUnixMS {
+		return "", ErrProviderRetryPermitMismatchV1
 	}
+	output := []byte(providerRetryPermitDomainV1)
+	var err error
+	for _, value := range []string{
+		p.ProviderID, p.ProfileID, p.APIVersion, p.AccountScope,
+		p.Region, p.IdempotencyKey, p.RequestDigest, p.ContractDigest,
+		p.OperationKeyDigest,
+	} {
+		output, err = appendProviderTextV1(output, value)
+		if err != nil { return "", ErrProviderRetryPermitMismatchV1 }
+	}
+	output = appendProviderU64V1(output, p.IssuedAtUnixMS)
+	output = appendProviderU64V1(output, p.ValidUntilUnixMS)
+	output = append(output, byte(p.Attempt))
+	return providerSHA256V1(output), nil
+}
+
+func (p ProviderRetryPermitV1) ValidateAgainst(
+	key ProviderOperationKeyV1,
+	contract ProviderContractV1,
+	nowUnixMS uint64,
+) error {
+	if err := key.Validate(contract); err != nil { return err }
+	keyDigest, err := key.CanonicalDigest()
+	if err != nil { return err }
+	validUntil, ok := checkedProviderAddV1(key.CreatedAtUnixMS, contract.RetentionMinimumMS)
+	if !ok { return ErrProviderRetryPermitMismatchV1 }
+	if p.ProviderID != key.ProviderID || p.ProfileID != key.ProfileID ||
+		p.APIVersion != key.APIVersion || p.AccountScope != key.AccountScope ||
+		p.Region != key.Region || p.IdempotencyKey != key.IdempotencyKey ||
+		p.RequestDigest != key.RequestDigest || p.ContractDigest != key.ContractDigest ||
+		p.OperationKeyDigest != keyDigest || p.ValidUntilUnixMS != validUntil {
+		return ErrProviderRetryPermitMismatchV1
+	}
+	if nowUnixMS < p.IssuedAtUnixMS { return ErrProviderClockMovedBackwardsV1 }
+	if nowUnixMS >= p.ValidUntilUnixMS { return ErrProviderRetryPermitExpiredV1 }
+	if _, err := p.CanonicalDigest(); err != nil { return err }
+	return validateProviderRetryAttemptV1(contract, p.Attempt)
+}
+
+func validateProviderRetryAttemptV1(contract ProviderContractV1, attempt ProviderAttemptClassV1) error {
 	switch attempt {
 	case ProviderTransportTimeoutUnknownV1:
 		return nil
