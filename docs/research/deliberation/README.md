@@ -97,6 +97,20 @@ These results motivate **separate treatment arms**: unassisted discussion, human
 
 DelibSim makes a measurement gap explicit: a group may produce fluent, orderly, high-quality discourse while retaining substantially less viewpoint diversity than human reference groups. DelibBench should therefore report, as separate dimensions, (1) discourse/process quality, (2) perspective diversity and coverage, (3) warranted movement after evidence, (4) unsupported convergence or influence, and (5) task-specific decision outcome. Do not reward minimum stance variance or maximum consensus. Diversity should be interpreted relative to the task's evidence and legitimate normative pluralism, not as a universal preference for disagreement. Pair the aggregate group profile with participant-conditioned voice fidelity from #6011 and the private/public revision trajectory in Symthaea #11320.
 
+### Interaction causality and population representation
+
+A crucial new control comes from the 2026 *From Simulated Citizens to Simulated Deliberation* study: substantial stance changes also occurred in sealed-monologue agents that could not see peer contributions, while groups initialized from different positions often converged toward similar endpoints. The study also found simulated citizen personas did not reliably reproduce survey distributions or demographic differences. This means transcript quality, stance movement, population representation and peer-interaction effects are distinct constructs.
+
+DelibBench must add:
+- **sealed-monologue control:** expose each participant-agent to the same amount of private reflection and time, but do not show peer contributions;
+- **peer-visible interaction arm:** show peer contributions under the same budget and task conditions;
+- **no-AI / no-reflection controls:** separate baseline time effects from AI-supported reflection;
+- **live-facilitation arm:** isolate the added effect of an AI moderator or chairperson.
+
+The key estimand is the interaction-attributable stance movement: the randomized difference between peer-visible and sealed-monologue arms in signed/absolute position change, evidence uptake, argument citation and reason revision. A participant changing their mind is not itself proof of social learning; measure whether the change depends on identifiable peer evidence or reasons.
+
+For LLM-only simulated groups, do **not** claim that agents represent a population merely because they carry persona prompts. Population-representation validation requires a defined sampling frame and empirical survey references: compare initial and final opinion distributions, subgroup differences and tail/minority mass against the source population, with uncertainty and documented demographic coverage. If those reference data are unavailable or not appropriately licensed/consented, frame the model as an argument-surfacing tool rather than a representative public simulator.
+
 ### Counterfactual influence and non-directive reflection
 
 The FAccT 2026 group study shows why satisfaction, consensus and participation statistics are insufficient proxies for influence: participants preferred LLM facilitation, yet the study found no significant consensus or measured participation-equity improvement, while some charity allocations shifted by up to 5.5 percentage points. The October 2026 self-reflection experiment gives a different treatment hypothesis: private, non-directive AI-guided reflection before discussion improved DQI in its U.S. sample (N=1,173; 391 groups; Cohen's d=0.31 versus no reflection and d=0.27 versus unassisted reflection). These are study-specific findings, not universal intervention effects.
