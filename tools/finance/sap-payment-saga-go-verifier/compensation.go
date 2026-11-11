@@ -392,6 +392,11 @@ type CompensationBookV2 struct {
 	plan CompensationPlanV2
 	planDigest string
 	initialLiquidityMinor uint64
+	settledMinor uint64
+	encumberedMinor uint64
+	reservationIDs map[string]struct{}
+	capabilityScopes map[string]string
+	capabilityUsage map[string]uint64
 	records map[string]*compensationRecordV2
 }
 
@@ -406,6 +411,9 @@ func NewCompensationBookV2(
 	return &CompensationBookV2{
 		forward: forward, plan: plan, planDigest: planDigest,
 		initialLiquidityMinor: initialLiquidityMinor,
+		reservationIDs: make(map[string]struct{}),
+		capabilityScopes: make(map[string]string),
+		capabilityUsage: make(map[string]uint64),
 		records: make(map[string]*compensationRecordV2),
 	}, nil
 }
@@ -431,30 +439,22 @@ func (b *CompensationBookV2) Reserve(
 		b.plan, b.planDigest, request.AmountMinor, request.ActorOwnerID, nowUnixMS,
 	); err != nil { return 0, err }
 	if err := request.LiquidityReservation.Validate(b.plan, request.AmountMinor); err != nil { return 0, err }
-	for _, record := range b.records {
-		if record.Request.LiquidityReservation.ReservationID == request.LiquidityReservation.ReservationID {
-			return 0, ErrCompensationLiquidityReservationConflictV2
-		}
+	reservationID := request.LiquidityReservation.ReservationID
+	if _, used := b.reservationIDs[reservationID]; used {
+		return 0, ErrCompensationLiquidityReservationConflictV2
 	}
+	capabilityID := request.Authorization.CapabilityID
 	capabilityDigest, err := request.Authorization.CanonicalScopeDigest()
 	if err != nil { return 0, err }
-	var capabilityUsed uint64
-	for _, record := range b.records {
-		existingDigest, err := record.Request.Authorization.CanonicalScopeDigest()
-		if err != nil || existingDigest != capabilityDigest || record.Status == CompensationCancelledV2 {
-			continue
-		}
-		capabilityUsed, err = checkedCompensationAddV2(capabilityUsed, record.Request.AmountMinor)
-		if err != nil { return 0, err }
+	if existingScope, ok := b.capabilityScopes[capabilityID]; ok && existingScope != capabilityDigest {
+		return 0, ErrCompensationCapabilityIdentityConflictV2
 	}
-	capabilityProjected, err := checkedCompensationAddV2(capabilityUsed, request.AmountMinor)
+	capabilityProjected, err := checkedCompensationAddV2(b.capabilityUsage[capabilityID], request.AmountMinor)
 	if err != nil { return 0, err }
 	if capabilityProjected > request.Authorization.MaximumMinor {
 		return 0, ErrCompensationAuthorizationLimitV2
 	}
-	settled, encumbered, err := b.totalsLocked()
-	if err != nil { return 0, err }
-	used, err := checkedCompensationAddV2(settled, encumbered)
+	used, err := checkedCompensationAddV2(b.settledMinor, b.encumberedMinor)
 	if err != nil { return 0, err }
 	projected, err := checkedCompensationAddV2(used, request.AmountMinor)
 	if err != nil { return 0, err }
@@ -462,6 +462,12 @@ func (b *CompensationBookV2) Reserve(
 		return 0, ErrCompensationReversibleCeilingV2
 	}
 	if projected > b.initialLiquidityMinor { return 0, ErrCompensationInsufficientLiquidityV2 }
+	projectedEncumbered, err := checkedCompensationAddV2(b.encumberedMinor, request.AmountMinor)
+	if err != nil { return 0, err }
+	b.reservationIDs[reservationID] = struct{}{}
+	b.capabilityScopes[capabilityID] = capabilityDigest
+	b.capabilityUsage[capabilityID] = capabilityProjected
+	b.encumberedMinor = projectedEncumbered
 	b.records[request.CompensationID] = &compensationRecordV2{
 		Request: request, RequestDigest: requestDigest, Status: CompensationReservedV2,
 	}
@@ -605,10 +611,15 @@ func (b *CompensationBookV2) Settle(outcome CompensationOutcomeV2) (Compensation
 	default:
 		return 0, ErrCompensationInvalidTransitionV2
 	}
+	nextEncumbered := b.encumberedMinor - record.Request.AmountMinor
+	nextSettled, err := checkedCompensationAddV2(b.settledMinor, record.Request.AmountMinor)
+	if err != nil { return 0, err }
 	record.Status = CompensationSettledV2
 	record.PossibleEffectCount = 1
 	record.LastOutcomeDigest = digest
 	record.HasOutcomeDigest = true
+	b.encumberedMinor = nextEncumbered
+	b.settledMinor = nextSettled
 	return CompensationIsSettledV2, nil
 }
 
@@ -622,14 +633,21 @@ func (b *CompensationBookV2) CancelBeforeDispatch(compensationID, actorOwnerID s
 	}
 	switch record.Status {
 	case CompensationReservedV2, CompensationAuthoritativelyAbsentV2:
+		amount := record.Request.AmountMinor
+		capabilityID := record.Request.Authorization.CapabilityID
+		capabilityUsage, ok := b.capabilityUsage[capabilityID]
+		if !ok || capabilityUsage < amount || b.encumberedMinor < amount {
+			return 0, ErrCompensationAmountOverflowV2
+		}
+		b.capabilityUsage[capabilityID] = capabilityUsage - amount
+		b.encumberedMinor -= amount
 		record.Status = CompensationCancelledV2
 		return CompensationWasCancelledV2, nil
 	case CompensationCancelledV2:
 		return CompensationWasCancelledV2, nil
 	default:
 		return 0, ErrCompensationInvalidTransitionV2
-	}
-}
+	}}
 
 func (b *CompensationBookV2) CompensationEffectID(compensationID string) (string, bool) {
 	b.mu.Lock()
@@ -712,24 +730,7 @@ func (b *CompensationBookV2) validateOutcomeLocked(outcome CompensationOutcomeV2
 }
 
 func (b *CompensationBookV2) totalsLocked() (uint64, uint64, error) {
-	var settled, encumbered uint64
-	for _, record := range b.records {
-		amount := record.Request.AmountMinor
-		switch record.Status {
-		case CompensationSettledV2:
-			var err error
-			settled, err = checkedCompensationAddV2(settled, amount)
-			if err != nil { return 0, 0, err }
-		case CompensationReservedV2, CompensationDispatchAuthorizedV2,
-			CompensationIndeterminateV2, CompensationAuthoritativelyAbsentV2,
-			CompensationObservedUnsettledV2:
-			var err error
-			encumbered, err = checkedCompensationAddV2(encumbered, amount)
-			if err != nil { return 0, 0, err }
-		case CompensationCancelledV2:
-		}
-	}
-	return settled, encumbered, nil
+	return b.settledMinor, b.encumberedMinor, nil
 }
 
 var (
