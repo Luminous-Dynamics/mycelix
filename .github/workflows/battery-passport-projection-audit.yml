@@ -1,0 +1,65 @@
+name: Battery Passport projection audit v0.1
+
+on:
+  pull_request:
+    paths:
+      - "docs/mobility/BATTERY_PASSPORT_PROJECTION_V0_1.md"
+      - "registries/eu_battery_passport_guidance_v3_2_selected_points.json"
+      - "schemas/mobility/**"
+      - "fixtures/mobility/battery_passport_projection_*_v0_1.json"
+      - "tools/battery-passport-projection-audit/**"
+      - ".github/workflows/battery-passport-projection-audit.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.96.0
+
+      - name: Check formatting
+        run: cargo fmt --manifest-path tools/battery-passport-projection-audit/Cargo.toml -- --check
+
+      - name: Run schema, applicability, disclosure and lineage mutation tests
+        run: cargo test --manifest-path tools/battery-passport-projection-audit/Cargo.toml
+
+      - name: Audit EV public projection
+        run: |
+          cargo run --manifest-path tools/battery-passport-projection-audit/Cargo.toml -- \
+            --registry registries/eu_battery_passport_guidance_v3_2_selected_points.json \
+            --registry-schema schemas/mobility/eu_battery_passport_guidance_registry_v0_1.schema.json \
+            --projection-schema schemas/mobility/battery_passport_projection_v0_1.schema.json \
+            --projection fixtures/mobility/battery_passport_projection_ev_public_v0_1.json \
+            > "$RUNNER_TEMP/ev-public-projection.json"
+          jq -e '.data_point_count == 5 and .outcome_counts.WITHHELD_BY_ACCESS_POLICY == 3' \
+            "$RUNNER_TEMP/ev-public-projection.json"
+
+      - name: Audit LMT legitimate-interest projection
+        run: |
+          cargo run --manifest-path tools/battery-passport-projection-audit/Cargo.toml -- \
+            --registry registries/eu_battery_passport_guidance_v3_2_selected_points.json \
+            --registry-schema schemas/mobility/eu_battery_passport_guidance_registry_v0_1.schema.json \
+            --projection-schema schemas/mobility/battery_passport_projection_v0_1.schema.json \
+            --projection fixtures/mobility/battery_passport_projection_lmt_legitimate_interest_v0_1.json \
+            > "$RUNNER_TEMP/lmt-interest-projection.json"
+          jq -e '.data_point_count == 5 and .outcome_counts.MISSING_REQUIRED_EVIDENCE == 3' \
+            "$RUNNER_TEMP/lmt-interest-projection.json"
+
+      - name: Audit stationary BESS projection
+        run: |
+          cargo run --manifest-path tools/battery-passport-projection-audit/Cargo.toml -- \
+            --registry registries/eu_battery_passport_guidance_v3_2_selected_points.json \
+            --registry-schema schemas/mobility/eu_battery_passport_guidance_registry_v0_1.schema.json \
+            --projection-schema schemas/mobility/battery_passport_projection_v0_1.schema.json \
+            --projection fixtures/mobility/battery_passport_projection_industrial_stationary_bess_v0_1.json \
+            > "$RUNNER_TEMP/bess-projection.json"
+          jq -e '.data_point_count == 6 and .outcome_counts.BLOCKED_UNQUALIFIED_SOURCE == 3' \
+            "$RUNNER_TEMP/bess-projection.json"
