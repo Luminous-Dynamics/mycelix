@@ -93,6 +93,22 @@ func newHandoffBooks(t *testing.T) (*ParentHandoffBookV1, *ChildHandoffBookV1) {
 	return parent, child
 }
 
+func TestGrantReplayRequiresSameParentActionHash(t *testing.T) {
+	parent, err := NewParentHandoffBookV1(handoffTestPolicy())
+	if err != nil { t.Fatal(err) }
+	terms := handoffTestTerms()
+	if _, err := parent.IssueGrant(terms, handoffParentHash()); err != nil { t.Fatal(err) }
+	if disposition, err := parent.IssueGrant(terms, handoffParentHash()); err != nil || disposition != HandoffAlreadyCommitted {
+		t.Fatalf("same grant/action replay = %v, %v", disposition, err)
+	}
+	if _, err := parent.IssueGrant(terms, handoffTestDigest('7')); err != ErrHandoffGrantConflict {
+		t.Fatalf("same grant with changed parent action = %v", err)
+	}
+	if allocated, _ := parent.AllocatedBudgetMinor(); allocated != 700 {
+		t.Fatalf("parent escrow changed after conflicting replay: %d", allocated)
+	}
+}
+
 func TestChildCannotUseGrantBeforeAcceptanceAndParentEscrowIsAtomic(t *testing.T) {
 	parent, child := newHandoffBooks(t)
 	if allocated, _ := parent.AllocatedBudgetMinor(); allocated != 700 { t.Fatalf("allocated = %d", allocated) }
