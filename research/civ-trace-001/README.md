@@ -34,7 +34,7 @@ An executor's `Succeeded` status is not an outcome observation. Only an `EffectO
 
 ## Contestability and supersession
 
-A challenge is linked to an exact decision reference. Open challenges remain visible; resolved challenges remain in history. Decision successors use an explicit `supersedes_ref`; the predecessor is never removed.
+A challenge is linked to an exact decision reference. The output retains the exact challenge event IDs; open challenges remain visible and resolved challenges remain in history. Decision successors use an explicit `supersedes_ref`; the output retains the complete predecessor→successor reference chain, and the predecessor is never removed.
 
 ## Metrics
 
