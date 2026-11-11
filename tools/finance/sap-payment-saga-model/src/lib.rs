@@ -13,6 +13,7 @@
 //!/external settlement finality.
 
 pub mod trace;
+pub mod oracle;
 
 use std::collections::{BTreeMap, btree_map::Entry};
 use std::fmt;
