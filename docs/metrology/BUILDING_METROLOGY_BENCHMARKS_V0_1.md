@@ -267,3 +267,66 @@ The current v0.1 passport preserves opaque `conditions_id` references but does n
 ### Competitive bar remains staged
 
 The software target remains 0 false passport admissions, 100% reconstructability for every admitted-for-review sample, and targeted-only invalidation. Physical targets remain hypotheses until an M1/M2 unoccupied programme can use actual instruments, reference methods, independently checked SANAS scopes and matched controls. Keep the four repeatability/reproducibility/population/ecological-validity strata separate. There are no physical results in this PR.
+## 12. Derived-measurement and reproducibility benchmark — 11 November 2026
+
+### Industry / methods baseline
+
+- **ISO 7726:2025, Edition 3** is published and explicitly distinguishes basic directly measured quantities from derived indirectly calculated quantities; it introduces measurement uncertainty into the method framework. Mean radiant and operative temperature are derived quantities. The standard describes mean-radiant calculation routes using measured surrounding-surface temperatures and geometry, or six directional plane-radiant temperatures with projected-area factors. The executable graph must preserve the exact selected method variant, posture/orientation and geometry—not just a label such as "MRT". [ISO catalogue](https://www.iso.org/standard/78238.html); [accessible technical summary](https://www.iteh.us/catalog/standards/iso/26a819be-eb25-4d0c-9d50-ce6ca80caf95/iso-7726-2025).
+- **JCGM 100:2008/Amd.1:2026** adds explicit treatment of significant nonlinearity in measurement models, pointing to Monte Carlo distribution propagation under JCGM 101:2008 or higher-order Taylor terms where appropriate. The BIPM GUM suite now lists JCGM GUM-5:2026 examples, JCGM 102:2011 multi-output propagation and JCGM 106:2012 conformity-assessment uncertainty. [BIPM GUM catalogue](https://www.bipm.org/en/web/guest/publications/guides); [JCGM 100 Amendment 1:2026](https://www.bipm.org/documents/20126/2071204/JCGM_100_Amd1_2026.pdf/).
+- **ISO 5725-2:2025, Edition 3** provides the current published basic method for estimating repeatability and reproducibility through collaborative interlaboratory experiments. It is a method-study reference, not proof that one laboratory result establishes production variability or household validity. [ISO 5725-2:2025](https://www.iso.org/standard/90054.html).
+- **IEC TR 63250:2021** remains an appliance-method benchmark for repeatability, reproducibility, uncertainty and round-robin tests; its scope explicitly excludes production variability and normal-household representativeness. [IEC publication](https://webstore.iec.ch/en/publication/65090).
+
+### Paradigm shift: derived values are versioned computations over source graphs
+
+A derived measurement is not a sensor reading with a different name. It is a measurement-system result. The minimum evidence chain is:
+
+`ordered source samples → instrument/calibration/installation/timebase applicability → method and executable artifact → conditions/geometry/configuration → uncertainty model → derived result → dependency/invalidation receipt`
+
+A digest without resolvable parent observations is not reconstructability. A source correction, calibration expiry, firmware change, timebase correction, geometry revision, method update or rights revocation must invalidate the affected descendants only. The derived result must never inherit a physical calibration certificate from one of its inputs.
+
+### What the new v0.1 slice tests—and deliberately does not test
+
+Draft Mycelix PR #6067 adds a strict derivation-graph record, method contracts for mean-radiant temperature and useful thermal energy, a deterministic synthetic arithmetic-mean test method, and 36 adversarial cases. Only the synthetic method is executable. The two physical method contracts remain blocked because the frozen v0.1 channel profile does not yet admit every required input:
+- MRT requires six exact, aligned plane-radiant-temperature input graphs and a declared projected-area/posture profile. Plane-radiant temperature is not a v0.1 admitted channel.
+- Useful thermal energy requires a metered volume/mass-flow series, supply/return water-temperature series, fluid identity and a versioned fluid-property/enthalpy model. Water temperature remains a proposed v0.2 channel, not admitted.
+
+The arithmetic-mean fixture proves deterministic parent resolution, order, unit/role matching and output recomputation only. It is not a physical building quantity. The only positive disposition is `SYNTHETIC_GRAPH_VALIDATION_ONLY`; physical method execution and physical admission remain disabled.
+
+### Required benchmark arms for any later physical promotion
+
+1. **Manual incumbent:** practitioner reconstructs a derived result from instrument exports, spreadsheets, drawings, calibration certificates and a written method. Time each step and count manual joins/assumptions.
+2. **Vendor/platform workflow:** use the strongest available building analytics/BMS tool for the same source data and method. Record hidden configuration, manual setup and whether exact source/certificate/method identities survive export.
+3. **Open-method reference implementation:** independent implementation of the exact ISO/project method using frozen source observations, geometry and method parameters.
+4. **Luminous graph verifier:** exact ordered graph resolution, reproducible calculation artifact, explicit abstention, source digest and dependency invalidation. Compare results only after the method and inputs are identically pinned.
+5. **Independent lab/reference arm:** where the method permits, compare against a competent laboratory or independently instrumented reference setup with the exact method and scope.
+
+### Metrics and targets (proposed, not achieved)
+
+| Metric | Target before making a superiority claim |
+|---|---:|
+| Missing/dangling/duplicate/cyclic parent edges rejected | 100% |
+| Output recomputation from frozen source bytes and method artifact | 100% of admitted synthetic cases |
+| False current derived outputs with stale/revoked/mismatched parents | 0 |
+| False source-graph equivalence under input order permutation | 0 |
+| Correct abstention for unresolved method/channel/conditions | 100% of frozen cases |
+| Affected descendants invalidated after source/method/geometry/timebase change | 100% |
+| Unrelated sibling evidence invalidated | 0 |
+| Human evidence-reconciliation time vs matched manual workflow | at least 50% lower, without higher false acceptance |
+| Manual point-to-measurement mapping effort vs matched open semantic workflow | at least 30% lower, without semantic loss |
+
+For any real calculation, compare analytical linear-model cases with closed-form covariance results; compare nonlinear models against an independently implemented Monte Carlo reference; report distributional coverage and numerical convergence; and preserve correlated/common-reference inputs. A numerical match to one fixture is not validation of the physical method.
+
+### Why this is a credible SOTA gap
+
+A 15 October 2026 scoping review of 37 operational building-digital-twin deployments found that 48.6% were descriptive, 24.3% prescriptive/control-driving, and only 27% reported quantitative outcomes. These figures are author-classified results from a selected 37-study cohort—not market-wide prevalence. The practical challenge is therefore not another live dashboard or another "digital twin" label. It is independently reconstructable measurement and measured service outcomes through a changing building lifecycle. [Al-Azba & Beitelmal, Energy and Buildings 369 (2026), 117935](https://doi.org/10.1016/j.enbuild.2026.117935).
+
+### Promotion gates
+
+- G0: schema/graph conformance and deterministic synthetic test method only.
+- G1: exact channel inputs admitted, with capability/calibration/installation/conditions and stream/timebase records current.
+- G2: exact normative/project method and executable artifact independently reviewed; recomputation matches an independent reference implementation.
+- G3: uncertainty engine (#6048) propagates input covariance/nonlinearity; decision owner supplies any guard band or threshold.
+- G4: physical reference comparison and repeatability/reproducibility evidence under #10341 and ISO 5725-2 / IEC TR 63250 as applicable.
+- G5: only then may a purpose-specific derived measurement become eligible for independent admission review.
+
+No graph, schema or software PASS substitutes for reference measurements, competent laboratory scope, professional review or the exact physical method.

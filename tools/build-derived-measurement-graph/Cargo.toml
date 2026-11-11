@@ -1,0 +1,19 @@
+[package]
+name = "build-derived-measurement-graph"
+version = "0.1.0"
+edition = "2024"
+publish = false
+description = "Synthetic source-graph and deterministic test-method qualifier for derived building measurements"
+
+[dependencies]
+serde_json = "=1.0.150"
+
+[workspace]
+resolver = "3"
+
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+name = "build-derived-measurement-graph"
+path = "src/main.rs"
