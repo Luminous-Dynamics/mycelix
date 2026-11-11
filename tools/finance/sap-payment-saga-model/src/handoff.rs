@@ -999,6 +999,22 @@ mod tests {
     }
 
     #[test]
+    fn grant_replay_requires_same_parent_action_hash() {
+        let mut parent = ParentHandoffBookV1::new(parent_policy()).unwrap();
+        let terms = terms();
+        parent.issue_grant(terms.clone(), parent_receipt_hash()).unwrap();
+        assert_eq!(
+            parent.issue_grant(terms.clone(), parent_receipt_hash()),
+            Ok(HandoffDisposition::AlreadyCommitted)
+        );
+        assert_eq!(
+            parent.issue_grant(terms, digest('7')),
+            Err(HandoffError::GrantConflict)
+        );
+        assert_eq!(parent.allocated_budget_minor(), Ok(700));
+    }
+
+    #[test]
     fn child_cannot_use_grant_before_acceptance_and_parent_escrow_is_atomic() {
         let (parent, mut child) = make_parent_and_child();
         assert_eq!(parent.allocated_budget_minor(), Ok(700));
