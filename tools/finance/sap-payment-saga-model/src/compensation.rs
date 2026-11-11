@@ -208,7 +208,8 @@ impl CompensationAuthorizationV2 {
         if self.expires_at_unix_ms <= now_unix_ms {
             return Err(CompensationErrorV2::AuthorizationExpired);
         }
-        if self.nonce == 0
+        if self.grantee_owner_id != actor_owner_id
+            || self.nonce == 0
             || self.maximum_minor == 0
             || amount_minor == 0
             || amount_minor > self.maximum_minor
@@ -370,6 +371,7 @@ pub struct CompensationRequestV2 {
 impl CompensationRequestV2 {
     pub fn canonical_digest(&self) -> Result<String, CompensationErrorV2> {
         validate_text(&self.compensation_id)?;
+        validate_text(&self.actor_owner_id)?;
         let auth_digest = self.authorization.canonical_digest()?;
         let reservation_digest = self.liquidity_reservation.canonical_digest()?;
         let mut bytes = Vec::new();
