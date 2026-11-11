@@ -178,8 +178,7 @@
                     "const": "MYC-BUILD-MEASUREMENT-CONDITIONS-V0.1"
                   },
                   "registry_blob_sha1": {
-                    "type": "string",
-                    "pattern": "^[0-9a-f]{40}$"
+                    "type": "string"
                   },
                   "profile_id": {
                     "type": "string",
