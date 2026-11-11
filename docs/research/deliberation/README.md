@@ -97,6 +97,29 @@ These results motivate **separate treatment arms**: unassisted discussion, human
 
 DelibSim makes a measurement gap explicit: a group may produce fluent, orderly, high-quality discourse while retaining substantially less viewpoint diversity than human reference groups. DelibBench should therefore report, as separate dimensions, (1) discourse/process quality, (2) perspective diversity and coverage, (3) warranted movement after evidence, (4) unsupported convergence or influence, and (5) task-specific decision outcome. Do not reward minimum stance variance or maximum consensus. Diversity should be interpreted relative to the task's evidence and legitimate normative pluralism, not as a universal preference for disagreement. Pair the aggregate group profile with participant-conditioned voice fidelity from #6011 and the private/public revision trajectory in Symthaea #11320.
 
+### Counterfactual influence and non-directive reflection
+
+The FAccT 2026 group study shows why satisfaction, consensus and participation statistics are insufficient proxies for influence: participants preferred LLM facilitation, yet the study found no significant consensus or measured participation-equity improvement, while some charity allocations shifted by up to 5.5 percentage points. The October 2026 self-reflection experiment gives a different treatment hypothesis: private, non-directive AI-guided reflection before discussion improved DQI in its U.S. sample (N=1,173; 391 groups; Cohen's d=0.31 versus no reflection and d=0.27 versus unassisted reflection). These are study-specific findings, not universal intervention effects.
+
+DelibBench should register separate randomized treatment arms:
+- no AI intervention;
+- private non-directive pre-reflection;
+- retrospective participant-conditioned summary;
+- optional counterargument or evidence-organization aid;
+- in-conversation AI facilitation.
+
+For each participant and declared decision dimension, retain pre-intervention and post-intervention positions, uncertainty and supporting reasons. Report:
+- signed position shift and absolute movement;
+- treatment effect versus the randomized control condition, with uncertainty intervals;
+- whether the movement was supported by newly introduced evidence or reasons;
+- movement toward / away from any explicit facilitator recommendation;
+- minority-position retention and whether the participant's view survives the final summary;
+- perceived trust / satisfaction separately from observed influence.
+
+A candidate *steering estimand* is the randomized-treatment difference in signed movement toward a predeclared recommendation direction, measured separately from generic change magnitude. For allocation tasks, also report the change in actual allocation units. The recommendation direction, outcome units, materiality threshold and analysis plan must be preregistered; do not infer a facilitator's hidden intention after observing results.
+
+Influence is not automatically harmful: participants may rationally change their minds after better evidence or reflection. The evaluation must distinguish warranted revision, unwarranted directional steering, unsupported convergence and unresolved/unknown cases. Use blinded human adjudication for reasons and evidence-warrant, retain participant appeal/correction, and require ethics review / informed consent for human-subject experiments. This audit composes with Symthaea #11320/#11350 for private/public stance trajectories and Mycelix #6011/#6023 for voice and evidence-warranted update fidelity.
+
 ### Institutional reconstruction and contestability
 
 The new [CIV-TRACE-001 benchmark (#6069)](https://github.com/Luminous-Dynamics/mycelix/issues/6069) composes the existing decision/authority/attempt/outcome lineage (#2953), governance lifecycle (#3117), bitemporal evidence lifecycle (#5646), open-world uncertainty (#3126), independent evaluation boundary (#4835), and forensic replay semantics (#2922).
