@@ -155,7 +155,11 @@
         "outcome_state": "CONFIRMED",
         "challenge_state": "NONE",
         "current_decision_ref": "DEC-001",
-        "privacy_violation": false
+        "privacy_violation": false,
+        "challenge_event_ids": [],
+        "decision_lineage_refs": [
+          "DEC-001"
+        ]
       }
     },
     {
@@ -299,7 +303,11 @@
         "outcome_state": "CONFIRMED",
         "challenge_state": "NONE",
         "current_decision_ref": "DEC-002",
-        "privacy_violation": false
+        "privacy_violation": false,
+        "challenge_event_ids": [],
+        "decision_lineage_refs": [
+          "DEC-002"
+        ]
       }
     },
     {
@@ -443,7 +451,11 @@
         "outcome_state": "CONFIRMED",
         "challenge_state": "NONE",
         "current_decision_ref": "DEC-003",
-        "privacy_violation": false
+        "privacy_violation": false,
+        "challenge_event_ids": [],
+        "decision_lineage_refs": [
+          "DEC-003"
+        ]
       }
     },
     {
@@ -587,7 +599,11 @@
         "outcome_state": "CONFIRMED",
         "challenge_state": "NONE",
         "current_decision_ref": "DEC-004",
-        "privacy_violation": false
+        "privacy_violation": false,
+        "challenge_event_ids": [],
+        "decision_lineage_refs": [
+          "DEC-004"
+        ]
       }
     },
     {
@@ -732,7 +748,11 @@
         "outcome_state": "CONFIRMED",
         "challenge_state": "NONE",
         "current_decision_ref": "DEC-005",
-        "privacy_violation": false
+        "privacy_violation": false,
+        "challenge_event_ids": [],
+        "decision_lineage_refs": [
+          "DEC-005"
+        ]
       }
     },
     {
@@ -877,7 +897,11 @@
         "outcome_state": "UNOBSERVED",
         "challenge_state": "NONE",
         "current_decision_ref": "DEC-006",
-        "privacy_violation": false
+        "privacy_violation": false,
+        "challenge_event_ids": [],
+        "decision_lineage_refs": [
+          "DEC-006"
+        ]
       }
     },
     {
@@ -1001,7 +1025,11 @@
         "outcome_state": "CONFIRMED",
         "challenge_state": "NONE",
         "current_decision_ref": "DEC-011",
-        "privacy_violation": false
+        "privacy_violation": false,
+        "challenge_event_ids": [],
+        "decision_lineage_refs": [
+          "DEC-011"
+        ]
       }
     },
     {
@@ -1125,7 +1153,11 @@
         "outcome_state": "CONFIRMED",
         "challenge_state": "NONE",
         "current_decision_ref": "DEC-012",
-        "privacy_violation": false
+        "privacy_violation": false,
+        "challenge_event_ids": [],
+        "decision_lineage_refs": [
+          "DEC-012"
+        ]
       }
     },
     {
@@ -1269,7 +1301,11 @@
         "outcome_state": "CONFIRMED",
         "challenge_state": "NONE",
         "current_decision_ref": "DEC-013",
-        "privacy_violation": false
+        "privacy_violation": false,
+        "challenge_event_ids": [],
+        "decision_lineage_refs": [
+          "DEC-013"
+        ]
       }
     },
     {
@@ -1413,7 +1449,11 @@
         "outcome_state": "CONFIRMED",
         "challenge_state": "NONE",
         "current_decision_ref": "DEC-014",
-        "privacy_violation": false
+        "privacy_violation": false,
+        "challenge_event_ids": [],
+        "decision_lineage_refs": [
+          "DEC-014"
+        ]
       }
     },
     {
@@ -1536,7 +1576,11 @@
         "outcome_state": "CONFIRMED",
         "challenge_state": "NONE",
         "current_decision_ref": "DEC-015",
-        "privacy_violation": false
+        "privacy_violation": false,
+        "challenge_event_ids": [],
+        "decision_lineage_refs": [
+          "DEC-015"
+        ]
       }
     },
     {
@@ -1660,7 +1704,11 @@
         "outcome_state": "CONFIRMED",
         "challenge_state": "NONE",
         "current_decision_ref": "DEC-016",
-        "privacy_violation": false
+        "privacy_violation": false,
+        "challenge_event_ids": [],
+        "decision_lineage_refs": [
+          "DEC-016"
+        ]
       }
     },
     {
@@ -1784,7 +1832,11 @@
         "outcome_state": "CONFIRMED",
         "challenge_state": "NONE",
         "current_decision_ref": "DEC-021",
-        "privacy_violation": false
+        "privacy_violation": false,
+        "challenge_event_ids": [],
+        "decision_lineage_refs": [
+          "DEC-021"
+        ]
       }
     },
     {
@@ -1928,7 +1980,12 @@
         "outcome_state": "CONFIRMED",
         "challenge_state": "NONE",
         "current_decision_ref": "DEC2-2",
-        "privacy_violation": false
+        "privacy_violation": false,
+        "challenge_event_ids": [],
+        "decision_lineage_refs": [
+          "DEC-022",
+          "DEC2-2"
+        ]
       }
     },
     {
@@ -2092,7 +2149,13 @@
         "outcome_state": "CONFIRMED",
         "challenge_state": "NONE",
         "current_decision_ref": "DEC3-3",
-        "privacy_violation": false
+        "privacy_violation": false,
+        "challenge_event_ids": [],
+        "decision_lineage_refs": [
+          "DEC-023",
+          "DEC2-3",
+          "DEC3-3"
+        ]
       }
     },
     {
@@ -2236,7 +2299,11 @@
         "outcome_state": "CONFIRMED",
         "challenge_state": "NONE",
         "current_decision_ref": "DEC-024",
-        "privacy_violation": false
+        "privacy_violation": false,
+        "challenge_event_ids": [],
+        "decision_lineage_refs": [
+          "DEC-024"
+        ]
       }
     },
     {
@@ -2400,7 +2467,14 @@
         "outcome_state": "CONFIRMED",
         "challenge_state": "RESOLVED_PRESERVED",
         "current_decision_ref": "DEC2-5",
-        "privacy_violation": false
+        "privacy_violation": false,
+        "challenge_event_ids": [
+          "APPEAL-5"
+        ],
+        "decision_lineage_refs": [
+          "DEC-025",
+          "DEC2-5"
+        ]
       }
     },
     {
@@ -2544,7 +2618,13 @@
         "outcome_state": "CONFIRMED",
         "challenge_state": "OPEN_UNRESOLVED",
         "current_decision_ref": "DEC-026",
-        "privacy_violation": false
+        "privacy_violation": false,
+        "challenge_event_ids": [
+          "APPEAL-6"
+        ],
+        "decision_lineage_refs": [
+          "DEC-026"
+        ]
       }
     },
     {
@@ -2648,7 +2728,11 @@
         "outcome_state": "UNOBSERVED",
         "challenge_state": "NONE",
         "current_decision_ref": "DEC-031",
-        "privacy_violation": false
+        "privacy_violation": false,
+        "challenge_event_ids": [],
+        "decision_lineage_refs": [
+          "DEC-031"
+        ]
       }
     },
     {
@@ -2772,7 +2856,11 @@
         "outcome_state": "PARTIAL",
         "challenge_state": "NONE",
         "current_decision_ref": "DEC-032",
-        "privacy_violation": false
+        "privacy_violation": false,
+        "challenge_event_ids": [],
+        "decision_lineage_refs": [
+          "DEC-032"
+        ]
       }
     },
     {
@@ -2896,7 +2984,11 @@
         "outcome_state": "CONTRADICTED",
         "challenge_state": "NONE",
         "current_decision_ref": "DEC-033",
-        "privacy_violation": false
+        "privacy_violation": false,
+        "challenge_event_ids": [],
+        "decision_lineage_refs": [
+          "DEC-033"
+        ]
       }
     },
     {
@@ -3040,7 +3132,11 @@
         "outcome_state": "CONTESTED",
         "challenge_state": "NONE",
         "current_decision_ref": "DEC-034",
-        "privacy_violation": false
+        "privacy_violation": false,
+        "challenge_event_ids": [],
+        "decision_lineage_refs": [
+          "DEC-034"
+        ]
       }
     },
     {
@@ -3164,7 +3260,11 @@
         "outcome_state": "INDEPENDENCE_UNESTABLISHED",
         "challenge_state": "NONE",
         "current_decision_ref": "DEC-035",
-        "privacy_violation": false
+        "privacy_violation": false,
+        "challenge_event_ids": [],
+        "decision_lineage_refs": [
+          "DEC-035"
+        ]
       }
     },
     {
@@ -3308,7 +3408,11 @@
         "outcome_state": "CONTESTED",
         "challenge_state": "NONE",
         "current_decision_ref": "DEC-036",
-        "privacy_violation": false
+        "privacy_violation": false,
+        "challenge_event_ids": [],
+        "decision_lineage_refs": [
+          "DEC-036"
+        ]
       }
     },
     {
@@ -3432,7 +3536,11 @@
         "outcome_state": "CONFIRMED",
         "challenge_state": "NONE",
         "current_decision_ref": "DEC-041",
-        "privacy_violation": false
+        "privacy_violation": false,
+        "challenge_event_ids": [],
+        "decision_lineage_refs": [
+          "DEC-041"
+        ]
       }
     },
     {
@@ -3576,7 +3684,13 @@
         "outcome_state": "CONFIRMED",
         "challenge_state": "OPEN_UNRESOLVED",
         "current_decision_ref": "DEC-042",
-        "privacy_violation": false
+        "privacy_violation": false,
+        "challenge_event_ids": [
+          "CH-2"
+        ],
+        "decision_lineage_refs": [
+          "DEC-042"
+        ]
       }
     },
     {
@@ -3720,7 +3834,13 @@
         "outcome_state": "CONFIRMED",
         "challenge_state": "RESOLVED_PRESERVED",
         "current_decision_ref": "DEC-043",
-        "privacy_violation": false
+        "privacy_violation": false,
+        "challenge_event_ids": [
+          "CH-3"
+        ],
+        "decision_lineage_refs": [
+          "DEC-043"
+        ]
       }
     },
     {
@@ -3884,7 +4004,14 @@
         "outcome_state": "CONFIRMED",
         "challenge_state": "OPEN_UNRESOLVED",
         "current_decision_ref": "DEC-044",
-        "privacy_violation": false
+        "privacy_violation": false,
+        "challenge_event_ids": [
+          "CH-OPEN-4",
+          "CH-RESOLVED-4"
+        ],
+        "decision_lineage_refs": [
+          "DEC-044"
+        ]
       }
     },
     {
@@ -4028,7 +4155,11 @@
         "outcome_state": "CONFIRMED",
         "challenge_state": "NONE",
         "current_decision_ref": "DEC-045",
-        "privacy_violation": false
+        "privacy_violation": false,
+        "challenge_event_ids": [],
+        "decision_lineage_refs": [
+          "DEC-045"
+        ]
       }
     },
     {
@@ -4172,7 +4303,13 @@
         "outcome_state": "CONFIRMED",
         "challenge_state": "OPEN_UNRESOLVED",
         "current_decision_ref": "DEC-046",
-        "privacy_violation": false
+        "privacy_violation": false,
+        "challenge_event_ids": [
+          "CH-SECOND-6"
+        ],
+        "decision_lineage_refs": [
+          "DEC-046"
+        ]
       }
     },
     {
@@ -4317,7 +4454,11 @@
         "outcome_state": "CONFIRMED",
         "challenge_state": "NONE",
         "current_decision_ref": "DEC-051",
-        "privacy_violation": false
+        "privacy_violation": false,
+        "challenge_event_ids": [],
+        "decision_lineage_refs": [
+          "DEC-051"
+        ]
       }
     },
     {
@@ -4462,7 +4603,11 @@
         "outcome_state": "CONFIRMED",
         "challenge_state": "NONE",
         "current_decision_ref": "DEC-052",
-        "privacy_violation": true
+        "privacy_violation": true,
+        "challenge_event_ids": [],
+        "decision_lineage_refs": [
+          "DEC-052"
+        ]
       }
     },
     {
@@ -4607,7 +4752,11 @@
         "outcome_state": "CONFIRMED",
         "challenge_state": "NONE",
         "current_decision_ref": "DEC-053",
-        "privacy_violation": false
+        "privacy_violation": false,
+        "challenge_event_ids": [],
+        "decision_lineage_refs": [
+          "DEC-053"
+        ]
       }
     },
     {
@@ -4773,7 +4922,11 @@
         "outcome_state": "CONFIRMED",
         "challenge_state": "NONE",
         "current_decision_ref": "DEC-054",
-        "privacy_violation": false
+        "privacy_violation": false,
+        "challenge_event_ids": [],
+        "decision_lineage_refs": [
+          "DEC-054"
+        ]
       }
     },
     {
@@ -4918,7 +5071,11 @@
         "outcome_state": "CONFIRMED",
         "challenge_state": "NONE",
         "current_decision_ref": "DEC-055",
-        "privacy_violation": false
+        "privacy_violation": false,
+        "challenge_event_ids": [],
+        "decision_lineage_refs": [
+          "DEC-055"
+        ]
       }
     },
     {
@@ -5063,7 +5220,11 @@
         "outcome_state": "CONFIRMED",
         "challenge_state": "NONE",
         "current_decision_ref": "DEC-056",
-        "privacy_violation": true
+        "privacy_violation": true,
+        "challenge_event_ids": [],
+        "decision_lineage_refs": [
+          "DEC-056"
+        ]
       }
     }
   ],
