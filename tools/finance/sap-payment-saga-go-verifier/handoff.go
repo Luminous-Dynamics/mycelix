@@ -215,9 +215,10 @@ func (b *ParentHandoffBookV1) IssueGrant(
 		return 0, err
 	}
 	if existing, ok := b.grants[terms.GrantID]; ok {
-		if existing.Terms == terms && existing.GrantDigest == grantDigest {
-			// Recovered retries return the existing committed grant and action
-			// identity; they never create a second parent-chain grant.
+		if existing.Terms == terms &&
+			existing.GrantDigest == grantDigest &&
+			existing.ParentActionHash == parentActionHash {
+			// Recovered retries return the original committed grant/action pair.
 			return HandoffAlreadyCommitted, nil
 		}
 		return 0, ErrHandoffGrantConflict
