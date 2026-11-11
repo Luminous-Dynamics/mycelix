@@ -42,7 +42,7 @@ pub struct DelegatedExposurePolicyV1 {
 }
 
 impl DelegatedExposurePolicyV1 {
-    fn validate(&self) -> Result<(), ExposureError> {
+    pub(crate) fn validate(&self) -> Result<(), ExposureError> {
         self.scope.validate()?;
         if self.sequence == 0
             || self.maximum_total_minor == 0
