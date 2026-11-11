@@ -73,6 +73,26 @@ jobs:
         if: hashFiles('tools/finance/sap-payment-saga-go-verifier/go.mod') != ''
         working-directory: tools/finance/sap-payment-saga-go-verifier
         run: go test -race -count=1 ./...
+      - name: Measure effect-level compensation admission scaling
+        working-directory: tools/finance/sap-payment-saga-go-verifier
+        run: |
+          set -euo pipefail
+          go test -run 'a^' -bench '^BenchmarkCompensationReserve(V2|ParallelV2)      - name: Measure Rust synthetic journal replay scaling
+        run: |
+          set -euo pipefail
+          cargo bench --manifest-path tools/finance/sap-payment-saga-model/Cargo.toml --bench replay_benchmark | tee /tmp/replay-rust-benchmark.txt
+      - name: Measure Go synthetic journal replay scaling
+        working-directory: tools/finance/sap-payment-saga-go-verifier
+        run: |
+          set -euo pipefail
+          go test -run 'a^' -bench '^BenchmarkReplayJournal' -benchmem -benchtime=200ms -count=30 | tee /tmp/replay-go-benchmark.txt
+      - name: Summarize paired raw benchmark samples
+        run: |
+          set -euo pipefail
+          cat /tmp/replay-rust-benchmark.txt /tmp/replay-go-benchmark.txt > /tmp/replay-benchmark.txt
+          awk -f tools/finance/sap-payment-saga-go-verifier/summarize-replay-benchmark.awk /tmp/replay-benchmark.txt
+ -benchmem -benchtime=200ms -count=10 | tee /tmp/compensation-benchmark.txt
+
       - name: Capture paired benchmark environment
         run: |
           rustc --version
