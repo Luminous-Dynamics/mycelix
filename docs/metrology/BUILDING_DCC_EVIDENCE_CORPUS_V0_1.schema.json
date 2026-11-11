@@ -407,6 +407,7 @@
         "result_id",
         "dcc_object_id",
         "instrument_id",
+        "laboratory_id",
         "channel_id",
         "measurand_id",
         "unit",
@@ -503,6 +504,10 @@
             "unknown",
             "revoked"
           ]
+        },
+        "laboratory_id": {
+          "type": "string",
+          "minLength": 1
         }
       }
     },
