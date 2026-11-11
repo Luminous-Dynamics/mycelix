@@ -129,7 +129,7 @@ pub struct ProviderContractV1 {
     pub account_scope: String,
     pub key_scope: ProviderKeyScopeV1,
     pub region_scope: ProviderRegionScopeV1,
-    pub maximum_key_bytes: u16,
+    pub maximum_key_characters: u16,
     pub idempotent_post: bool,
     /// Guaranteed minimum retention. Never assume the key remains stored after it.
     pub retention_min_ms: u64,
@@ -157,7 +157,7 @@ impl ProviderContractV1 {
             validate_text(value).map_err(|_| ProviderObservationErrorV1::InvalidSubject)?;
         }
         if self.idempotent_post {
-            if self.maximum_key_bytes == 0
+            if self.maximum_key_characters == 0
                 || self.retention_min_ms == 0
                 || self.retention_max_ms < self.retention_min_ms
             {
@@ -196,7 +196,7 @@ impl ProviderContractV1 {
         }
         bytes.push(self.key_scope as u8);
         bytes.push(self.region_scope as u8);
-        append_u64(&mut bytes, u64::from(self.maximum_key_bytes));
+        append_u64(&mut bytes, u64::from(self.maximum_key_characters));
         bytes.push(u8::from(self.idempotent_post));
         append_u64(&mut bytes, self.retention_min_ms);
         append_u64(&mut bytes, self.retention_max_ms);
@@ -223,7 +223,7 @@ impl ProviderContractV1 {
             account_scope: account_scope.into(),
             key_scope: ProviderKeyScopeV1::CompanyAccount,
             region_scope: ProviderRegionScopeV1::PerRegion,
-            maximum_key_bytes: 64,
+            maximum_key_characters: 64,
             idempotent_post: true,
             retention_min_ms: 7 * DAY_MS,
             retention_max_ms: 14 * DAY_MS,
@@ -282,11 +282,16 @@ impl ProviderOperationKeyV1 {
                 return Err(ProviderRetryErrorV1::ProviderScopeMismatch);
             }
         }
-        if self.region.is_empty() && contract.region_scope == ProviderRegionScopeV1::PerRegion {
+        let expected_region_shape = match contract.region_scope {
+            ProviderRegionScopeV1::Global => self.region == "global",
+            ProviderRegionScopeV1::PerRegion => !self.region.is_empty(),
+        };
+        if !expected_region_shape {
             return Err(ProviderRetryErrorV1::RegionMismatch);
         }
         if self.idempotency_key.is_empty()
-            || self.idempotency_key.len() > usize::from(contract.maximum_key_bytes)
+            || self.idempotency_key.chars().count()
+                > usize::from(contract.maximum_key_characters)
             || self.created_at_unix_ms == 0
             || !valid_digest(&self.request_digest)
             || self.contract_digest != contract.canonical_digest().map_err(|_| {
@@ -421,7 +426,10 @@ impl ProviderObservationV1 {
         if self.observed_at_unix_ms == 0 || self.observed_at_unix_ms > now_unix_ms {
             return Err(ProviderObservationErrorV1::InvalidTimestamp);
         }
-        if !valid_digest(&self.evidence_digest) {
+        if self.status == ProviderStatusV1::AuthoritativelyAbsent {
+            return Err(ProviderObservationErrorV1::AbsenceNotSupported);
+        }
+        if !valid_digest(&self.request_digest) || !valid_digest(&self.evidence_digest) {
             return Err(ProviderObservationErrorV1::InvalidDigest);
         }
         for value in [
@@ -435,6 +443,27 @@ impl ProviderObservationV1 {
     }
 
     pub fn canonical_digest(&self) -> Result<String, ProviderObservationErrorV1> {
+        for value in [
+            &self.provider_id,
+            &self.profile_id,
+            &self.api_version,
+            &self.account_scope,
+            &self.region,
+            &self.idempotency_key,
+            &self.provider_object_id,
+            &self.event_id,
+            &self.evidence_reference,
+        ] {
+            validate_text(value)?;
+        }
+        if !valid_digest(&self.request_digest) || !valid_digest(&self.evidence_digest) {
+            return Err(ProviderObservationErrorV1::InvalidDigest);
+        }
+        if self.observed_at_unix_ms == 0
+            || self.status == ProviderStatusV1::AuthoritativelyAbsent
+        {
+            return Err(ProviderObservationErrorV1::InvalidSubject);
+        }
         let mut bytes = Vec::new();
         bytes.extend_from_slice(OBSERVATION_DOMAIN);
         for value in [
@@ -475,6 +504,23 @@ pub struct ProviderAbsenceEvidenceV1 {
 
 impl ProviderAbsenceEvidenceV1 {
     pub fn canonical_digest(&self) -> Result<String, ProviderObservationErrorV1> {
+        for value in [
+            &self.provider_id,
+            &self.profile_id,
+            &self.api_version,
+            &self.account_scope,
+            &self.region,
+            &self.idempotency_key,
+            &self.lookup_reference,
+        ] {
+            validate_text(value)?;
+        }
+        if !valid_digest(&self.request_digest) || !valid_digest(&self.evidence_digest) {
+            return Err(ProviderObservationErrorV1::InvalidDigest);
+        }
+        if self.complete_through_unix_ms == 0 || self.observed_at_unix_ms == 0 {
+            return Err(ProviderObservationErrorV1::InvalidTimestamp);
+        }
         let mut bytes = Vec::new();
         bytes.extend_from_slice(ABSENCE_DOMAIN);
         for value in [
