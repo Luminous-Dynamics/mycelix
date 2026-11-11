@@ -1,0 +1,189 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Mycelix Derived Measurement Graph Profile v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "profile_id",
+    "base_channel_profile_id",
+    "classification",
+    "claim_ceiling",
+    "real_physical_method_execution_enabled",
+    "method_profiles",
+    "invariants"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "mycelix.derived-measurement-graph/0.1"
+    },
+    "profile_id": {
+      "const": "MYC-BUILD-DERIVED-GRAPH-V0.1"
+    },
+    "base_channel_profile_id": {
+      "const": "MYC-BUILD-METROLOGY-PROFILE-V0.1"
+    },
+    "classification": {
+      "const": "synthetic_graph_contract_with_blocked_physical_method_profiles"
+    },
+    "claim_ceiling": {
+      "const": "synthetic_dependency_resolution_and_test_method_recomputation_only"
+    },
+    "real_physical_method_execution_enabled": {
+      "const": false
+    },
+    "method_profiles": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": {
+        "$ref": "#/$defs/method"
+      }
+    },
+    "invariants": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "derived_output_is_not_physical_instrument",
+        "source_digest_alone_is_not_reconstructability",
+        "exact_ordered_source_edges_required",
+        "no_latest_alias",
+        "no_implicit_interpolation_or_imputation",
+        "calibration_installation_firmware_and_timebase_bindings_required",
+        "all_parent_graphs_must_resolve",
+        "no_cyclic_dependency_graphs",
+        "uncertain_or_revoked_parent_blocks_output",
+        "eligibility_never_means_physical_admission"
+      ],
+      "properties": {
+        "derived_output_is_not_physical_instrument": {
+          "const": true
+        },
+        "source_digest_alone_is_not_reconstructability": {
+          "const": true
+        },
+        "exact_ordered_source_edges_required": {
+          "const": true
+        },
+        "no_latest_alias": {
+          "const": true
+        },
+        "no_implicit_interpolation_or_imputation": {
+          "const": true
+        },
+        "calibration_installation_firmware_and_timebase_bindings_required": {
+          "const": true
+        },
+        "all_parent_graphs_must_resolve": {
+          "const": true
+        },
+        "no_cyclic_dependency_graphs": {
+          "const": true
+        },
+        "uncertain_or_revoked_parent_blocks_output": {
+          "const": true
+        },
+        "eligibility_never_means_physical_admission": {
+          "const": true
+        }
+      }
+    }
+  },
+  "$defs": {
+    "method": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "method_id",
+        "revision",
+        "output_channel_id",
+        "output_measurand_id",
+        "output_quantity_kind",
+        "output_unit",
+        "calculation_kind",
+        "artifact_digest",
+        "runtime_id",
+        "method_reference",
+        "method_status",
+        "required_inputs",
+        "admission_note"
+      ],
+      "properties": {
+        "method_id": {
+          "type": "string"
+        },
+        "revision": {
+          "type": "string"
+        },
+        "output_channel_id": {
+          "type": "string"
+        },
+        "output_measurand_id": {
+          "type": "string"
+        },
+        "output_quantity_kind": {
+          "type": "string"
+        },
+        "output_unit": {
+          "type": "string"
+        },
+        "calculation_kind": {
+          "type": "string"
+        },
+        "artifact_digest": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "runtime_id": {
+          "type": "string"
+        },
+        "method_reference": {
+          "type": "string"
+        },
+        "method_status": {
+          "enum": [
+            "SYNTHETIC_TEST_ONLY",
+            "BLOCKED_PENDING_INPUT_CHANNEL_ADMISSION"
+          ]
+        },
+        "required_inputs": {
+          "type": "array",
+          "minItems": 2,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "role",
+              "ordinal",
+              "channel_id",
+              "measurand_id",
+              "unit"
+            ],
+            "properties": {
+              "role": {
+                "type": "string"
+              },
+              "ordinal": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "channel_id": {
+                "type": "string"
+              },
+              "measurand_id": {
+                "type": "string"
+              },
+              "unit": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "admission_note": {
+          "type": "string",
+          "minLength": 20
+        }
+      }
+    }
+  }
+}
