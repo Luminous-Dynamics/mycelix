@@ -27,7 +27,7 @@ An eligible record is not a PASS, measurement certification or device command. N
 
 ## Synthetic corpus
 
-55 frozen cases cover vendor-only capability, mismatched measurand/unit/range, calibration certificate and scope, traceability, as-found problems, relocation, serial reuse, firmware revisions, timebase/sequence, saturation and faults, derived-measure lineage, uncertainty/correlation, independent-assay binding, rights revocation and overbroad IAQ claims.
+60 frozen cases cover vendor-only capability, mismatched measurand/unit/range, calibration certificate and scope, traceability, as-found problems, relocation, serial reuse, firmware revisions, timebase/sequence, saturation and faults, derived-measure lineage, uncertainty/correlation, independent-assay binding, rights revocation, overbroad IAQ claims, calibration-uncertainty lineage, calibration-range containment, retired-instrument invalidation, and a fully populated but still blocked derived-measurement record.
 
 ## Standards and method sources
 
@@ -67,3 +67,15 @@ This is a declared applicability check, not cryptographic verification of a prot
 ## What v0.1 does not yet compute
 
 The passport retains uncertainty inputs, calibration uncertainty, expanded uncertainty and correlation groups. It does not calculate covariance propagation, Monte Carlo distributions, coverage intervals, or conformity guard bands. Those are separate method-qualified tasks under #6034. Likewise, the certificate_state=authenticated field is a classified evidence state, not a built-in XML signature verifier; the DCC interoperability follow-on must verify the source certificate itself.
+
+## 11 November 2026 passport hardening
+
+- The frozen corpus contains **60** cases. The Rust oracle independently pins all 60 IDs and expected dispositions.
+- A calibration certificate's uncertainty contribution must appear exactly once in the sample uncertainty budget and must match the exact certificate record, unit and value. Missing or duplicated calibration contributions require more evidence.
+- The calibration interval must be internally valid and fully contained by the instrument's independently verified capability envelope. A certificate cannot expand device capability.
+- Retired, replaced or moved instruments cannot support a current sample.
+- **Derived measurands are deliberately not eligible under the single-instrument v0.1 passport.** A method ID and source digest alone are not a source graph. Mean-radiant temperature and useful thermal energy require exact input sample/calibration/installation/timebase references and a versioned method graph under [#6064](https://github.com/Luminous-Dynamics/mycelix/issues/6064).
+- `conditions_id` remains an opaque pointer in v0.1. Actual condition observations, time/location applicability and validated correction revisions are a separate required contract under [#6065](https://github.com/Luminous-Dynamics/mycelix/issues/6065).
+- The corpus-embedded passport schema no longer declares a nested `$id` or `$schema`; its local `$ref` values resolve from the corpus schema root.
+
+Static verification at the 11 Nov 2026 cut: the independent recursive schema walk found zero errors across the complete corpus and 60 individual passports; independent disposition replay matched 60/60; all 60 IDs/dispositions matched the Rust-pinned table. This is static verification, not Rust execution. Hosted workflows must pass at the exact PR head before a software PASS is claimed.
