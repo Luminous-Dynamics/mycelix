@@ -28,7 +28,7 @@ const EXPECTED:&[(&str,&str)]=&[
 ("DCC-020","NOT_COMPARABLE"),("DCC-021","NOT_COMPARABLE"),
 ("DCC-022","NOT_COMPARABLE"),("DCC-023","NOT_COMPARABLE"),
 ("DCC-024","NOT_COMPARABLE"),("DCC-025","EXPIRED_OR_INVALIDATED"),
-("DCC-026","NOT_COMPARABLE"),("DCC-027","EXPIRED_OR_INVALIDATED"),
+("DCC-026","EXPIRED_OR_INVALIDATED"),("DCC-027","EXPIRED_OR_INVALIDATED"),
 ("DCC-028","EXPIRED_OR_INVALIDATED"),("DCC-029","EXPIRED_OR_INVALIDATED"),
 ("DCC-030","REJECTED_FOR_DECLARED_PURPOSE"),("DCC-031","MORE_EVIDENCE_REQUIRED"),
 ("DCC-032","MORE_EVIDENCE_REQUIRED"),("DCC-033","NOT_COMPARABLE"),
@@ -40,7 +40,7 @@ const ARTIFACT_FIELDS:&[&str]=&["source_uri","original_bytes_digest","received_b
 const DOCUMENT_FIELDS:&[&str]=&["well_formed_state","namespace_uri","root_element","schema_version","xsd_artifact_state","xsd_digest","xsd_validation_state","id_reference_state","parser_profile_id","parser_profile_state"];
 const SIGNATURE_FIELDS:&[&str]=&["presence_state","signature_count","reference_digest_state","signature_value_state","signer_certificate_state","signer_trust_state","signer_id","signer_role_state","signed_reference_uris","covered_object_ids","consumed_object_ids","external_reference_count","duplicate_id_count","transform_policy_state","wrapping_check_state"];
 const LAB_FIELDS:&[&str]=&["laboratory_id","accreditation_body_id","schedule_id","schedule_digest","schedule_state","scope_id","scope_state","measurand_id","method_id","method_revision","unit","range_min","range_max","valid_from","valid_to"];
-const RESULT_FIELDS:&[&str]=&["result_id","dcc_object_id","instrument_id","channel_id","measurand_id","unit","method_id","method_revision","range_min","range_max","calibration_date","due_date","firmware_revision","result_state","uncertainty_value","uncertainty_unit","coverage_factor","certificate_rights_state"];
+const RESULT_FIELDS:&[&str]=&["result_id","dcc_object_id","instrument_id","laboratory_id","channel_id","measurand_id","unit","method_id","method_revision","range_min","range_max","calibration_date","due_date","firmware_revision","result_state","uncertainty_value","uncertainty_unit","coverage_factor","certificate_rights_state"];
 const BINDING_FIELDS:&[&str]=&["instrument_id","channel_id","measurand_id","unit","method_id","method_revision","firmware_revision","sample_observation_id","sample_digest","sample_date","sample_value"];
 const CORRECTION_FIELDS:&[&str]=&["supersession_state","previous_artifact_digest","correction_notice_id","dependency_impact_state"];
 
@@ -75,8 +75,8 @@ pub fn classify_record(r:&Value)->&'static str{
  if !non(a,"original_bytes_digest")||text(a,"original_bytes_digest")!=text(a,"received_bytes_digest")||!non(a,"source_receipt_id")||text(a,"retention_state")!="retained_original_bytes"{return "REJECTED_SOURCE_INTEGRITY";}
  if text(d,"well_formed_state")!="well_formed"||text(d,"namespace_uri")!="https://ptb.de/dcc"||text(d,"root_element")!="digitalCalibrationCertificate"||text(d,"schema_version")!="3.3.0"{return "REJECTED_DOCUMENT";}
  if text(d,"xsd_validation_state")=="invalid"{return "REJECTED_DOCUMENT";}
+ if num(s,"duplicate_id_count").is_none_or(|n|n>0.0)||matches!(text(d,"id_reference_state"),"duplicate_id"|"invalid_reference"){return "REJECTED_XML_ID_AMBIGUITY";}
  if text(d,"xsd_artifact_state")!="pinned"||!non(d,"xsd_digest")||text(d,"xsd_validation_state")!="valid"||text(d,"id_reference_state")!="valid"||text(d,"parser_profile_state")!="independently_reviewed"{return "MORE_EVIDENCE_REQUIRED";}
- if num(s,"duplicate_id_count").is_none_or(|n|n>0.0)||text(d,"id_reference_state")=="duplicate_id"{return "REJECTED_XML_ID_AMBIGUITY";}
  if num(s,"external_reference_count").is_none_or(|n|n>0.0){return "REJECTED_EXTERNAL_REFERENCE";}
  if text(s,"transform_policy_state")!="allowlisted"||text(s,"wrapping_check_state")!="safe"{return "REJECTED_SIGNATURE_COVERAGE";}
  if text(s,"presence_state")=="absent"||num(s,"signature_count").is_none_or(|n|n<1.0){return "MORE_EVIDENCE_REQUIRED";}
@@ -90,10 +90,12 @@ pub fn classify_record(r:&Value)->&'static str{
  let Some(consumed)=strings(s,"consumed_object_ids")else{return "REJECTED_SIGNED_OBJECT_COVERAGE";};
  if consumed.is_empty()||consumed.iter().any(|x|!covered.contains(x))||!covered.contains(text(cr,"dcc_object_id"))||!consumed.contains(text(cr,"dcc_object_id")){return "REJECTED_SIGNED_OBJECT_COVERAGE";}
  let Some(uris)=s["signed_reference_uris"].as_array()else{return "REJECTED_SIGNED_OBJECT_COVERAGE";};
- if !uris.iter().any(|x|x.as_str()==Some(&format!("#{}",text(cr,"dcc_object_id")))){return "REJECTED_SIGNED_OBJECT_COVERAGE";}
+ let expected_uri=format!("#{}",text(cr,"dcc_object_id"));
+ if !uris.iter().any(|x|x.as_str()==Some(expected_uri.as_str())){return "REJECTED_SIGNED_OBJECT_COVERAGE";}
  if text(l,"schedule_state")!="authenticated_current"||!non(l,"schedule_digest")||!non(l,"schedule_id"){return "MORE_EVIDENCE_REQUIRED";}
  if text(l,"scope_state")=="unknown"{return "MORE_EVIDENCE_REQUIRED";}
  if text(l,"scope_state")!="covers_measurand_method_range"{return "NOT_COMPARABLE";}
+ if text(l,"laboratory_id")!=text(cr,"laboratory_id"){return "NOT_COMPARABLE";}
  if text(l,"measurand_id")!=text(cr,"measurand_id")||text(l,"method_id")!=text(cr,"method_id")||text(l,"method_revision")!=text(cr,"method_revision")||text(l,"unit")!=text(cr,"unit"){return "NOT_COMPARABLE";}
  let (Some(lmin),Some(lmax),Some(cmin),Some(cmax))=(num(l,"range_min"),num(l,"range_max"),num(cr,"range_min"),num(cr,"range_max"))else{return "MORE_EVIDENCE_REQUIRED";};
  if lmin>cmin||lmax<cmax{return "NOT_COMPARABLE";}
@@ -126,9 +128,15 @@ fn validate_schema_contract(profile:&Value,ps:&Value,cs:&Value)->Result<(),Strin
 pub fn validate_tracked()->Result<usize,String>{
  let profile=parse(PROFILE_JSON)?;let ps=parse(PROFILE_SCHEMA_JSON)?;let cs=parse(CORPUS_SCHEMA_JSON)?;validate_schema_contract(&profile,&ps,&cs)?;
  let c=parse(CORPUS_JSON)?;
- if text(&c,"schema_version")!="mycelix.building-dcc-evidence-corpus/0.1"||text(&c,"corpus_id")!="BUILDING-DCC-EVIDENCE-CORPUS-V0.1"||c["cases"].as_array().is_none_or(|a|a.len()!=EXPECTED.len()){return Err("DCC_CORPUS_IDENTITY_INVALID".into());}
+ if !exact(&c,&["schema_version","corpus_id","classification","claim_ceiling","cases"])
+  ||text(&c,"schema_version")!="mycelix.building-dcc-evidence-corpus/0.1"
+  ||text(&c,"corpus_id")!="BUILDING-DCC-EVIDENCE-CORPUS-V0.1"
+  ||text(&c,"classification")!="synthetic_dcc_evidence_state_machine_cases"
+  ||text(&c,"claim_ceiling")!="normalized_synthetic_dcc_evidence_contract_only"
+  ||c["cases"].as_array().is_none_or(|a|a.len()!=EXPECTED.len()){return Err("DCC_CORPUS_IDENTITY_INVALID".into());}
  for (index,(case,(id,expected))) in c["cases"].as_array().unwrap().iter().zip(EXPECTED).enumerate(){
-  if text(case,"case_id")!=*id||text(case,"expected_disposition")!=*expected{return Err(format!("DCC_CASE_ID_OR_EXPECTED_DRIFT:{id}"));}
+  if !exact(case,&["case_id","description","record","expected_disposition"])
+   ||text(case,"case_id")!=*id||text(case,"expected_disposition")!=*expected||text(case,"description").len()<20{return Err(format!("DCC_CASE_ID_OR_EXPECTED_DRIFT:{id}"));}
   validate_record(&case["record"])?;
   let actual=classify_record(&case["record"]);if actual!=*expected{return Err(format!("DCC_DISPOSITION_MISMATCH:{}:expected={expected}:actual={actual}",index+1));}
  }
