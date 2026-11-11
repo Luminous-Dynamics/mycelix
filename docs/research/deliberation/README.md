@@ -86,8 +86,14 @@ The [project publishes code and data](https://github.com/shuyhere/LLMs-for-Scala
 - [Real-Time Group Dynamics with LLM Facilitation (FAccT 2026)](https://arxiv.org/abs/2605.14097) reports two experiments with 879 participants in groups of three. Participants preferred LLM facilitation, but the study did not find significant consensus or measured participation-equity improvements; some strategies shifted actual charity allocations.
 - [Improving Group Deliberation through AI-Guided Self-Reflection (27 October 2026)](https://arxiv.org/abs/2610.37862) reports a randomized experiment with 1,173 U.S. participants across 391 groups. Non-directive pre-deliberation reflection improved measured Discourse Quality Index outcomes in that study; the reported effect sizes are study-specific and require replication.
 - [Bringing Everyone to the Table / GRAIL (PACM HCI 2026)](https://arxiv.org/abs/2508.08242) reports a preregistered randomized study with 1,475 participants in 281 five-person groups. LLM facilitation increased information shared, while final decision quality did not significantly improve in the studied hidden-profile task. The authors released an open-source research platform and experimental data.
+- [Can LLMs Deliberate? / DelibSim (PoliSim @ CHI 2026)](https://openreview.net/forum?id=ggC651T5Vv) evaluates 1,980 five-agent deliberations across 12 policy topics and 11 model configurations. Its reported process-quality measures approach human reference levels, while LLM groups show substantially lower perspective diversity and different convergence dynamics. Treat this as a complementary agent-group benchmark, not a substitute for consented human-group evidence or a directly matched DelibBench baseline.
 
 These results motivate **separate treatment arms**: unassisted discussion, human facilitation, platform-native workflow, non-directive pre-reflection, retrospective summaries, and in-conversation AI facilitation. Do not pool them into one "AI-assisted" condition.
+
+
+### Perspective diversity is an outcome, not a cosmetic statistic
+
+DelibSim makes a measurement gap explicit: a group may produce fluent, orderly, high-quality discourse while retaining substantially less viewpoint diversity than human reference groups. DelibBench should therefore report, as separate dimensions, (1) discourse/process quality, (2) perspective diversity and coverage, (3) warranted movement after evidence, (4) unsupported convergence or influence, and (5) task-specific decision outcome. Do not reward minimum stance variance or maximum consensus. Diversity should be interpreted relative to the task's evidence and legitimate normative pluralism, not as a universal preference for disagreement. Pair the aggregate group profile with participant-conditioned voice fidelity from #6011 and the private/public revision trajectory in Symthaea #11320.
 
 ### Process and impact evaluation
 
