@@ -15,6 +15,7 @@
 pub mod delegated;
 pub mod handoff;
 pub mod exposure;
+pub mod replay;
 pub mod trace;
 
 use std::collections::{BTreeMap, btree_map::Entry};
