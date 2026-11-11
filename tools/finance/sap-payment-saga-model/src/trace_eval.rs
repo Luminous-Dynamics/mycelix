@@ -517,17 +517,25 @@ fn observed_disposition(
 
     match command.opcode {
         TraceOpcode::CreateIntent => {
-            let disposition = if context.registry.len() == 1 {
-                CreateDisposition::Created
-            } else {
-                CreateDisposition::ExistingSameIntent
-            };
+            if command.subject != context.operation_nonce || command.value != context.amount_minor {
+                return Ok(TraceDispositionV1::Rejected);
+            }
+            let (disposition, operation_id) = context
+                .registry
+                .create_or_get(context.original_intent.clone())
+                .map_err(|_| TraceEvaluationError::InvalidIntent)?;
+            if operation_id != context.operation_id {
+                return Ok(TraceDispositionV1::Rejected);
+            }
             Ok(match disposition {
                 CreateDisposition::Created => TraceDispositionV1::Applied,
                 CreateDisposition::ExistingSameIntent => TraceDispositionV1::Idempotent,
             })
         }
         TraceOpcode::Authorize => {
+            if command.subject != context.operation_nonce || command.value != context.fee_minor {
+                return Ok(TraceDispositionV1::Rejected);
+            }
             let result = context.journal_mut()?.authorize();
             Ok(match result {
                 Ok(Transition::Prepared) => TraceDispositionV1::Applied,
@@ -536,6 +544,11 @@ fn observed_disposition(
             })
         }
         TraceOpcode::PrepareLocal => {
+            if command.subject != context.operation_nonce
+                || command.value != context.amount_minor.saturating_add(context.fee_minor)
+            {
+                return Ok(TraceDispositionV1::Rejected);
+            }
             let effect_id = context.local_effect_id.clone();
             let result = context
                 .journal_mut()?
@@ -547,6 +560,11 @@ fn observed_disposition(
             })
         }
         TraceOpcode::CommitLocal => {
+            if command.subject != context.operation_nonce
+                || command.value != context.amount_minor.saturating_add(context.fee_minor)
+            {
+                return Ok(TraceDispositionV1::Rejected);
+            }
             let label = context.trace_label();
             let evidence = local_payment_evidence(
                 context.journal()?,
@@ -848,20 +866,15 @@ pub fn evaluate_trace_v1(trace: &TraceV1) -> Result<TraceEvaluationV1, TraceEval
         "SAP",
     );
     let mut registry = JournalRegistry::default();
-    let (created, operation_id) = registry
-        .create_or_get(original_intent.clone())
-        .map_err(|_| TraceEvaluationError::InvalidIntent)?;
-    if created != CreateDisposition::Created {
-        return Err(TraceEvaluationError::InvalidIntent);
-    }
-    let local_effect_id = registry
-        .get(&sender, &idempotency_key)
-        .ok_or(TraceEvaluationError::MissingJournal)?
-        .effect_id(PaymentLeg::LocalPaymentTransaction);
-    let treasury_effect_id = registry
-        .get(&sender, &idempotency_key)
-        .ok_or(TraceEvaluationError::MissingJournal)?
-        .effect_id(PaymentLeg::TreasuryFee);
+    let operation_id = format!(
+        "sap-payment:{}:{}:{}:{}",
+        sender.len(),
+        sender,
+        idempotency_key.len(),
+        idempotency_key
+    );
+    let local_effect_id = format!("{operation_id}:local-payment-transaction");
+    let treasury_effect_id = format!("{operation_id}:treasury-fee");
 
     let mut context = ExecutionContext {
         registry,
