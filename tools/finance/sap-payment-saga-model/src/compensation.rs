@@ -5,7 +5,7 @@
 //! scope, liquidity reservations and cumulative reversible limits; it does not
 //! authenticate external signatures or account balances.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use sha2::{Digest, Sha256};
 
@@ -529,6 +529,11 @@ pub struct CompensationBookV2 {
     plan: CompensationPlanV2,
     plan_digest: String,
     initial_liquidity_minor: u64,
+    settled_minor: u64,
+    encumbered_minor: u64,
+    reservation_ids: BTreeSet<String>,
+    capability_scopes: BTreeMap<String, String>,
+    capability_usage: BTreeMap<String, u64>,
     records: BTreeMap<String, CompensationRecordV2>,
 }
 
@@ -545,6 +550,11 @@ impl CompensationBookV2 {
             plan,
             plan_digest,
             initial_liquidity_minor,
+            settled_minor: 0,
+            encumbered_minor: 0,
+            reservation_ids: BTreeSet::new(),
+            capability_scopes: BTreeMap::new(),
+            capability_usage: BTreeMap::new(),
             records: BTreeMap::new(),
         })
     }
@@ -589,43 +599,27 @@ impl CompensationBookV2 {
         request
             .liquidity_reservation
             .validate(&self.plan, request.amount_minor)?;
-        if self.records.values().any(|record| {
-            record.request.liquidity_reservation.reservation_id
-                == request.liquidity_reservation.reservation_id
-        }) {
+        let reservation_id = request.liquidity_reservation.reservation_id.clone();
+        if self.reservation_ids.contains(&reservation_id) {
             return Err(CompensationErrorV2::LiquidityReservationConflict);
         }
 
-        // Capability IDs are immutable identities. A changed scope cannot
-        // evade a previously consumed cumulative grant ceiling.
+        // Capability IDs are immutable identities. Index the scope and
+        // aggregate use so admission remains O(log n), not a full-history scan.
+        let capability_id = request.authorization.capability_id.clone();
         let capability_digest = request.authorization.canonical_scope_digest()?;
-        let capability_used = self.records.values().try_fold(
-            0_u64,
-            |total, record| {
-                if record.request.authorization.capability_id
-                    != request.authorization.capability_id
-                {
-                    return Ok(total);
-                }
-                let existing_digest = record.request.authorization.canonical_scope_digest()?;
-                if existing_digest != capability_digest {
-                    return Err(CompensationErrorV2::CapabilityIdentityConflict);
-                }
-                let amount = record.request.amount_minor;
-                let counted = match record.status {
-                    CompensationStatusV2::Settled
-                    | CompensationStatusV2::Reserved
-                    | CompensationStatusV2::DispatchAuthorized
-                    | CompensationStatusV2::Indeterminate
-                    | CompensationStatusV2::AuthoritativelyAbsent
-                    | CompensationStatusV2::ObservedUnsettled => amount,
-                    CompensationStatusV2::Cancelled => 0,
-                };
-                total
-                    .checked_add(counted)
-                    .ok_or(CompensationErrorV2::AmountOverflow)
-            },
-        )?;
+        if self
+            .capability_scopes
+            .get(&capability_id)
+            .is_some_and(|existing| existing != &capability_digest)
+        {
+            return Err(CompensationErrorV2::CapabilityIdentityConflict);
+        }
+        let capability_used = self
+            .capability_usage
+            .get(&capability_id)
+            .copied()
+            .unwrap_or(0);
         let projected_capability_use = capability_used
             .checked_add(request.amount_minor)
             .ok_or(CompensationErrorV2::AmountOverflow)?;
@@ -633,9 +627,9 @@ impl CompensationBookV2 {
             return Err(CompensationErrorV2::AuthorizationLimitExceeded);
         }
 
-        let (settled, encumbered) = self.totals()?;
-        let used = settled
-            .checked_add(encumbered)
+        let used = self
+            .settled_minor
+            .checked_add(self.encumbered_minor)
             .ok_or(CompensationErrorV2::AmountOverflow)?;
         let projected = used
             .checked_add(request.amount_minor)
@@ -646,7 +640,18 @@ impl CompensationBookV2 {
         if projected > self.initial_liquidity_minor {
             return Err(CompensationErrorV2::InsufficientLiquidity);
         }
+        let projected_encumbered = self
+            .encumbered_minor
+            .checked_add(request.amount_minor)
+            .ok_or(CompensationErrorV2::AmountOverflow)?;
 
+        self.reservation_ids.insert(reservation_id);
+        self.capability_scopes
+            .entry(capability_id.clone())
+            .or_insert(capability_digest);
+        self.capability_usage
+            .insert(capability_id, projected_capability_use);
+        self.encumbered_minor = projected_encumbered;
         self.records.insert(
             request.compensation_id.clone(),
             CompensationRecordV2 {
@@ -671,11 +676,6 @@ impl CompensationBookV2 {
             .records
             .get_mut(compensation_id)
             .ok_or(CompensationErrorV2::CompensationNotFound)?;
-        if actor_owner_id != record.request.actor_owner_id
-            || actor_owner_id != current_authorization.grantee_owner_id
-        {
-            return Err(CompensationErrorV2::CallerNotAuthorized);
-        }
         if actor_owner_id != record.request.actor_owner_id
             || actor_owner_id != current_authorization.grantee_owner_id
         {
@@ -850,6 +850,15 @@ impl CompensationBookV2 {
         {
             return Err(CompensationErrorV2::OutcomeContradiction);
         }
+        let amount = record.request.amount_minor;
+        self.encumbered_minor = self
+            .encumbered_minor
+            .checked_sub(amount)
+            .ok_or(CompensationErrorV2::AmountOverflow)?;
+        self.settled_minor = self
+            .settled_minor
+            .checked_add(amount)
+            .ok_or(CompensationErrorV2::AmountOverflow)?;
         record.status = CompensationStatusV2::Settled;
         record.possible_effect_count = 1;
         record.last_outcome_digest = Some(digest);
@@ -861,23 +870,46 @@ impl CompensationBookV2 {
         compensation_id: &str,
         actor_owner_id: &str,
     ) -> Result<CompensationDispositionV2, CompensationErrorV2> {
-        let record = self
-            .records
-            .get_mut(compensation_id)
-            .ok_or(CompensationErrorV2::CompensationNotFound)?;
-        if actor_owner_id != record.request.actor_owner_id
-            && actor_owner_id != self.plan.funding_owner_id
-        {
-            return Err(CompensationErrorV2::CallerNotAuthorized);
-        }
-        match record.status {
-            CompensationStatusV2::Reserved | CompensationStatusV2::AuthoritativelyAbsent => {
-                record.status = CompensationStatusV2::Cancelled;
-                Ok(CompensationDispositionV2::Cancelled)
+        let (amount, capability_id) = {
+            let record = self
+                .records
+                .get_mut(compensation_id)
+                .ok_or(CompensationErrorV2::CompensationNotFound)?;
+            if actor_owner_id != record.request.actor_owner_id
+                && actor_owner_id != self.plan.funding_owner_id
+            {
+                return Err(CompensationErrorV2::CallerNotAuthorized);
             }
-            CompensationStatusV2::Cancelled => Ok(CompensationDispositionV2::Cancelled),
-            _ => Err(CompensationErrorV2::InvalidTransition),
-        }
+            match record.status {
+                CompensationStatusV2::Reserved | CompensationStatusV2::AuthoritativelyAbsent => {
+                    record.status = CompensationStatusV2::Cancelled;
+                    (
+                        record.request.amount_minor,
+                        record.request.authorization.capability_id.clone(),
+                    )
+                }
+                CompensationStatusV2::Cancelled => {
+                    return Ok(CompensationDispositionV2::Cancelled);
+                }
+                _ => return Err(CompensationErrorV2::InvalidTransition),
+            }
+        };
+        self.encumbered_minor = self
+            .encumbered_minor
+            .checked_sub(amount)
+            .ok_or(CompensationErrorV2::AmountOverflow)?;
+        let capability_used = self
+            .capability_usage
+            .get(&capability_id)
+            .copied()
+            .ok_or(CompensationErrorV2::CapabilityIdentityConflict)?;
+        self.capability_usage.insert(
+            capability_id,
+            capability_used
+                .checked_sub(amount)
+                .ok_or(CompensationErrorV2::AmountOverflow)?,
+        );
+        Ok(CompensationDispositionV2::Cancelled)
     }
 
     pub fn compensation_effect_id(&self, compensation_id: &str) -> Option<String> {
@@ -945,27 +977,7 @@ impl CompensationBookV2 {
     }
 
     fn totals(&self) -> Result<(u64, u64), CompensationErrorV2> {
-        self.records.values().try_fold(
-            (0_u64, 0_u64),
-            |(settled, encumbered), record| {
-                let amount = record.request.amount_minor;
-                match record.status {
-                    CompensationStatusV2::Settled => Ok((
-                        settled.checked_add(amount).ok_or(CompensationErrorV2::AmountOverflow)?,
-                        encumbered,
-                    )),
-                    CompensationStatusV2::Reserved
-                    | CompensationStatusV2::DispatchAuthorized
-                    | CompensationStatusV2::Indeterminate
-                    | CompensationStatusV2::AuthoritativelyAbsent
-                    | CompensationStatusV2::ObservedUnsettled => Ok((
-                        settled,
-                        encumbered.checked_add(amount).ok_or(CompensationErrorV2::AmountOverflow)?,
-                    )),
-                    CompensationStatusV2::Cancelled => Ok((settled, encumbered)),
-                }
-            },
-        )
+        Ok((self.settled_minor, self.encumbered_minor))
     }
 }
 
