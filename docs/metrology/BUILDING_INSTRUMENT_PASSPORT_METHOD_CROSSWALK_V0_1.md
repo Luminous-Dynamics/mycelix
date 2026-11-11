@@ -97,3 +97,52 @@ The certificate range must be valid and lie wholly inside the independently char
 These references are complementary, not interchangeable. A proficiency test compares a participant's result to an assigned value or consensus under a particular PT scheme. It does not estimate the complete between-laboratory reproducibility of a product-performance method, production-lot variation, or household ecological validity. Keep PT participation/status as a separate laboratory-competence evidence item and never treat its score as a replacement for the four household-appliance study strata.
 
 Official catalogue links: [ISO 5725-1:2023](https://www.iso.org/standard/69418.html); [ISO 5725-2:2025](https://www.iso.org/standard/90054.html); [ISO 5725-3:2023](https://www.iso.org/ics/17.020/x/); [ISO/IEC 17043:2023](https://www.iso.org/standard/80864.html); [ISO 13528:2022/Amd 1:2026](https://www.iso.org/standard/90057.html).
+
+## 11 November 2026: expanded method-to-measurand scope crosswalk
+
+This is a source/edition and applicability crosswalk, not a selection of a laboratory, product class, numerical tolerance or South African legal requirement. The complete standard text, method procedure, laboratory scope and intended use still require competent review.
+
+### Water measurement
+
+- **pH:** [ISO 10523:2008, Edition 2](https://www.iso.org/standard/51994.html) remains current after ISO review/confirmation in 2023. Its stated scope covers specified natural, drinking, bathing, municipal/industrial wastewater and liquid-sludge samples, within pH 2–12, ionic-strength and temperature bounds. The standard defines a method for pH; it does not establish potability, microbiological safety or suitability for an unspecified reuse endpoint. Method/buffer, temperature, sample handling and measurement-chain evidence must be recorded.
+- **Electrical conductivity:** [ISO 7888:1985, Edition 1](https://www.iso.org/standard/14838.html) was reviewed/confirmed current in 2023. It specifies a conductivity method for water types and notes interferences. Its age is a reason to inspect the full method and any relevant newer sector-specific guidance—not a reason to silently substitute an unverified method. Temperature/reference conditions and calibration solutions remain explicit.
+- **Water volume / meter indication:** [ISO 4064-1:2024, Edition 5](https://www.iso.org/standard/80868.html) and [ISO 4064-2:2024, Edition 5](https://www.iso.org/standard/80869.html) cover metrological/technical requirements and test methods for cold potable/hot water meters in a fully charged, closed conduit. This is not an automatic method for open channels, partially filled drains, rain capture, greywater treatment, tank level, or tank-level-to-volume conversion. Those cases need separately defined measurement equations, geometry/installation checks and reference methods.
+
+### Indoor environment and IAQ
+
+- **Thermal-environment basic quantities:** [ISO 7726:2025, Edition 3](https://www.iso.org/standard/78238.html) specifies minimum instrument characteristics and methods for physical quantities characterizing thermal environments. Map each channel only after reviewing the full method for the actual sensor principle, response, radiation effects, placement, shielding, averaging and environmental conditions. It does not itself make a derived mean-radiant/operative-temperature calculation valid; see Mycelix #6064.
+- **CO₂ sampling plan:** [ISO 16000-26:2012](https://www.iso.org/standard/52140.html), confirmed current in 2023, specifies planning of indoor CO₂ measurement and sampling strategy. It is a strategy document, not an instrument accuracy/calibration standard, ventilation compliance result, or all-pollutant IAQ measure. CO₂ remains one named measurand.
+- **Indoor PM2.5:** [ISO 16000-37:2019](https://www.iso.org/standard/66283.html), reviewed/confirmed current in 2024, specifies indoor PM2.5 mass-concentration methods and strategies. Its reference principle is particle collection on a filter followed by gravimetric weighing; it also allows appropriate high-time-resolution instruments for peaks/investigation and QC. It does not cover bioaerosols or particle chemical characterization. Treat low-cost optical sensors as supplementary only after co-location and method-specific influence/cross-sensitivity characterization.
+
+### Electrical energy and power quality
+
+- **Electricity-meter general type tests:** [IEC 62052-11:2020](https://webstore.iec.ch/en/publication/28212) covers general requirements, tests and test conditions for AC/DC electricity metering equipment in its stated voltage and product scope. It is not a generic field calibration procedure or an instrument-independent truth oracle.
+- **Static active-energy meter classes:** [IEC 62053-21:2020](https://webstore.iec.ch/en/publication/28660) applies to static AC active-energy watt-hour meters in accuracy classes 0.5, 1 and 2, at 50/60 Hz, and to type tests. It is not a blanket requirement for every meter or for power-quality waveforms. Meter boundary, wiring/topology, phase, power factor, transducers and integration semantics remain explicit.
+- **Power quality:** [IEC 61000-4-30:2025, Edition 4](https://webstore.iec.ch/en/publication/71611), including its July 2026 corrected version, defines repeatable in-situ measurement/interpretation methods for 50/60 Hz AC power-quality parameters and distinguishes Class A and Class S. It covers conducted phenomena such as frequency, supply-voltage magnitude, flicker, dips/swells/interruptions, unbalance, harmonics/interharmonics and current-related quantities. It expressly acknowledges but does not fully specify transducer effects; consult IEC TR 61869-103 as applicable. A kWh meter or a single RMS voltage field is not a power-quality qualification.
+
+### Acoustics
+
+- **Sound-level meter:** [IEC 61672-1:2013, Edition 2](https://webstore.iec.ch/en/publication/5708) specifies electroacoustic performance for time-weighted and integrating/averaging sound-level meters, with Class 1 and Class 2 categories and a maximum-permitted measurement-uncertainty condition. The actual microphone, preamplifier, acquisition chain, frequency weighting, time weighting/integration interval and class need to be declared; a device's displayed `dB(A)` alone is insufficient.
+- **Sound calibrator:** [IEC 60942:2017, Edition 4](https://webstore.iec.ch/en/publication/30045) defines sound-calibrator requirements. A sound-level meter's calibration/check record must bind the exact calibrator and microphone chain, acoustic coupler/configuration, frequency/level and before/after check results where the method requires them. The IEC catalogue also shows Edition 5 under development with a forecast publication date in 2027; do not use that future edition as if published at this research cut.
+
+### Useful thermal energy
+
+- **Thermal-energy meter:** [EN 1434-1:2022](https://www.nen.nl/en/nen-en-1434-1-2022-en-300870) covers general requirements for thermal-energy meters for heat-exchange circuits with a heat-conveying liquid and closed-system scope. The cited scope excludes electrical safety, pressure safety and surface-mounted temperature sensors. It cannot be applied automatically to open drain heat recovery, arbitrary fluid mixtures, tank temperature-only estimates or an ad hoc `flow × ΔT` calculation. Exact flow, temperature-pair, fluid/property, integration and uncertainty method must match the system.
+
+### Accreditation and evidence hierarchy
+
+Keep these independent evidence states separate:
+
+1. the method exists and its exact edition/status is known;
+2. the procedure and calculation version are identified and applicable to the sample;
+3. the instrument/capability is independently characterized for the conditions/range;
+4. the calibration certificate is authenticated and its result applies to the exact instrument/channel/measurand/method/range/date;
+5. the laboratory's current accreditation scope covers that exact activity and uncertainty capability;
+6. the installed configuration and sample-time conditions fit the method/capability envelope;
+7. the downstream purpose owner supplies its own decision threshold and guard-band rule.
+
+A laboratory's ISO/IEC 17025 accreditation status does not make every method it performs accredited. Use the [SANAS accredited-facilities directory](https://www.sanas.co.za/pages/index.aspx?page=Accredited-Facilities) and inspect the current individual scope schedule. Do not select or claim a South African laboratory from a brand/name alone.
+
+### Consequences for v0.2 channels
+
+The proposed pressure, differential-pressure, acoustics, voltage/current/power-quality, surface-temperature and globe-temperature channels in #6036 remain `PROPOSED_NOT_ADMITTED`. The above sources identify candidate method families only; they do not establish all channel-specific instrument, range, bandwidth, installation or calibration provisions. Exact clause-level mapping and local engineering applicability remain open.
