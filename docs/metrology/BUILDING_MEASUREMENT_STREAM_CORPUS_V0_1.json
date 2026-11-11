@@ -273,7 +273,7 @@
           "unrelated_streams_current": true
         }
       },
-      "expected_disposition": "NOT_COMPARABLE"
+      "expected_disposition": "REVIEW_ELIGIBLE_ONLY"
     },
     {
       "case_id": "MST-003",
@@ -3434,7 +3434,7 @@
           "unrelated_streams_current": true
         }
       },
-      "expected_disposition": "INVALIDATED"
+      "expected_disposition": "CONFLICT_REJECTED"
     },
     {
       "case_id": "MST-028",
