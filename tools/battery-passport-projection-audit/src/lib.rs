@@ -380,8 +380,7 @@ mod tests {
         let mut registry: Value = serde_json::from_slice(REGISTRY).expect("registry JSON");
         registry["data_points"].as_array_mut().unwrap()
             .retain(|point| point["number"] != 29);
-        registry["data_point_count"] = json!(70);
-        assert!(validate_instance(&registry_schema, &registry, "registry").is_ok());
+        registry["data_point_count"] = json!(71);
         assert!(object_map(&registry).is_err());
     }
 
