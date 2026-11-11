@@ -221,7 +221,9 @@
               "outcome_state",
               "challenge_state",
               "current_decision_ref",
-              "privacy_violation"
+              "privacy_violation",
+              "challenge_event_ids",
+              "decision_lineage_refs"
             ],
             "properties": {
               "known_event_ids": {
@@ -269,6 +271,22 @@
               },
               "privacy_violation": {
                 "type": "boolean"
+              },
+              "challenge_event_ids": {
+                "type": "array",
+                "uniqueItems": true,
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "decision_lineage_refs": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
               }
             }
           }
