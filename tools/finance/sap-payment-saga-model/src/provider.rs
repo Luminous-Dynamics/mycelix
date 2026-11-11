@@ -1124,8 +1124,6 @@ mod tests {
         contract.region_scope = ProviderRegionScopeV1::Global;
         assert_ne!(before, contract.canonical_digest().unwrap());
     }
-}
-
 
     #[test]
     fn provider_retry_permit_is_digest_bound_and_expires_at_guarantee_boundary() {
@@ -1142,10 +1140,12 @@ mod tests {
             )
             .unwrap();
         assert_eq!(permit.valid_until_unix_ms, 1_000 + 7 * DAY_MS);
-        assert_eq!(
-            permit.canonical_digest().unwrap(),
-            "sha256:b90b3840d91826f4f79949b8d5872b20de988a677c3be0d62e1b3e86f54c0352"
-        );
+        let fixture = include_str!("../fixtures/sap-provider-contract-v1.kat");
+        let expected = fixture
+            .lines()
+            .find_map(|line| line.strip_prefix("retry_permit="))
+            .expect("retry permit KAT entry");
+        assert_eq!(permit.canonical_digest().unwrap(), expected);
         assert_eq!(permit.validate_against(&key, &contract, 2_000), Ok(()));
 
         let mut changed_region = permit.clone();
@@ -1154,9 +1154,9 @@ mod tests {
             changed_region.validate_against(&key, &contract, 2_000),
             Err(ProviderRetryErrorV1::RetryPermitMismatch)
         );
-
         assert_eq!(
             permit.validate_against(&key, &contract, 1_000 + 7 * DAY_MS),
             Err(ProviderRetryErrorV1::RetryPermitExpired)
         );
     }
+}
