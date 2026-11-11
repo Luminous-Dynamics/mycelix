@@ -1,0 +1,1444 @@
+{
+  "registry_id": "eu-battery-passport-data-point-guidance",
+  "registry_version": "0.1.0",
+  "source": {
+    "title": "Guidance Document: Digital Batteries Passport – data points by category",
+    "publisher": "European Commission, Directorate-General for Internal Market, Industry, Entrepreneurship and SMEs",
+    "guidance_version": "3.2",
+    "published_on": "2026-10-19",
+    "source_url": "https://single-market-economy.ec.europa.eu/document/download/cd1e5e6c-4a4a-4b99-995a-49eb6916187e_en?filename=Digital+Batteries+Passport+-+data+point+by+category.pdf",
+    "source_document_sha256": null,
+    "authoritative_interpretation": false,
+    "notice": "Engineering transcription of selected data points. Guidance is non-authoritative, may evolve and does not add or replace legal requirements."
+  },
+  "passport_obligation_date": "2027-02-18",
+  "categories": [
+    "EV",
+    "LMT",
+    "INDUSTRIAL"
+  ],
+  "complete_71_point_transcription": true,
+  "selected_data_point_count": 71,
+  "data_points": [
+    {
+      "number": 1,
+      "name": "Unique identifier",
+      "legal_source": "BR Article 77(3)",
+      "disclosure": "PUBLIC",
+      "applicability": {
+        "EV": {
+          "status": "MANDATORY",
+          "condition": null
+        },
+        "LMT": {
+          "status": "MANDATORY",
+          "condition": null
+        },
+        "INDUSTRIAL": {
+          "status": "MANDATORY",
+          "condition": null
+        }
+      }
+    },
+    {
+      "number": 2,
+      "name": "Identity of who is registering and/or responsible for the battery passport",
+      "legal_source": "BR Article 77(3); Article 77(4)",
+      "disclosure": "PUBLIC",
+      "applicability": {
+        "EV": {
+          "status": "MANDATORY",
+          "condition": null
+        },
+        "LMT": {
+          "status": "MANDATORY",
+          "condition": null
+        },
+        "INDUSTRIAL": {
+          "status": "MANDATORY",
+          "condition": null
+        }
+      }
+    },
+    {
+      "number": 3,
+      "name": "Manufacturer name, registered trade name or registered trademark",
+      "legal_source": "BR Annex VI A(1)",
+      "disclosure": "PUBLIC",
+      "applicability": {
+        "EV": {
+          "status": "MANDATORY",
+          "condition": null
+        },
+        "LMT": {
+          "status": "MANDATORY",
+          "condition": null
+        },
+        "INDUSTRIAL": {
+          "status": "MANDATORY",
+          "condition": null
+        }
+      }
+    },
+    {
+      "number": 4,
+      "name": "Manufacturer single contact postal address",
+      "legal_source": "BR Annex VI A(1)",
+      "disclosure": "PUBLIC",
+      "applicability": {
+        "EV": {
+          "status": "MANDATORY",
+          "condition": null
+        },
+        "LMT": {
+          "status": "MANDATORY",
+          "condition": null
+        },
+        "INDUSTRIAL": {
+          "status": "MANDATORY",
+          "condition": null
+        }
+      }
+    },
+    {
+      "number": 5,
+      "name": "Manufacturer web and email address, if available",
+      "legal_source": "BR Annex VI A(1)",
+      "disclosure": "PUBLIC",
+      "applicability": {
+        "EV": {
+          "status": "OPTIONAL_IF_AVAILABLE",
+          "condition": "Fill if available"
+        },
+        "LMT": {
+          "status": "OPTIONAL_IF_AVAILABLE",
+          "condition": "Fill if available"
+        },
+        "INDUSTRIAL": {
+          "status": "OPTIONAL_IF_AVAILABLE",
+          "condition": "Fill if available"
+        }
+      }
+    },
+    {
+      "number": 6,
+      "name": "Battery category",
+      "legal_source": "BR Article 3(1)(11), (13), (14); Annex VI A(2)",
+      "disclosure": "PUBLIC",
+      "applicability": {
+        "EV": {
+          "status": "MANDATORY",
+          "condition": null
+        },
+        "LMT": {
+          "status": "MANDATORY",
+          "condition": null
+        },
+        "INDUSTRIAL": {
+          "status": "MANDATORY",
+          "condition": null
+        }
+      }
+    },
+    {
+      "number": 7,
+      "name": "Model identification and batch or serial number, product number or other identifying element (at least one)",
+      "legal_source": "BR Annex VI A(2)",
+      "disclosure": "PUBLIC",
+      "applicability": {
+        "EV": {
+          "status": "MANDATORY",
+          "condition": null
+        },
+        "LMT": {
+          "status": "MANDATORY",
+          "condition": null
+        },
+        "INDUSTRIAL": {
+          "status": "MANDATORY",
+          "condition": null
+        }
+      }
+    },
+    {
+      "number": 8,
+      "name": "Place of manufacture (geographical location of battery manufacturing plant)",
+      "legal_source": "BR Annex VI A(3)",
+      "disclosure": "PUBLIC",
+      "applicability": {
+        "EV": {
+          "status": "MANDATORY",
+          "condition": null
+        },
+        "LMT": {
+          "status": "MANDATORY",
+          "condition": null
+        },
+        "INDUSTRIAL": {
+          "status": "MANDATORY",
+          "condition": null
+        }
+      }
+    },
+    {
+      "number": 9,
+      "name": "Date of manufacturing (month and year)",
+      "legal_source": "BR Annex VI A(4)",
+      "disclosure": "PUBLIC",
+      "applicability": {
+        "EV": {
+          "status": "MANDATORY",
+          "condition": null
+        },
+        "LMT": {
+          "status": "MANDATORY",
+          "condition": null
+        },
+        "INDUSTRIAL": {
+          "status": "MANDATORY",
+          "condition": null
+        }
+      }
+    },
+    {
+      "number": 10,
+      "name": "Weight (kg)",
+      "legal_source": "BR Annex VI A(5)",
+      "disclosure": "PUBLIC",
+      "applicability": {
+        "EV": {
+          "status": "MANDATORY",
+          "condition": null
+        },
+        "LMT": {
+          "status": "MANDATORY",
+          "condition": null
+        },
+        "INDUSTRIAL": {
+          "status": "MANDATORY",
+          "condition": null
+        }
+      }
+    },
+    {
+      "number": 11,
+      "name": "Capacity (Ah)",
+      "legal_source": "BR Annex VI A(6)",
+      "disclosure": "PUBLIC",
+      "applicability": {
+        "EV": {
+          "status": "MANDATORY",
+          "condition": null
+        },
+        "LMT": {
+          "status": "MANDATORY",
+          "condition": null
+        },
+        "INDUSTRIAL": {
+          "status": "MANDATORY",
+          "condition": null
+        }
+      }
+    },
+    {
+      "number": 12,
+      "name": "Chemistry",
+      "legal_source": "BR Annex VI A(7)",
+      "disclosure": "PUBLIC",
+      "applicability": {
+        "EV": {
+          "status": "MANDATORY",
+          "condition": null
+        },
+        "LMT": {
+          "status": "MANDATORY",
+          "condition": null
+        },
+        "INDUSTRIAL": {
+          "status": "MANDATORY",
+          "condition": null
+        }
+      }
+    },
+    {
+      "number": 13,
+      "name": "Hazardous substances present other than mercury, cadmium or lead",
+      "legal_source": "BR Annex VI A(8); Article 3(1)(52)",
+      "disclosure": "PUBLIC",
+      "applicability": {
+        "EV": {
+          "status": "MANDATORY",
+          "condition": null
+        },
+        "LMT": {
+          "status": "MANDATORY",
+          "condition": null
+        },
+        "INDUSTRIAL": {
+          "status": "MANDATORY",
+          "condition": null
+        }
+      }
+    },
+    {
+      "number": 14,
+      "name": "Usable extinguishing agent",
+      "legal_source": "BR Annex VI A(9)",
+      "disclosure": "PUBLIC",
+      "applicability": {
+        "EV": {
+          "status": "MANDATORY",
+          "condition": null
+        },
+        "LMT": {
+          "status": "MANDATORY",
+          "condition": null
+        },
+        "INDUSTRIAL": {
+          "status": "MANDATORY",
+          "condition": null
+        }
+      }
+    },
+    {
+      "number": 15,
+      "name": "Critical raw materials above 0.1% weight by weight",
+      "legal_source": "BR Annex VI A(10); Annex X(1)",
+      "disclosure": "PUBLIC",
+      "applicability": {
+        "EV": {
+          "status": "MANDATORY",
+          "condition": null
+        },
+        "LMT": {
+          "status": "MANDATORY",
+          "condition": null
+        },
+        "INDUSTRIAL": {
+          "status": "MANDATORY",
+          "condition": null
+        }
+      }
+    },
+    {
+      "number": 16,
+      "name": "Material composition of the battery, including its chemistry, hazardous substances and critical raw materials",
+      "legal_source": "BR Article 3(1)(52); Annex X(1); Annex XIII 1(b)",
+      "disclosure": "PUBLIC",
+      "applicability": {
+        "EV": {
+          "status": "NOT_TO_BE_FILLED_DISPLAYED_AT_2027_02_18",
+          "condition": "Repeated information: the same material composition inputs are already required by data points 12 (chemistry), 13 (hazardous substances) and 15 (critical raw materials)."
+        },
+        "LMT": {
+          "status": "NOT_TO_BE_FILLED_DISPLAYED_AT_2027_02_18",
+          "condition": "Repeated information: the same material composition inputs are already required by data points 12 (chemistry), 13 (hazardous substances) and 15 (critical raw materials)."
+        },
+        "INDUSTRIAL": {
+          "status": "NOT_TO_BE_FILLED_DISPLAYED_AT_2027_02_18",
+          "condition": "Repeated information: the same material composition inputs are already required by data points 12 (chemistry), 13 (hazardous substances) and 15 (critical raw materials)."
+        }
+      }
+    },
+    {
+      "number": 17,
+      "name": "Carbon footprint declaration",
+      "legal_source": "BR Annex XIII 1(c); Article 3(1)(51)",
+      "disclosure": "PUBLIC",
+      "applicability": {
+        "EV": {
+          "status": "NOT_TO_BE_FILLED_DISPLAYED_AT_2027_02_18",
+          "condition": "Format remains to be specified in an upcoming implementing act as of the guidance mapping date"
+        },
+        "LMT": {
+          "status": "NOT_TO_BE_FILLED_DISPLAYED_AT_2027_02_18",
+          "condition": "Format remains to be specified in an upcoming implementing act as of the guidance mapping date"
+        },
+        "INDUSTRIAL": {
+          "status": "NOT_TO_BE_FILLED_DISPLAYED_AT_2027_02_18",
+          "condition": "Format remains to be specified in an upcoming implementing act as of the guidance mapping date"
+        }
+      }
+    },
+    {
+      "number": 18,
+      "name": "Carbon footprint label",
+      "legal_source": "BR Annex XIII 1(c); Article 3(1)(51)",
+      "disclosure": "PUBLIC",
+      "applicability": {
+        "EV": {
+          "status": "NOT_TO_BE_FILLED_DISPLAYED_AT_2027_02_18",
+          "condition": "Format remains to be specified in an upcoming implementing act as of the guidance mapping date"
+        },
+        "LMT": {
+          "status": "NOT_TO_BE_FILLED_DISPLAYED_AT_2027_02_18",
+          "condition": "Format remains to be specified in an upcoming implementing act as of the guidance mapping date"
+        },
+        "INDUSTRIAL": {
+          "status": "NOT_TO_BE_FILLED_DISPLAYED_AT_2027_02_18",
+          "condition": "Format remains to be specified in an upcoming implementing act as of the guidance mapping date"
+        }
+      }
+    },
+    {
+      "number": 19,
+      "name": "Responsible-sourcing information from the battery due-diligence policy report",
+      "legal_source": "BR Annex XIII 1(d); Article 48(1)",
+      "disclosure": "PUBLIC",
+      "applicability": {
+        "EV": {
+          "status": "NOT_TO_BE_FILLED_DISPLAYED_AT_2027_02_18",
+          "condition": "Guidance notes Article 48(1) timing; not required from February 2027 under this mapping"
+        },
+        "LMT": {
+          "status": "NOT_TO_BE_FILLED_DISPLAYED_AT_2027_02_18",
+          "condition": "Guidance notes Article 48(1) timing; not required from February 2027 under this mapping"
+        },
+        "INDUSTRIAL": {
+          "status": "NOT_TO_BE_FILLED_DISPLAYED_AT_2027_02_18",
+          "condition": "Guidance notes Article 48(1) timing; not required from February 2027 under this mapping"
+        }
+      }
+    },
+    {
+      "number": 20,
+      "name": "Percentage share of cobalt present in active materials recovered from battery manufacturing waste or post-consumer waste [%]",
+      "legal_source": "BR Article 3(1)(5); Annex XIII 1(e)",
+      "disclosure": "PUBLIC",
+      "applicability": {
+        "EV": {
+          "status": "NOT_TO_BE_FILLED_DISPLAYED_AT_2027_02_18",
+          "condition": "To be applied as envisaged by Article 8; not to be filled or displayed as of 18 February 2027."
+        },
+        "LMT": {
+          "status": "NOT_TO_BE_FILLED_DISPLAYED_AT_2027_02_18",
+          "condition": "To be applied as envisaged by Article 8; not to be filled or displayed as of 18 February 2027."
+        },
+        "INDUSTRIAL": {
+          "status": "NOT_TO_BE_FILLED_DISPLAYED_AT_2027_02_18",
+          "condition": "To be applied as envisaged by Article 8; not to be filled or displayed as of 18 February 2027."
+        }
+      }
+    },
+    {
+      "number": 21,
+      "name": "Percentage share of lithium present in active materials recovered from battery manufacturing waste or post-consumer waste [%]",
+      "legal_source": "BR Article 3(1)(5); Annex XIII 1(e)",
+      "disclosure": "PUBLIC",
+      "applicability": {
+        "EV": {
+          "status": "NOT_TO_BE_FILLED_DISPLAYED_AT_2027_02_18",
+          "condition": "To be applied as envisaged by Article 8; not to be filled or displayed as of 18 February 2027."
+        },
+        "LMT": {
+          "status": "NOT_TO_BE_FILLED_DISPLAYED_AT_2027_02_18",
+          "condition": "To be applied as envisaged by Article 8; not to be filled or displayed as of 18 February 2027."
+        },
+        "INDUSTRIAL": {
+          "status": "NOT_TO_BE_FILLED_DISPLAYED_AT_2027_02_18",
+          "condition": "To be applied as envisaged by Article 8; not to be filled or displayed as of 18 February 2027."
+        }
+      }
+    },
+    {
+      "number": 22,
+      "name": "Percentage share of nickel present in active materials recovered from battery manufacturing waste or post-consumer waste [%]",
+      "legal_source": "BR Article 3(1)(5); Annex XIII 1(e)",
+      "disclosure": "PUBLIC",
+      "applicability": {
+        "EV": {
+          "status": "NOT_TO_BE_FILLED_DISPLAYED_AT_2027_02_18",
+          "condition": "To be applied as envisaged by Article 8; not to be filled or displayed as of 18 February 2027."
+        },
+        "LMT": {
+          "status": "NOT_TO_BE_FILLED_DISPLAYED_AT_2027_02_18",
+          "condition": "To be applied as envisaged by Article 8; not to be filled or displayed as of 18 February 2027."
+        },
+        "INDUSTRIAL": {
+          "status": "NOT_TO_BE_FILLED_DISPLAYED_AT_2027_02_18",
+          "condition": "To be applied as envisaged by Article 8; not to be filled or displayed as of 18 February 2027."
+        }
+      }
+    },
+    {
+      "number": 23,
+      "name": "Percentage share of lead present in the battery recovered from waste [%]",
+      "legal_source": "BR Annex XIII 1(e)",
+      "disclosure": "PUBLIC",
+      "applicability": {
+        "EV": {
+          "status": "NOT_TO_BE_FILLED_DISPLAYED_AT_2027_02_18",
+          "condition": "To be applied as envisaged by Article 8; not to be filled or displayed as of 18 February 2027."
+        },
+        "LMT": {
+          "status": "NOT_TO_BE_FILLED_DISPLAYED_AT_2027_02_18",
+          "condition": "To be applied as envisaged by Article 8; not to be filled or displayed as of 18 February 2027."
+        },
+        "INDUSTRIAL": {
+          "status": "NOT_TO_BE_FILLED_DISPLAYED_AT_2027_02_18",
+          "condition": "To be applied as envisaged by Article 8; not to be filled or displayed as of 18 February 2027."
+        }
+      }
+    },
+    {
+      "number": 24,
+      "name": "Share of renewable content [%]",
+      "legal_source": "BR Annex XIII 1(f)",
+      "disclosure": "PUBLIC",
+      "applicability": {
+        "EV": {
+          "status": "MANDATORY",
+          "condition": null
+        },
+        "LMT": {
+          "status": "MANDATORY",
+          "condition": null
+        },
+        "INDUSTRIAL": {
+          "status": "MANDATORY",
+          "condition": null
+        }
+      }
+    },
+    {
+      "number": 25,
+      "name": "Rated capacity [Ah]",
+      "legal_source": "BR Annex XIII 1(g)",
+      "disclosure": "PUBLIC",
+      "applicability": {
+        "EV": {
+          "status": "NOT_TO_BE_FILLED_DISPLAYED_AT_2027_02_18",
+          "condition": "Repeated information: the rated capacity is already required by data point 11 (capacity)."
+        },
+        "LMT": {
+          "status": "NOT_TO_BE_FILLED_DISPLAYED_AT_2027_02_18",
+          "condition": "Repeated information: the rated capacity is already required by data point 11 (capacity)."
+        },
+        "INDUSTRIAL": {
+          "status": "NOT_TO_BE_FILLED_DISPLAYED_AT_2027_02_18",
+          "condition": "Repeated information: the rated capacity is already required by data point 11 (capacity)."
+        }
+      }
+    },
+    {
+      "number": 26,
+      "name": "Minimum voltage, with temperature range when relevant [V; optional °C]",
+      "legal_source": "BR Annex XIII 1(h)",
+      "disclosure": "PUBLIC",
+      "applicability": {
+        "EV": {
+          "status": "MANDATORY",
+          "condition": null
+        },
+        "LMT": {
+          "status": "MANDATORY",
+          "condition": null
+        },
+        "INDUSTRIAL": {
+          "status": "MANDATORY",
+          "condition": null
+        }
+      }
+    },
+    {
+      "number": 27,
+      "name": "Nominal voltage, with temperature range when relevant [V; optional °C]",
+      "legal_source": "BR Annex XIII 1(h)",
+      "disclosure": "PUBLIC",
+      "applicability": {
+        "EV": {
+          "status": "MANDATORY",
+          "condition": null
+        },
+        "LMT": {
+          "status": "MANDATORY",
+          "condition": null
+        },
+        "INDUSTRIAL": {
+          "status": "MANDATORY",
+          "condition": null
+        }
+      }
+    },
+    {
+      "number": 28,
+      "name": "Maximum voltage, with temperature range when relevant [V; optional °C]",
+      "legal_source": "BR Annex XIII 1(h)",
+      "disclosure": "PUBLIC",
+      "applicability": {
+        "EV": {
+          "status": "MANDATORY",
+          "condition": null
+        },
+        "LMT": {
+          "status": "MANDATORY",
+          "condition": null
+        },
+        "INDUSTRIAL": {
+          "status": "MANDATORY",
+          "condition": null
+        }
+      }
+    },
+    {
+      "number": 29,
+      "name": "Original power capability [W]",
+      "legal_source": "BR Annex IV(3); Annex XIII 1(i)",
+      "disclosure": "PUBLIC",
+      "applicability": {
+        "EV": {
+          "status": "MANDATORY",
+          "condition": null
+        },
+        "LMT": {
+          "status": "MANDATORY",
+          "condition": null
+        },
+        "INDUSTRIAL": {
+          "status": "MANDATORY",
+          "condition": null
+        }
+      }
+    },
+    {
+      "number": 30,
+      "name": "Power limits, with temperature range when relevant",
+      "legal_source": "BR Annex XIII 1(i); Annex IV(3) where applicable",
+      "disclosure": "PUBLIC",
+      "applicability": {
+        "EV": {
+          "status": "MANDATORY",
+          "condition": null
+        },
+        "LMT": {
+          "status": "MANDATORY",
+          "condition": null
+        },
+        "INDUSTRIAL": {
+          "status": "MANDATORY",
+          "condition": null
+        }
+      }
+    },
+    {
+      "number": 31,
+      "name": "Expected battery lifetime expressed in cycles",
+      "legal_source": "BR Annex XIII 1(j); Article 3(1)(59)",
+      "disclosure": "PUBLIC",
+      "applicability": {
+        "EV": {
+          "status": "MANDATORY",
+          "condition": null
+        },
+        "LMT": {
+          "status": "MANDATORY",
+          "condition": null
+        },
+        "INDUSTRIAL": {
+          "status": "CONDITIONAL",
+          "condition": "Only applicable for some industrial batteries where lifetime can be expressed in cycles"
+        }
+      }
+    },
+    {
+      "number": 32,
+      "name": "Reference test used for expected lifetime expressed in cycles",
+      "legal_source": "BR Annex XIII 1(j); Article 3(1)(59)",
+      "disclosure": "PUBLIC",
+      "applicability": {
+        "EV": {
+          "status": "MANDATORY",
+          "condition": null
+        },
+        "LMT": {
+          "status": "MANDATORY",
+          "condition": null
+        },
+        "INDUSTRIAL": {
+          "status": "CONDITIONAL",
+          "condition": "Only applicable for some industrial batteries where lifetime can be expressed in cycles"
+        }
+      }
+    },
+    {
+      "number": 33,
+      "name": "Capacity threshold for exhaustion (%)",
+      "legal_source": "BR Annex XIII 1(k)",
+      "disclosure": "PUBLIC",
+      "applicability": {
+        "EV": {
+          "status": "MANDATORY",
+          "condition": null
+        },
+        "LMT": {
+          "status": "NOT_TO_BE_FILLED_DISPLAYED_AT_2027_02_18",
+          "condition": "Not to be filled/displayed for LMT batteries"
+        },
+        "INDUSTRIAL": {
+          "status": "NOT_TO_BE_FILLED_DISPLAYED_AT_2027_02_18",
+          "condition": "Not to be filled/displayed for industrial batteries"
+        }
+      }
+    },
+    {
+      "number": 34,
+      "name": "Temperature range battery can withstand when not in use (reference test)",
+      "legal_source": "BR Annex XIII 1(l)",
+      "disclosure": "PUBLIC",
+      "applicability": {
+        "EV": {
+          "status": "MANDATORY",
+          "condition": null
+        },
+        "LMT": {
+          "status": "MANDATORY",
+          "condition": null
+        },
+        "INDUSTRIAL": {
+          "status": "MANDATORY",
+          "condition": null
+        }
+      }
+    },
+    {
+      "number": 35,
+      "name": "Commercial warranty calendar-life period (months)",
+      "legal_source": "BR Annex XIII 1(m)",
+      "disclosure": "PUBLIC",
+      "applicability": {
+        "EV": {
+          "status": "CONDITIONAL",
+          "condition": "If a commercial calendar-life warranty is envisaged"
+        },
+        "LMT": {
+          "status": "CONDITIONAL",
+          "condition": "If a commercial calendar-life warranty is envisaged"
+        },
+        "INDUSTRIAL": {
+          "status": "CONDITIONAL",
+          "condition": "If a commercial calendar-life warranty is envisaged"
+        }
+      }
+    },
+    {
+      "number": 36,
+      "name": "Initial round-trip energy efficiency (%)",
+      "legal_source": "BR Annex XIII 1(n)",
+      "disclosure": "PUBLIC",
+      "applicability": {
+        "EV": {
+          "status": "MANDATORY",
+          "condition": null
+        },
+        "LMT": {
+          "status": "MANDATORY",
+          "condition": null
+        },
+        "INDUSTRIAL": {
+          "status": "CONDITIONAL",
+          "condition": "Only applicable for some industrial batteries"
+        }
+      }
+    },
+    {
+      "number": 37,
+      "name": "Round-trip energy efficiency at 50% of cycle life (%)",
+      "legal_source": "BR Annex XIII 1(n); Annex II 2(e) where applicable",
+      "disclosure": "PUBLIC",
+      "applicability": {
+        "EV": {
+          "status": "MANDATORY",
+          "condition": null
+        },
+        "LMT": {
+          "status": "MANDATORY",
+          "condition": null
+        },
+        "INDUSTRIAL": {
+          "status": "CONDITIONAL",
+          "condition": "Only applicable for some industrial batteries"
+        }
+      }
+    },
+    {
+      "number": 38,
+      "name": "Internal battery cell resistance and internal battery pack resistance (Ω)",
+      "legal_source": "BR Annex XIII 1(o)",
+      "disclosure": "PUBLIC",
+      "applicability": {
+        "EV": {
+          "status": "MANDATORY",
+          "condition": null
+        },
+        "LMT": {
+          "status": "MANDATORY",
+          "condition": null
+        },
+        "INDUSTRIAL": {
+          "status": "MANDATORY",
+          "condition": null
+        }
+      }
+    },
+    {
+      "number": 39,
+      "name": "Charge C-rate of relevant cycle-life test",
+      "legal_source": "BR Annex XIII 1(p)",
+      "disclosure": "PUBLIC",
+      "applicability": {
+        "EV": {
+          "status": "MANDATORY",
+          "condition": null
+        },
+        "LMT": {
+          "status": "MANDATORY",
+          "condition": null
+        },
+        "INDUSTRIAL": {
+          "status": "CONDITIONAL",
+          "condition": "Only applicable for some industrial batteries"
+        }
+      }
+    },
+    {
+      "number": 40,
+      "name": "Discharge C-rate of relevant cycle-life test",
+      "legal_source": "BR Annex XIII 1(p)",
+      "disclosure": "PUBLIC",
+      "applicability": {
+        "EV": {
+          "status": "OPTIONAL_IF_AVAILABLE",
+          "condition": "Optional for EV, LMT and industrial batteries"
+        },
+        "LMT": {
+          "status": "OPTIONAL_IF_AVAILABLE",
+          "condition": "Optional for EV, LMT and industrial batteries"
+        },
+        "INDUSTRIAL": {
+          "status": "OPTIONAL_IF_AVAILABLE",
+          "condition": "Optional for EV, LMT and industrial batteries"
+        }
+      }
+    },
+    {
+      "number": 41,
+      "name": "Marking requirements laid down in Article 13(4) [Yes/No]",
+      "legal_source": "BR Article 13(4); Annex XIII 1(q)",
+      "disclosure": "PUBLIC",
+      "applicability": {
+        "EV": {
+          "status": "MANDATORY",
+          "condition": null
+        },
+        "LMT": {
+          "status": "MANDATORY",
+          "condition": null
+        },
+        "INDUSTRIAL": {
+          "status": "MANDATORY",
+          "condition": null
+        }
+      }
+    },
+    {
+      "number": 42,
+      "name": "Marking requirements laid down in Article 13(5) [code list]",
+      "legal_source": "BR Article 13(5); Annex XIII 1(q)",
+      "disclosure": "PUBLIC",
+      "applicability": {
+        "EV": {
+          "status": "CONDITIONAL",
+          "condition": "Provide the cadmium or lead symbol if applicable."
+        },
+        "LMT": {
+          "status": "CONDITIONAL",
+          "condition": "Provide the cadmium or lead symbol if applicable."
+        },
+        "INDUSTRIAL": {
+          "status": "CONDITIONAL",
+          "condition": "Provide the cadmium or lead symbol if applicable."
+        }
+      }
+    },
+    {
+      "number": 43,
+      "name": "EU declaration of conformity link",
+      "legal_source": "BR Annex XIII 1(r); Article 18",
+      "disclosure": "PUBLIC",
+      "applicability": {
+        "EV": {
+          "status": "MANDATORY",
+          "condition": null
+        },
+        "LMT": {
+          "status": "MANDATORY",
+          "condition": null
+        },
+        "INDUSTRIAL": {
+          "status": "MANDATORY",
+          "condition": null
+        }
+      }
+    },
+    {
+      "number": 44,
+      "name": "Information on prevention and management of waste batteries",
+      "legal_source": "BR Annex XIII 1(s); Article 74(1)(a)-(f)",
+      "disclosure": "PUBLIC",
+      "applicability": {
+        "EV": {
+          "status": "MANDATORY",
+          "condition": null
+        },
+        "LMT": {
+          "status": "MANDATORY",
+          "condition": null
+        },
+        "INDUSTRIAL": {
+          "status": "MANDATORY",
+          "condition": null
+        }
+      }
+    },
+    {
+      "number": 45,
+      "name": "Instructions for use, breakdown access, download and print",
+      "legal_source": "BR Annex XIII 1(t)",
+      "disclosure": "PUBLIC",
+      "applicability": {
+        "EV": {
+          "status": "NOT_TO_BE_FILLED_DISPLAYED_AT_2027_02_18",
+          "condition": "Guidance v3.2 states application provisions are on hold pending Omnibus adoption"
+        },
+        "LMT": {
+          "status": "NOT_TO_BE_FILLED_DISPLAYED_AT_2027_02_18",
+          "condition": "Guidance v3.2 states application provisions are on hold pending Omnibus adoption"
+        },
+        "INDUSTRIAL": {
+          "status": "NOT_TO_BE_FILLED_DISPLAYED_AT_2027_02_18",
+          "condition": "Guidance v3.2 states application provisions are on hold pending Omnibus adoption"
+        }
+      }
+    },
+    {
+      "number": 46,
+      "name": "Detailed composition including cathode, anode and electrolyte materials",
+      "legal_source": "BR Annex XIII 2(a)",
+      "disclosure": "LEGITIMATE_INTEREST_AND_DESIGNATED_AUTHORITIES",
+      "applicability": {
+        "EV": {
+          "status": "MANDATORY",
+          "condition": null
+        },
+        "LMT": {
+          "status": "MANDATORY",
+          "condition": null
+        },
+        "INDUSTRIAL": {
+          "status": "MANDATORY",
+          "condition": null
+        }
+      }
+    },
+    {
+      "number": 47,
+      "name": "Component part numbers and contact details for replacement spares",
+      "legal_source": "BR Annex XIII 2(b)",
+      "disclosure": "LEGITIMATE_INTEREST_AND_DESIGNATED_AUTHORITIES",
+      "applicability": {
+        "EV": {
+          "status": "MANDATORY",
+          "condition": null
+        },
+        "LMT": {
+          "status": "MANDATORY",
+          "condition": null
+        },
+        "INDUSTRIAL": {
+          "status": "MANDATORY",
+          "condition": null
+        }
+      }
+    },
+    {
+      "number": 48,
+      "name": "Dismantling information, diagrams, sequences, fasteners, tools, warnings, cell count and layout",
+      "legal_source": "BR Annex XIII 2(c)",
+      "disclosure": "LEGITIMATE_INTEREST_AND_DESIGNATED_AUTHORITIES",
+      "applicability": {
+        "EV": {
+          "status": "MANDATORY",
+          "condition": null
+        },
+        "LMT": {
+          "status": "MANDATORY",
+          "condition": null
+        },
+        "INDUSTRIAL": {
+          "status": "MANDATORY",
+          "condition": null
+        }
+      }
+    },
+    {
+      "number": 49,
+      "name": "Safety measures",
+      "legal_source": "BR Annex XIII 2(d)",
+      "disclosure": "LEGITIMATE_INTEREST_AND_DESIGNATED_AUTHORITIES",
+      "applicability": {
+        "EV": {
+          "status": "MANDATORY",
+          "condition": null
+        },
+        "LMT": {
+          "status": "MANDATORY",
+          "condition": null
+        },
+        "INDUSTRIAL": {
+          "status": "MANDATORY",
+          "condition": null
+        }
+      }
+    },
+    {
+      "number": 50,
+      "name": "Results of test reports proving regulatory compliance",
+      "legal_source": "BR Annex XIII 3",
+      "disclosure": "NOTIFIED_BODIES_MEMBER_STATE_AUTHORITIES_COMMISSION",
+      "applicability": {
+        "EV": {
+          "status": "MANDATORY",
+          "condition": null
+        },
+        "LMT": {
+          "status": "MANDATORY",
+          "condition": null
+        },
+        "INDUSTRIAL": {
+          "status": "MANDATORY",
+          "condition": null
+        }
+      }
+    },
+    {
+      "number": 51,
+      "name": "Rated capacity (Ah)",
+      "legal_source": "BR Annex XIII 4(a); Annex IV(1)",
+      "disclosure": "LEGITIMATE_INTEREST_RESTRICTED",
+      "applicability": {
+        "EV": {
+          "status": "CONDITIONAL",
+          "condition": "For rechargeable batteries; guidance cross-references data point 11 applicability"
+        },
+        "LMT": {
+          "status": "CONDITIONAL",
+          "condition": "For rechargeable batteries; guidance cross-references data point 11 applicability"
+        },
+        "INDUSTRIAL": {
+          "status": "CONDITIONAL",
+          "condition": "For rechargeable batteries; guidance cross-references data point 11 applicability"
+        }
+      }
+    },
+    {
+      "number": 52,
+      "name": "Capacity fade (%)",
+      "legal_source": "BR Annex XIII 4(a); Annex III B(1) or Annex IV(2)",
+      "disclosure": "LEGITIMATE_INTEREST_RESTRICTED",
+      "applicability": {
+        "EV": {
+          "status": "MANDATORY",
+          "condition": null
+        },
+        "LMT": {
+          "status": "MANDATORY",
+          "condition": null
+        },
+        "INDUSTRIAL": {
+          "status": "CONDITIONAL",
+          "condition": "Only for rechargeable batteries"
+        }
+      }
+    },
+    {
+      "number": 53,
+      "name": "Power (W)",
+      "legal_source": "BR Annex XIII 4(a); Annex IV(3)",
+      "disclosure": "LEGITIMATE_INTEREST_RESTRICTED",
+      "applicability": {
+        "EV": {
+          "status": "MANDATORY",
+          "condition": null
+        },
+        "LMT": {
+          "status": "MANDATORY",
+          "condition": null
+        },
+        "INDUSTRIAL": {
+          "status": "CONDITIONAL",
+          "condition": "Only for rechargeable batteries"
+        }
+      }
+    },
+    {
+      "number": 54,
+      "name": "Power fade (%)",
+      "legal_source": "BR Annex XIII 4(a); Annex IV(4)",
+      "disclosure": "LEGITIMATE_INTEREST_RESTRICTED",
+      "applicability": {
+        "EV": {
+          "status": "MANDATORY",
+          "condition": null
+        },
+        "LMT": {
+          "status": "MANDATORY",
+          "condition": null
+        },
+        "INDUSTRIAL": {
+          "status": "CONDITIONAL",
+          "condition": "Only for rechargeable batteries"
+        }
+      }
+    },
+    {
+      "number": 55,
+      "name": "Internal resistance (Ω)",
+      "legal_source": "BR Annex XIII 4(a); Annex IV(5)",
+      "disclosure": "LEGITIMATE_INTEREST_RESTRICTED",
+      "applicability": {
+        "EV": {
+          "status": "MANDATORY",
+          "condition": null
+        },
+        "LMT": {
+          "status": "MANDATORY",
+          "condition": null
+        },
+        "INDUSTRIAL": {
+          "status": "CONDITIONAL",
+          "condition": "Only for rechargeable batteries"
+        }
+      }
+    },
+    {
+      "number": 56,
+      "name": "Internal resistance increase (%)",
+      "legal_source": "BR Annex XIII 4(a)",
+      "disclosure": "LEGITIMATE_INTEREST_RESTRICTED",
+      "applicability": {
+        "EV": {
+          "status": "MANDATORY",
+          "condition": null
+        },
+        "LMT": {
+          "status": "MANDATORY",
+          "condition": null
+        },
+        "INDUSTRIAL": {
+          "status": "CONDITIONAL",
+          "condition": "Only for rechargeable batteries"
+        }
+      }
+    },
+    {
+      "number": 57,
+      "name": "Energy round-trip efficiency (%) where applicable",
+      "legal_source": "BR Annex XIII 4(a); Annex IV(6)",
+      "disclosure": "LEGITIMATE_INTEREST_RESTRICTED",
+      "applicability": {
+        "EV": {
+          "status": "CONDITIONAL",
+          "condition": "If applicable"
+        },
+        "LMT": {
+          "status": "CONDITIONAL",
+          "condition": "If applicable"
+        },
+        "INDUSTRIAL": {
+          "status": "CONDITIONAL",
+          "condition": "Only rechargeable batteries, if applicable"
+        }
+      }
+    },
+    {
+      "number": 58,
+      "name": "Energy round-trip efficiency fade (%) where applicable",
+      "legal_source": "BR Annex XIII 4(a)",
+      "disclosure": "LEGITIMATE_INTEREST_RESTRICTED",
+      "applicability": {
+        "EV": {
+          "status": "CONDITIONAL",
+          "condition": "If applicable"
+        },
+        "LMT": {
+          "status": "CONDITIONAL",
+          "condition": "If applicable"
+        },
+        "INDUSTRIAL": {
+          "status": "CONDITIONAL",
+          "condition": "Only rechargeable batteries, if applicable"
+        }
+      }
+    },
+    {
+      "number": 59,
+      "name": "Expected lifetime in cycles under reference conditions",
+      "legal_source": "BR Annex XIII 4(a); Article 3(1)(59)",
+      "disclosure": "LEGITIMATE_INTEREST_RESTRICTED",
+      "applicability": {
+        "EV": {
+          "status": "MANDATORY",
+          "condition": null
+        },
+        "LMT": {
+          "status": "MANDATORY",
+          "condition": null
+        },
+        "INDUSTRIAL": {
+          "status": "CONDITIONAL",
+          "condition": "Only rechargeable batteries, except non-cycle applications"
+        }
+      }
+    },
+    {
+      "number": 60,
+      "name": "Expected lifetime in years under reference conditions",
+      "legal_source": "BR Annex XIII 4(a); Article 3(1)(59)",
+      "disclosure": "LEGITIMATE_INTEREST_RESTRICTED",
+      "applicability": {
+        "EV": {
+          "status": "MANDATORY",
+          "condition": null
+        },
+        "LMT": {
+          "status": "MANDATORY",
+          "condition": null
+        },
+        "INDUSTRIAL": {
+          "status": "CONDITIONAL",
+          "condition": "Only for rechargeable batteries"
+        }
+      }
+    },
+    {
+      "number": 61,
+      "name": "State of certified energy (SOCE) (%)",
+      "legal_source": "BR Annex XIII 4(b); Article 14",
+      "disclosure": "LEGITIMATE_INTEREST_RESTRICTED",
+      "applicability": {
+        "EV": {
+          "status": "MANDATORY",
+          "condition": null
+        },
+        "LMT": {
+          "status": "NOT_TO_BE_FILLED_DISPLAYED_AT_2027_02_18",
+          "condition": "Not to be filled/displayed for LMT batteries"
+        },
+        "INDUSTRIAL": {
+          "status": "NOT_TO_BE_FILLED_DISPLAYED_AT_2027_02_18",
+          "condition": "Not to be filled/displayed for industrial batteries"
+        }
+      }
+    },
+    {
+      "number": 62,
+      "name": "Remaining capacity (Ah)",
+      "legal_source": "BR Annex XIII 4(b); Article 14",
+      "disclosure": "LEGITIMATE_INTEREST_RESTRICTED",
+      "applicability": {
+        "EV": {
+          "status": "NOT_TO_BE_FILLED_DISPLAYED_AT_2027_02_18",
+          "condition": "Not to be filled/displayed for EV batteries"
+        },
+        "LMT": {
+          "status": "MANDATORY",
+          "condition": null
+        },
+        "INDUSTRIAL": {
+          "status": "CONDITIONAL",
+          "condition": "Only for stationary battery energy storage systems with a battery management system"
+        }
+      }
+    },
+    {
+      "number": 63,
+      "name": "Remaining power capability (W), where possible",
+      "legal_source": "BR Annex XIII 4(b); Article 14",
+      "disclosure": "LEGITIMATE_INTEREST_RESTRICTED",
+      "applicability": {
+        "EV": {
+          "status": "NOT_TO_BE_FILLED_DISPLAYED_AT_2027_02_18",
+          "condition": "Not to be filled/displayed for EV batteries"
+        },
+        "LMT": {
+          "status": "MANDATORY",
+          "condition": null
+        },
+        "INDUSTRIAL": {
+          "status": "CONDITIONAL",
+          "condition": "Only for stationary battery energy storage systems with a battery management system"
+        }
+      }
+    },
+    {
+      "number": 64,
+      "name": "Remaining round-trip efficiency (%) where possible",
+      "legal_source": "BR Annex XIII 4(b); Article 14",
+      "disclosure": "LEGITIMATE_INTEREST_RESTRICTED",
+      "applicability": {
+        "EV": {
+          "status": "NOT_TO_BE_FILLED_DISPLAYED_AT_2027_02_18",
+          "condition": "Not to be filled/displayed for EV batteries"
+        },
+        "LMT": {
+          "status": "MANDATORY",
+          "condition": null
+        },
+        "INDUSTRIAL": {
+          "status": "CONDITIONAL",
+          "condition": "Only for stationary battery energy storage systems with a battery management system"
+        }
+      }
+    },
+    {
+      "number": 65,
+      "name": "Evolution of self-discharging rates (timestamp; decrease % per year)",
+      "legal_source": "BR Annex XIII 4(b); Article 14",
+      "disclosure": "LEGITIMATE_INTEREST_RESTRICTED",
+      "applicability": {
+        "EV": {
+          "status": "NOT_TO_BE_FILLED_DISPLAYED_AT_2027_02_18",
+          "condition": "Not to be filled/displayed for EV batteries"
+        },
+        "LMT": {
+          "status": "MANDATORY",
+          "condition": null
+        },
+        "INDUSTRIAL": {
+          "status": "CONDITIONAL",
+          "condition": "Only for stationary battery energy storage systems with a battery management system"
+        }
+      }
+    },
+    {
+      "number": 66,
+      "name": "Ohmic resistance (Ω)",
+      "legal_source": "BR Annex XIII 4(b); Article 14",
+      "disclosure": "LEGITIMATE_INTEREST_RESTRICTED",
+      "applicability": {
+        "EV": {
+          "status": "NOT_TO_BE_FILLED_DISPLAYED_AT_2027_02_18",
+          "condition": "Not to be filled/displayed for EV batteries"
+        },
+        "LMT": {
+          "status": "MANDATORY",
+          "condition": null
+        },
+        "INDUSTRIAL": {
+          "status": "CONDITIONAL",
+          "condition": "Only for stationary battery energy storage systems with a battery management system"
+        }
+      }
+    },
+    {
+      "number": 67,
+      "name": "Battery status: original, repurposed, re-used, remanufactured or waste",
+      "legal_source": "BR Annex XIII 4(c); Articles 3(1)(32), 3(2)(2)(a)",
+      "disclosure": "LEGITIMATE_INTEREST_RESTRICTED",
+      "applicability": {
+        "EV": {
+          "status": "MANDATORY",
+          "condition": null
+        },
+        "LMT": {
+          "status": "MANDATORY",
+          "condition": null
+        },
+        "INDUSTRIAL": {
+          "status": "MANDATORY",
+          "condition": null
+        }
+      }
+    },
+    {
+      "number": 68,
+      "name": "Number of charging and discharging cycles",
+      "legal_source": "BR Annex XIII 4(d)",
+      "disclosure": "LEGITIMATE_INTEREST_RESTRICTED",
+      "applicability": {
+        "EV": {
+          "status": "APPLICABLE_FROM_FIRST_USE",
+          "condition": "Applicable as soon as the battery starts to be used"
+        },
+        "LMT": {
+          "status": "APPLICABLE_FROM_FIRST_USE",
+          "condition": "Applicable as soon as the battery starts to be used"
+        },
+        "INDUSTRIAL": {
+          "status": "APPLICABLE_FROM_FIRST_USE",
+          "condition": "Applicable as soon as the battery starts to be used"
+        }
+      }
+    },
+    {
+      "number": 69,
+      "name": "Negative events, such as accidents",
+      "legal_source": "BR Annex XIII 4(d)",
+      "disclosure": "LEGITIMATE_INTEREST_RESTRICTED",
+      "applicability": {
+        "EV": {
+          "status": "APPLICABLE_FROM_FIRST_USE",
+          "condition": "Applicable as soon as the battery starts to be used"
+        },
+        "LMT": {
+          "status": "APPLICABLE_FROM_FIRST_USE",
+          "condition": "Applicable as soon as the battery starts to be used"
+        },
+        "INDUSTRIAL": {
+          "status": "APPLICABLE_FROM_FIRST_USE",
+          "condition": "Applicable as soon as the battery starts to be used"
+        }
+      }
+    },
+    {
+      "number": 70,
+      "name": "Periodically recorded operating environmental conditions, including temperature",
+      "legal_source": "BR Annex XIII 4(d)",
+      "disclosure": "LEGITIMATE_INTEREST_RESTRICTED",
+      "applicability": {
+        "EV": {
+          "status": "APPLICABLE_FROM_FIRST_USE",
+          "condition": "Applicable as soon as the battery starts to be used"
+        },
+        "LMT": {
+          "status": "APPLICABLE_FROM_FIRST_USE",
+          "condition": "Applicable as soon as the battery starts to be used"
+        },
+        "INDUSTRIAL": {
+          "status": "APPLICABLE_FROM_FIRST_USE",
+          "condition": "Applicable as soon as the battery starts to be used"
+        }
+      }
+    },
+    {
+      "number": 71,
+      "name": "Periodically recorded state-of-charge histogram (%)",
+      "legal_source": "BR Annex XIII 4(d)",
+      "disclosure": "LEGITIMATE_INTEREST_RESTRICTED",
+      "applicability": {
+        "EV": {
+          "status": "APPLICABLE_FROM_FIRST_USE",
+          "condition": "Applicable as soon as the battery starts to be used"
+        },
+        "LMT": {
+          "status": "APPLICABLE_FROM_FIRST_USE",
+          "condition": "Applicable as soon as the battery starts to be used"
+        },
+        "INDUSTRIAL": {
+          "status": "APPLICABLE_FROM_FIRST_USE",
+          "condition": "Applicable as soon as the battery starts to be used"
+        }
+      }
+    }
+  ]
+}
