@@ -58,15 +58,6 @@ impl ForwardEffectV2 {
         {
             return Err(CompensationErrorV2::InvalidForwardEffect);
         }
-        if !matches!(
-            self.finality,
-            ForwardFinalityV2::Indeterminate
-                | ForwardFinalityV2::ObservedUnsettled
-                | ForwardFinalityV2::Settled
-                | ForwardFinalityV2::AuthoritativelyAbsent
-        ) {
-            return Err(CompensationErrorV2::InvalidFinality);
-        }
         if self.amount_minor == 0 || self.reversible_ceiling_minor > self.amount_minor {
             return Err(CompensationErrorV2::InvalidForwardEffect);
         }
@@ -503,7 +494,6 @@ pub enum CompensationErrorV2 {
     InvalidText,
     InvalidDigest,
     InvalidForwardEffect,
-    InvalidFinality,
     ForwardNotSettled,
     InvalidPlan,
     AuthorizationRevoked,
@@ -1467,16 +1457,6 @@ mod tests {
             Err(CompensationErrorV2::CapabilityIdentityConflict)
         );
         assert_eq!(book.encumbered_minor(), Ok(40));
-    }
-
-    #[test]
-    fn invalid_forward_finality_discriminant_is_rejected() {
-        let mut forward = forward();
-        forward.finality = unsafe { std::mem::transmute(0_u8) };
-        assert_eq!(
-            forward.validate(),
-            Err(CompensationErrorV2::InvalidFinality)
-        );
     }
 
     #[test]
