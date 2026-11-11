@@ -10,8 +10,8 @@ use sha2::{Digest, Sha256};
 
 use super::delegated::{DelegatedExposurePolicyV1, ParentExposureScopeV1};
 use super::exposure::{
-    DestinationResolutionV1, ExposureBookV1, ExposureDisposition, ExposureError,
-    ExposureIntentV1, ExposurePolicyV1, ExposureScopeV1,
+    DestinationResolutionV1, ExposureBookV1, ExposureDisposition, ExposureError, ExposureIntentV1,
+    ExposurePolicyV1, ExposureScopeV1,
 };
 
 const GRANT_DOMAIN: &[u8] = b"MXSAP-GRANT-TERMS-V1\0";
@@ -341,7 +341,10 @@ impl ParentHandoffBookV1 {
     ) -> Result<HandoffDisposition, HandoffError> {
         let hash = parent_revoke_action_hash.into();
         validate_digest(&hash)?;
-        let record = self.grants.get_mut(grant_id).ok_or(HandoffError::GrantNotFound)?;
+        let record = self
+            .grants
+            .get_mut(grant_id)
+            .ok_or(HandoffError::GrantNotFound)?;
         match record.status {
             ParentGrantStatus::Issued => {
                 record.status = ParentGrantStatus::RevocationRequested;
@@ -368,7 +371,8 @@ impl ParentHandoffBookV1 {
             .get_mut(&receipt.grant_id)
             .ok_or(HandoffError::GrantNotFound)?;
         if record.grant_digest != receipt.grant_digest
-            || record.revoke_action_hash.as_deref() != Some(receipt.parent_revoke_action_hash.as_str())
+            || record.revoke_action_hash.as_deref()
+                != Some(receipt.parent_revoke_action_hash.as_str())
             || record.terms.child_scope.owner_id != receipt.child_owner_id
         {
             return Err(HandoffError::InvalidGrant);
@@ -420,7 +424,8 @@ impl ParentHandoffBookV1 {
             || !receipt.zero_unresolved
             || record.grant_digest != receipt.grant_digest
             || record.parent_action_hash != receipt.parent_action_hash
-            || record.revoke_action_hash.as_deref() != Some(receipt.parent_revoke_action_hash.as_str())
+            || record.revoke_action_hash.as_deref()
+                != Some(receipt.parent_revoke_action_hash.as_str())
             || record.terms.child_scope.owner_id != receipt.child_owner_id
         {
             return Err(HandoffError::InvalidGrant);
@@ -617,7 +622,9 @@ impl ChildHandoffBookV1 {
         effect_id: &str,
         evidence: &DestinationResolutionV1,
     ) -> Result<(), HandoffError> {
-        Ok(self.exposure.mark_committed_unsettled(effect_id, evidence)?)
+        Ok(self
+            .exposure
+            .mark_committed_unsettled(effect_id, evidence)?)
     }
 
     pub fn mark_settled(
@@ -633,7 +640,9 @@ impl ChildHandoffBookV1 {
         effect_id: &str,
         evidence: &DestinationResolutionV1,
     ) -> Result<(), HandoffError> {
-        Ok(self.exposure.release_authoritative_absence(effect_id, evidence)?)
+        Ok(self
+            .exposure
+            .release_authoritative_absence(effect_id, evidence)?)
     }
 
     pub fn cancel_before_dispatch(&mut self, effect_id: &str) -> Result<(), HandoffError> {
@@ -680,7 +689,10 @@ impl ChildHandoffBookV1 {
         if let Some(existing) = &self.closure {
             return Ok((HandoffDisposition::AlreadyCommitted, existing.clone()));
         }
-        let revocation = self.revocation.as_ref().ok_or(HandoffError::InvalidTransition)?;
+        let revocation = self
+            .revocation
+            .as_ref()
+            .ok_or(HandoffError::InvalidTransition)?;
         if self.exposure.total_exposure_minor()? != 0 {
             return Err(HandoffError::UnresolvedExposure);
         }
@@ -744,10 +756,7 @@ impl ChildHandoffBookV1 {
 }
 
 fn validate_acceptance(receipt: &GrantAcceptanceReceiptV1) -> Result<(), HandoffError> {
-    for value in [
-        &receipt.grant_id,
-        &receipt.child_owner_id,
-    ] {
+    for value in [&receipt.grant_id, &receipt.child_owner_id] {
         validate_text(value)?;
     }
     for value in [
@@ -918,18 +927,32 @@ mod tests {
         }
     }
 
-    fn parent_receipt_hash() -> String { digest('1') }
-    fn accept_action_hash() -> String { digest('2') }
-    fn revoke_action_hash() -> String { digest('3') }
-    fn observe_revoke_hash() -> String { digest('4') }
-    fn child_frontier() -> String { digest('5') }
-    fn close_action_hash() -> String { digest('6') }
+    fn parent_receipt_hash() -> String {
+        digest('1')
+    }
+    fn accept_action_hash() -> String {
+        digest('2')
+    }
+    fn revoke_action_hash() -> String {
+        digest('3')
+    }
+    fn observe_revoke_hash() -> String {
+        digest('4')
+    }
+    fn child_frontier() -> String {
+        digest('5')
+    }
+    fn close_action_hash() -> String {
+        digest('6')
+    }
 
     fn make_parent_and_child() -> (ParentHandoffBookV1, ChildHandoffBookV1) {
         let terms = terms();
         let parent_hash = parent_receipt_hash();
         let mut parent = ParentHandoffBookV1::new(parent_policy()).unwrap();
-        parent.issue_grant(terms.clone(), parent_hash.clone()).unwrap();
+        parent
+            .issue_grant(terms.clone(), parent_hash.clone())
+            .unwrap();
         let child = ChildHandoffBookV1::new(terms, parent_hash).unwrap();
         (parent, child)
     }
@@ -938,7 +961,9 @@ mod tests {
     fn unaccepted_grant_can_be_revoked_and_closed_without_spending_child_budget() {
         let (mut parent, mut child) = make_parent_and_child();
         assert_eq!(parent.allocated_budget_minor(), Ok(700));
-        parent.request_revocation("grant:one", revoke_action_hash()).unwrap();
+        parent
+            .request_revocation("grant:one", revoke_action_hash())
+            .unwrap();
         let (_, observed) = child
             .observe_revocation(&revoke_action_hash(), observe_revoke_hash())
             .unwrap();
@@ -967,13 +992,19 @@ mod tests {
         parent
             .issue_grant(terms.clone(), parent_receipt_hash())
             .unwrap();
-        assert_eq!(parent.canonical_snapshot_digest().unwrap(), value("parent_snapshot_sha256"));
+        assert_eq!(
+            parent.canonical_snapshot_digest().unwrap(),
+            value("parent_snapshot_sha256")
+        );
         let child = ChildHandoffBookV1::new(terms, parent_receipt_hash()).unwrap();
         assert_eq!(
             child.exposure.canonical_snapshot_digest().unwrap(),
             value("child_exposure_snapshot_sha256")
         );
-        assert_eq!(child.canonical_snapshot_digest().unwrap(), value("child_handoff_snapshot_sha256"));
+        assert_eq!(
+            child.canonical_snapshot_digest().unwrap(),
+            value("child_handoff_snapshot_sha256")
+        );
     }
 
     #[test]
@@ -982,7 +1013,9 @@ mod tests {
         let (_, acceptance) = child
             .accept_grant(&parent_receipt_hash(), accept_action_hash())
             .unwrap();
-        parent.request_revocation("grant:one", revoke_action_hash()).unwrap();
+        parent
+            .request_revocation("grant:one", revoke_action_hash())
+            .unwrap();
         let (_, observed) = child
             .observe_revocation(&revoke_action_hash(), observe_revoke_hash())
             .unwrap();
@@ -1002,7 +1035,9 @@ mod tests {
     fn grant_replay_requires_same_parent_action_hash() {
         let mut parent = ParentHandoffBookV1::new(parent_policy()).unwrap();
         let terms = terms();
-        parent.issue_grant(terms.clone(), parent_receipt_hash()).unwrap();
+        parent
+            .issue_grant(terms.clone(), parent_receipt_hash())
+            .unwrap();
         assert_eq!(
             parent.issue_grant(terms.clone(), parent_receipt_hash()),
             Ok(HandoffDisposition::AlreadyCommitted)
@@ -1084,7 +1119,9 @@ mod tests {
             .unwrap();
         parent.observe_acceptance(acceptance).unwrap();
 
-        parent.request_revocation("grant:one", revoke_action_hash()).unwrap();
+        parent
+            .request_revocation("grant:one", revoke_action_hash())
+            .unwrap();
         assert_eq!(parent.pending_deliveries().len(), 1);
         assert_eq!(parent.allocated_budget_minor(), Ok(700));
 
@@ -1111,10 +1148,16 @@ mod tests {
     #[test]
     fn child_close_waits_for_resolution_and_parent_release_requires_exact_receipt() {
         let (mut parent, mut child) = make_parent_and_child();
-        let (_, acceptance) = child.accept_grant(&parent_receipt_hash(), accept_action_hash()).unwrap();
+        let (_, acceptance) = child
+            .accept_grant(&parent_receipt_hash(), accept_action_hash())
+            .unwrap();
         parent.observe_acceptance(acceptance).unwrap();
-        parent.request_revocation("grant:one", revoke_action_hash()).unwrap();
-        let (_, observed_revoke) = child.observe_revocation(&revoke_action_hash(), observe_revoke_hash()).unwrap();
+        parent
+            .request_revocation("grant:one", revoke_action_hash())
+            .unwrap();
+        let (_, observed_revoke) = child
+            .observe_revocation(&revoke_action_hash(), observe_revoke_hash())
+            .unwrap();
         parent.observe_revocation(observed_revoke).unwrap();
 
         child.reserve(intent("effect:1", 500)).unwrap();
@@ -1124,7 +1167,9 @@ mod tests {
             child.close(child_frontier(), close_action_hash()),
             Err(HandoffError::UnresolvedExposure)
         );
-        child.release_authoritative_absence("effect:1", &absence("effect:1")).unwrap();
+        child
+            .release_authoritative_absence("effect:1", &absence("effect:1"))
+            .unwrap();
         let (_, closure) = child.close(child_frontier(), close_action_hash()).unwrap();
 
         let mut wrong = closure.clone();
@@ -1132,7 +1177,10 @@ mod tests {
         assert_eq!(parent.release_grant(wrong), Err(HandoffError::InvalidGrant));
         assert_eq!(parent.allocated_budget_minor(), Ok(700));
 
-        assert_eq!(parent.release_grant(closure.clone()), Ok(HandoffDisposition::Released));
+        assert_eq!(
+            parent.release_grant(closure.clone()),
+            Ok(HandoffDisposition::Released)
+        );
         assert_eq!(parent.allocated_budget_minor(), Ok(0));
         assert_eq!(
             parent.release_grant(closure),
@@ -1143,18 +1191,31 @@ mod tests {
     #[test]
     fn child_can_resolve_already_dispatched_effect_after_revocation() {
         let (mut parent, mut child) = make_parent_and_child();
-        let (_, acceptance) = child.accept_grant(&parent_receipt_hash(), accept_action_hash()).unwrap();
+        let (_, acceptance) = child
+            .accept_grant(&parent_receipt_hash(), accept_action_hash())
+            .unwrap();
         parent.observe_acceptance(acceptance).unwrap();
         child.reserve(intent("effect:1", 400)).unwrap();
         child.mark_dispatch_authorized("effect:1").unwrap();
-        parent.request_revocation("grant:one", revoke_action_hash()).unwrap();
-        let (_, observed_revoke) = child.observe_revocation(&revoke_action_hash(), observe_revoke_hash()).unwrap();
+        parent
+            .request_revocation("grant:one", revoke_action_hash())
+            .unwrap();
+        let (_, observed_revoke) = child
+            .observe_revocation(&revoke_action_hash(), observe_revoke_hash())
+            .unwrap();
         parent.observe_revocation(observed_revoke).unwrap();
 
-        child.mark_committed_unsettled("effect:1", &observed("effect:1")).unwrap();
-        child.mark_settled("effect:1", &settled("effect:1")).unwrap();
+        child
+            .mark_committed_unsettled("effect:1", &observed("effect:1"))
+            .unwrap();
+        child
+            .mark_settled("effect:1", &settled("effect:1"))
+            .unwrap();
         let (_, closure) = child.close(child_frontier(), close_action_hash()).unwrap();
-        assert_eq!(parent.release_grant(closure), Ok(HandoffDisposition::Released));
+        assert_eq!(
+            parent.release_grant(closure),
+            Ok(HandoffDisposition::Released)
+        );
     }
 
     #[test]
@@ -1164,15 +1225,24 @@ mod tests {
         parent = restarted_parent;
         assert_eq!(parent.pending_deliveries().len(), 1);
 
-        let (_, acceptance) = child.accept_grant(&parent_receipt_hash(), accept_action_hash()).unwrap();
+        let (_, acceptance) = child
+            .accept_grant(&parent_receipt_hash(), accept_action_hash())
+            .unwrap();
         parent.observe_acceptance(acceptance).unwrap();
-        parent.request_revocation("grant:one", revoke_action_hash()).unwrap();
-        let (_, revocation) = child.observe_revocation(&revoke_action_hash(), observe_revoke_hash()).unwrap();
+        parent
+            .request_revocation("grant:one", revoke_action_hash())
+            .unwrap();
+        let (_, revocation) = child
+            .observe_revocation(&revoke_action_hash(), observe_revoke_hash())
+            .unwrap();
         parent.observe_revocation(revocation).unwrap();
         let (_, closure) = child.close(child_frontier(), close_action_hash()).unwrap();
 
         let closure_retry = closure.clone();
-        assert_eq!(parent.release_grant(closure), Ok(HandoffDisposition::Released));
+        assert_eq!(
+            parent.release_grant(closure),
+            Ok(HandoffDisposition::Released)
+        );
         let restarted_parent = parent.clone();
         parent = restarted_parent;
         assert_eq!(
