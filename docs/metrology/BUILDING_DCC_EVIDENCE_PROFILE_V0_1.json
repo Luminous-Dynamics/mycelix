@@ -1,0 +1,29 @@
+{
+  "schema_version": "mycelix.building-dcc-evidence/0.1",
+  "dcc_profile_id": "PTB-DCC-3.3.0-TRUST-APPLICABILITY",
+  "claim_ceiling": "normalized_synthetic_evidence_axes_only",
+  "official_reference": {
+    "namespace_uri": "https://ptb.de/dcc",
+    "root_element": "digitalCalibrationCertificate",
+    "schema_version": "3.3.0",
+    "signature_min_occurs": 0,
+    "xsd_byte_state": "reference_verified_bytes_not_pinned",
+    "xsd_digest": null
+  },
+  "trust_axes": [
+    "original_bytes",
+    "xml_wellformedness",
+    "xsd_validation",
+    "signature_presence",
+    "reference_digest",
+    "signature_value",
+    "signer_trust",
+    "signed_object_coverage",
+    "laboratory_identity",
+    "accreditation_scope",
+    "result_applicability",
+    "correction_lineage"
+  ],
+  "source_boundary": "This profile classifies a normalized verification report. It does not parse XML, validate the PTB XSD, perform XMLDSig cryptography, build a trust chain, or query an accreditation body.",
+  "non_authority": "No DCC evidence is automatically copied into the passport as authenticated or admitted. Final disposition is independent passport review only."
+}
