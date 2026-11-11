@@ -1,0 +1,147 @@
+{
+  "schema_version": "mycelix.derived-measurement-graph/0.1",
+  "profile_id": "MYC-BUILD-DERIVED-GRAPH-V0.1",
+  "base_channel_profile_id": "MYC-BUILD-METROLOGY-PROFILE-V0.1",
+  "classification": "synthetic_graph_contract_with_blocked_physical_method_profiles",
+  "claim_ceiling": "synthetic_dependency_resolution_and_test_method_recomputation_only",
+  "real_physical_method_execution_enabled": false,
+  "method_profiles": [
+    {
+      "method_id": "synthetic.scalar_mean.v1",
+      "revision": "1.0.0",
+      "output_channel_id": "synthetic_derived_scalar",
+      "output_measurand_id": "synthetic.mean_scalar",
+      "output_quantity_kind": "ratio",
+      "output_unit": "1",
+      "calculation_kind": "arithmetic_mean",
+      "artifact_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "runtime_id": "luminous-derived-oracle-synthetic/1.0.0",
+      "method_reference": "SYNTHETIC_TEST_METHOD_ONLY",
+      "method_status": "SYNTHETIC_TEST_ONLY",
+      "required_inputs": [
+        {
+          "role": "sample",
+          "ordinal": 0,
+          "channel_id": "synthetic_scalar",
+          "measurand_id": "synthetic.scalar",
+          "unit": "1"
+        },
+        {
+          "role": "sample",
+          "ordinal": 1,
+          "channel_id": "synthetic_scalar",
+          "measurand_id": "synthetic.scalar",
+          "unit": "1"
+        }
+      ],
+      "admission_note": "Exercises deterministic graph resolution and recomputation only. Not a physical measurand or a building channel."
+    },
+    {
+      "method_id": "thermal.mrt.six_direction_plane_radiant.v1",
+      "revision": "1.0.0",
+      "output_channel_id": "mean_radiant_temperature",
+      "output_measurand_id": "habitat.mean_radiant_temperature",
+      "output_quantity_kind": "temperature",
+      "output_unit": "degC",
+      "calculation_kind": "iso7726_six_direction_projected_area",
+      "artifact_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "runtime_id": "method-artifact-required-not-executed",
+      "method_reference": "ISO 7726:2025 Edition 3; six-direction plane-radiant-temperature method with declared projected-area factors",
+      "method_status": "BLOCKED_PENDING_INPUT_CHANNEL_ADMISSION",
+      "required_inputs": [
+        {
+          "role": "up",
+          "ordinal": 0,
+          "channel_id": "plane_radiant_temperature",
+          "measurand_id": "habitat.plane_radiant_temperature",
+          "unit": "degC"
+        },
+        {
+          "role": "down",
+          "ordinal": 1,
+          "channel_id": "plane_radiant_temperature",
+          "measurand_id": "habitat.plane_radiant_temperature",
+          "unit": "degC"
+        },
+        {
+          "role": "left",
+          "ordinal": 2,
+          "channel_id": "plane_radiant_temperature",
+          "measurand_id": "habitat.plane_radiant_temperature",
+          "unit": "degC"
+        },
+        {
+          "role": "right",
+          "ordinal": 3,
+          "channel_id": "plane_radiant_temperature",
+          "measurand_id": "habitat.plane_radiant_temperature",
+          "unit": "degC"
+        },
+        {
+          "role": "front",
+          "ordinal": 4,
+          "channel_id": "plane_radiant_temperature",
+          "measurand_id": "habitat.plane_radiant_temperature",
+          "unit": "degC"
+        },
+        {
+          "role": "back",
+          "ordinal": 5,
+          "channel_id": "plane_radiant_temperature",
+          "measurand_id": "habitat.plane_radiant_temperature",
+          "unit": "degC"
+        }
+      ],
+      "admission_note": "Requires six exact, time-aligned plane-radiant-temperature input graphs and a posture/orientation-specific projected-area factor profile. `plane_radiant_temperature` is not admitted by the frozen building channel profile v0.1. This profile is a contract, not a numerical implementation of the standard."
+    },
+    {
+      "method_id": "thermal.useful_energy.flow_temperature_integral.v1",
+      "revision": "1.0.0",
+      "output_channel_id": "useful_thermal_energy",
+      "output_measurand_id": "habitat.useful_thermal_energy",
+      "output_quantity_kind": "thermal_energy",
+      "output_unit": "kWh_th",
+      "calculation_kind": "flow_enthalpy_time_integral",
+      "artifact_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "runtime_id": "method-artifact-required-not-executed",
+      "method_reference": "Declared fluid-property model plus synchronized flow and supply/return temperature integration; exact normative/project method still to be selected",
+      "method_status": "BLOCKED_PENDING_INPUT_CHANNEL_ADMISSION",
+      "required_inputs": [
+        {
+          "role": "volume_flow",
+          "ordinal": 0,
+          "channel_id": "water_volume_flow",
+          "measurand_id": "habitat.water_volume_flow",
+          "unit": "m3/s"
+        },
+        {
+          "role": "supply_temperature",
+          "ordinal": 1,
+          "channel_id": "water_temperature",
+          "measurand_id": "habitat.water_temperature",
+          "unit": "degC"
+        },
+        {
+          "role": "return_temperature",
+          "ordinal": 2,
+          "channel_id": "water_temperature",
+          "measurand_id": "habitat.water_temperature",
+          "unit": "degC"
+        }
+      ],
+      "admission_note": "Requires fluid identity and a versioned density/enthalpy property model, plus exact aligned stream epochs. `water_temperature` is proposed but not admitted in channel profile v0.1. No simplified constant-cp calculation is promoted as a general method."
+    }
+  ],
+  "invariants": {
+    "derived_output_is_not_physical_instrument": true,
+    "source_digest_alone_is_not_reconstructability": true,
+    "exact_ordered_source_edges_required": true,
+    "no_latest_alias": true,
+    "no_implicit_interpolation_or_imputation": true,
+    "calibration_installation_firmware_and_timebase_bindings_required": true,
+    "all_parent_graphs_must_resolve": true,
+    "no_cyclic_dependency_graphs": true,
+    "uncertain_or_revoked_parent_blocks_output": true,
+    "eligibility_never_means_physical_admission": true
+  }
+}
