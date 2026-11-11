@@ -2,6 +2,8 @@ package sagaverifier
 
 import (
 	"fmt"
+	"os"
+	"strings"
 	"sync"
 	"testing"
 )
@@ -134,6 +136,59 @@ func stringsRepeatCompensationV2(value byte, count int) string {
 	result := make([]byte, count)
 	for i := range result { result[i] = value }
 	return string(result)
+}
+
+
+func TestCompensationSharedV2KnownAnswers(t *testing.T) {
+	raw, err := os.ReadFile("../sap-payment-saga-model/fixtures/sap-compensation-v2.kat")
+	if err != nil { t.Fatal(err) }
+	values := map[string]string{}
+	for _, line := range strings.Split(string(raw), "\n") {
+		if line == "" || strings.HasPrefix(line, "#") { continue }
+		parts := strings.SplitN(line, "=", 2)
+		if len(parts) != 2 { t.Fatalf("invalid KAT line: %q", line) }
+		values[parts[0]] = parts[1]
+	}
+	book := newCompensationTestBookV2(t, 100, 100)
+	request := compensationTestRequestV2(book, "refund:kat-01", 60, "liquidity:kat-01", 100)
+	outcome := compensationTestOutcomeV2(t, book, request, CompensationFinalSettlementV2, "evidence:kat-settlement")
+	for name, actual := range map[string]string{
+		"forward": mustCompensationDigestV2(t, book.Forward().CanonicalDigest()),
+		"plan": book.PlanDigest(),
+		"authorization_scope": mustCompensationDigestV2(t, request.Authorization.CanonicalScopeDigest()),
+		"authorization": mustCompensationDigestV2(t, request.Authorization.CanonicalDigest()),
+		"liquidity": mustCompensationDigestV2(t, request.LiquidityReservation.CanonicalDigest()),
+		"request": mustCompensationDigestV2(t, request.CanonicalDigest()),
+		"outcome": mustCompensationDigestV2(t, outcome.CanonicalDigest()),
+	} {
+		if values[name] != actual { t.Fatalf("%s digest = %s, want %s", name, actual, values[name]) }
+	}
+}
+
+func mustCompensationDigestV2(t *testing.T, value string, err error) string {
+	t.Helper()
+	if err != nil { t.Fatal(err) }
+	return value
+}
+
+func TestCompensationCapabilityIDCannotChangeScopeToResetLimitV2(t *testing.T) {
+	book := newCompensationTestBookV2(t, 100, 100)
+	first := compensationTestRequestV2(book, "refund:cap-scope-1", 40, "liquidity:cap-scope-1", 70)
+	if _, err := book.Reserve(first, compensationTestNowV2); err != nil { t.Fatal(err) }
+	second := compensationTestRequestV2(book, "refund:cap-scope-2", 40, "liquidity:cap-scope-2", 100)
+	second.Authorization.CapabilityID = "capability:refund-01"
+	if _, err := book.Reserve(second, compensationTestNowV2); err != ErrCompensationCapabilityIdentityConflictV2 {
+		t.Fatalf("capability ID scope change = %v", err)
+	}
+	if encumbered, _ := book.EncumberedMinor(); encumbered != 40 { t.Fatalf("encumbered = %d", encumbered) }
+}
+
+func TestCompensationRejectsInvalidForwardFinalityDiscriminantV2(t *testing.T) {
+	forward := compensationTestForwardV2()
+	forward.Finality = 0
+	if err := forward.Validate(); err != ErrCompensationInvalidFinalityV2 {
+		t.Fatalf("invalid finality = %v", err)
+	}
 }
 
 func TestCompensationForwardMustBeSettledV2(t *testing.T) {
