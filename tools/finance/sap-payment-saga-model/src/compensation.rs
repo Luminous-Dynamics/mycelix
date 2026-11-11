@@ -1373,7 +1373,12 @@ mod tests {
         let mut book = book(100, 100);
         let request = request(&book, "refund:bad-outcome", 20, "liquidity:bad-outcome", 100);
         book.reserve(request.clone(), NOW).unwrap();
-        book.mark_dispatch_authorized("refund:bad-outcome", &request.authorization, NOW)
+        book.mark_dispatch_authorized(
+            "refund:bad-outcome",
+            "owner:refund-operator",
+            &request.authorization,
+            NOW,
+        )
             .unwrap();
 
         let mut wrong_authority = outcome(
