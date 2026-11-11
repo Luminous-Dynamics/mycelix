@@ -1145,9 +1145,9 @@ mod tests {
         let mut unsettled = forward();
         unsettled.finality = ForwardFinalityV2::ObservedUnsettled;
         unsettled.reversible_ceiling_minor = 0;
-        let plan = plan(&unsettled, 0);
+        let unsettled_plan = plan(&unsettled, 0);
         assert_eq!(
-            CompensationBookV2::new(unsettled, plan, 100).map(|_| ()),
+            CompensationBookV2::new(unsettled, unsettled_plan, 100).map(|_| ()),
             Err(CompensationErrorV2::ForwardNotSettled)
         );
 
@@ -1572,8 +1572,8 @@ mod tests {
     #[test]
     fn cancellation_releases_only_never_dispatched_reservation() {
         let mut book = book(100, 100);
-        let request = request(&book, "refund:cancel", 25, "liquidity:cancel", 100);
-        book.reserve(request.clone(), NOW).unwrap();
+        let cancel_request = request(&book, "refund:cancel", 25, "liquidity:cancel", 100);
+        book.reserve(cancel_request.clone(), NOW).unwrap();
         assert_eq!(book.encumbered_minor(), Ok(25));
         assert_eq!(
             book.cancel_before_dispatch("refund:cancel", "owner:refund-operator"),
