@@ -76,7 +76,8 @@
             "sequence": 1,
             "rights_state": "authorized",
             "parent_derivation_id": "NOT_APPLICABLE",
-            "parent_graph_digest": "NOT_APPLICABLE"
+            "parent_graph_digest": "NOT_APPLICABLE",
+            "tick_unit": "ms"
           },
           {
             "ordinal": 1,
@@ -105,7 +106,8 @@
             "sequence": 1,
             "rights_state": "authorized",
             "parent_derivation_id": "NOT_APPLICABLE",
-            "parent_graph_digest": "NOT_APPLICABLE"
+            "parent_graph_digest": "NOT_APPLICABLE",
+            "tick_unit": "ms"
           }
         ],
         "selection": {
@@ -133,7 +135,9 @@
         "source_resolution": {
           "state": "all_exact_sources_resolved",
           "resolved_input_count": 2,
-          "source_graph_digest": "sha256:7777777777777777777777777777777777777777777777777777777777777777"
+          "source_graph_digest": "sha256:7777777777777777777777777777777777777777777777777777777777777777",
+          "resolved_parent_derivation_ids": [],
+          "resolved_parent_graph_digests": []
         },
         "invalidation": {
           "state": "current",
@@ -215,7 +219,8 @@
             "sequence": 1,
             "rights_state": "authorized",
             "parent_derivation_id": "NOT_APPLICABLE",
-            "parent_graph_digest": "NOT_APPLICABLE"
+            "parent_graph_digest": "NOT_APPLICABLE",
+            "tick_unit": "ms"
           },
           {
             "ordinal": 1,
@@ -244,7 +249,8 @@
             "sequence": 1,
             "rights_state": "authorized",
             "parent_derivation_id": "NOT_APPLICABLE",
-            "parent_graph_digest": "NOT_APPLICABLE"
+            "parent_graph_digest": "NOT_APPLICABLE",
+            "tick_unit": "ms"
           }
         ],
         "selection": {
@@ -272,7 +278,9 @@
         "source_resolution": {
           "state": "all_exact_sources_resolved",
           "resolved_input_count": 2,
-          "source_graph_digest": "sha256:7777777777777777777777777777777777777777777777777777777777777777"
+          "source_graph_digest": "sha256:7777777777777777777777777777777777777777777777777777777777777777",
+          "resolved_parent_derivation_ids": [],
+          "resolved_parent_graph_digests": []
         },
         "invalidation": {
           "state": "current",
@@ -354,7 +362,8 @@
             "sequence": 1,
             "rights_state": "authorized",
             "parent_derivation_id": "NOT_APPLICABLE",
-            "parent_graph_digest": "NOT_APPLICABLE"
+            "parent_graph_digest": "NOT_APPLICABLE",
+            "tick_unit": "ms"
           },
           {
             "ordinal": 1,
@@ -383,7 +392,8 @@
             "sequence": 1,
             "rights_state": "authorized",
             "parent_derivation_id": "NOT_APPLICABLE",
-            "parent_graph_digest": "NOT_APPLICABLE"
+            "parent_graph_digest": "NOT_APPLICABLE",
+            "tick_unit": "ms"
           }
         ],
         "selection": {
@@ -411,7 +421,9 @@
         "source_resolution": {
           "state": "all_exact_sources_resolved",
           "resolved_input_count": 2,
-          "source_graph_digest": "sha256:7777777777777777777777777777777777777777777777777777777777777777"
+          "source_graph_digest": "sha256:7777777777777777777777777777777777777777777777777777777777777777",
+          "resolved_parent_derivation_ids": [],
+          "resolved_parent_graph_digests": []
         },
         "invalidation": {
           "state": "current",
@@ -493,7 +505,8 @@
             "sequence": 1,
             "rights_state": "authorized",
             "parent_derivation_id": "NOT_APPLICABLE",
-            "parent_graph_digest": "NOT_APPLICABLE"
+            "parent_graph_digest": "NOT_APPLICABLE",
+            "tick_unit": "ms"
           }
         ],
         "selection": {
@@ -521,7 +534,9 @@
         "source_resolution": {
           "state": "all_exact_sources_resolved",
           "resolved_input_count": 2,
-          "source_graph_digest": "sha256:7777777777777777777777777777777777777777777777777777777777777777"
+          "source_graph_digest": "sha256:7777777777777777777777777777777777777777777777777777777777777777",
+          "resolved_parent_derivation_ids": [],
+          "resolved_parent_graph_digests": []
         },
         "invalidation": {
           "state": "current",
@@ -603,7 +618,8 @@
             "sequence": 1,
             "rights_state": "authorized",
             "parent_derivation_id": "NOT_APPLICABLE",
-            "parent_graph_digest": "NOT_APPLICABLE"
+            "parent_graph_digest": "NOT_APPLICABLE",
+            "tick_unit": "ms"
           },
           {
             "ordinal": 1,
@@ -632,7 +648,8 @@
             "sequence": 1,
             "rights_state": "authorized",
             "parent_derivation_id": "NOT_APPLICABLE",
-            "parent_graph_digest": "NOT_APPLICABLE"
+            "parent_graph_digest": "NOT_APPLICABLE",
+            "tick_unit": "ms"
           }
         ],
         "selection": {
@@ -660,7 +677,9 @@
         "source_resolution": {
           "state": "all_exact_sources_resolved",
           "resolved_input_count": 2,
-          "source_graph_digest": "sha256:7777777777777777777777777777777777777777777777777777777777777777"
+          "source_graph_digest": "sha256:7777777777777777777777777777777777777777777777777777777777777777",
+          "resolved_parent_derivation_ids": [],
+          "resolved_parent_graph_digests": []
         },
         "invalidation": {
           "state": "current",
@@ -742,7 +761,8 @@
             "sequence": 1,
             "rights_state": "authorized",
             "parent_derivation_id": "NOT_APPLICABLE",
-            "parent_graph_digest": "NOT_APPLICABLE"
+            "parent_graph_digest": "NOT_APPLICABLE",
+            "tick_unit": "ms"
           },
           {
             "ordinal": 1,
@@ -771,7 +791,8 @@
             "sequence": 1,
             "rights_state": "authorized",
             "parent_derivation_id": "NOT_APPLICABLE",
-            "parent_graph_digest": "NOT_APPLICABLE"
+            "parent_graph_digest": "NOT_APPLICABLE",
+            "tick_unit": "ms"
           }
         ],
         "selection": {
@@ -799,7 +820,9 @@
         "source_resolution": {
           "state": "all_exact_sources_resolved",
           "resolved_input_count": 2,
-          "source_graph_digest": "sha256:7777777777777777777777777777777777777777777777777777777777777777"
+          "source_graph_digest": "sha256:7777777777777777777777777777777777777777777777777777777777777777",
+          "resolved_parent_derivation_ids": [],
+          "resolved_parent_graph_digests": []
         },
         "invalidation": {
           "state": "current",
@@ -881,7 +904,8 @@
             "sequence": 1,
             "rights_state": "authorized",
             "parent_derivation_id": "NOT_APPLICABLE",
-            "parent_graph_digest": "NOT_APPLICABLE"
+            "parent_graph_digest": "NOT_APPLICABLE",
+            "tick_unit": "ms"
           },
           {
             "ordinal": 1,
@@ -910,7 +934,8 @@
             "sequence": 1,
             "rights_state": "authorized",
             "parent_derivation_id": "NOT_APPLICABLE",
-            "parent_graph_digest": "NOT_APPLICABLE"
+            "parent_graph_digest": "NOT_APPLICABLE",
+            "tick_unit": "ms"
           }
         ],
         "selection": {
@@ -938,7 +963,9 @@
         "source_resolution": {
           "state": "all_exact_sources_resolved",
           "resolved_input_count": 2,
-          "source_graph_digest": "sha256:7777777777777777777777777777777777777777777777777777777777777777"
+          "source_graph_digest": "sha256:7777777777777777777777777777777777777777777777777777777777777777",
+          "resolved_parent_derivation_ids": [],
+          "resolved_parent_graph_digests": []
         },
         "invalidation": {
           "state": "current",
@@ -1020,7 +1047,8 @@
             "sequence": 1,
             "rights_state": "authorized",
             "parent_derivation_id": "NOT_APPLICABLE",
-            "parent_graph_digest": "NOT_APPLICABLE"
+            "parent_graph_digest": "NOT_APPLICABLE",
+            "tick_unit": "ms"
           },
           {
             "ordinal": 1,
@@ -1049,7 +1077,8 @@
             "sequence": 1,
             "rights_state": "authorized",
             "parent_derivation_id": "NOT_APPLICABLE",
-            "parent_graph_digest": "NOT_APPLICABLE"
+            "parent_graph_digest": "NOT_APPLICABLE",
+            "tick_unit": "ms"
           }
         ],
         "selection": {
@@ -1077,7 +1106,9 @@
         "source_resolution": {
           "state": "all_exact_sources_resolved",
           "resolved_input_count": 2,
-          "source_graph_digest": "sha256:7777777777777777777777777777777777777777777777777777777777777777"
+          "source_graph_digest": "sha256:7777777777777777777777777777777777777777777777777777777777777777",
+          "resolved_parent_derivation_ids": [],
+          "resolved_parent_graph_digests": []
         },
         "invalidation": {
           "state": "current",
@@ -1159,7 +1190,8 @@
             "sequence": 1,
             "rights_state": "authorized",
             "parent_derivation_id": "NOT_APPLICABLE",
-            "parent_graph_digest": "NOT_APPLICABLE"
+            "parent_graph_digest": "NOT_APPLICABLE",
+            "tick_unit": "ms"
           },
           {
             "ordinal": 1,
@@ -1188,7 +1220,8 @@
             "sequence": 1,
             "rights_state": "authorized",
             "parent_derivation_id": "NOT_APPLICABLE",
-            "parent_graph_digest": "NOT_APPLICABLE"
+            "parent_graph_digest": "NOT_APPLICABLE",
+            "tick_unit": "ms"
           }
         ],
         "selection": {
@@ -1216,7 +1249,9 @@
         "source_resolution": {
           "state": "all_exact_sources_resolved",
           "resolved_input_count": 2,
-          "source_graph_digest": "sha256:7777777777777777777777777777777777777777777777777777777777777777"
+          "source_graph_digest": "sha256:7777777777777777777777777777777777777777777777777777777777777777",
+          "resolved_parent_derivation_ids": [],
+          "resolved_parent_graph_digests": []
         },
         "invalidation": {
           "state": "current",
@@ -1298,7 +1333,8 @@
             "sequence": 1,
             "rights_state": "authorized",
             "parent_derivation_id": "NOT_APPLICABLE",
-            "parent_graph_digest": "NOT_APPLICABLE"
+            "parent_graph_digest": "NOT_APPLICABLE",
+            "tick_unit": "ms"
           },
           {
             "ordinal": 1,
@@ -1327,7 +1363,8 @@
             "sequence": 1,
             "rights_state": "authorized",
             "parent_derivation_id": "NOT_APPLICABLE",
-            "parent_graph_digest": "NOT_APPLICABLE"
+            "parent_graph_digest": "NOT_APPLICABLE",
+            "tick_unit": "ms"
           }
         ],
         "selection": {
@@ -1355,7 +1392,9 @@
         "source_resolution": {
           "state": "all_exact_sources_resolved",
           "resolved_input_count": 2,
-          "source_graph_digest": "sha256:7777777777777777777777777777777777777777777777777777777777777777"
+          "source_graph_digest": "sha256:7777777777777777777777777777777777777777777777777777777777777777",
+          "resolved_parent_derivation_ids": [],
+          "resolved_parent_graph_digests": []
         },
         "invalidation": {
           "state": "current",
@@ -1437,7 +1476,8 @@
             "sequence": 1,
             "rights_state": "authorized",
             "parent_derivation_id": "NOT_APPLICABLE",
-            "parent_graph_digest": "NOT_APPLICABLE"
+            "parent_graph_digest": "NOT_APPLICABLE",
+            "tick_unit": "ms"
           },
           {
             "ordinal": 1,
@@ -1466,7 +1506,8 @@
             "sequence": 1,
             "rights_state": "authorized",
             "parent_derivation_id": "NOT_APPLICABLE",
-            "parent_graph_digest": "NOT_APPLICABLE"
+            "parent_graph_digest": "NOT_APPLICABLE",
+            "tick_unit": "ms"
           }
         ],
         "selection": {
@@ -1494,7 +1535,9 @@
         "source_resolution": {
           "state": "all_exact_sources_resolved",
           "resolved_input_count": 2,
-          "source_graph_digest": "sha256:7777777777777777777777777777777777777777777777777777777777777777"
+          "source_graph_digest": "sha256:7777777777777777777777777777777777777777777777777777777777777777",
+          "resolved_parent_derivation_ids": [],
+          "resolved_parent_graph_digests": []
         },
         "invalidation": {
           "state": "current",
@@ -1576,7 +1619,8 @@
             "sequence": 1,
             "rights_state": "authorized",
             "parent_derivation_id": "NOT_APPLICABLE",
-            "parent_graph_digest": "NOT_APPLICABLE"
+            "parent_graph_digest": "NOT_APPLICABLE",
+            "tick_unit": "ms"
           },
           {
             "ordinal": 1,
@@ -1605,7 +1649,8 @@
             "sequence": 1,
             "rights_state": "authorized",
             "parent_derivation_id": "NOT_APPLICABLE",
-            "parent_graph_digest": "NOT_APPLICABLE"
+            "parent_graph_digest": "NOT_APPLICABLE",
+            "tick_unit": "ms"
           }
         ],
         "selection": {
@@ -1633,7 +1678,9 @@
         "source_resolution": {
           "state": "all_exact_sources_resolved",
           "resolved_input_count": 2,
-          "source_graph_digest": "sha256:7777777777777777777777777777777777777777777777777777777777777777"
+          "source_graph_digest": "sha256:7777777777777777777777777777777777777777777777777777777777777777",
+          "resolved_parent_derivation_ids": [],
+          "resolved_parent_graph_digests": []
         },
         "invalidation": {
           "state": "current",
@@ -1715,7 +1762,8 @@
             "sequence": 1,
             "rights_state": "authorized",
             "parent_derivation_id": "NOT_APPLICABLE",
-            "parent_graph_digest": "NOT_APPLICABLE"
+            "parent_graph_digest": "NOT_APPLICABLE",
+            "tick_unit": "ms"
           },
           {
             "ordinal": 1,
@@ -1744,7 +1792,8 @@
             "sequence": 1,
             "rights_state": "authorized",
             "parent_derivation_id": "NOT_APPLICABLE",
-            "parent_graph_digest": "NOT_APPLICABLE"
+            "parent_graph_digest": "NOT_APPLICABLE",
+            "tick_unit": "ms"
           }
         ],
         "selection": {
@@ -1772,7 +1821,9 @@
         "source_resolution": {
           "state": "all_exact_sources_resolved",
           "resolved_input_count": 2,
-          "source_graph_digest": "sha256:7777777777777777777777777777777777777777777777777777777777777777"
+          "source_graph_digest": "sha256:7777777777777777777777777777777777777777777777777777777777777777",
+          "resolved_parent_derivation_ids": [],
+          "resolved_parent_graph_digests": []
         },
         "invalidation": {
           "state": "current",
@@ -1854,7 +1905,8 @@
             "sequence": 1,
             "rights_state": "authorized",
             "parent_derivation_id": "NOT_APPLICABLE",
-            "parent_graph_digest": "NOT_APPLICABLE"
+            "parent_graph_digest": "NOT_APPLICABLE",
+            "tick_unit": "ms"
           },
           {
             "ordinal": 1,
@@ -1883,7 +1935,8 @@
             "sequence": 1,
             "rights_state": "authorized",
             "parent_derivation_id": "NOT_APPLICABLE",
-            "parent_graph_digest": "NOT_APPLICABLE"
+            "parent_graph_digest": "NOT_APPLICABLE",
+            "tick_unit": "ms"
           }
         ],
         "selection": {
@@ -1911,7 +1964,9 @@
         "source_resolution": {
           "state": "all_exact_sources_resolved",
           "resolved_input_count": 2,
-          "source_graph_digest": "sha256:7777777777777777777777777777777777777777777777777777777777777777"
+          "source_graph_digest": "sha256:7777777777777777777777777777777777777777777777777777777777777777",
+          "resolved_parent_derivation_ids": [],
+          "resolved_parent_graph_digests": []
         },
         "invalidation": {
           "state": "current",
@@ -1993,7 +2048,8 @@
             "sequence": 1,
             "rights_state": "authorized",
             "parent_derivation_id": "NOT_APPLICABLE",
-            "parent_graph_digest": "NOT_APPLICABLE"
+            "parent_graph_digest": "NOT_APPLICABLE",
+            "tick_unit": "ms"
           },
           {
             "ordinal": 1,
@@ -2022,7 +2078,8 @@
             "sequence": 1,
             "rights_state": "authorized",
             "parent_derivation_id": "NOT_APPLICABLE",
-            "parent_graph_digest": "NOT_APPLICABLE"
+            "parent_graph_digest": "NOT_APPLICABLE",
+            "tick_unit": "ms"
           }
         ],
         "selection": {
@@ -2050,7 +2107,9 @@
         "source_resolution": {
           "state": "all_exact_sources_resolved",
           "resolved_input_count": 2,
-          "source_graph_digest": "sha256:7777777777777777777777777777777777777777777777777777777777777777"
+          "source_graph_digest": "sha256:7777777777777777777777777777777777777777777777777777777777777777",
+          "resolved_parent_derivation_ids": [],
+          "resolved_parent_graph_digests": []
         },
         "invalidation": {
           "state": "current",
@@ -2132,7 +2191,8 @@
             "sequence": 1,
             "rights_state": "authorized",
             "parent_derivation_id": "NOT_APPLICABLE",
-            "parent_graph_digest": "NOT_APPLICABLE"
+            "parent_graph_digest": "NOT_APPLICABLE",
+            "tick_unit": "ms"
           },
           {
             "ordinal": 1,
@@ -2161,7 +2221,8 @@
             "sequence": 1,
             "rights_state": "authorized",
             "parent_derivation_id": "NOT_APPLICABLE",
-            "parent_graph_digest": "NOT_APPLICABLE"
+            "parent_graph_digest": "NOT_APPLICABLE",
+            "tick_unit": "ms"
           }
         ],
         "selection": {
@@ -2189,7 +2250,9 @@
         "source_resolution": {
           "state": "all_exact_sources_resolved",
           "resolved_input_count": 2,
-          "source_graph_digest": "sha256:7777777777777777777777777777777777777777777777777777777777777777"
+          "source_graph_digest": "sha256:7777777777777777777777777777777777777777777777777777777777777777",
+          "resolved_parent_derivation_ids": [],
+          "resolved_parent_graph_digests": []
         },
         "invalidation": {
           "state": "current",
@@ -2271,7 +2334,8 @@
             "sequence": 1,
             "rights_state": "authorized",
             "parent_derivation_id": "NOT_APPLICABLE",
-            "parent_graph_digest": "NOT_APPLICABLE"
+            "parent_graph_digest": "NOT_APPLICABLE",
+            "tick_unit": "ms"
           },
           {
             "ordinal": 1,
@@ -2300,7 +2364,8 @@
             "sequence": 1,
             "rights_state": "authorized",
             "parent_derivation_id": "NOT_APPLICABLE",
-            "parent_graph_digest": "NOT_APPLICABLE"
+            "parent_graph_digest": "NOT_APPLICABLE",
+            "tick_unit": "ms"
           }
         ],
         "selection": {
@@ -2328,7 +2393,9 @@
         "source_resolution": {
           "state": "all_exact_sources_resolved",
           "resolved_input_count": 2,
-          "source_graph_digest": "sha256:7777777777777777777777777777777777777777777777777777777777777777"
+          "source_graph_digest": "sha256:7777777777777777777777777777777777777777777777777777777777777777",
+          "resolved_parent_derivation_ids": [],
+          "resolved_parent_graph_digests": []
         },
         "invalidation": {
           "state": "current",
@@ -2410,7 +2477,8 @@
             "sequence": 1,
             "rights_state": "authorized",
             "parent_derivation_id": "NOT_APPLICABLE",
-            "parent_graph_digest": "NOT_APPLICABLE"
+            "parent_graph_digest": "NOT_APPLICABLE",
+            "tick_unit": "ms"
           },
           {
             "ordinal": 1,
@@ -2439,7 +2507,8 @@
             "sequence": 1,
             "rights_state": "authorized",
             "parent_derivation_id": "NOT_APPLICABLE",
-            "parent_graph_digest": "NOT_APPLICABLE"
+            "parent_graph_digest": "NOT_APPLICABLE",
+            "tick_unit": "ms"
           }
         ],
         "selection": {
@@ -2467,7 +2536,9 @@
         "source_resolution": {
           "state": "all_exact_sources_resolved",
           "resolved_input_count": 2,
-          "source_graph_digest": "sha256:7777777777777777777777777777777777777777777777777777777777777777"
+          "source_graph_digest": "sha256:7777777777777777777777777777777777777777777777777777777777777777",
+          "resolved_parent_derivation_ids": [],
+          "resolved_parent_graph_digests": []
         },
         "invalidation": {
           "state": "current",
@@ -2549,7 +2620,8 @@
             "sequence": 1,
             "rights_state": "authorized",
             "parent_derivation_id": "NOT_APPLICABLE",
-            "parent_graph_digest": "NOT_APPLICABLE"
+            "parent_graph_digest": "NOT_APPLICABLE",
+            "tick_unit": "ms"
           },
           {
             "ordinal": 1,
@@ -2578,7 +2650,8 @@
             "sequence": 1,
             "rights_state": "authorized",
             "parent_derivation_id": "NOT_APPLICABLE",
-            "parent_graph_digest": "NOT_APPLICABLE"
+            "parent_graph_digest": "NOT_APPLICABLE",
+            "tick_unit": "ms"
           }
         ],
         "selection": {
@@ -2606,7 +2679,9 @@
         "source_resolution": {
           "state": "all_exact_sources_resolved",
           "resolved_input_count": 2,
-          "source_graph_digest": "sha256:7777777777777777777777777777777777777777777777777777777777777777"
+          "source_graph_digest": "sha256:7777777777777777777777777777777777777777777777777777777777777777",
+          "resolved_parent_derivation_ids": [],
+          "resolved_parent_graph_digests": []
         },
         "invalidation": {
           "state": "current",
@@ -2688,7 +2763,8 @@
             "sequence": 1,
             "rights_state": "authorized",
             "parent_derivation_id": "NOT_APPLICABLE",
-            "parent_graph_digest": "NOT_APPLICABLE"
+            "parent_graph_digest": "NOT_APPLICABLE",
+            "tick_unit": "ms"
           },
           {
             "ordinal": 1,
@@ -2717,7 +2793,8 @@
             "sequence": 1,
             "rights_state": "authorized",
             "parent_derivation_id": "NOT_APPLICABLE",
-            "parent_graph_digest": "NOT_APPLICABLE"
+            "parent_graph_digest": "NOT_APPLICABLE",
+            "tick_unit": "ms"
           }
         ],
         "selection": {
@@ -2745,7 +2822,9 @@
         "source_resolution": {
           "state": "all_exact_sources_resolved",
           "resolved_input_count": 2,
-          "source_graph_digest": "sha256:7777777777777777777777777777777777777777777777777777777777777777"
+          "source_graph_digest": "sha256:7777777777777777777777777777777777777777777777777777777777777777",
+          "resolved_parent_derivation_ids": [],
+          "resolved_parent_graph_digests": []
         },
         "invalidation": {
           "state": "current",
@@ -2827,7 +2906,8 @@
             "sequence": 1,
             "rights_state": "authorized",
             "parent_derivation_id": "NOT_APPLICABLE",
-            "parent_graph_digest": "NOT_APPLICABLE"
+            "parent_graph_digest": "NOT_APPLICABLE",
+            "tick_unit": "ms"
           },
           {
             "ordinal": 1,
@@ -2856,7 +2936,8 @@
             "sequence": 1,
             "rights_state": "authorized",
             "parent_derivation_id": "NOT_APPLICABLE",
-            "parent_graph_digest": "NOT_APPLICABLE"
+            "parent_graph_digest": "NOT_APPLICABLE",
+            "tick_unit": "ms"
           }
         ],
         "selection": {
@@ -2884,7 +2965,9 @@
         "source_resolution": {
           "state": "all_exact_sources_resolved",
           "resolved_input_count": 2,
-          "source_graph_digest": "sha256:7777777777777777777777777777777777777777777777777777777777777777"
+          "source_graph_digest": "sha256:7777777777777777777777777777777777777777777777777777777777777777",
+          "resolved_parent_derivation_ids": [],
+          "resolved_parent_graph_digests": []
         },
         "invalidation": {
           "state": "current",
@@ -2966,7 +3049,8 @@
             "sequence": 1,
             "rights_state": "revoked",
             "parent_derivation_id": "NOT_APPLICABLE",
-            "parent_graph_digest": "NOT_APPLICABLE"
+            "parent_graph_digest": "NOT_APPLICABLE",
+            "tick_unit": "ms"
           },
           {
             "ordinal": 1,
@@ -2995,7 +3079,8 @@
             "sequence": 1,
             "rights_state": "authorized",
             "parent_derivation_id": "NOT_APPLICABLE",
-            "parent_graph_digest": "NOT_APPLICABLE"
+            "parent_graph_digest": "NOT_APPLICABLE",
+            "tick_unit": "ms"
           }
         ],
         "selection": {
@@ -3023,7 +3108,9 @@
         "source_resolution": {
           "state": "all_exact_sources_resolved",
           "resolved_input_count": 2,
-          "source_graph_digest": "sha256:7777777777777777777777777777777777777777777777777777777777777777"
+          "source_graph_digest": "sha256:7777777777777777777777777777777777777777777777777777777777777777",
+          "resolved_parent_derivation_ids": [],
+          "resolved_parent_graph_digests": []
         },
         "invalidation": {
           "state": "current",
@@ -3105,7 +3192,8 @@
             "sequence": 1,
             "rights_state": "authorized",
             "parent_derivation_id": "DERIVATION-PARENT-001",
-            "parent_graph_digest": ""
+            "parent_graph_digest": "",
+            "tick_unit": "ms"
           },
           {
             "ordinal": 1,
@@ -3134,7 +3222,8 @@
             "sequence": 1,
             "rights_state": "authorized",
             "parent_derivation_id": "NOT_APPLICABLE",
-            "parent_graph_digest": "NOT_APPLICABLE"
+            "parent_graph_digest": "NOT_APPLICABLE",
+            "tick_unit": "ms"
           }
         ],
         "selection": {
@@ -3162,7 +3251,9 @@
         "source_resolution": {
           "state": "all_exact_sources_resolved",
           "resolved_input_count": 2,
-          "source_graph_digest": "sha256:7777777777777777777777777777777777777777777777777777777777777777"
+          "source_graph_digest": "sha256:7777777777777777777777777777777777777777777777777777777777777777",
+          "resolved_parent_derivation_ids": [],
+          "resolved_parent_graph_digests": []
         },
         "invalidation": {
           "state": "current",
@@ -3244,7 +3335,8 @@
             "sequence": 1,
             "rights_state": "authorized",
             "parent_derivation_id": "DERIVATION-SYNTH-001",
-            "parent_graph_digest": "sha256:8888888888888888888888888888888888888888888888888888888888888888"
+            "parent_graph_digest": "sha256:8888888888888888888888888888888888888888888888888888888888888888",
+            "tick_unit": "ms"
           },
           {
             "ordinal": 1,
@@ -3273,7 +3365,8 @@
             "sequence": 1,
             "rights_state": "authorized",
             "parent_derivation_id": "NOT_APPLICABLE",
-            "parent_graph_digest": "NOT_APPLICABLE"
+            "parent_graph_digest": "NOT_APPLICABLE",
+            "tick_unit": "ms"
           }
         ],
         "selection": {
@@ -3301,7 +3394,9 @@
         "source_resolution": {
           "state": "all_exact_sources_resolved",
           "resolved_input_count": 2,
-          "source_graph_digest": "sha256:7777777777777777777777777777777777777777777777777777777777777777"
+          "source_graph_digest": "sha256:7777777777777777777777777777777777777777777777777777777777777777",
+          "resolved_parent_derivation_ids": [],
+          "resolved_parent_graph_digests": []
         },
         "invalidation": {
           "state": "current",
@@ -3383,7 +3478,8 @@
             "sequence": 1,
             "rights_state": "authorized",
             "parent_derivation_id": "NOT_APPLICABLE",
-            "parent_graph_digest": "NOT_APPLICABLE"
+            "parent_graph_digest": "NOT_APPLICABLE",
+            "tick_unit": "ms"
           },
           {
             "ordinal": 0,
@@ -3412,7 +3508,8 @@
             "sequence": 1,
             "rights_state": "authorized",
             "parent_derivation_id": "NOT_APPLICABLE",
-            "parent_graph_digest": "NOT_APPLICABLE"
+            "parent_graph_digest": "NOT_APPLICABLE",
+            "tick_unit": "ms"
           }
         ],
         "selection": {
@@ -3440,7 +3537,9 @@
         "source_resolution": {
           "state": "all_exact_sources_resolved",
           "resolved_input_count": 2,
-          "source_graph_digest": "sha256:7777777777777777777777777777777777777777777777777777777777777777"
+          "source_graph_digest": "sha256:7777777777777777777777777777777777777777777777777777777777777777",
+          "resolved_parent_derivation_ids": [],
+          "resolved_parent_graph_digests": []
         },
         "invalidation": {
           "state": "current",
@@ -3522,7 +3621,8 @@
             "sequence": 1,
             "rights_state": "authorized",
             "parent_derivation_id": "NOT_APPLICABLE",
-            "parent_graph_digest": "NOT_APPLICABLE"
+            "parent_graph_digest": "NOT_APPLICABLE",
+            "tick_unit": "ms"
           },
           {
             "ordinal": 1,
@@ -3551,7 +3651,8 @@
             "sequence": 1,
             "rights_state": "authorized",
             "parent_derivation_id": "NOT_APPLICABLE",
-            "parent_graph_digest": "NOT_APPLICABLE"
+            "parent_graph_digest": "NOT_APPLICABLE",
+            "tick_unit": "ms"
           }
         ],
         "selection": {
@@ -3579,7 +3680,9 @@
         "source_resolution": {
           "state": "all_exact_sources_resolved",
           "resolved_input_count": 2,
-          "source_graph_digest": "sha256:7777777777777777777777777777777777777777777777777777777777777777"
+          "source_graph_digest": "sha256:7777777777777777777777777777777777777777777777777777777777777777",
+          "resolved_parent_derivation_ids": [],
+          "resolved_parent_graph_digests": []
         },
         "invalidation": {
           "state": "current",
@@ -3661,7 +3764,8 @@
             "sequence": 1,
             "rights_state": "authorized",
             "parent_derivation_id": "NOT_APPLICABLE",
-            "parent_graph_digest": "NOT_APPLICABLE"
+            "parent_graph_digest": "NOT_APPLICABLE",
+            "tick_unit": "ms"
           },
           {
             "ordinal": 1,
@@ -3690,7 +3794,8 @@
             "sequence": 1,
             "rights_state": "authorized",
             "parent_derivation_id": "NOT_APPLICABLE",
-            "parent_graph_digest": "NOT_APPLICABLE"
+            "parent_graph_digest": "NOT_APPLICABLE",
+            "tick_unit": "ms"
           }
         ],
         "selection": {
@@ -3718,7 +3823,9 @@
         "source_resolution": {
           "state": "all_exact_sources_resolved",
           "resolved_input_count": 2,
-          "source_graph_digest": "sha256:7777777777777777777777777777777777777777777777777777777777777777"
+          "source_graph_digest": "sha256:7777777777777777777777777777777777777777777777777777777777777777",
+          "resolved_parent_derivation_ids": [],
+          "resolved_parent_graph_digests": []
         },
         "invalidation": {
           "state": "current",
@@ -3800,7 +3907,8 @@
             "sequence": 1,
             "rights_state": "authorized",
             "parent_derivation_id": "NOT_APPLICABLE",
-            "parent_graph_digest": "NOT_APPLICABLE"
+            "parent_graph_digest": "NOT_APPLICABLE",
+            "tick_unit": "ms"
           },
           {
             "ordinal": 1,
@@ -3829,7 +3937,8 @@
             "sequence": 1,
             "rights_state": "authorized",
             "parent_derivation_id": "NOT_APPLICABLE",
-            "parent_graph_digest": "NOT_APPLICABLE"
+            "parent_graph_digest": "NOT_APPLICABLE",
+            "tick_unit": "ms"
           }
         ],
         "selection": {
@@ -3857,7 +3966,9 @@
         "source_resolution": {
           "state": "all_exact_sources_resolved",
           "resolved_input_count": 2,
-          "source_graph_digest": "sha256:7777777777777777777777777777777777777777777777777777777777777777"
+          "source_graph_digest": "sha256:7777777777777777777777777777777777777777777777777777777777777777",
+          "resolved_parent_derivation_ids": [],
+          "resolved_parent_graph_digests": []
         },
         "invalidation": {
           "state": "current",
@@ -3939,7 +4050,8 @@
             "sequence": 1,
             "rights_state": "authorized",
             "parent_derivation_id": "NOT_APPLICABLE",
-            "parent_graph_digest": "NOT_APPLICABLE"
+            "parent_graph_digest": "NOT_APPLICABLE",
+            "tick_unit": "ms"
           },
           {
             "ordinal": 1,
@@ -3968,7 +4080,8 @@
             "sequence": 1,
             "rights_state": "authorized",
             "parent_derivation_id": "NOT_APPLICABLE",
-            "parent_graph_digest": "NOT_APPLICABLE"
+            "parent_graph_digest": "NOT_APPLICABLE",
+            "tick_unit": "ms"
           }
         ],
         "selection": {
@@ -3996,7 +4109,9 @@
         "source_resolution": {
           "state": "all_exact_sources_resolved",
           "resolved_input_count": 2,
-          "source_graph_digest": "sha256:7777777777777777777777777777777777777777777777777777777777777777"
+          "source_graph_digest": "sha256:7777777777777777777777777777777777777777777777777777777777777777",
+          "resolved_parent_derivation_ids": [],
+          "resolved_parent_graph_digests": []
         },
         "invalidation": {
           "state": "current",
@@ -4078,7 +4193,8 @@
             "sequence": 1,
             "rights_state": "authorized",
             "parent_derivation_id": "NOT_APPLICABLE",
-            "parent_graph_digest": "NOT_APPLICABLE"
+            "parent_graph_digest": "NOT_APPLICABLE",
+            "tick_unit": "ms"
           },
           {
             "ordinal": 1,
@@ -4107,7 +4223,8 @@
             "sequence": 1,
             "rights_state": "authorized",
             "parent_derivation_id": "NOT_APPLICABLE",
-            "parent_graph_digest": "NOT_APPLICABLE"
+            "parent_graph_digest": "NOT_APPLICABLE",
+            "tick_unit": "ms"
           }
         ],
         "selection": {
@@ -4135,7 +4252,9 @@
         "source_resolution": {
           "state": "all_exact_sources_resolved",
           "resolved_input_count": 2,
-          "source_graph_digest": "sha256:7777777777777777777777777777777777777777777777777777777777777777"
+          "source_graph_digest": "sha256:7777777777777777777777777777777777777777777777777777777777777777",
+          "resolved_parent_derivation_ids": [],
+          "resolved_parent_graph_digests": []
         },
         "invalidation": {
           "state": "current",
@@ -4217,7 +4336,8 @@
             "sequence": 1,
             "rights_state": "authorized",
             "parent_derivation_id": "NOT_APPLICABLE",
-            "parent_graph_digest": "NOT_APPLICABLE"
+            "parent_graph_digest": "NOT_APPLICABLE",
+            "tick_unit": "ms"
           },
           {
             "ordinal": 1,
@@ -4246,7 +4366,8 @@
             "sequence": 1,
             "rights_state": "authorized",
             "parent_derivation_id": "NOT_APPLICABLE",
-            "parent_graph_digest": "NOT_APPLICABLE"
+            "parent_graph_digest": "NOT_APPLICABLE",
+            "tick_unit": "ms"
           }
         ],
         "selection": {
@@ -4274,7 +4395,9 @@
         "source_resolution": {
           "state": "all_exact_sources_resolved",
           "resolved_input_count": 2,
-          "source_graph_digest": "sha256:7777777777777777777777777777777777777777777777777777777777777777"
+          "source_graph_digest": "sha256:7777777777777777777777777777777777777777777777777777777777777777",
+          "resolved_parent_derivation_ids": [],
+          "resolved_parent_graph_digests": []
         },
         "invalidation": {
           "state": "current",
@@ -4356,7 +4479,8 @@
             "sequence": 1,
             "rights_state": "authorized",
             "parent_derivation_id": "NOT_APPLICABLE",
-            "parent_graph_digest": "NOT_APPLICABLE"
+            "parent_graph_digest": "NOT_APPLICABLE",
+            "tick_unit": "ms"
           },
           {
             "ordinal": 1,
@@ -4385,7 +4509,8 @@
             "sequence": 1,
             "rights_state": "authorized",
             "parent_derivation_id": "NOT_APPLICABLE",
-            "parent_graph_digest": "NOT_APPLICABLE"
+            "parent_graph_digest": "NOT_APPLICABLE",
+            "tick_unit": "ms"
           }
         ],
         "selection": {
@@ -4413,7 +4538,9 @@
         "source_resolution": {
           "state": "all_exact_sources_resolved",
           "resolved_input_count": 2,
-          "source_graph_digest": "sha256:7777777777777777777777777777777777777777777777777777777777777777"
+          "source_graph_digest": "sha256:7777777777777777777777777777777777777777777777777777777777777777",
+          "resolved_parent_derivation_ids": [],
+          "resolved_parent_graph_digests": []
         },
         "invalidation": {
           "state": "current",
@@ -4495,7 +4622,8 @@
             "sequence": 1,
             "rights_state": "authorized",
             "parent_derivation_id": "NOT_APPLICABLE",
-            "parent_graph_digest": "NOT_APPLICABLE"
+            "parent_graph_digest": "NOT_APPLICABLE",
+            "tick_unit": "ms"
           },
           {
             "ordinal": 1,
@@ -4524,7 +4652,8 @@
             "sequence": 1,
             "rights_state": "authorized",
             "parent_derivation_id": "NOT_APPLICABLE",
-            "parent_graph_digest": "NOT_APPLICABLE"
+            "parent_graph_digest": "NOT_APPLICABLE",
+            "tick_unit": "ms"
           }
         ],
         "selection": {
@@ -4552,7 +4681,9 @@
         "source_resolution": {
           "state": "all_exact_sources_resolved",
           "resolved_input_count": 2,
-          "source_graph_digest": "sha256:7777777777777777777777777777777777777777777777777777777777777777"
+          "source_graph_digest": "sha256:7777777777777777777777777777777777777777777777777777777777777777",
+          "resolved_parent_derivation_ids": [],
+          "resolved_parent_graph_digests": []
         },
         "invalidation": {
           "state": "current",
@@ -4634,7 +4765,8 @@
             "sequence": 1,
             "rights_state": "authorized",
             "parent_derivation_id": "NOT_APPLICABLE",
-            "parent_graph_digest": "NOT_APPLICABLE"
+            "parent_graph_digest": "NOT_APPLICABLE",
+            "tick_unit": "ms"
           },
           {
             "ordinal": 1,
@@ -4663,7 +4795,8 @@
             "sequence": 1,
             "rights_state": "authorized",
             "parent_derivation_id": "NOT_APPLICABLE",
-            "parent_graph_digest": "NOT_APPLICABLE"
+            "parent_graph_digest": "NOT_APPLICABLE",
+            "tick_unit": "ms"
           }
         ],
         "selection": {
@@ -4691,7 +4824,9 @@
         "source_resolution": {
           "state": "all_exact_sources_resolved",
           "resolved_input_count": 2,
-          "source_graph_digest": "sha256:7777777777777777777777777777777777777777777777777777777777777777"
+          "source_graph_digest": "sha256:7777777777777777777777777777777777777777777777777777777777777777",
+          "resolved_parent_derivation_ids": [],
+          "resolved_parent_graph_digests": []
         },
         "invalidation": {
           "state": "current",
@@ -4773,7 +4908,8 @@
             "sequence": 1,
             "rights_state": "authorized",
             "parent_derivation_id": "NOT_APPLICABLE",
-            "parent_graph_digest": "NOT_APPLICABLE"
+            "parent_graph_digest": "NOT_APPLICABLE",
+            "tick_unit": "ms"
           },
           {
             "ordinal": 1,
@@ -4802,7 +4938,8 @@
             "sequence": 1,
             "rights_state": "authorized",
             "parent_derivation_id": "NOT_APPLICABLE",
-            "parent_graph_digest": "NOT_APPLICABLE"
+            "parent_graph_digest": "NOT_APPLICABLE",
+            "tick_unit": "ms"
           }
         ],
         "selection": {
@@ -4830,7 +4967,9 @@
         "source_resolution": {
           "state": "partial",
           "resolved_input_count": 1,
-          "source_graph_digest": "sha256:7777777777777777777777777777777777777777777777777777777777777777"
+          "source_graph_digest": "sha256:7777777777777777777777777777777777777777777777777777777777777777",
+          "resolved_parent_derivation_ids": [],
+          "resolved_parent_graph_digests": []
         },
         "invalidation": {
           "state": "current",
@@ -4912,7 +5051,8 @@
             "sequence": 1,
             "rights_state": "authorized",
             "parent_derivation_id": "NOT_APPLICABLE",
-            "parent_graph_digest": "NOT_APPLICABLE"
+            "parent_graph_digest": "NOT_APPLICABLE",
+            "tick_unit": "ms"
           },
           {
             "ordinal": 1,
@@ -4941,7 +5081,8 @@
             "sequence": 1,
             "rights_state": "authorized",
             "parent_derivation_id": "NOT_APPLICABLE",
-            "parent_graph_digest": "NOT_APPLICABLE"
+            "parent_graph_digest": "NOT_APPLICABLE",
+            "tick_unit": "ms"
           }
         ],
         "selection": {
@@ -4969,7 +5110,9 @@
         "source_resolution": {
           "state": "all_exact_sources_resolved",
           "resolved_input_count": 2,
-          "source_graph_digest": "sha256:7777777777777777777777777777777777777777777777777777777777777777"
+          "source_graph_digest": "sha256:7777777777777777777777777777777777777777777777777777777777777777",
+          "resolved_parent_derivation_ids": [],
+          "resolved_parent_graph_digests": []
         },
         "invalidation": {
           "state": "current",
@@ -4979,6 +5122,582 @@
         "test_only": false
       },
       "expected_disposition": "REJECTED_CLAIM_PROMOTION"
+    },
+    {
+      "case_id": "DMG-037",
+      "description": "The output window clock epoch differs from the exact source stream epoch.",
+      "record": {
+        "schema_version": "mycelix.derived-measurement-record/0.1",
+        "derivation_id": "DERIVATION-SYNTH-001",
+        "claim_ceiling": "synthetic_graph_validation_only",
+        "calculation_system": {
+          "system_id": "SYNTH-DERIVATION-SYSTEM-001",
+          "revision": "1",
+          "configuration_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "runtime_id": "luminous-derived-oracle-synthetic/1.0.0"
+        },
+        "output": {
+          "observation_id": "DERIVED-SYNTH-OBS-001",
+          "channel_id": "synthetic_derived_scalar",
+          "measurand_id": "synthetic.mean_scalar",
+          "quantity_kind": "ratio",
+          "unit": "1",
+          "value": 3,
+          "semantic_kind": "derived",
+          "quality_state": "valid",
+          "space_id": "SYNTH-SPACE-1",
+          "geometry_revision": "GEOM-1",
+          "window": {
+            "window_id": "WIN-1",
+            "start_tick": 100,
+            "end_tick": 200,
+            "tick_unit": "ms",
+            "clock_domain_id": "SYNTH-CLOCK-1",
+            "clock_epoch_id": "BOOT-2"
+          }
+        },
+        "method": {
+          "method_id": "synthetic.scalar_mean.v1",
+          "revision": "1.0.0",
+          "artifact_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "runtime_id": "luminous-derived-oracle-synthetic/1.0.0",
+          "expression_kind": "arithmetic_mean",
+          "input_contract_digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+          "source_method_reference": "SYNTHETIC_TEST_METHOD_ONLY",
+          "method_state": "current"
+        },
+        "inputs": [
+          {
+            "ordinal": 0,
+            "role": "sample",
+            "observation_id": "SYNTH-INPUT-001",
+            "source_digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+            "source_revision": "1",
+            "source_alias": "exact",
+            "instrument_id": "SYNTH-INST-001",
+            "channel_id": "synthetic_scalar",
+            "channel_profile_id": "SYNTHETIC-TEST-PROFILE/1",
+            "measurand_id": "synthetic.scalar",
+            "unit": "1",
+            "value": 2,
+            "evidence_state": "current",
+            "calibration_record_id": "SYNTH-CAL-001",
+            "calibration_state": "current",
+            "installation_record_id": "SYNTH-INSTALL-001",
+            "installation_state": "current",
+            "firmware_revision": "FW-1",
+            "stream_id": "STREAM-1",
+            "clock_domain_id": "SYNTH-CLOCK-1",
+            "clock_epoch_id": "BOOT-1",
+            "timebase_profile_id": "SYNTH-TIMEBASE-1",
+            "event_time_tick": 100,
+            "sequence": 1,
+            "rights_state": "authorized",
+            "parent_derivation_id": "NOT_APPLICABLE",
+            "parent_graph_digest": "NOT_APPLICABLE",
+            "tick_unit": "ms"
+          },
+          {
+            "ordinal": 1,
+            "role": "sample",
+            "observation_id": "SYNTH-INPUT-002",
+            "source_digest": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+            "source_revision": "1",
+            "source_alias": "exact",
+            "instrument_id": "SYNTH-INST-002",
+            "channel_id": "synthetic_scalar",
+            "channel_profile_id": "SYNTHETIC-TEST-PROFILE/1",
+            "measurand_id": "synthetic.scalar",
+            "unit": "1",
+            "value": 4,
+            "evidence_state": "current",
+            "calibration_record_id": "SYNTH-CAL-002",
+            "calibration_state": "current",
+            "installation_record_id": "SYNTH-INSTALL-002",
+            "installation_state": "current",
+            "firmware_revision": "FW-1",
+            "stream_id": "STREAM-2",
+            "clock_domain_id": "SYNTH-CLOCK-1",
+            "clock_epoch_id": "BOOT-1",
+            "timebase_profile_id": "SYNTH-TIMEBASE-1",
+            "event_time_tick": 100,
+            "sequence": 1,
+            "rights_state": "authorized",
+            "parent_derivation_id": "NOT_APPLICABLE",
+            "parent_graph_digest": "NOT_APPLICABLE",
+            "tick_unit": "ms"
+          }
+        ],
+        "selection": {
+          "ordered_input_observation_ids": [
+            "SYNTH-INPUT-001",
+            "SYNTH-INPUT-002"
+          ],
+          "time_alignment_policy": "exact_same_clock_epoch_and_tick",
+          "interpolation_policy": "none",
+          "missingness_policy": "abstain",
+          "aggregation_window_id": "WIN-1",
+          "expected_input_count": 2
+        },
+        "conditions": {
+          "conditions_profile_id": "SYNTH-CONDITIONS-1",
+          "conditions_digest": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+          "applicability_state": "within_declared_synthetic_envelope"
+        },
+        "uncertainty_model": {
+          "model_id": "SYNTH-UQ-MODEL-1",
+          "revision": "1",
+          "digest": "sha256:6666666666666666666666666666666666666666666666666666666666666666",
+          "state": "synthetic_inputs_present_only"
+        },
+        "source_resolution": {
+          "state": "all_exact_sources_resolved",
+          "resolved_input_count": 2,
+          "source_graph_digest": "sha256:7777777777777777777777777777777777777777777777777777777777777777",
+          "resolved_parent_derivation_ids": [],
+          "resolved_parent_graph_digests": []
+        },
+        "invalidation": {
+          "state": "current",
+          "receipt_id": "SYNTH-INVALIDATION-RECEIPT-1",
+          "graph_revision": "1"
+        },
+        "test_only": true
+      },
+      "expected_disposition": "NOT_COMPARABLE"
+    },
+    {
+      "case_id": "DMG-038",
+      "description": "The output window tick unit differs from the source stream tick unit.",
+      "record": {
+        "schema_version": "mycelix.derived-measurement-record/0.1",
+        "derivation_id": "DERIVATION-SYNTH-001",
+        "claim_ceiling": "synthetic_graph_validation_only",
+        "calculation_system": {
+          "system_id": "SYNTH-DERIVATION-SYSTEM-001",
+          "revision": "1",
+          "configuration_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "runtime_id": "luminous-derived-oracle-synthetic/1.0.0"
+        },
+        "output": {
+          "observation_id": "DERIVED-SYNTH-OBS-001",
+          "channel_id": "synthetic_derived_scalar",
+          "measurand_id": "synthetic.mean_scalar",
+          "quantity_kind": "ratio",
+          "unit": "1",
+          "value": 3,
+          "semantic_kind": "derived",
+          "quality_state": "valid",
+          "space_id": "SYNTH-SPACE-1",
+          "geometry_revision": "GEOM-1",
+          "window": {
+            "window_id": "WIN-1",
+            "start_tick": 100,
+            "end_tick": 200,
+            "tick_unit": "s",
+            "clock_domain_id": "SYNTH-CLOCK-1",
+            "clock_epoch_id": "BOOT-1"
+          }
+        },
+        "method": {
+          "method_id": "synthetic.scalar_mean.v1",
+          "revision": "1.0.0",
+          "artifact_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "runtime_id": "luminous-derived-oracle-synthetic/1.0.0",
+          "expression_kind": "arithmetic_mean",
+          "input_contract_digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+          "source_method_reference": "SYNTHETIC_TEST_METHOD_ONLY",
+          "method_state": "current"
+        },
+        "inputs": [
+          {
+            "ordinal": 0,
+            "role": "sample",
+            "observation_id": "SYNTH-INPUT-001",
+            "source_digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+            "source_revision": "1",
+            "source_alias": "exact",
+            "instrument_id": "SYNTH-INST-001",
+            "channel_id": "synthetic_scalar",
+            "channel_profile_id": "SYNTHETIC-TEST-PROFILE/1",
+            "measurand_id": "synthetic.scalar",
+            "unit": "1",
+            "value": 2,
+            "evidence_state": "current",
+            "calibration_record_id": "SYNTH-CAL-001",
+            "calibration_state": "current",
+            "installation_record_id": "SYNTH-INSTALL-001",
+            "installation_state": "current",
+            "firmware_revision": "FW-1",
+            "stream_id": "STREAM-1",
+            "clock_domain_id": "SYNTH-CLOCK-1",
+            "clock_epoch_id": "BOOT-1",
+            "timebase_profile_id": "SYNTH-TIMEBASE-1",
+            "event_time_tick": 100,
+            "sequence": 1,
+            "rights_state": "authorized",
+            "parent_derivation_id": "NOT_APPLICABLE",
+            "parent_graph_digest": "NOT_APPLICABLE",
+            "tick_unit": "ms"
+          },
+          {
+            "ordinal": 1,
+            "role": "sample",
+            "observation_id": "SYNTH-INPUT-002",
+            "source_digest": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+            "source_revision": "1",
+            "source_alias": "exact",
+            "instrument_id": "SYNTH-INST-002",
+            "channel_id": "synthetic_scalar",
+            "channel_profile_id": "SYNTHETIC-TEST-PROFILE/1",
+            "measurand_id": "synthetic.scalar",
+            "unit": "1",
+            "value": 4,
+            "evidence_state": "current",
+            "calibration_record_id": "SYNTH-CAL-002",
+            "calibration_state": "current",
+            "installation_record_id": "SYNTH-INSTALL-002",
+            "installation_state": "current",
+            "firmware_revision": "FW-1",
+            "stream_id": "STREAM-2",
+            "clock_domain_id": "SYNTH-CLOCK-1",
+            "clock_epoch_id": "BOOT-1",
+            "timebase_profile_id": "SYNTH-TIMEBASE-1",
+            "event_time_tick": 100,
+            "sequence": 1,
+            "rights_state": "authorized",
+            "parent_derivation_id": "NOT_APPLICABLE",
+            "parent_graph_digest": "NOT_APPLICABLE",
+            "tick_unit": "ms"
+          }
+        ],
+        "selection": {
+          "ordered_input_observation_ids": [
+            "SYNTH-INPUT-001",
+            "SYNTH-INPUT-002"
+          ],
+          "time_alignment_policy": "exact_same_clock_epoch_and_tick",
+          "interpolation_policy": "none",
+          "missingness_policy": "abstain",
+          "aggregation_window_id": "WIN-1",
+          "expected_input_count": 2
+        },
+        "conditions": {
+          "conditions_profile_id": "SYNTH-CONDITIONS-1",
+          "conditions_digest": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+          "applicability_state": "within_declared_synthetic_envelope"
+        },
+        "uncertainty_model": {
+          "model_id": "SYNTH-UQ-MODEL-1",
+          "revision": "1",
+          "digest": "sha256:6666666666666666666666666666666666666666666666666666666666666666",
+          "state": "synthetic_inputs_present_only"
+        },
+        "source_resolution": {
+          "state": "all_exact_sources_resolved",
+          "resolved_input_count": 2,
+          "source_graph_digest": "sha256:7777777777777777777777777777777777777777777777777777777777777777",
+          "resolved_parent_derivation_ids": [],
+          "resolved_parent_graph_digests": []
+        },
+        "invalidation": {
+          "state": "current",
+          "receipt_id": "SYNTH-INVALIDATION-RECEIPT-1",
+          "graph_revision": "1"
+        },
+        "test_only": true
+      },
+      "expected_disposition": "NOT_COMPARABLE"
+    },
+    {
+      "case_id": "DMG-039",
+      "description": "A nested derived parent is cited with a graph digest but omitted from the resolution receipt.",
+      "record": {
+        "schema_version": "mycelix.derived-measurement-record/0.1",
+        "derivation_id": "DERIVATION-SYNTH-001",
+        "claim_ceiling": "synthetic_graph_validation_only",
+        "calculation_system": {
+          "system_id": "SYNTH-DERIVATION-SYSTEM-001",
+          "revision": "1",
+          "configuration_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "runtime_id": "luminous-derived-oracle-synthetic/1.0.0"
+        },
+        "output": {
+          "observation_id": "DERIVED-SYNTH-OBS-001",
+          "channel_id": "synthetic_derived_scalar",
+          "measurand_id": "synthetic.mean_scalar",
+          "quantity_kind": "ratio",
+          "unit": "1",
+          "value": 3,
+          "semantic_kind": "derived",
+          "quality_state": "valid",
+          "space_id": "SYNTH-SPACE-1",
+          "geometry_revision": "GEOM-1",
+          "window": {
+            "window_id": "WIN-1",
+            "start_tick": 100,
+            "end_tick": 200,
+            "tick_unit": "ms",
+            "clock_domain_id": "SYNTH-CLOCK-1",
+            "clock_epoch_id": "BOOT-1"
+          }
+        },
+        "method": {
+          "method_id": "synthetic.scalar_mean.v1",
+          "revision": "1.0.0",
+          "artifact_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "runtime_id": "luminous-derived-oracle-synthetic/1.0.0",
+          "expression_kind": "arithmetic_mean",
+          "input_contract_digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+          "source_method_reference": "SYNTHETIC_TEST_METHOD_ONLY",
+          "method_state": "current"
+        },
+        "inputs": [
+          {
+            "ordinal": 0,
+            "role": "sample",
+            "observation_id": "SYNTH-INPUT-001",
+            "source_digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+            "source_revision": "1",
+            "source_alias": "exact",
+            "instrument_id": "SYNTH-INST-001",
+            "channel_id": "synthetic_scalar",
+            "channel_profile_id": "SYNTHETIC-TEST-PROFILE/1",
+            "measurand_id": "synthetic.scalar",
+            "unit": "1",
+            "value": 2,
+            "evidence_state": "current",
+            "calibration_record_id": "SYNTH-CAL-001",
+            "calibration_state": "current",
+            "installation_record_id": "SYNTH-INSTALL-001",
+            "installation_state": "current",
+            "firmware_revision": "FW-1",
+            "stream_id": "STREAM-1",
+            "clock_domain_id": "SYNTH-CLOCK-1",
+            "clock_epoch_id": "BOOT-1",
+            "timebase_profile_id": "SYNTH-TIMEBASE-1",
+            "event_time_tick": 100,
+            "sequence": 1,
+            "rights_state": "authorized",
+            "parent_derivation_id": "DERIVATION-PARENT-001",
+            "parent_graph_digest": "sha256:8888888888888888888888888888888888888888888888888888888888888888",
+            "tick_unit": "ms"
+          },
+          {
+            "ordinal": 1,
+            "role": "sample",
+            "observation_id": "SYNTH-INPUT-002",
+            "source_digest": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+            "source_revision": "1",
+            "source_alias": "exact",
+            "instrument_id": "SYNTH-INST-002",
+            "channel_id": "synthetic_scalar",
+            "channel_profile_id": "SYNTHETIC-TEST-PROFILE/1",
+            "measurand_id": "synthetic.scalar",
+            "unit": "1",
+            "value": 4,
+            "evidence_state": "current",
+            "calibration_record_id": "SYNTH-CAL-002",
+            "calibration_state": "current",
+            "installation_record_id": "SYNTH-INSTALL-002",
+            "installation_state": "current",
+            "firmware_revision": "FW-1",
+            "stream_id": "STREAM-2",
+            "clock_domain_id": "SYNTH-CLOCK-1",
+            "clock_epoch_id": "BOOT-1",
+            "timebase_profile_id": "SYNTH-TIMEBASE-1",
+            "event_time_tick": 100,
+            "sequence": 1,
+            "rights_state": "authorized",
+            "parent_derivation_id": "NOT_APPLICABLE",
+            "parent_graph_digest": "NOT_APPLICABLE",
+            "tick_unit": "ms"
+          }
+        ],
+        "selection": {
+          "ordered_input_observation_ids": [
+            "SYNTH-INPUT-001",
+            "SYNTH-INPUT-002"
+          ],
+          "time_alignment_policy": "exact_same_clock_epoch_and_tick",
+          "interpolation_policy": "none",
+          "missingness_policy": "abstain",
+          "aggregation_window_id": "WIN-1",
+          "expected_input_count": 2
+        },
+        "conditions": {
+          "conditions_profile_id": "SYNTH-CONDITIONS-1",
+          "conditions_digest": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+          "applicability_state": "within_declared_synthetic_envelope"
+        },
+        "uncertainty_model": {
+          "model_id": "SYNTH-UQ-MODEL-1",
+          "revision": "1",
+          "digest": "sha256:6666666666666666666666666666666666666666666666666666666666666666",
+          "state": "synthetic_inputs_present_only"
+        },
+        "source_resolution": {
+          "state": "all_exact_sources_resolved",
+          "resolved_input_count": 2,
+          "source_graph_digest": "sha256:7777777777777777777777777777777777777777777777777777777777777777",
+          "resolved_parent_derivation_ids": [],
+          "resolved_parent_graph_digests": []
+        },
+        "invalidation": {
+          "state": "current",
+          "receipt_id": "SYNTH-INVALIDATION-RECEIPT-1",
+          "graph_revision": "1"
+        },
+        "test_only": true
+      },
+      "expected_disposition": "MORE_EVIDENCE_REQUIRED"
+    },
+    {
+      "case_id": "DMG-040",
+      "description": "The source-resolution receipt lists the parent but binds a different graph digest.",
+      "record": {
+        "schema_version": "mycelix.derived-measurement-record/0.1",
+        "derivation_id": "DERIVATION-SYNTH-001",
+        "claim_ceiling": "synthetic_graph_validation_only",
+        "calculation_system": {
+          "system_id": "SYNTH-DERIVATION-SYSTEM-001",
+          "revision": "1",
+          "configuration_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "runtime_id": "luminous-derived-oracle-synthetic/1.0.0"
+        },
+        "output": {
+          "observation_id": "DERIVED-SYNTH-OBS-001",
+          "channel_id": "synthetic_derived_scalar",
+          "measurand_id": "synthetic.mean_scalar",
+          "quantity_kind": "ratio",
+          "unit": "1",
+          "value": 3,
+          "semantic_kind": "derived",
+          "quality_state": "valid",
+          "space_id": "SYNTH-SPACE-1",
+          "geometry_revision": "GEOM-1",
+          "window": {
+            "window_id": "WIN-1",
+            "start_tick": 100,
+            "end_tick": 200,
+            "tick_unit": "ms",
+            "clock_domain_id": "SYNTH-CLOCK-1",
+            "clock_epoch_id": "BOOT-1"
+          }
+        },
+        "method": {
+          "method_id": "synthetic.scalar_mean.v1",
+          "revision": "1.0.0",
+          "artifact_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "runtime_id": "luminous-derived-oracle-synthetic/1.0.0",
+          "expression_kind": "arithmetic_mean",
+          "input_contract_digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+          "source_method_reference": "SYNTHETIC_TEST_METHOD_ONLY",
+          "method_state": "current"
+        },
+        "inputs": [
+          {
+            "ordinal": 0,
+            "role": "sample",
+            "observation_id": "SYNTH-INPUT-001",
+            "source_digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+            "source_revision": "1",
+            "source_alias": "exact",
+            "instrument_id": "SYNTH-INST-001",
+            "channel_id": "synthetic_scalar",
+            "channel_profile_id": "SYNTHETIC-TEST-PROFILE/1",
+            "measurand_id": "synthetic.scalar",
+            "unit": "1",
+            "value": 2,
+            "evidence_state": "current",
+            "calibration_record_id": "SYNTH-CAL-001",
+            "calibration_state": "current",
+            "installation_record_id": "SYNTH-INSTALL-001",
+            "installation_state": "current",
+            "firmware_revision": "FW-1",
+            "stream_id": "STREAM-1",
+            "clock_domain_id": "SYNTH-CLOCK-1",
+            "clock_epoch_id": "BOOT-1",
+            "timebase_profile_id": "SYNTH-TIMEBASE-1",
+            "event_time_tick": 100,
+            "sequence": 1,
+            "rights_state": "authorized",
+            "parent_derivation_id": "DERIVATION-PARENT-001",
+            "parent_graph_digest": "sha256:8888888888888888888888888888888888888888888888888888888888888888",
+            "tick_unit": "ms"
+          },
+          {
+            "ordinal": 1,
+            "role": "sample",
+            "observation_id": "SYNTH-INPUT-002",
+            "source_digest": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+            "source_revision": "1",
+            "source_alias": "exact",
+            "instrument_id": "SYNTH-INST-002",
+            "channel_id": "synthetic_scalar",
+            "channel_profile_id": "SYNTHETIC-TEST-PROFILE/1",
+            "measurand_id": "synthetic.scalar",
+            "unit": "1",
+            "value": 4,
+            "evidence_state": "current",
+            "calibration_record_id": "SYNTH-CAL-002",
+            "calibration_state": "current",
+            "installation_record_id": "SYNTH-INSTALL-002",
+            "installation_state": "current",
+            "firmware_revision": "FW-1",
+            "stream_id": "STREAM-2",
+            "clock_domain_id": "SYNTH-CLOCK-1",
+            "clock_epoch_id": "BOOT-1",
+            "timebase_profile_id": "SYNTH-TIMEBASE-1",
+            "event_time_tick": 100,
+            "sequence": 1,
+            "rights_state": "authorized",
+            "parent_derivation_id": "NOT_APPLICABLE",
+            "parent_graph_digest": "NOT_APPLICABLE",
+            "tick_unit": "ms"
+          }
+        ],
+        "selection": {
+          "ordered_input_observation_ids": [
+            "SYNTH-INPUT-001",
+            "SYNTH-INPUT-002"
+          ],
+          "time_alignment_policy": "exact_same_clock_epoch_and_tick",
+          "interpolation_policy": "none",
+          "missingness_policy": "abstain",
+          "aggregation_window_id": "WIN-1",
+          "expected_input_count": 2
+        },
+        "conditions": {
+          "conditions_profile_id": "SYNTH-CONDITIONS-1",
+          "conditions_digest": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+          "applicability_state": "within_declared_synthetic_envelope"
+        },
+        "uncertainty_model": {
+          "model_id": "SYNTH-UQ-MODEL-1",
+          "revision": "1",
+          "digest": "sha256:6666666666666666666666666666666666666666666666666666666666666666",
+          "state": "synthetic_inputs_present_only"
+        },
+        "source_resolution": {
+          "state": "all_exact_sources_resolved",
+          "resolved_input_count": 2,
+          "source_graph_digest": "sha256:7777777777777777777777777777777777777777777777777777777777777777",
+          "resolved_parent_derivation_ids": [
+            "DERIVATION-PARENT-001"
+          ],
+          "resolved_parent_graph_digests": [
+            "sha256:9999999999999999999999999999999999999999999999999999999999999999"
+          ]
+        },
+        "invalidation": {
+          "state": "current",
+          "receipt_id": "SYNTH-INVALIDATION-RECEIPT-1",
+          "graph_revision": "1"
+        },
+        "test_only": true
+      },
+      "expected_disposition": "MORE_EVIDENCE_REQUIRED"
     }
   ]
 }
