@@ -29,7 +29,10 @@ jobs:
         with:
           components: rustfmt, clippy
       - name: Fetch locked dependencies
-        run: cargo fetch --locked --manifest-path tools/build-derived-measurement-graph/Cargo.toml
+        run: |
+          cargo fetch --manifest-path tools/build-derived-measurement-graph/Cargo.toml
+          git diff -- tools/build-derived-measurement-graph/Cargo.lock
+          exit 1
       - name: Format check
         run: cargo fmt --manifest-path tools/build-derived-measurement-graph/Cargo.toml --all -- --check
       - name: Test offline
