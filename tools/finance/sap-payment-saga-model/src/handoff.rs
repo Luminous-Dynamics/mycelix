@@ -216,9 +216,11 @@ impl ParentHandoffBookV1 {
         let grant_digest = terms.canonical_digest()?;
 
         if let Some(existing) = self.grants.get(&terms.grant_id) {
-            if existing.terms == terms && existing.grant_digest == grant_digest {
-                // A retry returns the already-committed parent action. It does
-                // not create a second source-chain grant or replace its hash.
+            if existing.terms == terms
+                && existing.grant_digest == grant_digest
+                && existing.parent_action_hash == parent_action_hash
+            {
+                // A retry returns the already-committed parent action identity.
                 return Ok(HandoffDisposition::AlreadyCommitted);
             }
             return Err(HandoffError::GrantConflict);
