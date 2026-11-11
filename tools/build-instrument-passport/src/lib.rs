@@ -1401,7 +1401,7 @@ mod tests {
 
     #[test]
     fn json_schema_validation_accepts_the_full_tracked_corpus_and_passports() {
-        assert_eq!(validate_tracked().expect("all 55 schemas and cases"), 55);
+        assert_eq!(validate_tracked().expect("all 60 schemas and cases"), 60);
     }
 
     #[test]
@@ -1440,8 +1440,8 @@ mod tests {
     }
 
     #[test]
-    fn tracked_passport_corpus_matches_all_55_known_answers() {
-        assert_eq!(validate_tracked().expect("tracked passport validation"), 55);
+    fn tracked_passport_corpus_matches_all_60_known_answers() {
+        assert_eq!(validate_tracked().expect("tracked passport validation"), 60);
     }
 
     #[test]
@@ -1458,7 +1458,7 @@ mod tests {
             fields.iter().any(|field| field == "acquisition_mode")
                 && fields.iter().any(|field| field == "local_read_only")
         }));
-        assert_eq!(validate_tracked().expect("55-case passport corpus"), 55);
+        assert_eq!(validate_tracked().expect("60-case passport corpus"), 60);
     }
 
     #[test]
