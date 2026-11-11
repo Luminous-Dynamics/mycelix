@@ -11,7 +11,8 @@ pub struct AuditReport {
     pub registry_id: String,
     pub registry_version: String,
     pub projection_version: String,
-    pub projection_sha256: String,
+    pub projection_input_sha256: String,
+    pub canonical_projection_sha256: String,
     pub registry_sha256: String,
     pub data_point_count: usize,
     pub outcome_counts: BTreeMap<String, usize>,
@@ -322,11 +323,21 @@ pub fn audit_projection(
         .and_then(Value::as_array)
         .map(Vec::len)
         .unwrap_or(0);
+    let mut canonical_projection = projection.clone();
+    if let Some(points) = canonical_projection
+        .get_mut("data_points")
+        .and_then(Value::as_array_mut)
+    {
+        points.sort_by_key(|point| point.get("number").and_then(Value::as_u64).unwrap_or(u64::MAX));
+    }
+    let canonical_projection_bytes = serde_json::to_vec(&canonical_projection)
+        .map_err(|error| format!("cannot canonicalize projection: {error}"))?;
     Ok(AuditReport {
         registry_id: registry.get("registry_id").and_then(Value::as_str).unwrap_or_default().to_owned(),
         registry_version: registry.get("registry_version").and_then(Value::as_str).unwrap_or_default().to_owned(),
         projection_version: projection.get("projection_version").and_then(Value::as_str).unwrap_or_default().to_owned(),
-        projection_sha256: sha256(projection_bytes),
+        projection_input_sha256: sha256(projection_bytes),
+        canonical_projection_sha256: sha256(&canonical_projection_bytes),
         registry_sha256: sha256(registry_bytes),
         data_point_count,
         outcome_counts: counts,
@@ -359,7 +370,8 @@ mod tests {
         for fixture in [EV_PUBLIC, LMT_INTEREST, BESS_INTEREST] {
             let report = audit_projection(REGISTRY_SCHEMA, REGISTRY, PROJECTION_SCHEMA, fixture)
                 .expect("category projection passes schema and semantic audit");
-            assert!(report.projection_sha256.len() == 64);
+            assert!(report.projection_input_sha256.len() == 64);
+            assert!(report.canonical_projection_sha256.len() == 64);
             assert!(report.registry_sha256.len() == 64);
         }
     }
@@ -441,5 +453,31 @@ mod tests {
         soce["disclosure"] = json!("PUBLIC");
         let bytes = serde_json::to_vec(&projection).unwrap();
         assert!(audit_projection(REGISTRY_SCHEMA, REGISTRY, PROJECTION_SCHEMA, &bytes).is_err());
+    }
+
+    #[test]
+    fn source_registry_digest_mismatch_is_rejected() {
+        let mut projection: Value = serde_json::from_slice(EV_PUBLIC).expect("EV fixture");
+        projection["registry"]["source_registry_sha256"] = json!(
+            "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+        );
+        let bytes = serde_json::to_vec(&projection).unwrap();
+        assert!(audit_projection(REGISTRY_SCHEMA, REGISTRY, PROJECTION_SCHEMA, &bytes).is_err());
+    }
+
+    #[test]
+    fn data_point_order_changes_raw_digest_but_not_canonical_projection_digest() {
+        let original = audit_projection(REGISTRY_SCHEMA, REGISTRY, PROJECTION_SCHEMA, EV_PUBLIC)
+            .expect("original EV projection");
+        let mut projection: Value = serde_json::from_slice(EV_PUBLIC).expect("EV fixture");
+        projection["data_points"].as_array_mut().unwrap().reverse();
+        let permuted = serde_json::to_vec(&projection).unwrap();
+        let replay = audit_projection(REGISTRY_SCHEMA, REGISTRY, PROJECTION_SCHEMA, &permuted)
+            .expect("permuted EV projection");
+        assert_ne!(original.projection_input_sha256, replay.projection_input_sha256);
+        assert_eq!(
+            original.canonical_projection_sha256,
+            replay.canonical_projection_sha256
+        );
     }
 }
