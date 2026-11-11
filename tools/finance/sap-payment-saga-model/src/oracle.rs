@@ -885,6 +885,79 @@ mod tests {
     }
 
     #[test]
+    fn treasury_checkpoint_requires_matching_payments_checkpoint() {
+        let mut trace = find_scenario(1);
+        trace
+            .commands
+            .retain(|command| command.opcode != TraceOpcode::CheckpointPayments);
+        let evaluation = TraceOracleV1::evaluate(&trace).unwrap();
+        let index = trace
+            .commands
+            .iter()
+            .position(|command| command.opcode == TraceOpcode::CheckpointTreasury)
+            .expect("treasury checkpoint remains");
+        assert_eq!(evaluation.steps[index].disposition, TraceDispositionV1::Rejected);
+        assert_eq!(evaluation.steps[index].reason, TraceReasonV1::MissingDependency);
+    }
+
+    #[test]
+    fn unexpected_fault_cannot_authorize_treasury_commit() {
+        let mut trace = find_scenario(1);
+        let commit = trace
+            .commands
+            .iter_mut()
+            .find(|command| command.opcode == TraceOpcode::CommitTreasury)
+            .expect("scenario one has a Treasury commit");
+        commit.fault = TraceFault::LookupUncertain;
+        let evaluation = TraceOracleV1::evaluate(&trace).unwrap();
+        let index = trace
+            .commands
+            .iter()
+            .position(|command| command.opcode == TraceOpcode::CommitTreasury)
+            .unwrap();
+        assert_eq!(evaluation.steps[index].disposition, TraceDispositionV1::Rejected);
+        assert_eq!(evaluation.steps[index].reason, TraceReasonV1::InvalidFault);
+        assert_eq!(evaluation.treasury_state, TreasuryOracleStateV1::DispatchAuthorized);
+        assert_eq!(evaluation.actual_treasury_effect_count, 0);
+        assert_eq!(evaluation.unresolved_treasury_exposure_minor, evaluation.fee_minor);
+    }
+
+    #[test]
+    fn compensation_cannot_reuse_treasury_effect_identity() {
+        let mut trace = (0..100_000)
+            .map(|index| TraceGeneratorV1::generate(0x0123_4567_89ab_cdef, index))
+            .find(|trace| {
+                trace.scenario == 8
+                    && trace.commands.iter().any(|command| {
+                        command.opcode == TraceOpcode::PrepareTreasury && command.value > 0
+                    })
+            })
+            .expect("scenario eight with a nonzero Treasury fee is reachable");
+        let treasury_effect_id = trace
+            .commands
+            .iter()
+            .find(|command| command.opcode == TraceOpcode::PrepareTreasury)
+            .unwrap()
+            .subject;
+        let compensation = trace
+            .commands
+            .iter_mut()
+            .find(|command| command.opcode == TraceOpcode::Compensate)
+            .expect("scenario eight has a compensation");
+        compensation.subject = treasury_effect_id;
+        let evaluation = TraceOracleV1::evaluate(&trace).unwrap();
+        let index = trace
+            .commands
+            .iter()
+            .position(|command| command.opcode == TraceOpcode::Compensate)
+            .unwrap();
+        assert_eq!(evaluation.steps[index].disposition, TraceDispositionV1::Rejected);
+        assert_eq!(evaluation.steps[index].reason, TraceReasonV1::CompensationIdentity);
+        assert_eq!(evaluation.compensation_count, 0);
+        assert_eq!(evaluation.actual_treasury_effect_count, 1);
+    }
+
+    #[test]
     fn scenario_two_requires_authoritative_absence_before_same_effect_retry() {
         let evaluation = TraceOracleV1::evaluate(&find_scenario(2)).unwrap();
         assert_eq!(evaluation.treasury_state, TreasuryOracleStateV1::Committed);
