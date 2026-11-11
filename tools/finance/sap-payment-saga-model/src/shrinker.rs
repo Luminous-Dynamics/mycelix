@@ -107,11 +107,12 @@ where
     loop {
         let mut changed_this_pass = false;
 
+        let operation_nonce = current.operation_nonce;
         if try_numeric_reduction(
             &mut current,
             NumericField::OperationNonce,
             0,
-            current.operation_nonce,
+            operation_nonce,
             target_failure,
             &failure_signature,
             &mut attempts,
