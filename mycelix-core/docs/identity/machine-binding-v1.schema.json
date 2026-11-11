@@ -63,8 +63,32 @@
             "re_enrollment_required",
             "unknown"
           ]
+        },
+        "lifecycle_receipt_ref": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
         }
-      }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "decommissioned"
+              }
+            },
+            "required": [
+              "status"
+            ]
+          },
+          "then": {
+            "required": [
+              "lifecycle_receipt_ref"
+            ]
+          }
+        }
+      ]
     },
     "controller": {
       "type": "object",
@@ -128,8 +152,52 @@
           "type": "string",
           "minLength": 1,
           "maxLength": 1024
+        },
+        "lifecycle_receipt_ref": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
         }
-      }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "enum": [
+                  "suspended",
+                  "revoked"
+                ]
+              }
+            },
+            "required": [
+              "status"
+            ]
+          },
+          "then": {
+            "required": [
+              "lifecycle_receipt_ref"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "expired"
+              }
+            },
+            "required": [
+              "status"
+            ]
+          },
+          "then": {
+            "required": [
+              "valid_until"
+            ]
+          }
+        }
+      ]
     },
     "key_epoch": {
       "type": "object",
@@ -181,8 +249,36 @@
         "valid_until": {
           "type": "string",
           "format": "date-time"
+        },
+        "lifecycle_receipt_ref": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
         }
-      }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "state": {
+                "enum": [
+                  "retired",
+                  "revoked",
+                  "compromised"
+                ]
+              }
+            },
+            "required": [
+              "state"
+            ]
+          },
+          "then": {
+            "required": [
+              "lifecycle_receipt_ref"
+            ]
+          }
+        }
+      ]
     },
     "instance": {
       "type": "object",
@@ -326,7 +422,11 @@
           "if": {
             "properties": {
               "state": {
-                "const": "bound"
+                "enum": [
+                  "bound",
+                  "expired",
+                  "revoked"
+                ]
               }
             },
             "required": [
@@ -411,7 +511,10 @@
           "if": {
             "properties": {
               "status": {
-                "const": "verified"
+                "enum": [
+                  "verified",
+                  "failed"
+                ]
               }
             },
             "required": [
@@ -494,7 +597,8 @@
             "maxLength": 1024
           },
           "uniqueItems": true,
-          "maxItems": 128
+          "maxItems": 128,
+          "minItems": 1
         }
       }
     },
