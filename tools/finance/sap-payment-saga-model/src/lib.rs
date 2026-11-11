@@ -14,6 +14,7 @@
 
 pub mod compensation;
 pub mod oracle;
+pub mod provider;
 pub mod replay;
 pub mod shrinker;
 pub mod trace;
