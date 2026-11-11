@@ -3,7 +3,7 @@
   "registry": {
     "registry_id": "eu-battery-passport-data-point-guidance",
     "registry_version": "0.1.0",
-    "source_registry_sha256": "f0b3c5e93b62eeadbd362132c554cc3b0f87552cd79b05bc452d1d4af29f3e2c",
+    "source_registry_sha256": "e6856565b05508dfd15eaa0500aa7239240854f2824737114ffe11811c3602f3",
     "guidance_version": "3.2"
   },
   "battery": {
