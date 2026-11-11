@@ -51,8 +51,9 @@ The parent can reallocate a closed budget through a new grant. This reference do
 - A changed intent under the same effect ID conflicts.
 - New effects cannot reserve under Revoking or Closed grants.
 - New effects also fail closed when existing parent encumbrance or an existing child grant exceeds a lowered policy cap.
-- Final settlement and authoritative absence are distinct typed resolution kinds.
-- A provider acceptance acknowledgement is not final settlement evidence.
+- An ObservedUnsettledEffect receipt is required before a dispatched or indeterminate child effect may be classified as CommittedUnsettled.
+- Final settlement and authoritative absence are distinct typed resolution kinds. Resolution digests are persisted in the child snapshot and changed receipts conflict.
+- A provider acceptance acknowledgement may establish only observed-unsettled state when the provider profile says so; it is not final settlement evidence.
 - Reconciliation continues during revocation.
 - Parent escrow cannot be reclaimed while any child exposure remains.
 
