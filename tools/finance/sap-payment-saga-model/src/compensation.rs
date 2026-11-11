@@ -871,7 +871,7 @@ impl CompensationBookV2 {
         let (amount, capability_id) = {
             let record = self
                 .records
-                .get_mut(compensation_id)
+                .get(compensation_id)
                 .ok_or(CompensationErrorV2::CompensationNotFound)?;
             if actor_owner_id != record.request.actor_owner_id
                 && actor_owner_id != self.plan.funding_owner_id
@@ -879,20 +879,19 @@ impl CompensationBookV2 {
                 return Err(CompensationErrorV2::CallerNotAuthorized);
             }
             match record.status {
-                CompensationStatusV2::Reserved | CompensationStatusV2::AuthoritativelyAbsent => {
-                    record.status = CompensationStatusV2::Cancelled;
-                    (
-                        record.request.amount_minor,
-                        record.request.authorization.capability_id.clone(),
-                    )
-                }
+                CompensationStatusV2::Reserved | CompensationStatusV2::AuthoritativelyAbsent => (
+                    record.request.amount_minor,
+                    record.request.authorization.capability_id.clone(),
+                ),
                 CompensationStatusV2::Cancelled => {
                     return Ok(CompensationDispositionV2::Cancelled);
                 }
                 _ => return Err(CompensationErrorV2::InvalidTransition),
             }
         };
-        self.encumbered_minor = self
+
+        // Stage every checked decrement before mutating the record or indexes.
+        let next_encumbered = self
             .encumbered_minor
             .checked_sub(amount)
             .ok_or(CompensationErrorV2::AmountOverflow)?;
@@ -901,12 +900,17 @@ impl CompensationBookV2 {
             .get(&capability_id)
             .copied()
             .ok_or(CompensationErrorV2::CapabilityIdentityConflict)?;
-        self.capability_usage.insert(
-            capability_id,
-            capability_used
-                .checked_sub(amount)
-                .ok_or(CompensationErrorV2::AmountOverflow)?,
-        );
+        let next_capability_used = capability_used
+            .checked_sub(amount)
+            .ok_or(CompensationErrorV2::AmountOverflow)?;
+
+        self.records
+            .get_mut(compensation_id)
+            .ok_or(CompensationErrorV2::CompensationNotFound)?
+            .status = CompensationStatusV2::Cancelled;
+        self.encumbered_minor = next_encumbered;
+        self.capability_usage
+            .insert(capability_id, next_capability_used);
         Ok(CompensationDispositionV2::Cancelled)
     }
 
