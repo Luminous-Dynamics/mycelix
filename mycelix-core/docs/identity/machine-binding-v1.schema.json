@@ -122,9 +122,15 @@
           "maxItems": 64,
           "uniqueItems": true,
           "items": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 255
+            "enum": [
+              "enroll-machine",
+              "rotate-machine-key",
+              "delegate-controller",
+              "revoke-controller",
+              "revoke-machine-key",
+              "re-enroll-instance",
+              "decommission-machine"
+            ]
           }
         },
         "status": {
@@ -343,7 +349,8 @@
         },
         "boot_id": {
           "type": "string",
-          "pattern": "^[a-f0-9-]{36}$"
+          "pattern": "^[a-f0-9-]{36}$",
+          "format": "uuid"
         },
         "system": {
           "type": "string",
