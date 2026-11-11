@@ -301,6 +301,21 @@ pub fn audit_projection(
     if registry.get("registry_id").and_then(Value::as_str) != Some(REGISTRY_ID) {
         return Err("unexpected registry identity".to_owned());
     }
+    let registry_digest = sha256(registry_bytes);
+    if projection.pointer("/registry/registry_id").and_then(Value::as_str)
+        != registry.get("registry_id").and_then(Value::as_str)
+        || projection.pointer("/registry/registry_version").and_then(Value::as_str)
+            != registry.get("registry_version").and_then(Value::as_str)
+        || projection.pointer("/registry/guidance_version").and_then(Value::as_str)
+            != registry.pointer("/source/guidance_version").and_then(Value::as_str)
+    {
+        return Err("projection registry/guidance identity does not match the supplied registry".to_owned());
+    }
+    if projection.pointer("/registry/source_registry_sha256").and_then(Value::as_str)
+        != Some(registry_digest.as_str())
+    {
+        return Err("projection source_registry_sha256 does not match the exact registry bytes".to_owned());
+    }
     let counts = check_projection_semantics(&registry, &projection)?;
     let data_point_count = projection
         .get("data_points")
