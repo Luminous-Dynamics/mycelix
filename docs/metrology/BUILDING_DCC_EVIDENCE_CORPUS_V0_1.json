@@ -87,7 +87,8 @@
           "uncertainty_value": 0.08,
           "uncertainty_unit": "degC",
           "coverage_factor": 2,
-          "certificate_rights_state": "authorized"
+          "certificate_rights_state": "authorized",
+          "laboratory_id": "SYNTH-LAB-001"
         },
         "passport_binding": {
           "instrument_id": "SYNTH-INSTRUMENT-001",
@@ -194,7 +195,8 @@
           "uncertainty_value": 0.08,
           "uncertainty_unit": "degC",
           "coverage_factor": 2,
-          "certificate_rights_state": "authorized"
+          "certificate_rights_state": "authorized",
+          "laboratory_id": "SYNTH-LAB-001"
         },
         "passport_binding": {
           "instrument_id": "SYNTH-INSTRUMENT-001",
@@ -301,7 +303,8 @@
           "uncertainty_value": 0.08,
           "uncertainty_unit": "degC",
           "coverage_factor": 2,
-          "certificate_rights_state": "authorized"
+          "certificate_rights_state": "authorized",
+          "laboratory_id": "SYNTH-LAB-001"
         },
         "passport_binding": {
           "instrument_id": "SYNTH-INSTRUMENT-001",
@@ -408,7 +411,8 @@
           "uncertainty_value": 0.08,
           "uncertainty_unit": "degC",
           "coverage_factor": 2,
-          "certificate_rights_state": "authorized"
+          "certificate_rights_state": "authorized",
+          "laboratory_id": "SYNTH-LAB-001"
         },
         "passport_binding": {
           "instrument_id": "SYNTH-INSTRUMENT-001",
@@ -515,7 +519,8 @@
           "uncertainty_value": 0.08,
           "uncertainty_unit": "degC",
           "coverage_factor": 2,
-          "certificate_rights_state": "authorized"
+          "certificate_rights_state": "authorized",
+          "laboratory_id": "SYNTH-LAB-001"
         },
         "passport_binding": {
           "instrument_id": "SYNTH-INSTRUMENT-001",
@@ -622,7 +627,8 @@
           "uncertainty_value": 0.08,
           "uncertainty_unit": "degC",
           "coverage_factor": 2,
-          "certificate_rights_state": "authorized"
+          "certificate_rights_state": "authorized",
+          "laboratory_id": "SYNTH-LAB-001"
         },
         "passport_binding": {
           "instrument_id": "SYNTH-INSTRUMENT-001",
@@ -729,7 +735,8 @@
           "uncertainty_value": 0.08,
           "uncertainty_unit": "degC",
           "coverage_factor": 2,
-          "certificate_rights_state": "authorized"
+          "certificate_rights_state": "authorized",
+          "laboratory_id": "SYNTH-LAB-001"
         },
         "passport_binding": {
           "instrument_id": "SYNTH-INSTRUMENT-001",
@@ -836,7 +843,8 @@
           "uncertainty_value": 0.08,
           "uncertainty_unit": "degC",
           "coverage_factor": 2,
-          "certificate_rights_state": "authorized"
+          "certificate_rights_state": "authorized",
+          "laboratory_id": "SYNTH-LAB-001"
         },
         "passport_binding": {
           "instrument_id": "SYNTH-INSTRUMENT-001",
@@ -943,7 +951,8 @@
           "uncertainty_value": 0.08,
           "uncertainty_unit": "degC",
           "coverage_factor": 2,
-          "certificate_rights_state": "authorized"
+          "certificate_rights_state": "authorized",
+          "laboratory_id": "SYNTH-LAB-001"
         },
         "passport_binding": {
           "instrument_id": "SYNTH-INSTRUMENT-001",
@@ -1050,7 +1059,8 @@
           "uncertainty_value": 0.08,
           "uncertainty_unit": "degC",
           "coverage_factor": 2,
-          "certificate_rights_state": "authorized"
+          "certificate_rights_state": "authorized",
+          "laboratory_id": "SYNTH-LAB-001"
         },
         "passport_binding": {
           "instrument_id": "SYNTH-INSTRUMENT-001",
@@ -1157,7 +1167,8 @@
           "uncertainty_value": 0.08,
           "uncertainty_unit": "degC",
           "coverage_factor": 2,
-          "certificate_rights_state": "authorized"
+          "certificate_rights_state": "authorized",
+          "laboratory_id": "SYNTH-LAB-001"
         },
         "passport_binding": {
           "instrument_id": "SYNTH-INSTRUMENT-001",
@@ -1264,7 +1275,8 @@
           "uncertainty_value": 0.08,
           "uncertainty_unit": "degC",
           "coverage_factor": 2,
-          "certificate_rights_state": "authorized"
+          "certificate_rights_state": "authorized",
+          "laboratory_id": "SYNTH-LAB-001"
         },
         "passport_binding": {
           "instrument_id": "SYNTH-INSTRUMENT-001",
@@ -1371,7 +1383,8 @@
           "uncertainty_value": 0.08,
           "uncertainty_unit": "degC",
           "coverage_factor": 2,
-          "certificate_rights_state": "authorized"
+          "certificate_rights_state": "authorized",
+          "laboratory_id": "SYNTH-LAB-001"
         },
         "passport_binding": {
           "instrument_id": "SYNTH-INSTRUMENT-001",
@@ -1478,7 +1491,8 @@
           "uncertainty_value": 0.08,
           "uncertainty_unit": "degC",
           "coverage_factor": 2,
-          "certificate_rights_state": "authorized"
+          "certificate_rights_state": "authorized",
+          "laboratory_id": "SYNTH-LAB-001"
         },
         "passport_binding": {
           "instrument_id": "SYNTH-INSTRUMENT-001",
@@ -1585,7 +1599,8 @@
           "uncertainty_value": 0.08,
           "uncertainty_unit": "degC",
           "coverage_factor": 2,
-          "certificate_rights_state": "authorized"
+          "certificate_rights_state": "authorized",
+          "laboratory_id": "SYNTH-LAB-001"
         },
         "passport_binding": {
           "instrument_id": "SYNTH-INSTRUMENT-001",
@@ -1692,7 +1707,8 @@
           "uncertainty_value": 0.08,
           "uncertainty_unit": "degC",
           "coverage_factor": 2,
-          "certificate_rights_state": "authorized"
+          "certificate_rights_state": "authorized",
+          "laboratory_id": "SYNTH-LAB-001"
         },
         "passport_binding": {
           "instrument_id": "SYNTH-INSTRUMENT-001",
@@ -1799,7 +1815,8 @@
           "uncertainty_value": 0.08,
           "uncertainty_unit": "degC",
           "coverage_factor": 2,
-          "certificate_rights_state": "authorized"
+          "certificate_rights_state": "authorized",
+          "laboratory_id": "SYNTH-LAB-001"
         },
         "passport_binding": {
           "instrument_id": "SYNTH-INSTRUMENT-001",
@@ -1906,7 +1923,8 @@
           "uncertainty_value": 0.08,
           "uncertainty_unit": "degC",
           "coverage_factor": 2,
-          "certificate_rights_state": "authorized"
+          "certificate_rights_state": "authorized",
+          "laboratory_id": "SYNTH-LAB-001"
         },
         "passport_binding": {
           "instrument_id": "SYNTH-INSTRUMENT-001",
@@ -2013,7 +2031,8 @@
           "uncertainty_value": 0.08,
           "uncertainty_unit": "degC",
           "coverage_factor": 2,
-          "certificate_rights_state": "authorized"
+          "certificate_rights_state": "authorized",
+          "laboratory_id": "SYNTH-LAB-001"
         },
         "passport_binding": {
           "instrument_id": "SYNTH-INSTRUMENT-001",
@@ -2120,7 +2139,8 @@
           "uncertainty_value": 0.08,
           "uncertainty_unit": "degC",
           "coverage_factor": 2,
-          "certificate_rights_state": "authorized"
+          "certificate_rights_state": "authorized",
+          "laboratory_id": "SYNTH-LAB-001"
         },
         "passport_binding": {
           "instrument_id": "SYNTH-INSTRUMENT-001",
@@ -2227,7 +2247,8 @@
           "uncertainty_value": 0.08,
           "uncertainty_unit": "degC",
           "coverage_factor": 2,
-          "certificate_rights_state": "authorized"
+          "certificate_rights_state": "authorized",
+          "laboratory_id": "SYNTH-LAB-001"
         },
         "passport_binding": {
           "instrument_id": "SYNTH-INSTRUMENT-001",
@@ -2334,7 +2355,8 @@
           "uncertainty_value": 0.08,
           "uncertainty_unit": "degC",
           "coverage_factor": 2,
-          "certificate_rights_state": "authorized"
+          "certificate_rights_state": "authorized",
+          "laboratory_id": "SYNTH-LAB-001"
         },
         "passport_binding": {
           "instrument_id": "SYNTH-INSTRUMENT-001",
@@ -2441,7 +2463,8 @@
           "uncertainty_value": 0.08,
           "uncertainty_unit": "degC",
           "coverage_factor": 2,
-          "certificate_rights_state": "authorized"
+          "certificate_rights_state": "authorized",
+          "laboratory_id": "SYNTH-LAB-001"
         },
         "passport_binding": {
           "instrument_id": "SYNTH-INSTRUMENT-001",
@@ -2548,7 +2571,8 @@
           "uncertainty_value": 0.08,
           "uncertainty_unit": "degC",
           "coverage_factor": 2,
-          "certificate_rights_state": "authorized"
+          "certificate_rights_state": "authorized",
+          "laboratory_id": "SYNTH-LAB-001"
         },
         "passport_binding": {
           "instrument_id": "SYNTH-INSTRUMENT-001",
@@ -2655,7 +2679,8 @@
           "uncertainty_value": 0.08,
           "uncertainty_unit": "degC",
           "coverage_factor": 2,
-          "certificate_rights_state": "authorized"
+          "certificate_rights_state": "authorized",
+          "laboratory_id": "SYNTH-LAB-001"
         },
         "passport_binding": {
           "instrument_id": "SYNTH-INSTRUMENT-001",
@@ -2762,7 +2787,8 @@
           "uncertainty_value": 0.08,
           "uncertainty_unit": "degC",
           "coverage_factor": 2,
-          "certificate_rights_state": "authorized"
+          "certificate_rights_state": "authorized",
+          "laboratory_id": "SYNTH-LAB-001"
         },
         "passport_binding": {
           "instrument_id": "SYNTH-INSTRUMENT-001",
@@ -2869,7 +2895,8 @@
           "uncertainty_value": 0.08,
           "uncertainty_unit": "degC",
           "coverage_factor": 2,
-          "certificate_rights_state": "authorized"
+          "certificate_rights_state": "authorized",
+          "laboratory_id": "SYNTH-LAB-001"
         },
         "passport_binding": {
           "instrument_id": "SYNTH-INSTRUMENT-001",
@@ -2976,7 +3003,8 @@
           "uncertainty_value": 0.08,
           "uncertainty_unit": "degC",
           "coverage_factor": 2,
-          "certificate_rights_state": "authorized"
+          "certificate_rights_state": "authorized",
+          "laboratory_id": "SYNTH-LAB-001"
         },
         "passport_binding": {
           "instrument_id": "SYNTH-INSTRUMENT-001",
@@ -3083,7 +3111,8 @@
           "uncertainty_value": 0.08,
           "uncertainty_unit": "degC",
           "coverage_factor": 2,
-          "certificate_rights_state": "authorized"
+          "certificate_rights_state": "authorized",
+          "laboratory_id": "SYNTH-LAB-001"
         },
         "passport_binding": {
           "instrument_id": "SYNTH-INSTRUMENT-001",
@@ -3190,7 +3219,8 @@
           "uncertainty_value": 0.08,
           "uncertainty_unit": "degC",
           "coverage_factor": 2,
-          "certificate_rights_state": "revoked"
+          "certificate_rights_state": "revoked",
+          "laboratory_id": "SYNTH-LAB-001"
         },
         "passport_binding": {
           "instrument_id": "SYNTH-INSTRUMENT-001",
@@ -3297,7 +3327,8 @@
           "uncertainty_value": null,
           "uncertainty_unit": "degC",
           "coverage_factor": 2,
-          "certificate_rights_state": "authorized"
+          "certificate_rights_state": "authorized",
+          "laboratory_id": "SYNTH-LAB-001"
         },
         "passport_binding": {
           "instrument_id": "SYNTH-INSTRUMENT-001",
@@ -3404,7 +3435,8 @@
           "uncertainty_value": 0.08,
           "uncertainty_unit": "degC",
           "coverage_factor": 0,
-          "certificate_rights_state": "authorized"
+          "certificate_rights_state": "authorized",
+          "laboratory_id": "SYNTH-LAB-001"
         },
         "passport_binding": {
           "instrument_id": "SYNTH-INSTRUMENT-001",
@@ -3511,7 +3543,8 @@
           "uncertainty_value": 0.08,
           "uncertainty_unit": "degC",
           "coverage_factor": 2,
-          "certificate_rights_state": "authorized"
+          "certificate_rights_state": "authorized",
+          "laboratory_id": "SYNTH-LAB-001"
         },
         "passport_binding": {
           "instrument_id": "SYNTH-INSTRUMENT-001",
@@ -3618,7 +3651,8 @@
           "uncertainty_value": 0.08,
           "uncertainty_unit": "degC",
           "coverage_factor": 2,
-          "certificate_rights_state": "authorized"
+          "certificate_rights_state": "authorized",
+          "laboratory_id": "SYNTH-LAB-001"
         },
         "passport_binding": {
           "instrument_id": "SYNTH-INSTRUMENT-001",
@@ -3725,7 +3759,8 @@
           "uncertainty_value": 0.08,
           "uncertainty_unit": "degC",
           "coverage_factor": 2,
-          "certificate_rights_state": "authorized"
+          "certificate_rights_state": "authorized",
+          "laboratory_id": "SYNTH-LAB-001"
         },
         "passport_binding": {
           "instrument_id": "SYNTH-INSTRUMENT-001",
@@ -3832,7 +3867,8 @@
           "uncertainty_value": 0.08,
           "uncertainty_unit": "degC",
           "coverage_factor": 2,
-          "certificate_rights_state": "authorized"
+          "certificate_rights_state": "authorized",
+          "laboratory_id": "SYNTH-LAB-001"
         },
         "passport_binding": {
           "instrument_id": "SYNTH-INSTRUMENT-001",
