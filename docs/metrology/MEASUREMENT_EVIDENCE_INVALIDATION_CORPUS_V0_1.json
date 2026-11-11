@@ -7973,8 +7973,70 @@
       "expected": {
         "disposition": "NO_CURRENT_EVIDENCE",
         "error_code": null,
-        "topological_order": [],
-        "node_states": [],
+        "topological_order": [
+          "instrument-A",
+          "calibration-A",
+          "installation-A",
+          "instrument-B",
+          "calibration-B",
+          "purpose-A",
+          "sample-A",
+          "assay-A",
+          "sample-B",
+          "transform-A",
+          "uncertainty-A",
+          "claim-A"
+        ],
+        "node_states": [
+          {
+            "node_id": "instrument-A",
+            "state": "unknown"
+          },
+          {
+            "node_id": "calibration-A",
+            "state": "unknown"
+          },
+          {
+            "node_id": "installation-A",
+            "state": "unknown"
+          },
+          {
+            "node_id": "instrument-B",
+            "state": "unknown"
+          },
+          {
+            "node_id": "calibration-B",
+            "state": "unknown"
+          },
+          {
+            "node_id": "purpose-A",
+            "state": "unknown"
+          },
+          {
+            "node_id": "sample-A",
+            "state": "unknown"
+          },
+          {
+            "node_id": "assay-A",
+            "state": "unknown"
+          },
+          {
+            "node_id": "sample-B",
+            "state": "unknown"
+          },
+          {
+            "node_id": "transform-A",
+            "state": "unknown"
+          },
+          {
+            "node_id": "uncertainty-A",
+            "state": "unknown"
+          },
+          {
+            "node_id": "claim-A",
+            "state": "unknown"
+          }
+        ],
         "invalidated_nodes": []
       }
     },
