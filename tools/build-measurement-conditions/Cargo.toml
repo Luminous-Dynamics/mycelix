@@ -1,0 +1,20 @@
+[package]
+name = "building-measurement-conditions"
+version = "0.1.0"
+edition = "2024"
+publish = false
+description = "Synthetic-only building instrument condition applicability oracle"
+
+[dependencies]
+serde = "=1.0.228"
+serde_json = "=1.0.150"
+
+[workspace]
+resolver = "3"
+
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+name = "building-measurement-conditions"
+path = "src/main.rs"
