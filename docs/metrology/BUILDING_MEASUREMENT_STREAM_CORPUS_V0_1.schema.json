@@ -1,0 +1,603 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Luminous-Dynamics/mycelix/blob/research/build-metrology-stream-timebase-v0.1/docs/metrology/BUILDING_MEASUREMENT_STREAM_CORPUS_V0_1.schema.json",
+  "title": "Mycelix Building Measurement Stream Corpus v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "corpus_id",
+    "classification",
+    "claim_ceiling",
+    "profile_id",
+    "cases"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "mycelix.building-measurement-stream-corpus/0.1"
+    },
+    "corpus_id": {
+      "const": "BUILDING-MEASUREMENT-STREAM-CORPUS-V0.1"
+    },
+    "classification": {
+      "const": "synthetic_clock_sequence_and_replay_cases"
+    },
+    "claim_ceiling": {
+      "const": "synthetic_stream_ordering_and_replay_conformance_only"
+    },
+    "profile_id": {
+      "const": "MYC-BUILD-STREAM-TIMEBASE-PROFILE-V0.1"
+    },
+    "cases": {
+      "type": "array",
+      "minItems": 40,
+      "maxItems": 40,
+      "items": {
+        "$ref": "#/$defs/case"
+      }
+    }
+  },
+  "$defs": {
+    "case": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "case_id",
+        "description",
+        "record",
+        "expected_disposition"
+      ],
+      "properties": {
+        "case_id": {
+          "type": "string",
+          "pattern": "^MST-[0-9]{3}$"
+        },
+        "description": {
+          "type": "string",
+          "minLength": 20
+        },
+        "expected_disposition": {
+          "enum": [
+            "REVIEW_ELIGIBLE_ONLY",
+            "MORE_EVIDENCE_REQUIRED",
+            "NOT_COMPARABLE",
+            "CONFLICT_REJECTED",
+            "INVALIDATED",
+            "REJECTED_FOR_PURPOSE",
+            "REJECTED_TIME_BASIS_PROMOTION",
+            "GAP_INDETERMINATE",
+            "TARGETED_INVALIDATION_ONLY",
+            "UNRELATED_STREAM_UNCHANGED"
+          ]
+        },
+        "record": {
+          "$ref": "#/$defs/record"
+        }
+      }
+    },
+    "record": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "profile_id",
+        "stream",
+        "samples",
+        "epoch_transitions",
+        "clock_mapping",
+        "aggregation",
+        "invalidation"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "mycelix.building-measurement-stream/0.1"
+        },
+        "profile_id": {
+          "const": "MYC-BUILD-STREAM-TIMEBASE-PROFILE-V0.1"
+        },
+        "stream": {
+          "$ref": "#/$defs/stream"
+        },
+        "samples": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/sample"
+          }
+        },
+        "epoch_transitions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/transition"
+          }
+        },
+        "clock_mapping": {
+          "$ref": "#/$defs/mapping"
+        },
+        "aggregation": {
+          "$ref": "#/$defs/aggregation"
+        },
+        "invalidation": {
+          "$ref": "#/$defs/invalidation"
+        }
+      }
+    },
+    "stream": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "stream_id",
+        "instrument_id",
+        "channel_id",
+        "channel_profile_id",
+        "firmware_digest",
+        "protocol_digest",
+        "clock_domain_id",
+        "boot_epoch_id",
+        "sequence_scope",
+        "sequence_width_bits",
+        "wrap_policy",
+        "timestamp_basis",
+        "time_unit",
+        "epoch_origin",
+        "clock_source",
+        "sync_source",
+        "maximum_sync_uncertainty_ns",
+        "maximum_reorder_window_ns",
+        "maximum_precision_loss_ns",
+        "expected_sample_count",
+        "expected_sequence_start",
+        "expected_sequence_end",
+        "clock_step_state",
+        "instrument_identity_reused"
+      ],
+      "properties": {
+        "stream_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "instrument_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "channel_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "channel_profile_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "firmware_digest": {
+          "type": "string",
+          "minLength": 1
+        },
+        "protocol_digest": {
+          "type": "string",
+          "minLength": 1
+        },
+        "clock_domain_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "boot_epoch_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sequence_scope": {
+          "const": "stream_boot_epoch"
+        },
+        "sequence_width_bits": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1,
+          "maximum": 64
+        },
+        "wrap_policy": {
+          "enum": [
+            "new_epoch_required",
+            "declared_modulo"
+          ]
+        },
+        "timestamp_basis": {
+          "enum": [
+            "utc_unix",
+            "monotonic_counter",
+            "local_wall_time"
+          ]
+        },
+        "time_unit": {
+          "enum": [
+            "ns",
+            "us",
+            "ms",
+            "s"
+          ]
+        },
+        "epoch_origin": {
+          "type": "string",
+          "minLength": 1
+        },
+        "clock_source": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sync_source": {
+          "type": "string",
+          "minLength": 1
+        },
+        "maximum_sync_uncertainty_ns": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "maximum_reorder_window_ns": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "maximum_precision_loss_ns": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "expected_sample_count": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "expected_sequence_start": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "expected_sequence_end": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "clock_step_state": {
+          "enum": [
+            "none",
+            "backward_step_unresolved",
+            "forward_step_unresolved",
+            "monotonic_reset_unresolved",
+            "clock_source_changed_unresolved"
+          ]
+        },
+        "instrument_identity_reused": {
+          "type": "boolean"
+        }
+      }
+    },
+    "sample": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sample_id",
+        "sequence",
+        "boot_epoch_id",
+        "clock_domain_id",
+        "instrument_id",
+        "channel_id",
+        "firmware_digest",
+        "protocol_digest",
+        "timestamp_basis",
+        "time_unit",
+        "epoch_origin",
+        "event_tick",
+        "acquisition_tick",
+        "collector_receipt_tick",
+        "clock_source",
+        "synchronization_uncertainty_ns",
+        "payload_digest",
+        "local_time",
+        "utc_offset_minutes",
+        "dst_fold",
+        "calendar_valid",
+        "leap_second_token",
+        "precision_loss_ns",
+        "latency_explanation_id"
+      ],
+      "properties": {
+        "sample_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sequence": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "boot_epoch_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "clock_domain_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "instrument_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "channel_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "firmware_digest": {
+          "type": "string",
+          "minLength": 1
+        },
+        "protocol_digest": {
+          "type": "string",
+          "minLength": 1
+        },
+        "timestamp_basis": {
+          "enum": [
+            "utc_unix",
+            "monotonic_counter",
+            "local_wall_time"
+          ]
+        },
+        "time_unit": {
+          "enum": [
+            "ns",
+            "us",
+            "ms",
+            "s"
+          ]
+        },
+        "epoch_origin": {
+          "type": "string",
+          "minLength": 1
+        },
+        "event_tick": {
+          "type": "integer"
+        },
+        "acquisition_tick": {
+          "type": "integer"
+        },
+        "collector_receipt_tick": {
+          "type": "integer"
+        },
+        "clock_source": {
+          "type": "string",
+          "minLength": 1
+        },
+        "synchronization_uncertainty_ns": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "payload_digest": {
+          "type": "string",
+          "minLength": 1
+        },
+        "local_time": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "utc_offset_minutes": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "dst_fold": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "enum": [
+            0,
+            1,
+            null
+          ]
+        },
+        "calendar_valid": {
+          "type": "boolean"
+        },
+        "leap_second_token": {
+          "enum": [
+            "none",
+            "present_unhandled"
+          ]
+        },
+        "precision_loss_ns": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "latency_explanation_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "transition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "from_boot_epoch_id",
+        "to_boot_epoch_id",
+        "transition_kind",
+        "receipt_id"
+      ],
+      "properties": {
+        "from_boot_epoch_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "to_boot_epoch_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "transition_kind": {
+          "enum": [
+            "reboot",
+            "clock_source_change",
+            "counter_reset"
+          ]
+        },
+        "receipt_id": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "mapping": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "state",
+        "mapping_id",
+        "revision",
+        "digest",
+        "source_clock_domain_id",
+        "target_clock_domain_id",
+        "valid_from_event_tick",
+        "valid_to_event_tick",
+        "offset_ns",
+        "drift_ppb",
+        "uncertainty_ns",
+        "residual_ns",
+        "source_receipt_id",
+        "retroactive_change"
+      ],
+      "properties": {
+        "state": {
+          "enum": [
+            "not_required",
+            "verified",
+            "unknown"
+          ]
+        },
+        "mapping_id": {
+          "type": "string"
+        },
+        "revision": {
+          "type": "string"
+        },
+        "digest": {
+          "type": "string"
+        },
+        "source_clock_domain_id": {
+          "type": "string"
+        },
+        "target_clock_domain_id": {
+          "type": "string"
+        },
+        "valid_from_event_tick": {
+          "type": "integer"
+        },
+        "valid_to_event_tick": {
+          "type": "integer"
+        },
+        "offset_ns": {
+          "type": "integer"
+        },
+        "drift_ppb": {
+          "type": "number"
+        },
+        "uncertainty_ns": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "residual_ns": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "source_receipt_id": {
+          "type": "string"
+        },
+        "retroactive_change": {
+          "type": "boolean"
+        }
+      }
+    },
+    "aggregation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "requested",
+        "basis",
+        "integrates",
+        "rate_basis",
+        "imputation_policy",
+        "crosses_unresolved_clock_step",
+        "input_digest"
+      ],
+      "properties": {
+        "requested": {
+          "type": "boolean"
+        },
+        "basis": {
+          "enum": [
+            "event_time",
+            "acquisition_time",
+            "collector_receipt_time"
+          ]
+        },
+        "integrates": {
+          "type": "boolean"
+        },
+        "rate_basis": {
+          "enum": [
+            "event_time",
+            "acquisition_time",
+            "collector_receipt_time"
+          ]
+        },
+        "imputation_policy": {
+          "enum": [
+            "none",
+            "zero",
+            "linear"
+          ]
+        },
+        "crosses_unresolved_clock_step": {
+          "type": "boolean"
+        },
+        "input_digest": {
+          "type": "string"
+        }
+      }
+    },
+    "invalidation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "change_scope",
+        "change_target_stream_id",
+        "dependent_claim_stale",
+        "raw_samples_preserved",
+        "unrelated_streams_current"
+      ],
+      "properties": {
+        "change_scope": {
+          "enum": [
+            "none",
+            "this_stream",
+            "other_stream"
+          ]
+        },
+        "change_target_stream_id": {
+          "type": "string"
+        },
+        "dependent_claim_stale": {
+          "type": "boolean"
+        },
+        "raw_samples_preserved": {
+          "type": "boolean"
+        },
+        "unrelated_streams_current": {
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}
