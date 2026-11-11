@@ -1,0 +1,40 @@
+name: Building Derived Measurement Graph Synthetic Oracle
+
+on:
+  push:
+    paths:
+      - "docs/metrology/BUILD_DERIVED_MEASUREMENT_*"
+      - "tools/build-derived-measurement-graph/**"
+      - ".github/workflows/build-derived-measurement-graph.yml"
+  pull_request:
+    paths:
+      - "docs/metrology/BUILD_DERIVED_MEASUREMENT_*"
+      - "tools/build-derived-measurement-graph/**"
+      - ".github/workflows/build-derived-measurement-graph.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-derived-measurement-graph-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qualify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - name: Fetch locked dependencies
+        run: cargo fetch --locked --manifest-path tools/build-derived-measurement-graph/Cargo.toml
+      - name: Format check
+        run: cargo fmt --manifest-path tools/build-derived-measurement-graph/Cargo.toml --all -- --check
+      - name: Test offline
+        run: cargo test --locked --offline --manifest-path tools/build-derived-measurement-graph/Cargo.toml
+      - name: Clippy
+        run: cargo clippy --locked --offline --manifest-path tools/build-derived-measurement-graph/Cargo.toml --all-targets -- -D warnings
+      - name: Run tracked corpus
+        run: cargo run --locked --offline --manifest-path tools/build-derived-measurement-graph/Cargo.toml
