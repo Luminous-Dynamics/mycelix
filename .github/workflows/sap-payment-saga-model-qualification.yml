@@ -21,7 +21,21 @@ jobs:
   saga-model:
     name: Effects-disabled SAP payment saga model
     runs-on: ubuntu-latest
-    timeout-minutes: 12
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: mycelix
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: mycelix_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U mycelix -d mycelix_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -73,6 +87,16 @@ jobs:
         if: hashFiles('tools/finance/sap-payment-saga-go-verifier/go.mod') != ''
         working-directory: tools/finance/sap-payment-saga-go-verifier
         run: go test -race -count=1 ./...
+      - name: Install PostgreSQL client
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+      - name: Qualify provider webhook inbox/outbox against PostgreSQL
+        env:
+          PGHOST: 127.0.0.1
+          PGPORT: "5432"
+          PGUSER: mycelix
+          PGPASSWORD: test
+          PGDATABASE: mycelix_test
+        run: bash tools/finance/sap-payment-saga-model/tests/test_provider_webhook_inbox_outbox.sh
       - name: Measure effect-level compensation admission scaling
         working-directory: tools/finance/sap-payment-saga-go-verifier
         run: |
@@ -108,6 +132,7 @@ jobs:
           cat /tmp/replay-rust-benchmark.txt /tmp/replay-go-benchmark.txt > /tmp/replay-benchmark.txt
           awk -f tools/finance/sap-payment-saga-go-verifier/summarize-replay-benchmark.awk /tmp/replay-benchmark.txt
  -benchmem -benchtime=200ms -count=30 | tee /tmp/provider-go-benchmark.txt
+
       - name: Capture paired benchmark environment
         run: |
           rustc --version
