@@ -418,6 +418,15 @@ mod tests {
     }
 
     #[test]
+    fn pinned_metadata_manifest_is_accepted_as_read_only_intake() {
+        let manifest: Value = serde_json::from_str(include_str!("../../GROUPMEMBENCH_METADATA_INTAKE_V0_1.json")).unwrap();
+        let files = parse_manifest(&manifest).unwrap();
+        assert_eq!(files.len(), 30);
+        assert_eq!(files.iter().filter(|x| x.path.starts_with("data/final/")).count(), 4);
+        assert_eq!(files.iter().filter(|x| x.path.starts_with("questions/")).count(), 24);
+    }
+
+    #[test]
     fn manifest_readme_and_license_hashes_are_bound_to_the_file_list() {
         let mut manifest: Value = serde_json::from_str(include_str!("../../GROUPMEMBENCH_METADATA_INTAKE_V0_1.json")).unwrap();
         let files = manifest["files"].as_array_mut().unwrap();
