@@ -1,7 +1,7 @@
 use serde_json::{Map, Value};
 use sha1::{Digest, Sha1};
 use std::{
-    collections::BTreeSet,
+    collections::{BTreeMap, BTreeSet},
     env,
     fs::{self, File},
     io::{BufRead, BufReader, Read},
@@ -101,6 +101,7 @@ pub fn parse_manifest(v: &Value) -> Result<Vec<FileIdentity>, String> {
     }
     let mut identities = Vec::with_capacity(files.len());
     let mut paths = BTreeSet::new();
+    let mut path_shas = BTreeMap::new();
     let mut conversations = 0usize;
     let mut conversation_bytes = 0u64;
     let mut questions = 0usize;
@@ -118,6 +119,7 @@ pub fn parse_manifest(v: &Value) -> Result<Vec<FileIdentity>, String> {
         if !paths.insert(path.clone()) {
             return Err(format!("duplicate manifest file path: {path}"));
         }
+        path_shas.insert(path.clone(), sha.to_owned());
         if path.starts_with("data/final/") && path.ends_with(".json") {
             conversations += 1;
             conversation_bytes += size;
@@ -133,6 +135,54 @@ pub fn parse_manifest(v: &Value) -> Result<Vec<FileIdentity>, String> {
     }
     if conversations != 4 || questions != 24 || metadata != 2 {
         return Err(format!("unexpected file classes: conversations={conversations}, questions={questions}, metadata={metadata}"));
+    }
+    if path_shas.get("README.md").map(String::as_str) != strv(source, "readme_git_blob_sha")
+        || path_shas.get("LICENSE").map(String::as_str) != strv(source, "license_git_blob_sha") {
+        return Err("pinned README/LICENSE Git blob identities do not match rights metadata".into());
+    }
+    let benchmark = &v["benchmark"];
+    let domains = ["Finance", "Technology", "Healthcare", "Manufacturing"];
+    let question_types = ["multi_hop", "knowledge_update", "temporal", "user_implicit", "term_ambiguity", "abstention"];
+    let declared_domains = benchmark["domains"].as_array().ok_or("benchmark domain list missing")?;
+    if declared_domains.len() != domains.len()
+        || !domains.iter().all(|d| declared_domains.iter().any(|x| x.as_str() == Some(d))) {
+        return Err("GroupMemBench domain matrix mismatch".into());
+    }
+    let declared_types = benchmark["question_types"].as_array().ok_or("benchmark question type list missing")?;
+    if declared_types.len() != question_types.len()
+        || !question_types.iter().all(|q| declared_types.iter().any(|x| x.as_str() == Some(q))) {
+        return Err("GroupMemBench question type matrix mismatch".into());
+    }
+    let counts = benchmark["question_counts_by_domain"].as_object().ok_or("question counts by domain missing")?;
+    if counts.len() != domains.len() {
+        return Err("GroupMemBench question count domain set mismatch".into());
+    }
+    let mut expected_question_paths = BTreeSet::new();
+    let mut question_total = 0u64;
+    let mut expected_conversation_paths = BTreeSet::new();
+    for domain in domains {
+        expected_conversation_paths.insert(format!("data/final/{domain}/synthetic_domain_channels_rolevariants_{domain}.json"));
+        let row = counts.get(domain).ok_or(format!("question count row missing for {domain}"))?;
+        let mut subtotal = 0u64;
+        for qtype in question_types {
+            let count = row[qtype].as_u64().ok_or(format!("missing question count: {domain}/{qtype}"))?;
+            subtotal += count;
+            expected_question_paths.insert(format!("questions/{domain}/{qtype}.jsonl"));
+        }
+        if row["total"].as_u64() != Some(subtotal) {
+            return Err(format!("question count subtotal mismatch for {domain}"));
+        }
+        question_total += subtotal;
+    }
+    let actual_question_paths: BTreeSet<String> = paths.iter()
+        .filter(|p| p.starts_with("questions/")).cloned().collect();
+    let actual_conversation_paths: BTreeSet<String> = paths.iter()
+        .filter(|p| p.starts_with("data/final/")).cloned().collect();
+    if actual_question_paths != expected_question_paths
+        || actual_conversation_paths != expected_conversation_paths
+        || question_total != 715
+        || benchmark["total_questions"].as_u64() != Some(715) {
+        return Err("GroupMemBench domain/question inventory is not the pinned 4 x 6 / 715-question matrix".into());
     }
     let summary = &v["artifact_summary"];
     if u64v(summary, "total_selected_files") != Some(30)
@@ -362,15 +412,24 @@ mod tests {
 
     #[test]
     fn manifest_rejects_path_traversal() {
-        let mut manifest = serde_json::json!({
-            "intake_id":"GROUPMEMBENCH-METADATA-INTAKE-001",
-            "version":"0.1.0",
-            "status":"metadata_only_read_only_adapter_candidate",
-            "source":{"repository":UPSTREAM_REPO,"pinned_commit":UPSTREAM_COMMIT,"repository_code_license":"MIT","dataset_license_declared_in_readme":"CC BY 4.0"},
-            "files":[{"path":"../outside","git_blob_sha":"0000000000000000000000000000000000000000","size_bytes":0}],
-            "custody":{"payload_downloaded":false,"payload_committed":false,"adapter_executed":false}
-        });
-        manifest["files"][0]["path"] = Value::String("../outside".into());
+        assert!(safe_relative_path("../outside").is_err());
+        assert!(safe_relative_path("/etc/passwd").is_err());
+        assert!(safe_relative_path("data/final/Finance/file.json").is_ok());
+    }
+
+    #[test]
+    fn manifest_readme_and_license_hashes_are_bound_to_the_file_list() {
+        let mut manifest: Value = serde_json::from_str(include_str!("../../GROUPMEMBENCH_METADATA_INTAKE_V0_1.json")).unwrap();
+        let files = manifest["files"].as_array_mut().unwrap();
+        let readme = files.iter_mut().find(|x| x["path"] == "README.md").unwrap();
+        readme["git_blob_sha"] = Value::String("0000000000000000000000000000000000000000".into());
+        assert!(parse_manifest(&manifest).is_err());
+    }
+
+    #[test]
+    fn manifest_question_matrix_must_match_exact_domains_and_types() {
+        let mut manifest: Value = serde_json::from_str(include_str!("../../GROUPMEMBENCH_METADATA_INTAKE_V0_1.json")).unwrap();
+        manifest["benchmark"]["question_types"][0] = Value::String("unsupported_type".into());
         assert!(parse_manifest(&manifest).is_err());
     }
 }
