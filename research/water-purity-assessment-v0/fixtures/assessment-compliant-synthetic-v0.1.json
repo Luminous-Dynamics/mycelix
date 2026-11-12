@@ -1,0 +1,54 @@
+{
+  "schema_version": "0.1.0",
+  "assessment_id": "SYN-ASSESS-COMPLIANT-001",
+  "evidence_class": "synthetic_only",
+  "evidence_ceiling": "synthetic_profile_semantics_only_no_regulatory_or_health_claim",
+  "profile": {
+    "profile_id": "SYNTHETIC-WATER-PURITY-PROFILE",
+    "profile_revision": "0.1",
+    "standard_identity": "SYNTHETIC-TEST-PROFILE-ONLY",
+    "jurisdiction": "synthetic",
+    "intended_use": "synthetic_test_only",
+    "decision_rule_id": "UPPER_BOUND_WITH_UNCERTAINTY_V0",
+    "required_analytes": [
+      "marker_alpha",
+      "marker_beta"
+    ]
+  },
+  "input_observation_ids": [
+    "SYN-OBS-COMPLIANT-001"
+  ],
+  "analyte_results": [
+    {
+      "analyte_id": "marker_alpha",
+      "observation_id": "SYN-OBS-COMPLIANT-001",
+      "method_profile_id": "SYN-METHOD-ALPHA",
+      "method_profile_revision": "0.1",
+      "value": 0.2,
+      "absolute_uncertainty": 0.05,
+      "unit": "synthetic-unit/L",
+      "comparator": "<=",
+      "threshold": 1,
+      "result": "compliant"
+    },
+    {
+      "analyte_id": "marker_beta",
+      "observation_id": "SYN-OBS-COMPLIANT-001",
+      "method_profile_id": "SYN-METHOD-BETA",
+      "method_profile_revision": "0.1",
+      "value": 0.5,
+      "absolute_uncertainty": 0.1,
+      "unit": "synthetic-unit/L",
+      "comparator": "<=",
+      "threshold": 2,
+      "result": "compliant"
+    }
+  ],
+  "overall_disposition": "Compliant",
+  "reason_codes": [
+    "ALL_REQUIRED_ANALYTES_PASS"
+  ],
+  "notes": [
+    "Synthetic-only assessment semantics. No SANS 241, WHO, EPA or other external threshold is encoded."
+  ]
+}
