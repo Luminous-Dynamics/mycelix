@@ -450,6 +450,9 @@ func TestJournalReplayRejectsNonCanonicalIgnoredVariantFields(t *testing.T) {
 				if err != nil { t.Fatal(err) }
 				if err := log.RecordAuthorized(); err != nil { t.Fatal(err) }
 				journal := newJournal(replayTestIntent())
+				if err := journal.Authorize(); err != nil {
+					t.Fatal(err)
+				}
 				if _, err := journal.PrepareLeg(LocalPaymentTransaction, journal.EffectID(LocalPaymentTransaction)); err != nil { t.Fatal(err) }
 				if err := log.RecordEffectPrepared(LocalPaymentTransaction, journal.EffectID(LocalPaymentTransaction)); err != nil { t.Fatal(err) }
 				return log.Frames()
@@ -468,7 +471,7 @@ func TestJournalReplayRejectsNonCanonicalIgnoredVariantFields(t *testing.T) {
 				localID := journal.EffectID(LocalPaymentTransaction)
 				if _, err := journal.PrepareLeg(LocalPaymentTransaction, localID); err != nil { t.Fatal(err) }
 				if err := log.RecordEffectPrepared(LocalPaymentTransaction, localID); err != nil { t.Fatal(err) }
-				if err := journal.CommitLeg(LocalPaymentTransaction, replayTestLocalEvidence(journal)); err != nil { t.Fatal(err) }
+				if _, err := journal.CommitLeg(LocalPaymentTransaction, replayTestLocalEvidence(journal)); err != nil { t.Fatal(err) }
 				if err := log.RecordEffectCommitted(replayTestLocalEvidence(journal)); err != nil { t.Fatal(err) }
 				return log.Frames()
 			}(),
@@ -519,6 +522,20 @@ func TestJournalReplayRejectsIgnoredRejectedAndIndeterminateFields(t *testing.T)
 		if err := log.RecordAuthorized(); err != nil {
 			t.Fatal(err)
 		}
+		localID := journal.EffectID(LocalPaymentTransaction)
+		if _, err := journal.PrepareLeg(LocalPaymentTransaction, localID); err != nil {
+			t.Fatal(err)
+		}
+		if err := log.RecordEffectPrepared(LocalPaymentTransaction, localID); err != nil {
+			t.Fatal(err)
+		}
+		localEvidence := replayTestLocalEvidence(journal)
+		if _, err := journal.CommitLeg(LocalPaymentTransaction, localEvidence); err != nil {
+			t.Fatal(err)
+		}
+		if err := log.RecordEffectCommitted(localEvidence); err != nil {
+			t.Fatal(err)
+		}
 		effectID := journal.EffectID(TreasuryFee)
 		if _, err := journal.PrepareLeg(TreasuryFee, effectID); err != nil {
 			t.Fatal(err)
@@ -533,7 +550,7 @@ func TestJournalReplayRejectsIgnoredRejectedAndIndeterminateFields(t *testing.T)
 			t.Fatal(err)
 		}
 		frames := log.Frames()
-		frames[3].Event.Evidence = &Evidence{}
+		frames[5].Event.Evidence = &Evidence{}
 		if _, err := ReplayJournal(frames, log.Anchor()); err != ErrReplayInvalidEvent {
 			t.Fatalf("non-canonical indeterminate event error = %v, want %v", err, ErrReplayInvalidEvent)
 		}
