@@ -54,6 +54,19 @@ Every evaluation should compare the same frozen inputs and scenario set against 
 
 If a comparator cannot be run under the same conditions, report the missing comparison. Do not infer superiority.
 
+## Existing Luminous benchmark owners — mandatory reuse
+
+This programme must not fork already-defined benchmark infrastructure:
+
+- **Pre-registered run manifest and execution receipt:** use Sol-Atlas [IBAP-RUN-001 #338](https://github.com/Luminous-Dynamics/sol-atlas-leptos/issues/338) as the canonical owner for frozen task/data/split/model/resource/metric identities, execution receipts and independent evaluations. FSRE adds the societal-service estimand and operator-defined outcome contract as a domain profile, not a competing manifest format.
+- **Dependency graph shape and temporal semantics:** use Mycelix [#5923](https://github.com/Luminous-Dynamics/mycelix/issues/5923), [#6005](https://github.com/Luminous-Dynamics/mycelix/issues/6005) and [#6013](https://github.com/Luminous-Dynamics/mycelix/issues/6013). The synthetic water fixture in this PR is a service-level consumer case; it is not a replacement for the canonical hypergraph evaluator or its Rust/Go reference verifiers.
+- **Causal discovery beyond declared inventory:** use Mycelix [#5981](https://github.com/Luminous-Dynamics/mycelix/issues/5981) for hidden common-cause discovery via controlled interventions. Graph closure and causal discovery are distinct benchmark lanes.
+- **Physical/social model adequacy and runtime comparison:** use Symtropy [CIVDYN-BENCH-QUAL-001 #4392](https://github.com/Luminous-Dynamics/symtropy/issues/4392) and [CIVDYN-ENGINE-COMPARE-001 #3787](https://github.com/Luminous-Dynamics/symtropy/issues/3787). A runtime win is valid only after matched behavioural semantics and model-adequacy gates.
+- **Causal diagnosis and experiment selection:** use Symthaea [CEB-CAUSE-001 #10366](https://github.com/Luminous-Dynamics/symthaea/issues/10366) and [REA-RUST-008 #9911](https://github.com/Luminous-Dynamics/symthaea/issues/9911). FSRE evaluates downstream service value and operator safety, not a second causal engine.
+- **Spatial resilience and alternatives:** use Sol-Atlas [SOL-ATLAS-004 #21](https://github.com/Luminous-Dynamics/sol-atlas-leptos/issues/21) with its existing provenance/validation owners. A graph alternative is not an authorised or physically capable substitute until a domain authority and model establish that.
+
+This mapping makes FSRE an integration benchmark over existing owners. Existing benchmark results are not automatically FSRE results, and FSRE does not inherit any upstream component's performance or maturity claim.
+
 ## 4. Test tiers
 
 ### T0 — Contract correctness
