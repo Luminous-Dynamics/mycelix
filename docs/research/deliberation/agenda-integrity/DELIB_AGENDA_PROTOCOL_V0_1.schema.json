@@ -1,0 +1,123 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/delib-agenda-protocol-v0.1.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "protocol_id",
+    "version",
+    "status",
+    "title",
+    "owning_issue",
+    "parent_issue",
+    "composition",
+    "semantic_relations",
+    "task_classes",
+    "transformation_families",
+    "metric_ids",
+    "qualification_gates",
+    "claim_ceiling"
+  ],
+  "properties": {
+    "protocol_id": {
+      "const": "DELIB-AGENDA-001"
+    },
+    "version": {
+      "const": "0.1.0"
+    },
+    "status": {
+      "const": "research-proposal"
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1
+    },
+    "owning_issue": {
+      "type": "string",
+      "format": "uri"
+    },
+    "parent_issue": {
+      "type": "string",
+      "format": "uri"
+    },
+    "composition": {
+      "type": "object",
+      "minProperties": 6,
+      "additionalProperties": {
+        "type": "string",
+        "format": "uri"
+      }
+    },
+    "semantic_relations": {
+      "type": "array",
+      "minItems": 4,
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "equivalent",
+          "disclosed_tradeoff",
+          "invalid_mutation",
+          "normative_pluralism"
+        ]
+      }
+    },
+    "task_classes": {
+      "type": "array",
+      "minItems": 2,
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "verifiable",
+          "normative_pluralism"
+        ]
+      }
+    },
+    "transformation_families": {
+      "type": "array",
+      "minItems": 12,
+      "uniqueItems": true,
+      "items": {
+        "type": "string"
+      }
+    },
+    "metric_ids": {
+      "type": "array",
+      "minItems": 10,
+      "uniqueItems": true,
+      "items": {
+        "type": "string"
+      }
+    },
+    "qualification_gates": {
+      "type": "array",
+      "minItems": 8,
+      "uniqueItems": true,
+      "items": {
+        "type": "string"
+      }
+    },
+    "claim_ceiling": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "synthetic",
+        "model",
+        "excluded"
+      ],
+      "properties": {
+        "synthetic": {
+          "type": "string"
+        },
+        "model": {
+          "type": "string"
+        },
+        "excluded": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}
