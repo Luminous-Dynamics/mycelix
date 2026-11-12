@@ -29,9 +29,9 @@ jobs:
         uses: actions/checkout@v4
       - name: Install stable Rust
         uses: dtolnay/rust-toolchain@stable
-      - name: Run qualifier tests
+      - name: Run distributed evidence qualifier tests
         run: cargo test --manifest-path docs/research/deliberation/distributed-information/qualifier/Cargo.toml
-      - name: Validate evidence and decision-readiness fixtures
+      - name: Validate evidence and metadata intake manifests
         run: |
           cargo run --manifest-path docs/research/deliberation/distributed-information/qualifier/Cargo.toml -- \
             docs/research/deliberation/distributed-information/DIST_INFO_PROTOCOL_V0_1.json \
@@ -40,3 +40,5 @@ jobs:
             docs/research/deliberation/distributed-information/DIST_INFO_FIXTURES_V0_1.schema.json \
             docs/research/deliberation/distributed-information/GROUPMEMBENCH_METADATA_INTAKE_V0_1.json \
             docs/research/deliberation/distributed-information/GROUPMEMBENCH_METADATA_INTAKE_V0_1.schema.json
+      - name: Run read-only adapter contract tests
+        run: cargo test --manifest-path docs/research/deliberation/distributed-information/groupmembench-adapter/Cargo.toml
