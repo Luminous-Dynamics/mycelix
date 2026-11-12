@@ -74,7 +74,6 @@ fn validate_fixture(f: &Value) -> (Vec<String>, usize, usize, usize, usize) {
         let mut option_constraints = BTreeSet::new();
         for c in arr(option, "constraints") {
             if let Some(c) = c.as_str() {
-                required_constraints.insert(c.to_owned());
                 option_constraints.insert(c.to_owned());
             } else { errors.push(format!("source option {id} has non-string constraint ID")); }
         }
@@ -141,6 +140,7 @@ fn validate_fixture(f: &Value) -> (Vec<String>, usize, usize, usize, usize) {
     }
     for (source_id, constraints) in &source_constraints_by_id {
         if !required_ids.contains(source_id) && !represented_sources.contains(source_id) { continue; }
+        required_constraints.extend(constraints.iter().cloned());
         let retained = preserved_constraints_by_source.get(source_id).cloned().unwrap_or_default();
         for constraint in constraints {
             if !retained.contains(constraint) {
