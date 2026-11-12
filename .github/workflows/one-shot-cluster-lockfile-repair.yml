@@ -1,0 +1,183 @@
+name: One-shot Cargo-generated cluster lockfile repair
+
+on:
+  push:
+    branches:
+      - fix/mycelix-cluster-locks-v0.1
+
+permissions:
+  contents: write
+
+jobs:
+  regenerate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - name: Checkout repair branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+
+      - name: Install the declared Rust 1.96.0 lockfile-generation toolchain
+        uses: dtolnay/rust-toolchain@1.96.0
+
+      - name: Verify exact generator identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          rustc +1.96.0 -Vv | tee "$RUNNER_TEMP/rustc.txt"
+          cargo +1.96.0 -Vv | tee "$RUNNER_TEMP/cargo.txt"
+          grep -F 'rustc 1.96.0 ' "$RUNNER_TEMP/rustc.txt"
+          grep -F 'cargo 1.96.0 ' "$RUNNER_TEMP/cargo.txt"
+
+      - name: Regenerate Finance lockfile with Cargo
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd mycelix-workspace/mycelix-finance
+          cp Cargo.lock "$RUNNER_TEMP/finance-Cargo.lock.before"
+          cargo +1.96.0 metadata --format-version 1 > /dev/null
+          cp Cargo.lock "$RUNNER_TEMP/finance-Cargo.lock.after"
+          echo "Finance pre-generation SHA-256:"
+          sha256sum "$RUNNER_TEMP/finance-Cargo.lock.before"
+          echo "Finance generated SHA-256:"
+          sha256sum "$RUNNER_TEMP/finance-Cargo.lock.after"
+
+      - name: Regenerate Governance lockfile with Cargo
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd mycelix-workspace/mycelix-governance
+          cp Cargo.lock "$RUNNER_TEMP/governance-Cargo.lock.before"
+          cargo +1.96.0 metadata --format-version 1 > /dev/null
+          cp Cargo.lock "$RUNNER_TEMP/governance-Cargo.lock.after"
+          echo "Governance pre-generation SHA-256:"
+          sha256sum "$RUNNER_TEMP/governance-Cargo.lock.before"
+          echo "Governance generated SHA-256:"
+          sha256sum "$RUNNER_TEMP/governance-Cargo.lock.after"
+
+      - name: Prove lockfile deltas are only the declared bridge edge and registry provenance
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import copy
+          import pathlib
+          import re
+          import tomllib
+
+          root = pathlib.Path.cwd()
+          specs = [
+              ("Finance", "mycelix-workspace/mycelix-finance/Cargo.lock"),
+              ("Governance", "mycelix-workspace/mycelix-governance/Cargo.lock"),
+          ]
+
+          def load(path):
+              with path.open("rb") as f:
+                  return tomllib.load(f)
+
+          def package_map(data, label):
+              rows = data.get("package", [])
+              out = {}
+              for row in rows:
+                  key = (row.get("name"), row.get("version"))
+                  if key in out:
+                      raise SystemExit(f"{label}: duplicate package identity {key}; refusing ambiguous comparison")
+                  out[key] = row
+              return out
+
+          summaries = []
+          for cluster, rel in specs:
+              original_path = pathlib.Path("/tmp") / f"{cluster.lower()}-Cargo.lock.before"
+              generated_path = root / rel
+              # The before copy was captured by the workflow before Cargo touched this lock.
+              # Read it from RUNNER_TEMP, which is mounted at /home/runner/work/_temp.
+              import os
+              original_path = pathlib.Path(os.environ["RUNNER_TEMP"]) / f"{cluster.lower()}-Cargo.lock.before"
+              old = load(original_path)
+              new = load(generated_path)
+
+              if old.get("version") != new.get("version"):
+                  raise SystemExit(f"{cluster}: lockfile format version changed")
+              old_pkgs = package_map(old, f"{cluster} original")
+              new_pkgs = package_map(new, f"{cluster} generated")
+              if old_pkgs.keys() != new_pkgs.keys():
+                  missing = sorted(old_pkgs.keys() - new_pkgs.keys())
+                  added = sorted(new_pkgs.keys() - old_pkgs.keys())
+                  raise SystemExit(f"{cluster}: package set changed; missing={missing}, added={added}")
+
+              added_edges = []
+              for key in sorted(old_pkgs):
+                  before = old_pkgs[key]
+                  after = new_pkgs[key]
+                  old_deps = set(before.get("dependencies", []))
+                  new_deps = set(after.get("dependencies", []))
+                  removed = old_deps - new_deps
+                  added = new_deps - old_deps
+                  if removed:
+                      raise SystemExit(f"{cluster}: dependencies removed from {key}: {sorted(removed)}")
+                  unexpected = added - {"mycelix-bridge-entry-types"}
+                  if unexpected:
+                      raise SystemExit(f"{cluster}: unexpected dependency additions to {key}: {sorted(unexpected)}")
+                  for dep in sorted(added):
+                      added_edges.append((key[0], key[1], dep))
+
+                  before_rest = copy.deepcopy(before)
+                  after_rest = copy.deepcopy(after)
+                  before_rest.pop("dependencies", None)
+                  after_rest.pop("dependencies", None)
+
+                  if key == ("sovereign-profile", "0.1.2"):
+                      for field in ("source", "checksum"):
+                          before_rest.pop(field, None)
+                          after_rest.pop(field, None)
+                      if before.get("source") is not None or before.get("checksum") is not None:
+                          raise SystemExit(f"{cluster}: expected missing original sovereign-profile provenance")
+                      if after.get("source") != "registry+https://github.com/rust-lang/crates.io-index":
+                          raise SystemExit(f"{cluster}: Cargo did not restore crates.io source for sovereign-profile")
+                      if not re.fullmatch(r"[0-9a-f]{64}", after.get("checksum", "")):
+                          raise SystemExit(f"{cluster}: invalid sovereign-profile registry checksum")
+                  if before_rest != after_rest:
+                      raise SystemExit(f"{cluster}: unexpected non-dependency package change for {key}")
+
+              if not added_edges:
+                  raise SystemExit(f"{cluster}: Cargo produced no expected bridge dependency edges")
+              other_top_level = {k: v for k, v in old.items() if k != "package"}
+              new_top_level = {k: v for k, v in new.items() if k != "package"}
+              if other_top_level != new_top_level:
+                  raise SystemExit(f"{cluster}: unexpected top-level lockfile metadata change")
+
+              summaries.append((cluster, len(added_edges), added_edges))
+
+          for cluster, count, edges in summaries:
+              print(f"{cluster}: PASS — {count} Cargo-generated mycelix-bridge-entry-types edges; sovereign-profile registry provenance restored")
+              for package, version, dependency in edges:
+                  print(f"  {package} {version} + {dependency}")
+          print("lockfile_delta_policy=ONLY_DECLARED_BRIDGE_ENTRY_TYPE_EDGES_AND_SOVEREIGN_PROFILE_PROVENANCE")
+          PY
+
+      - name: Prove both regenerated graphs are locked and resolvable
+        shell: bash
+        run: |
+          set -euo pipefail
+          (cd mycelix-workspace/mycelix-finance && cargo +1.96.0 metadata --locked --format-version 1 > /dev/null)
+          (cd mycelix-workspace/mycelix-governance && cargo +1.96.0 metadata --locked --format-version 1 > /dev/null)
+
+      - name: Remove one-shot workflow and commit only Cargo-generated lockfiles
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm .github/workflows/one-shot-cluster-lockfile-repair.yml
+          git diff --check
+          git diff --stat
+          git status --short
+          expected=2
+          actual="$(git diff --name-only | grep -Ec '^mycelix-workspace/mycelix-(finance|governance)/Cargo.lock$' || true)"
+          [[ "$actual" -eq "$expected" ]]
+          [[ -z "$(git status --porcelain | grep -vE '^( M| D) (mycelix-workspace/mycelix-(finance|governance)/Cargo.lock|.github/workflows/one-shot-cluster-lockfile-repair.yml)$' || true)" ]]
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add mycelix-workspace/mycelix-finance/Cargo.lock mycelix-workspace/mycelix-governance/Cargo.lock
+          git add -u .github/workflows/one-shot-cluster-lockfile-repair.yml
+          git commit -m "build(mycelix): regenerate Finance and Governance lockfiles with Cargo"
+          git push origin "HEAD:$GITHUB_REF_NAME"
