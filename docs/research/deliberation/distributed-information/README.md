@@ -93,3 +93,12 @@ Passing synthetic qualification validates only bounded evidence-custody, event-s
 The next benchmark stage is specified separately in [CROSSPROFILE_EXTENSION_DESIGN_V0_1.md](CROSSPROFILE_EXTENSION_DESIGN_V0_1.md) and its machine-readable [ownership matrix](CROSSPROFILE_OWNERSHIP_MATRIX_V0_1.json). It independently crosses support, decoy and irrelevant fact ownership while freezing fact text and the answer oracle, then adds a separate attribution-visibility control. This design-only artifact contains no reused CrossProfile task text and does not claim an executed 480-task reproduction.
 
 The extension is intended to detect whether a method preserves *balanced, source-grounded evidence*, not whether it blindly prefers rare facts, frequent facts, or on-topic facts. Primary comparisons will include fixed-token and fixed-item-count controls; average accuracy alone is insufficient without worst-ownership-cell and evidence-retention results.
+
+
+## External comparator ledger
+
+The structured comparator ledger and schema are maintained in:
+- `EXTERNAL_COMPARATOR_LEDGER_V0_1.json`
+- `EXTERNAL_COMPARATOR_LEDGER_V0_1.schema.json`
+
+The ledger separates benchmark role (information elicitation, memory compression, forecasting, communication control, nudge sensitivity, group-memory use) from the permission and custody state of external task/result artifacts. Paper results are comparison targets, not reproduced results. Public code licenses are not treated as blanket data-subject consent or source-material provenance. No external participant records or raw conversation corpus are imported by this PR.
