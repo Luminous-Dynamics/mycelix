@@ -184,7 +184,7 @@ pub fn evaluate(
             report.below_minimum_service_seconds += duration;
         }
 
-        let safe = is_safe(contract, segment);
+        let safe = is_safe(contract, *segment);
         if safe {
             current_unsafe_episode = 0;
             if segment.service_fraction >= 1.0 {
