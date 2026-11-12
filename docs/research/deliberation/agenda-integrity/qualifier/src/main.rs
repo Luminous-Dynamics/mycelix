@@ -282,70 +282,143 @@ fn main() -> ExitCode {
 #[cfg(test)]
 mod tests {
     use super::*;
-    #[test]
-    fn sha256_is_stable_for_same_json() {
-        let v = serde_json::json!({"b":2,"a":1});
-        assert_eq!(digest(&v).unwrap(), digest(&v).unwrap());
+
+    fn corpus() -> Value {
+        serde_json::from_str(include_str!("../../DELIB_AGENDA_FIXTURES_V0_1.json")).unwrap()
     }
-    #[test]
-    fn empty_source_registry_is_rejected() {
-        let f = serde_json::json!({"source_options":[],"presented_options":[]});
-        let (e,_,_,_,_) = validate_fixture(&f);
-        assert!(e.iter().any(|x| x.contains("source option registry is empty")));
+
+    fn fixture(id: &str) -> Value {
+        corpus()["fixtures"].as_array().unwrap().iter()
+            .find(|f| f["fixture_id"].as_str() == Some(id)).unwrap().clone()
     }
-    #[test]
-    fn no_action_is_a_first_class_option() {
-        let source = serde_json::json!({"O-NONE":{"option_id":"O-NONE","origin_id":"c","required_in_agenda":true,"constraints":["N"],"status":"admitted"}});
-        assert_eq!(source["O-NONE"]["option_id"], "O-NONE");
+
+    fn disposition(f: &Value) -> (&'static str, Vec<String>) {
+        let (errors, _, _, _, _) = validate_fixture(f);
+        let computed = if !errors.is_empty() { "reject" }
+            else if !b(f, "source_registry_complete") { "indeterminate" }
+            else { "pass" };
+        (computed, errors)
     }
+
     #[test]
-    fn unverified_origin_is_not_admitted() {
-        let item=serde_json::json!({"option_id":"X","origin_status":"unverified","source_option_ids":[]});
-        let refs=set(&item["source_option_ids"]);
-        assert!(refs.is_empty());
-        assert_eq!(s(&item,"origin_status"),Some("unverified"));
+    fn every_frozen_fixture_matches_its_declared_oracle() {
+        let doc = corpus();
+        assert_eq!(arr(&doc, "fixtures").len(), FIXTURE_COUNT);
+        for f in arr(&doc, "fixtures") {
+            let (actual, errors) = disposition(f);
+            assert_eq!(actual, s(&f["expected"], "disposition").unwrap(),
+                "{}: {}", s(f, "fixture_id").unwrap(), errors.join("; "));
+        }
     }
+
     #[test]
-    fn unknown_source_registry_is_not_a_pass() {
-        let complete = false;
-        assert!(!complete);
+    fn complete_agenda_positive_control_passes() {
+        assert_eq!(disposition(&fixture("AG-001")).0, "pass");
     }
+
     #[test]
-    fn disclosed_tradeoff_is_distinct_from_equivalence() {
-        let v=serde_json::json!({"semantic_relation":"disclosed_tradeoff","tradeoff_disclosed":true});
-        assert_eq!(s(&v,"semantic_relation"),Some("disclosed_tradeoff"));
-        assert!(b(&v,"tradeoff_disclosed"));
+    fn source_contributed_option_omission_is_rejected() {
+        let (d, e) = disposition(&fixture("AG-005"));
+        assert_eq!(d, "reject");
+        assert!(e.iter().any(|x| x.contains("required source option O-C")));
     }
+
     #[test]
-    fn a_normative_task_has_no_gold_preference() {
-        let v=serde_json::json!({"task_class":"normative_pluralism","gold_option":null});
-        assert!(v["gold_option"].is_null());
+    fn bundle_with_hidden_constraint_is_rejected() {
+        let (d, e) = disposition(&fixture("AG-010"));
+        assert_eq!(d, "reject");
+        assert!(e.iter().any(|x| x.contains("constraint") && x.contains("O-B")));
     }
+
     #[test]
-    fn bundle_can_cover_multiple_source_options() {
-        let v=serde_json::json!({"source_option_ids":["O-A","O-B"],"representation_kind":"bundle"});
-        assert_eq!(set(&v["source_option_ids"]).len(),2);
+    fn transparent_bundle_preserves_each_source_constraint() {
+        let (d, e) = disposition(&fixture("AG-011"));
+        assert_eq!(d, "pass", "{}", e.join("; "));
     }
+
     #[test]
-    fn split_requires_disclosure_and_identity() {
-        let v=serde_json::json!({"representation_kind":"split","split_group_id":"G","split_disclosed":true});
-        assert_eq!(s(&v,"split_group_id"),Some("G"));
-        assert!(b(&v,"split_disclosed"));
+    fn bundle_cannot_launder_one_options_constraint_as_another_options_constraint() {
+        let mut f = fixture("AG-011");
+        let bundle = f["presented_options"].as_array_mut().unwrap().iter_mut()
+            .find(|x| x["representation_kind"] == "bundle").unwrap();
+        bundle["source_option_ids"] = serde_json::json!(["O-A"]);
+        let (d, e) = disposition(&f);
+        assert_eq!(d, "reject");
+        assert!(e.iter().any(|x| x.contains("carries constraint") || x.contains("required source option O-B")));
     }
+
     #[test]
-    fn cutoff_is_explicit() {
-        let v=serde_json::json!({"decision_cutoff_sequence":10});
-        assert_eq!(v["decision_cutoff_sequence"].as_u64(),Some(10));
+    fn unmarked_default_is_rejected() {
+        let (d, e) = disposition(&fixture("AG-009"));
+        assert_eq!(d, "reject");
+        assert!(e.iter().any(|x| x.contains("default")));
     }
+
     #[test]
-    fn explicit_default_needs_separate_authority() {
-        let v=serde_json::json!({"is_default":true,"default_declared":true,"default_authority":"process-rule-1"});
-        assert!(b(&v,"is_default") && b(&v,"default_declared"));
-        assert!(s(&v,"default_authority").is_some());
+    fn no_action_option_is_kept_in_the_option_universe() {
+        let f = fixture("AG-008");
+        assert!(arr(&f, "source_options").iter().any(|x| x["option_id"] == "O-NONE"));
+        assert!(arr(&f, "presented_options").iter().any(|x| x["source_option_ids"].as_array().unwrap().iter().any(|v| v == "O-NONE")));
+        assert_eq!(disposition(&f).0, "pass");
     }
+
     #[test]
-    fn pair_material_identity_is_not_a_semantic_score() {
-        let v=serde_json::json!({"matched_pair_id":"P","matched_material_id":"M"});
-        assert_eq!(s(&v,"matched_material_id"),Some("M"));
+    fn unauthorized_post_cutoff_option_is_rejected() {
+        let (d, e) = disposition(&fixture("AG-013"));
+        assert_eq!(d, "reject");
+        assert!(e.iter().any(|x| x.contains("after the frozen agenda cutoff")));
+    }
+
+    #[test]
+    fn incomplete_source_registry_is_indeterminate_not_pass() {
+        let (d, e) = disposition(&fixture("AG-016"));
+        assert_eq!(d, "indeterminate", "{}", e.join("; "));
+    }
+
+    #[test]
+    fn normative_pluralism_has_no_gold_policy_answer() {
+        let f = fixture("AG-014");
+        assert!(f["task"]["gold_option"].is_null());
+        assert_eq!(disposition(&f).0, "pass");
+    }
+
+    #[test]
+    fn disclosed_tradeoff_is_not_required_to_be_equivalent() {
+        let (d, e) = disposition(&fixture("AG-015"));
+        assert_eq!(d, "pass", "{}", e.join("; "));
+    }
+
+    #[test]
+    fn undisclosed_split_is_rejected_but_disclosed_split_is_admitted() {
+        assert_eq!(disposition(&fixture("AG-017")).0, "reject");
+        let (d, e) = disposition(&fixture("AG-018"));
+        assert_eq!(d, "pass", "{}", e.join("; "));
+    }
+
+    #[test]
+    fn invalid_mutation_label_must_trigger_a_structural_failure() {
+        let mut f = fixture("AG-001");
+        f["agenda_intervention"]["semantic_relation"] = Value::String("invalid_mutation".into());
+        let (d, e) = disposition(&f);
+        assert_eq!(d, "reject");
+        assert!(e.iter().any(|x| x.contains("declared invalid")));
+    }
+
+    #[test]
+    fn equivalent_pair_keeps_source_universe_and_task_constant() {
+        let doc = corpus();
+        let a = arr(&doc, "fixtures").iter().find(|f| f["fixture_id"] == "AG-002").unwrap();
+        let b = arr(&doc, "fixtures").iter().find(|f| f["fixture_id"] == "AG-003").unwrap();
+        assert_eq!(a["source_options"], b["source_options"]);
+        assert_eq!(a["task"], b["task"]);
+        assert_eq!(a["agenda_intervention"]["matched_material_id"], b["agenda_intervention"]["matched_material_id"]);
+        assert_ne!(a["agenda_intervention"]["variant_label"], b["agenda_intervention"]["variant_label"]);
+    }
+
+    #[test]
+    fn source_and_agenda_digests_are_deterministic() {
+        let f = fixture("AG-001");
+        assert_eq!(digest(&f["source_options"]).unwrap(), digest(&f["source_options"]).unwrap());
+        assert_eq!(digest(&f["presented_options"]).unwrap(), digest(&f["presented_options"]).unwrap());
     }
 }
