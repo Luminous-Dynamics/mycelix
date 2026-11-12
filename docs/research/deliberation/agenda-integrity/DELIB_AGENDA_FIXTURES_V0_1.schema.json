@@ -1,0 +1,305 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/delib-agenda-fixtures-v0.1.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "status",
+    "protocol_id",
+    "fixture_count",
+    "fixtures"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "delib-agenda-fixtures-v0.1"
+    },
+    "status": {
+      "const": "synthetic_fixture_design_unexecuted"
+    },
+    "protocol_id": {
+      "const": "DELIB-AGENDA-001"
+    },
+    "fixture_count": {
+      "const": 18
+    },
+    "fixtures": {
+      "type": "array",
+      "minItems": 18,
+      "maxItems": 18,
+      "items": {
+        "$ref": "#/$defs/fixture"
+      }
+    }
+  },
+  "$defs": {
+    "sourceOption": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "option_id",
+        "origin_id",
+        "required_in_agenda",
+        "constraints",
+        "status"
+      ],
+      "properties": {
+        "option_id": {
+          "type": "string"
+        },
+        "origin_id": {
+          "type": "string"
+        },
+        "required_in_agenda": {
+          "type": "boolean"
+        },
+        "constraints": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true
+        },
+        "status": {
+          "enum": [
+            "admitted",
+            "candidate",
+            "rejected"
+          ]
+        }
+      }
+    },
+    "presentedOption": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "option_id",
+        "source_option_ids",
+        "display_position",
+        "display_label",
+        "origin_status",
+        "introduced_sequence",
+        "preserved_constraint_ids",
+        "is_default",
+        "default_declared",
+        "default_authority",
+        "representation_kind",
+        "split_group_id",
+        "split_disclosed",
+        "late_mutation_authorized",
+        "late_mutation_authority"
+      ],
+      "properties": {
+        "option_id": {
+          "type": "string"
+        },
+        "source_option_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true
+        },
+        "display_position": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "display_label": {
+          "type": "string",
+          "minLength": 1
+        },
+        "origin_status": {
+          "enum": [
+            "source_recorded",
+            "unverified"
+          ]
+        },
+        "introduced_sequence": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "preserved_constraint_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true
+        },
+        "is_default": {
+          "type": "boolean"
+        },
+        "default_declared": {
+          "type": "boolean"
+        },
+        "default_authority": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "representation_kind": {
+          "enum": [
+            "single",
+            "bundle",
+            "split"
+          ]
+        },
+        "split_group_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "split_disclosed": {
+          "type": "boolean"
+        },
+        "late_mutation_authorized": {
+          "type": "boolean"
+        },
+        "late_mutation_authority": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "fixture": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "fixture_id",
+        "family_id",
+        "task",
+        "decision_cutoff_sequence",
+        "source_registry_complete",
+        "source_options",
+        "presented_options",
+        "agenda_intervention",
+        "expected"
+      ],
+      "properties": {
+        "fixture_id": {
+          "type": "string"
+        },
+        "family_id": {
+          "type": "string"
+        },
+        "task": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "task_class",
+            "gold_option",
+            "decision_rule",
+            "no_action_option_available"
+          ],
+          "properties": {
+            "task_class": {
+              "enum": [
+                "verifiable",
+                "normative_pluralism"
+              ]
+            },
+            "gold_option": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "decision_rule": {
+              "type": "string"
+            },
+            "no_action_option_available": {
+              "type": "boolean"
+            }
+          }
+        },
+        "decision_cutoff_sequence": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "source_registry_complete": {
+          "type": "boolean"
+        },
+        "source_options": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/sourceOption"
+          }
+        },
+        "presented_options": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/presentedOption"
+          }
+        },
+        "agenda_intervention": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "semantic_relation",
+            "family",
+            "tradeoff_disclosed",
+            "matched_pair_id",
+            "matched_material_id",
+            "variant_label"
+          ],
+          "properties": {
+            "semantic_relation": {
+              "enum": [
+                "equivalent",
+                "disclosed_tradeoff",
+                "invalid_mutation",
+                "normative_pluralism"
+              ]
+            },
+            "family": {
+              "type": "string"
+            },
+            "tradeoff_disclosed": {
+              "type": "boolean"
+            },
+            "matched_pair_id": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "matched_material_id": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "variant_label": {
+              "type": "string"
+            }
+          }
+        },
+        "expected": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "disposition",
+            "rationale"
+          ],
+          "properties": {
+            "disposition": {
+              "enum": [
+                "pass",
+                "reject",
+                "indeterminate"
+              ]
+            },
+            "rationale": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    }
+  }
+}
