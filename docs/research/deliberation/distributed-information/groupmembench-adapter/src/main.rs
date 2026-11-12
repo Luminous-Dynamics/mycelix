@@ -431,8 +431,13 @@ impl Bm25Index {
 
     pub fn retrieve(&self, query: &str, top_k: usize) -> Vec<usize> {
         let query_terms = tokenize_baseline(query);
-        if query_terms.is_empty() || self.lengths.is_empty() || top_k == 0 {
+        if self.lengths.is_empty() || top_k == 0 {
             return Vec::new();
+        }
+        // rank_bm25 returns the earliest documents for an empty query because
+        // every document receives the same zero score and Python sorting is stable.
+        if query_terms.is_empty() {
+            return (0..self.lengths.len().min(top_k)).collect();
         }
 
         let mut scored = Vec::with_capacity(self.lengths.len());
@@ -644,6 +649,14 @@ mod tests {
         let first = project_question_line(r#"{"id":"q1","question":"What changed?","answer":"secret answer","asking_user_id":"User_1"}"#).unwrap();
         let second = project_question_line(r#"{"id":"q1","question":"What changed?","answer":"different secret","asking_user_id":"User_1"}"#).unwrap();
         assert_eq!(first.candidate_view, second.candidate_view);
+    }
+
+    #[test]
+    fn empty_token_query_matches_upstream_stable_zero_score_top_k() {
+        let index = Bm25Index::from_tokenized_documents(vec![
+            vec!["alpha".into()], vec!["beta".into()], vec!["gamma".into()]
+        ]);
+        assert_eq!(index.retrieve(" !!! ", 2), vec![0,1]);
     }
 
     #[test]
