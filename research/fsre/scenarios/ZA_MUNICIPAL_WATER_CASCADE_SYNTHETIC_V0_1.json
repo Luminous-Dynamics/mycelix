@@ -1,0 +1,181 @@
+{
+  "schema": "luminous.fsre.synthetic-cascade-scenario.v0.1",
+  "scenario_id": "za-municipal-water-cascade-synthetic-001",
+  "version": "0.1.0",
+  "status": "SYNTHETIC_REFERENCE_FIXTURE",
+  "jurisdiction_context": {
+    "country_code": "ZA",
+    "municipality": null,
+    "note": "South African context only. This fixture does not represent any real municipality, utility, asset, network, or operating condition."
+  },
+  "model_boundary": {
+    "kind": "structural_dependency_propagation",
+    "time_dependent": false,
+    "probabilistic": false,
+    "hydraulic_solver": false,
+    "water_quality_solver": false,
+    "power_flow_solver": false,
+    "capacity_model": false,
+    "control_instructions": false,
+    "semantics": {
+      "required_groups": "A consumer remains structurally viable only if every required group has at least one viable provider.",
+      "alternatives_within_group": "Members of one required group are alternatives; one viable member is sufficient for this structural rule.",
+      "cascade": "A failed provider can make a consumer fail. Re-evaluate until a fixed point is reached.",
+      "common_cause": "One event may fail multiple nodes simultaneously. It is not assigned a probability.",
+      "unknown": "Unknown evidence must remain unknown in future implementations; this fixture uses only explicit nominal and failed states."
+    }
+  },
+  "nodes": [
+    {"id": "raw_water_intake", "kind": "source", "service_sink": false},
+    {"id": "grid_feeder_primary", "kind": "energy_supply", "service_sink": false},
+    {"id": "grid_feeder_backup", "kind": "energy_supply", "service_sink": false},
+    {"id": "telemetry_network", "kind": "communications", "service_sink": false},
+    {"id": "local_manual_control", "kind": "operational_capability", "service_sink": false},
+    {"id": "treatment_asset", "kind": "water_treatment", "service_sink": false},
+    {"id": "high_lift_pump_station", "kind": "pumping", "service_sink": false},
+    {"id": "service_reservoir", "kind": "storage", "service_sink": false},
+    {"id": "distribution_network", "kind": "distribution", "service_sink": false},
+    {"id": "household_water_service", "kind": "essential_service", "service_sink": true},
+    {"id": "hospital_water_service", "kind": "essential_service", "service_sink": true},
+    {"id": "wastewater_lift_asset", "kind": "wastewater_pumping", "service_sink": false},
+    {"id": "wastewater_lift_station", "kind": "wastewater_pumping", "service_sink": false},
+    {"id": "wastewater_treatment_plant", "kind": "wastewater_treatment", "service_sink": false},
+    {"id": "effluent_compliance_service", "kind": "environmental_service", "service_sink": true}
+  ],
+  "dependency_rules": [
+    {
+      "consumer": "treatment_asset",
+      "requires_all_of_groups": [
+        ["raw_water_intake"],
+        ["grid_feeder_primary", "grid_feeder_backup"],
+        ["telemetry_network", "local_manual_control"]
+      ]
+    },
+    {
+      "consumer": "high_lift_pump_station",
+      "requires_all_of_groups": [
+        ["treatment_asset"],
+        ["grid_feeder_primary", "grid_feeder_backup"]
+      ]
+    },
+    {
+      "consumer": "service_reservoir",
+      "requires_all_of_groups": [
+        ["high_lift_pump_station"]
+      ]
+    },
+    {
+      "consumer": "distribution_network",
+      "requires_all_of_groups": [
+        ["service_reservoir"]
+      ]
+    },
+    {
+      "consumer": "household_water_service",
+      "requires_all_of_groups": [
+        ["distribution_network"]
+      ]
+    },
+    {
+      "consumer": "hospital_water_service",
+      "requires_all_of_groups": [
+        ["distribution_network"]
+      ]
+    },
+    {
+      "consumer": "wastewater_lift_station",
+      "requires_all_of_groups": [
+        ["wastewater_lift_asset"],
+        ["grid_feeder_primary", "grid_feeder_backup"],
+        ["telemetry_network", "local_manual_control"]
+      ]
+    },
+    {
+      "consumer": "wastewater_treatment_plant",
+      "requires_all_of_groups": [
+        ["wastewater_lift_station"],
+        ["grid_feeder_primary", "grid_feeder_backup"]
+      ]
+    },
+    {
+      "consumer": "effluent_compliance_service",
+      "requires_all_of_groups": [
+        ["wastewater_treatment_plant"]
+      ]
+    }
+  ],
+  "service_weights": [
+    {"service": "household_water_service", "weight": 5, "unit": "synthetic_priority_points"},
+    {"service": "hospital_water_service", "weight": 10, "unit": "synthetic_priority_points"},
+    {"service": "effluent_compliance_service", "weight": 7, "unit": "synthetic_priority_points"}
+  ],
+  "fault_scenarios": [
+    {
+      "id": "single_primary_feeder_loss",
+      "failed_nodes": ["grid_feeder_primary"],
+      "expected_failed_service_sinks": [],
+      "expected_interpretation": "Backup feeder preserves structural viability. This does not prove sufficient electrical capacity or an actual transfer mechanism."
+    },
+    {
+      "id": "telemetry_loss_manual_fallback",
+      "failed_nodes": ["telemetry_network"],
+      "expected_failed_service_sinks": [],
+      "expected_interpretation": "Manual control preserves the declared control-capability dependency. This does not establish staffing availability or safe manual operation."
+    },
+    {
+      "id": "raw_water_source_loss",
+      "failed_nodes": ["raw_water_intake"],
+      "expected_failed_service_sinks": [
+        "household_water_service",
+        "hospital_water_service"
+      ],
+      "expected_interpretation": "Potable water service sinks fail structurally; wastewater treatment remains structurally available."
+    },
+    {
+      "id": "treatment_asset_failure",
+      "failed_nodes": ["treatment_asset"],
+      "expected_failed_service_sinks": [
+        "household_water_service",
+        "hospital_water_service"
+      ],
+      "expected_interpretation": "Downstream potable water chain fails structurally."
+    },
+    {
+      "id": "wastewater_treatment_failure",
+      "failed_nodes": ["wastewater_treatment_plant"],
+      "expected_failed_service_sinks": [
+        "effluent_compliance_service"
+      ],
+      "expected_interpretation": "Wastewater compliance service fails while potable water sinks remain structurally available."
+    },
+    {
+      "id": "regional_grid_common_cause",
+      "failed_nodes": ["grid_feeder_primary", "grid_feeder_backup"],
+      "expected_failed_service_sinks": [
+        "household_water_service",
+        "hospital_water_service",
+        "effluent_compliance_service"
+      ],
+      "expected_interpretation": "Common-cause loss of both declared feeder alternatives propagates across potable and wastewater service chains."
+    }
+  ],
+  "scoring": {
+    "primary_metric": "weighted_failed_service_sinks",
+    "formula": "sum(weight for each expected or computed failed service sink)",
+    "weights_are_real_world_values": false,
+    "probability_weighted": false,
+    "note": "Use only to check deterministic fixture semantics. Do not interpret as a real-world risk score or priority ranking."
+  },
+  "provenance": {
+    "input_class": "synthetic",
+    "source_data": [],
+    "created_for": "FSRE benchmark protocol v0.1",
+    "limitations": [
+      "No real municipal data.",
+      "No flow, pressure, storage volume, water quality, service duration or repair-time model.",
+      "No probabilities or risk estimates.",
+      "No legal ownership, operational authority or procurement state.",
+      "No inference about any named municipality."
+    ]
+  }
+}
