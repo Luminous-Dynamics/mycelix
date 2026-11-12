@@ -437,4 +437,30 @@ mod tests {
         assert_eq!(digest(&f["source_options"]).unwrap(), digest(&f["source_options"]).unwrap());
         assert_eq!(digest(&f["presented_options"]).unwrap(), digest(&f["presented_options"]).unwrap());
     }
+    #[test]
+    fn candidate_source_option_is_not_required_but_cannot_be_promoted() {
+        let mut f = fixture("AG-001");
+        assert_eq!(disposition(&f).0, "pass");
+        f["presented_options"].as_array_mut().unwrap().push(serde_json::json!({
+            "option_id":"CANDIDATE-PROMOTED",
+            "source_option_ids":["O-CANDIDATE"],
+            "display_position":4,
+            "display_label":"Unadmitted candidate",
+            "origin_status":"source_recorded",
+            "introduced_sequence":3,
+            "preserved_constraint_ids":["CANDIDATE-ONLY-CLAUSE"],
+            "is_default":false,
+            "default_declared":false,
+            "default_authority":null,
+            "representation_kind":"single",
+            "split_group_id":null,
+            "split_disclosed":false,
+            "late_mutation_authorized":false,
+            "late_mutation_authority":null
+        }));
+        let (d, e) = disposition(&f);
+        assert_eq!(d, "reject");
+        assert!(e.iter().any(|x| x.contains("non-admitted source option")));
+    }
+
 }
