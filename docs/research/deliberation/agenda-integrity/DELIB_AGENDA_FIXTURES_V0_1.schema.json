@@ -105,7 +105,8 @@
           "minimum": 1
         },
         "display_label": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1
         },
         "origin_status": {
           "enum": [
