@@ -183,7 +183,7 @@ A versioned, typed hypergraph:
 - Every relation carries validity intervals, evidence references and a qualification state.
 - Unknown or stale relations remain explicit; they are not silently treated as healthy.
 
-For a dependency rule with requirement groups, a consumer is structurally viable only when every required group retains at least one viable alternative. This is a structural logic, not a hydraulic, electrical or economic simulation. Capacity and dynamic behaviour must be evaluated by a domain model.
+For this v0.1 integration fixture, a dependency rule with requirement groups marks a consumer structurally viable only when every required group retains at least one viable alternative. This simple rule is not a second canonical dependency engine. Production integration must reuse Mycelix's time-qualified dependency hypergraph and Sol-Atlas's explicit resilience/capability graph semantics, preserving their distinctions between declared dependency, alternative, availability, unknown closure and operational causality. Capacity and dynamic behaviour remain the responsibility of qualified domain models.
 
 ### 5.3 HypothesisSet
 
@@ -316,18 +316,28 @@ The included synthetic scenario is only a graph-semantics fixture. It has no rea
 | 4 — Supervised pilot | Human-authorised, reversible maintenance interventions | Measured service benefit with no rights or safety regression |
 | 5 — Federation | Multiple independent operators or jurisdictions | Partition, revocation, export, interoperability and local autonomy tests pass |
 
-## 10. Initial work packages
+## 10. Existing owners and implementation boundaries
 
-- **FSRE-01:** Versioned cross-domain contract definitions and fixture validation.
-- **FSRE-02:** Reconstruct or replace the currently incomplete `tools/emsr-dependency-hypergraph` benchmark path. At the inspected main revision, that directory contains an example referencing a Cargo manifest and library that are not present alongside it; do not claim the existing scale benchmark is runnable until the package and its tests are restored.
-- **FSRE-03:** Deterministic dependency and common-cause cascade evaluator.
-- **FSRE-04:** Adapter profile for Symtropy's energy and physical-service models.
-- **FSRE-05:** Spatial evidence profile for Sol-Atlas.
-- **FSRE-06:** Mycelix authority, attestation and reconciliation bindings.
-- **FSRE-07:** Blind benchmark harness and independent evaluation package.
-- **FSRE-08:** South African water-service public-data inventory and data-quality report.
+FSRE must compose with existing work rather than introduce parallel graph, evidence, benchmark or causal engines:
 
-## 11. What would constitute a paradigm-level result?
+- **Mycelix dependency semantics:** [EMSR-PROV-003 #5923](https://github.com/Luminous-Dynamics/mycelix/issues/5923) owns the time-qualified dependency hypergraph and transitive-closure contract. [#6005](https://github.com/Luminous-Dynamics/mycelix/issues/6005) and [#6013](https://github.com/Luminous-Dynamics/mycelix/issues/6013) own topology-family scale/correctness extensions; [#5981](https://github.com/Luminous-Dynamics/mycelix/issues/5981) owns controlled intervention research for hidden common causes. FSRE consumes these results; it does not create a competing graph engine.
+- **Sol-Atlas spatial and resilience context:** reuse [resilience profiles and explicit alternatives #21](https://github.com/Luminous-Dynamics/sol-atlas-leptos/issues/21), existing provenance/validation/geometry owners [#54](https://github.com/Luminous-Dynamics/sol-atlas-leptos/issues/54), [#59](https://github.com/Luminous-Dynamics/sol-atlas-leptos/issues/59), [#65](https://github.com/Luminous-Dynamics/sol-atlas-leptos/issues/65), and [pre-registered benchmark run manifest #338](https://github.com/Luminous-Dynamics/sol-atlas-leptos/issues/338). Do not create a second spatial provenance or benchmark-manifest system.
+- **Symtropy physical and social-system models:** align with [CIVDYN-BENCH-QUAL-001 #4392](https://github.com/Luminous-Dynamics/symtropy/issues/4392) and [ABM runtime/interoperability comparison #3787](https://github.com/Luminous-Dynamics/symtropy/issues/3787). Each domain model retains its own physical and statistical claim ceiling.
+- **Symthaea causal reasoning:** reuse [CEB-CAUSE-001 #10366](https://github.com/Luminous-Dynamics/symthaea/issues/10366) and [REA-RUST-008 #9911](https://github.com/Luminous-Dynamics/symthaea/issues/9911) for competing hypotheses, causal diagnosis, value-of-information and safe next-experiment selection. Do not implement a second general-purpose experiment scheduler.
+
+The inspected Mycelix main tree contains tools/emsr-dependency-hypergraph/examples/scale_benchmark.rs without a co-located Cargo manifest or library source in that directory. Related Mycelix issues and draft work describe the intended evaluator and reference-verifier programme, so the correct next action is to resolve the canonical crate location and exact candidate revision against [#5923](https://github.com/Luminous-Dynamics/mycelix/issues/5923), [#6005](https://github.com/Luminous-Dynamics/mycelix/issues/6005), [#6013](https://github.com/Luminous-Dynamics/mycelix/issues/6013) and [PR #6015](https://github.com/Luminous-Dynamics/mycelix/pull/6015)—not to declare the capability absent or create a duplicate implementation.
+
+## 11. FSRE integration work packages
+
+- **FSRE-01:** Freeze minimal cross-domain evidence, authority, intervention and outcome contracts; map them onto existing contracts before adding new types.
+- **FSRE-02:** Adapt the synthetic water-service fixture to the canonical Mycelix dependency and Sol-Atlas resilience semantics; retain unknown and unqualified states.
+- **FSRE-03:** Connect qualified Symtropy service/energy scenarios and model receipts without promoting the current single-zone prototype to national-grid claims.
+- **FSRE-04:** Connect Symthaea's hypothesis/experiment receipts to operator review and value-of-information decisions.
+- **FSRE-05:** Bind Mycelix authority grants, commitments, execution identities, revocation and outcome attestations to the intervention lifecycle.
+- **FSRE-06:** Reuse Sol-Atlas issue #338 for frozen run manifests and independent benchmark reports.
+- **FSRE-07:** Build the South African water-service public-data inventory and data-quality report with exact source version, rights, time coverage and non-operational boundary.
+
+## 12. What would constitute a paradigm-level result?
 
 A paradigm-level result would not be a large integrated dashboard or a demonstration that an AI can describe a national crisis.
 
