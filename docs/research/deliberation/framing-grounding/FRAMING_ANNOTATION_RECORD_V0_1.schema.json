@@ -73,7 +73,54 @@
             "null"
           ]
         }
-      }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "authorship_status": {
+                "enum": [
+                  "native_authored",
+                  "native_adjudicated"
+                ]
+              }
+            },
+            "required": [
+              "authorship_status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "native_review_receipt": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "pilot_ready"
+              }
+            },
+            "required": [
+              "status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "admitted_items": {
+                "minimum": 1
+              },
+              "native_review_receipts": {
+                "minimum": 1
+              }
+            }
+          }
+        }
+      ]
     },
     "rights": {
       "type": "object",
@@ -349,5 +396,118 @@
         }
       }
     }
-  }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "record_kind": {
+            "const": "synthetic_contract_fixture"
+          }
+        },
+        "required": [
+          "record_kind"
+        ]
+      },
+      "then": {
+        "properties": {
+          "source": {
+            "properties": {
+              "text_storage": {
+                "const": "embedded_synthetic"
+              },
+              "synthetic": {
+                "const": true
+              }
+            }
+          },
+          "variant": {
+            "properties": {
+              "text_storage": {
+                "const": "embedded_synthetic"
+              },
+              "synthetic": {
+                "const": true
+              }
+            }
+          },
+          "rights": {
+            "properties": {
+              "source_license_status": {
+                "const": "not_applicable_synthetic"
+              },
+              "consent_status": {
+                "const": "not_applicable_synthetic"
+              },
+              "evaluation_use": {
+                "const": "synthetic_only"
+              },
+              "training_use": {
+                "const": "synthetic_only"
+              },
+              "redistribution_use": {
+                "const": "synthetic_only"
+              }
+            }
+          },
+          "human_annotations": {
+            "maxItems": 0
+          },
+          "model_annotations": {
+            "maxItems": 0
+          },
+          "adjudication": {
+            "properties": {
+              "status": {
+                "const": "not_applicable_synthetic"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "record_kind": {
+            "const": "external_metadata_reference"
+          }
+        },
+        "required": [
+          "record_kind"
+        ]
+      },
+      "then": {
+        "properties": {
+          "source": {
+            "properties": {
+              "text_storage": {
+                "const": "metadata_reference_only"
+              },
+              "synthetic": {
+                "const": false
+              }
+            }
+          },
+          "variant": {
+            "properties": {
+              "text_storage": {
+                "const": "metadata_reference_only"
+              },
+              "synthetic": {
+                "const": false
+              }
+            }
+          },
+          "rights": {
+            "properties": {
+              "raw_text_embedded": {
+                "const": false
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
 }
