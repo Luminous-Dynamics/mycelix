@@ -42,6 +42,12 @@ pub const MAX_RESULT_BYTES: usize = 65_536;
 
 /// Maximum length for each individual hash in related_hashes
 pub const MAX_HASH_BYTES: usize = 128;
+/// Maximum length for a manufacturing evidence or part identifier
+pub const MAX_EVIDENCE_ID_BYTES: usize = 256;
+/// Maximum length for revision identifiers
+pub const MAX_EVIDENCE_REVISION_BYTES: usize = 128;
+/// Maximum length for an evidence source reference
+pub const MAX_EVIDENCE_SOURCE_URI_BYTES: usize = 2048;
 
 /// Maximum length for DID strings
 pub const MAX_DID_BYTES: usize = 256;
@@ -139,6 +145,161 @@ impl TryFrom<&Entry> for BridgeEventEntry {
 // ============================================================================
 // Cached credential entry
 // ============================================================================
+
+/// Typed artifact classes used by the manufacturing evidence thread.
+///
+/// These identify the kind of artifact being referenced; they do not assert
+/// that the artifact is valid, compliant, or approved for a production decision.
+#[derive(Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Debug)]
+pub enum ManufacturingEvidenceKind {
+    MaterialCertificate,
+    WeldingProcedureSpecification,
+    WeldingProcedureQualification,
+    NondestructiveInspectionReport,
+    MetrologyReport,
+    SimulationResult,
+    EngineeringCalculation,
+    RepairRecord,
+    RuleApplicabilityCheck,
+}
+
+/// Immutable reference to a manufacturing evidence artifact.
+///
+/// The artifact itself can live in an access-controlled store; this entry binds
+/// its digest and source reference to a part revision and optional rule revision.
+/// A digest proves byte identity only, not authorship, truth, or engineering
+/// approval. Integrity zomes must apply signer/authorization checks appropriate
+/// to the assertion before committing the entry.
+#[derive(Clone, PartialEq, Serialize, Deserialize, Debug, SerializedBytes)]
+pub struct ManufacturingEvidenceEntry {
+    /// Schema version for forward-compatible deserialization.
+    #[serde(default = "default_schema_v1")]
+    pub schema_version: u8,
+    /// Stable evidence-record identifier.
+    pub evidence_id: String,
+    /// Stable part/assembly identifier.
+    pub part_id: String,
+    /// Exact drawing/BOM revision the evidence applies to.
+    pub part_revision: String,
+    /// Typed artifact category.
+    pub evidence_kind: ManufacturingEvidenceKind,
+    /// Lower- or upper-case hexadecimal SHA-256 digest of the artifact bytes.
+    pub artifact_sha256: String,
+    /// Source locator (for example, a controlled HTTPS, IPFS, or evidence-store URI).
+    pub source_uri: String,
+    /// Optional revision/version of the source artifact.
+    pub source_revision: Option<String>,
+    /// Optional controlled rule-set identifier and revision. Both must be present or absent.
+    pub ruleset_id: Option<String>,
+    pub ruleset_revision: Option<String>,
+    /// Prior evidence-entry hash that this record explicitly supersedes, if any.
+    pub supersedes_hash: Option<String>,
+    /// Related evidence-entry hashes for traceability.
+    pub related_hashes: Vec<String>,
+    /// Time this reference was recorded to the evidence thread.
+    pub recorded_at: Timestamp,
+}
+
+impl TryFrom<&Entry> for ManufacturingEvidenceEntry {
+    type Error = WasmError;
+    fn try_from(entry: &Entry) -> Result<Self, Self::Error> {
+        match entry {
+            Entry::App(bytes) => {
+                let sb = SerializedBytes::from(UnsafeBytes::from(bytes.bytes().to_vec()));
+                <Self as TryFrom<SerializedBytes>>::try_from(sb)
+                    .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))
+            }
+            _ => Err(wasm_error!(WasmErrorInner::Guest(
+                "Not an app entry".into(),
+            ))),
+        }
+    }
+}
+
+/// Validate structural integrity of a manufacturing evidence reference.
+///
+/// This does not verify the external artifact, issuer, signature, material
+/// suitability, rule applicability, or engineering acceptance.
+pub fn validate_manufacturing_evidence(
+    entry: &ManufacturingEvidenceEntry,
+) -> Result<(), String> {
+    if entry.schema_version != 1 {
+        return Err(format!(
+            "Unsupported ManufacturingEvidenceEntry schema version {}",
+            entry.schema_version
+        ));
+    }
+    for (field, value) in [
+        ("evidence_id", entry.evidence_id.as_str()),
+        ("part_id", entry.part_id.as_str()),
+        ("part_revision", entry.part_revision.as_str()),
+    ] {
+        if value.trim().is_empty() {
+            return Err(format!("{} cannot be empty", field));
+        }
+        if value.len() > MAX_EVIDENCE_ID_BYTES {
+            return Err(format!(
+                "{} exceeds {} bytes",
+                field, MAX_EVIDENCE_ID_BYTES
+            ));
+        }
+    }
+    if entry.artifact_sha256.len() != 64
+        || !entry.artifact_sha256.bytes().all(|b| b.is_ascii_hexdigit())
+    {
+        return Err("artifact_sha256 must be exactly 64 hexadecimal characters".into());
+    }
+    if entry.source_uri.trim().is_empty() {
+        return Err("source_uri cannot be empty".into());
+    }
+    if entry.source_uri.len() > MAX_EVIDENCE_SOURCE_URI_BYTES {
+        return Err(format!(
+            "source_uri exceeds {} bytes",
+            MAX_EVIDENCE_SOURCE_URI_BYTES
+        ));
+    }
+    if let Some(revision) = &entry.source_revision {
+        if revision.trim().is_empty() || revision.len() > MAX_EVIDENCE_REVISION_BYTES {
+            return Err(format!(
+                "source_revision must be non-empty and at most {} bytes",
+                MAX_EVIDENCE_REVISION_BYTES
+            ));
+        }
+    }
+    match (&entry.ruleset_id, &entry.ruleset_revision) {
+        (Some(id), Some(revision)) => {
+            if id.trim().is_empty()
+                || id.len() > MAX_EVIDENCE_ID_BYTES
+                || revision.trim().is_empty()
+                || revision.len() > MAX_EVIDENCE_REVISION_BYTES
+            {
+                return Err("ruleset_id and ruleset_revision must be non-empty and within length limits".into());
+            }
+        }
+        (None, None) => {}
+        _ => return Err("ruleset_id and ruleset_revision must be specified together".into()),
+    }
+    if let Some(hash) = &entry.supersedes_hash {
+        if hash.trim().is_empty() || hash.len() > MAX_HASH_BYTES {
+            return Err(format!(
+                "supersedes_hash must be non-empty and at most {} bytes",
+                MAX_HASH_BYTES
+            ));
+        }
+    }
+    if entry.related_hashes.len() > 20 {
+        return Err("Cannot have more than 20 related evidence hashes".into());
+    }
+    for (i, hash) in entry.related_hashes.iter().enumerate() {
+        if hash.trim().is_empty() || hash.len() > MAX_HASH_BYTES {
+            return Err(format!(
+                "related_hashes[{}] must be non-empty and at most {} bytes",
+                i, MAX_HASH_BYTES
+            ));
+        }
+    }
+    Ok(())
+}
 
 /// Cached consciousness credential stored on the agent's source chain.
 ///
@@ -435,6 +596,26 @@ impl SchemaMigration for CachedCredentialEntry {
         }
     }
 }
+
+impl SchemaMigration for ManufacturingEvidenceEntry {
+    const CURRENT_VERSION: u8 = 1;
+
+    fn migrate(_raw: &Entry, from_version: u8) -> Result<Option<Self>, String> {
+        match from_version {
+            1 => Ok(None),
+            v if v > Self::CURRENT_VERSION => Err(format!(
+                "ManufacturingEvidenceEntry schema version {} is newer than supported version {}",
+                v,
+                Self::CURRENT_VERSION
+            )),
+            v => Err(format!(
+                "ManufacturingEvidenceEntry has no migration path from version {}",
+                v
+            )),
+        }
+    }
+}
+
 
 /// Read an entry with automatic schema migration.
 ///
@@ -768,6 +949,77 @@ mod tests {
         "food",
         "transport",
     ];
+
+    fn make_manufacturing_evidence() -> ManufacturingEvidenceEntry {
+        ManufacturingEvidenceEntry {
+            schema_version: 1,
+            evidence_id: "evidence-001".into(),
+            part_id: "hull-block-42".into(),
+            part_revision: "rev-c".into(),
+            evidence_kind: ManufacturingEvidenceKind::MetrologyReport,
+            artifact_sha256: "a".repeat(64),
+            source_uri: "https://evidence.example.test/metrology/report-001".into(),
+            source_revision: Some("report-v1".into()),
+            ruleset_id: Some("drawing-tolerance-policy".into()),
+            ruleset_revision: Some("2026-10".into()),
+            supersedes_hash: None,
+            related_hashes: vec!["related_entry_hash".into()],
+            recorded_at: Timestamp::from_micros(1_000_000),
+        }
+    }
+
+    // ---- manufacturing evidence validation ----
+
+    #[test]
+    fn manufacturing_evidence_valid_reference_accepted() {
+        let entry = make_manufacturing_evidence();
+        assert!(validate_manufacturing_evidence(&entry).is_ok());
+    }
+
+    #[test]
+    fn manufacturing_evidence_invalid_digest_rejected() {
+        let mut entry = make_manufacturing_evidence();
+        entry.artifact_sha256 = "not-a-digest".into();
+        assert!(validate_manufacturing_evidence(&entry)
+            .unwrap_err()
+            .contains("64 hexadecimal"));
+    }
+
+    #[test]
+    fn manufacturing_evidence_partial_ruleset_reference_rejected() {
+        let mut entry = make_manufacturing_evidence();
+        entry.ruleset_revision = None;
+        assert!(validate_manufacturing_evidence(&entry)
+            .unwrap_err()
+            .contains("specified together"));
+    }
+
+    #[test]
+    fn manufacturing_evidence_empty_identity_rejected() {
+        let mut entry = make_manufacturing_evidence();
+        entry.part_id = "  ".into();
+        assert!(validate_manufacturing_evidence(&entry)
+            .unwrap_err()
+            .contains("part_id"));
+    }
+
+    #[test]
+    fn manufacturing_evidence_oversized_related_hash_list_rejected() {
+        let mut entry = make_manufacturing_evidence();
+        entry.related_hashes = (0..21).map(|i| format!("entry-hash-{i}")).collect();
+        assert!(validate_manufacturing_evidence(&entry)
+            .unwrap_err()
+            .contains("20 related evidence hashes"));
+    }
+
+    #[test]
+    fn manufacturing_evidence_serde_roundtrip() {
+        let entry = make_manufacturing_evidence();
+        let encoded = serde_json::to_vec(&entry).unwrap();
+        let decoded: ManufacturingEvidenceEntry = serde_json::from_slice(&encoded).unwrap();
+        assert_eq!(entry, decoded);
+        assert!(validate_manufacturing_evidence(&decoded).is_ok());
+    }
 
     // ---- validate_query_fields ----
 
