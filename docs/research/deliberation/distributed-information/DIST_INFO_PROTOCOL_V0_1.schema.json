@@ -1,0 +1,155 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/delib-dist-info-protocol-v0.1.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "protocol_id",
+    "version",
+    "status",
+    "title",
+    "research_question",
+    "parent",
+    "ownership",
+    "external_comparators",
+    "metric_ids",
+    "implemented_metric_ids",
+    "deferred_metric_ids",
+    "family_ids",
+    "terminal_states",
+    "claim_ceiling"
+  ],
+  "properties": {
+    "protocol_id": {
+      "const": "DELIB-DIST-INFO-001"
+    },
+    "version": {
+      "const": "0.1.0"
+    },
+    "status": {
+      "const": "synthetic_contract_qualifier"
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1
+    },
+    "research_question": {
+      "type": "string",
+      "minLength": 1
+    },
+    "parent": {
+      "type": "string",
+      "format": "uri"
+    },
+    "ownership": {
+      "type": "object",
+      "minProperties": 7,
+      "additionalProperties": {
+        "type": "string",
+        "format": "uri"
+      }
+    },
+    "external_comparators": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "items": {
+        "type": "object",
+        "required": [
+          "name",
+          "venue",
+          "url",
+          "reported_scale",
+          "status"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "venue": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string",
+            "format": "uri"
+          },
+          "reported_scale": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "metric_ids": {
+      "type": "array",
+      "minItems": 12,
+      "uniqueItems": true,
+      "items": {
+        "type": "string"
+      }
+    },
+    "implemented_metric_ids": {
+      "type": "array",
+      "minItems": 7,
+      "uniqueItems": true,
+      "items": {
+        "type": "string"
+      }
+    },
+    "deferred_metric_ids": {
+      "type": "array",
+      "minItems": 5,
+      "uniqueItems": true,
+      "items": {
+        "type": "string"
+      }
+    },
+    "family_ids": {
+      "type": "array",
+      "minItems": 6,
+      "maxItems": 6,
+      "uniqueItems": true,
+      "items": {
+        "type": "string"
+      }
+    },
+    "terminal_states": {
+      "const": [
+        "pass",
+        "fail",
+        "indeterminate",
+        "invalid"
+      ]
+    },
+    "claim_ceiling": {
+      "type": "object",
+      "required": [
+        "synthetic",
+        "model",
+        "human",
+        "excluded"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "synthetic": {
+          "type": "string"
+        },
+        "model": {
+          "type": "string"
+        },
+        "human": {
+          "type": "string"
+        },
+        "excluded": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}
