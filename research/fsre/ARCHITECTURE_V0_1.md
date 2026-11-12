@@ -28,7 +28,7 @@ FSRE should reuse and interoperate with these systems rather than compete with o
 
 The remaining problem is the gap between exchanging information and improving a service. A data exchange does not by itself establish that an observation is true, that a model is valid, that a proposed intervention is authorised, that an action actually occurred, or that the outcome improved.
 
-The OECD's Digital Government Outlook 2026 reports that only 63% of public institutions on average are connected to national data-interoperability systems across OECD countries. It also reports that only 28% of OECD countries systematically assess the impact of their government AI use cases. These findings indicate that interoperability and impact measurement remain practical challenges even in digitally advanced settings.
+The OECD's Digital Government Outlook 2026 reports that, on average, 63% of public institutions across OECD countries are connected to their national data-interoperability system; such systems are in place in 30 of 36 OECD countries. Separately, only 28% of OECD countries report conducting any financial or non-financial assessment of the impact of government AI use cases. The 28% figure is not a measure of systematic assessment and does not describe all public-sector interventions. These are OECD-country findings, not global estimates. They indicate a gap between formal infrastructure, operational adoption and impact evaluation—not an absence of comparable systems elsewhere.
 
 References:
 - GovStack specifications: https://govstack.global/
@@ -289,7 +289,7 @@ Water is a useful candidate slice because it has physical assets, geographic dep
 
 South Africa's 2025 Green Drop assessment covered 848 municipal wastewater treatment systems for the 2023/24 financial year. The government reported 396 systems (47%) in a critical state, compared with 334 (39%) in 2022. The percentage rated good or excellent fell from 14% to 8%.
 
-The 2023 No Drop report separately recorded national municipal non-revenue water at 47%. These are different measures: Green Drop concerns wastewater-system performance; No Drop concerns water-supply efficiency and losses. They must not be combined.
+Separately, the 2025 No Drop Progress Report was released on 31 March 2026. In its 9 June 2026 briefing on the 2025 Drop progress reports, Parliament reported national non-revenue water at 47.3%, compared with 47.4% in the 2023 Full No Drop Report. This is a distinct drinking-water distribution-efficiency indicator, not a wastewater-treatment rating. Green Drop and No Drop must not be combined. Before any pilot baseline is frozen, the underlying report's observation window, denominator and municipal coverage must be reconciled with utility-approved operational data.
 
 References:
 - 2025 Green Drop results: https://www.gov.za/news/media-statements/water-and-sanitation-crowns-steve-tshwete-local-municipality-2025-green-drop
