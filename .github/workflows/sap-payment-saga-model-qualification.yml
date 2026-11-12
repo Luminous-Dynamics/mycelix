@@ -21,7 +21,21 @@ jobs:
   saga-model:
     name: Effects-disabled SAP payment saga model
     runs-on: ubuntu-latest
-    timeout-minutes: 12
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: mycelix
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: mycelix_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U mycelix -d mycelix_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -73,11 +87,52 @@ jobs:
         if: hashFiles('tools/finance/sap-payment-saga-go-verifier/go.mod') != ''
         working-directory: tools/finance/sap-payment-saga-go-verifier
         run: go test -race -count=1 ./...
+      - name: Install PostgreSQL client
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+      - name: Qualify provider webhook inbox/outbox against PostgreSQL
+        env:
+          PGHOST: 127.0.0.1
+          PGPORT: "5432"
+          PGUSER: mycelix
+          PGPASSWORD: test
+          PGDATABASE: mycelix_test
+        run: bash tools/finance/sap-payment-saga-model/tests/test_provider_webhook_inbox_outbox.sh
+
       - name: Measure effect-level compensation admission scaling
         working-directory: tools/finance/sap-payment-saga-go-verifier
         run: |
           set -euo pipefail
           go test -run 'a^' -bench '^BenchmarkCompensationReserve(V2|ParallelV2)$' -benchmem -benchtime=200ms -count=10 | tee /tmp/compensation-benchmark.txt
+
+      - name: Measure Rust provider retry profile
+        run: |
+          set -euo pipefail
+          cargo bench --manifest-path tools/finance/sap-payment-saga-model/Cargo.toml --bench provider_benchmark | tee /tmp/provider-rust-benchmark.txt
+      - name: Measure Go provider retry profile
+        working-directory: tools/finance/sap-payment-saga-go-verifier
+        run: |
+          set -euo pipefail
+          go test -run 'a^' -bench '^(BenchmarkProviderKeyValidateV1|BenchmarkProviderRetryPermitQualifyV1|BenchmarkProviderRetryPermitRevalidateV1|BenchmarkProviderRetryPermitQualifyParallelV1)        run: |
+          rustc --version
+          cargo --version
+          go version
+          uname -srm
+          awk -F: '/model name/ { gsub(/^[[:space:]]+/, "", $2); print "CPU: " $2; exit }' /proc/cpuinfo
+      - name: Measure Rust synthetic journal replay scaling
+        run: |
+          set -euo pipefail
+          cargo bench --manifest-path tools/finance/sap-payment-saga-model/Cargo.toml --bench replay_benchmark | tee /tmp/replay-rust-benchmark.txt
+      - name: Measure Go synthetic journal replay scaling
+        working-directory: tools/finance/sap-payment-saga-go-verifier
+        run: |
+          set -euo pipefail
+          go test -run 'a^' -bench '^BenchmarkReplayJournal' -benchmem -benchtime=200ms -count=30 | tee /tmp/replay-go-benchmark.txt
+      - name: Summarize paired raw benchmark samples
+        run: |
+          set -euo pipefail
+          cat /tmp/replay-rust-benchmark.txt /tmp/replay-go-benchmark.txt > /tmp/replay-benchmark.txt
+          awk -f tools/finance/sap-payment-saga-go-verifier/summarize-replay-benchmark.awk /tmp/replay-benchmark.txt
+ -benchmem -benchtime=200ms -count=30 | tee /tmp/provider-go-benchmark.txt
 
       - name: Capture paired benchmark environment
         run: |

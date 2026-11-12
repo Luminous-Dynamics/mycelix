@@ -141,3 +141,29 @@ go test -run 'a^' -bench '^BenchmarkCompensationReserve(V2|ParallelV2)$' -benchm
 This benchmark includes canonical hashing, map-index checks, aggregate cap checks and mutex contention. It excludes durable storage, Holochain validation, external account holds, provider calls and settlement. No latency or throughput claim is made until the exact-head runner has completed and the hardware/toolchain/raw samples are retained.
 
 See `../sap-payment-saga-model/COMPENSATION_V2.md` for the state machine, safety invariants, industry comparison, benchmark protocol and the required provider-signature / durable-reservation / actual-SUT qualification stages.
+
+
+## Provider retry and refund contract V1
+
+Rust `../sap-payment-saga-model/src/provider.rs` and Go `provider.go` independently model provider-specific idempotency scope, region partition, key length, retention, in-progress behavior, changed-payload policy, partial-refund policy, refund ceiling and absence-query support. Both consume `../sap-payment-saga-model/fixtures/sap-provider-contract-v1.kat`, which pins contract, operation-key, observation, absence-subject and retry-permit digests.
+
+The Adyen documentation baseline records the 64-character key limit, company-account scope, 7–14 day validity, region-specific duplicate checking and the `transient-error: true` retry signal. It conservatively stops retry eligibility at the seven-day minimum. Multiple/partial refunds are marked payment-method-dependent, not universally supported. The documentation profile is never production-qualified: the API version/webhook signature profile are unpinned and authoritative absence is unsupported.
+
+A retry permit binds provider/account/region, the exact request digest, contract digest, operation-key digest, attempt and expiry. It is a local decision receipt, not a provider signature or settlement proof. Dedicated absence evidence is separate from normal status observations and requires an explicit complete-lookup horizon.
+
+Provider reference benchmarks measure key validation, retry-permit qualification/revalidation and parallel qualification:
+
+```sh
+go test -run 'a^' -bench '^(BenchmarkProviderKeyValidateV1|BenchmarkProviderRetryPermitQualifyV1|BenchmarkProviderRetryPermitRevalidateV1|BenchmarkProviderRetryPermitQualifyParallelV1)$' -benchmem -benchtime=200ms -count=30
+```
+
+See `../sap-payment-saga-model/PROVIDER_CONTRACT_V1.md` for documented semantics, claim limits and the full benchmark protocol. These remain microbenchmarks and exclude external API calls, durable storage, webhook authentication, account holds, Holochain execution and settlement.
+
+
+## Raw Stripe webhook signature verification
+
+`stripe_webhook.go` independently verifies the timestamp-bound HMAC-SHA256 on exact raw HTTP body bytes. It checks every `v1` signature candidate in constant time, ignores unsupported schemes/unknown metadata, supports a list of active secrets for rotation, verifies HMAC before checking a positive timestamp tolerance, and returns a digest of the unmodified body. The shared test vector is in `../sap-payment-saga-model/fixtures/sap-provider-contract-v1.kat`.
+
+Stripe specifies the timestamp + period + raw-body preimage, comma-separated `t` and one-or-more `v1` values, a five-minute default tolerance, and warns against zero tolerance. See https://docs.stripe.com/webhooks#verify-manually and https://docs.stripe.com/webhooks#roll-endpoint-secrets.
+
+This authenticates the webhook envelope only. It is not proof of payment/refund settlement. HTTP routing, durable inbox/outbox dedupe, cross-replica replay protection and Holochain dispatch remain separate integration work tracked in Mycelix issue #6079.
