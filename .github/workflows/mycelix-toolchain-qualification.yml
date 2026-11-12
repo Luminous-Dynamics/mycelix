@@ -6,6 +6,7 @@ on:
       - "mycelix-workspace/rust-toolchain.toml"
       - "mycelix-workspace/mycelix-finance/**"
       - "mycelix-workspace/mycelix-governance/**"
+      - "mycelix-workspace/mycelix-core/libs/**"
       - "mycelix-workspace/crates/**"
       - ".github/workflows/mycelix-toolchain-qualification.yml"
   workflow_dispatch:
@@ -22,145 +23,166 @@ env:
   CARGO_INCREMENTAL: "0"
 
 jobs:
-  baseline-1-96:
-    name: Existing pinned baseline (Rust 1.96.0)
+  qualify:
+    name: "${{ matrix.cluster }} / Rust ${{ matrix.rust }}"
     runs-on: ubuntu-24.04
     timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        rust: ["1.96.0", "1.99.1"]
+        cluster: ["finance", "governance"]
+
     steps:
       - name: Checkout exact source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
 
-      - name: Install baseline Rust, Cargo and Holochain WASM target
-        uses: dtolnay/rust-toolchain@1.96.0
+      - name: Install pinned baseline compiler and Holochain WASM target
+        if: matrix.rust == '1.96.0'
+        uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8
         with:
+          toolchain: "1.96.0"
           components: rustfmt, clippy
           targets: wasm32-unknown-unknown
 
-      - name: Record exact toolchain identity
-        shell: bash
-        run: |
-          set -euo pipefail
-          rustc -Vv | tee rustc-version.txt
-          cargo -Vv | tee cargo-version.txt
-          grep -F 'rustc 1.96.0 ' rustc-version.txt
-          grep -F 'cargo 1.96.0 ' cargo-version.txt
-          rustup target list --installed | grep -x wasm32-unknown-unknown
-
-      - name: Resolve Finance workspace with locked metadata
-        working-directory: mycelix-workspace/mycelix-finance
-        run: cargo metadata --locked --format-version 1 --no-deps > /dev/null
-
-      - name: Resolve Governance workspace with locked metadata
-        working-directory: mycelix-workspace/mycelix-governance
-        run: cargo metadata --locked --format-version 1 --no-deps > /dev/null
-
-      - name: Compile the verified Finance workspace
-        working-directory: mycelix-workspace/mycelix-finance
-        run: cargo check --locked --workspace
-
-      - name: Compile the verified Governance workspace
-        working-directory: mycelix-workspace/mycelix-governance
-        run: cargo check --locked --workspace
-
-      - name: Run Finance author-binding security regression tests
-        working-directory: mycelix-workspace/mycelix-finance
-        run: |
-          cargo test --locked --lib \
-            -p payments_integrity \
-            -p credit_scoring_integrity \
-            -p lending_integrity \
-            -p treasury_integrity \
-            -p tend_integrity \
-            -p hearth_integrity \
-            -p cgc_integrity \
-            -p staking_integrity \
-            -p recognition_integrity
-
-      - name: Run Governance workspace library tests
-        working-directory: mycelix-workspace/mycelix-governance
-        run: cargo test --locked --workspace --lib
-
-      - name: Build Finance release WASM zomes
-        working-directory: mycelix-workspace/mycelix-finance
-        run: cargo build --locked --release --target wasm32-unknown-unknown --workspace --exclude finance-leptos-types
-
-      - name: Build Governance release WASM zomes
-        working-directory: mycelix-workspace/mycelix-governance
-        run: cargo build --locked --release --target wasm32-unknown-unknown --workspace --exclude finance-leptos-types
-
-      - name: Enforce Finance and Governance lockfile immutability
-        run: git diff --exit-code -- mycelix-workspace/mycelix-finance/Cargo.lock mycelix-workspace/mycelix-governance/Cargo.lock
-
-  candidate-1-99:
-    name: Candidate compatibility (Rust 1.99.1)
-    runs-on: ubuntu-24.04
-    timeout-minutes: 90
-    steps:
-      - name: Checkout exact source
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          persist-credentials: false
-
-      - name: Install candidate Rust, Cargo and Holochain WASM target
+      - name: Install candidate compiler and Holochain WASM target
+        if: matrix.rust == '1.99.1'
         uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8
         with:
           toolchain: "1.99.1"
           components: rustfmt, clippy
           targets: wasm32-unknown-unknown
 
-      - name: Record exact toolchain identity
+      - name: Record exact compiler, Cargo and target identity
         shell: bash
         run: |
           set -euo pipefail
-          rustc -Vv | tee rustc-version.txt
-          cargo -Vv | tee cargo-version.txt
-          grep -F 'rustc 1.99.1 ' rustc-version.txt
-          grep -F 'cargo 1.99.1 ' cargo-version.txt
-          rustup target list --installed | grep -x wasm32-unknown-unknown
+          rustc +"${{ matrix.rust }}" -Vv | tee rustc-version.txt
+          cargo +"${{ matrix.rust }}" -Vv | tee cargo-version.txt
+          grep -F "rustc ${{ matrix.rust }} " rustc-version.txt
+          grep -F "cargo ${{ matrix.rust }} " cargo-version.txt
+          rustup target list --toolchain "${{ matrix.rust }}" --installed | grep -x wasm32-unknown-unknown
+          {
+            echo "## Exact toolchain identity"
+            echo
+            echo "- cluster: ${{ matrix.cluster }}"
+            echo "- rustc: $(rustc +"${{ matrix.rust }}" --version)"
+            echo "- cargo: $(cargo +"${{ matrix.rust }}" --version)"
+            echo "- target: wasm32-unknown-unknown"
+            echo "- head: $GITHUB_SHA"
+          } >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Resolve Finance workspace with locked metadata
-        working-directory: mycelix-workspace/mycelix-finance
-        run: cargo metadata --locked --format-version 1 --no-deps > /dev/null
-
-      - name: Resolve Governance workspace with locked metadata
-        working-directory: mycelix-workspace/mycelix-governance
-        run: cargo metadata --locked --format-version 1 --no-deps > /dev/null
-
-      - name: Compile the verified Finance workspace
-        working-directory: mycelix-workspace/mycelix-finance
-        run: cargo check --locked --workspace
-
-      - name: Compile the verified Governance workspace
-        working-directory: mycelix-workspace/mycelix-governance
-        run: cargo check --locked --workspace
-
-      - name: Run Finance author-binding security regression tests
-        working-directory: mycelix-workspace/mycelix-finance
+      - name: Record lockfile identity before qualification
+        id: lock-before
+        shell: bash
         run: |
-          cargo test --locked --lib \
-            -p payments_integrity \
-            -p credit_scoring_integrity \
-            -p lending_integrity \
-            -p treasury_integrity \
-            -p tend_integrity \
-            -p hearth_integrity \
-            -p cgc_integrity \
-            -p staking_integrity \
-            -p recognition_integrity
+          set -euo pipefail
+          LOCK="mycelix-workspace/mycelix-${{ matrix.cluster }}/Cargo.lock"
+          sha256sum "$LOCK" | tee lockfile-before.txt
+          echo "sha256=$(sha256sum "$LOCK" | awk '{print $1}')" >> "$GITHUB_OUTPUT"
 
-      - name: Run Governance workspace library tests
-        working-directory: mycelix-workspace/mycelix-governance
-        run: cargo test --locked --workspace --lib
+      - name: Resolve cluster workspace with locked metadata
+        id: metadata
+        working-directory: mycelix-workspace/mycelix-${{ matrix.cluster }}
+        run: cargo +"${{ matrix.rust }}" metadata --locked --format-version 1 --no-deps > /dev/null
 
-      - name: Build Finance release WASM zomes
-        working-directory: mycelix-workspace/mycelix-finance
-        run: cargo build --locked --release --target wasm32-unknown-unknown --workspace --exclude finance-leptos-types
+      - name: Verify full locked dependency resolution
+        id: resolve
+        working-directory: mycelix-workspace/mycelix-${{ matrix.cluster }}
+        run: cargo +"${{ matrix.rust }}" metadata --locked --format-version 1 > /dev/null
 
-      - name: Build Governance release WASM zomes
-        working-directory: mycelix-workspace/mycelix-governance
-        run: cargo build --locked --release --target wasm32-unknown-unknown --workspace --exclude finance-leptos-types
+      - name: Compile verified workspace
+        id: check
+        working-directory: mycelix-workspace/mycelix-${{ matrix.cluster }}
+        run: cargo +"${{ matrix.rust }}" check --locked --workspace
 
-      - name: Enforce Finance and Governance lockfile immutability
-        run: git diff --exit-code -- mycelix-workspace/mycelix-finance/Cargo.lock mycelix-workspace/mycelix-governance/Cargo.lock
+      - name: Run security and library regression tests
+        id: test
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "${{ matrix.cluster }}" == "finance" ]]; then
+            cd mycelix-workspace/mycelix-finance
+            cargo +"${{ matrix.rust }}" test --locked --lib \
+              -p payments_integrity \
+              -p credit_scoring_integrity \
+              -p lending_integrity \
+              -p treasury_integrity \
+              -p tend_integrity \
+              -p hearth_integrity \
+              -p cgc_integrity \
+              -p staking_integrity \
+              -p recognition_integrity
+          else
+            cd mycelix-workspace/mycelix-governance
+            cargo +"${{ matrix.rust }}" test --locked --workspace --lib
+          fi
+
+      - name: Build release Holochain WASM zomes
+        id: wasm
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "mycelix-workspace/mycelix-${{ matrix.cluster }}"
+          if [[ "${{ matrix.cluster }}" == "finance" ]]; then
+            cargo +"${{ matrix.rust }}" build --locked --release \
+              --target wasm32-unknown-unknown --workspace \
+              --exclude finance-leptos-types
+          else
+            cargo +"${{ matrix.rust }}" build --locked --release \
+              --target wasm32-unknown-unknown --workspace
+          fi
+
+      - name: Diagnose lockfile drift in disposable source snapshot
+        if: failure() && (steps.resolve.outcome == 'failure' || steps.check.outcome == 'failure' || steps.test.outcome == 'failure' || steps.wasm.outcome == 'failure')
+        shell: bash
+        env:
+          CLUSTER: ${{ matrix.cluster }}
+          RUST_VERSION: ${{ matrix.rust }}
+        run: |
+          set -Eeuo pipefail
+          SNAPSHOT="$RUNNER_TEMP/mycelix-lock-diagnosis"
+          mkdir -p "$SNAPSHOT"
+          git archive HEAD | tar -x -C "$SNAPSHOT"
+          WORKSPACE="$SNAPSHOT/mycelix-workspace/mycelix-$CLUSTER"
+          ORIGINAL="$GITHUB_WORKSPACE/mycelix-workspace/mycelix-$CLUSTER/Cargo.lock"
+          GENERATED="$WORKSPACE/Cargo.lock"
+          set +e
+          cargo +"$RUST_VERSION" metadata \
+            --manifest-path "$WORKSPACE/Cargo.toml" \
+            --format-version 1 > "$RUNNER_TEMP/unlocked-metadata.json" \
+            2> "$RUNNER_TEMP/unlocked-metadata.stderr"
+          status=$?
+          set -e
+          {
+            echo "## Disposable lockfile diagnosis ($CLUSTER)"
+            echo
+            echo "- compiler: $RUST_VERSION"
+            echo "- command exit: $status"
+            echo "- original SHA-256: $(sha256sum "$ORIGINAL" | awk '{print $1}')"
+            echo "- diagnostic SHA-256: $(sha256sum "$GENERATED" | awk '{print $1}')"
+            echo
+            echo "The checked-out Cargo.lock was not modified. This diagnostic resolves only in a temporary git-archive snapshot and is not a qualification pass."
+            echo
+            echo "Cargo diagnostics:"
+            tail -n 100 "$RUNNER_TEMP/unlocked-metadata.stderr" || true
+            echo
+            echo "Lockfile delta:"
+            diff -u "$ORIGINAL" "$GENERATED" | head -n 240 || true
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Enforce original lockfile immutability
+        if: always()
+        shell: bash
+        env:
+          EXPECTED: ${{ steps.lock-before.outputs.sha256 }}
+        run: |
+          set -euo pipefail
+          LOCK="mycelix-workspace/mycelix-${{ matrix.cluster }}/Cargo.lock"
+          ACTUAL="$(sha256sum "$LOCK" | awk '{print $1}')"
+          echo "lockfile_before=$EXPECTED"
+          echo "lockfile_after=$ACTUAL"
+          [[ -n "$EXPECTED" && "$EXPECTED" == "$ACTUAL" ]]
+          git diff --exit-code -- "$LOCK"
