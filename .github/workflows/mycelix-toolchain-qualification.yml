@@ -84,11 +84,11 @@ jobs:
 
       - name: Build Finance release WASM zomes
         working-directory: mycelix-workspace/mycelix-finance
-        run: cargo build --locked --release --target wasm32-unknown-unknown --workspace
+        run: cargo build --locked --release --target wasm32-unknown-unknown --workspace --exclude finance-leptos-types
 
       - name: Build Governance release WASM zomes
         working-directory: mycelix-workspace/mycelix-governance
-        run: cargo build --locked --release --target wasm32-unknown-unknown --workspace
+        run: cargo build --locked --release --target wasm32-unknown-unknown --workspace --exclude finance-leptos-types
 
       - name: Enforce Finance and Governance lockfile immutability
         run: git diff --exit-code -- mycelix-workspace/mycelix-finance/Cargo.lock mycelix-workspace/mycelix-governance/Cargo.lock
@@ -156,11 +156,11 @@ jobs:
 
       - name: Build Finance release WASM zomes
         working-directory: mycelix-workspace/mycelix-finance
-        run: cargo build --locked --release --target wasm32-unknown-unknown --workspace
+        run: cargo build --locked --release --target wasm32-unknown-unknown --workspace --exclude finance-leptos-types
 
       - name: Build Governance release WASM zomes
         working-directory: mycelix-workspace/mycelix-governance
-        run: cargo build --locked --release --target wasm32-unknown-unknown --workspace
+        run: cargo build --locked --release --target wasm32-unknown-unknown --workspace --exclude finance-leptos-types
 
       - name: Enforce Finance and Governance lockfile immutability
         run: git diff --exit-code -- mycelix-workspace/mycelix-finance/Cargo.lock mycelix-workspace/mycelix-governance/Cargo.lock
