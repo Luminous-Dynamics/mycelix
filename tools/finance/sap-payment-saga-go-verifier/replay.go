@@ -9,8 +9,8 @@ import (
 )
 
 const (
-	journalEventDomain = "MXSAP-JOURNAL-EVENT-V1\x00"
-	journalGenesisHash = "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+	journalEventDomain        = "MXSAP-JOURNAL-EVENT-V1\x00"
+	journalGenesisHash        = "sha256:0000000000000000000000000000000000000000000000000000000000000000"
 	maxJournalEventFieldBytes = 16 * 1024
 )
 
@@ -378,14 +378,13 @@ func journalLegTag(leg Leg) byte {
 var (
 	ErrReplayInvalidIntent             = errors.New("replay rejected: invalid intent")
 	ErrReplayInvalidEvent              = errors.New("replay rejected: invalid event")
-	ErrReplayMissingCreate              = errors.New("replay rejected: missing create event")
-	ErrReplayDuplicateCreate            = errors.New("replay rejected: duplicate create event")
+	ErrReplayMissingCreate             = errors.New("replay rejected: missing create event")
+	ErrReplayDuplicateCreate           = errors.New("replay rejected: duplicate create event")
 	ErrReplayOperationIdentityMismatch = errors.New("replay rejected: operation identity mismatch")
-	ErrReplaySequenceMismatch           = errors.New("replay rejected: sequence mismatch")
+	ErrReplaySequenceMismatch          = errors.New("replay rejected: sequence mismatch")
 	ErrReplayPreviousDigestMismatch    = errors.New("replay rejected: previous digest mismatch")
 	ErrReplayEventDigestMismatch       = errors.New("replay rejected: event digest mismatch")
-	ErrReplayAnchorMismatch             = errors.New("replay rejected: checkpoint mismatch")
-	ErrReplayInvalidTransition          = errors.New("replay rejected: invalid state transition")
-	ErrReplayInvalidEvidence            = errors.New("replay rejected: invalid effect evidence")
+	ErrReplayAnchorMismatch            = errors.New("replay rejected: checkpoint mismatch")
+	ErrReplayInvalidTransition         = errors.New("replay rejected: invalid state transition")
+	ErrReplayInvalidEvidence           = errors.New("replay rejected: invalid effect evidence")
 )
-
