@@ -97,28 +97,6 @@
               }
             }
           }
-        },
-        {
-          "if": {
-            "properties": {
-              "status": {
-                "const": "pilot_ready"
-              }
-            },
-            "required": [
-              "status"
-            ]
-          },
-          "then": {
-            "properties": {
-              "admitted_items": {
-                "minimum": 1
-              },
-              "native_review_receipts": {
-                "minimum": 1
-              }
-            }
-          }
         }
       ]
     },
