@@ -97,6 +97,7 @@ jobs:
           PGPASSWORD: test
           PGDATABASE: mycelix_test
         run: bash tools/finance/sap-payment-saga-model/tests/test_provider_webhook_inbox_outbox.sh
+
       - name: Measure effect-level compensation admission scaling
         working-directory: tools/finance/sap-payment-saga-go-verifier
         run: |
