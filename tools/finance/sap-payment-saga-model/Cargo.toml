@@ -11,8 +11,14 @@ path = "src/lib.rs"
 
 [dependencies]
 sha2 = "=0.10.9"
+hmac = "=0.12.1"
 
 [[bench]]
 name = "replay_benchmark"
 path = "benches/replay_benchmark.rs"
+harness = false
+
+[[bench]]
+name = "provider_benchmark"
+path = "benches/provider_benchmark.rs"
 harness = false
