@@ -25,6 +25,17 @@ It is not an AI government, a central national digital twin, a population-scorin
 
 These are bounded roles, not claims that every integration or capability is already implemented. Each subsystem retains its own maturity and qualification boundary.
 
+## Reuse existing implementation owners
+
+FSRE is an integration and outcome-evaluation programme, not a second implementation of existing subsystems. The first mapping is:
+
+- Mycelix time-qualified dependency hypergraph: [#5923](https://github.com/Luminous-Dynamics/mycelix/issues/5923), topology benchmark [#6005](https://github.com/Luminous-Dynamics/mycelix/issues/6005) and [#6013](https://github.com/Luminous-Dynamics/mycelix/issues/6013), hidden common-cause intervention research [#5981](https://github.com/Luminous-Dynamics/mycelix/issues/5981).
+- Sol-Atlas resilience profiles and alternative-path analysis: [#21](https://github.com/Luminous-Dynamics/sol-atlas-leptos/issues/21); source/provenance and validation owners [#54](https://github.com/Luminous-Dynamics/sol-atlas-leptos/issues/54), [#59](https://github.com/Luminous-Dynamics/sol-atlas-leptos/issues/59), [#65](https://github.com/Luminous-Dynamics/sol-atlas-leptos/issues/65); pre-registered benchmark-run contract [#338](https://github.com/Luminous-Dynamics/sol-atlas-leptos/issues/338).
+- Symtropy matched model-adequacy, causal-policy and runtime benchmark [#4392](https://github.com/Luminous-Dynamics/symtropy/issues/4392), plus ABM runtime comparison [#3787](https://github.com/Luminous-Dynamics/symtropy/issues/3787).
+- Symthaea causal debugging and experiment-selection benchmark [#10366](https://github.com/Luminous-Dynamics/symthaea/issues/10366) and evidence-grounded causal diagnosis [#9911](https://github.com/Luminous-Dynamics/symthaea/issues/9911).
+
+The FSRE water fixture is a consumer-level synthetic integration case. It does not replace the time-qualified dependency model, Sol-Atlas capability graph, causal experiment engine, or domain physics models owned by those workstreams.
+
 ## First test domain
 
 The initial public-data research domain is municipal water and wastewater resilience in South Africa. The included fixture is synthetic and contains no municipal asset inventory, sensor observations, personal information or operational instructions. It is intended to test graph semantics only.
