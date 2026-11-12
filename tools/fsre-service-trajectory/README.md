@@ -84,6 +84,6 @@ The expected values are hand-derived from the fixture semantics. Run the Rust te
 
 ## Qualification boundary
 
-The unit tests cover deterministic reference cases for healthy service, safe degradation, an outage/recovery, a required quality failure, stale observation gaps, recovery stability and invalid inputs. They do not test production telemetry, physical process correctness, legal authority, causal attribution, field operations or independent service impact.
+The unit tests cover deterministic reference cases for healthy service, safe degradation, an outage/recovery, a required quality failure, stale observation gaps, recovery stability and invalid inputs. The path-specific CI workflow also runs the CLI against the committed golden report in `examples/synthetic-water-service.expected.txt`, so formatting, library semantics and the executable's complete output are checked independently. These checks do not test production telemetry, physical process correctness, legal authority, causal attribution, field operations or independent service impact.
 
 The standalone CI workflow compiles, tests, formats and lints this crate when its files change. A skipped or pending hosted job is not a pass.
