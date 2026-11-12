@@ -1,0 +1,256 @@
+{
+  "intake_id": "GROUPMEMBENCH-METADATA-INTAKE-001",
+  "version": "0.1.0",
+  "status": "metadata_only_read_only_adapter_candidate",
+  "source": {
+    "repository": "https://github.com/UCSB-NLP-Chang/GroupMemBench",
+    "pinned_commit": "461f00c3e8a1a4a3a2ed5814b729014502c4702f",
+    "branch_at_audit": "main",
+    "upstream_commit_time": "2026-11-12",
+    "readme_git_blob_sha": "54ab5d925e12356feec84e5ac08a6e68254d2f0d",
+    "license_git_blob_sha": "d6a067394d0dd3078d291ff587c35c88eff9d0a6",
+    "repository_code_license": "MIT",
+    "dataset_license_declared_in_readme": "CC BY 4.0",
+    "licensing_scope": "The root LICENSE applies to repository code. The README explicitly declares the conversation dataset and question sets CC BY 4.0. Preserve attribution and license notice on any permitted use. This manifest itself contains only path/identity metadata, not source payloads."
+  },
+  "benchmark": {
+    "paper_url": "https://arxiv.org/abs/2605.14498",
+    "domains": [
+      "Finance",
+      "Technology",
+      "Healthcare",
+      "Manufacturing"
+    ],
+    "conversation_data_description": "synthetic multi-channel group conversations with role-tagged users, decision points, temporal phases and topic-aware noise",
+    "question_types": [
+      "multi_hop",
+      "knowledge_update",
+      "temporal",
+      "user_implicit",
+      "term_ambiguity",
+      "abstention"
+    ],
+    "question_counts_by_domain": {
+      "Finance": {
+        "multi_hop": 48,
+        "knowledge_update": 32,
+        "temporal": 45,
+        "user_implicit": 15,
+        "term_ambiguity": 45,
+        "abstention": 29,
+        "total": 214
+      },
+      "Technology": {
+        "multi_hop": 41,
+        "knowledge_update": 36,
+        "temporal": 37,
+        "user_implicit": 28,
+        "term_ambiguity": 43,
+        "abstention": 28,
+        "total": 213
+      },
+      "Healthcare": {
+        "multi_hop": 48,
+        "knowledge_update": 17,
+        "temporal": 37,
+        "user_implicit": 2,
+        "term_ambiguity": 7,
+        "abstention": 19,
+        "total": 130
+      },
+      "Manufacturing": {
+        "multi_hop": 45,
+        "knowledge_update": 22,
+        "temporal": 43,
+        "user_implicit": 4,
+        "term_ambiguity": 11,
+        "abstention": 33,
+        "total": 158
+      }
+    },
+    "total_questions": 715,
+    "baseline_types": [
+      "BM25 lexical retrieval",
+      "text-embedding-3-large dense retrieval"
+    ],
+    "evaluation_agent_and_judge_model_reported_by_upstream": "gpt-5"
+  },
+  "artifact_summary": {
+    "total_selected_files": 30,
+    "conversation_data_files": 4,
+    "conversation_data_bytes": 158659734,
+    "question_files": 24,
+    "question_bytes": 177629,
+    "metadata_files": 2,
+    "git_tree_truncated": false
+  },
+  "files": [
+    {
+      "path": "LICENSE",
+      "git_blob_sha": "d6a067394d0dd3078d291ff587c35c88eff9d0a6",
+      "size_bytes": 1082
+    },
+    {
+      "path": "README.md",
+      "git_blob_sha": "54ab5d925e12356feec84e5ac08a6e68254d2f0d",
+      "size_bytes": 8523
+    },
+    {
+      "path": "data/final/Finance/synthetic_domain_channels_rolevariants_Finance.json",
+      "git_blob_sha": "a0809b4085a52017071ca953fafcedc94556da18",
+      "size_bytes": 48829376
+    },
+    {
+      "path": "data/final/Healthcare/synthetic_domain_channels_rolevariants_Healthcare.json",
+      "git_blob_sha": "8ca7208503c447f983b093eea4b775c69ec629a1",
+      "size_bytes": 30874210
+    },
+    {
+      "path": "data/final/Manufacturing/synthetic_domain_channels_rolevariants_Manufacturing.json",
+      "git_blob_sha": "98cf46605654d48705f3dd9a11cbe8c895ed4407",
+      "size_bytes": 29993277
+    },
+    {
+      "path": "data/final/Technology/synthetic_domain_channels_rolevariants_Technology.json",
+      "git_blob_sha": "b0ccc6c9c8617e5618c2c7ee2c83947a35e91fb4",
+      "size_bytes": 48962871
+    },
+    {
+      "path": "questions/Finance/abstention.jsonl",
+      "git_blob_sha": "a885eb99834491156e2e8298657da6b0ae99c11c",
+      "size_bytes": 7498
+    },
+    {
+      "path": "questions/Finance/knowledge_update.jsonl",
+      "git_blob_sha": "a7ffb5841e1612aef0d864caf87bb39414e2f574",
+      "size_bytes": 12564
+    },
+    {
+      "path": "questions/Finance/multi_hop.jsonl",
+      "git_blob_sha": "40dd7863085e99e596b389f23eb127cb19b83998",
+      "size_bytes": 10101
+    },
+    {
+      "path": "questions/Finance/temporal.jsonl",
+      "git_blob_sha": "f7a4fa1d866d9baa932bb58f53b89a502aa8aaa2",
+      "size_bytes": 9077
+    },
+    {
+      "path": "questions/Finance/term_ambiguity.jsonl",
+      "git_blob_sha": "cefaa4c77c92d162e96f4a5c04eb5f5ce6282660",
+      "size_bytes": 9697
+    },
+    {
+      "path": "questions/Finance/user_implicit.jsonl",
+      "git_blob_sha": "4ccbf5e1e1220b6b8f4f58e2508d14107803242f",
+      "size_bytes": 3890
+    },
+    {
+      "path": "questions/Healthcare/abstention.jsonl",
+      "git_blob_sha": "71d40d03fb966236306a16eccfb260b9b92a8d09",
+      "size_bytes": 4971
+    },
+    {
+      "path": "questions/Healthcare/knowledge_update.jsonl",
+      "git_blob_sha": "24b9678dce28e0b44a5c882d0c0550fa9269d234",
+      "size_bytes": 5945
+    },
+    {
+      "path": "questions/Healthcare/multi_hop.jsonl",
+      "git_blob_sha": "31dca0f40019f2d248741f4c8f1e9ff33c88e66e",
+      "size_bytes": 10623
+    },
+    {
+      "path": "questions/Healthcare/temporal.jsonl",
+      "git_blob_sha": "949296e27846b433ef538df31d8a4608336e460a",
+      "size_bytes": 7082
+    },
+    {
+      "path": "questions/Healthcare/term_ambiguity.jsonl",
+      "git_blob_sha": "d844980e9cadf2bcf9e8ca454b76eae238b94f64",
+      "size_bytes": 1511
+    },
+    {
+      "path": "questions/Healthcare/user_implicit.jsonl",
+      "git_blob_sha": "9067c53056ea17a70e234cf66745e521705e825c",
+      "size_bytes": 439
+    },
+    {
+      "path": "questions/Manufacturing/abstention.jsonl",
+      "git_blob_sha": "6fa569c12fd661c18848d75a57bca383119ba867",
+      "size_bytes": 8613
+    },
+    {
+      "path": "questions/Manufacturing/knowledge_update.jsonl",
+      "git_blob_sha": "ab2905ddf626415ef6ee14cce45936b855c282ab",
+      "size_bytes": 8178
+    },
+    {
+      "path": "questions/Manufacturing/multi_hop.jsonl",
+      "git_blob_sha": "3f60994a3ab832a3434242cb94311eec4ad8130e",
+      "size_bytes": 10249
+    },
+    {
+      "path": "questions/Manufacturing/temporal.jsonl",
+      "git_blob_sha": "e9fb8b0686a1b7d4e7cc7eb2d2a8add82e3e9be2",
+      "size_bytes": 8022
+    },
+    {
+      "path": "questions/Manufacturing/term_ambiguity.jsonl",
+      "git_blob_sha": "7ab8f4f8d190680bedc8eac3fb4ade2b7ef91969",
+      "size_bytes": 2621
+    },
+    {
+      "path": "questions/Manufacturing/user_implicit.jsonl",
+      "git_blob_sha": "7b97eaacc8106c58b1fc0e79eb6a1ff73385c303",
+      "size_bytes": 833
+    },
+    {
+      "path": "questions/Technology/abstention.jsonl",
+      "git_blob_sha": "7ba63c943c27fd7994fd7dea686de3de05b175ce",
+      "size_bytes": 7477
+    },
+    {
+      "path": "questions/Technology/knowledge_update.jsonl",
+      "git_blob_sha": "ba704a4e20c5d3fd288c91da83a8f8d807ebd300",
+      "size_bytes": 14612
+    },
+    {
+      "path": "questions/Technology/multi_hop.jsonl",
+      "git_blob_sha": "b99e0d1744ac4f555abdf54675939bce01f850a7",
+      "size_bytes": 9998
+    },
+    {
+      "path": "questions/Technology/temporal.jsonl",
+      "git_blob_sha": "ad9af3a67b8d1aaf135f1a406e8a2dcd46fac4be",
+      "size_bytes": 7643
+    },
+    {
+      "path": "questions/Technology/term_ambiguity.jsonl",
+      "git_blob_sha": "a36d7204ff9ea1f242f689306ff6cff0016882c1",
+      "size_bytes": 8637
+    },
+    {
+      "path": "questions/Technology/user_implicit.jsonl",
+      "git_blob_sha": "98acd9c8632c19f29dee10971fe3ce971f02aa26",
+      "size_bytes": 7348
+    }
+  ],
+  "custody": {
+    "payload_downloaded": false,
+    "payload_committed": false,
+    "adapter_executed": false,
+    "candidate_hidden_labels_or_answers": false,
+    "permitted_next_step": "build a read-only adapter pinned to this commit that streams or reads the declared synthetic data locally without modifying upstream bytes",
+    "required_adapter_controls": [
+      "preserve CC BY 4.0 attribution and license metadata",
+      "pin this upstream commit and all Git blob SHAs",
+      "never expose answer key or evaluator-only labels in candidate views",
+      "preserve asking_user_id, author, role, channel, timestamp, reply_to and phase metadata",
+      "separate recall from downstream use and action/decision impact",
+      "recompute content digests after any local representation change",
+      "retain full-context and BM25 baselines under matched candidate budgets"
+    ]
+  },
+  "claim_ceiling": "metadata and rights declaration audit only; no upstream payload copied, no baseline run, no model result and no superiority claim"
+}
