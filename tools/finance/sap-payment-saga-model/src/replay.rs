@@ -119,7 +119,9 @@ impl JournalEventLog {
     }
 
     pub fn record_effect_committed(&mut self, evidence: EffectEvidence) -> Result<(), ReplayError> {
-        self.append(JournalEvent::EffectCommitted { evidence: Box::new(evidence) })
+        self.append(JournalEvent::EffectCommitted {
+            evidence: Box::new(evidence),
+        })
     }
 
     fn append(&mut self, event: JournalEvent) -> Result<(), ReplayError> {
