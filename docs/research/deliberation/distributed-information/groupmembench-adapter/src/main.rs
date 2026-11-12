@@ -1,3 +1,4 @@
+use html_escape::decode_html_entities;
 use serde_json::{Map, Value};
 use sha1::{Digest, Sha1};
 use std::{
@@ -319,6 +320,141 @@ pub fn read_question_jsonl(path: &Path) -> Result<Vec<QuestionRecord>, String> {
     Ok(records)
 }
 
+
+pub fn tokenize_baseline(text: &str) -> Vec<String> {
+    let mut tokens = Vec::new();
+    let mut current = Vec::new();
+    for byte in text.bytes() {
+        if byte.is_ascii_alphanumeric() || byte == b'_' {
+            current.push(byte.to_ascii_lowercase());
+        } else if !current.is_empty() {
+            tokens.push(String::from_utf8(std::mem::take(&mut current)).expect("ASCII token"));
+        }
+    }
+    if !current.is_empty() {
+        tokens.push(String::from_utf8(current).expect("ASCII token"));
+    }
+    tokens
+}
+
+pub fn message_index_text(message: &Value) -> String {
+    message.get("content")
+        .and_then(Value::as_str)
+        .map(|content| decode_html_entities(content).trim().to_owned())
+        .unwrap_or_default()
+}
+
+pub fn format_retrieved_message(message: &Value) -> String {
+    let author = message.get("author").and_then(Value::as_str).unwrap_or("?");
+    let mut tags = vec![format!("user={author}")];
+    for (source, label) in [
+        ("role", "speaker_role"),
+        ("channel", "channel"),
+        ("phase_name", "phase_name"),
+        ("topic", "topic"),
+        ("timestamp", "timestamp"),
+        ("reply_to", "reply_to"),
+        ("msg_node", "msg_node"),
+    ] {
+        if let Some(value) = message.get(source) {
+            if !value.is_null() && value != "" {
+                let rendered = value.as_str().map(str::to_owned).unwrap_or_else(|| value.to_string());
+                tags.push(format!("{label}={rendered}"));
+            }
+        }
+    }
+    let body = message.get("content").and_then(Value::as_str)
+        .map(|content| decode_html_entities(content).trim().to_owned())
+        .unwrap_or_default();
+    format!("[{}]\n{}", tags.join(" / "), body).trim().to_owned()
+}
+
+#[derive(Clone, Debug)]
+pub struct Bm25Index {
+    documents: Vec<Vec<String>>,
+    lengths: Vec<usize>,
+    idf: BTreeMap<String, f64>,
+    average_length: f64,
+    k1: f64,
+    b: f64,
+}
+
+impl Bm25Index {
+    pub fn from_messages(messages: &[Value]) -> Self {
+        let documents: Vec<Vec<String>> = messages.iter()
+            .map(|message| tokenize_baseline(&message_index_text(message)))
+            .collect();
+        Self::from_tokenized_documents(documents)
+    }
+
+    pub fn from_tokenized_documents(documents: Vec<Vec<String>>) -> Self {
+        let lengths: Vec<usize> = documents.iter().map(Vec::len).collect();
+        let count = documents.len();
+        let average_length = if count == 0 {
+            0.0
+        } else {
+            lengths.iter().sum::<usize>() as f64 / count as f64
+        };
+
+        let mut document_frequency: BTreeMap<String, usize> = BTreeMap::new();
+        for document in &documents {
+            let unique: BTreeSet<&String> = document.iter().collect();
+            for term in unique {
+                *document_frequency.entry(term.clone()).or_default() += 1;
+            }
+        }
+
+        let mut raw_idf = BTreeMap::new();
+        let mut idf_sum = 0.0;
+        for (term, frequency) in document_frequency {
+            let n = count as f64;
+            let df = frequency as f64;
+            let value = ((n - df + 0.5) / (df + 0.5)).ln();
+            idf_sum += value;
+            raw_idf.insert(term, value);
+        }
+        let average_idf = if raw_idf.is_empty() { 0.0 } else { idf_sum / raw_idf.len() as f64 };
+        let epsilon = 0.25;
+        let idf = raw_idf.into_iter().map(|(term, value)| {
+            (term, if value < 0.0 { epsilon * average_idf } else { value })
+        }).collect();
+
+        Self { documents, lengths, idf, average_length, k1: 1.5, b: 0.75 }
+    }
+
+    pub fn retrieve(&self, query: &str, top_k: usize) -> Vec<usize> {
+        let query_terms = tokenize_baseline(query);
+        if query_terms.is_empty() || self.documents.is_empty() || top_k == 0 {
+            return Vec::new();
+        }
+
+        let mut scored = Vec::with_capacity(self.documents.len());
+        for (index, document) in self.documents.iter().enumerate() {
+            let mut term_frequency: BTreeMap<&str, usize> = BTreeMap::new();
+            for term in document {
+                *term_frequency.entry(term.as_str()).or_default() += 1;
+            }
+            let mut score = 0.0;
+            for term in &query_terms {
+                if let (Some(idf), Some(freq)) = (self.idf.get(term), term_frequency.get(term.as_str())) {
+                    let denominator = *freq as f64
+                        + self.k1 * (1.0 - self.b
+                            + self.b * self.lengths[index] as f64 / self.average_length.max(1.0));
+                    score += *idf * (*freq as f64 * (self.k1 + 1.0)) / denominator;
+                }
+            }
+            scored.push((index, score));
+        }
+        // Python's sorted(..., reverse=True) is stable; preserve input index on ties.
+        scored.sort_by(|a, b| b.1.total_cmp(&a.1).then_with(|| a.0.cmp(&b.0)));
+        scored.into_iter().take(top_k).map(|(index, _)| index).collect()
+    }
+
+    pub fn document_count(&self) -> usize {
+        self.documents.len()
+    }
+}
+
 pub fn candidate_message_allowed_fields() -> &'static [&'static str] {
     &["msg_node", "content", "author", "role", "timestamp", "phase_name", "topic", "reply_to", "channel"]
 }
@@ -400,6 +536,47 @@ mod tests {
         assert_eq!(projected[1]["content"], "earlier");
         assert_eq!(projected[2]["content"], "later");
         assert_eq!(projected[1]["phase_name"], "review");
+    }
+
+    #[test]
+    fn upstream_ascii_tokenizer_is_case_insensitive_and_parameter_free() {
+        assert_eq!(tokenize_baseline("Foo foo_bar 123 Caf\u{00e9}"), vec!["foo","foo_bar","123","caf"]);
+    }
+
+    #[test]
+    fn bm25_indexes_content_only_not_speaker_metadata() {
+        let a = serde_json::json!({"content":"payment threshold risk","role":"Compliance"});
+        let b = serde_json::json!({"content":"payment threshold risk","role":"Engineer","is_noise":true});
+        let index = Bm25Index::from_messages(&[a,b]);
+        assert_eq!(index.document_count(), 2);
+        assert_eq!(index.retrieve("payment", 2), vec![0,1]);
+    }
+
+    #[test]
+    fn bm25_retrieves_matching_content_and_returns_empty_for_empty_query() {
+        let messages = vec![
+            serde_json::json!({"content":"payment risk threshold"}),
+            serde_json::json!({"content":"office seating plan"}),
+            serde_json::json!({"content":"incident response payment"}),
+        ];
+        let index = Bm25Index::from_messages(&messages);
+        assert_eq!(index.retrieve("payment risk", 1), vec![0]);
+        assert!(index.retrieve("   ", 10).is_empty());
+    }
+
+    #[test]
+    fn bm25_ties_preserve_original_message_order() {
+        let index = Bm25Index::from_tokenized_documents(vec![
+            vec!["alpha".into()], vec!["alpha".into()], vec!["beta".into()]
+        ]);
+        assert_eq!(index.retrieve("alpha", 3), vec![0,1,2]);
+    }
+
+    #[test]
+    fn html_entities_are_decoded_before_indexing_and_display() {
+        let message = serde_json::json!({"content":"Risk &amp; payment"});
+        assert_eq!(message_index_text(&message), "Risk & payment");
+        assert!(format_retrieved_message(&serde_json::json!({"author":"User_1","role":"Ops","channel":"risk","content":"A &amp; B"})).contains("A & B"));
     }
 
     #[test]

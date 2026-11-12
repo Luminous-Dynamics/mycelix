@@ -56,3 +56,16 @@ It prints an intake summary only. It does not write into the upstream checkout o
 This is an adapter/parser and file-identity verification contract. It does not run BM25, dense retrieval, a model, or the 715 questions. A separate benchmark run must pin agent/judge model versions, tokenizer, top-k, prompt, compute/token budgets and output schema. Compare at minimum BM25, dense retrieval, full-context and the upstream reported baselines under matched conditions.
 
 No claim is made that candidate-safe projection alone preserves all GroupMemBench scoring semantics; the adapter must be compared byte-for-byte against the upstream loader/formatting contract before any benchmark result is claimed.
+
+ 
+## Deterministic BM25 baseline
+
+The adapter now implements the upstream GroupMemBench lexical baseline contract:
+- ASCII word tokenizer matching [A-Za-z0-9_]+, lowercase, no stopword removal;
+- HTML entity decoding and trimming before indexing;
+- content-only indexing (speaker/channel/role/time metadata do not affect scores);
+- BM25Okapi defaults k1=1.5, b=0.75, epsilon=0.25;
+- stable descending-score ranking with original message index as tie-break;
+- read-time passage formatting with author, role, channel, phase, topic, timestamp, reply_to and msg_node.
+
+This is a local CPU implementation of the retrieval method, not an executed result on the upstream corpus. It can be used after local pinned-checkout verification to compare BM25 against a proposed evidence-aware memory method with identical top-k and context budgets. It does not call an LLM.
