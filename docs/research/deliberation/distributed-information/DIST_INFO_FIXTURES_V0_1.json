@@ -27,7 +27,8 @@
           "evidence_status": "current",
           "initial_verification_status": "verified",
           "source_origin_id": "ORIGIN-F-COMP-A",
-          "duplicate_of": null
+          "duplicate_of": null,
+          "evidence_id": "EVID-F-COMP-A-V1"
         },
         {
           "fact_id": "F-COMP-B",
@@ -41,7 +42,8 @@
           "evidence_status": "current",
           "initial_verification_status": "verified",
           "source_origin_id": "ORIGIN-F-COMP-B",
-          "duplicate_of": null
+          "duplicate_of": null,
+          "evidence_id": "EVID-F-COMP-B-V1"
         }
       ],
       "initial_views": [
@@ -168,7 +170,8 @@
           "evidence_status": "current",
           "initial_verification_status": "verified",
           "source_origin_id": "ORIGIN-F-COMP-A",
-          "duplicate_of": null
+          "duplicate_of": null,
+          "evidence_id": "EVID-F-COMP-A-V1"
         },
         {
           "fact_id": "F-COMP-B",
@@ -182,7 +185,8 @@
           "evidence_status": "current",
           "initial_verification_status": "verified",
           "source_origin_id": "ORIGIN-F-COMP-B",
-          "duplicate_of": null
+          "duplicate_of": null,
+          "evidence_id": "EVID-F-COMP-B-V1"
         }
       ],
       "initial_views": [
@@ -282,7 +286,8 @@
           "evidence_status": "current",
           "initial_verification_status": "verified",
           "source_origin_id": "ORIGIN-F-COMP-A",
-          "duplicate_of": null
+          "duplicate_of": null,
+          "evidence_id": "EVID-F-COMP-A-V1"
         },
         {
           "fact_id": "F-COMP-B",
@@ -296,7 +301,8 @@
           "evidence_status": "current",
           "initial_verification_status": "verified",
           "source_origin_id": "ORIGIN-F-COMP-B",
-          "duplicate_of": null
+          "duplicate_of": null,
+          "evidence_id": "EVID-F-COMP-B-V1"
         }
       ],
       "initial_views": [
@@ -396,7 +402,8 @@
           "evidence_status": "current",
           "initial_verification_status": "verified",
           "source_origin_id": "ORIGIN-F-MIN-SHARED",
-          "duplicate_of": null
+          "duplicate_of": null,
+          "evidence_id": "EVID-F-MIN-SHARED-V1"
         },
         {
           "fact_id": "F-MIN-DECISIVE",
@@ -410,7 +417,8 @@
           "evidence_status": "current",
           "initial_verification_status": "verified",
           "source_origin_id": "ORIGIN-F-MIN-DECISIVE",
-          "duplicate_of": null
+          "duplicate_of": null,
+          "evidence_id": "EVID-F-MIN-DECISIVE-V1"
         }
       ],
       "initial_views": [
@@ -512,7 +520,8 @@
           "evidence_status": "current",
           "initial_verification_status": "verified",
           "source_origin_id": "ORIGIN-F-MIN-SHARED",
-          "duplicate_of": null
+          "duplicate_of": null,
+          "evidence_id": "EVID-F-MIN-SHARED-V1"
         },
         {
           "fact_id": "F-MIN-DECISIVE",
@@ -526,7 +535,8 @@
           "evidence_status": "current",
           "initial_verification_status": "verified",
           "source_origin_id": "ORIGIN-F-MIN-DECISIVE",
-          "duplicate_of": null
+          "duplicate_of": null,
+          "evidence_id": "EVID-F-MIN-DECISIVE-V1"
         }
       ],
       "initial_views": [
@@ -598,7 +608,8 @@
           "evidence_status": "current",
           "initial_verification_status": "verified",
           "source_origin_id": "ORIGIN-REPEATED",
-          "duplicate_of": null
+          "duplicate_of": null,
+          "evidence_id": "EVID-F-MIN-REPEAT-1-V1"
         },
         {
           "fact_id": "F-MIN-REPEAT-2",
@@ -612,7 +623,8 @@
           "evidence_status": "current",
           "initial_verification_status": "verified",
           "source_origin_id": "ORIGIN-REPEATED",
-          "duplicate_of": "F-MIN-REPEAT-1"
+          "duplicate_of": "F-MIN-REPEAT-1",
+          "evidence_id": "EVID-F-MIN-REPEAT-2-V1"
         },
         {
           "fact_id": "F-MIN-REPEAT-3",
@@ -626,7 +638,8 @@
           "evidence_status": "current",
           "initial_verification_status": "verified",
           "source_origin_id": "ORIGIN-REPEATED",
-          "duplicate_of": "F-MIN-REPEAT-1"
+          "duplicate_of": "F-MIN-REPEAT-1",
+          "evidence_id": "EVID-F-MIN-REPEAT-3-V1"
         },
         {
           "fact_id": "F-MIN-RARE-DECISIVE",
@@ -640,7 +653,8 @@
           "evidence_status": "current",
           "initial_verification_status": "verified",
           "source_origin_id": "ORIGIN-F-MIN-RARE-DECISIVE",
-          "duplicate_of": null
+          "duplicate_of": null,
+          "evidence_id": "EVID-F-MIN-RARE-DECISIVE-V1"
         }
       ],
       "initial_views": [
@@ -720,7 +734,8 @@
           "evidence_status": "current",
           "initial_verification_status": "verified",
           "source_origin_id": "ORIGIN-ONE",
-          "duplicate_of": null
+          "duplicate_of": null,
+          "evidence_id": "EVID-F-RED-BASE-V1"
         },
         {
           "fact_id": "F-RED-COPY-B",
@@ -734,7 +749,8 @@
           "evidence_status": "current",
           "initial_verification_status": "verified",
           "source_origin_id": "ORIGIN-ONE",
-          "duplicate_of": "F-RED-BASE"
+          "duplicate_of": "F-RED-BASE",
+          "evidence_id": "EVID-F-RED-COPY-B-V1"
         },
         {
           "fact_id": "F-RED-COPY-C",
@@ -748,7 +764,8 @@
           "evidence_status": "current",
           "initial_verification_status": "verified",
           "source_origin_id": "ORIGIN-ONE",
-          "duplicate_of": "F-RED-BASE"
+          "duplicate_of": "F-RED-BASE",
+          "evidence_id": "EVID-F-RED-COPY-C-V1"
         },
         {
           "fact_id": "F-RED-UNIQUE",
@@ -762,7 +779,8 @@
           "evidence_status": "current",
           "initial_verification_status": "verified",
           "source_origin_id": "ORIGIN-TWO",
-          "duplicate_of": null
+          "duplicate_of": null,
+          "evidence_id": "EVID-F-RED-UNIQUE-V1"
         }
       ],
       "initial_views": [
@@ -872,7 +890,8 @@
           "evidence_status": "current",
           "initial_verification_status": "verified",
           "source_origin_id": "ORIGIN-ONE",
-          "duplicate_of": null
+          "duplicate_of": null,
+          "evidence_id": "EVID-F-RED-BASE-V1"
         },
         {
           "fact_id": "F-RED-COPY-B",
@@ -886,7 +905,8 @@
           "evidence_status": "current",
           "initial_verification_status": "verified",
           "source_origin_id": "ORIGIN-ONE",
-          "duplicate_of": "F-RED-BASE"
+          "duplicate_of": "F-RED-BASE",
+          "evidence_id": "EVID-F-RED-COPY-B-V1"
         },
         {
           "fact_id": "F-RED-COPY-C",
@@ -900,7 +920,8 @@
           "evidence_status": "current",
           "initial_verification_status": "verified",
           "source_origin_id": "ORIGIN-ONE",
-          "duplicate_of": "F-RED-BASE"
+          "duplicate_of": "F-RED-BASE",
+          "evidence_id": "EVID-F-RED-COPY-C-V1"
         },
         {
           "fact_id": "F-RED-UNIQUE",
@@ -914,7 +935,8 @@
           "evidence_status": "current",
           "initial_verification_status": "verified",
           "source_origin_id": "ORIGIN-TWO",
-          "duplicate_of": null
+          "duplicate_of": null,
+          "evidence_id": "EVID-F-RED-UNIQUE-V1"
         }
       ],
       "initial_views": [
@@ -1024,7 +1046,8 @@
           "evidence_status": "current",
           "initial_verification_status": "verified",
           "source_origin_id": "ORIGIN-ONE",
-          "duplicate_of": null
+          "duplicate_of": null,
+          "evidence_id": "EVID-F-RED-BASE-V1"
         },
         {
           "fact_id": "F-RED-COPY-B",
@@ -1038,7 +1061,8 @@
           "evidence_status": "current",
           "initial_verification_status": "verified",
           "source_origin_id": "ORIGIN-ONE",
-          "duplicate_of": "F-RED-BASE"
+          "duplicate_of": "F-RED-BASE",
+          "evidence_id": "EVID-F-RED-COPY-B-V1"
         },
         {
           "fact_id": "F-RED-COPY-C",
@@ -1052,7 +1076,8 @@
           "evidence_status": "current",
           "initial_verification_status": "verified",
           "source_origin_id": "ORIGIN-ONE",
-          "duplicate_of": "F-RED-BASE"
+          "duplicate_of": "F-RED-BASE",
+          "evidence_id": "EVID-F-RED-COPY-C-V1"
         },
         {
           "fact_id": "F-RED-UNIQUE",
@@ -1066,7 +1091,8 @@
           "evidence_status": "current",
           "initial_verification_status": "verified",
           "source_origin_id": "ORIGIN-TWO",
-          "duplicate_of": null
+          "duplicate_of": null,
+          "evidence_id": "EVID-F-RED-UNIQUE-V1"
         }
       ],
       "initial_views": [
@@ -1146,7 +1172,8 @@
           "evidence_status": "current",
           "initial_verification_status": "verified",
           "source_origin_id": "ORIGIN-F-SILENT-SHARED",
-          "duplicate_of": null
+          "duplicate_of": null,
+          "evidence_id": "EVID-F-SILENT-SHARED-V1"
         },
         {
           "fact_id": "F-SILENT-DECISIVE",
@@ -1160,7 +1187,8 @@
           "evidence_status": "current",
           "initial_verification_status": "verified",
           "source_origin_id": "ORIGIN-F-SILENT-DECISIVE",
-          "duplicate_of": null
+          "duplicate_of": null,
+          "evidence_id": "EVID-F-SILENT-DECISIVE-V1"
         }
       ],
       "initial_views": [
@@ -1262,7 +1290,8 @@
           "evidence_status": "current",
           "initial_verification_status": "verified",
           "source_origin_id": "ORIGIN-F-SILENT-SHARED",
-          "duplicate_of": null
+          "duplicate_of": null,
+          "evidence_id": "EVID-F-SILENT-SHARED-V1"
         },
         {
           "fact_id": "F-SILENT-DECISIVE",
@@ -1276,7 +1305,8 @@
           "evidence_status": "current",
           "initial_verification_status": "verified",
           "source_origin_id": "ORIGIN-F-SILENT-DECISIVE",
-          "duplicate_of": null
+          "duplicate_of": null,
+          "evidence_id": "EVID-F-SILENT-DECISIVE-V1"
         }
       ],
       "initial_views": [
@@ -1348,7 +1378,8 @@
           "evidence_status": "current",
           "initial_verification_status": "verified",
           "source_origin_id": "ORIGIN-F-SILENT-SHARED",
-          "duplicate_of": null
+          "duplicate_of": null,
+          "evidence_id": "EVID-F-SILENT-SHARED-V1"
         },
         {
           "fact_id": "F-SILENT-DECISIVE",
@@ -1362,7 +1393,8 @@
           "evidence_status": "current",
           "initial_verification_status": "verified",
           "source_origin_id": "ORIGIN-F-SILENT-DECISIVE",
-          "duplicate_of": null
+          "duplicate_of": null,
+          "evidence_id": "EVID-F-SILENT-DECISIVE-V1"
         }
       ],
       "initial_views": [
@@ -1442,7 +1474,8 @@
           "evidence_status": "superseded",
           "initial_verification_status": "verified",
           "source_origin_id": "ORIGIN-TIME-OLD",
-          "duplicate_of": null
+          "duplicate_of": null,
+          "evidence_id": "EVID-F-TIME-OLD-V1"
         },
         {
           "fact_id": "F-TIME-CURRENT",
@@ -1456,7 +1489,8 @@
           "evidence_status": "current",
           "initial_verification_status": "verified",
           "source_origin_id": "ORIGIN-TIME-CURRENT",
-          "duplicate_of": null
+          "duplicate_of": null,
+          "evidence_id": "EVID-F-TIME-CURRENT-V2"
         }
       ],
       "initial_views": [
@@ -1580,7 +1614,8 @@
           "evidence_status": "current",
           "initial_verification_status": "verified",
           "source_origin_id": "ORIGIN-CONFLICT-A",
-          "duplicate_of": null
+          "duplicate_of": null,
+          "evidence_id": "EVID-F-CONFLICT-A-V1"
         },
         {
           "fact_id": "F-CONFLICT-B",
@@ -1594,7 +1629,8 @@
           "evidence_status": "current",
           "initial_verification_status": "verified",
           "source_origin_id": "ORIGIN-CONFLICT-B",
-          "duplicate_of": null
+          "duplicate_of": null,
+          "evidence_id": "EVID-F-CONFLICT-B-V1"
         }
       ],
       "initial_views": [
@@ -1723,7 +1759,8 @@
           "evidence_status": "superseded",
           "initial_verification_status": "verified",
           "source_origin_id": "ORIGIN-TIME-OLD",
-          "duplicate_of": null
+          "duplicate_of": null,
+          "evidence_id": "EVID-F-TIME-OLD-V1"
         },
         {
           "fact_id": "F-TIME-CURRENT",
@@ -1737,7 +1774,8 @@
           "evidence_status": "current",
           "initial_verification_status": "verified",
           "source_origin_id": "ORIGIN-TIME-CURRENT",
-          "duplicate_of": null
+          "duplicate_of": null,
+          "evidence_id": "EVID-F-TIME-CURRENT-V2"
         }
       ],
       "initial_views": [
@@ -1861,7 +1899,8 @@
           "evidence_status": "current",
           "initial_verification_status": "verified",
           "source_origin_id": "ORIGIN-F-RIGHTS-PUBLIC",
-          "duplicate_of": null
+          "duplicate_of": null,
+          "evidence_id": "EVID-F-RIGHTS-PUBLIC-V1"
         },
         {
           "fact_id": "F-RIGHTS-RESTRICTED",
@@ -1875,7 +1914,8 @@
           "evidence_status": "current",
           "initial_verification_status": "verified",
           "source_origin_id": "ORIGIN-F-RIGHTS-RESTRICTED",
-          "duplicate_of": null
+          "duplicate_of": null,
+          "evidence_id": "EVID-F-RIGHTS-RESTRICTED-V1"
         }
       ],
       "initial_views": [
@@ -1963,7 +2003,8 @@
           "evidence_status": "current",
           "initial_verification_status": "verified",
           "source_origin_id": "ORIGIN-F-RIGHTS-PUBLIC",
-          "duplicate_of": null
+          "duplicate_of": null,
+          "evidence_id": "EVID-F-RIGHTS-PUBLIC-V1"
         },
         {
           "fact_id": "F-RIGHTS-UNKNOWN",
@@ -1977,7 +2018,8 @@
           "evidence_status": "current",
           "initial_verification_status": "verified",
           "source_origin_id": "ORIGIN-F-RIGHTS-UNKNOWN",
-          "duplicate_of": null
+          "duplicate_of": null,
+          "evidence_id": "EVID-F-RIGHTS-UNKNOWN-V1"
         }
       ],
       "initial_views": [
@@ -2057,7 +2099,8 @@
           "evidence_status": "current",
           "initial_verification_status": "verified",
           "source_origin_id": "ORIGIN-F-RIGHTS-RESTRICTED",
-          "duplicate_of": null
+          "duplicate_of": null,
+          "evidence_id": "EVID-F-RIGHTS-RESTRICTED-V1"
         }
       ],
       "initial_views": [

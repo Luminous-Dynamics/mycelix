@@ -22,7 +22,7 @@ fn assessment(v:&Value)->Result<&'static str,String>{
  let facts=arr(v,"facts");
  let mut fmap:BTreeMap<String,&Value>=BTreeMap::new();
  for f in facts{
-  if !exact(f,&["fact_id","claim_id","holder_agent_id","visibility","decision_role","polarity","rights_status","version","evidence_status","initial_verification_status","source_origin_id","duplicate_of"]){return Err(format!("{id}: fact record has missing or extra fields"));}
+  if !exact(f,&["fact_id","claim_id","holder_agent_id","visibility","decision_role","polarity","rights_status","version","evidence_status","initial_verification_status","source_origin_id","duplicate_of","evidence_id"]){return Err(format!("{id}: fact record has missing or extra fields"));}
   let fid=s(f,"fact_id").ok_or(format!("{id}: fact ID missing"))?.to_owned();
   if fmap.insert(fid.clone(),f).is_some(){return Err(format!("{id}: duplicate fact ID {fid}"));}
   if !agents.contains(s(f,"holder_agent_id").unwrap_or("")){return Err(format!("{id}: fact holder is not a declared agent"));}
@@ -30,7 +30,7 @@ fn assessment(v:&Value)->Result<&'static str,String>{
   if !["critical","supporting","decoy","irrelevant"].contains(&s(f,"decision_role").unwrap_or("")){return Err(format!("{id}: invalid decision role"));}
   if !["supports_A","supports_B","neutral"].contains(&s(f,"polarity").unwrap_or("")){return Err(format!("{id}: invalid polarity"));}
   if !["shareable","shareable_with_scope_limit","withheld_by_rights","unknown"].contains(&s(f,"rights_status").unwrap_or("")){return Err(format!("{id}: invalid rights status"));}
-  if num(f,"version").unwrap_or(0)<1||s(f,"source_origin_id").is_none(){return Err(format!("{id}: version/origin missing"));}
+  if num(f,"version").unwrap_or(0)<1||s(f,"source_origin_id").is_none()||s(f,"evidence_id").is_none(){return Err(format!("{id}: version/origin/evidence ID missing"));}
   if !["current","superseded","disputed"].contains(&s(f,"evidence_status").unwrap_or("")){return Err(format!("{id}: invalid evidence status"));}
   if !["verified","unverified","unknown"].contains(&s(f,"initial_verification_status").unwrap_or("")){return Err(format!("{id}: invalid initial verification status"));}
  }
@@ -89,7 +89,7 @@ fn assessment(v:&Value)->Result<&'static str,String>{
   if s(req,"fact_id")!=Some(fid)||s(response,"fact_id")!=Some(fid){return Err(format!("{id}: receipt fact differs from request/response"));}
   let f=fmap.get(fid).ok_or(format!("{id}: receipt for unknown fact"))?;
   if s(r,"holder_agent_id")!=s(f,"holder_agent_id")||s(r,"source_origin_id")!=s(f,"source_origin_id")
-    ||num(r,"version")!=num(f,"version")||s(r,"rights_status")!=s(f,"rights_status")
+    ||num(r,"version")!=num(f,"version")||s(r,"evidence_id")!=s(f,"evidence_id")||s(r,"rights_status")!=s(f,"rights_status")
     ||r["duplicate_of"]!=f["duplicate_of"]{return Err(format!("{id}: receipt does not bind holder/source/version/rights exactly"));}
   let rid2=s(r,"receipt_id").ok_or(format!("{id}: receipt ID missing"))?;
   if !receipt_ids.insert(rid2.to_owned()){return Err(format!("{id}: duplicate receipt ID"));}
@@ -244,6 +244,7 @@ mod tests{
  #[test]fn restricted_disclosure_is_invalid(){assert_eq!(assessment(&fx("RIGHTS-03-restricted-evidence-illegally-disclosed")).unwrap(),"invalid");}
  #[test]fn duplicate_origin_metadata_must_be_consistent(){let mut x=fx("RED-01-deduplicate-then-integrate");x["facts"][1]["source_origin_id"]=Value::String("OTHER".into());assert!(assessment(&x).is_err());}
  #[test]fn version_and_rights_in_receipt_are_bound(){let mut x=fx("COMP-01-complete-pooling");x["receipts"][0]["version"]=Value::from(99);assert!(assessment(&x).is_err());}
+ #[test]fn receipt_must_bind_exact_evidence_object_id(){let mut x=fx("COMP-01-complete-pooling");x["receipts"][0]["evidence_id"]=Value::String("OTHER-EVIDENCE".into());assert!(assessment(&x).is_err());}
  #[test]fn unknown_hidden_holder_is_not_silently_accepted(){let mut x=fx("COMP-01-complete-pooling");x["facts"][0]["holder_agent_id"]=Value::String("GHOST".into());assert!(assessment(&x).is_err());}
  #[test]fn oracle_must_remain_hidden(){let mut x=fx("COMP-01-complete-pooling");x["oracle"]["hidden_from_candidates"]=Value::Bool(false);assert!(assessment(&x).is_err());}
 }

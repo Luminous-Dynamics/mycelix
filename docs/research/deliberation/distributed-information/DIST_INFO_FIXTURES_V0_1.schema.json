@@ -92,7 +92,8 @@
                 "evidence_status",
                 "initial_verification_status",
                 "source_origin_id",
-                "duplicate_of"
+                "duplicate_of",
+                "evidence_id"
               ],
               "properties": {
                 "fact_id": {
@@ -162,6 +163,10 @@
                     "string",
                     "null"
                   ]
+                },
+                "evidence_id": {
+                  "type": "string",
+                  "minLength": 1
                 }
               }
             }
