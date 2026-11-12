@@ -82,6 +82,7 @@ fn validate_fixture(f: &Value) -> (Vec<String>, usize, usize, usize, usize) {
     if source.is_empty() { errors.push("source option registry is empty".into()); }
 
     let mut presented_ids = BTreeSet::new();
+    let mut display_positions = BTreeSet::new();
     let mut represented_sources = BTreeSet::new();
     let mut preserved_constraints = BTreeSet::new();
     let mut preserved_constraints_by_source: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
@@ -90,6 +91,13 @@ fn validate_fixture(f: &Value) -> (Vec<String>, usize, usize, usize, usize) {
     for item in presented {
         let id = s(item, "option_id").unwrap_or("");
         if id.is_empty() || !presented_ids.insert(id.to_owned()) { errors.push("presented option IDs must be unique and non-empty".into()); }
+        match item["display_position"].as_u64() {
+            Some(position) if position > 0 => {
+                if !display_positions.insert(position) { errors.push(format!("duplicate display position {position}")); }
+            }
+            _ => errors.push(format!("presented option {id} requires a positive display position")),
+        }
+        if s(item, "display_label").is_none() { errors.push(format!("presented option {id} requires a non-empty display label")); }
         if s(item, "origin_status") != Some("source_recorded") { errors.push(format!("presented option {id} lacks admitted source provenance")); }
         let refs = set(&item["source_option_ids"]);
         if refs.is_empty() { errors.push(format!("presented option {id} has no source option reference")); }
@@ -131,6 +139,18 @@ fn validate_fixture(f: &Value) -> (Vec<String>, usize, usize, usize, usize) {
         if seq > cutoff && !(b(item, "late_mutation_authorized") && s(item, "late_mutation_authority").is_some()) {
             errors.push(format!("presented option {id} was introduced after the frozen agenda cutoff without an authority reference"));
         }
+    }
+
+    if display_positions.len() != presented.len()
+        || display_positions.iter().enumerate().any(|(index, position)| *position != index as u64 + 1) {
+        errors.push("presented display positions must be unique and contiguous from 1".into());
+    }
+
+    let no_action_presented = presented.iter().any(|item|
+        set(&item["source_option_ids"]).contains("O-NONE")
+    );
+    if b(&f["task"], "no_action_option_available") != no_action_presented {
+        errors.push("no-action availability flag differs from the admitted presented option set".into());
     }
 
     for source_id in &required_ids {
