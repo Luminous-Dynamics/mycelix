@@ -56,6 +56,9 @@ jobs:
       - name: Assert Rust toolchain identity
         run: test "$(rustc +1.96.0 --version)" = "rustc 1.96.0 (ac68faa20 2026-05-25)"
 
+      - name: Generate package dependency lock
+        run: cargo generate-lockfile --manifest-path mycelix-manufacturing/Cargo.toml
+
       - name: Assert locked dependency graph
         run: cargo metadata --manifest-path mycelix-manufacturing/Cargo.toml --locked --no-deps --format-version 1 > /dev/null
 
