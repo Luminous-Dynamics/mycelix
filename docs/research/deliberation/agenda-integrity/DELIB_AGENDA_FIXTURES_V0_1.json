@@ -590,7 +590,7 @@
         }
       ],
       "agenda_intervention": {
-        "semantic_relation": "equivalent",
+        "semantic_relation": "invalid_mutation",
         "family": "required_option_omission",
         "tradeoff_disclosed": false,
         "matched_pair_id": "OPTION-01",
@@ -1116,7 +1116,7 @@
         }
       ],
       "agenda_intervention": {
-        "semantic_relation": "equivalent",
+        "semantic_relation": "invalid_mutation",
         "family": "unmarked_default",
         "tradeoff_disclosed": false,
         "matched_pair_id": null,
@@ -1219,7 +1219,7 @@
         }
       ],
       "agenda_intervention": {
-        "semantic_relation": "equivalent",
+        "semantic_relation": "invalid_mutation",
         "family": "bundle_constraint_loss",
         "tradeoff_disclosed": false,
         "matched_pair_id": null,
@@ -1465,7 +1465,7 @@
         }
       ],
       "agenda_intervention": {
-        "semantic_relation": "equivalent",
+        "semantic_relation": "invalid_mutation",
         "family": "unprovenanced_option",
         "tradeoff_disclosed": false,
         "matched_pair_id": null,
@@ -1619,7 +1619,7 @@
         }
       ],
       "agenda_intervention": {
-        "semantic_relation": "equivalent",
+        "semantic_relation": "invalid_mutation",
         "family": "late_mutation",
         "tradeoff_disclosed": false,
         "matched_pair_id": null,
@@ -2135,7 +2135,7 @@
         }
       ],
       "agenda_intervention": {
-        "semantic_relation": "equivalent",
+        "semantic_relation": "invalid_mutation",
         "family": "undisclosed_split",
         "tradeoff_disclosed": false,
         "matched_pair_id": null,
