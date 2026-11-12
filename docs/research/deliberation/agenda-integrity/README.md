@@ -36,6 +36,8 @@ The validator checks a bounded structural contract, not full JSON Schema conform
 - A presented bundle may represent multiple source options only if it preserves all declared constraints.
 - A source option split into multiple presented items requires a shared split group and explicit disclosure.
 - Defaults require a declaration and an authority reference.
+- Display positions must be unique, positive and contiguous; empty option labels are rejected.
+- The explicit no-action availability flag must match whether the admitted no-action option is actually presented.
 - A presented item introduced after the frozen cutoff is invalid unless its late mutation is explicitly authorized.
 - Normative-pluralism tasks have no gold policy option.
 - A disclosed trade-off may legitimately change a decision; the validator does not demand invariance in that case.
