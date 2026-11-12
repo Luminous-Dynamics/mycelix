@@ -36,8 +36,9 @@ holo_hash = "=0.6.1"
 hdk_derive = "=0.6.1"
 holochain_serialized_bytes = "=0.0.57"
 
-# Mycelix Core Types for collective sensing integration
-mycelix-core-types = { path = "../crates/mycelix-core-types", features = ["serde"] }
+# Mycelix Core Types for collective sensing integration.
+# The maintained crate is part of the mycelix-core cluster, not workspace-local crates/.
+mycelix-core-types = { path = "../mycelix-core/libs/mycelix-core-types", features = ["serde"] }
 
 # Serialization
 serde = { version = "1.0", features = ["derive"] }
