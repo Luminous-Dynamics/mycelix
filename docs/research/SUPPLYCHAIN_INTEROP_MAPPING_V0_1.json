@@ -1,0 +1,356 @@
+{
+  "schema_version": "mycelix.supplychain.interop-mapping.v0.1",
+  "snapshot_date": "2026-11-13",
+  "tracking_issue": "https://github.com/Luminous-Dynamics/mycelix/issues/6105",
+  "claim_status": "design_only_not_conformance_evidence",
+  "implementation_owner": "mycelix-workspace/sdk-ts/src/integrations/supplychain/",
+  "archived_legacy_repo": "https://github.com/Luminous-Dynamics/mycelix-supplychain",
+  "standards": [
+    {
+      "id": "nist-ir-8536",
+      "version": "final-2026-09-09",
+      "status": "final_meta_framework",
+      "source": "https://csrc.nist.gov/pubs/ir/8536/final"
+    },
+    {
+      "id": "gs1-epcis-cbv",
+      "version": "2.0.1",
+      "status": "active_standard",
+      "source": "https://ref.gs1.org/standards/epcis/artefacts"
+    },
+    {
+      "id": "w3c-vc-data-model",
+      "version": "2.0",
+      "status": "w3c_recommendation_2025-05-15",
+      "source": "https://www.w3.org/TR/vc-data-model-2.0/"
+    },
+    {
+      "id": "w3c-vc-data-integrity",
+      "version": "1.0",
+      "status": "w3c_recommendation_2025-05-15",
+      "source": "https://www.w3.org/TR/vc-data-integrity/"
+    },
+    {
+      "id": "ietf-rfc-9943",
+      "version": "2026-06",
+      "status": "proposed_standard",
+      "source": "https://www.rfc-editor.org/rfc/rfc9943"
+    },
+    {
+      "id": "ietf-scitt-api",
+      "version": "draft-ietf-scitt-scrapi-11",
+      "status": "iesg_rfc_editor_queue_not_final_rfc",
+      "source": "https://datatracker.ietf.org/wg/scitt/documents/"
+    }
+  ],
+  "status_vocabulary": {
+    "candidate": "Potential semantic mapping, but requires a specific profile and a conformance test.",
+    "conditional": "Mapping depends on identity scheme, event class, time/quantity semantics or other explicit conditions.",
+    "not_direct": "No direct equivalent; retain as Mycelix extension/provenance or a separately typed record.",
+    "unknown": "Not inspected or not established by current evidence; do not infer support."
+  },
+  "mappings": [
+    {
+      "id": "checkpoint.id",
+      "mycelix_surface": "Checkpoint.id",
+      "target_standard": "GS1 EPCIS 2.0.1",
+      "target_term": "eventID",
+      "status": "conditional",
+      "transformation": "Use only if the checkpoint ID is globally unique, stable, and serialized as an EPCIS-compatible URI/identifier under a pinned profile.",
+      "semantic_loss_risk": "A local database ID or UUID string may not satisfy the chosen event identity profile; do not silently generate a new eventID without preserving the source identifier.",
+      "provenance_to_retain": [
+        "original_checkpoint_id",
+        "source_artifact_digest",
+        "mapping_profile_version"
+      ],
+      "verification_rule": "Round-trip exact event identity; reject duplicate IDs in a scope where the profile prohibits them."
+    },
+    {
+      "id": "checkpoint.productId",
+      "mycelix_surface": "Checkpoint.productId",
+      "target_standard": "GS1 EPCIS 2.0.1",
+      "target_term": "epcList or quantityList",
+      "status": "conditional",
+      "transformation": "Use epcList only for properly identified instances; use quantityList only for class-level quantity semantics with a governed identifier and unit.",
+      "semantic_loss_risk": "A SKU, product family, GTIN, serialized instance and local product row are not interchangeable.",
+      "provenance_to_retain": [
+        "original_product_id",
+        "identifier_scheme",
+        "identity_granularity"
+      ],
+      "verification_rule": "Require an explicit identifier scheme and identity granularity; reject ambiguous product identifiers."
+    },
+    {
+      "id": "checkpoint.batchId",
+      "mycelix_surface": "Checkpoint.batchId",
+      "target_standard": "GS1 EPCIS 2.0.1",
+      "target_term": "profile-specific lot/batch identifier using applicable EPCIS identifier or extension semantics",
+      "status": "conditional",
+      "transformation": "Map only through a reviewed identifier profile; retain original batch ID and namespace.",
+      "semantic_loss_risk": "No generic string field should be assumed to be an EPCIS lot identifier; the correct representation depends on object class/instance and ILMD or extension policy.",
+      "provenance_to_retain": [
+        "original_batch_id",
+        "namespace",
+        "identifier_scheme"
+      ],
+      "verification_rule": "Validate against the exact GS1 identifier syntax and profile; unknown schemes remain unsupported."
+    },
+    {
+      "id": "checkpoint.location",
+      "mycelix_surface": "Checkpoint.location",
+      "target_standard": "GS1 EPCIS 2.0.1",
+      "target_term": "readPoint.id or bizLocation.id",
+      "status": "conditional",
+      "transformation": "Map only after resolving display text to a governed location identifier, such as a GS1 GLN or an explicitly governed URI.",
+      "semantic_loss_risk": "A human-readable location label is not a stable, globally governed location identity.",
+      "provenance_to_retain": [
+        "original_location_label",
+        "resolved_location_id",
+        "resolver_source"
+      ],
+      "verification_rule": "Require a stable location identifier; preserve display label separately."
+    },
+    {
+      "id": "checkpoint.coordinates",
+      "mycelix_surface": "Checkpoint.coordinates",
+      "target_standard": "GS1 EPCIS 2.0.1",
+      "target_term": "profile-specific geospatial extension or location master-data reference",
+      "status": "conditional",
+      "transformation": "Preserve coordinates, coordinate reference system, accuracy and observation provenance in a declared extension/profile; link separately to readPoint/bizLocation.",
+      "semantic_loss_risk": "Latitude/longitude alone omit CRS, accuracy, source and semantics; they do not replace location identity.",
+      "provenance_to_retain": [
+        "coordinates",
+        "crs",
+        "accuracy",
+        "source_timestamp",
+        "location_master_reference"
+      ],
+      "verification_rule": "Reject missing/unknown CRS for precision-critical cases; test coordinate order, axis convention and accuracy."
+    },
+    {
+      "id": "checkpoint.handlerDid",
+      "mycelix_surface": "Checkpoint.handlerDid",
+      "target_standard": "GS1 EPCIS 2.0.1 / W3C VC 2.0",
+      "target_term": "sourceList/destinationList or business transaction party references; separately authenticated VC issuer/subject/holder roles",
+      "status": "conditional",
+      "transformation": "Do not map DID to a party or credential role until actor, organization, issuer, subject, holder, resource owner and delegated authority are disambiguated.",
+      "semantic_loss_risk": "Identity string alone does not prove key control, organizational affiliation, role, authority or event observation.",
+      "provenance_to_retain": [
+        "handler_did",
+        "actor_role",
+        "organization_id",
+        "credential_reference",
+        "delegation_reference",
+        "trust_policy_digest"
+      ],
+      "verification_rule": "Verify credential/proof, status/revocation and authority at event time; never infer authority from a reputation score."
+    },
+    {
+      "id": "checkpoint.action",
+      "mycelix_surface": "Checkpoint.action",
+      "target_standard": "GS1 EPCIS 2.0.1",
+      "target_term": "event type + action + bizStep + disposition",
+      "status": "conditional",
+      "transformation": "Select ObjectEvent, TransformationEvent or AggregationEvent based on the physical business occurrence; map action/bizStep/disposition independently.",
+      "semantic_loss_risk": "The native values received/processed/shipped/delivered/inspected do not encode event class, process semantics, condition/state or business disposition.",
+      "provenance_to_retain": [
+        "original_action",
+        "selected_event_type",
+        "biz_step",
+        "disposition",
+        "mapping_rule_id"
+      ],
+      "verification_rule": "Require domain-qualified event mapping and positive/negative controls for each supported action."
+    },
+    {
+      "id": "checkpoint.timestamp",
+      "mycelix_surface": "Checkpoint.timestamp",
+      "target_standard": "GS1 EPCIS 2.0.1",
+      "target_term": "eventTime; eventTimeZoneOffset; separate server-generated recordTime",
+      "status": "conditional",
+      "transformation": "Normalize an exact instant to RFC3339 eventTime only when the source clock basis and units are known; retain eventTimeZoneOffset where required and record independent recordTime.",
+      "semantic_loss_risk": "A JavaScript millisecond epoch example does not carry source time zone, clock synchronization, uncertainty, or record-time semantics.",
+      "provenance_to_retain": [
+        "raw_timestamp",
+        "timestamp_unit",
+        "clock_source",
+        "clock_calibration",
+        "event_time",
+        "timezone_offset",
+        "record_time",
+        "uncertainty"
+      ],
+      "verification_rule": "Reject ambiguous units, invalid offsets and impossible ordering; overlapping uncertain event intervals remain unordered."
+    },
+    {
+      "id": "checkpoint.evidence",
+      "mycelix_surface": "Checkpoint.evidence[]",
+      "target_standard": "GS1 EPCIS 2.0.1 / W3C VC 2.0",
+      "target_term": "sensorElementList subset where semantically applicable; external evidence artifact and VC evidence/proof references",
+      "status": "conditional",
+      "transformation": "Map only calibrated sensor observations to EPCIS sensor structures; retain photos, signatures, inspection reports and third-party attestations as content-addressed external evidence with explicit media/issuer metadata.",
+      "semantic_loss_risk": "An arbitrary evidence map or type label is not a calibrated observation, signed attestation or cryptographic proof.",
+      "provenance_to_retain": [
+        "evidence_type",
+        "raw_artifact_digest",
+        "media_type",
+        "issuer",
+        "capture_time",
+        "calibration_reference",
+        "verification_receipt"
+      ],
+      "verification_rule": "Do not accept the boolean verified field as proof; verify signature, provenance, calibration and trust source independently."
+    },
+    {
+      "id": "checkpoint.previousCheckpointId",
+      "mycelix_surface": "Checkpoint.previousCheckpointId",
+      "target_standard": "GS1 EPCIS 2.0.1 / NIST IR 8536",
+      "target_term": "native provenance link / NIST cryptographic linkage; no direct generic EPCIS predecessor field assumed",
+      "status": "not_direct",
+      "transformation": "Retain as an explicit provenance graph edge with typed relationship and content-addressed predecessor reference; expose EPCIS-compatible event identifiers separately.",
+      "semantic_loss_risk": "Treating a private predecessor pointer as an EPCIS event property would invent semantics and may lose forks, multiple parents or corrections.",
+      "provenance_to_retain": [
+        "predecessor_checkpoint_id",
+        "predecessor_digest",
+        "relationship_type",
+        "edge_issuer",
+        "edge_time"
+      ],
+      "verification_rule": "Verify referenced node, content digest, edge authority and graph completeness; detect cycles and equivocation."
+    },
+    {
+      "id": "checkpoint.claim",
+      "mycelix_surface": "Checkpoint.claim",
+      "target_standard": "W3C VC 2.0",
+      "target_term": "credentialSubject claim or referenced attestation",
+      "status": "conditional",
+      "transformation": "Project only explicitly typed, issuer-scoped claims into credentialSubject; preserve epistemic levels and supporting evidence as separate typed references.",
+      "semantic_loss_risk": "Mycelix epistemic/normative/materiality classifications are not automatically W3C VC semantics.",
+      "provenance_to_retain": [
+        "claim_id",
+        "claim_type",
+        "claim_evidence_refs",
+        "issuer",
+        "subject",
+        "profile_version"
+      ],
+      "verification_rule": "Verify subject binding, issuer, securing mechanism, validity and status independently of claim truth."
+    },
+    {
+      "id": "evidence.verified",
+      "mycelix_surface": "CheckpointEvidence.verified",
+      "target_standard": "Any standard",
+      "target_term": "none",
+      "status": "not_direct",
+      "transformation": "Retain only as a producer assertion or derived verifier result with an explicit origin; never serialize it as if it were a proof.",
+      "semantic_loss_risk": "Self-asserted boolean can be mistaken for independent verification.",
+      "provenance_to_retain": [
+        "asserting_actor",
+        "assertion_time",
+        "verification_method",
+        "verification_receipt"
+      ],
+      "verification_rule": "A consuming verifier must independently check the underlying evidence and must not trust the boolean alone."
+    },
+    {
+      "id": "chain.integrityScore",
+      "mycelix_surface": "ProvenanceChain.chainIntegrity / ChainVerification.integrityScore",
+      "target_standard": "NIST IR 8536 / SCITT",
+      "target_term": "no standardized numeric equivalent",
+      "status": "not_direct",
+      "transformation": "Keep as an explicitly versioned internal diagnostic only; publish underlying checks and reason codes separately.",
+      "semantic_loss_risk": "A single score can conceal missing, stale or contradictory evidence and cannot stand in for a transparency receipt.",
+      "provenance_to_retain": [
+        "score_version",
+        "input_manifest_digest",
+        "component_results",
+        "reason_codes"
+      ],
+      "verification_rule": "No critical invalid signature, revoked key, broken link or missing evidence may be compensated by the score."
+    },
+    {
+      "id": "credential.issuer",
+      "mycelix_surface": "future credential issuer identity",
+      "target_standard": "W3C VC 2.0",
+      "target_term": "issuer",
+      "status": "candidate",
+      "transformation": "Use an authenticated issuer identifier and profile-appropriate securing mechanism; keep issuer distinct from event actor, subject and holder.",
+      "semantic_loss_risk": "A DID string alone does not prove issuer key control, authorization or credential validity.",
+      "provenance_to_retain": [
+        "issuer_id",
+        "verification_method",
+        "proof_or_jws",
+        "status_reference",
+        "trust_policy_digest"
+      ],
+      "verification_rule": "Verify proof, verification method, validity period and credential status under pinned trust policy."
+    },
+    {
+      "id": "credential.validity",
+      "mycelix_surface": "future credential validity fields",
+      "target_standard": "W3C VC 2.0",
+      "target_term": "validFrom / validUntil and credential status mechanisms",
+      "status": "candidate",
+      "transformation": "Credential validity bounds must remain separate from EPCIS event occurrence time and event record time.",
+      "semantic_loss_risk": "Credential validity does not mean the underlying event occurred within the same interval or was true.",
+      "provenance_to_retain": [
+        "valid_from",
+        "valid_until",
+        "status_reference",
+        "status_checked_at"
+      ],
+      "verification_rule": "Check validity and status at the relevant decision/event time; unknown status is not valid."
+    },
+    {
+      "id": "transparency.statement",
+      "mycelix_surface": "future signed event/claim statement",
+      "target_standard": "IETF RFC 9943 / SCITT",
+      "target_term": "signed statement with transparency service receipt",
+      "status": "candidate",
+      "transformation": "Bind a canonical statement subject to a transparency-service receipt under the selected RFC 9943 / SCITT profile.",
+      "semantic_loss_risk": "A Mycelix DHT claim ID, local hash chain, VC signature or eventID does not by itself prove inclusion in an independent transparency service.",
+      "provenance_to_retain": [
+        "statement_digest",
+        "issuer",
+        "log_or_service_id",
+        "receipt",
+        "verification_keyset",
+        "profile_version"
+      ],
+      "verification_rule": "Independently verify statement signature, receipt/proof, service identity and consistency under the chosen profile."
+    },
+    {
+      "id": "nist.traceability-linkage",
+      "mycelix_surface": "Mycelix event/claim graph",
+      "target_standard": "NIST IR 8536",
+      "target_term": "encapsulation, linkage, query and selective disclosure principles",
+      "status": "candidate",
+      "transformation": "Map existing event and evidence structures to the framework principles; document gaps and participant exchange boundaries.",
+      "semantic_loss_risk": "A diagram or local hash link is not evidence that parties can independently query and verify a continuous cross-organizational chain.",
+      "provenance_to_retain": [
+        "source_event_digest",
+        "link_relationship",
+        "participant_roles",
+        "disclosure_profile",
+        "verification_result"
+      ],
+      "verification_rule": "Test with independent implementations and independent organizations; preserve unknown/withheld information as unknown rather than absence."
+    }
+  ],
+  "benchmark_requirements": [
+    "same event content round-trips through at least two independent implementations",
+    "raw source identity and source digest remain available",
+    "unsupported semantic fields never disappear silently",
+    "event time and record time remain distinct",
+    "critical graph/evidence failures are non-compensatory",
+    "selective disclosure is tested for utility, leakage and correlation",
+    "signature, VC status and SCITT transparency receipt are separately verified"
+  ],
+  "non_claims": [
+    "No standards conformance has been tested by this mapping.",
+    "No production security or issuer-key custody guarantee is established.",
+    "No product authenticity or physical truth is established by a signature alone.",
+    "No SCITT API or receipt profile draft is treated as a final RFC.",
+    "No Mycelix checkpoint field is assumed equivalent solely by name."
+  ]
+}
