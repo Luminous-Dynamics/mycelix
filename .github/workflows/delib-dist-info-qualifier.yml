@@ -37,4 +37,6 @@ jobs:
             docs/research/deliberation/distributed-information/DIST_INFO_PROTOCOL_V0_1.json \
             docs/research/deliberation/distributed-information/DIST_INFO_PROTOCOL_V0_1.schema.json \
             docs/research/deliberation/distributed-information/DIST_INFO_FIXTURES_V0_1.json \
-            docs/research/deliberation/distributed-information/DIST_INFO_FIXTURES_V0_1.schema.json
+            docs/research/deliberation/distributed-information/DIST_INFO_FIXTURES_V0_1.schema.json \
+            docs/research/deliberation/distributed-information/GROUPMEMBENCH_METADATA_INTAKE_V0_1.json \
+            docs/research/deliberation/distributed-information/GROUPMEMBENCH_METADATA_INTAKE_V0_1.schema.json

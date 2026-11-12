@@ -189,6 +189,126 @@ fn validate_corpus(v:&Value)->Result<BTreeMap<&'static str,usize>,String>{
  if family_seen.len()!=FAMILIES.len(){return Err("not all six fixture families are present".into());}
  Ok(counts)
 }
+
+fn is_sha1(s: &str) -> bool {
+    s.len() == 40 && s.bytes().all(|b| b.is_ascii_hexdigit())
+}
+
+fn validate_groupmembench_intake(v: &Value) -> Result<(), String> {
+    if strv(v, "intake_id") != Some("GROUPMEMBENCH-METADATA-INTAKE-001")
+        || strv(v, "version") != Some("0.1.0")
+        || strv(v, "status") != Some("metadata_only_read_only_adapter_candidate") {
+        return Err("GroupMemBench intake identity/status mismatch".into());
+    }
+    let source = &v["source"];
+    if strv(source, "repository") != Some("https://github.com/UCSB-NLP-Chang/GroupMemBench")
+        || strv(source, "pinned_commit") != Some("461f00c3e8a1a4a3a2ed5814b729014502c4702f")
+        || strv(source, "repository_code_license") != Some("MIT")
+        || strv(source, "dataset_license_declared_in_readme") != Some("CC BY 4.0")
+        || !is_sha1(strv(source, "readme_git_blob_sha").unwrap_or(""))
+        || !is_sha1(strv(source, "license_git_blob_sha").unwrap_or("")) {
+        return Err("GroupMemBench source revision/license metadata is not pinned".into());
+    }
+
+    let files = arr(v, "files");
+    if files.len() != 30 {
+        return Err(format!("GroupMemBench intake must bind 30 files, got {}", files.len()));
+    }
+    let mut paths = BTreeSet::new();
+    let mut path_to_sha = BTreeMap::new();
+    let mut data_files = 0usize;
+    let mut question_files = 0usize;
+    let mut metadata_files = 0usize;
+    let mut data_bytes = 0u64;
+    let mut question_bytes = 0u64;
+
+    for file in files {
+        if !exact(file, &["path", "git_blob_sha", "size_bytes"]) {
+            return Err("GroupMemBench file identity has missing/extra fields".into());
+        }
+        let path = strv(file, "path").ok_or("GroupMemBench path missing")?.to_owned();
+        let sha = strv(file, "git_blob_sha").ok_or("GroupMemBench blob SHA missing")?;
+        let size = file["size_bytes"].as_u64().ok_or("GroupMemBench file size missing/invalid")?;
+        if !paths.insert(path.clone()) || !is_sha1(sha) {
+            return Err(format!("duplicate path or invalid Git blob SHA: {path}"));
+        }
+        path_to_sha.insert(path.clone(), sha.to_owned());
+        if path.starts_with("data/final/") && path.ends_with(".json") {
+            data_files += 1;
+            data_bytes += size;
+        } else if path.starts_with("questions/") && path.ends_with(".jsonl") {
+            question_files += 1;
+            question_bytes += size;
+        } else if path == "LICENSE" || path == "README.md" {
+            metadata_files += 1;
+        } else {
+            return Err(format!("unexpected file in GroupMemBench manifest: {path}"));
+        }
+    }
+    if data_files != 4 || question_files != 24 || metadata_files != 2 {
+        return Err(format!("GroupMemBench artifact file counts mismatch: data={data_files}, questions={question_files}, metadata={metadata_files}"));
+    }
+    if path_to_sha.get("README.md").map(String::as_str) != strv(source, "readme_git_blob_sha")
+        || path_to_sha.get("LICENSE").map(String::as_str) != strv(source, "license_git_blob_sha") {
+        return Err("GroupMemBench README/LICENSE blob identity mismatch".into());
+    }
+
+    let summary = &v["artifact_summary"];
+    if summary["total_selected_files"].as_u64() != Some(30)
+        || summary["conversation_data_files"].as_u64() != Some(data_files as u64)
+        || summary["conversation_data_bytes"].as_u64() != Some(data_bytes)
+        || summary["question_files"].as_u64() != Some(question_files as u64)
+        || summary["question_bytes"].as_u64() != Some(question_bytes)
+        || summary["metadata_files"].as_u64() != Some(metadata_files as u64)
+        || summary["git_tree_truncated"].as_bool() != Some(false) {
+        return Err("GroupMemBench file-count/byte summary does not match pinned file identities".into());
+    }
+
+    let benchmark = &v["benchmark"];
+    if strv(benchmark, "paper_url") != Some("https://arxiv.org/abs/2605.14498")
+        || benchmark["total_questions"].as_u64() != Some(715) {
+        return Err("GroupMemBench paper/total-question identity mismatch".into());
+    }
+    let domains = arr(benchmark, "domains");
+    let expected_domains = ["Finance", "Technology", "Healthcare", "Manufacturing"];
+    if domains.len() != expected_domains.len()
+        || !expected_domains.iter().all(|d| domains.iter().any(|x| x.as_str() == Some(d))) {
+        return Err("GroupMemBench domain set mismatch".into());
+    }
+    let qtypes = ["multi_hop", "knowledge_update", "temporal", "user_implicit", "term_ambiguity", "abstention"];
+    let count_map = benchmark["question_counts_by_domain"].as_object().ok_or("question count map missing")?;
+    if count_map.len() != expected_domains.len() {
+        return Err("GroupMemBench question count domain count mismatch".into());
+    }
+    let mut total_questions = 0u64;
+    for domain in expected_domains {
+        let row = count_map.get(domain).ok_or(format!("question count row missing: {domain}"))?;
+        let mut sum = 0u64;
+        for qtype in qtypes {
+            sum += row[qtype].as_u64().ok_or(format!("question count missing: {domain}/{qtype}"))?;
+        }
+        if row["total"].as_u64() != Some(sum) {
+            return Err(format!("GroupMemBench domain subtotal mismatch: {domain}"));
+        }
+        total_questions += sum;
+    }
+    if total_questions != 715 {
+        return Err(format!("GroupMemBench question counts total {total_questions}, expected 715"));
+    }
+
+    let custody = &v["custody"];
+    if custody["payload_downloaded"].as_bool() != Some(false)
+        || custody["payload_committed"].as_bool() != Some(false)
+        || custody["adapter_executed"].as_bool() != Some(false)
+        || custody["candidate_hidden_labels_or_answers"].as_bool() != Some(false) {
+        return Err("GroupMemBench metadata-only custody boundary was breached".into());
+    }
+    if !strv(custody, "permitted_next_step").unwrap_or("").contains("read-only adapter") {
+        return Err("GroupMemBench next step must remain a read-only adapter".into());
+    }
+    Ok(())
+}
+
 fn schema_header(v:&Value,id:&str,required:&[&str])->Vec<String>{
  let mut e=Vec::new();
  if s(v,"$schema")!=Some("https://json-schema.org/draft/2020-12/schema"){e.push("schema dialect mismatch".to_string());}
@@ -199,13 +319,15 @@ fn schema_header(v:&Value,id:&str,required:&[&str])->Vec<String>{
  e
 }
 fn run(a:&[String])->Result<(),String>{
- if a.len()!=4{return Err("usage: qualifier PROTOCOL PROTOCOL_SCHEMA FIXTURES FIXTURES_SCHEMA".into());}
+ if a.len()!=6{return Err("usage: qualifier PROTOCOL PROTOCOL_SCHEMA FIXTURES FIXTURES_SCHEMA GROUPMEM_INTAKE GROUPMEM_SCHEMA".into());}
  let read=|p:&str|->Result<Value,String>{serde_json::from_str(&fs::read_to_string(p).map_err(|e|e.to_string())?).map_err(|e|e.to_string())};
- let p=read(&a[0])?;let ps=read(&a[1])?;let f=read(&a[2])?;let fschema=read(&a[3])?;
+ let p=read(&a[0])?;let ps=read(&a[1])?;let f=read(&a[2])?;let fschema=read(&a[3])?;let groupmem=read(&a[4])?;let groupmem_schema=read(&a[5])?;
  let mut errors=schema_header(&ps,"https://luminousdynamics.io/schemas/delib-dist-info-protocol-v0.1.schema.json",
   &["protocol_id","version","status","title","research_question","parent","ownership","external_comparators","metric_ids","implemented_metric_ids","deferred_metric_ids","family_ids","terminal_states","claim_ceiling"]);
  errors.extend(schema_header(&fschema,"https://luminousdynamics.io/schemas/delib-dist-info-fixtures-v0.1.schema.json",
   &["schema_version","status","protocol_id","fixture_count","family_count","scenarios"]));
+ errors.extend(schema_header(&groupmem_schema,"https://luminousdynamics.io/schemas/groupmembench-metadata-intake-v0.1.schema.json",
+  &["intake_id","version","status","source","benchmark","artifact_summary","files","custody","claim_ceiling"]));
  if !errors.is_empty(){return Err(errors.join("; "));}
  if s(&p,"protocol_id")!=Some(ID)||p["version"]!="0.1.0"||s(&p,"status")!=Some("synthetic_contract_qualifier"){return Err("protocol identity/version/status mismatch".into());}
  let all: BTreeSet<String>=ids(&p["metric_ids"]);
@@ -213,7 +335,8 @@ fn run(a:&[String])->Result<(),String>{
  let deferred:BTreeSet<String>=ids(&p["deferred_metric_ids"]);
  if !implemented.is_disjoint(&deferred)||implemented.union(&deferred).cloned().collect::<BTreeSet<_>>()!=all{return Err("implemented/deferred metric partition mismatch".into());}
  let counts=validate_corpus(&f)?;
- println!("QUALIFIED: scenarios={} families={} pass={} fail={} indeterminate={} invalid={} agents_executed=false human_data_imported=false",
+ validate_groupmembench_intake(&groupmem)?;
+ println!("QUALIFIED: scenarios={} families={} pass={} fail={} indeterminate={} invalid={} groupmembench_files=30 groupmembench_questions=715 external_payload_imported=false agents_executed=false human_data_imported=false",
   arr(&f,"scenarios").len(),FAMILIES.len(),counts.get("pass").unwrap_or(&0),counts.get("fail").unwrap_or(&0),counts.get("indeterminate").unwrap_or(&0),counts.get("invalid").unwrap_or(&0));
  Ok(())
 }
@@ -247,4 +370,28 @@ mod tests{
  #[test]fn receipt_must_bind_exact_evidence_object_id(){let mut x=fx("COMP-01-complete-pooling");x["receipts"][0]["evidence_id"]=Value::String("OTHER-EVIDENCE".into());assert!(assessment(&x).is_err());}
  #[test]fn unknown_hidden_holder_is_not_silently_accepted(){let mut x=fx("COMP-01-complete-pooling");x["facts"][0]["holder_agent_id"]=Value::String("GHOST".into());assert!(assessment(&x).is_err());}
  #[test]fn oracle_must_remain_hidden(){let mut x=fx("COMP-01-complete-pooling");x["oracle"]["hidden_from_candidates"]=Value::Bool(false);assert!(assessment(&x).is_err());}
+ #[test]fn groupmembench_metadata_manifest_is_pinned_and_self_consistent(){
+  let v:Value=serde_json::from_str(include_str!("../../GROUPMEMBENCH_METADATA_INTAKE_V0_1.json")).unwrap();
+  assert!(validate_groupmembench_intake(&v).is_ok());
+ }
+ #[test]fn groupmembench_wrong_data_license_is_rejected(){
+  let mut v:Value=serde_json::from_str(include_str!("../../GROUPMEMBENCH_METADATA_INTAKE_V0_1.json")).unwrap();
+  v["source"]["dataset_license_declared_in_readme"]=Value::String("unknown".into());
+  assert!(validate_groupmembench_intake(&v).is_err());
+ }
+ #[test]fn groupmembench_file_sha_and_byte_totals_are_checked(){
+  let mut v:Value=serde_json::from_str(include_str!("../../GROUPMEMBENCH_METADATA_INTAKE_V0_1.json")).unwrap();
+  v["files"][2]["git_blob_sha"]=Value::String("bad".into());
+  assert!(validate_groupmembench_intake(&v).is_err());
+ }
+ #[test]fn groupmembench_metadata_intake_forbids_payload_import(){
+  let mut v:Value=serde_json::from_str(include_str!("../../GROUPMEMBENCH_METADATA_INTAKE_V0_1.json")).unwrap();
+  v["custody"]["payload_committed"]=Value::Bool(true);
+  assert!(validate_groupmembench_intake(&v).is_err());
+ }
+ #[test]fn groupmembench_question_counts_must_sum_to_715(){
+  let mut v:Value=serde_json::from_str(include_str!("../../GROUPMEMBENCH_METADATA_INTAKE_V0_1.json")).unwrap();
+  v["benchmark"]["question_counts_by_domain"]["Finance"]["total"]=Value::from(999);
+  assert!(validate_groupmembench_intake(&v).is_err());
+ }
 }
