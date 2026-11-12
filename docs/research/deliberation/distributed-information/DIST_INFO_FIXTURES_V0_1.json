@@ -1,0 +1,2117 @@
+{
+  "schema_version": "delib-dist-info-fixtures-v0.1",
+  "status": "synthetic_controls_only_agents_not_executed",
+  "protocol_id": "DELIB-DIST-INFO-001",
+  "fixture_count": 18,
+  "family_count": 6,
+  "scenarios": [
+    {
+      "scenario_id": "COMP-01-complete-pooling",
+      "family": "complementary_facts",
+      "seed": 1101,
+      "agents": [
+        "AGENT-A",
+        "AGENT-B",
+        "AGENT-C"
+      ],
+      "facts": [
+        {
+          "fact_id": "F-COMP-A",
+          "claim_id": "CLAIM-F-COMP-A",
+          "holder_agent_id": "AGENT-A",
+          "visibility": "private",
+          "decision_role": "critical",
+          "polarity": "supports_A",
+          "rights_status": "shareable",
+          "version": 1,
+          "evidence_status": "current",
+          "initial_verification_status": "verified",
+          "source_origin_id": "ORIGIN-F-COMP-A",
+          "duplicate_of": null
+        },
+        {
+          "fact_id": "F-COMP-B",
+          "claim_id": "CLAIM-F-COMP-B",
+          "holder_agent_id": "AGENT-B",
+          "visibility": "private",
+          "decision_role": "critical",
+          "polarity": "supports_B",
+          "rights_status": "shareable",
+          "version": 1,
+          "evidence_status": "current",
+          "initial_verification_status": "verified",
+          "source_origin_id": "ORIGIN-F-COMP-B",
+          "duplicate_of": null
+        }
+      ],
+      "initial_views": [
+        {
+          "agent_id": "AGENT-A",
+          "visible_fact_ids": [
+            "F-COMP-A"
+          ]
+        },
+        {
+          "agent_id": "AGENT-B",
+          "visible_fact_ids": [
+            "F-COMP-B"
+          ]
+        },
+        {
+          "agent_id": "AGENT-C",
+          "visible_fact_ids": []
+        }
+      ],
+      "requests": [
+        {
+          "request_id": "R-COMP-A",
+          "requester_agent_id": "AGENT-C",
+          "target_agent_id": "AGENT-A",
+          "fact_id": "F-COMP-A",
+          "delivery_status": "delivered"
+        },
+        {
+          "request_id": "R-COMP-B",
+          "requester_agent_id": "AGENT-C",
+          "target_agent_id": "AGENT-B",
+          "fact_id": "F-COMP-B",
+          "delivery_status": "delivered"
+        }
+      ],
+      "responses": [
+        {
+          "response_id": "S-COMP-A",
+          "request_id": "R-COMP-A",
+          "responder_agent_id": "AGENT-A",
+          "fact_id": "F-COMP-A",
+          "status": "disclosed"
+        },
+        {
+          "response_id": "S-COMP-B",
+          "request_id": "R-COMP-B",
+          "responder_agent_id": "AGENT-B",
+          "fact_id": "F-COMP-B",
+          "status": "disclosed"
+        }
+      ],
+      "receipts": [
+        {
+          "receipt_id": "RC-COMP-A",
+          "request_id": "R-COMP-A",
+          "holder_agent_id": "AGENT-A",
+          "fact_id": "F-COMP-A",
+          "evidence_id": "EVID-F-COMP-A-V1",
+          "source_origin_id": "ORIGIN-F-COMP-A",
+          "version": 1,
+          "rights_status": "shareable",
+          "verification_status": "verified",
+          "duplicate_of": null
+        },
+        {
+          "receipt_id": "RC-COMP-B",
+          "request_id": "R-COMP-B",
+          "holder_agent_id": "AGENT-B",
+          "fact_id": "F-COMP-B",
+          "evidence_id": "EVID-F-COMP-B-V1",
+          "source_origin_id": "ORIGIN-F-COMP-B",
+          "version": 1,
+          "rights_status": "shareable",
+          "verification_status": "verified",
+          "duplicate_of": null
+        }
+      ],
+      "candidate_decision": {
+        "disposition": "decided",
+        "selected_option": "B",
+        "completeness_claim": "complete",
+        "admitted_fact_ids": [
+          "F-COMP-A",
+          "F-COMP-B"
+        ],
+        "unresolved_claim_ids": [],
+        "reported_independent_source_count": 2
+      },
+      "oracle": {
+        "hidden_from_candidates": true,
+        "correct_option": "B",
+        "critical_fact_ids": [
+          "F-COMP-A",
+          "F-COMP-B"
+        ],
+        "shareable_critical_fact_ids": [
+          "F-COMP-A",
+          "F-COMP-B"
+        ],
+        "restricted_critical_fact_ids": []
+      },
+      "expected_assessment": "pass"
+    },
+    {
+      "scenario_id": "COMP-02-one-critical-fact-missing",
+      "family": "complementary_facts",
+      "seed": 1102,
+      "agents": [
+        "AGENT-A",
+        "AGENT-B",
+        "AGENT-C"
+      ],
+      "facts": [
+        {
+          "fact_id": "F-COMP-A",
+          "claim_id": "CLAIM-F-COMP-A",
+          "holder_agent_id": "AGENT-A",
+          "visibility": "private",
+          "decision_role": "critical",
+          "polarity": "supports_A",
+          "rights_status": "shareable",
+          "version": 1,
+          "evidence_status": "current",
+          "initial_verification_status": "verified",
+          "source_origin_id": "ORIGIN-F-COMP-A",
+          "duplicate_of": null
+        },
+        {
+          "fact_id": "F-COMP-B",
+          "claim_id": "CLAIM-F-COMP-B",
+          "holder_agent_id": "AGENT-B",
+          "visibility": "private",
+          "decision_role": "critical",
+          "polarity": "supports_B",
+          "rights_status": "shareable",
+          "version": 1,
+          "evidence_status": "current",
+          "initial_verification_status": "verified",
+          "source_origin_id": "ORIGIN-F-COMP-B",
+          "duplicate_of": null
+        }
+      ],
+      "initial_views": [
+        {
+          "agent_id": "AGENT-A",
+          "visible_fact_ids": [
+            "F-COMP-A"
+          ]
+        },
+        {
+          "agent_id": "AGENT-B",
+          "visible_fact_ids": [
+            "F-COMP-B"
+          ]
+        },
+        {
+          "agent_id": "AGENT-C",
+          "visible_fact_ids": []
+        }
+      ],
+      "requests": [
+        {
+          "request_id": "R-COMP-A",
+          "requester_agent_id": "AGENT-C",
+          "target_agent_id": "AGENT-A",
+          "fact_id": "F-COMP-A",
+          "delivery_status": "delivered"
+        }
+      ],
+      "responses": [
+        {
+          "response_id": "S-COMP-A",
+          "request_id": "R-COMP-A",
+          "responder_agent_id": "AGENT-A",
+          "fact_id": "F-COMP-A",
+          "status": "disclosed"
+        }
+      ],
+      "receipts": [
+        {
+          "receipt_id": "RC-COMP-A",
+          "request_id": "R-COMP-A",
+          "holder_agent_id": "AGENT-A",
+          "fact_id": "F-COMP-A",
+          "evidence_id": "EVID-F-COMP-A-V1",
+          "source_origin_id": "ORIGIN-F-COMP-A",
+          "version": 1,
+          "rights_status": "shareable",
+          "verification_status": "verified",
+          "duplicate_of": null
+        }
+      ],
+      "candidate_decision": {
+        "disposition": "decided",
+        "selected_option": "A",
+        "completeness_claim": "incomplete",
+        "admitted_fact_ids": [
+          "F-COMP-A"
+        ],
+        "unresolved_claim_ids": [],
+        "reported_independent_source_count": 1
+      },
+      "oracle": {
+        "hidden_from_candidates": true,
+        "correct_option": "B",
+        "critical_fact_ids": [
+          "F-COMP-A",
+          "F-COMP-B"
+        ],
+        "shareable_critical_fact_ids": [
+          "F-COMP-A",
+          "F-COMP-B"
+        ],
+        "restricted_critical_fact_ids": []
+      },
+      "expected_assessment": "fail"
+    },
+    {
+      "scenario_id": "COMP-03-false-completeness-claim",
+      "family": "complementary_facts",
+      "seed": 1103,
+      "agents": [
+        "AGENT-A",
+        "AGENT-B",
+        "AGENT-C"
+      ],
+      "facts": [
+        {
+          "fact_id": "F-COMP-A",
+          "claim_id": "CLAIM-F-COMP-A",
+          "holder_agent_id": "AGENT-A",
+          "visibility": "private",
+          "decision_role": "critical",
+          "polarity": "supports_A",
+          "rights_status": "shareable",
+          "version": 1,
+          "evidence_status": "current",
+          "initial_verification_status": "verified",
+          "source_origin_id": "ORIGIN-F-COMP-A",
+          "duplicate_of": null
+        },
+        {
+          "fact_id": "F-COMP-B",
+          "claim_id": "CLAIM-F-COMP-B",
+          "holder_agent_id": "AGENT-B",
+          "visibility": "private",
+          "decision_role": "critical",
+          "polarity": "supports_B",
+          "rights_status": "shareable",
+          "version": 1,
+          "evidence_status": "current",
+          "initial_verification_status": "verified",
+          "source_origin_id": "ORIGIN-F-COMP-B",
+          "duplicate_of": null
+        }
+      ],
+      "initial_views": [
+        {
+          "agent_id": "AGENT-A",
+          "visible_fact_ids": [
+            "F-COMP-A"
+          ]
+        },
+        {
+          "agent_id": "AGENT-B",
+          "visible_fact_ids": [
+            "F-COMP-B"
+          ]
+        },
+        {
+          "agent_id": "AGENT-C",
+          "visible_fact_ids": []
+        }
+      ],
+      "requests": [
+        {
+          "request_id": "R-COMP-A",
+          "requester_agent_id": "AGENT-C",
+          "target_agent_id": "AGENT-A",
+          "fact_id": "F-COMP-A",
+          "delivery_status": "delivered"
+        }
+      ],
+      "responses": [
+        {
+          "response_id": "S-COMP-A",
+          "request_id": "R-COMP-A",
+          "responder_agent_id": "AGENT-A",
+          "fact_id": "F-COMP-A",
+          "status": "disclosed"
+        }
+      ],
+      "receipts": [
+        {
+          "receipt_id": "RC-COMP-A",
+          "request_id": "R-COMP-A",
+          "holder_agent_id": "AGENT-A",
+          "fact_id": "F-COMP-A",
+          "evidence_id": "EVID-F-COMP-A-V1",
+          "source_origin_id": "ORIGIN-F-COMP-A",
+          "version": 1,
+          "rights_status": "shareable",
+          "verification_status": "verified",
+          "duplicate_of": null
+        }
+      ],
+      "candidate_decision": {
+        "disposition": "decided",
+        "selected_option": "A",
+        "completeness_claim": "complete",
+        "admitted_fact_ids": [
+          "F-COMP-A"
+        ],
+        "unresolved_claim_ids": [],
+        "reported_independent_source_count": 1
+      },
+      "oracle": {
+        "hidden_from_candidates": true,
+        "correct_option": "B",
+        "critical_fact_ids": [
+          "F-COMP-A",
+          "F-COMP-B"
+        ],
+        "shareable_critical_fact_ids": [
+          "F-COMP-A",
+          "F-COMP-B"
+        ],
+        "restricted_critical_fact_ids": []
+      },
+      "expected_assessment": "fail"
+    },
+    {
+      "scenario_id": "MIN-01-minority-fact-elicited",
+      "family": "minority_decisive_fact",
+      "seed": 1201,
+      "agents": [
+        "AGENT-A",
+        "AGENT-B",
+        "AGENT-C"
+      ],
+      "facts": [
+        {
+          "fact_id": "F-MIN-SHARED",
+          "claim_id": "CLAIM-F-MIN-SHARED",
+          "holder_agent_id": "AGENT-A",
+          "visibility": "shared",
+          "decision_role": "supporting",
+          "polarity": "supports_A",
+          "rights_status": "shareable",
+          "version": 1,
+          "evidence_status": "current",
+          "initial_verification_status": "verified",
+          "source_origin_id": "ORIGIN-F-MIN-SHARED",
+          "duplicate_of": null
+        },
+        {
+          "fact_id": "F-MIN-DECISIVE",
+          "claim_id": "CLAIM-F-MIN-DECISIVE",
+          "holder_agent_id": "AGENT-C",
+          "visibility": "private",
+          "decision_role": "critical",
+          "polarity": "supports_B",
+          "rights_status": "shareable",
+          "version": 1,
+          "evidence_status": "current",
+          "initial_verification_status": "verified",
+          "source_origin_id": "ORIGIN-F-MIN-DECISIVE",
+          "duplicate_of": null
+        }
+      ],
+      "initial_views": [
+        {
+          "agent_id": "AGENT-A",
+          "visible_fact_ids": [
+            "F-MIN-SHARED"
+          ]
+        },
+        {
+          "agent_id": "AGENT-B",
+          "visible_fact_ids": [
+            "F-MIN-SHARED"
+          ]
+        },
+        {
+          "agent_id": "AGENT-C",
+          "visible_fact_ids": [
+            "F-MIN-SHARED",
+            "F-MIN-DECISIVE"
+          ]
+        }
+      ],
+      "requests": [
+        {
+          "request_id": "R-MIN-DEC",
+          "requester_agent_id": "AGENT-B",
+          "target_agent_id": "AGENT-C",
+          "fact_id": "F-MIN-DECISIVE",
+          "delivery_status": "delivered"
+        }
+      ],
+      "responses": [
+        {
+          "response_id": "S-MIN-DEC",
+          "request_id": "R-MIN-DEC",
+          "responder_agent_id": "AGENT-C",
+          "fact_id": "F-MIN-DECISIVE",
+          "status": "disclosed"
+        }
+      ],
+      "receipts": [
+        {
+          "receipt_id": "RC-MIN-DEC",
+          "request_id": "R-MIN-DEC",
+          "holder_agent_id": "AGENT-C",
+          "fact_id": "F-MIN-DECISIVE",
+          "evidence_id": "EVID-F-MIN-DECISIVE-V1",
+          "source_origin_id": "ORIGIN-F-MIN-DECISIVE",
+          "version": 1,
+          "rights_status": "shareable",
+          "verification_status": "verified",
+          "duplicate_of": null
+        }
+      ],
+      "candidate_decision": {
+        "disposition": "decided",
+        "selected_option": "B",
+        "completeness_claim": "complete",
+        "admitted_fact_ids": [
+          "F-MIN-SHARED",
+          "F-MIN-DECISIVE"
+        ],
+        "unresolved_claim_ids": [],
+        "reported_independent_source_count": 2
+      },
+      "oracle": {
+        "hidden_from_candidates": true,
+        "correct_option": "B",
+        "critical_fact_ids": [
+          "F-MIN-DECISIVE"
+        ],
+        "shareable_critical_fact_ids": [
+          "F-MIN-DECISIVE"
+        ],
+        "restricted_critical_fact_ids": []
+      },
+      "expected_assessment": "pass"
+    },
+    {
+      "scenario_id": "MIN-02-minority-fact-ignored",
+      "family": "minority_decisive_fact",
+      "seed": 1202,
+      "agents": [
+        "AGENT-A",
+        "AGENT-B",
+        "AGENT-C"
+      ],
+      "facts": [
+        {
+          "fact_id": "F-MIN-SHARED",
+          "claim_id": "CLAIM-F-MIN-SHARED",
+          "holder_agent_id": "AGENT-A",
+          "visibility": "shared",
+          "decision_role": "supporting",
+          "polarity": "supports_A",
+          "rights_status": "shareable",
+          "version": 1,
+          "evidence_status": "current",
+          "initial_verification_status": "verified",
+          "source_origin_id": "ORIGIN-F-MIN-SHARED",
+          "duplicate_of": null
+        },
+        {
+          "fact_id": "F-MIN-DECISIVE",
+          "claim_id": "CLAIM-F-MIN-DECISIVE",
+          "holder_agent_id": "AGENT-C",
+          "visibility": "private",
+          "decision_role": "critical",
+          "polarity": "supports_B",
+          "rights_status": "shareable",
+          "version": 1,
+          "evidence_status": "current",
+          "initial_verification_status": "verified",
+          "source_origin_id": "ORIGIN-F-MIN-DECISIVE",
+          "duplicate_of": null
+        }
+      ],
+      "initial_views": [
+        {
+          "agent_id": "AGENT-A",
+          "visible_fact_ids": [
+            "F-MIN-SHARED"
+          ]
+        },
+        {
+          "agent_id": "AGENT-B",
+          "visible_fact_ids": [
+            "F-MIN-SHARED"
+          ]
+        },
+        {
+          "agent_id": "AGENT-C",
+          "visible_fact_ids": [
+            "F-MIN-SHARED",
+            "F-MIN-DECISIVE"
+          ]
+        }
+      ],
+      "requests": [],
+      "responses": [],
+      "receipts": [],
+      "candidate_decision": {
+        "disposition": "decided",
+        "selected_option": "A",
+        "completeness_claim": "complete",
+        "admitted_fact_ids": [
+          "F-MIN-SHARED"
+        ],
+        "unresolved_claim_ids": [],
+        "reported_independent_source_count": 1
+      },
+      "oracle": {
+        "hidden_from_candidates": true,
+        "correct_option": "B",
+        "critical_fact_ids": [
+          "F-MIN-DECISIVE"
+        ],
+        "shareable_critical_fact_ids": [
+          "F-MIN-DECISIVE"
+        ],
+        "restricted_critical_fact_ids": []
+      },
+      "expected_assessment": "fail"
+    },
+    {
+      "scenario_id": "MIN-03-repetition-masquerades-as-consensus",
+      "family": "minority_decisive_fact",
+      "seed": 1203,
+      "agents": [
+        "AGENT-A",
+        "AGENT-B",
+        "AGENT-C"
+      ],
+      "facts": [
+        {
+          "fact_id": "F-MIN-REPEAT-1",
+          "claim_id": "CLAIM-F-MIN-REPEAT-1",
+          "holder_agent_id": "AGENT-A",
+          "visibility": "shared",
+          "decision_role": "supporting",
+          "polarity": "supports_A",
+          "rights_status": "shareable",
+          "version": 1,
+          "evidence_status": "current",
+          "initial_verification_status": "verified",
+          "source_origin_id": "ORIGIN-REPEATED",
+          "duplicate_of": null
+        },
+        {
+          "fact_id": "F-MIN-REPEAT-2",
+          "claim_id": "CLAIM-F-MIN-REPEAT-2",
+          "holder_agent_id": "AGENT-B",
+          "visibility": "private",
+          "decision_role": "supporting",
+          "polarity": "supports_A",
+          "rights_status": "shareable",
+          "version": 1,
+          "evidence_status": "current",
+          "initial_verification_status": "verified",
+          "source_origin_id": "ORIGIN-REPEATED",
+          "duplicate_of": "F-MIN-REPEAT-1"
+        },
+        {
+          "fact_id": "F-MIN-REPEAT-3",
+          "claim_id": "CLAIM-F-MIN-REPEAT-3",
+          "holder_agent_id": "AGENT-C",
+          "visibility": "private",
+          "decision_role": "supporting",
+          "polarity": "supports_A",
+          "rights_status": "shareable",
+          "version": 1,
+          "evidence_status": "current",
+          "initial_verification_status": "verified",
+          "source_origin_id": "ORIGIN-REPEATED",
+          "duplicate_of": "F-MIN-REPEAT-1"
+        },
+        {
+          "fact_id": "F-MIN-RARE-DECISIVE",
+          "claim_id": "CLAIM-F-MIN-RARE-DECISIVE",
+          "holder_agent_id": "AGENT-C",
+          "visibility": "private",
+          "decision_role": "critical",
+          "polarity": "supports_B",
+          "rights_status": "shareable",
+          "version": 1,
+          "evidence_status": "current",
+          "initial_verification_status": "verified",
+          "source_origin_id": "ORIGIN-F-MIN-RARE-DECISIVE",
+          "duplicate_of": null
+        }
+      ],
+      "initial_views": [
+        {
+          "agent_id": "AGENT-A",
+          "visible_fact_ids": [
+            "F-MIN-REPEAT-1"
+          ]
+        },
+        {
+          "agent_id": "AGENT-B",
+          "visible_fact_ids": [
+            "F-MIN-REPEAT-1",
+            "F-MIN-REPEAT-2"
+          ]
+        },
+        {
+          "agent_id": "AGENT-C",
+          "visible_fact_ids": [
+            "F-MIN-REPEAT-1",
+            "F-MIN-REPEAT-3",
+            "F-MIN-RARE-DECISIVE"
+          ]
+        }
+      ],
+      "requests": [],
+      "responses": [],
+      "receipts": [],
+      "candidate_decision": {
+        "disposition": "decided",
+        "selected_option": "A",
+        "completeness_claim": "complete",
+        "admitted_fact_ids": [
+          "F-MIN-REPEAT-1",
+          "F-MIN-REPEAT-2",
+          "F-MIN-REPEAT-3"
+        ],
+        "unresolved_claim_ids": [],
+        "reported_independent_source_count": 3
+      },
+      "oracle": {
+        "hidden_from_candidates": true,
+        "correct_option": "B",
+        "critical_fact_ids": [
+          "F-MIN-RARE-DECISIVE"
+        ],
+        "shareable_critical_fact_ids": [
+          "F-MIN-RARE-DECISIVE"
+        ],
+        "restricted_critical_fact_ids": []
+      },
+      "expected_assessment": "fail"
+    },
+    {
+      "scenario_id": "RED-01-deduplicate-then-integrate",
+      "family": "high_redundancy",
+      "seed": 1301,
+      "agents": [
+        "AGENT-A",
+        "AGENT-B",
+        "AGENT-C"
+      ],
+      "facts": [
+        {
+          "fact_id": "F-RED-BASE",
+          "claim_id": "CLAIM-F-RED-BASE",
+          "holder_agent_id": "AGENT-A",
+          "visibility": "private",
+          "decision_role": "supporting",
+          "polarity": "supports_A",
+          "rights_status": "shareable",
+          "version": 1,
+          "evidence_status": "current",
+          "initial_verification_status": "verified",
+          "source_origin_id": "ORIGIN-ONE",
+          "duplicate_of": null
+        },
+        {
+          "fact_id": "F-RED-COPY-B",
+          "claim_id": "CLAIM-F-RED-COPY-B",
+          "holder_agent_id": "AGENT-B",
+          "visibility": "private",
+          "decision_role": "supporting",
+          "polarity": "supports_A",
+          "rights_status": "shareable",
+          "version": 1,
+          "evidence_status": "current",
+          "initial_verification_status": "verified",
+          "source_origin_id": "ORIGIN-ONE",
+          "duplicate_of": "F-RED-BASE"
+        },
+        {
+          "fact_id": "F-RED-COPY-C",
+          "claim_id": "CLAIM-F-RED-COPY-C",
+          "holder_agent_id": "AGENT-C",
+          "visibility": "private",
+          "decision_role": "supporting",
+          "polarity": "supports_A",
+          "rights_status": "shareable",
+          "version": 1,
+          "evidence_status": "current",
+          "initial_verification_status": "verified",
+          "source_origin_id": "ORIGIN-ONE",
+          "duplicate_of": "F-RED-BASE"
+        },
+        {
+          "fact_id": "F-RED-UNIQUE",
+          "claim_id": "CLAIM-F-RED-UNIQUE",
+          "holder_agent_id": "AGENT-C",
+          "visibility": "private",
+          "decision_role": "critical",
+          "polarity": "supports_B",
+          "rights_status": "shareable",
+          "version": 1,
+          "evidence_status": "current",
+          "initial_verification_status": "verified",
+          "source_origin_id": "ORIGIN-TWO",
+          "duplicate_of": null
+        }
+      ],
+      "initial_views": [
+        {
+          "agent_id": "AGENT-A",
+          "visible_fact_ids": [
+            "F-RED-BASE"
+          ]
+        },
+        {
+          "agent_id": "AGENT-B",
+          "visible_fact_ids": [
+            "F-RED-COPY-B"
+          ]
+        },
+        {
+          "agent_id": "AGENT-C",
+          "visible_fact_ids": [
+            "F-RED-COPY-C",
+            "F-RED-UNIQUE"
+          ]
+        }
+      ],
+      "requests": [
+        {
+          "request_id": "R-RED-UNIQUE",
+          "requester_agent_id": "AGENT-A",
+          "target_agent_id": "AGENT-C",
+          "fact_id": "F-RED-UNIQUE",
+          "delivery_status": "delivered"
+        }
+      ],
+      "responses": [
+        {
+          "response_id": "S-RED-UNIQUE",
+          "request_id": "R-RED-UNIQUE",
+          "responder_agent_id": "AGENT-C",
+          "fact_id": "F-RED-UNIQUE",
+          "status": "disclosed"
+        }
+      ],
+      "receipts": [
+        {
+          "receipt_id": "RC-RED-U",
+          "request_id": "R-RED-UNIQUE",
+          "holder_agent_id": "AGENT-C",
+          "fact_id": "F-RED-UNIQUE",
+          "evidence_id": "EVID-F-RED-UNIQUE-V1",
+          "source_origin_id": "ORIGIN-TWO",
+          "version": 1,
+          "rights_status": "shareable",
+          "verification_status": "verified",
+          "duplicate_of": null
+        }
+      ],
+      "candidate_decision": {
+        "disposition": "decided",
+        "selected_option": "B",
+        "completeness_claim": "complete",
+        "admitted_fact_ids": [
+          "F-RED-BASE",
+          "F-RED-COPY-B",
+          "F-RED-COPY-C",
+          "F-RED-UNIQUE"
+        ],
+        "unresolved_claim_ids": [],
+        "reported_independent_source_count": 2
+      },
+      "oracle": {
+        "hidden_from_candidates": true,
+        "correct_option": "B",
+        "critical_fact_ids": [
+          "F-RED-UNIQUE"
+        ],
+        "shareable_critical_fact_ids": [
+          "F-RED-UNIQUE"
+        ],
+        "restricted_critical_fact_ids": []
+      },
+      "expected_assessment": "pass"
+    },
+    {
+      "scenario_id": "RED-02-source-count-inflation",
+      "family": "high_redundancy",
+      "seed": 1302,
+      "agents": [
+        "AGENT-A",
+        "AGENT-B",
+        "AGENT-C"
+      ],
+      "facts": [
+        {
+          "fact_id": "F-RED-BASE",
+          "claim_id": "CLAIM-F-RED-BASE",
+          "holder_agent_id": "AGENT-A",
+          "visibility": "shared",
+          "decision_role": "supporting",
+          "polarity": "supports_A",
+          "rights_status": "shareable",
+          "version": 1,
+          "evidence_status": "current",
+          "initial_verification_status": "verified",
+          "source_origin_id": "ORIGIN-ONE",
+          "duplicate_of": null
+        },
+        {
+          "fact_id": "F-RED-COPY-B",
+          "claim_id": "CLAIM-F-RED-COPY-B",
+          "holder_agent_id": "AGENT-B",
+          "visibility": "private",
+          "decision_role": "supporting",
+          "polarity": "supports_A",
+          "rights_status": "shareable",
+          "version": 1,
+          "evidence_status": "current",
+          "initial_verification_status": "verified",
+          "source_origin_id": "ORIGIN-ONE",
+          "duplicate_of": "F-RED-BASE"
+        },
+        {
+          "fact_id": "F-RED-COPY-C",
+          "claim_id": "CLAIM-F-RED-COPY-C",
+          "holder_agent_id": "AGENT-C",
+          "visibility": "private",
+          "decision_role": "supporting",
+          "polarity": "supports_A",
+          "rights_status": "shareable",
+          "version": 1,
+          "evidence_status": "current",
+          "initial_verification_status": "verified",
+          "source_origin_id": "ORIGIN-ONE",
+          "duplicate_of": "F-RED-BASE"
+        },
+        {
+          "fact_id": "F-RED-UNIQUE",
+          "claim_id": "CLAIM-F-RED-UNIQUE",
+          "holder_agent_id": "AGENT-C",
+          "visibility": "private",
+          "decision_role": "critical",
+          "polarity": "supports_B",
+          "rights_status": "shareable",
+          "version": 1,
+          "evidence_status": "current",
+          "initial_verification_status": "verified",
+          "source_origin_id": "ORIGIN-TWO",
+          "duplicate_of": null
+        }
+      ],
+      "initial_views": [
+        {
+          "agent_id": "AGENT-A",
+          "visible_fact_ids": [
+            "F-RED-BASE"
+          ]
+        },
+        {
+          "agent_id": "AGENT-B",
+          "visible_fact_ids": [
+            "F-RED-BASE",
+            "F-RED-COPY-B"
+          ]
+        },
+        {
+          "agent_id": "AGENT-C",
+          "visible_fact_ids": [
+            "F-RED-BASE",
+            "F-RED-COPY-C",
+            "F-RED-UNIQUE"
+          ]
+        }
+      ],
+      "requests": [
+        {
+          "request_id": "R-RED-UNIQUE",
+          "requester_agent_id": "AGENT-A",
+          "target_agent_id": "AGENT-C",
+          "fact_id": "F-RED-UNIQUE",
+          "delivery_status": "delivered"
+        }
+      ],
+      "responses": [
+        {
+          "response_id": "S-RED-UNIQUE",
+          "request_id": "R-RED-UNIQUE",
+          "responder_agent_id": "AGENT-C",
+          "fact_id": "F-RED-UNIQUE",
+          "status": "disclosed"
+        }
+      ],
+      "receipts": [
+        {
+          "receipt_id": "RC-RED-U",
+          "request_id": "R-RED-UNIQUE",
+          "holder_agent_id": "AGENT-C",
+          "fact_id": "F-RED-UNIQUE",
+          "evidence_id": "EVID-F-RED-UNIQUE-V1",
+          "source_origin_id": "ORIGIN-TWO",
+          "version": 1,
+          "rights_status": "shareable",
+          "verification_status": "verified",
+          "duplicate_of": null
+        }
+      ],
+      "candidate_decision": {
+        "disposition": "decided",
+        "selected_option": "B",
+        "completeness_claim": "complete",
+        "admitted_fact_ids": [
+          "F-RED-BASE",
+          "F-RED-COPY-B",
+          "F-RED-COPY-C",
+          "F-RED-UNIQUE"
+        ],
+        "unresolved_claim_ids": [],
+        "reported_independent_source_count": 4
+      },
+      "oracle": {
+        "hidden_from_candidates": true,
+        "correct_option": "B",
+        "critical_fact_ids": [
+          "F-RED-UNIQUE"
+        ],
+        "shareable_critical_fact_ids": [
+          "F-RED-UNIQUE"
+        ],
+        "restricted_critical_fact_ids": []
+      },
+      "expected_assessment": "fail"
+    },
+    {
+      "scenario_id": "RED-03-unique-fact-lost-in-repetition",
+      "family": "high_redundancy",
+      "seed": 1303,
+      "agents": [
+        "AGENT-A",
+        "AGENT-B",
+        "AGENT-C"
+      ],
+      "facts": [
+        {
+          "fact_id": "F-RED-BASE",
+          "claim_id": "CLAIM-F-RED-BASE",
+          "holder_agent_id": "AGENT-A",
+          "visibility": "shared",
+          "decision_role": "supporting",
+          "polarity": "supports_A",
+          "rights_status": "shareable",
+          "version": 1,
+          "evidence_status": "current",
+          "initial_verification_status": "verified",
+          "source_origin_id": "ORIGIN-ONE",
+          "duplicate_of": null
+        },
+        {
+          "fact_id": "F-RED-COPY-B",
+          "claim_id": "CLAIM-F-RED-COPY-B",
+          "holder_agent_id": "AGENT-B",
+          "visibility": "private",
+          "decision_role": "supporting",
+          "polarity": "supports_A",
+          "rights_status": "shareable",
+          "version": 1,
+          "evidence_status": "current",
+          "initial_verification_status": "verified",
+          "source_origin_id": "ORIGIN-ONE",
+          "duplicate_of": "F-RED-BASE"
+        },
+        {
+          "fact_id": "F-RED-COPY-C",
+          "claim_id": "CLAIM-F-RED-COPY-C",
+          "holder_agent_id": "AGENT-C",
+          "visibility": "private",
+          "decision_role": "supporting",
+          "polarity": "supports_A",
+          "rights_status": "shareable",
+          "version": 1,
+          "evidence_status": "current",
+          "initial_verification_status": "verified",
+          "source_origin_id": "ORIGIN-ONE",
+          "duplicate_of": "F-RED-BASE"
+        },
+        {
+          "fact_id": "F-RED-UNIQUE",
+          "claim_id": "CLAIM-F-RED-UNIQUE",
+          "holder_agent_id": "AGENT-C",
+          "visibility": "private",
+          "decision_role": "critical",
+          "polarity": "supports_B",
+          "rights_status": "shareable",
+          "version": 1,
+          "evidence_status": "current",
+          "initial_verification_status": "verified",
+          "source_origin_id": "ORIGIN-TWO",
+          "duplicate_of": null
+        }
+      ],
+      "initial_views": [
+        {
+          "agent_id": "AGENT-A",
+          "visible_fact_ids": [
+            "F-RED-BASE"
+          ]
+        },
+        {
+          "agent_id": "AGENT-B",
+          "visible_fact_ids": [
+            "F-RED-BASE",
+            "F-RED-COPY-B"
+          ]
+        },
+        {
+          "agent_id": "AGENT-C",
+          "visible_fact_ids": [
+            "F-RED-BASE",
+            "F-RED-COPY-C",
+            "F-RED-UNIQUE"
+          ]
+        }
+      ],
+      "requests": [],
+      "responses": [],
+      "receipts": [],
+      "candidate_decision": {
+        "disposition": "decided",
+        "selected_option": "A",
+        "completeness_claim": "complete",
+        "admitted_fact_ids": [
+          "F-RED-BASE",
+          "F-RED-COPY-B",
+          "F-RED-COPY-C"
+        ],
+        "unresolved_claim_ids": [],
+        "reported_independent_source_count": 1
+      },
+      "oracle": {
+        "hidden_from_candidates": true,
+        "correct_option": "B",
+        "critical_fact_ids": [
+          "F-RED-UNIQUE"
+        ],
+        "shareable_critical_fact_ids": [
+          "F-RED-UNIQUE"
+        ],
+        "restricted_critical_fact_ids": []
+      },
+      "expected_assessment": "fail"
+    },
+    {
+      "scenario_id": "SIL-01-targeted-request-reaches-silent-holder",
+      "family": "silent_late_holder",
+      "seed": 1401,
+      "agents": [
+        "AGENT-A",
+        "AGENT-B",
+        "AGENT-C"
+      ],
+      "facts": [
+        {
+          "fact_id": "F-SILENT-SHARED",
+          "claim_id": "CLAIM-F-SILENT-SHARED",
+          "holder_agent_id": "AGENT-A",
+          "visibility": "shared",
+          "decision_role": "supporting",
+          "polarity": "supports_A",
+          "rights_status": "shareable",
+          "version": 1,
+          "evidence_status": "current",
+          "initial_verification_status": "verified",
+          "source_origin_id": "ORIGIN-F-SILENT-SHARED",
+          "duplicate_of": null
+        },
+        {
+          "fact_id": "F-SILENT-DECISIVE",
+          "claim_id": "CLAIM-F-SILENT-DECISIVE",
+          "holder_agent_id": "AGENT-C",
+          "visibility": "private",
+          "decision_role": "critical",
+          "polarity": "supports_B",
+          "rights_status": "shareable",
+          "version": 1,
+          "evidence_status": "current",
+          "initial_verification_status": "verified",
+          "source_origin_id": "ORIGIN-F-SILENT-DECISIVE",
+          "duplicate_of": null
+        }
+      ],
+      "initial_views": [
+        {
+          "agent_id": "AGENT-A",
+          "visible_fact_ids": [
+            "F-SILENT-SHARED"
+          ]
+        },
+        {
+          "agent_id": "AGENT-B",
+          "visible_fact_ids": [
+            "F-SILENT-SHARED"
+          ]
+        },
+        {
+          "agent_id": "AGENT-C",
+          "visible_fact_ids": [
+            "F-SILENT-SHARED",
+            "F-SILENT-DECISIVE"
+          ]
+        }
+      ],
+      "requests": [
+        {
+          "request_id": "R-SILENT",
+          "requester_agent_id": "AGENT-B",
+          "target_agent_id": "AGENT-C",
+          "fact_id": "F-SILENT-DECISIVE",
+          "delivery_status": "delivered"
+        }
+      ],
+      "responses": [
+        {
+          "response_id": "S-SILENT",
+          "request_id": "R-SILENT",
+          "responder_agent_id": "AGENT-C",
+          "fact_id": "F-SILENT-DECISIVE",
+          "status": "disclosed"
+        }
+      ],
+      "receipts": [
+        {
+          "receipt_id": "RC-SILENT",
+          "request_id": "R-SILENT",
+          "holder_agent_id": "AGENT-C",
+          "fact_id": "F-SILENT-DECISIVE",
+          "evidence_id": "EVID-F-SILENT-DECISIVE-V1",
+          "source_origin_id": "ORIGIN-F-SILENT-DECISIVE",
+          "version": 1,
+          "rights_status": "shareable",
+          "verification_status": "verified",
+          "duplicate_of": null
+        }
+      ],
+      "candidate_decision": {
+        "disposition": "decided",
+        "selected_option": "B",
+        "completeness_claim": "complete",
+        "admitted_fact_ids": [
+          "F-SILENT-SHARED",
+          "F-SILENT-DECISIVE"
+        ],
+        "unresolved_claim_ids": [],
+        "reported_independent_source_count": 2
+      },
+      "oracle": {
+        "hidden_from_candidates": true,
+        "correct_option": "B",
+        "critical_fact_ids": [
+          "F-SILENT-DECISIVE"
+        ],
+        "shareable_critical_fact_ids": [
+          "F-SILENT-DECISIVE"
+        ],
+        "restricted_critical_fact_ids": []
+      },
+      "expected_assessment": "pass"
+    },
+    {
+      "scenario_id": "SIL-02-silent-holder-never-solicited",
+      "family": "silent_late_holder",
+      "seed": 1402,
+      "agents": [
+        "AGENT-A",
+        "AGENT-B",
+        "AGENT-C"
+      ],
+      "facts": [
+        {
+          "fact_id": "F-SILENT-SHARED",
+          "claim_id": "CLAIM-F-SILENT-SHARED",
+          "holder_agent_id": "AGENT-A",
+          "visibility": "shared",
+          "decision_role": "supporting",
+          "polarity": "supports_A",
+          "rights_status": "shareable",
+          "version": 1,
+          "evidence_status": "current",
+          "initial_verification_status": "verified",
+          "source_origin_id": "ORIGIN-F-SILENT-SHARED",
+          "duplicate_of": null
+        },
+        {
+          "fact_id": "F-SILENT-DECISIVE",
+          "claim_id": "CLAIM-F-SILENT-DECISIVE",
+          "holder_agent_id": "AGENT-C",
+          "visibility": "private",
+          "decision_role": "critical",
+          "polarity": "supports_B",
+          "rights_status": "shareable",
+          "version": 1,
+          "evidence_status": "current",
+          "initial_verification_status": "verified",
+          "source_origin_id": "ORIGIN-F-SILENT-DECISIVE",
+          "duplicate_of": null
+        }
+      ],
+      "initial_views": [
+        {
+          "agent_id": "AGENT-A",
+          "visible_fact_ids": [
+            "F-SILENT-SHARED"
+          ]
+        },
+        {
+          "agent_id": "AGENT-B",
+          "visible_fact_ids": [
+            "F-SILENT-SHARED"
+          ]
+        },
+        {
+          "agent_id": "AGENT-C",
+          "visible_fact_ids": [
+            "F-SILENT-SHARED",
+            "F-SILENT-DECISIVE"
+          ]
+        }
+      ],
+      "requests": [],
+      "responses": [],
+      "receipts": [],
+      "candidate_decision": {
+        "disposition": "decided",
+        "selected_option": "A",
+        "completeness_claim": "complete",
+        "admitted_fact_ids": [
+          "F-SILENT-SHARED"
+        ],
+        "unresolved_claim_ids": [],
+        "reported_independent_source_count": 1
+      },
+      "oracle": {
+        "hidden_from_candidates": true,
+        "correct_option": "B",
+        "critical_fact_ids": [
+          "F-SILENT-DECISIVE"
+        ],
+        "shareable_critical_fact_ids": [
+          "F-SILENT-DECISIVE"
+        ],
+        "restricted_critical_fact_ids": []
+      },
+      "expected_assessment": "fail"
+    },
+    {
+      "scenario_id": "SIL-03-request-created-but-not-delivered",
+      "family": "silent_late_holder",
+      "seed": 1403,
+      "agents": [
+        "AGENT-A",
+        "AGENT-B",
+        "AGENT-C"
+      ],
+      "facts": [
+        {
+          "fact_id": "F-SILENT-SHARED",
+          "claim_id": "CLAIM-F-SILENT-SHARED",
+          "holder_agent_id": "AGENT-A",
+          "visibility": "shared",
+          "decision_role": "supporting",
+          "polarity": "supports_A",
+          "rights_status": "shareable",
+          "version": 1,
+          "evidence_status": "current",
+          "initial_verification_status": "verified",
+          "source_origin_id": "ORIGIN-F-SILENT-SHARED",
+          "duplicate_of": null
+        },
+        {
+          "fact_id": "F-SILENT-DECISIVE",
+          "claim_id": "CLAIM-F-SILENT-DECISIVE",
+          "holder_agent_id": "AGENT-C",
+          "visibility": "private",
+          "decision_role": "critical",
+          "polarity": "supports_B",
+          "rights_status": "shareable",
+          "version": 1,
+          "evidence_status": "current",
+          "initial_verification_status": "verified",
+          "source_origin_id": "ORIGIN-F-SILENT-DECISIVE",
+          "duplicate_of": null
+        }
+      ],
+      "initial_views": [
+        {
+          "agent_id": "AGENT-A",
+          "visible_fact_ids": [
+            "F-SILENT-SHARED"
+          ]
+        },
+        {
+          "agent_id": "AGENT-B",
+          "visible_fact_ids": [
+            "F-SILENT-SHARED"
+          ]
+        },
+        {
+          "agent_id": "AGENT-C",
+          "visible_fact_ids": [
+            "F-SILENT-SHARED",
+            "F-SILENT-DECISIVE"
+          ]
+        }
+      ],
+      "requests": [
+        {
+          "request_id": "R-SILENT",
+          "requester_agent_id": "AGENT-B",
+          "target_agent_id": "AGENT-C",
+          "fact_id": "F-SILENT-DECISIVE",
+          "delivery_status": "not_delivered"
+        }
+      ],
+      "responses": [],
+      "receipts": [],
+      "candidate_decision": {
+        "disposition": "deferred",
+        "selected_option": null,
+        "completeness_claim": "unknown",
+        "admitted_fact_ids": [
+          "F-SILENT-SHARED"
+        ],
+        "unresolved_claim_ids": [],
+        "reported_independent_source_count": 1
+      },
+      "oracle": {
+        "hidden_from_candidates": true,
+        "correct_option": "B",
+        "critical_fact_ids": [
+          "F-SILENT-DECISIVE"
+        ],
+        "shareable_critical_fact_ids": [
+          "F-SILENT-DECISIVE"
+        ],
+        "restricted_critical_fact_ids": []
+      },
+      "expected_assessment": "indeterminate"
+    },
+    {
+      "scenario_id": "TIME-01-stale-version-rejected-current-version-used",
+      "family": "stale_conflicting_evidence",
+      "seed": 1501,
+      "agents": [
+        "AGENT-A",
+        "AGENT-B",
+        "AGENT-C"
+      ],
+      "facts": [
+        {
+          "fact_id": "F-TIME-OLD",
+          "claim_id": "CLAIM-TIME",
+          "holder_agent_id": "AGENT-A",
+          "visibility": "private",
+          "decision_role": "supporting",
+          "polarity": "supports_A",
+          "rights_status": "shareable",
+          "version": 1,
+          "evidence_status": "superseded",
+          "initial_verification_status": "verified",
+          "source_origin_id": "ORIGIN-TIME-OLD",
+          "duplicate_of": null
+        },
+        {
+          "fact_id": "F-TIME-CURRENT",
+          "claim_id": "CLAIM-TIME",
+          "holder_agent_id": "AGENT-B",
+          "visibility": "private",
+          "decision_role": "critical",
+          "polarity": "supports_B",
+          "rights_status": "shareable",
+          "version": 2,
+          "evidence_status": "current",
+          "initial_verification_status": "verified",
+          "source_origin_id": "ORIGIN-TIME-CURRENT",
+          "duplicate_of": null
+        }
+      ],
+      "initial_views": [
+        {
+          "agent_id": "AGENT-A",
+          "visible_fact_ids": [
+            "F-TIME-OLD"
+          ]
+        },
+        {
+          "agent_id": "AGENT-B",
+          "visible_fact_ids": [
+            "F-TIME-CURRENT"
+          ]
+        },
+        {
+          "agent_id": "AGENT-C",
+          "visible_fact_ids": []
+        }
+      ],
+      "requests": [
+        {
+          "request_id": "R-TIME-OLD",
+          "requester_agent_id": "AGENT-C",
+          "target_agent_id": "AGENT-A",
+          "fact_id": "F-TIME-OLD",
+          "delivery_status": "delivered"
+        },
+        {
+          "request_id": "R-TIME-CURRENT",
+          "requester_agent_id": "AGENT-C",
+          "target_agent_id": "AGENT-B",
+          "fact_id": "F-TIME-CURRENT",
+          "delivery_status": "delivered"
+        }
+      ],
+      "responses": [
+        {
+          "response_id": "S-TIME-OLD",
+          "request_id": "R-TIME-OLD",
+          "responder_agent_id": "AGENT-A",
+          "fact_id": "F-TIME-OLD",
+          "status": "disclosed"
+        },
+        {
+          "response_id": "S-TIME-CURRENT",
+          "request_id": "R-TIME-CURRENT",
+          "responder_agent_id": "AGENT-B",
+          "fact_id": "F-TIME-CURRENT",
+          "status": "disclosed"
+        }
+      ],
+      "receipts": [
+        {
+          "receipt_id": "RC-TIME-OLD",
+          "request_id": "R-TIME-OLD",
+          "holder_agent_id": "AGENT-A",
+          "fact_id": "F-TIME-OLD",
+          "evidence_id": "EVID-F-TIME-OLD-V1",
+          "source_origin_id": "ORIGIN-TIME-OLD",
+          "version": 1,
+          "rights_status": "shareable",
+          "verification_status": "stale",
+          "duplicate_of": null
+        },
+        {
+          "receipt_id": "RC-TIME-CURRENT",
+          "request_id": "R-TIME-CURRENT",
+          "holder_agent_id": "AGENT-B",
+          "fact_id": "F-TIME-CURRENT",
+          "evidence_id": "EVID-F-TIME-CURRENT-V2",
+          "source_origin_id": "ORIGIN-TIME-CURRENT",
+          "version": 2,
+          "rights_status": "shareable",
+          "verification_status": "verified",
+          "duplicate_of": null
+        }
+      ],
+      "candidate_decision": {
+        "disposition": "decided",
+        "selected_option": "B",
+        "completeness_claim": "complete",
+        "admitted_fact_ids": [
+          "F-TIME-CURRENT"
+        ],
+        "unresolved_claim_ids": [],
+        "reported_independent_source_count": 1
+      },
+      "oracle": {
+        "hidden_from_candidates": true,
+        "correct_option": "B",
+        "critical_fact_ids": [
+          "F-TIME-CURRENT"
+        ],
+        "shareable_critical_fact_ids": [
+          "F-TIME-CURRENT"
+        ],
+        "restricted_critical_fact_ids": []
+      },
+      "expected_assessment": "pass"
+    },
+    {
+      "scenario_id": "TIME-02-current-conflict-preserved-and-deferred",
+      "family": "stale_conflicting_evidence",
+      "seed": 1502,
+      "agents": [
+        "AGENT-A",
+        "AGENT-B",
+        "AGENT-C"
+      ],
+      "facts": [
+        {
+          "fact_id": "F-CONFLICT-A",
+          "claim_id": "CLAIM-CONFLICT",
+          "holder_agent_id": "AGENT-A",
+          "visibility": "private",
+          "decision_role": "critical",
+          "polarity": "supports_A",
+          "rights_status": "shareable",
+          "version": 1,
+          "evidence_status": "current",
+          "initial_verification_status": "verified",
+          "source_origin_id": "ORIGIN-CONFLICT-A",
+          "duplicate_of": null
+        },
+        {
+          "fact_id": "F-CONFLICT-B",
+          "claim_id": "CLAIM-CONFLICT",
+          "holder_agent_id": "AGENT-B",
+          "visibility": "private",
+          "decision_role": "critical",
+          "polarity": "supports_B",
+          "rights_status": "shareable",
+          "version": 1,
+          "evidence_status": "current",
+          "initial_verification_status": "verified",
+          "source_origin_id": "ORIGIN-CONFLICT-B",
+          "duplicate_of": null
+        }
+      ],
+      "initial_views": [
+        {
+          "agent_id": "AGENT-A",
+          "visible_fact_ids": [
+            "F-CONFLICT-A"
+          ]
+        },
+        {
+          "agent_id": "AGENT-B",
+          "visible_fact_ids": [
+            "F-CONFLICT-B"
+          ]
+        },
+        {
+          "agent_id": "AGENT-C",
+          "visible_fact_ids": []
+        }
+      ],
+      "requests": [
+        {
+          "request_id": "R-CONFLICT-A",
+          "requester_agent_id": "AGENT-C",
+          "target_agent_id": "AGENT-A",
+          "fact_id": "F-CONFLICT-A",
+          "delivery_status": "delivered"
+        },
+        {
+          "request_id": "R-CONFLICT-B",
+          "requester_agent_id": "AGENT-C",
+          "target_agent_id": "AGENT-B",
+          "fact_id": "F-CONFLICT-B",
+          "delivery_status": "delivered"
+        }
+      ],
+      "responses": [
+        {
+          "response_id": "S-CONFLICT-A",
+          "request_id": "R-CONFLICT-A",
+          "responder_agent_id": "AGENT-A",
+          "fact_id": "F-CONFLICT-A",
+          "status": "disclosed"
+        },
+        {
+          "response_id": "S-CONFLICT-B",
+          "request_id": "R-CONFLICT-B",
+          "responder_agent_id": "AGENT-B",
+          "fact_id": "F-CONFLICT-B",
+          "status": "disclosed"
+        }
+      ],
+      "receipts": [
+        {
+          "receipt_id": "RC-CONFLICT-A",
+          "request_id": "R-CONFLICT-A",
+          "holder_agent_id": "AGENT-A",
+          "fact_id": "F-CONFLICT-A",
+          "evidence_id": "EVID-F-CONFLICT-A-V1",
+          "source_origin_id": "ORIGIN-CONFLICT-A",
+          "version": 1,
+          "rights_status": "shareable",
+          "verification_status": "verified",
+          "duplicate_of": null
+        },
+        {
+          "receipt_id": "RC-CONFLICT-B",
+          "request_id": "R-CONFLICT-B",
+          "holder_agent_id": "AGENT-B",
+          "fact_id": "F-CONFLICT-B",
+          "evidence_id": "EVID-F-CONFLICT-B-V1",
+          "source_origin_id": "ORIGIN-CONFLICT-B",
+          "version": 1,
+          "rights_status": "shareable",
+          "verification_status": "verified",
+          "duplicate_of": null
+        }
+      ],
+      "candidate_decision": {
+        "disposition": "deferred",
+        "selected_option": null,
+        "completeness_claim": "unknown",
+        "admitted_fact_ids": [
+          "F-CONFLICT-A",
+          "F-CONFLICT-B"
+        ],
+        "unresolved_claim_ids": [
+          "CLAIM-CONFLICT"
+        ],
+        "reported_independent_source_count": 2
+      },
+      "oracle": {
+        "hidden_from_candidates": true,
+        "correct_option": "A",
+        "critical_fact_ids": [
+          "F-CONFLICT-A",
+          "F-CONFLICT-B"
+        ],
+        "shareable_critical_fact_ids": [
+          "F-CONFLICT-A",
+          "F-CONFLICT-B"
+        ],
+        "restricted_critical_fact_ids": []
+      },
+      "expected_assessment": "indeterminate"
+    },
+    {
+      "scenario_id": "TIME-03-superseded-evidence-promoted",
+      "family": "stale_conflicting_evidence",
+      "seed": 1503,
+      "agents": [
+        "AGENT-A",
+        "AGENT-B",
+        "AGENT-C"
+      ],
+      "facts": [
+        {
+          "fact_id": "F-TIME-OLD",
+          "claim_id": "CLAIM-TIME",
+          "holder_agent_id": "AGENT-A",
+          "visibility": "private",
+          "decision_role": "supporting",
+          "polarity": "supports_A",
+          "rights_status": "shareable",
+          "version": 1,
+          "evidence_status": "superseded",
+          "initial_verification_status": "verified",
+          "source_origin_id": "ORIGIN-TIME-OLD",
+          "duplicate_of": null
+        },
+        {
+          "fact_id": "F-TIME-CURRENT",
+          "claim_id": "CLAIM-TIME",
+          "holder_agent_id": "AGENT-B",
+          "visibility": "private",
+          "decision_role": "critical",
+          "polarity": "supports_B",
+          "rights_status": "shareable",
+          "version": 2,
+          "evidence_status": "current",
+          "initial_verification_status": "verified",
+          "source_origin_id": "ORIGIN-TIME-CURRENT",
+          "duplicate_of": null
+        }
+      ],
+      "initial_views": [
+        {
+          "agent_id": "AGENT-A",
+          "visible_fact_ids": [
+            "F-TIME-OLD"
+          ]
+        },
+        {
+          "agent_id": "AGENT-B",
+          "visible_fact_ids": [
+            "F-TIME-CURRENT"
+          ]
+        },
+        {
+          "agent_id": "AGENT-C",
+          "visible_fact_ids": []
+        }
+      ],
+      "requests": [
+        {
+          "request_id": "R-TIME-OLD",
+          "requester_agent_id": "AGENT-C",
+          "target_agent_id": "AGENT-A",
+          "fact_id": "F-TIME-OLD",
+          "delivery_status": "delivered"
+        },
+        {
+          "request_id": "R-TIME-CURRENT",
+          "requester_agent_id": "AGENT-C",
+          "target_agent_id": "AGENT-B",
+          "fact_id": "F-TIME-CURRENT",
+          "delivery_status": "delivered"
+        }
+      ],
+      "responses": [
+        {
+          "response_id": "S-TIME-OLD",
+          "request_id": "R-TIME-OLD",
+          "responder_agent_id": "AGENT-A",
+          "fact_id": "F-TIME-OLD",
+          "status": "disclosed"
+        },
+        {
+          "response_id": "S-TIME-CURRENT",
+          "request_id": "R-TIME-CURRENT",
+          "responder_agent_id": "AGENT-B",
+          "fact_id": "F-TIME-CURRENT",
+          "status": "disclosed"
+        }
+      ],
+      "receipts": [
+        {
+          "receipt_id": "RC-TIME-OLD",
+          "request_id": "R-TIME-OLD",
+          "holder_agent_id": "AGENT-A",
+          "fact_id": "F-TIME-OLD",
+          "evidence_id": "EVID-F-TIME-OLD-V1",
+          "source_origin_id": "ORIGIN-TIME-OLD",
+          "version": 1,
+          "rights_status": "shareable",
+          "verification_status": "stale",
+          "duplicate_of": null
+        },
+        {
+          "receipt_id": "RC-TIME-CURRENT",
+          "request_id": "R-TIME-CURRENT",
+          "holder_agent_id": "AGENT-B",
+          "fact_id": "F-TIME-CURRENT",
+          "evidence_id": "EVID-F-TIME-CURRENT-V2",
+          "source_origin_id": "ORIGIN-TIME-CURRENT",
+          "version": 2,
+          "rights_status": "shareable",
+          "verification_status": "verified",
+          "duplicate_of": null
+        }
+      ],
+      "candidate_decision": {
+        "disposition": "decided",
+        "selected_option": "A",
+        "completeness_claim": "complete",
+        "admitted_fact_ids": [
+          "F-TIME-OLD"
+        ],
+        "unresolved_claim_ids": [],
+        "reported_independent_source_count": 1
+      },
+      "oracle": {
+        "hidden_from_candidates": true,
+        "correct_option": "B",
+        "critical_fact_ids": [
+          "F-TIME-CURRENT"
+        ],
+        "shareable_critical_fact_ids": [
+          "F-TIME-CURRENT"
+        ],
+        "restricted_critical_fact_ids": []
+      },
+      "expected_assessment": "fail"
+    },
+    {
+      "scenario_id": "RIGHTS-01-refusal-retained-no-disclosure",
+      "family": "rights_constrained_evidence",
+      "seed": 1601,
+      "agents": [
+        "AGENT-A",
+        "AGENT-B",
+        "AGENT-C"
+      ],
+      "facts": [
+        {
+          "fact_id": "F-RIGHTS-PUBLIC",
+          "claim_id": "CLAIM-F-RIGHTS-PUBLIC",
+          "holder_agent_id": "AGENT-A",
+          "visibility": "shared",
+          "decision_role": "supporting",
+          "polarity": "supports_A",
+          "rights_status": "shareable",
+          "version": 1,
+          "evidence_status": "current",
+          "initial_verification_status": "verified",
+          "source_origin_id": "ORIGIN-F-RIGHTS-PUBLIC",
+          "duplicate_of": null
+        },
+        {
+          "fact_id": "F-RIGHTS-RESTRICTED",
+          "claim_id": "CLAIM-F-RIGHTS-RESTRICTED",
+          "holder_agent_id": "AGENT-C",
+          "visibility": "private",
+          "decision_role": "critical",
+          "polarity": "supports_B",
+          "rights_status": "withheld_by_rights",
+          "version": 1,
+          "evidence_status": "current",
+          "initial_verification_status": "verified",
+          "source_origin_id": "ORIGIN-F-RIGHTS-RESTRICTED",
+          "duplicate_of": null
+        }
+      ],
+      "initial_views": [
+        {
+          "agent_id": "AGENT-A",
+          "visible_fact_ids": [
+            "F-RIGHTS-PUBLIC"
+          ]
+        },
+        {
+          "agent_id": "AGENT-B",
+          "visible_fact_ids": [
+            "F-RIGHTS-PUBLIC"
+          ]
+        },
+        {
+          "agent_id": "AGENT-C",
+          "visible_fact_ids": [
+            "F-RIGHTS-PUBLIC",
+            "F-RIGHTS-RESTRICTED"
+          ]
+        }
+      ],
+      "requests": [
+        {
+          "request_id": "R-RIGHTS",
+          "requester_agent_id": "AGENT-B",
+          "target_agent_id": "AGENT-C",
+          "fact_id": "F-RIGHTS-RESTRICTED",
+          "delivery_status": "delivered"
+        }
+      ],
+      "responses": [
+        {
+          "response_id": "S-RIGHTS",
+          "request_id": "R-RIGHTS",
+          "responder_agent_id": "AGENT-C",
+          "fact_id": "F-RIGHTS-RESTRICTED",
+          "status": "withheld_by_rights"
+        }
+      ],
+      "receipts": [],
+      "candidate_decision": {
+        "disposition": "deferred",
+        "selected_option": null,
+        "completeness_claim": "unknown",
+        "admitted_fact_ids": [
+          "F-RIGHTS-PUBLIC"
+        ],
+        "unresolved_claim_ids": [],
+        "reported_independent_source_count": 1
+      },
+      "oracle": {
+        "hidden_from_candidates": true,
+        "correct_option": "B",
+        "critical_fact_ids": [
+          "F-RIGHTS-RESTRICTED"
+        ],
+        "shareable_critical_fact_ids": [],
+        "restricted_critical_fact_ids": [
+          "F-RIGHTS-RESTRICTED"
+        ]
+      },
+      "expected_assessment": "indeterminate"
+    },
+    {
+      "scenario_id": "RIGHTS-02-unknown-rights-no-payload",
+      "family": "rights_constrained_evidence",
+      "seed": 1602,
+      "agents": [
+        "AGENT-A",
+        "AGENT-B",
+        "AGENT-C"
+      ],
+      "facts": [
+        {
+          "fact_id": "F-RIGHTS-PUBLIC",
+          "claim_id": "CLAIM-F-RIGHTS-PUBLIC",
+          "holder_agent_id": "AGENT-A",
+          "visibility": "shared",
+          "decision_role": "supporting",
+          "polarity": "supports_A",
+          "rights_status": "shareable",
+          "version": 1,
+          "evidence_status": "current",
+          "initial_verification_status": "verified",
+          "source_origin_id": "ORIGIN-F-RIGHTS-PUBLIC",
+          "duplicate_of": null
+        },
+        {
+          "fact_id": "F-RIGHTS-UNKNOWN",
+          "claim_id": "CLAIM-F-RIGHTS-UNKNOWN",
+          "holder_agent_id": "AGENT-C",
+          "visibility": "private",
+          "decision_role": "critical",
+          "polarity": "supports_B",
+          "rights_status": "unknown",
+          "version": 1,
+          "evidence_status": "current",
+          "initial_verification_status": "verified",
+          "source_origin_id": "ORIGIN-F-RIGHTS-UNKNOWN",
+          "duplicate_of": null
+        }
+      ],
+      "initial_views": [
+        {
+          "agent_id": "AGENT-A",
+          "visible_fact_ids": [
+            "F-RIGHTS-PUBLIC"
+          ]
+        },
+        {
+          "agent_id": "AGENT-B",
+          "visible_fact_ids": [
+            "F-RIGHTS-PUBLIC"
+          ]
+        },
+        {
+          "agent_id": "AGENT-C",
+          "visible_fact_ids": [
+            "F-RIGHTS-PUBLIC",
+            "F-RIGHTS-UNKNOWN"
+          ]
+        }
+      ],
+      "requests": [
+        {
+          "request_id": "R-RIGHTS-UNKNOWN",
+          "requester_agent_id": "AGENT-B",
+          "target_agent_id": "AGENT-C",
+          "fact_id": "F-RIGHTS-UNKNOWN",
+          "delivery_status": "created"
+        }
+      ],
+      "responses": [],
+      "receipts": [],
+      "candidate_decision": {
+        "disposition": "deferred",
+        "selected_option": null,
+        "completeness_claim": "unknown",
+        "admitted_fact_ids": [
+          "F-RIGHTS-PUBLIC"
+        ],
+        "unresolved_claim_ids": [],
+        "reported_independent_source_count": 1
+      },
+      "oracle": {
+        "hidden_from_candidates": true,
+        "correct_option": "B",
+        "critical_fact_ids": [
+          "F-RIGHTS-UNKNOWN"
+        ],
+        "shareable_critical_fact_ids": [],
+        "restricted_critical_fact_ids": [
+          "F-RIGHTS-UNKNOWN"
+        ]
+      },
+      "expected_assessment": "indeterminate"
+    },
+    {
+      "scenario_id": "RIGHTS-03-restricted-evidence-illegally-disclosed",
+      "family": "rights_constrained_evidence",
+      "seed": 1603,
+      "agents": [
+        "AGENT-A",
+        "AGENT-B",
+        "AGENT-C"
+      ],
+      "facts": [
+        {
+          "fact_id": "F-RIGHTS-RESTRICTED",
+          "claim_id": "CLAIM-F-RIGHTS-RESTRICTED",
+          "holder_agent_id": "AGENT-C",
+          "visibility": "private",
+          "decision_role": "critical",
+          "polarity": "supports_B",
+          "rights_status": "withheld_by_rights",
+          "version": 1,
+          "evidence_status": "current",
+          "initial_verification_status": "verified",
+          "source_origin_id": "ORIGIN-F-RIGHTS-RESTRICTED",
+          "duplicate_of": null
+        }
+      ],
+      "initial_views": [
+        {
+          "agent_id": "AGENT-A",
+          "visible_fact_ids": []
+        },
+        {
+          "agent_id": "AGENT-B",
+          "visible_fact_ids": []
+        },
+        {
+          "agent_id": "AGENT-C",
+          "visible_fact_ids": [
+            "F-RIGHTS-RESTRICTED"
+          ]
+        }
+      ],
+      "requests": [
+        {
+          "request_id": "R-RIGHTS-BAD",
+          "requester_agent_id": "AGENT-A",
+          "target_agent_id": "AGENT-C",
+          "fact_id": "F-RIGHTS-RESTRICTED",
+          "delivery_status": "delivered"
+        }
+      ],
+      "responses": [
+        {
+          "response_id": "S-RIGHTS-BAD",
+          "request_id": "R-RIGHTS-BAD",
+          "responder_agent_id": "AGENT-C",
+          "fact_id": "F-RIGHTS-RESTRICTED",
+          "status": "disclosed"
+        }
+      ],
+      "receipts": [
+        {
+          "receipt_id": "RC-RIGHTS-BAD",
+          "request_id": "R-RIGHTS-BAD",
+          "holder_agent_id": "AGENT-C",
+          "fact_id": "F-RIGHTS-RESTRICTED",
+          "evidence_id": "EVID-F-RIGHTS-RESTRICTED-V1",
+          "source_origin_id": "ORIGIN-F-RIGHTS-RESTRICTED",
+          "version": 1,
+          "rights_status": "withheld_by_rights",
+          "verification_status": "verified",
+          "duplicate_of": null
+        }
+      ],
+      "candidate_decision": {
+        "disposition": "decided",
+        "selected_option": "B",
+        "completeness_claim": "complete",
+        "admitted_fact_ids": [
+          "F-RIGHTS-RESTRICTED"
+        ],
+        "unresolved_claim_ids": [],
+        "reported_independent_source_count": 1
+      },
+      "oracle": {
+        "hidden_from_candidates": true,
+        "correct_option": "B",
+        "critical_fact_ids": [
+          "F-RIGHTS-RESTRICTED"
+        ],
+        "shareable_critical_fact_ids": [],
+        "restricted_critical_fact_ids": [
+          "F-RIGHTS-RESTRICTED"
+        ]
+      },
+      "expected_assessment": "invalid"
+    }
+  ]
+}
