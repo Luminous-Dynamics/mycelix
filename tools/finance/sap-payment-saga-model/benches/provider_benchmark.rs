@@ -77,11 +77,7 @@ fn main() {
         );
     });
     measure("retry_permit_revalidate", || {
-        black_box(permit.validate_against(
-            black_box(&key),
-            black_box(&contract),
-            NOW_UNIX_MS,
-        ))
-        .expect("valid provider retry permit");
+        black_box(permit.validate_against(black_box(&key), black_box(&contract), NOW_UNIX_MS))
+            .expect("valid provider retry permit");
     });
 }
