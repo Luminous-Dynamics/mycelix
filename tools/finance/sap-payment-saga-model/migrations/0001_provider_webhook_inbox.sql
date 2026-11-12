@@ -86,6 +86,46 @@ CREATE INDEX IF NOT EXISTS provider_webhook_conflict_scope_idx
 -- accepted event increments requested_generation. A worker snapshots that
 -- generation when it claims the row; events arriving during the fetch increase
 -- requested_generation and force another refresh after the current lease.
+-- Append-only record of each verified delivery attempt, separate from
+-- the canonical provider event and from coalesced object refresh work.
+CREATE TABLE IF NOT EXISTS provider_webhook_delivery (
+    delivery_id BIGSERIAL PRIMARY KEY,
+    inbox_id BIGINT NOT NULL
+        REFERENCES provider_webhook_inbox(inbox_id) ON DELETE RESTRICT,
+    conflict_id BIGINT
+        REFERENCES provider_webhook_conflict(conflict_id) ON DELETE RESTRICT,
+    provider_id TEXT NOT NULL,
+    provider_account_scope TEXT NOT NULL,
+    provider_region TEXT NOT NULL,
+    endpoint_id TEXT NOT NULL,
+    resource_account_scope TEXT NOT NULL,
+    environment TEXT NOT NULL CHECK (environment IN ('test', 'live')),
+    event_id TEXT NOT NULL,
+    raw_body_sha256 TEXT NOT NULL
+        CHECK (raw_body_sha256 ~ '^sha256:[0-9a-f]{64}$'),
+    provider_contract_digest TEXT NOT NULL
+        CHECK (provider_contract_digest ~ '^sha256:[0-9a-f]{64}$'),
+    signature_timestamp_unix_seconds BIGINT NOT NULL
+        CHECK (signature_timestamp_unix_seconds > 0),
+    signature_profile TEXT NOT NULL,
+    signature_key_ref TEXT NOT NULL,
+    verifier_revision TEXT NOT NULL,
+    object_generation BIGINT CHECK (object_generation IS NULL OR object_generation > 0),
+    disposition TEXT NOT NULL CHECK (disposition IN ('accepted', 'duplicate', 'conflict')),
+    received_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
+    CHECK (
+        (disposition = 'conflict' AND conflict_id IS NOT NULL)
+        OR
+        (disposition <> 'conflict' AND conflict_id IS NULL)
+    )
+);
+
+CREATE INDEX IF NOT EXISTS provider_webhook_delivery_event_idx
+    ON provider_webhook_delivery (
+        provider_id, provider_account_scope, provider_region, endpoint_id,
+        environment, event_id, received_at
+    );
+
 CREATE TABLE IF NOT EXISTS provider_webhook_object_reconciliation (
     provider_id TEXT NOT NULL,
     provider_account_scope TEXT NOT NULL,
@@ -201,6 +241,7 @@ DECLARE
     v_inbox_id BIGINT;
     v_object_generation BIGINT;
     v_existing provider_webhook_inbox%ROWTYPE;
+    v_conflict_id BIGINT;
     v_conflict_reason TEXT;
 BEGIN
     INSERT INTO provider_webhook_inbox (
@@ -241,6 +282,19 @@ BEGIN
            AND v_existing.event_api_version IS NOT DISTINCT FROM p_event_api_version
            AND v_existing.payload_kind = p_payload_kind
            AND v_existing.resource_account_scope = p_resource_account_scope THEN
+            INSERT INTO provider_webhook_delivery (
+                inbox_id, provider_id, provider_account_scope, provider_region,
+                endpoint_id, resource_account_scope, environment, event_id,
+                raw_body_sha256, provider_contract_digest,
+                signature_timestamp_unix_seconds, signature_profile,
+                signature_key_ref, verifier_revision, object_generation, disposition
+            ) VALUES (
+                v_existing.inbox_id, p_provider_id, p_provider_account_scope, p_provider_region,
+                p_endpoint_id, p_resource_account_scope, p_environment, p_event_id,
+                p_raw_body_sha256, p_provider_contract_digest,
+                p_signature_timestamp_unix_seconds, p_signature_profile,
+                p_signature_key_ref, p_verifier_revision, v_existing.object_generation, 'duplicate'
+            );
             RETURN 'duplicate';
         END IF;
 
@@ -270,6 +324,21 @@ BEGIN
             p_event_id, v_existing.raw_body_sha256, p_raw_body_sha256,
             v_existing.provider_contract_digest, p_provider_contract_digest,
             p_raw_body_ciphertext, p_encryption_key_id, v_conflict_reason
+        )
+        RETURNING conflict_id INTO v_conflict_id;
+
+        INSERT INTO provider_webhook_delivery (
+            inbox_id, conflict_id, provider_id, provider_account_scope, provider_region,
+            endpoint_id, resource_account_scope, environment, event_id,
+            raw_body_sha256, provider_contract_digest,
+            signature_timestamp_unix_seconds, signature_profile,
+            signature_key_ref, verifier_revision, object_generation, disposition
+        ) VALUES (
+            v_existing.inbox_id, v_conflict_id, p_provider_id, p_provider_account_scope, p_provider_region,
+            p_endpoint_id, p_resource_account_scope, p_environment, p_event_id,
+            p_raw_body_sha256, p_provider_contract_digest,
+            p_signature_timestamp_unix_seconds, p_signature_profile,
+            p_signature_key_ref, p_verifier_revision, v_existing.object_generation, 'conflict'
         );
         RETURN 'conflict';
     END IF;
@@ -304,6 +373,20 @@ BEGIN
 
     INSERT INTO provider_webhook_outbox (inbox_id, work_id, object_generation)
     VALUES (v_inbox_id, p_work_id, v_object_generation);
+
+    INSERT INTO provider_webhook_delivery (
+        inbox_id, provider_id, provider_account_scope, provider_region,
+        endpoint_id, resource_account_scope, environment, event_id,
+        raw_body_sha256, provider_contract_digest,
+        signature_timestamp_unix_seconds, signature_profile,
+        signature_key_ref, verifier_revision, object_generation, disposition
+    ) VALUES (
+        v_inbox_id, p_provider_id, p_provider_account_scope, p_provider_region,
+        p_endpoint_id, p_resource_account_scope, p_environment, p_event_id,
+        p_raw_body_sha256, p_provider_contract_digest,
+        p_signature_timestamp_unix_seconds, p_signature_profile,
+        p_signature_key_ref, p_verifier_revision, v_object_generation, 'accepted'
+    );
 
     RETURN 'accepted';
 END;
