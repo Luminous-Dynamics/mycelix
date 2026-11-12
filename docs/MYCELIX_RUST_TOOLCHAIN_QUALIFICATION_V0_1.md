@@ -6,7 +6,7 @@
 
 The previous qualification run reached both Finance and Governance metadata, then Governance failed to load `mycelix-workspace/crates/mycelix-core-types/Cargo.toml`. The maintained crate lives at `mycelix-workspace/mycelix-core/libs/mycelix-core-types`.
 
-PR #6087 corrects the Governance shared dependency path to the maintained package. This toolchain qualification is based on that branch, so compiler results are not conflated with a missing package path.
+PR #6087 corrects both Governance shared dependency paths to their maintained packages. This toolchain qualification is based on that branch, so compiler results are not conflated with a missing package path.
 
 ## Toolchain selection invariant
 
