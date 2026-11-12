@@ -1,0 +1,266 @@
+{
+  "profile_id": "mycelix.nist-ir-8536-crosswalk.v0.1",
+  "snapshot_date": "2026-11-12",
+  "status": "research_crosswalk_only",
+  "tracking_issue": "https://github.com/Luminous-Dynamics/mycelix/issues/6098",
+  "existing_bridge_owner": "https://github.com/Luminous-Dynamics/mycelix/issues/1110",
+  "related_owners": [
+    {
+      "system": "Mycelix",
+      "issue": 5149,
+      "concern": "construction provenance and accountable approval receipts"
+    },
+    {
+      "system": "Mycelix",
+      "issue": 4901,
+      "concern": "logistics event and custody semantics"
+    },
+    {
+      "system": "Mycelix",
+      "issue": 5106,
+      "concern": "forestry and lumber batch provenance"
+    },
+    {
+      "system": "Mycelix",
+      "issue": 4900,
+      "concern": "federated logistics architecture"
+    },
+    {
+      "system": "Symtropy",
+      "issue": 3331,
+      "concern": "manufactured component, inspection and as-built evidence"
+    },
+    {
+      "system": "Symtropy",
+      "issue": 3025,
+      "concern": "MTConnect + QIF + ISO 23247 semantic interoperability"
+    },
+    {
+      "system": "Symtropy",
+      "issue": 3164,
+      "concern": "manufacturing twin lifecycle change impact"
+    },
+    {
+      "system": "Symtropy",
+      "issue": 3121,
+      "concern": "composed manufacturing twin VVUQ"
+    }
+  ],
+  "source_reference": {
+    "title": "NIST IR 8536 — Supply Chain Traceability: Manufacturing Meta-Framework",
+    "publication_month": "2026-09",
+    "status": "final",
+    "url": "https://csrc.nist.gov/pubs/ir/8536/final",
+    "reference_implementation_status_at_publication": "NIST's 2026-09-09 announcement described the Python reference implementation as undergoing final review; no parity claim is made here."
+  },
+  "mappings": [
+    {
+      "id": "subject_identity",
+      "concept": "Product, lot, component, facility and parent/child subject identity",
+      "current_surface": [
+        "Mycelix SDK productId and optional batchId",
+        "Mycelix #5149 construction provenance",
+        "Mycelix #4901 logistics custody",
+        "Symtropy #3331 manufactured component identity"
+      ],
+      "assessment": "partial_structural",
+      "gaps": [
+        "distinguish SKU/family from article/serial, batch/lot, material heat, shipment unit and assembly",
+        "preserve identifier scheme and issuer",
+        "active Holochain supplychain workspace remains unverified"
+      ],
+      "tests": [
+        "same-looking identifiers in different schemes must not join",
+        "wrong lot/serial/parent reference is rejected or indeterminate",
+        "partial identity must not be silently completed"
+      ]
+    },
+    {
+      "id": "event_semantics",
+      "concept": "Typed traceability event and transformation semantics",
+      "current_surface": [
+        "Mycelix SDK checkpoint actions",
+        "Mycelix #1110 EPCIS/CBV bridge owner",
+        "Symtropy #3025 MTConnect and QIF mapping owner"
+      ],
+      "assessment": "multiple_non_equivalent_surfaces",
+      "gaps": [
+        "do not conflate checkpoint action vocabulary with EPCIS or archived Rust EventType",
+        "pin source schema/profile/version",
+        "preserve unknown event types"
+      ],
+      "tests": [
+        "source-native event type preserved on import/export",
+        "unknown event/profile version becomes unsupported",
+        "missing transformation input does not get inferred"
+      ]
+    },
+    {
+      "id": "time_and_order",
+      "concept": "Temporal event ordering and traceability sequence",
+      "current_surface": [
+        "SDK checkpoint timestamp",
+        "archived Rust VC issuanceDate and credentialSubject.timestamp",
+        "Symtropy #3025 time/sequence provenance"
+      ],
+      "assessment": "incomplete",
+      "gaps": [
+        "occurrence, source-system, ingestion, issuance, effective and verification time need separate semantics",
+        "clock offset/uncertainty and partial order are not represented by the in-memory SDK checkpoint type"
+      ],
+      "tests": [
+        "out-of-order events",
+        "clock offset and overlapping event intervals",
+        "ingestion time must not overwrite source occurrence time"
+      ]
+    },
+    {
+      "id": "actor_and_authentication",
+      "concept": "Actor, issuer and verifiable source of an event",
+      "current_surface": [
+        "SDK handler and handlerDid fields",
+        "Mycelix #5149 signer authority and approval receipts",
+        "archived Rust Ed25519 signing primitive"
+      ],
+      "assessment": "not_qualified_end_to_end",
+      "gaps": [
+        "local SDK handlerDid string construction is not DID resolution",
+        "caller identity and evidence verified boolean are not signature checks",
+        "archived standalone verify_vc_jwt remains a TODO"
+      ],
+      "tests": [
+        "wrong issuer/key rejected",
+        "unsupported algorithm rejected",
+        "identity scheme and resolver pinned",
+        "caller assertion cannot self-upgrade to authenticated"
+      ]
+    },
+    {
+      "id": "provenance_links",
+      "concept": "Link traceability events, transformation inputs/outputs and lineage",
+      "current_surface": [
+        "SDK previousCheckpointId in local chain",
+        "Mycelix #4901 custody/event semantics",
+        "archived Rust DkgClaim lineage hash and previous claims"
+      ],
+      "assessment": "structural_but_path_specific",
+      "gaps": [
+        "local in-memory chain and Holochain client path are separate",
+        "archived lineage hash is not proof of physical truth or issuer authority",
+        "offline reconstruction not established"
+      ],
+      "tests": [
+        "tampered predecessor rejected",
+        "cycle and missing predecessor identified",
+        "exported chain independently reconstructs"
+      ]
+    },
+    {
+      "id": "evidence",
+      "concept": "Supporting artefacts, measurements, certificates and observation provenance",
+      "current_surface": [
+        "SDK CheckpointEvidence type/data/timestamp/verified",
+        "Mycelix #5149 project evidence",
+        "Symtropy #3331 measurement and inspection evidence",
+        "Symtropy #3025 QIF/MTConnect mapping"
+      ],
+      "assessment": "representable_not_independently_verified_in_local_sdk",
+      "gaps": [
+        "caller-supplied verified boolean is an assertion",
+        "no mandatory source digest/locator/method/calibration in the in-memory CheckpointEvidence type",
+        "do not conflate telemetry with inspection or approval"
+      ],
+      "tests": [
+        "verified true without independent receipt stays asserted",
+        "measurement without instrument/calibration becomes indeterminate",
+        "source bytes and locators preserved"
+      ]
+    },
+    {
+      "id": "standards_interoperability",
+      "concept": "Interoperability with existing sector-specific traceability standards",
+      "current_surface": [
+        "Mycelix #1110",
+        "Symtropy #3025 MTConnect/QIF/ISO 23247",
+        "Symtropy #3331 IFC infrastructure exchange context"
+      ],
+      "assessment": "design_and_owner_work_exists_no_this_profile_conformance_claim",
+      "gaps": [
+        "exact schema/profile releases must be pinned separately",
+        "do not normalize source standards into a lossy universal row",
+        "NIST reference implementation not yet independently exercised in this programme"
+      ],
+      "tests": [
+        "native ID/namespace/source digest round-trip",
+        "unknown extension preserved",
+        "differential comparison against official reference when released"
+      ]
+    },
+    {
+      "id": "selective_disclosure",
+      "concept": "Share only fields permitted for a stakeholder and purpose",
+      "current_surface": [
+        "Mycelix identity/privacy work",
+        "NIST IR 8536 design principle",
+        "archived standalone supplychain README claims SD-JWT/BBS+"
+      ],
+      "assessment": "not_demonstrated_for_archived_standalone_implementation",
+      "gaps": [
+        "archived Rust crypto module explicitly describes SD-JWT/BBS+ as future support",
+        "no selective-disclosure generator/verifier in inspected archived source",
+        "need leakage and linkability assessment"
+      ],
+      "tests": [
+        "authorized fields disclosed",
+        "unauthorized fields absent",
+        "proof verifies against issuer and exact profile",
+        "holder/linkability/metadata leakage tests"
+      ]
+    },
+    {
+      "id": "correction_revocation_and_dispute",
+      "concept": "Preserve historical record while exposing corrections, revocation, supersession and disputes",
+      "current_surface": [
+        "Mycelix #5149",
+        "Mycelix #5106",
+        "Mycelix #1110"
+      ],
+      "assessment": "owned_at_design_level",
+      "gaps": [
+        "exact maintained field/state contract and Holochain qualification must be pinned"
+      ],
+      "tests": [
+        "revoked credential not current",
+        "correction references superseded event",
+        "conflicting claims remain visible",
+        "history is not rewritten"
+      ]
+    },
+    {
+      "id": "authority_and_claim_boundaries",
+      "concept": "Keep event/provenance distinct from conformity, ownership, legal status and execution authority",
+      "current_surface": [
+        "Mycelix #1110 semantic split",
+        "Mycelix #5149 approval receipts",
+        "Symtropy #3331 competent inspector/project engineer boundary"
+      ],
+      "assessment": "explicit_design_rule",
+      "gaps": [
+        "UI/API result labels must reflect distinct assurance dimensions",
+        "no signed event or DPP URI may mint approval, title or regulatory status"
+      ],
+      "tests": [
+        "sensor event cannot create conformity",
+        "DPP/QR external ID cannot become article identity without verified binding",
+        "traceability receipt cannot authorize payment, dispatch or release"
+      ]
+    }
+  ],
+  "claim_limits": [
+    "This crosswalk is not NIST conformance or certification.",
+    "A digest proves integrity relative to referenced bytes, not factual truth.",
+    "A signature proves an assertion was signed by a key under a policy, not that the physical event occurred.",
+    "A provenance graph does not establish ownership, lawful origin, sustainability, conformity, compliance, delivery or release.",
+    "Do not treat the in-memory SDK and the Holochain client wrapper as one qualified implementation."
+  ]
+}
