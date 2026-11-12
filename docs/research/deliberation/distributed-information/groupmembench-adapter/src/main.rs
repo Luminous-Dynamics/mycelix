@@ -374,6 +374,7 @@ pub struct Bm25Index {
     documents: Vec<Vec<String>>,
     lengths: Vec<usize>,
     idf: BTreeMap<String, f64>,
+    term_frequencies: Vec<BTreeMap<String, usize>>,
     average_length: f64,
     k1: f64,
     b: f64,
@@ -396,12 +397,19 @@ impl Bm25Index {
             lengths.iter().sum::<usize>() as f64 / count as f64
         };
 
+        // Build per-document term frequencies and corpus document frequency once.
+        // Rebuilding these maps for each query is prohibitively expensive on the full corpus.
+        let mut term_frequencies = Vec::with_capacity(documents.len());
         let mut document_frequency: BTreeMap<String, usize> = BTreeMap::new();
         for document in &documents {
-            let unique: BTreeSet<&String> = document.iter().collect();
-            for term in unique {
+            let mut frequencies: BTreeMap<String, usize> = BTreeMap::new();
+            for term in document {
+                *frequencies.entry(term.clone()).or_default() += 1;
+            }
+            for term in frequencies.keys() {
                 *document_frequency.entry(term.clone()).or_default() += 1;
             }
+            term_frequencies.push(frequencies);
         }
 
         let mut raw_idf = BTreeMap::new();
@@ -419,7 +427,7 @@ impl Bm25Index {
             (term, if value < 0.0 { epsilon * average_idf } else { value })
         }).collect();
 
-        Self { documents, lengths, idf, average_length, k1: 1.5, b: 0.75 }
+        Self { documents, lengths, idf, term_frequencies, average_length, k1: 1.5, b: 0.75 }
     }
 
     pub fn retrieve(&self, query: &str, top_k: usize) -> Vec<usize> {
@@ -429,14 +437,10 @@ impl Bm25Index {
         }
 
         let mut scored = Vec::with_capacity(self.documents.len());
-        for (index, document) in self.documents.iter().enumerate() {
-            let mut term_frequency: BTreeMap<&str, usize> = BTreeMap::new();
-            for term in document {
-                *term_frequency.entry(term.as_str()).or_default() += 1;
-            }
+        for index in 0..self.documents.len() {
             let mut score = 0.0;
             for term in &query_terms {
-                if let (Some(idf), Some(freq)) = (self.idf.get(term), term_frequency.get(term.as_str())) {
+                if let (Some(idf), Some(freq)) = (self.idf.get(term), self.term_frequencies[index].get(term)) {
                     let denominator = *freq as f64
                         + self.k1 * (1.0 - self.b
                             + self.b * self.lengths[index] as f64 / self.average_length.max(1.0));
