@@ -647,20 +647,24 @@
         {
           "agent_id": "AGENT-A",
           "visible_fact_ids": [
-            "F-MIN-REPEAT-1"
+            "F-MIN-REPEAT-1",
+            "F-MIN-REPEAT-2",
+            "F-MIN-REPEAT-3"
           ]
         },
         {
           "agent_id": "AGENT-B",
           "visible_fact_ids": [
             "F-MIN-REPEAT-1",
-            "F-MIN-REPEAT-2"
+            "F-MIN-REPEAT-2",
+            "F-MIN-REPEAT-3"
           ]
         },
         {
           "agent_id": "AGENT-C",
           "visible_fact_ids": [
             "F-MIN-REPEAT-1",
+            "F-MIN-REPEAT-2",
             "F-MIN-REPEAT-3",
             "F-MIN-RARE-DECISIVE"
           ]
@@ -765,18 +769,22 @@
         {
           "agent_id": "AGENT-A",
           "visible_fact_ids": [
-            "F-RED-BASE"
+            "F-RED-BASE",
+            "F-RED-COPY-B",
+            "F-RED-COPY-C"
           ]
         },
         {
           "agent_id": "AGENT-B",
           "visible_fact_ids": [
-            "F-RED-COPY-B"
+            "F-RED-COPY-B",
+            "F-RED-COPY-C"
           ]
         },
         {
           "agent_id": "AGENT-C",
           "visible_fact_ids": [
+            "F-RED-COPY-B",
             "F-RED-COPY-C",
             "F-RED-UNIQUE"
           ]
@@ -911,20 +919,24 @@
         {
           "agent_id": "AGENT-A",
           "visible_fact_ids": [
-            "F-RED-BASE"
+            "F-RED-BASE",
+            "F-RED-COPY-B",
+            "F-RED-COPY-C"
           ]
         },
         {
           "agent_id": "AGENT-B",
           "visible_fact_ids": [
             "F-RED-BASE",
-            "F-RED-COPY-B"
+            "F-RED-COPY-B",
+            "F-RED-COPY-C"
           ]
         },
         {
           "agent_id": "AGENT-C",
           "visible_fact_ids": [
             "F-RED-BASE",
+            "F-RED-COPY-B",
             "F-RED-COPY-C",
             "F-RED-UNIQUE"
           ]
@@ -1059,20 +1071,24 @@
         {
           "agent_id": "AGENT-A",
           "visible_fact_ids": [
-            "F-RED-BASE"
+            "F-RED-BASE",
+            "F-RED-COPY-B",
+            "F-RED-COPY-C"
           ]
         },
         {
           "agent_id": "AGENT-B",
           "visible_fact_ids": [
             "F-RED-BASE",
-            "F-RED-COPY-B"
+            "F-RED-COPY-B",
+            "F-RED-COPY-C"
           ]
         },
         {
           "agent_id": "AGENT-C",
           "visible_fact_ids": [
             "F-RED-BASE",
+            "F-RED-COPY-B",
             "F-RED-COPY-C",
             "F-RED-UNIQUE"
           ]
