@@ -1,0 +1,202 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/water-purity-assessment-0.1.0.json",
+  "title": "Water quality derived assessment envelope",
+  "description": "Synthetic-only standards/profile-bound derived assessment. This is not a regulatory determination or potable-water certificate.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "assessment_id",
+    "evidence_class",
+    "evidence_ceiling",
+    "profile",
+    "input_observation_ids",
+    "analyte_results",
+    "overall_disposition",
+    "reason_codes"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "0.1.0"
+    },
+    "assessment_id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9._:-]{3,128}$"
+    },
+    "evidence_class": {
+      "const": "synthetic_only"
+    },
+    "evidence_ceiling": {
+      "const": "synthetic_profile_semantics_only_no_regulatory_or_health_claim"
+    },
+    "profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "profile_id",
+        "profile_revision",
+        "standard_identity",
+        "jurisdiction",
+        "intended_use",
+        "decision_rule_id",
+        "required_analytes"
+      ],
+      "properties": {
+        "profile_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "profile_revision": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "standard_identity": {
+          "const": "SYNTHETIC-TEST-PROFILE-ONLY"
+        },
+        "jurisdiction": {
+          "const": "synthetic"
+        },
+        "intended_use": {
+          "const": "synthetic_test_only"
+        },
+        "decision_rule_id": {
+          "const": "UPPER_BOUND_WITH_UNCERTAINTY_V0"
+        },
+        "required_analytes": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9._-]{1,63}$"
+          }
+        }
+      }
+    },
+    "input_observation_ids": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128
+      }
+    },
+    "analyte_results": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "analyte_id",
+          "observation_id",
+          "method_profile_id",
+          "method_profile_revision",
+          "value",
+          "absolute_uncertainty",
+          "unit",
+          "comparator",
+          "threshold",
+          "result"
+        ],
+        "properties": {
+          "analyte_id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9._-]{1,63}$"
+          },
+          "observation_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "method_profile_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "method_profile_revision": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "value": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "absolute_uncertainty": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0
+          },
+          "unit": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "comparator": {
+            "enum": [
+              "<=",
+              "<",
+              ">=",
+              ">",
+              "range",
+              "categorical"
+            ]
+          },
+          "threshold": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "result": {
+            "enum": [
+              "compliant",
+              "non_compliant",
+              "indeterminate",
+              "unsupported"
+            ]
+          }
+        }
+      }
+    },
+    "overall_disposition": {
+      "enum": [
+        "Compliant",
+        "NonCompliant",
+        "Indeterminate",
+        "Unsupported"
+      ]
+    },
+    "reason_codes": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "ALL_REQUIRED_ANALYTES_PASS",
+          "REQUIRED_ANALYTE_FAILS",
+          "UNCERTAINTY_INTERVAL_OVERLAPS_LIMIT",
+          "REQUIRED_EVIDENCE_MISSING",
+          "METHOD_OR_CALIBRATION_UNQUALIFIED",
+          "PROFILE_SCOPE_UNSUPPORTED"
+        ]
+      }
+    },
+    "notes": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "maxLength": 512
+      }
+    }
+  }
+}
