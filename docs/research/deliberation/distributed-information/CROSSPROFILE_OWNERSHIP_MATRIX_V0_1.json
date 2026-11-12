@@ -1,0 +1,123 @@
+{
+  "design_id": "DELIB-DIST-INFO-CROSSPROFILE-001",
+  "version": "0.1.0",
+  "status": "design_only_not_executed",
+  "source_comparator": {
+    "name": "CrossProfile",
+    "url": "https://arxiv.org/abs/2610.37624",
+    "status": "preprint_not_reproduced",
+    "source_scale": {
+      "templates": 60,
+      "domains": 12,
+      "facts_per_template": 12,
+      "fact_roles": {
+        "support": 5,
+        "decoy": 3,
+        "irrelevant": 4
+      },
+      "agents": 4,
+      "options": 3,
+      "ownership_variants": 8,
+      "template_variant_tasks": 480
+    }
+  },
+  "proposed_programme": {
+    "templates": 60,
+    "domains": 12,
+    "templates_per_domain": 5,
+    "facts_per_template": 12,
+    "agents": 4,
+    "options": 3,
+    "seeds": 3,
+    "ownership_variants": 8,
+    "task_seed_executions": 1440
+  },
+  "ownership_factors": [
+    {
+      "id": "support_ownership",
+      "levels": [
+        "shared",
+        "private"
+      ],
+      "fact_role": "support"
+    },
+    {
+      "id": "decoy_ownership",
+      "levels": [
+        "shared",
+        "private"
+      ],
+      "fact_role": "decoy"
+    },
+    {
+      "id": "irrelevant_ownership",
+      "levels": [
+        "shared",
+        "private"
+      ],
+      "fact_role": "irrelevant"
+    }
+  ],
+  "attribution_conditions": [
+    "true_source_tags",
+    "masked_source_tags",
+    "shuffled_source_tags"
+  ],
+  "attribution_control_invariants": [
+    "fact_text_unchanged",
+    "fact_order_unchanged",
+    "answer_oracle_unchanged",
+    "evaluator_source_origin_unchanged",
+    "only_candidate_visible_attribution_overlay_changes"
+  ],
+  "memory_policies": [
+    "empty",
+    "all_facts",
+    "full_transcript",
+    "first_mention",
+    "random",
+    "rarest_first",
+    "relevance_first",
+    "evidence_preserving_summary",
+    "source_origin_aware_evidence_balance"
+  ],
+  "budget_conditions": {
+    "fixed_token_ratios": [
+      0.4,
+      0.6,
+      0.8
+    ],
+    "fixed_item_count_control": true,
+    "tokenizer_must_be_pinned": true
+  },
+  "candidate_hidden_fields": [
+    "fact_role_labels",
+    "complete_holder_map",
+    "answer_key",
+    "evaluator_only_source_origin_map"
+  ],
+  "primary_outcomes": [
+    "decision_accuracy",
+    "decision_regret",
+    "role_by_ownership_fact_retention",
+    "evidence_balance",
+    "independent_origin_precision",
+    "attribution_sensitivity",
+    "provenance_fidelity",
+    "acquisition_loss",
+    "compression_loss",
+    "reasoning_loss",
+    "token_cost",
+    "latency",
+    "compute"
+  ],
+  "preregistered_contrasts": [
+    "rarity_advantage_by_support_and_decoy_ownership",
+    "relevance_filter_decoy_admission",
+    "evidence_balance_vs_rarity_and_relevance",
+    "attribution_only_choice_displacement",
+    "acquisition_vs_compression_vs_reasoning_failure",
+    "worst_ownership_cell_performance"
+  ],
+  "claim_ceiling": "design_only; no task generation, model run, human experiment or superiority claim has occurred"
+}

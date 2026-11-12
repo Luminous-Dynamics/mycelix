@@ -86,3 +86,10 @@ The Rust validator implements the bounded contracts; it is not a complete JSON S
 ## Claim ceiling
 
 Passing synthetic qualification validates only bounded evidence-custody, event-state and decision-readiness invariants. It does not establish model performance, human collective cognition, democratic legitimacy, legal compliance, production readiness or authorization to compel disclosure.
+
+
+## CrossProfile extension design (not yet run)
+
+The next benchmark stage is specified separately in [CROSSPROFILE_EXTENSION_DESIGN_V0_1.md](CROSSPROFILE_EXTENSION_DESIGN_V0_1.md) and its machine-readable [ownership matrix](CROSSPROFILE_OWNERSHIP_MATRIX_V0_1.json). It independently crosses support, decoy and irrelevant fact ownership while freezing fact text and the answer oracle, then adds a separate attribution-visibility control. This design-only artifact contains no reused CrossProfile task text and does not claim an executed 480-task reproduction.
+
+The extension is intended to detect whether a method preserves *balanced, source-grounded evidence*, not whether it blindly prefers rare facts, frequent facts, or on-topic facts. Primary comparisons will include fixed-token and fixed-item-count controls; average accuracy alone is insufficient without worst-ownership-cell and evidence-retention results.
