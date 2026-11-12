@@ -712,7 +712,7 @@
           "fact_id": "F-RED-BASE",
           "claim_id": "CLAIM-F-RED-BASE",
           "holder_agent_id": "AGENT-A",
-          "visibility": "private",
+          "visibility": "shared",
           "decision_role": "supporting",
           "polarity": "supports_A",
           "rights_status": "shareable",
@@ -777,6 +777,7 @@
         {
           "agent_id": "AGENT-B",
           "visible_fact_ids": [
+            "F-RED-BASE",
             "F-RED-COPY-B",
             "F-RED-COPY-C"
           ]
@@ -784,6 +785,7 @@
         {
           "agent_id": "AGENT-C",
           "visible_fact_ids": [
+            "F-RED-BASE",
             "F-RED-COPY-B",
             "F-RED-COPY-C",
             "F-RED-UNIQUE"
