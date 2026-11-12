@@ -96,13 +96,16 @@ fn validate_fixture(f: &Value) -> (Vec<String>, usize, usize, usize, usize) {
         let item_constraints: BTreeSet<String> = arr(item, "preserved_constraint_ids")
             .iter().filter_map(Value::as_str).map(str::to_owned).collect();
         for c in &item_constraints { preserved_constraints.insert(c.clone()); }
+        let allowed_for_item: BTreeSet<String> = refs.iter()
+            .flat_map(|source_id| source_constraints_by_id.get(source_id).into_iter().flatten().cloned())
+            .collect();
+        for c in &item_constraints {
+            if !allowed_for_item.contains(c) {
+                errors.push(format!("presented option {id} carries constraint {c} that belongs to none of its source options"));
+            }
+        }
         for source_id in &refs {
             let allowed = source_constraints_by_id.get(source_id).cloned().unwrap_or_default();
-            for c in &item_constraints {
-                if !allowed.contains(c) {
-                    errors.push(format!("presented option {id} assigns unrelated constraint {c} to source option {source_id}"));
-                }
-            }
             preserved_constraints_by_source.entry(source_id.clone()).or_default()
                 .extend(item_constraints.intersection(&allowed).cloned());
         }
