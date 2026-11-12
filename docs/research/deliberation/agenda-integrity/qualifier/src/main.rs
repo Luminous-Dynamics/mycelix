@@ -483,4 +483,31 @@ mod tests {
         assert!(e.iter().any(|x| x.contains("non-admitted source option")));
     }
 
+    #[test]
+    fn duplicate_display_position_is_rejected() {
+        let mut f = fixture("AG-001");
+        f["presented_options"][1]["display_position"] = serde_json::json!(1);
+        let (d, e) = disposition(&f);
+        assert_eq!(d, "reject");
+        assert!(e.iter().any(|x| x.contains("duplicate display position") || x.contains("contiguous")));
+    }
+
+    #[test]
+    fn no_action_flag_must_match_presented_option_set() {
+        let mut f = fixture("AG-008");
+        f["task"]["no_action_option_available"] = serde_json::json!(false);
+        let (d, e) = disposition(&f);
+        assert_eq!(d, "reject");
+        assert!(e.iter().any(|x| x.contains("no-action availability flag")));
+    }
+
+    #[test]
+    fn no_action_absence_is_not_ambiguous() {
+        let f = fixture("AG-001");
+        assert_eq!(f["task"]["no_action_option_available"], false);
+        assert!(!arr(&f, "presented_options").iter()
+            .any(|x| set(&x["source_option_ids"]).contains("O-NONE")));
+        assert_eq!(disposition(&f).0, "pass");
+    }
+
 }
