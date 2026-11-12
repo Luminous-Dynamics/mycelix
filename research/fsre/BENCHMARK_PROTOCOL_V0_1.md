@@ -4,6 +4,16 @@
 **Version:** 0.1.0  
 **Date:** 2026-11-12
 
+## Parent programme alignment
+
+This protocol is a qualification profile for existing Mycelix programmes, not a replacement benchmark for them:
+
+- [CIV-RES-000 #2006](https://github.com/Luminous-Dynamics/mycelix/issues/2006) owns civic resilience composition, the Johannesburg profile, privacy planes, civic study manifests, effect measurement and human-authority boundaries.
+- [CIV-ECON-006 #4816](https://github.com/Luminous-Dynamics/mycelix/issues/4816) owns the Civilization Twin's multi-scale, multi-time-horizon physical/economic/institutional/ecological research and multidimensional outcome vector. It explicitly rejects a universal civilization scalar.
+- [Civic automation portfolio #5015](https://github.com/Luminous-Dynamics/mycelix/issues/5015) owns the opportunity/ownership matrix and ranked Johannesburg service-reliability portfolio, including water/sanitation and paid-work pathways.
+
+FSRE benchmark outputs must therefore remain conditional, service-specific and multidimensional. For civic interventions, separately report direct effects, spillover effects, displacement effects and measurement/reporting effects as required by CIV-RES-000. A fall in reported incidents, a rise in ticket closures, or a better aggregate service number is not automatically evidence of improved lived outcomes.
+
 ## 1. Benchmark objective
 
 Measure whether the FSRE architecture improves essential-service resilience and accountable intervention compared with existing workflows and strong individual components.
@@ -12,7 +22,7 @@ Do not benchmark "national intelligence" as one opaque score. Decompose the syst
 
 The primary outcome metric is:
 
-**Total cost per independently verified unit of service improvement**, subject to hard safety, rights, privacy and equity constraints.
+**Total cost per independently verified unit of service improvement within one declared service lane**, subject to hard safety, rights, privacy and equity constraints. This is not a universal societal score and must not be aggregated across unrelated domains.
 
 Examples of service units include reliable household water-hours, wastewater treatment compliance-hours, electricity served during constrained periods, or emergency-response time saved. The selected unit and quality boundary must be pre-registered for each study.
 
