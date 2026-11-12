@@ -55,3 +55,16 @@ For a synthetic upper-limit profile, a measured value is Compliant only when its
 ## Evidence status
 
 The schemas and fixtures are synthetic contract artifacts only. No regulatory profile, water-quality result, SANS/WHO/EPA conformity, potable-use decision, lab accreditation or public-health claim is established by this folder.
+
+
+## One-off fixture sanity pass (12 November 2026)
+
+A local one-off JavaScript check parsed both schemas and all six fixtures and ran 32 structural/semantic checks:
+- schema draft identifiers and required fields;
+- absence of caller-supplied potability/compliance/certification booleans or scores from fixture records;
+- synthetic evidence ceilings;
+- exact observation-to-assessment binding;
+- fictional profile/jurisdiction identity;
+- uncertainty-interval decision semantics for the three synthetic cases.
+
+All 32 checks passed. This is **not** a full JSON-Schema validator, Holochain integrity/coordinator test, multi-agent integration test, Rust test, laboratory result, accreditation assessment or regulatory determination. The limits and analytes are fictional and intentionally have no mapping to WHO, EPA or SANS 241 values.
