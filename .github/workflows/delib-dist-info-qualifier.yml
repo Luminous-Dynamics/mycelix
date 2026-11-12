@@ -62,4 +62,4 @@ jobs:
       - name: Install stable Rust
         uses: dtolnay/rust-toolchain@stable
       - name: Verify exact pinned Git object identities without writing upstream files
-        run: cargo run --manifest-path docs/research/deliberation/distributed-information/groupmembench-adapter/Cargo.toml -- docs/research/deliberation/distributed-information/GROUPMEMBENCH_METADATA_INTAKE_V0_1.json external/GroupMemBench
+        run: cargo run --manifest-path docs/research/deliberation/distributed-information/groupmembench-adapter/Cargo.toml -- docs/research/deliberation/distributed-information/GROUPMEMBENCH_METADATA_INTAKE_V0_1.json external/GroupMemBench --bm25-probe

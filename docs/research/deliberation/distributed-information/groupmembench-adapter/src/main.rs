@@ -453,15 +453,70 @@ impl Bm25Index {
     pub fn document_count(&self) -> usize {
         self.documents.len()
     }
+
+    pub fn vocabulary_size(&self) -> usize {
+        self.idf.len()
+    }
+
+    pub fn has_lexical_match(&self, query: &str) -> bool {
+        tokenize_baseline(query).iter().any(|term| self.idf.contains_key(term))
+    }
 }
 
 pub fn candidate_message_allowed_fields() -> &'static [&'static str] {
     &["msg_node", "content", "author", "role", "timestamp", "phase_name", "topic", "reply_to", "channel"]
 }
 
+fn run_bm25_probe(checkout: &Path) -> Result<(), String> {
+    let domains = ["Finance", "Technology", "Healthcare", "Manufacturing"];
+    let question_types = ["multi_hop", "knowledge_update", "temporal", "user_implicit", "term_ambiguity", "abstention"];
+    let mut total_messages = 0usize;
+    let mut total_questions = 0usize;
+    let mut total_lexical_overlap = 0usize;
+    for domain in domains {
+        let conversation_path = checkout.join(format!("data/final/{domain}/synthetic_domain_channels_rolevariants_{domain}.json"));
+        let conversation_file = File::open(&conversation_path)
+            .map_err(|e| format!("open conversation {}: {e}", conversation_path.display()))?;
+        let conversation: Value = serde_json::from_reader(BufReader::new(conversation_file))
+            .map_err(|e| format!("parse conversation {}: {e}", conversation_path.display()))?;
+        let messages = project_conversation(&conversation)?;
+        let index = Bm25Index::from_messages(&messages);
+        let mut question_count = 0usize;
+        let mut lexical_overlap = 0usize;
+        let mut top_k_returned = 0usize;
+        for qtype in question_types {
+            let question_path = checkout.join(format!("questions/{domain}/{qtype}.jsonl"));
+            let records = read_question_jsonl(&question_path)?;
+            for record in records {
+                let query = record.candidate_view["question"].as_str().unwrap_or("");
+                if index.has_lexical_match(query) {
+                    lexical_overlap += 1;
+                }
+                let top = index.retrieve(query, 10);
+                top_k_returned += top.len();
+                question_count += 1;
+                // Deliberately do not read/use evaluator_answer here.
+            }
+        }
+        println!(
+            "BM25_PROCESS_BASELINE: domain={} messages={} vocabulary={} questions={} questions_with_lexical_overlap={} top_k=10 retrieved_passages={} answer_scored=false",
+            domain, messages.len(), index.vocabulary_size(), question_count, lexical_overlap, top_k_returned
+        );
+        total_messages += messages.len();
+        total_questions += question_count;
+        total_lexical_overlap += lexical_overlap;
+    }
+    println!(
+        "BM25_PROCESS_BASELINE_TOTAL: messages={} questions={} questions_with_lexical_overlap={} lexical_overlap_rate={:.6} top_k=10 answer_scored=false model_executed=false",
+        total_messages, total_questions, total_lexical_overlap,
+        if total_questions == 0 { 0.0 } else { total_lexical_overlap as f64 / total_questions as f64 }
+    );
+    Ok(())
+}
+
 fn run(args: &[String]) -> Result<(), String> {
-    if args.len() != 2 {
-        return Err("usage: groupmembench-readonly-adapter GROUPMEMBENCH_METADATA_INTAKE.json /path/to/pinned/checkout".into());
+    if args.len() != 2 && args.len() != 3 {
+        return Err("usage: groupmembench-readonly-adapter GROUPMEMBENCH_METADATA_INTAKE.json /path/to/pinned/checkout [--bm25-probe]".into());
     }
     let manifest: Value = serde_json::from_slice(
         &fs::read(&args[0]).map_err(|e| format!("read manifest: {e}"))?
@@ -472,6 +527,12 @@ fn run(args: &[String]) -> Result<(), String> {
         report.verified_files, report.conversation_files, report.conversation_bytes,
         report.question_files, report.question_bytes
     );
+    if args.len() == 3 {
+        if args[2] != "--bm25-probe" {
+            return Err(format!("unsupported adapter option: {}", args[2]));
+        }
+        run_bm25_probe(Path::new(&args[1]))?;
+    }
     Ok(())
 }
 
@@ -562,6 +623,24 @@ mod tests {
         let index = Bm25Index::from_messages(&messages);
         assert_eq!(index.retrieve("payment risk", 1), vec![0]);
         assert!(index.retrieve("   ", 10).is_empty());
+    }
+
+    #[test]
+    fn bm25_exposes_vocabulary_and_lexical_overlap_without_using_answers() {
+        let index = Bm25Index::from_tokenized_documents(vec![
+            vec!["alpha".into(), "beta".into()],
+            vec!["gamma".into()]
+        ]);
+        assert_eq!(index.vocabulary_size(), 3);
+        assert!(index.has_lexical_match("ALPHA?"));
+        assert!(!index.has_lexical_match("omega"));
+    }
+
+    #[test]
+    fn question_answer_does_not_affect_candidate_retrieval_query() {
+        let first = project_question_line(r#"{"id":"q1","question":"What changed?","answer":"secret answer","asking_user_id":"User_1"}"#).unwrap();
+        let second = project_question_line(r#"{"id":"q1","question":"What changed?","answer":"different secret","asking_user_id":"User_1"}"#).unwrap();
+        assert_eq!(first.candidate_view, second.candidate_view);
     }
 
     #[test]

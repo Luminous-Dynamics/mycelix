@@ -69,3 +69,8 @@ The adapter now implements the upstream GroupMemBench lexical baseline contract:
 - read-time passage formatting with author, role, channel, phase, topic, timestamp, reply_to and msg_node.
 
 This is a local CPU implementation of the retrieval method, not an executed result on the upstream corpus. It can be used after local pinned-checkout verification to compare BM25 against a proposed evidence-aware memory method with identical top-k and context budgets. It does not call an LLM.
+
+
+## Optional exact-corpus BM25 process probe
+
+The read-only verification job also runs `--bm25-probe` after validating the actual pinned checkout. It builds four content-only BM25 indexes, streams all 715 question records, and reports per-domain message count, vocabulary size, question count, lexical-overlap question count and top-10 passage count. It intentionally does not evaluate answer accuracy or read/use the gold answers. This is a retrieval-process baseline, not a benchmark score or model result.
