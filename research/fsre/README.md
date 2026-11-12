@@ -1,12 +1,12 @@
-# Federated Societal Resilience Engineering (FSRE)
+# Federated Societal Resilience Engineering (FSRE) — Integration and Qualification Profile
 
 **Status:** Research architecture proposal, version 0.1.0  
 **Date:** 2026-11-12  
 **Maturity:** Design and synthetic-scenario stage; not an operational or production system.
 
-FSRE is a proposed engineering discipline and integration architecture for helping communities, institutions, infrastructure operators and countries anticipate disruption, preserve essential services, coordinate authorised interventions, and measure real-world outcomes.
+FSRE is a cross-repository integration and qualification profile for the existing Mycelix Civic Resilience programme and Civilization Twin research architecture. It specifies how independently owned spatial, physical, causal, evidence, authority and service systems can compose for resilience studies and bounded service-improvement pilots.
 
-It is not an AI government, a central national digital twin, a population-scoring system, or a replacement for existing public digital infrastructure.
+It is not a new civic-governance programme, a second civilization simulator, an AI government, a central national digital twin, a population-scoring system, or a replacement for existing public digital infrastructure.
 
 ## Documents
 
@@ -24,6 +24,14 @@ It is not an AI government, a central national digital twin, a population-scorin
 | Mycelix | Identity, authority, commitments, cross-organisation coordination and evidence lineage |
 
 These are bounded roles, not claims that every integration or capability is already implemented. Each subsystem retains its own maturity and qualification boundary.
+
+## Parent programmes this profile composes
+
+- Mycelix [CIV-RES-000: Civic Resilience composition programme and Johannesburg pilot profile #2006](https://github.com/Luminous-Dynamics/mycelix/issues/2006) owns the civic-resilience programme, civic authority/privacy boundaries, study and outcome semantics, and the Johannesburg deployment profile.
+- Mycelix [CIV-ECON-006: Civilization Twin #4816](https://github.com/Luminous-Dynamics/mycelix/issues/4816) owns the multi-scale, multi-time-horizon research environment for coupled physical, economic, institutional and ecological dynamics. It explicitly rejects a universal civilization score.
+- Mycelix [Civic automation portfolio #5015](https://github.com/Luminous-Dynamics/mycelix/issues/5015) owns the Johannesburg service-reliability, water/sanitation, asset-protection and paid-work opportunity portfolio.
+
+FSRE is deliberately narrower: it defines cross-repository service-resilience integration, qualification gates and matched outcome evaluation. It does not replace the parent programmes or define another universal civic ontology.
 
 ## Reuse existing implementation owners
 
