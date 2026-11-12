@@ -85,7 +85,9 @@
         "default_authority",
         "representation_kind",
         "split_group_id",
-        "split_disclosed"
+        "split_disclosed",
+        "late_mutation_authorized",
+        "late_mutation_authority"
       ],
       "properties": {
         "option_id": {
@@ -149,6 +151,15 @@
         },
         "split_disclosed": {
           "type": "boolean"
+        },
+        "late_mutation_authorized": {
+          "type": "boolean"
+        },
+        "late_mutation_authority": {
+          "type": [
+            "string",
+            "null"
+          ]
         }
       }
     },
