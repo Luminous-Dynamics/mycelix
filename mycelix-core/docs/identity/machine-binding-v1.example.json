@@ -1,0 +1,76 @@
+{
+  "schema": "org.mycelix.machine-binding",
+  "version": 1,
+  "binding_id": "urn:example:binding:host-01:epoch-1",
+  "subject": {
+    "id": "urn:example:machine:host-01",
+    "method": "example-fixture-v1",
+    "trust_domain": "example.invalid",
+    "status": "active"
+  },
+  "controller": {
+    "subject_id": "urn:example:operator:operator-01",
+    "relationship": "operates",
+    "scope": [
+      "enroll-machine",
+      "rotate-machine-key"
+    ],
+    "status": "active",
+    "valid_from": "2026-11-11T00:00:00Z",
+    "authority_receipt_ref": "urn:example:evidence:operator-enrollment-01"
+  },
+  "key_epoch": {
+    "key_id": "urn:example:key:host-01:1",
+    "epoch": 1,
+    "algorithm": "Ed25519",
+    "public_key_sha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+    "state": "active",
+    "valid_from": "2026-11-11T00:00:00Z"
+  },
+  "instance": {
+    "instance_id": "urn:example:instance:host-01:install-01",
+    "kind": "physical",
+    "enrolled_at": "2026-11-11T00:00:00Z"
+  },
+  "software": {
+    "flake_lock_sha256": "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789",
+    "configuration_revision": "0123456789abcdef0123456789abcdef01234567",
+    "system_closure_sha256": "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+    "booted_generation_store_path": "/nix/store/0123456789abcdef0123456789abcdef-nixos-system-example",
+    "boot_id": "123e4567-e89b-42d3-a456-426614174000",
+    "system": "x86_64-linux"
+  },
+  "workload": {
+    "state": "not-enrolled",
+    "mechanism": "none",
+    "audiences": [
+      "urn:example:audience:nixward"
+    ]
+  },
+  "hardware_attestation": {
+    "status": "unavailable",
+    "mechanism": "none"
+  },
+  "freshness": {
+    "issued_at": "2026-11-11T08:00:00Z",
+    "expires_at": "2026-11-11T08:15:00Z",
+    "nonce": "00112233445566778899aabbccddeeff",
+    "audience": "urn:example:audience:nixward"
+  },
+  "evidence": {
+    "references": [
+      "urn:example:evidence:operator-enrollment-01",
+      "urn:example:evidence:software-build-01"
+    ]
+  },
+  "binding_signature": {
+    "context": "org.mycelix.machine-binding.v1",
+    "encoding": "RFC8785-JCS",
+    "signer_key_id": "urn:example:key:enrollment-authority:fixture",
+    "signer_role": "enrollment-authority",
+    "algorithm": "Ed25519",
+    "payload_sha256": "abcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcd",
+    "signature_base64": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+    "signed_at": "2026-11-11T08:00:01Z"
+  }
+}
