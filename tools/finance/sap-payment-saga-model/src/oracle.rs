@@ -56,9 +56,10 @@ pub enum TraceReasonV1 {
     NotAuthoritativeAbsence = 31,
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 #[repr(u8)]
 pub enum TreasuryOracleStateV1 {
+    #[default]
     NotPrepared = 0,
     NotRequired = 1,
     Prepared = 2,
@@ -216,12 +217,6 @@ fn trace_fault_allowed_v1(opcode: TraceOpcode, fault: TraceFault) -> bool {
         O::DuplicateDelivery => fault == F::DuplicateDelivery,
         O::StaleCheckpoint => fault == F::WrongOwner,
         O::ForkCheckpoint => fault == F::ForkedCheckpoint,
-    }
-}
-
-impl Default for TreasuryOracleStateV1 {
-    fn default() -> Self {
-        Self::NotPrepared
     }
 }
 
