@@ -43,6 +43,9 @@ type ForwardEffectV2 struct {
 }
 
 func (f ForwardEffectV2) Validate() error {
+	if f.Finality < ForwardIndeterminateV2 || f.Finality > ForwardAuthoritativelyAbsentV2 {
+		return ErrCompensationInvalidFinalityV2
+	}
 	for _, value := range []string{
 		f.OperationID, f.EffectID, f.SourceOwnerID, f.SourceAccountID,
 		f.DestinationOwnerID, f.DestinationAccountID, f.Asset,
