@@ -201,4 +201,33 @@ mod tests {
         v["controls"][0]["synthetic_relation_control"]=Value::String("neutral".into());
         assert!(!validate_fixtures(&v).is_empty());
     }
+    #[test]
+    fn pilot_ready_requires_native_admitted_items_and_review_receipts() {
+        let mut v=intake();
+        v["language_readiness"][1]["status"]=Value::String("pilot_ready".into());
+        assert!(!validate_intake(&v).is_empty());
+        v["language_readiness"][1]["admitted_items"]=serde_json::json!(4);
+        v["language_readiness"][1]["native_review_receipts"]=serde_json::json!(1);
+        assert!(validate_intake(&v).is_empty());
+    }
+    #[test]
+    fn evaluation_permission_also_requires_license_and_consent_scope() {
+        let mut v=intake();
+        v["sources"][0]["evaluation_use"]=Value::String("limited_declared_scope".into());
+        v["sources"][0]["dataset_license"]=Value::String("verified_for_declared_scope".into());
+        assert!(!validate_intake(&v).is_empty());
+        v["sources"][0]["participant_consent"]=Value::String("verified_for_declared_scope".into());
+        assert!(validate_intake(&v).is_empty());
+    }
+    #[test]
+    fn contradictory_no_frame_and_frame_labels_are_not_a_human_annotation() {
+        // The schema contract keeps this distinction explicit; the synthetic fixture path
+        // is intentionally not allowed to contain any human annotation payload.
+        let mut v=fixtures();
+        v["controls"][0]["human_annotations"]=serde_json::json!([{
+            "frame_functions":["define_problem"],"no_frame":true,"uncertain":false,"abstained":false
+        }]);
+        assert!(!validate_fixtures(&v).is_empty());
+    }
+
 }
