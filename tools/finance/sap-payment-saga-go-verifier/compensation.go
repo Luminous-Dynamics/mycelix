@@ -745,6 +745,7 @@ var (
 	ErrCompensationAuthorizationRevokedV2 = errors.New("compensation authorization is revoked")
 	ErrCompensationAuthorizationExpiredV2 = errors.New("compensation authorization is expired")
 	ErrCompensationAuthorizationScopeV2 = errors.New("compensation authorization scope mismatch")
+	ErrCompensationCapabilityIdentityConflictV2 = errors.New("capability ID was reused with changed scope")
 	ErrCompensationCallerNotAuthorizedV2 = errors.New("acting owner is not authorized")
 	ErrCompensationAuthorizationLimitV2 = errors.New("compensation authorization cumulative limit exceeded")
 	ErrCompensationLiquidityReservationMismatchV2 = errors.New("liquidity reservation does not match funding scope")
