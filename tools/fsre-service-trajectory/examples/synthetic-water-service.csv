@@ -1,0 +1,13 @@
+# fsre-service-trajectory.v0.1
+# service_id=synthetic-household-water
+# horizon_start_seconds=0
+# horizon_end_seconds=100
+# minimum_safe_service_fraction=0.50
+# max_observation_hold_seconds=60
+# recovery_stability_seconds=10
+# quality_required=true
+# Columns: at_seconds,service_fraction,quality_compliant
+0,1.0,true
+20,0.2,true
+40,0.6,true
+70,1.0,true
