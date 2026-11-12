@@ -268,6 +268,9 @@ func TestCompensationPartialRefundCannotExceedReversibleCeilingV2(t *testing.T) 
 	if remaining, _ := book.RemainingReversibleMinor(); remaining != 40 { t.Fatalf("remaining = %d", remaining) }
 
 	second := compensationTestRequestV2(book, "refund:2", 41, "liquidity:2", 100)
+	// Use a different grant so this case isolates the forward-effect ceiling,
+	// rather than failing earlier on the first grant's cumulative allowance.
+	second.Authorization.CapabilityID = "capability:refund-02"
 	if _, err := book.Reserve(second, compensationTestNowV2); err != ErrCompensationReversibleCeilingV2 {
 		t.Fatalf("over-ceiling refund result = %v", err)
 	}
