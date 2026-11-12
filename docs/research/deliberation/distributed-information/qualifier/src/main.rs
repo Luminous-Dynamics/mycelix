@@ -195,18 +195,18 @@ fn is_sha1(s: &str) -> bool {
 }
 
 fn validate_groupmembench_intake(v: &Value) -> Result<(), String> {
-    if strv(v, "intake_id") != Some("GROUPMEMBENCH-METADATA-INTAKE-001")
-        || strv(v, "version") != Some("0.1.0")
-        || strv(v, "status") != Some("metadata_only_read_only_adapter_candidate") {
+    if s(v, "intake_id") != Some("GROUPMEMBENCH-METADATA-INTAKE-001")
+        || s(v, "version") != Some("0.1.0")
+        || s(v, "status") != Some("metadata_only_read_only_adapter_candidate") {
         return Err("GroupMemBench intake identity/status mismatch".into());
     }
     let source = &v["source"];
-    if strv(source, "repository") != Some("https://github.com/UCSB-NLP-Chang/GroupMemBench")
-        || strv(source, "pinned_commit") != Some("461f00c3e8a1a4a3a2ed5814b729014502c4702f")
-        || strv(source, "repository_code_license") != Some("MIT")
-        || strv(source, "dataset_license_declared_in_readme") != Some("CC BY 4.0")
-        || !is_sha1(strv(source, "readme_git_blob_sha").unwrap_or(""))
-        || !is_sha1(strv(source, "license_git_blob_sha").unwrap_or("")) {
+    if s(source, "repository") != Some("https://github.com/UCSB-NLP-Chang/GroupMemBench")
+        || s(source, "pinned_commit") != Some("461f00c3e8a1a4a3a2ed5814b729014502c4702f")
+        || s(source, "repository_code_license") != Some("MIT")
+        || s(source, "dataset_license_declared_in_readme") != Some("CC BY 4.0")
+        || !is_sha1(s(source, "readme_git_blob_sha").unwrap_or(""))
+        || !is_sha1(s(source, "license_git_blob_sha").unwrap_or("")) {
         return Err("GroupMemBench source revision/license metadata is not pinned".into());
     }
 
@@ -226,8 +226,8 @@ fn validate_groupmembench_intake(v: &Value) -> Result<(), String> {
         if !exact(file, &["path", "git_blob_sha", "size_bytes"]) {
             return Err("GroupMemBench file identity has missing/extra fields".into());
         }
-        let path = strv(file, "path").ok_or("GroupMemBench path missing")?.to_owned();
-        let sha = strv(file, "git_blob_sha").ok_or("GroupMemBench blob SHA missing")?;
+        let path = s(file, "path").ok_or("GroupMemBench path missing")?.to_owned();
+        let sha = s(file, "git_blob_sha").ok_or("GroupMemBench blob SHA missing")?;
         let size = file["size_bytes"].as_u64().ok_or("GroupMemBench file size missing/invalid")?;
         if !paths.insert(path.clone()) || !is_sha1(sha) {
             return Err(format!("duplicate path or invalid Git blob SHA: {path}"));
@@ -248,8 +248,8 @@ fn validate_groupmembench_intake(v: &Value) -> Result<(), String> {
     if data_files != 4 || question_files != 24 || metadata_files != 2 {
         return Err(format!("GroupMemBench artifact file counts mismatch: data={data_files}, questions={question_files}, metadata={metadata_files}"));
     }
-    if path_to_sha.get("README.md").map(String::as_str) != strv(source, "readme_git_blob_sha")
-        || path_to_sha.get("LICENSE").map(String::as_str) != strv(source, "license_git_blob_sha") {
+    if path_to_sha.get("README.md").map(String::as_str) != s(source, "readme_git_blob_sha")
+        || path_to_sha.get("LICENSE").map(String::as_str) != s(source, "license_git_blob_sha") {
         return Err("GroupMemBench README/LICENSE blob identity mismatch".into());
     }
 
@@ -265,7 +265,7 @@ fn validate_groupmembench_intake(v: &Value) -> Result<(), String> {
     }
 
     let benchmark = &v["benchmark"];
-    if strv(benchmark, "paper_url") != Some("https://arxiv.org/abs/2605.14498")
+    if s(benchmark, "paper_url") != Some("https://arxiv.org/abs/2605.14498")
         || benchmark["total_questions"].as_u64() != Some(715) {
         return Err("GroupMemBench paper/total-question identity mismatch".into());
     }
@@ -303,7 +303,7 @@ fn validate_groupmembench_intake(v: &Value) -> Result<(), String> {
         || custody["candidate_hidden_labels_or_answers"].as_bool() != Some(false) {
         return Err("GroupMemBench metadata-only custody boundary was breached".into());
     }
-    if !strv(custody, "permitted_next_step").unwrap_or("").contains("read-only adapter") {
+    if !s(custody, "permitted_next_step").unwrap_or("").contains("read-only adapter") {
         return Err("GroupMemBench next step must remain a read-only adapter".into());
     }
     Ok(())
@@ -387,6 +387,11 @@ mod tests{
  #[test]fn groupmembench_metadata_intake_forbids_payload_import(){
   let mut v:Value=serde_json::from_str(include_str!("../../GROUPMEMBENCH_METADATA_INTAKE_V0_1.json")).unwrap();
   v["custody"]["payload_committed"]=Value::Bool(true);
+  assert!(validate_groupmembench_intake(&v).is_err());
+ }
+ #[test]fn groupmembench_exact_file_byte_summary_is_recomputed(){
+  let mut v:Value=serde_json::from_str(include_str!("../../GROUPMEMBENCH_METADATA_INTAKE_V0_1.json")).unwrap();
+  v["artifact_summary"]["conversation_data_bytes"]=Value::from(1u64);
   assert!(validate_groupmembench_intake(&v).is_err());
  }
  #[test]fn groupmembench_question_counts_must_sum_to_715(){
