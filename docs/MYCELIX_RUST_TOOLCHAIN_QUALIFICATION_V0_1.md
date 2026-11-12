@@ -1,6 +1,6 @@
 # Mycelix Holochain Rust toolchain qualification v0.3
 
-**Status:** stacked on Governance shared-path repair PR #6087. The nested Mycelix workspace's declared development pin remains Rust/Cargo 1.96.0. Rust/Cargo 1.99.1 is a candidate; no default toolchain promotion is proposed.
+**Status:** stacked on Governance shared-path repair PR #6087. The nested Mycelix workspace's declared development pin remains Rust/Cargo 1.96.0. Rust/Cargo 1.99.1 and 1.100.0 are isolated candidates; no default toolchain promotion is proposed.
 
 ## Source prerequisite and discovered blockers
 
@@ -22,12 +22,12 @@ The WASM target is installed and inspected for the matching compiler. This preve
 
 ## Independent qualification matrix
 
-The workflow now creates four independent jobs:
+The workflow now creates six independent jobs:
 
-| Cluster | Baseline | Candidate |
+| Cluster | Rust 1.96.0 baseline | Rust 1.99.1 candidate | Rust 1.100.0 candidate |
 |---|---|---|
-| Finance | Rust 1.96.0 | Rust 1.99.1 |
-| Governance | Rust 1.96.0 | Rust 1.99.1 |
+| Finance | Rust 1.96.0 | Rust 1.99.1 | Rust 1.100.0 |
+| Governance | Rust 1.96.0 | Rust 1.99.1 | Rust 1.100.0 |
 
 One cluster's path or lockfile failure no longer skips the other cluster's compile, test and WASM checks.
 
@@ -67,6 +67,8 @@ A passing cell qualifies only the named cluster, toolchain, target and commands.
 - No Finance/Governance domain logic changes in the toolchain PR; the shared-path repair is isolated in PR #6087.
 
 ## Benchmark and SOTA programme
+
+Rust 1.100.0 was released on 12 November 2026. It adds stabilized Cargo lints, minimum publish-age controls and a changed internal build directory layout; the qualification therefore includes a third exact compiler version while keeping the repository default unchanged. The release's new Cargo features are evaluated separately from Holochain compiler compatibility.
 
 A newer compiler is not automatically a better Holochain system. Compare:
 - native compile/test wall time and peak RSS;
