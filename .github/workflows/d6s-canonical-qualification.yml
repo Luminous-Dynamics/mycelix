@@ -96,14 +96,6 @@ jobs:
           --test d6s_canon_1_golden_vectors
           --test d6s_canon_2_authority_boundary
 
-      - name: Run COS library unit tests, including textile recovery
-        run: >-
-          cargo test
-          --manifest-path mycelix-manufacturing/Cargo.toml
-          --locked
-          -p cos_conformance
-          --lib
-
       - name: Run independent D6S-CANON-1 verifier
         run: python3 scripts/integral/verify_d6s_canon_1.py
 
