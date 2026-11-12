@@ -50,7 +50,6 @@ var (
 	ErrCheckpointIntentMismatch   = errors.New("checkpoint rejected: immutable intent mismatch")
 )
 
-
 func (s CheckpointSubjectV1) ValidateAgainstIntent(intent Intent) error {
 	if err := s.Validate(); err != nil {
 		return err
