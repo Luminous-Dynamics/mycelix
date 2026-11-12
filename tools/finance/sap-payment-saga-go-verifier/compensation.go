@@ -396,7 +396,7 @@ type CompensationOutcomeKindV2 uint8
 
 const (
 	CompensationAuthoritativeAbsenceV2 CompensationOutcomeKindV2 = iota + 1
-	CompensationObservedUnsettledV2
+	CompensationOutcomeObservedUnsettledV2
 	CompensationFinalSettlementV2
 )
 
@@ -715,7 +715,7 @@ func (b *CompensationBookV2) RetrySameEffect(
 func (b *CompensationBookV2) ObserveUnsettled(outcome CompensationOutcomeV2) (CompensationDispositionV2, error) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	if err := b.validateOutcomeLocked(outcome, CompensationObservedUnsettledV2); err != nil {
+	if err := b.validateOutcomeLocked(outcome, CompensationOutcomeObservedUnsettledV2); err != nil {
 		return 0, err
 	}
 	digest, err := outcome.CanonicalDigest()
@@ -924,6 +924,7 @@ var (
 	ErrCompensationInvalidDigestV2                = errors.New("compensation V2 digest is invalid")
 	ErrCompensationInvalidTextV2                  = errors.New("compensation V2 text is empty or oversized")
 	ErrCompensationInvalidForwardEffectV2         = errors.New("forward effect V2 is invalid")
+	ErrCompensationInvalidFinalityV2              = errors.New("forward finality is outside profile")
 	ErrCompensationForwardNotSettledV2            = errors.New("forward effect is not settled")
 	ErrCompensationInvalidPlanV2                  = errors.New("compensation plan V2 is invalid")
 	ErrCompensationAuthorizationRevokedV2         = errors.New("compensation authorization is revoked")
