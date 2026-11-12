@@ -1,0 +1,82 @@
+{
+  "audit_version": "0.1.0",
+  "event_id": "synthetic-event-001",
+  "input_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "source_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "control_volume_area_ha": 0.25,
+  "water_balance": {
+    "status": "within_conservative_linear_uncertainty_bound",
+    "input_total_mm": 18,
+    "output_total_mm": 5.5,
+    "storage_change_mm": 12.5,
+    "residual_mm": 0,
+    "conservative_linear_standard_uncertainty_bound_mm": 1.7,
+    "input_pathways": [
+      {
+        "category": "precipitation",
+        "count": 1,
+        "volume_depth_mm": 18
+      }
+    ],
+    "output_pathways": [
+      {
+        "category": "evapotranspiration",
+        "count": 1,
+        "volume_depth_mm": 1
+      },
+      {
+        "category": "lower_boundary_drainage",
+        "count": 1,
+        "volume_depth_mm": 4
+      },
+      {
+        "category": "runoff",
+        "count": 1,
+        "volume_depth_mm": 0.5
+      }
+    ],
+    "unmeasured_pathways": []
+  },
+  "solute_coverage": {
+    "status": "reviewed_complete",
+    "unmeasured_pathways": []
+  },
+  "dissolved_export_audits": [
+    {
+      "flux_id": "nitrate-leaching-01",
+      "pathway": "leaching",
+      "element": "N",
+      "analyte": "nitrate_n",
+      "mass_status": "measured_qualified",
+      "mass_kg_element_per_ha": 0.4,
+      "plot_mass_kg_element": 0.1,
+      "first_order_linear_uncertainty_bound_kg_element_per_ha": 0.018,
+      "note": "Synthetic fixture arithmetic only."
+    }
+  ],
+  "particulate_export_audits": [
+    {
+      "flux_id": "particulate-p-runoff-01",
+      "pathway": "runoff",
+      "element": "P",
+      "analyte": "particulate_p",
+      "mass_status": "measured_qualified",
+      "mass_kg_element_per_ha": 0.04,
+      "plot_mass_kg_element": 0.01,
+      "first_order_linear_uncertainty_bound_kg_element_per_ha": 0.0036,
+      "note": "Synthetic fixture arithmetic only."
+    }
+  ],
+  "flow_counts": {
+    "water_inputs": 1,
+    "water_outputs": 3,
+    "soil_moisture_observations": 4,
+    "dissolved_exports": 1,
+    "particulate_exports": 1,
+    "preferential_flow_assessments": 1
+  },
+  "warnings": [
+    "Synthetic report fixture only; not measured field evidence."
+  ],
+  "interpretation_boundary": "Event accounting and unit conversion only; not proof of flux representativeness, causal effect, agronomic benefit, safety or regulatory approval."
+}

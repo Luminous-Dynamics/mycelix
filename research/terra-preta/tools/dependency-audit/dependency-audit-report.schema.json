@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/Luminous-Dynamics/mycelix/main/research/terra-preta/tools/dependency-audit/dependency-audit-report.schema.json",
+  "title": "Terra Preta multi-key dependency leakage audit report",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "audit_version",
+    "status",
+    "input_label",
+    "input_sha256",
+    "row_count",
+    "component_count",
+    "dependency_columns",
+    "component_assignment_sha256",
+    "split_counts",
+    "dependency_key_stats",
+    "warnings",
+    "interpretation_boundary"
+  ],
+  "properties": {
+    "audit_version": { "const": "0.1.0" },
+    "status": { "const": "passed" },
+    "input_label": { "type": "string", "minLength": 1 },
+    "input_sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "row_count": { "type": "integer", "minimum": 1 },
+    "component_count": { "type": "integer", "minimum": 3 },
+    "dependency_columns": { "type": "array", "items": { "type": "string", "minLength": 1 }, "minItems": 1, "uniqueItems": true },
+    "component_assignment_sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "split_counts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["train", "validation", "test", "excluded"],
+      "properties": {
+        "train": { "$ref": "#/$defs/split_counts" },
+        "validation": { "$ref": "#/$defs/split_counts" },
+        "test": { "$ref": "#/$defs/split_counts" },
+        "excluded": { "$ref": "#/$defs/split_counts" }
+      }
+    },
+    "dependency_key_stats": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": { "$ref": "#/$defs/dependency_key_stats" }
+    },
+    "warnings": { "type": "array", "items": { "type": "string" }, "minItems": 1 },
+    "interpretation_boundary": { "type": "string", "minLength": 1 }
+  },
+  "$defs": {
+    "split_counts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["rows", "components"],
+      "properties": {
+        "rows": { "type": "integer", "minimum": 0 },
+        "components": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "dependency_key_stats": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["rows_with_value", "rows_missing_value", "distinct_values"],
+      "properties": {
+        "rows_with_value": { "type": "integer", "minimum": 0 },
+        "rows_missing_value": { "type": "integer", "minimum": 0 },
+        "distinct_values": { "type": "integer", "minimum": 0 }
+      }
+    }
+  }
+}

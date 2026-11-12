@@ -1,0 +1,67 @@
+{
+  "schema_version": "0.1.0",
+  "study_id": "synthetic-cadence-design",
+  "site_id": "SYN-CAD",
+  "plot_id": "P01",
+  "profile_id": "PROFILE-CADENCE",
+  "event_id": "EVENT-CADENCE-001",
+  "event_start_utc": "2026-06-01T00:30:00Z",
+  "observation_window_end_utc": "2026-06-01T01:30:00Z",
+  "raw_resolution_seconds": 60,
+  "target_resolution_seconds": 300,
+  "minimum_good_fraction": 0.8,
+  "response_threshold_m3_m3": 0.01,
+  "raw_file_label": "synthetic 1-minute cadence stress fixture",
+  "source_evidence_ref": "synthetic known-timing fixture only; not NEON observations",
+  "timestamp_column": "startDateTime",
+  "sensor_key_columns": [
+    "horizontalPosition",
+    "verticalPosition"
+  ],
+  "theta_column": "VSWCMean",
+  "quality_filters": [
+    {
+      "column": "VSWCFinalQF",
+      "accepted_values": [
+        "0"
+      ]
+    }
+  ],
+  "sensors": [
+    {
+      "sensor_key": "001|501",
+      "sensor_id": "S10",
+      "depth_cm": 10,
+      "x_m": 0,
+      "y_m": 0,
+      "condition": "usable",
+      "metadata_evidence_ref": "synthetic corrected depth and position",
+      "position_start_utc": "2026-01-01T00:00:00Z",
+      "position_end_utc": null
+    },
+    {
+      "sensor_key": "001|502",
+      "sensor_id": "S30",
+      "depth_cm": 30,
+      "x_m": 0,
+      "y_m": 0,
+      "condition": "usable",
+      "metadata_evidence_ref": "synthetic corrected depth and position",
+      "position_start_utc": "2026-01-01T00:00:00Z",
+      "position_end_utc": null
+    },
+    {
+      "sensor_key": "001|503",
+      "sensor_id": "S60",
+      "depth_cm": 60,
+      "x_m": 0,
+      "y_m": 0,
+      "condition": "usable",
+      "metadata_evidence_ref": "synthetic corrected depth and position",
+      "position_start_utc": "2026-01-01T00:00:00Z",
+      "position_end_utc": null
+    }
+  ],
+  "maximum_profile_porosity_m3_m3": 0.4,
+  "maximum_profile_porosity_evidence_ref": "synthetic whole-profile porosity bound"
+}

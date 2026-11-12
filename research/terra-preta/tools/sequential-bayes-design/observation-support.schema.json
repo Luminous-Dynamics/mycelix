@@ -1,0 +1,78 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Terra Preta observation support record",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "data_class", "measurements"],
+  "properties": {
+    "schema_version": { "const": "0.1.0" },
+    "data_class": { "const": "synthetic_metadata_fixture" },
+    "measurements": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["measurement_id", "support_id", "sample_id", "assignment_unit_id", "source_batch_id", "modality", "measurand", "value_unit", "observation_operator_id", "spatial_support", "temporal_support", "instrument", "uncertainty"],
+        "properties": {
+          "measurement_id": { "type": "string", "minLength": 1 },
+          "support_id": { "type": "string", "minLength": 1 },
+          "sample_id": { "type": "string", "minLength": 1 },
+          "assignment_unit_id": { "type": "string", "minLength": 1 },
+          "source_batch_id": { "type": ["string", "null"] },
+          "modality": { "type": "string", "minLength": 1 },
+          "measurand": { "type": "string", "minLength": 1 },
+          "value_unit": { "type": "string", "minLength": 1 },
+          "observation_operator_id": { "type": "string", "minLength": 1 },
+          "spatial_support": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["geometry_kind", "depth_top_cm", "depth_bottom_cm", "horizontal_area_cm2", "sample_or_image_volume_cm3", "resolution_mm", "pressure_head_min_kpa", "pressure_head_max_kpa"],
+            "properties": {
+              "geometry_kind": { "enum": ["point", "depth_interval", "core", "image_volume", "composite"] },
+              "depth_top_cm": { "type": ["number", "null"] },
+              "depth_bottom_cm": { "type": ["number", "null"] },
+              "horizontal_area_cm2": { "type": ["number", "null"], "minimum": 0 },
+              "sample_or_image_volume_cm3": { "type": ["number", "null"], "minimum": 0 },
+              "resolution_mm": { "type": ["number", "null"], "exclusiveMinimum": 0 },
+              "pressure_head_min_kpa": { "type": ["number", "null"], "minimum": 0 },
+              "pressure_head_max_kpa": { "type": ["number", "null"], "minimum": 0 }
+            }
+          },
+          "temporal_support": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["aggregation", "start_seconds", "end_seconds", "sampling_interval_seconds"],
+            "properties": {
+              "aggregation": { "enum": ["instant", "interval_mean", "interval_integral", "event_window", "equilibrium", "composite"] },
+              "start_seconds": { "type": ["number", "null"] },
+              "end_seconds": { "type": ["number", "null"] },
+              "sampling_interval_seconds": { "type": ["number", "null"], "exclusiveMinimum": 0 }
+            }
+          },
+          "instrument": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["instrument_id", "calibration_state", "calibration_record_sha256", "detection_limit"],
+            "properties": {
+              "instrument_id": { "type": "string", "minLength": 1 },
+              "calibration_state": { "enum": ["current", "expired", "unknown", "not_applicable", "synthetic_assumption"] },
+              "calibration_record_sha256": { "type": ["string", "null"], "pattern": "^[a-fA-F0-9]{64}$" },
+              "detection_limit": { "type": ["number", "null"], "minimum": 0 }
+            }
+          },
+          "uncertainty": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["standard_uncertainty", "unit", "source"],
+            "properties": {
+              "standard_uncertainty": { "type": ["number", "null"], "minimum": 0 },
+              "unit": { "type": "string", "minLength": 1 },
+              "source": { "enum": ["repeatability", "calibration", "publisher_reported", "assumed_synthetic", "unknown"] }
+            }
+          }
+        }
+      }
+    }
+  }
+}

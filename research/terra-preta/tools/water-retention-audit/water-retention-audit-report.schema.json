@@ -1,0 +1,98 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/Luminous-Dynamics/mycelix/main/research/terra-preta/tools/water-retention-audit/water-retention-audit-report.schema.json",
+  "title": "Terra Preta water-retention curve audit report",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "audit_version",
+    "status",
+    "sample_id",
+    "curve_id",
+    "input_label",
+    "input_sha256",
+    "measurement_basis",
+    "bulk_density_kg_m3",
+    "water_density_kg_m3",
+    "method",
+    "measurement_count",
+    "normalized_points",
+    "monotonicity_tolerance_m3_m3",
+    "field_capacity",
+    "permanent_wilting_point",
+    "available_water_fraction_m3_m3",
+    "layer_depth_mm",
+    "available_water_storage_mm",
+    "warnings",
+    "uncertainty_status",
+    "interpretation_boundary"
+  ],
+  "properties": {
+    "audit_version": { "const": "0.1.0" },
+    "status": { "enum": ["passed", "passed_with_warnings"] },
+    "sample_id": { "type": "string", "minLength": 1 },
+    "curve_id": { "type": "string", "minLength": 1 },
+    "input_label": { "type": "string", "minLength": 1 },
+    "input_sha256": { "type": "string", "pattern": "^[a-fA-F0-9]{64}$" },
+    "measurement_basis": {
+      "enum": ["volumetric_fraction", "gravimetric_kg_per_kg_dry_soil"]
+    },
+    "bulk_density_kg_m3": { "type": ["number", "null"], "exclusiveMinimum": 0 },
+    "water_density_kg_m3": { "type": ["number", "null"], "exclusiveMinimum": 0 },
+    "method": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "standard_or_protocol"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "standard_or_protocol": { "type": ["string", "null"] }
+      }
+    },
+    "measurement_count": { "type": "integer", "minimum": 2 },
+    "normalized_points": {
+      "type": "array",
+      "minItems": 2,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["matric_potential_kpa", "suction_kpa", "water_content_m3_m3"],
+        "properties": {
+          "matric_potential_kpa": { "type": "number", "maximum": 0 },
+          "suction_kpa": { "type": "number", "minimum": 0 },
+          "water_content_m3_m3": { "type": "number", "minimum": 0, "maximum": 1 }
+        }
+      }
+    },
+    "monotonicity_tolerance_m3_m3": { "type": "number", "minimum": 0, "maximum": 1 },
+    "field_capacity": { "$ref": "#/$defs/threshold_estimate" },
+    "permanent_wilting_point": { "$ref": "#/$defs/threshold_estimate" },
+    "available_water_fraction_m3_m3": { "type": "number", "minimum": 0, "maximum": 1 },
+    "layer_depth_mm": { "type": ["number", "null"], "exclusiveMinimum": 0 },
+    "available_water_storage_mm": { "type": ["number", "null"], "minimum": 0 },
+    "warnings": { "type": "array", "items": { "type": "string" } },
+    "uncertainty_status": { "const": "not_propagated" },
+    "interpretation_boundary": { "type": "string", "minLength": 1 }
+  },
+  "$defs": {
+    "threshold_estimate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "target_matric_potential_kpa",
+        "water_content_m3_m3",
+        "estimate_method",
+        "less_suction_bracket_matric_potential_kpa",
+        "greater_suction_bracket_matric_potential_kpa",
+        "interpolation_fraction"
+      ],
+      "properties": {
+        "target_matric_potential_kpa": { "type": "number", "exclusiveMaximum": 0 },
+        "water_content_m3_m3": { "type": "number", "minimum": 0, "maximum": 1 },
+        "estimate_method": { "enum": ["observed", "log10_suction_linear_interpolation"] },
+        "less_suction_bracket_matric_potential_kpa": { "type": ["number", "null"], "exclusiveMaximum": 0 },
+        "greater_suction_bracket_matric_potential_kpa": { "type": ["number", "null"], "exclusiveMaximum": 0 },
+        "interpolation_fraction": { "type": ["number", "null"], "minimum": 0, "maximum": 1 }
+      }
+    }
+  }
+}
