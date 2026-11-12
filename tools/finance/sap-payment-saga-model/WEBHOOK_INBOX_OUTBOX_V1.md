@@ -37,6 +37,19 @@ The immutable event subject records:
 
 The table stores encrypted raw bytes, not plaintext webhook JSON. The signature secret is never stored. The adapter must compute the digest from the exact raw bytes that passed HMAC verification, then encrypt those same bytes. Database roles should grant the ingress service INSERT/SELECT only on the immutable inbox and conflict tables; UPDATE/DELETE belongs to a separate retention/cryptographic-erasure role.
 
+### Delivery-attempt ledger
+
+The `provider_webhook_delivery` table preserves every successfully authenticated delivery attempt separately from the canonical inbox event. A duplicate delivery is still a new delivery observation: it records the delivery-time signature timestamp, signing-key reference, verifier revision, provider-contract digest and raw-body digest, linked to the already accepted inbox row. A collision links the attempt to both the existing inbox record and its conflict quarantine record.
+
+This avoids silently discarding operationally useful evidence when secrets rotate or the same event is retried. The table does not store another copy of the body; the inbox keeps the canonical encrypted body and the conflict table keeps encrypted changed-content evidence. Delivery rows are append-only by service permissions, not updatable delivery state.
+
+Dispositions are:
+- `accepted`: first verified delivery inserted the inbox, object-generation notification and event outbox row in one transaction;
+- `duplicate`: exact event scope/body/contract replay; no new object generation and no second outbox row;
+- `conflict`: same event key with changed content, provider region, contract, object, API version, payload kind or resource account; no new object work.
+
+The exact key-rotation metadata is an audit record, not proof that the signing key remains trusted today. The signature verifier and key-lifecycle policy remain responsible for that decision.
+
 ### Conflict quarantine
 
 A repeated event ID with a different raw-body digest, provider contract digest, event type or resource account scope is not an ordinary duplicate. The function records a conflict with both body digests and the encrypted incoming bytes, then returns `conflict`. It does not enqueue another effect.
