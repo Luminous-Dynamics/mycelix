@@ -43,3 +43,8 @@ Run the same conformance target with `cargo test -p cos_conformance`. The tests
 are synthetic contract tests only: they do not authenticate external evidence,
 qualify a real recycling process, establish recycled content, or certify a
 textile product.
+
+
+## Integration provenance
+
+This change is stacked on the restored D6S-CANON-1 / D6S-CANON-2 reference source. The combined exact-head candidate must pass both named D6S integration tests and both independent Python verifiers. A prior D6S PASS on the base commit does not qualify a later textile-recovery commit.
