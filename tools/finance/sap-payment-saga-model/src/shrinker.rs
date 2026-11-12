@@ -83,9 +83,8 @@ where
             candidate.commands.drain(start..end);
             attempts = next_attempt(attempts)?;
             if preserves(&candidate, target_failure, &failure_signature) {
-                removed_commands = removed_commands.saturating_add(
-                    u8::try_from(end - start).unwrap_or(u8::MAX),
-                );
+                removed_commands =
+                    removed_commands.saturating_add(u8::try_from(end - start).unwrap_or(u8::MAX));
                 current = candidate;
                 granularity = granularity.saturating_sub(1).max(2);
                 reduced = true;
@@ -178,8 +177,7 @@ fn preserves<F>(trace: &TraceV1, target: &str, signature: &F) -> bool
 where
     F: Fn(&TraceV1) -> Option<String>,
 {
-    trace.canonical_bytes().is_ok()
-        && signature(trace).as_deref() == Some(target)
+    trace.canonical_bytes().is_ok() && signature(trace).as_deref() == Some(target)
 }
 
 fn next_attempt(attempts: u32) -> Result<u32, TraceShrinkError> {
@@ -241,8 +239,7 @@ mod tests {
 
     fn owner_failure(trace: &TraceV1) -> Option<String> {
         trace.commands.first().and_then(|command| {
-            (command.opcode == TraceOpcode::CreateIntent
-                && command.owner == TraceOwner::Adversary)
+            (command.opcode == TraceOpcode::CreateIntent && command.owner == TraceOwner::Adversary)
                 .then(|| "owner-mismatch:command-0".to_owned())
         })
     }
@@ -255,12 +252,7 @@ mod tests {
         let scenario = input.scenario;
         let original_command = input.commands[0];
 
-        let result = minimize_trace_v1(
-            &input,
-            "owner-mismatch:command-0",
-            owner_failure,
-        )
-        .unwrap();
+        let result = minimize_trace_v1(&input, "owner-mismatch:command-0", owner_failure).unwrap();
 
         assert_eq!(result.trace.commands.len(), 1);
         assert_eq!(result.trace.seed, seed);
@@ -272,8 +264,14 @@ mod tests {
         assert_eq!(result.trace.commands[0].fault, original_command.fault);
         assert_eq!(result.trace.commands[0].subject, 0);
         assert_eq!(result.trace.commands[0].value, 0);
-        assert_eq!(owner_failure(&result.trace).as_deref(), Some("owner-mismatch:command-0"));
-        assert_eq!(result.minimized_digest, result.trace.canonical_digest().unwrap());
+        assert_eq!(
+            owner_failure(&result.trace).as_deref(),
+            Some("owner-mismatch:command-0")
+        );
+        assert_eq!(
+            result.minimized_digest,
+            result.trace.canonical_digest().unwrap()
+        );
         assert!(result.removed_commands > 0);
         assert!(result.changed_numeric_fields > 0);
         assert!(result.attempts > 0);
@@ -293,12 +291,7 @@ mod tests {
         let mut input = failing_trace();
         input.commands[0].fault = TraceFault::PayloadMutation;
         let original_fault = input.commands[0].fault;
-        let result = minimize_trace_v1(
-            &input,
-            "owner-mismatch:command-0",
-            owner_failure,
-        )
-        .unwrap();
+        let result = minimize_trace_v1(&input, "owner-mismatch:command-0", owner_failure).unwrap();
         assert_eq!(result.trace.commands[0].owner, TraceOwner::Adversary);
         assert_eq!(result.trace.commands[0].fault, original_fault);
     }

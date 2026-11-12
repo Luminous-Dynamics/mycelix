@@ -1,6 +1,6 @@
 use sap_payment_saga_model::{
-    replay::{replay_journal, JournalEvent, JournalEventFrame, JournalEventLog, ReplayAnchor},
     EffectEvidence, EffectEvidenceKind, PaymentIntent, PaymentLeg, PaymentRecordStatus,
+    replay::{JournalEvent, JournalEventFrame, JournalEventLog, ReplayAnchor, replay_journal},
 };
 use std::hint::black_box;
 use std::time::{Duration, Instant};
@@ -76,13 +76,15 @@ fn treasury_evidence(operation_id: &str) -> EffectEvidence {
             treasury_action: "action:treasury-credit".into(),
         },
     };
-    evidence.evidence_digest = evidence.canonical_digest().expect("Treasury evidence digest");
+    evidence.evidence_digest = evidence
+        .canonical_digest()
+        .expect("Treasury evidence digest");
     evidence
 }
 
 fn build_history(event_count: usize) -> (Vec<JournalEventFrame>, ReplayAnchor) {
     assert!(
-        event_count >= 6 && (event_count - 6) % 2 == 0,
+        event_count >= 6 && (event_count - 6).is_multiple_of(2),
         "event count must be 6 + 2*n"
     );
 
@@ -117,12 +119,18 @@ fn build_history(event_count: usize) -> (Vec<JournalEventFrame>, ReplayAnchor) {
     assert_eq!(frames.len(), event_count, "fixture frame count");
     let anchor = log.anchor();
     let replayed = replay_journal(&frames, &anchor).expect("benchmark history must replay");
-    assert!(replayed.is_completed(), "benchmark history must be completed");
+    assert!(
+        replayed.is_completed(),
+        "benchmark history must be completed"
+    );
     (frames, anchor)
 }
 
 fn main() {
-    println!("RUST_REPLAY_METADATA sample_count={SAMPLE_COUNT} sample_window_ms={}", SAMPLE_WINDOW.as_millis());
+    println!(
+        "RUST_REPLAY_METADATA sample_count={SAMPLE_COUNT} sample_window_ms={}",
+        SAMPLE_WINDOW.as_millis()
+    );
     for event_count in [100_usize, 1_000, 10_000] {
         // Fixture construction, digest generation and validation are outside the timed region.
         let (frames, anchor) = build_history(event_count);

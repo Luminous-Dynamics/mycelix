@@ -19,65 +19,65 @@ func replayBenchmarkHistory(tb testing.TB, eventCount int) ([]JournalEventFrame,
 	journal := newJournal(intent)
 	log, err := NewJournalEventLog(intent)
 	if err != nil {
-		t.Fatalf("create event log: %v", err)
+		tb.Fatalf("create event log: %v", err)
 	}
 	if err := journal.Authorize(); err != nil {
-		t.Fatalf("authorize journal: %v", err)
+		tb.Fatalf("authorize journal: %v", err)
 	}
 	if err := log.RecordAuthorized(); err != nil {
-		t.Fatalf("record authorization: %v", err)
+		tb.Fatalf("record authorization: %v", err)
 	}
 
 	localID := journal.EffectID(LocalPaymentTransaction)
 	if _, err := journal.PrepareLeg(LocalPaymentTransaction, localID); err != nil {
-		t.Fatalf("prepare local leg: %v", err)
+		tb.Fatalf("prepare local leg: %v", err)
 	}
 	if err := log.RecordEffectPrepared(LocalPaymentTransaction, localID); err != nil {
-		t.Fatalf("record local prepare: %v", err)
+		tb.Fatalf("record local prepare: %v", err)
 	}
 	localEvidence := replayTestLocalEvidence(journal)
 	if _, err := journal.CommitLeg(LocalPaymentTransaction, localEvidence); err != nil {
-		t.Fatalf("commit local leg: %v", err)
+		tb.Fatalf("commit local leg: %v", err)
 	}
 	if err := log.RecordEffectCommitted(localEvidence); err != nil {
-		t.Fatalf("record local commit: %v", err)
+		tb.Fatalf("record local commit: %v", err)
 	}
 
 	treasuryID := journal.EffectID(TreasuryFee)
 	if _, err := journal.PrepareLeg(TreasuryFee, treasuryID); err != nil {
-		t.Fatalf("prepare Treasury leg: %v", err)
+		tb.Fatalf("prepare Treasury leg: %v", err)
 	}
 	if err := log.RecordEffectPrepared(TreasuryFee, treasuryID); err != nil {
-		t.Fatalf("record Treasury prepare: %v", err)
+		tb.Fatalf("record Treasury prepare: %v", err)
 	}
 
 	retryCycles := (eventCount - 6) / 2
 	for cycle := 0; cycle < retryCycles; cycle++ {
 		if err := journal.MarkIndeterminate(TreasuryFee, treasuryID); err != nil {
-			t.Fatalf("mark Treasury effect indeterminate at cycle %d: %v", cycle, err)
+			tb.Fatalf("mark Treasury effect indeterminate at cycle %d: %v", cycle, err)
 		}
 		if err := log.RecordEffectIndeterminate(TreasuryFee, treasuryID); err != nil {
-			t.Fatalf("record indeterminate Treasury effect at cycle %d: %v", cycle, err)
+			tb.Fatalf("record indeterminate Treasury effect at cycle %d: %v", cycle, err)
 		}
 		if _, err := journal.PrepareLeg(TreasuryFee, treasuryID); err != nil {
-			t.Fatalf("resume same Treasury effect at cycle %d: %v", cycle, err)
+			tb.Fatalf("resume same Treasury effect at cycle %d: %v", cycle, err)
 		}
 		if err := log.RecordEffectPrepared(TreasuryFee, treasuryID); err != nil {
-			t.Fatalf("record same-effect retry at cycle %d: %v", cycle, err)
+			tb.Fatalf("record same-effect retry at cycle %d: %v", cycle, err)
 		}
 	}
 
 	treasuryEvidence := replayTestTreasuryEvidence(journal)
 	if _, err := journal.CommitLeg(TreasuryFee, treasuryEvidence); err != nil {
-		t.Fatalf("commit Treasury leg: %v", err)
+		tb.Fatalf("commit Treasury leg: %v", err)
 	}
 	if err := log.RecordEffectCommitted(treasuryEvidence); err != nil {
-		t.Fatalf("record Treasury commit: %v", err)
+		tb.Fatalf("record Treasury commit: %v", err)
 	}
 
 	frames := log.Frames()
 	if len(frames) != eventCount {
-		t.Fatalf("benchmark history has %d frames, want %d", len(frames), eventCount)
+		tb.Fatalf("benchmark history has %d frames, want %d", len(frames), eventCount)
 	}
 	if status := journal.Status(); status != Completed {
 		tb.Fatalf("benchmark history status = %q, want %q", status, Completed)

@@ -77,23 +77,23 @@ type TraceStepResultV1 struct {
 }
 
 type TraceEvaluationV1 struct {
-	TraceDigest                       [32]byte
-	Steps                             []TraceStepResultV1
-	PrincipalMinor                    uint64
-	FeeMinor                          uint64
-	PayerDebitMinor                   uint64
-	RecipientCreditMinor              uint64
-	FeeHeldMinor                      uint64
-	TreasuryCreditMinor               uint64
-	CompensationSourceDebitMinor      uint64
-	CompensationRecipientCreditMinor  uint64
-	UnresolvedTreasuryExposureMinor   uint64
-	ActualTreasuryEffectCount         uint8
-	CompensationCount                 uint8
-	LocalCommitted                    bool
-	TreasuryState                     TreasuryOracleStateV1
-	ConservationDeltaMinor            *big.Int
-	InvariantFailureMask              uint32
+	TraceDigest                      [32]byte
+	Steps                            []TraceStepResultV1
+	PrincipalMinor                   uint64
+	FeeMinor                         uint64
+	PayerDebitMinor                  uint64
+	RecipientCreditMinor             uint64
+	FeeHeldMinor                     uint64
+	TreasuryCreditMinor              uint64
+	CompensationSourceDebitMinor     uint64
+	CompensationRecipientCreditMinor uint64
+	UnresolvedTreasuryExposureMinor  uint64
+	ActualTreasuryEffectCount        uint8
+	CompensationCount                uint8
+	LocalCommitted                   bool
+	TreasuryState                    TreasuryOracleStateV1
+	ConservationDeltaMinor           *big.Int
+	InvariantFailureMask             uint32
 }
 
 func (e TraceEvaluationV1) IsSafe() bool {
@@ -167,32 +167,32 @@ func (e TraceEvaluationV1) CanonicalDigest() (string, error) {
 }
 
 var (
-	ErrOracleInvalidTrace   = errors.New("trace failed canonical validation")
-	ErrOracleTooManySteps   = errors.New("trace oracle step count exceeds canonical bound")
-	ErrOracleInvalidDelta   = errors.New("trace oracle conservation delta is nil")
-	ErrOracleDeltaOverflow  = errors.New("trace oracle conservation delta exceeds signed 128-bit range")
+	ErrOracleInvalidTrace  = errors.New("trace failed canonical validation")
+	ErrOracleTooManySteps  = errors.New("trace oracle step count exceeds canonical bound")
+	ErrOracleInvalidDelta  = errors.New("trace oracle conservation delta is nil")
+	ErrOracleDeltaOverflow = errors.New("trace oracle conservation delta exceeds signed 128-bit range")
 )
 
 type oracleStateV1 struct {
-	operationNonce           uint64
-	intentCreated            bool
-	authorized               bool
-	localPrepared            bool
-	localCommitted           bool
-	principalMinor           uint64
-	feeMinor                 uint64
-	totalMinor               uint64
-	treasuryEffectID         uint64
-	hasTreasuryEffectID      bool
-	treasuryState            TreasuryOracleStateV1
+	operationNonce            uint64
+	intentCreated             bool
+	authorized                bool
+	localPrepared             bool
+	localCommitted            bool
+	principalMinor            uint64
+	feeMinor                  uint64
+	totalMinor                uint64
+	treasuryEffectID          uint64
+	hasTreasuryEffectID       bool
+	treasuryState             TreasuryOracleStateV1
 	actualTreasuryEffectCount uint8
-	paymentCheckpoint        uint64
-	hasPaymentCheckpoint     bool
-	treasuryCheckpoint       uint64
-	hasTreasuryCheckpoint    bool
-	compensationEffectID     uint64
-	compensationAmount       uint64
-	hasCompensation          bool
+	paymentCheckpoint         uint64
+	hasPaymentCheckpoint      bool
+	treasuryCheckpoint        uint64
+	hasTreasuryCheckpoint     bool
+	compensationEffectID      uint64
+	compensationAmount        uint64
+	hasCompensation           bool
 }
 
 func traceFaultAllowedV1(opcode TraceOpcode, fault TraceFault) bool {
@@ -723,28 +723,30 @@ func (TraceOracleV1) Evaluate(trace TraceV1) (TraceEvaluationV1, error) {
 		failureMask |= 1 << 4
 	}
 	return TraceEvaluationV1{
-		TraceDigest: traceDigest,
-		Steps: steps,
-		PrincipalMinor: state.principalMinor,
-		FeeMinor: state.feeMinor,
-		PayerDebitMinor: payerDebit,
-		RecipientCreditMinor: recipientCredit,
-		FeeHeldMinor: feeHeld,
-		TreasuryCreditMinor: treasuryCredit,
-		CompensationSourceDebitMinor: compensationDebit,
+		TraceDigest:                      traceDigest,
+		Steps:                            steps,
+		PrincipalMinor:                   state.principalMinor,
+		FeeMinor:                         state.feeMinor,
+		PayerDebitMinor:                  payerDebit,
+		RecipientCreditMinor:             recipientCredit,
+		FeeHeldMinor:                     feeHeld,
+		TreasuryCreditMinor:              treasuryCredit,
+		CompensationSourceDebitMinor:     compensationDebit,
 		CompensationRecipientCreditMinor: compensationCredit,
-		UnresolvedTreasuryExposureMinor: unresolved,
-		ActualTreasuryEffectCount: state.actualTreasuryEffectCount,
-		CompensationCount: boolToU8(state.hasCompensation),
-		LocalCommitted: state.localCommitted,
-		TreasuryState: state.treasuryState,
-		ConservationDeltaMinor: delta,
-		InvariantFailureMask: failureMask,
+		UnresolvedTreasuryExposureMinor:  unresolved,
+		ActualTreasuryEffectCount:        state.actualTreasuryEffectCount,
+		CompensationCount:                boolToU8(state.hasCompensation),
+		LocalCommitted:                   state.localCommitted,
+		TreasuryState:                    state.treasuryState,
+		ConservationDeltaMinor:           delta,
+		InvariantFailureMask:             failureMask,
 	}, nil
 }
 
 func boolToU8(value bool) uint8 {
-	if value { return 1 }
+	if value {
+		return 1
+	}
 	return 0
 }
 
@@ -756,7 +758,9 @@ func appendOracleU64(output []byte, value uint64) []byte {
 
 func encodeOracleSigned128(value *big.Int) ([16]byte, error) {
 	var output [16]byte
-	if value == nil { return output, ErrOracleInvalidDelta }
+	if value == nil {
+		return output, ErrOracleInvalidDelta
+	}
 	limit := new(big.Int).Lsh(big.NewInt(1), 127)
 	minimum := new(big.Int).Neg(new(big.Int).Set(limit))
 	maximum := new(big.Int).Sub(new(big.Int).Set(limit), big.NewInt(1))

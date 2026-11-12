@@ -73,6 +73,12 @@ jobs:
         if: hashFiles('tools/finance/sap-payment-saga-go-verifier/go.mod') != ''
         working-directory: tools/finance/sap-payment-saga-go-verifier
         run: go test -race -count=1 ./...
+      - name: Measure effect-level compensation admission scaling
+        working-directory: tools/finance/sap-payment-saga-go-verifier
+        run: |
+          set -euo pipefail
+          go test -run 'a^' -bench '^BenchmarkCompensationReserve(V2|ParallelV2)$' -benchmem -benchtime=200ms -count=10 | tee /tmp/compensation-benchmark.txt
+
       - name: Capture paired benchmark environment
         run: |
           rustc --version

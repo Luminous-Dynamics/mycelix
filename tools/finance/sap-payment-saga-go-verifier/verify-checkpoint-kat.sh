@@ -29,7 +29,7 @@ verify_vector() {
     printf 'invalid hex bytes for %s\n' "$byte_key" >&2
     return 1
   fi
-  actual="$(printf '%s' "$bytes" | perl -e 'print pack("H*", shift)' | sha256sum | awk '{ print "sha256:" $1 }')"
+  actual="$(perl -e 'print pack("H*", $ARGV[0])' "$bytes" | sha256sum | awk '{ print "sha256:" $1 }')"
   if [[ "$actual" != "$expected" ]]; then
     printf '%s mismatch: got %s, expected %s\n' "$byte_key" "$actual" "$expected" >&2
     return 1

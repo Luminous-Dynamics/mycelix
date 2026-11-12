@@ -1,6 +1,4 @@
-use super::{
-    EffectEvidence, PaymentIntent, PaymentJournal, PaymentLeg, SagaError,
-};
+use super::{EffectEvidence, PaymentIntent, PaymentJournal, PaymentLeg, SagaError};
 use sha2::{Digest, Sha256};
 
 const EVENT_DOMAIN: &[u8] = b"MXSAP-JOURNAL-EVENT-V1\0";
@@ -25,7 +23,7 @@ pub enum JournalEvent {
         effect_id: String,
     },
     EffectCommitted {
-        evidence: EffectEvidence,
+        evidence: Box<EffectEvidence>,
     },
 }
 
@@ -120,16 +118,14 @@ impl JournalEventLog {
         })
     }
 
-    pub fn record_effect_committed(
-        &mut self,
-        evidence: EffectEvidence,
-    ) -> Result<(), ReplayError> {
-        self.append(JournalEvent::EffectCommitted { evidence })
+    pub fn record_effect_committed(&mut self, evidence: EffectEvidence) -> Result<(), ReplayError> {
+        self.append(JournalEvent::EffectCommitted {
+            evidence: Box::new(evidence),
+        })
     }
 
     fn append(&mut self, event: JournalEvent) -> Result<(), ReplayError> {
-        let sequence =
-            u64::try_from(self.frames.len()).map_err(|_| ReplayError::InvalidEvent)?;
+        let sequence = u64::try_from(self.frames.len()).map_err(|_| ReplayError::InvalidEvent)?;
         let previous_digest = self
             .frames
             .last()
@@ -166,8 +162,7 @@ pub fn replay_journal(
     let mut journal: Option<PaymentJournal> = None;
 
     for (index, frame) in frames.iter().enumerate() {
-        let expected_sequence =
-            u64::try_from(index).map_err(|_| ReplayError::SequenceMismatch)?;
+        let expected_sequence = u64::try_from(index).map_err(|_| ReplayError::SequenceMismatch)?;
         if frame.sequence != expected_sequence {
             return Err(ReplayError::SequenceMismatch);
         }
@@ -175,11 +170,7 @@ pub fn replay_journal(
             return Err(ReplayError::PreviousDigestMismatch);
         }
 
-        let expected_digest = event_digest(
-            frame.sequence,
-            &frame.previous_digest,
-            &frame.event,
-        )?;
+        let expected_digest = event_digest(frame.sequence, &frame.previous_digest, &frame.event)?;
         if frame.event_digest != expected_digest {
             return Err(ReplayError::EventDigestMismatch);
         }
@@ -200,9 +191,7 @@ pub fn replay_journal(
                 _ => return Err(ReplayError::MissingCreateEvent),
             }
         } else {
-            let current = journal
-                .as_mut()
-                .ok_or(ReplayError::MissingCreateEvent)?;
+            let current = journal.as_mut().ok_or(ReplayError::MissingCreateEvent)?;
             apply_event(current, &frame.event)?;
         }
 
@@ -236,7 +225,7 @@ fn apply_event(journal: &mut PaymentJournal, event: &JournalEvent) -> Result<(),
         JournalEvent::EffectCommitted { evidence } => {
             let leg = evidence.leg;
             journal
-                .commit_leg(leg, evidence.clone())
+                .commit_leg(leg, evidence.as_ref().clone())
                 .map(|_| ())
                 .map_err(|error| match error {
                     SagaError::InvalidEffectEvidence(_) => ReplayError::InvalidEvidence,
@@ -364,9 +353,7 @@ mod tests {
                 receipt_signer_did: "did:sender".into(),
                 signing_profile: "mycelix.finance.payment-receipt.v1".into(),
                 signature_digest: format!("sha256:{}", "b".repeat(64)),
-                treasury_fee_outbox_id: Some(
-                    journal.effect_id(PaymentLeg::TreasuryFee),
-                ),
+                treasury_fee_outbox_id: Some(journal.effect_id(PaymentLeg::TreasuryFee)),
             },
         };
         evidence.evidence_digest = evidence.canonical_digest().expect("canonical digest");
@@ -402,12 +389,12 @@ mod tests {
         include_str!(
             "../../sap-payment-saga-go-verifier/fixtures/sap-payment-journal-replay-v1.kat"
         )
-            .lines()
-            .find_map(|line| {
-                line.strip_prefix(name)
-                    .and_then(|value| value.strip_prefix('='))
-            })
-            .expect("shared journal replay known-answer vector exists")
+        .lines()
+        .find_map(|line| {
+            line.strip_prefix(name)
+                .and_then(|value| value.strip_prefix('='))
+        })
+        .expect("shared journal replay known-answer vector exists")
     }
 
     #[test]
