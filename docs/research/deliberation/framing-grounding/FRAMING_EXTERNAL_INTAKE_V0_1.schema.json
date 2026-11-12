@@ -1,0 +1,224 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/framing-external-intake-v0.1.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "protocol_id",
+    "version",
+    "status",
+    "audit_date",
+    "sources",
+    "language_readiness",
+    "global_rules"
+  ],
+  "properties": {
+    "protocol_id": {
+      "const": "DELIB-FRAME-GROUND-001"
+    },
+    "version": {
+      "const": "0.1.0"
+    },
+    "status": {
+      "const": "metadata_only_no_external_payloads"
+    },
+    "audit_date": {
+      "const": "2026-11-12"
+    },
+    "sources": {
+      "type": "array",
+      "minItems": 6,
+      "items": {
+        "$ref": "#/$defs/source"
+      }
+    },
+    "language_readiness": {
+      "type": "array",
+      "minItems": 5,
+      "items": {
+        "$ref": "#/$defs/language"
+      }
+    },
+    "global_rules": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "raw_external_payloads_committed",
+        "human_annotations_collected",
+        "training_permitted_by_default",
+        "redistribution_permitted_by_default",
+        "human_study_authorized"
+      ],
+      "properties": {
+        "raw_external_payloads_committed": {
+          "const": false
+        },
+        "human_annotations_collected": {
+          "const": false
+        },
+        "training_permitted_by_default": {
+          "const": false
+        },
+        "redistribution_permitted_by_default": {
+          "const": false
+        },
+        "human_study_authorized": {
+          "const": false
+        }
+      }
+    }
+  },
+  "$defs": {
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_id",
+        "title",
+        "url",
+        "resource_type",
+        "relevance",
+        "paper_access",
+        "paper_license",
+        "dataset_license",
+        "participant_consent",
+        "payload_status",
+        "evaluation_use",
+        "training_use",
+        "redistribution_use",
+        "notes"
+      ],
+      "properties": {
+        "source_id": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "url": {
+          "type": "string",
+          "format": "uri"
+        },
+        "resource_type": {
+          "enum": [
+            "research_paper_and_dataset",
+            "research_paper",
+            "text_dataset",
+            "speech_dataset",
+            "language_corpus"
+          ]
+        },
+        "relevance": {
+          "enum": [
+            "direct_framing_comparator",
+            "behavioral_choice_comparator",
+            "adjacent_language_resource",
+            "not_a_framing_dataset"
+          ]
+        },
+        "paper_access": {
+          "enum": [
+            "public",
+            "metadata_only",
+            "unknown"
+          ]
+        },
+        "paper_license": {
+          "type": "string"
+        },
+        "dataset_license": {
+          "enum": [
+            "verified_for_declared_scope",
+            "reported_but_unverified",
+            "conflicting_metadata",
+            "not_located",
+            "not_applicable"
+          ]
+        },
+        "participant_consent": {
+          "enum": [
+            "verified_for_declared_scope",
+            "not_verified",
+            "not_applicable",
+            "unknown"
+          ]
+        },
+        "payload_status": {
+          "const": "metadata_only"
+        },
+        "evaluation_use": {
+          "enum": [
+            "not_authorized",
+            "pending_review",
+            "limited_declared_scope"
+          ]
+        },
+        "training_use": {
+          "enum": [
+            "not_authorized",
+            "pending_review",
+            "limited_declared_scope"
+          ]
+        },
+        "redistribution_use": {
+          "enum": [
+            "not_authorized",
+            "pending_review",
+            "limited_declared_scope"
+          ]
+        },
+        "notes": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "language": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "language_tag",
+        "language_name",
+        "status",
+        "required_authoring_mode",
+        "admitted_items",
+        "native_review_receipts"
+      ],
+      "properties": {
+        "language_tag": {
+          "enum": [
+            "en-ZA",
+            "af-ZA",
+            "zu-ZA",
+            "xh-ZA",
+            "st-ZA"
+          ]
+        },
+        "language_name": {
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "synthetic_contract_only",
+            "native_authoring_pending",
+            "native_adjudication_pending",
+            "pilot_ready"
+          ]
+        },
+        "required_authoring_mode": {
+          "enum": [
+            "native_authored_or_native_adjudicated"
+          ]
+        },
+        "admitted_items": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "native_review_receipts": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    }
+  }
+}
