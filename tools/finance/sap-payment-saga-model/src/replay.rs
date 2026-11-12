@@ -23,7 +23,7 @@ pub enum JournalEvent {
         effect_id: String,
     },
     EffectCommitted {
-        evidence: EffectEvidence,
+        evidence: Box<EffectEvidence>,
     },
 }
 
@@ -119,7 +119,7 @@ impl JournalEventLog {
     }
 
     pub fn record_effect_committed(&mut self, evidence: EffectEvidence) -> Result<(), ReplayError> {
-        self.append(JournalEvent::EffectCommitted { evidence })
+        self.append(JournalEvent::EffectCommitted { evidence: Box::new(evidence) })
     }
 
     fn append(&mut self, event: JournalEvent) -> Result<(), ReplayError> {
@@ -223,7 +223,7 @@ fn apply_event(journal: &mut PaymentJournal, event: &JournalEvent) -> Result<(),
         JournalEvent::EffectCommitted { evidence } => {
             let leg = evidence.leg;
             journal
-                .commit_leg(leg, evidence.clone())
+                .commit_leg(leg, evidence.as_ref().clone())
                 .map(|_| ())
                 .map_err(|error| match error {
                     SagaError::InvalidEffectEvidence(_) => ReplayError::InvalidEvidence,
