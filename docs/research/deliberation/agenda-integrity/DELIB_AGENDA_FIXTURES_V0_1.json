@@ -45,6 +45,15 @@
             "ACCESS-C"
           ],
           "status": "admitted"
+        },
+        {
+          "option_id": "O-CANDIDATE",
+          "origin_id": "UNADMITTED-CONTRIBUTION-001",
+          "required_in_agenda": false,
+          "constraints": [
+            "CANDIDATE-ONLY-CLAUSE"
+          ],
+          "status": "candidate"
         }
       ],
       "presented_options": [
