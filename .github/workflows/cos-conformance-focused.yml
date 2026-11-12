@@ -1,0 +1,50 @@
+name: COS Conformance Build and Tests
+
+on:
+  pull_request:
+    paths:
+      - "mycelix-manufacturing/Cargo.toml"
+      - "mycelix-manufacturing/Cargo.lock"
+      - "mycelix-manufacturing/crates/cos_conformance/**"
+      - ".github/workflows/cos-conformance-focused.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cos-conformance-focused-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: 0
+
+jobs:
+  conformance-tests:
+    name: Existing COS conformance targets
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # master @ 2025-08-23
+        with:
+          toolchain: 1.96.0
+          components: rustfmt
+
+      - name: Resolve conformance lockfile
+        run: cargo generate-lockfile --manifest-path mycelix-manufacturing/Cargo.toml
+
+      - name: Compile and test the three existing reference suites
+        run: >-
+          cargo test
+          --manifest-path mycelix-manufacturing/Cargo.toml
+          --locked
+          -p cos_conformance
+          --test integral_five_system_adversarial
+          --test productive_loop_refinement
+          --test source_refinement
