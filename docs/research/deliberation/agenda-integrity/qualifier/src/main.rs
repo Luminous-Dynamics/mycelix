@@ -98,8 +98,8 @@ fn validate_fixture(f: &Value) -> (Vec<String>, usize, usize, usize, usize) {
             errors.push(format!("presented option {id} declares default authority while not marked default"));
         }
         let seq = item["introduced_sequence"].as_u64().unwrap_or(0) as usize;
-        if seq > cutoff && !b(item, "late_mutation_authorized") {
-            errors.push(format!("presented option {id} was introduced after the frozen agenda cutoff"));
+        if seq > cutoff && !(b(item, "late_mutation_authorized") && s(item, "late_mutation_authority").is_some()) {
+            errors.push(format!("presented option {id} was introduced after the frozen agenda cutoff without an authority reference"));
         }
     }
 
