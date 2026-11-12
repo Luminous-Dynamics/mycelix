@@ -66,7 +66,9 @@
           "default_authority": null,
           "representation_kind": "single",
           "split_group_id": null,
-          "split_disclosed": false
+          "split_disclosed": false,
+          "late_mutation_authorized": false,
+          "late_mutation_authority": null
         },
         {
           "option_id": "O-B",
@@ -86,7 +88,9 @@
           "default_authority": null,
           "representation_kind": "single",
           "split_group_id": null,
-          "split_disclosed": false
+          "split_disclosed": false,
+          "late_mutation_authorized": false,
+          "late_mutation_authority": null
         },
         {
           "option_id": "O-C",
@@ -106,7 +110,9 @@
           "default_authority": null,
           "representation_kind": "single",
           "split_group_id": null,
-          "split_disclosed": false
+          "split_disclosed": false,
+          "late_mutation_authorized": false,
+          "late_mutation_authority": null
         }
       ],
       "agenda_intervention": {
@@ -184,7 +190,9 @@
           "default_authority": null,
           "representation_kind": "single",
           "split_group_id": null,
-          "split_disclosed": false
+          "split_disclosed": false,
+          "late_mutation_authorized": false,
+          "late_mutation_authority": null
         },
         {
           "option_id": "O-B",
@@ -204,7 +212,9 @@
           "default_authority": null,
           "representation_kind": "single",
           "split_group_id": null,
-          "split_disclosed": false
+          "split_disclosed": false,
+          "late_mutation_authorized": false,
+          "late_mutation_authority": null
         },
         {
           "option_id": "O-C",
@@ -224,7 +234,9 @@
           "default_authority": null,
           "representation_kind": "single",
           "split_group_id": null,
-          "split_disclosed": false
+          "split_disclosed": false,
+          "late_mutation_authorized": false,
+          "late_mutation_authority": null
         }
       ],
       "agenda_intervention": {
@@ -302,7 +314,9 @@
           "default_authority": null,
           "representation_kind": "single",
           "split_group_id": null,
-          "split_disclosed": false
+          "split_disclosed": false,
+          "late_mutation_authorized": false,
+          "late_mutation_authority": null
         },
         {
           "option_id": "O-B",
@@ -322,7 +336,9 @@
           "default_authority": null,
           "representation_kind": "single",
           "split_group_id": null,
-          "split_disclosed": false
+          "split_disclosed": false,
+          "late_mutation_authorized": false,
+          "late_mutation_authority": null
         },
         {
           "option_id": "O-C",
@@ -342,7 +358,9 @@
           "default_authority": null,
           "representation_kind": "single",
           "split_group_id": null,
-          "split_disclosed": false
+          "split_disclosed": false,
+          "late_mutation_authorized": false,
+          "late_mutation_authority": null
         }
       ],
       "agenda_intervention": {
@@ -420,7 +438,9 @@
           "default_authority": null,
           "representation_kind": "single",
           "split_group_id": null,
-          "split_disclosed": false
+          "split_disclosed": false,
+          "late_mutation_authorized": false,
+          "late_mutation_authority": null
         },
         {
           "option_id": "O-B",
@@ -440,7 +460,9 @@
           "default_authority": null,
           "representation_kind": "single",
           "split_group_id": null,
-          "split_disclosed": false
+          "split_disclosed": false,
+          "late_mutation_authorized": false,
+          "late_mutation_authority": null
         },
         {
           "option_id": "O-C",
@@ -460,7 +482,9 @@
           "default_authority": null,
           "representation_kind": "single",
           "split_group_id": null,
-          "split_disclosed": false
+          "split_disclosed": false,
+          "late_mutation_authorized": false,
+          "late_mutation_authority": null
         }
       ],
       "agenda_intervention": {
@@ -538,7 +562,9 @@
           "default_authority": null,
           "representation_kind": "single",
           "split_group_id": null,
-          "split_disclosed": false
+          "split_disclosed": false,
+          "late_mutation_authorized": false,
+          "late_mutation_authority": null
         },
         {
           "option_id": "O-B",
@@ -558,7 +584,9 @@
           "default_authority": null,
           "representation_kind": "single",
           "split_group_id": null,
-          "split_disclosed": false
+          "split_disclosed": false,
+          "late_mutation_authorized": false,
+          "late_mutation_authority": null
         }
       ],
       "agenda_intervention": {
@@ -636,7 +664,9 @@
           "default_authority": null,
           "representation_kind": "single",
           "split_group_id": null,
-          "split_disclosed": false
+          "split_disclosed": false,
+          "late_mutation_authorized": false,
+          "late_mutation_authority": null
         },
         {
           "option_id": "O-B",
@@ -656,7 +686,9 @@
           "default_authority": null,
           "representation_kind": "single",
           "split_group_id": null,
-          "split_disclosed": false
+          "split_disclosed": false,
+          "late_mutation_authorized": false,
+          "late_mutation_authority": null
         },
         {
           "option_id": "O-C",
@@ -676,7 +708,9 @@
           "default_authority": null,
           "representation_kind": "single",
           "split_group_id": null,
-          "split_disclosed": false
+          "split_disclosed": false,
+          "late_mutation_authorized": false,
+          "late_mutation_authority": null
         }
       ],
       "agenda_intervention": {
@@ -754,7 +788,9 @@
           "default_authority": null,
           "representation_kind": "single",
           "split_group_id": null,
-          "split_disclosed": false
+          "split_disclosed": false,
+          "late_mutation_authorized": false,
+          "late_mutation_authority": null
         },
         {
           "option_id": "O-A",
@@ -774,7 +810,9 @@
           "default_authority": null,
           "representation_kind": "single",
           "split_group_id": null,
-          "split_disclosed": false
+          "split_disclosed": false,
+          "late_mutation_authorized": false,
+          "late_mutation_authority": null
         },
         {
           "option_id": "O-B",
@@ -794,7 +832,9 @@
           "default_authority": null,
           "representation_kind": "single",
           "split_group_id": null,
-          "split_disclosed": false
+          "split_disclosed": false,
+          "late_mutation_authorized": false,
+          "late_mutation_authority": null
         }
       ],
       "agenda_intervention": {
@@ -881,7 +921,9 @@
           "default_authority": null,
           "representation_kind": "single",
           "split_group_id": null,
-          "split_disclosed": false
+          "split_disclosed": false,
+          "late_mutation_authorized": false,
+          "late_mutation_authority": null
         },
         {
           "option_id": "O-B",
@@ -901,7 +943,9 @@
           "default_authority": null,
           "representation_kind": "single",
           "split_group_id": null,
-          "split_disclosed": false
+          "split_disclosed": false,
+          "late_mutation_authorized": false,
+          "late_mutation_authority": null
         },
         {
           "option_id": "O-C",
@@ -921,7 +965,9 @@
           "default_authority": null,
           "representation_kind": "single",
           "split_group_id": null,
-          "split_disclosed": false
+          "split_disclosed": false,
+          "late_mutation_authorized": false,
+          "late_mutation_authority": null
         },
         {
           "option_id": "O-NONE",
@@ -940,7 +986,9 @@
           "default_authority": null,
           "representation_kind": "single",
           "split_group_id": null,
-          "split_disclosed": false
+          "split_disclosed": false,
+          "late_mutation_authorized": false,
+          "late_mutation_authority": null
         }
       ],
       "agenda_intervention": {
@@ -1018,7 +1066,9 @@
           "default_authority": null,
           "representation_kind": "single",
           "split_group_id": null,
-          "split_disclosed": false
+          "split_disclosed": false,
+          "late_mutation_authorized": false,
+          "late_mutation_authority": null
         },
         {
           "option_id": "O-B",
@@ -1038,7 +1088,9 @@
           "default_authority": null,
           "representation_kind": "single",
           "split_group_id": null,
-          "split_disclosed": false
+          "split_disclosed": false,
+          "late_mutation_authorized": false,
+          "late_mutation_authority": null
         },
         {
           "option_id": "O-C",
@@ -1058,7 +1110,9 @@
           "default_authority": null,
           "representation_kind": "single",
           "split_group_id": null,
-          "split_disclosed": false
+          "split_disclosed": false,
+          "late_mutation_authorized": false,
+          "late_mutation_authority": null
         }
       ],
       "agenda_intervention": {
@@ -1137,7 +1191,9 @@
           "default_authority": null,
           "representation_kind": "bundle",
           "split_group_id": null,
-          "split_disclosed": false
+          "split_disclosed": false,
+          "late_mutation_authorized": false,
+          "late_mutation_authority": null
         },
         {
           "option_id": "O-C",
@@ -1157,7 +1213,9 @@
           "default_authority": null,
           "representation_kind": "single",
           "split_group_id": null,
-          "split_disclosed": false
+          "split_disclosed": false,
+          "late_mutation_authorized": false,
+          "late_mutation_authority": null
         }
       ],
       "agenda_intervention": {
@@ -1238,7 +1296,9 @@
           "default_authority": null,
           "representation_kind": "bundle",
           "split_group_id": null,
-          "split_disclosed": false
+          "split_disclosed": false,
+          "late_mutation_authorized": false,
+          "late_mutation_authority": null
         },
         {
           "option_id": "O-C",
@@ -1258,7 +1318,9 @@
           "default_authority": null,
           "representation_kind": "single",
           "split_group_id": null,
-          "split_disclosed": false
+          "split_disclosed": false,
+          "late_mutation_authorized": false,
+          "late_mutation_authority": null
         }
       ],
       "agenda_intervention": {
@@ -1336,7 +1398,9 @@
           "default_authority": null,
           "representation_kind": "single",
           "split_group_id": null,
-          "split_disclosed": false
+          "split_disclosed": false,
+          "late_mutation_authorized": false,
+          "late_mutation_authority": null
         },
         {
           "option_id": "O-B",
@@ -1356,7 +1420,9 @@
           "default_authority": null,
           "representation_kind": "single",
           "split_group_id": null,
-          "split_disclosed": false
+          "split_disclosed": false,
+          "late_mutation_authorized": false,
+          "late_mutation_authority": null
         },
         {
           "option_id": "O-C",
@@ -1376,7 +1442,9 @@
           "default_authority": null,
           "representation_kind": "single",
           "split_group_id": null,
-          "split_disclosed": false
+          "split_disclosed": false,
+          "late_mutation_authorized": false,
+          "late_mutation_authority": null
         },
         {
           "option_id": "O-X",
@@ -1391,7 +1459,9 @@
           "default_authority": null,
           "representation_kind": "single",
           "split_group_id": null,
-          "split_disclosed": false
+          "split_disclosed": false,
+          "late_mutation_authorized": false,
+          "late_mutation_authority": null
         }
       ],
       "agenda_intervention": {
@@ -1478,7 +1548,9 @@
           "default_authority": null,
           "representation_kind": "single",
           "split_group_id": null,
-          "split_disclosed": false
+          "split_disclosed": false,
+          "late_mutation_authorized": false,
+          "late_mutation_authority": null
         },
         {
           "option_id": "O-B",
@@ -1498,7 +1570,9 @@
           "default_authority": null,
           "representation_kind": "single",
           "split_group_id": null,
-          "split_disclosed": false
+          "split_disclosed": false,
+          "late_mutation_authorized": false,
+          "late_mutation_authority": null
         },
         {
           "option_id": "O-C",
@@ -1518,7 +1592,9 @@
           "default_authority": null,
           "representation_kind": "single",
           "split_group_id": null,
-          "split_disclosed": false
+          "split_disclosed": false,
+          "late_mutation_authorized": false,
+          "late_mutation_authority": null
         },
         {
           "option_id": "O-D",
@@ -1537,7 +1613,9 @@
           "default_authority": null,
           "representation_kind": "single",
           "split_group_id": null,
-          "split_disclosed": false
+          "split_disclosed": false,
+          "late_mutation_authorized": false,
+          "late_mutation_authority": null
         }
       ],
       "agenda_intervention": {
@@ -1615,7 +1693,9 @@
           "default_authority": null,
           "representation_kind": "single",
           "split_group_id": null,
-          "split_disclosed": false
+          "split_disclosed": false,
+          "late_mutation_authorized": false,
+          "late_mutation_authority": null
         },
         {
           "option_id": "O-B",
@@ -1635,7 +1715,9 @@
           "default_authority": null,
           "representation_kind": "single",
           "split_group_id": null,
-          "split_disclosed": false
+          "split_disclosed": false,
+          "late_mutation_authorized": false,
+          "late_mutation_authority": null
         },
         {
           "option_id": "O-C",
@@ -1655,11 +1737,13 @@
           "default_authority": null,
           "representation_kind": "single",
           "split_group_id": null,
-          "split_disclosed": false
+          "split_disclosed": false,
+          "late_mutation_authorized": false,
+          "late_mutation_authority": null
         }
       ],
       "agenda_intervention": {
-        "semantic_relation": "equivalent",
+        "semantic_relation": "normative_pluralism",
         "family": "normative_pluralism",
         "tradeoff_disclosed": false,
         "matched_pair_id": null,
@@ -1733,7 +1817,9 @@
           "default_authority": null,
           "representation_kind": "single",
           "split_group_id": null,
-          "split_disclosed": false
+          "split_disclosed": false,
+          "late_mutation_authorized": false,
+          "late_mutation_authority": null
         },
         {
           "option_id": "O-B",
@@ -1753,7 +1839,9 @@
           "default_authority": null,
           "representation_kind": "single",
           "split_group_id": null,
-          "split_disclosed": false
+          "split_disclosed": false,
+          "late_mutation_authorized": false,
+          "late_mutation_authority": null
         },
         {
           "option_id": "O-C",
@@ -1773,7 +1861,9 @@
           "default_authority": null,
           "representation_kind": "single",
           "split_group_id": null,
-          "split_disclosed": false
+          "split_disclosed": false,
+          "late_mutation_authorized": false,
+          "late_mutation_authority": null
         }
       ],
       "agenda_intervention": {
@@ -1851,7 +1941,9 @@
           "default_authority": null,
           "representation_kind": "single",
           "split_group_id": null,
-          "split_disclosed": false
+          "split_disclosed": false,
+          "late_mutation_authorized": false,
+          "late_mutation_authority": null
         },
         {
           "option_id": "O-B",
@@ -1871,7 +1963,9 @@
           "default_authority": null,
           "representation_kind": "single",
           "split_group_id": null,
-          "split_disclosed": false
+          "split_disclosed": false,
+          "late_mutation_authorized": false,
+          "late_mutation_authority": null
         },
         {
           "option_id": "O-C",
@@ -1891,7 +1985,9 @@
           "default_authority": null,
           "representation_kind": "single",
           "split_group_id": null,
-          "split_disclosed": false
+          "split_disclosed": false,
+          "late_mutation_authorized": false,
+          "late_mutation_authority": null
         }
       ],
       "agenda_intervention": {
@@ -1968,7 +2064,9 @@
           "default_authority": null,
           "representation_kind": "split",
           "split_group_id": "SPLIT-A",
-          "split_disclosed": false
+          "split_disclosed": false,
+          "late_mutation_authorized": false,
+          "late_mutation_authority": null
         },
         {
           "option_id": "O-A-PART-2",
@@ -1987,7 +2085,9 @@
           "default_authority": null,
           "representation_kind": "split",
           "split_group_id": "SPLIT-A",
-          "split_disclosed": false
+          "split_disclosed": false,
+          "late_mutation_authorized": false,
+          "late_mutation_authority": null
         },
         {
           "option_id": "O-B",
@@ -2007,7 +2107,9 @@
           "default_authority": null,
           "representation_kind": "single",
           "split_group_id": null,
-          "split_disclosed": false
+          "split_disclosed": false,
+          "late_mutation_authorized": false,
+          "late_mutation_authority": null
         },
         {
           "option_id": "O-C",
@@ -2027,7 +2129,9 @@
           "default_authority": null,
           "representation_kind": "single",
           "split_group_id": null,
-          "split_disclosed": false
+          "split_disclosed": false,
+          "late_mutation_authorized": false,
+          "late_mutation_authority": null
         }
       ],
       "agenda_intervention": {
@@ -2104,7 +2208,9 @@
           "default_authority": null,
           "representation_kind": "split",
           "split_group_id": "SPLIT-A",
-          "split_disclosed": true
+          "split_disclosed": true,
+          "late_mutation_authorized": false,
+          "late_mutation_authority": null
         },
         {
           "option_id": "O-A-PART-2",
@@ -2123,7 +2229,9 @@
           "default_authority": null,
           "representation_kind": "split",
           "split_group_id": "SPLIT-A",
-          "split_disclosed": true
+          "split_disclosed": true,
+          "late_mutation_authorized": false,
+          "late_mutation_authority": null
         },
         {
           "option_id": "O-B",
@@ -2143,7 +2251,9 @@
           "default_authority": null,
           "representation_kind": "single",
           "split_group_id": null,
-          "split_disclosed": false
+          "split_disclosed": false,
+          "late_mutation_authorized": false,
+          "late_mutation_authority": null
         },
         {
           "option_id": "O-C",
@@ -2163,7 +2273,9 @@
           "default_authority": null,
           "representation_kind": "single",
           "split_group_id": null,
-          "split_disclosed": false
+          "split_disclosed": false,
+          "late_mutation_authorized": false,
+          "late_mutation_authority": null
         }
       ],
       "agenda_intervention": {
