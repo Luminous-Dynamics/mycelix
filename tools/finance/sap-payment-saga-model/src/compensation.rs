@@ -1197,7 +1197,8 @@ mod tests {
         assert_eq!(book.encumbered_minor(), Ok(0));
         assert_eq!(book.remaining_reversible_minor(), Ok(40));
 
-        let second = request(&book, "refund:2", 41, "liquidity:2", 200);
+        let mut second = request(&book, "refund:2", 41, "liquidity:2", 200);
+        second.authorization.capability_id = "capability:refund-02".into();
         assert_eq!(
             book.reserve(second, NOW),
             Err(CompensationErrorV2::InsufficientReversibleCeiling)
