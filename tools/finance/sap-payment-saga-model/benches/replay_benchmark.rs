@@ -84,7 +84,7 @@ fn treasury_evidence(operation_id: &str) -> EffectEvidence {
 
 fn build_history(event_count: usize) -> (Vec<JournalEventFrame>, ReplayAnchor) {
     assert!(
-        event_count >= 6 && (event_count - 6) % 2 == 0,
+        event_count >= 6 && (event_count - 6).is_multiple_of(2),
         "event count must be 6 + 2*n"
     );
 
