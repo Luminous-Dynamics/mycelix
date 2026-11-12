@@ -33,6 +33,14 @@ env:
 jobs:
 
   d6s-canon-reference:
+    # This qualification is tied to the named D6S reference branch. The
+    # workflow also receives pull_request events for unrelated Mycelix work;
+    # skip those rather than checking out a branch without the D6S fixtures.
+    if: >-
+      (github.event_name == 'pull_request' &&
+       github.event.pull_request.head.ref == 'myc-int-demo-d6t-canonical-encoding') ||
+      (github.event_name != 'pull_request' &&
+       github.ref == 'refs/heads/myc-int-demo-d6t-canonical-encoding')
     name: D6S canonical reference qualification
     runs-on: ubuntu-24.04
     timeout-minutes: 20
