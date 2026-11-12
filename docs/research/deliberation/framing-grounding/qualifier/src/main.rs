@@ -38,13 +38,15 @@ fn validate_intake(v: &Value) -> Vec<String> {
         if !source["dataset_license"].is_string() || !source["participant_consent"].is_string() {
             fail(&mut errors, format!("{id}: license and consent states must be explicit"));
         }
-        if source["training_use"].as_str() == Some("limited_declared_scope")
-            && source["dataset_license"].as_str() != Some("verified_for_declared_scope") {
-            fail(&mut errors, format!("{id}: training cannot be permitted without a verified dataset license"));
-        }
-        if source["redistribution_use"].as_str() == Some("limited_declared_scope")
-            && source["dataset_license"].as_str() != Some("verified_for_declared_scope") {
-            fail(&mut errors, format!("{id}: redistribution cannot be permitted without a verified dataset license"));
+        for permission in ["evaluation_use", "training_use", "redistribution_use"] {
+            if source[permission].as_str() == Some("limited_declared_scope") {
+                if source["dataset_license"].as_str() != Some("verified_for_declared_scope") {
+                    fail(&mut errors, format!("{id}: {permission} requires a verified dataset license"));
+                }
+                if source["participant_consent"].as_str() != Some("verified_for_declared_scope") {
+                    fail(&mut errors, format!("{id}: {permission} requires participant consent verified for that scope"));
+                }
+            }
         }
     }
     let language_rows = arr(v, "language_readiness");
@@ -59,8 +61,12 @@ fn validate_intake(v: &Value) -> Vec<String> {
         }
         let count = language["admitted_items"].as_u64().unwrap_or(0);
         let receipts = language["native_review_receipts"].as_u64().unwrap_or(0);
+        let status = strv(language, "status").unwrap_or("");
         if count > 0 && receipts == 0 {
             fail(&mut errors, format!("{tag}: admitted items require native review receipts"));
+        }
+        if status == "pilot_ready" && (count == 0 || receipts == 0) {
+            fail(&mut errors, format!("{tag}: pilot_ready requires admitted items and native review receipts"));
         }
     }
     for required in LANGUAGES {
