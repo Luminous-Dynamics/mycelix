@@ -10,6 +10,10 @@ pub mod productive_loop;
 pub mod source_refinement;
 pub mod seam_profile;
 pub mod seam_scenario;
+pub mod textile_recovery;
+pub mod d6s_canonical;
+pub mod d6s_raw_json;
+pub use d6s_canonical::{canonical_bytes, D6S_HASH_DOMAIN, D6S_REFERENCE_CANONICALIZATION_VERSION};
 
 pub const CORPUS_ID: &str = "COS-CONF-001";
 pub const FORMAL_OBLIGATIONS: [&str; 10] = [
@@ -121,7 +125,7 @@ pub fn evaluate_negative(test_id: &str, b: &Bindings, evidence: Option<&Evidence
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct Case {
     pub test_id: &'static str,
     pub formal_obligations: &'static [&'static str],
@@ -291,7 +295,7 @@ mod tests {
         assert_eq!(CASES.len(), 16);
         for case in CASES.iter() {
             assert!(!case.formal_obligations.is_empty(), "{} has no formal mapping", case.test_id);
-            for obligation in *case.formal_obligations {
+            for obligation in case.formal_obligations.iter() {
                 assert!(FORMAL_OBLIGATIONS.contains(obligation), "{} maps to unknown {}", case.test_id, obligation);
             }
         }
