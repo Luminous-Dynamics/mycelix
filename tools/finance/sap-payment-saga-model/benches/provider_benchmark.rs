@@ -61,8 +61,7 @@ fn main() {
         SAMPLE_WINDOW.as_millis()
     );
     measure("key_validate", || {
-        black_box(key.validate(black_box(&contract)))
-            .expect("valid operation key");
+        black_box(key.validate(black_box(&contract))).expect("valid operation key");
     });
     measure("retry_permit_qualify", || {
         black_box(
