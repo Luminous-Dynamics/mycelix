@@ -12,6 +12,9 @@ It is not a new civic-governance programme, a second civilization simulator, an 
 
 - [Architecture v0.1](ARCHITECTURE_V0_1.md) — system boundaries, contracts, federation, safety invariants and deployment model.
 - [Benchmark protocol v0.1](BENCHMARK_PROTOCOL_V0_1.md) — comparison baselines, test tiers, metrics, provisional targets and evidence rules.
+- [Standards and industry crosswalk](FRAMEWORK_CROSSWALK_V0_1.md) — positioning against existing resilience, critical-entity and digital-government frameworks.
+- [Option-preserving resilience benchmark](OPTION_PRESERVING_RESILIENCE_V0_1.md) — service trajectories, qualified recovery options, graceful degradation and falsification tests.
+- [Service-trajectory reference evaluator](../../tools/fsre-service-trajectory/README.md) — a dependency-free Rust metric evaluator for one service/cohort time series.
 - [South African municipal water cascade fixture](scenarios/ZA_MUNICIPAL_WATER_CASCADE_SYNTHETIC_V0_1.json) — a fully synthetic graph for deterministic failure-propagation tests.
 
 ## Intended system roles
