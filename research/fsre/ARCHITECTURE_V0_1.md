@@ -1,13 +1,14 @@
-# Federated Societal Resilience Engineering — Architecture v0.1
+# Federated Societal Resilience Engineering — Integration and Qualification Profile v0.1
 
 **Status:** Research proposal  
 **Version:** 0.1.0  
 **Date:** 2026-11-12  
-**Claim ceiling:** This document defines a proposed architecture and test programme. It does not establish deployed national capability, field efficacy, regulatory compliance, or state-of-the-art performance.
+**Parent programmes:** Mycelix [CIV-RES-000 #2006](https://github.com/Luminous-Dynamics/mycelix/issues/2006), [CIV-ECON-006 #4816](https://github.com/Luminous-Dynamics/mycelix/issues/4816), and [Civic automation portfolio #5015](https://github.com/Luminous-Dynamics/mycelix/issues/5015).  
+**Claim ceiling:** This document defines a cross-repository integration profile and test programme. It does not establish deployed national capability, field efficacy, regulatory compliance, or state-of-the-art performance.
 
 ## 1. Purpose
 
-Federated Societal Resilience Engineering (FSRE) is an architecture for improving the reliability, adaptability and accountable coordination of essential societal capabilities.
+Federated Societal Resilience Engineering (FSRE) is an integration and qualification profile for improving the reliability, adaptability and accountable coordination of essential societal capabilities. It composes the existing Mycelix Civic Resilience programme (#2006), Civilization Twin research architecture (#4816), and Johannesburg service-reliability portfolio (#5015); it does not replace or duplicate them.
 
 The unit of design is not a ministry, dashboard, AI model or database. It is an **essential capability**: a service people and organisations depend on, together with the physical assets, skills, energy, data, contracts, finance, operators and institutions required to provide it.
 
@@ -19,11 +20,11 @@ FSRE connects the full intervention lifecycle:
 
 The intended result is not central control. It is better decision quality and coordination among actors who retain their own jurisdiction, accountability and ability to disagree.
 
-## 2. Why a new architecture is needed
+## 2. Why an integration and qualification profile is needed
 
 Existing digital public infrastructure already provides important building blocks. GovStack promotes modular, interoperable building blocks; X-Road provides a mature approach to secure data exchange; the Digital Public Goods Standard establishes open-licensing, privacy, documentation, platform-independence and standards requirements; and the Open Contracting Data Standard covers public contracting from planning through implementation.
 
-FSRE should reuse and interoperate with these systems rather than compete with or replace them.
+FSRE should reuse and interoperate with these systems rather than compete with or replace them. The same rule applies inside Luminous: CIV-RES-000 owns the civic programme, its authority/privacy/study boundaries and Johannesburg profile; CIV-ECON-006 owns the coupled multi-scale physical/economic/institutional/ecological research environment; CIV-AUTOMATION #5015 owns the Johannesburg service-reliability and paid-work opportunity portfolio. FSRE supplies a qualification profile and cross-repository outcome tests across those existing owners.
 
 The remaining problem is the gap between exchanging information and improving a service. A data exchange does not by itself establish that an observation is true, that a model is valid, that a proposed intervention is authorised, that an action actually occurred, or that the outcome improved.
 
@@ -55,9 +56,9 @@ References:
 
 The key shift is from **information integration** to **verified intervention capability**.
 
-## 4. System architecture
+## 4. Integration architecture
 
-FSRE consists of six logical planes. They may be implemented by different organisations, repositories and vendors. They must not require a single shared database or a single AI provider.
+FSRE describes six logical planes across existing owners; it is not a new monolithic runtime or a proposal to move their state into one database. The owner-native boundaries remain authoritative. The profile specifies the evidence and hand-off contracts needed to qualify a composed service workflow. The Civilization Twin remains a research environment with explicit multi-scale and multi-time-horizon semantics, not an operational command system.
 
 ### 4.1 Spatial and asset context — Sol-Atlas
 
@@ -247,6 +248,8 @@ Each participating institution or jurisdiction operates a local node with its ow
 
 Cross-node exchange uses explicit contracts and purpose-bound data. A country can reject a foreign model, operator or policy while still exchanging permitted service facts or technical evidence.
 
+For civic/person-related data, FSRE inherits—not replaces—the three-plane privacy architecture in CIV-RES-000 #2006: (1) public projections using delayed/coarsened/thresholded aggregates; (2) protected operational records under purpose-bound capabilities, retention and access accountability; and (3) exceptional research-enclave use under an explicit study contract, immutable snapshot, audited access, no raw-data egress and bounded disclosure. The profile must not create a new Civic-only sensitivity taxonomy or make protected raw records general model context by default.
+
 Federation must support:
 
 - Partial connectivity and store-and-forward exchange.
@@ -280,9 +283,9 @@ These invariants should be translated into adversarial tests, not left as prose.
 
 Relevant governance references include the [NIST AI RMF Generative AI Profile](https://www.nist.gov/publications/artificial-intelligence-risk-management-framework-generative-artificial-intelligence) and [ISO/IEC 42001](https://www.iso.org/standard/42001).
 
-## 8. Initial application: municipal water and wastewater
+## 8. Candidate first qualification slice: municipal water and wastewater
 
-Water is a useful first vertical because it has physical assets, geographic dependencies, measurable service outcomes and public reporting.
+Water is a useful candidate slice because it has physical assets, geographic dependencies, measurable service outcomes and public reporting. It should be selected through CIV-RES-000 #2006 and the existing Johannesburg civic automation portfolio #5015, which already prioritises water and sanitation alongside roads, stormwater, lighting, waste, civic service orchestration, procurement integrity and paid-work pathways. FSRE should qualify a bounded integration across those owners, not declare a new municipal pilot or imply a city/utility partnership.
 
 South Africa's 2025 Green Drop assessment covered 848 municipal wastewater treatment systems for the 2023/24 financial year. The government reported 396 systems (47%) in a critical state, compared with 334 (39%) in 2022. The percentage rated good or excellent fell from 14% to 8%.
 
