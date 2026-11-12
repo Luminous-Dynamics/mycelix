@@ -51,7 +51,8 @@
     "publication_month": "2026-09",
     "status": "final",
     "url": "https://csrc.nist.gov/pubs/ir/8536/final",
-    "reference_implementation_status_at_publication": "NIST's 2026-09-09 announcement described the Python reference implementation as undergoing final review; no parity claim is made here."
+    "reference_implementation_status_at_publication": "The 2026-09-09 NIST announcement said the Python implementation was in final review. The final IR Appendix F.4 points to https://github.com/usnistgov/ir8536-reference-implementation. Appendix F describes an early-stage lab/research MVP, not production software. Exact repository revision, licence, tests and source were not inspected in this pass.",
+    "implementation_claim_boundary": "No NIST reference-implementation parity or execution claim is made. Pin and inspect the repository before differential testing."
   },
   "mappings": [
     {
