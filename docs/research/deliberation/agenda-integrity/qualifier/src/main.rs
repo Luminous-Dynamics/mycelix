@@ -63,8 +63,14 @@ fn validate_fixture(f: &Value) -> (Vec<String>, usize, usize, usize, usize) {
         let id = s(option, "option_id").unwrap_or("");
         if id.is_empty() || !source_ids.insert(id.to_owned()) { errors.push("source option IDs must be unique and non-empty".into()); }
         if s(option, "origin_id").is_none() { errors.push(format!("source option {id} lacks origin provenance")); }
-        if s(option, "status") != Some("admitted") { errors.push(format!("source option {id} is not admitted")); }
-        if b(option, "required_in_agenda") { required_ids.insert(id.to_owned()); }
+        let status = s(option, "status").unwrap_or("");
+        if !["admitted", "candidate", "rejected"].contains(&status) {
+            errors.push(format!("source option {id} has unknown admission status"));
+        }
+        if b(option, "required_in_agenda") {
+            if status != "admitted" { errors.push(format!("required option {id} is not admitted")); }
+            required_ids.insert(id.to_owned());
+        }
         let mut option_constraints = BTreeSet::new();
         for c in arr(option, "constraints") {
             if let Some(c) = c.as_str() {
@@ -89,7 +95,13 @@ fn validate_fixture(f: &Value) -> (Vec<String>, usize, usize, usize, usize) {
         let refs = set(&item["source_option_ids"]);
         if refs.is_empty() { errors.push(format!("presented option {id} has no source option reference")); }
         for source_id in &refs {
-            if !source_ids.contains(source_id) { errors.push(format!("presented option {id} references unknown source option {source_id}")); }
+            if !source_ids.contains(source_id) {
+                errors.push(format!("presented option {id} references unknown source option {source_id}"));
+            } else if !source.iter().any(|source_option|
+                source_option["option_id"].as_str() == Some(source_id.as_str())
+                && source_option["status"].as_str() == Some("admitted")) {
+                errors.push(format!("presented option {id} references non-admitted source option {source_id}"));
+            }
             represented_sources.insert(source_id.clone());
             appearances.entry(source_id.clone()).or_default().push(item);
         }
@@ -128,6 +140,7 @@ fn validate_fixture(f: &Value) -> (Vec<String>, usize, usize, usize, usize) {
         }
     }
     for (source_id, constraints) in &source_constraints_by_id {
+        if !required_ids.contains(source_id) && !represented_sources.contains(source_id) { continue; }
         let retained = preserved_constraints_by_source.get(source_id).cloned().unwrap_or_default();
         for constraint in constraints {
             if !retained.contains(constraint) {
@@ -262,6 +275,9 @@ fn run(args: &[String]) -> Result<Report, String> {
         }
         if members[0]["task"] != members[1]["task"] {
             return Err(format!("matched pair {pair_id} does not hold task/decision substrate constant"));
+        }
+        if members[0]["decision_cutoff_sequence"] != members[1]["decision_cutoff_sequence"] {
+            return Err(format!("matched pair {pair_id} does not hold agenda cutoff constant"));
         }
     }
     Ok(report)
