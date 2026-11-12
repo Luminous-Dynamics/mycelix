@@ -352,7 +352,7 @@ func TestCompensationIndeterminateKeepsEncumbranceAndRejectsFalseAbsenceV2(t *te
 		t.Fatalf("absence released encumbrance = %d", encumbered)
 	}
 
-	observed := compensationTestOutcomeV2(t, book, request, CompensationObservedUnsettledV2, "evidence:refund-observed")
+	observed := compensationTestOutcomeV2(t, book, request, CompensationOutcomeObservedUnsettledV2, "evidence:refund-observed")
 	if disposition, err := book.ObserveUnsettled(observed); err != nil || disposition != CompensationAppliedV2 {
 		t.Fatalf("observe unsettled = %v, %v", disposition, err)
 	}
