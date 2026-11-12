@@ -102,3 +102,12 @@ The structured comparator ledger and schema are maintained in:
 - `EXTERNAL_COMPARATOR_LEDGER_V0_1.schema.json`
 
 The ledger separates benchmark role (information elicitation, memory compression, forecasting, communication control, nudge sensitivity, group-memory use) from the permission and custody state of external task/result artifacts. Paper results are comparison targets, not reproduced results. Public code licenses are not treated as blanket data-subject consent or source-material provenance. No external participant records or raw conversation corpus are imported by this PR.
+
+
+### GroupMemBench metadata intake
+
+The metadata-only intake record is pinned in `GROUPMEMBENCH_METADATA_INTAKE_V0_1.json` at upstream commit `461f00c3e8a1a4a3a2ed5814b729014502c4702f`. It records 30 upstream file identities (Git blob SHAs and byte sizes): four synthetic conversation files totaling 158,659,734 bytes and 24 question files covering 715 questions. The official repository declares MIT for code and CC BY 4.0 for the synthetic conversation/question data. No payload was downloaded or committed.
+
+This is a read-only adapter candidate, subject to preserving attribution and the pinned revision. It is not an adapter execution or a reproduced benchmark result.
+
+GroupAssistBench is different: its surfaced repository summary describes real-world group conversations, CC BY-NC 4.0 dataset terms and academic-use-only code restrictions. Keep raw content out of commercial/production Luminous products on that release; use published aggregate findings only unless a separate permission basis is established.

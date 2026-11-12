@@ -55,13 +55,19 @@
         "facts_per_task": 12
       },
       "reported_result": {
-        "diagnostics": [
-          "supporting-vs-decoy-vs-irrelevant fact ownership crossed while fact text held fixed",
-          "rarity-first and relevance-first memory policies fail in different ownership cells",
-          "attribution tags can add social-proof bias",
-          "full transcript may not preserve evidence as well as carefully selected notes"
+        "qwen_primary_budget": {
+          "metric": "decision_accuracy",
+          "rarest_first_percent": 64,
+          "random_percent": 64.5,
+          "condition": "Qwen2.5-7B at primary 0.6 memory budget, averaged over ownership variants"
+        },
+        "other_findings": [
+          "Rarest-first and relevance-first policies depend on whether support or decoy facts are private; neither is robust across ownership configurations.",
+          "In the classic hidden-profile configuration, the paper reports a 23–31 percentage-point gap between relevance filtering and rarest-first selection.",
+          "Masking or shuffling source-attribution tags raises accuracy by 13–24 percentage points in the classic configuration, with fact order held fixed.",
+          "In natural discussions, the complete transcript can perform worse than no notes, indicating information loss can occur before the memory-selection stage."
         ],
-        "conditions": "four tested models and the authors' synthetic hidden-profile protocol"
+        "conditions": "Preprint's task templates, evaluated models, prompts, memory budgets and analysis; not independently reproduced"
       },
       "benchmark_role": [
         "memory compression",
@@ -85,7 +91,10 @@
       "venue": "arXiv 2026-07-02",
       "paper_url": "https://arxiv.org/abs/2607.01661",
       "published_scale": {
-        "forecast_questions": 375
+        "markets_before_temporal_filter": 500,
+        "questions_after_temporal_filter": 375,
+        "source_market_database_approx_events": 40000,
+        "source_market_database_approx_markets": 100000
       },
       "reported_result": {
         "metric": "forecasting performance",
@@ -105,12 +114,14 @@
         "forecast calibration",
         "Brier-score evaluation"
       ],
-      "license_state": "no task-payload license or source-data admission verified in this ledger",
+      "license_state": "code_mit;source_market_data_dbcl_v1;retrieved_tavily_evidence_noncommercial_research_only_not_redistributed",
       "intake_state": "paper_result_comparator_only",
       "intake_controls": [
-        "do not mix prediction-market forecasts with closed-option decision accuracy",
-        "pin forecast resolution timestamp and outcome adjudication",
-        "verify data licensing and source terms before adapter"
+        "Do not mix prediction-market forecasts with closed-option decision accuracy.",
+        "Pin forecast resolution timestamp and outcome adjudication.",
+        "Source Polymarket data has its own Open Data Commons Database Contents License v1.0 declaration.",
+        "Retrieved Tavily evidence documents were used for non-commercial research under API terms and are not independently redistributed.",
+        "Verify exact current source terms and dataset revision before any adapter or ingestion."
       ],
       "current_use": "method comparator only; no questions or forecasts imported"
     },
@@ -152,18 +163,29 @@
     {
       "id": "groupmembench-2026-05",
       "name": "GroupMemBench",
-      "venue": "arXiv 2026-05-14",
+      "venue": "NeurIPS 2026 Evaluations & Datasets Track",
       "paper_url": "https://arxiv.org/abs/2605.14498",
       "publisher_url": "https://www.microsoft.com/en-us/research/publication/groupmembench-benchmarking-llm-agent-memory-in-multi-party-conversations/",
       "published_scale": {
-        "group_memory_benchmark": true,
-        "question_families": 6
+        "domains": 4,
+        "domains_list": [
+          "Finance",
+          "Technology",
+          "Healthcare",
+          "Manufacturing"
+        ],
+        "question_types": 6,
+        "total_questions": 715,
+        "conversation_data_files": 4,
+        "conversation_data_bytes": 158659734,
+        "question_files": 24
       },
       "reported_result": {
         "strongest_reported_average_accuracy": 0.46,
         "knowledge_update_accuracy": 0.271,
         "term_ambiguity_accuracy": 0.377,
-        "baseline_note": "BM25 matches or exceeds many evaluated memory agents in the reported setup"
+        "bm25": "simple BM25 matches or exceeds many evaluated memory-agent systems in paper/repository baselines",
+        "source": "official release README at pinned upstream commit 461f00c3e8a1a4a3a2ed5814b729014502c4702f"
       },
       "benchmark_role": [
         "multi-party memory",
@@ -173,13 +195,24 @@
         "abstention"
       ],
       "license_state": "artifact-specific data terms not admitted in this ledger",
-      "intake_state": "metadata_only_pending_artifact_review",
+      "intake_state": "metadata_manifest_pinned_read_only_adapter_eligible",
       "intake_controls": [
         "distinguish generated conversation benchmark from real participant corpora",
         "preserve speaker identity, audience and temporal revisions",
         "include BM25 and full-context baselines"
       ],
-      "current_use": "memory-evaluation comparator only; no payload imported"
+      "current_use": "Pinned metadata intake complete; 30 upstream file identities recorded. No upstream payload copied and no adapter or model baseline run.",
+      "repository_license": {
+        "declared_code": "MIT",
+        "declared_data": "CC BY 4.0",
+        "evidence": "root LICENSE and official README at pinned upstream commit",
+        "scope_note": "Code and synthetic conversation/question data have separate declared licenses. Preserve attribution and pin the exact revision."
+      },
+      "artifact_identity": {
+        "pinned_commit": "461f00c3e8a1a4a3a2ed5814b729014502c4702f",
+        "manifest_path": "docs/research/deliberation/distributed-information/GROUPMEMBENCH_METADATA_INTAKE_V0_1.json",
+        "manifest_status": "metadata_only_no_payload_downloaded_or_committed"
+      }
     },
     {
       "id": "groupassistbench-2026-11",
@@ -204,14 +237,19 @@
         "distributed/conflicting memories",
         "source-grounded assistance"
       ],
-      "license_state": "no permission or consent basis established for reuse in this programme",
-      "intake_state": "metadata_only_no_ingestion",
+      "license_state": "noncommercial_only_dataset_and_academic_only_code_no_ingestion",
+      "intake_state": "published_aggregate_only_no_commercial_adapter",
       "intake_controls": [
         "do not scrape, download or import group conversation payloads",
         "require explicit dataset license, participant consent, privacy and withdrawal/retention review",
         "use only published aggregate results for comparison until then"
       ],
-      "current_use": "published-result comparator only; no messages or participant records imported"
+      "current_use": "published-result comparator only; no messages or participant records imported",
+      "repository_license": {
+        "declared_code": "MIT-style with academic-use-only restriction",
+        "declared_data": "CC BY-NC 4.0",
+        "scope_note": "Commercial or production use is not permitted by the surfaced repository license summary. Real group conversation corpus remains metadata-only; no payload should be imported into commercial or production products on this basis."
+      }
     },
     {
       "id": "pnas-nudge-2026-06",
