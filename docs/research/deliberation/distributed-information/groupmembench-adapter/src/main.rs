@@ -371,7 +371,6 @@ pub fn format_retrieved_message(message: &Value) -> String {
 
 #[derive(Clone, Debug)]
 pub struct Bm25Index {
-    documents: Vec<Vec<String>>,
     lengths: Vec<usize>,
     idf: BTreeMap<String, f64>,
     term_frequencies: Vec<BTreeMap<String, usize>>,
@@ -427,17 +426,17 @@ impl Bm25Index {
             (term, if value < 0.0 { epsilon * average_idf } else { value })
         }).collect();
 
-        Self { documents, lengths, idf, term_frequencies, average_length, k1: 1.5, b: 0.75 }
+        Self { lengths, idf, term_frequencies, average_length, k1: 1.5, b: 0.75 }
     }
 
     pub fn retrieve(&self, query: &str, top_k: usize) -> Vec<usize> {
         let query_terms = tokenize_baseline(query);
-        if query_terms.is_empty() || self.documents.is_empty() || top_k == 0 {
+        if query_terms.is_empty() || self.lengths.is_empty() || top_k == 0 {
             return Vec::new();
         }
 
-        let mut scored = Vec::with_capacity(self.documents.len());
-        for index in 0..self.documents.len() {
+        let mut scored = Vec::with_capacity(self.lengths.len());
+        for index in 0..self.lengths.len() {
             let mut score = 0.0;
             for term in &query_terms {
                 if let (Some(idf), Some(freq)) = (self.idf.get(term), self.term_frequencies[index].get(term)) {
@@ -455,7 +454,7 @@ impl Bm25Index {
     }
 
     pub fn document_count(&self) -> usize {
-        self.documents.len()
+        self.lengths.len()
     }
 
     pub fn vocabulary_size(&self) -> usize {
