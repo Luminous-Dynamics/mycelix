@@ -20,19 +20,19 @@ func checkpointTestIntent() Intent {
 
 func checkpointTestSubject() CheckpointSubjectV1 {
 	return CheckpointSubjectV1{
-		OperationID:           "sap-payment:10:did:sender:14:client-key-001",
-		IntentDigest:          "sha256:5a6e4c29cb95cee151d9f41ac9a82b6b91f3f4b443f2902a6026c769466f5b07",
-		Owner:                 CheckpointPayments,
-		EventLogID:            "journal:did:sender:payment:001",
-		EventCount:            8,
-		TailDigest:            "sha256:a1e5b966be2b6aab453c65370639d702e6d83b3097c9a542a0d85d28bf6ed899",
-		CheckpointSequence:    1,
-		SourceActionHash:      "uhCkk-source-payment-action",
-		SourceChainFrontier:   "uhCkk-source-chain-frontier",
-		IssuerDID:             "did:mycelix:agent:sender",
-		VerificationMethod:    "did:mycelix:agent:sender#holochain-key-1",
-		AuthorityGrantRef:     "uhCkk-payments-authority-grant",
-		IssuedAtUnixMS:        1794316800000,
+		OperationID:         "sap-payment:10:did:sender:14:client-key-001",
+		IntentDigest:        "sha256:5a6e4c29cb95cee151d9f41ac9a82b6b91f3f4b443f2902a6026c769466f5b07",
+		Owner:               CheckpointPayments,
+		EventLogID:          "journal:did:sender:payment:001",
+		EventCount:          8,
+		TailDigest:          "sha256:a1e5b966be2b6aab453c65370639d702e6d83b3097c9a542a0d85d28bf6ed899",
+		CheckpointSequence:  1,
+		SourceActionHash:    "uhCkk-source-payment-action",
+		SourceChainFrontier: "uhCkk-source-chain-frontier",
+		IssuerDID:           "did:mycelix:agent:sender",
+		VerificationMethod:  "did:mycelix:agent:sender#holochain-key-1",
+		AuthorityGrantRef:   "uhCkk-payments-authority-grant",
+		IssuedAtUnixMS:      1794316800000,
 	}
 }
 
