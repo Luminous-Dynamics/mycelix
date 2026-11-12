@@ -48,7 +48,7 @@ For each template, cross three independent ownership factors:
 
 This yields (2^3=8) ownership variants per template. Fact text and answer key remain identical across all eight variants. Only assignment/visibility changes. Candidate agents never receive the evaluator-only fact-role labels, complete holder map or answer key.
 
-A prospective full programme uses 60 independently authored templates across 12 broad decision domains (five templates per domain), eight variants, and three fixed seeds: 1,440 task-seed executions per model/policy/communication condition. The count is a research target informed by the CrossProfile design, not existing evidence in this repository.
+A prospective full programme uses 60 independently authored templates across 12 broad decision domains (five templates per domain), eight ownership variants, and three fixed seeds. **Stage A (ownership factorial, true attribution fixed): 60 × 8 × 3 = 1,440 task-seed executions per model/policy/communication condition. Stage B (attribution crossover): crossing true, masked and shuffled tags over all task-seed cells yields 60 × 8 × 3 × 3 = 4,320 task-seed-attribution executions per model/policy/communication condition.** Attribution can be piloted on a preregistered subset before scaling to the full crossover. These are proposed research workloads, not existing evidence in this repository.
 
 ## Attribution intervention: orthogonal to ownership
 

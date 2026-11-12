@@ -29,7 +29,7 @@
       "repository_license": {
         "declared": "MIT",
         "evidence": "repository LICENSE and pyproject.toml",
-        "scope_note": "applies to the repository's software/documentation under its terms; does not independently establish provenance or rights for every linked third-party artifact"
+        "scope_note": "The authors' repository root LICENSE and pyproject.toml declare MIT, and the README locates the 65-task JSON corpus within that repository. This is a repository-level license declaration; provenance/source-material audit and any separate linked Hugging Face results artifact remain separate gates."
       },
       "intake_state": "candidate_read_only_adapter_after_exact_artifact_review",
       "intake_controls": [

@@ -30,7 +30,15 @@
     "options": 3,
     "seeds": 3,
     "ownership_variants": 8,
-    "task_seed_executions": 1440
+    "task_seed_executions": 1440,
+    "attribution_conditions": [
+      "true_source_tags",
+      "masked_source_tags",
+      "shuffled_source_tags"
+    ],
+    "ownership_factorial_task_seed_executions": 1440,
+    "full_attribution_crossed_task_seed_executions": 4320,
+    "attribution_pilot_required_before_full_cross": true
   },
   "ownership_factors": [
     {
