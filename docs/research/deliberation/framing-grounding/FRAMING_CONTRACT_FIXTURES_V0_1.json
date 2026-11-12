@@ -1,0 +1,210 @@
+{
+  "schema_version": "framing-contract-fixtures-v0.1",
+  "status": "synthetic_controls_only_no_human_annotations",
+  "protocol_id": "DELIB-FRAME-GROUND-001",
+  "fixture_count": 12,
+  "controls": [
+    {
+      "fixture_id": "FG-001",
+      "family": "surface_paraphrase",
+      "record_kind": "synthetic_contract_fixture",
+      "language_tag": "en-ZA",
+      "authorship_status": "synthetic_english",
+      "source_text": "The water team will inspect the North Reservoir every Monday.",
+      "variant_text": "Every Monday, the North Reservoir will be inspected by the water team.",
+      "synthetic_relation_control": "meaning_equivalent",
+      "frame_function_design_intent": [],
+      "human_annotations": [],
+      "model_annotations": [],
+      "adjudication_status": "not_applicable_synthetic",
+      "note": "Fictional contract control only; not a human annotation or empirical semantic-equivalence judgment."
+    },
+    {
+      "fixture_id": "FG-002",
+      "family": "valence_only",
+      "record_kind": "synthetic_contract_fixture",
+      "language_tag": "en-ZA",
+      "authorship_status": "synthetic_english",
+      "source_text": "The repair plan retains 60 of every 100 service units.",
+      "variant_text": "The repair plan loses 40 of every 100 service units.",
+      "synthetic_relation_control": "meaning_equivalent",
+      "frame_function_design_intent": [
+        "define_problem"
+      ],
+      "human_annotations": [],
+      "model_annotations": [],
+      "adjudication_status": "not_applicable_synthetic",
+      "note": "Fictional contract control only; not a human annotation or empirical semantic-equivalence judgment."
+    },
+    {
+      "fixture_id": "FG-003",
+      "family": "exact_ratio_paraphrase",
+      "record_kind": "synthetic_contract_fixture",
+      "language_tag": "en-ZA",
+      "authorship_status": "synthetic_english",
+      "source_text": "The pump uses 40 units from a stored reserve of 60 units each day.",
+      "variant_text": "Each day, the pump consumes two-thirds of the 60-unit reserve.",
+      "synthetic_relation_control": "meaning_equivalent",
+      "frame_function_design_intent": [
+        "define_problem"
+      ],
+      "human_annotations": [],
+      "model_annotations": [],
+      "adjudication_status": "not_applicable_synthetic",
+      "note": "Fictional contract control only; not a human annotation or empirical semantic-equivalence judgment."
+    },
+    {
+      "fixture_id": "FG-004",
+      "family": "disclosed_tradeoff",
+      "record_kind": "synthetic_contract_fixture",
+      "language_tag": "en-ZA",
+      "authorship_status": "synthetic_english",
+      "source_text": "Option A costs 100 credits and reduces planned outage time by two hours.",
+      "variant_text": "Option A costs 150 credits and reduces planned outage time by two hours; the additional 50-credit cost is disclosed.",
+      "synthetic_relation_control": "disclosed_tradeoff",
+      "frame_function_design_intent": [
+        "treatment_recommendation"
+      ],
+      "human_annotations": [],
+      "model_annotations": [],
+      "adjudication_status": "not_applicable_synthetic",
+      "note": "Fictional contract control only; not a human annotation or empirical semantic-equivalence judgment."
+    },
+    {
+      "fixture_id": "FG-005",
+      "family": "omitted_cost",
+      "record_kind": "synthetic_contract_fixture",
+      "language_tag": "en-ZA",
+      "authorship_status": "synthetic_english",
+      "source_text": "Option B costs 100 credits and serves three blocks.",
+      "variant_text": "Option B serves three blocks.",
+      "synthetic_relation_control": "meaning_changed",
+      "frame_function_design_intent": [
+        "treatment_recommendation"
+      ],
+      "human_annotations": [],
+      "model_annotations": [],
+      "adjudication_status": "not_applicable_synthetic",
+      "note": "Fictional contract control only; not a human annotation or empirical semantic-equivalence judgment."
+    },
+    {
+      "fixture_id": "FG-006",
+      "family": "scope_change",
+      "record_kind": "synthetic_contract_fixture",
+      "language_tag": "en-ZA",
+      "authorship_status": "synthetic_english",
+      "source_text": "The inspection covers the North Reservoir.",
+      "variant_text": "The inspection covers every reservoir in the district.",
+      "synthetic_relation_control": "meaning_changed",
+      "frame_function_design_intent": [
+        "define_problem"
+      ],
+      "human_annotations": [],
+      "model_annotations": [],
+      "adjudication_status": "not_applicable_synthetic",
+      "note": "Fictional contract control only; not a human annotation or empirical semantic-equivalence judgment."
+    },
+    {
+      "fixture_id": "FG-007",
+      "family": "ambiguous_causality",
+      "record_kind": "synthetic_contract_fixture",
+      "language_tag": "en-ZA",
+      "authorship_status": "synthetic_english",
+      "source_text": "The pump failed after the storm.",
+      "variant_text": "The storm may have contributed to the pump failure.",
+      "synthetic_relation_control": "underspecified_or_ambiguous",
+      "frame_function_design_intent": [
+        "causal_diagnosis"
+      ],
+      "human_annotations": [],
+      "model_annotations": [],
+      "adjudication_status": "not_applicable_synthetic",
+      "note": "Fictional contract control only; not a human annotation or empirical semantic-equivalence judgment."
+    },
+    {
+      "fixture_id": "FG-008",
+      "family": "causal_claim",
+      "record_kind": "synthetic_contract_fixture",
+      "language_tag": "en-ZA",
+      "authorship_status": "synthetic_english",
+      "source_text": "The report records a service delay.",
+      "variant_text": "The report attributes the service delay to a valve fault.",
+      "synthetic_relation_control": "meaning_changed",
+      "frame_function_design_intent": [
+        "define_problem",
+        "causal_diagnosis"
+      ],
+      "human_annotations": [],
+      "model_annotations": [],
+      "adjudication_status": "not_applicable_synthetic",
+      "note": "Fictional contract control only; not a human annotation or empirical semantic-equivalence judgment."
+    },
+    {
+      "fixture_id": "FG-009",
+      "family": "moral_evaluation",
+      "record_kind": "synthetic_contract_fixture",
+      "language_tag": "en-ZA",
+      "authorship_status": "synthetic_english",
+      "source_text": "The committee selected Option C.",
+      "variant_text": "The committee's selection of Option C was irresponsible.",
+      "synthetic_relation_control": "meaning_changed",
+      "frame_function_design_intent": [
+        "moral_evaluation"
+      ],
+      "human_annotations": [],
+      "model_annotations": [],
+      "adjudication_status": "not_applicable_synthetic",
+      "note": "Fictional contract control only; not a human annotation or empirical semantic-equivalence judgment."
+    },
+    {
+      "fixture_id": "FG-010",
+      "family": "treatment_recommendation",
+      "record_kind": "synthetic_contract_fixture",
+      "language_tag": "en-ZA",
+      "authorship_status": "synthetic_english",
+      "source_text": "The water loss was measured at 12 units.",
+      "variant_text": "The committee should replace the valve to reduce the measured water loss.",
+      "synthetic_relation_control": "meaning_changed",
+      "frame_function_design_intent": [
+        "define_problem",
+        "treatment_recommendation"
+      ],
+      "human_annotations": [],
+      "model_annotations": [],
+      "adjudication_status": "not_applicable_synthetic",
+      "note": "Fictional contract control only; not a human annotation or empirical semantic-equivalence judgment."
+    },
+    {
+      "fixture_id": "FG-011",
+      "family": "no_frame_control",
+      "record_kind": "synthetic_contract_fixture",
+      "language_tag": "en-ZA",
+      "authorship_status": "synthetic_english",
+      "source_text": "The meeting begins at 09:00 on Tuesday.",
+      "variant_text": "Tuesday's meeting is scheduled to begin at 09:00.",
+      "synthetic_relation_control": "meaning_equivalent",
+      "frame_function_design_intent": [],
+      "human_annotations": [],
+      "model_annotations": [],
+      "adjudication_status": "not_applicable_synthetic",
+      "note": "Fictional contract control only; not a human annotation or empirical semantic-equivalence judgment."
+    },
+    {
+      "fixture_id": "FG-012",
+      "family": "authority_social_proof",
+      "record_kind": "synthetic_contract_fixture",
+      "language_tag": "en-ZA",
+      "authorship_status": "synthetic_english",
+      "source_text": "The verified reading is 18 units; the alert threshold is 20 units.",
+      "variant_text": "Every independent reviewer agrees the threshold has been exceeded.",
+      "synthetic_relation_control": "meaning_changed",
+      "frame_function_design_intent": [
+        "causal_diagnosis"
+      ],
+      "human_annotations": [],
+      "model_annotations": [],
+      "adjudication_status": "not_applicable_synthetic",
+      "note": "Fictional contract control only; not a human annotation or empirical semantic-equivalence judgment."
+    }
+  ]
+}

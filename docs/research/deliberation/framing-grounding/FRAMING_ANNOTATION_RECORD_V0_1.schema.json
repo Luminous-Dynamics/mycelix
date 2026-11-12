@@ -1,0 +1,353 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/framing-annotation-record-v0.1.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "protocol_id",
+    "record_id",
+    "record_kind",
+    "source",
+    "variant",
+    "language",
+    "rights",
+    "human_annotations",
+    "model_annotations",
+    "adjudication"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "framing-annotation-record-v0.1"
+    },
+    "protocol_id": {
+      "const": "DELIB-FRAME-GROUND-001"
+    },
+    "record_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "record_kind": {
+      "enum": [
+        "synthetic_contract_fixture",
+        "human_annotation_record",
+        "external_metadata_reference"
+      ]
+    },
+    "source": {
+      "$ref": "#/$defs/material"
+    },
+    "variant": {
+      "$ref": "#/$defs/material"
+    },
+    "language": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "language_tag",
+        "authorship_status",
+        "native_review_receipt"
+      ],
+      "properties": {
+        "language_tag": {
+          "enum": [
+            "en-ZA",
+            "af-ZA",
+            "zu-ZA",
+            "xh-ZA",
+            "st-ZA"
+          ]
+        },
+        "authorship_status": {
+          "enum": [
+            "synthetic_english",
+            "native_authored",
+            "native_adjudicated",
+            "machine_translated_exploratory",
+            "pending"
+          ]
+        },
+        "native_review_receipt": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "rights": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_license_status",
+        "consent_status",
+        "evaluation_use",
+        "training_use",
+        "redistribution_use",
+        "raw_text_embedded"
+      ],
+      "properties": {
+        "source_license_status": {
+          "enum": [
+            "verified_for_scope",
+            "reported_unverified",
+            "unknown",
+            "not_applicable_synthetic"
+          ]
+        },
+        "consent_status": {
+          "enum": [
+            "verified_for_scope",
+            "not_verified",
+            "unknown",
+            "not_applicable_synthetic"
+          ]
+        },
+        "evaluation_use": {
+          "enum": [
+            "authorized",
+            "pending_review",
+            "not_authorized",
+            "synthetic_only"
+          ]
+        },
+        "training_use": {
+          "enum": [
+            "authorized",
+            "pending_review",
+            "not_authorized",
+            "synthetic_only"
+          ]
+        },
+        "redistribution_use": {
+          "enum": [
+            "authorized",
+            "pending_review",
+            "not_authorized",
+            "synthetic_only"
+          ]
+        },
+        "raw_text_embedded": {
+          "type": "boolean"
+        }
+      }
+    },
+    "human_annotations": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/humanAnnotation"
+      }
+    },
+    "model_annotations": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/modelAnnotation"
+      }
+    },
+    "adjudication": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "retained_interpretations",
+        "derived_majority_available"
+      ],
+      "properties": {
+        "status": {
+          "enum": [
+            "not_started",
+            "unresolved",
+            "plural_valid_interpretations",
+            "resolved_with_receipt",
+            "not_applicable_synthetic"
+          ]
+        },
+        "retained_interpretations": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "derived_majority_available": {
+          "type": "boolean"
+        }
+      }
+    }
+  },
+  "$defs": {
+    "material": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "material_id",
+        "revision",
+        "sha256",
+        "text_storage",
+        "text_ref",
+        "synthetic"
+      ],
+      "properties": {
+        "material_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "revision": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sha256": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "text_storage": {
+          "enum": [
+            "embedded_synthetic",
+            "licensed_payload",
+            "metadata_reference_only"
+          ]
+        },
+        "text_ref": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "synthetic": {
+          "type": "boolean"
+        }
+      }
+    },
+    "humanAnnotation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "annotator_pseudonym",
+        "language_tag",
+        "codebook_version",
+        "annotated_at",
+        "frame_functions",
+        "no_frame",
+        "uncertain",
+        "abstained",
+        "confidence",
+        "rationale_ref"
+      ],
+      "properties": {
+        "annotator_pseudonym": {
+          "type": "string",
+          "minLength": 1
+        },
+        "language_tag": {
+          "enum": [
+            "en-ZA",
+            "af-ZA",
+            "zu-ZA",
+            "xh-ZA",
+            "st-ZA"
+          ]
+        },
+        "codebook_version": {
+          "type": "string"
+        },
+        "annotated_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "frame_functions": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "define_problem",
+              "causal_diagnosis",
+              "moral_evaluation",
+              "treatment_recommendation"
+            ]
+          }
+        },
+        "no_frame": {
+          "type": "boolean"
+        },
+        "uncertain": {
+          "type": "boolean"
+        },
+        "abstained": {
+          "type": "boolean"
+        },
+        "confidence": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1
+        },
+        "rationale_ref": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "modelAnnotation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "model_id",
+        "model_revision",
+        "prompt_sha256",
+        "annotated_at",
+        "frame_functions",
+        "no_frame",
+        "uncertain",
+        "abstained",
+        "output_sha256"
+      ],
+      "properties": {
+        "model_id": {
+          "type": "string"
+        },
+        "model_revision": {
+          "type": "string"
+        },
+        "prompt_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "annotated_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "frame_functions": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "define_problem",
+              "causal_diagnosis",
+              "moral_evaluation",
+              "treatment_recommendation"
+            ]
+          }
+        },
+        "no_frame": {
+          "type": "boolean"
+        },
+        "uncertain": {
+          "type": "boolean"
+        },
+        "abstained": {
+          "type": "boolean"
+        },
+        "output_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      }
+    }
+  }
+}
