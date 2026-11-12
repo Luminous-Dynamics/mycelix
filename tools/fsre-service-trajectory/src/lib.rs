@@ -57,7 +57,9 @@ impl fmt::Display for EvaluationError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let message = match self {
             Self::EmptyServiceId => "service_id must not be empty",
-            Self::InvalidHorizon => "horizon_end_seconds must be greater than horizon_start_seconds",
+            Self::InvalidHorizon => {
+                "horizon_end_seconds must be greater than horizon_start_seconds"
+            }
             Self::InvalidServiceFloor => {
                 "minimum_safe_service_fraction must be finite and within [0, 1]"
             }
@@ -213,9 +215,7 @@ pub fn evaluate(
             &segments,
             first_breach,
             contract.recovery_stability_seconds,
-            |segment| {
-                is_safe(contract, *segment) && segment.service_fraction >= 1.0
-            },
+            |segment| is_safe(contract, *segment) && segment.service_fraction >= 1.0,
         );
         report.time_to_safe_recovery_seconds = report
             .safe_recovery_at_seconds
@@ -233,10 +233,7 @@ fn is_safe(contract: &ServiceContract, segment: Segment) -> bool {
         && (!contract.quality_required || segment.quality_compliant)
 }
 
-fn build_segments(
-    contract: &ServiceContract,
-    observations: &[Observation],
-) -> Vec<Segment> {
+fn build_segments(contract: &ServiceContract, observations: &[Observation]) -> Vec<Segment> {
     let mut segments = Vec::with_capacity(observations.len() * 2 + 1);
     let mut cursor = contract.horizon_start_seconds;
 
