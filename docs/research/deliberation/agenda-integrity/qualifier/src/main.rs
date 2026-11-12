@@ -58,22 +58,28 @@ fn validate_fixture(f: &Value) -> (Vec<String>, usize, usize, usize, usize) {
     let mut source_ids = BTreeSet::new();
     let mut required_ids = BTreeSet::new();
     let mut required_constraints = BTreeSet::new();
+    let mut source_constraints_by_id: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
     for option in source {
         let id = s(option, "option_id").unwrap_or("");
         if id.is_empty() || !source_ids.insert(id.to_owned()) { errors.push("source option IDs must be unique and non-empty".into()); }
         if s(option, "origin_id").is_none() { errors.push(format!("source option {id} lacks origin provenance")); }
         if s(option, "status") != Some("admitted") { errors.push(format!("source option {id} is not admitted")); }
         if b(option, "required_in_agenda") { required_ids.insert(id.to_owned()); }
+        let mut option_constraints = BTreeSet::new();
         for c in arr(option, "constraints") {
-            if let Some(c) = c.as_str() { required_constraints.insert(c.to_owned()); }
-            else { errors.push(format!("source option {id} has non-string constraint ID")); }
+            if let Some(c) = c.as_str() {
+                required_constraints.insert(c.to_owned());
+                option_constraints.insert(c.to_owned());
+            } else { errors.push(format!("source option {id} has non-string constraint ID")); }
         }
+        source_constraints_by_id.insert(id.to_owned(), option_constraints);
     }
     if source.is_empty() { errors.push("source option registry is empty".into()); }
 
     let mut presented_ids = BTreeSet::new();
     let mut represented_sources = BTreeSet::new();
     let mut preserved_constraints = BTreeSet::new();
+    let mut preserved_constraints_by_source: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
     let mut appearances: BTreeMap<String, Vec<&Value>> = BTreeMap::new();
 
     for item in presented {
@@ -87,8 +93,18 @@ fn validate_fixture(f: &Value) -> (Vec<String>, usize, usize, usize, usize) {
             represented_sources.insert(source_id.clone());
             appearances.entry(source_id.clone()).or_default().push(item);
         }
-        for c in arr(item, "preserved_constraint_ids") {
-            if let Some(c) = c.as_str() { preserved_constraints.insert(c.to_owned()); }
+        let item_constraints: BTreeSet<String> = arr(item, "preserved_constraint_ids")
+            .iter().filter_map(Value::as_str).map(str::to_owned).collect();
+        for c in &item_constraints { preserved_constraints.insert(c.clone()); }
+        for source_id in &refs {
+            let allowed = source_constraints_by_id.get(source_id).cloned().unwrap_or_default();
+            for c in &item_constraints {
+                if !allowed.contains(c) {
+                    errors.push(format!("presented option {id} assigns unrelated constraint {c} to source option {source_id}"));
+                }
+            }
+            preserved_constraints_by_source.entry(source_id.clone()).or_default()
+                .extend(item_constraints.intersection(&allowed).cloned());
         }
         if b(item, "is_default") {
             if !b(item, "default_declared") || s(item, "default_authority").is_none() {
@@ -108,9 +124,12 @@ fn validate_fixture(f: &Value) -> (Vec<String>, usize, usize, usize, usize) {
             errors.push(format!("required source option {source_id} is missing from presented agenda"));
         }
     }
-    for constraint in &required_constraints {
-        if !preserved_constraints.contains(constraint) {
-            errors.push(format!("required constraint {constraint} is absent from presented agenda"));
+    for (source_id, constraints) in &source_constraints_by_id {
+        let retained = preserved_constraints_by_source.get(source_id).cloned().unwrap_or_default();
+        for constraint in constraints {
+            if !retained.contains(constraint) {
+                errors.push(format!("required constraint {constraint} for source option {source_id} is absent or attributed to another option"));
+            }
         }
     }
 
@@ -159,6 +178,12 @@ fn validate_fixture(f: &Value) -> (Vec<String>, usize, usize, usize, usize) {
     }
     if relation == "equivalent" && b(&f["agenda_intervention"], "tradeoff_disclosed") {
         errors.push("equivalent framing cannot simultaneously declare a material trade-off".into());
+    }
+    if (task_class == "normative_pluralism") != (relation == "normative_pluralism") {
+        errors.push("normative-pluralism task class and semantic relation must agree".into());
+    }
+    if relation == "invalid_mutation" && errors.is_empty() {
+        errors.push("agenda mutation is declared invalid but no structural invariant detects it".into());
     }
 
     if let Some(pair) = s(&f["agenda_intervention"], "matched_pair_id") {
