@@ -1573,11 +1573,16 @@ mod tests {
         assert_eq!(book.encumbered_minor(), Ok(40));
     }
 
-
     #[test]
     fn cancellation_prevalidates_all_indexes_before_mutating_record_or_counters() {
         let mut book = book(100, 100);
-        let request = request(&book, "refund:corrupt-index", 25, "liquidity:corrupt-index", 100);
+        let request = request(
+            &book,
+            "refund:corrupt-index",
+            25,
+            "liquidity:corrupt-index",
+            100,
+        );
         let capability_id = request.authorization.capability_id.clone();
         book.reserve(request, NOW).unwrap();
 
