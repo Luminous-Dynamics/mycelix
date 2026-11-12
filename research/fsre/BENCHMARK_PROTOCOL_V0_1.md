@@ -183,10 +183,12 @@ Measure local continuity, recovery time, data exposure, synchronisation correctn
 
 ### Evidence context
 
-South Africa's 2025 Green Drop assessment reports 396 of 848 municipal wastewater treatment systems (47%) in a critical state, compared with 334 (39%) in 2022. Its 2023 No Drop report separately reports 47% national average non-revenue water. These indicators must remain distinct.
+South Africa's 2025 Green Drop assessment reports 396 of 848 municipal wastewater treatment systems (47%) in a critical state, compared with 334 (39%) in 2022; the assessed systems relate to the 2023/24 financial year. Separately, the 2025 No Drop Progress Report was released on 31 March 2026. Parliament's 9 June 2026 briefing reported national non-revenue water at 47.3%, compared with 47.4% in the 2023 Full No Drop Report. Green Drop wastewater-treatment performance and No Drop drinking-water distribution efficiency are different indicators and must remain separate. Treat the 47.3% figure as a dated national progress-report value, not a current Johannesburg baseline or a measure of physical leakage alone.
 
 References:
 - https://www.gov.za/news/media-statements/water-and-sanitation-crowns-steve-tshwete-local-municipality-2025-green-drop
+- https://www.gov.za/news/media-advisories/government-activities/minister-pemmy-majodina-releases-green-drop-report-0
+- https://www.parliament.gov.za/press-releases/media-statement-water-committee-warns-of-deepening-crisis-as-municipalities-fail-implement-corrective-water-plans
 - https://www.gov.za/news/media-statements/water-and-sanitation-releases-2023-full-blue-drop-report-05-dec-2023
 
 A September 2025 Department of Water and Sanitation eThekwini Water Security Dashboard reports a 12-month average non-revenue-water figure of 58.8% and cites 25% as a target. This is a dated, municipality-specific dashboard observation, not a national current value or a verified present-day baseline.
