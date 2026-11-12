@@ -12,7 +12,7 @@
 
 NIST IR 8536, *Supply Chain Traceability: Manufacturing Meta-Framework*, was finalized in September 2026. It describes common structural patterns for encapsulating, linking, exchanging and querying traceability information across manufacturing supply chains. Its approach is intended to preserve and interoperate with existing industry practices and standards rather than force every industry into one replacement vocabulary or centralized data store.
 
-The report highlights source/traceability-event encapsulation, interoperable interfaces, temporal ordering, cryptographically verifiable linkage, privacy/selective disclosure, and common patterns that can be tailored by sector. NIST’s September 9, 2026 announcement said its Python reference implementation was undergoing final review and would be made publicly available after approval. This document does not claim to have tested that reference implementation or reproduce it.
+The report highlights source/traceability-event encapsulation, interoperable interfaces, temporal ordering, cryptographically verifiable linkage, privacy/selective disclosure, and common patterns that can be tailored by sector. NIST’s September 9, 2026 announcement said its Python reference implementation was undergoing final review. The final IR’s Appendix F.4 now points to a public repository: https://github.com/usnistgov/ir8536-reference-implementation. Appendix F describes the implementation as an early-stage laboratory/research MVP, not production software; the described example uses three illustrative ecosystems and text-file repositories (with NoSQL as a configuration option). I have not directly inspected the repository’s current code, licence, tests or release revision in this pass, so no parity or execution claim is made.
 
 Official sources:
 - NIST IR 8536 final: https://csrc.nist.gov/pubs/ir/8536/final
@@ -151,4 +151,4 @@ A crosswalk establishes intended mapping and gap visibility. A fixture pass esta
 1. Establish the active, maintained Mycelix supply-chain implementation owner and exact source revision. Do not resume development in the archived standalone repository.
 2. Keep the SDK in-memory demo and Holochain zome client as separate evaluation arms; qualify persistence, authority, replay and deployed hApp separately.
 3. Align the LEX-NET-015 crosswalk with Symtropy #3025/#3331, then prepare public fixtures.
-4. Only after the maintained code path and test custody qualify, run adapters against public NIST/GS1/QIF/MTConnect artefacts and independent vectors.
+4. Only after the maintained code path and test custody qualify, inspect and run the pinned NIST MVP in its documented lab scope, then test adapters against public GS1/QIF/MTConnect artefacts and independent vectors.
