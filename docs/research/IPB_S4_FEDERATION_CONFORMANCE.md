@@ -198,3 +198,8 @@ These are fixture gates, not empirical estimates of federation risk.
 - LISE #6119: scenario, threat model, conformance, matched comparison and claim discipline.
 
 The adapter returns native references and typed projections only. No duplicate identity provider, credential model, event store, authority engine, dispute engine or federation bus is introduced.
+
+
+## 13. Common-cause owner dependency status (2026-11-13)
+
+The common-cause case S4-13 must remain **indeterminate** until Mycelix's owner-native dependency closure is available and qualified. Issue #5762 and its implementation PR #5696 remain open; #5696 is based on the `research/assurance-portfolio-model-v0-1` branch and is not merged into `main`. The S4 adapter may not implement its own dependency graph or cut-set calculation. Once the owner-native output is available, S4 can bind the exact graph/profile digests and dependency witnesses; until then it must not report an independence or common-cause cut-set pass. This is an integration dependency, not a completed S4 capability.
