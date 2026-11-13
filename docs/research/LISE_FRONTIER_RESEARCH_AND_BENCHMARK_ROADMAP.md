@@ -266,7 +266,7 @@ Keep one benchmark schema and one scenario registry. Repositories should impleme
 
 ## 10. Initial implementation status
 
-The LISE research branch contains a Rust institutional-assurance crate with fifteen deterministic S2 conflict-of-interest cases, a JSON runner, evidence receipts and integration tests. It is a synthetic reference fixture and is not yet connected to production Holochain authorization. Its test sources have been committed; execution and CI evidence remain pending.
+The LISE research branch contains a Rust institutional-assurance crate with twenty deterministic S2 conflict-of-interest cases, a JSON runner, evidence receipts and integration tests. It is a synthetic reference fixture and is not yet connected to production Holochain authorization. Its test sources have been committed; execution and CI evidence remain pending.
 
 The current governance-threshold discrepancy has been documented separately. No production threshold behavior was changed by the LISE prototype.
 
