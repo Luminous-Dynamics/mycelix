@@ -207,6 +207,9 @@ impl EvaluationReport {
         let mut output = String::new();
         output.push_str("report_schema=fsre-recovery-qualification-report.v0.1\n");
         output.push_str(&format!("scenario_id={}\n", self.scenario_id));
+        output.push_str("claim_scope=DECLARED_SCENARIO_ONLY\n");
+        output.push_str("execution_authority=NONE\n");
+        output.push_str("operational_actuation=NOT_AUTHORISED\n");
         output.push_str(&format!("debt_items={}\n", self.debt_item_count));
         output.push_str(&format!("debt_groups={}\n", self.debt_groups.len()));
         for group in &self.debt_groups {
@@ -781,6 +784,15 @@ mod tests {
             .iter()
             .map(|predicate| evidence(*predicate, Disposition::Qualified, 500))
             .collect()
+    }
+
+    #[test]
+    fn rendered_report_never_grants_execution_authority() {
+        let result = evaluate(&scenario(), &[option(100)], &[], &all_qualified()).unwrap();
+        let rendered = result.render();
+        assert!(rendered.contains("claim_scope=DECLARED_SCENARIO_ONLY"));
+        assert!(rendered.contains("execution_authority=NONE"));
+        assert!(rendered.contains("operational_actuation=NOT_AUTHORISED"));
     }
 
     #[test]
