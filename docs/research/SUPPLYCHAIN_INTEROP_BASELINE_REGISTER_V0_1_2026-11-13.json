@@ -201,5 +201,20 @@
     ],
     "performance_after_correctness": true
   },
-  "claim_ceiling": "No server deployment, API call, official validation, semantic round-trip, performance test, standards conformance, GS1 endorsement, partnership, or Luminous superiority result has been produced."
+  "claim_ceiling": "No server deployment, API call, official validation, semantic round-trip, performance test, standards conformance, GS1 endorsement, partnership, or Luminous superiority result has been produced.",
+  "artifact_version_differential_audit": {
+    "report": "GS1_EPCIS_ARTIFACT_VERSION_DIFFERENTIAL_AUDIT_2026-11-13.md",
+    "machine_readable": "GS1_EPCIS_ARTIFACT_VERSION_DIFFERENTIAL_AUDIT_2026-11-13.json",
+    "current_index_label": "EPCIS / CBV 2.0.1",
+    "archive_publication_date": "2025-07-01",
+    "linked_pdf_internal_document_version": "2.0",
+    "linked_pdf_internal_document_date": "Jun 2022",
+    "linked_pdf_internal_document_status": "Ratified",
+    "normative_json_schema_and_shacl_references": "2.0.0",
+    "current_index_schema_id_version": "2.0.1",
+    "both_sets_preserved_separately": true,
+    "raw_artifact_bytes_captured": false,
+    "content_hashes_captured": false,
+    "claim_ceiling": "Source-page and rendered-schema inspection only; no official validation or conformance claim."
+  }
 }
