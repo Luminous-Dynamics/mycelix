@@ -1,0 +1,32 @@
+name: FSRE exact decision-value reference
+on:
+  pull_request:
+    paths:
+      - "tools/fsre-decision-value/**"
+      - ".github/workflows/fsre-decision-value.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "tools/fsre-decision-value/**"
+      - ".github/workflows/fsre-decision-value.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  decision-value:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
+        with:
+          toolchain: 1.100.0
+          components: rustfmt, clippy
+      - name: Check formatting
+        run: cargo fmt --manifest-path tools/fsre-decision-value/Cargo.toml --all -- --check
+      - name: Run exact decision-value tests
+        run: cargo test --locked --offline --manifest-path tools/fsre-decision-value/Cargo.toml
+      - name: Run Clippy
+        run: cargo clippy --locked --offline --manifest-path tools/fsre-decision-value/Cargo.toml --all-targets -- -D warnings
