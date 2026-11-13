@@ -1,0 +1,141 @@
+{
+  "schema_version": "mycelix.supplychain.baseline-register.v0.1",
+  "snapshot_date": "2026-11-13",
+  "tracking_issue": "https://github.com/Luminous-Dynamics/mycelix/issues/6105",
+  "normative_owner": "https://github.com/Luminous-Dynamics/mycelix/issues/5395",
+  "status": "source_inspected_candidates_only_no_server_execution",
+  "normative_artifacts": {
+    "spec_page": "https://ref.gs1.org/standards/epcis/2.0.1/",
+    "artifacts_index": "https://ref.gs1.org/standards/epcis/artefacts",
+    "required_version_from_normative_spec": "2.0.0",
+    "artifacts": [
+      {
+        "id": "epcis-json-schema",
+        "version": "2.0.0",
+        "url": "https://ref.gs1.org/standards/epcis/2.0.0/epcis-json-schema.json",
+        "declared_schema_draft": "07",
+        "browser_status": "retrievable"
+      },
+      {
+        "id": "epcis-context",
+        "version": "2.0.0",
+        "url": "https://ref.gs1.org/standards/epcis/2.0.0/epcis-context.jsonld",
+        "browser_status": "media_type_not_rendered_raw_bytes_not_captured"
+      },
+      {
+        "id": "epcis-shacl",
+        "version": "2.0.0",
+        "url": "https://ref.gs1.org/standards/epcis/2.0.0/epcis-shacl.ttl",
+        "browser_status": "media_type_not_rendered_raw_bytes_not_captured"
+      },
+      {
+        "id": "cbv-ontology",
+        "version": "2.0.0",
+        "url": "https://ref.gs1.org/standards/epcis/2.0.0/cbv-ontology.jsonld",
+        "browser_status": "media_type_not_rendered_raw_bytes_not_captured"
+      }
+    ],
+    "version_rule": "Preserve the exact 2.0.0 URLs named by normative conformance clauses. Capture the 2.0.1 artefact index separately; do not silently substitute 2.0.1 files for 2.0.0 normative links.",
+    "intake_owner": "Mycelix #5395",
+    "content_hashes": "not_yet_captured"
+  },
+  "candidates": [
+    {
+      "id": "fastnt-epcis",
+      "repository": "https://github.com/louisaxel-ambroise/epcis",
+      "revision": "1df0e51f640b43a63da8080d4ca85365b47d328f",
+      "revision_date_utc": "2026-11-11T16:15:02Z",
+      "license_declared": "Apache-2.0",
+      "stack": ".NET 10 / Entity Framework Core",
+      "inspected_capabilities": [
+        "capture /capture",
+        "single-event capture /events",
+        "event query /events",
+        "named query CRUD and execute /queries",
+        "business-step/location/readPoint/disposition filters",
+        "advertises GS1-EPCIS-Version 2.0 and Max 2.0"
+      ],
+      "limitations": [
+        "No source evidence of EPCIS 2.0.1 declaration",
+        "Declared maximum is 2.0",
+        "Full normative conformance and content negotiation remain untested"
+      ],
+      "disposition": "first_independent_server_candidate_for_bounded_profile",
+      "executed": false
+    },
+    {
+      "id": "openepcis-community",
+      "repository": "https://github.com/openepcis/epcis-repository-ce",
+      "revision": "e81a857771c4c4a2d12e62b60a2dbc094551aa6e",
+      "revision_date_utc": "2026-01-10T14:45:43Z",
+      "license_declared": "Apache-2.0",
+      "stack": "Quarkus / Kafka / OpenSearch",
+      "inspected_capabilities": [
+        "README describes EPCIS 2.0",
+        "JSON-LD and REST capture/query",
+        "container deployment"
+      ],
+      "limitations": [
+        "Latest inspected repository commit is older than FasTnT candidate",
+        "Full endpoint/header/profile behavior not inspected or executed"
+      ],
+      "disposition": "second_server_implementation_candidate",
+      "executed": false
+    },
+    {
+      "id": "openepcis-validation-services",
+      "repositories": [
+        "https://github.com/openepcis/openepcis-event-sentry",
+        "https://github.com/openepcis/openepcis-document-validation-service"
+      ],
+      "revision": "c850de537a55897b4a02df47fd49ed9269177442",
+      "revision_date_utc": "2026-10-19T11:30:31Z",
+      "stack": "OpenEPCIS/benelog product family",
+      "capabilities": [
+        "profile/schema validation services"
+      ],
+      "limitations": [
+        "Same product family as OpenEPCIS Community Edition",
+        "Not an independent adjudicator or separate vendor implementation"
+      ],
+      "disposition": "same_family_diagnostic_only",
+      "executed": false
+    },
+    {
+      "id": "nist-ir-8536-reference-implementation",
+      "repository": "https://github.com/usnistgov/ir8536-reference-implementation",
+      "disposition": "future_research_reference_pending_license_revision_dependency_audit",
+      "executed": false
+    }
+  ],
+  "qualification_order": [
+    "normative_source_capture",
+    "server_capability_probe",
+    "protocol_probe",
+    "official_json_schema_jsonld_shacl_validation",
+    "semantic_round_trip",
+    "adversarial_controls",
+    "performance"
+  ],
+  "performance_plan": {
+    "owner": "Mycelix #5395",
+    "event_counts": [
+      1000,
+      10000,
+      50000
+    ],
+    "repetitions_per_condition": 30,
+    "metrics": [
+      "p50_latency",
+      "p95_latency",
+      "throughput",
+      "cpu_time",
+      "peak_rss",
+      "error_count",
+      "energy_if_metered",
+      "integration_effort"
+    ],
+    "performance_after_correctness": true
+  },
+  "claim_ceiling": "No server deployment, API call, official validation, semantic round-trip, performance test, standards conformance, GS1 endorsement, partnership, or Luminous superiority result has been produced."
+}
