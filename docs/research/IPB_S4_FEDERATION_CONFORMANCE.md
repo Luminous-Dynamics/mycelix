@@ -139,7 +139,7 @@ A successful exit is not “delete everything and disconnect.” It is safe term
 | S4-14 | Valid signature but issuer/claim scope is insufficient for local authority | Evidence authenticity may be supported; local authority missing |
 | S4-15 | Duplicate/replayed operation ID | Rejected or reconciled; no duplicate mutation |
 
-The manifest's `expected_case_count` should be treated as the locked case count. The table above is descriptive; the manifest is authoritative. *(Note: the first manifest currently contains 14 entries; adding the explicit replay row makes 15. This mismatch must be resolved before freezing the version.)*
+The manifest's `expected_case_count` is 15 and is the locked case count. The table above is descriptive; the manifest is authoritative. The scenario remains a draft until the case IDs, mutations and owner-native mapping are independently reviewed.
 
 ## 10. Fair comparisons and benchmarks
 
