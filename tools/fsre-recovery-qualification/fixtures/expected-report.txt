@@ -1,5 +1,8 @@
 report_schema=fsre-recovery-qualification-report.v0.1
 scenario_id=synthetic-water-compound-disruption
+claim_scope=DECLARED_SCENARIO_ONLY
+execution_authority=NONE
+operational_actuation=NOT_AUTHORISED
 debt_items=14
 debt_groups=11
 debt_group=authority_coordination|EXPIRED_AUTHORITY|STALE|1|1
