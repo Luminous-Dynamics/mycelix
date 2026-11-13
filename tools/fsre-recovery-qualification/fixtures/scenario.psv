@@ -1,5 +1,5 @@
 # scenario_id=synthetic-water-compound-disruption
-# scenario_digest=synthetic:scenario-digest:water-compound-v1
+# scenario_digest=sha256:9bd6fccf8a433121da9ffd1be8fd0a453e5c28f669f0b24bcca1b6c8720e821c
 # time_basis_id=synthetic-clock-v1
 # evaluation_time_seconds=1000
 # clock_uncertainty_seconds=0
