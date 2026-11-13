@@ -31,7 +31,7 @@ Accepted records require an official crosswalk, a source-native change record or
 
 ## 3. Executable reference
 
-The dependency-free Rust crate at tools/fsre-identity-crosswalk validates transition event shape and cardinality. Its ten-row synthetic fixture includes continuity, rename, transfer, a two-to-one merge, a one-to-two split, decommissioning, creation and unresolved identity. The fixture contains no actual municipal or treatment-works identifiers. Its output explicitly states that real identity linkage is not established, source authenticity is not authenticated and operational authority is none.
+The dependency-free Rust crate at tools/fsre-identity-crosswalk validates transition event shape and cardinality. Its ten-row synthetic fixture includes continuity, rename, transfer, a two-to-one merge, a one-to-two split, decommissioning, creation and unresolved identity. A bounded generated test also exercises 50 synthetic transition groups (62 rows) across the eight event types. The fixture contains no actual municipal or treatment-works identifiers. The generated sweep is not an independent sealed challenge set and says nothing about real-world matching accuracy. Its output explicitly states that real identity linkage is not established, source authenticity is not authenticated and operational authority is none.
 
 This reference is a contract validator, not an entity-resolution model. It does not ingest Green Drop PDFs, match names, geocode facilities, infer ownership, validate legal transfer or decide whether two real records refer to the same facility.
 
@@ -39,7 +39,7 @@ This reference is a contract validator, not an entity-resolution model. It does 
 
 ### Tier A — transition semantics
 
-Use synthetic, independently prepared cases covering all eight event types, missing source/target IDs, duplicate IDs, invalid effective dates, evidence conflicts, unresolved identities, and namespace errors.
+Use synthetic, independently prepared cases covering all eight event types, missing source/target IDs, duplicate IDs, invalid effective dates, evidence conflicts, unresolved identities, and namespace errors. The current generated 50-group test is a development smoke test; the release benchmark still requires a separately authored, reviewer-controlled sealed set with an independently specified expected outcome for each case.
 
 Targets:
 - 100% correct relation cardinality on a sealed deterministic challenge set;
