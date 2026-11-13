@@ -88,9 +88,15 @@ The separate `tools/fsre-flow-balance` reference evaluates the six required boun
 | Residual localisation precision/recall | No target until independent system/catchment ground truth exists | Report abstention and spatial resolution; do not invent a baseline |
 | Unauthorised data/control mutation | 0 | Read-only shadow study first; no actuation path in this reference |
 
+### Matched sewer sensor-placement comparators
+
+Do not treat sensor placement as an unexplored contribution. A 2026 *Water Research* study proposes topology-derived flow inference (TDFI) for pipe-specific minimum detectable inflow/infiltration and deterministic Sequential Backward Selection (SBS) for sensor layout; it evaluates one synthetic and two real-life sewer networks (DOI 10.1016/j.watres.2026.126140). A 2025 *Water Research* study reports 7–15% higher I&I detection reliability using entropy-based sensor placement on its evaluated networks (DOI 10.1016/j.watres.2024.122591).
+
+Where reproducible, include TDFI+SBS, entropy placement, current operator layouts, and uniform/random placement on identical topology, sensor budget, time window, event catalogue, noise, missingness and ground truth. Report false alarms per sensor-day and network length/time, minimum detectable I&I, detection delay, localisation error, sensor lifecycle cost and SCADA/GIS integration burden. Compare FSRE decision value and verified service/environment outcomes as an additional layer; do not claim that the service qualification profile replaces specialist sensor-placement methods.
+
 The six-term balance is a transparent accounting surface, not a hydraulic solver or full wastewater model. The current implementation uses conservative interval arithmetic and preserves correlation-group labels but does not model joint dependence. A broad interval may be the correct answer. Symtropy remains the owner for physical models, calibration and uncertainty propagation; this consumer reference does not replace that work.
 
-The national-summary replay checks only arithmetic and source-reported boundaries. It preserves the 2022 denominator as unknown, identifies the Green Drop 2025 report's 2023/24 observation period and does not turn national system percentages into household-level outcomes. System-level historical replay requires source rights, extracted source rows and dual transcription/reconciliation; prospective work requires operator-authorised read-only access.
+The national-summary replay checks only arithmetic and source-reported boundaries. It verifies 2022 rates against the separately sourced 850-system denominator and 2025 rates against the 848-system denominator, identifies the respective 2020/21 and 2023/24 report periods, and flags the reported decommissioning/merging boundary change. It does not turn national system percentages into household-level outcomes or claim system identity linkage. System-level historical replay requires source rights, extracted source rows and dual transcription/reconciliation; prospective work requires operator-authorised read-only access.
 
 ## 2.3 Decision-value and active-investigation benchmark
 
