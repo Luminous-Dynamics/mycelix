@@ -59,7 +59,9 @@ NIST AI RMF 1.0 organizes AI risk work around GOVERN, MAP, MEASURE and MANAGE. A
 
 ### Verifiable credentials
 
-W3C Verifiable Credentials Data Model 2.0 is a Recommendation. Its verification step establishes the authenticity and currentness of an issuer's statement under the relevant proof and status mechanisms; it explicitly does not establish the truth of the claims. A verifier separately validates whether the issuer and claims are acceptable for its purpose. A W3C VC Data Model 2.1 Working Draft was published in September 2026; it is work in progress and must not be represented as a Recommendation.
+W3C Verifiable Credentials Data Model 2.0 is a Recommendation. Verification checks the credential's securing mechanism and applicable status information; it does not establish the truth of the claims. The verifier must separately validate whether the issuer, subject, claims, context and freshness are acceptable for its purpose. W3C published VC Data Model 2.1 as a Working Draft on 22 October 2026; it remains work in progress and must not be represented as a Recommendation.
+
+W3C published Securing Verifiable Credentials using JOSE and COSE as a Recommendation on 13 October 2026. It specifies JOSE/JWT, selective-disclosure JWT and COSE securing mechanisms for VC Data Model 2.0. W3C also published Verifiable Credential Confidence Methods v1.0 as a Working Draft on 22 October 2026. That draft concerns confidence that a presenter is appropriately related to the credential subject; it does not turn a credential into proof that every claim is substantively true. Some proposed confidence methods, including biometric approaches, have privacy and proportionality consequences that must be assessed rather than adopted by default.
 
 **Implication:** Mycelix should distinguish proof verification from claim validation, issuer authority, evidence quality, claim freshness, revocation, purpose and relying-party policy. It should record why a relying party accepted or rejected a claim, with a route to challenge that decision.
 
@@ -125,7 +127,9 @@ A framework can be strong at principle alignment while weak at operational confo
 - World Bank GovTech Maturity Index 2025 Update: https://www.worldbank.org/en/programs/govtech/gtmi-2025-update
 - NIST AI Risk Management Framework 1.0 and current revision status: https://www.nist.gov/itl/ai-risk-management-framework
 - W3C Verifiable Credentials Data Model v2.0 Recommendation: https://www.w3.org/TR/vc-data-model/
-- W3C Verifiable Credentials Data Model v2.1 Working Draft (30 September 2026): https://www.w3.org/TR/2026/WD-vc-data-model-2.1-20260930/
+- W3C Verifiable Credentials Data Model v2.1 Working Draft (22 October 2026): https://www.w3.org/TR/2026/WD-vc-data-model-2.1-20261022/
+- W3C Securing Verifiable Credentials using JOSE and COSE Recommendation (13 October 2026): https://www.w3.org/TR/2026/REC-vc-jose-cose-20261013/
+- W3C Verifiable Credential Confidence Methods v1.0 Working Draft (22 October 2026): https://www.w3.org/TR/2026/WD-vc-confidence-method-20261022/
 - Edrisi et al., Developing and Evolving a Digital Twin of the Organization (IEEE Access, 2024): https://doi.org/10.1109/ACCESS.2024.3381778
 - Lost in translation: why digital twins thrive in research but falter in politics and public administration (Data & Policy, 2025): https://doi.org/10.1017/dap.2025.10027
 - Choudhury, Du and Lawrence, Learning-by-Twinning: Organizational Digital Twins and the Future of Search (working paper, posted 1 October 2026): https://papers.ssrn.com/sol3/papers.cfm?abstract_id=7547723
