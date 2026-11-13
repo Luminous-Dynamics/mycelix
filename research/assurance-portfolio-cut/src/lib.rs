@@ -276,11 +276,13 @@ fn disposition_is_complete(disposition: &DomainDisposition) -> bool {
 
 fn disposition_is_explicitly_shared(disposition: &DomainDisposition) -> bool {
     match disposition {
+        // Preserve the legacy explicit-shared disposition. For the new
+        // multi-valued type, exact identities are compared pairwise below;
+        // a rationale for overlap with some other role must not falsely fail
+        // a separation requirement whose two identity sets are disjoint.
         DomainDisposition::SharedAccepted { .. } => true,
-        DomainDisposition::KnownDependencies { shared_rationale, .. } => {
-            shared_rationale.is_some()
-        }
-        DomainDisposition::Distinct(_)
+        DomainDisposition::KnownDependencies { .. }
+        | DomainDisposition::Distinct(_)
         | DomainDisposition::NotApplicable { .. }
         | DomainDisposition::Unknown => false,
     }
