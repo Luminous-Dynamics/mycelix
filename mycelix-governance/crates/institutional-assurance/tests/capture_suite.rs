@@ -40,7 +40,8 @@ fn receipts_expose_the_declared_controller_topology() {
 
     assert_eq!(receipt.policy_id, "ipb-s3-fixture-policy");
     assert_eq!(receipt.policy_version, 1);
-    assert_eq!(receipt.coalition_members, vec!["cartel-a".to_owned(), "cartel-b".to_owned()]);
+    let expected_ids = vec!["cartel-a".to_owned(), "cartel-b".to_owned()];
+    assert_eq!(receipt.coalition_members, expected_ids);
 
     let agenda = receipt
         .domain_assessments
@@ -49,12 +50,9 @@ fn receipts_expose_the_declared_controller_topology() {
             assessment.domain == institutional_assurance::capture::ControlDomain::Agenda
         })
         .expect("agenda assessment exists");
-    assert_eq!(agenda.authorized_controllers, vec!["cartel-a".to_owned(), "cartel-b".to_owned()]);
-    assert_eq!(agenda.available_controllers, vec!["cartel-a".to_owned(), "cartel-b".to_owned()]);
-    assert_eq!(
-        agenda.coalition_available_controllers,
-        vec!["cartel-a".to_owned(), "cartel-b".to_owned()]
-    );
+    assert_eq!(agenda.authorized_controllers, expected_ids);
+    assert_eq!(agenda.available_controllers, expected_ids);
+    assert_eq!(agenda.coalition_available_controllers, expected_ids);
     assert!(agenda.independent_available_controllers.is_empty());
     assert_eq!(
         agenda.available_controller_count,
