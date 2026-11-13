@@ -26,7 +26,7 @@ For interval inputs, the evaluator computes a conservative outer interval:
 
 `U_high = G_high + I_high - T_low - B_low - R_low - ΔS_low`
 
-This interval is conservative without an independence assumption, but may be wide. The evaluator preserves correlation-group labels for audit and reports that dependence was not modelled; it does not perform joint uncertainty propagation, probabilistic inference or covariance estimation. Use the owner-native model (Symtropy) for richer physical and joint-uncertainty analysis.
+This interval is conservative without an independence assumption, but may be wide. The report emits the correlation-group labels for each source family and explicitly states that dependence was not modelled; it does not perform joint uncertainty propagation, probabilistic inference or covariance estimation. Use the owner-native model (Symtropy) for richer physical and joint-uncertainty analysis.
 
 The sign classification is descriptive only:
 - wholly positive: positive unaccounted residual under this declared boundary;
