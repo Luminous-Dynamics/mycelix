@@ -184,3 +184,8 @@ References:
 - https://deepmind.google/research/publications/224297/
 - https://arxiv.org/abs/2610.37862
 - https://www.w3.org/TR/2026/REC-vc-jose-cose-20261013/
+
+
+## 13. Common-cause dependency integration status (2026-11-13)
+
+S3 v0 does **not** currently compute common-cause or transitive dependency independence. The owner-native work is tracked by Mycelix #5762/#5695/#1243/#1371, but the #5762 issue remains open and its implementation PR #5696 is also open, based on the `research/assurance-portfolio-model-v0-1` research branch rather than merged `main`. Therefore the required dependency-closure/cut-set output is not yet a stable mainline integration contract. Until the owner implementation is merged, reviewed, and independently qualified, any S3 claim that audit and appeal are operationally independent across common causes must be **indeterminate / not evaluated**. S3's present identity/quorum fixture only tests the explicitly declared controller sets; it cannot prove failure-domain independence.
