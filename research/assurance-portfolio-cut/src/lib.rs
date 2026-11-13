@@ -649,6 +649,10 @@ pub struct CutSetReport {
     pub manifest_digest: Digest,
     pub attack_model_digest: Digest,
     pub disposition: CutSetDisposition,
+    /// Exact declared role dependency inventories, including known identities
+    /// retained when other dimensions have an unknown remainder. This remains
+    /// visible even when no numeric cut-set result is admissible.
+    pub role_dependencies: Vec<RoleDependencies>,
     /// Minimal hitting sets under the declared model: compromising any key in
     /// the set invalidates every required role. Empty for incomplete/budget
     /// exceeded results; partial cut sets are never published as complete.
@@ -678,6 +682,7 @@ fn cut_set_report(
         manifest_digest: manifest.manifest_digest,
         attack_model_digest: manifest.attack_model_digest,
         disposition,
+        role_dependencies: manifest.roles.clone(),
         minimal_cut_sets,
         minimum_cut_cardinality,
         candidate_extensions_attempted,
@@ -1984,6 +1989,24 @@ mod tests {
         assert_eq!(cut_report.disposition, CutSetDisposition::Incomplete);
         assert!(cut_report.minimal_cut_sets.is_empty());
         assert_eq!(cut_report.minimum_cut_cardinality, None);
+        for role in ["formal", "independent"] {
+            let preserved = cut_report
+                .role_dependencies
+                .iter()
+                .find(|dependency| dependency.role == role)
+                .expect("partial role inventory remains in report");
+            let execution_ids: BTreeSet<_> = preserved
+                .known_domains
+                .iter()
+                .filter(|domain| domain.dimension == FaultDomainDimension::ExecutionProvider)
+                .map(|domain| domain.identity)
+                .collect();
+            assert_eq!(
+                execution_ids,
+                BTreeSet::from([shared, Digest::from_byte(if role == "formal" { 62 } else { 63 })])
+            );
+            assert!(preserved.unknown_dimensions.contains(&FaultDomainDimension::ExecutionProvider));
+        }
         assert_eq!(
             analyze_profile_cut_sets(&checked, &manifest, 100_000)
                 .expect_err("incomplete profile cannot be promoted"),
