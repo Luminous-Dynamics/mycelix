@@ -2040,6 +2040,48 @@ mod tests {
     }
 
     #[test]
+    fn multi_value_generated_panels_match_independent_brute_force_for_two_to_five_roles() {
+        // Each role gets 1-3 identities in the same canonical dimension,
+        // with a deterministic mixture of shared and role-local identities.
+        // The independent reference enumerates all subsets for these small
+        // panels, so exact minimal-set equality is checked, not just cardinality.
+        for case in 0..48usize {
+            let role_count = 2 + (case % 4);
+            let mut roles = Vec::new();
+            for role_index in 0..role_count {
+                let mut known = BTreeSet::new();
+                let identity_count = 1 + ((case + role_index) % 3);
+                for offset in 0..identity_count {
+                    let identity = if (case + role_index + offset) % 3 == 0 {
+                        (1 + ((case + offset) % 7)) as u8
+                    } else {
+                        (32 + role_index * 3 + offset) as u8
+                    };
+                    known.insert(domain(FaultDomainDimension::ExecutionProvider, identity));
+                }
+                if (case + role_index) % 2 == 0 {
+                    known.insert(domain(
+                        FaultDomainDimension::TrustRoot,
+                        (96 + role_index) as u8,
+                    ));
+                }
+                roles.push(role_dependencies(&format!("role-{role_index}"), known));
+            }
+
+            let expected = brute_force_minimal_cut_sets(&roles);
+            let actual = minimal_cut_sets(&dependency_manifest(roles), 100_000)
+                .expect("generated multi-value portfolio is well formed");
+            assert_eq!(actual.disposition, CutSetDisposition::Complete);
+            assert_eq!(actual.minimal_cut_sets, expected, "generated case {case}");
+            assert_eq!(
+                actual.minimum_cut_cardinality,
+                expected.iter().map(BTreeSet::len).min(),
+                "minimum cardinality case {case}"
+            );
+        }
+    }
+
+    #[test]
     fn identical_digest_bytes_in_different_dimensions_remain_distinct_keys() {
         let identity = Digest::from_byte(81);
         let left_key = domain(FaultDomainDimension::TrustRoot, 81);
