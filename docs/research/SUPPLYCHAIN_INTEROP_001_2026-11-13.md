@@ -120,6 +120,24 @@ The candidate selection and exact revision pins are in [SUPPLYCHAIN_INTEROP_BASE
 
 OpenEPCIS Event Sentry and its document-validation service are same-family diagnostics, not independent judges. Candidate servers must pass the normative artifact, protocol, semantic round-trip and adversarial gates before a performance comparison.
 
+## 6A. Decision-time evidence and standards-version admissibility
+
+The existing `eventTime versus recordTime` and correction/replay scenarios are now complemented by four controls in the machine-readable scenario bank: SC-TIME-003, SC-TIME-004, SC-TIME-005 and SC-STD-001.
+
+The evaluation distinguishes:
+- world/event time: when the event or represented fact applies;
+- repository record time: when the selected EPCIS repository recorded the event;
+- source publication/release time: when the exact source or normative profile edition was made available;
+- adapter acquisition/ingestion time: when the consuming organisation acquired and admitted exact bytes;
+- downstream materialization time: when a cache, search index or adapter made the version queryable;
+- actual run-context inclusion: whether the exact version was present in the evaluated candidate's context.
+
+These are separate observations, not aliases. In particular, EPCIS `recordTime` must not be used as proof that a downstream model or retrieval index could access an event, and an event's `eventTime` must not be used to backdate a correction into an earlier knowledge frontier. Where the consumer does not retain index/context receipts, report the affected submetric as unobservable or incomparable rather than assuming access or asserting vendor failure.
+
+The GS1 audit's 2.0.0/2.0.1 distinction also becomes a negative control: retain the exact validator/schema/context/SHACL dependency set named by the pinned normative source and compare it separately with the newer indexed artifact set. Do not substitute one for the other without an explicit profile/version decision. The #5395 owner still has to acquire exact bytes, capture hashes and execute the official validators; these scenarios are not evidence that this has happened.
+
+This is a semantic and evaluation overlay only. It composes with Mycelix #3022/#3046/#4778/#5451 and #1112, Symthaea #10600, and the domain-specific #5395/#6105 owners. Mycelix #5860 is referenced only for its DeSci receipt-time projection pattern and its explicit limitation that record receipt does not prove index/model availability. No generic temporal ledger, new event vocabulary, receipt schema or validator is added.
+
 ## 7. Prospective gates
 
 These are proposed test thresholds, not achieved results:
