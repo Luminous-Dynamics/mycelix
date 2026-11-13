@@ -83,6 +83,8 @@ pub struct MeasurementResult {
     pub acquisition_cost: u64,
     pub delay_cost: u64,
     pub net_evsi: Option<SignedRational>,
+    /// True only for the single highest strictly positive net-EVSI candidate
+    /// selected for the next acquisition from this frozen evidence snapshot.
     pub selected: bool,
 }
 
