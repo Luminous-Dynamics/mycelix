@@ -156,6 +156,146 @@
         "A climate-attributed migration or displacement event.",
         "An authorization to change abstraction, allocation or municipal water restrictions."
       ]
+    },
+    {
+      "source_id": "JHBW-CUST-2026-10-29",
+      "publisher": "Johannesburg Water SOC Ltd",
+      "title": "Customer Notice 29 October 2026",
+      "uri": "https://www.johannesburgwater.co.za/blog/2026/10/29/customer-notice-29-october-2026/",
+      "source_kind": "customer_notice_image_attachment",
+      "published_at_text": "2026-10-29 (page publication date; no time-of-day captured)",
+      "publication_time_is_not_event_time": true,
+      "valid_time": {
+        "status": "publication_snapshot_only",
+        "start": null,
+        "end": null,
+        "note": "Page provides a publication date only. Notice-image contents have not been transcribed or validated, so incident valid time is unknown."
+      },
+      "reported_geography": {
+        "reported_labels": [],
+        "spatial_resolution": "unknown; notice images not transcribed",
+        "geocoding_status": "not_geocoded"
+      },
+      "source_role": "operator_customer_notice_publication",
+      "reported_context": "The Johannesburg Water customer-notices archive links a dated customer-notice page. The page contains 0 image attachment(s) in the HTML listing as reviewed on 13 November 2026. Attachment contents have not been transcribed, geocoded or treated as event facts.",
+      "reported_numeric_context": [],
+      "content_acquisition": "public_html_reviewed_exact_bytes_not_pinned",
+      "content_sha256": null,
+      "rights_status": "unknown_not_assessed",
+      "evidence_class": "publisher_statement_or_inquiry_summary",
+      "claim_ceiling": "Evidence that Johannesburg Water published a dated customer-notice page with attached image media.",
+      "does_not_establish": [
+        "The notice image contents, affected locations or service areas.",
+        "Whether a planned or reported interruption actually occurred.",
+        "Outage start/end, affected household counts, pressure, delivered volume or restoration.",
+        "That a notice is an independent observation or customer-level service telemetry.",
+        "That an area not named in the page HTML was unaffected."
+      ]
+    },
+    {
+      "source_id": "JHBW-CUST-2026-10-30",
+      "publisher": "Johannesburg Water SOC Ltd",
+      "title": "Customer Notice 30 October 2026",
+      "uri": "https://www.johannesburgwater.co.za/blog/2026/10/30/customer-notice-30-october-2026/",
+      "source_kind": "customer_notice_image_attachment",
+      "published_at_text": "2026-10-30 (page publication date; no time-of-day captured)",
+      "publication_time_is_not_event_time": true,
+      "valid_time": {
+        "status": "publication_snapshot_only",
+        "start": null,
+        "end": null,
+        "note": "Page provides a publication date only. Notice-image contents have not been transcribed or validated, so incident valid time is unknown."
+      },
+      "reported_geography": {
+        "reported_labels": [],
+        "spatial_resolution": "unknown; notice images not transcribed",
+        "geocoding_status": "not_geocoded"
+      },
+      "source_role": "operator_customer_notice_publication",
+      "reported_context": "The Johannesburg Water customer-notices archive links a dated customer-notice page. The page contains 1 image attachment(s) in the HTML listing as reviewed on 13 November 2026. Attachment contents have not been transcribed, geocoded or treated as event facts.",
+      "reported_numeric_context": [],
+      "content_acquisition": "public_html_reviewed_exact_bytes_not_pinned",
+      "content_sha256": null,
+      "rights_status": "unknown_not_assessed",
+      "evidence_class": "publisher_statement_or_inquiry_summary",
+      "claim_ceiling": "Evidence that Johannesburg Water published a dated customer-notice page with attached image media.",
+      "does_not_establish": [
+        "The notice image contents, affected locations or service areas.",
+        "Whether a planned or reported interruption actually occurred.",
+        "Outage start/end, affected household counts, pressure, delivered volume or restoration.",
+        "That a notice is an independent observation or customer-level service telemetry.",
+        "That an area not named in the page HTML was unaffected."
+      ]
+    },
+    {
+      "source_id": "JHBW-CUST-2026-11-02",
+      "publisher": "Johannesburg Water SOC Ltd",
+      "title": "Customer Notice 2 November 2026",
+      "uri": "https://www.johannesburgwater.co.za/blog/2026/11/02/customer-notice-2-november-2026/",
+      "source_kind": "customer_notice_image_attachment",
+      "published_at_text": "2026-11-02 (page publication date; no time-of-day captured)",
+      "publication_time_is_not_event_time": true,
+      "valid_time": {
+        "status": "publication_snapshot_only",
+        "start": null,
+        "end": null,
+        "note": "Page provides a publication date only. Notice-image contents have not been transcribed or validated, so incident valid time is unknown."
+      },
+      "reported_geography": {
+        "reported_labels": [],
+        "spatial_resolution": "unknown; notice images not transcribed",
+        "geocoding_status": "not_geocoded"
+      },
+      "source_role": "operator_customer_notice_publication",
+      "reported_context": "The Johannesburg Water customer-notices archive links a dated customer-notice page. The page contains 3 image attachment(s) in the HTML listing as reviewed on 13 November 2026. Attachment contents have not been transcribed, geocoded or treated as event facts.",
+      "reported_numeric_context": [],
+      "content_acquisition": "public_html_reviewed_exact_bytes_not_pinned",
+      "content_sha256": null,
+      "rights_status": "unknown_not_assessed",
+      "evidence_class": "publisher_statement_or_inquiry_summary",
+      "claim_ceiling": "Evidence that Johannesburg Water published a dated customer-notice page with attached image media.",
+      "does_not_establish": [
+        "The notice image contents, affected locations or service areas.",
+        "Whether a planned or reported interruption actually occurred.",
+        "Outage start/end, affected household counts, pressure, delivered volume or restoration.",
+        "That a notice is an independent observation or customer-level service telemetry.",
+        "That an area not named in the page HTML was unaffected."
+      ]
+    },
+    {
+      "source_id": "JHBW-CUST-2026-11-05",
+      "publisher": "Johannesburg Water SOC Ltd",
+      "title": "Customer Notice 5 November 2026",
+      "uri": "https://www.johannesburgwater.co.za/blog/2026/11/05/customer-notice-5-november-2026/",
+      "source_kind": "customer_notice_image_attachment",
+      "published_at_text": "2026-11-05 (page publication date; no time-of-day captured)",
+      "publication_time_is_not_event_time": true,
+      "valid_time": {
+        "status": "publication_snapshot_only",
+        "start": null,
+        "end": null,
+        "note": "Page provides a publication date only. Notice-image contents have not been transcribed or validated, so incident valid time is unknown."
+      },
+      "reported_geography": {
+        "reported_labels": [],
+        "spatial_resolution": "unknown; notice images not transcribed",
+        "geocoding_status": "not_geocoded"
+      },
+      "source_role": "operator_customer_notice_publication",
+      "reported_context": "The Johannesburg Water customer-notices archive links a dated customer-notice page. The page contains 6 image attachment(s) in the HTML listing as reviewed on 13 November 2026. Attachment contents have not been transcribed, geocoded or treated as event facts.",
+      "reported_numeric_context": [],
+      "content_acquisition": "public_html_reviewed_exact_bytes_not_pinned",
+      "content_sha256": null,
+      "rights_status": "unknown_not_assessed",
+      "evidence_class": "publisher_statement_or_inquiry_summary",
+      "claim_ceiling": "Evidence that Johannesburg Water published a dated customer-notice page with attached image media.",
+      "does_not_establish": [
+        "The notice image contents, affected locations or service areas.",
+        "Whether a planned or reported interruption actually occurred.",
+        "Outage start/end, affected household counts, pressure, delivered volume or restoration.",
+        "That a notice is an independent observation or customer-level service telemetry.",
+        "That an area not named in the page HTML was unaffected."
+      ]
     }
   ],
   "interpretation_rules": [
