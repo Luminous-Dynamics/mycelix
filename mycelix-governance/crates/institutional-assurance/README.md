@@ -28,7 +28,9 @@ coalition's effective ability to exercise agenda, appointments, authorization
 and treasury custody, then checks independent audit/appeal capacity. Its
 outcomes distinguish capture detected, no capture observed within the fixture,
 and execution unavailable. Missing/malformed domains and invalid controller
-sets return typed input errors.
+sets return typed input errors. The receipt exposes the policy ID/version and
+scenario-local pseudonymous controller IDs, separated into authorized,
+available, coalition-available and independent-available sets.
 
 ## Run
 
@@ -50,7 +52,7 @@ more expected outcomes do not match.
 
 This is a synthetic assurance fixture. A passing S2 suite means only that the specified policy behavior matches its
 twenty fixture expectations. A passing S3 suite means only that the bounded
-capture predicate matches its eight synthetic known-answer cases on the tested
+capture predicate matches its nine synthetic known-answer cases on the tested
 revision. It does not demonstrate that:
 
 - the production Holochain zomes enforce the same policy;
