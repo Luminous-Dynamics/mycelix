@@ -1,0 +1,225 @@
+schema: lise.ipb.scenario-manifest.v0
+suite_id: IPB-S5-CONTINUITY-SUCCESSION-v0
+scenario_id: member-institution-critical-service-and-treasury-recovery
+scenario_version: 1
+claim_scope: synthetic_authority_preserving_continuity_fixture
+evidence_tier: deterministic_software_benchmark_specification
+status: frozen_reference_specification_draft
+
+scenario_principle:
+  continuity_of_function_does_not_imply_continuity_of_operator_power: true
+  current_local_authority_required_after_recovery: true
+  no_universal_recovery_superuser: true
+  unknown_recovery_state_blocks_unsafe_mutation: true
+  service_availability_and_authority_validity_are_separate_outcomes: true
+
+fixture_clock:
+  unit: millisecond
+  origin: 0
+  wall_clock_dependency: false
+  network_dependency: none_for_reference_fixture
+
+institution:
+  institution_id: member-institution-a
+  constitution_id: constitution-a
+  constitution_version: 1
+  local_policy_id: lise-s5-policy
+  local_policy_version: 1
+  essential_service_id: community-service-01
+  critical_resource_id: community-fund-01
+
+roles:
+  - role_id: incumbent-administrator
+    purpose: routine_administration
+  - role_id: governing-council
+    purpose: constitutional_successor_authorization
+  - role_id: key-custodian-a
+    purpose: scoped_key_recovery
+  - role_id: key-custodian-b
+    purpose: scoped_key_recovery
+  - role_id: continuity-operator
+    purpose: execute_preapproved_recovery_steps
+  - role_id: independent-reviewer
+    purpose: review_recovery_and_remedy
+  - role_id: service-provider-primary
+    purpose: deliver_community_service
+  - role_id: service-provider-backup
+    purpose: approved_failover_service
+
+recovery_policy:
+  succession:
+    governing_authority: governing-council
+    required_approvals: 2
+    eligible_approvers:
+      - key-custodian-a
+      - key-custodian-b
+      - independent-reviewer
+    successor_cannot_appoint_itself: true
+    authority_scope_inherited: none_by_default
+  key_recovery:
+    required_approvals: 2
+    total_eligible_custodians: 3
+    old_key_revocation_required: true
+    key_possession_grants_authority: false
+  emergency_authority:
+    maximum_duration_ms: 3600000
+    renewal_requires_ordinary_governance: true
+    retrospective_review_required: true
+  recovery_mutation:
+    unknown_outcome_requires_reconciliation: true
+    blind_retry_permitted: false
+  independent_oversight:
+    separate_reviewer_required_for_high_impact_actions: true
+
+critical_functions:
+  - function_id: member-service-read
+    minimum_degraded_capacity_percent: 25
+    recovery_time_objective_ms: 1800000
+    recovery_point_objective_ms: 300000
+    mutation_class: read_only
+  - function_id: treasury-outbound
+    minimum_degraded_capacity_percent: 0
+    recovery_time_objective_ms: 14400000
+    recovery_point_objective_ms: 0
+    mutation_class: high_impact
+  - function_id: governance-record-read
+    minimum_degraded_capacity_percent: 100
+    recovery_time_objective_ms: 1800000
+    recovery_point_objective_ms: 0
+    mutation_class: read_only
+  - function_id: policy-amendment
+    minimum_degraded_capacity_percent: 0
+    recovery_time_objective_ms: 86400000
+    recovery_point_objective_ms: 0
+    mutation_class: high_impact
+
+expected_cases:
+  - case_id: s5-positive-normal-succession
+    class: positive_control
+    expected_disposition: recovered_under_current_authority
+    mutations:
+      - governing-council-approved-successor
+      - only-explicitly-transferred-capabilities-are-effective
+  - case_id: s5-positive-founder-unavailable
+    class: positive_control
+    expected_disposition: recovered_under_current_authority
+    mutations:
+      - incumbent-administrator-unavailable
+      - two-authorized-succession-approvals-present
+  - case_id: s5-positive-single-key-loss
+    class: positive_control
+    expected_disposition: recovered_under_current_authority
+    mutations:
+      - one-signing-key-lost
+      - threshold-key-recovery-completes
+      - resource-and-scope-restrictions-retained
+  - case_id: s5-negative-compromised-key-replay
+    class: negative_control
+    expected_disposition: stale_or_revoked_authority_rejected
+    mutations:
+      - old-key-compromised
+      - old-key-revoked
+      - replay-old-assertion-after-revocation
+  - case_id: s5-positive-primary-provider-outage
+    class: positive_control
+    expected_disposition: degraded_but_safely_operating
+    mutations:
+      - primary-provider-unavailable
+      - approved-backup-provider-available
+      - local-authority-and-purpose-scope-unchanged
+  - case_id: s5-negative-stale-backup-policy
+    class: negative_control
+    expected_disposition: recovery_incomplete_capability_paused
+    mutations:
+      - restore-backup-with-policy-version-0
+      - current-policy-version-1
+      - no-high-impact-mutation-before-reconciliation
+  - case_id: s5-negative-recovery-operator-self-appointment
+    class: negative_control
+    expected_disposition: unauthorized_recovery_rejected
+    mutations:
+      - continuity-operator-adds-itself-as-governing-council-successor
+      - no-current-constitutional-authorization
+  - case_id: s5-negative-insufficient-recovery-quorum
+    class: negative_control
+    expected_disposition: affected_capability_paused
+    mutations:
+      - only-one-of-two-required-custodians-available
+      - preserve-read-only-service
+      - treasury-and-policy-mutations-remain-paused
+  - case_id: s5-stress-correlated-recovery-custodians
+    class: indeterminate_control
+    expected_disposition: independence_indeterminate
+    mutations:
+      - two-recovery-custodians-share-one-unresolved-control-domain
+      - dependency-inventory-incomplete
+      - no-independent-oversight-claim
+  - case_id: s5-positive-emergency-authority-sunset
+    class: positive_control
+    expected_disposition: recovered_with_emergency_scope_expired
+    mutations:
+      - temporary-emergency-capability-granted-under-approved-policy
+      - exercise-within-scope-before-expiry
+      - expire-at-3600000-ms
+      - require-ordinary-governance-for-renewal
+  - case_id: s5-positive-provider-replacement
+    class: positive_control
+    expected_disposition: provider_replaced_with_evidence_preserved
+    mutations:
+      - primary-provider-exits
+      - backup-provider-accepted-under-current-policy
+      - preserve-source-records-and-remedy-refs
+  - case_id: s5-stress-backup-completeness-unknown
+    class: indeterminate_control
+    expected_disposition: recovery_incomplete_indeterminate
+    mutations:
+      - one-recovery-snapshot-source-is-unavailable
+      - known-records-retained
+      - missing-remainder-remains-unknown
+  - case_id: s5-stress-in-flight-execution-unknown
+    class: indeterminate_control
+    expected_disposition: reconciliation_required
+    mutations:
+      - executor-may-have-applied-payment
+      - response-timeout
+      - preserve-operation-id
+      - block-new-mutation-and-blind-retry
+  - case_id: s5-positive-dissolution-records-preservation
+    class: positive_lifecycle_control
+    expected_disposition: dissolved_with_obligations_and_remedies_preserved
+    mutations:
+      - institution-enters-approved-dissolution
+      - no-new-work
+      - settle-or-explicitly-retain-open-obligations
+      - preserve-minimum-required-audit-and-remedy-records
+  - case_id: s5-positive-knowledge-custodian-departure
+    class: positive_control
+    expected_disposition: recovered_under_current_authority
+    mutations:
+      - sole-knowledge-custodian-unavailable
+      - successor-reconstructs-from-versioned-policy-and-evidence
+      - independent-reviewer-replays-recovery
+
+expected_case_count: 15
+suite_invariants:
+  unauthorized_consequential_actions_during_recovery: 0
+  self_appointed_successors: 0
+  revoked_assertions_authorizing_new_work: 0
+  blind_retries_after_unknown_mutation: 0
+  unknown_inventory_promoted_to_complete_recovery: 0
+  authority_scope_expansion_by_recovery: 0
+  service_availability_equals_authority_validity: false
+  random_seed: none
+  wall_clock_dependency: false
+  production_authorization: false
+
+evidence_ceiling:
+  demonstrates:
+    - conformance_to_this_synthetic_recovery_scenario_contract
+    - deterministic_expected_dispositions_when_executed
+  does_not_demonstrate:
+    - production_disaster_recovery_capability
+    - legal_or_regulatory_compliance
+    - actual_continuity_of_a_real_institution
+    - real_world_independence_of_recovery_actors
+    - absence_of_unknown_common_causes
