@@ -243,6 +243,7 @@ pub fn evaluate_approval(scenario_id: &str, input: &EvaluationInput) -> Evidence
         policy_sha256: &policy_sha256,
         input_sha256: &input_sha256,
     };
+    let receipt_sha256 = digest(&material);
 
     EvidenceReceipt {
         schema: RECEIPT_SCHEMA.to_owned(),
@@ -258,7 +259,7 @@ pub fn evaluate_approval(scenario_id: &str, input: &EvaluationInput) -> Evidence
         reason,
         policy_sha256,
         input_sha256,
-        receipt_sha256: digest(&material),
+        receipt_sha256,
     }
 }
 
