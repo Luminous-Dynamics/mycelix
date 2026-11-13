@@ -1081,13 +1081,7 @@ mod tests {
     #[test]
     fn duplicate_option_ids_are_rejected() {
         let duplicate = option(100);
-        assert!(evaluate(
-            &scenario(),
-            &[duplicate.clone(), duplicate],
-            &[],
-            &[]
-        )
-        .is_err());
+        assert!(evaluate(&scenario(), &[duplicate.clone(), duplicate], &[], &[]).is_err());
     }
 
     #[test]
