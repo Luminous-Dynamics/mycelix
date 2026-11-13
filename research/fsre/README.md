@@ -16,6 +16,7 @@ It is not a new civic-governance programme, a second civilization simulator, an 
 - [Competitive landscape](COMPETITIVE_LANDSCAPE_V0_1.md) — direct comparison with enterprise ontology, asset-performance, infrastructure-twin and water-operations products, with testable differentiation hypotheses.
 - [South African public-data inventory](ZA_PUBLIC_DATA_INVENTORY_V0_1.md) — dated water/sanitation data sources, admissibility, missingness and the minimum operator evidence needed for a qualified service study.
 - [Option-preserving resilience benchmark](OPTION_PRESERVING_RESILIENCE_V0_1.md) — service trajectories, qualified recovery options, graceful degradation and falsification tests.
+- [Resilience debt and option-preserving investment](RESILIENCE_DEBT_AND_PORTFOLIO_V0_1.md) — derived resilience liabilities, workforce/supplier/maintenance constraints and multi-objective investment portfolios.
 - [Service-trajectory reference evaluator](../../tools/fsre-service-trajectory/README.md) — a dependency-free Rust metric evaluator for one service/cohort time series.
 - [South African municipal water cascade fixture](scenarios/ZA_MUNICIPAL_WATER_CASCADE_SYNTHETIC_V0_1.json) — a fully synthetic graph for deterministic failure-propagation tests.
 
