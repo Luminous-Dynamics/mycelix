@@ -1,0 +1,196 @@
+{
+  "schema_version": "0.1.0",
+  "corpus_id": "johannesburg-water-event-graph-negative-controls-v0.1",
+  "as_of_date": "2026-11-13",
+  "intended_use": "Deterministic contract and adjudication test vectors for source-assertion/event identity, temporal semantics, spatial scope and restoration evidence.",
+  "evidence_note": "Cases marked observed_register_fixture refer only to the metadata-only source register and manually reviewed notice transcriptions. All other cases are synthetic adversarial descriptions, not real incidents.",
+  "cases": [
+    {
+      "case_id": "JHBW-EG-NC-001",
+      "source_type": "observed_register_fixture",
+      "input_assertion_ids": [
+        "JHBW.A.LONEHILL.20261105.1220",
+        "JHBW.A.LONEHILL.20261105.2050"
+      ],
+      "scenario": "Two notices on the same date identify the identical Lonehill burst intersection and asset; the source register says the later notice is an update.",
+      "expected_disposition": "one_event_two_assertions",
+      "required_relation": "updates",
+      "adjudication": "manual_source_review",
+      "forbidden_inferences": [
+        "Two physical bursts",
+        "Known burst onset",
+        "Known restoration",
+        "Verified customer count"
+      ]
+    },
+    {
+      "case_id": "JHBW-EG-NC-002",
+      "source_type": "synthetic_negative_control",
+      "input_assertion_ids": [],
+      "scenario": "Two burst notices name the same suburb but different street locations and different assets on the same date.",
+      "expected_disposition": "separate_events",
+      "required_relation": null,
+      "adjudication": "do_not_merge",
+      "forbidden_inferences": [
+        "Merge because suburb labels overlap"
+      ]
+    },
+    {
+      "case_id": "JHBW-EG-NC-003",
+      "source_type": "synthetic_negative_control",
+      "input_assertion_ids": [],
+      "scenario": "Two notices name the same reported asset but occur weeks apart, with no explicit continuity or update reference.",
+      "expected_disposition": "abstain_grouping",
+      "required_relation": null,
+      "adjudication": "human_review_required",
+      "forbidden_inferences": [
+        "Assume one incident from asset name alone"
+      ]
+    },
+    {
+      "case_id": "JHBW-EG-NC-004",
+      "source_type": "observed_register_fixture",
+      "input_assertion_ids": [
+        "JHBW.A.HIGHLEVEL.SCHEDULE.20261102.1635"
+      ],
+      "scenario": "One notice announces a daily 14:00–04:00 outlet closure from 3 November until further notice.",
+      "expected_disposition": "one_schedule_zero_occurrence_events",
+      "required_relation": null,
+      "adjudication": "source_asserted_schedule_only",
+      "forbidden_inferences": [
+        "Generate daily occurrence records",
+        "Assume every scheduled closure executed",
+        "Infer schedule end date"
+      ]
+    },
+    {
+      "case_id": "JHBW-EG-NC-005",
+      "source_type": "observed_register_fixture",
+      "input_assertion_ids": [
+        "JHBW.A.CITYCAP.20261103.1240",
+        "JHBW.A.CITYCAP.20261104.1105",
+        "JHBW.A.CITYCAP.20261105.1320"
+      ],
+      "scenario": "Three notices report City system-capacity percentages but provide no common metric method, denominator or telemetry.",
+      "expected_disposition": "separate_snapshots_no_series",
+      "required_relation": null,
+      "adjudication": "not_comparable",
+      "forbidden_inferences": [
+        "Fit a calibrated trend",
+        "Treat values as sensor observations",
+        "Infer household water availability"
+      ]
+    },
+    {
+      "case_id": "JHBW-EG-NC-006",
+      "source_type": "synthetic_negative_control",
+      "input_assertion_ids": [],
+      "scenario": "A notice is published at 12:20 and says a pipe burst was discovered; no physical onset time is stated.",
+      "expected_disposition": "abstain_event_time_unknown",
+      "required_relation": null,
+      "adjudication": "retain_report_time_only",
+      "forbidden_inferences": [
+        "Set physical onset equal to publication time"
+      ]
+    },
+    {
+      "case_id": "JHBW-EG-NC-007",
+      "source_type": "synthetic_negative_control",
+      "input_assertion_ids": [],
+      "scenario": "Two notices for the same location and approximate period report incompatible affected-area lists and contradictory repair status.",
+      "expected_disposition": "preserve_conflict",
+      "required_relation": "contradicts",
+      "adjudication": "unresolved_until_corroborated",
+      "forbidden_inferences": [
+        "Last-write-wins overwrite",
+        "Resolve by source majority without authority"
+      ]
+    },
+    {
+      "case_id": "JHBW-EG-NC-008",
+      "source_type": "synthetic_negative_control",
+      "input_assertion_ids": [],
+      "scenario": "An operator publishes a correction to an earlier notice, changing the reported incident status.",
+      "expected_disposition": "append_supersession_edge",
+      "required_relation": "supersedes",
+      "adjudication": "preserve_both_assertions",
+      "forbidden_inferences": [
+        "Delete or mutate the earlier assertion"
+      ]
+    },
+    {
+      "case_id": "JHBW-EG-NC-009",
+      "source_type": "synthetic_negative_control",
+      "input_assertion_ids": [],
+      "scenario": "A security notice describes theft, tampering or unlawful reconnection but no water-supply interruption.",
+      "expected_disposition": "separate_notice_class_no_outage",
+      "required_relation": null,
+      "adjudication": "exclude_from_outage_counts",
+      "forbidden_inferences": [
+        "Classify as a burst or outage",
+        "Infer affected customers"
+      ]
+    },
+    {
+      "case_id": "JHBW-EG-NC-010",
+      "source_type": "synthetic_negative_control",
+      "input_assertion_ids": [],
+      "scenario": "A burst notice does not provide an estimated restoration time.",
+      "expected_disposition": "restoration_unknown",
+      "required_relation": null,
+      "adjudication": "unknown_not_zero",
+      "forbidden_inferences": [
+        "Set restoration duration to zero",
+        "Infer that service has or has not been restored"
+      ]
+    },
+    {
+      "case_id": "JHBW-EG-NC-011",
+      "source_type": "synthetic_negative_control",
+      "input_assertion_ids": [],
+      "scenario": "A later operator notice says repairs are complete; there is no pressure, flow, meter, customer or independent observation.",
+      "expected_disposition": "operator_reported_restoration_only",
+      "required_relation": "updates",
+      "adjudication": "operator_reported_not_verified",
+      "forbidden_inferences": [
+        "Mark independently restored",
+        "Infer household service is normal"
+      ]
+    },
+    {
+      "case_id": "JHBW-EG-NC-012",
+      "source_type": "synthetic_negative_control",
+      "input_assertion_ids": [],
+      "scenario": "A notice names suburbs and a street but no authoritative service polygon, GIS geometry or customer connection mapping.",
+      "expected_disposition": "spatial_scope_unverified",
+      "required_relation": null,
+      "adjudication": "abstain_spatial_assignment",
+      "forbidden_inferences": [
+        "Treat suburb list as polygon",
+        "Assign every household in named area"
+      ]
+    },
+    {
+      "case_id": "JHBW-EG-NC-013",
+      "source_type": "synthetic_negative_control",
+      "input_assertion_ids": [],
+      "scenario": "Two reports refer to the same suburb, one burst asset and a nearby but distinct asset; exact asset identity conflicts.",
+      "expected_disposition": "separate_or_abstain",
+      "required_relation": null,
+      "adjudication": "no_automatic_merge",
+      "forbidden_inferences": [
+        "Merge on place-name overlap",
+        "Select one asset without evidence"
+      ]
+    }
+  ],
+  "acceptance_rules": [
+    "Every observed_register_fixture input_assertion_id must resolve in the companion event graph fixture.",
+    "Synthetic controls must never be represented as Johannesburg incidents or training labels.",
+    "All expected dispositions are contract expectations, not proof that an implementation currently passes them.",
+    "Any ambiguous grouping must abstain or require human adjudication; false merges are more costly than reported false splits.",
+    "Publisher-reported repair completion is not independent restoration evidence.",
+    "A missing value or time remains unknown, not zero."
+  ],
+  "claim_ceiling": "A test-vector specification only. No implementation test, Rust test, schema-validation result, source acquisition or field outcome is implied."
+}
