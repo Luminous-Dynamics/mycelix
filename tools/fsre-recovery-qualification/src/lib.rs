@@ -504,10 +504,13 @@ pub fn evaluate(
         ));
     }
 
-    if options.iter().any(|option| {
-        option.option_id.trim().is_empty() || option.service_id.trim().is_empty()
-    }) {
-        return Err(InputError("option_id and service_id must not be empty".to_owned()));
+    if options
+        .iter()
+        .any(|option| option.option_id.trim().is_empty() || option.service_id.trim().is_empty())
+    {
+        return Err(InputError(
+            "option_id and service_id must not be empty".to_owned(),
+        ));
     }
     let option_ids: BTreeSet<&str> = options
         .iter()
@@ -554,7 +557,10 @@ pub fn evaluate(
             )));
         }
         let schema_owner_prefix = format!("{}.", record.predicate.expected_owner());
-        if !record.source_schema_version.starts_with(&schema_owner_prefix) {
+        if !record
+            .source_schema_version
+            .starts_with(&schema_owner_prefix)
+        {
             return Err(InputError(format!(
                 "source schema owner mismatch for {}:{}",
                 record.option_id,
@@ -730,7 +736,9 @@ mod tests {
     fn scenario() -> Scenario {
         Scenario {
             scenario_id: "synthetic-test".to_owned(),
-            scenario_digest: "sha256:e0c7ab32fbe26b7d8fb3010ecd566f56aef1e593c97ec416f7a4a30108d6a857".to_owned(),
+            scenario_digest:
+                "sha256:e0c7ab32fbe26b7d8fb3010ecd566f56aef1e593c97ec416f7a4a30108d6a857"
+                    .to_owned(),
             time_basis_id: "synthetic-clock-v1".to_owned(),
             evaluation_time_seconds: 100,
             clock_uncertainty_seconds: 0,
@@ -943,7 +951,6 @@ mod tests {
         assert!(evaluate(&bounded_scenario, &[option(100)], &[], &records).is_err());
     }
 
-
     #[test]
     fn service_binding_mismatch_is_rejected() {
         let mut records = all_qualified();
@@ -957,7 +964,6 @@ mod tests {
         records[0].scenario_digest = "synthetic:scenario-digest:older-v0".to_owned();
         assert!(evaluate(&scenario(), &[option(100)], &[], &records).is_err());
     }
-
 
     #[test]
     fn source_schema_namespace_must_match_predicate_owner() {
