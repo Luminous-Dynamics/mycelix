@@ -12,6 +12,7 @@ It is not a new civic-governance programme, a second civilization simulator, an 
 
 - [Architecture v0.1](ARCHITECTURE_V0_1.md) — system boundaries, contracts, federation, safety invariants and deployment model.
 - [Benchmark protocol v0.1](BENCHMARK_PROTOCOL_V0_1.md) — comparison baselines, test tiers, metrics, provisional targets and evidence rules.
+- [Verifier independence and model-disagreement benchmark](VERIFIER_AND_MODEL_DISAGREEMENT_BENCHMARK_V0_1.md) — differential evaluator checks, metamorphic tests, negative-control mutations, model disagreement and independent re-hosting.
 - [Standards and industry crosswalk](FRAMEWORK_CROSSWALK_V0_1.md) — positioning against existing resilience, critical-entity and digital-government frameworks.
 - [Competitive landscape](COMPETITIVE_LANDSCAPE_V0_1.md) — direct comparison with enterprise ontology, asset-performance, infrastructure-twin and water-operations products, with testable differentiation hypotheses.
 - [South African public-data inventory](ZA_PUBLIC_DATA_INVENTORY_V0_1.md) — dated water/sanitation data sources, admissibility, missingness and the minimum operator evidence needed for a qualified service study.
