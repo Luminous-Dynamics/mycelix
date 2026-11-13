@@ -727,7 +727,7 @@ pub fn validate(
     if !register
         .get("claim_ceiling")
         .and_then(Value::as_str)
-        .is_some_and(|text| text.contains("metadata-only"))
+        .is_some_and(|text| text.to_ascii_lowercase().contains("metadata-only"))
     {
         errors.push("source register claim ceiling is missing or has been broadened".to_owned());
     }
