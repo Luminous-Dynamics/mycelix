@@ -760,15 +760,19 @@ mod tests {
     }
 
     #[test]
-    fn zero_predictive_probability_outcome_is_rejected() {
+    fn zero_predictive_probability_outcomes_are_omitted_from_recommendations() {
         let mut measurement = discriminating_measurement("zero-outcome");
         measurement.outcomes.push(Outcome {
             id: "impossible".to_owned(),
             likelihood_weight_by_hypothesis: vec![0, 0],
         });
-        assert!(evaluate(&decision_case(), &[measurement])
-            .unwrap_err()
-            .contains("zero predictive probability"));
+        let result = &evaluate(&decision_case(), &[measurement])
+            .expect("impossible outcomes should not invalidate a measurement")[0];
+        assert_eq!(result.outcome_choices.len(), 2);
+        assert!(result
+            .outcome_choices
+            .iter()
+            .all(|choice| choice.outcome_id != "impossible"));
     }
 
     #[test]
@@ -990,6 +994,113 @@ mod tests {
         let first = evaluate(&case, &[discriminating_measurement("same")]).expect("first");
         let second = evaluate(&other, &[discriminating_measurement("same")]).expect("second");
         assert_eq!(first, second);
+    }
+
+    #[test]
+    fn only_the_highest_positive_net_evsi_measurement_is_selected() {
+        let mut more_expensive = discriminating_measurement("z-flow-survey");
+        more_expensive.acquisition_cost = 8;
+        let less_expensive = discriminating_measurement("a-meter-check");
+        let results = evaluate(
+            &decision_case(),
+            &[more_expensive, less_expensive],
+        )
+        .expect("both candidate measurements should validate");
+        assert_eq!(results.len(), 2);
+        assert_eq!(results[0].measurement_id, "a-meter-check");
+        assert!(results[0].selected);
+        assert!(!results[1].selected);
+    }
+
+    #[test]
+    fn measurement_outcome_conditions_next_snapshot_exactly() {
+        let case = decision_case();
+        let first = discriminating_measurement("first-check");
+        let posterior = condition_case_on_outcome(&case, &first, "red")
+            .expect("authorised safe observation should condition the case");
+        assert_eq!(
+            posterior
+                .hypotheses
+                .iter()
+                .map(|hypothesis| hypothesis.prior_weight)
+                .collect::<Vec<_>>(),
+            vec![9, 1]
+        );
+
+        let second = Measurement {
+            id: "second-check".to_owned(),
+            authorised: true,
+            safe: true,
+            acquisition_cost: 1,
+            delay_cost: 0,
+            outcomes: vec![
+                Outcome {
+                    id: "cause-a".to_owned(),
+                    likelihood_weight_by_hypothesis: vec![100, 0],
+                },
+                Outcome {
+                    id: "cause-b".to_owned(),
+                    likelihood_weight_by_hypothesis: vec![0, 100],
+                },
+            ],
+        };
+        let ranked = evaluate(&posterior, &[second]).expect("posterior case should evaluate");
+        assert_eq!(ranked[0].baseline_action_id.as_deref(), Some("ACTION_A"));
+        assert_eq!(ranked[0].outcome_choices.len(), 2);
+    }
+
+    #[test]
+    fn impossible_outcome_is_skipped_after_perfect_prior_observation() {
+        let case = decision_case();
+        let perfect = Measurement {
+            id: "perfect-check".to_owned(),
+            authorised: true,
+            safe: true,
+            acquisition_cost: 0,
+            delay_cost: 0,
+            outcomes: vec![
+                Outcome {
+                    id: "cause-a".to_owned(),
+                    likelihood_weight_by_hypothesis: vec![100, 0],
+                },
+                Outcome {
+                    id: "cause-b".to_owned(),
+                    likelihood_weight_by_hypothesis: vec![0, 100],
+                },
+            ],
+        };
+        let posterior = condition_case_on_outcome(&case, &perfect, "cause-a")
+            .expect("cause-a should be possible");
+        assert_eq!(
+            posterior
+                .hypotheses
+                .iter()
+                .map(|hypothesis| hypothesis.prior_weight)
+                .collect::<Vec<_>>(),
+            vec![1, 0]
+        );
+        let ranked = evaluate(&posterior, &[perfect.clone()])
+            .expect("perfect measurement should evaluate against posterior");
+        assert_eq!(ranked[0].outcome_choices.len(), 1);
+        assert_eq!(ranked[0].outcome_choices[0].outcome_id, "cause-a");
+        assert!(condition_case_on_outcome(&posterior, &perfect, "cause-b")
+            .unwrap_err()
+            .contains("impossible"));
+    }
+
+    #[test]
+    fn unauthorised_or_unsafe_measurements_cannot_condition_a_snapshot() {
+        let case = decision_case();
+        let mut unauthorised = discriminating_measurement("unauthorised");
+        unauthorised.authorised = false;
+        assert!(condition_case_on_outcome(&case, &unauthorised, "red")
+            .unwrap_err()
+            .contains("unauthorised"));
+        let mut unsafe_measurement = discriminating_measurement("unsafe");
+        unsafe_measurement.safe = false;
+        assert!(condition_case_on_outcome(&case, &unsafe_measurement, "red")
+            .unwrap_err()
+            .contains("unsafe"));
     }
 
     #[test]
