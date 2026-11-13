@@ -1,0 +1,17 @@
+# balance_id=synthetic-unknown-bypass-catchment-period-01
+# service_id=synthetic-wastewater-service
+# scenario_id=synthetic-unmetered-bypass
+# scope_ref=synthetic:catchment-boundary-01
+# time_basis_id=synthetic-clock-v1
+# geography_id=synthetic-catchment-01
+# period_start_seconds=100
+# period_end_seconds=200
+# unit=m3
+# boundary_description=synthetic accounting boundary with unknown bypass flow
+term_id|status|lower|upper|source_owner|source_ref|source_schema_version|admissibility|time_basis_id|geography_id|period_start_seconds|period_end_seconds|correlation_group|method_id|reason
+generation|ESTIMATED_INTERVAL|1000|1100|synthetic-model|synthetic:generation|model.volume.v0.1|SYNTHETIC|synthetic-clock-v1|synthetic-catchment-01|100|200|cohort-estimator-a|synthetic-generation-v1|
+other_inflows|NOT_APPLICABLE|0|0|synthetic-boundary|synthetic:boundary|boundary.term.v0.1|SYNTHETIC|synthetic-clock-v1|synthetic-catchment-01|100|200||synthetic-boundary-v1|excluded by boundary
+treated|OBSERVED_INTERVAL|700|800|synthetic-operator|synthetic:treated|meter.volume.v0.1|SYNTHETIC|synthetic-clock-v1|synthetic-catchment-01|100|200|metering-system-a|synthetic-meter-v1|
+bypass|UNKNOWN|||synthetic-operator|synthetic:bypass|incident.report.v0.1|SYNTHETIC|synthetic-clock-v1|synthetic-catchment-01|100|200|metering-system-a|synthetic-unknown-v1|bypass flow not metered in synthetic case
+reuse|NOT_APPLICABLE|0|0|synthetic-boundary|synthetic:reuse|boundary.term.v0.1|SYNTHETIC|synthetic-clock-v1|synthetic-catchment-01|100|200||synthetic-boundary-v1|excluded by boundary
+storage_change|ESTIMATED_INTERVAL|-10|10|synthetic-model|synthetic:storage|storage.delta.v0.1|SYNTHETIC|synthetic-clock-v1|synthetic-catchment-01|100|200|cohort-estimator-a|synthetic-storage-v1|
