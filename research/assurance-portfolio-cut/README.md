@@ -234,3 +234,17 @@ The current dependency manifest model treats a dependency key as a single point 
 
 The added v0.2 tests also verify that a complete profile can only be combined with its exact dependency manifest, that substituted domain identities fail even when the digest labels are left unchanged, that incomplete profiles cannot be promoted into cut-set analysis, and that candidate-extension accounting is invariant under role input order.
 
+
+
+## Multi-valued dependency extension (draft, 2026-11-13)
+
+The follow-on branch `research/assurance-multivalue-dependencies-v0` extends the existing finite model for #5762/#5695; it does not create a second graph or cut-set engine.
+
+- A role/dimension can now retain multiple exact `(dimension, identity)` dependency keys. Two host, source, registry or execution dependencies in the same canonical dimension are no longer collapsed or rejected simply because there is more than one.
+- `KnownDependencies::Complete` says the full claim-critical inventory for that dimension is declared. `KnownDependencies::Partial` retains its known identities while recording an unresolved remainder. A partial set makes the profile incomplete and cannot yield a numeric minimum cut cardinality.
+- An explicitly `Unknown` dimension now always blocks a numeric cut-set result, even if other dimensions in the role have known dependencies. This closes a validator gap where an unknown-only dimension could previously be counted as fully classified.
+- Cross-role overlap is reported using each exact dimension-qualified identity. Identical digest bytes in different dimensions remain different fault-domain keys.
+- Profile-to-manifest binding expands every listed identity and retains completeness and accepted-sharing rationale. A digest label alone cannot conceal a substituted identity.
+- Regression tests cover multi-value same-dimension overlap, partial known-plus-unknown inventories, dimension-qualified key collisions, and exact agreement with the independent brute-force enumerator on the multi-value fixture.
+
+The model remains conditional on the supplied inventory and the any-listed-key-compromise fault semantics. It does not yet ingest the canonical transitive dependency graph from #1243; cycle detection, dangling-edge/stale-evidence checks and graph-derived closure remain a separate owner-native integration. This branch is still a research increment stacked on draft PR #5696 and has no hosted validation result yet.
