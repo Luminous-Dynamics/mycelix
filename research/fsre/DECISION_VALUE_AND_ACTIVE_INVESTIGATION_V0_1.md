@@ -232,4 +232,4 @@ The decision-value hypothesis is weakened or falsified if:
 5. Have an independent reviewer inspect loss functions, probability calibration, rights/safety constraints and sealed-case generation.
 6. Only after synthetic evaluation, seek operator-approved historical replay and read-only shadow evaluation. Any prospective measurement, installation or intervention requires explicit operator and data-owner permission.
 
-**Current status:** protocol only. No active measurement policy, EVSI result, field decision, sensor deployment or intervention is claimed in this commit.
+**Current status:** the protocol is implemented as research text, and `tools/fsre-decision-value` provides an initial exact finite-case Rust reference with synthetic unit tests. The reference is not yet connected to Symthaea, has no independently sealed 50-case challenge corpus, and has no calibrated model, field decision, sensor deployment or intervention result. Its focused workflow must pass before its software conformance can be claimed.
