@@ -112,6 +112,14 @@ The scientific motivation is supported by 2026 water-resources work on decision-
 
 A first executable, dependency-free Rust reference now exists at `tools/fsre-decision-value`. It computes finite-case EVSI from integer prior/likelihood weights and integer loss/cost units, emits baseline and outcome-conditioned actions, and blocks unauthorised or unsafe measurements before producing an EVSI. It requires an admissible `NO_ACTION` option, rejects malformed likelihood totals and zero-probability outcome rows, and checks exact rational results. The current API keeps the action-admissibility set fixed before measurement; it is not a calibrated Bayesian model, full decision policy, or independent implementation of Symthaea. Its focused workflow is a fresh check, not yet an established pass.
 
+## 2.3 Active investigation and decision-value lane
+
+Use the FSRE decision-value reference to compare information-gathering policies against fixed-cadence sampling, random acquisition, maximum entropy reduction, maximum predictive-uncertainty reduction, risk-priority sampling, current operator practice, expert investigation and finite-horizon dynamic-programming or search-based policies where feasible. Match the initial evidence snapshot, hypotheses, action set, candidate measurement catalogue, source permissions, acquisition and delay costs, compute, wall-clock budget and stopping criteria.
+
+The reference now evaluates candidates against one frozen snapshot and chooses only the single highest strictly positive net-EVSI next measurement. This explicitly avoids adding individual EVSI values from measurements that may be redundant. After an authorised safe observation, it reconditions hypothesis weights from the owner-qualified outcome and reranks the next candidates. This is a greedy one-step strategy; it must be compared with a finite-horizon baseline before claiming sequential optimality.
+
+Measure decision regret, correction rate, net benefit per total acquisition cost, unnecessary acquisitions, time to decision-quality evidence, safe abstention, calibration, measurement failures, and service-cohort distribution. Include cases where information gain is high but decision value is zero, where measurements are redundant, where the best candidate changes after an observation, where an outcome is impossible under the posterior, and where no measurement or no action is correct.
+
 ## 3. Baselines and ablations
 
 Every evaluation should compare the same frozen inputs and scenario set against at least:
