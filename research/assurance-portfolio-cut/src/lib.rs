@@ -56,6 +56,14 @@ impl FaultDomainDimension {
     ];
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum DependencySetCompleteness {
+    /// Every claim-critical dependency identity in this dimension is known.
+    Complete,
+    /// Known identities are retained, but an unknown remainder still exists.
+    Partial,
+}
+
 #[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub enum DomainDisposition {
     /// A declared identity that the profile requires to differ from another
@@ -64,6 +72,16 @@ pub enum DomainDisposition {
     /// A known shared identity that is explicitly accepted for this
     /// dimension. The rationale remains part of the report.
     SharedAccepted { identity: Digest, rationale: String },
+    /// Multiple concrete dependencies in one canonical dimension. Partial
+    /// sets retain the known identities while separately recording the
+    /// unresolved remainder; they cannot produce a complete cut-set claim.
+    KnownDependencies {
+        identities: BTreeSet<Digest>,
+        completeness: DependencySetCompleteness,
+        /// If present, explains why observed cross-role overlap in this
+        /// dimension is accepted for this particular claim.
+        shared_rationale: Option<String>,
+    },
     /// A dimension excluded from this claim's threat model with a rationale.
     NotApplicable { rationale: String },
     /// Explicitly unresolved. This is never silently treated as distinct.
@@ -142,6 +160,7 @@ pub enum ProfileError {
     SeparationRoleNotRequired,
     NonCanonicalSeparation,
     SharedDimensionRequiresRationale,
+    EmptyKnownDependencySet,
     NotApplicableRequiresRationale,
     UnexpectedRoleManifest,
     PolicyDigestMismatch,
@@ -168,6 +187,7 @@ pub enum ProfileReason {
     RequiredSeparationNotApplicable,
     RequiredSeparationIdentityEqual,
     SharedIdentityNotObserved,
+    KnownDependencyRemainderUnknown,
     RequiredRolesMismatch,
 }
 
@@ -467,8 +487,14 @@ pub struct FaultDomainKey {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct RoleDependencies {
     pub role: String,
+    /// All known claim-critical dependency identities, including multiple
+    /// identities within one canonical dimension.
     pub known_domains: BTreeSet<FaultDomainKey>,
+    /// Rationale for accepted cross-role overlap in a dimension.
+    pub accepted_shared_rationales: BTreeMap<FaultDomainDimension, String>,
     pub not_applicable_dimensions: BTreeMap<FaultDomainDimension, String>,
+    /// Unknown remainder. Known identities remain in known_domains so
+    /// partial overlap is still visible and reportable.
     pub unknown_dimensions: BTreeSet<FaultDomainDimension>,
 }
 
