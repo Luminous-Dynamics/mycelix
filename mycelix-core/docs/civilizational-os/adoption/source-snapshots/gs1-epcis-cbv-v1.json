@@ -1,0 +1,123 @@
+{
+  "schema_version": "1.0.0",
+  "manifest_id": "gs1-epcis-cbv-v1",
+  "profile_id": "gs1-epcis-cbv",
+  "captured_at_utc": "2026-10-22T04:55:00Z",
+  "claim_ceiling": "SourceSnapshotOnly",
+  "sources": [
+    {
+      "source_id": "gs1-epcis-2-0-1",
+      "source_url": "https://ref.gs1.org/standards/epcis/2.0.1/",
+      "source_kind": "official_standard",
+      "source_title": "GS1 EPCIS Standard Release 2.0.1",
+      "retrieved_at_utc": "2026-10-21T21:47:10Z",
+      "capture_state": "exact_revision_pinned",
+      "source_revision": "EPCIS 2.0.1; published 2025-07-01",
+      "content_sha256": null,
+      "content_artifact_path": null,
+      "rights_disposition": "metadata_only",
+      "integrity_method": "immutable_source_revision",
+      "limitations": [
+        "Versioned standard reference only; raw PDF bytes are not copied into this manifest.",
+        "The source revision pin does not prove conformance of the Mycelix fixture or adapter."
+      ]
+    },
+    {
+      "source_id": "gs1-cbv-2-0-0",
+      "source_url": "https://ref.gs1.org/standards/cbv/2.0.0/",
+      "source_kind": "official_standard",
+      "source_title": "GS1 Core Business Vocabulary Standard Version 2.0.0",
+      "retrieved_at_utc": "2026-10-21T21:47:10Z",
+      "capture_state": "exact_revision_pinned",
+      "source_revision": "CBV 2.0.0; published 2022-06-22",
+      "content_sha256": null,
+      "content_artifact_path": null,
+      "rights_disposition": "metadata_only",
+      "integrity_method": "immutable_source_revision",
+      "limitations": [
+        "Versioned standard reference only; raw PDF bytes are not copied into this manifest.",
+        "The source revision pin does not prove conformance of the Mycelix fixture or adapter."
+      ]
+    },
+    {
+      "source_id": "gs1-epcis-2-0-0-context",
+      "source_url": "https://ref.gs1.org/standards/epcis/2.0.0/epcis-context.jsonld",
+      "source_title": "EPCIS 2.0.1 JSON-LD context",
+      "source_revision": "EPCIS 2.0.0 JSON-LD context, explicitly referenced by EPCIS 2.0.1 specification",
+      "source_kind": "official_standard",
+      "retrieved_at_utc": "2026-10-22T04:55:00Z",
+      "capture_state": "exact_revision_pinned",
+      "content_sha256": null,
+      "content_artifact_path": null,
+      "rights_disposition": "metadata_only",
+      "integrity_method": "immutable_source_revision",
+      "limitations": [
+        "This URL is a versioned source reference selected from the standards' published link targets; the raw file bytes were not obtained in this runtime.",
+        "The artifact-index pages list the files but do not substitute for capturing the exact response bytes, media type, length, final URL and SHA-256.",
+        "Conformance remains unverified until the exact bytes are captured and run through their declared validators."
+      ]
+    },
+    {
+      "source_id": "gs1-epcis-2-0-0-json-schema",
+      "source_url": "https://ref.gs1.org/standards/epcis/2.0.0/epcis-json-schema.json",
+      "source_title": "EPCIS 2.0.1 JSON Schema",
+      "source_revision": "EPCIS 2.0.0 JSON Schema; EPCIS 2.0.1 specification explicitly references this immutable versioned URL",
+      "source_kind": "official_standard",
+      "retrieved_at_utc": "2026-10-22T04:55:00Z",
+      "capture_state": "exact_revision_pinned",
+      "content_sha256": null,
+      "content_artifact_path": null,
+      "rights_disposition": "metadata_only",
+      "integrity_method": "immutable_source_revision",
+      "limitations": [
+        "This URL is a versioned source reference selected from the standards' published link targets; the raw file bytes were not obtained in this runtime.",
+        "The artifact-index pages list the files but do not substitute for capturing the exact response bytes, media type, length, final URL and SHA-256.",
+        "Conformance remains unverified until the exact bytes are captured and run through their declared validators."
+      ]
+    },
+    {
+      "source_id": "gs1-epcis-2-0-0-shacl",
+      "source_url": "https://ref.gs1.org/standards/epcis/2.0.0/epcis-shacl.ttl",
+      "source_title": "EPCIS 2.0.1 SHACL validation shapes",
+      "source_revision": "EPCIS 2.0.0 SHACL validation file; EPCIS 2.0.1 specification explicitly references this immutable versioned URL",
+      "source_kind": "official_standard",
+      "retrieved_at_utc": "2026-10-22T04:55:00Z",
+      "capture_state": "exact_revision_pinned",
+      "content_sha256": null,
+      "content_artifact_path": null,
+      "rights_disposition": "metadata_only",
+      "integrity_method": "immutable_source_revision",
+      "limitations": [
+        "This URL is a versioned source reference selected from the standards' published link targets; the raw file bytes were not obtained in this runtime.",
+        "The artifact-index pages list the files but do not substitute for capturing the exact response bytes, media type, length, final URL and SHA-256.",
+        "Conformance remains unverified until the exact bytes are captured and run through their declared validators."
+      ]
+    },
+    {
+      "source_id": "gs1-cbv-2-0-0-ontology-jsonld",
+      "source_url": "https://ref.gs1.org/standards/epcis/2.0.0/cbv-ontology.jsonld",
+      "source_title": "CBV 2.0.0 ontology in JSON-LD",
+      "source_revision": "CBV 2.0.0 JSON-LD ontology associated with the EPCIS/CBV 2.0.0 artifact set",
+      "source_kind": "official_standard",
+      "retrieved_at_utc": "2026-10-22T04:55:00Z",
+      "capture_state": "exact_revision_pinned",
+      "content_sha256": null,
+      "content_artifact_path": null,
+      "rights_disposition": "metadata_only",
+      "integrity_method": "immutable_source_revision",
+      "limitations": [
+        "This URL is a versioned source reference selected from the standards' published link targets; the raw file bytes were not obtained in this runtime.",
+        "The artifact-index pages list the files but do not substitute for capturing the exact response bytes, media type, length, final URL and SHA-256.",
+        "Conformance remains unverified until the exact bytes are captured and run through their declared validators."
+      ]
+    }
+  ],
+  "nonclaims": [
+    "This manifest records versioned source references, not copies or hashes of the external artifact payloads.",
+    "EPCIS 2.0.1 explicitly references the 2.0.0 JSON-LD context, JSON Schema and SHACL file; those source-version distinctions are intentionally preserved.",
+    "The runtime did not capture raw normative artifact bytes, so actual payload digests, final URLs and content types remain unverified.",
+    "It does not imply GS1 partnership, endorsement, participation or certification.",
+    "It does not establish Mycelix conformance to EPCIS/CBV or implementation of an adapter.",
+    "It does not establish physical delivery, product authenticity, legal title or regulatory compliance."
+  ]
+}

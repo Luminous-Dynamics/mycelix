@@ -1,0 +1,382 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Luminous-Dynamics/mycelix/blob/main/mycelix-core/docs/civilizational-os/adoption/org-adoption-profiles-v1.schema.json",
+  "title": "Mycelix organization adoption profiles v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "registry_id",
+    "snapshot_date",
+    "claim_ceiling",
+    "relationship_status_default",
+    "profiles"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "registry_id": {
+      "const": "MYC-ORG-PORTFOLIO-001"
+    },
+    "snapshot_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "claim_ceiling": {
+      "const": "TargetMappingOnly"
+    },
+    "relationship_status_default": {
+      "const": "not_recorded"
+    },
+    "profiles": {
+      "type": "array",
+      "minItems": 10,
+      "maxItems": 100,
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "profile_id",
+          "display_name",
+          "profile_kind",
+          "adoption_domain",
+          "technical_priority",
+          "readiness",
+          "source_urls",
+          "snapshot_date",
+          "relationship_status",
+          "relationship_claim_guard",
+          "gap_requires_issue",
+          "mycelix_owner_issues",
+          "pilot_scope",
+          "acceptance_metrics",
+          "negative_controls",
+          "deployment_assumptions",
+          "off_ramp",
+          "nonclaims",
+          "source_evidence_state",
+          "source_snapshot_manifest_sha256",
+          "source_snapshot_required_before_pilot",
+          "source_snapshot_manifest_path"
+        ],
+        "properties": {
+          "profile_id": {
+            "type": "string",
+            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+            "minLength": 3,
+            "maxLength": 96
+          },
+          "display_name": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 160
+          },
+          "profile_kind": {
+            "enum": [
+              "organization",
+              "protocol_project",
+              "platform_ecosystem",
+              "consortium",
+              "standards_body",
+              "identifier_registry"
+            ]
+          },
+          "adoption_domain": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 100
+          },
+          "technical_priority": {
+            "enum": [
+              "P0",
+              "P1",
+              "P2"
+            ]
+          },
+          "readiness": {
+            "enum": [
+              "existing_work_to_reuse",
+              "standards_reference_only",
+              "gap_requires_issue"
+            ]
+          },
+          "source_urls": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 10,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "format": "uri",
+              "pattern": "^https://"
+            }
+          },
+          "snapshot_date": {
+            "type": "string",
+            "format": "date"
+          },
+          "relationship_status": {
+            "const": "not_recorded"
+          },
+          "relationship_claim_guard": {
+            "const": "No partnership, customer relationship, endorsement, or integration is implied by this catalog."
+          },
+          "gap_requires_issue": {
+            "type": "boolean"
+          },
+          "mycelix_owner_issues": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 10,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "issue_id",
+                "role"
+              ],
+              "properties": {
+                "issue_id": {
+                  "type": "string",
+                  "pattern": "^mycelix#\\d{1,6}$"
+                },
+                "role": {
+                  "type": "string",
+                  "minLength": 3,
+                  "maxLength": 200
+                }
+              }
+            }
+          },
+          "pilot_scope": {
+            "type": "string",
+            "minLength": 40,
+            "maxLength": 1000
+          },
+          "acceptance_metrics": {
+            "type": "array",
+            "minItems": 2,
+            "maxItems": 10,
+            "items": {
+              "type": "string",
+              "minLength": 15,
+              "maxLength": 400
+            }
+          },
+          "negative_controls": {
+            "type": "array",
+            "minItems": 2,
+            "maxItems": 10,
+            "items": {
+              "type": "string",
+              "minLength": 10,
+              "maxLength": 400
+            }
+          },
+          "deployment_assumptions": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 8,
+            "items": {
+              "type": "string",
+              "minLength": 10,
+              "maxLength": 300
+            }
+          },
+          "off_ramp": {
+            "type": "string",
+            "minLength": 25,
+            "maxLength": 500
+          },
+          "nonclaims": {
+            "type": "array",
+            "minItems": 2,
+            "maxItems": 8,
+            "items": {
+              "type": "string",
+              "minLength": 15,
+              "maxLength": 300
+            }
+          },
+          "source_evidence_state": {
+            "enum": [
+              "reference_links_only",
+              "version_pinned_manifest_attached",
+              "content_snapshot_manifest_attached",
+              "mixed_manifest_attached"
+            ]
+          },
+          "source_snapshot_manifest_sha256": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "source_snapshot_required_before_pilot": {
+            "type": "boolean"
+          },
+          "source_snapshot_manifest_path": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 3,
+            "maxLength": 220
+          }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "gap_requires_issue": {
+                  "const": true
+                }
+              },
+              "required": [
+                "gap_requires_issue"
+              ]
+            },
+            "then": {
+              "properties": {
+                "readiness": {
+                  "const": "gap_requires_issue"
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "gap_requires_issue": {
+                  "const": false
+                }
+              },
+              "required": [
+                "gap_requires_issue"
+              ]
+            },
+            "then": {
+              "properties": {
+                "mycelix_owner_issues": {
+                  "minItems": 1
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "source_evidence_state": {
+                  "const": "reference_links_only"
+                }
+              },
+              "required": [
+                "source_evidence_state"
+              ]
+            },
+            "then": {
+              "properties": {
+                "source_snapshot_manifest_sha256": {
+                  "const": null
+                },
+                "source_snapshot_manifest_path": {
+                  "const": null
+                },
+                "source_snapshot_required_before_pilot": {
+                  "const": true
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "source_evidence_state": {
+                  "const": "version_pinned_manifest_attached"
+                }
+              },
+              "required": [
+                "source_evidence_state"
+              ]
+            },
+            "then": {
+              "properties": {
+                "source_snapshot_manifest_sha256": {
+                  "$ref": "#/$defs/sha256"
+                },
+                "source_snapshot_manifest_path": {
+                  "type": "string",
+                  "pattern": "^source-snapshots/[a-z0-9][a-z0-9-]+-v[1-9][0-9]*\\.json$"
+                },
+                "source_snapshot_required_before_pilot": {
+                  "const": true
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "source_evidence_state": {
+                  "const": "content_snapshot_manifest_attached"
+                }
+              },
+              "required": [
+                "source_evidence_state"
+              ]
+            },
+            "then": {
+              "properties": {
+                "source_snapshot_manifest_sha256": {
+                  "$ref": "#/$defs/sha256"
+                },
+                "source_snapshot_manifest_path": {
+                  "type": "string",
+                  "pattern": "^source-snapshots/[a-z0-9][a-z0-9-]+-v[1-9][0-9]*\\.json$"
+                },
+                "source_snapshot_required_before_pilot": {
+                  "const": false
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "source_evidence_state": {
+                  "const": "mixed_manifest_attached"
+                }
+              },
+              "required": [
+                "source_evidence_state"
+              ]
+            },
+            "then": {
+              "properties": {
+                "source_snapshot_manifest_sha256": {
+                  "$ref": "#/$defs/sha256"
+                },
+                "source_snapshot_manifest_path": {
+                  "type": "string",
+                  "pattern": "^source-snapshots/[a-z0-9][a-z0-9-]+-v[1-9][0-9]*\\.json$"
+                },
+                "source_snapshot_required_before_pilot": {
+                  "const": true
+                }
+              }
+            }
+          }
+        ]
+      }
+    }
+  },
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    }
+  }
+}
