@@ -1,5 +1,7 @@
 #![forbid(unsafe_code)]
 
+pub mod capture;
+
 //! Deterministic assurance fixtures for the LISE Institutional Performance
 //! Benchmark. This first slice tests conflicts of interest and scoped
 //! expenditure authority without changing production governance behavior.
