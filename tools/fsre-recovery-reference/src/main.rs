@@ -61,7 +61,9 @@ fn owner(kind: &str) -> Option<&'static str> {
 fn fields(line: &str, expected: usize, line_number: usize) -> Result<Vec<String>, String> {
     let values: Vec<String> = line.split('|').map(|part| part.trim().to_owned()).collect();
     if values.len() != expected || values.iter().any(|value| value.is_empty()) {
-        return Err(format!("line {line_number}: expected {expected} non-empty fields"));
+        return Err(format!(
+            "line {line_number}: expected {expected} non-empty fields"
+        ));
     }
     Ok(values)
 }
@@ -86,7 +88,10 @@ fn read_scenario(source: &str) -> Result<(Scenario, Vec<OptionCandidate>), Strin
         }
         if let Some(comment) = line.strip_prefix('#') {
             if let Some((key, value)) = comment.trim().split_once('=') {
-                if metadata.insert(key.trim().to_owned(), value.trim().to_owned()).is_some() {
+                if metadata
+                    .insert(key.trim().to_owned(), value.trim().to_owned())
+                    .is_some()
+                {
                     return Err(format!("line {line_number}: duplicate metadata key"));
                 }
             }
@@ -208,7 +213,10 @@ fn read_predicates(source: &str) -> Result<Vec<Predicate>, String> {
 
 fn record_is_current(scenario: &Scenario, record: &Predicate) -> Result<bool, String> {
     if record.time_basis != scenario.time_basis {
-        return Err(format!("time basis mismatch for {}:{}", record.option, record.kind));
+        return Err(format!(
+            "time basis mismatch for {}:{}",
+            record.option, record.kind
+        ));
     }
     let earliest_evaluation = scenario
         .evaluation
@@ -227,10 +235,16 @@ fn record_is_current(scenario: &Scenario, record: &Predicate) -> Result<bool, St
         .checked_sub(record.uncertainty)
         .ok_or_else(|| "validity lower bound underflow".to_owned())?;
     if latest_observation >= earliest_evaluation {
-        return Err(format!("observation not proven prior for {}:{}", record.option, record.kind));
+        return Err(format!(
+            "observation not proven prior for {}:{}",
+            record.option, record.kind
+        ));
     }
     if earliest_validity_end <= latest_observation {
-        return Err(format!("empty conservative validity interval for {}:{}", record.option, record.kind));
+        return Err(format!(
+            "empty conservative validity interval for {}:{}",
+            record.option, record.kind
+        ));
     }
     Ok(earliest_validity_end > latest_evaluation)
 }
@@ -244,23 +258,43 @@ fn assess(
     let mut by_option = BTreeMap::<&str, BTreeMap<&str, &Predicate>>::new();
     for record in predicates {
         if !known_options.contains(record.option.as_str()) {
-            return Err(format!("predicate references unknown option {}", record.option));
+            return Err(format!(
+                "predicate references unknown option {}",
+                record.option
+            ));
         }
-        let candidate = options.iter().find(|option| option.id == record.option).unwrap();
+        let candidate = options
+            .iter()
+            .find(|option| option.id == record.option)
+            .unwrap();
         if candidate.service != record.service
             || scenario.id != record.scenario
             || scenario.digest != record.digest
         {
-            return Err(format!("scope mismatch for {}:{}", record.option, record.kind));
+            return Err(format!(
+                "scope mismatch for {}:{}",
+                record.option, record.kind
+            ));
         }
         let expected_owner = owner(&record.kind).unwrap();
-        if record.owner != expected_owner || !record.schema.starts_with(&format!("{expected_owner}.")) {
-            return Err(format!("owner/schema mismatch for {}:{}", record.option, record.kind));
+        if record.owner != expected_owner
+            || !record.schema.starts_with(&format!("{expected_owner}."))
+        {
+            return Err(format!(
+                "owner/schema mismatch for {}:{}",
+                record.option, record.kind
+            ));
         }
         if record.evidence_ref.trim().is_empty() {
-            return Err(format!("missing evidence reference for {}:{}", record.option, record.kind));
+            return Err(format!(
+                "missing evidence reference for {}:{}",
+                record.option, record.kind
+            ));
         }
-        by_option.entry(record.option.as_str()).or_default().insert(record.kind.as_str(), record);
+        by_option
+            .entry(record.option.as_str())
+            .or_default()
+            .insert(record.kind.as_str(), record);
     }
 
     let mut lines = Vec::new();
@@ -270,7 +304,10 @@ fn assess(
             reasons.insert("MOBILISATION_EXCEEDS_SCENARIO_HORIZON".to_owned());
         }
         for kind in REQUIRED {
-            match by_option.get(option.id.as_str()).and_then(|records| records.get(kind)) {
+            match by_option
+                .get(option.id.as_str())
+                .and_then(|records| records.get(kind))
+            {
                 None => {
                     reasons.insert(format!("MISSING_PREDICATE:{kind}"));
                 }
@@ -336,12 +373,13 @@ fn main() {
 
 #[cfg(test)]
 mod tests {
-    use super::{record_is_current, valid_digest, Scenario, Predicate};
+    use super::{record_is_current, valid_digest, Predicate, Scenario};
 
     fn scenario() -> Scenario {
         Scenario {
             id: "scenario-a".to_owned(),
-            digest: "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".to_owned(),
+            digest: "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                .to_owned(),
             time_basis: "clock-a".to_owned(),
             evaluation: 100,
             uncertainty: 5,
@@ -369,9 +407,13 @@ mod tests {
 
     #[test]
     fn canonical_digest_shape_is_exact() {
-        assert!(valid_digest("sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"));
+        assert!(valid_digest(
+            "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        ));
         assert!(!valid_digest("sha256:AAAA"));
-        assert!(!valid_digest("sha256:gggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg"));
+        assert!(!valid_digest(
+            "sha256:gggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg"
+        ));
     }
 
     #[test]
