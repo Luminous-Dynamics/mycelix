@@ -133,7 +133,7 @@ fn parse_term(line: &str, line_number: usize) -> Result<FlowTerm, String> {
         || columns
             .iter()
             .enumerate()
-            .any(|(index, value)| value.is_empty() && !matches!(index, 2 | 3 | 12))
+            .any(|(index, value)| value.is_empty() && !matches!(index, 2 | 3 | 12 | 14))
     {
         return Err(format!(
             "line {line_number}: expected 15 fields; lower, upper and correlation_group may be empty"
