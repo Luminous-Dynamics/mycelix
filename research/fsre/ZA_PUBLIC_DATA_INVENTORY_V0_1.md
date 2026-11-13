@@ -52,12 +52,19 @@ The Municipal Finance API documentation states:
 - the data documentation warns that the API is only as complete and trustworthy as the municipal data submitted;
 - the current landing page says 2026 Q2 figures are still undergoing completeness/integrity verification.
 
+The API exposes relevant v2 cubes and item taxonomies:
+- `repmaint_v2` (2019/20 onward) includes items 6001 employee-related costs, 6002 inventory consumed, 6003 contracted services and 6004 operational costs.
+- `incexp_v2` (2019/20 onward) includes 0400 water service charges and 0500 wastewater-management service charges.
+- `demarcation_changes` records old/new municipality codes and transition dates and should support the temporal identity crosswalk.
+
+The v2 cubes use mSCOA and do not share a one-to-one item-code taxonomy with the older v1 cubes. Keep periods before and after the 2019/20 boundary distinct until a reviewed item-code crosswalk exists.
+
 Implementation rules:
 1. Preserve amount type: budget, actual, adjusted budget, audited actual and other classifications are not interchangeable.
 2. Preserve the quarter/snapshot and retrieval time.
 3. Distinguish audited actuals from unaudited Section 71 management submissions.
 4. Preserve corrections and restatements rather than silently overwriting prior snapshots.
-5. Treat missing municipal submissions as unknown, not zero expenditure.
+5. Preserve raw API nulls and the source's documented interpretation separately: the API documentation states that a returned `null` measure should be interpreted as zero where the municipality did not fill in that value; a fact that is not returned for the requested query means it was not supplied in an acceptable form and must remain missing/unknown, not zero. Never convert an absent fact row into zero expenditure.
 6. Reconcile important values to the corresponding Treasury Section 71 report or audited financial statements before use in a consequential comparison.
 
 ### 4.2 DWS Green Drop / Blue Drop / No Drop
