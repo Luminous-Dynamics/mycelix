@@ -16,7 +16,7 @@
 //!
 //! Updated to use HDK 0.6 patterns
 
-#[allow(clippy::unnecessary_sort_by)]
+#![allow(clippy::unnecessary_sort_by)]
 use governance_bridge_integrity::*;
 use hdk::prelude::*;
 use mycelix_zome_helpers as _;
