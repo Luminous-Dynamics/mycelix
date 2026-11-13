@@ -51,6 +51,6 @@ All quantities are returned as exact rational numerators and denominators. Costs
 cargo test --locked --offline --manifest-path tools/fsre-decision-value/Cargo.toml
 ```
 
-The v0.1 library currently has 15 unit tests covering exact positive EVSI, high-information/zero-decision-value observations, an uninformative signal, a 101-point signal-quality sweep, authorisation and safety blocks, malformed likelihoods, excluded actions, duplicate identities, deterministic ordering, scale invariance and acquisition/delay cost thresholds. The focused workflow runs formatting, tests and Clippy; queued or skipped is not a pass.
+The v0.1 library currently has 16 unit tests covering exact positive EVSI, high-information/zero-decision-value observations, an uninformative signal, a 101-point signal-quality sweep, a 50-case prior/signal matrix, authorisation and safety blocks, malformed likelihoods, excluded actions, duplicate identities, deterministic ordering, scale invariance and acquisition/delay cost thresholds. The 50-case matrix is a generated development property test, not an independently authored or sealed benchmark corpus. The focused workflow runs formatting, tests and Clippy; queued or skipped is not a pass.
 
 The v0.1 tool is a deterministic finite-case reference, not a calibrated model, sensor scheduler, causal engine or operational policy. Its unit tests use declared synthetic values only. The API accepts already qualified case inputs; it does not gather data, authorize measurements or actuate systems.
