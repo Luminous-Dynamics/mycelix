@@ -160,7 +160,9 @@ pub fn parse_register(source: &str) -> Result<Vec<SourceRecord>, RegisterError> 
 
 pub fn evaluate_register(records: &[SourceRecord]) -> Result<RegisterReport, RegisterError> {
     if records.is_empty() {
-        return Err(RegisterError("source register contains no records".to_owned()));
+        return Err(RegisterError(
+            "source register contains no records".to_owned(),
+        ));
     }
 
     let mut seen_ids = BTreeSet::new();
