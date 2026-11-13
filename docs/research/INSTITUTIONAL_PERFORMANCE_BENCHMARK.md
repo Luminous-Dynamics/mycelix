@@ -255,10 +255,10 @@ A CI job queued, skipped or unavailable is not a pass. Never infer a pass from t
 
 A Rust crate now exists at
 mycelix-governance/crates/institutional-assurance and is included in the
-existing mycelix-governance Cargo workspace. It implements fifteen deterministic
-S2 cases: one positive and fourteen negative controls.
+existing mycelix-governance Cargo workspace. It implements twenty deterministic
+S2 cases: six positive and fourteen negative controls.
 
-- positive control: an independent approver with a valid, scoped grant;
+- positive controls: independent approval, exact amount-limit acceptance, inclusive grant-start acceptance, just-before-expiry acceptance, a valid substitute after proposer recusal, and resource-specific scoped approval;
 - negative controls for beneficiary self-approval and proposer self-approval;
 - a seeded conflict-of-interest denial;
 - fail-closed behavior when conflict screening is incomplete;
