@@ -189,7 +189,7 @@ case_expectations:
       - reuse the same mandate/operation id after completed or unknown result
       - never create duplicate side effect
 
-expected_case_count: 14
+expected_case_count: 15
 suite_invariants:
   authority_non_transitivity: true
   delegation_amplification: false
