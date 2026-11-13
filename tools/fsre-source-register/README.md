@@ -10,7 +10,7 @@ It checks:
 - supported ingestion-state vocabulary;
 - deterministic counts by declared ingestion state.
 
-The register now separates the DWS 2025 Green Drop report collection from the separately published national-summary release. The report PDF collection remains `DISCOVERED_NOT_EXTRACTED`; the published summary row is `EXTRACTED_UNREVIEWED` because a bounded transcription and arithmetic replay exist, while independent source/definition review remains pending.
+The register separates the DWS 2025 Green Drop report collection, the bounded national-summary replay, the SAnews municipal-denominator source, the WRO catalog metadata, and the individual PDF resource whose licence is not provided. It also records Unmapped Dataworks UM-006 as an external early-access comparator lead only: the register retains its public release metadata and fingerprint, but no third-party records are imported or mirrored. The source register contains 15 entries: 11 `DISCOVERED_NOT_EXTRACTED`, three `EXTRACTED_UNREVIEWED` metadata/summary rows, and one `BLOCKED_RIGHTS_OR_GAP` PDF resource.
 
 The validator does **not** download, snapshot, extract, license-check, authenticate or qualify any external source. It never promotes source states automatically. A `DISCOVERED_NOT_EXTRACTED` row remains unextracted; an `EXTRACTED_UNREVIEWED` row does not imply authenticated source evidence, complete system-level data or suitability for a particular claim.
 
