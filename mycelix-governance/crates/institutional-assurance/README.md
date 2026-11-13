@@ -22,7 +22,7 @@ S2 emits machine-readable receipts with SHA-256 digests of the policy, input
 and receipt material. It uses fixed fixture time and no RNG, network calls or
 wall-clock time.
 
-IPB-S3 (adversarial institutional capture) adds eight deterministic
+IPB-S3 (adversarial institutional capture) adds nine deterministic
 known-answer scenarios. It distinguishes formal control quorums from a
 coalition's effective ability to exercise agenda, appointments, authorization
 and treasury custody, then checks independent audit/appeal capacity. Its
@@ -89,6 +89,14 @@ to compute the receipt digest before moving the policy/input digest strings.
 change detection, formatting, governance workspace tests and aggregate
 `ci-pass` all succeeded. Unrelated path-filtered suites were skipped, not
 tested. The branch does not claim full-repository validation.
+
+**S3 first exact-head CI:** run #13863 on the first integrated S3 head found
+the module declaration before crate-level documentation (E0753) and rustfmt
+differences in the new test file. Both were corrected. A review of the predicate
+also found a false-positive path when both coalition and independent groups
+could independently satisfy the oversight quorum; the predicate and a dual-
+quorum control were corrected. The follow-up exact-head run #13864 was
+superseded by this correction.
 
 **S3 validation:** source and fixtures are authored on
 `research/ipb-s3-institutional-capture-v0`; exact-head hosted formatting,
