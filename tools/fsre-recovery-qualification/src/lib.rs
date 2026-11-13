@@ -838,6 +838,36 @@ mod tests {
     }
 
     #[test]
+    fn mismatched_time_basis_is_rejected() {
+        let mut records = all_qualified();
+        records[0].time_basis_id = "unrelated-clock".to_owned();
+        assert!(evaluate(&scenario(), &[option(100)], &[], &records).is_err());
+    }
+
+    #[test]
+    fn clock_uncertainty_can_make_nominally_fresh_evidence_stale() {
+        let mut bounded_scenario = scenario();
+        bounded_scenario.clock_uncertainty_seconds = 5;
+        let mut records = all_qualified();
+        records[0].valid_until_seconds = 108;
+        records[0].clock_uncertainty_seconds = 5;
+        let result = evaluate(&bounded_scenario, &[option(100)], &[], &records).unwrap();
+        assert!(result.options[0]
+            .reason_codes
+            .contains(&"STALE_EVIDENCE:physical_feasibility".to_owned()));
+    }
+
+    #[test]
+    fn clock_uncertainty_that_overlaps_observation_and_evaluation_is_rejected() {
+        let mut bounded_scenario = scenario();
+        bounded_scenario.clock_uncertainty_seconds = 5;
+        let mut records = all_qualified();
+        records[0].observed_at_seconds = 96;
+        records[0].clock_uncertainty_seconds = 5;
+        assert!(evaluate(&bounded_scenario, &[option(100)], &[], &records).is_err());
+    }
+
+    #[test]
     fn debt_parser_rejects_unknown_states() {
         let source = "debt_id|service_id|dimension|status|source_owner|evidence_ref|time_basis_id|observed_at_seconds|valid_until_seconds|clock_uncertainty_seconds\nd1|water-a|maintenance|MAGICALLY_FIXED|operator|synthetic:wo|synthetic-clock-v1|1|100|0\n";
         assert!(parse_debt_items(source).is_err());
