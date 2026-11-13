@@ -48,4 +48,4 @@ cargo run --locked --offline --manifest-path tools/fsre-flow-balance/Cargo.toml 
   tools/fsre-flow-balance/fixtures/synthetic-balanced.psv
 ```
 
-The path-specific workflow runs formatting, tests, golden CLI comparisons and Clippy. A queued or skipped workflow is not a pass.
+The reference currently has 14 unit tests, including 64 endpoint combinations for one interval fixture. Tests cover unknown-vs-zero handling, signed residuals, sign ambiguity, scope mismatch, malformed admissibility, order invariance and structural-zero boundary rationale. The path-specific workflow runs formatting, tests, golden CLI comparisons and Clippy. A queued or skipped workflow is not a pass.
