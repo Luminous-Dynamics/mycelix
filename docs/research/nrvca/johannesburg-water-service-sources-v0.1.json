@@ -100,10 +100,10 @@
       "published_at_text": "3 November 2026",
       "publication_time_is_not_event_time": true,
       "valid_time": {
-        "status": "source_defined_interval",
-        "start": "2026-11-01",
-        "end": "2027-03-31",
-        "note": "The 2026/27 summer-season risk context is paraphrased as a broad season label; exact forecast valid times and local probability grids were not included in the article and remain unacquired."
+        "status": "unknown",
+        "start": null,
+        "end": null,
+        "note": "The article refers to the 2026/27 summer season but does not state exact forecast valid-time endpoints or local probability-grid intervals; these remain unacquired."
       },
       "reported_geography": {
         "reported_labels": [
