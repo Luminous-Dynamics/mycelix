@@ -25,7 +25,7 @@ fn run() -> Result<(), String> {
     let (contract, observations) = parse_input(&source)?;
     let report = evaluate(&contract, &observations).map_err(|error| error.to_string())?;
 
-    let recovery_status = if report.first_breach_at_seconds.is_none() {
+    let recovery_status = if report.first_known_breach_at_seconds.is_none() {
         "NO_KNOWN_BREACH"
     } else if report.safe_recovery_at_seconds.is_some() {
         "SAFE_RECOVERY_OBSERVED"
@@ -58,8 +58,8 @@ fn run() -> Result<(), String> {
         report.service_deficit_fraction_seconds
     );
     println!(
-        "first_breach_at_seconds={}",
-        display_option(report.first_breach_at_seconds, "none")
+        "first_known_breach_at_seconds={}",
+        display_option(report.first_known_breach_at_seconds, "none")
     );
     println!("recovery_status={recovery_status}");
     println!(
