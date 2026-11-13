@@ -17,7 +17,7 @@ Sources:
 
 The replay checks both vintages' published rounded rates against their separately sourced denominators, using integer half-up rounding. It reports the change in source-reported aggregate rates as +8 percentage points for critical systems and -6 points for good/excellent systems. It retains the report-boundary change, and does not treat the two report vintages as a fixed longitudinal cohort. No system identity linkage or definition harmonisation has been performed.
 
-The WRO catalog records the full report collection as PDFs and states that system-level tables were not extracted into machine-readable form. As viewed on 13 November 2026, both the dataset page and the individual 2025 PDF resource page say "No License Provided"; the resource metadata was updated 11 November 2026. Do not download, extract or redistribute the PDF until rights are clarified. This replay uses only the DWS and SAnews summary facts plus public WRO catalog metadata.
+The WRO catalog records the full report collection as PDFs and states that system-level tables were not extracted into machine-readable form. As viewed on 13 November 2026, the dataset page's prominent licence field says "No License Provided", while its lower metadata fields say "Open (Creative Commons)" and provide a CC BY 4.0 URL. The individual 2025 PDF resource page says "No License Provided" (metadata updated 11 November 2026). This is an unresolved dataset/resource rights conflict; do not infer that parent metadata licenses the PDF. Do not download, extract or redistribute the PDF until the DWS custodian clarifies resource-level terms. This replay uses only DWS and SAnews summary facts plus public WRO catalog metadata.
 
 ## What it validates
 
