@@ -203,3 +203,41 @@ The adapter returns native references and typed projections only. No duplicate i
 ## 13. Common-cause owner dependency status (2026-11-13)
 
 The common-cause case S4-13 must remain **indeterminate** until Mycelix's owner-native dependency closure is available and qualified. Issue #5762 and its implementation PR #5696 remain open; #5696 is based on the `research/assurance-portfolio-model-v0-1` branch and is not merged into `main`. The S4 adapter may not implement its own dependency graph or cut-set calculation. Once the owner-native output is available, S4 can bind the exact graph/profile digests and dependency witnesses; until then it must not report an independence or common-cause cut-set pass. This is an integration dependency, not a completed S4 capability.
+
+
+## 14. Industry landscape and comparison protocol
+
+Federated data sharing is established work, not a LISE novelty claim. The OECD's October 2026 report describes data spaces as governance-backed multi-party environments and documents inter-governmental arrangements where legally distinct public authorities retain custody and control of their own data under a shared coordination framework. It contrasts these with models where a lead agency centralizes governance authority or fixes usage conditions centrally. It also highlights multi-party coordination, bootstrapping, financial viability, standardization, cross-border interoperability, certification and public trust as ongoing challenges.
+
+This means S4 should compare against real federation approaches rather than a centralized straw man:
+
+| Baseline | Established capability / scope | S4 comparison question |
+|---|---|---|
+| Federated data-space architecture (e.g. IDS / Gaia-X-style connectors and governance agreements) | Provider-side data control, agreed usage conditions, governed connectors and shared interoperability patterns | Can the complete action path preserve local authority, challenge, remedy, revocation and safe exit—not just control data exchange? |
+| Inter-governmental exchange such as X-Road-style federation | Separately administered authorities can exchange data while retaining source-system control | Can an independent evaluator reconstruct each side's constitution, local authorization, evidence lineage and cross-boundary outcome? |
+| NIST identity federation (SP 800-63C-4) | Credential providers issue authentication/subscriber assertions to separately administered relying parties | Does the relying party correctly avoid promoting an authenticated assertion into action authority that its own rules do not grant? |
+| Standardized credential security (W3C JOSE/COSE and SD-JWT) | Cryptographic integrity/authenticity, encryption and selective-disclosure mechanisms for credentials/presentations | Are claim scope, freshness, revocation, purpose, authority and substantive truth separately evaluated? |
+| Conventional API access control / zero-trust workflow | Service identity, token, key and authorization controls across system boundaries | Does the system preserve mandate scope and reconcile unknown outcomes, rule changes, disputes and termination? |
+| Manual bilateral agreement + local authorization | Human interpretation and locally controlled refusal, records and remedy | Does the software composition reduce delay/errors/burden without weakening discretion or due process? |
+| Mycelix owner-native composition + S4 adapter | Candidate integration under test; no performance superiority assumed | Does it improve evidence reconstruction, authority-boundary correctness, revocation, reconciliation and exit under matched conditions? |
+
+The EU Data Act has applied since 12 September 2025 and provides a relevant fair-access, user-control, data-switching and interoperability context. NIST SP 800-63C-4 addresses separately administered identity federation. NIST IR 8587 (September 2026) provides relevant token/assertion theft, misuse, key-management and lifecycle attack patterns. W3C's 13 October 2026 JOSE/COSE Recommendation standardizes credential/presentation security mechanisms. None of these alone creates institutional authority in a receiving organization or proves that an asserted service fact is true.
+
+### Matched evaluation
+
+For each baseline, hold constant the parties, constitution texts, interpreted obligations, mandate, task, evidence, data fields, deadlines, threat budget, local decision rights and evaluator. Configure each product competently and within its intended scope. Mark unsupported operations as `out_of_scope` or `not_measured`; do not score a discussion platform as a failed payment authorizer.
+
+Report separately:
+- unauthorized cross-boundary actions;
+- authority-laundering and delegation-amplification attempts accepted;
+- scope/purpose/data-field deviations;
+- stale/revoked assertion acceptance;
+- duplicate side effects and blind retries after unknown delivery;
+- both-side historical reconstruction completeness;
+- challenge/appeal and remedy continuity;
+- exit completion and in-flight reconciliation time;
+- integration/maintenance cost, participant burden and privacy exposure.
+
+Do not collapse these into one score or vendor ranking. The benchmark can claim an advantage only after held-out scenarios, independent evaluators and equivalent implementation conditions show a measurable effect.
+
+**S4's research contribution is therefore not "federation." It is the independently replayable assurance of local authority and rights continuity across existing federated exchanges.**
