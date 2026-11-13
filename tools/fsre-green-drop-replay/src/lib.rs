@@ -394,11 +394,12 @@ mod tests {
     }
 
     #[test]
-    fn denominator_free_source_rates_cannot_smuggle_in_a_denominator() {
+    fn a_2025_rate_without_its_reported_denominator_is_rejected() {
         let mutated = FIXTURE.replace(
-            "critical_share_2022|critical_share|2022|PUBLISHED_ROUNDED_PERCENT|39|percent|||",
-            "critical_share_2022|critical_share|2022|PUBLISHED_ROUNDED_PERCENT|39|percent|334|848|",
+            "critical_share_2025|critical_share|2025|PUBLISHED_ROUNDED_PERCENT_WITH_DENOMINATOR|47|percent|396|848|",
+            "critical_share_2025|critical_share|2025|PUBLISHED_ROUNDED_PERCENT_WITH_DENOMINATOR|47|percent|396||",
         );
+        assert_ne!(mutated, FIXTURE);
         assert!(parse(&mutated).is_err());
     }
 
