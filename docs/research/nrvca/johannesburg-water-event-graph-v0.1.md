@@ -125,3 +125,10 @@ Next implementation steps:
 - JSON syntax and graph referential invariants are checked during authoring.
 - Full JSON Schema validation, Rust compilation, tests, Clippy, formatting and hosted CI have not been run in this environment.
 - No hydraulic, sensor, customer-service or restoration result is qualified by this artifact.
+
+
+## Negative-control corpus added
+
+The branch also contains `johannesburg-water-event-graph-negative-controls-v0.1.json` with 13 deterministic test vectors: three source-register-backed cases and ten synthetic adversarial controls. They cover update-vs-new-incident linkage, same-suburb/different-asset false merges, stale and ambiguous identity, recurring schedules, non-comparable snapshots, unknown event onset, contradictions, append-only supersession, security notices, unknown restoration, operator-reported restoration and unverified geography.
+
+Custom authoring checks confirm all three observed-fixture assertion references resolve and all 13 case IDs are unique. These are test specifications only; no implementation test has been run or passed.
