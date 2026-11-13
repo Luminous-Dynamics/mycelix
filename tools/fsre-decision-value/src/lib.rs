@@ -452,6 +452,75 @@ pub fn evaluate(
     Ok(results)
 }
 
+/// Condition a finite-hypothesis case on an observed outcome from one authorised,
+/// safe measurement. The caller must bind the outcome ID to an owner-qualified
+/// observation receipt; this function performs probability arithmetic only.
+pub fn condition_case_on_outcome(
+    case: &DecisionCase,
+    measurement: &Measurement,
+    observed_outcome_id: &str,
+) -> Result<DecisionCase, String> {
+    validate_case(case)?;
+    validate_measurements(case, std::slice::from_ref(measurement))?;
+    if !measurement.authorised {
+        return Err("cannot condition on an unauthorised measurement".to_owned());
+    }
+    if !measurement.safe {
+        return Err("cannot condition on an unsafe measurement".to_owned());
+    }
+    let outcome = measurement
+        .outcomes
+        .iter()
+        .find(|outcome| outcome.id == observed_outcome_id)
+        .ok_or_else(|| format!("unknown observed outcome {observed_outcome_id}"))?;
+
+    let joint_weights: Vec<u128> = case
+        .hypotheses
+        .iter()
+        .zip(&outcome.likelihood_weight_by_hypothesis)
+        .map(|(hypothesis, likelihood)| {
+            checked_mul(
+                u128::from(hypothesis.prior_weight),
+                u128::from(*likelihood),
+                "posterior hypothesis weight",
+            )
+        })
+        .collect::<Result<_, _>>()?;
+    let predictive_mass = joint_weights
+        .iter()
+        .try_fold(0_u128, |sum, weight| checked_add(sum, *weight, "posterior mass"))?;
+    if predictive_mass == 0 {
+        return Err(format!(
+            "observed outcome {observed_outcome_id} is impossible under the current hypothesis weights"
+        ));
+    }
+
+    let divisor = joint_weights
+        .iter()
+        .copied()
+        .filter(|weight| *weight > 0)
+        .fold(0_u128, gcd);
+    let mut posterior = case.clone();
+    for (hypothesis, joint_weight) in posterior.hypotheses.iter_mut().zip(joint_weights) {
+        let reduced = joint_weight / divisor;
+        hypothesis.prior_weight = u64::try_from(reduced)
+            .map_err(|_| "reduced posterior weight exceeds u64".to_owned())?;
+    }
+    validate_case(&posterior)?;
+    Ok(posterior)
+}
+
+fn gcd(left: u128, right: u128) -> u128 {
+    let mut a = left;
+    let mut b = right;
+    while b != 0 {
+        let remainder = a % b;
+        a = b;
+        b = remainder;
+    }
+    a
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
