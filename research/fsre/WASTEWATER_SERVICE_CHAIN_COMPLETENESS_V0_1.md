@@ -23,14 +23,16 @@ Reference: Graham, P. M., Pattinson, N. B. & Still, D. (2025), "The state of was
 
 ## 2. First public-source replay
 
-The DWS release published 1 April 2026 reports that the 2025 Green Drop assessment covered 848 wastewater systems for the 2023/24 municipal financial year. It reports 396 critical systems (47%) and 66 good/excellent systems (8%), compared with 334 (39%) critical and 118 (14%) good/excellent systems in the 2022 report. SAnews' same-day account states that the 2022 audit covered 850 systems for the 2020/21 municipal financial year and that the two-system difference reflects decommissioning or merging. Green Drop certification counts were 22 in 2022 and 14 in 2025.
+The DWS release published 1 April 2026 reports that the 2025 Green Drop assessment covered 848 municipal wastewater systems for the 2023/24 financial year. It reports 396 critical systems (47%) and 66 good/excellent systems (8%), compared with 334 (39%) critical and 118 (14%) good/excellent systems in the 2022 report. SAnews' same-day account states that the 2022 municipal comparison covered 850 systems for 2020/21 and that the two-system difference reflects decommissioning or merging. Green Drop certification counts were 22 in 2022 and 14 in 2025.
+
+The WRO catalog describes the broader 2022 full audit as 995 wastewater treatment works across municipal, Department of Public Works and private ownership. This 995 all-sector count is not the denominator for the 334/850 municipal critical-system comparison. FSRE records both scopes explicitly and does not merge them. The WRO catalog describes the 2025 report as an 848-municipal-system audit in 144 Water Services Authorities.
 
 Primary source: https://www.gov.za/news/media-statements/water-and-sanitation-crowns-steve-tshwete-local-municipality-2025-green-drop
 Secondary source for the 2022 denominator and system-boundary change: https://www.sanews.gov.za/south-africa/majodina-calls-accountability-and-collective-action-protect-water-resources
 
-The executable fixture is `tools/fsre-green-drop-replay/fixtures/ZA_GREEN_DROP_PUBLIC_SUMMARY_2025.psv`. Its Rust validator checks both report vintages' rounded percentages: 334/850 and 118/850 in 2022; 396/848 and 66/848 in 2025. The two sources and the report-boundary change are retained. System identity linkage and denominator-consistent longitudinal reassessment remain pending.
+The executable fixture is `tools/fsre-green-drop-replay/fixtures/ZA_GREEN_DROP_PUBLIC_SUMMARY_2025.psv`. Its Rust validator checks both report vintages' rounded municipal rates: 334/850 and 118/850 in 2022; 396/848 and 66/848 in 2025. It separately records the 995 all-sector 2022 audit scope from the WRO catalog without using it as a municipal denominator. The three sources and report-boundary change are retained. System identity linkage and denominator-consistent longitudinal reassessment remain pending.
 
-The WRO catalogue describes the 2025 Green Drop report as a PDF collection and states that system-level tables were not extracted into machine-readable form. The dataset page displays CC BY 4.0, but the individual 2025 PDF resource record says "No License Provided". Treat the PDF resource-level licence as unresolved pending confirmation; do not infer permission from the parent package metadata.
+The WRO catalog describes the Green Drop collection as published PDF reports and states that system-level tables were not extracted into machine-readable form. As viewed on 13 November 2026, both the dataset page and individual 2025 PDF resource page state "No License Provided"; the resource metadata was updated 11 November 2026. Do not infer permission to download, extract or redistribute the report. Resolve rights with the data custodian before system-level extraction.
 
 Catalogue:
 - Dataset: https://wrcwro01.arc.agric.za/en/dataset/green-drop-reports-2009-2025-south-african-municipal-wastewater-management-performance
