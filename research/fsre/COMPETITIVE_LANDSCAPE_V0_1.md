@@ -28,8 +28,29 @@ These are substantial capabilities, not straw-man competitors. FSRE must be able
 | Bentley iTwin Platform | Infrastructure digital-twin APIs, engineering/reality/IoT/GIS/schedule and operational data integration, change tracking and access control | Treat as spatial/engineering twin substrate and comparator for asset state, provenance and model interoperability |
 | Schneider Electric EcoStruxure Water | Water/wastewater software, automation, telemetry/SCADA, asset and energy advice, analytics and water-cycle operations | Treat as a domain product and potential pilot/operational incumbent; compare using the same service area and approved data |
 | Siemens Xcelerator ecosystem | Industrial software, IoT hardware, digital services, partner catalogue and cross-domain solutions | Evaluate the specific product/partner solution selected by an operator, not the marketplace as one monolithic comparator |
+| IN-CORE | Integrated system-of-systems environment combining hazard, infrastructure-network, fragility and socioeconomic recovery models | Strong comparator for community-scale hazard-to-recovery studies; reuse or compare its domain outputs rather than rebuild a civilization simulator |
+| InfraRisk | Modular simulation of coupled power, water and transport networks, hazard impacts, cascade failures and restoration dynamics | Compare physical/resource feasibility, recovery trajectories and service-level translation under matched scenarios |
+| REFIT | Probabilistic cascading-failure modelling with domain-specific solver coupling, including EPANET/OpenDSS pathways | Compare probability handling, uncertainty propagation, option/portfolio evaluation and solver coupling |
+| CIrcle | Participatory workshops, expert input and causal mapping for infrastructure interdependency pathways | Compare participatory knowledge capture, governance/organizational dependency coverage and traceability; keep qualitative and quantitative evidence distinct |
+| PRIIA | Hypergraph dependency representations and optimisation-based restoration prioritisation | Compare post-disruption prioritisation and restoration planning; do not assume its graph semantics are interchangeable with Mycelix's |
+| Kaleidoscope | Spatially enabled infrastructure analytics and co-location/vulnerability pattern analysis | Compare spatial vulnerability and investment prioritisation; distinguish correlation/co-location from explicit causal or operational dependencies |
+| CISIA-Pro Simulator | MATLAB-based deterministic fault-propagation simulation over predefined dependency mappings | Compare deterministic cascade semantics and transparent challenge cases; document its runtime/environment requirements |
 | GovStack / X-Road / DPI | Reusable government building blocks and secure inter-organisational data exchange | Reuse as exchange and service infrastructure; do not build replacement identity, payment, registry or data-exchange rails |
 | ISO 22301 / 22316 / 22336; NIST cyber-resiliency engineering; EU CER; UNDRR | Business continuity, organisational resilience, policy/strategy, cyber-resiliency and critical-entity risk/response foundations | Map controls and evidence to the appropriate sector/jurisdiction; do not claim certification, legal compliance or standard replacement |
+
+
+
+## 2.1 A newly published infrastructure interdependency tool comparison (7 November 2026)
+
+Shamsi, Helmrich and Deegan's open-access 2026 comparative study identified 24 infrastructure tools across energy, water and transport; only seven explicitly model cross-sector interdependencies and cascading effects. Its seven-tool comparison includes IN-CORE, InfraRisk, REFIT, CIrcle, PRIIA, Kaleidoscope and CISIA-Pro. It found no single tool captures the full breadth of interdependency behaviour or dominates all assessed technical dimensions. It also reports that comparable runtime/hardware benchmark data were not available across the seven-tool set.
+
+The study's comparison dimensions are useful benchmark-design inputs: interdependency breadth, data requirements, validation strength, integration potential, purpose fit, methodology variety, context suitability, application readiness and sectoral scope. These are tool-selection dimensions, not a common task-level performance score.
+
+**FSRE implication:** build a shared, open service-level challenge protocol over owner-native outputs, not a competing infrastructure simulator. Select at least one accessible tool from different methodological families (integrated system-of-systems, probabilistic cascade simulation, participatory dependency mapping and hypergraph/optimisation restoration planning) and compare only claims each tool is designed to support. Keep methods and data budgets visible; do not pretend one input schema or one model class is suitable for all tools.
+
+The source review is a literature comparison, not a head-to-head FSRE experiment. Tool access, licence, version, setup, calibration and operational maturity must be checked before a deployment-level comparison.
+
+Reference: Shamsi, N., Helmrich, A. & Deegan, M. (published 7 November 2026), *Toward system-of-systems resilience: a comparative framework for infrastructure interdependency assessment tools*, Environment Systems and Decisions. https://doi.org/10.1007/s10669-026-10162-2
 
 ## 3. What is potentially distinctive about FSRE
 
