@@ -163,6 +163,26 @@ Measure not only accuracy but also data burden, time to usable result, calibrati
 
 IN-CORE is identified in the 2026 comparative study as having broad coverage of physical, functional, geographic, economic and social interdependencies. FSRE should use it as a strong comparator, not claim superiority without matched runs. The comparative study also identifies a trade-off between breadth, data requirements, compute, expertise and accessibility; the benchmark should quantify that trade-off for the concrete wastewater task.
 
+### Sewer-specific sensor-placement comparators
+
+Do not treat sensor placement as an unexplored FSRE contribution. A 2026 *Water Research* paper proposes topology-derived flow inference (TDFI) to estimate pipe-specific minimum detectable inflow/infiltration from upstream sensors, then uses deterministic Sequential Backward Selection (SBS) to construct sensor layouts. It evaluates one synthetic and two real-life sewer-network case studies and reports SBS results close to a differential-evolution optimiser. A 2025 *Water Research* study also proposes entropy-based I&I sensor placement and reports 7–15% higher detection reliability against its compared methods. These are direct sewer-network comparators, not proof of universal superiority across utilities.
+
+References:
+- “A topology-derived flow inference approach to optimize sensor placement for effective inflow and infiltration detection in sewer networks”, *Water Research* 302 (2026), 126140, DOI: https://doi.org/10.1016/j.watres.2026.126140
+- “Enhancing inflow and infiltration detection in urban sewer networks with a new deterministic sensor placement method”, *Water Research* 268 (2025), 122591, DOI: https://doi.org/10.1016/j.watres.2024.122591
+
+A fair wastewater experiment should compare, on identical network topology, sensor budget, observation period, noise, missingness and event catalogue:
+1. existing operator placements and routine monitoring;
+2. uniform/random placement;
+3. entropy-based placement;
+4. TDFI + SBS;
+5. full physical-model or optimisation baseline where calibrated and available;
+6. FSRE active investigation using expected decision value, owner authority and service-cohort outcomes.
+
+Measure minimum detectable I&I, false alarms per sensor-day and per network length/time, event detection delay, pipe/catchment localisation error, false attribution, sensor lifecycle and maintenance cost, operator effort, SCADA/GIS integration burden, and verified service/environment decision value. Do not compare a drinking-water distribution leak benchmark directly with wastewater sewer-network I&I without a matched task definition.
+
+A 2026 review of 86 drinking-water leak-detection studies identifies operational false-alarm rates, computational feasibility and SCADA/GIS integration as important evaluation requirements, and highlights the gap between simulated and operational settings. This supports explicit operational metrics; it does not establish wastewater performance.
+
 ## 8. Falsification conditions
 
 The hypothesis that service-chain completeness improves decisions is weakened or falsified if:
