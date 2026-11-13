@@ -35,5 +35,7 @@ jobs:
           trap 'rm -f "$output"' EXIT
           cargo run --locked --offline --manifest-path tools/fsre-service-trajectory/Cargo.toml -- tools/fsre-service-trajectory/examples/synthetic-water-service.csv > "$output"
           diff -u tools/fsre-service-trajectory/examples/synthetic-water-service.expected.txt "$output"
+          cargo run --locked --offline --manifest-path tools/fsre-service-trajectory/Cargo.toml -- tools/fsre-service-trajectory/examples/unknown-gap-recovery.csv > "$output"
+          diff -u tools/fsre-service-trajectory/examples/unknown-gap-recovery.expected.txt "$output"
       - name: Run Clippy
         run: cargo clippy --locked --offline --manifest-path tools/fsre-service-trajectory/Cargo.toml --all-targets -- -D warnings
