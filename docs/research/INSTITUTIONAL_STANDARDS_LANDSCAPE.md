@@ -30,6 +30,7 @@ The opportunity is to connect institutional rules, scoped authority, evidence, e
 | World Bank GovTech Maturity Index 2025 | 48 indicators across core government systems, online services, citizen engagement and enabling conditions | Use as a public-sector comparison layer, not as a substitute for organization-level tests |
 | NIST AI RMF 1.0 | GOVERN, MAP, MEASURE, MANAGE functions for AI risk | Apply to Symthaea and AI-assisted institutional workflows; keep human institutional accountability explicit |
 | W3C Verifiable Credentials Data Model 2.0 | Issuer, holder and verifier model for tamper-evident claims with privacy and accessibility considerations | Reuse interoperable credential patterns for scoped institutional claims; do not equate a valid credential with legal authority or truth |
+| W3C Securing Verifiable Credentials using JOSE and COSE (2026) | Recommendation defining JOSE/JWT, selective-disclosure JWT and COSE securing mechanisms for VC Data Model 2.0 | Use standards-based proof mechanisms where appropriate, then separately validate claim relevance, issuer authority, status, purpose and recourse |
 
 ## 3. Important current observations
 
@@ -53,7 +54,7 @@ OECD's 2026 Digital Government Outlook describes a gap between infrastructure av
 
 ### AI risk governance
 
-NIST AI RMF 1.0 organizes AI risk work around GOVERN, MAP, MEASURE and MANAGE. As of 13 November 2026, NIST says AI RMF 1.0 is being revised and has released a 7 April 2026 concept note for a Trustworthy AI in Critical Infrastructure profile. LISE should track the revision and any relevant profile rather than implying that version 1.0 is the final future state.
+NIST AI RMF 1.0 organizes AI risk work around GOVERN, MAP, MEASURE and MANAGE. As of 13 November 2026, NIST says AI RMF 1.0 is being revised and is developing a Trustworthy AI in Critical Infrastructure profile. The profile concept note highlights critical-infrastructure realities such as deterministic behavior, graceful degradation, fail-safe operation, legacy systems, distributed assets and constrained resources. LISE should track the revision and profile rather than freezing its AI assurance mapping at version 1.0.
 
 **Implication:** Symthaea-assisted governance should inherit lifecycle risk-management, measurement, documentation and independent-review disciplines. The institutional layer must additionally identify who is accountable for accepting, rejecting or acting on AI-generated recommendations.
 
