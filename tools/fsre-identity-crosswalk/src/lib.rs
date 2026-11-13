@@ -339,6 +339,16 @@ fn parse(source: &str) -> Result<Report, String> {
     {
         return Err("synthetic fixture cannot contain non-synthetic review states".to_owned());
     }
+    if metadata.fixture_kind == "SOURCE_BACKED"
+        && groups.iter().any(|group| {
+            group
+                .rows
+                .iter()
+                .any(|row| row.evidence_class == "SYNTHETIC")
+        })
+    {
+        return Err("source-backed input cannot contain synthetic evidence".to_owned());
+    }
     Ok(Report {
         fixture_kind: metadata.fixture_kind,
         scope: metadata.scope,
@@ -424,6 +434,17 @@ mod tests {
         assert!(report.contains("relation=SPLIT_INTO|1"));
         assert!(report.contains("accepted_transition_groups=0"));
         assert!(report.contains("real_system_identity_linkage=NOT_ESTABLISHED"));
+    }
+
+    #[test]
+    fn source_backed_input_cannot_mix_synthetic_evidence() {
+        let source_backed = FIXTURE.replace(
+            "# fixture_kind=SYNTHETIC_ONLY",
+            "# fixture_kind=SOURCE_BACKED",
+        );
+        assert!(parse(&source_backed)
+            .unwrap_err()
+            .contains("source-backed input cannot contain synthetic evidence"));
     }
 
     #[test]
