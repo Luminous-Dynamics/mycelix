@@ -213,6 +213,9 @@ pub fn validate(
     let assertions = array(graph, "assertions", &mut errors, "event graph")
         .cloned()
         .unwrap_or_default();
+    if assertions.len() != 6 {
+        errors.push(format!("expected six source assertions in v0.1 fixture, found {}", assertions.len()));
+    }
     let mut assertion_by_id: BTreeMap<String, &Value> = BTreeMap::new();
     let mut assertion_ids = BTreeSet::new();
 
@@ -318,6 +321,7 @@ pub fn validate(
     let mut event_ids = BTreeSet::new();
     let mut memberships: BTreeMap<String, String> = BTreeMap::new();
     let mut schedule_count = 0usize;
+    let mut snapshot_event_count = 0usize;
     let mut snapshot_assertion_ids = BTreeSet::new();
     let mut lonehill_event: Option<&Value> = None;
 
@@ -327,6 +331,18 @@ pub fn validate(
         let event_kind = required_string(event, "event_kind", &mut errors, context);
         if let Some(id) = event_id {
             unique_insert(&mut event_ids, id, context, &mut errors);
+        }
+        if !matches!(
+            event.get("identity_state").and_then(Value::as_str),
+            Some("provisional" | "source_asserted")
+        ) {
+            errors.push(format!("{context}: v0.1 notice-derived identity must remain provisional or source_asserted"));
+        }
+        if !matches!(
+            event.get("restoration_status").and_then(Value::as_str),
+            Some("unknown" | "not_applicable")
+        ) {
+            errors.push(format!("{context}: publisher-only event cannot claim instrument-observed or independently verified restoration"));
         }
         let assertion_refs = array(event, "assertion_ids", &mut errors, context)
             .cloned()
@@ -410,6 +426,12 @@ pub fn validate(
                 }
                 "scheduled_operating_rule" => {
                     schedule_count += 1;
+                    if assertion_refs.len() != 1
+                        || assertion_refs[0].as_str()
+                            != Some("JHBW.A.HIGHLEVEL.SCHEDULE.20261102.1635")
+                    {
+                        errors.push(format!("{context}: schedule rule must bind only its original schedule assertion"));
+                    }
                     if event
                         .get("event_time")
                         .and_then(|value| value.get("kind"))
@@ -427,6 +449,15 @@ pub fn validate(
                     }
                 }
                 "system_status_snapshot" => {
+                    snapshot_event_count += 1;
+                    if assertion_refs.len() != 1
+                        || !assertion_refs
+                            .first()
+                            .and_then(Value::as_str)
+                            .is_some_and(|id| id.starts_with("JHBW.A.CITYCAP."))
+                    {
+                        errors.push(format!("{context}: each system snapshot must remain one separate assertion/event"));
+                    }
                     if event
                         .get("event_time")
                         .and_then(|value| value.get("kind"))
@@ -452,6 +483,11 @@ pub fn validate(
     if schedule_count != 1 {
         errors.push(format!(
             "expected exactly one recurring schedule event, found {schedule_count}"
+        ));
+    }
+    if snapshot_event_count != 3 {
+        errors.push(format!(
+            "expected three separate system_status_snapshot event records, found {snapshot_event_count}"
         ));
     }
     if snapshot_assertion_ids.len() != 3 {
@@ -487,6 +523,9 @@ pub fn validate(
     let relations = array(graph, "relations", &mut errors, "event graph")
         .cloned()
         .unwrap_or_default();
+    if relations.len() != 1 {
+        errors.push(format!("expected one manually reviewed relation in v0.1 fixture, found {}", relations.len()));
+    }
     let mut relation_ids = BTreeSet::new();
     let mut lonehill_update_count = 0usize;
     for relation in &relations {
@@ -522,6 +561,14 @@ pub fn validate(
                 && kind == "updates"
             {
                 lonehill_update_count += 1;
+                if relation.get("adjudication_status").and_then(Value::as_str)
+                    != Some("manual_source_review")
+                {
+                    errors.push("Lonehill update edge must retain manual_source_review adjudication".to_owned());
+                }
+                if memberships.get(from) != memberships.get(to) {
+                    errors.push("Lonehill update relation endpoints must belong to the same provisional event".to_owned());
+                }
                 let from_time = assertion_by_id
                     .get(from)
                     .and_then(|value| value.get("published_at_text"))
@@ -588,6 +635,7 @@ pub fn validate(
     }
     let mut observed_case_count = 0usize;
     let mut synthetic_case_count = 0usize;
+    let mut observed_assertion_ids = BTreeSet::new();
     for case in &cases {
         let context = "negative-control case";
         if let Some(id) = required_string(case, "case_id", &mut errors, context) {
@@ -600,6 +648,31 @@ pub fn validate(
         match source_type {
             Some("observed_register_fixture") => {
                 observed_case_count += 1;
+                let case_id = case.get("case_id").and_then(Value::as_str).unwrap_or("");
+                let expected = match case_id {
+                    "JHBW-EG-NC-001" => Some(vec![
+                        "JHBW.A.LONEHILL.20261105.1220",
+                        "JHBW.A.LONEHILL.20261105.2050",
+                    ]),
+                    "JHBW-EG-NC-004" => Some(vec![
+                        "JHBW.A.HIGHLEVEL.SCHEDULE.20261102.1635",
+                    ]),
+                    "JHBW-EG-NC-005" => Some(vec![
+                        "JHBW.A.CITYCAP.20261103.1240",
+                        "JHBW.A.CITYCAP.20261104.1105",
+                        "JHBW.A.CITYCAP.20261105.1320",
+                    ]),
+                    _ => None,
+                };
+                let actual: Vec<&str> = input_ids.iter().filter_map(Value::as_str).collect();
+                if expected.as_ref().is_none_or(|values| actual != *values) {
+                    errors.push(format!("{context}: unexpected assertion membership for observed fixture case {case_id}"));
+                }
+                if let Some(expected) = expected {
+                    for id in expected {
+                        observed_assertion_ids.insert(id.to_owned());
+                    }
+                }
                 for item in &input_ids {
                     match item.as_str() {
                         Some(id) if assertion_by_id.contains_key(id) => {}
@@ -628,6 +701,20 @@ pub fn validate(
         errors.push(format!(
             "expected 3 observed fixture cases and 10 synthetic controls; found {observed_case_count} / {synthetic_case_count}"
         ));
+    }
+    let expected_observed_assertions: BTreeSet<String> = [
+        "JHBW.A.LONEHILL.20261105.1220",
+        "JHBW.A.LONEHILL.20261105.2050",
+        "JHBW.A.HIGHLEVEL.SCHEDULE.20261102.1635",
+        "JHBW.A.CITYCAP.20261103.1240",
+        "JHBW.A.CITYCAP.20261104.1105",
+        "JHBW.A.CITYCAP.20261105.1320",
+    ]
+    .into_iter()
+    .map(str::to_owned)
+    .collect();
+    if observed_assertion_ids != expected_observed_assertions {
+        errors.push("observed negative-control assertions do not match the six pinned source assertions".to_owned());
     }
 
     if !graph
