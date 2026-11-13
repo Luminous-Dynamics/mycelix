@@ -120,14 +120,15 @@ fn validate_case(case: &DecisionCase) -> Result<u128, String> {
         if !hypothesis_ids.insert(hypothesis.id.as_str()) {
             return Err(format!("duplicate hypothesis ID {}", hypothesis.id));
         }
-        if hypothesis.prior_weight == 0 {
-            return Err(format!("hypothesis {} has zero prior weight", hypothesis.id));
-        }
         prior_total = checked_add(
             prior_total,
             u128::from(hypothesis.prior_weight),
             "prior weights",
         )?;
+    }
+
+    if prior_total == 0 {
+        return Err("at least one hypothesis must have positive prior weight".to_owned());
     }
 
     let mut action_ids = BTreeSet::new();
@@ -217,12 +218,6 @@ fn validate_measurements(
                     u128::from(*likelihood),
                     "likelihood totals",
                 )?;
-            }
-            if predictive_mass == 0 {
-                return Err(format!(
-                    "outcome {} of measurement {} has zero predictive probability",
-                    outcome.id, measurement.id
-                ));
             }
         }
 
