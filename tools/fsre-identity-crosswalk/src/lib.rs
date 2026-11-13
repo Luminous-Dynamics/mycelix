@@ -726,12 +726,14 @@ mod tests {
                           relation: &str,
                           source_id: &str,
                           target_id: &str| {
+            let source_system = if source_id.is_empty() { "" } else { "dws-2022" };
+            let source_scope = if source_id.is_empty() { "" } else { "MUNICIPAL_SYSTEMS" };
+            let source_owner = if source_id.is_empty() { "" } else { "MUNICIPAL" };
+            let target_system = if target_id.is_empty() { "" } else { "dws-2025" };
+            let target_scope = if target_id.is_empty() { "" } else { "MUNICIPAL_SYSTEMS" };
+            let target_owner = if target_id.is_empty() { "" } else { "MUNICIPAL" };
             source.push_str(&format!(
-                "{transition}|{relation}|{}|{}|MUNICIPAL_SYSTEMS|MUNICIPAL|{}|{}|MUNICIPAL_SYSTEMS|MUNICIPAL|2023-07-01|synthetic:{transition}|SYNTHETIC|SYNTHETIC_ONLY\n",
-                if source_id.is_empty() { "" } else { "dws-2022" },
-                source_id,
-                if target_id.is_empty() { "" } else { "dws-2025" },
-                target_id,
+                "{transition}|{relation}|{source_system}|{source_id}|{source_scope}|{source_owner}|{target_system}|{target_id}|{target_scope}|{target_owner}|2023-07-01|synthetic:{transition}|SYNTHETIC|SYNTHETIC_ONLY\n"
             ));
         };
 
