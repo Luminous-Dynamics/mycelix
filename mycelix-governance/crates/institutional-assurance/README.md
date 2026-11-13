@@ -12,7 +12,9 @@ deterministic policy fixture. It checks:
 - beneficiary and proposer self-approval as negative controls;
 - an independently seeded conflict of interest;
 - fail-closed behavior when conflict screening is incomplete;
-- missing, expired, wrong-scope and wrong-resource authority;
+- missing, expired, future-dated and malformed authority windows;
+- wrong grant holder, scope and resource;
+- proposal substitution and zero-value requests;
 - expenditure limits attached to an authority grant.
 
 Every case emits a machine-readable receipt with SHA-256 digests of the policy,
@@ -32,7 +34,7 @@ more expected outcomes do not match.
 ## Evidence boundary
 
 This is a synthetic assurance fixture. A passing suite means only that this
-crate's specified policy behavior matches its ten fixture expectations on the
+crate's specified policy behavior matches its fifteen fixture expectations on the
 tested revision. It does not demonstrate that:
 
 - the production Holochain zomes enforce the same policy;
