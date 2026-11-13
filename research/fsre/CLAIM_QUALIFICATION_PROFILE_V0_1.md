@@ -19,6 +19,8 @@ These are distinct epistemic categories. They do not form a universal ladder whe
 
 This profile composes existing Mycelix provenance and completed-effect evidence, Sol-Atlas benchmark manifests/provenance, Symtropy model-adequacy receipts, Symthaea causal-investigation receipts and operator records. It does not create a second evidence ledger, trust root, benchmark manifest or universal confidence score.
 
+The machine-readable companion is [`schemas/claim-qualification-envelope-v0.1.schema.json`](schemas/claim-qualification-envelope-v0.1.schema.json), with a synthetic example at [`examples/claim-envelope.synthetic-recovery-v0.1.json`](examples/claim-envelope.synthetic-recovery-v0.1.json). The envelope carries claim class/status, service and cohort, scope/scenario digest, unit/denominator, source frontier, temporal uncertainty, method/evaluator/model versions, provenance adequacy, reproducibility and independence classifications, unresolved unknowns and an explicit non-authorisation boundary. It references source-owner records instead of copying them and has no universal confidence score.
+
 ## 2. The claim is the unit of qualification
 
 A report should not label an entire system "verified" because one test passed. Qualify each material claim within a declared scope.
