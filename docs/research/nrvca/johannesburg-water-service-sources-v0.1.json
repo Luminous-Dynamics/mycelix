@@ -1,0 +1,172 @@
+{
+  "schema_version": "0.1.0",
+  "register_id": "nrvca-johannesburg-water-service-sources-v0.1",
+  "as_of_date": "2026-11-13",
+  "sources": [
+    {
+      "source_id": "JHBW-OPSTAT-2026-10-29",
+      "publisher": "Johannesburg Water SOC Ltd",
+      "title": "Johannesburg Water implements urgent interventions to stabilise severely constrained systems",
+      "uri": "https://www.johannesburgwater.co.za/blog/2026/10/29/johannesburg-water-implements-urgent-interventions-to-stabilise-severely-constrained-systems/",
+      "source_kind": "operator_statement",
+      "published_at_text": "29 October 2026 – 15:20",
+      "publication_time_is_not_event_time": true,
+      "valid_time": {
+        "status": "publication_snapshot_only",
+        "start": null,
+        "end": null,
+        "note": "The page describes system conditions at publication but does not provide a machine-readable incident start/end interval or a continuous service telemetry series."
+      },
+      "reported_geography": {
+        "reported_labels": [
+          "Commando (Crosby, Brixton, Hursthill)",
+          "Central (Parktown, Berea, Yeoville, Randjieslaagte, Linksfield, Alexander Park)",
+          "Sandton (Bryanston, Illovo, Morningside)",
+          "Midrand (Grand Central, President Park, Erand)",
+          "Randburg–Roodepoort (Honeydew, Cosmo City, Waterval Tower)",
+          "Soweto and southern areas (Power Park, Chiawelo, Meadowlands, Zondi, Crown Gardens, Eagles Nest)",
+          "Deep South (Lawley, Ennerdale, Lenasia, Orange Farm)"
+        ],
+        "spatial_resolution": "operator-reported supply-system and suburb labels; not a verified polygon or customer-point dataset",
+        "geocoding_status": "not_geocoded"
+      },
+      "source_role": "operator_assertion",
+      "reported_context": "Johannesburg Water reported that high demand and excessive draw-off were constraining reservoir and tower recovery, with low pressure and intermittent or prolonged outages in multiple supply systems. It described active flow reconfiguration, targeted throttling, leak detection, burst repairs, pressure management and infrastructure rehabilitation. It also proposed stronger Level 1 restrictions targeting an approximately 15% demand reduction.",
+      "reported_numeric_context": [
+        {
+          "metric": "proposed demand reduction target",
+          "value": 15,
+          "unit": "percent",
+          "period_or_scope": "proposed restrictions in the 29 October 2026 statement",
+          "status": "reported_in_publication"
+        }
+      ],
+      "content_acquisition": "public_html_reviewed_exact_bytes_not_pinned",
+      "content_sha256": null,
+      "rights_status": "unknown_not_assessed",
+      "evidence_class": "publisher_statement_or_inquiry_summary",
+      "claim_ceiling": "Evidence that Johannesburg Water published an operator statement describing constraints and proposed interventions for named supply systems.",
+      "does_not_establish": [
+        "A measured tap-level outage for any individual household or customer.",
+        "Exact outage start, duration, frequency or restoration time for any supply zone.",
+        "Measured reservoir levels, network pressures, flow rates or customer delivery quantities.",
+        "That all named suburbs or customers experienced the same interruption.",
+        "That the proposed restrictions were implemented or achieved the stated demand reduction."
+      ]
+    },
+    {
+      "source_id": "SAHRC-GP-INQUIRY-2026-11-02",
+      "publisher": "South African Human Rights Commission",
+      "title": "Inquiry report release: State of Water and Sanitation Service Delivery in Gauteng",
+      "uri": "https://sahrc.org.za/index.php/sahrc-media/news-2/item/4568-media-statement-the-south-african-human-rights-commission-releases-an-inquiry-report-highlighting-neglected-water-and-sanitation-infrastructure-and-heavy-reliance-on-road-based-water-distribution-water-tankers-in-gauteng",
+      "source_kind": "human_rights_inquiry_release",
+      "published_at_text": "2 November 2026",
+      "publication_time_is_not_event_time": true,
+      "valid_time": {
+        "status": "source_defined_interval",
+        "start": "2026-05-19",
+        "end": "2026-05-21",
+        "note": "These are the dates of the Commission's investigative inquiry stated in the release, not the valid-time interval for every underlying condition described by the report."
+      },
+      "reported_geography": {
+        "reported_labels": [
+          "Gauteng Province, South Africa"
+        ],
+        "spatial_resolution": "provincial inquiry summary; not a per-municipality or household observation series",
+        "geocoding_status": "not_geocoded"
+      },
+      "source_role": "human_rights_inquiry_finding_summary",
+      "reported_context": "The Commission's release states that Gauteng's water challenges cannot be attributed simply to raw-water scarcity and describes interconnected failures involving ageing infrastructure, water losses, maintenance, storage and pumping capacity, electricity interruptions, wastewater treatment, technical skills and finances. It describes recurring road-based potable-water delivery in some communities and warns against normalising an inferior permanent level of service.",
+      "reported_numeric_context": [],
+      "content_acquisition": "public_html_reviewed_exact_bytes_not_pinned",
+      "content_sha256": null,
+      "rights_status": "unknown_not_assessed",
+      "evidence_class": "publisher_statement_or_inquiry_summary",
+      "claim_ceiling": "Evidence of the Commission's published summary of inquiry findings and recommendations, including the stated inquiry dates and provincial scope.",
+      "does_not_establish": [
+        "Customer-level water continuity or household quantities.",
+        "A complete list of affected communities, dates or tanker-delivery volumes.",
+        "A measured causal contribution for each infrastructure failure.",
+        "That all Gauteng municipalities or communities experience identical conditions.",
+        "Legal interpretation or automatic assignment of liability by this software."
+      ]
+    },
+    {
+      "source_id": "SAWS-DWS-ELNINO-2026-11-03",
+      "publisher": "SAnews reporting a Department of Water and Sanitation communication",
+      "title": "DWS urges responsible water use amid El Niño threat",
+      "uri": "https://www.sanews.gov.za/south-africa/dws-urges-responsible-water-use-amid-el-ni%C3%B1o-threat",
+      "source_kind": "national_risk_communication",
+      "published_at_text": "3 November 2026",
+      "publication_time_is_not_event_time": true,
+      "valid_time": {
+        "status": "source_defined_interval",
+        "start": "2026-11-01",
+        "end": "2027-03-31",
+        "note": "The 2026/27 summer-season risk context is paraphrased as a broad season label; exact forecast valid times and local probability grids were not included in the article and remain unacquired."
+      },
+      "reported_geography": {
+        "reported_labels": [
+          "South Africa, with particular emphasis on Gauteng"
+        ],
+        "spatial_resolution": "national/provincial communication; no sub-catchment forecast grid or utility-service boundary",
+        "geocoding_status": "not_geocoded"
+      },
+      "source_role": "government_risk_communication",
+      "reported_context": "SAnews reported that DWS urged conservation amid heat-driven demand and an anticipated El Niño, warning that high consumption in better-supplied areas could worsen pressure in disrupted areas. It reported Gauteng average daily consumption, non-revenue water and physical-loss figures from the Department's reporting and summarised the South African Weather Service's forecast of a high likelihood of a strong El Niño.",
+      "reported_numeric_context": [
+        {
+          "metric": "Gauteng average daily water consumption",
+          "value": 250,
+          "unit": "litres per person per day",
+          "period_or_scope": "reported in the 3 November 2026 SAnews article; underlying calculation/report artifact not acquired",
+          "status": "underlying_artifact_not_acquired"
+        },
+        {
+          "metric": "Gauteng average daily water consumption comparator",
+          "value": 173,
+          "unit": "litres per person per day",
+          "period_or_scope": "international average comparator quoted in the 3 November 2026 article; underlying source/vintage not acquired",
+          "status": "underlying_artifact_not_acquired"
+        },
+        {
+          "metric": "non-revenue water",
+          "value": 47,
+          "unit": "percent",
+          "period_or_scope": "reported Gauteng aggregate in the 3 November 2026 article; underlying dataset/vintage not acquired",
+          "status": "underlying_artifact_not_acquired"
+        },
+        {
+          "metric": "physical water losses",
+          "value": 27,
+          "unit": "percent",
+          "period_or_scope": "reported Gauteng aggregate in the 3 November 2026 article; underlying dataset/vintage not acquired",
+          "status": "underlying_artifact_not_acquired"
+        }
+      ],
+      "content_acquisition": "public_html_reviewed_exact_bytes_not_pinned",
+      "content_sha256": null,
+      "rights_status": "unknown_not_assessed",
+      "evidence_class": "publisher_statement_or_inquiry_summary",
+      "claim_ceiling": "Evidence that SAnews published a national DWS risk communication and quoted aggregate Gauteng consumption/loss context and a seasonal El Niño warning.",
+      "does_not_establish": [
+        "A verified sub-catchment rainfall, inflow or reservoir forecast.",
+        "A quantified probability of drought or water outage in Johannesburg.",
+        "That quoted aggregate consumption or loss values are measured at every municipality or service zone.",
+        "A climate-attributed migration or displacement event.",
+        "An authorization to change abstraction, allocation or municipal water restrictions."
+      ]
+    }
+  ],
+  "interpretation_rules": [
+    "A publication timestamp is not an event valid time. Keep publication time, event time and observation time separate.",
+    "A public notice or media statement is evidence that the publisher made the statement; it is not itself a measured tap-delivery outcome.",
+    "An inquiry summary is a source-role-specific institutional finding; do not silently turn it into household telemetry or a complete causal model.",
+    "A risk communication or seasonal forecast must not be substituted for a local, calibrated hydrological forecast.",
+    "Numeric context quoted in an article remains reported context until the underlying report/table, release vintage, units, scope and reuse terms are acquired and checked.",
+    "No source bytes have been acquired for this register. Therefore content_sha256 remains null; do not invent or copy a hash from a webpage URL or search excerpt.",
+    "Rights, licences and redistribution status are not assessed. Metadata registration does not authorize reproduction of source documents or data.",
+    "Do not combine these three sources into one event record without explicit event identity, time/geography matching and separate source references."
+  ],
+  "claim_ceiling": "Metadata-only inventory of three public statements reviewed on 13 November 2026. It does not contain operator telemetry, household observations, downloaded source artifacts, verified source-byte digests, local forecasts, a complete incident register or measured water-service outcomes."
+}
