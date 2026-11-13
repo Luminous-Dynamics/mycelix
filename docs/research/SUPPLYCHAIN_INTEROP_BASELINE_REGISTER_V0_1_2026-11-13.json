@@ -83,6 +83,43 @@
       "executed": false
     },
     {
+      "id": "gs1-epcis-sandbox",
+      "repositories": [
+        "https://epcis-sandbox.gs1.org/",
+        "https://ref.gs1.org/tools/epcis-sandbox/"
+      ],
+      "revision": "hosted_service_no_source_revision",
+      "stack": "GS1-hosted browser tool",
+      "capabilities": [
+        "event data generator and viewer",
+        "upload/inspect EPCIS XML and JSON-LD",
+        "format conversion across EPCIS/CBV syntax and identifier variants"
+      ],
+      "limitations": [
+        "not an EPCIS repository/server",
+        "official owner tool, not an independent implementation",
+        "evolving feature set; must not replace pinned normative artifacts and separate validator receipts"
+      ],
+      "disposition": "official_fixture_and_diagnostic_tool_not_server_baseline",
+      "executed": false
+    },
+    {
+      "id": "freepcis-legacy",
+      "repository": "https://freepcis.gs1.org/",
+      "revision": "hosted_service_no_source_revision",
+      "stack": "GS1-hosted legacy development/test repository",
+      "capabilities": [
+        "EPCIS 1.2 capture and query interfaces"
+      ],
+      "limitations": [
+        "FAQ limits repository to 25 stored events and ten standing queries",
+        "FAQ describes complete EPCIS 1.2 only, not EPCIS 2.0",
+        "GS1 architecture calls it a legacy tool no longer maintained and superseded by EPCIS Sandbox"
+      ],
+      "disposition": "legacy_epcis_1_2_backward_compatibility_only",
+      "executed": false
+    },
+    {
       "id": "openepcis-validation-services",
       "repositories": [
         "https://github.com/openepcis/openepcis-event-sentry",
