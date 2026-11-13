@@ -130,6 +130,16 @@ Create sealed cases for:
 
 Ground truth must be generated/held independently from the inference team. Include both benign and adverse cases to measure false attribution.
 
+**Generalisation protocol (required before any SOTA claim):**
+- Split by entire network/catchment or WSA, not random rows or time windows from the same pipe graph.
+- Hold out at least one complete topology and one complete report/operating period from model selection; report each network separately before any aggregate.
+- Separate unseen-event tests from unseen-network tests. Include single-source and multi-source inflow, wet-weather and dry-weather, pump and power common causes, sensor outages, clock drift, changing catchments, and previously unseen sensor placements.
+- Publish source-network and target-network differences: topology size, depth, slope, material/age where lawfully available, hydraulic regime, building density, rainfall, sensor coverage, missingness and calibration.
+- Run leave-one-catchment-out and leave-one-WSA-out evaluation, then a prospective read-only shadow sample; never infer operational transferability from synthetic split performance.
+- Keep detection, source ranking, flow quantification, service impact and environmental effect as separate tasks with separate metrics. A top-2 source score is not a treatment-works failure diagnosis or a pollution-causation claim.
+
+Aspirational release gates are: no random-row-only evidence; publish both in-distribution and held-out-network scores; calibrate uncertainty and abstention by network; and show that the chosen sensor/inspection plan improves decision quality per total acquisition and lifecycle cost relative to the strongest specialist baseline. Numerical accuracy targets must be selected only after the task, label quality, and minimum detectable event are fixed.
+
 ### Tier E — prospective, operator-authorised shadow study
 
 Start read-only. Require the water services authority and operators to approve data access, purpose, retention, safety review and publication. Do not write to SCADA, control systems, maintenance workflows or public notifications. Any later intervention requires separate human authority, operational safety procedures and independently defined outcome measurement.
