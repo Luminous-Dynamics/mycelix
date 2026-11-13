@@ -420,9 +420,11 @@ mod tests {
 
     #[test]
     fn mismatched_period_is_rejected() {
-        let mutated = BALANCED.replace("treated|OBSERVED_INTERVAL|80|80|operator", "treated|OBSERVED_INTERVAL|80|80|operator");
-        let mutated = mutated.replace("treated|OBSERVED_INTERVAL|80|80|operator|", "treated|OBSERVED_INTERVAL|80|80|operator|");
-        let mutated = mutated.replace("|100|200||meter-volume-v1|", "|100|201||meter-volume-v1|");
+        let mutated = BALANCED.replace(
+            "treated|OBSERVED_INTERVAL|80|80|synthetic-operator|synthetic:treated|meter.volume.v0.1|SYNTHETIC|synthetic-clock-v1|synthetic-catchment-01|100|200|",
+            "treated|OBSERVED_INTERVAL|80|80|synthetic-operator|synthetic:treated|meter.volume.v0.1|SYNTHETIC|synthetic-clock-v1|synthetic-catchment-01|100|201|",
+        );
+        assert_ne!(mutated, BALANCED);
         assert!(validate_and_report(&mutated).is_err());
     }
 
