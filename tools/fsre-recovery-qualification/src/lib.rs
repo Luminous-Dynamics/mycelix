@@ -195,18 +195,47 @@ pub struct OptionResult {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
+pub struct DebtRecordSummary {
+    pub debt_id: String,
+    pub service_id: String,
+    pub dimension: String,
+    pub status: String,
+    pub freshness: String,
+    pub source_owner: String,
+    pub evidence_ref: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct PredicateReceipt {
+    pub option_id: String,
+    pub predicate: String,
+    pub disposition: String,
+    pub source_owner: String,
+    pub source_schema_version: String,
+    pub evidence_ref: String,
+    pub time_basis_id: String,
+    pub observed_at_seconds: u64,
+    pub valid_until_seconds: u64,
+    pub clock_uncertainty_seconds: u64,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct EvaluationReport {
     pub scenario_id: String,
+    pub scenario_digest: String,
     pub debt_item_count: usize,
     pub debt_groups: Vec<DebtGroup>,
+    pub debt_records: Vec<DebtRecordSummary>,
     pub options: Vec<OptionResult>,
+    pub predicate_receipts: Vec<PredicateReceipt>,
 }
 
 impl EvaluationReport {
     pub fn render(&self) -> String {
         let mut output = String::new();
-        output.push_str("report_schema=fsre-recovery-qualification-report.v0.1\n");
+        output.push_str("report_schema=fsre-recovery-qualification-report.v0.2\n");
         output.push_str(&format!("scenario_id={}\n", self.scenario_id));
+        output.push_str(&format!("scenario_digest={}\n", self.scenario_digest));
         output.push_str("claim_scope=DECLARED_SCENARIO_ONLY\n");
         output.push_str("execution_authority=NONE\n");
         output.push_str("operational_actuation=NOT_AUTHORISED\n");
@@ -220,6 +249,19 @@ impl EvaluationReport {
                 group.freshness,
                 group.item_count,
                 group.service_count
+            ));
+        }
+        output.push_str(&format!("debt_evidence_records={}\n", self.debt_records.len()));
+        for record in &self.debt_records {
+            output.push_str(&format!(
+                "debt_record={}|{}|{}|{}|{}|{}|{}\n",
+                record.debt_id,
+                record.service_id,
+                record.dimension,
+                record.status,
+                record.freshness,
+                record.source_owner,
+                record.evidence_ref
             ));
         }
         output.push_str(&format!("recovery_options={}\n", self.options.len()));
@@ -236,6 +278,25 @@ impl EvaluationReport {
                 option.disposition,
                 option.mobilisation_seconds,
                 reasons
+            ));
+        }
+        output.push_str(&format!(
+            "predicate_evidence_records={}\n",
+            self.predicate_receipts.len()
+        ));
+        for receipt in &self.predicate_receipts {
+            output.push_str(&format!(
+                "predicate_evidence={}|{}|{}|{}|{}|{}|{}|{}|{}|{}\n",
+                receipt.option_id,
+                receipt.predicate,
+                receipt.disposition,
+                receipt.source_owner,
+                receipt.source_schema_version,
+                receipt.evidence_ref,
+                receipt.time_basis_id,
+                receipt.observed_at_seconds,
+                receipt.valid_until_seconds,
+                receipt.clock_uncertainty_seconds
             ));
         }
         output
@@ -527,6 +588,7 @@ pub fn evaluate(
 
     let mut evidence_by_option =
         BTreeMap::<String, BTreeMap<PredicateKind, &PredicateEvidence>>::new();
+    let mut predicate_receipts = Vec::with_capacity(evidence.len());
     for record in evidence {
         if !option_ids.contains(record.option_id.as_str()) {
             return Err(InputError(format!(
@@ -594,6 +656,18 @@ pub fn evaluate(
             record.clock_uncertainty_seconds,
             &format!("{}:{}", record.option_id, record.predicate.as_str()),
         )?;
+        predicate_receipts.push(PredicateReceipt {
+            option_id: record.option_id.clone(),
+            predicate: record.predicate.as_str().to_owned(),
+            disposition: record.disposition.as_str().to_owned(),
+            source_owner: record.source_owner.clone(),
+            source_schema_version: record.source_schema_version.clone(),
+            evidence_ref: record.evidence_ref.clone(),
+            time_basis_id: record.time_basis_id.clone(),
+            observed_at_seconds: record.observed_at_seconds,
+            valid_until_seconds: record.valid_until_seconds,
+            clock_uncertainty_seconds: record.clock_uncertainty_seconds,
+        });
         let option_records = evidence_by_option
             .entry(record.option_id.clone())
             .or_default();
@@ -606,8 +680,14 @@ pub fn evaluate(
         }
     }
 
+    predicate_receipts.sort_by(|left, right| {
+        (&left.option_id, &left.predicate).cmp(&(&right.option_id, &right.predicate))
+    });
+
     let mut debt_ids = BTreeSet::new();
     let mut debt_groups = BTreeMap::<(String, String, String), BTreeSet<String>>::new();
+    let mut grouped_counts = BTreeMap::<(String, String, String), usize>::new();
+    let mut debt_records = Vec::with_capacity(debt_items.len());
     for item in debt_items {
         if !debt_ids.insert(item.debt_id.as_str()) {
             return Err(InputError(format!("duplicate debt_id: {}", item.debt_id)));
@@ -631,35 +711,27 @@ pub fn evaluate(
             &item.debt_id,
         )?;
         let freshness = if current { "CURRENT" } else { "STALE" };
+        let group_key = (
+            item.dimension.clone(),
+            item.status.clone(),
+            freshness.to_owned(),
+        );
         debt_groups
-            .entry((
-                item.dimension.clone(),
-                item.status.clone(),
-                freshness.to_owned(),
-            ))
+            .entry(group_key.clone())
             .or_default()
             .insert(item.service_id.clone());
+        *grouped_counts.entry(group_key).or_default() += 1;
+        debt_records.push(DebtRecordSummary {
+            debt_id: item.debt_id.clone(),
+            service_id: item.service_id.clone(),
+            dimension: item.dimension.clone(),
+            status: item.status.clone(),
+            freshness: freshness.to_owned(),
+            source_owner: item.source_owner.clone(),
+            evidence_ref: item.evidence_ref.clone(),
+        });
     }
-
-    let mut grouped_counts = BTreeMap::<(String, String, String), usize>::new();
-    for item in debt_items {
-        let current = evidence_is_current(
-            scenario,
-            &item.time_basis_id,
-            item.observed_at_seconds,
-            item.valid_until_seconds,
-            item.clock_uncertainty_seconds,
-            &item.debt_id,
-        )?;
-        let freshness = if current { "CURRENT" } else { "STALE" };
-        *grouped_counts
-            .entry((
-                item.dimension.clone(),
-                item.status.clone(),
-                freshness.to_owned(),
-            ))
-            .or_default() += 1;
-    }
+    debt_records.sort_by(|left, right| left.debt_id.cmp(&right.debt_id));
 
     let mut report_groups = Vec::with_capacity(grouped_counts.len());
     for (key, item_count) in grouped_counts {
@@ -722,9 +794,12 @@ pub fn evaluate(
 
     Ok(EvaluationReport {
         scenario_id: scenario.scenario_id.clone(),
+        scenario_digest: scenario.scenario_digest.clone(),
         debt_item_count: debt_items.len(),
         debt_groups: report_groups,
+        debt_records,
         options: results,
+        predicate_receipts,
     })
 }
 
