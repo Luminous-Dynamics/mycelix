@@ -104,8 +104,14 @@ fn parse_metadata(metadata: &mut BTreeMap<String, String>) -> Result<Metadata, S
         scope_ref: take_required(metadata, "scope_ref")?,
         time_basis_id: take_required(metadata, "time_basis_id")?,
         geography_id: take_required(metadata, "geography_id")?,
-        period_start: parse_u64(&take_required(metadata, "period_start_seconds")?, "period_start_seconds")?,
-        period_end: parse_u64(&take_required(metadata, "period_end_seconds")?, "period_end_seconds")?,
+        period_start: parse_u64(
+            &take_required(metadata, "period_start_seconds")?,
+            "period_start_seconds",
+        )?,
+        period_end: parse_u64(
+            &take_required(metadata, "period_end_seconds")?,
+            "period_end_seconds",
+        )?,
         unit: take_required(metadata, "unit")?,
         boundary_description: take_required(metadata, "boundary_description")?,
     };
@@ -149,32 +155,47 @@ fn parse_term(line: &str, line_number: usize) -> Result<FlowTerm, String> {
     match status {
         TermStatus::ObservedInterval | TermStatus::EstimatedInterval => {
             let (Some(lower), Some(upper)) = (lower, upper) else {
-                return Err(format!("line {line_number}: known interval requires both lower and upper"));
+                return Err(format!(
+                    "line {line_number}: known interval requires both lower and upper"
+                ));
             };
             if lower > upper {
-                return Err(format!("line {line_number}: lower bound exceeds upper bound"));
+                return Err(format!(
+                    "line {line_number}: lower bound exceeds upper bound"
+                ));
             }
             if columns[0] != "storage_change" && lower < 0 {
-                return Err(format!("line {line_number}: physical flow interval cannot be negative"));
+                return Err(format!(
+                    "line {line_number}: physical flow interval cannot be negative"
+                ));
             }
         }
         TermStatus::Unknown => {
             if lower.is_some() || upper.is_some() || columns[14].is_empty() {
-                return Err(format!("line {line_number}: unknown term requires empty bounds and a reason"));
+                return Err(format!(
+                    "line {line_number}: unknown term requires empty bounds and a reason"
+                ));
             }
         }
         TermStatus::NotApplicable => {
             if lower != Some(0) || upper != Some(0) || columns[14].is_empty() {
-                return Err(format!("line {line_number}: not-applicable term requires explicit [0,0] and a reason"));
+                return Err(format!(
+                    "line {line_number}: not-applicable term requires explicit [0,0] and a reason"
+                ));
             }
         }
     }
 
     if !REQUIRED_TERMS.contains(&columns[0]) {
-        return Err(format!("line {line_number}: unknown flow term {}", columns[0]));
+        return Err(format!(
+            "line {line_number}: unknown flow term {}",
+            columns[0]
+        ));
     }
     if period_start >= period_end {
-        return Err(format!("line {line_number}: invalid term observation period"));
+        return Err(format!(
+            "line {line_number}: invalid term observation period"
+        ));
     }
 
     Ok(FlowTerm {
@@ -211,7 +232,10 @@ fn parse(source: &str) -> Result<(Metadata, Vec<FlowTerm>), String> {
         if let Some(comment) = line.strip_prefix('#') {
             if let Some((key, value)) = comment.trim().split_once('=') {
                 let key = key.trim().to_owned();
-                if metadata.insert(key.clone(), value.trim().to_owned()).is_some() {
+                if metadata
+                    .insert(key.clone(), value.trim().to_owned())
+                    .is_some()
+                {
                     return Err(format!("line {line_number}: duplicate metadata key {key}"));
                 }
             }
@@ -227,7 +251,10 @@ fn parse(source: &str) -> Result<(Metadata, Vec<FlowTerm>), String> {
 
         let term = parse_term(line, line_number)?;
         if !seen.insert(term.term_id.clone()) {
-            return Err(format!("line {line_number}: duplicate term {}", term.term_id));
+            return Err(format!(
+                "line {line_number}: duplicate term {}",
+                term.term_id
+            ));
         }
         terms.push(term);
     }
@@ -262,7 +289,10 @@ fn parse(source: &str) -> Result<(Metadata, Vec<FlowTerm>), String> {
                     | "UNKNOWN"
             )
         {
-            return Err(format!("missing or unsupported source lineage for {}", term.term_id));
+            return Err(format!(
+                "missing or unsupported source lineage for {}",
+                term.term_id
+            ));
         }
         if term.time_basis_id != parsed_metadata.time_basis_id
             || term.geography_id != parsed_metadata.geography_id
@@ -285,7 +315,10 @@ fn parse(source: &str) -> Result<(Metadata, Vec<FlowTerm>), String> {
 }
 
 fn interval(terms: &[FlowTerm], id: &str) -> (i128, i128) {
-    let term = terms.iter().find(|term| term.term_id == id).expect("required term is present");
+    let term = terms
+        .iter()
+        .find(|term| term.term_id == id)
+        .expect("required term is present");
     (
         i128::from(term.lower.expect("known term has lower bound")),
         i128::from(term.upper.expect("known term has upper bound")),
@@ -304,7 +337,10 @@ fn render(metadata: &Metadata, terms: &[FlowTerm]) -> String {
     output.push_str(&format!("period_start_seconds={}\n", metadata.period_start));
     output.push_str(&format!("period_end_seconds={}\n", metadata.period_end));
     output.push_str(&format!("unit={}\n", metadata.unit));
-    output.push_str(&format!("boundary_description={}\n", metadata.boundary_description));
+    output.push_str(&format!(
+        "boundary_description={}\n",
+        metadata.boundary_description
+    ));
 
     let mut ordered = terms.to_vec();
     ordered.sort_by(|left, right| left.term_id.cmp(&right.term_id));
@@ -316,12 +352,31 @@ fn render(metadata: &Metadata, terms: &[FlowTerm]) -> String {
     let mut correlations: BTreeSet<&str> = BTreeSet::new();
 
     for term in &ordered {
-        output.push_str(&format!("term.{}.status={}\n", term.term_id, term.status.as_str()));
-        output.push_str(&format!("term.{}.source_owner={}\n", term.term_id, term.source_owner));
-        output.push_str(&format!("term.{}.source_ref={}\n", term.term_id, term.source_ref));
-        output.push_str(&format!("term.{}.source_schema={}\n", term.term_id, term.source_schema));
-        output.push_str(&format!("term.{}.admissibility={}\n", term.term_id, term.admissibility));
-        output.push_str(&format!("term.{}.method_id={}\n", term.term_id, term.method_id));
+        output.push_str(&format!(
+            "term.{}.status={}\n",
+            term.term_id,
+            term.status.as_str()
+        ));
+        output.push_str(&format!(
+            "term.{}.source_owner={}\n",
+            term.term_id, term.source_owner
+        ));
+        output.push_str(&format!(
+            "term.{}.source_ref={}\n",
+            term.term_id, term.source_ref
+        ));
+        output.push_str(&format!(
+            "term.{}.source_schema={}\n",
+            term.term_id, term.source_schema
+        ));
+        output.push_str(&format!(
+            "term.{}.admissibility={}\n",
+            term.term_id, term.admissibility
+        ));
+        output.push_str(&format!(
+            "term.{}.method_id={}\n",
+            term.term_id, term.method_id
+        ));
         if !term.correlation_group.is_empty() {
             correlations.insert(term.correlation_group.as_str());
         }
@@ -337,7 +392,10 @@ fn render(metadata: &Metadata, terms: &[FlowTerm]) -> String {
         }
     }
 
-    output.push_str(&format!("distinct_correlation_groups={}\n", correlations.len()));
+    output.push_str(&format!(
+        "distinct_correlation_groups={}\n",
+        correlations.len()
+    ));
     output.push_str("interval_method=CONSERVATIVE_OUTER_BOUND;DEPENDENCE_NOT_MODELLED\n");
 
     if unknown.is_empty() {
@@ -350,7 +408,10 @@ fn render(metadata: &Metadata, terms: &[FlowTerm]) -> String {
 
         let residual_lower = g_l + i_l - t_u - b_u - r_u - s_u;
         let residual_upper = g_u + i_u - t_l - b_l - r_l - s_l;
-        output.push_str(&format!("unaccounted_residual_interval=[{residual_lower},{residual_upper}] {}\n", metadata.unit));
+        output.push_str(&format!(
+            "unaccounted_residual_interval=[{residual_lower},{residual_upper}] {}\n",
+            metadata.unit
+        ));
 
         let interpretation = if residual_lower > 0 {
             "POSITIVE_UNACCOUNTED_RESIDUAL"
@@ -405,7 +466,10 @@ mod tests {
 
     #[test]
     fn negative_residual_is_preserved_not_clipped() {
-        let source = BALANCED.replace("treated|OBSERVED_INTERVAL|80|80", "treated|OBSERVED_INTERVAL|95|95");
+        let source = BALANCED.replace(
+            "treated|OBSERVED_INTERVAL|80|80",
+            "treated|OBSERVED_INTERVAL|95|95",
+        );
         let report = validate_and_report(&source).expect("negative residual case should validate");
         assert!(report.contains("unaccounted_residual_interval=[-15,-15] m3"));
         assert!(report.contains("residual_interpretation=NEGATIVE_ACCOUNTING_MISMATCH"));
@@ -413,7 +477,10 @@ mod tests {
 
     #[test]
     fn positive_residual_is_bounded_not_attributed() {
-        let source = BALANCED.replace("treated|OBSERVED_INTERVAL|80|80", "treated|OBSERVED_INTERVAL|60|60");
+        let source = BALANCED.replace(
+            "treated|OBSERVED_INTERVAL|80|80",
+            "treated|OBSERVED_INTERVAL|60|60",
+        );
         let report = validate_and_report(&source).expect("positive residual case should validate");
         assert!(report.contains("unaccounted_residual_interval=[20,20] m3"));
         assert!(report.contains("residual_causal_attribution=NONE"));
@@ -421,8 +488,12 @@ mod tests {
 
     #[test]
     fn interval_that_spans_zero_does_not_claim_residual_sign() {
-        let source = BALANCED.replace("treated|OBSERVED_INTERVAL|80|80", "treated|OBSERVED_INTERVAL|70|90");
-        let report = validate_and_report(&source).expect("bounded uncertainty case should validate");
+        let source = BALANCED.replace(
+            "treated|OBSERVED_INTERVAL|80|80",
+            "treated|OBSERVED_INTERVAL|70|90",
+        );
+        let report =
+            validate_and_report(&source).expect("bounded uncertainty case should validate");
         assert!(report.contains("unaccounted_residual_interval=[-10,10] m3"));
         assert!(report.contains("residual_interpretation=SIGN_OR_ZERO_NOT_IDENTIFIABLE"));
     }
@@ -498,7 +569,10 @@ mod tests {
 
     #[test]
     fn impossible_negative_physical_flow_is_rejected() {
-        let mutated = BALANCED.replace("treated|OBSERVED_INTERVAL|80|80", "treated|OBSERVED_INTERVAL|-1|80");
+        let mutated = BALANCED.replace(
+            "treated|OBSERVED_INTERVAL|80|80",
+            "treated|OBSERVED_INTERVAL|-1|80",
+        );
         assert!(validate_and_report(&mutated).is_err());
     }
 
@@ -511,10 +585,21 @@ mod tests {
 
     #[test]
     fn report_is_invariant_to_term_order() {
-        let mut lines: Vec<&str> = BALANCED.lines().filter(|line| !line.starts_with('#') && !line.starts_with("term_id|")).collect();
+        let mut lines: Vec<&str> = BALANCED
+            .lines()
+            .filter(|line| !line.starts_with('#') && !line.starts_with("term_id|"))
+            .collect();
         lines.reverse();
-        let metadata: Vec<&str> = BALANCED.lines().filter(|line| line.starts_with('#')).collect();
-        let reordered = format!("{}\n{}\n{}\n", metadata.join("\n"), HEADER, lines.join("\n"));
+        let metadata: Vec<&str> = BALANCED
+            .lines()
+            .filter(|line| line.starts_with('#'))
+            .collect();
+        let reordered = format!(
+            "{}\n{}\n{}\n",
+            metadata.join("\n"),
+            HEADER,
+            lines.join("\n")
+        );
         assert_eq!(
             validate_and_report(BALANCED).expect("original"),
             validate_and_report(&reordered).expect("reordered")
