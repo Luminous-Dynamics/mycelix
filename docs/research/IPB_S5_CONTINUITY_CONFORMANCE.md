@@ -174,3 +174,13 @@ A stronger S5 benchmark should include hidden, held-out recovery paths and compa
 - A field pilot requires consent, privacy minimization and an explicit non-disruption safety plan.
 
 No S5 performance result exists until an independently evaluated run has been executed.
+
+## 11. Primary standards references
+
+- [ISO/CD 22301 Edition 3 — Committee Draft](https://www.iso.org/standard/93606.html), under development in 2026; will replace ISO 22301:2019. Use as a forward-looking draft only.
+- [ISO 22301:2019](https://www.iso.org/standard/75106.html) and [Amendment 1:2024](https://www.iso.org/standard/88412.html): published BCMS requirements and climate-action amendment.
+- [ISO 22313:2020](https://www.iso.org/standard/75107.html): guidance on applying ISO 22301; last reviewed and confirmed in 2025.
+- [NIST SP 800-34 Rev. 1](https://csrc.nist.gov/pubs/sp/800/34/r1/upd1/final): contingency planning guide for federal information systems.
+- [NIST IR 8587](https://csrc.nist.gov/pubs/ir/8587/final), finalized 15 September 2026: protection of identity tokens/assertions from forgery, theft and misuse, including key lifecycle and federation concerns.
+
+These documents provide continuity and identity-security baselines; none by itself verifies that constitutional succession or post-recovery action authority is correct.
