@@ -127,7 +127,7 @@ Required extraction:
 - notes and data-quality caveats;
 - retrieval date and raw PDF digest.
 
-The WRO catalog states that system-level tables have not been extracted into machine-readable form. As checked 13 November 2026, both the dataset page and 2025 PDF resource page state `No License Provided`; do not infer redistribution or extraction rights. Resolve rights with DWS before acquiring or extracting the PDF.
+The WRO catalog states that system-level tables have not been extracted into machine-readable form. As checked 13 November 2026, its prominent dataset-page licence field says `No License Provided`, while lower metadata fields state Open (Creative Commons), CC BY 4.0. The individual 2025 PDF resource page says `No License Provided`. Treat this as conflicting parent/resource licence metadata; do not infer that the dataset-level CC BY field licenses the PDF itself. Resolve resource-level rights with DWS before acquiring or extracting the report.
 
 Keep the two 2022 audit populations distinct: WRO describes 995 works across municipal, Department of Public Works and private ownership, while SAnews reports the 850 municipal systems used for the 334/850 critical (39%) and 118/850 good/excellent (14%) comparisons. The 2025 report covers 848 municipal systems across 144 WSAs. Never use 995 as the municipal rate denominator, and do not treat the 850→848 counts as a linked cohort; SAnews attributes the difference to decommissioning or merging, but system-level identity linkage has not been performed.
 
