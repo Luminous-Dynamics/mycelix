@@ -359,7 +359,7 @@ mod tests {
         let (metadata, facts) = parse(FIXTURE).expect("fixture should validate");
         assert_eq!(metadata.source_status, "PUBLISHED_OFFICIAL_SUMMARY");
         assert_eq!(metadata.system_level_records, "NOT_EXTRACTED");
-        assert_eq!(facts.len(), 12);
+        assert_eq!(facts.len(), 13);
     }
 
     #[test]
@@ -380,7 +380,9 @@ mod tests {
         assert_eq!((66_u128 * 100 + 848 / 2) / 848, 8);
         let (metadata, facts) = parse(FIXTURE).expect("fixture should validate");
         assert_eq!(metadata.secondary_source_owner, "sanews-gcis");
-        assert_eq!(lookup(&facts, "audited_systems", 2022), Some(850));
+        assert_eq!(metadata.tertiary_source_owner, "water-research-observatory");
+        assert_eq!(lookup(&facts, "municipal_systems_audited", 2022), Some(850));
+        assert_eq!(lookup(&facts, "all_sector_works_audited", 2022), Some(995));
     }
 
     #[test]
@@ -439,8 +441,10 @@ mod tests {
         assert!(report.contains("CAUSAL_EFFECT=NOT_ESTABLISHED"));
         assert!(report.contains("INTERVENTION_AUTHORITY=NONE"));
         assert!(report.contains("SYSTEM_LEVEL_REPLAY=NOT_PERFORMED"));
-        assert!(report.contains("2022_SYSTEM_DENOMINATOR=850"));
-        assert!(report.contains("SYSTEMS_DECOMMISSIONED_OR_MERGED=SOURCE_REPORTED"));
+        assert!(report.contains("2022_MUNICIPAL_SYSTEM_DENOMINATOR=850"));
+        assert!(report.contains("2022_ALL_SECTOR_WORKS=995"));
+        assert!(report.contains("NOT_THE_MUNICIPAL_RATE_DENOMINATOR"));
+        assert!(report.contains("DECOMMISSIONED_OR_MERGED=SOURCE_REPORTED"));
         assert!(report.contains("critical_share_change_percentage_points=8"));
         assert!(report.contains("good_or_excellent_share_change_percentage_points=-6"));
     }
