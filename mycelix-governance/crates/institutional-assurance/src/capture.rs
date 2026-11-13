@@ -546,8 +546,7 @@ pub fn adversarial_capture_suite() -> CaptureSuiteReport {
             .contains(&domain.domain)
         {
             domain.authorized_controllers = set(&["cartel-a", "independent-c", "independent-d"]);
-            domain.available_controllers =
-                set(&["cartel-a", "independent-c", "independent-d"]);
+            domain.available_controllers = set(&["cartel-a", "independent-c", "independent-d"]);
             domain.required_signers = 2;
         }
         if below_threshold
