@@ -32,6 +32,9 @@ No LISE adapter may widen the claim ceiling or authority of a subsystem it consu
 | Plural disagreement, dissent, paradox and process integrity | Symtropy #3110 LBE-BENCH-003 | Reuse its position/hazard/disposition concepts and event-sourced kernel |
 | Longitudinal disagreement debt and institutional memory | Symtropy #3123 LBE-BENCH-004 | Reuse its turnover, deferral, care-burden and dissent-retention scenarios |
 | Generic institutions, offices, membership and scoped normative authority in persistent simulation | Symtropy #373 civilization spine | Consume its institutional concepts; Mycelix remains optional real-world governance boundary |
+| Institutional mechanism/game-theory and adversarial population experiments | Symthaea #3054 / #3095 IG-006 | Consume mechanism/population/adversary profiles and counterexample-first experiment receipts; do not duplicate payoff, coalition-search, behavior-policy, voting or hostile-agent engines |
+| Simulation-to-authority deployment firewall | Symthaea #7205 SYM-CIV-002 | Preserve D0 research through D4 persistent-operation gates; no model or simulation output autonomously creates authority |
+| Formal governance power, pivotality and role concentration | Symtropy #3684 CIVDYN-AUTH-001 | Use nominal weight, Banzhaf/Shapley–Shubik, minimal winning coalitions, separation-of-duties and appeal-independence outputs as IPB-GOV/CAP dimensions |
 | Scientific adequacy, causal-policy and runtime qualification | Symtropy #4392 CIVDYN-BENCH-QUAL-001 | Reuse model validity, transfer, holdout and uncertainty protocols |
 | Independent water/resource accounting and matched institutional-policy scenarios | Symtropy #3319 CivBench | Use as first physical-outcome vertical; do not duplicate the water kernel or authoritative ledger |
 | Water kernel event-order and accounting semantics | Symtropy #3361 | Bind LISE experiments to the declared physical event-order profile |
@@ -59,7 +62,7 @@ Compose #5996, #4816, #5699 and Symtropy #3319. LISE adds matched institutional 
 
 ### P5 — Institutional assurance, security and resilience
 
-Compose the S2 assurance fixture with #2953, #4835, #6069, #5672 and Symtropy #3110/#3123. LISE adds the cross-domain benchmark plan, exact-head evidence admission and independent evaluation. It does not create a competing generic forensic/provenance store.
+Compose the S2 assurance fixture with Mycelix #2953, #4835, #6069, #5672; Symthaea #3054/#3095 and #7205; and Symtropy #3110/#3123/#3684. LISE adds the cross-domain benchmark plan, exact-head evidence admission and independent evaluation. Formal power indices, adversary behavior and simulation-authority separation remain owner-native capabilities; LISE does not create parallel versions.
 
 ### P6 — Institutional evolution, interoperability and succession
 
@@ -183,3 +186,7 @@ Counter-metrics remain mandatory: false positives, legitimate-action acceptance,
 - Symtropy #3361 water semantics: https://github.com/Luminous-Dynamics/symtropy/issues/3361
 - Symtropy #4392 CIVDYN benchmark: https://github.com/Luminous-Dynamics/symtropy/issues/4392
 - Mycelix #5968 cross-stack integration pattern: https://github.com/Luminous-Dynamics/mycelix/issues/5968
+- Symthaea #3054 institutional-game programme: https://github.com/Luminous-Dynamics/symthaea/issues/3054
+- Symthaea #3095 reproducible institutional lab: https://github.com/Luminous-Dynamics/symthaea/issues/3095
+- Symthaea #7205 simulation-to-authority firewall: https://github.com/Luminous-Dynamics/symthaea/issues/7205
+- Symtropy #3684 formal governance power and role concentration: https://github.com/Luminous-Dynamics/symtropy/issues/3684
