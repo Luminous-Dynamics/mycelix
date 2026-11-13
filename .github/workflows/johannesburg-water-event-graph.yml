@@ -1,0 +1,64 @@
+name: Johannesburg Water event graph validator
+
+on:
+  push:
+    paths:
+      - "mycelix-workspace/tools/johannesburg-water-event-graph-validator/**"
+      - "docs/research/nrvca/johannesburg-water-event-graph-*"
+      - "docs/research/nrvca/johannesburg-water-service-sources-v0.1.json"
+      - ".github/workflows/johannesburg-water-event-graph.yml"
+  pull_request:
+    paths:
+      - "mycelix-workspace/tools/johannesburg-water-event-graph-validator/**"
+      - "docs/research/nrvca/johannesburg-water-event-graph-*"
+      - "docs/research/nrvca/johannesburg-water-service-sources-v0.1.json"
+      - ".github/workflows/johannesburg-water-event-graph.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: johannesburg-water-event-graph-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validator:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Rust, rustfmt and Clippy
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - name: Check formatting
+        run: cargo fmt --manifest-path mycelix-workspace/tools/johannesburg-water-event-graph-validator/Cargo.toml --all -- --check
+      - name: Run semantic and adversarial tests
+        run: cargo test --manifest-path mycelix-workspace/tools/johannesburg-water-event-graph-validator/Cargo.toml
+      - name: Run strict Clippy
+        run: cargo clippy --manifest-path mycelix-workspace/tools/johannesburg-water-event-graph-validator/Cargo.toml --all-targets -- -D warnings
+      - name: Validate exact checked-out register and event graph
+        id: evaluate
+        env:
+          WATER_EVENT_GRAPH_REVISION: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          cargo run --manifest-path mycelix-workspace/tools/johannesburg-water-event-graph-validator/Cargo.toml -- \
+            docs/research/nrvca/johannesburg-water-service-sources-v0.1.json \
+            docs/research/nrvca/johannesburg-water-event-graph-v0.1.json \
+            docs/research/nrvca/johannesburg-water-event-graph-negative-controls-v0.1.json \
+            docs/research/nrvca/johannesburg-water-event-graph-v0.1.schema.json \
+            artifacts/johannesburg-water-event-graph/receipt.json
+      - name: Upload exact-head inputs, lockfile and receipt
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: johannesburg-water-event-graph-exact-head-evidence
+          path: |
+            docs/research/nrvca/johannesburg-water-service-sources-v0.1.json
+            docs/research/nrvca/johannesburg-water-event-graph-v0.1.json
+            docs/research/nrvca/johannesburg-water-event-graph-v0.1.schema.json
+            docs/research/nrvca/johannesburg-water-event-graph-negative-controls-v0.1.json
+            mycelix-workspace/tools/johannesburg-water-event-graph-validator/Cargo.lock
+            artifacts/johannesburg-water-event-graph/receipt.json
+          if-no-files-found: warn
