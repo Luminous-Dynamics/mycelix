@@ -7,7 +7,7 @@
 //! Enhanced with Φ-weighted voting, quadratic voting, and delegation decay
 //! Per GIS v4.0 integration plan
 
-#[allow(
+#![allow(
     clippy::manual_clamp,
     clippy::manual_range_contains,
     clippy::unnecessary_cast,
