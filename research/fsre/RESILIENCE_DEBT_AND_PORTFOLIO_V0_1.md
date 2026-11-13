@@ -194,4 +194,6 @@ Do not build a new resilience-debt database. Begin with a deterministic read-onl
 6. add a second independent reference calculation after the semantics stabilise;
 7. only then adapt the report to public-data and operator-authorised source records.
 
+The initial machine-readable example is [`ZA_RESILIENCE_DEBT_SYNTHETIC_V0_1.json`](scenarios/ZA_RESILIENCE_DEBT_SYNTHETIC_V0_1.json). It contains 3 synthetic service lanes, 14 synthetic debt items, 6 recovery-option candidates and 3 remediation portfolios. All baseline recovery candidates remain not qualified; the proposed remediation portfolio is explicitly marked `NOT_EVALUATED` until a separate post-remediation evidence bundle exists. An independent tool-side structural check confirmed JSON parseability, unique debt/option identifiers, allowed predicate states and the absence of any option promoted to qualified by identifier count alone. This is a fixture-structure check, not a Rust evaluator run or physical validation.
+
 This static tranche does not authorise any operational actuation or capital/procurement decision.
