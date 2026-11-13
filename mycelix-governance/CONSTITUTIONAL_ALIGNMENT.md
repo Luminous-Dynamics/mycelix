@@ -17,7 +17,7 @@ Where they conflict, the code must change.
 **Constitution (Art. III, Sec. 5.3)**:
 > "The Global DAO may overturn any veto by a two-thirds (2/3) majority in both houses."
 
-**Code**: `VETO_OVERRIDE_THRESHOLD = 0.80` (80%)
+**Current code**: `VETO_OVERRIDE_THRESHOLD = 0.67` (67%). The execution integrity validator and current override resolver use this fixed value.
 
 **Resolution**: Align code to 67% (constitutional authority). The 80% threshold
 was chosen during the anti-tyranny hardening for extra security margin, but it
@@ -25,9 +25,7 @@ contradicts the Constitution and creates the 21% boycott vulnerability. The
 Constitution's 2/3 threshold (67%) actually provides BETTER protection against
 voter suppression while still requiring supermajority legitimacy.
 
-**Action**: Change `VETO_OVERRIDE_THRESHOLD` from `0.80` to `0.67`.
-Update `OVERRIDE_THRESHOLD_FLOOR` from `0.67` to `0.60` (participation
-insurance floor adjusts accordingly).
+**Action**: Do not change the active threshold constant based on this stale document. Align comments and test names with the current fixed 0.67 behavior. The adaptive helper calculates 0.67 → 0.62 → 0.60 but is not called by the current resolver. The 0.60 floor belongs to the proposed v0.26 participation-insurance schedule and must remain draft-only until the amendment, quorum rule and retry semantics are adopted.
 
 ### 2. Immutable Core: Total Block vs 90% Supermajority
 
@@ -118,6 +116,12 @@ registry requirements.
 **Action**: Add missing fields to `GuardianVeto` entry type.
 
 ---
+
+### Runtime and constitutional conformance questions still requiring resolution
+
+- The current constitutional text requires a two-thirds majority in both houses; the current resolver computes one aggregate weighted ratio, and the vote record does not identify a house.
+- `total_eligible_voters` is currently populated with the number of recorded ballots, not an independently established eligible-voter count.
+- The v0.26 amendment draft proposes lowering the threshold after quorum failure. Its proposed schedule is not the v0.25 runtime rule and must not be activated by merely calling the adaptive helper.
 
 ## Aligned (No Changes Needed)
 
