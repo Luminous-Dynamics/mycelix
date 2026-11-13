@@ -131,6 +131,7 @@ impl Disposition {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Scenario {
     pub scenario_id: String,
+    pub scenario_digest: String,
     pub time_basis_id: String,
     pub evaluation_time_seconds: u64,
     pub clock_uncertainty_seconds: u64,
@@ -147,6 +148,10 @@ pub struct RecoveryOption {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct PredicateEvidence {
     pub option_id: String,
+    pub service_id: String,
+    pub scenario_id: String,
+    pub scenario_digest: String,
+    pub source_schema_version: String,
     pub predicate: PredicateKind,
     pub disposition: Disposition,
     pub source_owner: String,
@@ -317,6 +322,7 @@ pub fn parse_scenario_and_options(
 ) -> Result<(Scenario, Vec<RecoveryOption>), InputError> {
     let mut metadata = parse_metadata(source)?;
     let scenario_id = required_metadata(&mut metadata, "scenario_id")?;
+    let scenario_digest = required_metadata(&mut metadata, "scenario_digest")?;
     let time_basis_id = required_metadata(&mut metadata, "time_basis_id")?;
     let evaluation_time_seconds = parse_u64(
         &required_metadata(&mut metadata, "evaluation_time_seconds")?,
@@ -359,6 +365,7 @@ pub fn parse_scenario_and_options(
     Ok((
         Scenario {
             scenario_id,
+            scenario_digest,
             time_basis_id,
             evaluation_time_seconds,
             clock_uncertainty_seconds,
@@ -402,13 +409,13 @@ pub fn parse_debt_items(source: &str) -> Result<Vec<DebtItem>, InputError> {
 pub fn parse_predicate_evidence(source: &str) -> Result<Vec<PredicateEvidence>, InputError> {
     let rows = parse_rows(
         source,
-        "option_id|predicate|disposition|source_owner|evidence_ref|time_basis_id|observed_at_seconds|valid_until_seconds|clock_uncertainty_seconds",
-        9,
+        "option_id|service_id|scenario_id|scenario_digest|source_schema_version|predicate|disposition|source_owner|evidence_ref|time_basis_id|observed_at_seconds|valid_until_seconds|clock_uncertainty_seconds",
+        13,
     )?;
     let mut seen = BTreeSet::new();
     let mut evidence = Vec::with_capacity(rows.len());
     for row in rows {
-        let predicate = PredicateKind::parse(&row[1])?;
+        let predicate = PredicateKind::parse(&row[5])?;
         if !seen.insert((row[0].clone(), predicate)) {
             return Err(InputError(format!(
                 "duplicate predicate {} for option {}",
@@ -418,14 +425,18 @@ pub fn parse_predicate_evidence(source: &str) -> Result<Vec<PredicateEvidence>, 
         }
         evidence.push(PredicateEvidence {
             option_id: row[0].clone(),
+            service_id: row[1].clone(),
+            scenario_id: row[2].clone(),
+            scenario_digest: row[3].clone(),
+            source_schema_version: row[4].clone(),
             predicate,
-            disposition: Disposition::parse(&row[2])?,
-            source_owner: row[3].clone(),
-            evidence_ref: row[4].clone(),
-            time_basis_id: row[5].clone(),
-            observed_at_seconds: parse_u64(&row[6], "observed_at_seconds")?,
-            valid_until_seconds: parse_u64(&row[7], "valid_until_seconds")?,
-            clock_uncertainty_seconds: parse_u64(&row[8], "clock_uncertainty_seconds")?,
+            disposition: Disposition::parse(&row[6])?,
+            source_owner: row[7].clone(),
+            evidence_ref: row[8].clone(),
+            time_basis_id: row[9].clone(),
+            observed_at_seconds: parse_u64(&row[10], "observed_at_seconds")?,
+            valid_until_seconds: parse_u64(&row[11], "valid_until_seconds")?,
+            clock_uncertainty_seconds: parse_u64(&row[12], "clock_uncertainty_seconds")?,
         });
     }
     Ok(evidence)
@@ -481,6 +492,7 @@ pub fn evaluate(
     evidence: &[PredicateEvidence],
 ) -> Result<EvaluationReport, InputError> {
     if scenario.scenario_id.trim().is_empty()
+        || scenario.scenario_digest.trim().is_empty()
         || scenario.time_basis_id.trim().is_empty()
         || scenario.horizon_seconds == 0
     {
@@ -509,6 +521,31 @@ pub fn evaluate(
             return Err(InputError(format!(
                 "evidence references unknown option: {}",
                 record.option_id
+            )));
+        }
+        let option = options
+            .iter()
+            .find(|option| option.option_id == record.option_id)
+            .expect("option membership was checked above");
+        if record.service_id != option.service_id {
+            return Err(InputError(format!(
+                "service binding mismatch for {}: expected {}, received {}",
+                record.option_id, option.service_id, record.service_id
+            )));
+        }
+        if record.scenario_id != scenario.scenario_id
+            || record.scenario_digest != scenario.scenario_digest
+        {
+            return Err(InputError(format!(
+                "scenario binding mismatch for {}",
+                record.option_id
+            )));
+        }
+        if record.source_schema_version.trim().is_empty() {
+            return Err(InputError(format!(
+                "missing source_schema_version for {}:{}",
+                record.option_id,
+                record.predicate.as_str()
             )));
         }
         if record.source_owner != record.predicate.expected_owner() {
@@ -670,6 +707,7 @@ mod tests {
     fn scenario() -> Scenario {
         Scenario {
             scenario_id: "synthetic-test".to_owned(),
+            scenario_digest: "synthetic:scenario-digest:test-v1".to_owned(),
             time_basis_id: "synthetic-clock-v1".to_owned(),
             evaluation_time_seconds: 100,
             clock_uncertainty_seconds: 0,
@@ -692,6 +730,10 @@ mod tests {
     ) -> PredicateEvidence {
         PredicateEvidence {
             option_id: "backup-a".to_owned(),
+            service_id: "water-service-a".to_owned(),
+            scenario_id: "synthetic-test".to_owned(),
+            scenario_digest: "synthetic:scenario-digest:test-v1".to_owned(),
+            source_schema_version: format!("{}.predicate.v0.1", predicate.expected_owner()),
             predicate,
             disposition,
             source_owner: predicate.expected_owner().to_owned(),
@@ -834,7 +876,7 @@ mod tests {
 
     #[test]
     fn scenario_and_options_parser_requires_explicit_metadata() {
-        let source = "# scenario_id=fixture\n# time_basis_id=synthetic-clock-v1\n# evaluation_time_seconds=100\n# clock_uncertainty_seconds=0\n# horizon_seconds=1000\noption_id|service_id|mobilisation_seconds\no1|water-a|10\n";
+        let source = "# scenario_id=fixture\n# scenario_digest=synthetic:scenario-digest:fixture-v1\n# time_basis_id=synthetic-clock-v1\n# evaluation_time_seconds=100\n# clock_uncertainty_seconds=0\n# horizon_seconds=1000\noption_id|service_id|mobilisation_seconds\no1|water-a|10\n";
         let (parsed_scenario, options) = parse_scenario_and_options(source).unwrap();
         assert_eq!(parsed_scenario.scenario_id, "fixture");
         assert_eq!(options.len(), 1);
@@ -842,8 +884,9 @@ mod tests {
 
     #[test]
     fn predicate_parser_rejects_duplicate_semantics() {
-        let header = "option_id|predicate|disposition|source_owner|evidence_ref|time_basis_id|observed_at_seconds|valid_until_seconds|clock_uncertainty_seconds";
-        let source = format!("{header}\no1|authority|QUALIFIED|mycelix|synthetic:grant|synthetic-clock-v1|1|100|0\no1|authority|QUALIFIED|mycelix|synthetic:grant-2|synthetic-clock-v1|1|100|0\n");
+        let header = "option_id|service_id|scenario_id|scenario_digest|source_schema_version|predicate|disposition|source_owner|evidence_ref|time_basis_id|observed_at_seconds|valid_until_seconds|clock_uncertainty_seconds";
+        let row = "o1|water-a|fixture|synthetic:scenario-digest:fixture-v1|mycelix.authority.v0.1|authority|QUALIFIED|mycelix|synthetic:grant|synthetic-clock-v1|1|100|0";
+        let source = format!("{header}\n{row}\n{row}\n");
         assert!(parse_predicate_evidence(&source).is_err());
     }
 
@@ -875,6 +918,28 @@ mod tests {
         records[0].observed_at_seconds = 96;
         records[0].clock_uncertainty_seconds = 5;
         assert!(evaluate(&bounded_scenario, &[option(100)], &[], &records).is_err());
+    }
+
+
+    #[test]
+    fn service_binding_mismatch_is_rejected() {
+        let mut records = all_qualified();
+        records[0].service_id = "different-service".to_owned();
+        assert!(evaluate(&scenario(), &[option(100)], &[], &records).is_err());
+    }
+
+    #[test]
+    fn scenario_revision_mismatch_is_rejected() {
+        let mut records = all_qualified();
+        records[0].scenario_digest = "synthetic:scenario-digest:older-v0".to_owned();
+        assert!(evaluate(&scenario(), &[option(100)], &[], &records).is_err());
+    }
+
+    #[test]
+    fn empty_source_schema_version_is_rejected() {
+        let mut records = all_qualified();
+        records[0].source_schema_version.clear();
+        assert!(evaluate(&scenario(), &[option(100)], &[], &records).is_err());
     }
 
     #[test]
