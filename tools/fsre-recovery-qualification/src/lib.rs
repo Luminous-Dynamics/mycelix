@@ -740,7 +740,7 @@ mod tests {
         Scenario {
             scenario_id: "synthetic-test".to_owned(),
             scenario_digest:
-                "sha256:e0c7ab32fbe26b7d8fb3010ecd566f56aef1e593c97ec416f7a4a30108d6a857"
+                "sha256:f77fcc28f2a68ef2bdbbc16b36d85d475a5bae3293e1c944b44734630328e579"
                     .to_owned(),
             time_basis_id: "synthetic-clock-v1".to_owned(),
             evaluation_time_seconds: 100,
@@ -766,7 +766,7 @@ mod tests {
             option_id: "backup-a".to_owned(),
             service_id: "water-service-a".to_owned(),
             scenario_id: "synthetic-test".to_owned(),
-            scenario_digest: "sha256:e0c7ab32fbe26b7d8fb3010ecd566f56aef1e593c97ec416f7a4a30108d6a857".to_owned(),
+            scenario_digest: "sha256:f77fcc28f2a68ef2bdbbc16b36d85d475a5bae3293e1c944b44734630328e579".to_owned(),
             source_schema_version: format!("{}.predicate.v0.1", predicate.expected_owner()),
             predicate,
             disposition,
@@ -919,7 +919,7 @@ mod tests {
 
     #[test]
     fn scenario_and_options_parser_requires_explicit_metadata() {
-        let source = "# scenario_id=fixture\n# scenario_digest=sha256:3ae4a24dd8532f53fe8255274a57260f6cc3f138a285bb417b03383ba6b680e1\n# time_basis_id=synthetic-clock-v1\n# evaluation_time_seconds=100\n# clock_uncertainty_seconds=0\n# horizon_seconds=1000\noption_id|service_id|mobilisation_seconds\no1|water-a|10\n";
+        let source = "# scenario_id=fixture\n# scenario_digest=sha256:0984038d21f0a1a80d86f74d6776f8f2defba3e997d29eb67a732943004fc0b6\n# time_basis_id=synthetic-clock-v1\n# evaluation_time_seconds=100\n# clock_uncertainty_seconds=0\n# horizon_seconds=1000\noption_id|service_id|mobilisation_seconds\no1|water-a|10\n";
         let (parsed_scenario, options) = parse_scenario_and_options(source).unwrap();
         assert_eq!(parsed_scenario.scenario_id, "fixture");
         assert_eq!(options.len(), 1);
@@ -928,7 +928,7 @@ mod tests {
     #[test]
     fn predicate_parser_rejects_duplicate_semantics() {
         let header = "option_id|service_id|scenario_id|scenario_digest|source_schema_version|predicate|disposition|source_owner|evidence_ref|time_basis_id|observed_at_seconds|valid_until_seconds|clock_uncertainty_seconds";
-        let row = "o1|water-a|fixture|sha256:3ae4a24dd8532f53fe8255274a57260f6cc3f138a285bb417b03383ba6b680e1|mycelix.authority.v0.1|authority|QUALIFIED|mycelix|synthetic:grant|synthetic-clock-v1|1|100|0";
+        let row = "o1|water-a|fixture|sha256:0984038d21f0a1a80d86f74d6776f8f2defba3e997d29eb67a732943004fc0b6|mycelix.authority.v0.1|authority|QUALIFIED|mycelix|synthetic:grant|synthetic-clock-v1|1|100|0";
         let source = format!("{header}\n{row}\n{row}\n");
         assert!(parse_predicate_evidence(&source).is_err());
     }
