@@ -1,0 +1,470 @@
+{
+  "schema": "luminous.fsre.synthetic-resilience-debt.v0.1",
+  "scenario_id": "za-water-service-resilience-debt-synthetic-001",
+  "version": "0.1.0",
+  "status": "SYNTHETIC_REFERENCE_FIXTURE",
+  "jurisdiction_context": {
+    "country_code": "ZA",
+    "municipality": null,
+    "note": "South African context only. This fixture does not represent a real municipality, Water Services Authority, utility, asset, workforce, supplier or operating condition."
+  },
+  "model_boundary": {
+    "kind": "derived_resilience_debt_and_recovery_option_qualification",
+    "time_dependent": true,
+    "probabilistic": false,
+    "physical_solver": false,
+    "hydraulic_solver": false,
+    "water_quality_solver": false,
+    "financial_forecast": false,
+    "operational_instructions": false,
+    "semantics": {
+      "debt_items": "Debt items are projections over synthetic source records. They are not a second authoritative ledger, financial liabilities or a scalar risk score.",
+      "unknown": "Missing, stale, conflicting or out-of-domain evidence remains unknown; it is not cleared or treated as healthy.",
+      "recovery_option": "A recovery option is qualified only when every required predicate is QUALIFIED and its mobilisation time fits the declared scenario window.",
+      "common_cause": "Distinct identifiers do not establish independence. A shared failure-domain ancestor blocks an independence claim for the tested fault family.",
+      "authority": "An expired, revoked or wrong-scope authority grant makes an otherwise feasible option non-executable.",
+      "scoring": "No universal resilience/debt score is defined. Debt dimensions and service-lane effects remain separate."
+    }
+  },
+  "scenario": {
+    "id": "compound_regional_power_staffing_and_supply_disruption",
+    "assessment_window_seconds": 43200,
+    "disruption_tags": [
+      "regional_power_loss",
+      "limited_staff_availability",
+      "critical_spares_delay",
+      "telemetry_gap"
+    ],
+    "note": "Synthetic 12-hour assessment window. This is a semantic test input, not an operational forecast or emergency procedure."
+  },
+  "service_lanes": [
+    {
+      "id": "household_water_service",
+      "unit": "synthetic_compliant_service_fraction",
+      "target_fraction": 1,
+      "minimum_safe_fraction": 0.5,
+      "quality_required": true,
+      "cohort": "synthetic_household_service_area_alpha"
+    },
+    {
+      "id": "hospital_water_service",
+      "unit": "synthetic_compliant_service_fraction",
+      "target_fraction": 1,
+      "minimum_safe_fraction": 0.9,
+      "quality_required": true,
+      "cohort": "synthetic_critical_facility_service_area_alpha"
+    },
+    {
+      "id": "effluent_compliance_service",
+      "unit": "synthetic_compliant_service_fraction",
+      "target_fraction": 1,
+      "minimum_safe_fraction": 1,
+      "quality_required": true,
+      "cohort": "synthetic_wastewater_catchment_alpha"
+    }
+  ],
+  "debt_items": [
+    {
+      "id": "debt_pump_maintenance_backlog",
+      "dimension": "physical_condition_maintenance",
+      "status": "QUALIFIED_DEFICIENCY",
+      "affected_services": [
+        "household_water_service",
+        "hospital_water_service"
+      ],
+      "evidence_refs": [
+        "synthetic:work-order-101",
+        "synthetic:inspection-44"
+      ],
+      "age_seconds": 10368000,
+      "mechanism": "A critical pump maintenance task is overdue and a repeat fault remains open.",
+      "uncertainty": "synthetic_known",
+      "remediation_candidate": "complete_maintenance_and_independent_post-repair_test"
+    },
+    {
+      "id": "debt_backup_feeder_common_ancestor",
+      "dimension": "dependency_concentration",
+      "status": "QUALIFIED_DEFICIENCY",
+      "affected_services": [
+        "household_water_service",
+        "hospital_water_service",
+        "effluent_compliance_service"
+      ],
+      "evidence_refs": [
+        "synthetic:dependency-snapshot-7"
+      ],
+      "age_seconds": 86400,
+      "mechanism": "Primary and backup feeder identifiers share the same upstream regional supply failure domain.",
+      "uncertainty": "synthetic_known",
+      "remediation_candidate": "identify_and_qualify_a_physically_independent_supply_path"
+    },
+    {
+      "id": "debt_manual_fallback_staff_gap",
+      "dimension": "workforce_competence",
+      "status": "QUALIFIED_DEFICIENCY",
+      "affected_services": [
+        "household_water_service",
+        "hospital_water_service"
+      ],
+      "evidence_refs": [
+        "synthetic:shift-roster-12",
+        "synthetic:credential-register-4"
+      ],
+      "age_seconds": 604800,
+      "mechanism": "The declared manual fallback has no qualified operator on the relevant shift.",
+      "uncertainty": "synthetic_known",
+      "remediation_candidate": "qualify_and_schedule_two_independent_manual-fallback_operators"
+    },
+    {
+      "id": "debt_critical_spare_single_source",
+      "dimension": "supply_concentration",
+      "status": "QUALIFIED_DEFICIENCY",
+      "affected_services": [
+        "household_water_service",
+        "hospital_water_service"
+      ],
+      "evidence_refs": [
+        "synthetic:spares-ledger-3",
+        "synthetic:supplier-catalogue-8"
+      ],
+      "age_seconds": 2592000,
+      "mechanism": "The critical seal kit is not held in local stock and has one qualified supplier with a 48-hour lead time.",
+      "uncertainty": "synthetic_known",
+      "remediation_candidate": "hold_a_qualified_local_spare_and_qualify_a_second_supplier"
+    },
+    {
+      "id": "debt_telemetry_stale",
+      "dimension": "evidence_observability",
+      "status": "STALE_EVIDENCE",
+      "affected_services": [
+        "household_water_service",
+        "hospital_water_service",
+        "effluent_compliance_service"
+      ],
+      "evidence_refs": [
+        "synthetic:telemetry-source-22"
+      ],
+      "age_seconds": 1500,
+      "maximum_observation_age_seconds": 300,
+      "mechanism": "A critical telemetry observation is older than the declared freshness limit.",
+      "uncertainty": "synthetic_known_stale",
+      "remediation_candidate": "restore_source_observability_and_validate_clock_and_measurement_health"
+    },
+    {
+      "id": "debt_mutual_aid_authority_expired",
+      "dimension": "authority_coordination",
+      "status": "EXPIRED_AUTHORITY",
+      "affected_services": [
+        "household_water_service",
+        "hospital_water_service"
+      ],
+      "evidence_refs": [
+        "synthetic:mutual-aid-grant-2"
+      ],
+      "age_seconds": 259200,
+      "mechanism": "A mutual-aid authority grant has expired and has not been renewed.",
+      "uncertainty": "synthetic_known",
+      "remediation_candidate": "renew_and_revalidate_purpose-bound_mutual_aid_authority"
+    },
+    {
+      "id": "debt_fallback_route_unknown",
+      "dimension": "spatial_access",
+      "status": "UNKNOWN",
+      "affected_services": [
+        "household_water_service",
+        "hospital_water_service"
+      ],
+      "evidence_refs": [
+        "synthetic:route-observation-5"
+      ],
+      "age_seconds": 7200,
+      "mechanism": "The fallback access route has no current qualified accessibility observation.",
+      "uncertainty": "synthetic_unknown",
+      "remediation_candidate": "obtain_a_current_authorised_accessibility_and_travel_assessment"
+    },
+    {
+      "id": "debt_hydraulic_model_out_of_domain",
+      "dimension": "model_adequacy",
+      "status": "OUT_OF_DOMAIN",
+      "affected_services": [
+        "household_water_service",
+        "hospital_water_service"
+      ],
+      "evidence_refs": [
+        "synthetic:model-receipt-17"
+      ],
+      "age_seconds": 86400,
+      "mechanism": "The available model does not cover the declared demand and capacity regime.",
+      "uncertainty": "synthetic_known_limit",
+      "remediation_candidate": "extend_or_replace_the_model_and_qualify_against_independent_domain_data"
+    },
+    {
+      "id": "debt_water_quality_sample_gap",
+      "dimension": "quality_observability",
+      "status": "UNKNOWN",
+      "affected_services": [
+        "household_water_service",
+        "hospital_water_service"
+      ],
+      "evidence_refs": [
+        "synthetic:lab-schedule-9"
+      ],
+      "age_seconds": 21600,
+      "mechanism": "The required quality sample is missing for the declared time window.",
+      "uncertainty": "synthetic_unknown",
+      "remediation_candidate": "obtain_a_valid_sample_with_chain_of_custody_and_qualified_laboratory_method"
+    },
+    {
+      "id": "debt_wastewater_controller_gap",
+      "dimension": "workforce_competence",
+      "status": "QUALIFIED_DEFICIENCY",
+      "affected_services": [
+        "effluent_compliance_service"
+      ],
+      "evidence_refs": [
+        "synthetic:wastewater-roster-3",
+        "synthetic:credential-register-7"
+      ],
+      "age_seconds": 172800,
+      "mechanism": "A wastewater process-control shift lacks the required qualified controller.",
+      "uncertainty": "synthetic_known",
+      "remediation_candidate": "restore_qualified_shift_coverage_and_supervisory_backup"
+    },
+    {
+      "id": "debt_generator_maintenance",
+      "dimension": "physical_condition_maintenance",
+      "status": "QUALIFIED_DEFICIENCY",
+      "affected_services": [
+        "household_water_service",
+        "hospital_water_service",
+        "effluent_compliance_service"
+      ],
+      "evidence_refs": [
+        "synthetic:generator-inspection-6"
+      ],
+      "age_seconds": 1209600,
+      "mechanism": "A declared emergency generator has an overdue inspection and its load-test evidence is stale.",
+      "uncertainty": "synthetic_known",
+      "remediation_candidate": "perform_authorised_inspection_and_independent_load_test"
+    },
+    {
+      "id": "debt_inventory_partial",
+      "dimension": "evidence_inventory_completeness",
+      "status": "INCOMPLETE_INVENTORY",
+      "affected_services": [
+        "household_water_service",
+        "hospital_water_service",
+        "effluent_compliance_service"
+      ],
+      "evidence_refs": [
+        "synthetic:asset-inventory-snapshot-3"
+      ],
+      "age_seconds": 43200,
+      "declared_completeness_fraction": 0.7,
+      "mechanism": "The synthetic asset inventory is explicitly incomplete; unlisted dependencies cannot be assumed absent.",
+      "uncertainty": "synthetic_known_incomplete",
+      "remediation_candidate": "reconcile_asset_inventory_with_operator-approved_registers_and_field_verification"
+    },
+    {
+      "id": "debt_work_order_completion_unverified",
+      "dimension": "outcome_verification",
+      "status": "UNVERIFIED_COMPLETION",
+      "affected_services": [
+        "household_water_service"
+      ],
+      "evidence_refs": [
+        "synthetic:work-order-099",
+        "synthetic:contractor-closeout-099"
+      ],
+      "age_seconds": 36000,
+      "mechanism": "A repair is marked complete by the contractor but has no independent post-work observation.",
+      "uncertainty": "synthetic_known_unverified",
+      "remediation_candidate": "obtain_operator_and_independent_post-repair_observation"
+    },
+    {
+      "id": "debt_supplier_financial_status_unknown",
+      "dimension": "supply_continuity",
+      "status": "UNKNOWN",
+      "affected_services": [
+        "household_water_service",
+        "hospital_water_service"
+      ],
+      "evidence_refs": [
+        "synthetic:supplier-status-12"
+      ],
+      "age_seconds": 172800,
+      "mechanism": "The supplier's current delivery capacity and continuity status are not evidenced.",
+      "uncertainty": "synthetic_unknown",
+      "remediation_candidate": "obtain_verified_supplier_capacity_and_continuity_evidence"
+    }
+  ],
+  "recovery_option_candidates": [
+    {
+      "id": "option_backup_feeder_transfer",
+      "name": "Synthetic backup feeder transfer",
+      "required_predicates": {
+        "physical_feasibility": "UNKNOWN",
+        "spatial_access": "QUALIFIED",
+        "dependency_independence": "NOT_INDEPENDENT",
+        "staffing": "QUALIFIED",
+        "resources": "UNKNOWN",
+        "authority": "QUALIFIED",
+        "safety": "UNKNOWN"
+      },
+      "mobilisation_seconds": 1800,
+      "expected_disposition": "NOT_QUALIFIED",
+      "reasons": [
+        "physical_feasibility_unknown",
+        "shares_tested_regional_failure_domain",
+        "resource_and_safety_evidence_unknown"
+      ]
+    },
+    {
+      "id": "option_manual_control",
+      "name": "Synthetic manual fallback",
+      "required_predicates": {
+        "physical_feasibility": "QUALIFIED",
+        "spatial_access": "QUALIFIED",
+        "dependency_independence": "QUALIFIED",
+        "staffing": "UNAVAILABLE",
+        "resources": "QUALIFIED",
+        "authority": "QUALIFIED",
+        "safety": "UNKNOWN"
+      },
+      "mobilisation_seconds": 900,
+      "expected_disposition": "NOT_QUALIFIED",
+      "reasons": [
+        "no_qualified_operator_on_relevant_shift",
+        "safe_manual_operation_not_evidenced"
+      ]
+    },
+    {
+      "id": "option_spare_pump_replacement",
+      "name": "Synthetic spare pump replacement",
+      "required_predicates": {
+        "physical_feasibility": "QUALIFIED",
+        "spatial_access": "QUALIFIED",
+        "dependency_independence": "QUALIFIED",
+        "staffing": "QUALIFIED",
+        "resources": "UNAVAILABLE",
+        "authority": "QUALIFIED",
+        "safety": "QUALIFIED"
+      },
+      "mobilisation_seconds": 7200,
+      "expected_disposition": "NOT_QUALIFIED",
+      "reasons": [
+        "critical_seal_kit_not_in_local_stock"
+      ]
+    },
+    {
+      "id": "option_emergency_supplier_delivery",
+      "name": "Synthetic emergency supplier delivery",
+      "required_predicates": {
+        "physical_feasibility": "QUALIFIED",
+        "spatial_access": "QUALIFIED",
+        "dependency_independence": "UNKNOWN",
+        "staffing": "QUALIFIED",
+        "resources": "QUALIFIED",
+        "authority": "QUALIFIED",
+        "safety": "QUALIFIED"
+      },
+      "mobilisation_seconds": 172800,
+      "expected_disposition": "NOT_QUALIFIED",
+      "reasons": [
+        "dependency_independence_unknown",
+        "mobilisation_exceeds_12_hour_scenario_window"
+      ]
+    },
+    {
+      "id": "option_mutual_aid_mobilisation",
+      "name": "Synthetic mutual-aid mobilisation",
+      "required_predicates": {
+        "physical_feasibility": "QUALIFIED",
+        "spatial_access": "QUALIFIED",
+        "dependency_independence": "QUALIFIED",
+        "staffing": "QUALIFIED",
+        "resources": "QUALIFIED",
+        "authority": "EXPIRED",
+        "safety": "QUALIFIED"
+      },
+      "mobilisation_seconds": 3600,
+      "expected_disposition": "NOT_QUALIFIED",
+      "reasons": [
+        "authority_grant_expired"
+      ]
+    },
+    {
+      "id": "option_mobile_treatment_unit",
+      "name": "Synthetic mobile treatment unit",
+      "required_predicates": {
+        "physical_feasibility": "UNKNOWN",
+        "spatial_access": "QUALIFIED",
+        "dependency_independence": "UNKNOWN",
+        "staffing": "QUALIFIED",
+        "resources": "UNKNOWN",
+        "authority": "QUALIFIED",
+        "safety": "UNKNOWN"
+      },
+      "mobilisation_seconds": 10800,
+      "expected_disposition": "NOT_QUALIFIED",
+      "reasons": [
+        "physical_process_and_quality_constraints_not_qualified",
+        "common_dependency_and_resource_status_unknown"
+      ]
+    }
+  ],
+  "portfolio_candidates": [
+    {
+      "id": "portfolio_status_quo",
+      "remediation_items": [],
+      "expected_service_lanes_with_at_least_one_qualified_option": [],
+      "claim_ceiling": "Synthetic baseline only. No candidate recovery option is qualified under the declared compound disruption."
+    },
+    {
+      "id": "portfolio_manual_skill_and_local_spares",
+      "remediation_items": [
+        "debt_manual_fallback_staff_gap",
+        "debt_wastewater_controller_gap",
+        "debt_critical_spare_single_source"
+      ],
+      "expected_service_lanes_with_at_least_one_qualified_option": [],
+      "claim_ceiling": "Illustrative remediations reduce staffing and spares deficiencies but do not resolve the common feeder dependency, unknown physical model, spatial evidence, expired authority or quality observation gaps."
+    },
+    {
+      "id": "portfolio_independent_supply_and_authority",
+      "remediation_items": [
+        "debt_backup_feeder_common_ancestor",
+        "debt_mutual_aid_authority_expired",
+        "debt_critical_spare_single_source",
+        "debt_manual_fallback_staff_gap",
+        "debt_water_quality_sample_gap",
+        "debt_hydraulic_model_out_of_domain"
+      ],
+      "expected_service_lanes_with_at_least_one_qualified_option": [
+        "household_water_service",
+        "hospital_water_service"
+      ],
+      "claim_ceiling": "Synthetic portfolio hypothesis only. A qualified option would still require an explicit physical, spatial, resource, staffing, safety and authority evidence bundle; the fixture does not model real infrastructure or prove an intervention effect."
+    }
+  ],
+  "fixture_assertions": [
+    "No service outcome is inferred from a debt item alone.",
+    "No recovery option is qualified by counting paths or distinct identifiers.",
+    "Unknown, stale, out-of-domain, unavailable and expired states are preserved.",
+    "No portfolio is assigned a scalar resilience or welfare score.",
+    "A remediation candidate is not an approved action and grants no operational authority."
+  ],
+  "provenance": {
+    "input_class": "synthetic",
+    "source_data": [],
+    "created_for": "FSRE resilience debt and option-preserving investment research v0.1",
+    "limitations": [
+      "No real municipal or utility data.",
+      "No asset locations, operating values, control instructions or probabilities.",
+      "No physical, hydraulic, power-flow or water-quality solver.",
+      "No actual financial, procurement, workforce or supplier records.",
+      "No real authority grants, contracts or operational instructions.",
+      "Expected dispositions are fixture semantics, not field conclusions."
+    ]
+  }
+}
