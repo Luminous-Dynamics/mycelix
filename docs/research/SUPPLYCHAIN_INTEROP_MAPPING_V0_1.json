@@ -344,7 +344,11 @@
     "event time and record time remain distinct",
     "critical graph/evidence failures are non-compensatory",
     "selective disclosure is tested for utility, leakage and correlation",
-    "signature, VC status and SCITT transparency receipt are separately verified"
+    "signature, VC status and SCITT transparency receipt are separately verified",
+    "late-recorded corrections cannot rewrite an earlier decision-time/as-of projection",
+    "repository recordTime is not substituted for downstream ingestion, index visibility or actual run-context inclusion",
+    "overlapping timestamp uncertainty intervals do not create unsupported event ordering",
+    "historical conformance runs retain the exact normative validator/schema/context/SHACL artifact set rather than silently substituting a newer indexed edition"
   ],
   "non_claims": [
     "No standards conformance has been tested by this mapping.",
@@ -352,5 +356,52 @@
     "No product authenticity or physical truth is established by a signature alone.",
     "No SCITT API or receipt profile draft is treated as a final RFC.",
     "No Mycelix checkpoint field is assumed equivalent solely by name."
-  ]
+  ],
+  "decision_time_controls": {
+    "status": "contract_and_blueprint_only_no_implementation_or_conformance_claim",
+    "temporal_axes": [
+      {
+        "id": "world_valid_or_event_time",
+        "meaning": "When the physical event or represented proposition applies."
+      },
+      {
+        "id": "repository_record_time",
+        "meaning": "When the EPCIS repository records the event under the selected profile; keep distinct from eventTime."
+      },
+      {
+        "id": "source_publication_or_release_time",
+        "meaning": "When the exact source/profile version was published or released, if established."
+      },
+      {
+        "id": "adapter_acquisition_or_ingestion_time",
+        "meaning": "When the consuming organisation/adapter acquired and admitted the exact artifact bytes, if a receipt exists."
+      },
+      {
+        "id": "downstream_materialization_time",
+        "meaning": "When an index/cache/derived representation became queryable, if a receipt exists."
+      },
+      {
+        "id": "run_context_inclusion",
+        "meaning": "Whether the exact event/artifact version was actually included in a particular model or candidate run context, if a run manifest exists."
+      }
+    ],
+    "non_substitution_rules": [
+      "eventTime_does_not_prove_recordTime",
+      "recordTime_does_not_prove_adapter_ingestion_or_model_visibility",
+      "publication_time_does_not_prove_actual_retrieval_or_context_inclusion",
+      "late_recorded_correction_does_not_rewrite_an_earlier_as_of_view",
+      "unknown_clock_or_source_vintage_remains_indeterminate",
+      "present_access_rights_do_not_follow_automatically_from_historical_availability"
+    ],
+    "owner_composition": {
+      "semantic_translation_loss": "Mycelix #1112",
+      "source_identity_import_and_provenance_family": "Mycelix #3022 / #5451",
+      "unknown_vs_unbounded_time_bounds": "Mycelix #3046",
+      "temporal_relation_materialization": "Mycelix #4778",
+      "lifecycle_as_of_reasoning": "Symthaea #10600",
+      "desci_receipt_time_read_projection_only": "Mycelix #5860",
+      "exact_gs1_normative_artifact_intake": "Mycelix #5395"
+    },
+    "claim_limit": "EPCIS eventTime and recordTime do not establish the downstream adapter/index/model's actual availability or context. Missing receipts mean that stronger claim is not established; no generic availability ledger is created."
+  }
 }
