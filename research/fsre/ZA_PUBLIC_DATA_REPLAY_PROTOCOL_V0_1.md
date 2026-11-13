@@ -127,7 +127,15 @@ Required extraction:
 - notes and data-quality caveats;
 - retrieval date and raw PDF digest.
 
-The WRO collection notes that system-level tables have not been extracted into machine-readable form and shows inconsistent licence metadata. Until DWS confirms the redistribution/licensing terms and the raw reports are acquired, store only source links and manually verified attributed facts; do not redistribute extracted report tables as open data.
+The WRO catalog states that system-level tables have not been extracted into machine-readable form. As checked 13 November 2026, both the dataset page and 2025 PDF resource page state `No License Provided`; do not infer redistribution or extraction rights. Resolve rights with DWS before acquiring or extracting the PDF.
+
+Keep the two 2022 audit populations distinct: WRO describes 995 works across municipal, Department of Public Works and private ownership, while SAnews reports the 850 municipal systems used for the 334/850 critical (39%) and 118/850 good/excellent (14%) comparisons. The 2025 report covers 848 municipal systems across 144 WSAs. Never use 995 as the municipal rate denominator, and do not treat the 850→848 counts as a linked cohort; SAnews attributes the difference to decommissioning or merging, but system-level identity linkage has not been performed.
+
+A third-party public catalogue, Unmapped Dataworks UM-006, now lists a 12 November 2026 release with 3,103 records spanning Green Drop 2024, Blue Drop 2023/2024 and No Drop 2025. It publishes release fingerprints and a self-reported 50-record accuracy sample, but describes the underlying DWS facts as lacking published reuse terms and says access is early/limited. Its terms restrict copying. Treat it as a comparison target and discovery source only; do not scrape, download, mirror or republish its records. Its own documentation says cross-assessment system links remain future work. Any use beyond public metadata requires permission from both the source owner and the dataset provider.
+
+### 4.1.1 Denominator and cross-assessment identity boundary
+
+The 2022 full audit's 995 works and the municipal 850-system comparison denominator represent different ownership populations. The 2025 848-system audit is municipal. Store the sector/owner scope as part of the denominator key (`population_scope`, `owner_class`, `assessment_cycle`, `geographic_boundary`), not as a comment. A report-to-report comparison is not a same-system time series unless system IDs have been reconciled through source-backed continuity, rename, transfer, merge, split, creation or decommissioning events. Ambiguous and disputed identities remain unresolved; never force a one-to-one crosswalk to make a chart possible.
 
 ### 4.2 Blue Drop
 Keep Blue Drop drinking-water system-risk classifications separate from water sample results. Capture report cycle, system identity, assessment denominator, categories and underlying fields. Do not treat a risk classification as a current water sample, point-of-use result or continuous compliance measurement.
