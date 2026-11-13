@@ -195,3 +195,129 @@ Use explicit labels:
 - Independently replicated
 
 A CI job queued, skipped or unavailable is not a pass. Never infer a pass from the existence of a test or a green result on a different revision.
+
+
+## 12. First executable S2 fixture (research branch)
+
+A Rust crate now exists at
+mycelix-governance/crates/institutional-assurance and is included in the
+existing mycelix-governance Cargo workspace. It implements ten deterministic
+S2 cases:
+
+- one positive control: an independent approver with a valid, scoped grant;
+- negative controls for beneficiary self-approval and proposer self-approval;
+- a seeded conflict-of-interest denial;
+- fail-closed behavior when conflict screening is incomplete;
+- missing and expired authority;
+- wrong authority scope and resource;
+- an expenditure amount above the grant limit.
+
+Each case emits a machine-readable receipt containing the policy version,
+scenario and actor identifiers, decision and reason, plus SHA-256 digests of
+the policy, input and receipt material. Fixture time is fixed; the runner uses
+no RNG, wall clock, network or external service.
+
+**Evidence status:** implementation and test source are present on the research
+branch. Test execution has not yet been independently evidenced. Do not label
+this slice Tested or production-integrated until the exact revision has passed
+the named Cargo commands and the fixture has been mapped to the real Holochain
+zome boundary.
+
+Run from mycelix-governance:
+
+    cargo test -p institutional-assurance
+    cargo run -p institutional-assurance --bin ipb-run
+
+This fixture tests a declared policy, not the real-world discovery of hidden
+conflicts. It is not an authorization service and does not establish legal
+compliance, institutional legitimacy or field effectiveness.
+
+## 13. Institutional Coordination Cost (ICC)
+
+For each successful outcome, record the full coordination cost:
+
+    ICC_per_outcome =
+        (C_administration
+         + C_negotiation
+         + C_verification
+         + C_dispute_resolution
+         + C_participant_burden
+         + C_technology_and_compliance
+         + C_externalized_costs)
+        / successful_outcomes
+
+Report every component separately as well as the normalized total. Include
+staff time, participant time, out-of-pocket cost, delay and costs transferred
+to non-members or other organizations. Do not count a task as successful only
+because a transaction completed: define minimum outcome quality and rights
+conditions first.
+
+Compare ICC only for matched tasks, jurisdictions, stakeholder groups,
+resource budgets and outcome quality. A lower ICC obtained by excluding
+affected parties or making appeals inaccessible is a failed result.
+
+## 14. Statistical and causal discipline
+
+- Pre-register the primary outcome, minimum practically important effect,
+  non-inferiority margins, exclusions and analysis before evaluation.
+- Use a development set for tuning and a held-out scenario set for evaluation.
+- Where assignment can be randomized ethically, randomize scenario variants
+  or workflow assignment. Otherwise document confounders and use a matched,
+  stepped-wedge or other defensible quasi-experimental design.
+- Report effect sizes, uncertainty intervals, missingness, attrition and
+  disaggregated outcomes. Do not use a p-value alone as evidence of impact.
+- Use repeated seeds for stochastic simulations and separate model calibration
+  from held-out validation.
+- For a zero-failure result, state the trial count and sampling assumptions.
+  The approximate one-sided 95% upper bound under independent representative
+  trials is 3/n (the rule of three). Zero failures in a small or correlated
+  test suite do not establish a low real-world failure rate.
+- Publish both false negatives and false positives. A policy that blocks all
+  actions can achieve a perfect negative-control score while making the
+  institution unusable.
+
+## 15. Expanded capability targets
+
+Targets below are proposed engineering gates for bounded experiments, not
+universal guarantees.
+
+| Capability | Proposed target | Required counter-metric |
+|---|---|---|
+| Constitutional/procedural integrity | Zero invariant violations in the locked test suite | Legitimate-action acceptance and false-positive rate |
+| Evidence reconstruction | 100% of sampled benchmark decisions replayable from recorded inputs and policy version | Privacy leakage and reviewer effort |
+| Capture resistance | Zero successful seeded attacks in the defined red-team suite | False alarms, attacker cost and residual harm |
+| Succession | 100% of defined critical-role removal tests retain essential functions | Recovery time, privilege escalation and knowledge loss |
+| Participation | Every input receives a traceable disposition and reason | Representativeness, participant burden and actual influence |
+| Interoperability | At least three independent organizations complete one shared workflow | Data disclosed, negotiation time, liability disputes and exit cost |
+| Economic coordination | Candidate pilot target: at least 10% lower ICC per quality-qualified outcome versus a matched baseline | Rights, access, quality, distribution and non-member externalities |
+| Institutional digital twins | Held-out predictive calibration reported against a simple baseline | Model drift and subgroup prediction error |
+
+For the 10% ICC target, the pilot must pre-register a minimum practically
+important effect and confidence interval. The 10% figure is an initial
+hypothesis, not an established sector benchmark. If baseline variability or
+stakeholder priorities make it inappropriate, revise it before the trial, not
+after seeing the result.
+
+## 16. Digital-twin validity gates
+
+An institutional digital twin must not be judged by visual sophistication or
+agent count. It should pass staged validity checks:
+
+1. **Conceptual validity:** variables and rules correspond to observed
+   institutional mechanisms, including formal rules and rules-in-use.
+2. **Implementation verification:** code does what the model specification
+   says; deterministic replay reproduces each run.
+3. **Calibration:** model parameters are estimated only from declared
+   calibration observations.
+4. **Held-out validation:** predictions are tested on organizations, time
+   periods or scenario variants not used for calibration.
+5. **Sensitivity and uncertainty:** report which assumptions drive outcomes
+   and where predictions are unstable.
+6. **Field comparison:** simulated trajectories are compared with observed
+   organizational processes and outcomes; discrepancies update the model.
+7. **Decision boundary:** simulations advise scenario exploration only; they
+   cannot confer legal authority or establish consent.
+
+A twin is useful when it improves prediction or counterfactual decision support
+against a simpler baseline, with calibrated uncertainty—not because it
+produces a large number of simulated agents.
