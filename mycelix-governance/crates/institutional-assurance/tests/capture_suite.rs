@@ -29,6 +29,38 @@ fn all_s3_known_answer_cases_match_their_expected_disposition() {
 }
 
 #[test]
+fn receipts_expose_the_declared_controller_topology() {
+    let report = adversarial_capture_suite();
+    let case = report
+        .cases
+        .iter()
+        .find(|case| case.scenario_id == "s3-attack-cross-domain-coalition")
+        .expect("cross-domain coalition fixture exists");
+    let receipt = &case.receipt;
+
+    assert_eq!(receipt.policy_id, "ipb-s3-fixture-policy");
+    assert_eq!(receipt.policy_version, 1);
+    assert_eq!(receipt.coalition_members, vec!["cartel-a", "cartel-b"]);
+
+    let agenda = receipt
+        .domain_assessments
+        .iter()
+        .find(|assessment| assessment.domain == institutional_assurance::capture::ControlDomain::Agenda)
+        .expect("agenda assessment exists");
+    assert_eq!(agenda.authorized_controllers, vec!["cartel-a", "cartel-b"]);
+    assert_eq!(agenda.available_controllers, vec!["cartel-a", "cartel-b"]);
+    assert_eq!(
+        agenda.coalition_available_controllers,
+        vec!["cartel-a", "cartel-b"]
+    );
+    assert!(agenda.independent_available_controllers.is_empty());
+    assert_eq!(
+        agenda.available_controller_count,
+        agenda.available_controllers.len()
+    );
+}
+
+#[test]
 fn every_receipt_binds_policy_input_and_receipt_material() {
     let report = adversarial_capture_suite();
     for case in report.cases {
