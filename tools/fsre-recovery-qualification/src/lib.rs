@@ -297,7 +297,7 @@ fn parse_rows(
             continue;
         }
         let columns: Vec<String> = line.split('|').map(|part| part.trim().to_owned()).collect();
-        if columns.len() != expected_columns || columns.iter().any(String::is_empty) {
+        if columns.len() != expected_columns || columns.iter().any(|column| column.is_empty()) {
             return Err(InputError(format!(
                 "line {}: expected {expected_columns} non-empty pipe-delimited fields",
                 index + 1
@@ -504,6 +504,11 @@ pub fn evaluate(
         ));
     }
 
+    if options.iter().any(|option| {
+        option.option_id.trim().is_empty() || option.service_id.trim().is_empty()
+    }) {
+        return Err(InputError("option_id and service_id must not be empty".to_owned()));
+    }
     let option_ids: BTreeSet<&str> = options
         .iter()
         .map(|option| option.option_id.as_str())
@@ -544,6 +549,14 @@ pub fn evaluate(
         if record.source_schema_version.trim().is_empty() {
             return Err(InputError(format!(
                 "missing source_schema_version for {}:{}",
+                record.option_id,
+                record.predicate.as_str()
+            )));
+        }
+        let schema_owner_prefix = format!("{}.", record.predicate.expected_owner());
+        if !record.source_schema_version.starts_with(&schema_owner_prefix) {
+            return Err(InputError(format!(
+                "source schema owner mismatch for {}:{}",
                 record.option_id,
                 record.predicate.as_str()
             )));
@@ -589,6 +602,16 @@ pub fn evaluate(
     for item in debt_items {
         if !debt_ids.insert(item.debt_id.as_str()) {
             return Err(InputError(format!("duplicate debt_id: {}", item.debt_id)));
+        }
+        if item.service_id.trim().is_empty()
+            || item.dimension.trim().is_empty()
+            || item.source_owner.trim().is_empty()
+            || item.evidence_ref.trim().is_empty()
+        {
+            return Err(InputError(format!(
+                "debt item {} has an empty service, dimension, owner or evidence reference",
+                item.debt_id
+            )));
         }
         let current = evidence_is_current(
             scenario,
@@ -707,7 +730,7 @@ mod tests {
     fn scenario() -> Scenario {
         Scenario {
             scenario_id: "synthetic-test".to_owned(),
-            scenario_digest: "synthetic:scenario-digest:test-v1".to_owned(),
+            scenario_digest: "sha256:e0c7ab32fbe26b7d8fb3010ecd566f56aef1e593c97ec416f7a4a30108d6a857".to_owned(),
             time_basis_id: "synthetic-clock-v1".to_owned(),
             evaluation_time_seconds: 100,
             clock_uncertainty_seconds: 0,
@@ -732,7 +755,7 @@ mod tests {
             option_id: "backup-a".to_owned(),
             service_id: "water-service-a".to_owned(),
             scenario_id: "synthetic-test".to_owned(),
-            scenario_digest: "synthetic:scenario-digest:test-v1".to_owned(),
+            scenario_digest: "sha256:e0c7ab32fbe26b7d8fb3010ecd566f56aef1e593c97ec416f7a4a30108d6a857".to_owned(),
             source_schema_version: format!("{}.predicate.v0.1", predicate.expected_owner()),
             predicate,
             disposition,
@@ -876,7 +899,7 @@ mod tests {
 
     #[test]
     fn scenario_and_options_parser_requires_explicit_metadata() {
-        let source = "# scenario_id=fixture\n# scenario_digest=synthetic:scenario-digest:fixture-v1\n# time_basis_id=synthetic-clock-v1\n# evaluation_time_seconds=100\n# clock_uncertainty_seconds=0\n# horizon_seconds=1000\noption_id|service_id|mobilisation_seconds\no1|water-a|10\n";
+        let source = "# scenario_id=fixture\n# scenario_digest=sha256:3ae4a24dd8532f53fe8255274a57260f6cc3f138a285bb417b03383ba6b680e1\n# time_basis_id=synthetic-clock-v1\n# evaluation_time_seconds=100\n# clock_uncertainty_seconds=0\n# horizon_seconds=1000\noption_id|service_id|mobilisation_seconds\no1|water-a|10\n";
         let (parsed_scenario, options) = parse_scenario_and_options(source).unwrap();
         assert_eq!(parsed_scenario.scenario_id, "fixture");
         assert_eq!(options.len(), 1);
@@ -885,7 +908,7 @@ mod tests {
     #[test]
     fn predicate_parser_rejects_duplicate_semantics() {
         let header = "option_id|service_id|scenario_id|scenario_digest|source_schema_version|predicate|disposition|source_owner|evidence_ref|time_basis_id|observed_at_seconds|valid_until_seconds|clock_uncertainty_seconds";
-        let row = "o1|water-a|fixture|synthetic:scenario-digest:fixture-v1|mycelix.authority.v0.1|authority|QUALIFIED|mycelix|synthetic:grant|synthetic-clock-v1|1|100|0";
+        let row = "o1|water-a|fixture|sha256:3ae4a24dd8532f53fe8255274a57260f6cc3f138a285bb417b03383ba6b680e1|mycelix.authority.v0.1|authority|QUALIFIED|mycelix|synthetic:grant|synthetic-clock-v1|1|100|0";
         let source = format!("{header}\n{row}\n{row}\n");
         assert!(parse_predicate_evidence(&source).is_err());
     }
@@ -933,6 +956,32 @@ mod tests {
         let mut records = all_qualified();
         records[0].scenario_digest = "synthetic:scenario-digest:older-v0".to_owned();
         assert!(evaluate(&scenario(), &[option(100)], &[], &records).is_err());
+    }
+
+
+    #[test]
+    fn source_schema_namespace_must_match_predicate_owner() {
+        let mut records = all_qualified();
+        records[0].source_schema_version = "sol-atlas.physical-feasibility.v0.1".to_owned();
+        assert!(evaluate(&scenario(), &[option(100)], &[], &records).is_err());
+    }
+
+    #[test]
+    fn debt_items_require_nonempty_provenance_fields() {
+        let mut debt = vec![DebtItem {
+            debt_id: "d1".to_owned(),
+            service_id: "water-a".to_owned(),
+            dimension: "maintenance".to_owned(),
+            status: "QUALIFIED_DEFICIENCY".to_owned(),
+            source_owner: "operator".to_owned(),
+            evidence_ref: "synthetic:work-order".to_owned(),
+            time_basis_id: "synthetic-clock-v1".to_owned(),
+            observed_at_seconds: 10,
+            valid_until_seconds: 500,
+            clock_uncertainty_seconds: 0,
+        }];
+        debt[0].evidence_ref.clear();
+        assert!(evaluate(&scenario(), &[], &debt, &[]).is_err());
     }
 
     #[test]
