@@ -191,17 +191,23 @@ Zero failures in a small suite do not provide a useful production probability bo
 
 ## 9. Relationship to current SOTA and industry
 
-The leak-detection literature is useful but not a direct FSRE leaderboard. A 2026 systematic review of 90 water-distribution studies describes inconsistent benchmark inputs and evaluation definitions; a separate 2026 study reports high detection performance on more than 47,000 simulated Net3 scenarios, but detection and localisation are different tasks, and drinking-water network results do not transfer automatically to wastewater reticulation or municipal service outcomes.
+The leak-detection literature is useful but not a direct FSRE leaderboard. A 2026 systematic review of 86 drinking-water distribution studies argues that isolated computational approaches often ignore physical and operational constraints and calls for reporting operational false-alarm rates, computational feasibility and SCADA/GIS integration. Another 2026 review of 90 studies describes inconsistent benchmark inputs and evaluation definitions. A separate 2026 study reports high detection performance on more than 47,000 simulated Net3 scenarios, but detection and localisation are different tasks, and drinking-water network results do not transfer automatically to wastewater reticulation or municipal service outcomes.
+
+There are now direct sewer-specific sensor-placement comparators. A 2026 *Water Research* study proposes topology-derived flow inference and deterministic Sequential Backward Selection for I&I sensor placement, evaluated on one synthetic and two real-life networks. A 2025 *Water Research* study uses entropy-based sensor placement and reports higher detection reliability on its evaluated sewer networks. The FSRE evaluation must include these methods when the underlying network, data, event and sensor-budget definitions can be matched; it should not claim sensor-placement novelty.
 
 Compare to:
 - specialist hydraulic and water-network simulators on common calibrated physical tasks;
+- topology-derived flow inference + Sequential Backward Selection for sewer I&I sensor placement;
+- entropy-based sewer sensor placement and current operator sensor layouts;
 - IN-CORE, InfraRisk, REFIT, PRIIA and other interdependency tools where task fit and licensing permit;
 - existing utility runbooks and human expert investigation;
-- fixed-cadence and risk-priority monitoring;
+- fixed-cadence, random, risk-priority and uniform monitoring;
 - maximum-entropy and prediction-uncertainty sampling;
 - the operator's current decision and measurement process.
 
-The testable FSRE advantage is not that it predicts every failure better. It is that it may choose a lower-cost, decision-relevant observation; recognize when evidence is insufficient; preserve owner authority; and link a decision to an independently observed service outcome. If a specialist or incumbent workflow does this more accurately, safely and cheaply, FSRE should adopt or interoperate with it.
+For sewer tasks, match network topology, time window, sensor budget, event catalogue, detection threshold, missingness, noise and ground-truth definition. Report minimum detectable I&I, false alarms, detection delay, localisation error, sensor lifecycle cost, operator effort and SCADA/GIS integration burden. For the broader FSRE layer, additionally report expected decision-value, decision regret, safe abstention, rights/authority conformance and independently verified service/environment outcomes.
+
+The testable FSRE advantage is not that it predicts every failure better or selects sensor locations better than a specialist optimizer. It is that it may select among heterogeneous observations and owner-native tools based on constrained decision value; recognize when evidence is insufficient; preserve owner authority; and link a decision to an independently observed service outcome. If a specialist or incumbent workflow does this more accurately, safely and cheaply, FSRE should adopt or interoperate with it.
 
 ## 10. Integration with Luminous owners
 
