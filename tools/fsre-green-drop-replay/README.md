@@ -4,7 +4,7 @@ A dependency-free Rust parser and arithmetic replay for the published South Afri
 
 ## Source and claim boundary
 
-The Department of Water and Sanitation release published on 1 April 2026 reports that the 2025 Green Drop report covered 848 municipal wastewater systems for the 2023/24 municipal financial year. It compares the 2025 assessment with the 2022 report. SAnews' same-day account states that the 2022 report covered 850 systems for the 2020/21 municipal financial year, with the difference attributable to some systems being decommissioned or merged.
+The Department of Water and Sanitation release published on 1 April 2026 reports that the 2025 Green Drop report covered 848 municipal wastewater systems for the 2023/24 municipal financial year. SAnews' same-day account states that the 2022 report covered 850 municipal systems for 2020/21, with the difference attributable to decommissioning or merging. The WRO catalog separately describes the broader 2022 full audit as 995 works across municipal, Department of Public Works and private ownership. The 995 all-sector figure is retained as context, **not** used as the denominator for the municipal rate comparison.
 
 - Critical systems: 334/850 (39%) in 2022; 396/848 (47%) in 2025.
 - Good/excellent systems: 118/850 (14%) in 2022; 66/848 (8%) in 2025.
@@ -13,19 +13,21 @@ The Department of Water and Sanitation release published on 1 April 2026 reports
 Sources:
 - DWS / South African Government: https://www.gov.za/news/media-statements/water-and-sanitation-crowns-steve-tshwete-local-municipality-2025-green-drop
 - SAnews / Government Communication and Information System: https://www.sanews.gov.za/south-africa/majodina-calls-accountability-and-collective-action-protect-water-resources
+- Water Research Observatory catalog: https://wrcwro01.arc.agric.za/en/dataset/green-drop-reports-2009-2025-south-african-municipal-wastewater-management-performance
 
 The replay checks both vintages' published rounded rates against their separately sourced denominators, using integer half-up rounding. It reports the change in source-reported aggregate rates as +8 percentage points for critical systems and -6 points for good/excellent systems. It retains the report-boundary change, and does not treat the two report vintages as a fixed longitudinal cohort. No system identity linkage or definition harmonisation has been performed.
 
-The full report is referenced through the DWS IRIS portal. A WRO catalog collection records the report as a PDF and describes the collection as published PDF reports with no system-level tables extracted. Its dataset landing page displays a CC BY 4.0 licence while the individual 2025 PDF resource record says "No License Provided". This licence discrepancy is unresolved; the tool uses the government summary facts and does not redistribute or parse that PDF.
+The WRO catalog records the full report collection as PDFs and states that system-level tables were not extracted into machine-readable form. As viewed on 13 November 2026, both the dataset page and the individual 2025 PDF resource page say "No License Provided"; the resource metadata was updated 11 November 2026. Do not download, extract or redistribute the PDF until rights are clarified. This replay uses only the DWS and SAnews summary facts plus public WRO catalog metadata.
 
 ## What it validates
 
 - Exact PSV header and strict nine-field fact rows.
-- Required primary and secondary source identities, HTTPS URLs, publication dates, observation period, geography and source-claim boundary.
+- Required primary, secondary and tertiary source identities, HTTPS URLs, publication dates, observation period, geography and source-claim boundary.
 - Unique fact IDs and unique metric-period pairs.
 - Non-negative integer values, supported metric kinds and explicit units.
 - Numerator/denominator arithmetic for all four published rounded rates: 334/850, 118/850, 396/848 and 66/848.
-- Deterministic report output with the two source references and visible claim ceiling.
+- Separate municipal and all-sector totals for 2022 (850 municipal systems versus 995 all-sector works).
+- Deterministic report output with three source references and visible claim ceiling.
 - A missing denominator, zero denominator, missing ratio component, duplicate fact or inconsistent rounded rate is rejected.
 
 ## What it does not validate
@@ -40,4 +42,4 @@ cargo run --locked --offline --manifest-path tools/fsre-green-drop-replay/Cargo.
   tools/fsre-green-drop-replay/fixtures/ZA_GREEN_DROP_PUBLIC_SUMMARY_2025.psv
 ```
 
-The reference currently has 11 unit tests covering both report-vintage denominators, all four rounded rates, missing/zero denominator controls, arithmetic mismatch and prohibited field/causal claims. The path-specific workflow checks formatting, tests, the byte-for-byte golden report and Clippy. A skipped workflow is not a pass.
+The reference currently has 11 unit tests covering both municipal denominators, all four rounded rates, separate 2022 all-sector scope, missing/zero denominator controls, arithmetic mismatch and prohibited field/causal claims. The path-specific workflow checks formatting, tests, the byte-for-byte golden report and Clippy. A skipped workflow is not a pass.
