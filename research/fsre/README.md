@@ -20,6 +20,8 @@ It is not a new civic-governance programme, a second civilization simulator, an 
 - [South African public-data replay protocol](ZA_PUBLIC_DATA_REPLAY_PROTOCOL_V0_1.md) — exact Treasury cube/item taxonomy and extraction, null, pagination, identity and DWS/Stats SA admissibility rules.
 - [Recovery-option interoperability contract](RECOVERY_OPTION_INTEROP_CONTRACT_V0_1.md) — seven owner-qualified predicates, conservative federated time semantics, revalidation and authority boundaries.
 - [Claim qualification profile](CLAIM_QUALIFICATION_PROFILE_V0_1.md) — distinguishes synthetic conformance, public-source reporting, model outputs, operator observations, causal effects and independent service-outcome verification.
+- [Claim qualification envelope schema](schemas/claim-qualification-envelope-v0.1.schema.json) — machine-readable, claim-scoped evidence, temporal, provenance, independence and non-authorisation contract.
+- [Synthetic recovery claim example](examples/claim-envelope.synthetic-recovery-v0.1.json) — a bounded software-conformance statement for the seven-option synthetic fixture, explicitly not a field claim.
 - [Investment portfolio evaluation protocol](INVESTMENT_PORTFOLIO_EVALUATION_PROTOCOL_V0_1.md) — pre-registered matched portfolios, service/economic/distribution measures, causal design and falsification rules.
 - [Option-preserving resilience benchmark](OPTION_PRESERVING_RESILIENCE_V0_1.md) — service trajectories, qualified recovery options, graceful degradation and falsification tests.
 - [Resilience debt and option-preserving investment](RESILIENCE_DEBT_AND_PORTFOLIO_V0_1.md) — derived resilience liabilities, workforce/supplier/maintenance constraints and multi-objective investment portfolios.
