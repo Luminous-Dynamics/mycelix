@@ -52,7 +52,8 @@
         "Measured reservoir levels, network pressures, flow rates or customer delivery quantities.",
         "That all named suburbs or customers experienced the same interruption.",
         "That the proposed restrictions were implemented or achieved the stated demand reduction."
-      ]
+      ],
+      "notice_media_reviews": []
     },
     {
       "source_id": "SAHRC-GP-INQUIRY-2026-11-02",
@@ -89,7 +90,8 @@
         "A measured causal contribution for each infrastructure failure.",
         "That all Gauteng municipalities or communities experience identical conditions.",
         "Legal interpretation or automatic assignment of liability by this software."
-      ]
+      ],
+      "notice_media_reviews": []
     },
     {
       "source_id": "SAWS-DWS-ELNINO-2026-11-03",
@@ -155,7 +157,8 @@
         "That quoted aggregate consumption or loss values are measured at every municipality or service zone.",
         "A climate-attributed migration or displacement event.",
         "An authorization to change abstraction, allocation or municipal water restrictions."
-      ]
+      ],
+      "notice_media_reviews": []
     },
     {
       "source_id": "JHBW-CUST-2026-10-29",
@@ -172,24 +175,252 @@
         "note": "Page provides a publication date only. Notice-image contents have not been transcribed or validated, so incident valid time is unknown."
       },
       "reported_geography": {
-        "reported_labels": [],
-        "spatial_resolution": "unknown; notice images not transcribed",
+        "reported_labels": [
+          "Randburg/Roodepoort system areas",
+          "Midrand system areas",
+          "Sandton system areas",
+          "Witpoortjie",
+          "Lindhaven",
+          "Grobler Park",
+          "Princess",
+          "Morningside Manor",
+          "Lawn Market Road",
+          "Murray Road"
+        ],
+        "spatial_resolution": "operator-reported service-system, suburb and street labels from six notice images; no verified polygons or customer points",
         "geocoding_status": "not_geocoded"
       },
       "source_role": "operator_customer_notice_publication",
-      "reported_context": "The Johannesburg Water customer-notices archive links a dated customer-notice page. The page contains 6 image attachment(s) in the HTML listing as reviewed on 13 November 2026. Attachment contents have not been transcribed, geocoded or treated as event facts.",
+      "reported_context": "The dated customer-notice page contains six image attachments. All six were visually inspected. They include two system-status updates (Randburg/Roodepoort, Midrand and Sandton), a scheduled Witpoortjie reservoir-outlet closure, and an unplanned burst-pipe interruption affecting Lawn Market Road and Murray Road in Morningside Manor. Individual image records below preserve their own notice times and claim limits.",
       "reported_numeric_context": [],
-      "content_acquisition": "public_html_reviewed_exact_bytes_not_pinned",
+      "content_acquisition": "page_html_reviewed_image_media_visually_inspected",
       "content_sha256": null,
       "rights_status": "unknown_not_assessed",
       "evidence_class": "publisher_statement_or_inquiry_summary",
-      "claim_ceiling": "Evidence that Johannesburg Water published a dated customer-notice page with attached image media.",
+      "claim_ceiling": "Evidence that Johannesburg Water published and visually transcribed six dated customer notice images on 29 October 2026. Statements are operator-reported and scoped to each image.",
       "does_not_establish": [
-        "The notice image contents, affected locations or service areas.",
-        "Whether a planned or reported interruption actually occurred.",
-        "Outage start/end, affected household counts, pressure, delivered volume or restoration.",
-        "That a notice is an independent observation or customer-level service telemetry.",
-        "That an area not named in the page HTML was unaffected."
+        "Independent telemetry, measured customer delivery or verified pressure at any address.",
+        "Exact number of affected households, duration of each interruption or time to restoration beyond the text of a given notice.",
+        "That all customers in a named suburb were affected or that unnamed areas were unaffected.",
+        "Actual hydraulic causes beyond those stated by Johannesburg Water.",
+        "That planned closures or reported interruptions occurred exactly as scheduled."
+      ],
+      "notice_media_reviews": [
+        {
+          "media_index": 1,
+          "media_uri": "https://www.johannesburgwater.co.za/wp-content/uploads/2026/10/WhatsApp-Image-2026-10-29-at-19.24.44.jpeg",
+          "media_sha256": null,
+          "published_at_text": "29 October 2026 – 19:25",
+          "notice_class": "system_status_update",
+          "headline": "Update: Progress and Status of the Randburg / Roodepoort System",
+          "reported_summary": "Operator reports the Randburg/Roodepoort systems remained constrained, with supply ranging fair to low. Waterval Tower inflows improved earlier then fell, causing pumping suspension; Quellerina Tower ran empty after Waterval supply stopped; Northcliff Reservoir was receiving stable inflows; Corriemoor remained fair but constrained; Witpoortjie Reservoir and Tower had low inflows and poor-to-no supply in the designated zone.",
+          "reported_areas": [
+            "Randburg",
+            "Roodepoort",
+            "Waterval",
+            "Quellerina",
+            "Northcliff",
+            "Corriemoor",
+            "Witpoortjie"
+          ],
+          "reported_assets": [
+            "Waterval Tower",
+            "Quellerina Tower",
+            "Northcliff Reservoir",
+            "Corriemoor Reservoir",
+            "Witpoortjie Reservoir and Tower"
+          ],
+          "event_time": {
+            "kind": "snapshot_at",
+            "start_text": null,
+            "end_text": null,
+            "note": "Operator status snapshot published at 19:25; no event start/end for the constrained conditions is stated."
+          },
+          "reported_metrics": [],
+          "restoration_time_estimate": {
+            "status": "unknown",
+            "text": null
+          },
+          "interpretation_limitations": [
+            "This is an operator-published statement transcribed from a notice image, not independent telemetry or a customer-meter observation.",
+            "Reported areas/assets are retained as the operator's wording; no verified geographic polygons, customer counts or household-level coverage are supplied.",
+            "Media bytes have not been downloaded or pinned; media SHA-256 remains null."
+          ]
+        },
+        {
+          "media_index": 2,
+          "media_uri": "https://www.johannesburgwater.co.za/wp-content/uploads/2026/10/WhatsApp-Image-2026-10-29-at-19.24.45.jpeg",
+          "media_sha256": null,
+          "published_at_text": "29 October 2026 – continuation image",
+          "notice_class": "system_status_update",
+          "headline": "Randburg/Roodepoort status continuation",
+          "reported_summary": "Continuation page states close management was being undertaken to enable possible interventions. It adds no separately scoped measurement or new event time.",
+          "reported_areas": [
+            "Randburg",
+            "Roodepoort"
+          ],
+          "reported_assets": [],
+          "event_time": {
+            "kind": "snapshot_at",
+            "start_text": null,
+            "end_text": null,
+            "note": "Continuation of the 19:25 system update."
+          },
+          "reported_metrics": [],
+          "restoration_time_estimate": {
+            "status": "not_applicable",
+            "text": null
+          },
+          "interpretation_limitations": [
+            "This is an operator-published statement transcribed from a notice image, not independent telemetry or a customer-meter observation.",
+            "Reported areas/assets are retained as the operator's wording; no verified geographic polygons, customer counts or household-level coverage are supplied.",
+            "Media bytes have not been downloaded or pinned; media SHA-256 remains null."
+          ]
+        },
+        {
+          "media_index": 3,
+          "media_uri": "https://www.johannesburgwater.co.za/wp-content/uploads/2026/10/WhatsApp-Image-2026-10-29-at-19.37.05.jpeg",
+          "media_sha256": null,
+          "published_at_text": "29 October 2026 – 19:30",
+          "notice_class": "system_status_update",
+          "headline": "Update: Midrand System Water Supply Challenges",
+          "reported_summary": "Operator reports Midrand supply constraints from poor incoming supply. Grand Central Tower pumping was suspended because the tower was empty; Erand Reservoir Complex was critically low and supplying at reduced capacity; President Park Complex had its reservoir outlet closed to build storage.",
+          "reported_areas": [
+            "Midrand",
+            "Grand Central",
+            "Erand",
+            "President Park"
+          ],
+          "reported_assets": [
+            "Grand Central Reservoir",
+            "Grand Central Tower",
+            "Erand Reservoir Complex and Tower",
+            "President Park Complex Reservoir"
+          ],
+          "event_time": {
+            "kind": "snapshot_at",
+            "start_text": null,
+            "end_text": null,
+            "note": "Operator status snapshot at 19:30; no exact onset or restoration time stated."
+          },
+          "reported_metrics": [],
+          "restoration_time_estimate": {
+            "status": "unknown",
+            "text": null
+          },
+          "interpretation_limitations": [
+            "This is an operator-published statement transcribed from a notice image, not independent telemetry or a customer-meter observation.",
+            "Reported areas/assets are retained as the operator's wording; no verified geographic polygons, customer counts or household-level coverage are supplied.",
+            "Media bytes have not been downloaded or pinned; media SHA-256 remains null."
+          ]
+        },
+        {
+          "media_index": 4,
+          "media_uri": "https://www.johannesburgwater.co.za/wp-content/uploads/2026/10/WhatsApp-Image-2026-10-29-at-21.57.35.jpeg",
+          "media_sha256": null,
+          "published_at_text": "29 October 2026 – 21:55",
+          "notice_class": "system_status_update",
+          "headline": "Progress and status report for the Sandton Systems",
+          "reported_summary": "Operator reports poor incoming supply constraining some Sandton systems. Illovo pumping to its tower was suspended with the tower empty; Bryanston reservoir and tower were low/empty with poor pressure or no flow expected; Morningside, Linbro Park and Marlboro reservoirs were also impacted.",
+          "reported_areas": [
+            "Sandton",
+            "Illovo",
+            "Bryanston",
+            "Morningside",
+            "Linbro Park",
+            "Marlboro"
+          ],
+          "reported_assets": [
+            "Illovo Reservoir and Tower",
+            "Bryanston Reservoir and Tower",
+            "Morningside Reservoir",
+            "Linbro Park Reservoir",
+            "Marlboro Reservoir"
+          ],
+          "event_time": {
+            "kind": "snapshot_at",
+            "start_text": null,
+            "end_text": null,
+            "note": "Operator status snapshot at 21:55; no restoration estimate stated."
+          },
+          "reported_metrics": [],
+          "restoration_time_estimate": {
+            "status": "unknown",
+            "text": null
+          },
+          "interpretation_limitations": [
+            "This is an operator-published statement transcribed from a notice image, not independent telemetry or a customer-meter observation.",
+            "Reported areas/assets are retained as the operator's wording; no verified geographic polygons, customer counts or household-level coverage are supplied.",
+            "Media bytes have not been downloaded or pinned; media SHA-256 remains null."
+          ]
+        },
+        {
+          "media_index": 5,
+          "media_uri": "https://www.johannesburgwater.co.za/wp-content/uploads/2026/10/WhatsApp-Image-2026-10-29-at-09.29.06.jpeg",
+          "media_sha256": null,
+          "published_at_text": "29 October 2026 – 09:30",
+          "notice_class": "scheduled_reservoir_closure",
+          "headline": "Overnight closure of the Witpoortjie reservoir outlet to build storage capacity",
+          "reported_summary": "Operator announced a scheduled outlet closure to build storage. Customers in affected areas might experience low pressure or no supply during the closure; recovery was expected to be gradual after reopening, with higher-lying areas potentially taking longer.",
+          "reported_areas": [
+            "Witpoortjie",
+            "Lindhaven",
+            "Grobler Park",
+            "Princess"
+          ],
+          "reported_assets": [
+            "Witpoortjie Reservoir outlet"
+          ],
+          "event_time": {
+            "kind": "scheduled_interval",
+            "start_text": "29 October 2026 14:00",
+            "end_text": "30 October 2026 04:00",
+            "note": "Published schedule, not a verified closure execution or restoration observation."
+          },
+          "reported_metrics": [],
+          "restoration_time_estimate": {
+            "status": "provided",
+            "text": "Scheduled closure 14:00 Thursday 29 October to 04:00 Friday 30 October."
+          },
+          "interpretation_limitations": [
+            "This is an operator-published statement transcribed from a notice image, not independent telemetry or a customer-meter observation.",
+            "Reported areas/assets are retained as the operator's wording; no verified geographic polygons, customer counts or household-level coverage are supplied.",
+            "Media bytes have not been downloaded or pinned; media SHA-256 remains null."
+          ]
+        },
+        {
+          "media_index": 6,
+          "media_uri": "https://www.johannesburgwater.co.za/wp-content/uploads/2026/10/WhatsApp-Image-2026-10-29-at-08.49.43.jpeg",
+          "media_sha256": null,
+          "published_at_text": "29 October 2026 – 08:45",
+          "notice_class": "unplanned_burst_repair",
+          "headline": "Unplanned Water Interruption: Lawn Market Road, Morningside Manor",
+          "reported_summary": "Operator reports a burst water pipe near Lawn Market Road in Morningside Manor, with supply isolated. The affected streets were Lawn Market Road and Murray Road; no estimated restoration time was provided.",
+          "reported_areas": [
+            "Morningside Manor",
+            "Lawn Market Road",
+            "Murray Road"
+          ],
+          "reported_assets": [
+            "Burst water pipe near Lawn Market Road"
+          ],
+          "event_time": {
+            "kind": "incident_reported_at",
+            "start_text": null,
+            "end_text": null,
+            "note": "Notice reports the incident at 08:45; actual burst onset not stated."
+          },
+          "reported_metrics": [],
+          "restoration_time_estimate": {
+            "status": "not_provided",
+            "text": null
+          },
+          "interpretation_limitations": [
+            "This is an operator-published statement transcribed from a notice image, not independent telemetry or a customer-meter observation.",
+            "Reported areas/assets are retained as the operator's wording; no verified geographic polygons, customer counts or household-level coverage are supplied.",
+            "Media bytes have not been downloaded or pinned; media SHA-256 remains null."
+          ]
+        }
       ]
     },
     {
@@ -207,24 +438,63 @@
         "note": "Page provides a publication date only. Notice-image contents have not been transcribed or validated, so incident valid time is unknown."
       },
       "reported_geography": {
-        "reported_labels": [],
-        "spatial_resolution": "unknown; notice images not transcribed",
+        "reported_labels": [
+          "Rivonia",
+          "Edenburg",
+          "Paulshof"
+        ],
+        "spatial_resolution": "operator-reported suburb labels; no verified polygons or customer points",
         "geocoding_status": "not_geocoded"
       },
       "source_role": "operator_customer_notice_publication",
-      "reported_context": "The Johannesburg Water customer-notices archive links a dated customer-notice page. The page contains 1 image attachment(s) in the HTML listing as reviewed on 13 November 2026. Attachment contents have not been transcribed, geocoded or treated as event facts.",
+      "reported_context": "The single attached notice image was visually inspected. It reports an unplanned burst-water-pipe interruption at the corner of 12th Avenue and Rivonia Boulevard, affecting parts of Rivonia, Edenburg and Paulshof; no estimated time of restoration was given.",
       "reported_numeric_context": [],
-      "content_acquisition": "public_html_reviewed_exact_bytes_not_pinned",
+      "content_acquisition": "page_html_reviewed_image_media_visually_inspected",
       "content_sha256": null,
       "rights_status": "unknown_not_assessed",
       "evidence_class": "publisher_statement_or_inquiry_summary",
-      "claim_ceiling": "Evidence that Johannesburg Water published a dated customer-notice page with attached image media.",
+      "claim_ceiling": "Evidence that Johannesburg Water published one image-backed unplanned-interruption notice on 30 October 2026, with the stated burst location and affected-area labels.",
       "does_not_establish": [
-        "The notice image contents, affected locations or service areas.",
-        "Whether a planned or reported interruption actually occurred.",
-        "Outage start/end, affected household counts, pressure, delivered volume or restoration.",
-        "That a notice is an independent observation or customer-level service telemetry.",
-        "That an area not named in the page HTML was unaffected."
+        "Independent confirmation that each customer in the listed areas lost water.",
+        "The number of affected households or duration of interruption.",
+        "An estimated or actual restoration time.",
+        "A verified geographic footprint or precise affected streets beyond the image text."
+      ],
+      "notice_media_reviews": [
+        {
+          "media_index": 1,
+          "media_uri": "https://www.johannesburgwater.co.za/wp-content/uploads/2026/11/WhatsApp-Image-2026-10-30-at-20.00.53.jpeg",
+          "media_sha256": null,
+          "published_at_text": "30 October 2026 – 19:55",
+          "notice_class": "unplanned_burst_repair",
+          "headline": "Unplanned Water Interruption: Rivonia Boulevard, Rivonia",
+          "reported_summary": "Operator reports a burst water pipe at the corner of 12th Avenue and Rivonia Boulevard. Areas listed were parts of Rivonia, Edenburg, Paulshof and surrounding areas. No estimated restoration time was given.",
+          "reported_areas": [
+            "Rivonia",
+            "Edenburg",
+            "Paulshof",
+            "surrounding areas"
+          ],
+          "reported_assets": [
+            "Burst pipe at corner of 12th Avenue and Rivonia Boulevard"
+          ],
+          "event_time": {
+            "kind": "incident_reported_at",
+            "start_text": null,
+            "end_text": null,
+            "note": "Notice reports the incident at 19:55; actual burst onset not stated."
+          },
+          "reported_metrics": [],
+          "restoration_time_estimate": {
+            "status": "not_provided",
+            "text": null
+          },
+          "interpretation_limitations": [
+            "This is an operator-published statement transcribed from a notice image, not independent telemetry or a customer-meter observation.",
+            "Reported areas/assets are retained as the operator's wording; no verified geographic polygons, customer counts or household-level coverage are supplied.",
+            "Media bytes have not been downloaded or pinned; media SHA-256 remains null."
+          ]
+        }
       ]
     },
     {
@@ -242,24 +512,195 @@
         "note": "Page provides a publication date only. Notice-image contents have not been transcribed or validated, so incident valid time is unknown."
       },
       "reported_geography": {
-        "reported_labels": [],
-        "spatial_resolution": "unknown; notice images not transcribed",
+        "reported_labels": [
+          "Commando",
+          "Central",
+          "Sandton",
+          "Midrand",
+          "Randburg/Roodepoort",
+          "Soweto",
+          "Deep South",
+          "High Level",
+          "Hospital Hill",
+          "Craighall Park",
+          "Dunkeld",
+          "Rosebank",
+          "Houghton",
+          "Melrose",
+          "Craighall",
+          "Hyde Park",
+          "Killarney",
+          "Parktown North",
+          "Parkhurst",
+          "Saxonwold"
+        ],
+        "spatial_resolution": "operator-reported system/suburb labels; no verified polygons or customer points",
         "geocoding_status": "not_geocoded"
       },
       "source_role": "operator_customer_notice_publication",
-      "reported_context": "The Johannesburg Water customer-notices archive links a dated customer-notice page. The page contains 3 image attachment(s) in the HTML listing as reviewed on 13 November 2026. Attachment contents have not been transcribed, geocoded or treated as event facts.",
+      "reported_context": "The three attached images were visually inspected. They contain an overall system-capacity update at 12:55, a revised daily isolation schedule for High Level and Hospital Hill reservoirs at 16:35, and an unplanned burst-pipe notice for 08 Clarence Avenue, Craighall Park at 18:30.",
       "reported_numeric_context": [],
-      "content_acquisition": "public_html_reviewed_exact_bytes_not_pinned",
+      "content_acquisition": "page_html_reviewed_image_media_visually_inspected",
       "content_sha256": null,
       "rights_status": "unknown_not_assessed",
       "evidence_class": "publisher_statement_or_inquiry_summary",
-      "claim_ceiling": "Evidence that Johannesburg Water published a dated customer-notice page with attached image media.",
+      "claim_ceiling": "Evidence that Johannesburg Water published and visually transcribed three image-backed notices on 2 November 2026, including a system-status snapshot, a planned reservoir isolation schedule and a local burst-pipe notice.",
       "does_not_establish": [
-        "The notice image contents, affected locations or service areas.",
-        "Whether a planned or reported interruption actually occurred.",
-        "Outage start/end, affected household counts, pressure, delivered volume or restoration.",
-        "That a notice is an independent observation or customer-level service telemetry.",
-        "That an area not named in the page HTML was unaffected."
+        "Verified measured reservoir levels or customer delivery.",
+        "That the scheduled isolation was executed exactly as stated or caused a measured customer impact.",
+        "Actual onset, duration or household count for the Craighall Park burst.",
+        "That all locations in a named area experienced the same supply condition."
+      ],
+      "notice_media_reviews": [
+        {
+          "media_index": 1,
+          "media_uri": "https://www.johannesburgwater.co.za/wp-content/uploads/2026/11/WhatsApp-Image-2026-11-02-at-12.54.45.jpeg",
+          "media_sha256": null,
+          "published_at_text": "2 November 2026 – 12:55",
+          "notice_class": "system_status_update",
+          "headline": "Overall system capacity improves, with some areas remaining constrained",
+          "reported_summary": "Operator reports uneven recovery: improvements in several reservoirs while other systems remain critically low, causing low pressure, intermittent supply or no water. Specific system observations are listed in the notice.",
+          "reported_areas": [
+            "Commando",
+            "Central",
+            "Sandton",
+            "Midrand",
+            "Randburg/Roodepoort",
+            "Soweto",
+            "Deep South",
+            "Crosby",
+            "Brixton",
+            "Hursthill",
+            "South Hills",
+            "Berea",
+            "Linksfield",
+            "Randjieslaagte",
+            "Yeoville",
+            "Parktown",
+            "Bryanston",
+            "Illovo",
+            "Diepsloot",
+            "Grand Central",
+            "President Park",
+            "Erand",
+            "Waterval",
+            "Whitebridge",
+            "Meredale",
+            "Weltevreden",
+            "Honeydew",
+            "Randpark Ridge",
+            "Boshkop",
+            "Cosmo City",
+            "Witpoortjie",
+            "Power Park"
+          ],
+          "reported_assets": [
+            "Crosby Reservoir",
+            "Brixton Tower",
+            "Hursthill Reservoirs",
+            "South Hills Tower",
+            "Berea Reservoir",
+            "Linksfield Reservoir",
+            "Randjieslaagte system",
+            "Yeoville Reservoir",
+            "Parktown Reservoir 2",
+            "Bryanston and Illovo Towers",
+            "Diepsloot Reservoir",
+            "Grand Central Tower",
+            "Waterval and Whitebridge systems"
+          ],
+          "event_time": {
+            "kind": "snapshot_at",
+            "start_text": null,
+            "end_text": null,
+            "note": "Operator system snapshot at 12:55; no valid-time range or raw measurement dataset attached."
+          },
+          "reported_metrics": [],
+          "restoration_time_estimate": {
+            "status": "unknown",
+            "text": null
+          },
+          "interpretation_limitations": [
+            "This is an operator-published statement transcribed from a notice image, not independent telemetry or a customer-meter observation.",
+            "Reported areas/assets are retained as the operator's wording; no verified geographic polygons, customer counts or household-level coverage are supplied.",
+            "Media bytes have not been downloaded or pinned; media SHA-256 remains null."
+          ]
+        },
+        {
+          "media_index": 2,
+          "media_uri": "https://www.johannesburgwater.co.za/wp-content/uploads/2026/11/WhatsApp-Image-2026-11-02-at-16.32.09.jpeg",
+          "media_sha256": null,
+          "published_at_text": "2 November 2026 – 16:35",
+          "notice_class": "scheduled_reservoir_closure",
+          "headline": "Revised Isolation Schedule: High Level and Hospital Hill Reservoirs",
+          "reported_summary": "Operator announces that from 3 November 2026 the High Level and Hospital Hill reservoirs will close daily at 14:00 and reopen at 04:00 until further notice, to build storage and improve supply to higher-lying areas. Low pressure or no water may occur during closure hours.",
+          "reported_areas": [
+            "High Level",
+            "Hospital Hill",
+            "higher-lying areas served by the reservoirs"
+          ],
+          "reported_assets": [
+            "High Level Reservoir",
+            "Hospital Hill Reservoir"
+          ],
+          "event_time": {
+            "kind": "scheduled_interval",
+            "start_text": "3 November 2026 14:00",
+            "end_text": "Daily until further notice; reopening at 04:00 next morning",
+            "note": "Scheduled daily closure; actual execution and end date not independently observed."
+          },
+          "reported_metrics": [],
+          "restoration_time_estimate": {
+            "status": "not_applicable",
+            "text": "Daily 14:00–04:00 closure effective 3 November 2026 until further notice."
+          },
+          "interpretation_limitations": [
+            "This is an operator-published statement transcribed from a notice image, not independent telemetry or a customer-meter observation.",
+            "Reported areas/assets are retained as the operator's wording; no verified geographic polygons, customer counts or household-level coverage are supplied.",
+            "Media bytes have not been downloaded or pinned; media SHA-256 remains null."
+          ]
+        },
+        {
+          "media_index": 3,
+          "media_uri": "https://www.johannesburgwater.co.za/wp-content/uploads/2026/11/WhatsApp-Image-2026-11-02-at-18.27.57.jpeg",
+          "media_sha256": null,
+          "published_at_text": "2 November 2026 – 18:30",
+          "notice_class": "unplanned_burst_repair",
+          "headline": "Unplanned Water Interruption: 08 Clarence Avenue, Craighall Park",
+          "reported_summary": "Operator reports a burst water pipe at 08 Clarence Avenue and closure of supply for repairs. The notice states customers in listed areas would experience no supply during repairs; no estimated restoration time was provided.",
+          "reported_areas": [
+            "Dunkeld",
+            "Rosebank",
+            "Houghton",
+            "Melrose",
+            "Craighall",
+            "Hyde Park",
+            "Killarney",
+            "Parktown North",
+            "Parkhurst",
+            "Saxonwold",
+            "surrounding areas"
+          ],
+          "reported_assets": [
+            "Burst pipe at 08 Clarence Avenue, Craighall Park"
+          ],
+          "event_time": {
+            "kind": "incident_reported_at",
+            "start_text": null,
+            "end_text": null,
+            "note": "Notice reports the incident at 18:30; actual burst onset not stated."
+          },
+          "reported_metrics": [],
+          "restoration_time_estimate": {
+            "status": "not_provided",
+            "text": null
+          },
+          "interpretation_limitations": [
+            "This is an operator-published statement transcribed from a notice image, not independent telemetry or a customer-meter observation.",
+            "Reported areas/assets are retained as the operator's wording; no verified geographic polygons, customer counts or household-level coverage are supplied.",
+            "Media bytes have not been downloaded or pinned; media SHA-256 remains null."
+          ]
+        }
       ]
     },
     {
@@ -277,24 +718,1140 @@
         "note": "Page provides a publication date only. Notice-image contents have not been transcribed or validated, so incident valid time is unknown."
       },
       "reported_geography": {
-        "reported_labels": [],
-        "spatial_resolution": "unknown; notice images not transcribed",
+        "reported_labels": [
+          "Crown Gardens",
+          "Lonehill",
+          "Dainfern",
+          "Beverley",
+          "Pineslopes",
+          "Broadacres",
+          "Fourways",
+          "Linbro Park",
+          "Randburg/Roodepoort",
+          "Commando",
+          "Central",
+          "Sandton",
+          "Midrand",
+          "Soweto",
+          "Deep South",
+          "Lenasia",
+          "Lawley",
+          "Orange Farm"
+        ],
+        "spatial_resolution": "operator-reported system/suburb/street labels from six notice images; no verified polygons or customer points",
         "geocoding_status": "not_geocoded"
       },
       "source_role": "operator_customer_notice_publication",
-      "reported_context": "The Johannesburg Water customer-notices archive links a dated customer-notice page. The page contains 6 image attachment(s) in the HTML listing as reviewed on 13 November 2026. Attachment contents have not been transcribed, geocoded or treated as event facts.",
+      "reported_context": "All six attached images were visually inspected. They report a Crown Gardens reservoir constraint and pump suspension, two unplanned burst-pipe notices in Lonehill and Linbro Park, two pages of system-capacity/recovery snapshots across named supply systems, and updates on scheduled supply management.",
       "reported_numeric_context": [],
-      "content_acquisition": "public_html_reviewed_exact_bytes_not_pinned",
+      "content_acquisition": "page_html_reviewed_image_media_visually_inspected",
       "content_sha256": null,
       "rights_status": "unknown_not_assessed",
       "evidence_class": "publisher_statement_or_inquiry_summary",
-      "claim_ceiling": "Evidence that Johannesburg Water published a dated customer-notice page with attached image media.",
+      "claim_ceiling": "Evidence that Johannesburg Water published and visually transcribed six dated customer notice images on 5 November 2026, including operational snapshots, reservoir constraints and reported burst-pipe interruptions.",
       "does_not_establish": [
-        "The notice image contents, affected locations or service areas.",
-        "Whether a planned or reported interruption actually occurred.",
-        "Outage start/end, affected household counts, pressure, delivered volume or restoration.",
-        "That a notice is an independent observation or customer-level service telemetry.",
-        "That an area not named in the page HTML was unaffected."
+        "Independent sensor validation of reported reservoir/tower capacities.",
+        "Measured household delivery, pressure or number of customers actually affected.",
+        "Exact outage duration or restoration time where no ETR was stated.",
+        "That system-capacity percentages share a verified common calculation or are directly comparable as a continuous time series.",
+        "That all customers in the listed areas experienced the same interruption."
+      ],
+      "notice_media_reviews": [
+        {
+          "media_index": 1,
+          "media_uri": "https://www.johannesburgwater.co.za/wp-content/uploads/2026/11/WhatsApp-Image-2026-11-05-at-12.14.14.jpeg",
+          "media_sha256": null,
+          "published_at_text": "5 November 2026 – 12:15",
+          "notice_class": "system_status_update",
+          "headline": "Low Reservoir Levels: Crown Gardens",
+          "reported_summary": "Operator reports Crown Gardens reservoir at approximately 46%, with outlet closure and pumping suspension to rebuild storage. Outlet reopening and pumping resumption were to wait until level improved to about 60% and the reservoir was saturated; both supply zones were expected to experience poor pressure to no supply.",
+          "reported_areas": [
+            "Crown Gardens",
+            "two designated supply zones"
+          ],
+          "reported_assets": [
+            "Crown Gardens Reservoir",
+            "reservoir outlet",
+            "pumping to the tower"
+          ],
+          "event_time": {
+            "kind": "snapshot_at",
+            "start_text": null,
+            "end_text": null,
+            "note": "Reservoir snapshot at 12:15; no reopening time forecast."
+          },
+          "reported_metrics": [
+            {
+              "metric": "Crown Gardens Reservoir level",
+              "value": 46,
+              "unit": "percent",
+              "comparison": "approximately at notice time",
+              "status": "reported_in_notice"
+            },
+            {
+              "metric": "Reopening threshold",
+              "value": 60,
+              "unit": "percent",
+              "comparison": "about 60%, with reservoir saturation also required",
+              "status": "reported_in_notice"
+            }
+          ],
+          "restoration_time_estimate": {
+            "status": "not_provided",
+            "text": null
+          },
+          "interpretation_limitations": [
+            "This is an operator-published statement transcribed from a notice image, not independent telemetry or a customer-meter observation.",
+            "Reported areas/assets are retained as the operator's wording; no verified geographic polygons, customer counts or household-level coverage are supplied.",
+            "Media bytes have not been downloaded or pinned; media SHA-256 remains null."
+          ]
+        },
+        {
+          "media_index": 2,
+          "media_uri": "https://www.johannesburgwater.co.za/wp-content/uploads/2026/11/WhatsApp-Image-2026-11-05-at-12.20.10.jpeg",
+          "media_sha256": null,
+          "published_at_text": "5 November 2026 – 12:20",
+          "notice_class": "unplanned_burst_repair",
+          "headline": "Unplanned Water Interruption: Lonehill",
+          "reported_summary": "Operator reports a burst pipe at the corner of Winnie Mandela Drive and Mulbarton Road in Lonehill. Supply was isolated to facilitate repairs; affected areas include Lonehill, Dainfern, Beverly, parts of Pineslopes, Broadacres, parts of Fourways and surrounding areas. No ETR was given.",
+          "reported_areas": [
+            "Lonehill",
+            "Dainfern",
+            "Beverly",
+            "Pineslopes",
+            "Broadacres",
+            "Fourways",
+            "surrounding areas"
+          ],
+          "reported_assets": [
+            "Burst pipe at Winnie Mandela Drive and Mulbarton Road"
+          ],
+          "event_time": {
+            "kind": "incident_reported_at",
+            "start_text": null,
+            "end_text": null,
+            "note": "Notice reports incident at 12:20; actual burst onset not stated."
+          },
+          "reported_metrics": [],
+          "restoration_time_estimate": {
+            "status": "not_provided",
+            "text": null
+          },
+          "interpretation_limitations": [
+            "This is an operator-published statement transcribed from a notice image, not independent telemetry or a customer-meter observation.",
+            "Reported areas/assets are retained as the operator's wording; no verified geographic polygons, customer counts or household-level coverage are supplied.",
+            "Media bytes have not been downloaded or pinned; media SHA-256 remains null."
+          ]
+        },
+        {
+          "media_index": 3,
+          "media_uri": "https://www.johannesburgwater.co.za/wp-content/uploads/2026/11/WhatsApp-Image-2026-11-05-at-13.21.41.jpeg",
+          "media_sha256": null,
+          "published_at_text": "5 November 2026 – 13:20",
+          "notice_class": "system_status_update",
+          "headline": "Water supply system continues to stabilise",
+          "reported_summary": "Operator reports overall system capacity at 50%, compared with 37% on Sunday 1 November, with recovery uneven across supply systems. The page includes reservoir/tower values and system narratives for Commando, Central, Sandton and Midrand.",
+          "reported_areas": [
+            "Commando",
+            "Central",
+            "Sandton",
+            "Midrand",
+            "Bryanston",
+            "Illovo",
+            "Erand",
+            "Grand Central",
+            "Diepsloot",
+            "President Park"
+          ],
+          "reported_assets": [
+            "Berea Reservoir",
+            "Parktown system",
+            "South Hills Tower",
+            "Linksfield and Randjieslaagte systems",
+            "Bryanston Reservoir",
+            "Illovo Reservoir and Tower",
+            "Erand Reservoir",
+            "Grand Central Tower",
+            "Diepsloot Reservoir"
+          ],
+          "event_time": {
+            "kind": "snapshot_at",
+            "start_text": null,
+            "end_text": null,
+            "note": "Operator system snapshot at 13:20; the report does not supply raw telemetry or calculation method for the capacity percentages."
+          },
+          "reported_metrics": [
+            {
+              "metric": "Overall system capacity",
+              "value": 50,
+              "unit": "percent",
+              "comparison": "compared with 37% on 1 November 2026",
+              "status": "reported_in_notice"
+            },
+            {
+              "metric": "Berea Reservoir",
+              "value": 85,
+              "unit": "percent",
+              "comparison": "reported from 74%",
+              "status": "reported_in_notice"
+            },
+            {
+              "metric": "Sandton overall capacity",
+              "value": 45,
+              "unit": "percent",
+              "comparison": "after overnight closures; operator says overall 45%",
+              "status": "reported_in_notice"
+            },
+            {
+              "metric": "Bryanston Reservoir",
+              "value": 24,
+              "unit": "percent",
+              "comparison": "reported at notice time",
+              "status": "reported_in_notice"
+            },
+            {
+              "metric": "Erand Reservoir",
+              "value": 48,
+              "unit": "percent",
+              "comparison": "reported improved from 35% on 2 November",
+              "status": "reported_in_notice"
+            },
+            {
+              "metric": "Grand Central Tower",
+              "value": 25,
+              "unit": "percent",
+              "comparison": "improved from 0%",
+              "status": "reported_in_notice"
+            },
+            {
+              "metric": "Diepsloot Reservoir",
+              "value": 21,
+              "unit": "percent",
+              "comparison": "improved from 5%",
+              "status": "reported_in_notice"
+            }
+          ],
+          "restoration_time_estimate": {
+            "status": "unknown",
+            "text": null
+          },
+          "interpretation_limitations": [
+            "This is an operator-published statement transcribed from a notice image, not independent telemetry or a customer-meter observation.",
+            "Reported areas/assets are retained as the operator's wording; no verified geographic polygons, customer counts or household-level coverage are supplied.",
+            "Media bytes have not been downloaded or pinned; media SHA-256 remains null.",
+            "This summary retains selected metrics from the image; not every narrative statement has an individual numeric record."
+          ]
+        },
+        {
+          "media_index": 4,
+          "media_uri": "https://www.johannesburgwater.co.za/wp-content/uploads/2026/11/WhatsApp-Image-2026-11-05-at-13.21.42.jpeg",
+          "media_sha256": null,
+          "published_at_text": "5 November 2026 – 13:21 continuation",
+          "notice_class": "system_status_update",
+          "headline": "System recovery: Randburg/Roodepoort, Soweto/South and Deep South",
+          "reported_summary": "Operator reports most Randburg/Roodepoort systems supplying normally, with local constraints. Honeydew and the Helderkruin/Horizon towers improved. Soweto and southern systems were broadly supplying but remained constrained at some sites, including Crown Gardens. Deep South had high demand and scheduled outlet closures to rebuild storage.",
+          "reported_areas": [
+            "Randburg",
+            "Roodepoort",
+            "Honeydew",
+            "Helderkruin",
+            "Horizon",
+            "Soweto",
+            "Power Park",
+            "Meadowlands",
+            "Chiawelo",
+            "Zondi",
+            "Crown Gardens",
+            "Deep South",
+            "Lenasia",
+            "Lawley",
+            "Orange Farm"
+          ],
+          "reported_assets": [
+            "Honeydew Reservoir",
+            "Helderkruin and Horizon Towers",
+            "Power Park Reservoir",
+            "Crown Gardens Reservoir",
+            "Lenasia High Level Reservoir",
+            "Lawley system"
+          ],
+          "event_time": {
+            "kind": "snapshot_at",
+            "start_text": null,
+            "end_text": null,
+            "note": "Continuation status snapshot at 13:21; no separate event start/end."
+          },
+          "reported_metrics": [
+            {
+              "metric": "Honeydew systems capacity",
+              "value": 60,
+              "unit": "percent",
+              "comparison": "reported from 26%",
+              "status": "reported_in_notice"
+            },
+            {
+              "metric": "Helderkruin Tower",
+              "value": 53,
+              "unit": "percent",
+              "comparison": "reported from 27%",
+              "status": "reported_in_notice"
+            },
+            {
+              "metric": "Horizon Tower",
+              "value": 53,
+              "unit": "percent",
+              "comparison": "reported from 32%",
+              "status": "reported_in_notice"
+            },
+            {
+              "metric": "Crown Gardens Reservoir",
+              "value": 46,
+              "unit": "percent",
+              "comparison": "outlet closed and pumping suspended",
+              "status": "reported_in_notice"
+            },
+            {
+              "metric": "Lenasia High Level Reservoir",
+              "value": 64,
+              "unit": "percent",
+              "comparison": "reported from 57%",
+              "status": "reported_in_notice"
+            },
+            {
+              "metric": "Lawley system",
+              "value": 38,
+              "unit": "percent",
+              "comparison": "reported from 32%",
+              "status": "reported_in_notice"
+            }
+          ],
+          "restoration_time_estimate": {
+            "status": "unknown",
+            "text": null
+          },
+          "interpretation_limitations": [
+            "This is an operator-published statement transcribed from a notice image, not independent telemetry or a customer-meter observation.",
+            "Reported areas/assets are retained as the operator's wording; no verified geographic polygons, customer counts or household-level coverage are supplied.",
+            "Media bytes have not been downloaded or pinned; media SHA-256 remains null."
+          ]
+        },
+        {
+          "media_index": 5,
+          "media_uri": "https://www.johannesburgwater.co.za/wp-content/uploads/2026/11/WhatsApp-Image-2026-11-05-at-14.28.07.jpeg",
+          "media_sha256": null,
+          "published_at_text": "5 November 2026 – 14:25",
+          "notice_class": "unplanned_burst_repair",
+          "headline": "Unplanned Water Interruption: Linbro Park",
+          "reported_summary": "Operator reports a burst pipe on Ronald Road in Linbro Park and isolation of supply for repairs. Customers in affected streets may experience no water during repairs; no ETR was given.",
+          "reported_areas": [
+            "Linbro Park",
+            "several affected streets"
+          ],
+          "reported_assets": [
+            "Burst pipe on Ronald Road"
+          ],
+          "event_time": {
+            "kind": "incident_reported_at",
+            "start_text": null,
+            "end_text": null,
+            "note": "Notice reports the incident at 14:25; actual burst onset not stated."
+          },
+          "reported_metrics": [],
+          "restoration_time_estimate": {
+            "status": "not_provided",
+            "text": null
+          },
+          "interpretation_limitations": [
+            "This is an operator-published statement transcribed from a notice image, not independent telemetry or a customer-meter observation.",
+            "Reported areas/assets are retained as the operator's wording; no verified geographic polygons, customer counts or household-level coverage are supplied.",
+            "Media bytes have not been downloaded or pinned; media SHA-256 remains null."
+          ]
+        },
+        {
+          "media_index": 6,
+          "media_uri": "https://www.johannesburgwater.co.za/wp-content/uploads/2026/11/WhatsApp-Image-2026-11-05-at-20.57.41.jpeg",
+          "media_sha256": null,
+          "published_at_text": "5 November 2026 – 20:50",
+          "notice_class": "unplanned_burst_repair",
+          "headline": "Unplanned Water Interruption: Lonehill",
+          "reported_summary": "Operator states the water supply was isolated to repair the burst pipe at the corner of Winnie Mandela Drive and Mulbarton Road. Affected areas listed include Lonehill, Dainfern, Beverly, parts of Pineslopes, Broadacres and Fourways; no ETR was given.",
+          "reported_areas": [
+            "Lonehill",
+            "Dainfern",
+            "Beverly",
+            "Pineslopes",
+            "Broadacres",
+            "Fourways",
+            "surrounding areas"
+          ],
+          "reported_assets": [
+            "Burst pipe at Winnie Mandela Drive and Mulbarton Road"
+          ],
+          "event_time": {
+            "kind": "incident_reported_at",
+            "start_text": null,
+            "end_text": null,
+            "note": "Notice timestamp is 20:50; same incident location as the 12:20 notice, but this is a separate later update, not a separate incident."
+          },
+          "reported_metrics": [],
+          "restoration_time_estimate": {
+            "status": "not_provided",
+            "text": null
+          },
+          "interpretation_limitations": [
+            "This is an operator-published statement transcribed from a notice image, not independent telemetry or a customer-meter observation.",
+            "Reported areas/assets are retained as the operator's wording; no verified geographic polygons, customer counts or household-level coverage are supplied.",
+            "Media bytes have not been downloaded or pinned; media SHA-256 remains null."
+          ]
+        }
+      ]
+    },
+    {
+      "source_id": "JHBW-CUST-2026-11-03",
+      "publisher": "Johannesburg Water SOC Ltd",
+      "title": "Customer Notice 3 November 2026",
+      "uri": "https://www.johannesburgwater.co.za/blog/2026/11/03/customer-notice-03-november-2026/",
+      "source_kind": "customer_notice_image_attachment",
+      "published_at_text": "2026-11-03 (page publication date; media timestamps are preserved per image)",
+      "publication_time_is_not_event_time": true,
+      "valid_time": {
+        "status": "publication_snapshot_only",
+        "start": null,
+        "end": null,
+        "note": "The page groups multiple notices and status snapshots. Each image item retains its own source-reported timestamp or schedule; the page publication date is not substituted for event time."
+      },
+      "reported_geography": {
+        "reported_labels": [
+          "Sandton",
+          "Parktown",
+          "Berea",
+          "Commando",
+          "Central",
+          "Soweto",
+          "Midrand",
+          "Randburg/Roodepoort",
+          "Crosby",
+          "Brixton",
+          "Parktown Reservoir 2",
+          "Linksfield",
+          "Crown Gardens",
+          "Eagles Nest",
+          "Power Park",
+          "Cosmo City",
+          "Lenasia",
+          "Orange Farm",
+          "Erand",
+          "Grand Central",
+          "Diepsloot",
+          "Steyn City",
+          "President Park"
+        ],
+        "spatial_resolution": "operator-reported system/suburb/street labels from attached notice images; no verified polygons or customer points",
+        "geocoding_status": "not_geocoded"
+      },
+      "source_role": "operator_customer_notice_publication",
+      "reported_context": "The six attached images were visually inspected. They include operator-reported system capacity/recovery updates, two infrastructure-security notice pages about suspected illegal connections, and a Midrand system status report. The infrastructure-security pages are not water interruption records.",
+      "reported_numeric_context": [],
+      "content_acquisition": "page_html_reviewed_image_media_visually_inspected",
+      "content_sha256": null,
+      "rights_status": "unknown_not_assessed",
+      "evidence_class": "publisher_statement_or_inquiry_summary",
+      "claim_ceiling": "Evidence that Johannesburg Water published and visually transcribed image-backed customer notices on 2026-11-03. Statements remain operator-reported; no independent telemetry or customer measurements are included.",
+      "does_not_establish": [
+        "Independent validation of operator-reported reservoir/tower levels or capacity percentages.",
+        "Measured household delivery, pressure or exact number of customers affected.",
+        "A complete outage event register, exact restoration time or verified geographic footprint.",
+        "That every customer in a named suburb or service system experienced the same condition.",
+        "That system-capacity percentages are directly comparable across notices without a documented common definition."
+      ],
+      "notice_media_reviews": [
+        {
+          "media_index": 1,
+          "media_uri": "https://www.johannesburgwater.co.za/wp-content/uploads/2026/11/WhatsApp-Image-2026-11-03-at-12.39.26.jpeg",
+          "media_sha256": null,
+          "published_at_text": "3 November 2026 – 12:40",
+          "notice_class": "system_status_update",
+          "headline": "Johannesburg Water records significant improvement in overall system capacity",
+          "reported_summary": "Operator reports overall City system capacity at 45%, up from 37% on Sunday 1 November, with varied recovery across Sandton, Parktown/Berea, Commando, Central, Soweto, Midrand and Randburg/Roodepoort.",
+          "reported_areas": [
+            "Sandton",
+            "Parktown",
+            "Berea",
+            "Commando",
+            "Central",
+            "Soweto",
+            "Midrand",
+            "Randburg/Roodepoort",
+            "Crosby",
+            "Brixton",
+            "Parktown Reservoir 2",
+            "Linksfield",
+            "Crown Gardens",
+            "Eagles Nest",
+            "Power Park"
+          ],
+          "reported_assets": [
+            "Crosby Reservoir",
+            "Brixton Tower",
+            "Parktown Reservoir 2",
+            "Linksfield Reservoir",
+            "Crown Gardens Reservoir",
+            "Eagles Nest Reservoir",
+            "Power Park Reservoir"
+          ],
+          "event_time": {
+            "kind": "snapshot_at",
+            "start_text": null,
+            "end_text": null,
+            "note": "Operator system snapshot at 12:40; exact method for overall system capacity is not supplied."
+          },
+          "reported_metrics": [
+            {
+              "metric": "Overall City system capacity",
+              "value": 45,
+              "unit": "percent",
+              "comparison": "reported from 37% on 1 November 2026",
+              "status": "reported_in_notice"
+            },
+            {
+              "metric": "Sandton overall capacity",
+              "value": 48,
+              "unit": "percent",
+              "comparison": "reported from 27% on 1 November",
+              "status": "reported_in_notice"
+            },
+            {
+              "metric": "Parktown/Berea overall capacity",
+              "value": 69,
+              "unit": "percent",
+              "comparison": "reported from 44% on 1 November",
+              "status": "reported_in_notice"
+            },
+            {
+              "metric": "Commando overall capacity",
+              "value": 69,
+              "unit": "percent",
+              "comparison": "reported from 57% on 1 November",
+              "status": "reported_in_notice"
+            },
+            {
+              "metric": "Parktown Reservoir 2",
+              "value": 60,
+              "unit": "percent",
+              "comparison": "reported from 0% on 1 November",
+              "status": "reported_in_notice"
+            },
+            {
+              "metric": "Linksfield Reservoir",
+              "value": 50,
+              "unit": "percent",
+              "comparison": "reported from 32% on 1 November",
+              "status": "reported_in_notice"
+            },
+            {
+              "metric": "Crown Gardens Reservoir",
+              "value": 79,
+              "unit": "percent",
+              "comparison": "reported from 68% on 1 November",
+              "status": "reported_in_notice"
+            },
+            {
+              "metric": "Eagles Nest Reservoir",
+              "value": 40,
+              "unit": "percent",
+              "comparison": "reported from 27% on 1 November",
+              "status": "reported_in_notice"
+            },
+            {
+              "metric": "Power Park Reservoir",
+              "value": 2,
+              "unit": "percent",
+              "comparison": "reported critically low",
+              "status": "reported_in_notice"
+            },
+            {
+              "metric": "Midrand overall capacity",
+              "value": 43,
+              "unit": "percent",
+              "comparison": "reported at notice time",
+              "status": "reported_in_notice"
+            }
+          ],
+          "restoration_time_estimate": {
+            "status": "unknown",
+            "text": null
+          },
+          "interpretation_limitations": [
+            "This is an operator-published statement transcribed from a notice image, not independent telemetry or a customer-meter observation.",
+            "Reported areas/assets are retained as the operator's wording; no verified geographic polygons, customer counts or household-level coverage are supplied.",
+            "Media bytes have not been downloaded or pinned; media SHA-256 remains null."
+          ]
+        },
+        {
+          "media_index": 2,
+          "media_uri": "https://www.johannesburgwater.co.za/wp-content/uploads/2026/11/WhatsApp-Image-2026-11-03-at-12.39.26-1.jpeg",
+          "media_sha256": null,
+          "published_at_text": "3 November 2026 – continuation",
+          "notice_class": "system_status_update",
+          "headline": "System recovery continuation: Randburg/Roodepoort and Deep South",
+          "reported_summary": "Continuation reports Cosmo City in Randburg/Roodepoort improved from 0% to 59%; Deep South reservoir figures and scheduled outlet closures also noted.",
+          "reported_areas": [
+            "Randburg",
+            "Roodepoort",
+            "Cosmo City",
+            "Deep South",
+            "Lenasia",
+            "Orange Farm"
+          ],
+          "reported_assets": [
+            "Cosmo City Reservoir",
+            "Lenasia High Level Reservoir",
+            "Lenasia Hospital Hill Reservoir",
+            "Orange Farm Reservoir"
+          ],
+          "event_time": {
+            "kind": "snapshot_at",
+            "start_text": null,
+            "end_text": null,
+            "note": "Continuation of the 12:40 system update; no separate snapshot time."
+          },
+          "reported_metrics": [
+            {
+              "metric": "Cosmo City system capacity",
+              "value": 59,
+              "unit": "percent",
+              "comparison": "reported from 0% on 1 November",
+              "status": "reported_in_notice"
+            },
+            {
+              "metric": "Lenasia High Level Reservoir",
+              "value": 57,
+              "unit": "percent",
+              "comparison": "reported from 32% on 1 November",
+              "status": "reported_in_notice"
+            },
+            {
+              "metric": "Lenasia Hospital Hill Reservoir",
+              "value": 44,
+              "unit": "percent",
+              "comparison": "reported from 37% on 1 November",
+              "status": "reported_in_notice"
+            },
+            {
+              "metric": "Orange Farm Reservoir",
+              "value": 38,
+              "unit": "percent",
+              "comparison": "reported from 29% on 1 November",
+              "status": "reported_in_notice"
+            }
+          ],
+          "restoration_time_estimate": {
+            "status": "unknown",
+            "text": null
+          },
+          "interpretation_limitations": [
+            "This is an operator-published statement transcribed from a notice image, not independent telemetry or a customer-meter observation.",
+            "Reported areas/assets are retained as the operator's wording; no verified geographic polygons, customer counts or household-level coverage are supplied.",
+            "Media bytes have not been downloaded or pinned; media SHA-256 remains null."
+          ]
+        },
+        {
+          "media_index": 3,
+          "media_uri": "https://www.johannesburgwater.co.za/wp-content/uploads/2026/11/WhatsApp-Image-2026-11-03-at-14.59.24.jpeg",
+          "media_sha256": null,
+          "published_at_text": "3 November 2026 – 15:00",
+          "notice_class": "infrastructure_security_notice",
+          "headline": "Johannesburg Water registers criminal cases for suspected tampering, theft and vandalism of water infrastructure",
+          "reported_summary": "Operator reports a joint Johannesburg Water/SAPS operation on 3 November 2026 to investigate suspected theft, tampering and unlawful reconnections; it states illegal connections were disconnected and cases opened at Cleveland Police Station.",
+          "reported_areas": [
+            "Cleveland Police Station"
+          ],
+          "reported_assets": [
+            "water infrastructure",
+            "pipes",
+            "meters",
+            "valves"
+          ],
+          "event_time": {
+            "kind": "unknown",
+            "start_text": "3 November 2026",
+            "end_text": "3 November 2026",
+            "note": "Operator reports an operation conducted on 3 November; exact start/end not stated."
+          },
+          "reported_metrics": [],
+          "restoration_time_estimate": {
+            "status": "not_applicable",
+            "text": null
+          },
+          "interpretation_limitations": [
+            "This is an operator-published statement transcribed from a notice image, not independent telemetry or a customer-meter observation.",
+            "Reported areas/assets are retained as the operator's wording; no verified geographic polygons, customer counts or household-level coverage are supplied.",
+            "Media bytes have not been downloaded or pinned; media SHA-256 remains null."
+          ]
+        },
+        {
+          "media_index": 4,
+          "media_uri": "https://www.johannesburgwater.co.za/wp-content/uploads/2026/11/WhatsApp-Image-2026-11-03-at-14.59.24-1.jpeg",
+          "media_sha256": null,
+          "published_at_text": "3 November 2026 – continuation",
+          "notice_class": "infrastructure_security_notice",
+          "headline": "Illegal reconnections and payment reminder",
+          "reported_summary": "Continuation advises disconnected customers to settle outstanding accounts or use municipal dispute channels and warns that illegal reconnections may result in criminal action. This is an infrastructure-security and payment notice, not a water-supply interruption report.",
+          "reported_areas": [],
+          "reported_assets": [
+            "water infrastructure",
+            "service connections"
+          ],
+          "event_time": {
+            "kind": "unknown",
+            "start_text": null,
+            "end_text": null,
+            "note": "Continuation of the 15:00 infrastructure-security communication."
+          },
+          "reported_metrics": [],
+          "restoration_time_estimate": {
+            "status": "not_applicable",
+            "text": null
+          },
+          "interpretation_limitations": [
+            "This is an operator-published statement transcribed from a notice image, not independent telemetry or a customer-meter observation.",
+            "Reported areas/assets are retained as the operator's wording; no verified geographic polygons, customer counts or household-level coverage are supplied.",
+            "Media bytes have not been downloaded or pinned; media SHA-256 remains null."
+          ]
+        },
+        {
+          "media_index": 5,
+          "media_uri": "https://www.johannesburgwater.co.za/wp-content/uploads/2026/11/WhatsApp-Image-2026-11-03-at-15.25.54-2.jpeg",
+          "media_sha256": null,
+          "published_at_text": "3 November 2026 – 15:25",
+          "notice_class": "system_status_update",
+          "headline": "Update: Midrand System Water Supply Challenges",
+          "reported_summary": "Operator reports the Midrand system remained constrained by demand and supply imbalances; Erand Reservoir and Tower were critically low, Diepsloot Reservoir critically low, Grand Central Reservoir and Tower improved but remained variable, and President Park's outlet remained closed.",
+          "reported_areas": [
+            "Midrand",
+            "Erand",
+            "Grand Central",
+            "Diepsloot",
+            "Steyn City",
+            "President Park"
+          ],
+          "reported_assets": [
+            "Erand Reservoir and Tower",
+            "Grand Central Reservoir and Tower",
+            "Diepsloot Reservoir",
+            "Steyn City Reservoir",
+            "President Park Reservoir"
+          ],
+          "event_time": {
+            "kind": "snapshot_at",
+            "start_text": null,
+            "end_text": null,
+            "note": "Operator status snapshot at 15:25; no exact onset or restoration time stated."
+          },
+          "reported_metrics": [
+            {
+              "metric": "overall City system capacity",
+              "value": 45,
+              "unit": "percent",
+              "comparison": "operator says day began around 45%",
+              "status": "reported_in_notice"
+            },
+            {
+              "metric": "Diepsloot Reservoir",
+              "value": 7,
+              "unit": "percent",
+              "comparison": "reported at notice time",
+              "status": "reported_in_notice"
+            },
+            {
+              "metric": "Steyn City Reservoir",
+              "value": null,
+              "unit": "unknown",
+              "comparison": "on bypass and affected by incoming supply variations",
+              "status": "reported_in_notice"
+            }
+          ],
+          "restoration_time_estimate": {
+            "status": "unknown",
+            "text": null
+          },
+          "interpretation_limitations": [
+            "This is an operator-published statement transcribed from a notice image, not independent telemetry or a customer-meter observation.",
+            "Reported areas/assets are retained as the operator's wording; no verified geographic polygons, customer counts or household-level coverage are supplied.",
+            "Media bytes have not been downloaded or pinned; media SHA-256 remains null."
+          ]
+        },
+        {
+          "media_index": 6,
+          "media_uri": "https://www.johannesburgwater.co.za/wp-content/uploads/2026/11/WhatsApp-Image-2026-11-03-at-15.25.54-1-1.jpeg",
+          "media_sha256": null,
+          "published_at_text": "3 November 2026 – continuation",
+          "notice_class": "system_status_update",
+          "headline": "President Park Complex supply constraint",
+          "reported_summary": "Continuation states that incoming supply at President Park Complex remained constrained throughout the day and the reservoir outlet had been closed to build storage.",
+          "reported_areas": [
+            "President Park"
+          ],
+          "reported_assets": [
+            "President Park Complex Reservoir"
+          ],
+          "event_time": {
+            "kind": "snapshot_at",
+            "start_text": null,
+            "end_text": null,
+            "note": "Continuation of the 15:25 Midrand update."
+          },
+          "reported_metrics": [],
+          "restoration_time_estimate": {
+            "status": "unknown",
+            "text": null
+          },
+          "interpretation_limitations": [
+            "This is an operator-published statement transcribed from a notice image, not independent telemetry or a customer-meter observation.",
+            "Reported areas/assets are retained as the operator's wording; no verified geographic polygons, customer counts or household-level coverage are supplied.",
+            "Media bytes have not been downloaded or pinned; media SHA-256 remains null."
+          ]
+        }
+      ]
+    },
+    {
+      "source_id": "JHBW-CUST-2026-11-04",
+      "publisher": "Johannesburg Water SOC Ltd",
+      "title": "Customer Notice 4 November 2026",
+      "uri": "https://www.johannesburgwater.co.za/blog/2026/11/04/customer-notice-04-november-2026/",
+      "source_kind": "customer_notice_image_attachment",
+      "published_at_text": "2026-11-04 (page publication date; media timestamps are preserved per image)",
+      "publication_time_is_not_event_time": true,
+      "valid_time": {
+        "status": "publication_snapshot_only",
+        "start": null,
+        "end": null,
+        "note": "The page groups multiple notices and status snapshots. Each image item retains its own source-reported timestamp or schedule; the page publication date is not substituted for event time."
+      },
+      "reported_geography": {
+        "reported_labels": [
+          "Commando",
+          "Central",
+          "Sandton",
+          "Midrand",
+          "Randburg/Roodepoort",
+          "Soweto",
+          "Deep South",
+          "Lenasia",
+          "Orange Farm",
+          "Paulshof",
+          "Lonehill"
+        ],
+        "spatial_resolution": "operator-reported system/suburb/street labels from attached notice images; no verified polygons or customer points",
+        "geocoding_status": "not_geocoded"
+      },
+      "source_role": "operator_customer_notice_publication",
+      "reported_context": "The three attached images were visually inspected. They report an overall system-capacity recovery snapshot at 11:05, a continuation for Deep South, and an unplanned burst-pipe interruption on Capricorn Road in Paulshof.",
+      "reported_numeric_context": [],
+      "content_acquisition": "page_html_reviewed_image_media_visually_inspected",
+      "content_sha256": null,
+      "rights_status": "unknown_not_assessed",
+      "evidence_class": "publisher_statement_or_inquiry_summary",
+      "claim_ceiling": "Evidence that Johannesburg Water published and visually transcribed image-backed customer notices on 2026-11-04. Statements remain operator-reported; no independent telemetry or customer measurements are included.",
+      "does_not_establish": [
+        "Independent validation of operator-reported reservoir/tower levels or capacity percentages.",
+        "Measured household delivery, pressure or exact number of customers affected.",
+        "A complete outage event register, exact restoration time or verified geographic footprint.",
+        "That every customer in a named suburb or service system experienced the same condition.",
+        "That system-capacity percentages are directly comparable across notices without a documented common definition."
+      ],
+      "notice_media_reviews": [
+        {
+          "media_index": 1,
+          "media_uri": "https://www.johannesburgwater.co.za/wp-content/uploads/2026/11/WhatsApp-Image-2026-11-04-at-11.07.21.jpeg",
+          "media_sha256": null,
+          "published_at_text": "4 November 2026 – 11:05",
+          "notice_class": "system_status_update",
+          "headline": "Water supply system continues to improve, reaching 52% capacity",
+          "reported_summary": "Operator reports overall system capacity at 52%, up from 45% the previous day and 37% on 1 November, while recovery remains uneven across Commando, Central, Sandton, Midrand, Randburg/Roodepoort, Soweto and Deep South.",
+          "reported_areas": [
+            "Commando",
+            "Central",
+            "Sandton",
+            "Midrand",
+            "Randburg/Roodepoort",
+            "Soweto",
+            "Deep South",
+            "Crosby",
+            "Brixton",
+            "Hursthill",
+            "Parktown",
+            "Berea",
+            "South Hills",
+            "Linksfield",
+            "Randjieslaagte",
+            "Bryanston",
+            "Illovo",
+            "Erand",
+            "Diepsloot",
+            "Grand Central",
+            "Randpark Ridge",
+            "Witpoortjie",
+            "Waterval",
+            "Honeydew",
+            "Power Park",
+            "Lenasia",
+            "Orange Farm"
+          ],
+          "reported_assets": [
+            "Crosby Reservoir",
+            "Brixton Tower",
+            "Hursthill Reservoirs",
+            "Parktown and Berea systems",
+            "South Hills Tower",
+            "Linksfield and Randjieslaagte systems",
+            "Bryanston Reservoirs and Towers",
+            "Illovo Towers",
+            "Erand Reservoir",
+            "Diepsloot Reservoir",
+            "Grand Central Tower",
+            "Randpark Ridge Reservoir",
+            "Witpoortjie Reservoir",
+            "Waterval Tower",
+            "Honeydew Reservoir",
+            "Power Park Reservoir",
+            "Lenasia High Level Reservoir",
+            "Lenasia Hospital Hill Reservoir",
+            "Orange Farm Reservoir"
+          ],
+          "event_time": {
+            "kind": "snapshot_at",
+            "start_text": null,
+            "end_text": null,
+            "note": "Operator system snapshot at 11:05; exact method for overall system capacity not specified."
+          },
+          "reported_metrics": [
+            {
+              "metric": "overall City system capacity",
+              "value": 52,
+              "unit": "percent",
+              "comparison": "reported from 45% on 3 November and 37% on 1 November",
+              "status": "reported_in_notice"
+            },
+            {
+              "metric": "Crosby Reservoir",
+              "value": 70,
+              "unit": "percent",
+              "comparison": "reported from 44%",
+              "status": "reported_in_notice"
+            },
+            {
+              "metric": "Brixton Tower",
+              "value": 51,
+              "unit": "percent",
+              "comparison": "reported from 2%",
+              "status": "reported_in_notice"
+            },
+            {
+              "metric": "Parktown/Berea combined capacity",
+              "value": 70,
+              "unit": "percent",
+              "comparison": "reported from 69%",
+              "status": "reported_in_notice"
+            },
+            {
+              "metric": "South Hills Tower",
+              "value": 68,
+              "unit": "percent",
+              "comparison": "reported from 0%",
+              "status": "reported_in_notice"
+            },
+            {
+              "metric": "Sandton reservoir capacity excluding towers",
+              "value": 62,
+              "unit": "percent",
+              "comparison": "reported from 48%",
+              "status": "reported_in_notice"
+            },
+            {
+              "metric": "Bryanston Reservoirs",
+              "value": 60,
+              "unit": "percent",
+              "comparison": "reported from 24%",
+              "status": "reported_in_notice"
+            },
+            {
+              "metric": "Erand Reservoir",
+              "value": 53,
+              "unit": "percent",
+              "comparison": "reported from 8%",
+              "status": "reported_in_notice"
+            },
+            {
+              "metric": "Diepsloot Reservoir",
+              "value": 7,
+              "unit": "percent",
+              "comparison": "remained critically low",
+              "status": "reported_in_notice"
+            },
+            {
+              "metric": "Grand Central Tower",
+              "value": 0,
+              "unit": "percent",
+              "comparison": "remained empty",
+              "status": "reported_in_notice"
+            },
+            {
+              "metric": "Randpark Ridge Reservoir",
+              "value": 67,
+              "unit": "percent",
+              "comparison": "reported from 18%",
+              "status": "reported_in_notice"
+            },
+            {
+              "metric": "Witpoortjie Reservoir",
+              "value": 57,
+              "unit": "percent",
+              "comparison": "reported from 38%",
+              "status": "reported_in_notice"
+            },
+            {
+              "metric": "Waterval Tower",
+              "value": 59,
+              "unit": "percent",
+              "comparison": "reported from 35%",
+              "status": "reported_in_notice"
+            },
+            {
+              "metric": "Honeydew Reservoir",
+              "value": 26,
+              "unit": "percent",
+              "comparison": "reported from 4%",
+              "status": "reported_in_notice"
+            },
+            {
+              "metric": "Power Park Reservoir",
+              "value": 14,
+              "unit": "percent",
+              "comparison": "reported from 2%",
+              "status": "reported_in_notice"
+            },
+            {
+              "metric": "Lenasia High Level Reservoir",
+              "value": 57,
+              "unit": "percent",
+              "comparison": "reported from 32%",
+              "status": "reported_in_notice"
+            },
+            {
+              "metric": "Lenasia Hospital Hill Reservoir",
+              "value": 44,
+              "unit": "percent",
+              "comparison": "reported from 37%",
+              "status": "reported_in_notice"
+            },
+            {
+              "metric": "Orange Farm Reservoir",
+              "value": 38,
+              "unit": "percent",
+              "comparison": "reported from 29%",
+              "status": "reported_in_notice"
+            }
+          ],
+          "restoration_time_estimate": {
+            "status": "unknown",
+            "text": null
+          },
+          "interpretation_limitations": [
+            "This is an operator-published statement transcribed from a notice image, not independent telemetry or a customer-meter observation.",
+            "Reported areas/assets are retained as the operator's wording; no verified geographic polygons, customer counts or household-level coverage are supplied.",
+            "Media bytes have not been downloaded or pinned; media SHA-256 remains null."
+          ]
+        },
+        {
+          "media_index": 2,
+          "media_uri": "https://www.johannesburgwater.co.za/wp-content/uploads/2026/11/WhatsApp-Image-2026-11-04-at-11.07.21-1.jpeg",
+          "media_sha256": null,
+          "published_at_text": "4 November 2026 – continuation",
+          "notice_class": "system_status_update",
+          "headline": "Deep South system recovery continuation",
+          "reported_summary": "Continuation reports Lenasia High Level Reservoir, Lenasia Hospital Hill and Orange Farm reservoir improvements, with scheduled outlet closures continuing to rebuild storage.",
+          "reported_areas": [
+            "Deep South",
+            "Lenasia",
+            "Orange Farm"
+          ],
+          "reported_assets": [
+            "Lenasia High Level Reservoir",
+            "Lenasia Hospital Hill Reservoir",
+            "Orange Farm Reservoir"
+          ],
+          "event_time": {
+            "kind": "snapshot_at",
+            "start_text": null,
+            "end_text": null,
+            "note": "Continuation of the 11:05 system update."
+          },
+          "reported_metrics": [
+            {
+              "metric": "Lenasia High Level Reservoir",
+              "value": 57,
+              "unit": "percent",
+              "comparison": "reported from 32%",
+              "status": "reported_in_notice"
+            },
+            {
+              "metric": "Lenasia Hospital Hill Reservoir",
+              "value": 44,
+              "unit": "percent",
+              "comparison": "reported from 37%",
+              "status": "reported_in_notice"
+            },
+            {
+              "metric": "Orange Farm Reservoir",
+              "value": 38,
+              "unit": "percent",
+              "comparison": "reported from 29%",
+              "status": "reported_in_notice"
+            }
+          ],
+          "restoration_time_estimate": {
+            "status": "unknown",
+            "text": null
+          },
+          "interpretation_limitations": [
+            "This is an operator-published statement transcribed from a notice image, not independent telemetry or a customer-meter observation.",
+            "Reported areas/assets are retained as the operator's wording; no verified geographic polygons, customer counts or household-level coverage are supplied.",
+            "Media bytes have not been downloaded or pinned; media SHA-256 remains null."
+          ]
+        },
+        {
+          "media_index": 3,
+          "media_uri": "https://www.johannesburgwater.co.za/wp-content/uploads/2026/11/WhatsApp-Image-2026-11-04-at-11.15.26.jpeg",
+          "media_sha256": null,
+          "published_at_text": "4 November 2026 – 11:15",
+          "notice_class": "unplanned_burst_repair",
+          "headline": "Unplanned Water Interruption: Capricorn Road, Paulshof",
+          "reported_summary": "Operator reports a burst pipe on Capricorn Road in Paulshof, with supply isolation for repairs. Customers in Paulshof and parts of Lonehill may experience low pressure to no supply; no estimated restoration time was given.",
+          "reported_areas": [
+            "Paulshof",
+            "parts of Lonehill"
+          ],
+          "reported_assets": [
+            "Burst water pipe on Capricorn Road"
+          ],
+          "event_time": {
+            "kind": "incident_reported_at",
+            "start_text": null,
+            "end_text": null,
+            "note": "Notice reports the incident at 11:15; actual burst onset not stated."
+          },
+          "reported_metrics": [],
+          "restoration_time_estimate": {
+            "status": "not_provided",
+            "text": null
+          },
+          "interpretation_limitations": [
+            "This is an operator-published statement transcribed from a notice image, not independent telemetry or a customer-meter observation.",
+            "Reported areas/assets are retained as the operator's wording; no verified geographic polygons, customer counts or household-level coverage are supplied.",
+            "Media bytes have not been downloaded or pinned; media SHA-256 remains null."
+          ]
+        }
       ]
     }
   ],
