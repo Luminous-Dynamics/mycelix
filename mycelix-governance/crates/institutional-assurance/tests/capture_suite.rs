@@ -3,7 +3,7 @@ use institutional_assurance::capture::{CaptureDisposition, adversarial_capture_s
 #[test]
 fn all_s3_known_answer_cases_match_their_expected_disposition() {
     let report = adversarial_capture_suite();
-    assert_eq!(report.total_cases, 8);
+    assert_eq!(report.total_cases, 9);
     assert_eq!(report.passed_cases, 8);
     assert_eq!(report.failed_cases, 0);
 
@@ -24,7 +24,7 @@ fn all_s3_known_answer_cases_match_their_expected_disposition() {
         .count();
 
     assert_eq!(captured, 3);
-    assert_eq!(controls, 4);
+    assert_eq!(controls, 5);
     assert_eq!(unavailable, 1);
 }
 
@@ -64,6 +64,32 @@ fn captured_execution_with_independent_oversight_is_not_classified_as_capture() 
         CaptureDisposition::NoCaptureObserved
     );
     assert!(case.receipt.compromised_oversight_domains.is_empty());
+}
+
+#[test]
+fn coalition_access_does_not_compromise_oversight_when_an_independent_quorum_also_exists() {
+    let report = adversarial_capture_suite();
+    let case = report
+        .cases
+        .iter()
+        .find(|case| case.scenario_id == "s3-control-dual-independent-oversight-quorums")
+        .expect("dual independent oversight control exists");
+    assert_eq!(
+        case.receipt.disposition,
+        CaptureDisposition::NoCaptureObserved
+    );
+    for domain in [institutional_assurance::capture::ControlDomain::Audit,
+                   institutional_assurance::capture::ControlDomain::Appeal] {
+        let assessment = case
+            .receipt
+            .domain_assessments
+            .iter()
+            .find(|assessment| assessment.domain == domain)
+            .expect("oversight domain assessment exists");
+        assert!(assessment.coalition_can_exercise);
+        assert!(assessment.independent_oversight_ready);
+        assert!(!assessment.oversight_compromised);
+    }
 }
 
 #[test]
