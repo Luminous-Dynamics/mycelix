@@ -443,7 +443,7 @@ fn cases() -> Vec<FixtureCase> {
         FixtureCase {
             scenario_id: "s2-negative-amount-exceeds-grant",
             input: EvaluationInput {
-                policy,
+                policy: policy.clone(),
                 proposal: proposal(&[], true),
                 attempt: attempt("independent-reviewer", "grant-low-limit", 1_000),
                 grant: Some(grant(
@@ -451,6 +451,74 @@ fn cases() -> Vec<FixtureCase> {
                     AuthorityScope::ExpenditureApproval, "community-fund",
                     0, 10_000, 4_999,
                 )),
+            },
+            expected: Decision::Deny,
+        },
+        FixtureCase {
+            scenario_id: "s2-negative-proposal-substitution",
+            input: EvaluationInput {
+                policy: policy.clone(),
+                proposal: Proposal {
+                    proposal_id: "different-proposal".to_owned(),
+                    ..proposal(&[], true)
+                },
+                attempt: attempt("independent-reviewer", "grant-independent-reviewer", 1_000),
+                grant: Some(normal_grant.clone()),
+            },
+            expected: Decision::Deny,
+        },
+        FixtureCase {
+            scenario_id: "s2-negative-authority-holder-mismatch",
+            input: EvaluationInput {
+                policy: policy.clone(),
+                proposal: proposal(&[], true),
+                attempt: attempt("independent-reviewer", "grant-other-holder", 1_000),
+                grant: Some(grant(
+                    "grant-other-holder", "different-reviewer",
+                    AuthorityScope::ExpenditureApproval, "community-fund",
+                    0, 10_000, 10_000,
+                )),
+            },
+            expected: Decision::Deny,
+        },
+        FixtureCase {
+            scenario_id: "s2-negative-authority-not-yet-valid",
+            input: EvaluationInput {
+                policy: policy.clone(),
+                proposal: proposal(&[], true),
+                attempt: attempt("independent-reviewer", "grant-future", 1_000),
+                grant: Some(grant(
+                    "grant-future", "independent-reviewer",
+                    AuthorityScope::ExpenditureApproval, "community-fund",
+                    1_500, 10_000, 10_000,
+                )),
+            },
+            expected: Decision::Deny,
+        },
+        FixtureCase {
+            scenario_id: "s2-negative-invalid-authority-window",
+            input: EvaluationInput {
+                policy: policy.clone(),
+                proposal: proposal(&[], true),
+                attempt: attempt("independent-reviewer", "grant-invalid-window", 2_000),
+                grant: Some(grant(
+                    "grant-invalid-window", "independent-reviewer",
+                    AuthorityScope::ExpenditureApproval, "community-fund",
+                    2_000, 2_000, 10_000,
+                )),
+            },
+            expected: Decision::Deny,
+        },
+        FixtureCase {
+            scenario_id: "s2-negative-zero-amount",
+            input: EvaluationInput {
+                policy,
+                proposal: Proposal {
+                    amount_minor: 0,
+                    ..proposal(&[], true)
+                },
+                attempt: attempt("independent-reviewer", "grant-independent-reviewer", 1_000),
+                grant: Some(normal_grant),
             },
             expected: Decision::Deny,
         },
