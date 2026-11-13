@@ -152,8 +152,15 @@ fn parse_fact(line: &str, line_number: usize) -> Result<Fact, String> {
 
     match kind {
         MetricKind::PublishedCount => {
-            if columns[5] != "systems" || numerator.is_some() || denominator.is_some() {
-                return Err(format!("line {line_number}: count rows require systems and no ratio fields"));
+            let expected_unit = match columns[1] {
+                "all_sector_works_audited" => "works",
+                _ => "systems",
+            };
+            if columns[5] != expected_unit || numerator.is_some() || denominator.is_some() {
+                return Err(format!(
+                    "line {line_number}: count row {} requires unit {} and no ratio fields",
+                    columns[1], expected_unit
+                ));
             }
         }
         MetricKind::PublishedRoundedPercentWithDenominator => {
@@ -360,6 +367,11 @@ mod tests {
         assert_eq!(metadata.source_status, "PUBLISHED_OFFICIAL_SUMMARY");
         assert_eq!(metadata.system_level_records, "NOT_EXTRACTED");
         assert_eq!(facts.len(), 13);
+        let all_sector = facts
+            .iter()
+            .find(|fact| fact.metric_id == "all_sector_works_audited")
+            .expect("all-sector audit scope should be present");
+        assert_eq!(all_sector.unit, "works");
     }
 
     #[test]
