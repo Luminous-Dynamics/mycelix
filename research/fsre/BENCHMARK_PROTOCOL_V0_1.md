@@ -72,6 +72,26 @@ The 2026 review reports no single tool dominates all assessed dimensions and tha
 
 Primary reference: https://doi.org/10.1007/s10669-026-10162-2
 
+## 2.2 Wastewater service-chain completeness and flow-balance lane
+
+The South African wastewater benchmark must not treat treatment-works performance as a proxy for the full sanitation service. Its declared boundary runs from wastewater generation and sewer collection through conveyance, treatment, discharge/reuse and the receiving environment. The first executable source replay is limited to a published DWS national-summary release; it does not extract system-level rows or infer operational conditions.
+
+The separate `tools/fsre-flow-balance` reference evaluates the six required boundary terms (`generation`, `other_inflows`, `treated`, `bypass`, `reuse`, `storage_change`) and derives an interval for the unaccounted residual. It refuses to calculate that residual when a required term is unknown; `NOT_APPLICABLE` must be an explicit boundary-scoped `[0,0]` claim. Positive residuals are not attributed to a leak, overflow, illegal discharge, pollution, theft or responsible party. Negative residuals are preserved as accounting mismatch rather than clipped.
+
+| Measure | Proposed target | Hard interpretation rule |
+|---|---:|---|
+| Required-term lineage and shared scope/time/unit binding | 100% | No silently omitted term or mismatched period/geography/time basis |
+| Unknown/zero/not-applicable distinction | 100% on sealed controls | Unknown must never be converted to zero |
+| Interval arithmetic against independently computed reference cases | 100% deterministic agreement | Include sign-crossing, negative and wide intervals |
+| Nominal 90% uncertainty-interval coverage | 85–95% on held-out observed periods | Coverage only after the uncertainty model is calibrated and pre-registered |
+| False causal attribution in sealed negative controls | 0 | Any false attribution blocks use for consequential claims |
+| Residual localisation precision/recall | No target until independent system/catchment ground truth exists | Report abstention and spatial resolution; do not invent a baseline |
+| Unauthorised data/control mutation | 0 | Read-only shadow study first; no actuation path in this reference |
+
+The six-term balance is a transparent accounting surface, not a hydraulic solver or full wastewater model. The current implementation uses conservative interval arithmetic and preserves correlation-group labels but does not model joint dependence. A broad interval may be the correct answer. Symtropy remains the owner for physical models, calibration and uncertainty propagation; this consumer reference does not replace that work.
+
+The national-summary replay checks only arithmetic and source-reported boundaries. It preserves the 2022 denominator as unknown, identifies the Green Drop 2025 report's 2023/24 observation period and does not turn national system percentages into household-level outcomes. System-level historical replay requires source rights, extracted source rows and dual transcription/reconciliation; prospective work requires operator-authorised read-only access.
+
 ## 3. Baselines and ablations
 
 Every evaluation should compare the same frozen inputs and scenario set against at least:
