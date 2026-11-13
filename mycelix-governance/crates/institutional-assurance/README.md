@@ -61,3 +61,14 @@ fixture must not silently become an authorization service.
 4. Add capture and collusion scenarios with controlled attacker budgets.
 5. Add cross-organization evidence and dispute-resolution scenarios.
 6. Compare each implementation with matched manual and conventional workflows.
+
+## Validation ledger
+
+**2026-11-13:** The first exact-PR CI formatter job identified rustfmt-only differences in
+the runner, fixture and test source. Those differences were applied from the
+hosted formatter output. The initial formatter failure is retained in CI
+history; it is not relabeled as a pass.
+
+The corrected source still requires a fresh exact-head run of formatting and
+the governance workspace tests. Until those jobs complete successfully, the
+implementation status is **authored; validation pending**.
