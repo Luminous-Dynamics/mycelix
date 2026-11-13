@@ -8,7 +8,7 @@
 //! each a holon containing both individual wisdom and collective emergence.
 //! The HolonicMirror reflects the fractal health of the whole.
 
-#[allow(clippy::manual_is_multiple_of, clippy::manual_clamp)]
+#![allow(clippy::manual_is_multiple_of, clippy::manual_clamp)]
 use councils_integrity::*;
 use hdk::prelude::*;
 use mycelix_zome_helpers as _;
