@@ -1,0 +1,80 @@
+# LISE Institutional Assurance Fixtures
+
+This crate is the first executable slice of the Luminous Institutional Systems
+Engineering (LISE) and Institutional Performance Benchmark (IPB) programme.
+
+## Current scope
+
+The initial suite implements IPB scenario S2 (conflict of interest) as a
+deterministic policy fixture. It checks:
+
+- six positive controls covering independent approval, exact amount limits, inclusive start and pre-expiry boundaries, substitute approval after proposer recusal, and resource-specific authority;
+- beneficiary and proposer self-approval as negative controls;
+- an independently seeded conflict of interest;
+- fail-closed behavior when conflict screening is incomplete;
+- missing, expired, future-dated and malformed authority windows;
+- wrong grant holder, scope and resource;
+- proposal substitution and zero-value requests;
+- expenditure limits attached to an authority grant.
+
+Every case emits a machine-readable receipt with SHA-256 digests of the policy,
+input and receipt material. The suite uses fixed fixture time and no RNG,
+network calls or wall-clock time.
+
+## Run
+
+From the repository root:
+
+    cd mycelix-governance
+    cargo fmt --all -- --check
+    cargo test -p institutional-assurance
+    cargo run -p institutional-assurance --bin ipb-run
+    cargo clippy -p institutional-assurance --all-targets -- -D warnings
+
+The governance workspace Cargo.lock includes the crate and pins the resolved
+dependency graph. Use --locked in CI and preserve the exact-head run manifest.
+
+The runner prints a JSON suite report. Its process exits non-zero when one or
+more expected outcomes do not match.
+
+## Evidence boundary
+
+This is a synthetic assurance fixture. A passing suite means only that this
+crate's specified policy behavior matches its twenty fixture expectations on the
+tested revision. It does not demonstrate that:
+
+- the production Holochain zomes enforce the same policy;
+- conflict screening discovers undisclosed or hidden interests;
+- a legal or constitutional requirement has been interpreted correctly;
+- the institution is legitimate, fair or safe in the field;
+- the benchmark represents the full threat space.
+
+Production integration requires an explicit policy mapping, tests against the
+actual zome boundary, independent review, and real-world validation. The
+fixture must not silently become an authorization service.
+
+## Next extensions
+
+1. Add a versioned authority graph and delegation-chain tests.
+2. Add separation-of-duties, quorum and appeal fixtures.
+3. Add consume-once authorization and unknown-outcome reconciliation tests.
+4. Add capture and collusion scenarios with controlled attacker budgets.
+5. Add cross-organization evidence and dispute-resolution scenarios.
+6. Compare each implementation with matched manual and conventional workflows.
+
+## Validation ledger
+
+**2026-11-13:** The first exact-PR CI formatter job identified rustfmt-only differences in
+the runner, fixture and test source. Those differences were applied from the
+hosted formatter output. The initial formatter failure is retained in CI
+history; it is not relabeled as a pass.
+
+A later exact-head governance workspace run reached the new crate and
+reported Rust E0505 borrow/move errors: the receipt material borrowed the
+policy/input digest strings before the output receipt moved them. The code was
+reordered to compute the receipt digest before constructing the output
+struct. That correction and the expansion to twenty cases have not yet
+received a successful exact-head workspace test result.
+
+The implementation status is **authored; formatter previously passed on an
+earlier head; compile/test validation pending on the current head**.

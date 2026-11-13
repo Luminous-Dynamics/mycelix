@@ -1,0 +1,12 @@
+[package]
+name = "institutional-assurance"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+description = "Deterministic, evidence-producing institutional assurance fixtures for LISE and IPB."
+publish = false
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+sha2 = "0.10"
