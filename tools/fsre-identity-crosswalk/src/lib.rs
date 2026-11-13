@@ -555,8 +555,8 @@ mod tests {
     #[test]
     fn single_identity_relations_require_one_source_and_one_target() {
         let invalid = FIXTURE.replace(
-            "tr-continuity|CONTINUITY|dws-2022|sys-a|dws-2025|sys-a|2023-07-01|synthetic:continuity|SYNTHETIC|SYNTHETIC_ONLY",
-            "tr-continuity|CONTINUITY|dws-2022|sys-a|dws-2025|sys-a|2023-07-01|synthetic:continuity|SYNTHETIC|SYNTHETIC_ONLY\ntr-continuity|CONTINUITY|dws-2022|sys-b|dws-2025|sys-b|2023-07-01|synthetic:continuity|SYNTHETIC|SYNTHETIC_ONLY",
+            "tr-continuity|CONTINUITY|dws-2022|sys-a|MUNICIPAL_SYSTEMS|MUNICIPAL|dws-2025|sys-a|MUNICIPAL_SYSTEMS|MUNICIPAL|2023-07-01|synthetic:continuity|SYNTHETIC|SYNTHETIC_ONLY",
+            "tr-continuity|CONTINUITY|dws-2022|sys-a|MUNICIPAL_SYSTEMS|MUNICIPAL|dws-2025|sys-a|MUNICIPAL_SYSTEMS|MUNICIPAL|2023-07-01|synthetic:continuity|SYNTHETIC|SYNTHETIC_ONLY\ntr-continuity|CONTINUITY|dws-2022|sys-b|MUNICIPAL_SYSTEMS|MUNICIPAL|dws-2025|sys-b|MUNICIPAL_SYSTEMS|MUNICIPAL|2023-07-01|synthetic:continuity|SYNTHETIC|SYNTHETIC_ONLY",
         );
         assert!(parse(&invalid).unwrap_err().contains("invalid cardinality"));
     }
@@ -564,7 +564,7 @@ mod tests {
     #[test]
     fn merge_requires_multiple_distinct_sources_and_one_target() {
         let invalid = FIXTURE.replace(
-            "tr-merge|MERGED_INTO|dws-2022|sys-b-old|dws-2025|sys-merged|2023-07-01|synthetic:merge|SYNTHETIC|SYNTHETIC_ONLY",
+            "tr-merge|MERGED_INTO|dws-2022|sys-b-old|MUNICIPAL_SYSTEMS|MUNICIPAL|dws-2025|sys-merged|MUNICIPAL_SYSTEMS|MUNICIPAL|2023-07-01|synthetic:merge|SYNTHETIC|SYNTHETIC_ONLY",
             "",
         );
         assert!(parse(&invalid).unwrap_err().contains("invalid cardinality"));
@@ -573,7 +573,7 @@ mod tests {
     #[test]
     fn split_requires_one_source_and_multiple_distinct_targets() {
         let invalid = FIXTURE.replace(
-            "tr-split|SPLIT_INTO|dws-2022|sys-parent|dws-2025|sys-child-b|2023-07-01|synthetic:split|SYNTHETIC|SYNTHETIC_ONLY",
+            "tr-split|SPLIT_INTO|dws-2022|sys-parent|MUNICIPAL_SYSTEMS|MUNICIPAL|dws-2025|sys-child-b|MUNICIPAL_SYSTEMS|MUNICIPAL|2023-07-01|synthetic:split|SYNTHETIC|SYNTHETIC_ONLY",
             "",
         );
         assert!(parse(&invalid).unwrap_err().contains("invalid cardinality"));
@@ -582,8 +582,8 @@ mod tests {
     #[test]
     fn merge_group_cannot_disagree_on_effective_date() {
         let invalid = FIXTURE.replace(
-            "tr-merge|MERGED_INTO|dws-2022|sys-b-old|dws-2025|sys-merged|2023-07-01|synthetic:merge|SYNTHETIC|SYNTHETIC_ONLY",
-            "tr-merge|MERGED_INTO|dws-2022|sys-b-old|dws-2025|sys-merged|2023-08-01|synthetic:merge|SYNTHETIC|SYNTHETIC_ONLY",
+            "tr-merge|MERGED_INTO|dws-2022|sys-b-old|MUNICIPAL_SYSTEMS|MUNICIPAL|dws-2025|sys-merged|MUNICIPAL_SYSTEMS|MUNICIPAL|2023-07-01|synthetic:merge|SYNTHETIC|SYNTHETIC_ONLY",
+            "tr-merge|MERGED_INTO|dws-2022|sys-b-old|MUNICIPAL_SYSTEMS|MUNICIPAL|dws-2025|sys-merged|MUNICIPAL_SYSTEMS|MUNICIPAL|2023-08-01|synthetic:merge|SYNTHETIC|SYNTHETIC_ONLY",
         );
         assert!(parse(&invalid).unwrap_err().contains("inconsistent"));
     }
@@ -591,8 +591,8 @@ mod tests {
     #[test]
     fn merge_group_cannot_disagree_on_source_namespace() {
         let invalid = FIXTURE.replace(
-            "tr-merge|MERGED_INTO|dws-2022|sys-b-old|dws-2025|sys-merged|2023-07-01|synthetic:merge|SYNTHETIC|SYNTHETIC_ONLY",
-            "tr-merge|MERGED_INTO|other-registry|sys-b-old|dws-2025|sys-merged|2023-07-01|synthetic:merge|SYNTHETIC|SYNTHETIC_ONLY",
+            "tr-merge|MERGED_INTO|dws-2022|sys-b-old|MUNICIPAL_SYSTEMS|MUNICIPAL|dws-2025|sys-merged|MUNICIPAL_SYSTEMS|MUNICIPAL|2023-07-01|synthetic:merge|SYNTHETIC|SYNTHETIC_ONLY",
+            "tr-merge|MERGED_INTO|other-registry|sys-b-old|MUNICIPAL_SYSTEMS|MUNICIPAL|dws-2025|sys-merged|MUNICIPAL_SYSTEMS|MUNICIPAL|2023-07-01|synthetic:merge|SYNTHETIC|SYNTHETIC_ONLY",
         );
         assert!(parse(&invalid).unwrap_err().contains("inconsistent"));
     }
@@ -600,8 +600,8 @@ mod tests {
     #[test]
     fn merge_group_cannot_disagree_on_evidence_reference() {
         let invalid = FIXTURE.replace(
-            "tr-merge|MERGED_INTO|dws-2022|sys-b-old|dws-2025|sys-merged|2023-07-01|synthetic:merge|SYNTHETIC|SYNTHETIC_ONLY",
-            "tr-merge|MERGED_INTO|dws-2022|sys-b-old|dws-2025|sys-merged|2023-07-01|synthetic:other-source|SYNTHETIC|SYNTHETIC_ONLY",
+            "tr-merge|MERGED_INTO|dws-2022|sys-b-old|MUNICIPAL_SYSTEMS|MUNICIPAL|dws-2025|sys-merged|MUNICIPAL_SYSTEMS|MUNICIPAL|2023-07-01|synthetic:merge|SYNTHETIC|SYNTHETIC_ONLY",
+            "tr-merge|MERGED_INTO|dws-2022|sys-b-old|MUNICIPAL_SYSTEMS|MUNICIPAL|dws-2025|sys-merged|MUNICIPAL_SYSTEMS|MUNICIPAL|2023-07-01|synthetic:other-source|SYNTHETIC|SYNTHETIC_ONLY",
         );
         assert!(parse(&invalid).unwrap_err().contains("inconsistent"));
     }
@@ -609,15 +609,49 @@ mod tests {
     #[test]
     fn transition_group_cannot_mix_relation_types() {
         let invalid = FIXTURE.replace(
-            "tr-merge|MERGED_INTO|dws-2022|sys-b-old|dws-2025|sys-merged|2023-07-01|synthetic:merge|SYNTHETIC|SYNTHETIC_ONLY",
-            "tr-merge|SPLIT_INTO|dws-2022|sys-b-old|dws-2025|sys-merged|2023-07-01|synthetic:merge|SYNTHETIC|SYNTHETIC_ONLY",
+            "tr-merge|MERGED_INTO|dws-2022|sys-b-old|MUNICIPAL_SYSTEMS|MUNICIPAL|dws-2025|sys-merged|MUNICIPAL_SYSTEMS|MUNICIPAL|2023-07-01|synthetic:merge|SYNTHETIC|SYNTHETIC_ONLY",
+            "tr-merge|SPLIT_INTO|dws-2022|sys-b-old|MUNICIPAL_SYSTEMS|MUNICIPAL|dws-2025|sys-merged|MUNICIPAL_SYSTEMS|MUNICIPAL|2023-07-01|synthetic:merge|SYNTHETIC|SYNTHETIC_ONLY",
         );
         assert!(parse(&invalid).unwrap_err().contains("inconsistent"));
     }
 
     #[test]
+    fn population_scope_and_owner_class_changes_are_reported_separately() {
+        let report = validate_and_report(FIXTURE).expect("fixture should validate");
+        assert!(report.contains("population_scope_change_groups=1"));
+        assert!(report.contains("owner_class_change_groups=1"));
+        assert!(report.contains(
+            "scope_changes_are_cohort_changes=REQUIRE_SEPARATE_COMPARABILITY_REVIEW"
+        ));
+    }
+
+    #[test]
+    fn merge_group_cannot_mix_population_scopes() {
+        let mutated = FIXTURE.replace(
+            "MERGED_INTO|dws-2022|sys-b-old|MUNICIPAL_SYSTEMS|MUNICIPAL",
+            "MERGED_INTO|dws-2022|sys-b-old|ALL_SECTOR_WORKS|DPWI",
+        );
+        assert!(mutated != FIXTURE);
+        assert!(validate_and_report(&mutated)
+            .unwrap_err()
+            .contains("invalid cardinality or endpoint-scope consistency"));
+    }
+
+    #[test]
+    fn accepted_transition_requires_known_population_scope_and_owner_class() {
+        let accepted = FIXTURE
+            .replace("# fixture_kind=SYNTHETIC_ONLY", "# fixture_kind=SOURCE_BACKED")
+            .replace("SYNTHETIC|SYNTHETIC_ONLY", "OFFICIAL_CROSSWALK|ACCEPTED")
+            .replace("MUNICIPAL_SYSTEMS|MUNICIPAL", "UNKNOWN|UNKNOWN");
+        assert!(accepted != FIXTURE);
+        assert!(validate_and_report(&accepted)
+            .unwrap_err()
+            .contains("accepted transition requires known population scope and owner class"));
+    }
+
+    #[test]
     fn source_cannot_be_assigned_to_competing_transitions_on_same_date() {
-        let extra = "tr-competing|RENAMED|dws-2022|sys-a|dws-2025|sys-other|2023-07-01|synthetic:competing|SYNTHETIC|SYNTHETIC_ONLY";
+        let extra = "tr-competing|RENAMED|dws-2022|sys-a|MUNICIPAL_SYSTEMS|MUNICIPAL|dws-2025|sys-other|MUNICIPAL_SYSTEMS|MUNICIPAL|2023-07-01|synthetic:competing|SYNTHETIC|SYNTHETIC_ONLY";
         assert!(parse(&format!("{FIXTURE}{extra}\n"))
             .unwrap_err()
             .contains("competing transitions"));
@@ -644,8 +678,8 @@ mod tests {
     #[test]
     fn unresolved_identity_cannot_be_accepted() {
         let invalid = FIXTURE.replace(
-            "tr-unresolved|UNRESOLVED|dws-2022|sys-ambiguous|||2023-07-01|synthetic:gap|SYNTHETIC|SYNTHETIC_ONLY",
-            "tr-unresolved|UNRESOLVED|dws-2022|sys-ambiguous|||2023-07-01|synthetic:gap|OFFICIAL_CROSSWALK|ACCEPTED",
+            "tr-unresolved|UNRESOLVED|dws-2022|sys-ambiguous|MUNICIPAL_SYSTEMS|MUNICIPAL|||||2023-07-01|synthetic:gap|SYNTHETIC|SYNTHETIC_ONLY",
+            "tr-unresolved|UNRESOLVED|dws-2022|sys-ambiguous|MUNICIPAL_SYSTEMS|MUNICIPAL|||||2023-07-01|synthetic:gap|OFFICIAL_CROSSWALK|ACCEPTED",
         );
         assert!(parse(&invalid).is_err());
     }
@@ -653,8 +687,8 @@ mod tests {
     #[test]
     fn decommissioned_relation_cannot_have_a_target() {
         let invalid = FIXTURE.replace(
-            "tr-decom|DECOMMISSIONED|dws-2022|sys-closed|||2023-07-01|synthetic:decom|SYNTHETIC|SYNTHETIC_ONLY",
-            "tr-decom|DECOMMISSIONED|dws-2022|sys-closed|dws-2025|sys-new|2023-07-01|synthetic:decom|SYNTHETIC|SYNTHETIC_ONLY",
+            "tr-decom|DECOMMISSIONED|dws-2022|sys-closed|MUNICIPAL_SYSTEMS|MUNICIPAL|||||2023-07-01|synthetic:decom|SYNTHETIC|SYNTHETIC_ONLY",
+            "tr-decom|DECOMMISSIONED|dws-2022|sys-closed|MUNICIPAL_SYSTEMS|MUNICIPAL|dws-2025|sys-new|MUNICIPAL_SYSTEMS|MUNICIPAL|2023-07-01|synthetic:decom|SYNTHETIC|SYNTHETIC_ONLY",
         );
         assert!(parse(&invalid).unwrap_err().contains("source/target presence"));
     }
@@ -662,8 +696,8 @@ mod tests {
     #[test]
     fn created_relation_cannot_have_a_source() {
         let invalid = FIXTURE.replace(
-            "tr-created|CREATED|||dws-2025|sys-new|2023-07-01|synthetic:created|SYNTHETIC|SYNTHETIC_ONLY",
-            "tr-created|CREATED|dws-2022|sys-old|dws-2025|sys-new|2023-07-01|synthetic:created|SYNTHETIC|SYNTHETIC_ONLY",
+            "tr-created|CREATED|||||dws-2025|sys-new|MUNICIPAL_SYSTEMS|MUNICIPAL|2023-07-01|synthetic:created|SYNTHETIC|SYNTHETIC_ONLY",
+            "tr-created|CREATED|dws-2022|sys-old|MUNICIPAL_SYSTEMS|MUNICIPAL|dws-2025|sys-new|MUNICIPAL_SYSTEMS|MUNICIPAL|2023-07-01|synthetic:created|SYNTHETIC|SYNTHETIC_ONLY",
         );
         assert!(parse(&invalid).unwrap_err().contains("source/target presence"));
     }
@@ -676,7 +710,7 @@ mod tests {
 
     #[test]
     fn target_cannot_be_assigned_from_competing_transitions_on_same_date() {
-        let extra = "tr-target-conflict|RENAMED|dws-2022|sys-other|dws-2025|sys-a|2023-07-01|synthetic:conflict|SYNTHETIC|SYNTHETIC_ONLY";
+        let extra = "tr-target-conflict|RENAMED|dws-2022|sys-other|MUNICIPAL_SYSTEMS|MUNICIPAL|dws-2025|sys-a|MUNICIPAL_SYSTEMS|MUNICIPAL|2023-07-01|synthetic:conflict|SYNTHETIC|SYNTHETIC_ONLY";
         assert!(parse(&format!("{FIXTURE}{extra}\n"))
             .unwrap_err()
             .contains("target identity is assigned from competing transitions"));
@@ -695,7 +729,7 @@ mod tests {
                           source_id: &str,
                           target_id: &str| {
             source.push_str(&format!(
-                "{transition}|{relation}|{}|{}|{}|{}|2023-07-01|synthetic:{transition}|SYNTHETIC|SYNTHETIC_ONLY\n",
+                "{transition}|{relation}|{}|{}|MUNICIPAL_SYSTEMS|MUNICIPAL|{}|{}|MUNICIPAL_SYSTEMS|MUNICIPAL|2023-07-01|synthetic:{transition}|SYNTHETIC|SYNTHETIC_ONLY\n",
                 if source_id.is_empty() { "" } else { "dws-2022" },
                 source_id,
                 if target_id.is_empty() { "" } else { "dws-2025" },
