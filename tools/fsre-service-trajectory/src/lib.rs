@@ -528,6 +528,101 @@ mod tests {
         );
     }
 
+
+    #[test]
+    fn bounded_exhaustive_observation_matrix_preserves_accounting_invariants() {
+        let service_fractions = [0.0, 0.5, 1.0];
+
+        // Four observations, each with three service levels and two quality states:
+        // 6^4 = 1,296 deterministic input trajectories.
+        for case in 0_u64..1_296 {
+            let mut encoded = case;
+            let mut observations = Vec::with_capacity(4);
+            for at_seconds in [0, 2, 4, 6] {
+                let digit = (encoded % 6) as usize;
+                encoded /= 6;
+                observations.push(observation(
+                    at_seconds,
+                    service_fractions[digit / 2],
+                    digit % 2 == 1,
+                ));
+            }
+
+            // Vary staleness, required-quality policy and recovery stability.
+            for max_observation_hold_seconds in 1..=3 {
+                for quality_required in [false, true] {
+                    for recovery_stability_seconds in 1..=4 {
+                        let mut service_contract = contract(8);
+                        service_contract.max_observation_hold_seconds =
+                            max_observation_hold_seconds;
+                        service_contract.quality_required = quality_required;
+                        service_contract.recovery_stability_seconds =
+                            recovery_stability_seconds;
+
+                        let result = evaluate(&service_contract, &observations).unwrap();
+                        assert_eq!(
+                            result.known_seconds + result.unknown_seconds,
+                            result.horizon_seconds,
+                            "time accounting failed for case {case}"
+                        );
+                        assert_eq!(
+                            result.full_service_seconds
+                                + result.safe_degraded_seconds
+                                + result.unsafe_service_seconds,
+                            result.known_seconds,
+                            "service-state accounting failed for case {case}"
+                        );
+                        assert!(
+                            result.below_minimum_service_seconds
+                                <= result.unsafe_service_seconds,
+                            "below-floor service must be unsafe for case {case}"
+                        );
+                        assert!(
+                            result.quality_noncompliant_seconds <= result.known_seconds,
+                            "quality exposure exceeds known time for case {case}"
+                        );
+                        assert!(
+                            result.longest_unsafe_episode_seconds
+                                <= result.unsafe_service_seconds,
+                            "longest unsafe episode exceeds total unsafe time for case {case}"
+                        );
+                        assert!(
+                            result.service_deficit_fraction_seconds >= 0.0
+                                && result.service_deficit_fraction_seconds
+                                    <= result.known_seconds as f64 + 1e-9,
+                            "service deficit outside its mathematical bounds for case {case}"
+                        );
+
+                        if let Some(breach) = result.first_known_breach_at_seconds {
+                            assert!(breach < result.horizon_seconds);
+                            assert!(result.unsafe_service_seconds > 0);
+                        }
+                        if let Some(recovery) = result.safe_recovery_at_seconds {
+                            let breach = result
+                                .first_known_breach_at_seconds
+                                .expect("recovery requires a prior known breach");
+                            assert!(recovery >= breach);
+                            assert_eq!(
+                                result.time_to_safe_recovery_seconds,
+                                Some(recovery - breach)
+                            );
+                        }
+                        if let Some(recovery) = result.full_recovery_at_seconds {
+                            let breach = result
+                                .first_known_breach_at_seconds
+                                .expect("full recovery requires a prior known breach");
+                            assert!(recovery >= breach);
+                            assert_eq!(
+                                result.time_to_full_recovery_seconds,
+                                Some(recovery - breach)
+                            );
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     #[test]
     fn invalid_service_fraction_is_rejected() {
         let observations = [observation(0, 1.1, true)];
