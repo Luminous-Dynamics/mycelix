@@ -1,0 +1,455 @@
+{
+  "schema_version": "0.1.0",
+  "ledger_id": "nrvca-johannesburg-water-event-graph-v0.1",
+  "as_of_date": "2026-11-13",
+  "source_snapshot": {
+    "register_id": "nrvca-johannesburg-water-service-sources-v0.1",
+    "register_path": "docs/research/nrvca/johannesburg-water-service-sources-v0.1.json",
+    "register_git_blob_sha1": "17e0ab81f7768bef873b0430bca8b431a66364c4",
+    "register_as_of_date": "2026-11-13"
+  },
+  "assertions": [
+    {
+      "assertion_id": "JHBW.A.LONEHILL.20261105.1220",
+      "source_id": "JHBW-CUST-2026-11-05",
+      "media_index": 2,
+      "media_uri": "https://www.johannesburgwater.co.za/wp-content/uploads/2026/11/WhatsApp-Image-2026-11-05-at-12.20.10.jpeg",
+      "publisher": "Johannesburg Water SOC Ltd",
+      "notice_class": "unplanned_burst_repair",
+      "published_at_text": "5 November 2026 – 12:20",
+      "event_time": {
+        "kind": "incident_reported_at",
+        "start_text": null,
+        "end_text": null,
+        "recurrence_text": null,
+        "timezone_status": "not_normalized",
+        "semantics_note": "The notice reports the burst at 12:20; physical onset and restoration time are not stated."
+      },
+      "reported_subject": "Burst pipe at Winnie Mandela Drive and Mulbarton Road, Lonehill",
+      "reported_areas": [
+        "Lonehill",
+        "Dainfern",
+        "Beverly",
+        "Pineslopes",
+        "Broadacres",
+        "Fourways",
+        "surrounding areas"
+      ],
+      "reported_assets": [
+        "Burst pipe at Winnie Mandela Drive and Mulbarton Road"
+      ],
+      "reported_claim": "Operator reports a burst pipe at the stated intersection and supply isolation for repairs; no estimated restoration time was provided.",
+      "reported_metrics": [],
+      "source_bytes_sha256": null,
+      "claim_level": "publisher_assertion_not_independent_measurement"
+    },
+    {
+      "assertion_id": "JHBW.A.LONEHILL.20261105.2050",
+      "source_id": "JHBW-CUST-2026-11-05",
+      "media_index": 6,
+      "media_uri": "https://www.johannesburgwater.co.za/wp-content/uploads/2026/11/WhatsApp-Image-2026-11-05-at-20.57.41.jpeg",
+      "publisher": "Johannesburg Water SOC Ltd",
+      "notice_class": "unplanned_burst_repair",
+      "published_at_text": "5 November 2026 – 20:50",
+      "event_time": {
+        "kind": "incident_reported_at",
+        "start_text": null,
+        "end_text": null,
+        "recurrence_text": null,
+        "timezone_status": "not_normalized",
+        "semantics_note": "Later notice about the same reported intersection; actual physical onset and restoration time remain unknown."
+      },
+      "reported_subject": "Update: burst pipe at Winnie Mandela Drive and Mulbarton Road, Lonehill",
+      "reported_areas": [
+        "Lonehill",
+        "Dainfern",
+        "Beverly",
+        "Pineslopes",
+        "Broadacres",
+        "Fourways",
+        "surrounding areas"
+      ],
+      "reported_assets": [
+        "Burst pipe at Winnie Mandela Drive and Mulbarton Road"
+      ],
+      "reported_claim": "Operator states supply remained isolated for repair of the burst at the same reported intersection; no estimated restoration time was given.",
+      "reported_metrics": [],
+      "source_bytes_sha256": null,
+      "claim_level": "publisher_assertion_not_independent_measurement"
+    },
+    {
+      "assertion_id": "JHBW.A.HIGHLEVEL.SCHEDULE.20261102.1635",
+      "source_id": "JHBW-CUST-2026-11-02",
+      "media_index": 2,
+      "media_uri": "https://www.johannesburgwater.co.za/wp-content/uploads/2026/11/WhatsApp-Image-2026-11-02-at-16.32.09.jpeg",
+      "publisher": "Johannesburg Water SOC Ltd",
+      "notice_class": "scheduled_reservoir_closure",
+      "published_at_text": "2 November 2026 – 16:35",
+      "event_time": {
+        "kind": "recurring_schedule",
+        "start_text": "3 November 2026 14:00",
+        "end_text": null,
+        "recurrence_text": "Daily closure at 14:00; reopening at 04:00 next morning; announced until further notice.",
+        "timezone_status": "not_normalized",
+        "semantics_note": "This is an announced recurring operating rule. It does not prove each closure occurred or establish the actual final date."
+      },
+      "reported_subject": "Daily High Level and Hospital Hill reservoir outlet closure schedule",
+      "reported_areas": [
+        "High Level",
+        "Hospital Hill",
+        "higher-lying areas served by the reservoirs"
+      ],
+      "reported_assets": [
+        "High Level Reservoir",
+        "Hospital Hill Reservoir"
+      ],
+      "reported_claim": "Operator announced daily reservoir closures from 14:00 to 04:00 beginning 3 November 2026 until further notice to build storage.",
+      "reported_metrics": [],
+      "source_bytes_sha256": null,
+      "claim_level": "publisher_assertion_not_independent_measurement"
+    },
+    {
+      "assertion_id": "JHBW.A.CITYCAP.20261103.1240",
+      "source_id": "JHBW-CUST-2026-11-03",
+      "media_index": 1,
+      "media_uri": "https://www.johannesburgwater.co.za/wp-content/uploads/2026/11/WhatsApp-Image-2026-11-03-at-12.39.26.jpeg",
+      "publisher": "Johannesburg Water SOC Ltd",
+      "notice_class": "system_status_update",
+      "published_at_text": "3 November 2026 – 12:40",
+      "event_time": {
+        "kind": "snapshot_at",
+        "start_text": "3 November 2026 12:40",
+        "end_text": null,
+        "recurrence_text": null,
+        "timezone_status": "not_normalized",
+        "semantics_note": "Operator-published snapshot time only; no raw telemetry or metric calculation method is attached."
+      },
+      "reported_subject": "Overall City system capacity snapshot",
+      "reported_areas": [
+        "Sandton",
+        "Parktown",
+        "Berea",
+        "Commando",
+        "Central",
+        "Soweto",
+        "Midrand",
+        "Randburg/Roodepoort"
+      ],
+      "reported_assets": [
+        "City water supply systems"
+      ],
+      "reported_claim": "Operator reports overall City system capacity at 45%.",
+      "reported_metrics": [
+        {
+          "metric_name": "overall City system capacity",
+          "value": 45,
+          "unit": "percent",
+          "method_status": "method_not_supplied",
+          "comparability_status": "not_established",
+          "source_wording": "Operator reports 45%; underlying calculation, denominator, telemetry and sampling method are not supplied."
+        }
+      ],
+      "source_bytes_sha256": null,
+      "claim_level": "publisher_assertion_not_independent_measurement"
+    },
+    {
+      "assertion_id": "JHBW.A.CITYCAP.20261104.1105",
+      "source_id": "JHBW-CUST-2026-11-04",
+      "media_index": 1,
+      "media_uri": "https://www.johannesburgwater.co.za/wp-content/uploads/2026/11/WhatsApp-Image-2026-11-04-at-11.07.21.jpeg",
+      "publisher": "Johannesburg Water SOC Ltd",
+      "notice_class": "system_status_update",
+      "published_at_text": "4 November 2026 – 11:05",
+      "event_time": {
+        "kind": "snapshot_at",
+        "start_text": "4 November 2026 11:05",
+        "end_text": null,
+        "recurrence_text": null,
+        "timezone_status": "not_normalized",
+        "semantics_note": "Operator-published snapshot time only; no raw telemetry or metric calculation method is attached."
+      },
+      "reported_subject": "Overall City system capacity snapshot",
+      "reported_areas": [
+        "Commando",
+        "Central",
+        "Sandton",
+        "Midrand",
+        "Randburg/Roodepoort",
+        "Soweto",
+        "Deep South"
+      ],
+      "reported_assets": [
+        "City water supply systems"
+      ],
+      "reported_claim": "Operator reports overall system capacity at 52%.",
+      "reported_metrics": [
+        {
+          "metric_name": "overall City system capacity",
+          "value": 52,
+          "unit": "percent",
+          "method_status": "method_not_supplied",
+          "comparability_status": "not_established",
+          "source_wording": "Operator reports 52%; underlying calculation, denominator, telemetry and sampling method are not supplied."
+        }
+      ],
+      "source_bytes_sha256": null,
+      "claim_level": "publisher_assertion_not_independent_measurement"
+    },
+    {
+      "assertion_id": "JHBW.A.CITYCAP.20261105.1320",
+      "source_id": "JHBW-CUST-2026-11-05",
+      "media_index": 3,
+      "media_uri": "https://www.johannesburgwater.co.za/wp-content/uploads/2026/11/WhatsApp-Image-2026-11-05-at-13.21.41.jpeg",
+      "publisher": "Johannesburg Water SOC Ltd",
+      "notice_class": "system_status_update",
+      "published_at_text": "5 November 2026 – 13:20",
+      "event_time": {
+        "kind": "snapshot_at",
+        "start_text": "5 November 2026 13:20",
+        "end_text": null,
+        "recurrence_text": null,
+        "timezone_status": "not_normalized",
+        "semantics_note": "Operator-published snapshot time only; no raw telemetry or metric calculation method is attached."
+      },
+      "reported_subject": "Overall City system capacity snapshot",
+      "reported_areas": [
+        "Commando",
+        "Central",
+        "Sandton",
+        "Midrand"
+      ],
+      "reported_assets": [
+        "City water supply systems"
+      ],
+      "reported_claim": "Operator reports overall system capacity at 50%.",
+      "reported_metrics": [
+        {
+          "metric_name": "overall City system capacity",
+          "value": 50,
+          "unit": "percent",
+          "method_status": "method_not_supplied",
+          "comparability_status": "not_established",
+          "source_wording": "Operator reports 50%; underlying calculation, denominator, telemetry and sampling method are not supplied."
+        }
+      ],
+      "source_bytes_sha256": null,
+      "claim_level": "publisher_assertion_not_independent_measurement"
+    }
+  ],
+  "events": [
+    {
+      "event_id": "JHBW.E.BURST.LONEHILL.20261105.01",
+      "event_kind": "unplanned_physical_incident",
+      "identity_state": "provisional",
+      "identity_basis": [
+        "Two operator notices name the same street intersection and same burst asset on 5 November 2026.",
+        "The later notice is explicitly described in the source register as a later update, not a separate incident."
+      ],
+      "assertion_ids": [
+        "JHBW.A.LONEHILL.20261105.1220",
+        "JHBW.A.LONEHILL.20261105.2050"
+      ],
+      "event_time": {
+        "kind": "unknown",
+        "start_text": null,
+        "end_text": null,
+        "recurrence_text": null,
+        "timezone_status": "unknown",
+        "semantics_note": "Notice publication/report times are known as source text; physical burst onset and restoration are unknown."
+      },
+      "reported_geography": {
+        "raw_labels": [
+          "Lonehill",
+          "Dainfern",
+          "Beverly",
+          "Pineslopes",
+          "Broadacres",
+          "Fourways",
+          "Winnie Mandela Drive",
+          "Mulbarton Road"
+        ],
+        "geometry_status": "not_available",
+        "geometry_uri": null,
+        "crs": null
+      },
+      "reported_assets": [
+        "Burst pipe at Winnie Mandela Drive and Mulbarton Road"
+      ],
+      "service_impact_status": "reported_only",
+      "restoration_status": "unknown",
+      "notes": [
+        "One provisional event group represents the two notices; the notices are not counted as two separate bursts.",
+        "The group does not establish a verified footprint, number of customers, outage duration, pressure, volume or restoration."
+      ]
+    },
+    {
+      "event_id": "JHBW.E.SCHEDULE.HIGHLEVEL.20261102.01",
+      "event_kind": "scheduled_operating_rule",
+      "identity_state": "source_asserted",
+      "identity_basis": [
+        "One operator notice announces a recurring daily 14:00–04:00 closure schedule."
+      ],
+      "assertion_ids": [
+        "JHBW.A.HIGHLEVEL.SCHEDULE.20261102.1635"
+      ],
+      "event_time": {
+        "kind": "recurring_schedule",
+        "start_text": "3 November 2026 14:00",
+        "end_text": null,
+        "recurrence_text": "Daily 14:00–04:00, until further notice.",
+        "timezone_status": "not_normalized",
+        "semantics_note": "Schedule statement only; actual execution, exceptions and end date have not been independently observed."
+      },
+      "reported_geography": {
+        "raw_labels": [
+          "High Level",
+          "Hospital Hill",
+          "higher-lying areas served by the reservoirs"
+        ],
+        "geometry_status": "not_available",
+        "geometry_uri": null,
+        "crs": null
+      },
+      "reported_assets": [
+        "High Level Reservoir",
+        "Hospital Hill Reservoir"
+      ],
+      "service_impact_status": "reported_only",
+      "restoration_status": "not_applicable",
+      "notes": [
+        "Keep as one schedule rule; do not generate actual closure events without per-occurrence evidence.",
+        "A planned isolation schedule is not an estimated restoration time."
+      ]
+    },
+    {
+      "event_id": "JHBW.E.SNAPSHOT.CITYCAP.20261103.01",
+      "event_kind": "system_status_snapshot",
+      "identity_state": "source_asserted",
+      "identity_basis": [
+        "Single operator notice reports a snapshot at 12:40."
+      ],
+      "assertion_ids": [
+        "JHBW.A.CITYCAP.20261103.1240"
+      ],
+      "event_time": {
+        "kind": "snapshot_at",
+        "start_text": "3 November 2026 12:40",
+        "end_text": null,
+        "recurrence_text": null,
+        "timezone_status": "not_normalized",
+        "semantics_note": "Publication-reported snapshot time; not a sensor sampling timestamp."
+      },
+      "reported_geography": {
+        "raw_labels": [
+          "City of Johannesburg water systems"
+        ],
+        "geometry_status": "not_available",
+        "geometry_uri": null,
+        "crs": null
+      },
+      "reported_assets": [
+        "City water supply systems"
+      ],
+      "service_impact_status": "reported_only",
+      "restoration_status": "unknown",
+      "notes": [
+        "The reported 45% value has no supplied metric definition, denominator, method or underlying telemetry."
+      ]
+    },
+    {
+      "event_id": "JHBW.E.SNAPSHOT.CITYCAP.20261104.01",
+      "event_kind": "system_status_snapshot",
+      "identity_state": "source_asserted",
+      "identity_basis": [
+        "Single operator notice reports a snapshot at 11:05."
+      ],
+      "assertion_ids": [
+        "JHBW.A.CITYCAP.20261104.1105"
+      ],
+      "event_time": {
+        "kind": "snapshot_at",
+        "start_text": "4 November 2026 11:05",
+        "end_text": null,
+        "recurrence_text": null,
+        "timezone_status": "not_normalized",
+        "semantics_note": "Publication-reported snapshot time; not a sensor sampling timestamp."
+      },
+      "reported_geography": {
+        "raw_labels": [
+          "City of Johannesburg water systems"
+        ],
+        "geometry_status": "not_available",
+        "geometry_uri": null,
+        "crs": null
+      },
+      "reported_assets": [
+        "City water supply systems"
+      ],
+      "service_impact_status": "reported_only",
+      "restoration_status": "unknown",
+      "notes": [
+        "The reported 52% value has no supplied metric definition, denominator, method or underlying telemetry.",
+        "No trend or calibrated time series is inferred from neighbouring notices."
+      ]
+    },
+    {
+      "event_id": "JHBW.E.SNAPSHOT.CITYCAP.20261105.01",
+      "event_kind": "system_status_snapshot",
+      "identity_state": "source_asserted",
+      "identity_basis": [
+        "Single operator notice reports a snapshot at 13:20."
+      ],
+      "assertion_ids": [
+        "JHBW.A.CITYCAP.20261105.1320"
+      ],
+      "event_time": {
+        "kind": "snapshot_at",
+        "start_text": "5 November 2026 13:20",
+        "end_text": null,
+        "recurrence_text": null,
+        "timezone_status": "not_normalized",
+        "semantics_note": "Publication-reported snapshot time; not a sensor sampling timestamp."
+      },
+      "reported_geography": {
+        "raw_labels": [
+          "City of Johannesburg water systems"
+        ],
+        "geometry_status": "not_available",
+        "geometry_uri": null,
+        "crs": null
+      },
+      "reported_assets": [
+        "City water supply systems"
+      ],
+      "service_impact_status": "reported_only",
+      "restoration_status": "unknown",
+      "notes": [
+        "The reported 50% value has no supplied metric definition, denominator, method or underlying telemetry.",
+        "Do not fit a trend or claim metric comparability across these snapshots."
+      ]
+    }
+  ],
+  "relations": [
+    {
+      "relation_id": "JHBW.R.LONEHILL.UPDATE.20261105.2050",
+      "from_assertion_id": "JHBW.A.LONEHILL.20261105.2050",
+      "to_assertion_id": "JHBW.A.LONEHILL.20261105.1220",
+      "relation_type": "updates",
+      "adjudication_status": "manual_source_review",
+      "basis": "The later notice names the identical intersection and burst asset and the source register explicitly notes it is a later update of the same incident."
+    }
+  ],
+  "interpretation_rules": [
+    "An assertion is a source-specific statement. An event is a provisional or qualified grouping of assertions about a physical or scheduled subject; they are not interchangeable.",
+    "Keep publication/report time, physical event valid time, sensor observation time and ledger-recorded time separate. Never copy one into another.",
+    "A relation is directional: from_assertion_id is the newer or dependent assertion; to_assertion_id is the earlier or referenced assertion.",
+    "Only merge assertions into one event with explicit identifiers or documented adjudication. Text similarity or suburb overlap alone is insufficient.",
+    "A schedule is an operating rule, not proof that each scheduled occurrence happened. Do not manufacture occurrence rows.",
+    "A status snapshot is not an incident, a sensor measurement or a time series. Percentages with undefined denominator/method are not comparable by default.",
+    "A publisher notice establishes that the publisher made the statement; it does not establish customer-level supply, affected-household counts, outage duration or independent restoration.",
+    "Missing event time, geometry, raw bytes, digest, licence, method or customer observations remain null/unknown; do not impute them.",
+    "Corrections and later notices append new assertions and relations. Never overwrite the earlier assertion or collapse conflicting accounts into last-write-wins state.",
+    "No event graph record authorizes utility control, service allocation, relocation, enforcement or any other consequential action."
+  ],
+  "claim_ceiling": "A source-linked, manually reviewed, provisional grouping of selected Johannesburg Water notice assertions from the metadata-only source register. It is not a complete incident register, telemetry stream, verified geographic footprint, customer-service measurement, hydraulic calibration dataset or operational digital twin."
+}
