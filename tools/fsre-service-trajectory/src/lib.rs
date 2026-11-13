@@ -31,7 +31,7 @@ pub struct TrajectoryReport {
     pub unsafe_service_seconds: u64,
     pub longest_unsafe_episode_seconds: u64,
     pub service_deficit_fraction_seconds: f64,
-    pub first_breach_at_seconds: Option<u64>,
+    pub first_known_breach_at_seconds: Option<u64>,
     pub safe_recovery_at_seconds: Option<u64>,
     pub time_to_safe_recovery_seconds: Option<u64>,
     pub full_recovery_at_seconds: Option<u64>,
@@ -157,7 +157,7 @@ pub fn evaluate(
         unsafe_service_seconds: 0,
         longest_unsafe_episode_seconds: 0,
         service_deficit_fraction_seconds: 0.0,
-        first_breach_at_seconds: None,
+        first_known_breach_at_seconds: None,
         safe_recovery_at_seconds: None,
         time_to_safe_recovery_seconds: None,
         full_recovery_at_seconds: None,
@@ -198,13 +198,13 @@ pub fn evaluate(
             report.longest_unsafe_episode_seconds = report
                 .longest_unsafe_episode_seconds
                 .max(current_unsafe_episode);
-            if report.first_breach_at_seconds.is_none() {
-                report.first_breach_at_seconds = Some(segment.start_seconds);
+            if report.first_known_breach_at_seconds.is_none() {
+                report.first_known_breach_at_seconds = Some(segment.start_seconds);
             }
         }
     }
 
-    if let Some(first_breach) = report.first_breach_at_seconds {
+    if let Some(first_breach) = report.first_known_breach_at_seconds {
         report.safe_recovery_at_seconds = first_sustained_start(
             &segments,
             first_breach,
@@ -360,7 +360,7 @@ mod tests {
         assert_eq!(result.known_seconds, 100);
         assert_eq!(result.unknown_seconds, 0);
         assert_eq!(result.full_service_seconds, 100);
-        assert_eq!(result.first_breach_at_seconds, None);
+        assert_eq!(result.first_known_breach_at_seconds, None);
         assert_eq!(result.safe_recovery_at_seconds, None);
     }
 
@@ -375,7 +375,7 @@ mod tests {
         assert_eq!(result.safe_degraded_seconds, 20);
         assert_eq!(result.below_minimum_service_seconds, 0);
         assert!((result.service_deficit_fraction_seconds - 8.0).abs() < 1e-9);
-        assert_eq!(result.first_breach_at_seconds, None);
+        assert_eq!(result.first_known_breach_at_seconds, None);
     }
 
     #[test]
@@ -390,7 +390,7 @@ mod tests {
         assert_eq!(result.unsafe_service_seconds, 20);
         assert_eq!(result.longest_unsafe_episode_seconds, 20);
         assert!((result.service_deficit_fraction_seconds - 16.0).abs() < 1e-9);
-        assert_eq!(result.first_breach_at_seconds, Some(10));
+        assert_eq!(result.first_known_breach_at_seconds, Some(10));
         assert_eq!(result.safe_recovery_at_seconds, Some(30));
         assert_eq!(result.time_to_safe_recovery_seconds, Some(20));
         assert_eq!(result.full_recovery_at_seconds, Some(30));
@@ -407,7 +407,7 @@ mod tests {
         assert_eq!(result.below_minimum_service_seconds, 0);
         assert_eq!(result.quality_noncompliant_seconds, 10);
         assert_eq!(result.unsafe_service_seconds, 10);
-        assert_eq!(result.first_breach_at_seconds, Some(10));
+        assert_eq!(result.first_known_breach_at_seconds, Some(10));
         assert_eq!(result.safe_recovery_at_seconds, Some(20));
         assert_eq!(result.full_recovery_at_seconds, Some(20));
     }
@@ -423,7 +423,7 @@ mod tests {
         assert_eq!(result.full_service_seconds, 10);
         assert_eq!(result.safe_degraded_seconds, 10);
         assert!((result.service_deficit_fraction_seconds - 2.0).abs() < 1e-9);
-        assert_eq!(result.first_breach_at_seconds, None);
+        assert_eq!(result.first_known_breach_at_seconds, None);
     }
 
     #[test]
@@ -436,7 +436,7 @@ mod tests {
             observation(30, 1.0, true),
         ];
         let result = evaluate(&contract(60), &observations).unwrap();
-        assert_eq!(result.first_breach_at_seconds, Some(10));
+        assert_eq!(result.first_known_breach_at_seconds, Some(10));
         assert_eq!(result.safe_recovery_at_seconds, Some(30));
         assert_eq!(result.time_to_safe_recovery_seconds, Some(20));
     }
@@ -448,6 +448,88 @@ mod tests {
             evaluate(&contract(60), &observations).unwrap_err(),
             EvaluationError::DuplicateTimestamp
         );
+    }
+
+
+    #[test]
+    fn unknown_prefix_is_not_backfilled_from_the_first_observation() {
+        let observations = [
+            observation(20, 0.8, true),
+            observation(40, 1.0, true),
+        ];
+        let result = evaluate(&contract(60), &observations).unwrap();
+        assert_eq!(result.unknown_seconds, 20);
+        assert_eq!(result.known_seconds, 40);
+        assert_eq!(result.safe_degraded_seconds, 20);
+        assert_eq!(result.full_service_seconds, 20);
+        assert_eq!(result.first_known_breach_at_seconds, None);
+        assert_eq!(
+            result.known_seconds + result.unknown_seconds,
+            result.horizon_seconds
+        );
+    }
+
+    #[test]
+    fn unknown_gap_resets_recovery_stability_window() {
+        let mut service_contract = contract(80);
+        service_contract.max_observation_hold_seconds = 10;
+        service_contract.recovery_stability_seconds = 15;
+        let observations = [
+            observation(0, 1.0, true),
+            observation(10, 0.2, true),
+            observation(20, 1.0, true),
+            observation(40, 1.0, true),
+            observation(50, 1.0, true),
+            observation(60, 1.0, true),
+        ];
+        let result = evaluate(&service_contract, &observations).unwrap();
+        assert_eq!(result.first_known_breach_at_seconds, Some(10));
+        assert_eq!(result.safe_recovery_at_seconds, Some(40));
+        assert_eq!(result.full_recovery_at_seconds, Some(40));
+        assert_eq!(result.time_to_safe_recovery_seconds, Some(30));
+        assert_eq!(result.unknown_seconds, 20);
+    }
+
+    #[test]
+    fn quality_noncompliance_is_reported_but_not_unsafe_when_quality_is_not_required() {
+        let mut service_contract = contract(30);
+        service_contract.quality_required = false;
+        let observations = [observation(0, 0.8, false)];
+        let result = evaluate(&service_contract, &observations).unwrap();
+        assert_eq!(result.quality_noncompliant_seconds, 30);
+        assert_eq!(result.unsafe_service_seconds, 0);
+        assert_eq!(result.safe_degraded_seconds, 30);
+        assert_eq!(result.first_known_breach_at_seconds, None);
+    }
+
+    #[test]
+    fn out_of_order_observations_are_rejected() {
+        let observations = [observation(20, 1.0, true), observation(10, 1.0, true)];
+        assert_eq!(
+            evaluate(&contract(60), &observations).unwrap_err(),
+            EvaluationError::OutOfOrderTimestamp
+        );
+    }
+
+    #[test]
+    fn unknown_intervals_break_unsafe_episode_contiguity() {
+        let mut service_contract = contract(100);
+        service_contract.max_observation_hold_seconds = 10;
+        let observations = [
+            observation(0, 0.2, true),
+            observation(30, 0.2, true),
+        ];
+        let result = evaluate(&service_contract, &observations).unwrap();
+        assert_eq!(result.unsafe_service_seconds, 20);
+        assert_eq!(result.longest_unsafe_episode_seconds, 10);
+        assert_eq!(result.unknown_seconds, 80);
+        assert_eq!(
+            result.full_service_seconds
+                + result.safe_degraded_seconds
+                + result.unsafe_service_seconds,
+            result.known_seconds
+        );
+        assert_eq!(result.known_seconds + result.unknown_seconds, result.horizon_seconds);
     }
 
     #[test]
