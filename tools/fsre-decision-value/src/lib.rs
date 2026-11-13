@@ -708,6 +708,81 @@ mod tests {
     }
 
     #[test]
+    fn uninformative_measurement_has_zero_decision_value() {
+        let measurement = Measurement {
+            id: "no-information".to_owned(),
+            authorised: true,
+            safe: true,
+            acquisition_cost: 0,
+            delay_cost: 0,
+            outcomes: vec![
+                Outcome {
+                    id: "outcome-a".to_owned(),
+                    likelihood_weight_by_hypothesis: vec![60, 60],
+                },
+                Outcome {
+                    id: "outcome-b".to_owned(),
+                    likelihood_weight_by_hypothesis: vec![40, 40],
+                },
+            ],
+        };
+        let result = &evaluate(&decision_case(), &[measurement])
+            .expect("uninformative measurement should validate")[0];
+        assert_eq!(
+            result.gross_evsi,
+            Some(Rational {
+                numerator: 0,
+                denominator: 10_000
+            })
+        );
+        assert!(!result.selected);
+    }
+
+    #[test]
+    fn exact_evsi_matches_full_signal_quality_sweep() {
+        let case = decision_case();
+        let expected_denominator = 10_000_u128;
+        for signal_quality in 0_u64..=100 {
+            let measurement = Measurement {
+                id: format!("signal-quality-{signal_quality:03}"),
+                authorised: true,
+                safe: true,
+                acquisition_cost: 0,
+                delay_cost: 0,
+                outcomes: vec![
+                    Outcome {
+                        id: "red".to_owned(),
+                        likelihood_weight_by_hypothesis: vec![
+                            signal_quality,
+                            100 - signal_quality,
+                        ],
+                    },
+                    Outcome {
+                        id: "blue".to_owned(),
+                        likelihood_weight_by_hypothesis: vec![
+                            100 - signal_quality,
+                            signal_quality,
+                        ],
+                    },
+                ],
+            };
+            let result = &evaluate(&case, &[measurement])
+                .expect("signal-quality case should validate")[0];
+            let expected_numerator =
+                u128::from(signal_quality.abs_diff(50)) * expected_denominator;
+            assert_eq!(
+                result.gross_evsi,
+                Some(Rational {
+                    numerator: expected_numerator,
+                    denominator: expected_denominator
+                }),
+                "signal quality {signal_quality}"
+            );
+            assert_eq!(result.selected, signal_quality != 50);
+        }
+    }
+
+    #[test]
     fn measurement_order_does_not_change_results() {
         let case = decision_case();
         let first = discriminating_measurement("z-check");
