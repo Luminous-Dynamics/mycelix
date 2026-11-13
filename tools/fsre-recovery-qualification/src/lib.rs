@@ -914,11 +914,7 @@ mod tests {
         ];
         for disposition in dispositions {
             let mut records = all_qualified();
-            records[2] = evidence(
-                PredicateKind::DependencyIndependence,
-                disposition,
-                500,
-            );
+            records[2] = evidence(PredicateKind::DependencyIndependence, disposition, 500);
             let result = evaluate(&scenario(), &[option(100)], &[], &records).unwrap();
             assert_eq!(
                 result.options[0].disposition,
@@ -1141,7 +1137,8 @@ mod tests {
     #[test]
     fn scenario_revision_mismatch_is_rejected() {
         let mut records = all_qualified();
-        records[0].scenario_digest = "sha256:0000000000000000000000000000000000000000000000000000000000000000".to_owned();
+        records[0].scenario_digest =
+            "sha256:0000000000000000000000000000000000000000000000000000000000000000".to_owned();
         assert!(evaluate(&scenario(), &[option(100)], &[], &records).is_err());
     }
 
