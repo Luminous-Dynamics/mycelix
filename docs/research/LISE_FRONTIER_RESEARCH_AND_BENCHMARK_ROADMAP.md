@@ -345,3 +345,42 @@ These status notes are dated 13 November 2026 and should be revisited before pub
 - W3C Securing Verifiable Credentials using JOSE and COSE Recommendation (13 October 2026): https://www.w3.org/TR/2026/REC-vc-jose-cose-20261013/
 - W3C Verifiable Credential Confidence Methods v1.0 Working Draft (22 October 2026): https://www.w3.org/TR/2026/WD-vc-confidence-method-20261022/
 - NIST AI RMF current status: https://www.nist.gov/itl/ai-risk-management-framework
+
+
+## 14. New IPB scenario lanes: deliberation, effective power and institutional feedback
+
+IPB v0.2 now adds three scenarios that connect LISE to current comparative evidence and existing system owners.
+
+### S13 — AI-mediated deliberation and steering
+
+Two 2026 studies show why AI intervention types must not be bundled into one treatment:
+
+- Parisi et al. (FAccT 2026) studied 879 participants across two incentive-compatible group deliberation studies. In their conditions, LLM facilitation did not significantly improve consensus, yet participants preferred the facilitated discussion. Some facilitator strategies shifted particular charity allocations by up to 5.5 percentage points while measured participation equity did not improve. Perceived inclusion, measured influence and allocation outcomes therefore need separate measures.
+- Li et al. (preprint, 27 October 2026) report a randomized experiment with 1,173 U.S. participants across 391 small-group deliberations. Non-directive AI-guided private reflection before discussion improved Discourse Quality Index scores against no-reflection and unassisted-reflection baselines in the studied setting (reported Cohen's d=0.31 and 0.27 respectively). This does not establish that in-conversation AI facilitation, summaries or recommendation systems produce the same effect.
+
+LISE should compare no AI, trained human facilitation, private non-directive reflection, retrospective summaries, in-conversation AI facilitation and explicit recommendation/agenda assistance as distinct experimental arms. Separate argument quality, comprehension, private-to-public opinion change, allocation effect, perceived inclusion, measured participation equity, observed influence, dissent retention and trust calibration.
+
+This lane composes Mycelix #5999 DELIB-BENCH-001 and Symtropy #3110/#3123. It does not create a second human-deliberation evaluator.
+
+### S14 — Formal authority versus effective power
+
+Compose Symtropy #3684 CIVDYN-AUTH-001 with Mycelix's S2 conflict-of-interest fixture. Use matched institutions with similar nominal voting weights but different agenda, delegation, evidence, approval, disbursement, veto, emergency and appeal structures.
+
+Measure nominal voting weights, Banzhaf and Shapley–Shubik power where exact formal voting-game analysis applies, minimal winning coalitions, blocking power, role concentration, separation-of-duties conflicts and independent appeal. Measure informal influence only through appropriate empirical evidence. Do not call a formal power index a measure of legitimacy or democracy.
+
+The research question is whether identical formal voting shares conceal different operational control once agenda setting, evidence production, execution and appeal roles are modeled.
+
+### S15 — Institutional feedback, lock-in and intergenerational burden
+
+Compose Mycelix #4816 Civilization Twin and #5699 CIV-ECON-009 with Symtropy's independent physical/resource oracles. Compare institutional responses to scarcity, service outages, emergency centralization, provider dependency, care burdens and ecological depletion under identical starting worlds and exogenous shocks.
+
+Track short- and long-horizon service, dependency concentration, viable alternatives, switching cost, maintenance debt, unpaid care, ecological limits, cohort-incidence, recovery and rights-floor breaches. Do not assume centralization, markets, cooperatives or polycentric federation always win.
+
+The intended innovation is a conditional map of when interventions damp harmful feedback, when they amplify lock-in, and when the incumbent arrangement performs better. No universal institutional score is permitted.
+
+### Research sources added
+
+- Parisi et al., *Real-Time Group Dynamics with LLM Facilitation: Evidence from a Charity Allocation Task* (FAccT 2026): https://deepmind.google/research/publications/224297/
+- Li et al., *Improving Group Deliberation through AI-Guided Self-Reflection* (preprint, 27 October 2026): https://arxiv.org/abs/2610.37862
+
+These are motivating studies, not LISE results. Independent replication and context-specific evaluation remain necessary.
