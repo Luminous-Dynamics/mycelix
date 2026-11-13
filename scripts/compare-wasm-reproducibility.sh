@@ -60,8 +60,8 @@ for cluster in finance governance; do
     }
   done
 
-  jq -S -s 'sort_by(.target) | map({package_id,target,filename,size_bytes,sha256})' "$manifest1" > "$WORK/$cluster-1.json"
-  jq -S -s 'sort_by(.target) | map({package_id,target,filename,size_bytes,sha256})' "$manifest2" > "$WORK/$cluster-2.json"
+  jq -S -s 'sort_by(.target) | map({package_id,target,filename_basename:(.filename|split("/")[-1]),size_bytes,sha256})' "$manifest1" > "$WORK/$cluster-1.json"
+  jq -S -s 'sort_by(.target) | map({package_id,target,filename_basename:(.filename|split("/")[-1]),size_bytes,sha256})' "$manifest2" > "$WORK/$cluster-2.json"
 
   if ! cmp -s "$WORK/$cluster-1.json" "$WORK/$cluster-2.json"; then
     echo "FAIL: $cluster WASM output is not bit-for-bit reproducible across two independent runners." >&2
