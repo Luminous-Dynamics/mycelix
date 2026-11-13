@@ -450,13 +450,9 @@ mod tests {
         );
     }
 
-
     #[test]
     fn unknown_prefix_is_not_backfilled_from_the_first_observation() {
-        let observations = [
-            observation(20, 0.8, true),
-            observation(40, 1.0, true),
-        ];
+        let observations = [observation(20, 0.8, true), observation(40, 1.0, true)];
         let result = evaluate(&contract(60), &observations).unwrap();
         assert_eq!(result.unknown_seconds, 20);
         assert_eq!(result.known_seconds, 40);
@@ -515,10 +511,7 @@ mod tests {
     fn unknown_intervals_break_unsafe_episode_contiguity() {
         let mut service_contract = contract(100);
         service_contract.max_observation_hold_seconds = 10;
-        let observations = [
-            observation(0, 0.2, true),
-            observation(30, 0.2, true),
-        ];
+        let observations = [observation(0, 0.2, true), observation(30, 0.2, true)];
         let result = evaluate(&service_contract, &observations).unwrap();
         assert_eq!(result.unsafe_service_seconds, 20);
         assert_eq!(result.longest_unsafe_episode_seconds, 10);
@@ -529,7 +522,10 @@ mod tests {
                 + result.unsafe_service_seconds,
             result.known_seconds
         );
-        assert_eq!(result.known_seconds + result.unknown_seconds, result.horizon_seconds);
+        assert_eq!(
+            result.known_seconds + result.unknown_seconds,
+            result.horizon_seconds
+        );
     }
 
     #[test]
