@@ -76,6 +76,18 @@ Exact sources:
 - [Event Sentry](https://github.com/openepcis/openepcis-event-sentry)
 - [Document validation service](https://github.com/openepcis/openepcis-document-validation-service)
 
+### C. GS1 EPCIS Sandbox — official fixture and diagnostic tool, not a server
+
+- [GS1 EPCIS Sandbox](https://epcis-sandbox.gs1.org/) is described by GS1 as a web tool for event generation/viewing, XML/JSON-LD validation and format conversion.
+- Use it to create and inspect known-answer fixtures and to identify user-visible conversion differences.
+- It is not an EPCIS repository/server, not an independent implementation, and not a substitute for pinned normative JSON Schema, JSON-LD and SHACL validation receipts.
+
+The older [FRE E PCIS service](https://freepcis.gs1.org/) is not a current EPCIS 2.0 comparator. Its current FAQ states that it is a development/test repository limited to 25 events and supports EPCIS 1.2; GS1's architecture material characterizes it as a legacy, no-longer-maintained tool superseded by EPCIS Sandbox. Retain it only as an optional EPCIS 1.2 backward-compatibility probe. Do not include it in EPCIS 2.0/2.0.1 performance comparisons.
+
+### D. NIST IR 8536 reference implementation — later research baseline
+
+NIST IR 8536 is a manufacturing traceability meta-framework, not a product certification or a single mandatory API. NIST's published material described its reference implementation as early-stage research / lab work. Before using it as a baseline, confirm its public artifact revision, license, dependencies, data model, tests and maintenance state. It is not a substitute for a GS1 EPCIS server.
+
 ### C. Official GS1 artefacts — normative validator inputs, not a server
 
 Use the exact artifact set specified by the relevant normative clause, with per-file URL, redirect chain/final URL, media type, retrieval time, byte length, SHA-256, license/rights decision, validator version and receipt. The official JSON Schema declares Draft 07; do not feed it to a validator configured only for Draft 2020-12.
