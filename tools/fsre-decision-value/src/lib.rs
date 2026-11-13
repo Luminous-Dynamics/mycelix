@@ -200,19 +200,11 @@ fn validate_measurements(
                     outcome.id, measurement.id
                 ));
             }
-            let mut predictive_mass = 0_u128;
             for (index, likelihood) in outcome
                 .likelihood_weight_by_hypothesis
                 .iter()
                 .enumerate()
             {
-                let joint = checked_mul(
-                    u128::from(case.hypotheses[index].prior_weight),
-                    u128::from(*likelihood),
-                    "joint hypothesis/outcome weight",
-                )?;
-                predictive_mass =
-                    checked_add(predictive_mass, joint, "predictive outcome mass")?;
                 likelihood_totals[index] = checked_add(
                     likelihood_totals[index],
                     u128::from(*likelihood),
