@@ -99,12 +99,7 @@ pub fn git_blob_sha1_hex(bytes: &[u8]) -> String {
 }
 
 fn clock_minutes(published: &str) -> Option<u16> {
-    let token = published
-        .split(['–', '-', '—'])
-        .next_back()?
-        .trim()
-        .split_whitespace()
-        .last()?;
+    let token = published.split_whitespace().last()?;
     let mut parts = token.split(':');
     let hour = parts.next()?.parse::<u16>().ok()?;
     let minute = parts.next()?.parse::<u16>().ok()?;
@@ -665,7 +660,10 @@ pub fn validate(
                     _ => None,
                 };
                 let actual: Vec<&str> = input_ids.iter().filter_map(Value::as_str).collect();
-                if expected.as_ref().is_none_or(|values| actual != *values) {
+                if expected
+                    .as_ref()
+                    .is_none_or(|values| actual.as_slice() != values.as_slice())
+                {
                     errors.push(format!("{context}: unexpected assertion membership for observed fixture case {case_id}"));
                 }
                 if let Some(expected) = expected {
