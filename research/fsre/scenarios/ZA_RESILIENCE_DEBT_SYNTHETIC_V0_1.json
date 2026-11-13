@@ -464,5 +464,35 @@
       "No real authority grants, contracts or operational instructions.",
       "Expected dispositions are fixture semantics, not field conclusions."
     ]
+  },
+  "scenario_digest": "sha256:80005cf843ae7f0c283658cb0d5fbac01e4530bf2ed32b79d55bc9c745e216af",
+  "canonical_scenario_manifest": {
+    "schema": "luminous.fsre.scenario-manifest.v0.1",
+    "fields_in_digest_order": [
+      "scenario_id",
+      "scenario_kind",
+      "evaluation_time_seconds",
+      "time_basis_id",
+      "clock_uncertainty_seconds",
+      "horizon_seconds",
+      "disruption_tags"
+    ],
+    "values": {
+      "scenario_id": "synthetic-water-compound-disruption",
+      "scenario_kind": "compound_regional_power_staffing_and_supply_disruption",
+      "evaluation_time_seconds": 1000,
+      "time_basis_id": "synthetic-clock-v1",
+      "clock_uncertainty_seconds": 0,
+      "horizon_seconds": 43200,
+      "disruption_tags": [
+        "regional_power_loss",
+        "limited_staff_availability",
+        "critical_spares_delay",
+        "telemetry_gap"
+      ]
+    },
+    "serialization": "UTF-8; key=value per line; LF separators; final LF; exact field order above; disruption_tags joined by commas in declared order",
+    "digest_algorithm": "SHA-256",
+    "digest": "sha256:80005cf843ae7f0c283658cb0d5fbac01e4530bf2ed32b79d55bc9c745e216af"
   }
 }
