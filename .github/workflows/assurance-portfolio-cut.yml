@@ -8,6 +8,7 @@ on:
   push:
     branches:
       - "research/assurance-portfolio-cut-v0-1"
+      - "research/assurance-multivalue-dependencies-v0"
     paths:
       - "research/assurance-portfolio-cut/**"
       - ".github/workflows/assurance-portfolio-cut.yml"
