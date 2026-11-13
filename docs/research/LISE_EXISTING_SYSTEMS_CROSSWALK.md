@@ -72,7 +72,7 @@ Compose #3117, #6069, #3129, #3123, #373 and #5699. LISE adds explicit lifecycle
 
 ### Phase A — S2 conflict-of-interest expenditure approval
 
-Use the existing 15-case Rust fixture as the first narrow reference. Map its policy, proposal, authority and approval attempt to the existing Mycelix decision/authority references. Extend the scenario only after the current fixture executes locally and an owner-reviewed mapping exists.
+Use the existing 20-case Rust fixture as the first narrow reference. Map its policy, proposal, authority and approval attempt to the existing Mycelix decision/authority references. Extend the scenario only after the current fixture executes locally and an owner-reviewed mapping exists.
 
 Required composition:
 1. candidate proposal and its source evidence;
