@@ -50,6 +50,26 @@ References:
 
 The GTMI is explicitly a maturity snapshot, not a country-performance ranking. FSRE results must not be presented as a replacement GTMI score.
 
+## 2.1 Dedicated infrastructure interdependency tool comparators
+
+A newly published open-access comparative review (Shamsi, Helmrich & Deegan, 7 November 2026) identified 24 infrastructure tools across energy, water and transport; seven explicitly model cross-sector interdependencies and cascading effects. Include these as method-specific comparators where licensing/access and task fit permit:
+
+| Tool | Method family | FSRE comparison lane |
+|---|---|---|
+| IN-CORE | Integrated hazard, infrastructure-network, fragility and socioeconomic recovery environment | Community-scale service/recovery and socioeconomic outcome coupling |
+| InfraRisk | Modular coupled-infrastructure simulation for power, water, transport, hazard, cascade and restoration | Compound disruption and recovery trajectory |
+| REFIT | Probabilistic cascading-failure simulation with domain-solver coupling | Probabilistic cascade, uncertainty and investment portfolio scenarios |
+| CIrcle | Participatory workshops, expert input and causal mapping | Institutional/organisational dependency elicitation and qualitative pathway coverage |
+| PRIIA | Hypergraph dependency and optimisation-based restoration prioritisation | Post-disruption prioritisation and restoration plan comparison |
+| Kaleidoscope | Spatial predictive analytics and asset co-location/vulnerability analysis | Spatial exposure, co-location and investment prioritisation |
+| CISIA-Pro | MATLAB-based deterministic fault-propagation simulator | Explicit deterministic cascade semantics and critical-component identification |
+
+This list complements enterprise-product comparators (Palantir, Maximo, iTwin, EcoStruxure) rather than replacing them. The methods are not interchangeable: some are participatory, some spatial/data-driven, some deterministic or probabilistic simulation, and some integrated system-of-systems environments. Do not force every tool through one synthetic input schema or score a method outside its declared purpose.
+
+The 2026 review reports no single tool dominates all assessed dimensions and that comparable runtime/hardware benchmark data were unavailable across the seven. This is a reason to build a shared service-level task/evidence/metric contract with tool-specific adapters, not to claim FSRE already outperforms these systems. Record tool/version, access constraints, calibration, source-data needs, method family, validation level, compute, tuning and analyst effort.
+
+Primary reference: https://doi.org/10.1007/s10669-026-10162-2
+
 ## 3. Baselines and ablations
 
 Every evaluation should compare the same frozen inputs and scenario set against at least:
@@ -251,6 +271,35 @@ Every benchmark run must freeze:
 Use a blind holdout that is not used for feature selection or tuning. Run ablations. Include negative controls, corrupted evidence, stale evidence, missingness, adversarial data and out-of-distribution scenarios. Report all attempted runs, including failed and inconclusive runs.
 
 For operational pilots, use pre-registered before/after and, where possible, matched-control or stepped-wedge designs. Account for seasonality, planned maintenance, capital works, rainfall, tariffs, demand changes and other confounders. Independent evaluators should be able to reproduce the calculation from retained evidence.
+
+## 7.1 Verifier and model-disagreement qualification
+
+The verifier is itself a fallible system. Qualification must test the evaluator and upstream model outputs, not assume that a separately named verifier is independent or correct.
+
+Required challenge families:
+
+- **Differential evaluator:** implement the declared metric/qualification semantics independently and compare outputs on the same frozen cases. If two evaluators disagree, the result is unresolved; no favourable result is selected silently.
+- **Metamorphic invariants:** reorder input rows where order is semantically irrelevant; duplicate display labels without changing stable IDs; inject unknown fields; vary non-semantic metadata; test that qualified outcomes do not change unless the claim scope changes.
+- **Negative-control mutation:** remove a predicate, change owner/schema, expire a grant, revoke authority, introduce a clock mismatch, insert a common failure ancestor, mark spatial evidence stale, place a physical model out of domain, or move mobilisation beyond the horizon. The expected qualification must downgrade with an exact reason.
+- **Verifier fault injection:** mutate an evidence reference, swap scenario digests, omit source rows, change validity end, duplicate records, reorder source snapshots or corrupt one golden output. The verifier must reject or expose the discrepancy.
+- **Model disagreement:** run more than one qualified domain model or parameterisation against the same scenario and record disagreement in service trajectory, capacity, mobilisation and portfolio ranking. Do not average model families by default. Report model identity, adequacy domain and calibrated error.
+- **Leave-one-model-out sensitivity:** remove one model or source family and measure whether option qualification or portfolio ranking changes. Large changes indicate model dependence and should trigger review, not false confidence.
+- **Independent reproduction cost:** record analyst hours, time-to-reproduce, required permissions/data, compute, specialist expertise and whether a second organisation can rebuild the claim from retained source-owner evidence.
+- **Selective abstention:** measure risk-versus-coverage. Correctly abstaining on incomplete/ambiguous evidence is a positive outcome; over-abstention that blocks all useful cases is also measured.
+
+Core metrics:
+- exact reference agreement and disagreement rate;
+- false-qualified recovery-option rate;
+- false-independent option rate under hidden-common-cause controls;
+- false-safe classification rate;
+- reason-code precision/recall;
+- stale/unknown detection sensitivity and false-stale rate;
+- abstention precision, coverage and selective risk;
+- report lineage completeness;
+- independent reproduction time/cost;
+- service/portfolio rank stability under plausible model and source perturbations.
+
+Do not publish a verifier-accuracy percentage without stating the complete challenge set, attack families, number of cases, evaluator versions and confidence interval. Zero failures in a small synthetic test suite is a conformance observation, not a production probability bound.
 
 ## 8. Evidence classes and claim ceilings
 
