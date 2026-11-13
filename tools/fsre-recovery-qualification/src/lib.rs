@@ -337,7 +337,9 @@ pub fn parse_scenario_and_options(
         )));
     }
     if horizon_seconds == 0 {
-        return Err(InputError("horizon_seconds must be greater than zero".to_owned()));
+        return Err(InputError(
+            "horizon_seconds must be greater than zero".to_owned(),
+        ));
     }
 
     let rows = parse_rows(source, "option_id|service_id|mobilisation_seconds", 3)?;
@@ -446,7 +448,9 @@ fn evidence_is_current(
     let earliest_evaluation = scenario
         .evaluation_time_seconds
         .checked_sub(scenario.clock_uncertainty_seconds)
-        .ok_or_else(|| InputError("scenario clock uncertainty exceeds evaluation time".to_owned()))?;
+        .ok_or_else(|| {
+            InputError("scenario clock uncertainty exceeds evaluation time".to_owned())
+        })?;
     let latest_evaluation = scenario
         .evaluation_time_seconds
         .checked_add(scenario.clock_uncertainty_seconds)
@@ -488,9 +492,14 @@ pub fn evaluate(
         ));
     }
 
-    let option_ids: BTreeSet<&str> = options.iter().map(|option| option.option_id.as_str()).collect();
+    let option_ids: BTreeSet<&str> = options
+        .iter()
+        .map(|option| option.option_id.as_str())
+        .collect();
     if option_ids.len() != options.len() {
-        return Err(InputError("duplicate option_id in evaluation input".to_owned()));
+        return Err(InputError(
+            "duplicate option_id in evaluation input".to_owned(),
+        ));
     }
 
     let mut evidence_by_option =
@@ -585,10 +594,7 @@ pub fn evaluate(
 
     let mut report_groups = Vec::with_capacity(grouped_counts.len());
     for (key, item_count) in grouped_counts {
-        let service_count = debt_groups
-            .get(&key)
-            .map(BTreeSet::len)
-            .unwrap_or_default();
+        let service_count = debt_groups.get(&key).map(BTreeSet::len).unwrap_or_default();
         report_groups.push(DebtGroup {
             dimension: key.0,
             status: key.1,
@@ -656,8 +662,8 @@ pub fn evaluate(
 #[cfg(test)]
 mod tests {
     use super::{
-        evaluate, parse_debt_items, parse_predicate_evidence, parse_scenario_and_options,
-        DebtItem, Disposition, PredicateEvidence, PredicateKind, RecoveryOption, Scenario,
+        evaluate, parse_debt_items, parse_predicate_evidence, parse_scenario_and_options, DebtItem,
+        Disposition, PredicateEvidence, PredicateKind, RecoveryOption, Scenario,
         REQUIRED_PREDICATES,
     };
 
@@ -742,7 +748,11 @@ mod tests {
     #[test]
     fn stale_qualified_evidence_is_not_accepted() {
         let mut records = all_qualified();
-        records[0] = evidence(PredicateKind::PhysicalFeasibility, Disposition::Qualified, 100);
+        records[0] = evidence(
+            PredicateKind::PhysicalFeasibility,
+            Disposition::Qualified,
+            100,
+        );
         let result = evaluate(&scenario(), &[option(100)], &[], &records).unwrap();
         assert!(result.options[0]
             .reason_codes
