@@ -36,16 +36,11 @@ Let:
 
 The decision-value of sample information is:
 
-[
-EVSI(m mid E) =
-min_{a in A(E)} mathbb{E}[L(a,H)mid E]
--
-mathbb{E}_{ymid E,m}left[
-min_{a in A(E,y)} mathbb{E}[L(a,H)mid E,y]
-ight]
--
-C(m)-D(m)
-]
+```text
+EVSI(m | E) = min[a in A(E)] E[L(a,H) | E]
+             - E_{y ~ p(y | E,m)}[ min[a in A(E,y)] E[L(a,H) | E,y] ]
+             - C(m) - D(m)
+```
 
 This is an evaluation construct, not a licence to trade away fundamental constraints. Hard constraints are applied before expected-loss comparison; they are not soft penalties that can be outweighed by a sufficiently large predicted benefit. Measurement itself must be safe, authorised, purpose-limited and rights-compliant. If measurement is not authorised or has unacceptable risk, it is not a candidate regardless of calculated EVSI.
 
