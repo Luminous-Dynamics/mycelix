@@ -28,11 +28,11 @@ References:
 ## 2. Formal decision contract
 
 Let:
-- (H) be the set of competing, explicitly scoped hypotheses about a service condition or failure mechanism;
-- (E) be currently admissible evidence, including unknowns, provenance, validity and dependence;
-- (A(E)) be the actions that are physically feasible, within the declared service boundary, legally and operationally authorised, and satisfy hard safety, rights, privacy and equity constraints;
-- (L(a,H)) be the pre-registered loss or outcome function for action (a) under hypothesis (H);
-- (m) be a candidate measurement or investigation, with possible outcomes (y), acquisition cost (C(m)), delay cost (D(m)), and any measurement risk.
+- H be the set of competing, explicitly scoped hypotheses about a service condition or failure mechanism;
+- E be currently admissible evidence, including unknowns, provenance, validity and dependence;
+- A(E) be the actions that are physically feasible, within the declared service boundary, legally and operationally authorised, and satisfy hard safety, rights, privacy and equity constraints;
+- L(a,H) be the pre-registered loss or outcome function for action a under hypothesis H;
+- m be a candidate measurement or investigation, with possible outcomes y, acquisition cost C(m), delay cost D(m), and any measurement risk.
 
 The decision-value of sample information is:
 
@@ -44,7 +44,7 @@ EVSI(m | E) = min[a in A(E)] E[L(a,H) | E]
 
 This is an evaluation construct, not a licence to trade away fundamental constraints. Hard constraints are applied before expected-loss comparison; they are not soft penalties that can be outweighed by a sufficiently large predicted benefit. Measurement itself must be safe, authorised, purpose-limited and rights-compliant. If measurement is not authorised or has unacceptable risk, it is not a candidate regardless of calculated EVSI.
 
-(A(E)) may contain a documented no-op, safe hold, or abstention choice. When no consequential action is authorised, the system may still propose an authorised read-only measurement or recommend human review; it must not infer actuation authority from information value.
+A(E) may contain a documented no-op, safe hold, or abstention choice. When no consequential action is authorised, the system may still propose an authorised read-only measurement or recommend human review; it must not infer actuation authority from information value.
 
 ### 2.1 Distinguish four quantities
 
