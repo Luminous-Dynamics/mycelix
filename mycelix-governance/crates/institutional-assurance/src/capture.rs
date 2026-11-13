@@ -469,7 +469,7 @@ fn captured_scenario(scenario_id: &str) -> CaptureScenario {
     }
 }
 
-/// Eight known-answer fixtures; these are purposive synthetic cases, not a
+/// Nine known-answer fixtures; these are purposive synthetic cases, not a
 /// statistical sample of real institutions or real-world attack prevalence.
 pub fn adversarial_capture_suite() -> CaptureSuiteReport {
     let mut cases = Vec::new();
