@@ -30,6 +30,7 @@ Each test case defines:
 | Participation quality | Effective participation rate | Participants who can understand, influence and contest a decision; survey plus process evidence |
 | Authority integrity | Unauthorized-action rate | Actions outside documented authority / all consequential actions |
 | Procedural integrity | Rule-conformance rate | Decisions meeting applicable procedure / decisions sampled |
+| Institutional observability | Formal-to-operational rule gap (FORG) | Human-reviewed sample of divergences between declared rules, implemented policy and observed rules-in-use; classify each divergence and report inter-rater agreement |
 | Evidence quality | Evidence completeness | Required provenance, uncertainty, conflict and rationale fields present |
 | Accountability | Time to trace decision | Median time for independent reviewer to reconstruct authority, evidence and execution |
 | Contestability | Appeal accessibility | Time, cost, language and procedural burden to file and resolve an appeal |
@@ -44,7 +45,7 @@ Each test case defines:
 | Efficiency | Full cost per successful outcome | Staff time, participant burden, technology, compliance, dispute and externalized costs |
 | Ecological impact | Resource and externality profile | Task-specific physical indicators, not generic sustainability claims |
 
-All metrics require an explicit denominator, sampling method, missing-data treatment and disaggregation policy.
+All metrics require an explicit denominator, sampling method, missing-data treatment and disaggregation policy. FORG must preserve the difference between lawful adaptation and unauthorized divergence; the raw gap rate must never be used as a standalone institutional-quality score.
 
 ## 4. Required benchmark scenarios
 
@@ -97,6 +98,29 @@ Test portability, settlement, data return/deletion, continuity of essential serv
 A proposal changes governance rules, including the amendment procedure itself.
 
 Test notice, participation, quorum, versioning, rights constraints, independent review and effective date.
+
+### S11 — Participation integrity and feedback
+
+Participants submit proposals, evidence and objections before a consequential
+decision. The decision authority must disclose in advance how inputs can
+influence the decision and later publish a reasoned disposition.
+
+Test whether input changes the decision, changes its options, is rejected with
+reasons, or is ignored without explanation. Include under-represented
+participants, accessibility barriers, agenda control and coordinated comment
+flooding. Measure effective influence, input disposition, participant burden,
+representation and decision-maker follow-through.
+
+### S12 — Formal rules versus rules-in-use
+
+Compare the authoritative constitutional or policy text with implemented
+workflow rules and sampled observed practice. Include lawful local adaptations,
+informal workarounds, selective enforcement and explicit bypasses.
+
+Classify material gaps as aligned, authorized adaptation, locally supplemented,
+contradictory, bypassed or unknown. Use independent human coding and report
+inter-rater agreement. A gap is a diagnostic signal, not automatic proof of
+misconduct.
 
 ## 5. Baselines
 
