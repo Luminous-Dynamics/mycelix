@@ -1,6 +1,6 @@
 # FSRE public source-register validator
 
-A small dependency-free Rust validator for the FSRE public-data discovery register.
+A dependency-free Rust validator for the FSRE South African public-data source register.
 
 It checks:
 - exact header and ten required fields;
@@ -10,7 +10,9 @@ It checks:
 - supported ingestion-state vocabulary;
 - deterministic counts by declared ingestion state.
 
-It **does not** download, snapshot, extract, license-check, authenticate or qualify any external source. A row in `DISCOVERED_NOT_EXTRACTED` remains undiscovered as evidence and must never be counted as an extracted dataset. The tool does not automatically promote source states.
+The register now separates the DWS 2025 Green Drop report collection from the separately published national-summary release. The report PDF collection remains `DISCOVERED_NOT_EXTRACTED`; the published summary row is `EXTRACTED_UNREVIEWED` because a bounded transcription and arithmetic replay exist, while independent source/definition review remains pending.
+
+The validator does **not** download, snapshot, extract, license-check, authenticate or qualify any external source. It never promotes source states automatically. A `DISCOVERED_NOT_EXTRACTED` row remains unextracted; an `EXTRACTED_UNREVIEWED` row does not imply authenticated source evidence, complete system-level data or suitability for a particular claim.
 
 ## Run
 
