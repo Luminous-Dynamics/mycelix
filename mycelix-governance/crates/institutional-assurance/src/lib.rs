@@ -338,6 +338,75 @@ fn cases() -> Vec<FixtureCase> {
             expected: Decision::Permit,
         },
         FixtureCase {
+            scenario_id: "s2-positive-exact-authority-limit",
+            input: EvaluationInput {
+                policy: policy.clone(),
+                proposal: Proposal {
+                    amount_minor: 10_000,
+                    ..proposal(&[], true)
+                },
+                attempt: attempt("independent-reviewer", &normal_grant.grant_id, 1_000),
+                grant: Some(normal_grant.clone()),
+            },
+            expected: Decision::Permit,
+        },
+        FixtureCase {
+            scenario_id: "s2-positive-at-inclusive-grant-start",
+            input: EvaluationInput {
+                policy: policy.clone(),
+                proposal: proposal(&[], true),
+                attempt: attempt("independent-reviewer", &normal_grant.grant_id, 0),
+                grant: Some(normal_grant.clone()),
+            },
+            expected: Decision::Permit,
+        },
+        FixtureCase {
+            scenario_id: "s2-positive-before-grant-expiry",
+            input: EvaluationInput {
+                policy: policy.clone(),
+                proposal: proposal(&[], true),
+                attempt: attempt("independent-reviewer", &normal_grant.grant_id, 9_999),
+                grant: Some(normal_grant.clone()),
+            },
+            expected: Decision::Permit,
+        },
+        FixtureCase {
+            scenario_id: "s2-positive-substitute-approver-after-proposer-recusal",
+            input: EvaluationInput {
+                policy: policy.clone(),
+                proposal: Proposal {
+                    conflicted_actors: ["member-initiator".to_owned()]
+                        .into_iter()
+                        .collect(),
+                    ..proposal(&[], true)
+                },
+                attempt: attempt("independent-reviewer", &normal_grant.grant_id, 1_000),
+                grant: Some(normal_grant.clone()),
+            },
+            expected: Decision::Permit,
+        },
+        FixtureCase {
+            scenario_id: "s2-positive-matched-resource-scope",
+            input: EvaluationInput {
+                policy: policy.clone(),
+                proposal: Proposal {
+                    resource_id: "community-reserve".to_owned(),
+                    ..proposal(&[], true)
+                },
+                attempt: attempt("independent-reviewer", "grant-community-reserve", 1_000),
+                grant: Some(grant(
+                    "grant-community-reserve",
+                    "independent-reviewer",
+                    AuthorityScope::ExpenditureApproval,
+                    "community-reserve",
+                    0,
+                    10_000,
+                    10_000,
+                )),
+            },
+            expected: Decision::Permit,
+        },
+        FixtureCase {
             scenario_id: "s2-negative-conflicted-beneficiary",
             input: EvaluationInput {
                 policy: policy.clone(),
