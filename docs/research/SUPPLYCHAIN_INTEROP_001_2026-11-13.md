@@ -108,14 +108,16 @@ No scalar average may conceal invalid signatures, replay acceptance, unauthorize
 
 ### Baselines
 
-1. GS1 EPCIS 2.0.1 schema/validator and an independently implemented EPCIS server.
-2. A standards-to-standards round-trip through a second implementation.
-3. Mycelix native checkpoint flow.
-4. Mycelix adapter + EPCIS + VC 2.0 profile.
-5. Mycelix adapter + transparency profile where an RFC 9943-compatible service is available.
-6. NIST IR 8536 reference implementation only when NIST publishes the approved artefacts and license/access conditions are confirmed.
+The GS1 normative artifact intake, official JSON Schema / JSON-LD / SHACL checks, and independent server benchmark are owned by [MYC-GS1-CONFORMANCE-001 #5395](https://github.com/Luminous-Dynamics/mycelix/issues/5395). Do not create a second schema validator or server benchmark in this broad mapping workstream.
 
-Do not compare only against a custom local fixture. An independent implementation is mandatory before making interoperability claims.
+The candidate selection and exact revision pins are in [SUPPLYCHAIN_INTEROP_BASELINE_REGISTER_V0_1_2026-11-13.md](SUPPLYCHAIN_INTEROP_BASELINE_REGISTER_V0_1_2026-11-13.md):
+1. Official GS1 EPCIS/CBV normative artefacts at the exact versions named by the conformance clauses.
+2. FasTnT EPCIS as the first independent server candidate for a bounded compatibility profile; source inspection shows capture, event-query and named-query routes, but no proven 2.0.1 conformance.
+3. OpenEPCIS Community Edition as a second server implementation candidate, subject to a pinned source revision and protocol probe.
+4. Mycelix native checkpoint flow and Mycelix adapter/VC/transparency profiles.
+5. NIST IR 8536 reference implementation only after its revision, licence, dependency and maturity review.
+
+OpenEPCIS Event Sentry and its document-validation service are same-family diagnostics, not independent judges. Candidate servers must pass the normative artifact, protocol, semantic round-trip and adversarial gates before a performance comparison.
 
 ## 7. Prospective gates
 
@@ -138,4 +140,4 @@ These are proposed test thresholds, not achieved results:
 6. Confirm external EPCIS test server/validator licenses and independent implementation availability.
 7. Revisit security claims around issuer key custody, identity proof, revocation and selective disclosure before production-facing claims.
 
-No code, standards conformance, CI result, external endpoint comparison or real supply-chain event was executed in this tranche.
+No code, standards conformance, CI result, external endpoint comparison or real supply-chain event was executed in this tranche. The separate baseline register adds source-inspected candidate server revisions only; no server was deployed or benchmarked.
