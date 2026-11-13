@@ -71,7 +71,8 @@
             "enum": [
               "operator_statement",
               "human_rights_inquiry_release",
-              "national_risk_communication"
+              "national_risk_communication",
+              "customer_notice_image_attachment"
             ]
           },
           "published_at_text": {
@@ -148,7 +149,8 @@
             "enum": [
               "operator_assertion",
               "human_rights_inquiry_finding_summary",
-              "government_risk_communication"
+              "government_risk_communication",
+              "operator_customer_notice_publication"
             ]
           },
           "reported_context": {
