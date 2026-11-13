@@ -80,7 +80,8 @@ pub struct MeasurementResult {
     pub outcome_choices: Vec<OutcomeChoice>,
     pub expected_post_measurement_loss: Option<Rational>,
     pub gross_evsi: Option<Rational>,
-    pub acquisition_and_delay_cost: u64,
+    pub acquisition_cost: u64,
+    pub delay_cost: u64,
     pub net_evsi: Option<SignedRational>,
     pub selected: bool,
 }
@@ -281,9 +282,8 @@ fn blocked_result(
         outcome_choices: Vec::new(),
         expected_post_measurement_loss: None,
         gross_evsi: None,
-        acquisition_and_delay_cost: measurement
-            .acquisition_cost
-            .saturating_add(measurement.delay_cost),
+        acquisition_cost: measurement.acquisition_cost,
+        delay_cost: measurement.delay_cost,
         net_evsi: None,
         selected: false,
     }
@@ -416,7 +416,8 @@ pub fn evaluate(
                 numerator: gross_numerator,
                 denominator: combined_denominator,
             }),
-            acquisition_and_delay_cost: total_cost,
+            acquisition_cost: measurement.acquisition_cost,
+            delay_cost: measurement.delay_cost,
             net_evsi: Some(SignedRational {
                 numerator: net_numerator,
                 denominator: combined_denominator,
@@ -665,6 +666,45 @@ mod tests {
         )
         .unwrap_err()
         .contains("duplicate measurement"));
+    }
+
+    #[test]
+    fn zero_predictive_probability_outcome_is_rejected() {
+        let mut measurement = discriminating_measurement("zero-outcome");
+        measurement.outcomes.push(Outcome {
+            id: "impossible".to_owned(),
+            likelihood_weight_by_hypothesis: vec![0, 0],
+        });
+        assert!(evaluate(&decision_case(), &[measurement])
+            .unwrap_err()
+            .contains("zero predictive probability"));
+    }
+
+    #[test]
+    fn likelihood_and_prior_scale_changes_preserve_net_evsi() {
+        let mut case = decision_case();
+        let mut measurement = discriminating_measurement("scale-check");
+        let original = &evaluate(&case, &[measurement.clone()])
+            .expect("original scale")[0];
+        let original_net = original.net_evsi.expect("net EVSI");
+
+        case.likelihood_scale *= 2;
+        for hypothesis in &mut case.hypotheses {
+            hypothesis.prior_weight *= 2;
+        }
+        for outcome in &mut measurement.outcomes {
+            for likelihood in &mut outcome.likelihood_weight_by_hypothesis {
+                *likelihood *= 2;
+            }
+        }
+        let scaled = &evaluate(&case, &[measurement])
+            .expect("scaled weights")[0]
+            .net_evsi
+            .expect("scaled net EVSI");
+        assert_eq!(
+            original_net.numerator * i128::try_from(scaled.denominator).unwrap(),
+            scaled.numerator * i128::try_from(original_net.denominator).unwrap()
+        );
     }
 
     #[test]
