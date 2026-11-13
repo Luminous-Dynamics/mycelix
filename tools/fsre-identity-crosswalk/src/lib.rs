@@ -551,6 +551,59 @@ mod tests {
     }
 
     #[test]
+    fn bounded_fifty_group_sweep_covers_all_eight_transition_relations() {
+        let mut source = String::from(
+            "# fixture_kind=SYNTHETIC_ONLY\n# scope=generated synthetic transition cardinality sweep\n",
+        );
+        source.push_str(HEADER);
+        source.push('\n');
+
+        let mut append = |transition: &str,
+                          relation: &str,
+                          source_id: &str,
+                          target_id: &str| {
+            source.push_str(&format!(
+                "{transition}|{relation}|{}|{}|{}|{}|2023-07-01|synthetic:{transition}|SYNTHETIC|SYNTHETIC_ONLY\n",
+                if source_id.is_empty() { "" } else { "dws-2022" },
+                source_id,
+                if target_id.is_empty() { "" } else { "dws-2025" },
+                target_id,
+            ));
+        };
+
+        for index in 0..50 {
+            let transition = format!("generated-{index:02}");
+            let source_a = format!("old-a-{index:02}");
+            let source_b = format!("old-b-{index:02}");
+            let target_a = format!("new-a-{index:02}");
+            let target_b = format!("new-b-{index:02}");
+            match index % 8 {
+                0 => append(&transition, "CONTINUITY", &source_a, &target_a),
+                1 => append(&transition, "RENAMED", &source_a, &target_a),
+                2 => append(&transition, "TRANSFERRED", &source_a, &target_a),
+                3 => {
+                    append(&transition, "MERGED_INTO", &source_a, &target_a);
+                    append(&transition, "MERGED_INTO", &source_b, &target_a);
+                }
+                4 => {
+                    append(&transition, "SPLIT_INTO", &source_a, &target_a);
+                    append(&transition, "SPLIT_INTO", &source_a, &target_b);
+                }
+                5 => append(&transition, "DECOMMISSIONED", &source_a, ""),
+                6 => append(&transition, "CREATED", "", &target_a),
+                _ => append(&transition, "UNRESOLVED", &source_a, ""),
+            }
+        }
+
+        let report = parse(&source).expect("all generated transition groups should validate");
+        assert_eq!(report.groups.len(), 50);
+        assert_eq!(report.row_count, 62);
+        for relation in RELATIONS {
+            assert!(report.groups.iter().any(|group| group.relation == relation));
+        }
+    }
+
+    #[test]
     fn report_is_invariant_to_row_order() {
         let mut rows: Vec<&str> = FIXTURE
             .lines()
