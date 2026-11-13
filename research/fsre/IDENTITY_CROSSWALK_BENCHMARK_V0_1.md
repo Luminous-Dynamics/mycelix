@@ -25,9 +25,9 @@ The reference event model distinguishes:
 - CREATED: target ID only, no predecessor asserted;
 - UNRESOLVED: source identity exists but no successor is accepted.
 
-Every event group binds source/target namespace, effective date, evidence reference, evidence class and review state. Merge and split cardinality is explicit; they cannot be represented as a silent one-to-one alias. A transition without an evidence reference, with conflicting dates or namespaces within one event, or with conflicting same-date source/target assignments is invalid.
+Every endpoint binds source/target namespace, record ID, population scope, and owner class; every event group binds effective date, evidence reference, evidence class and review state. Population scope distinguishes MUNICIPAL_SYSTEMS from ALL_SECTOR_WORKS; owner class distinguishes MUNICIPAL, DPWI, PRIVATE and OTHER_PUBLIC. The same physical identity can persist across a population-scope change, but that does not create a comparable reporting cohort. The tool reports population-scope and owner-class changes separately and requires a separate comparability review before longitudinal rates can be compared. A merge cannot silently combine source population scopes. Merge and split cardinality is explicit; they cannot be represented as a silent one-to-one alias. A transition without complete endpoint scope, an evidence reference, or with conflicting dates/namespaces/evidence within one event or competing same-date assignments is invalid.
 
-Accepted records require an official crosswalk, a source-native change record or independent field evidence. An operator assertion alone is not enough for acceptance. Synthetic evidence can only be marked SYNTHETIC_ONLY. Unresolved, disputed and provisional records remain unresolved; they are not force-matched to improve the apparent sample size.
+Accepted records require an official crosswalk, a source-native change record or independent field evidence, with known population scope and owner class at both endpoints. An operator assertion alone is not enough for acceptance. Synthetic evidence can only be marked SYNTHETIC_ONLY. Unresolved, disputed and provisional records remain unresolved; they are not force-matched to improve the apparent sample size.
 
 ## 3. Executable reference
 
@@ -43,6 +43,9 @@ Use synthetic, independently prepared cases covering all eight event types, miss
 
 Targets:
 - 100% correct relation cardinality on a sealed deterministic challenge set;
+- 100% of endpoints carry explicit population scope and owner class;
+- 0 accepted identity claims with unknown population scope or owner class;
+- 100% of scope/owner-class changes are reported separately from identity continuity;
 - 0 synthetic-to-accepted promotion;
 - 0 unresolved/disputed-to-accepted promotion;
 - 0 same-date competing assignments silently accepted;
