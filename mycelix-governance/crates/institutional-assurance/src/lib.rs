@@ -375,9 +375,7 @@ fn cases() -> Vec<FixtureCase> {
             input: EvaluationInput {
                 policy: policy.clone(),
                 proposal: Proposal {
-                    conflicted_actors: ["member-initiator".to_owned()]
-                        .into_iter()
-                        .collect(),
+                    conflicted_actors: BTreeSet::from(["member-initiator".to_owned()]),
                     ..proposal(&[], true)
                 },
                 attempt: attempt("independent-reviewer", &normal_grant.grant_id, 1_000),
