@@ -251,7 +251,10 @@ impl EvaluationReport {
                 group.service_count
             ));
         }
-        output.push_str(&format!("debt_evidence_records={}\n", self.debt_records.len()));
+        output.push_str(&format!(
+            "debt_evidence_records={}\n",
+            self.debt_records.len()
+        ));
         for record in &self.debt_records {
             output.push_str(&format!(
                 "debt_record={}|{}|{}|{}|{}|{}|{}\n",
@@ -815,8 +818,7 @@ mod tests {
         Scenario {
             scenario_id: "synthetic-test".to_owned(),
             scenario_digest:
-                "sha256:f77fcc28f2a68ef2bdbbc16b36d85d475a5bae3293e1c944b44734630328e579"
-                    .to_owned(),
+                "sha256:f77fcc28f2a68ef2bdbbc16b36d85d475a5bae3293e1c944b44734630328e579".to_owned(),
             time_basis_id: "synthetic-clock-v1".to_owned(),
             evaluation_time_seconds: 100,
             clock_uncertainty_seconds: 0,
@@ -841,7 +843,9 @@ mod tests {
             option_id: "backup-a".to_owned(),
             service_id: "water-service-a".to_owned(),
             scenario_id: "synthetic-test".to_owned(),
-            scenario_digest: "sha256:f77fcc28f2a68ef2bdbbc16b36d85d475a5bae3293e1c944b44734630328e579".to_owned(),
+            scenario_digest:
+                "sha256:f77fcc28f2a68ef2bdbbc16b36d85d475a5bae3293e1c944b44734630328e579"
+                    .to_owned(),
             source_schema_version: format!("{}.predicate.v0.1", predicate.expected_owner()),
             predicate,
             disposition,
