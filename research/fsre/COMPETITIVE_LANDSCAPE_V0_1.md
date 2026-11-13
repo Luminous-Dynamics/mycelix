@@ -10,9 +10,9 @@ Do not position FSRE as a replacement for an enterprise operating system, asset-
 
 Several established products already connect data, models, operational workflows and actions:
 
-- Palantir Foundry's Ontology explicitly integrates operational data, logic, actions and dynamic security; its documented architecture supports governed human/agent workflows and write-back to operational systems.
-- IBM Maximo APM connects asset health monitoring, reliability engineering, predictive analytics and AI decision support to maintenance planning and execution.
-- Bentley iTwin combines engineering, reality, IoT, GIS and enterprise operational data to build infrastructure digital twins through open APIs and services.
+- Palantir Foundry's Ontology explicitly integrates operational data, logic, actions and dynamic security. Current documentation describes shared ontologies for multiple organisations, human/agent collaboration, external-system write-back, model objectives and action/decision lineage. It is the strongest comparator for the broad integration/action-loop ambition; FSRE must not imply these capabilities are absent from enterprise platforms.
+- IBM Maximo APM connects asset-health monitoring, reliability engineering, predictive analytics and AI decision support to maintenance planning and execution.
+- Bentley iTwin combines engineering, reality, IoT, GIS and enterprise operational data to build infrastructure digital twins through open APIs and services, including operational use cases.
 - Schneider Electric EcoStruxure Water spans water/wastewater treatment, supply and sanitation networks, including software, analytics, telemetry, SCADA and automation.
 - Siemens Xcelerator provides an industrial partner ecosystem across industry, buildings, electrification, grids and transportation.
 - GovStack, X-Road, the Digital Public Goods Standard and Open Contracting Data Standard provide public digital infrastructure, interoperability, open-product and procurement foundations.
@@ -43,9 +43,20 @@ Join operator observations and qualified model outputs into a time-bounded servi
 
 Do not count nominal redundant assets or graph paths as recovery options. Require domain-model capacity, spatial access, time-qualified dependency independence, staffed resources, current authority and safety constraints. Retain explicit unknowns.
 
-### H3 — Cross-operator qualification without centralising the operators
+### H3 — Portable qualification across heterogeneous incumbent systems
 
-Each participant retains its own identity, policy, data custody, records, operational controls and exit route. The common layer should exchange the minimum purpose-bound evidence necessary to qualify a specific service workflow. This must be tested against real federated deployments, including platforms that already support granular security and cross-organisation workflows.
+Do not claim that shared operational models, cross-organisation collaboration or governed action workflows are missing from enterprise platforms. Palantir documents shared ontologies across multiple organisations, granular permissions, human/agent action workflows, external-system write-back and decision lineage. Other vendors provide rich asset, spatial, physical and operational models.
+
+The narrower FSRE hypothesis is that an operator, regulator, insurer or independent assurance body may benefit from a **portable, product-neutral qualification profile** that consumes owner-native records from more than one incumbent platform, checks exact service/scenario/time/scope bindings, preserves unknowns and produces an independently reproducible service-outcome report without making the assurance layer itself the operational system of record.
+
+Test this as a head-to-head research question:
+1. Select a real deployed service workflow using its incumbent platform(s).
+2. Have the incumbent's own configured assurance/reporting path produce its service/recovery claim.
+3. Independently re-evaluate the same source records with the FSRE profile.
+4. Compare completeness, stale/unknown handling, cross-vendor portability, evaluator reproducibility, operator effort, lifecycle cost and service-outcome validity.
+5. Reject the FSRE wedge if the incumbent already does this equivalently, more cheaply and with equal or better independent reproducibility.
+
+This is a differentiation hypothesis, not an assertion that Palantir or another vendor cannot do it.
 
 ### H4 — Independent outcome verification as an architectural interface
 
@@ -54,6 +65,12 @@ Separate proposer, operator, data custodian and evaluator roles. Bind the evalua
 ### H5 — Portability and lifecycle economics
 
 Measure the total cost of a verified improvement, including licences, deployment, integration, data stewardship, training, staffing, audit, compute, maintenance, vendor transition and exit. An open architecture is only useful if another qualified operator can export, reproduce and continue the workflow at a defensible cost.
+
+
+
+### H6 — Reproducible assurance beyond a vendor's own dashboard
+
+An incumbent may already provide workflows, security controls, audit logs and model feedback. FSRE should earn a role only where a separate party needs to reproduce a narrowly defined claim from retained owner-native evidence, compare multiple incumbent systems without importing all their data into one control plane, and disclose the exact claim ceiling, source frontier and unresolved states. This may be useful to regulators, mutual-aid partners, insurers, auditors or procurement authorities—but only buyer/operator interviews and a paid pilot can establish demand.
 
 ## 4. How to benchmark against industry fairly
 
