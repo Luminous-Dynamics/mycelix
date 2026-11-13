@@ -1,4 +1,5 @@
 # scenario_id=synthetic-water-compound-disruption
+# scenario_digest=synthetic:scenario-digest:water-compound-v1
 # time_basis_id=synthetic-clock-v1
 # evaluation_time_seconds=1000
 # clock_uncertainty_seconds=0
