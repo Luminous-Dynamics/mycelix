@@ -5,8 +5,9 @@ Engineering (LISE) and Institutional Performance Benchmark (IPB) programme.
 
 ## Current scope
 
-The initial suite implements IPB scenario S2 (conflict of interest) as a
-deterministic policy fixture. It checks:
+The crate now contains two deterministic benchmark slices.
+
+IPB-S2 (conflict of interest) checks:
 
 - six positive controls covering independent approval, exact amount limits, inclusive start and pre-expiry boundaries, substitute approval after proposer recusal, and resource-specific authority;
 - beneficiary and proposer self-approval as negative controls;
@@ -17,9 +18,17 @@ deterministic policy fixture. It checks:
 - proposal substitution and zero-value requests;
 - expenditure limits attached to an authority grant.
 
-Every case emits a machine-readable receipt with SHA-256 digests of the policy,
-input and receipt material. The suite uses fixed fixture time and no RNG,
-network calls or wall-clock time.
+S2 emits machine-readable receipts with SHA-256 digests of the policy, input
+and receipt material. It uses fixed fixture time and no RNG, network calls or
+wall-clock time.
+
+IPB-S3 (adversarial institutional capture) adds eight deterministic
+known-answer scenarios. It distinguishes formal control quorums from a
+coalition's effective ability to exercise agenda, appointments, authorization
+and treasury custody, then checks independent audit/appeal capacity. Its
+outcomes distinguish capture detected, no capture observed within the fixture,
+and execution unavailable. Missing/malformed domains and invalid controller
+sets return typed input errors.
 
 ## Run
 
@@ -39,9 +48,10 @@ more expected outcomes do not match.
 
 ## Evidence boundary
 
-This is a synthetic assurance fixture. A passing suite means only that this
-crate's specified policy behavior matches its twenty fixture expectations on the
-tested revision. It does not demonstrate that:
+This is a synthetic assurance fixture. A passing S2 suite means only that the specified policy behavior matches its
+twenty fixture expectations. A passing S3 suite means only that the bounded
+capture predicate matches its eight synthetic known-answer cases on the tested
+revision. It does not demonstrate that:
 
 - the production Holochain zomes enforce the same policy;
 - conflict screening discovers undisclosed or hidden interests;
@@ -58,7 +68,8 @@ fixture must not silently become an authorization service.
 1. Add a versioned authority graph and delegation-chain tests.
 2. Add separation-of-duties, quorum and appeal fixtures.
 3. Add consume-once authorization and unknown-outcome reconciliation tests.
-4. Add capture and collusion scenarios with controlled attacker budgets.
+4. Expand S3 with explicit delegation-chain, appointment-control and temporal
+   coalition profiles, consuming Symtropy #3684 and Symthaea #3054/#1872 outputs.
 5. Add cross-organization evidence and dispute-resolution scenarios.
 6. Compare each implementation with matched manual and conventional workflows.
 
@@ -70,11 +81,15 @@ hosted formatter output. The initial formatter failure is retained in CI
 history; it is not relabeled as a pass.
 
 A later exact-head governance workspace run reached the new crate and
-reported Rust E0505 borrow/move errors: the receipt material borrowed the
-policy/input digest strings before the output receipt moved them. The code was
-reordered to compute the receipt digest before constructing the output
-struct. That correction and the expansion to twenty cases have not yet
-received a successful exact-head workspace test result.
+reported Rust E0505 borrow/move errors. The receipt construction was corrected
+to compute the receipt digest before moving the policy/input digest strings.
 
-The implementation status is **authored; formatter previously passed on an
-earlier head; compile/test validation pending on the current head**.
+**S2 exact-head validation:** Mycelix CI run #13845 on
+`c9a366095ad204f2561ac2c76ff7de8a4dd5b73c` completed successfully:
+change detection, formatting, governance workspace tests and aggregate
+`ci-pass` all succeeded. Unrelated path-filtered suites were skipped, not
+tested. The branch does not claim full-repository validation.
+
+**S3 validation:** source and fixtures are authored on
+`research/ipb-s3-institutional-capture-v0`; exact-head hosted formatting,
+compilation and tests are pending. No S3 pass is claimed.
