@@ -1,8 +1,8 @@
 # Federated Societal Resilience Engineering (FSRE) — Integration and Qualification Profile
 
 **Status:** Research architecture proposal, version 0.1.0  
-**Date:** 2026-11-12  
-**Maturity:** Design and synthetic-scenario stage; not an operational or production system.
+**Date:** 2026-11-13  
+**Maturity:** Design, synthetic scenarios and one bounded official-summary replay; not an operational or production system.
 
 FSRE is a cross-repository integration and qualification profile for the existing Mycelix Civic Resilience programme and Civilization Twin research architecture. It specifies how independently owned spatial, physical, causal, evidence, authority and service systems can compose for resilience studies and bounded service-improvement pilots.
 
@@ -18,6 +18,7 @@ It is not a new civic-governance programme, a second civilization simulator, an 
 - [South African public-data inventory](ZA_PUBLIC_DATA_INVENTORY_V0_1.md) — dated water/sanitation data sources, admissibility, missingness and the minimum operator evidence needed for a qualified service study.
 - [South African public source register](ZA_PUBLIC_SOURCE_REGISTER_V0_1.psv) — machine-readable discovery register with source release, observation period, grain, denominator, currentness and extraction state.
 - [South African public-data replay protocol](ZA_PUBLIC_DATA_REPLAY_PROTOCOL_V0_1.md) — exact Treasury cube/item taxonomy and extraction, null, pagination, identity and DWS/Stats SA admissibility rules.
+- [Wastewater service-chain completeness benchmark](WASTEWATER_SERVICE_CHAIN_COMPLETENESS_V0_1.md) — end-to-end sanitation boundary, missing-flow accounting, source/denominator integrity, sealed tests and operator-authorised research stages.
 - [Recovery-option interoperability contract](RECOVERY_OPTION_INTEROP_CONTRACT_V0_1.md) — seven owner-qualified predicates, conservative federated time semantics, revalidation and authority boundaries.
 - [Claim qualification profile](CLAIM_QUALIFICATION_PROFILE_V0_1.md) — distinguishes synthetic conformance, public-source reporting, model outputs, operator observations, causal effects and independent service-outcome verification.
 - [Claim qualification envelope schema](schemas/claim-qualification-envelope-v0.1.schema.json) — machine-readable, claim-scoped evidence, temporal, provenance, independence and non-authorisation contract.
@@ -29,6 +30,7 @@ It is not a new civic-governance programme, a second civilization simulator, an 
 - [Recovery-option qualification reference](../../tools/fsre-recovery-qualification/README.md) — a dependency-free Rust evaluator that composes owner-qualified feasibility, spatial, dependency, staffing, resource, authority and safety dispositions without duplicating subsystem engines.
 - [Independent recovery reference evaluator](../../tools/fsre-recovery-reference/README.md) — a separately authored Rust implementation that differentially checks scenario-scoped recovery-option dispositions without importing the production evaluator.
 - [Public source-register validator](../../tools/fsre-source-register/README.md) — a dependency-free Rust validator for provenance, grain, denominator, URL and extraction-state completeness in the South African public-data register.
+- [Green Drop public-summary replay](../../tools/fsre-green-drop-replay/README.md) — a dependency-free Rust replay of the official 2025 national summary, with denominator and rounding checks and an explicit non-field claim ceiling.
 - [South African municipal water cascade fixture](scenarios/ZA_MUNICIPAL_WATER_CASCADE_SYNTHETIC_V0_1.json) — a fully synthetic graph for deterministic failure-propagation tests.
 - [South African resilience-debt fixture](scenarios/ZA_RESILIENCE_DEBT_SYNTHETIC_V0_1.json) — synthetic maintenance, dependency, workforce, supplier, evidence and authority deficiencies with recovery-option dispositions.
 
@@ -64,7 +66,7 @@ The FSRE water fixture is a consumer-level synthetic integration case. It does n
 
 ## First test domain
 
-The initial public-data research domain is municipal water and wastewater resilience in South Africa. The included fixture is synthetic and contains no municipal asset inventory, sensor observations, personal information or operational instructions. It is intended to test graph semantics only.
+The initial public-data research domain is municipal water and wastewater resilience in South Africa. The existing cascade and recovery-debt fixtures remain synthetic. A separate Green Drop national-summary fixture now replays a published official comparison, but it is not system-level extraction or field evidence. The first wastewater expansion is a full-chain boundary from generation and sewer collection through treatment, discharge/reuse and receiving environment; plant-level metrics alone are not a complete sanitation-service outcome.
 
 ## Governing rule
 
